@@ -35,7 +35,14 @@ export interface OverleafExportResult {
 
 const SECTION_CMD = ["chapter", "section", "subsection", "subsubsection"] as const;
 
-export function bibKey(paper: Paper, used: Set<string>): string {
+export type CitationFormat = "latex" | "pandoc" | "footnote" | "raw";
+
+/**
+ * Resolve a paper's preferred cite key without uniqueness suffixing.
+ * Precedence: metadata.citeKey / citationKey → BibTeX entry key → Better
+ * BibTeX `Citation Key:` in extra → DOI → arXiv → synthetic paper id.
+ */
+export function resolveCiteKey(paper: Paper): string {
   const fromMeta =
     (typeof paper.metadata?.["citeKey"] === "string" && paper.metadata["citeKey"].trim()) ||
     (typeof paper.metadata?.["citationKey"] === "string" && paper.metadata["citationKey"].trim()) ||
@@ -46,11 +53,17 @@ export function bibKey(paper: Paper, used: Set<string>): string {
       ? /Citation Key:\s*(\S+)/i.exec(paper.metadata["extra"] as string)?.[1]?.trim() || ""
       : "";
   const preferred = (fromMeta || fromBib || fromExtra).replace(/[^A-Za-z0-9_:-]/g, "_");
-  const base =
+  return (
     preferred ||
     (paper.doi && `doi_${paper.doi.replace(/[^A-Za-z0-9]/g, "_")}`) ||
     (paper.arxivId && `arxiv_${paper.arxivId.replace(/[^A-Za-z0-9]/g, "_")}`) ||
-    `paper_${paper.id.replace(/-/g, "").slice(0, 12)}`;
+    `paper_${paper.id.replace(/-/g, "").slice(0, 12)}`
+  );
+}
+
+/** Deduping wrapper around {@link resolveCiteKey} for bibliography export. */
+export function bibKey(paper: Paper, used: Set<string>): string {
+  const base = resolveCiteKey(paper);
   let key = base;
   let n = 2;
   while (used.has(key)) {
@@ -59,6 +72,30 @@ export function bibKey(paper: Paper, used: Set<string>): string {
   }
   used.add(key);
   return key;
+}
+
+/**
+ * Format a cite key for insertion. Empty/whitespace keys yield "" — callers
+ * decide how to surface "no resolvable key" rather than inventing one here.
+ */
+export function formatCitation(key: string, format: CitationFormat): string {
+  const trimmed = key.trim();
+  if (!trimmed) return "";
+  switch (format) {
+    case "latex":
+      return `\\cite{${trimmed}}`;
+    case "pandoc":
+      return `[@${trimmed}]`;
+    case "footnote":
+      return `[^${trimmed}]`;
+    case "raw":
+      return trimmed;
+  }
+}
+
+/** Resolve then format in one step for a paper. */
+export function formatPaperCitation(paper: Paper, format: CitationFormat): string {
+  return formatCitation(resolveCiteKey(paper), format);
 }
 
 /** Build title→cite-key map used by markdown→LaTeX wikilink conversion. */

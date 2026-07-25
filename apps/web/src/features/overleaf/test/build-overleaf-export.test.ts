@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildOverleafExportPackage,
+  formatCitation,
+  formatPaperCitation,
+  resolveCiteKey,
 } from "../application/build-overleaf-export";
 import type { Paper, ReportSectionTreeNode } from "@thesis/core";
 
@@ -118,4 +121,55 @@ test("buildOverleafExportPackage prefers metadata.citeKey for \\cite keys", () =
   const bib = result.files.find((f) => f.path === "references.bib")!.contents;
   assert.match(main, /\\cite\{vaswani2017attention\}/);
   assert.match(bib, /@article\{vaswani2017attention,/);
+});
+
+test("formatCitation emits latex, pandoc, footnote, and raw forms", () => {
+  assert.equal(formatCitation("smith2020", "latex"), "\\cite{smith2020}");
+  assert.equal(formatCitation("smith2020", "pandoc"), "[@smith2020]");
+  assert.equal(formatCitation("smith2020", "footnote"), "[^smith2020]");
+  assert.equal(formatCitation("smith2020", "raw"), "smith2020");
+});
+
+test("formatCitation returns empty string when the key is blank", () => {
+  assert.equal(formatCitation("", "latex"), "");
+  assert.equal(formatCitation("   ", "pandoc"), "");
+});
+
+test("resolveCiteKey follows metadata → bibtex → extra → doi → arxiv → id", () => {
+  assert.equal(
+    resolveCiteKey({ ...papers[0]!, metadata: { citeKey: "from_meta" } }),
+    "from_meta",
+  );
+  assert.equal(
+    resolveCiteKey({
+      ...papers[0]!,
+      bibtex: "@article{from_bib,\n  title={X}\n}",
+      metadata: {},
+    }),
+    "from_bib",
+  );
+  assert.equal(
+    resolveCiteKey({
+      ...papers[0]!,
+      metadata: { extra: "Citation Key: from_extra" },
+    }),
+    "from_extra",
+  );
+  assert.equal(
+    resolveCiteKey({ ...papers[0]!, doi: "10.1000/xyz", metadata: {} }),
+    "doi_10_1000_xyz",
+  );
+  assert.equal(
+    resolveCiteKey({ ...papers[0]!, arxivId: "2401.00001", metadata: {} }),
+    "arxiv_2401_00001",
+  );
+  assert.equal(resolveCiteKey({ ...papers[0]!, metadata: {} }), "paper_p1");
+});
+
+test("formatPaperCitation uses the shared resolveCiteKey precedence", () => {
+  const keyed = { ...papers[0]!, metadata: { citeKey: "attn" } };
+  assert.equal(formatPaperCitation(keyed, "latex"), "\\cite{attn}");
+  assert.equal(formatPaperCitation(keyed, "pandoc"), "[@attn]");
+  assert.equal(formatPaperCitation(keyed, "footnote"), "[^attn]");
+  assert.equal(formatPaperCitation(keyed, "raw"), "attn");
 });
