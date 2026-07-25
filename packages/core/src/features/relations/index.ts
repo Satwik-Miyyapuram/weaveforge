@@ -11,6 +11,7 @@ export * from "./domain/graph-settings-repository.js";
 export * from "./domain/citation-alert-track.js";
 export * from "./domain/citation-alert-track-repository.js";
 export * from "./application/citation-source.js";
+export * from "./application/rank-citation-alerts.js";
 export * from "./application/check-citation-alerts.use-case.js";
 export * from "./application/manage-relations.use-case.js";
 export { RemoveRelationUseCase } from "./application/remove-relation.use-case.js";

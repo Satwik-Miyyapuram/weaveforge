@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { rankCitationAlerts, type CitationCandidate } from "@thesis/core";
 import { SemanticScholarCitationSource } from "../infrastructure/semantic-scholar-citation-source";
 
 test("Semantic Scholar incoming citations page and map stable candidates", async () => {
@@ -154,4 +155,65 @@ test("Semantic Scholar ignores malformed citation-edge signal fields", async () 
   assert.equal(candidate!.contexts, undefined);
   assert.deepEqual(candidate!.intents, ["method", "result"]);
   assert.equal(candidate!.isInfluential, undefined);
+});
+
+function candidate(
+  partial: Pick<CitationCandidate, "id" | "title"> & Partial<CitationCandidate>,
+): CitationCandidate {
+  return {
+    authors: [],
+    ...partial,
+  };
+}
+
+test("rankCitationAlerts orders result and method above background", () => {
+  const ranked = rankCitationAlerts([
+    candidate({ id: "bg", title: "Background", year: 2026, intents: ["background"] }),
+    candidate({ id: "res", title: "Result", year: 2020, intents: ["result"] }),
+    candidate({ id: "meth", title: "Method", year: 2020, intents: ["method"] }),
+  ]);
+  assert.deepEqual(
+    ranked.map((c) => c.id),
+    ["res", "meth", "bg"],
+  );
+});
+
+test("rankCitationAlerts promotes isInfluential strongly", () => {
+  const ranked = rankCitationAlerts([
+    candidate({ id: "bg", title: "Bg", year: 2026, intents: ["background"] }),
+    candidate({
+      id: "inf",
+      title: "Influential background",
+      year: 2018,
+      intents: ["background"],
+      isInfluential: true,
+    }),
+  ]);
+  assert.equal(ranked[0]!.id, "inf");
+});
+
+test("rankCitationAlerts falls back to recency when all signals are absent", () => {
+  const ranked = rankCitationAlerts([
+    candidate({ id: "old", title: "Old", year: 2010 }),
+    candidate({ id: "new", title: "New", year: 2024 }),
+    candidate({ id: "mid", title: "Mid", year: 2018 }),
+  ]);
+  assert.deepEqual(
+    ranked.map((c) => c.id),
+    ["new", "mid", "old"],
+  );
+});
+
+test("rankCitationAlerts mixes signalled and unsignalled items without sinking the latter", () => {
+  const ranked = rankCitationAlerts([
+    candidate({ id: "plain-new", title: "Plain new", year: 2025 }),
+    candidate({ id: "bg-old", title: "Bg old", year: 2015, intents: ["background"] }),
+    candidate({ id: "method", title: "Method", year: 2016, intents: ["method"] }),
+    candidate({ id: "plain-old", title: "Plain old", year: 2010 }),
+  ]);
+  // method beats plain-new (intent outweighs a few years); plain-new still
+  // beats background-old and is not sorted last merely for lacking signals.
+  assert.equal(ranked[0]!.id, "method");
+  assert.equal(ranked[1]!.id, "plain-new");
+  assert.ok(ranked.findIndex((c) => c.id === "plain-old") > ranked.findIndex((c) => c.id === "plain-new"));
 });
