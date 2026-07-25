@@ -131,7 +131,7 @@ test("resolveTextAnchor returns null when neither quote nor position works", () 
 test("findQuoteMatches matches across a newline mid-phrase", () => {
   const text = "the latent\nspace encodes";
   const span = findQuoteMatches(text, quote({ exact: "latent space" }));
-  assert.deepEqual(span, [{ start: 4, end: 17 }]);
+  assert.deepEqual(span, [{ start: 4, end: 16 }]);
   assert.equal(text.slice(span[0]!.start, span[0]!.end), "latent\nspace");
 });
 
@@ -165,7 +165,7 @@ test("findQuoteMatches returns spans into the original non-normalised text", () 
 test("findQuoteMatches treats soft hyphen at line end as whitespace", () => {
   const text = "exam\u00AD\nple theory";
   const span = findQuoteMatches(text, quote({ exact: "exam ple" }));
-  assert.deepEqual(span, [{ start: 0, end: 10 }]);
+  assert.deepEqual(span, [{ start: 0, end: 9 }]);
   assert.equal(text.slice(span[0]!.start, span[0]!.end), "exam\u00AD\nple");
 });
 
@@ -185,7 +185,7 @@ test("resolveTextAnchor quote path still wins under whitespace drift", () => {
   const resolved = resolveTextAnchor(text, locus);
   assert.deepEqual(resolved, {
     start: 4,
-    end: 17,
+    end: 16,
     via: "quote",
     confidence: "high",
   });

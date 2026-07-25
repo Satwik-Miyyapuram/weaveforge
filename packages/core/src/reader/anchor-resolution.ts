@@ -18,6 +18,14 @@ export interface ResolvedAnchor extends TextSpan {
   confidence: AnchorConfidence;
 }
 
+export interface NormaliseWhitespaceOptions {
+  /**
+   * When true (default), drop leading/trailing whitespace from the result.
+   * Prefix/suffix must use `trim: false` so the space abutting `exact` is kept.
+   */
+  trim?: boolean;
+}
+
 /**
  * Soft hyphen (U+00AD) immediately before a linebreak — PDF extractors use
  * this at mid-word line wraps. Treated as whitespace for matching.
@@ -38,19 +46,26 @@ function isNormalisableWhitespace(text: string, index: number): boolean {
 
 /**
  * Collapse whitespace runs (newlines, tabs, NBSP, soft hyphens at line ends)
- * to a single space and trim. `map[i]` is the original-string index of the
- * i-th normalised character; `map[normalised.length]` is the exclusive end
- * offset in the original for a span covering the whole normalised string.
+ * to a single space. `map[i]` is the original-string index of the i-th
+ * normalised character; `map[normalised.length]` is the exclusive end offset
+ * in the original for a span covering the whole normalised string.
  */
-export function normaliseWhitespace(text: string): {
+export function normaliseWhitespace(
+  text: string,
+  options: NormaliseWhitespaceOptions = {},
+): {
   normalised: string;
   map: number[];
 } {
+  const trim = options.trim !== false;
   const map: number[] = [];
   let normalised = "";
   let i = 0;
 
-  while (i < text.length && isNormalisableWhitespace(text, i)) i++;
+  if (trim) {
+    while (i < text.length && isNormalisableWhitespace(text, i)) i++;
+  }
+
   // Exclusive end in the original for a span covering all normalised chars —
   // must not include trailing whitespace that trim discards.
   let endInOriginal = i;
@@ -59,11 +74,13 @@ export function normaliseWhitespace(text: string): {
     if (isNormalisableWhitespace(text, i)) {
       const runStart = i;
       while (i < text.length && isNormalisableWhitespace(text, i)) i++;
-      if (i < text.length) {
-        map.push(runStart);
-        normalised += " ";
-      }
-      continue;
+      const atEnd = i >= text.length;
+      if (atEnd && trim) continue;
+      map.push(runStart);
+      normalised += " ";
+      if (!atEnd) continue;
+      endInOriginal = runStart + 1;
+      break;
     }
     map.push(i);
     normalised += text[i]!;
@@ -89,8 +106,12 @@ export function findQuoteMatches(text: string, quote: TextQuoteSelector): TextSp
   if (!exactNorm) return [];
 
   const { normalised, map } = normaliseWhitespace(text);
-  const prefixNorm = quote.prefix != null ? normaliseWhitespace(quote.prefix).normalised : "";
-  const suffixNorm = quote.suffix != null ? normaliseWhitespace(quote.suffix).normalised : "";
+  // Keep spaces that abut `exact` — trimming would drop "The " → "The" and
+  // break the immediate-neighbourhood check against the normalised document.
+  const prefixNorm =
+    quote.prefix != null ? normaliseWhitespace(quote.prefix, { trim: false }).normalised : "";
+  const suffixNorm =
+    quote.suffix != null ? normaliseWhitespace(quote.suffix, { trim: false }).normalised : "";
 
   const matches: TextSpan[] = [];
   let from = 0;
