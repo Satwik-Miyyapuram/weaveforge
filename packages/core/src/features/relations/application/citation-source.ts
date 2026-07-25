@@ -9,6 +9,9 @@
 
 import type { PaperRef } from "../../papers/application/metadata-source.js";
 
+/** Semantic Scholar citation-intent labels (when full text is available). */
+export type CitationIntent = "background" | "method" | "result";
+
 export interface CitationCandidate {
   /** Stable provider paper id used for deduplication. */
   id: string;
@@ -18,7 +21,20 @@ export interface CitationCandidate {
   url?: string;
   /** How many times this citing paper is itself cited, when the source provides it. */
   citationCount?: number;
+  /**
+   * Citing-text snippets from the provider. Absent when the source has no full
+   * text for the citing paper — that is the normal case, not an error.
+   */
+  contexts?: string[];
+  /**
+   * Classified citation intents when the provider supplies them. Empty/absent
+   * when full text is unavailable.
+   */
+  intents?: CitationIntent[];
+  /** Provider flag for highly influential citations. */
+  isInfluential?: boolean;
 }
+
 
 export interface ICitationSource {
   /** Stable id, e.g. "semantic-scholar". */

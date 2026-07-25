@@ -36,9 +36,40 @@ interface S2Paper {
   citationCount?: number | null;
 }
 
+interface S2CitationEdge {
+  citingPaper?: S2Paper | null;
+  contexts?: unknown;
+  intents?: unknown;
+  isInfluential?: unknown;
+}
+
 interface S2CitationsResponse {
-  data?: { citingPaper?: S2Paper | null }[];
+  data?: S2CitationEdge[];
   next?: number;
+}
+
+const CITATION_INTENTS = new Set(["background", "method", "result"]);
+
+function mapContexts(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const contexts = raw
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return contexts.length > 0 ? contexts : undefined;
+}
+
+function mapIntents(raw: unknown): CitationCandidate["intents"] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const intents = raw.filter(
+    (item): item is NonNullable<CitationCandidate["intents"]>[number] =>
+      typeof item === "string" && CITATION_INTENTS.has(item),
+  );
+  return intents.length > 0 ? intents : undefined;
+}
+
+function mapIsInfluential(raw: unknown): boolean | undefined {
+  return typeof raw === "boolean" ? raw : undefined;
 }
 
 function extId(ids: S2ExternalIds | null | undefined): PaperRef | null {
@@ -111,7 +142,7 @@ export class SemanticScholarCitationSource implements ICitationSource {
     do {
       const url =
         `${this.baseUrl}/paper/${encodeURIComponent(s2Id(ref))}/citations` +
-        `?fields=paperId,title,authors,year,url,citationCount&limit=1000&offset=${offset}`;
+        `?fields=paperId,title,authors,year,url,citationCount,contexts,intents,isInfluential&limit=1000&offset=${offset}`;
       let res = await this.fetchFn(url, init);
       for (let attempt = 0; res.status === 429 && attempt < 3; attempt++) {
         await delay(1000 * (attempt + 1));
@@ -124,6 +155,9 @@ export class SemanticScholarCitationSource implements ICitationSource {
       for (const item of body.data ?? []) {
         const paper = item.citingPaper;
         if (!paper?.paperId || !paper.title) continue;
+        const contexts = mapContexts(item.contexts);
+        const intents = mapIntents(item.intents);
+        const isInfluential = mapIsInfluential(item.isInfluential);
         out.push({
           id: paper.paperId,
           title: paper.title,
@@ -136,6 +170,9 @@ export class SemanticScholarCitationSource implements ICitationSource {
             typeof paper.citationCount === "number" && Number.isFinite(paper.citationCount)
               ? Math.max(0, Math.trunc(paper.citationCount))
               : undefined,
+          ...(contexts ? { contexts } : {}),
+          ...(intents ? { intents } : {}),
+          ...(isInfluential !== undefined ? { isInfluential } : {}),
         });
       }
       offset = typeof body.next === "number" ? body.next : -1;
