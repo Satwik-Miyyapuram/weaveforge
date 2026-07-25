@@ -1,5 +1,17 @@
 import type { Paper } from "@thesis/core";
 
+/** Zotero PDF annotation kinds from the Web API `annotationType` field. */
+export type ZoteroAnnotationType = "highlight" | "underline" | "note" | "image" | "ink";
+
+/**
+ * Parsed `annotationPosition` JSON from Zotero.
+ * `pageIndex` is zero-based and must not be conflated with `page` (display label).
+ */
+export interface ZoteroAnnotationPosition {
+  pageIndex: number;
+  rects?: number[][];
+}
+
 export interface ZoteroAnnotation {
   key?: string;
   kind?: "annotation" | "note";
@@ -8,6 +20,9 @@ export interface ZoteroAnnotation {
   color?: string;
   page?: string;
   tags: string[];
+  annotationType?: ZoteroAnnotationType;
+  annotationPosition?: ZoteroAnnotationPosition;
+  annotationSortIndex?: string;
 }
 
 export interface ZoteroSyncResult {
