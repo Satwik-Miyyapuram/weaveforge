@@ -2,6 +2,39 @@
 
 Four tasks, in order. Each is independently committable. Work them **one at a time, in sequence**.
 
+## Prerequisites — verify these BEFORE starting Task 1
+
+A freshly copied working tree is not a working environment. If either of these is
+wrong, every task fails its done-check for reasons unrelated to the code, and the
+revert-and-skip rule below will discard good work across the whole queue.
+
+**1. Dependencies installed.** `node_modules/` must exist at the repo root. If not:
+
+```bash
+npm install
+```
+
+**2. `ripgrep` must be visible to npm, not just to your shell.** `scripts/check-solid.mjs`
+and `scripts/check-dry.mjs` shell out to `rg` via `execSync`. When `rg` is missing the
+wrapper swallows the error, returns no matches, and **the checks exit 0 having verified
+nothing** — a silent false pass on the exact boundaries this queue exists to protect.
+
+On Windows, npm spawns `cmd.exe`, so `rg` must be on the *system* PATH — a shell that
+merely aliases it is not enough, and a process started before `rg` was installed holds a
+stale PATH until it is restarted.
+
+Verify with:
+
+```bash
+npm run check:solid
+```
+
+If the output contains `'rg' is not recognized`, the gate is **not** running, even though
+it reports "SOLID boundary checks passed". Install ripgrep, restart the shell **and the
+agent process**, and re-check. Do not begin work until this command runs clean.
+
+---
+
 ## Rules for the whole run
 
 **Read before starting anything:**
