@@ -220,9 +220,71 @@ The plan defines a six-step ladder for locating a paper's PDF: browser cache →
 
 ---
 
+## Task 7 — Vault note template engine (Phase B, P0 — the hard part)
+
+**Spec:** `docs/future-work/roadmap-2026-07-phased.md` Phase B, "vault note templates".
+
+The highest-priority unblocked item on the roadmap. ZotFlow's templated source notes are its single strongest draw and `§6.9` has no equivalent — but the templating is not the hard part. **The hard part is re-rendering a template without destroying the researcher's own edits.** ZotFlow solves this with persistent and editable regions; a template that clobbers a week of notes on refresh is worse than no template at all.
+
+Build the engine as **application-layer logic with no UI**. Follow the shape of the existing `apps/web/src/features/papers/application/paper-source-note-scaffold.ts` and its test — that is the precedent for this kind of code in this repo.
+
+**Implement:**
+
+- A template format with **variable substitution** over a supplied context object (paper metadata, tags, annotations). Missing variables degrade to empty, never throw, never emit `undefined`.
+- **Region markers** delimiting generated regions from user-owned regions.
+- A **merge function**: given an existing document and a freshly rendered template, produce an updated document where generated regions are refreshed and **user-edited regions are preserved byte-for-byte**.
+- Content outside any marker is user-owned by default. When in doubt, preserve — losing user text is the one unacceptable failure.
+
+**Requirements**
+
+- No UI, no React, no Supabase. Application layer only.
+- Deterministic: same input, same output. No clock, no randomness.
+- Markers must survive a round trip — render, user edits, re-render, edits still intact.
+- Handle a document whose markers were damaged or partially deleted by the user: degrade to preserving everything rather than guessing.
+
+**Tests** — new file under `apps/web/src/features/vault/test/`. Cover: first render from empty; re-render preserving a user-edited region; re-render updating a generated region; user content outside all markers preserved; missing template variables; malformed or half-deleted markers; and a full round trip asserting user text is byte-identical.
+
+---
+
+## Task 8 — Experiment artifact references (Phase B, P1)
+
+**Spec:** `docs/future-work/roadmap-2026-07-phased.md` Phase B, "artifact-to-report pinning".
+
+Report sections need to embed experiment artifacts. Build the **reference format and its resolution logic** now; the insertion UI comes later with a human.
+
+- A reference syntax identifying an experiment run and an artifact within it, parseable out of markdown body text.
+- `parseArtifactRefs(markdown)` — extract every reference with its position in the source.
+- `serialiseArtifactRef(ref)` — the inverse; round-trips exactly.
+- A resolution result type distinguishing: resolved, experiment not found, artifact not found, and **experiment stale** (per the existing ~2-minute heartbeat rule in `§6.10`) so a report can flag a figure whose run has gone stale.
+
+**Requirements**
+
+- Pure parsing and formatting. No blob fetching, no Supabase — resolution takes a supplied lookup function.
+- The syntax must not collide with existing markdown, wikilinks `[[...]]`, or image embeds already used in vault and paper notes. Check before choosing.
+
+**Tests** — new file under `apps/web/src/features/report/test/` (or `experiments/test/`, whichever owns the code). Cover: single and multiple refs; refs adjacent to normal markdown; round-trip fidelity; each resolution outcome including stale; and text containing no refs.
+
+---
+
+## Task 9 — Citation signal ranking (Phase B, P1 — small)
+
+**Depends on Task 3.** Once `intents` and `isInfluential` are available, add a pure ranking helper so alerts can be ordered by "should I read this?" rather than by date.
+
+- Rank `result` and `method` citations above `background` — someone building on the work matters more than a name-drop.
+- Treat `isInfluential` as a strong positive signal.
+- Missing signals must not sink an item: absent data is the normal case (see Task 3), so an unranked citation sorts on recency, not last.
+
+**Tests** — extend the Task 3 test file. Cover: ordering across all three intents; `isInfluential` promotion; all-signals-absent falling back to recency; and a mixed list where some items have signals and some do not.
+
+---
+
 ## Explicitly out of scope for this queue
 
-Do not attempt these. They need decisions or credentials a human must supply:
+**The governing rule is a test surface, not a phase boundary.** Web UI has no unit-test coverage in this repo — 23 test files under `apps/web/src/features/*/test/`, none touching `.tsx` — and the four done-check commands never exercise it. Unsupervised UI work would therefore pass every gate while being functionally unverified. That is why Tasks 7–9 build the testable cores of Phase B and stop short of wiring them into screens.
+
+Do not attempt these. They need a human, credentials, or a decision:
+
+- **Any file under `apps/web/src/**/ui/**`** — no test surface, see above
 
 - The reader UI itself — blocked on the `zotero/reader` vs pdf.js engine choice (`pdf-viewer-plan.md` §1.1)
 - Any database persistence of loci or annotations — requires a migration, and migrations are on the never-touch list

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   findQuoteMatches,
+  normaliseWhitespace,
   pickNearestMatch,
   resolvePositionSelector,
   resolveTextAnchor,
@@ -125,4 +126,68 @@ test("resolveTextAnchor returns null when neither quote nor position works", () 
   };
   assert.equal(resolveTextAnchor(text, locus), null);
   assert.equal(resolveTextAnchor(text, { quote: quote({ exact: "absent" }) }), null);
+});
+
+test("findQuoteMatches matches across a newline mid-phrase", () => {
+  const text = "the latent\nspace encodes";
+  const span = findQuoteMatches(text, quote({ exact: "latent space" }));
+  assert.deepEqual(span, [{ start: 4, end: 17 }]);
+  assert.equal(text.slice(span[0]!.start, span[0]!.end), "latent\nspace");
+});
+
+test("findQuoteMatches matches when text has doubled spaces", () => {
+  const text = "latent  space";
+  const span = findQuoteMatches(text, quote({ exact: "latent space" }));
+  assert.deepEqual(span, [{ start: 0, end: 13 }]);
+  assert.equal(text.slice(span[0]!.start, span[0]!.end), "latent  space");
+});
+
+test("findQuoteMatches ignores leading and trailing whitespace differences", () => {
+  const text = "  latent space  ";
+  const span = findQuoteMatches(
+    text,
+    quote({ exact: "  latent space  " }),
+  );
+  assert.deepEqual(span, [{ start: 2, end: 14 }]);
+  assert.equal(text.slice(span[0]!.start, span[0]!.end), "latent space");
+});
+
+test("findQuoteMatches returns spans into the original non-normalised text", () => {
+  const text = "alpha\tbeta\ngamma";
+  const span = findQuoteMatches(text, quote({ exact: "beta gamma" }));
+  assert.equal(span.length, 1);
+  const { start, end } = span[0]!;
+  assert.equal(text.slice(start, end), "beta\ngamma");
+  assert.equal(start, 6);
+  assert.equal(end, 16);
+});
+
+test("findQuoteMatches treats soft hyphen at line end as whitespace", () => {
+  const text = "exam\u00AD\nple theory";
+  const span = findQuoteMatches(text, quote({ exact: "exam ple" }));
+  assert.deepEqual(span, [{ start: 0, end: 10 }]);
+  assert.equal(text.slice(span[0]!.start, span[0]!.end), "exam\u00AD\nple");
+});
+
+test("normaliseWhitespace builds a map that recovers original slices", () => {
+  const text = "  foo\n\tbar  ";
+  const { normalised, map } = normaliseWhitespace(text);
+  assert.equal(normalised, "foo bar");
+  assert.equal(text.slice(map[0]!, map[normalised.length]!), "foo\n\tbar");
+});
+
+test("resolveTextAnchor quote path still wins under whitespace drift", () => {
+  const text = "The latent\nspace encodes structure.";
+  const locus: PdfLocus = {
+    quote: quote({ exact: "latent space", prefix: "The ", suffix: " encodes" }),
+    position: position(99, 111),
+  };
+  const resolved = resolveTextAnchor(text, locus);
+  assert.deepEqual(resolved, {
+    start: 4,
+    end: 17,
+    via: "quote",
+    confidence: "high",
+  });
+  assert.equal(text.slice(resolved!.start, resolved!.end), "latent\nspace");
 });

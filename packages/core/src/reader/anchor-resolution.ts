@@ -19,32 +19,95 @@ export interface ResolvedAnchor extends TextSpan {
 }
 
 /**
+ * Soft hyphen (U+00AD) immediately before a linebreak — PDF extractors use
+ * this at mid-word line wraps. Treated as whitespace for matching.
+ */
+function isSoftHyphenAtLineEnd(text: string, index: number): boolean {
+  if (text[index] !== "\u00AD") return false;
+  const next = text[index + 1];
+  return next === "\n" || next === "\r";
+}
+
+function isNormalisableWhitespace(text: string, index: number): boolean {
+  const ch = text[index];
+  if (ch === undefined) return false;
+  // \s covers space, tab, newlines, NBSP, and other Unicode Space_Separator.
+  if (/\s/u.test(ch)) return true;
+  return isSoftHyphenAtLineEnd(text, index);
+}
+
+/**
+ * Collapse whitespace runs (newlines, tabs, NBSP, soft hyphens at line ends)
+ * to a single space and trim. `map[i]` is the original-string index of the
+ * i-th normalised character; `map[normalised.length]` is the exclusive end
+ * offset in the original for a span covering the whole normalised string.
+ */
+export function normaliseWhitespace(text: string): {
+  normalised: string;
+  map: number[];
+} {
+  const map: number[] = [];
+  let normalised = "";
+  let i = 0;
+
+  while (i < text.length && isNormalisableWhitespace(text, i)) i++;
+  // Exclusive end in the original for a span covering all normalised chars —
+  // must not include trailing whitespace that trim discards.
+  let endInOriginal = i;
+
+  while (i < text.length) {
+    if (isNormalisableWhitespace(text, i)) {
+      const runStart = i;
+      while (i < text.length && isNormalisableWhitespace(text, i)) i++;
+      if (i < text.length) {
+        map.push(runStart);
+        normalised += " ";
+      }
+      continue;
+    }
+    map.push(i);
+    normalised += text[i]!;
+    i++;
+    endInOriginal = i;
+  }
+
+  map.push(endInOriginal);
+  return { normalised, map };
+}
+
+function toOriginalSpan(map: readonly number[], normStart: number, normEnd: number): TextSpan {
+  return { start: map[normStart]!, end: map[normEnd]! };
+}
+
+/**
  * Find every occurrence of `quote.exact` whose immediate prefix/suffix match.
  * Empty `exact` yields no matches. Absent prefix/suffix impose no constraint.
+ * Matching uses whitespace-normalised text; returned spans are original offsets.
  */
 export function findQuoteMatches(text: string, quote: TextQuoteSelector): TextSpan[] {
-  const exact = quote.exact;
-  if (!exact) return [];
+  const exactNorm = normaliseWhitespace(quote.exact).normalised;
+  if (!exactNorm) return [];
+
+  const { normalised, map } = normaliseWhitespace(text);
+  const prefixNorm = quote.prefix != null ? normaliseWhitespace(quote.prefix).normalised : "";
+  const suffixNorm = quote.suffix != null ? normaliseWhitespace(quote.suffix).normalised : "";
 
   const matches: TextSpan[] = [];
-  const prefix = quote.prefix ?? "";
-  const suffix = quote.suffix ?? "";
-
   let from = 0;
   while (true) {
-    const start = text.indexOf(exact, from);
+    const start = normalised.indexOf(exactNorm, from);
     if (start < 0) break;
-    const end = start + exact.length;
+    const end = start + exactNorm.length;
     from = start + 1;
-    if (prefix) {
-      if (start < prefix.length) continue;
-      if (text.slice(start - prefix.length, start) !== prefix) continue;
+    if (prefixNorm) {
+      if (start < prefixNorm.length) continue;
+      if (normalised.slice(start - prefixNorm.length, start) !== prefixNorm) continue;
     }
-    if (suffix) {
-      if (end + suffix.length > text.length) continue;
-      if (text.slice(end, end + suffix.length) !== suffix) continue;
+    if (suffixNorm) {
+      if (end + suffixNorm.length > normalised.length) continue;
+      if (normalised.slice(end, end + suffixNorm.length) !== suffixNorm) continue;
     }
-    matches.push({ start, end });
+    matches.push(toOriginalSpan(map, start, end));
   }
   return matches;
 }

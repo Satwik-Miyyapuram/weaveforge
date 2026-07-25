@@ -4,6 +4,7 @@ export type {
   PdfLocus,
 } from "./pdf-locus.js";
 export {
+  normaliseWhitespace,
   findQuoteMatches,
   pickNearestMatch,
   resolvePositionSelector,
