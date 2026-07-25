@@ -85,7 +85,11 @@ Evidence gathered 2026-07-25:
 | Build | Requires `NODE_OPTIONS=--openssl-legacy-provider`, recursive git submodules, Node 18+ |
 | Standalone | The `dev` variant serves `reader.html` locally, so it *can* run outside the Zotero client |
 
-**Decision: build on pdf.js.** Reasons, in order of weight:
+**Decision (revised 2026-07-25): pdf.js as the engine, with `zotero/reader` as a source we may lawfully copy from — by selective vendoring, not a submodule.**
+
+Both projects are AGPL-3.0, so copying their code is permitted. We take the parts that are genuinely hard — annotation-layer geometry, text-layer handling, pdf.js integration patterns — and write our own React/Next integration around them. This avoids the submodule and their build system while still not solving solved problems from scratch. Compliance obligations are in `pdf-viewer-plan.md` §1.2; they are not optional.
+
+The reasons below are why we do **not** adopt their engine wholesale:
 
 1. **No npm package** means vendoring a submodule and building it from source inside our CI. That is a permanent maintenance tax on a solo project, and it is not a decision that is cheap to reverse.
 2. **`--openssl-legacy-provider`** signals a legacy webpack toolchain. Our host is Next.js 14 with a Serwist service worker and a reader-chunk budget under ~1MB gzipped (`pdf-viewer-plan.md` §6). That is an impedance mismatch, not a detail.
@@ -93,6 +97,8 @@ Evidence gathered 2026-07-25:
 4. **The anchor model is already renderer-agnostic** (`packages/core/src/reader/`), so choosing pdf.js costs little and preserves the option.
 
 **Honest counter:** ZotFlow embeds this engine successfully, so it is demonstrably possible. But ZotFlow is an Obsidian plugin — Electron, no bundle budget, no SSR, no service worker. A far friendlier host than a Next.js PWA.
+
+**What we take instead of the whole engine:** their solutions to the specific problems that are tedious to get right — mapping selection geometry to page coordinates, aligning the text layer over the canvas, and handling zoom and rotation without anchors drifting. Copied file-by-file with attribution, under §1.2 of the reader plan.
 
 **Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
 

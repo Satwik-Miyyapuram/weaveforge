@@ -62,6 +62,19 @@ Because this project is AGPL-3.0, components under permissive licences
 (Apache-2.0, MIT, BSD) may be included. Components under licences incompatible
 with AGPL-3.0 may not.
 
-  (Add entries here as vendored or bundled components are introduced --
-   for example a PDF rendering engine -- recording the component name, its
-   upstream project, and its licence.)
+  (Add entries here as vendored or bundled components are introduced,
+   recording the component name, its upstream project, and its licence.)
+
+  Planned, not yet vendored -- see docs/future-work/pdf-viewer-plan.md §1.2:
+
+  pdf.js
+    https://github.com/mozilla/pdf.js
+    Apache License 2.0
+
+  Zotero Reader (selective vendoring: selection geometry, text-layer
+  alignment, zoom/rotation handling, annotation overlay positioning)
+    https://github.com/zotero/reader
+    GNU Affero General Public License v3.0
+    Per-file provenance, including upstream commit SHAs and a record of
+    local modifications, is kept in
+    apps/web/src/features/reader/vendor/PROVENANCE.md

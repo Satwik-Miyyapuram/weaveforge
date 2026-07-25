@@ -41,7 +41,32 @@ See `docs/future-work/roadmap-2026-07-phased.md` §C1 for the full rationale. Su
 
 The anchor model in `packages/core/src/reader/` is renderer-agnostic, so this decision is cheap to revisit. **Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
 
-The criteria below are retained for that revisit:
+The criteria below are retained for that revisit.
+
+### 1.2 Vendoring policy — copying from `zotero/reader`
+
+**We copy selectively rather than submodule.** Both projects are AGPL-3.0, so this is permitted. It is not permission to be careless: copyleft carries obligations, and getting them wrong on a public repo is the kind of mistake that is quoted back at you.
+
+**What to copy.** Only the parts that are genuinely hard and well-solved upstream:
+
+- selection geometry — mapping a DOM selection to page coordinates
+- text-layer alignment over the canvas
+- zoom and rotation handling without anchors drifting
+- annotation overlay positioning
+
+**What not to copy.** Their app shell, build system, state management, Zotero-specific plumbing, or anything that assumes the Zotero client environment. We write our own React/Next integration.
+
+**Rules — all mandatory:**
+
+1. **Vendored code lives in one place**, clearly marked: `apps/web/src/features/reader/vendor/`. Never scattered through our own modules.
+2. **Preserve upstream copyright headers verbatim.** Do not strip, reformat, or "tidy" them.
+3. **Mark modifications.** AGPL-3.0 §5(a) requires modified files to carry prominent notices stating that you changed them and the date. Add a header noting what was changed and when.
+4. **Record provenance per file.** Keep `apps/web/src/features/reader/vendor/PROVENANCE.md` listing, for each vendored file: upstream path, upstream commit SHA, date copied, and what was modified. Without the SHA there is no way to reconcile against upstream later.
+5. **Add an entry to `/NOTICE`** naming Zotero Reader, its upstream URL, and its licence.
+6. **Copy `zotero/reader`'s `COPYING`** into the vendor directory alongside the code.
+7. **No cherry-picking of licence terms.** The whole repository is AGPL-3.0 already, so there is no incompatibility — but the `python/` and `plugins/` directories are also AGPL now, and nothing here changes that.
+
+**Why the commit SHA matters.** Vendored code with no recorded origin becomes unmaintainable within months: nobody can tell what was changed locally versus what upstream has since fixed. The SHA is what makes a future diff possible.
 
 | Question | Why it matters |
 |----------|----------------|
