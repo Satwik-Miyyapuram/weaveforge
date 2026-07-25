@@ -72,6 +72,18 @@ test("resolvePdfSource: all fail returns a clear miss", async () => {
   assert.deepEqual(result, { ok: false, reason: "no_source" });
 });
 
+test("resolvePdfSource: empty url is treated as a miss", async () => {
+  const result = await resolvePdfSource(paper, [
+    fake("browser-cache", { hit: { url: "   " } }),
+    fake("zotero", { hit: { url: "zotero://ok" } }),
+  ]);
+  assert.deepEqual(result, {
+    ok: true,
+    hit: { url: "zotero://ok" },
+    resolverId: "zotero",
+  });
+});
+
 test("resolvePdfSource: reports winning resolver id and preserves caller order", async () => {
   const order: string[] = [];
   const tracking = (id: string, hit: PdfSourceHit | null): IPdfSourceResolver => ({

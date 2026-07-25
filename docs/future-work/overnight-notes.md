@@ -27,6 +27,15 @@ None.
 4. **Task 9** ranking is pure and unused by the alert use-case yet — wire when designing the alert list UI.
 5. Do not push / open a PR until reviewed (per queue rules).
 
+## Follow-up review fixes (same branch)
+
+Post-queue review (no UI files in this diff — overflow pass N/A):
+
+- Require non-empty Zotero `rects` before trusting them; empty URL ladder hits are misses.
+- Ambiguous quote matches without a position selector return `confidence: "low"`.
+- Template context values strip `<!--` so interpolated text cannot forge markers; new generated regions append at end; documented mid-region close + real close fails closed.
+- Artifact alt text strips `[]` so serialise/parse round-trips.
+
 ## Done-check
 
 Each task passed `typecheck`, `test:core`, `check:boundaries`, `build:core` before commit. Web feature tests for Tasks 3, 4, 7, 8, 9 were also run where applicable.

@@ -47,9 +47,14 @@ export interface ArtifactLookup {
 }
 
 function escapeAlt(alt: string): string {
-  const s = alt.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
-  if (!s) return "artifact";
-  return s.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+  // Strip brackets rather than backslash-escape — the parser uses `[^\]]*` and
+  // cannot round-trip `\]` inside alt text.
+  const s = alt
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[\[\]]/g, "")
+    .trim();
+  return s || "artifact";
 }
 
 /** Inverse of parse — round-trips with the canonical form. */

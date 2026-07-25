@@ -191,3 +191,23 @@ test("resolveTextAnchor quote path still wins under whitespace drift", () => {
   });
   assert.equal(text.slice(resolved!.start, resolved!.end), "latent\nspace");
 });
+
+test("normaliseWhitespace trim:false keeps abutting affix spaces", () => {
+  const { normalised } = normaliseWhitespace("The ", { trim: false });
+  assert.equal(normalised, "The ");
+  assert.equal(normaliseWhitespace(" yy", { trim: false }).normalised, " yy");
+  assert.equal(normaliseWhitespace("  xx  ", { trim: false }).normalised, " xx ");
+});
+
+test("resolveTextAnchor marks ambiguous multi-match without position as low confidence", () => {
+  const text = "foo one foo two";
+  const resolved = resolveTextAnchor(text, {
+    quote: quote({ exact: "foo" }),
+  });
+  assert.deepEqual(resolved, {
+    start: 0,
+    end: 3,
+    via: "quote",
+    confidence: "low",
+  });
+});

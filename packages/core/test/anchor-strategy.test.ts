@@ -71,3 +71,29 @@ test("chooseAnchorStrategy returns none when neither rects nor quote are present
     { kind: "none", confidence: "low" },
   );
 });
+
+test("chooseAnchorStrategy ignores empty or missing rect arrays even when hash matches", () => {
+  const quoteLocus = locus("fallback quote");
+  assert.deepEqual(
+    chooseAnchorStrategy(
+      {
+        contentHash: "abc",
+        zoteroPosition: { pageIndex: 0 },
+        locus: quoteLocus,
+      },
+      "abc",
+    ),
+    { kind: "quote", locus: quoteLocus, confidence: "low" },
+  );
+  assert.deepEqual(
+    chooseAnchorStrategy(
+      {
+        contentHash: "abc",
+        zoteroPosition: { pageIndex: 0, rects: [] },
+        locus: quoteLocus,
+      },
+      "abc",
+    ),
+    { kind: "quote", locus: quoteLocus, confidence: "low" },
+  );
+});

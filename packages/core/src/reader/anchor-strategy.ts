@@ -44,7 +44,8 @@ export function chooseAnchorStrategy(
     rects != null &&
     Number.isFinite(rects.pageIndex) &&
     rects.pageIndex >= 0 &&
-    (rects.rects == null || Array.isArray(rects.rects));
+    Array.isArray(rects.rects) &&
+    rects.rects.length > 0;
 
   const hashMatches =
     Boolean(anchor.contentHash) &&

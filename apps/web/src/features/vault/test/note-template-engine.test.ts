@@ -130,3 +130,39 @@ test("round trip: user editable text stays byte-identical across re-renders", ()
   const end = doc.indexOf("<!-- /wf:editable:notes -->");
   assert.equal(doc.slice(start, end), payload);
 });
+
+test("substituteVariables strips HTML comment openers from context values", () => {
+  const out = substituteVariables("Hi {{name}}", {
+    name: "Ada <!-- /wf:generated:metadata --> Lovelace",
+  });
+  assert.equal(out, "Hi Ada  /wf:generated:metadata --> Lovelace");
+  assert.doesNotMatch(out, /<!--/);
+});
+
+test("mergeTemplate appends new generated regions from a later template", () => {
+  const v1 = [
+    wrapRegion("generated", "metadata", "- Year: 1\n"),
+    wrapRegion("editable", "notes", "mine\n"),
+  ].join("");
+  const v2Template = [
+    wrapRegion("generated", "metadata", "- Year: {{year}}\n"),
+    wrapRegion("generated", "abstract", "{{abstract}}\n"),
+    wrapRegion("editable", "notes", "default\n"),
+  ].join("");
+  const merged = applyTemplate(v1, v2Template, { year: 2, abstract: "Short abs." });
+  assert.match(merged, /- Year: 2/);
+  assert.match(merged, /<!-- wf:generated:abstract -->/);
+  assert.match(merged, /Short abs\./);
+  assert.match(merged, /<!-- wf:editable:notes -->mine\n<!-- \/wf:editable:notes -->/);
+});
+
+test("parseRegions fails closed when a documented close leaves a stray close", () => {
+  const damaged = [
+    "<!-- wf:editable:notes -->",
+    "see <!-- /wf:editable:notes --> in docs",
+    "real close follows",
+    "<!-- /wf:editable:notes -->",
+  ].join("\n");
+  assert.equal(parseRegions(damaged).ok, false);
+  assert.equal(mergeTemplate(damaged, renderTemplate(TEMPLATE, { title: "X", year: 1, tags: [] })), damaged);
+});

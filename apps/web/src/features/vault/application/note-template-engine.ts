@@ -32,10 +32,20 @@ export type ParseRegionsResult =
 
 const OPEN_RE = /<!--\s*wf:(generated|editable):([A-Za-z0-9_-]+)\s*-->/g;
 const CLOSE_PREFIX = "<!-- /wf:";
+/** Any HTML-comment opener — substituted values must not inject these. */
+const COMMENT_OPEN = /<!--/g;
+
+/**
+ * Strip sequences that could forge region markers when interpolated into a
+ * template. Prefer empty over emitting a poisoned close/open comment.
+ */
+function sanitizeInterpolated(text: string): string {
+  return text.replace(COMMENT_OPEN, "");
+}
 
 function formatValue(value: unknown): string {
   if (value == null) return "";
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return sanitizeInterpolated(value);
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) {
     return value
@@ -82,6 +92,10 @@ export function wrapRegion(kind: RegionKind, name: string, body: string): string
  * Parse a document into text / region segments. Any mismatched, nested, or
  * half-deleted marker yields `{ ok: false }` so callers can preserve the
  * whole document rather than guess.
+ *
+ * Close markers use the first matching close. If a documented close example
+ * appears mid-region and a real close follows, the leftover close is treated
+ * as stray damage and the parse fails closed (existing doc preserved).
  */
 export function parseRegions(document: string): ParseRegionsResult {
   const segments: Segment[] = [];
@@ -147,6 +161,8 @@ export function renderTemplate(template: string, context: TemplateContext): stri
  *   editable regions stay byte-identical.
  * - Generated region bodies refresh from the rendered template when the same
  *   name is present.
+ * - Generated regions that appear only in the new template are appended at the
+ *   end (never inserted into the middle of user text).
  * - Malformed markers on either side → return `existing` unchanged.
  */
 export function mergeTemplate(existing: string, rendered: string): string {
@@ -159,12 +175,15 @@ export function mergeTemplate(existing: string, rendered: string): string {
   if (!renderedParsed.ok) return existing;
 
   const generatedBodies = new Map<string, string>();
+  const generatedOrder: string[] = [];
   for (const seg of renderedParsed.segments) {
     if (seg.type === "region" && seg.kind === "generated") {
+      if (!generatedBodies.has(seg.name)) generatedOrder.push(seg.name);
       generatedBodies.set(seg.name, seg.body);
     }
   }
 
+  const seenGenerated = new Set<string>();
   let out = "";
   for (const seg of existingParsed.segments) {
     if (seg.type === "text") {
@@ -175,8 +194,16 @@ export function mergeTemplate(existing: string, rendered: string): string {
       out += `${seg.open}${seg.body}${seg.close}`;
       continue;
     }
+    seenGenerated.add(seg.name);
     const nextBody = generatedBodies.has(seg.name) ? generatedBodies.get(seg.name)! : seg.body;
     out += `${seg.open}${nextBody}${seg.close}`;
+  }
+
+  for (const name of generatedOrder) {
+    if (seenGenerated.has(name)) continue;
+    const body = generatedBodies.get(name)!;
+    if (out.length > 0 && !out.endsWith("\n")) out += "\n";
+    out += wrapRegion("generated", name, body);
   }
   return out;
 }

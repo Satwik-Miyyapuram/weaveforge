@@ -74,6 +74,18 @@ test("serialiseArtifactRef round-trips with parse", () => {
   assert.equal(serialiseArtifactRef(parsed!), raw);
 });
 
+test("serialiseArtifactRef strips brackets from alt so parse round-trips", () => {
+  const raw = serialiseArtifactRef({
+    experimentId: "e1",
+    artifactName: "a.png",
+    alt: "Fig [1]",
+  });
+  assert.equal(raw, "![Fig 1](expartifact:e1/a.png)");
+  const [parsed] = parseArtifactRefs(raw);
+  assert.equal(parsed!.alt, "Fig 1");
+  assert.equal(serialiseArtifactRef(parsed!), raw);
+});
+
 test("resolveArtifactRef covers resolved, missing experiment, missing artifact, stale", () => {
   const running = exp({
     id: "exp-run",

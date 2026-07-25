@@ -181,12 +181,19 @@ export function resolvePositionSelector(
 /**
  * Resolve a locus against extracted text: quote first (with nearest-position
  * disambiguation), then position fallback. Never throws.
+ * Multiple quote hits without a position selector are `low` confidence —
+ * the caller should warn rather than treat the first hit as authoritative.
  */
 export function resolveTextAnchor(text: string, locus: PdfLocus): ResolvedAnchor | null {
   const matches = findQuoteMatches(text, locus.quote);
   const picked = pickNearestMatch(matches, locus.position);
   if (picked) {
-    return { ...picked, via: "quote", confidence: "high" };
+    const ambiguous = matches.length > 1 && locus.position == null;
+    return {
+      ...picked,
+      via: "quote",
+      confidence: ambiguous ? "low" : "high",
+    };
   }
   if (locus.position) {
     const span = resolvePositionSelector(text, locus.position);
