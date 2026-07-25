@@ -186,6 +186,8 @@ Grounds, all verified:
 
 Effort S/M/L, impact low/med/high.
 
+> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/future-work/roadmap-2026-07-phased.md`](future-work/roadmap-2026-07-phased.md).
+
 ### P0
 
 | Item | Effort | Impact | Rationale |
