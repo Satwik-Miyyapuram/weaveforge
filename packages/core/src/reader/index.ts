@@ -13,3 +13,9 @@ export {
   type AnchorConfidence,
   type ResolvedAnchor,
 } from "./anchor-resolution.js";
+export {
+  chooseAnchorStrategy,
+  type ZoteroRectPosition,
+  type CombinedPdfAnchor,
+  type AnchorStrategy,
+} from "./anchor-strategy.js";
