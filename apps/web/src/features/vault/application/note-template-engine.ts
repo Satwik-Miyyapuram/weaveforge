@@ -31,7 +31,8 @@ export type ParseRegionsResult =
   | { ok: false; reason: "malformed_markers" };
 
 const OPEN_RE = /<!--\s*wf:(generated|editable):([A-Za-z0-9_-]+)\s*-->/g;
-const CLOSE_PREFIX = "<!-- /wf:";
+/** Matches both spaced and compact close markers. */
+const CLOSE_ANY_RE = /<!--\s*\/wf:(?:generated|editable):[A-Za-z0-9_-]+\s*-->/;
 /** Any HTML-comment opener — substituted values must not inject these. */
 const COMMENT_OPEN = /<!--/g;
 
@@ -84,8 +85,16 @@ function closeMarker(kind: RegionKind, name: string): string {
   return `<!-- /wf:${kind}:${name} -->`;
 }
 
+function closeMarkerRe(kind: RegionKind, name: string): RegExp {
+  return new RegExp(`<!--\\s*/wf:${kind}:${name}\\s*-->`);
+}
+
 export function wrapRegion(kind: RegionKind, name: string, body: string): string {
   return `${openMarker(kind, name)}${body}${closeMarker(kind, name)}`;
+}
+
+function hasStrayClose(text: string): boolean {
+  return CLOSE_ANY_RE.test(text);
 }
 
 /**
@@ -93,9 +102,9 @@ export function wrapRegion(kind: RegionKind, name: string, body: string): string
  * half-deleted marker yields `{ ok: false }` so callers can preserve the
  * whole document rather than guess.
  *
- * Close markers use the first matching close. If a documented close example
- * appears mid-region and a real close follows, the leftover close is treated
- * as stray damage and the parse fails closed (existing doc preserved).
+ * Open and close markers allow the same whitespace flexibility. If a
+ * documented close example appears mid-region and a real close follows, the
+ * leftover close is treated as stray damage and the parse fails closed.
  */
 export function parseRegions(document: string): ParseRegionsResult {
   const segments: Segment[] = [];
@@ -108,8 +117,7 @@ export function parseRegions(document: string): ParseRegionsResult {
     if (!openMatch) {
       if (cursor < document.length) {
         const rest = document.slice(cursor);
-        // A stray close marker with no open is damage.
-        if (rest.includes(CLOSE_PREFIX)) {
+        if (hasStrayClose(rest)) {
           return { ok: false, reason: "malformed_markers" };
         }
         segments.push({ type: "text", text: rest });
@@ -120,7 +128,7 @@ export function parseRegions(document: string): ParseRegionsResult {
     const openStart = openMatch.index;
     if (openStart > cursor) {
       const gap = document.slice(cursor, openStart);
-      if (gap.includes(CLOSE_PREFIX)) {
+      if (hasStrayClose(gap)) {
         return { ok: false, reason: "malformed_markers" };
       }
       segments.push({ type: "text", text: gap });
@@ -130,12 +138,15 @@ export function parseRegions(document: string): ParseRegionsResult {
     const name = openMatch[2]!;
     const open = openMatch[0];
     const bodyStart = openStart + open.length;
-    const close = closeMarker(kind, name);
-    const closeStart = document.indexOf(close, bodyStart);
-    if (closeStart < 0) {
+    const closeRe = closeMarkerRe(kind, name);
+    closeRe.lastIndex = 0;
+    const closeMatch = closeRe.exec(document.slice(bodyStart));
+    if (!closeMatch) {
       return { ok: false, reason: "malformed_markers" };
     }
 
+    const close = closeMatch[0]!;
+    const closeStart = bodyStart + closeMatch.index;
     const body = document.slice(bodyStart, closeStart);
     // Nested opens inside a region are not supported — treat as damage.
     if (/<!--\s*wf:(generated|editable):/.test(body)) {
@@ -209,7 +220,9 @@ export function mergeTemplate(existing: string, rendered: string): string {
 }
 
 /**
- * First render (empty existing) or merge on re-render. Convenience wrapper.
+ * First render (empty / whitespace-only existing) or merge on re-render.
+ * Whitespace-only notes are treated as empty so the template can install
+ * editable regions rather than freezing a blank document forever.
  */
 export function applyTemplate(
   existing: string | null | undefined,
@@ -217,6 +230,6 @@ export function applyTemplate(
   context: TemplateContext,
 ): string {
   const rendered = renderTemplate(template, context);
-  if (existing == null || existing === "") return rendered;
+  if (existing == null || existing.trim() === "") return rendered;
   return mergeTemplate(existing, rendered);
 }

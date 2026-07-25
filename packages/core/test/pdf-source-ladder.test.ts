@@ -84,6 +84,26 @@ test("resolvePdfSource: empty url is treated as a miss", async () => {
   });
 });
 
+test("resolvePdfSource: trims the winning URL", async () => {
+  const result = await resolvePdfSource(paper, [
+    fake("open-access", {
+      hit: { url: "  https://oa.example/p.pdf  ", contentHash: "  abc  " },
+    }),
+  ]);
+  assert.deepEqual(result, {
+    ok: true,
+    hit: { url: "https://oa.example/p.pdf", contentHash: "abc" },
+    resolverId: "open-access",
+  });
+});
+
+test("resolvePdfSource: empty resolver chain returns a clear miss", async () => {
+  assert.deepEqual(await resolvePdfSource(paper, []), {
+    ok: false,
+    reason: "no_source",
+  });
+});
+
 test("resolvePdfSource: reports winning resolver id and preserves caller order", async () => {
   const order: string[] = [];
   const tracking = (id: string, hit: PdfSourceHit | null): IPdfSourceResolver => ({

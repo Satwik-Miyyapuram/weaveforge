@@ -166,3 +166,63 @@ test("parseRegions fails closed when a documented close leaves a stray close", (
   assert.equal(parseRegions(damaged).ok, false);
   assert.equal(mergeTemplate(damaged, renderTemplate(TEMPLATE, { title: "X", year: 1, tags: [] })), damaged);
 });
+
+test("substituteVariables resolves dotted paths and empties missing paths", () => {
+  assert.equal(
+    substituteVariables("{{paper.title}} / {{paper.missing}}", {
+      paper: { title: "Attention" },
+    }),
+    "Attention / ",
+  );
+});
+
+test("parseRegions rejects nested markers and merge preserves existing", () => {
+  const nested = wrapRegion(
+    "editable",
+    "notes",
+    wrapRegion("generated", "inside", "unsafe"),
+  );
+  assert.equal(parseRegions(nested).ok, false);
+  assert.equal(mergeTemplate(nested, renderTemplate(TEMPLATE, {})), nested);
+});
+
+test("mergeTemplate preserves existing when the rendered template is malformed", () => {
+  const existing = [
+    wrapRegion("generated", "metadata", "old"),
+    wrapRegion("editable", "notes", "user text"),
+  ].join("\n");
+  const malformedRendered = "<!-- wf:generated:metadata -->new";
+  assert.equal(mergeTemplate(existing, malformedRendered), existing);
+});
+
+test("duplicate generated names resolve deterministically to the last rendered body", () => {
+  const existing = wrapRegion("generated", "metadata", "old");
+  const rendered = [
+    wrapRegion("generated", "metadata", "first"),
+    wrapRegion("generated", "metadata", "second"),
+  ].join("\n");
+  assert.equal(
+    mergeTemplate(existing, rendered),
+    wrapRegion("generated", "metadata", "second"),
+  );
+});
+
+test("parseRegions accepts compact markers and rejects compact stray closes", () => {
+  const compact = "<!--wf:generated:metadata-->body<!--/wf:generated:metadata-->";
+  const parsed = parseRegions(compact);
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) {
+    assert.equal(parsed.segments[0]?.type, "region");
+  }
+  assert.equal(parseRegions("hello <!--/wf:generated:x-->").ok, false);
+});
+
+test("applyTemplate treats whitespace-only existing notes as empty", () => {
+  const out = applyTemplate("  \n\t  ", TEMPLATE, {
+    title: "Fresh",
+    year: 2026,
+    tags: [],
+  });
+  assert.equal(out, renderTemplate(TEMPLATE, { title: "Fresh", year: 2026, tags: [] }));
+  assert.match(out, /<!-- wf:editable:notes -->/);
+});

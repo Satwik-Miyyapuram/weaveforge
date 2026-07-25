@@ -49,18 +49,45 @@ export interface ArtifactLookup {
 function escapeAlt(alt: string): string {
   // Strip brackets rather than backslash-escape — the parser uses `[^\]]*` and
   // cannot round-trip `\]` inside alt text.
-  const s = alt
+  return alt
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/[\[\]]/g, "")
     .trim();
-  return s || "artifact";
+}
+
+function encodeRefPart(value: string): string {
+  // encodeURIComponent leaves `!'()*` untouched; parentheses would terminate
+  // the Markdown destination, so encode those remaining punctuation marks.
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
+/**
+ * Decode a path segment. Well-formed `%HH` sequences decode; bare `%` (e.g.
+ * `100%done.png` or `%ZZ`) is kept as literal text rather than dropping the
+ * whole ref. Empty / whitespace-only results are rejected by the caller.
+ */
+function decodeRefPart(value: string): string | null {
+  try {
+    return decodeURIComponent(value.replace(/%(?![0-9A-Fa-f]{2})/g, "%25"));
+  } catch {
+    return null;
+  }
 }
 
 /** Inverse of parse — round-trips with the canonical form. */
 export function serialiseArtifactRef(ref: ArtifactRef): string {
-  const alt = escapeAlt(ref.alt ?? "artifact");
-  return `![${alt}](${EXPERIMENT_ARTIFACT_PREFIX}${ref.experimentId}/${ref.artifactName})`;
+  // Preserve an explicit empty alt (`![](...)`); default only when omitted.
+  const alt =
+    ref.alt === undefined
+      ? "artifact"
+      : escapeAlt(ref.alt) || (ref.alt === "" ? "" : "artifact");
+  const experimentId = encodeRefPart(ref.experimentId);
+  const artifactName = encodeRefPart(ref.artifactName);
+  return `![${alt}](${EXPERIMENT_ARTIFACT_PREFIX}${experimentId}/${artifactName})`;
 }
 
 const REF_RE = new RegExp(
@@ -71,6 +98,8 @@ const REF_RE = new RegExp(
 /**
  * Extract every experiment-artifact reference with its source offsets.
  * Ignores wikilinks, reportimg embeds, and ordinary http(s) images.
+ * Unencoded `(` in the path is rejected — Markdown destinations end at `)`,
+ * so callers must percent-encode parentheses (see {@link serialiseArtifactRef}).
  */
 export function parseArtifactRefs(markdown: string): ParsedArtifactRef[] {
   const out: ParsedArtifactRef[] = [];
@@ -80,15 +109,22 @@ export function parseArtifactRefs(markdown: string): ParsedArtifactRef[] {
     const raw = m[0]!;
     const alt = m[1] ?? "";
     const path = m[2] ?? "";
+    // Hand-written paths with raw `(` truncate at `)` — fail closed.
+    if (path.includes("(")) continue;
     const slash = path.indexOf("/");
     if (slash <= 0 || slash === path.length - 1) continue;
-    const experimentId = path.slice(0, slash);
-    const artifactName = path.slice(slash + 1);
-    if (!experimentId || !artifactName) continue;
+    const experimentId = decodeRefPart(path.slice(0, slash));
+    const artifactName = decodeRefPart(path.slice(slash + 1));
+    if (experimentId == null || artifactName == null) continue;
+    const id = experimentId.trim();
+    const name = artifactName.trim();
+    // Reject padded/whitespace-only ids; store trimmed so resolve matches.
+    if (!id || !name) continue;
+    if (id !== experimentId || name !== artifactName) continue;
     out.push({
-      experimentId,
-      artifactName,
-      alt: alt || undefined,
+      experimentId: id,
+      artifactName: name,
+      alt,
       start: m.index,
       end: m.index + raw.length,
       raw,
@@ -106,6 +142,11 @@ export function resolveArtifactRef(
     return { status: "experiment_not_found", ref };
   }
 
+  const artifacts = experiment.artifacts ?? [];
+  if (!artifacts.includes(ref.artifactName)) {
+    return { status: "artifact_not_found", experiment, ref };
+  }
+
   const stale = isStaleRunningExperiment(
     experiment,
     lookup.nowMs ?? Date.now(),
@@ -114,11 +155,6 @@ export function resolveArtifactRef(
   );
   if (stale) {
     return { status: "experiment_stale", experiment, artifactName: ref.artifactName };
-  }
-
-  const artifacts = experiment.artifacts ?? [];
-  if (!artifacts.includes(ref.artifactName)) {
-    return { status: "artifact_not_found", experiment, ref };
   }
 
   return { status: "resolved", experiment, artifactName: ref.artifactName };

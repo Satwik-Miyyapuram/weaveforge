@@ -211,3 +211,24 @@ test("resolveTextAnchor marks ambiguous multi-match without position as low conf
     confidence: "low",
   });
 });
+
+test("normaliseWhitespace trim:false map preserves kept boundary whitespace", () => {
+  const text = "  xx  ";
+  const { normalised, map } = normaliseWhitespace(text, { trim: false });
+  assert.equal(normalised, " xx ");
+  assert.equal(text.slice(map[0]!, map[normalised.length]!), "  xx  ");
+});
+
+test("resolveTextAnchor treats an out-of-bounds position as unusable for disambiguation", () => {
+  const text = "foo one foo two";
+  const resolved = resolveTextAnchor(text, {
+    quote: quote({ exact: "foo" }),
+    position: position(999, 1002),
+  });
+  assert.deepEqual(resolved, {
+    start: 0,
+    end: 3,
+    via: "quote",
+    confidence: "low",
+  });
+});

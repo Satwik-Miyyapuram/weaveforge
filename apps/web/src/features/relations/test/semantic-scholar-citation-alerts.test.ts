@@ -157,6 +157,93 @@ test("Semantic Scholar ignores malformed citation-edge signal fields", async () 
   assert.equal(candidate!.isInfluential, undefined);
 });
 
+test("Semantic Scholar skips whitespace-only titles", async () => {
+  const fetchFn = (async () =>
+    new Response(
+      JSON.stringify({
+        data: [
+          {
+            citingPaper: {
+              paperId: "s2-blank",
+              title: "   ",
+              authors: [],
+            },
+          },
+          {
+            citingPaper: {
+              paperId: "s2-ok",
+              title: "  Real Title  ",
+              authors: [],
+            },
+          },
+        ],
+      }),
+      { status: 200 },
+    )) as typeof fetch;
+  const source = new SemanticScholarCitationSource(fetchFn, "https://s2.test");
+  const result = await source.citations({ kind: "doi", value: "10.1000/blank" });
+  assert.equal(result.length, 1);
+  assert.equal(result[0]!.id, "s2-ok");
+  assert.equal(result[0]!.title, "Real Title");
+});
+
+test("Semantic Scholar stops paging when next does not advance", async () => {
+  let fetches = 0;
+  const fetchFn = (async () => {
+    fetches += 1;
+    return new Response(
+      JSON.stringify({
+        data: [
+          {
+            citingPaper: {
+              paperId: "s2-stuck",
+              title: "Stuck",
+              authors: [],
+            },
+          },
+        ],
+        next: 0,
+      }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+  const source = new SemanticScholarCitationSource(fetchFn, "https://s2.test");
+  const result = await source.citations({ kind: "doi", value: "10.1000/stuck" });
+  assert.equal(result.length, 1);
+  assert.equal(fetches, 1);
+});
+
+test("Semantic Scholar soft-stops before the API offset ceiling", async () => {
+  let fetches = 0;
+  const fetchFn = (async (_input: RequestInfo | URL) => {
+    fetches += 1;
+    const url = String(_input);
+    if (url.includes("offset=10000")) {
+      return new Response("bad offset", { status: 400 });
+    }
+    return new Response(
+      JSON.stringify({
+        data: [
+          {
+            citingPaper: {
+              paperId: `s2-${fetches}`,
+              title: `Paper ${fetches}`,
+              authors: [],
+            },
+          },
+        ],
+        next: 10_000,
+      }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+  const source = new SemanticScholarCitationSource(fetchFn, "https://s2.test");
+  const result = await source.citations({ kind: "doi", value: "10.1000/hot" });
+  assert.equal(result.length, 1);
+  assert.equal(result[0]!.id, "s2-1");
+  assert.equal(fetches, 1);
+});
+
 function candidate(
   partial: Pick<CitationCandidate, "id" | "title"> & Partial<CitationCandidate>,
 ): CitationCandidate {
@@ -216,4 +303,41 @@ test("rankCitationAlerts mixes signalled and unsignalled items without sinking t
   assert.equal(ranked[0]!.id, "method");
   assert.equal(ranked[1]!.id, "plain-new");
   assert.ok(ranked.findIndex((c) => c.id === "plain-old") > ranked.findIndex((c) => c.id === "plain-new"));
+});
+
+test("rankCitationAlerts uses the strongest intent and does not mutate input", () => {
+  const input = [
+    candidate({
+      id: "multi",
+      title: "Multi",
+      year: 2020,
+      intents: ["background", "result"],
+    }),
+    candidate({
+      id: "method",
+      title: "Method",
+      year: 2020,
+      intents: ["method"],
+    }),
+  ];
+  const originalOrder = input.map((item) => item.id);
+  const ranked = rankCitationAlerts(input);
+  assert.deepEqual(ranked.map((item) => item.id), ["multi", "method"]);
+  assert.deepEqual(input.map((item) => item.id), originalOrder);
+});
+
+test("rankCitationAlerts resolves score ties by title", () => {
+  const ranked = rankCitationAlerts([
+    candidate({ id: "z", title: "Zebra", year: 2020 }),
+    candidate({ id: "a", title: "Alpha", year: 2020 }),
+  ]);
+  assert.deepEqual(ranked.map((item) => item.id), ["a", "z"]);
+});
+
+test("rankCitationAlerts resolves equal title ties by id", () => {
+  const ranked = rankCitationAlerts([
+    candidate({ id: "z", title: "Same", year: 2020 }),
+    candidate({ id: "a", title: "Same", year: 2020 }),
+  ]);
+  assert.deepEqual(ranked.map((item) => item.id), ["a", "z"]);
 });

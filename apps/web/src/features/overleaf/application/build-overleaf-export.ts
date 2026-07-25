@@ -79,7 +79,7 @@ export function bibKey(paper: Paper, used: Set<string>): string {
  * decide how to surface "no resolvable key" rather than inventing one here.
  */
 export function formatCitation(key: string, format: CitationFormat): string {
-  const trimmed = key.trim();
+  const trimmed = key.trim().replace(/[^A-Za-z0-9_:-]/g, "_");
   if (!trimmed) return "";
   switch (format) {
     case "latex":

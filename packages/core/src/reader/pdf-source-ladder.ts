@@ -53,7 +53,15 @@ export async function resolvePdfSource(
     if (!resolver.supports(paper)) continue;
     try {
       const hit = await resolver.resolve(paper);
-      if (hit?.url?.trim()) return { ok: true, hit, resolverId: resolver.id };
+      const url = hit?.url?.trim();
+      if (hit && url) {
+        const contentHash = hit.contentHash?.trim();
+        return {
+          ok: true,
+          hit: contentHash ? { url, contentHash } : { url },
+          resolverId: resolver.id,
+        };
+      }
     } catch {
       // Continue — one failing step must not abort the ladder.
     }

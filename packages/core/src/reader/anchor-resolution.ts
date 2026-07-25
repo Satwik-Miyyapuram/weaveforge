@@ -79,7 +79,8 @@ export function normaliseWhitespace(
       map.push(runStart);
       normalised += " ";
       if (!atEnd) continue;
-      endInOriginal = runStart + 1;
+      // Exclusive end covers the whole trailing whitespace run when trim is off.
+      endInOriginal = i;
       break;
     }
     map.push(i);
@@ -186,17 +187,21 @@ export function resolvePositionSelector(
  */
 export function resolveTextAnchor(text: string, locus: PdfLocus): ResolvedAnchor | null {
   const matches = findQuoteMatches(text, locus.quote);
-  const picked = pickNearestMatch(matches, locus.position);
+  const usablePosition =
+    locus.position && resolvePositionSelector(text, locus.position)
+      ? locus.position
+      : undefined;
+  const picked = pickNearestMatch(matches, usablePosition);
   if (picked) {
-    const ambiguous = matches.length > 1 && locus.position == null;
+    const ambiguous = matches.length > 1 && usablePosition == null;
     return {
       ...picked,
       via: "quote",
       confidence: ambiguous ? "low" : "high",
     };
   }
-  if (locus.position) {
-    const span = resolvePositionSelector(text, locus.position);
+  if (usablePosition) {
+    const span = resolvePositionSelector(text, usablePosition);
     if (span) return { ...span, via: "position", confidence: "low" };
   }
   return null;

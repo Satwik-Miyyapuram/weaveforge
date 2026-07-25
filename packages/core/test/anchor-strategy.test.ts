@@ -96,4 +96,55 @@ test("chooseAnchorStrategy ignores empty or missing rect arrays even when hash m
     ),
     { kind: "quote", locus: quoteLocus, confidence: "low" },
   );
+  assert.deepEqual(
+    chooseAnchorStrategy(
+      {
+        contentHash: "abc",
+        zoteroPosition: { pageIndex: 0, rects: [[]] },
+        locus: quoteLocus,
+      },
+      "abc",
+    ),
+    { kind: "quote", locus: quoteLocus, confidence: "low" },
+  );
+  assert.deepEqual(
+    chooseAnchorStrategy(
+      {
+        contentHash: "abc",
+        zoteroPosition: { pageIndex: 0, rects: [[NaN, NaN, NaN, NaN]] },
+        locus: quoteLocus,
+      },
+      "abc",
+    ),
+    { kind: "quote", locus: quoteLocus, confidence: "low" },
+  );
+  assert.deepEqual(
+    chooseAnchorStrategy(
+      {
+        contentHash: "abc",
+        zoteroPosition: { pageIndex: 1.5, rects: [[1, 2, 3, 4]] },
+        locus: quoteLocus,
+      },
+      "abc",
+    ),
+    { kind: "quote", locus: quoteLocus, confidence: "low" },
+  );
+});
+
+test("chooseAnchorStrategy ignores empty hashes and whitespace-only quotes", () => {
+  assert.deepEqual(
+    chooseAnchorStrategy(
+      {
+        contentHash: "",
+        zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] },
+        locus: locus("quote"),
+      },
+      "",
+    ),
+    { kind: "quote", locus: locus("quote"), confidence: "low" },
+  );
+  assert.deepEqual(
+    chooseAnchorStrategy({ locus: locus("   ") }, "abc"),
+    { kind: "none", confidence: "low" },
+  );
 });

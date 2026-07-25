@@ -66,11 +66,35 @@ test("serialiseArtifactRef round-trips with parse", () => {
     artifactName: "plots/acc.png",
     alt: "Accuracy",
   });
-  assert.equal(raw, "![Accuracy](expartifact:exp-9/plots/acc.png)");
+  assert.equal(raw, "![Accuracy](expartifact:exp-9/plots%2Facc.png)");
   const [parsed] = parseArtifactRefs(`Intro ${raw} outro`);
   assert.equal(parsed!.experimentId, "exp-9");
   assert.equal(parsed!.artifactName, "plots/acc.png");
   assert.equal(parsed!.alt, "Accuracy");
+  assert.equal(serialiseArtifactRef(parsed!), raw);
+});
+
+test("serialiseArtifactRef encodes whitespace and closing parentheses", () => {
+  const raw = serialiseArtifactRef({
+    experimentId: "exp 9",
+    artifactName: "plots/loss (1).png",
+    alt: "Loss",
+  });
+  assert.equal(
+    raw,
+    "![Loss](expartifact:exp%209/plots%2Floss%20%281%29.png)",
+  );
+  const [parsed] = parseArtifactRefs(raw);
+  assert.deepEqual(
+    {
+      experimentId: parsed!.experimentId,
+      artifactName: parsed!.artifactName,
+    },
+    {
+      experimentId: "exp 9",
+      artifactName: "plots/loss (1).png",
+    },
+  );
   assert.equal(serialiseArtifactRef(parsed!), raw);
 });
 
@@ -84,6 +108,54 @@ test("serialiseArtifactRef strips brackets from alt so parse round-trips", () =>
   const [parsed] = parseArtifactRefs(raw);
   assert.equal(parsed!.alt, "Fig 1");
   assert.equal(serialiseArtifactRef(parsed!), raw);
+});
+
+test("parseArtifactRefs skips malformed and invalid encoded paths", () => {
+  assert.deepEqual(
+    parseArtifactRefs(
+      [
+        "![a](expartifact:noslash)",
+        "![b](expartifact:/a.png)",
+        "![c](expartifact:e1/)",
+        "![e](expartifact:%20/a.png)",
+        "![f](expartifact:%20exp/a.png)",
+        "![g](expartifact:e1/loss(1).png)",
+      ].join(" "),
+    ),
+    [],
+  );
+});
+
+test("parseArtifactRefs keeps bare percent signs in legacy paths", () => {
+  const refs = parseArtifactRefs(
+    "![a](expartifact:e1/100%done.png) ![b](expartifact:e1/%ZZ)",
+  );
+  assert.equal(refs.length, 2);
+  assert.equal(refs[0]!.artifactName, "100%done.png");
+  assert.equal(refs[1]!.artifactName, "%ZZ");
+});
+
+test("serialiseArtifactRef preserves an explicit empty alt", () => {
+  const raw = serialiseArtifactRef({
+    experimentId: "e1",
+    artifactName: "a.png",
+    alt: "",
+  });
+  assert.equal(raw, "![](expartifact:e1/a.png)");
+  const [parsed] = parseArtifactRefs(raw);
+  assert.equal(parsed!.alt, "");
+  assert.equal(serialiseArtifactRef(parsed!), raw);
+});
+
+test("parseArtifactRefs reports distinct offsets for duplicate refs", () => {
+  const raw = "![a](expartifact:e1/a.png)";
+  const markdown = `${raw} then ${raw}`;
+  const refs = parseArtifactRefs(markdown);
+  assert.equal(refs.length, 2);
+  assert.notEqual(refs[0]!.start, refs[1]!.start);
+  for (const ref of refs) {
+    assert.equal(markdown.slice(ref.start, ref.end), raw);
+  }
 });
 
 test("resolveArtifactRef covers resolved, missing experiment, missing artifact, stale", () => {
@@ -120,4 +192,26 @@ test("resolveArtifactRef covers resolved, missing experiment, missing artifact, 
     resolveArtifactRef({ experimentId: "exp-run", artifactName: "loss.png" }, lookup).status,
     "experiment_stale",
   );
+  assert.equal(
+    resolveArtifactRef({ experimentId: "exp-run", artifactName: "missing.png" }, lookup).status,
+    "artifact_not_found",
+  );
+});
+
+test("resolveArtifactRef accepts a recent metric heartbeat", () => {
+  const running = exp({
+    id: "exp-run",
+    status: "running",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    artifacts: ["loss.png"],
+  });
+  const result = resolveArtifactRef(
+    { experimentId: "exp-run", artifactName: "loss.png" },
+    {
+      getExperiment: () => running,
+      nowMs: Date.parse("2026-01-01T00:05:00.000Z"),
+      lastMetricAtMs: () => Date.parse("2026-01-01T00:04:30.000Z"),
+    },
+  );
+  assert.equal(result.status, "resolved");
 });

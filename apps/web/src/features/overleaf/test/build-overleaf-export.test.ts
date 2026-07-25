@@ -135,6 +135,11 @@ test("formatCitation returns empty string when the key is blank", () => {
   assert.equal(formatCitation("   ", "pandoc"), "");
 });
 
+test("formatCitation sanitises unsafe characters in raw keys", () => {
+  assert.equal(formatCitation("smith 2020}", "latex"), "\\cite{smith_2020_}");
+  assert.equal(formatCitation("a/b", "pandoc"), "[@a_b]");
+});
+
 test("resolveCiteKey follows metadata → bibtex → extra → doi → arxiv → id", () => {
   assert.equal(
     resolveCiteKey({ ...papers[0]!, metadata: { citeKey: "from_meta" } }),

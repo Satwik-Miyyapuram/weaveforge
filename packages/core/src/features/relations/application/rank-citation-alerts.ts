@@ -47,6 +47,8 @@ export function rankCitationAlerts(
   return [...candidates].sort((a, b) => {
     const diff = citationAlertScore(b) - citationAlertScore(a);
     if (diff !== 0) return diff;
-    return a.title.localeCompare(b.title);
+    const byTitle = a.title.localeCompare(b.title, "en");
+    if (byTitle !== 0) return byTitle;
+    return a.id.localeCompare(b.id, "en");
   });
 }

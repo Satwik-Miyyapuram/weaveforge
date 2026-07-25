@@ -84,6 +84,23 @@ function s2Id(ref: PaperRef): string {
 }
 
 const BATCH_LIMIT = 500; // max ids per /paper/batch request
+/** Safety bound so a stuck/hostile `next` cannot spin forever. */
+const MAX_CITATION_PAGES = 50;
+/** Semantic Scholar Graph API rejects offsets at or above this value. */
+const S2_MAX_OFFSET = 10_000;
+
+function nextPageOffset(
+  currentOffset: number,
+  next: unknown,
+  pagesFetched: number,
+): number {
+  if (pagesFetched >= MAX_CITATION_PAGES) return -1;
+  if (typeof next !== "number" || !Number.isFinite(next)) return -1;
+  // Soft-stop before the API's hard offset cap — requesting offset≥10000 400s
+  // and would throw away pages already collected.
+  if (next <= currentOffset || next >= S2_MAX_OFFSET) return -1;
+  return next;
+}
 
 export class SemanticScholarCitationSource implements ICitationSource {
   readonly id = "semantic-scholar";
@@ -103,32 +120,40 @@ export class SemanticScholarCitationSource implements ICitationSource {
   }
 
   async references(ref: PaperRef): Promise<PaperRef[]> {
-    const id = ref.kind === "arxiv" ? `ARXIV:${ref.value}` : `DOI:${ref.value}`;
-    const url =
-      `${this.baseUrl}/paper/${encodeURIComponent(id)}/references` +
-      `?fields=externalIds&limit=1000`;
     const key = await this.apiKey();
     const init = key ? { headers: { "x-api-key": key } } : undefined;
-    // S2 is aggressively rate-limited (~1 req/s); retry 429s with backoff
-    // before giving up, so batch auto-linking doesn't fail on a transient cap.
-    let res = await this.fetchFn(url, init);
-    for (let attempt = 0; res.status === 429 && attempt < 3; attempt++) {
-      await delay(1000 * (attempt + 1));
-      res = await this.fetchFn(url, init);
-    }
-    if (!res.ok) {
-      throw new Error(
-        `Semantic Scholar request failed: ${res.status} ${res.statusText}`,
-      );
-    }
-    const body = (await res.json()) as S2ReferencesResponse;
     const refs: PaperRef[] = [];
-    for (const item of body.data ?? []) {
-      const ids = item.citedPaper?.externalIds;
-      if (!ids) continue;
-      if (ids.ArXiv) refs.push({ kind: "arxiv", value: ids.ArXiv });
-      else if (ids.DOI) refs.push({ kind: "doi", value: ids.DOI });
-    }
+    let offset = 0;
+    let pages = 0;
+
+    do {
+      const url =
+        `${this.baseUrl}/paper/${encodeURIComponent(s2Id(ref))}/references` +
+        `?fields=externalIds&limit=1000&offset=${offset}`;
+      // S2 is aggressively rate-limited (~1 req/s); retry 429s with backoff
+      // before giving up, so batch auto-linking doesn't fail on a transient cap.
+      let res = await this.fetchFn(url, init);
+      for (let attempt = 0; res.status === 429 && attempt < 3; attempt++) {
+        await delay(1000 * (attempt + 1));
+        res = await this.fetchFn(url, init);
+      }
+      if (!res.ok) {
+        throw new Error(
+          `Semantic Scholar request failed: ${res.status} ${res.statusText}`,
+        );
+      }
+      const body = (await res.json()) as S2ReferencesResponse & { next?: number };
+      for (const item of body.data ?? []) {
+        const ids = item.citedPaper?.externalIds;
+        if (!ids) continue;
+        if (ids.ArXiv) refs.push({ kind: "arxiv", value: ids.ArXiv });
+        else if (ids.DOI) refs.push({ kind: "doi", value: ids.DOI });
+      }
+      pages += 1;
+      const next = body.next;
+      offset = nextPageOffset(offset, next, pages);
+    } while (offset >= 0);
+
     return refs;
   }
 
@@ -138,6 +163,7 @@ export class SemanticScholarCitationSource implements ICitationSource {
     const init = key ? { headers: { "x-api-key": key } } : undefined;
     const out: CitationCandidate[] = [];
     let offset = 0;
+    let pages = 0;
 
     do {
       const url =
@@ -154,18 +180,21 @@ export class SemanticScholarCitationSource implements ICitationSource {
       const body = (await res.json()) as S2CitationsResponse;
       for (const item of body.data ?? []) {
         const paper = item.citingPaper;
-        if (!paper?.paperId || !paper.title) continue;
+        if (!paper) continue;
+        const title = paper.title?.trim();
+        const paperId = paper.paperId?.trim();
+        if (!paperId || !title) continue;
         const contexts = mapContexts(item.contexts);
         const intents = mapIntents(item.intents);
         const isInfluential = mapIsInfluential(item.isInfluential);
         out.push({
-          id: paper.paperId,
-          title: paper.title,
+          id: paperId,
+          title,
           authors: (paper.authors ?? [])
             .map((author) => author.name?.trim())
             .filter((name): name is string => Boolean(name)),
           year: paper.year ?? undefined,
-          url: paper.url ?? `https://www.semanticscholar.org/paper/${paper.paperId}`,
+          url: paper.url ?? `https://www.semanticscholar.org/paper/${paperId}`,
           citationCount:
             typeof paper.citationCount === "number" && Number.isFinite(paper.citationCount)
               ? Math.max(0, Math.trunc(paper.citationCount))
@@ -175,10 +204,10 @@ export class SemanticScholarCitationSource implements ICitationSource {
           ...(isInfluential !== undefined ? { isInfluential } : {}),
         });
       }
-      offset = typeof body.next === "number" ? body.next : -1;
-      // S2 caps offset near 9999; stop explicitly so callers treat this as a
-      // possibly truncated set and union into seen ids rather than replacing.
-    } while (offset >= 0 && offset < 10_000);
+      pages += 1;
+      // Soft-stop on stuck/zero next, page cap, or S2's offset≥10000 ceiling.
+      offset = nextPageOffset(offset, body.next, pages);
+    } while (offset >= 0);
 
     return out;
   }
