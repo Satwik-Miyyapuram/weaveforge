@@ -117,6 +117,21 @@ Implement, per the W3C Web Annotation Data Model:
 
 ---
 
+## Task 2b — Whitespace normalisation for anchor matching (REQUIRED FIX)
+
+Task 2 shipped without the normalisation the spec required. `findQuoteMatches` uses raw `text.indexOf(exact)`, so a quote captured from one PDF text extraction will not match text from another — different pdf.js version, different line-breaking, collapsed or expanded spaces. The **primary** anchor then silently degrades to the position fallback, which the W3C spec itself calls "very brittle". This defeats the reason quote selectors are primary at all, and is the anchor-rot risk named in `docs/future-work/pdf-viewer-plan.md` §9.
+
+**Add to `packages/core/src/reader/`:**
+
+- A **single shared** normalisation helper. Collapse all runs of whitespace (including newlines, tabs, non-breaking spaces, and soft hyphens at line ends) to a single space, and trim. One definition, used by every code path that compares text.
+- Matching must run over normalised text on **both** sides — the stored `exact`/`prefix`/`suffix` and the searched text.
+- **Offsets must map back to the original string.** Callers need spans into the real text to highlight or scroll. Build an index map during normalisation and translate the match span back before returning. A span that only makes sense in normalised space is not useful.
+- Keep the existing exported function signatures working.
+
+**Tests** — extend `packages/core/test/anchor-resolution.test.ts`. Cover: quote stored with single spaces matching text containing a newline mid-phrase; text with doubled spaces; leading/trailing whitespace differences; a returned span that indexes correctly into the **original** (non-normalised) text; and confirmation that all existing tests still pass unchanged.
+
+---
+
 ## Task 3 — Richer citation-alert signals
 
 **Spec:** `docs/competitive-research-verified-2026-07.md` §4.2.
@@ -166,6 +181,53 @@ Formats to support:
 **Tests** — new cases alongside the existing Overleaf export test. Cover each format, plus a paper with no resolvable cite key.
 
 ---
+
+## Task 5 — Zotero position ↔ PdfLocus bridge (pure)
+
+**Spec:** `docs/future-work/pdf-viewer-plan.md` §5.1, "Two anchors, not one".
+
+Task 1 captures Zotero's `{pageIndex, rects}`. Task 2 gives W3C selectors. Nothing connects them, and §5.1 requires **both** — Zotero rects for write-back interop, quote selectors for durability across re-resolution.
+
+Add pure mapping and decision logic in `packages/core/src/reader/`:
+
+- A combined anchor type carrying an optional Zotero `{pageIndex, rects}` **and** an optional `PdfLocus`, plus the content hash of the PDF the rects were captured against.
+- `chooseAnchorStrategy(anchor, currentContentHash)` — returns which anchor to trust: use rects **only** when the content hash matches the file the annotation was made against; otherwise resolve by quote and mark confidence low. Never silently trust rects against a different file.
+- Pure functions only. No I/O, no hashing implementation — the hash arrives as a caller-supplied string.
+
+**Note:** `ZoteroAnnotationPosition` currently lives in `apps/web/src/features/papers/domain/zotero.ts`. Do **not** import from `apps/web` into `packages/core` — that inverts the dependency rule. Define the shape structurally in core and let the web layer map onto it.
+
+**Tests** — new file under `packages/core/test/`. Cover: matching hash prefers rects; mismatched hash falls back to quote with low confidence; no rects at all; no quote at all; neither present.
+
+---
+
+## Task 6 — Source resolution ladder ordering (pure)
+
+**Spec:** `docs/future-work/pdf-viewer-plan.md` §4.
+
+The plan defines a six-step ladder for locating a paper's PDF: browser cache → Zotero → WebDAV → open-access URL → user URL → opt-in server blob. Build the **ordering and selection logic** as pure functions now; the real network adapters come later.
+
+- Define an `IPdfSourceResolver` port: an id, a `supports(paper)` predicate, and a resolve method. Model it on the existing `ICitationSource` in `packages/core/src/features/relations/application/citation-source.ts` — same Open/Closed intent, where adding a source is a new class and never an edit to the chain.
+- Implement the chain runner: try resolvers in priority order, return the first success, skip resolvers that do not support the input, and continue past a failing resolver rather than aborting the chain.
+- Report which resolver won, so callers can show provenance and so cost-bearing sources are visibly last.
+
+**Requirements**
+
+- Pure. Tests use in-memory fake resolvers — **no network, no real adapters in this task.**
+- The opt-in server blob must be orderable last; the chain must never reorder cost-bearing sources ahead of free ones.
+
+**Tests** — new file under `packages/core/test/`. Cover: first resolver wins; unsupported resolvers skipped; a throwing resolver does not abort the chain; all fail returns a clear miss; winning resolver id reported.
+
+---
+
+## Explicitly out of scope for this queue
+
+Do not attempt these. They need decisions or credentials a human must supply:
+
+- The reader UI itself — blocked on the `zotero/reader` vs pdf.js engine choice (`pdf-viewer-plan.md` §1.1)
+- Any database persistence of loci or annotations — requires a migration, and migrations are on the never-touch list
+- Real PDF source adapters (Zotero fetch, WebDAV, open-access lookup) — need credentials and network
+- Zotero annotation **write-back** — blocked on the §5.3 API spike
+- Anything under `apps/web/src/**/ui/**`
 
 ## When the queue is finished
 
