@@ -1,0 +1,139 @@
+# Overnight work queue
+
+Four tasks, in order. Each is independently committable. Work them **one at a time, in sequence**.
+
+## Rules for the whole run
+
+**Read before starting anything:**
+
+- `docs/DESIGN.md` — section 4, the SOLID rules for this codebase
+- `docs/dev.md` — "SOLID boundaries (enforced in CI)"
+- `CONTRIBUTING.md` — commit rules and licence rules
+
+**Definition of done, per task.** All four must pass before the task counts as complete:
+
+```bash
+npm run typecheck
+npm run test:core
+npm run check:boundaries
+npm run build:core
+```
+
+**Commits.** Conventional commits, signed off (`git commit -s`), smallest coherent units. **Do not push. Do not open a pull request.** Leave everything local.
+
+**If a task cannot reach green:** do not thrash and do not carry a broken tree into the next task. Revert that task's changes (`git checkout -- .` for uncommitted work), append what you found and why you stopped to `docs/future-work/overnight-notes.md`, commit *only* that notes file, then **move on to the next task**. A skipped task with good notes is a success; a broken tree that blocks the remaining three is not.
+
+**Never touch:**
+
+- `supabase/migrations/**` or any RLS policy
+- any `.env` file, `local-dev/**`, `apps/web/e2e/.auth/**`
+- `package.json` dependencies — no new packages, for any task
+- `python/**` or `plugins/**`
+
+**Licence.** This repository is AGPL-3.0-only. Do not paste code from other projects unless its licence is AGPL-compatible. Work from documentation and observed behaviour, not from other projects' source.
+
+---
+
+## Task 1 — Capture Zotero annotation position fields
+
+**Spec:** `docs/future-work/pdf-viewer-plan.md` §5.1, §5.2, Phase 0.
+
+`apps/web/src/features/papers/infrastructure/zotero-annotations.ts` currently reads only `annotationText`, `annotationComment`, `annotationColor`, `annotationPageLabel` and `tags`. It discards three fields the reader will need:
+
+| Field | Shape |
+|-------|-------|
+| `annotationType` | `highlight` \| `underline` \| `note` \| `image` \| `ink` |
+| `annotationPosition` | **JSON string**, e.g. `{"pageIndex":24,"rects":[[203.6,431.05,546.86,441.6]]}` |
+| `annotationSortIndex` | pipe-delimited ordering key, e.g. `"00008\|000412\|00574"` |
+
+Add them to the `ZoteroItem` data interface in `zotero-annotations.ts` and to `ZoteroAnnotation` in `apps/web/src/features/papers/domain/zotero.ts`.
+
+**Requirements**
+
+- `annotationPosition` arrives as a JSON **string**. Parse defensively — it may be absent, empty, or malformed. Never throw; degrade to `undefined`.
+- `pageIndex` is **zero-based**. Do not conflate it with `annotationPageLabel`, which is a display string and may be roman numerals or arbitrary text.
+- All new fields are **optional**. Every existing consumer of `ZoteroAnnotation` must compile and behave unchanged.
+- **One** parse helper, used once. Do not inline the same parsing twice — `check:dry` will catch it.
+- `ZoteroAnnotation` is a feature-local domain type. Keep this task inside `features/papers`. Do not add to `packages/core`.
+
+**Tests** — extend `apps/web/src/features/papers/test/zotero-annotations.test.ts`. Cover: well-formed position; absent position; malformed JSON; missing `rects`; and that an annotation with none of the new fields maps exactly as before.
+
+---
+
+## Task 2 — Anchor resolution (pure functions)
+
+**Spec:** `docs/future-work/pdf-viewer-plan.md` §5.1 and §4.1 of `docs/competitive-research-verified-2026-07.md`.
+
+Create `packages/core/src/reader/` with pure anchor-resolution logic. No I/O, no React, no Supabase — the `packages/core` dependency rule applies strictly.
+
+Implement, per the W3C Web Annotation Data Model:
+
+- A `TextQuoteSelector` type carrying `exact`, `prefix`, `suffix`
+- A `TextPositionSelector` type carrying `start`, `end`
+- `resolveQuote(text, selector)` — find the offset of `exact` in `text`, using `prefix`/`suffix` to disambiguate
+- **Multiple-match rule:** the spec says a quote selector *SHOULD* match all occurrences. That is wrong for jump-to-locus. When several matches survive prefix/suffix disambiguation, resolve to the one **nearest the stored `TextPositionSelector` offset**; if no position fallback exists, take the first match on the lowest page.
+- Return a confidence signal (e.g. `exact` / `fuzzy` / `none`) rather than silently guessing. The caller needs to be able to warn "source may have changed" instead of jumping to the wrong place.
+
+**Requirements**
+
+- Pure functions only. Deterministic, no clock, no randomness, no network.
+- Export through the existing barrel pattern used by sibling folders in `packages/core/src`.
+- Normalise whitespace consistently between stored selector and searched text, and make that normalisation a single shared helper.
+
+**Tests** — new file under `packages/core/test/`. Cover: unique match; multiple matches disambiguated by prefix; multiple matches disambiguated by position fallback; no match; whitespace-normalisation differences; empty `exact`.
+
+---
+
+## Task 3 — Richer citation-alert signals
+
+**Spec:** `docs/competitive-research-verified-2026-07.md` §4.2.
+
+The Semantic Scholar API exposes three fields on citation edges that we do not currently capture:
+
+| Field | Meaning |
+|-------|---------|
+| `contexts` | citing text snippets |
+| `intents` | `background` \| `method` \| `result` |
+| `isInfluential` | flags highly influential citations |
+
+`CitationCandidate` in `packages/core/src/features/relations/application/citation-source.ts` currently has `id`, `title`, `authors`, `year`, `url`, `citationCount`. Extend it with these three, all **optional**, then populate them in `apps/web/src/features/relations/infrastructure/semantic-scholar-citation-source.ts`.
+
+**Requirements**
+
+- Additive only. `ICitationSource` implementations that do not provide these must keep compiling — that is the Open/Closed intent stated in the port's own doc-comment.
+- **Important caveat:** `contexts` and `intents` exist only for papers where Semantic Scholar has full text. Absent data is the normal case, not an error. Model it as optional and let callers degrade.
+- Do not change alert *delivery* (logbook entries, Mattermost). This task ends at the data being available on the candidate.
+- Do not change the polling budget (≤ 1 check per paper per day).
+
+**Tests** — extend `apps/web/src/features/relations/test/semantic-scholar-citation-alerts.test.ts` and, if the use-case surface changes, `packages/core/test/check-citation-alerts.usecase.test.ts`. Cover: all three fields present; all absent; `intents` present but `contexts` absent; malformed payload.
+
+---
+
+## Task 4 — Multi-format citation formatters (pure)
+
+**Spec:** `docs/competitive-research-verified-2026-07.md` §6, P1 "Multi-format citation insertion".
+
+Today the pipeline emits only `\cite{key}` for LaTeX. Add **pure formatting functions** for the other common forms, alongside the existing cite-key resolution in `apps/web/src/features/overleaf/application/build-overleaf-export.ts`.
+
+Formats to support:
+
+| Format | Output |
+|--------|--------|
+| LaTeX | `\cite{key}` *(existing behaviour — do not change it)* |
+| Pandoc | `[@key]` |
+| Footnote | a footnote-style reference |
+| Raw | the bare cite key |
+
+**Requirements**
+
+- **Pure functions plus tests only. Do not wire any UI in this task.** The editor integration is a separate decision and needs a human.
+- Reuse the existing cite-key resolution precedence — `metadata.citeKey` → key in `bibtex` → Better BibTeX `Citation Key:` in the Zotero `extra` field → DOI / arXiv / id. **Do not reimplement it.** If it is not already a reusable function, extract it once and have both callers use it; that extraction is the DRY-correct move here.
+- Existing Overleaf export output must be byte-identical. `apps/web/src/features/overleaf/test/build-overleaf-export.test.ts` must pass unchanged.
+
+**Tests** — new cases alongside the existing Overleaf export test. Cover each format, plus a paper with no resolvable cite key.
+
+---
+
+## When the queue is finished
+
+Append a short summary to `docs/future-work/overnight-notes.md`: which tasks completed, which were skipped and why, and anything a human should check. Commit it. Do not push.
