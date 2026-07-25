@@ -1,8 +1,20 @@
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
-import type { ZoteroAnnotation } from "../domain/zotero";
+import type {
+  ZoteroAnnotation,
+  ZoteroAnnotationPosition,
+  ZoteroAnnotationType,
+} from "../domain/zotero";
 import { zoteroHeaders, zoteroLibraryUrl } from "./zotero-web-api";
 
 export type { ZoteroAnnotation } from "../domain/zotero";
+
+const ANNOTATION_TYPES = new Set<ZoteroAnnotationType>([
+  "highlight",
+  "underline",
+  "note",
+  "image",
+  "ink",
+]);
 
 interface ZoteroTag { tag?: string }
 interface ZoteroItem {
@@ -13,6 +25,10 @@ interface ZoteroItem {
     annotationComment?: string;
     annotationColor?: string;
     annotationPageLabel?: string;
+    annotationType?: string;
+    /** JSON string, e.g. `{"pageIndex":24,"rects":[[x1,y1,x2,y2]]}`. */
+    annotationPosition?: string;
+    annotationSortIndex?: string;
     note?: string;
     tags?: ZoteroTag[];
   };
@@ -56,6 +72,9 @@ export class ZoteroAnnotations {
       const attKey = it.data?.parentItem;
       const paperKey = attKey ? attachToPaper.get(attKey) : undefined;
       if (!paperKey) continue;
+      const annotationType = parseAnnotationType(it.data?.annotationType);
+      const annotationPosition = parseAnnotationPosition(it.data?.annotationPosition);
+      const annotationSortIndex = it.data?.annotationSortIndex || undefined;
       const ann: ZoteroAnnotation = {
         key: it.key,
         kind: "annotation",
@@ -64,6 +83,9 @@ export class ZoteroAnnotations {
         color: it.data?.annotationColor || undefined,
         page: it.data?.annotationPageLabel || undefined,
         tags: (it.data?.tags ?? []).map((t) => t.tag ?? "").filter(Boolean),
+        ...(annotationType ? { annotationType } : {}),
+        ...(annotationPosition ? { annotationPosition } : {}),
+        ...(annotationSortIndex ? { annotationSortIndex } : {}),
       };
       const list = byPaper.get(paperKey);
       if (list) list.push(ann);
@@ -129,6 +151,34 @@ export class ZoteroAnnotations {
       if (page.length < PAGE) break;
     }
   }
+}
+
+/**
+ * Parse Zotero's `annotationPosition` JSON string.
+ * Absent, empty, or malformed input degrades to undefined — never throws.
+ */
+function parseAnnotationPosition(raw: string | undefined): ZoteroAnnotationPosition | undefined {
+  if (raw == null || raw.trim() === "") return undefined;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+    const pageIndex = (parsed as { pageIndex?: unknown }).pageIndex;
+    if (typeof pageIndex !== "number" || !Number.isFinite(pageIndex)) return undefined;
+    const rectsRaw = (parsed as { rects?: unknown }).rects;
+    if (!Array.isArray(rectsRaw)) return { pageIndex };
+    const rects = rectsRaw.filter(
+      (r): r is number[] =>
+        Array.isArray(r) && r.length >= 4 && r.every((n) => typeof n === "number" && Number.isFinite(n)),
+    );
+    return rects.length > 0 ? { pageIndex, rects } : { pageIndex };
+  } catch {
+    return undefined;
+  }
+}
+
+function parseAnnotationType(raw: string | undefined): ZoteroAnnotationType | undefined {
+  if (!raw || !ANNOTATION_TYPES.has(raw as ZoteroAnnotationType)) return undefined;
+  return raw as ZoteroAnnotationType;
 }
 
 /** Zotero stores notes as HTML fragments. Retrieval always receives plain text. */
