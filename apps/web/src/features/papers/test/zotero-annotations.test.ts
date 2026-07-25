@@ -6,6 +6,26 @@ function response(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 }
 
+function mockFetch(annotationData: Record<string, unknown>): typeof fetch {
+  return async (input) => {
+    const url = String(input);
+    if (url.includes("itemType=attachment")) return response([{ key: "ATTACHMENT", data: { parentItem: "PAPER" } }]);
+    if (url.includes("itemType=annotation")) {
+      return response([{ key: "A1", data: { parentItem: "ATTACHMENT", ...annotationData } }]);
+    }
+    if (url.includes("itemType=note")) return response([]);
+    return response([]);
+  };
+}
+
+async function pullAnnotation(annotationData: Record<string, unknown>) {
+  const result = await new ZoteroAnnotations(
+    async () => ({ apiKey: "test", library: "users/1" }),
+    mockFetch(annotationData),
+  ).pullAll();
+  return result.get("PAPER")?.[0];
+}
+
 test("pullAll retains stable annotation keys and normalizes Zotero child notes", async () => {
   const urls: string[] = [];
   const fetchFn: typeof fetch = async (input) => {
@@ -45,4 +65,66 @@ test("pullAll maps annotationPageLabel onto page", async () => {
   };
   const result = await new ZoteroAnnotations(async () => ({ apiKey: "test", library: "users/1" }), fetchFn).pullAll();
   assert.equal(result.get("PAPER")?.[0]?.page, "12");
+});
+
+test("pullAll parses well-formed annotationPosition and type/sort fields", async () => {
+  const ann = await pullAnnotation({
+    annotationText: "Quote",
+    annotationType: "highlight",
+    annotationPosition: JSON.stringify({ pageIndex: 24, rects: [[10, 20, 30, 40]] }),
+    annotationSortIndex: "00008|000412|00574",
+    annotationPageLabel: "xxv",
+  });
+  assert.equal(ann?.annotationType, "highlight");
+  assert.equal(ann?.annotationSortIndex, "00008|000412|00574");
+  assert.deepEqual(ann?.annotationPosition, { pageIndex: 24, rects: [[10, 20, 30, 40]] });
+  // pageIndex is zero-based; page label stays a separate display string.
+  assert.equal(ann?.page, "xxv");
+  assert.notEqual(ann?.annotationPosition?.pageIndex, Number(ann?.page));
+});
+
+test("pullAll omits annotationPosition when absent", async () => {
+  const ann = await pullAnnotation({
+    annotationText: "Quote",
+    annotationType: "underline",
+    annotationSortIndex: "00001|000001|00001",
+  });
+  assert.equal(ann?.annotationType, "underline");
+  assert.equal(ann?.annotationSortIndex, "00001|000001|00001");
+  assert.equal(ann?.annotationPosition, undefined);
+  assert.ok(!("annotationPosition" in (ann ?? {})));
+});
+
+test("pullAll degrades malformed annotationPosition JSON to undefined", async () => {
+  const ann = await pullAnnotation({
+    annotationText: "Quote",
+    annotationPosition: "{not-json",
+    annotationType: "note",
+  });
+  assert.equal(ann?.annotationPosition, undefined);
+  assert.equal(ann?.annotationType, "note");
+});
+
+test("pullAll keeps pageIndex when rects are missing", async () => {
+  const ann = await pullAnnotation({
+    annotationText: "Quote",
+    annotationPosition: JSON.stringify({ pageIndex: 0 }),
+  });
+  assert.deepEqual(ann?.annotationPosition, { pageIndex: 0 });
+});
+
+test("annotation without new fields maps exactly as before", async () => {
+  const ann = await pullAnnotation({
+    annotationText: "Highlighted",
+    tags: [{ tag: "method" }],
+  });
+  assert.deepEqual(ann, {
+    key: "A1",
+    kind: "annotation",
+    text: "Highlighted",
+    comment: undefined,
+    color: undefined,
+    page: undefined,
+    tags: ["method"],
+  });
 });
