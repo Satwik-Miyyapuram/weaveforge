@@ -19,3 +19,10 @@ export {
   type CombinedPdfAnchor,
   type AnchorStrategy,
 } from "./anchor-strategy.js";
+export {
+  resolvePdfSource,
+  type PdfSourcePaper,
+  type PdfSourceHit,
+  type IPdfSourceResolver,
+  type PdfSourceResolution,
+} from "./pdf-source-ladder.js";
