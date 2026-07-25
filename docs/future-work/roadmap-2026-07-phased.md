@@ -70,33 +70,66 @@ None of these depend on the reader decision. Highest value per unit of effort in
 
 ---
 
-## Phase C — Decision gate (human required)
+## Phase C — Decisions ✅ RESOLVED 2026-07-25
 
-Nothing in Phase D can start until these are answered. All four are cheap to answer and expensive to guess.
+All four are decided. Phase D is unblocked. Rationale recorded so each can be revisited on evidence rather than re-argued from scratch.
 
-| # | Decision | Where | Blocks |
-|---|----------|-------|--------|
-| C1 | **Reader engine** — `zotero/reader` (AGPL, now available to us) vs pdf.js | `pdf-viewer-plan.md` §1.1, six pass/fail criteria | All of Phase D |
-| C2 | **Zotero annotation write-back** — run the API spike, test a group library | `pdf-viewer-plan.md` §5.3 | Annotation sync scope |
-| C3 | **Brief §11 amendment** — the in-app reader non-goal | `pdf-viewer-plan.md` §2 | Formal scope of D |
-| C4 | **Migration policy for agent work** — currently on the never-touch list | `overnight-queue.md` | Persistence in D |
+### C1 — Reader engine: **pdf.js.** `zotero/reader` documented as fallback.
 
-C1 is the big one: if `zotero/reader` runs standalone at acceptable size, Phase D shrinks dramatically and brings EPUB and HTML with it.
+Evidence gathered 2026-07-25:
+
+| Signal | Finding |
+|--------|---------|
+| Maintenance | Active — last push 2026-07-24, 201 stars |
+| npm | **Not published.** Neither `@zotero/reader` nor `zotero-reader` exists |
+| Build | Requires `NODE_OPTIONS=--openssl-legacy-provider`, recursive git submodules, Node 18+ |
+| Standalone | The `dev` variant serves `reader.html` locally, so it *can* run outside the Zotero client |
+
+**Decision: build on pdf.js.** Reasons, in order of weight:
+
+1. **No npm package** means vendoring a submodule and building it from source inside our CI. That is a permanent maintenance tax on a solo project, and it is not a decision that is cheap to reverse.
+2. **`--openssl-legacy-provider`** signals a legacy webpack toolchain. Our host is Next.js 14 with a Serwist service worker and a reader-chunk budget under ~1MB gzipped (`pdf-viewer-plan.md` §6). That is an impedance mismatch, not a detail.
+3. **We are buying far less than the engine sells.** Per C3 below, Phase D needs a *read-only rendering surface for provenance verification*, not a full annotator. Taking the whole engine to get a viewer is over-buying.
+4. **The anchor model is already renderer-agnostic** (`packages/core/src/reader/`), so choosing pdf.js costs little and preserves the option.
+
+**Honest counter:** ZotFlow embeds this engine successfully, so it is demonstrably possible. But ZotFlow is an Obsidian plugin — Electron, no bundle budget, no SSR, no service worker. A far friendlier host than a Next.js PWA.
+
+**Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
+
+### C2 — Zotero write-back: **deferred. Phase D is read-only.**
+
+The API spike needs live credentials and mutates a real Zotero library, so it cannot be done unsupervised. Rather than let that block everything, **remove it from the critical path**: Phase D reads and renders annotations, and creates none.
+
+This costs little. Annotations already sync inbound (§6.1), and the provenance UI — the actual P0 — only needs to *display* evidence. Write-back becomes its own later decision with its own spike, when a human can watch it.
+
+### C3 — Brief §11 amendment: **narrow, not broad.**
+
+Amend the non-goal to permit **a read-only PDF rendering surface for provenance verification and jump-to-locus**. Explicitly still non-goals: creating or editing annotations in-app, becoming a PDF storage service, replacing Zotero as system of record.
+
+This is a smaller change than `pdf-viewer-plan.md` §2 originally proposed, and it follows from C1 and C2 rather than driving them.
+
+### C4 — Migration policy for agent work: **write, never apply.**
+
+An agent **may author** migration files under `supabase/migrations/` when a task requires schema. It must **never apply, run, or otherwise execute them** against any database, and must never modify an existing migration.
+
+Each new migration is committed as a file for human review and application. This unblocks persistence design without letting unsupervised work touch data. `overnight-queue.md`'s never-touch list is amended accordingly.
 
 ---
 
-## Phase D — Reader and provenance
+## Phase D — Reader and provenance (read-only)
 
-**Blocked by C1–C4.** This is where the P0 provenance UI lands.
+**Unblocked.** Scope set by C1 (pdf.js), C2 (read-only), C3 (narrow non-goal), C4 (migrations authored not applied).
 
 | Item | Roadmap | Effort | Notes |
 |------|---------|--------|-------|
-| Locus persistence | — | M | Migration for stored anchors. Gated on C4. |
-| Reader integration | — | M–L | Size depends entirely on C1. |
-| Jump-to-locus | P1 | M | Uses A-2/2b/5. Works without a viewer by handing off externally; better with one. |
-| **Provenance UI at `/ai-review`** | **P0** | M | Split pane: proposed write on one side, source excerpt with the used sentence highlighted on the other. **Design for a review queue, not a chat pane** — that constraint is what makes it ours rather than a copy of Elicit. |
+| Locus persistence | — | M | Migration **authored** for stored anchors; a human applies it (C4). |
+| pdf.js render surface | — | M | Read-only. Dynamic import, worker off main thread, virtualised pages, text layer on demand. Chunk budget ~1MB gzipped; **zero bytes added to first paint on non-reader routes**. |
+| Jump-to-locus | P1 | M | Uses A-2/2b/5. Resolve by quote, fall back to position, surface low confidence rather than jumping wrong. |
+| **Provenance UI at `/ai-review`** | **P0** | M | Split pane: proposed write on one side, source excerpt with the used sentence highlighted on the other, surrounding context dimmed. **Design for a review queue, not a chat pane** — that constraint is what makes it ours rather than a copy of Elicit. |
 
-**Exit criteria:** an AI proposal at `/ai-review` shows claim-level evidence, and clicking it reaches the exact source locus.
+**Not in this phase** (C2): creating, editing, or writing back annotations. Existing Zotero annotations render read-only.
+
+**Exit criteria:** an AI proposal at `/ai-review` shows claim-level evidence, and clicking it opens the source at the exact locus without leaving the app.
 
 ---
 
@@ -146,9 +179,20 @@ From `competitive-research-verified-2026-07.md` §5 and §6, unchanged:
 |-------|------|------------------------|
 | **A** | none — in flight | foundations for P1 anchors, discovery, citation |
 | **B** | none | **P0** vault templates · P1 citation wiring · P1 discovery filters · P1 artifact pinning |
-| **C** | human decisions | — |
-| **D** | C1–C4 | **P0** provenance UI · P1 deep links |
+| **C** | ✅ resolved 2026-07-25 | — |
+| **D** | unblocked | **P0** provenance UI · P1 deep links (read-only) |
 | **E** | D | **P0** AI extraction fill |
 | **F** | D | P2 quotation types · P2 lab snapshots |
 
-**Do B while C is being decided.** It contains a P0 at S effort and needs no decisions — leaving it idle behind the reader gate is the most likely way to waste the next fortnight.
+**Every gate is now closed and nothing is waiting on a decision.** A and B can run in parallel; D follows A.
+
+## Deferred decisions, with triggers
+
+Not blockers. Each has a defined moment to revisit rather than an open question sitting on the board.
+
+| Deferred | Revisit when |
+|----------|--------------|
+| `zotero/reader` as engine | it publishes to npm, or drops `--openssl-legacy-provider` |
+| Zotero annotation write-back | a human can supervise a spike against a real library, including a **group** library |
+| Typst authoring target | a major venue accepts Typst source, or official `.tex` export lands |
+| Server-side PDF storage | a user actually asks for it; it stays opt-in and quota'd regardless |

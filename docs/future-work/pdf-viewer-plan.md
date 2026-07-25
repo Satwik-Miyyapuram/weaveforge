@@ -35,9 +35,13 @@ Practical rules that still apply:
 
 > Not legal advice. The AGPL combination is straightforward, but the multi-licence boundary between the app and the SDK is worth a lawyer's read before the first public release.
 
-### 1.1 Reader engine: `zotero/reader` vs pdf.js
+### 1.1 Reader engine — DECIDED 2026-07-25: **pdf.js**
 
-Decide with a spike, not a preference. Criteria:
+See `docs/future-work/roadmap-2026-07-phased.md` §C1 for the full rationale. Summary of the evidence that settled it: `zotero/reader` is actively maintained (pushed 2026-07-24) but is **not published to npm**, and building it requires recursive git submodules plus `NODE_OPTIONS=--openssl-legacy-provider`. Consuming it means vendoring a submodule and building from source in CI, on a legacy webpack toolchain, inside a Next.js 14 PWA with a ~1MB gzipped reader-chunk budget. We are also buying far more than we need: per decision C3 the scope is a **read-only rendering surface**, not an annotator.
+
+The anchor model in `packages/core/src/reader/` is renderer-agnostic, so this decision is cheap to revisit. **Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
+
+The criteria below are retained for that revisit:
 
 | Question | Why it matters |
 |----------|----------------|
@@ -59,9 +63,11 @@ Brief §11 currently reads: *"Full in-app PDF annotator (Zotero owns PDFs/annota
 
 That non-goal assumed two options — delegate entirely to Zotero, or build an annotator. ZotFlow demonstrates a third the rationale never costed. This plan supersedes the non-goal, but narrows it rather than discarding it:
 
-**New position.** WeaveForge renders and annotates PDFs in-app. **Zotero remains the system of record for annotations**; ours sync to it. We do not become a PDF *library* — see the storage ladder in §4, where server-side PDF storage is opt-in and last-resort.
+**New position — narrowed by decision C3 (2026-07-25).** WeaveForge renders PDFs in-app **read-only**, to verify AI provenance and support jump-to-locus. It does **not** create or edit annotations in-app. Zotero remains the system of record; existing annotations render read-only, and write-back is deferred to its own decision (C2).
 
-What stays a non-goal: becoming a PDF storage service, an OCR pipeline, or a Zotero replacement.
+What stays a non-goal: creating or editing annotations in-app, becoming a PDF storage service, an OCR pipeline, or a Zotero replacement.
+
+This is a smaller amendment than earlier drafts of this section proposed, and it follows from C1 and C2 rather than driving them.
 
 Amend §11 and §6.1 ("PDFs are not stored in-product") before build. §6.1's claim becomes "PDFs are not stored in-product *by default*."
 
