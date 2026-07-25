@@ -1,0 +1,74 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.local
+.env*.local
+local-dev/
+
+# demo captures (regenerate locally; README embeds added later)
+docs/demo/
+
+# graphify build artifacts
+graphify-out/
+
+# playwright
+apps/web/test-results/
+apps/web/e2e/.auth/
+
+# Serwist (generated at next build)
+apps/web/public/sw.js
+apps/web/public/sw.js.map
+apps/web/public/swe-worker*
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# supabase
+supabase/.branches
+supabase/.temp
+.conda-plugin-tools
+# Phase-5 E2EE pre-drop backups (contain key material — never commit)
+backups/
+
+# Android TWA signing keys — never commit
+*.jks
+*.keystore
+apps/web/twa/android-keystore.jks
+# TWA local Gradle / Bubblewrap outputs
+apps/web/twa/.gradle/
+apps/web/twa/app/
+apps/web/twa/*.apk
+apps/web/twa/*.apk.idsig
+apps/web/twa/gradle/
+apps/web/twa/gradlew
+apps/web/twa/gradlew.bat
+apps/web/twa/build.gradle
+apps/web/twa/settings.gradle
+apps/web/twa/gradle.properties
+apps/web/twa/manifest-checksum.txt
+apps/web/twa/store_icon.png
+
+# playwright (root)
+test-results/

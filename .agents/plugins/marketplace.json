@@ -1,0 +1,20 @@
+{
+  "name": "personal",
+  "interface": {
+    "displayName": "Thesis Tracker Development"
+  },
+  "plugins": [
+    {
+      "name": "thesis-tracker-research",
+      "source": {
+        "source": "local",
+        "path": "./plugins/thesis-tracker-research"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

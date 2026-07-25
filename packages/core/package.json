@@ -1,0 +1,33 @@
+{
+  "name": "@thesis/core",
+  "version": "0.1.0",
+  "description": "Shared, framework-agnostic domain contracts and types for Thesis Tracker.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./org-crypto": {
+      "types": "./dist/features/org/domain/invite-code-crypto.d.ts",
+      "default": "./dist/features/org/domain/invite-code-crypto.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}

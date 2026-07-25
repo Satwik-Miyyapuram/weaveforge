@@ -1,0 +1,67 @@
+WeaveForge (Thesis Tracker)
+Copyright 2026 Satwik Miyyapuram
+
+================================================================================
+Licence
+================================================================================
+
+This entire repository is licensed under the GNU Affero General Public License,
+version 3 only (AGPL-3.0-only). See LICENSE for the full text.
+
+That covers everything without exception: the web application, packages/core,
+the `thesis-tracker` Python SDK under python/, and the Codex MCP plugin under
+plugins/thesis-tracker-research/.
+
+WeaveForge is open source for the people who use it. The copyleft is
+deliberate. If you build on this work, run it as a service, or ship a
+derivative, AGPL-3.0 section 13 requires that you offer your users the
+corresponding source of your version. You may not take this work private.
+
+  "Notwithstanding any other provision of this License, if you modify the
+   Program, your modified version must prominently offer all users interacting
+   with it remotely through a computer network ... an opportunity to receive
+   the Corresponding Source of your version by providing access to the
+   Corresponding Source from a network server at no charge."
+                                              -- AGPL-3.0, section 13
+
+Attribution must be preserved. Copyright notices, this NOTICE file, and the
+licence text may not be removed from copies or derivative works.
+
+================================================================================
+Applying the licence to source files
+================================================================================
+
+New source files should carry the standard header:
+
+    Copyright (C) 2026 Satwik Miyyapuram
+    This program is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, version 3.
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero
+    General Public License for more details.
+    You should have received a copy of the GNU Affero General Public License
+    along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+Or the short form: SPDX-License-Identifier: AGPL-3.0-only
+
+Headers are recommended, not required; the repository-wide LICENSE governs
+regardless.
+
+================================================================================
+Third-party components
+================================================================================
+
+This product includes software developed by third parties. Each remains under
+its own licence. The list below records vendored or bundled components and is
+not exhaustive of transitive dependencies -- see package.json,
+package-lock.json, and python/pyproject.toml for the complete dependency sets.
+
+Because this project is AGPL-3.0, components under permissive licences
+(Apache-2.0, MIT, BSD) may be included. Components under licences incompatible
+with AGPL-3.0 may not.
+
+  (Add entries here as vendored or bundled components are introduced --
+   for example a PDF rendering engine -- recording the component name, its
+   upstream project, and its licence.)

@@ -1,0 +1,170 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  buildPageTree,
+  vaultBodyPreview,
+  type IVaultPageRepository,
+  type VaultPage,
+  type VaultPageFilter,
+  type VaultPageTreeNode,
+} from "@thesis/core";
+import type { ProjectContext } from "@/lib/project-context";
+
+interface VaultPageRow {
+  id: string;
+  title: string;
+  body?: string | null;
+  body_preview?: string | null;
+  parent_id: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+const TABLE = "vault_pages";
+
+/** Tree/card projection — preview only; full body via getById on open. */
+const VAULT_SUMMARY_COLUMNS =
+  "id,title,parent_id,sort_order,created_at,updated_at,project_id,body_preview";
+
+export class SupabaseVaultPageRepository implements IVaultPageRepository {
+  constructor(
+    private readonly db: SupabaseClient,
+    private readonly ctx: ProjectContext,
+  ) {}
+
+  private get pid() {
+    return this.ctx.projectId;
+  }
+
+  async getById(id: string): Promise<VaultPage | null> {
+    const { data, error } = await this.db
+      .from(TABLE)
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? toDomain(data as VaultPageRow) : null;
+  }
+
+  async list(filter?: VaultPageFilter): Promise<VaultPage[]> {
+    let query = this.db.from(TABLE).select("*");
+    if (this.pid) query = query.eq("project_id", this.pid);
+    if (filter?.parentId !== undefined) {
+      query =
+        filter.parentId === null
+          ? query.is("parent_id", null)
+          : query.eq("parent_id", filter.parentId);
+    }
+    if (filter?.query) {
+      const pattern = `%${filter.query.replace(/[%_]/g, "\\$&")}%`;
+      query = query.or(`title.ilike."${pattern}",body.ilike."${pattern}"`);
+    }
+    query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data as VaultPageRow[]).map(toDomain);
+  }
+
+  async listSummaries(): Promise<VaultPage[]> {
+    let query = this.db.from(TABLE).select(VAULT_SUMMARY_COLUMNS);
+    if (this.pid) query = query.eq("project_id", this.pid);
+    query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
+    const { data, error } = await query;
+    if (error) {
+      // Pre-migration fallback: derive preview from full body if body_preview is missing.
+      if (isMissingBodyPreviewColumn(error)) {
+        return this.listSummariesFromBody();
+      }
+      throw error;
+    }
+    return (data as VaultPageRow[]).map(toSummaryDomain);
+  }
+
+  /** Fallback when `body_preview` has not been migrated yet. */
+  private async listSummariesFromBody(): Promise<VaultPage[]> {
+    let query = this.db
+      .from(TABLE)
+      .select("id,title,parent_id,sort_order,created_at,updated_at,project_id,body");
+    if (this.pid) query = query.eq("project_id", this.pid);
+    query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data as VaultPageRow[]).map((row) => ({
+      id: row.id,
+      title: row.title,
+      body: "",
+      bodyPreview: vaultBodyPreview(row.body ?? ""),
+      parentId: row.parent_id ?? undefined,
+      sortOrder: row.sort_order,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  async getTree(): Promise<VaultPageTreeNode[]> {
+    let q = this.db.from(TABLE).select(VAULT_SUMMARY_COLUMNS);
+    if (this.pid) q = q.eq("project_id", this.pid);
+    const { data, error } = await q;
+    if (error) {
+      if (isMissingBodyPreviewColumn(error)) {
+        return buildPageTree(await this.listSummariesFromBody());
+      }
+      throw error;
+    }
+    return buildPageTree((data as VaultPageRow[]).map(toSummaryDomain));
+  }
+
+  async save(entity: VaultPage): Promise<void> {
+    const row = toRow(entity);
+    if (this.pid) row.project_id = this.pid;
+    const { error } = await this.db.from(TABLE).upsert(row);
+    if (error) throw error;
+  }
+
+  async delete(id: string): Promise<void> {
+    const { error } = await this.db.from(TABLE).delete().eq("id", id);
+    if (error) throw error;
+  }
+}
+
+function isMissingBodyPreviewColumn(error: { message?: string; code?: string }): boolean {
+  const msg = (error.message ?? "").toLowerCase();
+  return msg.includes("body_preview") && (msg.includes("column") || error.code === "42703");
+}
+
+function toDomain(row: VaultPageRow): VaultPage {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body ?? "",
+    parentId: row.parent_id ?? undefined,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toSummaryDomain(row: VaultPageRow): VaultPage {
+  return {
+    id: row.id,
+    title: row.title,
+    body: "",
+    bodyPreview: row.body_preview ?? "",
+    parentId: row.parent_id ?? undefined,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toRow(p: VaultPage): Record<string, unknown> {
+  return {
+    id: p.id,
+    title: p.title,
+    body: p.body ?? "",
+    parent_id: p.parentId ?? null,
+    sort_order: p.sortOrder,
+    created_at: p.createdAt,
+    updated_at: p.updatedAt,
+  };
+}

@@ -1,0 +1,375 @@
+/*
+ * Theme tokens — the single source of truth for all colors.
+ *
+ * Ported from the "Thesis Tracker" Claude Design system. Two layers:
+ *
+ *  1. RAW design tokens, defined per theme (--bg, --surface, --surface2, --elev,
+ *     --border, --border-strong, --text, --muted, --faint, --accent,
+ *     --accent-fg, --accent-soft, and the semantic status ramp --s-*).
+ *  2. ALIASES (defined once in :root) that map the app's historical variable
+ *     names onto the raw tokens. Because CSS custom properties resolve at use
+ *     time, the aliases automatically pick up whichever theme is active — so a
+ *     new theme only needs to redefine the raw tokens.
+ *
+ * Themes are split into LIGHT and DARK sections. The active theme is chosen by
+ * the `data-theme` attribute on <html> (no-flash script + ThemeToggle); `:root`
+ * (no attribute) is the default light theme, "Paper". The default dark theme,
+ * "Slate", is `[data-theme="dark"]`. Also: honey, vivid-light, pastel-light,
+ * vivid-dark, pastel-dark, contrast (HC dark).
+ */
+
+/* ============================================================= *
+ *  ALIASES — app variable names → design tokens (theme-agnostic)
+ * ============================================================= */
+:root {
+  --ink: var(--text);
+  --line: var(--border);
+  /* Raised surfaces (banners, tips). Was used in three places but never
+   * defined, so `background: var(--panel)` silently resolved to nothing and
+   * those elements rendered transparent. */
+  --panel: var(--elev);
+  /* Recessed surfaces (rows, code blocks). Same story as --panel: referenced in
+   * four places, defined in none. An undefined custom property is not an error —
+   * the declaration is just dropped — so these went unnoticed. */
+  --surface-alt: var(--surface2);
+  /* Width the desktop sidebar steals from the left. Zero until the sidebar
+   * exists; overlays centre over the content column by offsetting half of it,
+   * otherwise viewport-centring leaves them visibly left of the content. */
+  --nav-inset: 0px;
+  --input-bg: var(--elev);
+  --pill: var(--surface2);
+  --chip: var(--surface2);
+  --neutral: var(--surface2);
+  --status-neutral: var(--surface2);
+  --hover: var(--accent-soft);
+  --active-bg: var(--accent-soft);
+  --active-fg: var(--accent);
+  --accent-ink: var(--accent);
+  --clay: var(--s-warn);
+  --danger: var(--s-danger);
+  --nav-bg: var(--surface);
+
+  /* Scrollbars — thumb/track follow active theme. */
+  --scrollbar-thumb: color-mix(in srgb, var(--muted) 42%, var(--border-strong));
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--muted) 72%, var(--border-strong));
+  --scrollbar-track: color-mix(in srgb, var(--surface2) 55%, transparent);
+
+  /* Status pill families → semantic ramp */
+  --st-neutral-bg: var(--s-neutral-bg);   --st-neutral-fg: var(--s-neutral);
+  --st-positive-bg: var(--s-good-bg);     --st-positive-fg: var(--s-good);
+  --st-info-bg: var(--s-info-bg);         --st-info-fg: var(--s-info);
+  --st-warn-bg: var(--s-warn-bg);         --st-warn-fg: var(--s-warn);
+  --st-danger-bg: var(--s-danger-bg);     --st-danger-fg: var(--s-danger);
+  --st-mute-bg: var(--s-mute-bg);         --st-mute-fg: var(--s-mute);
+
+  /* Graph node fills (by paper status) */
+  --node-default: var(--s-neutral);
+  --node-reading: var(--s-info);
+  --node-read: var(--s-good);
+  --node-skimmed: var(--s-warn);
+
+  /* Light-mode elevation + selection ring (dark themes override below). */
+  --sel-ring: rgba(20, 20, 30, 0.10);
+  --shadow:
+    0 2px 8px rgba(30, 30, 40, 0.06),
+    0 16px 32px rgba(30, 30, 40, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* ============================================================= *
+ *  LIGHT THEMES
+ * ============================================================= */
+
+/* Paper — default light */
+:root {
+  --bg: #f4f1ea;
+  --surface: #fbfaf6;
+  --surface2: #efece3;
+  --elev: #fdfcf9;
+  --border: #e4dfd2;
+  --border-strong: #d3ccb9;
+  --text: #2b2924;
+  --muted: #6b6659;
+  --faint: #9a9384;
+  --accent: #3b5b8c;
+  --accent-fg: #ffffff;
+  --accent-soft: #e7edf5;
+  --s-neutral: #6b6659;  --s-neutral-bg: #eceae2;
+  --s-info: #2f6f8f;     --s-info-bg: #e2eef2;
+  --s-good: #3f7a52;     --s-good-bg: #e4efe6;
+  --s-warn: #a6742a;     --s-warn-bg: #f3ebdc;
+  --s-danger: #a4443a;   --s-danger-bg: #f3e2df;
+  --s-mute: #8a8478;     --s-mute-bg: #ecebe4;
+}
+
+/* Latte */
+[data-theme="latte"] {
+  --bg: #eff1f5;
+  --surface: #ffffff;
+  --surface2: #e6e9ef;
+  --elev: #ffffff;
+  --border: #ccd0da;
+  --border-strong: #bcc0cc;
+  --text: #4c4f69;
+  --muted: #64677c;
+  --faint: #8c8fa1;
+  --accent: #1d63ee;
+  --accent-fg: #ffffff;
+  --accent-soft: #dce4fb;
+  --s-neutral: #6c6f85;  --s-neutral-bg: #e6e9ef;
+  --s-info: #1e88a8;     --s-info-bg: #d9eef2;
+  --s-good: #40a02b;     --s-good-bg: #e0f0dc;
+  --s-warn: #df8e1d;     --s-warn-bg: #f6ead0;
+  --s-danger: #d20f39;   --s-danger-bg: #f6dbe1;
+  --s-mute: #8c8fa1;     --s-mute-bg: #e6e9ef;
+}
+
+/* Honey — warm cream & amber */
+[data-theme="honey"] {
+  --bg: #faf4eb;
+  --surface: #fffdfa;
+  --surface2: #f5ebe0;
+  --elev: #fffdf9;
+  --border: #e8d9c8;
+  --border-strong: #d4c0a8;
+  --text: #2c2318;
+  --muted: #756556;
+  --faint: #a89582;
+  --accent: #b45309;
+  --accent-fg: #fffdfa;
+  --accent-soft: #fde8d0;
+  --s-neutral: #756556;  --s-neutral-bg: #eee4d8;
+  --s-info: #0d6e82;     --s-info-bg: #dceef2;
+  --s-good: #3d7a47;     --s-good-bg: #dcebe0;
+  --s-warn: #b45309;     --s-warn-bg: #faebd0;
+  --s-danger: #b83c32;   --s-danger-bg: #f5ddd9;
+  --s-mute: #9a8774;     --s-mute-bg: #ebe4da;
+}
+
+/* Vivid Light — saturated tints, electric accents */
+[data-theme="vivid-light"] {
+  --bg: #eef2ff;
+  --surface: #ffffff;
+  --surface2: #e0e7ff;
+  --elev: #f5f3ff;
+  --border: #a5b4fc;
+  --border-strong: #818cf8;
+  --text: #1e1b4b;
+  --muted: #4338ca;
+  --faint: #6366f1;
+  --accent: #7c3aed;
+  --accent-fg: #ffffff;
+  --accent-soft: #ede9fe;
+  --s-neutral: #64748b;  --s-neutral-bg: #e2e8f0;
+  --s-info: #0284c7;     --s-info-bg: #bae6fd;
+  --s-good: #059669;     --s-good-bg: #a7f3d0;
+  --s-warn: #d97706;     --s-warn-bg: #fde68a;
+  --s-danger: #dc2626;   --s-danger-bg: #fecaca;
+  --s-mute: #7c3aed;     --s-mute-bg: #ede9fe;
+  --sel-ring: rgba(124, 58, 237, 0.22);
+  --shadow:
+    0 2px 10px rgba(99, 102, 241, 0.12),
+    0 16px 36px rgba(124, 58, 237, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+/* Pastel Light — soft candy-shop washes */
+[data-theme="pastel-light"] {
+  --bg: #fdf2f8;
+  --surface: #fffbfe;
+  --surface2: #fce7f3;
+  --elev: #fff7fb;
+  --border: #f9a8d4;
+  --border-strong: #f472b6;
+  --text: #4a044e;
+  --muted: #9d174d;
+  --faint: #be185d;
+  --accent: #c23b7d;
+  --accent-fg: #ffffff;
+  --accent-soft: #fbcfe8;
+  --s-neutral: #a78bfa;  --s-neutral-bg: #ede9fe;
+  --s-info: #38bdf8;     --s-info-bg: #e0f2fe;
+  --s-good: #4ade80;     --s-good-bg: #dcfce7;
+  --s-warn: #fbbf24;     --s-warn-bg: #fef3c7;
+  --s-danger: #fb7185;   --s-danger-bg: #ffe4e6;
+  --s-mute: #c4b5fd;     --s-mute-bg: #f3e8ff;
+  --sel-ring: rgba(236, 72, 153, 0.18);
+  --shadow:
+    0 2px 10px rgba(244, 114, 182, 0.10),
+    0 16px 32px rgba(167, 139, 250, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* ============================================================= *
+ *  DARK THEMES
+ * ============================================================= */
+
+/* Shared dark-mode elevation + selection ring. */
+[data-theme="dark"],
+[data-theme="mocha"],
+[data-theme="dracula"],
+[data-theme="amoled"],
+[data-theme="contrast"],
+[data-theme="vivid-dark"] {
+  /* pastel-dark omitted here — its full block below sets its own sel-ring/shadow. */
+  --sel-ring: rgba(255, 255, 255, 0.14);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+/* Slate */
+[data-theme="dark"] {
+  --bg: #14171c;
+  --surface: #1b1f26;
+  --surface2: #232833;
+  --elev: #232833;
+  --border: #2c333f;
+  --border-strong: #3a424f;
+  --text: #e7ebf1;
+  --muted: #98a1b0;
+  --faint: #6b7382;
+  --accent: #7aa2e3;
+  --accent-fg: #0e1116;
+  --accent-soft: #24303f;
+  --s-neutral: #a4adba;  --s-neutral-bg: #262b34;
+  --s-info: #7cc4de;     --s-info-bg: #1e2e37;
+  --s-good: #7fc79a;     --s-good-bg: #1c2a22;
+  --s-warn: #d6a860;     --s-warn-bg: #332a1c;
+  --s-danger: #e08a80;   --s-danger-bg: #331f1d;
+  --s-mute: #8a92a0;     --s-mute-bg: #242830;
+}
+
+/* Mocha */
+[data-theme="mocha"] {
+  --bg: #1e1e2e;
+  --surface: #181825;
+  --surface2: #313244;
+  --elev: #252537;
+  --border: #313244;
+  --border-strong: #45475a;
+  --text: #cdd6f4;
+  --muted: #a6adc8;
+  --faint: #7f849c;
+  --accent: #89b4fa;
+  --accent-fg: #1e1e2e;
+  --accent-soft: #2a2b40;
+  --s-neutral: #a6adc8;  --s-neutral-bg: #292a3a;
+  --s-info: #89dceb;     --s-info-bg: #1f2c33;
+  --s-good: #a6e3a1;     --s-good-bg: #1f2b1e;
+  --s-warn: #f9e2af;     --s-warn-bg: #31301f;
+  --s-danger: #f38ba8;   --s-danger-bg: #33212a;
+  --s-mute: #7f849c;     --s-mute-bg: #26273a;
+}
+
+/* Dracula */
+[data-theme="dracula"] {
+  --bg: #282a36;
+  --surface: #21222c;
+  --surface2: #343746;
+  --elev: #2b2d3a;
+  --border: #343746;
+  --border-strong: #44475a;
+  --text: #f8f8f2;
+  --muted: #bdc0d4;
+  --faint: #6272a4;
+  --accent: #bd93f9;
+  --accent-fg: #21222c;
+  --accent-soft: #343153;
+  --s-neutral: #bdc0d4;  --s-neutral-bg: #2f313f;
+  --s-info: #8be9fd;     --s-info-bg: #1f333a;
+  --s-good: #50fa7b;     --s-good-bg: #1e3325;
+  --s-warn: #f1fa8c;     --s-warn-bg: #33341f;
+  --s-danger: #ff5555;   --s-danger-bg: #3a2226;
+  --s-mute: #6272a4;     --s-mute-bg: #2c2f42;
+}
+
+/* Amoled — default dark */
+[data-theme="amoled"] {
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface2: #141414;
+  --elev: #101010;
+  --border: #1f1f1f;
+  --border-strong: #2e2e2e;
+  --text: #eaeaea;
+  --muted: #8a8a8a;
+  --faint: #5a5a5a;
+  --accent: #4c8dff;
+  --accent-fg: #000000;
+  --accent-soft: #10161f;
+  --s-neutral: #9a9a9a;  --s-neutral-bg: #161616;
+  --s-info: #5ab0d0;     --s-info-bg: #0d1c22;
+  --s-good: #5cc98a;     --s-good-bg: #0c1f14;
+  --s-warn: #c99a4a;     --s-warn-bg: #1f1808;
+  --s-danger: #d86a62;   --s-danger-bg: #20100e;
+  --s-mute: #6a6a6a;     --s-mute-bg: #141414;
+}
+
+/* Contrast — high-contrast dark (accessibility) */
+[data-theme="contrast"] {
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface2: #141414;
+  --elev: #111111;
+  --border: #6b6b6b;
+  --border-strong: #ffffff;
+  --text: #ffffff;
+  --muted: #e8e8e8;
+  --faint: #c8c8c8;
+  --accent: #ffeb3b;
+  --accent-fg: #000000;
+  --accent-soft: #2a2600;
+  --s-neutral: #ffffff;  --s-neutral-bg: #1a1a1a;
+  --s-info: #4dd0ff;     --s-info-bg: #0a1f28;
+  --s-good: #69f0ae;     --s-good-bg: #0a2418;
+  --s-warn: #ffeb3b;     --s-warn-bg: #2a2400;
+  --s-danger: #ff6e6e;   --s-danger-bg: #2a1010;
+  --s-mute: #c8c8c8;     --s-mute-bg: #1a1a1a;
+}
+
+/* Vivid Dark — neon on deep indigo/violet */
+[data-theme="vivid-dark"] {
+  --bg: #0c0a1d;
+  --surface: #15122b;
+  --surface2: #1f1a3d;
+  --elev: #1a1635;
+  --border: #4c1d95;
+  --border-strong: #7c3aed;
+  --text: #f5f3ff;
+  --muted: #c4b5fd;
+  --faint: #8b5cf6;
+  --accent: #22d3ee;
+  --accent-fg: #0c0a1d;
+  --accent-soft: #1e293b;
+  --s-neutral: #94a3b8;  --s-neutral-bg: #1e293b;
+  --s-info: #38bdf8;     --s-info-bg: #0c4a6e;
+  --s-good: #34d399;     --s-good-bg: #064e3b;
+  --s-warn: #fbbf24;     --s-warn-bg: #78350f;
+  --s-danger: #f87171;   --s-danger-bg: #7f1d1d;
+  --s-mute: #a78bfa;     --s-mute-bg: #2e1065;
+  --sel-ring: rgba(34, 211, 238, 0.28);
+  --shadow: 0 1px 3px rgba(124, 58, 237, 0.35), 0 12px 32px rgba(34, 211, 238, 0.12);
+}
+
+/* Pastel Dark — dusty lavender & blush on twilight */
+[data-theme="pastel-dark"] {
+  --bg: #1a1625;
+  --surface: #231f30;
+  --surface2: #2d2840;
+  --elev: #282338;
+  --border: #6b5b7a;
+  --border-strong: #9d8bb5;
+  --text: #f3e8ff;
+  --muted: #d8b4fe;
+  --faint: #a78bfa;
+  --accent: #f9a8d4;
+  --accent-fg: #1a1625;
+  --accent-soft: #3b2f4a;
+  --s-neutral: #c4b5fd;  --s-neutral-bg: #2e2640;
+  --s-info: #7dd3fc;     --s-info-bg: #1e3a4f;
+  --s-good: #86efac;     --s-good-bg: #1a3d2e;
+  --s-warn: #fcd34d;     --s-warn-bg: #3d3018;
+  --s-danger: #fda4af;   --s-danger-bg: #3d1f28;
+  --s-mute: #9d8bb5;     --s-mute-bg: #2a2438;
+  --sel-ring: rgba(249, 168, 212, 0.22);
+  --shadow: 0 1px 3px rgba(167, 139, 250, 0.25), 0 12px 28px rgba(249, 168, 212, 0.08);
+}

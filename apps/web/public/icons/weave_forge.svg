@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <style>
+      /* 
+         The SVG looks for these variables in your app's CSS. 
+         If it can't find them, it uses the fallback colors (Light Mode). 
+      */
+      .bg-rect { 
+        fill: var(--logo-bg, #F1ECE1); 
+        transition: fill 0.3s ease; /* Smooth transition when changing themes */
+      }
+      .ink-stroke { 
+        stroke: var(--logo-ink, #0F2540); 
+        transition: stroke 0.3s ease;
+      }
+      .ink-fill { 
+        fill: var(--logo-ink, #0F2540); 
+        transition: fill 0.3s ease;
+      }
+      .accent-fill { 
+        fill: var(--logo-accent, #4B6FA5); 
+        transition: fill 0.3s ease;
+      }
+    </style>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="512" height="512" rx="115" class="bg-rect" />
+
+  <!-- Document Outline (Thick) -->
+  <path 
+    d="M 230 125 
+       L 194 125 
+       A 54 54 0 0 0 140 179 
+       L 140 355 
+       A 54 54 0 0 0 194 409 
+       L 318 409 
+       A 54 54 0 0 0 372 355 
+       L 372 265" 
+    fill="none" 
+    class="ink-stroke" 
+    stroke-width="22" 
+    stroke-linecap="round" 
+    stroke-linejoin="round" 
+  />
+
+  <!-- Graph Connector Lines (Thinner) -->
+  <!-- Top Node to Central Node -->
+  <line x1="264" y1="125" x2="264" y2="215" class="ink-stroke" stroke-width="12" stroke-linecap="round" />
+  
+  <!-- Central Node to Top-Right Node -->
+  <line x1="264" y1="215" x2="356" y2="139" class="ink-stroke" stroke-width="12" stroke-linecap="round" />
+  
+  <!-- Central Node to Right Node -->
+  <line x1="264" y1="215" x2="372" y2="229" class="ink-stroke" stroke-width="12" stroke-linecap="round" />
+
+  <!-- Graph Nodes (Circles) -->
+  <!-- Node T (Top Left / Document Connection) -->
+  <circle cx="264" cy="125" r="22" class="ink-fill" />
+  
+  <!-- Node C (Center Pivot) -->
+  <circle cx="264" cy="215" r="22" class="ink-fill" />
+  
+  <!-- Node M (Top-Right / External Idea) -->
+  <circle cx="356" cy="139" r="22" class="accent-fill" />
+  
+  <!-- Node R (Right / Lower branch) -->
+  <circle cx="372" cy="229" r="22" class="ink-fill" />
+</svg>

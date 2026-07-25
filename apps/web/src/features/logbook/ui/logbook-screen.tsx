@@ -1,0 +1,198 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { LOG_KINDS, type LogEntry, type LogKind } from "@thesis/core";
+import { getContainer } from "@/bootstrap";
+import { Modal } from "@/components/modal";
+import { ScreenLoading } from "@/components/screen-loading";
+import { AddLogEntryForm } from "./add-log-entry-form";
+import { Select } from "@/components/select";
+import { Markdown } from "@/components/markdown";
+import { DeleteIcon, EditIcon } from "@/components/view-icons";
+import { CollabBodyHost } from "@/features/collab";
+import { useScreenData } from "@/lib/use-screen-data";
+import { emptyArray } from "@/lib/empty";
+
+/**
+ * Logbook screen. Presentation + view-state only; all data access goes through
+ * the repository obtained from the container.
+ */
+export function LogbookScreen() {
+  const [addOpen, setAddOpen] = useState(false);
+
+  const loadEntries = useCallback(() => getContainer().logbook.loadEntries(), []);
+  const { data, loading, error, reload: load } = useScreenData("logbook", loadEntries);
+  const entries = data ?? emptyArray<import("@thesis/core").LogEntry>();
+
+  if (loading) {
+    return <ScreenLoading status="Loading logbook…" />;
+  }
+
+  return (
+    <section className="screen">
+      <header className="screen-head">
+        <div className="head-row">
+          <div className="screen-actions">
+            <button className="btn-primary" onClick={() => setAddOpen(true)}>+ Entry</button>
+          </div>
+        </div>
+      </header>
+
+      {addOpen && (
+        <Modal title="Add a log entry" onClose={() => setAddOpen(false)}>
+          <AddLogEntryForm onAdded={() => { setAddOpen(false); void load(); }} />
+        </Modal>
+      )}
+
+      {error && <p className="error">{error}</p>}
+      {!error && entries.length === 0 && (
+        <div className="empty">
+          <p>No log entries yet. Use “+ Entry” to record what you did today.</p>
+        </div>
+      )}
+
+      <ul className={`log-list ${entries.length > 20 ? "long-list" : ""}`}>
+        {entries.map((e) => (
+          <LogItem key={e.id} entry={e} onChanged={load} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+
+  async function remove() {
+    if (!confirm(`Delete log entry from ${entry.entryDate}?`)) return;
+    await getContainer().logbook.addLogEntry.remove(entry.id);
+    try { await getContainer().logbook.removeLog(entry); } catch { /* git sync best-effort */ }
+    await onChanged();
+  }
+
+  if (editing) {
+    return (
+      <li className="card log-item">
+        <EditLogForm
+          entry={entry}
+          onCancel={() => setEditing(false)}
+          onSaved={async () => {
+            setEditing(false);
+            await onChanged();
+          }}
+        />
+      </li>
+    );
+  }
+
+  return (
+    <li className="card log-item">
+      <div className="log-head">
+        <div className="log-meta">
+          <span className="log-date">{entry.entryDate}</span>
+          <span className={`status status-${entry.kind}`}>{entry.kind}</span>
+        </div>
+        <button
+          className="entity-icon-btn log-edit"
+          aria-label="Edit log entry"
+          title="Edit"
+          onClick={() => setEditing(true)}
+        >
+          <EditIcon />
+        </button>
+      </div>
+      <Markdown className="log-body">{entry.body}</Markdown>
+      <div className="card-foot">
+        <button
+          className="entity-icon-btn danger card-del"
+          aria-label="Delete log entry"
+          title="Delete"
+          onClick={() => void remove()}
+        >
+          <DeleteIcon />
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function EditLogForm({
+  entry,
+  onCancel,
+  onSaved,
+}: {
+  entry: LogEntry;
+  onCancel: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [body, setBody] = useState(entry.body);
+  const [kind, setKind] = useState<LogKind>(entry.kind);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const useCollab = getContainer().collab.enabled();
+
+  async function saveBody(nextBody: string) {
+    const logbook = getContainer().logbook;
+    const updated = await logbook.addLogEntry.update(entry.id, { body: nextBody, kind });
+    try { await logbook.pushLog(updated); } catch { /* git sync best-effort */ }
+    await onSaved();
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const logbook = getContainer().logbook;
+      const updated = await logbook.addLogEntry.update(entry.id, { body, kind });
+      try { await logbook.pushLog(updated); } catch { /* git sync best-effort */ }
+      await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="add-form" onSubmit={submit}>
+      <div className="field">
+        <label htmlFor={`body-${entry.id}`}>What did you do?</label>
+        {useCollab ? (
+          <CollabBodyHost
+            resourceType="log_entry"
+            resourceId={entry.id}
+            initialBody={body}
+            onSave={saveBody}
+            className="vault-body-input vault-codemirror"
+          />
+        ) : (
+          <textarea
+            id={`body-${entry.id}`}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={3}
+            required
+          />
+        )}
+      </div>
+      <div className="field">
+        <label htmlFor={`kind-${entry.id}`}>Kind</label>
+        <Select id={`kind-${entry.id}`} value={kind} onChange={(e) => setKind(e.target.value as LogKind)}>
+          {LOG_KINDS.map((k) => (
+            <option key={k} value={k}>{k}</option>
+          ))}
+        </Select>
+      </div>
+      {error && <p className="error">{error}</p>}
+      <div className="card-foot edit-actions">
+        <button type="button" className="link-btn" onClick={onCancel} disabled={busy}>
+          cancel
+        </button>
+        <button className="btn-primary" disabled={busy || useCollab}>
+          {busy ? "Saving…" : useCollab ? "Auto-saving…" : "Save"}
+        </button>
+      </div>
+    </form>
+  );
+}

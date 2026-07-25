@@ -1,0 +1,61 @@
+/*
+ * Thesis Tracker — foundations (default light theme).
+ * The single source of truth for the palette. Every color the product uses is
+ * one of these variables; components reference var(--*), never literals.
+ * Mirrors :root in apps/web/src/app/themes.css.
+ */
+:root {
+  /* Core palette */
+  --bg: #f6f4ef;            /* warm paper — app background */
+  --surface: #fffdf8;       /* card / raised surface */
+  --ink: #2c2a26;           /* primary text */
+  --muted: #6f6a60;         /* secondary text (AA ≥4.5:1 on --bg) */
+  --line: #e7e2d8;          /* hairline / borders */
+  --accent: #7c9885;        /* sage — primary brand accent */
+  --accent-ink: #46594d;    /* text/icon on accent tints */
+  --clay: #c98a6b;          /* warm secondary accent */
+  --danger: #b4513b;        /* destructive text/actions */
+
+  /* Surfaces */
+  --input-bg: #fff;         /* inputs, selects, white controls */
+  --pill: #f1eee7;          /* chip / pill background */
+  --hover: #e9efe9;         /* hover tint */
+  --chip: #f3f1ea;          /* metadata chips */
+  --neutral: #efece4;       /* neutral fills (progress track, code) */
+  --status-neutral: #efece4;/* menu hover / neutral selection */
+  --nav-bg: rgba(255, 253, 248, 0.9);
+
+  /* Active nav highlight */
+  --active-bg: #d9e6dc;
+  --active-fg: var(--accent-ink);
+
+  /* Selected-option ring inside dropdown menus */
+  --sel-ring: rgba(44, 42, 38, 0.12);
+
+  /* Status pill families — map semantic state to a bg + fg pair */
+  --st-neutral-bg: var(--neutral);  --st-neutral-fg: var(--muted);
+  --st-positive-bg: #e6efe9;        --st-positive-fg: var(--accent-ink);
+  --st-info-bg: #e7eef7;            --st-info-fg: #3e5a78;
+  --st-warn-bg: #f7efe6;            --st-warn-fg: #8a6a4e;
+  --st-danger-bg: #f7e9e6;          --st-danger-fg: #b4513b;
+
+  /* Graph node fills */
+  --node-default: var(--neutral);
+  --node-reading: var(--accent);
+  --node-read: #5a7d8c;
+  --node-skimmed: var(--clay);
+
+  /* Radii */
+  --radius: 16px;           /* cards, large surfaces */
+  --radius-sm: 10px;        /* inputs, small controls */
+
+  /* Typography */
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+
+  /* Elevation — soft shadow with a subtle inner bevel highlight */
+  --shadow:
+    0 2px 8px rgba(44, 42, 38, 0.08),
+    0 16px 32px rgba(44, 42, 38, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}

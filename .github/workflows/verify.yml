@@ -1,0 +1,88 @@
+name: Verify against live Supabase
+
+# Manual-only. Runs the live checks on GitHub's runner using repository secrets,
+# so credentials never touch a developer machine and are masked in logs.
+# Add these secrets first (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL, SUPABASE_ANON_KEY
+#   TT_A_EMAIL, TT_A_PASSWORD   (sharer)
+#   TT_B_EMAIL, TT_B_PASSWORD   (recipient, same lab as A)
+#   TT_C_EMAIL, TT_C_PASSWORD   (optional: unrelated account, enables deny checks)
+# Prereqs in the project: migrations through 0035 applied, Email auth on, A & B
+# under the same professor, C outside that lab. Use throwaway accounts.
+# Re-run marker: 2026-07-12 (0036 skip until db push).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/python-experiment-tracking-aq5bpr]
+    paths:
+      - '.github/workflows/verify.yml'
+      - 'python/scripts/verify_sharing.py'
+      - 'apps/web/src/features/**/test/*.integration.ts'
+      - 'apps/web/src/testing/**'
+
+jobs:
+  sharing-rls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install "supabase>=2.4"
+      - name: Verify sharing + comments RLS (two users)
+        run: python python/scripts/verify_sharing.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
+          TT_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
+          TT_C_EMAIL: ${{ secrets.TT_C_EMAIL }}
+          TT_C_PASSWORD: ${{ secrets.TT_C_PASSWORD }}
+          TT_D_EMAIL: ${{ secrets.TT_D_EMAIL }}
+          TT_D_PASSWORD: ${{ secrets.TT_D_PASSWORD }}
+          TT_E_EMAIL: ${{ secrets.TT_E_EMAIL }}
+          TT_E_PASSWORD: ${{ secrets.TT_E_PASSWORD }}
+          TT_F_EMAIL: ${{ secrets.TT_F_EMAIL }}
+          TT_F_PASSWORD: ${{ secrets.TT_F_PASSWORD }}
+          TT_G_EMAIL: ${{ secrets.TT_G_EMAIL }}
+          TT_G_PASSWORD: ${{ secrets.TT_G_PASSWORD }}
+
+  sdk-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install SDK
+        working-directory: python
+        run: pip install -e '.[dev]'
+      - name: Python SDK integration test (single user = A)
+        working-directory: python
+        run: pytest tests/test_integration_supabase.py -q
+        env:
+          THESIS_TRACKER_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          THESIS_TRACKER_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+
+  ts-settings-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:core
+      - name: TypeScript settings repository contract (Supabase)
+        run: npm run test:integration:web
+        env:
+          THESIS_TRACKER_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          THESIS_TRACKER_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}

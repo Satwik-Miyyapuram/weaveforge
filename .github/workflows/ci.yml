@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Nightly paused: burns private-repo Actions minutes and was red on Playwright.
+  # Re-enable after billing/minutes are healthy:
+  # schedule:
+  #   - cron: "30 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      # Job-scoped (not workflow-scoped) so a bad secret eval fails the job, not startup.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_BACKEND_PROVIDER: supabase
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('package-lock.json', 'apps/web/src/**', 'packages/core/src/**') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('package-lock.json') }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Core package
+        run: npm run build:core
+
+      - name: Run Core tests
+        run: npm run test:core
+
+      - name: Run Web unit tests
+        run: npm test --workspace @thesis/web
+
+      - name: Run Typechecks
+        run: npm run typecheck
+
+      - name: Install ripgrep (for check:solid)
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: SOLID boundary checks
+        run: npm run check:solid
+
+      - name: DRY checks
+        run: npm run check:dry
+
+      - name: API route test coverage
+        run: npm run check:api-route-tests
+
+      - name: Lint Web App
+        run: npm run lint --workspace @thesis/web
+
+      - name: Build Web App
+        run: npm run build --workspace @thesis/web
+
+  full-validation:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Core package
+        run: npm run build:core
+
+      - name: Run Web Supabase contract tests
+        run: npm run test:integration:web
+        env:
+          THESIS_TRACKER_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          THESIS_TRACKER_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+
+      - name: Build Web App
+        run: npm run build --workspace @thesis/web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_BACKEND_PROVIDER: supabase
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Run Playwright end-to-end tests
+        run: npm run test:e2e --workspace @thesis/web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+
+  python-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python SDK
+        working-directory: python
+        run: pip install -e '.[dev]' ruff mypy
+
+      - name: Lint (ruff)
+        working-directory: python
+        run: ruff check thesis_tracker tests
+
+      - name: Type-check (mypy)
+        working-directory: python
+        run: mypy
+
+      - name: Run Python tests
+        working-directory: python
+        run: pytest -q

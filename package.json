@@ -1,0 +1,36 @@
+{
+  "name": "thesis-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source, modular tracker for a masters thesis (papers, experiments, logbook, report, meetings).",
+  "license": "AGPL-3.0-only",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:core": "npm run build --workspace @thesis/core",
+    "test:core": "npm run test --workspace @thesis/core",
+    "test:integration:web": "npm run test:integration --workspace @thesis/web",
+    "test:e2e": "npm run test:e2e --workspace @thesis/web",
+    "record:demos": "npm run record:demos --workspace @thesis/web",
+    "seed:showcase": "node scripts/seed-showcase-data.mjs",
+    "setup:local-dev": "node scripts/setup-local-dev.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check:solid": "node scripts/check-solid.mjs",
+    "check:dry": "node scripts/check-dry.mjs",
+    "check:api-route-tests": "node scripts/check-api-route-tests.mjs",
+    "check:boundaries": "npm run check:solid && npm run check:dry && npm run check:api-route-tests",
+    "generate:routes": "node scripts/generate-module-routes.mjs",
+    "generate:deployment": "node --import tsx scripts/generate-deployment-registry.mjs",
+    "check:deployment-surface": "node --import tsx scripts/check-deployment-surface.mjs",
+    "prebuild": "npm run generate:deployment",
+    "build": "npm run build --workspace @thesis/web",
+    "dev": "npm run dev --workspace @thesis/web",
+    "serve": "npm run serve --workspace @thesis/web",
+    "start": "npm run start --workspace @thesis/web"
+  },
+  "devDependencies": {
+    "supabase": "^2.109.1"
+  }
+}

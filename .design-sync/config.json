@@ -1,0 +1,6 @@
+{
+  "shape": "foundations",
+  "readmeHeader": ".design-sync/conventions.md",
+  "localDir": "./ds-bundle",
+  "note": "Foundations-only sync (light-theme design tokens). This repo is a Next.js app, not a component-library/Storybook, so no _ds_bundle.js is produced. No projectId yet — upload was not possible in a headless session (design auth unavailable)."
+}

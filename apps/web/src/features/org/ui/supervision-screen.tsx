@@ -1,0 +1,150 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  type LogEntry,
+  type Member,
+  type Milestone,
+} from "@thesis/core";
+import { getContainer } from "@/bootstrap";
+import { useProfile } from "./profile-provider";
+import { ScreenLoader } from "@/components/thesis-loader";
+import { MemberTreeSelect } from "./member-tree";
+
+/**
+ * Supervisor view: browse the people beneath you and follow their plan
+ * (milestones) and logbook (log entries) — read only, and separate from your
+ * own projects. Only these two surfaces are shared up the hierarchy.
+ */
+export function SupervisionScreen() {
+  const { profile, team, loading } = useProfile();
+  const searchParams = useSearchParams();
+  const memberFromUrl = searchParams.get("member");
+
+  // Everyone in my subtree except me = the people I supervise (transitively).
+  const supervisees = useMemo(
+    () => team.filter((m) => m.id !== profile?.id),
+    [team, profile],
+  );
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  useEffect(() => {
+    if (memberFromUrl && supervisees.some((m) => m.id === memberFromUrl)) {
+      setSelectedId(memberFromUrl);
+      return;
+    }
+    setSelectedId((prev) => prev ?? supervisees[0]?.id ?? null);
+  }, [memberFromUrl, supervisees]);
+
+  if (loading) {
+    return (
+      <section className="screen">
+        <ScreenLoader status="Loading supervision…" />
+      </section>
+    );
+  }
+
+  if (!profile || profile.role === "masters") {
+    return (
+      <section className="screen">
+        <p className="muted">You don&rsquo;t supervise anyone.</p>
+      </section>
+    );
+  }
+
+  const selected = supervisees.find((m) => m.id === selectedId) ?? null;
+
+  return (
+    <section className="screen">
+      {supervisees.length === 0 ? (
+        <p className="muted">Nobody is assigned under you yet.</p>
+      ) : (
+        <>
+          <div className="superv-picker">
+            <label className="muted" htmlFor="superv-select">Viewing</label>
+            <MemberTreeSelect
+              members={supervisees}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              meId={profile.id}
+              placeholder="Select someone you supervise"
+            />
+          </div>
+          {selected && <SuperviseePanel key={selected.id} member={selected} />}
+        </>
+      )}
+    </section>
+  );
+}
+
+function SuperviseePanel({ member }: { member: Member }) {
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [ms, ls] = await getContainer().org.loadSupervisee(member.id);
+      setMilestones(ms);
+      setLogs(ls);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [member.id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) return <p className="muted">Loading {member.fullName || member.email}…</p>;
+  if (error) return <p className="error">{error}</p>;
+
+  return (
+    <div className="superv-panels">
+      <div className="card add-form">
+        <h3 className="settings-group">Milestones ({milestones.length})</h3>
+        {milestones.length === 0 ? (
+          <p className="muted">No milestones yet.</p>
+        ) : (
+          <ul className="superv-list">
+            {milestones.map((m) => (
+              <li key={m.id} className="superv-item">
+                <div className="superv-item-head">
+                  <span className="superv-item-title">{m.title}</span>
+                  <span className={`superv-status s-${m.status}`}>{m.status.replace("_", " ")}</span>
+                </div>
+                {m.targetDate && <span className="muted">Target {m.targetDate}</span>}
+                {m.description && <p className="superv-body">{m.description}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="card add-form">
+        <h3 className="settings-group">Logbook ({logs.length})</h3>
+        {logs.length === 0 ? (
+          <p className="muted">No log entries yet.</p>
+        ) : (
+          <ul className="superv-list">
+            {logs.map((l) => (
+              <li key={l.id} className="superv-item">
+                <div className="superv-item-head">
+                  <span className="superv-item-title">{l.entryDate}</span>
+                  <span className="muted">{l.kind}</span>
+                </div>
+                <p className="superv-body">{l.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}

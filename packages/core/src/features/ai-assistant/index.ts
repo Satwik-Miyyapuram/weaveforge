@@ -1,0 +1,16 @@
+/** Public API for the model-agnostic AI assistant feature. */
+export * from "./domain/ai-types.js";
+export * from "./domain/ai-access-policy.js";
+export * from "./domain/ai-settings.js";
+export * from "./domain/ai-reader.js";
+export * from "./domain/ai-retrieval.js";
+export * from "./application/run-ai-query.use-case.js";
+export * from "./application/create-ai-session-grant.use-case.js";
+export * from "./domain/ai-write-proposal.js";
+export * from "./application/propose-append-paper-note.use-case.js";
+export * from "./application/confirm-ai-proposal.use-case.js";
+export * from "./application/execute-ai-proposal.use-case.js";
+export * from "./application/create-ai-proposal-draft.use-case.js";
+export * from "./domain/ai-model-router.js";
+export * from "./domain/ai-tool-registry.js";
+export * from "./domain/ai-mcp-gateway.js";

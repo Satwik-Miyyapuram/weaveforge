@@ -1,0 +1,153 @@
+import {
+  buildPageTree,
+  type IVaultPageRepository,
+  type VaultPage,
+  type VaultPageFilter,
+  type VaultPageTreeNode,
+} from "@thesis/core";
+import type { ProjectContext } from "@/lib/project-context";
+import type { PgRunner } from "@/backend/providers/postgres/pg-runner";
+
+interface VaultPageRow {
+  id: string;
+  title: string;
+  body?: string | null;
+  body_preview?: string | null;
+  parent_id: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Prefer generated column when migrated; otherwise compute left(body) inline. */
+const VAULT_SUMMARY_COLUMNS =
+  "id, title, parent_id, sort_order, created_at, updated_at, project_id, left(coalesce(body, ''), 320) as body_preview";
+
+export class PostgresVaultPageRepository implements IVaultPageRepository {
+  constructor(
+    private readonly pg: PgRunner,
+    private readonly ctx: ProjectContext,
+  ) {}
+
+  private get pid() {
+    return this.ctx.projectId;
+  }
+
+  async getById(id: string): Promise<VaultPage | null> {
+    const row = await this.pg.queryOne<VaultPageRow>(
+      "select * from vault_pages where id = $1",
+      [id],
+    );
+    return row ? toDomain(row) : null;
+  }
+
+  async list(filter?: VaultPageFilter): Promise<VaultPage[]> {
+    const clauses = ["1=1"];
+    const params: unknown[] = [];
+    if (this.pid) {
+      params.push(this.pid);
+      clauses.push(`project_id = $${params.length}`);
+    }
+    if (filter?.parentId !== undefined) {
+      if (filter.parentId === null) {
+        clauses.push("parent_id is null");
+      } else {
+        params.push(filter.parentId);
+        clauses.push(`parent_id = $${params.length}`);
+      }
+    }
+    if (filter?.query) {
+      params.push(`%${filter.query}%`);
+      clauses.push(`(title ilike $${params.length} or body ilike $${params.length})`);
+    }
+    const rows = await this.pg.query<VaultPageRow>(
+      `select * from vault_pages where ${clauses.join(" and ")}
+       order by sort_order asc, title asc`,
+      params,
+    );
+    return rows.map(toDomain);
+  }
+
+  async listSummaries(): Promise<VaultPage[]> {
+    const clauses = ["1=1"];
+    const params: unknown[] = [];
+    if (this.pid) {
+      params.push(this.pid);
+      clauses.push(`project_id = $${params.length}`);
+    }
+    const rows = await this.pg.query<VaultPageRow>(
+      `select ${VAULT_SUMMARY_COLUMNS} from vault_pages where ${clauses.join(" and ")}
+       order by sort_order asc, title asc`,
+      params,
+    );
+    return rows.map(toSummaryDomain);
+  }
+
+  async getTree(): Promise<VaultPageTreeNode[]> {
+    const clauses = ["1=1"];
+    const params: unknown[] = [];
+    if (this.pid) {
+      params.push(this.pid);
+      clauses.push(`project_id = $${params.length}`);
+    }
+    const rows = await this.pg.query<VaultPageRow>(
+      `select ${VAULT_SUMMARY_COLUMNS} from vault_pages where ${clauses.join(" and ")}`,
+      params,
+    );
+    return buildPageTree(rows.map(toSummaryDomain));
+  }
+
+  async save(entity: VaultPage): Promise<void> {
+    const row = toRow(entity);
+    if (this.pid) row.project_id = this.pid;
+    const cols = Object.keys(row);
+    const vals = cols.map((_, i) => `$${i + 1}`);
+    const updates = cols.filter((c) => c !== "id").map((c) => `${c} = excluded.${c}`);
+    await this.pg.exec(
+      `insert into vault_pages (${cols.join(",")}) values (${vals.join(",")})
+       on conflict (id) do update set ${updates.join(",")}`,
+      cols.map((c) => row[c]),
+    );
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.pg.exec("delete from vault_pages where id = $1", [id]);
+  }
+}
+
+function toDomain(row: VaultPageRow): VaultPage {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body ?? "",
+    parentId: row.parent_id ?? undefined,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toSummaryDomain(row: VaultPageRow): VaultPage {
+  return {
+    id: row.id,
+    title: row.title,
+    body: "",
+    bodyPreview: row.body_preview ?? "",
+    parentId: row.parent_id ?? undefined,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toRow(p: VaultPage): Record<string, unknown> {
+  return {
+    id: p.id,
+    title: p.title,
+    body: p.body ?? "",
+    parent_id: p.parentId ?? null,
+    sort_order: p.sortOrder,
+    created_at: p.createdAt,
+    updated_at: p.updatedAt,
+  };
+}

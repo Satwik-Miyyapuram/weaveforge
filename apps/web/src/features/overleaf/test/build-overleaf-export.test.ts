@@ -1,0 +1,121 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  buildOverleafExportPackage,
+} from "../application/build-overleaf-export";
+import type { Paper, ReportSectionTreeNode } from "@thesis/core";
+
+const tree: ReportSectionTreeNode[] = [
+  {
+    section: {
+      id: "1",
+      title: "Introduction",
+      status: "drafting",
+      wordCount: 10,
+      sortOrder: 0,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      notes: "Hello **world** and $x=1$.",
+    },
+    children: [],
+  },
+];
+
+const papers: Paper[] = [
+  {
+    id: "p1",
+    title: "A Paper",
+    authors: ["Ada Lovelace"],
+    status: "to_read",
+    tags: [],
+    metadata: {},
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    year: 1843,
+  },
+];
+
+test("buildOverleafExportPackage emits main.tex, bib, manifest", () => {
+  const result = buildOverleafExportPackage(tree, papers, { title: "Demo" });
+  const paths = result.files.map((f) => f.path).sort();
+  assert.deepEqual(paths, ["README.txt", "main.tex", "manifest.json", "references.bib"]);
+  const main = result.files.find((f) => f.path === "main.tex")!.contents;
+  assert.match(main, /\\chapter\{Introduction\}/);
+  assert.match(main, /\\textbf\{world\}/);
+  assert.match(main, /\$x=1\$/);
+  assert.equal(result.stats.sections, 1);
+  assert.equal(result.stats.bibliographyEntries, 1);
+  assert.equal(result.images.length, 0);
+});
+
+test("buildOverleafExportPackage collects reportimg figures", () => {
+  const withFig: ReportSectionTreeNode[] = [
+    {
+      section: {
+        ...tree[0]!.section,
+        notes: "Plot:\n\n![My fig](reportimg:uid/sid/plot.webp)\n",
+      },
+      children: [],
+    },
+  ];
+  const result = buildOverleafExportPackage(withFig, [], {
+    includeBibliography: false,
+    title: "Figs",
+  });
+  const main = result.files.find((f) => f.path === "main.tex")!.contents;
+  assert.match(main, /\\includegraphics\[width=\\linewidth\]\{figures\/plot\.webp\}/);
+  assert.deepEqual(result.images, [
+    { storagePath: "uid/sid/plot.webp", zipPath: "figures/plot.webp" },
+  ]);
+  assert.equal(result.stats.figures, 1);
+});
+
+test("buildOverleafExportPackage omits notes and bib when disabled", () => {
+  const result = buildOverleafExportPackage(tree, [], {
+    includeSectionNotes: false,
+    includeBibliography: false,
+  });
+  const main = result.files.find((f) => f.path === "main.tex")!.contents;
+  assert.doesNotMatch(main, /\\textbf/);
+  assert.ok(!result.files.some((f) => f.path === "references.bib"));
+});
+
+test("buildOverleafExportPackage turns [[Paper]] wikilinks into \\cite", () => {
+  const withCite: ReportSectionTreeNode[] = [
+    {
+      section: {
+        ...tree[0]!.section,
+        notes: "Following [[A Paper]] we proceed.",
+      },
+      children: [],
+    },
+  ];
+  const result = buildOverleafExportPackage(withCite, papers, { title: "Cite demo" });
+  const main = result.files.find((f) => f.path === "main.tex")!.contents;
+  const bib = result.files.find((f) => f.path === "references.bib")!.contents;
+  assert.match(main, /Following \\cite\{paper_p1\} we proceed\./);
+  assert.match(bib, /@article\{paper_p1,/);
+  assert.equal(result.warnings.length, 0);
+});
+
+test("buildOverleafExportPackage prefers metadata.citeKey for \\cite keys", () => {
+  const withKey: Paper[] = [
+    {
+      ...papers[0]!,
+      metadata: { citeKey: "vaswani2017attention" },
+    },
+  ];
+  const withCite: ReportSectionTreeNode[] = [
+    {
+      section: {
+        ...tree[0]!.section,
+        notes: "See [[A Paper]].",
+      },
+      children: [],
+    },
+  ];
+  const result = buildOverleafExportPackage(withCite, withKey, { title: "Keys" });
+  const main = result.files.find((f) => f.path === "main.tex")!.contents;
+  const bib = result.files.find((f) => f.path === "references.bib")!.contents;
+  assert.match(main, /\\cite\{vaswani2017attention\}/);
+  assert.match(bib, /@article\{vaswani2017attention,/);
+});

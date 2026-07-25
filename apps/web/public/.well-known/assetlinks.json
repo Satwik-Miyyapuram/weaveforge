@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.weaveforge.twa",
+      "sha256_cert_fingerprints": [
+        "94:72:24:DB:C7:0D:DD:89:35:3F:9E:8A:85:22:9A:F2:E1:C3:8A:DB:98:D1:D3:2A:C3:FE:60:71:5C:76:5C:D5"
+      ]
+    }
+  }
+]
