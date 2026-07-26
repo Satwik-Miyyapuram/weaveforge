@@ -20,8 +20,8 @@
     "path": "android-keystore.jks",
     "alias": "weaveforge"
   },
-  "appVersionName": "2",
-  "appVersionCode": 2,
+  "appVersionName": "0.0.1",
+  "appVersionCode": 1,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://my-thesis-tracker-web.vercel.app/manifest.webmanifest",
@@ -43,5 +43,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "2"
+  "appVersion": "0.0.1"
 }
