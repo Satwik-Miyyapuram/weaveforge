@@ -7,11 +7,15 @@ It NEVER prints credentials — only PASS/FAIL lines. Meant to run on a trusted 
 runner via GitHub Secrets (see .github/workflows/verify.yml), so secrets never
 touch a developer machine.
 
-Accounts (throwaway). A/B/C are required; D–G unlock the hierarchy checks:
-  A  professor (lab root)
-  D  phd  under A        E  phd  under A
-  B  masters under D     F  masters under D     G  masters under E
-  C  standalone (different lab)
+Accounts (throwaway). Must match `local-dev.example/accounts.mjs` seed:
+  A  professor @ Lab Alpha (solo)
+  B  professor @ Lab Beta
+  C, D  phd under B
+  E, F  masters under C
+  G  standalone (no lab)
+
+A/B required for share checks; C is the cross-lab deny account vs Alpha;
+C/D/E unlock hierarchy checks (F/G optional extras).
 
 Env: SUPABASE_URL, SUPABASE_ANON_KEY, and TT_<X>_EMAIL/TT_<X>_PASSWORD for each
 account X in {A,B,C,D,E,F,G} you want exercised.
@@ -205,7 +209,7 @@ def main() -> int:
         return 2
 
     tag = uuid.uuid4().hex[:8]
-    m_a = m_b = m_g = cmt = v_a = rl_a = paper_a = None
+    m_a = m_e = cmt = v_a = rl_a = paper_a = None
     try:
         # --- core: explicit share A -> B (comment) ---
         m_a = make_milestone(a, f"a-{tag}")
@@ -262,35 +266,50 @@ def main() -> int:
             check(not sees_vault(c, v_a), "C (other lab) cannot read A's shared vault page")
 
         # --- hierarchy (auto visibility via can_access on milestones) ---
-        if d is not None and e is not None and g is not None:
-            m_b = make_milestone(b, f"b-{tag}")  # B is under D, under A
-            m_g = make_milestone(g, f"g-{tag}")  # G is under E, under A
+        # Seed tree: B → C/D → E/F; A other lab; G standalone.
+        if c is not None and d is not None and e is not None:
+            m_e = make_milestone(e, f"e-{tag}")
 
-            check(sees(a, m_b) and sees(a, m_g), "Professor A sees the whole subtree (B and G)")
-            check(sees(d, m_b), "PhD D sees its student B")
-            check(not sees(d, m_g), "PhD D does NOT see G (other branch)")
-            check(sees(e, m_g), "PhD E sees its student G")
-            check(not sees(e, m_b), "PhD E does NOT see B (other branch)")
+            check(sees(b, m_e), "Professor B sees student E's milestone")
+            check(sees(c, m_e), "PhD C sees its student E")
+            check(not sees(d, m_e), "PhD D does NOT see E (other branch under B)")
+            check(not sees(a, m_e), "A (other lab) cannot see E's milestone")
+            if g is not None:
+                check(not sees(g, m_e), "Standalone G cannot see E's milestone")
 
-            # cross-branch peer share: B and G are peers (neither supervises the other)
-            check(not sees(g, m_b), "G cannot see peer B's milestone before sharing")
-            b.table("shares").insert(
-                {"recipient_id": g_uid, "resource_type": "milestone", "resource_id": m_b, "access": "comment"}
-            ).execute()
-            check(sees(g, m_b), "G sees peer B's milestone after B shares it")
+            # peer share: E ↔ F (both masters under C)
+            if _f is not None and _f_uid:
+                check(not sees(_f, m_e), "F cannot see peer E's milestone before sharing")
+                e.table("shares").insert(
+                    {
+                        "recipient_id": _f_uid,
+                        "resource_type": "milestone",
+                        "resource_id": m_e,
+                        "access": "comment",
+                    }
+                ).execute()
+                check(sees(_f, m_e), "F sees peer E's milestone after E shares it")
 
-            if c is not None:
-                check(not sees(c, m_b), "C (other lab) cannot see B's milestone")
-
-            # directory: B sees lab-mates (via widened profiles policy), not C
-            emails = {r["email"] for r in b.table("profiles").select("email").execute().data if r.get("email")}
-            g_email = (os.environ.get("TT_G_EMAIL") or "").lower()
+            # directory: B sees beta lab-mates, not Alpha / standalone
+            emails = {
+                r["email"].lower()
+                for r in b.table("profiles").select("email").execute().data
+                if r.get("email")
+            }
+            e_email = (os.environ.get("TT_E_EMAIL") or "").lower()
             c_email = (os.environ.get("TT_C_EMAIL") or "").lower()
-            check(g_email in emails, "B's lab directory includes lab-mate G")
+            a_email = (os.environ.get("TT_A_EMAIL") or "").lower()
+            g_email = (os.environ.get("TT_G_EMAIL") or "").lower()
+            if e_email:
+                check(e_email in emails, "B's lab directory includes student E")
             if c_email:
-                check(c_email not in emails, "B's lab directory excludes C (other lab)")
+                check(c_email in emails, "B's lab directory includes PhD C")
+            if a_email:
+                check(a_email not in emails, "B's lab directory excludes A (other lab)")
+            if g_email:
+                check(g_email not in emails, "B's lab directory excludes standalone G")
         else:
-            print("SKIP: TT_D/E/G_* not all set — skipping hierarchy checks")
+            print("SKIP: TT_C/D/E_* not all set — skipping hierarchy checks")
 
     finally:
         # best-effort cleanup of throwaway data
@@ -299,10 +318,9 @@ def main() -> int:
             (a, "shares", "resource_id", m_a),
             (a, "shares", "resource_id", v_a),
             (a, "shares", "resource_id", rl_a),
-            (b, "shares", "resource_id", m_b),
+            (e, "shares", "resource_id", m_e),
             (a, "milestones", "id", m_a),
-            (b, "milestones", "id", m_b),
-            (g, "milestones", "id", m_g),
+            (e, "milestones", "id", m_e),
             (a, "vault_pages", "id", v_a),
             (a, "reading_lists", "id", rl_a),
             (a, "papers", "id", paper_a),

@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
     "test": "node --import tsx --test src/**/*.test.ts",
-    "test:integration": "node --import tsx --import ./scripts/load-test-env.ts --test src/features/**/*.integration.ts",
+    "test:integration": "node ./scripts/run-integration-tests.mjs",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "record:demos": "tsx e2e/demo-clips/record.ts"

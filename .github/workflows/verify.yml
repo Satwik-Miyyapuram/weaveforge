@@ -1,25 +1,26 @@
 name: Verify against live Supabase
 
-# Manual-only. Runs the live checks on GitHub's runner using repository secrets,
-# so credentials never touch a developer machine and are masked in logs.
-# Add these secrets first (Settings → Secrets and variables → Actions):
+# Runs live checks on GitHub's runner using repository secrets.
+# Required secrets (Settings → Secrets and variables → Actions):
 #   SUPABASE_URL, SUPABASE_ANON_KEY
-#   TT_A_EMAIL, TT_A_PASSWORD   (sharer)
-#   TT_B_EMAIL, TT_B_PASSWORD   (recipient, same lab as A)
-#   TT_C_EMAIL, TT_C_PASSWORD   (optional: unrelated account, enables deny checks)
-# Prereqs in the project: migrations through 0035 applied, Email auth on, A & B
-# under the same professor, C outside that lab. Use throwaway accounts.
-# Re-run marker: 2026-07-12 (0036 skip until db push).
+#   TT_A_EMAIL … TT_G_EMAIL + matching TT_*_PASSWORD
+# Account layout must match `local-dev.example/accounts.mjs` / seed-test-users:
+#   A Lab Alpha professor · B Lab Beta professor · C/D phd under B ·
+#   E/F masters under C · G standalone
+# Optional for HTTP SDK job: THESIS_TRACKER_API_URL, THESIS_TRACKER_TOKEN
+# Re-run marker: 2026-07-26 (secrets + seed-aligned hierarchy).
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, claude/python-experiment-tracking-aq5bpr]
+    branches: [main]
     paths:
       - '.github/workflows/verify.yml'
       - 'python/scripts/verify_sharing.py'
       - 'apps/web/src/features/**/test/*.integration.ts'
       - 'apps/web/src/testing/**'
+      - 'apps/web/scripts/run-integration-tests.mjs'
+      - 'apps/web/package.json'
 
 jobs:
   sharing-rls:
@@ -30,7 +31,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install "supabase>=2.4"
-      - name: Verify sharing + comments RLS (two users)
+      - name: Verify sharing + comments RLS
         run: python python/scripts/verify_sharing.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -60,14 +61,13 @@ jobs:
       - name: Install SDK
         working-directory: python
         run: pip install -e '.[dev]'
-      - name: Python SDK integration test (single user = A)
+      - name: Python SDK HTTP integration (skipped without token + API URL)
         working-directory: python
-        run: pytest tests/test_integration_supabase.py -q
+        run: pytest tests/test_integration_api.py -q
         env:
-          THESIS_TRACKER_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          THESIS_TRACKER_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
-          THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          THESIS_TRACKER_API_URL: ${{ secrets.THESIS_TRACKER_API_URL }}
+          THESIS_TRACKER_TOKEN: ${{ secrets.THESIS_TRACKER_TOKEN }}
+          THESIS_TRACKER_TEST_USER_EMAIL: ${{ secrets.TT_C_EMAIL }}
 
   ts-settings-contract:
     runs-on: ubuntu-latest
@@ -79,10 +79,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:core
-      - name: TypeScript settings repository contract (Supabase)
+      - name: TypeScript live Supabase integration tests
         run: npm run test:integration:web
         env:
           THESIS_TRACKER_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           THESIS_TRACKER_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
           THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          THESIS_TRACKER_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
+          THESIS_TRACKER_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
+          TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
+          TT_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
+          TEST_ACCOUNT_EMAIL_PRIMARY: ${{ secrets.TEST_ACCOUNT_EMAIL_PRIMARY }}
+          TEST_ACCOUNT_EMAIL_SECONDARY: ${{ secrets.TEST_ACCOUNT_EMAIL_SECONDARY }}
+          TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}

@@ -99,6 +99,16 @@ jobs:
           THESIS_TRACKER_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
           THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          THESIS_TRACKER_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
+          THESIS_TRACKER_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
+          TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
+          TT_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
+          TEST_ACCOUNT_EMAIL_PRIMARY: ${{ secrets.TEST_ACCOUNT_EMAIL_PRIMARY }}
+          TEST_ACCOUNT_EMAIL_SECONDARY: ${{ secrets.TEST_ACCOUNT_EMAIL_SECONDARY }}
+          TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
       - name: Build Web App
         run: npm run build --workspace @thesis/web
@@ -118,6 +128,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
           THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          TEST_ACCOUNT_EMAIL_PRIMARY: ${{ secrets.TEST_ACCOUNT_EMAIL_PRIMARY }}
+          TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
   python-sdk:
     runs-on: ubuntu-latest
