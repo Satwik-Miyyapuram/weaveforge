@@ -50,21 +50,22 @@ Both predate the verified competitive research, so neither accounts for ZotFlow,
 | **A** | Pure domain foundations | ✅ **done** |
 | **B** | Feature logic — templates, citations, artifacts, ranking | ✅ **done** |
 | **C** | UI wiring — make B reachable by users | ✅ **done** |
-| **D** | Reader + provenance (read-only) | ✅ **done** — exit criteria met; locus persistence outstanding |
+| **D** | Reader + provenance (read-only) | ✅ **done** — exit criteria met; `0106` applied |
 | **E** | **AI-assisted extraction fill** | ✅ **done** |
 | **F** | P2 tail | ✅ **done** |
 
 A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followed on `phase-c-d/ui-and-reader`. Current tree: 406 core tests, 290 web tests, 1 integration test, `npm run check:all` exits 0.
 
-### The one thing blocking a fully clean board
+**All six phases are delivered.** Migrations `0106`–`0108` were applied by a human on 2026-07-27; `paper_locus_anchors`, `annotation_quotation_types`, and `lab_snapshots` are live and verified against the project.
 
-`supabase/migrations/0106_paper_locus_anchors.sql` is **written but not applied** — confirmed against the live project, `public.paper_locus_anchors` does not exist. Per D4 an agent may author a migration but never apply one, so this needs a human:
+### Outstanding after the 2026-07-27 review
 
-```bash
-npx supabase db push
-```
+**`0109_phase_f_corrections.sql` — authored, needs applying.** Two defects found reviewing Phase F *after* 0107/0108 went live. Because those files are applied, they are left untouched (D4) and the fixes are forward-only:
 
-Nothing regresses while it is unapplied: loci travel inline in the deep link, so every Phase D exit criterion passes today. Applying it unlocks *saved* anchors — highlights that survive re-extraction — which is the follow-on work, not a Phase D requirement.
+1. `annotation_quotation_types.updated_at` had no trigger, so it held the insert time forever. Quotation types are re-classified in place (direct → paraphrase), so the column was silently wrong rather than merely unused. 0107 mirrors `annotation_pins` (0103), which has no `updated_at` at all — which is why the omission was easy to miss.
+2. `lab_snapshots` granted UPDATE to the owner, which defeats the freeze. The table exists so a supervisee controls what the supervisor reviews; an owner who can rewrite `content` after publishing means the supervisor cannot trust what they are reading, and `published_at` does not move on update, so the change leaves no trace. No application code ever called update, so removing it breaks nothing.
+
+**The PDF reader plan is mis-filed.** `docs/plans/completed/pdf-viewer-plan.md` sits under `completed/` but is only partially delivered — Phase D built what `/ai-review` needed and correctly stopped. Missing from its own Phase 1: the source-resolution ladder (`packages/core/src/reader/pdf-source-ladder.ts` is implemented and **never called**), an IndexedDB byte cache, zoom/rotate/page controls, **a text layer at all** (so no text selection or copy), and Zotero annotation overlays. Phases 2–4 are undelivered, and Phase 2 is deferred by decision (D2/D3), not oversight. The document now carries a verified status table at the top; consider moving it back to `current/`.
 
 ## Dependency map
 
@@ -272,8 +273,10 @@ A same-origin PDF proxy (`/api/pdf-proxy`) was added beyond the original scope, 
 
 | Item | State |
 |------|-------|
-| Quotation types | **Done.** Side table `annotation_quotation_types` (`0107`, authored not applied per D4); selector on annotation cards; survives Zotero sync. |
-| Lab snapshots | **Done.** `lab_snapshots` (`0108`, authored not applied); publish from logbook; `/supervision` prefers published freezes, falls back to live plan/log. |
+| Quotation types | **Done.** Side table `annotation_quotation_types` (`0107`, **applied 2026-07-27**); selector on annotation cards; survives Zotero sync. Keying on `(project, paper, annotation_key)` mirrors `annotation_pins` (`0103`) and is what makes it survive a sync that replaces `papers.metadata.annotations`. |
+| Lab snapshots | **Done.** `lab_snapshots` (`0108`, **applied 2026-07-27**); publish from logbook; `/supervision` prefers published freezes, falls back to live plan/log. `SELECT` widens to `can_access(user_id)` — the same supervisor-subtree function milestones and logs have used since `0015` — so no new exposure path was invented for this table. |
+
+**Two defects found reviewing the applied migrations; fixed forward in `0109` (see the status section at the top).** `updated_at` on the quotation types table was never maintained, and `lab_snapshots` allowed the owner to edit a published snapshot, which defeats the freeze the supervisor is meant to trust.
 
 ---
 

@@ -62,19 +62,24 @@ Because this project is AGPL-3.0, components under permissive licences
 (Apache-2.0, MIT, BSD) may be included. Components under licences incompatible
 with AGPL-3.0 may not.
 
-  (Add entries here as vendored or bundled components are introduced,
-   recording the component name, its upstream project, and its licence.)
+  Bundled and redistributed:
 
-  Planned, not yet vendored -- see docs/future-work/pdf-viewer-plan.md §1.2:
-
-  pdf.js
+  pdf.js (npm package `pdfjs-dist`)
     https://github.com/mozilla/pdf.js
     Apache License 2.0
+    Used by the read-only reader. The pre-built worker
+    `build/pdf.worker.min.mjs` is copied verbatim into
+    apps/web/public/pdf.worker.min.mjs by
+    apps/web/scripts/copy-pdf-worker.mjs and is therefore redistributed as
+    part of any deployment of this application. Not modified.
+
+  Planned, not yet vendored -- see docs/plans/completed/pdf-viewer-plan.md §1.2:
 
   Zotero Reader (selective vendoring: selection geometry, text-layer
   alignment, zoom/rotation handling, annotation overlay positioning)
     https://github.com/zotero/reader
     GNU Affero General Public License v3.0
-    Per-file provenance, including upstream commit SHAs and a record of
-    local modifications, is kept in
-    apps/web/src/features/reader/vendor/PROVENANCE.md
+    No code has been copied from this project. If any is, per-file
+    provenance -- upstream commit SHAs and a record of local modifications --
+    must be recorded in apps/web/src/features/reader/vendor/PROVENANCE.md
+    before the copy is committed.

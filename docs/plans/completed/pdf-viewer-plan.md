@@ -1,7 +1,29 @@
 # In-app PDF reader — implementation plan
 
-**Date:** 2026-07-25
-**Status:** Proposed. Requires a product-brief amendment (see §2) before build starts.
+**Date:** 2026-07-25 · **Status reassessed:** 2026-07-27
+**Status: PARTIALLY DELIVERED — not complete.** Phase D shipped the parts `/ai-review` needed and stopped there, which was the right call. This plan describes considerably more than exists.
+
+### What actually exists today (verified against the code, 2026-07-27)
+
+| Phase 1 item | State |
+|---|---|
+| pdf.js render pane, worker-backed, lazily imported | ✅ `features/reader/ui/pdf-reader.tsx` |
+| Virtualised pages | ✅ `IntersectionObserver`, 600px root margin |
+| **Jump-to-locus** from a stored anchor | ✅ quote-first, position fallback, low-confidence surfaced |
+| Source resolution | ⚠️ **step 4 only** (arXiv / open-access URL). `resolvePaperPdfUrl` is what the reader calls |
+| Steps 1 (cache) and 2 (Zotero storage) | ❌ `packages/core/src/reader/pdf-source-ladder.ts` implements the ladder and is **never called by the app** |
+| IndexedDB byte cache with LRU cap | ❌ absent |
+| Page navigation, zoom, fit-width/fit-page, rotate | ❌ absent — `scale` is a fixed prop with no controls |
+| Text selection + copy | ❌ **no text layer is rendered.** `getTextContent()` is used for anchor matching only; the page is a bare canvas, so text cannot be selected or copied |
+| Zotero annotation overlays at their anchors | ❌ absent |
+
+Phases 2–4 are entirely undelivered. **Phase 2 (annotation) is deferred by decision, not by oversight** — see roadmap D2 and D3: Phase D's scope is a read-only provenance surface, and annotation write-back needs a supervised spike against a live Zotero library.
+
+Nothing above is broken; it is unbuilt. The reader does what the provenance UI needs and no more.
+
+**Do not read this document as a record of shipped work.** The next person picking up the reader should start from this table, not from §8.
+
+**Original status:** Proposed. Requires a product-brief amendment (see §2) before build starts.
 **Driver:** ZotFlow ships an embedded reader inside Obsidian and is rated our leading competitive threat — see `docs/competitive-research-verified-2026-07.md` §2.1. Separately, the `/ai-review` provenance UI (P0) needs a way to show the source of an AI claim without a context break.
 
 ---
