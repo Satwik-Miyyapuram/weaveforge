@@ -254,6 +254,88 @@ Notes:
 
 ---
 
+## 7.1 Comped access — lifetime codes for friends, reviewers, and contributors
+
+**Goal.** Hand someone a string; they paste it once and hold a plan forever, with no card, no Stripe customer, and no monthly job that could silently expire them.
+
+### The invariant this must not break
+
+§7 says the Stripe webhook is the **only** writer to `plan_entitlements`. A comp grant appears to violate that, and if it wrote the same row, the next `customer.subscription.updated` would erase the grant.
+
+**Resolution: comps never share a row with Stripe.** `plan_entitlements` gains a `source` column (`'stripe' | 'comp'`), with the primary key becoming `(user_id, source)`. The webhook still owns every `source='stripe'` row exclusively. Redemption only ever writes `source='comp'`. Neither writer can see or clobber the other.
+
+`IEntitlementsProvider` then resolves a user's effective limits by taking the **most generous** live row per quota key. Consequences that fall out for free, rather than needing special cases:
+
+- A comped friend who later subscribes gets whichever is better; cancelling drops them back to the comp, not to Free.
+- A lapsed Stripe row expires on its own without touching the comp.
+- Revoking a comp cannot strip a paying customer.
+
+### Schema
+
+```sql
+-- Codes are secrets: hashed at rest, plaintext shown once at mint time.
+create table access_codes (
+  id               uuid primary key default gen_random_uuid(),
+  code_hash        bytea not null,
+  code_prefix      text not null,           -- display only, e.g. "WF-LIFE-3K2…"
+  plan             text not null,           -- 'student' | 'researcher' | 'lab'
+  lifetime         boolean not null default true,
+  grant_until      timestamptz,             -- null + lifetime => never expires
+  max_redemptions  integer not null default 1 check (max_redemptions > 0),
+  redeemed_count   integer not null default 0,
+  valid_until      timestamptz,             -- code stops working (≠ grant length)
+  revoked_at       timestamptz,
+  note             text,                    -- "chetan, beta feedback"
+  created_at       timestamptz not null default now()
+);
+create unique index access_codes_code_hash_idx on access_codes (code_hash);
+
+create table access_code_redemptions (
+  id           uuid primary key default gen_random_uuid(),
+  code_id      uuid not null references access_codes(id) on delete cascade,
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  redeemed_at  timestamptz not null default now(),
+  unique (code_id, user_id)                 -- one redemption per person per code
+);
+```
+
+Both tables have RLS enabled and **no `authenticated` policy at all** — a user must never enumerate codes or read another person's redemption. All access goes through the RPC below. `access_codes` is written only by the maintainer CLI using the service role.
+
+### Redemption
+
+`redeem_access_code(p_code_hash bytea)` — `security definer`, granted to `authenticated`, invoked by the redeeming user so `auth.uid()` is the grantee. It must, in one transaction:
+
+1. `select … for update` the code row — the lock is what makes `max_redemptions` hold under concurrent redemption. Without it two people can both pass the check on the last slot.
+2. Reject when `revoked_at is not null`, `valid_until < now()`, or `redeemed_count >= max_redemptions`.
+3. Insert into `access_code_redemptions`; a unique violation means "already redeemed" — return that, do not double-count.
+4. Increment `redeemed_count`.
+5. Upsert `plan_entitlements (user_id, source='comp')` with the code's plan and `grant_until`.
+
+Return a typed result (`ok` / `invalid` / `expired` / `exhausted` / `already_redeemed`) rather than raising, so the UI can say something specific.
+
+**Codes are guessable, so treat redemption as an auth surface.** Mint with ≥128 bits of entropy from `crypto.randomBytes`, Crockford base32, formatted `WF-LIFE-XXXX-XXXX-XXXX`. Rate-limit redemption attempts per user and per IP, and return the *same* generic failure for "no such code" as for "revoked" — a distinguishable response turns the endpoint into an oracle. Never log the plaintext code.
+
+### Where you set them
+
+**Minting is maintainer-only and deliberately not in the app** — an admin UI is a second privileged write path to entitlements, and this needs to be reachable only by someone holding the service-role key.
+
+```bash
+node local-dev/mint-access-code.mjs --plan researcher --note "chetan, beta feedback"
+node local-dev/mint-access-code.mjs --plan student --max 20 --valid-until 2027-01-01 --note "lab workshop"
+node local-dev/list-access-codes.mjs          # prefixes, counts, notes — never plaintext
+node local-dev/revoke-access-code.mjs WF-LIFE-3K2
+```
+
+The plaintext prints **once**, at mint. It is not recoverable — reissue instead. This mirrors `api_tokens` (§`0061`), which already establishes hash-at-rest + show-once in this codebase.
+
+**Redeeming** is in the app: Settings → Plan → "Have a code?". One field, one button, an explicit success state naming the plan granted.
+
+### Self-host
+
+Comp codes are part of the billing module and strip with it (§9). With billing disabled, `NullEntitlementsProvider` already returns `Infinity` — a code would grant nothing over the default, so the tables and the RPC are simply not created.
+
+---
+
 ## 8. UX behaviour
 
 - **80% warning** — inline banner on the relevant screen, not a modal.
@@ -286,7 +368,10 @@ Verified by a build-profile test asserting the self-host bundle contains no Stri
 | **2 — Entitlements** | `plan_entitlements`, `IEntitlementsProvider`, registry, `PLAN_LIMITS`. Everyone on Free with `Infinity` limits. Settings → Usage ships read-only. |
 | **3 — Enforce** | Decorators wired in composition roots; Postgres triggers; warning and block UX. Grandfather existing users. |
 | **4 — Charge** | Stripe checkout, webhook, portal, Stripe Tax. Student and Researcher only. |
+| **4b — Comp codes** | §7.1. `access_codes` + redemptions + RPC, the mint/list/revoke CLI, and the Settings redeem field. |
 | **5 — Lab** | Seats, invoicing, PO numbers, admin console, seat reassignment. |
+
+**Comp codes ship with Phase 2, not Phase 4**, if you want them sooner — they depend on `plan_entitlements` and the `source` column, not on Stripe. Giving friends a lifetime plan is useful before anyone can pay. Adding `source` later means migrating live rows, so **put the `source` column in from the start of Phase 2** even if redemption comes later.
 
 Phases 1–2 are safe to ship at any time and are useful independently — usage visibility is a good feature even with no pricing.
 

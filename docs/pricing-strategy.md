@@ -146,6 +146,31 @@ This is where most SaaS pricing fails in academia, and it needs designing for fr
 
 ---
 
+## 7.1 Comped and lifetime access
+
+Some people should never pay: friends who tested it, the people who gave the feedback that shaped it, contributors, and researchers in places where even €4.99/mo is a real barrier. Redeemable codes grant a plan directly, with no card and no Stripe customer.
+
+Mechanism is in `billing-and-quota-plan.md` §7.1. The commercial policy:
+
+| Use | Grant | Cap |
+|---|---|---|
+| Friends, testers, contributors | Researcher, lifetime | Single-use per person, minted on request |
+| Reviewers / conference workshops | Student, expires 6–12 months | Multi-use, always `valid_until` dated |
+| Hardship / low-income regions | Student, lifetime | Case-by-case; no application form, no means test |
+| Yourself and any alt accounts | Researcher, lifetime | — |
+
+**Rules that keep this from becoming a leak:**
+
+- **Never publish a code anywhere public.** A lifetime code on a forum is unbounded free-tier-forever, and revoking it after the fact punishes honest redeemers. Hand them out one to one.
+- **Always set `valid_until` on multi-use codes.** Codes without an expiry outlive the context you minted them for.
+- **A lifetime grant is a promise.** Do not later convert comped users into a paid tier, or claw back the plan because the cost model changed. It is a small number of people; honouring it costs little and breaking it is the kind of thing people remember. If a future tier is genuinely unaffordable to give away, mint the *old* plan, do not downgrade an existing grant.
+- **`note` is mandatory at mint.** Six months on, an untracked code is one you cannot decide whether to revoke.
+- Comps are not a discount channel. Discounting is what §6 regional pricing and the 40% education discount are for — comps are for people you would feel bad charging.
+
+Comped users still count in telemetry, and should be **excluded from conversion metrics** — they were never going to convert, and leaving them in makes the free-to-paid rate look worse than it is.
+
+---
+
 ## 8. Anti-patterns to avoid
 
 | Anti-pattern | Why it fails here |
@@ -158,6 +183,8 @@ This is where most SaaS pricing fails in academia, and it needs designing for fr
 | Open-core feature stripping | Kills the self-host community that gives the project credibility |
 | Trial-limited free tier | Theses take years. An indefinite free tier is the acquisition channel |
 | Hard cliffs at quota | Warn at 80%, soft-block new writes at 100%, never interrupt reading or an in-progress sync |
+| Public or reusable lifetime codes | An unbounded free tier you cannot withdraw without punishing honest redeemers. One-to-one, and date every multi-use code (§7.1) |
+| Revoking a lifetime grant | It was a promise made to a small number of people. Mint the old plan instead of downgrading an existing one |
 
 ---
 
