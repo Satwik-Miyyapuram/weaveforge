@@ -39,6 +39,7 @@ const PROPOSAL_LABELS: Record<AiProposalKind, string> = {
   create_vault_note: "Create a vault note",
   create_log_entry: "Create a log entry",
   paper_update: "Propose paper metadata updates",
+  paper_field_value: "Propose extraction-table field values",
   reading_list_change: "Change reading lists",
   relation: "Propose graph relations",
   zotero_import: "Propose Zotero imports",

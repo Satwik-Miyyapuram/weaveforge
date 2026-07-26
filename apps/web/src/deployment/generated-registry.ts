@@ -26,5 +26,5 @@ export const GENERATED_BUILTIN_MODULES = [dashboardModule, papersModule, vaultMo
 export const GENERATED_BUILTIN_SHELL_MODULES = [settingsModule, sharingModule, orgModule] as const;
 export const GENERATED_BUILTIN_INTEGRATION_MANIFESTS = [zoteroBibliographyManifest, semanticScholarCitationManifest, mattermostNotificationManifest, gitlabLogSyncManifest, githubGitReadManifest, gitlabGitReadManifest] as const;
 export const GENERATED_MCP_ENABLED = true as const;
-export const GENERATED_MCP_TOOL_NAMES = ["search_workspace", "get_source_excerpt", "get_workspace_outline", "propose_append_paper_note", "propose_create_vault_note", "propose_create_log_entry", "propose_paper_update", "propose_reading_list_change", "propose_relation", "propose_zotero_import", "propose_milestone_follow_up", "propose_experiment_follow_up"] as const;
+export const GENERATED_MCP_TOOL_NAMES = ["search_workspace", "get_source_excerpt", "get_workspace_outline", "propose_append_paper_note", "propose_create_vault_note", "propose_create_log_entry", "propose_paper_update", "propose_paper_field_value", "propose_reading_list_change", "propose_relation", "propose_zotero_import", "propose_milestone_follow_up", "propose_experiment_follow_up"] as const;
 export const GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY = createAiProposalExecutors;

@@ -191,6 +191,37 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
     case "propose_create_vault_note": return ai.proposeDraft({ sessionId, settings, kind: "create_vault_note", tool: "propose_create_vault_note", content: `Create vault note: ${required(args, "title")}`, payload: { title: required(args, "title"), body: required(args, "body"), parentId: optional(args, "parentId") } });
     case "propose_create_log_entry": return ai.proposeDraft({ sessionId, settings, kind: "create_log_entry", tool: "propose_create_log_entry", content: `Create log entry:\n\n${required(args, "body")}`, payload: { body: required(args, "body"), entryDate: optional(args, "entryDate"), kind: optional(args, "kind") ?? "daily" } });
     case "propose_paper_update": return ai.proposeDraft({ sessionId, settings, kind: "paper_update", tool: "propose_paper_update", resourceId: required(args, "paperId"), resourceType: "paper", expectedRevision: optional(args, "expectedRevision"), content: `Update paper metadata`, payload: { status: optional(args, "status"), rating: typeof args.rating === "number" ? args.rating : undefined, tags: stringList(args.tags) } });
+    case "propose_paper_field_value": {
+      const paperId = required(args, "paperId");
+      const fieldId = required(args, "fieldId");
+      const value = parseFieldValue(args.value);
+      const sourceId = required(args, "sourceId");
+      const quoteExact = requiredRaw(args, "quoteExact");
+      const evidenceBundle = await buildPaperEvidence(ai, sessionId, settings, {
+        paperId, sourceId, quoteExact,
+        quotePrefix: optionalRaw(args, "quotePrefix"),
+        quoteSuffix: optionalRaw(args, "quoteSuffix"),
+        page: optionalPage(args.page),
+      });
+      const preview = Array.isArray(value) ? value.join("; ") : String(value);
+      // resourceId stays the paper id for the executor. Do not pass resourceType:
+      // evidence may cite paper_note / zotero_* (already grant-checked by
+      // getSourceExcerpt), and a hard-coded "paper" metadata grant would fail
+      // least-privilege note-only sessions.
+      return ai.proposeDraft({
+        sessionId, settings, kind: "paper_field_value", tool: "propose_paper_field_value",
+        resourceId: paperId,
+        expectedRevision: optional(args, "expectedRevision"),
+        // fieldId is authoritative; optional fieldName is an unverified hint only.
+        content: `Set field \`${fieldId}\` to:\n\n${preview}`,
+        payload: {
+          paperId, fieldId, value,
+          ...(optional(args, "listId") ? { listId: optional(args, "listId") } : {}),
+          ...(optional(args, "fieldName") ? { fieldName: optional(args, "fieldName") } : {}),
+        },
+        evidence: evidenceBundle.evidence,
+      });
+    }
     case "propose_reading_list_change": return ai.proposeDraft({ sessionId, settings, kind: "reading_list_change", tool: "propose_reading_list_change", resourceId: required(args, "listId"), resourceType: "reading_list", content: "Add an item to a reading list", payload: { listId: required(args, "listId"), paperId: optional(args, "paperId"), vaultPageId: optional(args, "vaultPageId"), note: optional(args, "note") } });
     case "propose_relation": return ai.proposeDraft({ sessionId, settings, kind: "relation", tool: "propose_relation", resourceId: required(args, "fromPaper"), resourceType: "paper", content: `Add ${required(args, "relation")} relation`, payload: { fromPaper: required(args, "fromPaper"), toPaper: required(args, "toPaper"), relation: required(args, "relation") } });
     case "propose_milestone_follow_up": return ai.proposeDraft({ sessionId, settings, kind: "milestone_follow_up", tool: "propose_milestone_follow_up", content: `Create milestone: ${required(args, "title")}`, payload: { title: required(args, "title"), description: optional(args, "description"), targetDate: optional(args, "targetDate") } });
@@ -210,6 +241,12 @@ function optionalRaw(args: Record<string, unknown>, key: string): string | undef
   const value = args[key] as string;
   return value.length > 2_000 ? value.slice(0, 2_000) : value;
 }
+/** Required quoteExact — trim is wrong for matching, but empty is invalid. */
+function requiredRaw(args: Record<string, unknown>, key: string): string {
+  const value = optionalRaw(args, key);
+  if (!value?.trim()) throw new Error(`${key} is required.`);
+  return value;
+}
 function optionalPage(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value;
   if (typeof value === "string" && value.trim()) {
@@ -219,6 +256,74 @@ function optionalPage(value: unknown): number | undefined {
   return undefined;
 }
 function stringList(value: unknown): string[] | undefined { return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined; }
+
+function parseFieldValue(value: unknown): string | number | string[] {
+  if (typeof value === "string") {
+    if (!value.trim()) throw new Error("value must be a non-empty string, number, or string array.");
+    return value;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string")) {
+    const cleaned = (value as string[]).map((item) => item.trim()).filter(Boolean);
+    if (!cleaned.length) throw new Error("value must be a string, number, or non-empty string array.");
+    return cleaned;
+  }
+  throw new Error("value must be a string, number, or non-empty string array.");
+}
+
+async function buildPaperEvidence(
+  ai: ReturnType<typeof getContainer>["aiAssistant"],
+  sessionId: string,
+  settings: AiAccessSettings,
+  input: {
+    paperId: string;
+    sourceId: string;
+    quoteExact: string;
+    quotePrefix?: string;
+    quoteSuffix?: string;
+    page?: number;
+  },
+): Promise<{
+  evidence: import("@thesis/core").AiEvidence[];
+}> {
+  const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId: input.sourceId });
+  if (!doc?.text) {
+    throw new Error("sourceId was provided but no excerpt could be resolved for evidence.");
+  }
+  if (!doc.text.includes(input.quoteExact)) {
+    throw new Error("quoteExact was not found in the source excerpt.");
+  }
+  const paperFromSource =
+    doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
+      ? doc.source.resourceId
+      : doc.source.resourceType === "zotero_annotation" || doc.source.resourceType === "zotero_note"
+        ? doc.source.resourceId.split(":")[0] || undefined
+        : undefined;
+  if (!paperFromSource) {
+    throw new Error("Evidence sourceId must resolve to a paper-scoped source.");
+  }
+  if (paperFromSource !== input.paperId) {
+    throw new Error("Evidence source belongs to a different paper than paperId.");
+  }
+  return {
+    evidence: [{
+      sourceId: input.sourceId,
+      excerpt: doc.text,
+      label: doc.source.label,
+      paperId: paperFromSource,
+      href: doc.source.href,
+      locus: {
+        quote: {
+          type: "TextQuoteSelector" as const,
+          exact: input.quoteExact,
+          ...(input.quotePrefix ? { prefix: input.quotePrefix } : {}),
+          ...(input.quoteSuffix ? { suffix: input.quoteSuffix } : {}),
+        },
+      },
+      ...(input.page != null ? { page: input.page } : {}),
+    }],
+  };
+}
 
 async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("thesis-tracker-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }
 /** Chunked — `String.fromCharCode(...bytes)` overflows the stack on large ciphertexts. */
