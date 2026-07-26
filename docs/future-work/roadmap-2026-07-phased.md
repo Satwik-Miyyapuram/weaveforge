@@ -17,62 +17,94 @@ Both predate the verified competitive research, so neither accounts for ZotFlow,
 
 ---
 
+## Status at a glance (2026-07-26)
+
+| Phase | Contents | State |
+|-------|----------|-------|
+| **A** | Pure domain foundations | ✅ **done** |
+| **B** | Feature logic — templates, citations, artifacts, ranking | ✅ **done** |
+| **C** | **UI wiring** — make B reachable by users | ⬜ next |
+| **D** | Reader + provenance (read-only) | ⬜ |
+| **E** | AI-assisted extraction fill | ⬜ |
+| **F** | P2 tail | ⬜ |
+
+A and B were delivered on branch `overnight/queue-2b-through-9`: 394 core tests, 52 web feature tests, all four gates green. **Every hard part is written and tested; none of it is reachable by a user yet.** That is what Phase C fixes.
+
 ## Dependency map
 
 ```
-Phase A  pure domain (no UI, no migrations, no network)
+Phase A  pure domain            [DONE]
    |
-   +--> Phase B  independent features        [no decisions needed]
-   |
-   +--> Phase C  DECISION GATE               [human required]
-              |
-              +--> Phase D  reader + provenance
-                       |
-                       +--> Phase E  AI-assisted extraction fill
-                                |
-                                +--> Phase F  P2 tail
+   +--> Phase B  feature logic  [DONE]
+            |
+            +--> Phase C  UI wiring        <- needs a human, no test surface
+            |
+            +--> Phase D  reader + provenance
+                     |
+                     +--> Phase E  AI-assisted extraction fill
+                              |
+                              +--> Phase F  P2 tail
 ```
 
-Phase B runs in parallel with C and D. Nothing in B is blocked by the reader decision — that is the point of splitting it out.
+**Why UI is its own phase.** Web UI has no unit-test coverage in this repo — 23 test files under `apps/web/src/features/*/test/`, none touching `.tsx` — and the four done-check commands never exercise it. Unsupervised work there passes every gate while being functionally unverified, so it is deliberately separated and done interactively.
+
+C and D are independent of each other and can run in either order or in parallel.
 
 ---
 
-## Phase A — Pure domain foundations
+## Phase A — Pure domain foundations ✅ DONE
 
-**Status: in flight.** Tracked in `overnight-queue.md`.
+Delivered via `overnight-queue.md`, branch `overnight/queue-2b-through-9`.
 
-| # | Item | Roadmap ref | State |
-|---|------|-------------|-------|
-| 1 | Zotero annotation position fields | enables P1 anchors | ✅ done (`05db56f`, `a71f536`) |
-| 2 | Text-anchor resolution | P1 deep links | ✅ done (`e1781cc`, `bdc0250`) |
-| 2b | Whitespace normalisation | P1 deep links | ⬜ required fix |
-| 3 | S2 `contexts` / `intents` / `isInfluential` | P1 discovery filters | ⬜ |
-| 4 | Multi-format cite formatters | P1 multi-format citation | ⬜ |
-| 5 | Zotero rects ↔ `PdfLocus` bridge | P1 deep links | ⬜ |
-| 6 | Source resolution ladder ordering | reader §4 | ⬜ |
+| # | Item | Delivered |
+|---|------|-----------|
+| 1 | Zotero annotation position fields | `annotationType` · `annotationPosition` · `annotationSortIndex`, parsed defensively |
+| 2 | Text-anchor resolution | `findQuoteMatches` · `pickNearestMatch` · `resolveTextAnchor` |
+| 2b | Whitespace normalisation | `normaliseWhitespace` with an index map — matches in normalised space, **returns original offsets** |
+| 3 | S2 citation signals | `contexts` · `intents` · `isInfluential` on `CitationCandidate` |
+| 4 | Cite formatters | see Phase B |
+| 5 | Anchor strategy | `chooseAnchorStrategy` — rects only when the content hash matches, else quote at low confidence |
+| 6 | Source ladder | `IPdfSourceResolver` · `resolvePdfSource` — caller order preserved, throwing resolvers skipped |
 
-**Exit criteria:** all seven green on `typecheck`, `test:core`, `check:boundaries`, `build:core` — with ripgrep genuinely present, or the SOLID gate is a no-op.
-
----
-
-## Phase B — Independent features (start any time)
-
-None of these depend on the reader decision. Highest value per unit of effort in the whole roadmap.
-
-| Item | Roadmap | Effort | Depends on | Notes |
-|------|---------|--------|-----------|-------|
-| **Vault note templates** | **P0** | S | nothing | Highest priority unblocked item. ZotFlow's LiquidJS templating is its single strongest draw and §6.9 has no equivalent. **Copy the editable-region mechanic** — re-rendering a template must not clobber the researcher's own edits. That is the hard part, not the templating. |
-| **Multi-format citation wiring** | P1 | S | A-4 | Wire the pure formatters into the editor: Pandoc, footnote, raw citekey alongside `[[Title]]`. |
-| **Directional discovery filters** | P1 | S | A-3 | "Prior art" / "later work" on related papers; surface `intents` and `isInfluential` on alerts. These *reduce* alert volume, which is what the question asked for. |
-| **Artifact-to-report pinning** | P1 | S | nothing | Insert `experiment-artifacts` plots into report sections. Stands on merit — **not** a defence against W&B, which verification showed is in maintenance. |
-
-**Exit criteria:** each shipped behind its own tests; no migration required for templates, citation wiring, or discovery filters. Artifact pinning may need a small migration — treat that as its own gate.
+**Verified independently 2026-07-26:** `typecheck` 0 · `test:core` 394/394 · `check:boundaries` genuine pass with ripgrep present · `build:core` 0.
 
 ---
 
-## Phase C — Decisions ✅ RESOLVED 2026-07-25
+## Phase B — Feature logic ✅ DONE
 
-All four are decided. Phase D is unblocked. Rationale recorded so each can be revisited on evidence rather than re-argued from scratch.
+Every item below is implemented, tested, and exported. None is wired to a screen — that is Phase C.
+
+| Item | Roadmap | Delivered API | Tests |
+|------|---------|---------------|-------|
+| **Vault note templates** | **P0** | `applyTemplate` · `mergeTemplate` · `renderTemplate` · `parseRegions` · `wrapRegion` — markers `<!-- wf:generated:name -->` / `<!-- wf:editable:name -->` | 16 |
+| **Multi-format citation** | P1 | `formatCitation` · `formatPaperCitation` · `resolveCiteKey` — `latex` \| `pandoc` \| `footnote` \| `raw` | 10 |
+| **Directional discovery** | P1 | `contexts` / `intents` / `isInfluential` on `CitationCandidate`; `rankCitationAlerts` · `citationAlertScore` | 14 |
+| **Artifact references** | P1 | `parseArtifactRefs` · `serialiseArtifactRef` · `resolveArtifactRef` — syntax `![alt](expartifact:<experimentId>/<artifactName>)` | 12 |
+
+The hard part of the P0 was never the templating — it was re-rendering without destroying the researcher's edits. `mergeTemplate` rebuilds from the **existing** document, so unmarked text and editable regions stay byte-identical, and any damaged marker returns the original untouched rather than guessing.
+
+---
+
+## Phase C — UI wiring (interactive, with a human)
+
+Make Phase B reachable. Four jobs, all small, all against APIs that already exist and are tested. None needs a migration.
+
+| # | Job | Uses | Notes |
+|---|-----|------|-------|
+| C1 | **Vault note templates** | `applyTemplate` | The **P0**. Decide the default source-note template, then call `applyTemplate` from the vault and paper note flows. Re-render must be an explicit user action with a visible result — never silent on load. |
+| C2 | **Citation format picker** | `formatPaperCitation` | Offer pandoc / footnote / raw alongside the existing `[[Title]]` insertion in the editor. Remember the last choice per project. |
+| C3 | **Discovery + alert ranking** | `rankCitationAlerts`, `intents` | Order alerts by "should I read this?" rather than date. Show intent as a small label; `background` is the one people skip. Absent signals must not sink an item — the fallback is recency. |
+| C4 | **Artifact insertion** | `parseArtifactRefs`, `serialiseArtifactRef` | A `/experiment` picker in the report editor that inserts the `expartifact:` ref. Surface the **stale** resolution outcome as a warning on the block. |
+
+**Exit criteria:** a researcher can create a templated source note, re-render it without losing edits, insert a citation in a non-LaTeX format, see alerts ordered by usefulness, and embed an experiment figure in a report section.
+
+**Verification is manual.** These are UI changes and the gates do not cover them. Check each in the running app, and add Playwright coverage for C1 specifically — a template merge that eats someone's notes is the one failure here with no recovery.
+
+---
+
+## Decisions — resolved 2026-07-25
+
+**Not a phase.** These were a gate that blocked the reader work; all four are now decided and Phase D is unblocked. Rationale is recorded so each can be revisited on evidence rather than re-argued from scratch.
 
 ### C1 — Reader engine: **pdf.js.** `zotero/reader` documented as fallback.
 
@@ -183,14 +215,16 @@ From `competitive-research-verified-2026-07.md` §5 and §6, unchanged:
 
 | Phase | Gate | Roadmap items delivered |
 |-------|------|------------------------|
-| **A** | none — in flight | foundations for P1 anchors, discovery, citation |
-| **B** | none | **P0** vault templates · P1 citation wiring · P1 discovery filters · P1 artifact pinning |
-| **C** | ✅ resolved 2026-07-25 | — |
-| **D** | unblocked | **P0** provenance UI · P1 deep links (read-only) |
+| **A** | — | ✅ anchors · citation signals · source ladder · Zotero position fields |
+| **B** | A | ✅ **P0** template engine · P1 cite formatters · P1 alert ranking · P1 artifact refs |
+| **C** | B | **P0** vault templates UI · P1 citation picker · P1 alert ordering · P1 artifact insertion |
+| **D** | A | **P0** provenance UI · P1 deep links (read-only) |
 | **E** | D | **P0** AI extraction fill |
 | **F** | D | P2 quotation types · P2 lab snapshots |
 
-**Every gate is now closed and nothing is waiting on a decision.** A and B can run in parallel; D follows A.
+**Nothing is waiting on a decision.** C and D are independent — run them in either order, or in parallel.
+
+**C is the shortest path to user-visible value.** All four jobs are small, need no migrations, and sit on APIs that already exist and are tested. C1 alone closes the P0 that the competitive research named as the leading threat's strongest draw.
 
 ## Deferred decisions, with triggers
 
