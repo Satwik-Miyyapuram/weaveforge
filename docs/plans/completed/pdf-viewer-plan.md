@@ -35,7 +35,7 @@ Practical rules that still apply:
 
 ### 1.1 Reader engine — DECIDED 2026-07-25: **pdf.js**
 
-See `docs/future-work/roadmap-2026-07-phased.md` §D1 for the full rationale. Summary of the evidence that settled it: `zotero/reader` is actively maintained (pushed 2026-07-24) but is **not published to npm**, and building it requires recursive git submodules plus `NODE_OPTIONS=--openssl-legacy-provider`. Consuming it means vendoring a submodule and building from source in CI, on a legacy webpack toolchain, inside a Next.js 14 PWA with a ~1MB gzipped reader-chunk budget. We are also buying far more than we need: per decision D3 the scope is a **read-only rendering surface**, not an annotator.
+See `docs/plans/current/roadmap-2026-07-phased.md` §D1 for the full rationale. Summary of the evidence that settled it: `zotero/reader` is actively maintained (pushed 2026-07-24) but is **not published to npm**, and building it requires recursive git submodules plus `NODE_OPTIONS=--openssl-legacy-provider`. Consuming it means vendoring a submodule and building from source in CI, on a legacy webpack toolchain, inside a Next.js 14 PWA with a ~1MB gzipped reader-chunk budget. We are also buying far more than we need: per decision D3 the scope is a **read-only rendering surface**, not an annotator.
 
 The anchor model in `packages/core/src/reader/` is renderer-agnostic, so this decision is cheap to revisit. **Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
 

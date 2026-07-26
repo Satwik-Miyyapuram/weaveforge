@@ -2,7 +2,7 @@
 
 Phased path from **Supabase Cloud** (managed Postgres + Auth) to **self-hosted Postgres** with optional **tiered blob storage** (R2 hot + OCI MinIO cold), while keeping Supabase Auth as the identity provider (Option A).
 
-**Index:** [`../self-host-roadmap.md`](../self-host-roadmap.md) · **OCI runbook:** [`../backend/oci-phase3-setup.md`](../backend/oci-phase3-setup.md)
+**Index:** [`../../self-host-roadmap.md`](../../self-host-roadmap.md) · **OCI runbook:** [`../../backend/oci-phase3-setup.md`](../../backend/oci-phase3-setup.md)
 
 ---
 
@@ -10,13 +10,13 @@ Phased path from **Supabase Cloud** (managed Postgres + Auth) to **self-hosted P
 
 | Phase | Status | Work |
 |-------|--------|------|
-| 0 Schema | Done | Apply all files in [`supabase/migrations/`](../../supabase/migrations/) (`0001` … latest) on Supabase Cloud |
-| 1 Storage (R2 hot) | Done | Optional `NEXT_PUBLIC_BLOB_PROVIDER=tiered` — see [`r2-setup.md`](r2-setup.md) |
+| 0 Schema | Done | Apply all files in [`supabase/migrations/`](../../../supabase/migrations/) (`0001` … latest) on Supabase Cloud |
+| 1 Storage (R2 hot) | Done | Optional `NEXT_PUBLIC_BLOB_PROVIDER=tiered` — see [`../../storage/r2-setup.md`](../../storage/r2-setup.md) |
 | 2 Postgres code | Done | `wire-postgres-backend.ts` + contract tests — not used in prod yet |
-| 3 OCI infra | Paused | VM + Postgres + MinIO — [`oci-phase3-setup.md`](../backend/oci-phase3-setup.md) |
+| 3 OCI infra | Paused | VM + Postgres + MinIO — [`../../backend/oci-phase3-setup.md`](../../backend/oci-phase3-setup.md) |
 | 4 Shadow migrate | Not started | Export Supabase relational data → OCI Postgres; blobs → R2. No automated scripts in repo yet. |
 | 5 Cutover | Not started | Point `DATABASE_URL` at OCI; set `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` on server; keep Supabase Auth env vars |
-| 6 Auto tiering | Not started | Cron eviction R2 → MinIO — [`tiering.md`](tiering.md) |
+| 6 Auto tiering | Not started | Cron eviction R2 → MinIO — [`../../storage/tiering.md`](../../storage/tiering.md) |
 
 **Supported today:** Phase 0 on Supabase Cloud + optional Phase 1 tiered blobs.
 
@@ -24,8 +24,8 @@ Phased path from **Supabase Cloud** (managed Postgres + Auth) to **self-hosted P
 
 ## Schema apply order (self-hosted Postgres)
 
-1. Every file in [`supabase/migrations/`](../../supabase/migrations/) in numeric order through the latest (`0088` at time of writing).
-2. Then files in [`supabase/migrations-self-hosted-postgres/`](../../supabase/migrations-self-hosted-postgres/) (auth stubs for Option A).
+1. Every file in [`supabase/migrations/`](../../../supabase/migrations/) in numeric order through the latest (`0088` at time of writing).
+2. Then files in [`supabase/migrations-self-hosted-postgres/`](../../../supabase/migrations-self-hosted-postgres/) (auth stubs for Option A).
 
 ```bash
 for f in supabase/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
@@ -64,8 +64,8 @@ BLOB_COLD_BUCKET=thesis-tracker-cold
 
 | Topic | Path |
 |-------|------|
-| Roadmap index | [`../self-host-roadmap.md`](../self-host-roadmap.md) |
-| Postgres provider | [`../backend/postgres-provider.md`](../backend/postgres-provider.md) |
-| R2 setup | [`r2-setup.md`](r2-setup.md) |
-| Tiering formula | [`tiering.md`](tiering.md) |
-| Migration folders | [`../../supabase/README.md`](../../supabase/README.md) |
+| Roadmap index | [`../../self-host-roadmap.md`](../../self-host-roadmap.md) |
+| Postgres provider | [`../../backend/postgres-provider.md`](../../backend/postgres-provider.md) |
+| R2 setup | [`../../storage/r2-setup.md`](../../storage/r2-setup.md) |
+| Tiering formula | [`../../storage/tiering.md`](../../storage/tiering.md) |
+| Migration folders | [`../../../supabase/README.md`](../../../supabase/README.md) |

@@ -350,7 +350,7 @@ Comp codes are part of the billing module and strip with it (§9). With billing 
 
 ## 9. Self-host stripping and the pricing flag
 
-Billing is a feature module in `thesis-tracker.config.ts`, following `docs/modular-deployment-plan.md`. With it disabled:
+Billing is a feature module in `thesis-tracker.config.ts`, following `docs/plans/completed/modular-deployment-plan.md`. With it disabled:
 
 - Composition roots wire the plain repositories with no decorators
 - `NullEntitlementsProvider` returns `Infinity` for every key
@@ -449,7 +449,7 @@ Nothing in `features/experiments/` changes. The Settings usage screen picks it u
 ## 13. Related
 
 - `docs/pricing-strategy.md` — tiers, prices, what may never be metered
-- `docs/COMMERCIALIZATION_AND_COST_PLAN.md` — cost drivers and pre-launch cost controls
-- `docs/modular-deployment-plan.md` — feature stripping
-- `docs/future-work/pdf-viewer-plan.md` — `pdfBytes` as a separately metered, opt-in resource
+- `docs/plans/future/COMMERCIALIZATION_AND_COST_PLAN.md` — cost drivers and pre-launch cost controls
+- `docs/plans/completed/modular-deployment-plan.md` — feature stripping
+- `docs/plans/completed/pdf-viewer-plan.md` — `pdfBytes` as a separately metered, opt-in resource
 - `apps/web/src/storage/passthrough-blob-store.ts`, `apps/web/src/storage/providers/tiered/tiered-blob-store.ts` — existing decorator precedent

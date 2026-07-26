@@ -78,7 +78,7 @@ If a task touches anything under `apps/web`, `check:all` is the only signal that
 
 ## Task 1 — Capture Zotero annotation position fields
 
-**Spec:** `docs/future-work/pdf-viewer-plan.md` §5.1, §5.2, Phase 0.
+**Spec:** `docs/plans/completed/pdf-viewer-plan.md` §5.1, §5.2, Phase 0.
 
 `apps/web/src/features/papers/infrastructure/zotero-annotations.ts` currently reads only `annotationText`, `annotationComment`, `annotationColor`, `annotationPageLabel` and `tags`. It discards three fields the reader will need:
 
@@ -104,7 +104,7 @@ Add them to the `ZoteroItem` data interface in `zotero-annotations.ts` and to `Z
 
 ## Task 2 — Anchor resolution (pure functions)
 
-**Spec:** `docs/future-work/pdf-viewer-plan.md` §5.1 and §4.1 of `docs/competitive-research-verified-2026-07.md`.
+**Spec:** `docs/plans/completed/pdf-viewer-plan.md` §5.1 and §4.1 of `docs/competitive-research-verified-2026-07.md`.
 
 Create `packages/core/src/reader/` with pure anchor-resolution logic. No I/O, no React, no Supabase — the `packages/core` dependency rule applies strictly.
 
@@ -128,7 +128,7 @@ Implement, per the W3C Web Annotation Data Model:
 
 ## Task 2b — Whitespace normalisation for anchor matching (REQUIRED FIX)
 
-Task 2 shipped without the normalisation the spec required. `findQuoteMatches` uses raw `text.indexOf(exact)`, so a quote captured from one PDF text extraction will not match text from another — different pdf.js version, different line-breaking, collapsed or expanded spaces. The **primary** anchor then silently degrades to the position fallback, which the W3C spec itself calls "very brittle". This defeats the reason quote selectors are primary at all, and is the anchor-rot risk named in `docs/future-work/pdf-viewer-plan.md` §9.
+Task 2 shipped without the normalisation the spec required. `findQuoteMatches` uses raw `text.indexOf(exact)`, so a quote captured from one PDF text extraction will not match text from another — different pdf.js version, different line-breaking, collapsed or expanded spaces. The **primary** anchor then silently degrades to the position fallback, which the W3C spec itself calls "very brittle". This defeats the reason quote selectors are primary at all, and is the anchor-rot risk named in `docs/plans/completed/pdf-viewer-plan.md` §9.
 
 **Add to `packages/core/src/reader/`:**
 
@@ -193,7 +193,7 @@ Formats to support:
 
 ## Task 5 — Zotero position ↔ PdfLocus bridge (pure)
 
-**Spec:** `docs/future-work/pdf-viewer-plan.md` §5.1, "Two anchors, not one".
+**Spec:** `docs/plans/completed/pdf-viewer-plan.md` §5.1, "Two anchors, not one".
 
 Task 1 captures Zotero's `{pageIndex, rects}`. Task 2 gives W3C selectors. Nothing connects them, and §5.1 requires **both** — Zotero rects for write-back interop, quote selectors for durability across re-resolution.
 
@@ -211,7 +211,7 @@ Add pure mapping and decision logic in `packages/core/src/reader/`:
 
 ## Task 6 — Source resolution ladder ordering (pure)
 
-**Spec:** `docs/future-work/pdf-viewer-plan.md` §4.
+**Spec:** `docs/plans/completed/pdf-viewer-plan.md` §4.
 
 The plan defines a six-step ladder for locating a paper's PDF: browser cache → Zotero → WebDAV → open-access URL → user URL → opt-in server blob. Build the **ordering and selection logic** as pure functions now; the real network adapters come later.
 
@@ -230,7 +230,7 @@ The plan defines a six-step ladder for locating a paper's PDF: browser cache →
 
 ## Task 7 — Vault note template engine (Phase B, P0 — the hard part)
 
-**Spec:** `docs/future-work/roadmap-2026-07-phased.md` Phase B, "vault note templates".
+**Spec:** `docs/plans/current/roadmap-2026-07-phased.md` Phase B, "vault note templates".
 
 The highest-priority unblocked item on the roadmap. ZotFlow's templated source notes are its single strongest draw and `§6.9` has no equivalent — but the templating is not the hard part. **The hard part is re-rendering a template without destroying the researcher's own edits.** ZotFlow solves this with persistent and editable regions; a template that clobbers a week of notes on refresh is worse than no template at all.
 
@@ -256,7 +256,7 @@ Build the engine as **application-layer logic with no UI**. Follow the shape of 
 
 ## Task 8 — Experiment artifact references (Phase B, P1)
 
-**Spec:** `docs/future-work/roadmap-2026-07-phased.md` Phase B, "artifact-to-report pinning".
+**Spec:** `docs/plans/current/roadmap-2026-07-phased.md` Phase B, "artifact-to-report pinning".
 
 Report sections need to embed experiment artifacts. Build the **reference format and its resolution logic** now; the insertion UI comes later with a human.
 

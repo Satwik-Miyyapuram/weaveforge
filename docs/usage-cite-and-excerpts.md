@@ -2,7 +2,7 @@
 
 How WeaveForge connects reading (Zotero) → notes → report writing → LaTeX.
 
-See also: [competitive scan](competitive-scan.md) · [implementation plan](future-work/competitive-scan-implementation-plan.md)
+See also: [competitive scan](competitive-scan.md) · [implementation plan](plans/completed/competitive-scan-implementation-plan.md)
 
 ---
 

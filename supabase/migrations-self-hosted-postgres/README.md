@@ -7,7 +7,7 @@ SQL here runs only on **your own Postgres** (Oracle Cloud, VPS, Docker, etc.) �
 ## Apply order
 
 1. Apply every file in [`../migrations/`](../migrations/) on the self-hosted database first (`0001` … latest).
-2. Then apply files in **this folder** (currently auth stubs for [Option A](../docs/storage/migration-plan.md): Supabase Auth + external Postgres).
+2. Then apply files in **this folder** (currently auth stubs for [Option A](../../docs/plans/working/migration-plan.md): Supabase Auth + external Postgres).
 
 ```bash
 # Example — set DATABASE_URL to your OCI/VPS Postgres

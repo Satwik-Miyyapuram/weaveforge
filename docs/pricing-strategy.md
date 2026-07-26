@@ -1,8 +1,8 @@
 # WeaveForge — hosted pricing strategy
 
 **Date:** 2026-07-25
-**Status:** Strategy. Supersedes the "Suggested launch tiers" table in `docs/COMMERCIALIZATION_AND_COST_PLAN.md`; that document's cost analysis, OCI decision, and cost-control checklist remain authoritative.
-**Implementation:** `docs/future-work/billing-and-quota-plan.md`.
+**Status:** Strategy. Supersedes the "Suggested launch tiers" table in `docs/plans/future/COMMERCIALIZATION_AND_COST_PLAN.md`; that document's cost analysis, OCI decision, and cost-control checklist remain authoritative.
+**Implementation:** `docs/plans/future/billing-and-quota-plan.md`.
 
 ---
 
@@ -37,7 +37,7 @@ What a researcher already pays, and therefore what feels normal:
 
 ## 3. What the PDF reader changes
 
-`docs/future-work/pdf-viewer-plan.md` resolves PDF bytes through a six-step ladder — browser cache, Zotero storage, WebDAV, open-access URL, user URL, and only then an opt-in server bucket. **The default hosted install stores zero PDF bytes.**
+`docs/plans/completed/pdf-viewer-plan.md` resolves PDF bytes through a six-step ladder — browser cache, Zotero storage, WebDAV, open-access URL, user URL, and only then an opt-in server bucket. **The default hosted install stores zero PDF bytes.**
 
 This is a pricing advantage, and it should be exploited deliberately:
 
@@ -215,8 +215,8 @@ Pricing is also independently switchable per deployment: a self-hosted instance 
 
 ## 11. Related
 
-- `docs/COMMERCIALIZATION_AND_COST_PLAN.md` — cost drivers, OCI decision, pre-launch cost controls (still authoritative; its tier table is superseded by §5 here)
-- `docs/hosting-and-cost-plan.md` — licensing boundary between hosted and self-hosted
-- `docs/future-work/billing-and-quota-plan.md` — implementation
-- `docs/future-work/pdf-viewer-plan.md` — the storage ladder that makes §3 possible
-- `docs/modular-deployment-plan.md` — deploy-time feature stripping, used to remove billing entirely from self-host builds
+- `docs/plans/future/COMMERCIALIZATION_AND_COST_PLAN.md` — cost drivers, OCI decision, pre-launch cost controls (still authoritative; its tier table is superseded by §5 here)
+- `docs/plans/future/hosting-and-cost-plan.md` — licensing boundary between hosted and self-hosted
+- `docs/plans/future/billing-and-quota-plan.md` — implementation
+- `docs/plans/completed/pdf-viewer-plan.md` — the storage ladder that makes §3 possible
+- `docs/plans/completed/modular-deployment-plan.md` — deploy-time feature stripping, used to remove billing entirely from self-host builds

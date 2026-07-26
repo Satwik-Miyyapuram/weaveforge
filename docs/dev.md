@@ -14,7 +14,7 @@ We use a feature-sliced modular pattern:
 - **`docs/integrations.md`**: Third-party providers (Zotero, GitLab, …).
 - **`docs/extensions.md`**: Extension seams — integrations, modules, backend, Python sync; links to plugin backlog.
 - **`docs/usage-cite-and-excerpts.md`**: User guide for cite/excerpts/Overleaf `\cite` / related papers.
-- **`docs/competitive-scan.md`** + **`docs/future-work/competitive-scan-implementation-plan.md`**: product steal list + phased build plan.
+- **`docs/competitive-scan.md`** + **`docs/plans/completed/competitive-scan-implementation-plan.md`**: product steal list + phased build plan.
 
 ## Adding a New Component or Feature
 

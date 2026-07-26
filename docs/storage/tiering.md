@@ -2,7 +2,7 @@
 
 How the **`storage/`** layer moves infrequently used files from **Cloudflare R2** (hot) to **OCI MinIO** (cold) when the hot quota fills up.
 
-Parent plan: [`migration-plan.md`](migration-plan.md). Layer overview: [`README.md`](README.md).
+Parent plan: [`../plans/working/migration-plan.md`](../plans/working/migration-plan.md). Layer overview: [`README.md`](README.md).
 
 ---
 

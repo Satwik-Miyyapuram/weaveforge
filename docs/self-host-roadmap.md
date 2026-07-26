@@ -72,8 +72,8 @@ BLOB_COLD_BUCKET=thesis-tracker-cold
 
 | Phase | Doc | Work |
 |-------|-----|------|
-| 4 Shadow migrate | [`storage/migration-plan.md`](storage/migration-plan.md) | Export Supabase data → OCI; blobs → R2. Scripts `migrate:supabase-to-postgres` etc. **not in repo yet** — build or run manually when needed. |
-| 5 Cutover | [`storage/migration-plan.md`](storage/migration-plan.md) | Vercel env: `DATABASE_URL`, `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` (server), keep Supabase Auth |
+| 4 Shadow migrate | [`plans/working/migration-plan.md`](plans/working/migration-plan.md) | Export Supabase data → OCI; blobs → R2. Scripts `migrate:supabase-to-postgres` etc. **not in repo yet** — build or run manually when needed. |
+| 5 Cutover | [`plans/working/migration-plan.md`](plans/working/migration-plan.md) | Vercel env: `DATABASE_URL`, `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` (server), keep Supabase Auth |
 | 6 Tiering | [`storage/tiering.md`](storage/tiering.md) | Cron when R2 fills |
 
 ---
@@ -84,7 +84,7 @@ BLOB_COLD_BUCKET=thesis-tracker-cold
 |-------|------|
 | **This index** | `docs/self-host-roadmap.md` |
 | **OCI Phase 3 (full)** | [`docs/backend/oci-phase3-setup.md`](backend/oci-phase3-setup.md) |
-| Phase plan | [`docs/storage/migration-plan.md`](storage/migration-plan.md) |
+| Phase plan | [`docs/plans/working/migration-plan.md`](plans/working/migration-plan.md) |
 | Postgres provider | [`docs/backend/postgres-provider.md`](backend/postgres-provider.md) |
 | R2 setup | [`docs/storage/r2-setup.md`](storage/r2-setup.md) |
 | Migrations layout | [`supabase/README.md`](../supabase/README.md) |

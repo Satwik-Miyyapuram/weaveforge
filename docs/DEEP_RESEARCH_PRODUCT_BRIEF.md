@@ -447,7 +447,7 @@ Each action creates a **pending proposal**. User approves only on `/ai-review`. 
 - No silent autonomous writes
 - Credentials stay server-key sealed; Zotero calls (when approved) go browser → Zotero, not through MCP plaintext
 
-Plugin docs: `plugins/thesis-tracker-research/README.md`. Plan: `docs/AI_MCP_PLAN.md`. Live contract: `docs/MCP_IMPLEMENTATION.md` (some historical “E2EE” wording may lag the plaintext entity model — relay envelopes still use pairing-secret encryption).
+Plugin docs: `plugins/thesis-tracker-research/README.md`. Plan: `docs/plans/completed/AI_MCP_PLAN.md`. Live contract: `docs/MCP_IMPLEMENTATION.md` (some historical “E2EE” wording may lag the plaintext entity model — relay envelopes still use pairing-secret encryption).
 
 Tables: `ai_proposals`, `ai_audit_records`, `ai_mcp_relay_requests`, MCP token storage.
 
@@ -696,15 +696,16 @@ Produce **all** of the following. A missing section is a failed deliverable.
 | `docs/SECURITY.md` | RLS + at-rest model |
 | `docs/integrations.md` | Provider ports |
 | `docs/MCP_IMPLEMENTATION.md` | Live MCP contract |
-| `docs/AI_MCP_PLAN.md` | Full AI design |
+| `docs/plans/README.md` | Plan index (current / working / future / completed) |
+| `docs/plans/completed/AI_MCP_PLAN.md` | Full AI design |
 | `docs/usage-cite-and-excerpts.md` | Cite / pin / export UX |
 | `docs/competitive-scan.md` | Prior competitive notes |
 | `docs/future-work/BACKLOG.md` | Shipped vs deferred |
-| `docs/future-work/library-knowledge-loop-plan.md` | Fields / annotations track |
+| `docs/plans/completed/library-knowledge-loop-plan.md` | Fields / annotations track |
 | `python/README.md` | SDK |
 | `plugins/thesis-tracker-research/README.md` | Codex plugin setup |
-| `docs/hosting-and-cost-plan.md` | Hosted pricing thinking |
-| `docs/modular-deployment-plan.md` | Feature stripping |
+| `docs/plans/future/hosting-and-cost-plan.md` | Hosted pricing thinking |
+| `docs/plans/completed/modular-deployment-plan.md` | Feature stripping |
 
 ---
 
