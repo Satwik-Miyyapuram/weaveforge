@@ -73,7 +73,7 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
       </blockquote>
       {link && (
         <Link className="ai-evidence-open" href={link}>
-          Open source at this passage →
+          {evidence.locus ? "Open source at this passage →" : "Open source →"}
         </Link>
       )}
     </div>

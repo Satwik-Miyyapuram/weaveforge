@@ -165,43 +165,46 @@ export function PapersScreen() {
       setOpenId(null);
       return;
     }
-    if (appliedPaperFromUrl.current === paperFromUrl) return;
-    if (papers.some((p) => p.id === paperFromUrl)) {
+    const owned = papers.some((p) => p.id === paperFromUrl);
+    const shared = isSharedView || pinnedSharedBy.has(paperFromUrl);
+    if (owned) {
       appliedPaperFromUrl.current = paperFromUrl;
+      setGuestPaper(null);
       setOpenId(paperFromUrl);
       return;
     }
-    if (isSharedView || pinnedSharedBy.has(paperFromUrl)) {
-      const requestedId = paperFromUrl;
-      let cancelled = false;
-      void getContainer()
-        .papers.getPaper(requestedId)
-        .then((p) => {
-          if (cancelled) return;
-          if (!p) {
-            appliedPaperFromUrl.current = null;
-            setGuestPaper(null);
-            setOpenId(null);
-            return;
-          }
-          appliedPaperFromUrl.current = requestedId;
-          setGuestPaper(p);
-          setOpenId(requestedId);
-        })
-        .catch(() => {
-          if (cancelled) return;
+    if (!shared) {
+      appliedPaperFromUrl.current = null;
+      setGuestPaper(null);
+      setOpenId(null);
+      return;
+    }
+    if (appliedPaperFromUrl.current === paperFromUrl) return;
+    const requestedId = paperFromUrl;
+    let cancelled = false;
+    void getContainer()
+      .papers.getPaper(requestedId)
+      .then((p) => {
+        if (cancelled) return;
+        if (!p) {
           appliedPaperFromUrl.current = null;
           setGuestPaper(null);
           setOpenId(null);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    // Unknown / unshared id — don't keep showing a previous paper under a new URL.
-    appliedPaperFromUrl.current = null;
-    setGuestPaper(null);
-    setOpenId(null);
+          return;
+        }
+        appliedPaperFromUrl.current = requestedId;
+        setGuestPaper(p);
+        setOpenId(requestedId);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        appliedPaperFromUrl.current = null;
+        setGuestPaper(null);
+        setOpenId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [paperFromUrl, papers, isSharedView, pinnedSharedBy]);
 
   const closePaper = useCallback(() => {

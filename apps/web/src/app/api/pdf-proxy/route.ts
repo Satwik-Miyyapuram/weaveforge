@@ -72,32 +72,59 @@ async function readPrefix(
 ): Promise<{ head: Uint8Array; rest: ReadableStream<Uint8Array> } | null> {
   const chunks: Uint8Array[] = [];
   let total = 0;
-  while (total < minBytes) {
+  // Fill up to the magic window so `%PDF` offset past the first TLS record still
+  // sniffs correctly. `minBytes` is only the empty-body floor.
+  while (total < maxBytes) {
     const { done, value } = await reader.read();
     if (done) break;
+    if (!value.byteLength) continue;
     chunks.push(value);
     total += value.byteLength;
-    if (total >= maxBytes) break;
   }
-  if (total === 0) return null;
-  const head = new Uint8Array(total);
+  if (total < minBytes) return null;
+  const head = new Uint8Array(Math.min(total, maxBytes));
   let offset = 0;
   for (const chunk of chunks) {
-    head.set(chunk, offset);
-    offset += chunk.byteLength;
+    if (offset >= head.byteLength) break;
+    const take = Math.min(chunk.byteLength, head.byteLength - offset);
+    head.set(chunk.subarray(0, take), offset);
+    offset += take;
   }
+  // Leftover bytes from the last chunk past maxBytes must still be streamed.
+  let leftover: Uint8Array | null = null;
+  if (total > maxBytes) {
+    let seen = 0;
+    for (const chunk of chunks) {
+      if (seen + chunk.byteLength <= maxBytes) {
+        seen += chunk.byteLength;
+        continue;
+      }
+      leftover = chunk.subarray(maxBytes - seen);
+      break;
+    }
+  }
+  let headSent = false;
+  let leftoverSent = !leftover;
   const rest = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      controller.enqueue(head);
+    async pull(controller) {
       try {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) {
-            controller.close();
-            return;
-          }
-          controller.enqueue(value);
+        if (!headSent) {
+          headSent = true;
+          controller.enqueue(head);
+          return;
         }
+        if (!leftoverSent && leftover) {
+          leftoverSent = true;
+          controller.enqueue(leftover);
+          leftover = null;
+          return;
+        }
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          return;
+        }
+        if (value.byteLength) controller.enqueue(value);
       } catch (err) {
         controller.error(err);
       }

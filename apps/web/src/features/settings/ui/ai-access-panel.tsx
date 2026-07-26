@@ -161,22 +161,24 @@ export function AiAccessPanel({ settings, onChange }: {
       const live = persisted.filter((record) => Date.parse(record.session.grant.expiresAt) > now);
       ai.restoreActiveSessions(live.map((record) => record.session));
       for (const record of live) {
-        ensureRelay(record.session.grant.id, record.secret, record.settings);
+        // Prefer live AI access over a looser persisted snapshot.
+        ensureRelay(record.session.grant.id, record.secret, access);
       }
       setSessions(ai.listActiveSessions());
-      if (live.length !== persisted.length) {
-        void savePersistedMcpSessions(live.map((record) => ({ session: record.session, secret: record.secret, settings: record.settings })));
-      }
+      void savePersistedMcpSessions(
+        live.map((record) => ({ session: record.session, secret: record.secret, settings: access })),
+      );
     });
     return () => { cancelled = true; };
-  }, [access.enabled, encryptionUnlocked]);
+  }, [access, encryptionUnlocked]);
 
   // Push tightened AI access into any live relay without restarting the poll loop.
   useEffect(() => {
     for (const entry of runningRelays()) {
       ensureRelay(entry.sessionId, entry.secret, access);
     }
-  }, [access]);
+    persistSessions();
+  }, [access, persistSessions]);
 
   function toggleSource(sourceId: string) {
     setSelectedSourceIds((current) => current.includes(sourceId)

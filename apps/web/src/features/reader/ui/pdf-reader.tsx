@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { resolveTextAnchor, type PdfLocus, type AnchorConfidence } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
-import { sanitizePdfUrl, originalUrlFromProxy } from "../application/sanitize-reader-url";
+import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl } from "../application/sanitize-reader-url";
 
 /**
  * Read-only pdf.js render surface (Phase D). Dynamically imports pdf.js so no
@@ -117,11 +117,14 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
   const renderGeneration = useRef(0);
-  // Accept same-origin proxy paths or allowlisted https.
-  const safeUrl =
-    url.startsWith("/api/pdf-proxy?")
-      ? url
-      : sanitizePdfUrl(url);
+  // Accept same-origin proxy paths only when the nested target is allowlisted.
+  const safeUrl = (() => {
+    if (url.startsWith("/api/pdf-proxy?")) {
+      const original = originalUrlFromProxy(url);
+      return original && isAllowedPdfProxyUrl(original) ? url : null;
+    }
+    return sanitizePdfUrl(url);
+  })();
   const openUrl =
     sanitizePdfUrl(originalUrl) ??
     originalUrlFromProxy(url) ??
@@ -425,6 +428,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     })();
     return () => {
       cancelled = true;
+      clearHighlights();
     };
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
 

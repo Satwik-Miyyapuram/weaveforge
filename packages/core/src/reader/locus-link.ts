@@ -9,11 +9,15 @@ import type { PdfLocus, TextPositionSelector, TextQuoteSelector } from "./pdf-lo
  * let `URLSearchParams` / the URL API percent-encode once — do not pre-encode.
  */
 
-const MAX_LOCUS_PARAM_CHARS = 8_000;
-const MAX_QUOTE_FIELD_CHARS = 2_000;
+export const MAX_LOCUS_PARAM_CHARS = 8_000;
+export const MAX_QUOTE_FIELD_CHARS = 2_000;
 
 function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";
+}
+
+function clampQuoteField(value: string): string {
+  return value.length <= MAX_QUOTE_FIELD_CHARS ? value : value.slice(0, MAX_QUOTE_FIELD_CHARS);
 }
 
 function isQuote(value: unknown): value is TextQuoteSelector {
@@ -56,12 +60,17 @@ function parseLocusJson(raw: string): unknown {
 export function encodeLocus(locus: PdfLocus): string {
   const quote: TextQuoteSelector = {
     type: "TextQuoteSelector",
-    exact: locus.quote.exact,
-    ...(locus.quote.prefix != null ? { prefix: locus.quote.prefix } : {}),
-    ...(locus.quote.suffix != null ? { suffix: locus.quote.suffix } : {}),
+    exact: clampQuoteField(locus.quote.exact),
+    ...(locus.quote.prefix != null ? { prefix: clampQuoteField(locus.quote.prefix) } : {}),
+    ...(locus.quote.suffix != null ? { suffix: clampQuoteField(locus.quote.suffix) } : {}),
   };
   const payload: PdfLocus = locus.position ? { quote, position: locus.position } : { quote };
-  return JSON.stringify(payload);
+  const raw = JSON.stringify(payload);
+  if (raw.length > MAX_LOCUS_PARAM_CHARS) {
+    // Prefer a quote-only payload over an unreadable deep link.
+    return JSON.stringify({ quote });
+  }
+  return raw;
 }
 
 /** Parse a locus param back into a `PdfLocus`, or null when malformed. */

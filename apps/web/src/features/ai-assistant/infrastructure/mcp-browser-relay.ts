@@ -46,11 +46,20 @@ export function startMcpBrowserRelay(input: {
           const command = await decrypt(sessionKey, request.request_enc);
           const result = await dispatch(input.sessionId, input.getSettings(), command);
           const envelope = await encrypt(sessionKey, result);
-          await fetch("/api/mcp/relay", { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, envelope }) });
+          try {
+            await fetch("/api/mcp/relay", { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, envelope }) });
+          } catch {
+            // Transport failure after a successful dispatch — do not cancel; the
+            // relay may still accept a retry from a later tick / other tab.
+          }
         } catch {
           // A malformed or no-longer-permitted request must not be retried by
           // another browser tab. Cancellation reveals no plaintext to the relay.
-          await fetch("/api/mcp/relay", { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, status: "cancelled" }) });
+          try {
+            await fetch("/api/mcp/relay", { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, status: "cancelled" }) });
+          } catch {
+            /* ignore */
+          }
         }
       }
     } catch { /* Requests are retried while the approved session remains active. */ }
@@ -171,7 +180,9 @@ function optional(args: Record<string, unknown>, key: string): string | undefine
 
 /** Affixes must keep abutting whitespace for quote matching — do not trim. */
 function optionalRaw(args: Record<string, unknown>, key: string): string | undefined {
-  return typeof args[key] === "string" && args[key].length > 0 ? args[key] : undefined;
+  if (typeof args[key] !== "string" || args[key].length === 0) return undefined;
+  const value = args[key] as string;
+  return value.length > 2_000 ? value.slice(0, 2_000) : value;
 }
 function optionalPage(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value;

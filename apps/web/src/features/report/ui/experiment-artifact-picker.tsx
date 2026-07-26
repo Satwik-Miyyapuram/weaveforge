@@ -6,10 +6,15 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
 
+/** Collision key matching {@link artifactLabel} / insert serialization. */
+function artifactCollisionKey(name: string): string {
+  return artifactBasename(name) || name;
+}
+
 /** Readable label for an artifact URL/name in the dropdown. */
 function artifactLabel(name: string, siblings: readonly string[]): string {
-  const base = artifactBasename(name) || name;
-  const collisions = siblings.filter((a) => (artifactBasename(a) || a) === base);
+  const base = artifactCollisionKey(name);
+  const collisions = siblings.filter((a) => artifactCollisionKey(a) === base);
   if (collisions.length <= 1) return base;
   let host = "";
   try {
@@ -92,8 +97,8 @@ export function ExperimentArtifactPicker({
   function insert() {
     if (!experimentId || !artifactName.trim()) return;
     const selectedArtifacts = experiments.find((e) => e.id === experimentId)?.artifacts ?? [];
-    const base = artifactBasename(artifactName);
-    const collisions = selectedArtifacts.filter((a) => artifactBasename(a) === base);
+    const base = artifactCollisionKey(artifactName);
+    const collisions = selectedArtifacts.filter((a) => artifactCollisionKey(a) === base);
     // On basename collision keep the full URL so resolve can exact-match.
     const name =
       collisions.length > 1 ? artifactName.trim() : base || artifactName.trim();
@@ -101,7 +106,7 @@ export function ExperimentArtifactPicker({
       serialiseArtifactRef({
         experimentId,
         artifactName: name,
-        alt: artifactBasename(name) || name,
+        alt: artifactCollisionKey(name),
       }),
     );
     setOpen(false);

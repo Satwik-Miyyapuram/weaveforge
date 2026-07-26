@@ -104,42 +104,46 @@ export function ReportScreen() {
       setOpenId(null);
       return;
     }
-    if (appliedSectionFromUrl.current === sectionFromUrl) return;
-    if (flat.some((s) => s.id === sectionFromUrl)) {
+    const owned = flat.some((s) => s.id === sectionFromUrl);
+    const shared = isSharedView || pinnedSharedBy.has(sectionFromUrl);
+    if (owned) {
       appliedSectionFromUrl.current = sectionFromUrl;
+      setGuestSection(null);
       setOpenId(sectionFromUrl);
       return;
     }
-    if (isSharedView || pinnedSharedBy.has(sectionFromUrl)) {
-      const requestedId = sectionFromUrl;
-      let cancelled = false;
-      void getContainer()
-        .report.getSection(requestedId)
-        .then((s) => {
-          if (cancelled) return;
-          if (!s) {
-            appliedSectionFromUrl.current = null;
-            setGuestSection(null);
-            setOpenId(null);
-            return;
-          }
-          appliedSectionFromUrl.current = requestedId;
-          setGuestSection(s);
-          setOpenId(requestedId);
-        })
-        .catch(() => {
-          if (cancelled) return;
+    if (!shared) {
+      appliedSectionFromUrl.current = null;
+      setGuestSection(null);
+      setOpenId(null);
+      return;
+    }
+    if (appliedSectionFromUrl.current === sectionFromUrl) return;
+    const requestedId = sectionFromUrl;
+    let cancelled = false;
+    void getContainer()
+      .report.getSection(requestedId)
+      .then((s) => {
+        if (cancelled) return;
+        if (!s) {
           appliedSectionFromUrl.current = null;
           setGuestSection(null);
           setOpenId(null);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    appliedSectionFromUrl.current = null;
-    setGuestSection(null);
-    setOpenId(null);
+          return;
+        }
+        appliedSectionFromUrl.current = requestedId;
+        setGuestSection(s);
+        setOpenId(requestedId);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        appliedSectionFromUrl.current = null;
+        setGuestSection(null);
+        setOpenId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [sectionFromUrl, flat, isSharedView, pinnedSharedBy]);
 
   const closeSection = useCallback(() => {
