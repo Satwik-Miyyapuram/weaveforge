@@ -51,8 +51,8 @@ Both predate the verified competitive research, so neither accounts for ZotFlow,
 | **B** | Feature logic — templates, citations, artifacts, ranking | ✅ **done** |
 | **C** | UI wiring — make B reachable by users | ✅ **done** |
 | **D** | Reader + provenance (read-only) | ✅ **done** — exit criteria met; locus persistence outstanding |
-| **E** | **AI-assisted extraction fill** | ⬜ next |
-| **F** | P2 tail | ⬜ |
+| **E** | **AI-assisted extraction fill** | ✅ **done** |
+| **F** | P2 tail | ⬜ next |
 
 A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followed on `phase-c-d/ui-and-reader`. Current tree: 404 core tests, 284 web tests, 1 integration test, `npm run check:all` exits 0.
 
@@ -77,9 +77,9 @@ Phase A  pure domain            [DONE]
             |
             +--> Phase D  reader + provenance    [DONE]
                      |
-                     +--> Phase E  AI-assisted extraction fill   <- next
+                     +--> Phase E  AI-assisted extraction fill   [DONE]
                               |
-                              +--> Phase F  P2 tail
+                              +--> Phase F  P2 tail   <- next
 ```
 
 **Why UI is its own phase.** Web UI still has no unit-test coverage in this repo — 81 test files under `apps/web/src`, none touching `.tsx` — and `check:all` does not exercise rendered behaviour. Unsupervised work there passes every gate while being functionally unverified, so it is deliberately separated and done interactively. `check:all` now at least catches the *build* and lint failures that `typecheck` alone missed; it still cannot tell you a screen looks right.
@@ -233,7 +233,7 @@ A same-origin PDF proxy (`/api/pdf-proxy`) was added beyond the original scope, 
 
 ---
 
-## Phase E — AI-assisted extraction column fill
+## Phase E — AI-assisted extraction column fill ✅ DONE
 
 **Roadmap: P0, M effort, high impact.** Placed after D because it inherits D's provenance UI — filled cells need the same evidence affordance, and building it twice would be waste.
 
@@ -244,6 +244,18 @@ A same-origin PDF proxy (`/api/pdf-proxy`) was added beyond the original scope, 
 **Competitive note:** Elicit caps extraction at 20 columns on Pro, 30 on Scale, 40 on Enterprise. Our table has no ceiling — that is the differentiator to hold, so do not introduce one here.
 
 **Exit criteria:** a researcher fills a column across a reading list, reviews every proposed value with its source, and approves or rejects per cell.
+
+### Delivered 2026-07-27 — review findings
+
+**Exit criteria met** for the product path (MCP agent → pending → `/ai-review`). The extraction-table **Propose fill** button copies an agent prompt only — it never enqueues stub values (Option A). Tests exercise pending join / executor via direct `proposeDraft`-style payloads (Option B, tests only).
+
+| Item | State |
+|------|-------|
+| `propose_paper_field_value` MCP tool | **Done.** Requires `sourceId` + `quoteExact`; builds `AiEvidence` like append-note. |
+| Executor | **Done.** `paper_field_value` → `ManagePaperFieldsUseCase.setValue`; revision conflict; fail-closed value parse. |
+| Extraction table UX | **Done.** Column **Propose fill** → copy prompt; pending hatch + banner → `/ai-review`; direct edit blocked while pending. |
+| `/ai-review` | **Done.** Per-cell labels; excluded from “Approve all safe additions”. |
+| Column ceiling | **None.** |
 
 ---
 
@@ -281,12 +293,10 @@ From `competitive-research-verified-2026-07.md` §5 and §6, unchanged:
 | **B** | A | ✅ **P0** template engine · P1 cite formatters · P1 alert ranking · P1 artifact refs |
 | **C** | B | **P0** vault templates UI · P1 citation picker · P1 alert ordering · P1 artifact insertion |
 | **D** | A | **P0** provenance UI · P1 deep links (read-only) |
-| **E** | D | **P0** AI extraction fill |
+| **E** | D | ✅ **P0** AI extraction fill |
 | **F** | D | P2 quotation types · P2 lab snapshots |
 
-**Nothing is waiting on a decision.** C and D are independent — run them in either order, or in parallel.
-
-**C is the shortest path to user-visible value.** All four jobs are small, need no migrations, and sit on APIs that already exist and are tested. C1 alone closes the P0 that the competitive research named as the leading threat's strongest draw.
+**Nothing is waiting on a decision.** Phase F is next.
 
 ## Deferred decisions, with triggers
 

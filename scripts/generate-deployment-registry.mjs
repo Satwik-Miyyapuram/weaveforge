@@ -45,6 +45,7 @@ const mcpTools = [
   "propose_create_vault_note",
   "propose_create_log_entry",
   "propose_paper_update",
+  "propose_paper_field_value",
   "propose_reading_list_change",
   "propose_relation",
   "propose_zotero_import",

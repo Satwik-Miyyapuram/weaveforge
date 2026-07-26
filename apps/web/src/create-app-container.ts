@@ -340,6 +340,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
           logs: addLogEntry,
           papers: paperRepository,
           updatePaper,
+          paperFields: managePaperFields,
           addPaper,
           pushZotero: async (paper) => {
             if (paper.metadata?.zoteroKey) return;

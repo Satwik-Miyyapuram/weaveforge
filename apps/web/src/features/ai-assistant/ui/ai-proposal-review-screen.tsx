@@ -15,10 +15,36 @@ import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/
 const label: Record<AiWriteProposal["kind"], string> = {
   append_paper_note: "Append to paper note", create_vault_note: "Create vault note",
   create_log_entry: "Create log entry", paper_update: "Paper update",
+  paper_field_value: "Extraction field value",
   reading_list_change: "Reading-list change", relation: "Graph relation",
   zotero_import: "Zotero import", milestone_follow_up: "Milestone follow-up",
   experiment_follow_up: "Experiment follow-up",
 };
+
+function reviewHeading(item: AiWriteProposal): string {
+  if (item.kind === "append_paper_note") return "Add this to the end of the paper note";
+  if (item.kind === "paper_field_value") {
+    const fieldId =
+      typeof item.payload?.fieldId === "string" && item.payload.fieldId.trim()
+        ? item.payload.fieldId.trim()
+        : "field";
+    const claimed =
+      typeof item.payload?.fieldName === "string" && item.payload.fieldName.trim()
+        ? item.payload.fieldName.trim()
+        : null;
+    // fieldId is authoritative; claimed name is an unverified MCP hint.
+    return claimed && claimed !== fieldId
+      ? `Set field ${fieldId} (claimed «${claimed}») on this paper`
+      : `Set field ${fieldId} on this paper`;
+  }
+  return "Review required";
+}
+
+function approveLabel(item: AiWriteProposal): string {
+  if (item.kind === "append_paper_note") return "Approve and append";
+  if (item.kind === "paper_field_value") return "Approve and write cell";
+  return "Approve";
+}
 
 /** One piece of claim-level provenance: excerpt with the used sentence lit up. */
 function EvidencePane({ evidence }: { evidence: AiEvidence }) {
@@ -119,7 +145,7 @@ export function AiProposalReviewScreen() {
       <div className="ai-review-list">{items.map((item) => {
         const evidence = item.evidence ?? [];
         return <article className={`card ai-review-card${evidence.length ? " ai-review-card--split" : ""}`} key={item.id}>
-          <div className="ai-review-card-head"><div><span className="ai-kind">{label[item.kind]}</span><h2>{item.kind === "append_paper_note" ? "Add this to the end of the paper note" : "Review required"}</h2></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>
+          <div className="ai-review-card-head"><div><span className="ai-kind">{label[item.kind]}</span><h2>{reviewHeading(item)}</h2></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>
           <div className="ai-review-body">
             <div className="ai-review-proposed">
               <h3 className="ai-review-colhead">Proposed write</h3>
@@ -147,7 +173,7 @@ export function AiProposalReviewScreen() {
               })}
             </p>
           )}
-          <div className="ai-review-actions"><button className="link-danger" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="primary-btn" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : item.kind === "append_paper_note" ? "Approve and append" : "Approve"}</button></div>
+          <div className="ai-review-actions"><button className="link-danger" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="primary-btn" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</button></div>
         </article>;
       })}</div>
     </>}

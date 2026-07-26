@@ -1,9 +1,9 @@
 import type {
   AddLogEntryUseCase, AddPaperUseCase, AddRelationUseCase, AiProposalExecution,
   AiWriteProposal, IAiPaperNoteAppender, IAiProposalExecutor, ManageExperimentUseCase,
-  ManageMilestoneUseCase, ManageReadingListUseCase, ManageVaultPageUseCase,
+  ManageMilestoneUseCase, ManagePaperFieldsUseCase, ManageReadingListUseCase, ManageVaultPageUseCase,
   NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
-  PaperStatus, UpdatePaperUseCase,
+  PaperFieldValueData, PaperStatus, UpdatePaperUseCase,
 } from "@thesis/core";
 import { appendPaperNote } from "@thesis/core";
 
@@ -14,6 +14,7 @@ export function createAiProposalExecutors(deps: {
   logs: AddLogEntryUseCase;
   papers: { getById(id: string): Promise<{ id: string; updatedAt: string } | null> };
   updatePaper: UpdatePaperUseCase;
+  paperFields: Pick<ManagePaperFieldsUseCase, "setValue" | "listDefs">;
   addPaper: AddPaperUseCase;
   pushZotero: (paper: Awaited<ReturnType<AddPaperUseCase["addManual"]>>) => Promise<void>;
   lists: ManageReadingListUseCase;
@@ -36,6 +37,31 @@ export function createAiProposalExecutors(deps: {
       if (!status && rating === undefined && !tags) throw new Error("Paper update proposal contains no allowed changes.");
       return "accepted";
     }),
+    executor("paper_field_value", async (proposal) => {
+      const paper = await deps.papers.getById(proposal.resourceId);
+      if (!paper || (proposal.expectedRevision && paper.updatedAt !== proposal.expectedRevision)) return "conflicted";
+      const p = object(proposal);
+      const fieldId = text(p, "fieldId");
+      const defs = await deps.paperFields.listDefs();
+      const def = defs.find((d) => d.id === fieldId);
+      if (!def) throw new Error(`No field with id "${fieldId}".`);
+      if (def.kind !== "text" && def.kind !== "number" && def.kind !== "select" && def.kind !== "multi_select") {
+        throw new Error("Only text, number, select, and multi_select fields can be filled via AI.");
+      }
+      const value = fieldValueData(p, "value");
+      if (def.kind === "select") {
+        if (typeof value !== "string" || !def.options.includes(value)) {
+          throw new Error(`Value is not one of the allowed options for «${def.name}».`);
+        }
+      }
+      if (def.kind === "multi_select") {
+        if (!Array.isArray(value) || value.some((item) => !def.options.includes(item))) {
+          throw new Error(`Value contains options not allowed for «${def.name}».`);
+        }
+      }
+      await deps.paperFields.setValue(paper.id, fieldId, value);
+      return "accepted";
+    }),
     executor("reading_list_change", async (proposal) => { const p = object(proposal); const listId = text(p, "listId"); const note = optionalText(p, "note"); const paperId = optionalText(p, "paperId"); const vaultPageId = optionalText(p, "vaultPageId"); if (paperId === vaultPageId) throw new Error("Reading-list proposal must target exactly one paper or vault note."); if (paperId) await deps.lists.addPaperToList(listId, paperId, note); else if (vaultPageId) await deps.lists.addNoteToList(listId, vaultPageId, note); else throw new Error("Reading-list proposal needs a target."); return "accepted"; }),
     executor("relation", async (proposal) => { const p = object(proposal); const relation = enumValue(p, "relation", ["cites", "extends", "contradicts", "similar", "builds_on", "uses_method"] as const); if (!relation) throw new Error("Proposal relation is required."); await deps.relations.add({ fromPaper: text(p, "fromPaper"), toPaper: text(p, "toPaper"), relation, source: "manual" }); return "accepted"; }),
     executor("zotero_import", async (proposal) => { const p = object(proposal); const paper = await deps.addPaper.addManual(p as unknown as NewPaperInput); await deps.pushZotero(paper); return "accepted"; }),
@@ -51,3 +77,17 @@ function optionalText(value: Record<string, unknown>, key: string): string | und
 function optionalNumber(value: Record<string, unknown>, key: string): number | undefined { const v = value[key]; if (v === undefined) return undefined; if (typeof v !== "number" || !Number.isFinite(v)) throw new Error(`Proposal ${key} must be a number.`); return v; }
 function stringArray(value: Record<string, unknown>, key: string): string[] | undefined { const v = value[key]; if (v === undefined) return undefined; if (!Array.isArray(v) || v.some((item) => typeof item !== "string")) throw new Error(`Proposal ${key} must be a string list.`); return v; }
 function enumValue<T extends string>(value: Record<string, unknown>, key: string, allowed: readonly T[]): T | undefined { const v = value[key]; if (v === undefined) return undefined; if (typeof v !== "string" || !allowed.includes(v as T)) throw new Error(`Proposal ${key} is invalid.`); return v as T; }
+function fieldValueData(value: Record<string, unknown>, key: string): PaperFieldValueData {
+  const v = value[key];
+  if (typeof v === "string") {
+    if (!v.trim()) throw new Error(`Proposal ${key} must be a non-empty string, number, or string list.`);
+    return v;
+  }
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (Array.isArray(v) && v.length > 0 && v.every((item) => typeof item === "string")) {
+    const cleaned = (v as string[]).map((item) => item.trim()).filter(Boolean);
+    if (!cleaned.length) throw new Error(`Proposal ${key} must be a string, number, or non-empty string list.`);
+    return cleaned;
+  }
+  throw new Error(`Proposal ${key} must be a string, number, or non-empty string list.`);
+}
