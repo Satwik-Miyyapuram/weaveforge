@@ -1456,7 +1456,13 @@ a.entity-icon-btn:hover {
 .papers-note-short { display: none; }
 
 /* Paper / vault / experiment detail chrome — one tight toolbar row, title below. */
-.paper-note { max-width: 760px; margin: 0 auto; }
+.paper-note {
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
 .paper-back {
   margin: 0 0 6px;
   min-height: 36px;
@@ -1469,19 +1475,23 @@ a.entity-icon-btn:hover {
   margin: 0 0 8px;
   flex-wrap: wrap;
   min-width: 0;
+  max-width: 100%;
 }
-.paper-note-status { display: inline-flex; flex: none; min-width: 0; }
+.paper-note-status { display: inline-flex; flex: none; min-width: 0; max-width: 100%; }
 .paper-note-head .status-select,
 .paper-note-head .status-select.custom-select-container {
   min-width: 6.5rem;
+  max-width: 100%;
   width: auto;
 }
 .paper-note-head .card-foot-right {
   margin-left: auto;
   gap: 6px;
   flex-wrap: wrap;
-  flex: none;
+  flex: 1 1 10rem;
   justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
 }
 .paper-note-body {
   margin-top: 10px;
@@ -1490,14 +1500,30 @@ a.entity-icon-btn:hover {
   border-radius: var(--radius);
   background: var(--surface);
   min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 .paper-article { padding: 28px 32px; }
 .paper-article-title {
   margin: 0 0 4px; font-family: var(--font-serif); font-weight: 600;
   font-size: 1.35rem; line-height: 1.3; letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
-.paper-article-by { margin: 0 0 8px; font-size: 0.88rem; }
-.paper-note-body .summary { font-size: 0.98rem; line-height: 1.75; margin-top: 0; }
+.paper-article-by { margin: 0 0 8px; font-size: 0.88rem; overflow-wrap: anywhere; }
+.paper-note-body .summary { font-size: 0.98rem; line-height: 1.75; margin-top: 0; max-width: 100%; }
+.paper-note-body .markdown {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.paper-note-body .markdown pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.paper-note-body .markdown code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .paper-article .summary { font-size: 0.98rem; line-height: 1.75; }
 @media (max-width: 899px) {
   .paper-article { padding: 20px 18px; }
@@ -1545,6 +1571,11 @@ a.entity-icon-btn:hover {
   list-style: none; margin: 0; padding: 0;
   display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.82rem;
 }
+.paper-source-actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  margin-top: 6px; min-width: 0;
+}
+.paper-source-actions .paper-external-link { margin: 0; }
 .paper-source-section {
   margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;
   min-width: 0;
@@ -1623,17 +1654,17 @@ a.entity-icon-btn:hover {
 .paper-field-row dd { margin: 0; min-width: 0; }
 
 /* Zotero PDF annotations (expanded card view). */
-.annotations { margin-top: 12px; }
-.annotations-head { font-size: 0.78rem; font-weight: 600; }
-.annotation-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; }
-.annotation { display: flex; gap: 8px; }
+.annotations { margin-top: 12px; min-width: 0; max-width: 100%; }
+.annotations-head { font-size: 0.78rem; font-weight: 600; overflow-wrap: anywhere; }
+.annotation-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; min-width: 0; }
+.annotation { display: flex; gap: 8px; min-width: 0; max-width: 100%; }
 .annotation-swatch { flex: none; width: 4px; border-radius: 2px; align-self: stretch; }
-.annotation-body { min-width: 0; }
-.annotation-text { margin: 0; font-size: 0.9rem; }
-.annotation-comment { margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); }
+.annotation-body { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.annotation-text { margin: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
+.annotation-comment { margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
 .annotation-actions {
   margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap;
-  align-items: center; min-width: 0;
+  align-items: center; min-width: 0; max-width: 100%;
 }
 .annotation-actions .annotation-pin-select,
 .annotation-actions .custom-select-container {
@@ -1779,7 +1810,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .summary-cancel { color: var(--muted); margin-left: auto; }
 
 /* Expandable summary editor, revealed by "Show more". */
-.summary-editor { display: grid; gap: 6px; margin-top: 8px; min-width: 0; }
+.summary-editor { display: grid; gap: 6px; margin-top: 8px; min-width: 0; max-width: 100%; }
 .summary-input {
   width: 100%; max-width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
   background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
@@ -2242,6 +2273,8 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* CodeMirror 6 markdown editor — Lezer edit + @uiw/codemirror-themes synced to site theme. */
 .markdown-code-editor {
   min-height: 220px;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--input-bg);

@@ -58,6 +58,17 @@ export function ListViewIcon(props: IconProps) {
   );
 }
 
+/** Status board / kanban columns. */
+export function BoardViewIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="4" width="5" height="16" rx="1.5" />
+      <rect x="10" y="4" width="5" height="10" rx="1.5" />
+      <rect x="17" y="4" width="5" height="13" rx="1.5" />
+    </Svg>
+  );
+}
+
 /** Side-by-side compare / table. */
 export function CompareViewIcon(props: IconProps) {
   return (
