@@ -209,6 +209,7 @@ export function ReportScreen() {
           section={openSection}
           readOnly={isReadOnlySection(openSection.id)}
           sharedByName={sharedOwnerName(openSection.id)}
+          sharedContent={isSharedView || pinnedSharedBy.has(openSection.id)}
           canComment={reportCanComment.get(openSection.id) ?? false}
           onBack={closeSection}
           onReplace={replaceSection}

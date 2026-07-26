@@ -36,6 +36,8 @@ test("sanitizeAppHref allows known app roots only", async () => {
   assert.equal(sanitizeAppHref("//evil.test"), null);
   assert.equal(sanitizeAppHref("/evil"), null);
   assert.equal(sanitizeAppHref("https://evil.test/papers"), null);
+  assert.equal(sanitizeAppHref("/papers/../api/secret"), null);
+  assert.equal(sanitizeAppHref("/link/../settings"), null);
 });
 
 test("resolvePaperPdfUrl maps arXiv abs and ids to pdf URLs", () => {

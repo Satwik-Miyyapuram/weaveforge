@@ -67,9 +67,10 @@ export function sanitizeAppHref(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
-  if (/[\s\\]/.test(trimmed)) return null;
+  // Block whitespace, backslash, and path traversal before the allowlist runs.
+  if (/[\s\\]/.test(trimmed) || trimmed.includes("..")) return null;
   if (
-    !/^\/(reader|papers|notes|report|log|vault|lists|graph|experiments|plan|ai-review|dashboard|settings|org|git|link)(\/|\?|$)/.test(
+    !/^\/(reader|papers|notes|report|log|vault|lists|graph|experiments|plan|ai-review|dashboard|settings|org|git|link)(\/[^?]*)?(\?.*)?$/.test(
       trimmed,
     )
   ) {

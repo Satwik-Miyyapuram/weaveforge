@@ -381,7 +381,10 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           if (cancelled) return;
           clearHighlights();
           await highlightOnPage(match.pageNumber);
-          if (cancelled) return;
+          if (cancelled) {
+            clearHighlights();
+            return;
+          }
           const host = containerRef.current?.querySelector<HTMLElement>(
             `[data-page="${match.pageNumber}"]`,
           );

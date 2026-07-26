@@ -193,9 +193,16 @@ export function PapersScreen() {
       .then((p) => {
         if (cancelled || generation !== paperOpenGeneration.current) return;
         if (!p) {
-          appliedPaperFromUrl.current = null;
-          setGuestPaper(null);
-          setOpenId(null);
+          // Keep an already-open hydrated paper; otherwise fall back to list summary.
+          setGuestPaper((g) => (g?.id === requestedId ? g : null));
+          appliedPaperFromUrl.current = appliedKey;
+          setOpenId((cur) =>
+            cur === requestedId && (papers.some((row) => row.id === requestedId) || shared)
+              ? cur
+              : cur === requestedId
+                ? null
+                : cur,
+          );
           return;
         }
         appliedPaperFromUrl.current = appliedKey;
@@ -204,9 +211,16 @@ export function PapersScreen() {
       })
       .catch(() => {
         if (cancelled || generation !== paperOpenGeneration.current) return;
-        appliedPaperFromUrl.current = null;
-        setGuestPaper(null);
-        setOpenId(null);
+        // Transient rehydrate failure must not kick the user out after a save.
+        setGuestPaper((g) => (g?.id === requestedId ? g : null));
+        appliedPaperFromUrl.current = appliedKey;
+        setOpenId((cur) =>
+          cur === requestedId && (papers.some((row) => row.id === requestedId) || shared)
+            ? cur
+            : cur === requestedId
+              ? null
+              : cur,
+        );
       });
     return () => {
       cancelled = true;

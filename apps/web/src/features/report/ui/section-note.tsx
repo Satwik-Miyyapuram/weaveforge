@@ -40,6 +40,7 @@ export function SectionNote({
   section,
   readOnly = false,
   sharedByName,
+  sharedContent = false,
   canComment = false,
   onBack,
   onReplace,
@@ -48,6 +49,8 @@ export function SectionNote({
   section: ReportSection;
   readOnly?: boolean;
   sharedByName?: string;
+  /** True for shared/pinned sections — skip viewer-scoped artifact resolve. */
+  sharedContent?: boolean;
   canComment?: boolean;
   onBack: () => void;
   onReplace: (s: ReportSection) => void;
@@ -242,7 +245,7 @@ export function SectionNote({
             <ReportSectionMarkdown
               body={section.notes!}
               className="summary"
-              skipArtifactResolve={readOnly || Boolean(sharedByName)}
+              skipArtifactResolve={sharedContent}
             />
           ) : (
             <p className="muted summary-empty">

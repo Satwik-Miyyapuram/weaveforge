@@ -175,9 +175,8 @@ export function AiAccessPanel({ settings, onChange }: {
           ensureRelay(record.session.grant.id, record.secret, access);
         }
         setSessions(ai.listActiveSessions());
-        void savePersistedMcpSessions(
-          live.map((record) => ({ session: record.session, secret: record.secret, settings: access })),
-        );
+        // Persist is owned by the sessionsReady effect so we never race a later
+        // startSession() write with this rehydrate snapshot.
       })
       .finally(() => {
         if (!cancelled) setSessionsReady(true);
