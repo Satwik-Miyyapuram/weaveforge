@@ -125,10 +125,13 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     }
     return sanitizePdfUrl(url);
   })();
-  const openUrl =
-    sanitizePdfUrl(originalUrl) ??
-    originalUrlFromProxy(url) ??
-    sanitizePdfUrl(url);
+  const openUrl = (() => {
+    const direct = sanitizePdfUrl(originalUrl);
+    if (direct) return direct;
+    const fromProxy = originalUrlFromProxy(url);
+    if (fromProxy && isAllowedPdfProxyUrl(fromProxy)) return fromProxy;
+    return sanitizePdfUrl(url);
+  })();
 
   const cancelRenderTasks = useCallback(() => {
     for (const task of renderTasks.current.values()) {

@@ -61,7 +61,8 @@ export function ReportSectionMarkdown({
       .catch((err) => {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : "Could not load experiments.");
-          // Keep experiments null so we do not flash false "missing experiment" warnings.
+          // Empty list so resolve emits missing-artifact warnings instead of raw refs.
+          setExperiments([]);
         }
       });
     return () => {

@@ -44,6 +44,7 @@ export function ReportScreen() {
   const isSharedView = searchParams.get("shared") === "1";
   const sectionFromUrl = searchParams.get("section");
   const appliedSectionFromUrl = useRef<string | null>(null);
+  const sectionOpenGeneration = useRef(0);
   const { setPushed, consumePushed } = useDetailPushFlag();
   const goBackToList = useDetailBack("/report", "section", consumePushed);
 
@@ -106,25 +107,24 @@ export function ReportScreen() {
     }
     const owned = flat.some((s) => s.id === sectionFromUrl);
     const shared = isSharedView || pinnedSharedBy.has(sectionFromUrl);
-    if (owned) {
-      appliedSectionFromUrl.current = sectionFromUrl;
-      setGuestSection(null);
-      setOpenId(sectionFromUrl);
-      return;
-    }
-    if (!shared) {
+    if (!owned && !shared) {
       appliedSectionFromUrl.current = null;
       setGuestSection(null);
       setOpenId(null);
       return;
     }
-    if (appliedSectionFromUrl.current === sectionFromUrl) return;
+    if (appliedSectionFromUrl.current === sectionFromUrl) {
+      setOpenId(sectionFromUrl);
+      return;
+    }
     const requestedId = sectionFromUrl;
+    const generation = ++sectionOpenGeneration.current;
     let cancelled = false;
+    setOpenId(requestedId);
     void getContainer()
       .report.getSection(requestedId)
       .then((s) => {
-        if (cancelled) return;
+        if (cancelled || generation !== sectionOpenGeneration.current) return;
         if (!s) {
           appliedSectionFromUrl.current = null;
           setGuestSection(null);
@@ -136,7 +136,7 @@ export function ReportScreen() {
         setOpenId(requestedId);
       })
       .catch(() => {
-        if (cancelled) return;
+        if (cancelled || generation !== sectionOpenGeneration.current) return;
         appliedSectionFromUrl.current = null;
         setGuestSection(null);
         setOpenId(null);
@@ -147,6 +147,7 @@ export function ReportScreen() {
   }, [sectionFromUrl, flat, isSharedView, pinnedSharedBy]);
 
   const closeSection = useCallback(() => {
+    sectionOpenGeneration.current += 1;
     setOpenId(null);
     setGuestSection(null);
     appliedSectionFromUrl.current = null;

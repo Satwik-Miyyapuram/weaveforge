@@ -78,6 +78,8 @@ export function AiAccessPanel({ settings, onChange }: {
   const [copied, setCopied] = useState<string | null>(null);
   const [rememberConnection, setRememberConnection] = useState(() => Boolean(getUserIntegrationField(settings, "mcp", "pairingSecret")));
   const access: AiAccessSettings = settings.aiAccess ?? DEFAULT_AI_ACCESS;
+  /** Blocks empty persist until first rehydrate attempt finishes (avoids wiping ciphertext). */
+  const [sessionsReady, setSessionsReady] = useState(false);
   const eligibleSources = sources.filter((source) => access.readCategories.includes(aiReadCategoryForResource(source.resourceType)));
   const sourcesByCategory = eligibleSources.reduce<Record<string, AiSourceOption[]>>((groups, source) => {
     (groups[source.category] ??= []).push(source);
@@ -154,33 +156,45 @@ export function AiAccessPanel({ settings, onChange }: {
   // Rehydrate persisted sessions after a reload: restore the grants and restart
   // their relays (skipping any already running and any past their TTL).
   useEffect(() => {
-    if (!access.enabled || !encryptionUnlocked) return;
+    if (!access.enabled || !encryptionUnlocked) {
+      setSessionsReady(true);
+      return;
+    }
     let cancelled = false;
-    void loadPersistedMcpSessions().then((persisted) => {
-      if (cancelled || persisted.length === 0) return;
-      const ai = getContainer().aiAssistant;
-      const now = Date.now();
-      const live = persisted.filter((record) => Date.parse(record.session.grant.expiresAt) > now);
-      ai.restoreActiveSessions(live.map((record) => record.session));
-      for (const record of live) {
-        // Prefer live AI access over a looser persisted snapshot.
-        ensureRelay(record.session.grant.id, record.secret, access);
-      }
-      setSessions(ai.listActiveSessions());
-      void savePersistedMcpSessions(
-        live.map((record) => ({ session: record.session, secret: record.secret, settings: access })),
-      );
-    });
+    setSessionsReady(false);
+    void loadPersistedMcpSessions()
+      .then((persisted) => {
+        if (cancelled) return;
+        if (persisted.length === 0) return;
+        const ai = getContainer().aiAssistant;
+        const now = Date.now();
+        const live = persisted.filter((record) => Date.parse(record.session.grant.expiresAt) > now);
+        ai.restoreActiveSessions(live.map((record) => record.session));
+        for (const record of live) {
+          // Prefer live AI access over a looser persisted snapshot.
+          ensureRelay(record.session.grant.id, record.secret, access);
+        }
+        setSessions(ai.listActiveSessions());
+        void savePersistedMcpSessions(
+          live.map((record) => ({ session: record.session, secret: record.secret, settings: access })),
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setSessionsReady(true);
+      });
     return () => { cancelled = true; };
-  }, [access, encryptionUnlocked]);
+    // Rehydrate once per enable/unlock — live policy push is the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.enabled, encryptionUnlocked]);
 
   // Push tightened AI access into any live relay without restarting the poll loop.
   useEffect(() => {
+    if (!sessionsReady) return;
     for (const entry of runningRelays()) {
       ensureRelay(entry.sessionId, entry.secret, access);
     }
     persistSessions();
-  }, [access, persistSessions]);
+  }, [access, persistSessions, sessionsReady]);
 
   function toggleSource(sourceId: string) {
     setSelectedSourceIds((current) => current.includes(sourceId)

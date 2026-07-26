@@ -30,11 +30,12 @@ export function SectionRelatedExcerpts({
 
   const reload = useCallback(async () => {
     const papersFacade = getContainer().papers;
-    const [screen, pins] = await Promise.all([
-      papersFacade.loadScreenData(),
-      papersFacade.listAnnotationPinsForSection(section.id),
-    ]);
-    const byPaper = new Map(screen.papers.map((paper) => [paper.id, paper]));
+    const pins = await papersFacade.listAnnotationPinsForSection(section.id);
+    const paperIds = [...new Set(pins.map((pin) => pin.paperId))];
+    const papers = await Promise.all(paperIds.map((id) => papersFacade.getPaper(id)));
+    const byPaper = new Map(
+      papers.flatMap((paper) => (paper ? [[paper.id, paper] as const] : [])),
+    );
     const rows = pins.flatMap((pin): PinnedAnnotation[] => {
       const paper = byPaper.get(pin.paperId);
       if (!paper) return [];

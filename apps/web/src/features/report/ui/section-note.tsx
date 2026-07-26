@@ -242,7 +242,7 @@ export function SectionNote({
             <ReportSectionMarkdown
               body={section.notes!}
               className="summary"
-              skipArtifactResolve={readOnly}
+              skipArtifactResolve={readOnly || Boolean(sharedByName)}
             />
           ) : (
             <p className="muted summary-empty">

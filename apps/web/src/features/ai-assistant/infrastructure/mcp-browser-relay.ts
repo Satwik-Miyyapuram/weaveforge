@@ -39,9 +39,24 @@ export function startMcpBrowserRelay(input: {
       const res = await fetch(`/api/mcp/relay/browser?sessionId=${encodeURIComponent(input.sessionId)}`, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) return;
       const payload = await res.json() as { requests?: RelayRequest[] };
-      for (const request of payload.requests ?? []) {
-        if (stopped) break;
-        if (!getContainer().aiAssistant.listActiveSessions().some((s) => s.grant.id === input.sessionId)) break;
+      const batch = payload.requests ?? [];
+      for (let i = 0; i < batch.length; i++) {
+        const request = batch[i]!;
+        if (stopped || !getContainer().aiAssistant.listActiveSessions().some((s) => s.grant.id === input.sessionId)) {
+          // Claimed rows are never requeued — cancel the rest of this batch.
+          for (const leftover of batch.slice(i)) {
+            try {
+              await fetch("/api/mcp/relay", {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ id: leftover.id, status: "cancelled" }),
+              });
+            } catch {
+              /* ignore */
+            }
+          }
+          break;
+        }
         try {
           const command = await decrypt(sessionKey, request.request_enc);
           const result = await dispatch(input.sessionId, input.getSettings(), command);
@@ -60,17 +75,9 @@ export function startMcpBrowserRelay(input: {
               if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
             }
           }
-          if (!delivered) {
-            try {
-              await fetch("/api/mcp/relay", {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ id: request.id, status: "cancelled" }),
-              });
-            } catch {
-              /* ignore */
-            }
-          }
+          // After a successful dispatch, never cancel — cancelling lets the MCP
+          // client retry and duplicate side effects. Leave claimed until TTL if
+          // delivery fails; another tab may still land the envelope.
         } catch {
           // A malformed or no-longer-permitted request must not be retried by
           // another browser tab. Cancellation reveals no plaintext to the relay.
@@ -130,7 +137,7 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
         if (!doc?.text) {
           throw new Error("sourceId was provided but no excerpt could be resolved for evidence.");
         }
-        const quoteExact = optional(args, "quoteExact");
+        const quoteExact = optionalRaw(args, "quoteExact");
         if (quoteExact && !doc.text.includes(quoteExact)) {
           throw new Error("quoteExact was not found in the source excerpt.");
         }

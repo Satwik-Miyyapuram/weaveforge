@@ -27,8 +27,7 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
     [evidence.excerpt, evidence.locus],
   );
   const link = useMemo(() => {
-    const appHref = sanitizeReaderHref(evidence.href) ?? sanitizeAppHref(evidence.href);
-    // Jump-to-passage only when we have a locus; otherwise keep papers/notes hrefs.
+    // Jump-to-passage only when we have a locus.
     if (evidence.paperId && evidence.locus) {
       return buildLocusLink({
         paperId: evidence.paperId,
@@ -37,9 +36,12 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
       });
     }
     if (evidence.paperId) {
-      return appHref ?? `/papers?paper=${encodeURIComponent(evidence.paperId)}`;
+      // Never prefer a stored `/reader?pdf=…` over the paper id (provenance swap).
+      const appHref = sanitizeAppHref(evidence.href);
+      if (appHref && !appHref.startsWith("/reader")) return appHref;
+      return `/papers?paper=${encodeURIComponent(evidence.paperId)}`;
     }
-    return appHref;
+    return sanitizeReaderHref(evidence.href) ?? sanitizeAppHref(evidence.href);
   }, [evidence.href, evidence.paperId, evidence.locus, evidence.page]);
 
   const locusMiss =

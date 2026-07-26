@@ -158,6 +158,7 @@ export function PapersScreen() {
 
   const paperFromUrl = searchParams.get("paper");
   const appliedPaperFromUrl = useRef<string | null>(null);
+  const paperOpenGeneration = useRef(0);
   useEffect(() => {
     if (!paperFromUrl) {
       appliedPaperFromUrl.current = null;
@@ -167,25 +168,25 @@ export function PapersScreen() {
     }
     const owned = papers.some((p) => p.id === paperFromUrl);
     const shared = isSharedView || pinnedSharedBy.has(paperFromUrl);
-    if (owned) {
-      appliedPaperFromUrl.current = paperFromUrl;
-      setGuestPaper(null);
-      setOpenId(paperFromUrl);
-      return;
-    }
-    if (!shared) {
+    if (!owned && !shared) {
       appliedPaperFromUrl.current = null;
       setGuestPaper(null);
       setOpenId(null);
       return;
     }
-    if (appliedPaperFromUrl.current === paperFromUrl) return;
+    // Always hydrate a full paper (list summaries omit metadata.annotations).
+    if (appliedPaperFromUrl.current === paperFromUrl) {
+      setOpenId(paperFromUrl);
+      return;
+    }
     const requestedId = paperFromUrl;
+    const generation = ++paperOpenGeneration.current;
     let cancelled = false;
+    setOpenId(requestedId);
     void getContainer()
       .papers.getPaper(requestedId)
       .then((p) => {
-        if (cancelled) return;
+        if (cancelled || generation !== paperOpenGeneration.current) return;
         if (!p) {
           appliedPaperFromUrl.current = null;
           setGuestPaper(null);
@@ -197,7 +198,7 @@ export function PapersScreen() {
         setOpenId(requestedId);
       })
       .catch(() => {
-        if (cancelled) return;
+        if (cancelled || generation !== paperOpenGeneration.current) return;
         appliedPaperFromUrl.current = null;
         setGuestPaper(null);
         setOpenId(null);
@@ -208,6 +209,7 @@ export function PapersScreen() {
   }, [paperFromUrl, papers, isSharedView, pinnedSharedBy]);
 
   const closePaper = useCallback(() => {
+    paperOpenGeneration.current += 1;
     setOpenId(null);
     setGuestPaper(null);
     appliedPaperFromUrl.current = null;
@@ -257,7 +259,9 @@ export function PapersScreen() {
   }, [papers, statusFilter, listFilter, tagFilter, membership, search]);
 
   const openPaper = openId
-    ? papers.find((p) => p.id === openId) ?? (guestPaper?.id === openId ? guestPaper : null)
+    ? (guestPaper?.id === openId ? guestPaper : null) ??
+      papers.find((p) => p.id === openId) ??
+      null
     : null;
 
   useEffect(() => {
