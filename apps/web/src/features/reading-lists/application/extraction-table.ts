@@ -1,4 +1,4 @@
-import type { Paper, PaperFieldDef, PaperFieldValue, PaperFieldValueData } from "@thesis/core";
+import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue, PaperFieldValueData } from "@thesis/core";
 import { computeRollup } from "@thesis/core";
 
 export type ExtractionColumnId = "title" | "year" | "status" | `field:${string}`;
@@ -6,6 +6,85 @@ export type ExtractionColumnId = "title" | "year" | "status" | `field:${string}`
 export interface ExtractionRow {
   paper: Paper;
   values: Map<string, PaperFieldValueData>;
+}
+
+export interface PendingFieldFill {
+  proposalId: string;
+  paperId: string;
+  fieldId: string;
+  preview: string;
+}
+
+/** Join pending AI proposals onto extraction cells (Option B test helper + live overlay). */
+export function pendingFieldFills(
+  proposals: readonly AiWriteProposal[],
+  fieldId?: string,
+): PendingFieldFill[] {
+  const out: PendingFieldFill[] = [];
+  for (const proposal of proposals) {
+    if (proposal.kind !== "paper_field_value" || proposal.status !== "pending") continue;
+    const payload = proposal.payload;
+    if (!payload || typeof payload !== "object") continue;
+    const paperId =
+      typeof payload.paperId === "string" && payload.paperId.trim()
+        ? payload.paperId.trim()
+        : proposal.resourceId;
+    const fid = typeof payload.fieldId === "string" ? payload.fieldId.trim() : "";
+    if (!paperId || !fid) continue;
+    if (fieldId && fid !== fieldId) continue;
+    const value = payload.value;
+    const preview =
+      typeof value === "string" || typeof value === "number"
+        ? String(value)
+        : Array.isArray(value)
+          ? value.map(String).join("; ")
+          : proposal.content;
+    out.push({ proposalId: proposal.id, paperId, fieldId: fid, preview });
+  }
+  return out;
+}
+
+export function pendingKey(paperId: string, fieldId: string): string {
+  return `${paperId}::${fieldId}`;
+}
+
+export function buildProposeFillPrompt(input: {
+  listId: string;
+  fieldId: string;
+  fieldName: string;
+  papers: readonly { id: string; title: string }[];
+}): string {
+  const lines = [
+    `Fill extraction column «${input.fieldName}» (${input.fieldId}) for reading list ${input.listId}.`,
+    "",
+    "For each paper below:",
+    "1. Call get_source_excerpt on an approved paper/note/annotation source.",
+    "2. Extract the value for this column from the source.",
+    "3. Call propose_paper_field_value with paperId, fieldId, value, fieldName, sourceId, and quoteExact (required). Optionally quotePrefix, quoteSuffix, page.",
+    "Do not write cells directly — every value must land as a pending proposal for /ai-review.",
+    "",
+    "Papers:",
+    ...input.papers.map((p) => `- ${p.id} — ${p.title}`),
+  ];
+  return lines.join("\n");
+}
+
+/** Papers whose cell for this field is empty and not already pending review. */
+export function emptyCellPaperIds(
+  rows: readonly ExtractionRow[],
+  fieldId: string,
+  pendingKeys?: ReadonlySet<string>,
+): string[] {
+  return rows
+    .filter((row) => {
+      if (pendingKeys?.has(pendingKey(row.paper.id, fieldId))) return false;
+      const value = row.values.get(fieldId);
+      if (value == null) return true;
+      if (typeof value === "string") return value.trim() === "";
+      if (Array.isArray(value)) return value.length === 0;
+      return false;
+    })
+    .map((row) => row.paper.id);
 }
 
 export function valueMapForPaper(

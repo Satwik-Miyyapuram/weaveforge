@@ -2852,6 +2852,49 @@ a.related-paper-url:hover { text-decoration: underline; }
   width: 100%; min-width: 0; max-width: 220px;
 }
 .extraction-table .paper-field-multi { max-width: 280px; }
+.extraction-th { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.extraction-propose-btn { font-size: 0.78rem; }
+.extraction-propose-panel {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2, var(--bg));
+  display: grid;
+  gap: 8px;
+  font-weight: 400;
+}
+.extraction-pending-banner {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-size: 0.9rem;
+}
+.extraction-cell-pending {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 4px,
+      color-mix(in srgb, var(--accent) 8%, transparent) 4px,
+      color-mix(in srgb, var(--accent) 8%, transparent) 8px
+    );
+}
+.extraction-pending-cell { display: grid; gap: 2px; min-width: 0; }
+.extraction-pending-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.extraction-pending-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
 .list-del { flex: none; }
 .list-body {
   padding: 2px 0 6px;
