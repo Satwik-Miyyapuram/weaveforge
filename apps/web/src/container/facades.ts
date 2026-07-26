@@ -860,14 +860,15 @@ export class AiAssistantFacade {
   async proposeDraft(input: {
     sessionId: string; settings: AiAccessSettings; kind: AiProposalKind; tool: AiToolName;
     content: string; payload: Record<string, unknown>; resourceId?: string; resourceType?: AiResourceType;
-    expectedRevision?: string;
+    expectedRevision?: string; evidence?: readonly import("@thesis/core").AiEvidence[];
   }): Promise<{ status: "requires_review"; proposalId: string; kind: AiProposalKind; message: string }> {
     const session = this.requireActiveSession(input.sessionId);
     const proposal = await this.createProposal.execute({
       id: this.deps.newId(), kind: input.kind, tool: input.tool,
       resourceId: input.resourceId ?? this.deps.newId(), resourceType: input.resourceType,
       content: input.content, payload: input.payload, expectedRevision: input.expectedRevision,
-      settings: input.settings, grant: session.grant, encryptionUnlocked: this.deps.isEncryptionUnlocked(), now: this.deps.now(),
+      evidence: input.evidence, settings: input.settings, grant: session.grant,
+      encryptionUnlocked: this.deps.isEncryptionUnlocked(), now: this.deps.now(),
     });
     return { status: "requires_review", proposalId: proposal.id, kind: proposal.kind, message: "Draft saved securely. Review and approve it in WeaveForge before anything changes." };
   }

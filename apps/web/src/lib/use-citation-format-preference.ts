@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getContainer } from "@/bootstrap";
+import { useProject } from "@/features/projects";
 import {
   citationFormatStorageKey,
   parseEditorCitationFormat,
@@ -9,26 +9,25 @@ import {
 } from "./citation-format-preference";
 
 /**
- * Per-project cite-format memory (Phase C2). Reads the stored choice for the
- * active project on mount and persists on change. SSR-safe: first render uses
- * the wikilink default until the effect applies the stored value.
+ * Per-project cite-format memory (Phase C2). Follows the active project from
+ * {@link useProject} so switching projects loads/saves the correct key.
+ * SSR-safe: first render uses the wikilink default until storage is read.
  */
 export function useCitationFormatPreference(): [
   EditorCitationFormat,
   (value: EditorCitationFormat) => void,
 ] {
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const { current } = useProject();
+  const projectId = current?.id ?? null;
   const [format, setFormat] = useState<EditorCitationFormat>("wikilink");
 
   useEffect(() => {
-    const id = getContainer().projects.context.projectId ?? null;
-    setProjectId(id);
     try {
-      setFormat(parseEditorCitationFormat(localStorage.getItem(citationFormatStorageKey(id))));
+      setFormat(parseEditorCitationFormat(localStorage.getItem(citationFormatStorageKey(projectId))));
     } catch {
-      /* ignore unavailable storage */
+      setFormat("wikilink");
     }
-  }, []);
+  }, [projectId]);
 
   const update = useCallback(
     (value: EditorCitationFormat) => {

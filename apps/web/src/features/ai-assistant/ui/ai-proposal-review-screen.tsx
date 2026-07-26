@@ -10,7 +10,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Markdown } from "@/components/markdown";
 import { ScreenLoader } from "@/components/thesis-loader";
-import { buildLocusLink, locusLinkIsResolvable } from "@/features/reader";
+import { buildLocusLink, locusLinkIsResolvable, sanitizeReaderHref } from "@/features/reader";
 
 const label: Record<AiWriteProposal["kind"], string> = {
   append_paper_note: "Append to paper note", create_vault_note: "Create vault note",
@@ -26,11 +26,14 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
     () => highlightWithinExcerpt(evidence.excerpt, evidence.locus),
     [evidence.excerpt, evidence.locus],
   );
-  const link = evidence.href
-    ? evidence.href
-    : locusLinkIsResolvable({ paperId: evidence.paperId })
-      ? buildLocusLink({ paperId: evidence.paperId, locus: evidence.locus, page: evidence.page })
-      : null;
+  const link = useMemo(() => {
+    const fromStored = sanitizeReaderHref(evidence.href);
+    if (fromStored) return fromStored;
+    if (locusLinkIsResolvable({ paperId: evidence.paperId })) {
+      return buildLocusLink({ paperId: evidence.paperId, locus: evidence.locus, page: evidence.page });
+    }
+    return null;
+  }, [evidence.href, evidence.paperId, evidence.locus, evidence.page]);
 
   return (
     <div className="ai-evidence">

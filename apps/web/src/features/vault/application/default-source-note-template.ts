@@ -7,12 +7,12 @@ import { wrapRegion } from "./note-template-engine";
  * unmarked text the researcher adds are preserved by {@link applyTemplate}.
  */
 export const DEFAULT_SOURCE_NOTE_TEMPLATE = [
-  "# {{title}}",
-  "",
   wrapRegion(
     "generated",
     "metadata",
     [
+      "# {{title}}",
+      "",
       "- Authors: {{authors}}",
       "- Year: {{year}}",
       "- Venue: {{venue}}",

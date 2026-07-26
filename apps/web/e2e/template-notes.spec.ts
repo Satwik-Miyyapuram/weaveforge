@@ -6,8 +6,10 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 /**
  * Phase C1 guard: re-rendering a source-note template must refresh generated
- * metadata WITHOUT destroying the researcher's edits. A merge that eats notes
- * is the one failure here with no recovery, so it gets explicit coverage.
+ * metadata WITHOUT destroying the researcher's edits. Editable-region
+ * byte-preservation is covered by unit tests; this E2E guards the UI path
+ * (button → merge → save) including unmarked freeform text, which
+ * `mergeTemplate` must also keep.
  */
 test.describe("source-note template re-render preserves edits (C1)", () => {
   test.describe.configure({ timeout: 120_000 });
@@ -27,25 +29,31 @@ test.describe("source-note template re-render preserves edits (C1)", () => {
     await page.locator("#title").fill(title);
     await page.getByRole("button", { name: "Add paper", exact: true }).click();
 
-    // Open the paper's note view.
     await page.getByText(title, { exact: false }).first().click();
-
-    // Enter edit mode.
     await page.getByRole("button", { name: /Edit note|Add note/ }).click();
 
     const editor = page.locator(".summary-input .cm-content");
     await editor.waitFor({ timeout: 30_000 });
 
-    // Type a sentinel into the note body (inside the editable region).
-    await editor.click();
-    await page.keyboard.type(`\n${sentinel}\n`);
-
-    // Re-render the template — generated metadata refreshes, edits survive.
+    // Install the template (explicit action — never silent on load).
     await page.getByRole("button", { name: "Re-render template" }).click();
+    await expect(page.locator(".summary-input")).toContainText("<!-- wf:editable:notes -->", {
+      timeout: 15_000,
+    });
+    await expect(page.locator(".summary-input")).toContainText(title);
 
+    // Append unmarked freeform text after the template — merge must keep it.
+    await editor.click();
+    await page.keyboard.press("Control+End");
+    await page.keyboard.type(`\n\n## My appendix\n\n${sentinel}\n`);
+    await expect(page.locator(".summary-input")).toContainText(sentinel);
+
+    // Re-render again — title/metadata refresh; appendix + sentinel survive.
+    await page.getByRole("button", { name: "Re-render template" }).click();
     await expect(page.locator(".summary-input")).toContainText(sentinel, { timeout: 15_000 });
+    await expect(page.locator(".summary-input")).toContainText("## My appendix");
+    await expect(page.locator(".summary-input")).toContainText(title);
 
-    // Save and confirm the sentinel persisted through the merge + save.
     await page.getByRole("button", { name: /Save note/ }).click();
     await expect(page.getByText(sentinel, { exact: false }).first()).toBeVisible({
       timeout: 30_000,

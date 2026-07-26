@@ -30,8 +30,16 @@ test("buildLocusLink omits absent and invalid parts", () => {
   assert.equal(url.searchParams.get("locus"), null);
 });
 
-test("locusLinkIsResolvable needs a paper or a pdf url", () => {
-  assert.equal(locusLinkIsResolvable({ paperId: "p1" }), true);
-  assert.equal(locusLinkIsResolvable({ pdfUrl: "https://x/y.pdf" }), true);
-  assert.equal(locusLinkIsResolvable({}), false);
+test("buildLocusLink drops javascript and other unsafe pdf URLs", () => {
+  const link = buildLocusLink({
+    paperId: "p1",
+    pdfUrl: "javascript:alert(1)",
+  });
+  const url = new URL(link, "https://app.test");
+  assert.equal(url.searchParams.get("paper"), "p1");
+  assert.equal(url.searchParams.get("pdf"), null);
+});
+
+test("locusLinkIsResolvable rejects unsafe pdf urls without a paper id", () => {
+  assert.equal(locusLinkIsResolvable({ pdfUrl: "javascript:alert(1)" }), false);
 });

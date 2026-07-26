@@ -890,6 +890,13 @@ function PaperNote({
   function reRenderTemplate() {
     const citeKey =
       typeof paper.metadata?.["citeKey"] === "string" ? paper.metadata["citeKey"] : undefined;
+    const hasMarkers = /<!--\s*\/?wf:(generated|editable):/.test(draft);
+    if (!hasMarkers && draft.trim()) {
+      const ok = confirm(
+        "This note has no template markers. Re-render will keep your existing text and append a fresh metadata block — it will not rewrite the old Authors/Year lines. Continue?",
+      );
+      if (!ok) return;
+    }
     const next = reRenderPaperSourceNote(draft, {
       title: paper.title,
       authors: paper.authors,

@@ -43,8 +43,28 @@ alter table paper_locus_anchors enable row level security;
 
 create policy paper_locus_anchors_own on paper_locus_anchors
   for all
-  using (user_id = (select auth.uid()))
-  with check (user_id = (select auth.uid()));
+  using (
+    user_id = (select auth.uid())
+    and exists (
+      select 1 from projects p
+      where p.id = paper_locus_anchors.project_id and p.user_id = (select auth.uid())
+    )
+    and exists (
+      select 1 from papers pap
+      where pap.id = paper_locus_anchors.paper_id and pap.user_id = (select auth.uid())
+    )
+  )
+  with check (
+    user_id = (select auth.uid())
+    and exists (
+      select 1 from projects p
+      where p.id = paper_locus_anchors.project_id and p.user_id = (select auth.uid())
+    )
+    and exists (
+      select 1 from papers pap
+      where pap.id = paper_locus_anchors.paper_id and pap.user_id = (select auth.uid())
+    )
+  );
 
 comment on table paper_locus_anchors is
   'Durable W3C text anchors into a paper''s extracted PDF text for jump-to-locus; owner-only, read-only reader surface (Phase D).';

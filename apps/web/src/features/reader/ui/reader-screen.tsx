@@ -7,6 +7,7 @@ import { decodeLocus, type PdfLocus } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoader } from "@/components/thesis-loader";
 import { PdfReader } from "./pdf-reader-lazy";
+import { resolvePaperPdfUrl, sanitizePdfUrl } from "../application/sanitize-reader-url";
 
 /** Read-only reader route: renders a PDF and jumps to an optional locus (D). */
 export function ReaderScreen() {
@@ -14,29 +15,49 @@ export function ReaderScreen() {
   const paperId = params.get("paper");
   const pdfParam = params.get("pdf");
   const pageParam = params.get("page");
-  const locus: PdfLocus | null = useMemo(() => decodeLocus(params.get("locus")), [params]);
+  const locusRaw = params.get("locus");
+  const locus: PdfLocus | null = useMemo(() => decodeLocus(locusRaw), [locusRaw]);
   const page = useMemo(() => {
     const n = pageParam ? Number(pageParam) : NaN;
     return Number.isInteger(n) && n >= 0 ? n : undefined;
   }, [pageParam]);
 
-  const [pdfUrl, setPdfUrl] = useState<string | null>(pdfParam);
+  const pdfFromParam = useMemo(() => sanitizePdfUrl(pdfParam), [pdfParam]);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(pdfFromParam);
   const [title, setTitle] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!pdfParam && Boolean(paperId));
+  const [loading, setLoading] = useState(!pdfFromParam && Boolean(paperId));
   const [error, setError] = useState<string | null>(null);
 
+  // Keep state in sync when the query string changes (client nav between loci).
   useEffect(() => {
-    if (pdfParam || !paperId) return;
+    setError(null);
+    setTitle(null);
+    if (pdfFromParam) {
+      setPdfUrl(pdfFromParam);
+      setLoading(false);
+      return;
+    }
+    if (!paperId) {
+      setPdfUrl(null);
+      setLoading(false);
+      if (pdfParam) setError("That PDF link is not allowed — only http(s) URLs can be opened.");
+      return;
+    }
     let cancelled = false;
     setLoading(true);
+    setPdfUrl(null);
     void getContainer()
       .papers.getPaper(paperId)
       .then((paper) => {
         if (cancelled) return;
         setTitle(paper?.title ?? null);
-        const url = paper?.url;
+        const url = resolvePaperPdfUrl({
+          url: paper?.url,
+          arxivId: paper?.arxivId,
+          pdfPath: paper?.pdfPath,
+        });
         if (url) setPdfUrl(url);
-        else setError("This paper has no PDF URL to open in the reader.");
+        else setError("This paper has no PDF URL the reader can open (HTML landing pages are skipped).");
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -47,7 +68,7 @@ export function ReaderScreen() {
     return () => {
       cancelled = true;
     };
-  }, [paperId, pdfParam]);
+  }, [paperId, pdfFromParam, pdfParam]);
 
   return (
     <section className="screen reader-screen">
@@ -76,7 +97,9 @@ export function ReaderScreen() {
           <p>No PDF was provided for this locus.</p>
         </div>
       )}
-      {!loading && pdfUrl && <PdfReader url={pdfUrl} locus={locus ?? undefined} page={page} />}
+      {!loading && pdfUrl && (
+        <PdfReader key={pdfUrl} url={pdfUrl} locus={locus ?? undefined} page={page} />
+      )}
     </section>
   );
 }

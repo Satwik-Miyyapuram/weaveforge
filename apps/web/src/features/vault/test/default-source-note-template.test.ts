@@ -18,7 +18,8 @@ test("default template first render fills metadata and editable regions", () => 
       citeKey: "vaswani2017",
     }),
   );
-  assert.match(out, /^# Attention Is All You Need/m);
+  assert.match(out, /# Attention Is All You Need/);
+  assert.match(out, /<!-- wf:generated:metadata -->/);
   assert.match(out, /- Authors: A\. Vaswani, N\. Shazeer/);
   assert.match(out, /- Year: 2017/);
   assert.match(out, /- Cite key: vaswani2017/);
@@ -42,11 +43,13 @@ test("re-render refreshes generated metadata but preserves editable notes byte-f
   const reRendered = applyTemplate(
     edited,
     DEFAULT_SOURCE_NOTE_TEMPLATE,
-    sourceNoteTemplateContext({ title: "Paper", year: 2020, venue: "NeurIPS" }),
+    sourceNoteTemplateContext({ title: "Renamed Paper", year: 2020, venue: "NeurIPS" }),
   );
 
+  assert.match(reRendered, /# Renamed Paper/);
   assert.match(reRendered, /- Year: 2020/);
   assert.match(reRendered, /- Venue: NeurIPS/);
+  assert.doesNotMatch(reRendered, /^# Paper$/m);
   const start = reRendered.indexOf("<!-- wf:editable:notes -->") + "<!-- wf:editable:notes -->".length;
   const end = reRendered.indexOf("<!-- /wf:editable:notes -->");
   assert.equal(reRendered.slice(start, end), myNotes);
