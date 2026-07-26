@@ -63,11 +63,13 @@ function formatText(s: string): string {
     .replace(/\b_([^_]+)_\b/g, "<em>$1</em>")
     .replace(
       /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
-      '<img src="$2" alt="$1" class="md-image" loading="lazy" />',
+      (_m, alt: string, src: string) =>
+        `<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" class="md-image" loading="lazy" />`,
     )
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noreferrer">$1</a>',
+      (_m, label: string, href: string) =>
+        `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer">${label}</a>`,
     );
 }
 

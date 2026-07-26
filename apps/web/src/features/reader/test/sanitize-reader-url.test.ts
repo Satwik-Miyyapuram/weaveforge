@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  looksLikePdfUrl,
   resolvePaperPdfUrl,
   sanitizePdfUrl,
   sanitizeReaderHref,
@@ -46,4 +47,10 @@ test("resolvePaperPdfUrl maps arXiv abs and ids to pdf URLs", () => {
   );
   assert.equal(resolvePaperPdfUrl({ url: "https://example.com/landing" }), null);
   assert.equal(resolvePaperPdfUrl({ url: "javascript:alert(1)" }), null);
+});
+
+test("looksLikePdfUrl rejects HTML paths that merely contain /pdf/", () => {
+  assert.equal(looksLikePdfUrl("https://example.com/blog/pdf/guide.html"), false);
+  assert.equal(looksLikePdfUrl("https://openreview.net/pdf?id=abc"), true);
+  assert.equal(looksLikePdfUrl("https://doi.org/doi/pdf/10.1/xyz"), true);
 });

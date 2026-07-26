@@ -4020,7 +4020,12 @@ a.related-paper-url:hover { text-decoration: underline; }
   overflow: auto; max-height: calc(100vh - 220px); display: flex; flex-direction: column;
   align-items: center; gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: 10px;
 }
-.pdf-reader-page { position: relative; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.18); }
+.pdf-reader-page {
+  position: relative;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+  min-height: 320px; /* keep IntersectionObserver from painting every page at once before layout */
+}
 .pdf-reader-page canvas { display: block; }
 .pdf-reader-hl {
   position: absolute; pointer-events: none; border-radius: 2px;

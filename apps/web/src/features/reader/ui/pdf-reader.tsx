@@ -121,12 +121,18 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
     void (async () => {
       try {
         const lib = await loadPdfLib();
+        if (cancelled) return;
         task = lib.getDocument({ url: safeUrl, isEvalSupported: false });
-        const doc = await task.promise;
         if (cancelled) {
-          // Loading-task destroy in cleanup owns the proxy — do not double-free.
+          try {
+            task.destroy();
+          } catch {
+            /* ignore */
+          }
           return;
         }
+        const doc = await task.promise;
+        if (cancelled) return; // cleanup's task.destroy() owns the proxy
         setPdf(doc);
         setNumPages(doc.numPages);
       } catch (err) {
@@ -151,42 +157,45 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
     containerRef.current?.querySelectorAll(".pdf-reader-hl").forEach((el) => el.remove());
   }, []);
 
-  const renderingPages = useRef(new Set<number>());
+  const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderPage = useCallback(
     async (pageNumber: number) => {
-      if (!pdf || renderedPages.current.has(pageNumber) || renderingPages.current.has(pageNumber)) {
+      if (!pdf || renderedPages.current.has(pageNumber)) return;
+      const inflight = renderingPages.current.get(pageNumber);
+      if (inflight) {
+        await inflight;
         return;
       }
-      renderingPages.current.add(pageNumber);
-      const host = containerRef.current?.querySelector<HTMLDivElement>(
-        `[data-page="${pageNumber}"]`,
-      );
-      if (!host) {
-        renderingPages.current.delete(pageNumber);
-        return;
-      }
-      try {
-        const pdfPage = await pdf.getPage(pageNumber);
-        const viewport = pdfPage.getViewport({ scale });
-        const canvas = host.querySelector("canvas");
-        if (!(canvas instanceof HTMLCanvasElement)) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const ratio = window.devicePixelRatio || 1;
-        canvas.width = Math.floor(viewport.width * ratio);
-        canvas.height = Math.floor(viewport.height * ratio);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
-        host.style.width = `${Math.floor(viewport.width)}px`;
-        host.style.height = `${Math.floor(viewport.height)}px`;
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-        await pdfPage.render({ canvasContext: ctx, viewport }).promise;
-        renderedPages.current.add(pageNumber);
-      } catch {
-        /* a failed page must not break the rest of the document — leave unset so retry works */
-      } finally {
-        renderingPages.current.delete(pageNumber);
-      }
+      const work = (async () => {
+        const host = containerRef.current?.querySelector<HTMLDivElement>(
+          `[data-page="${pageNumber}"]`,
+        );
+        if (!host) return;
+        try {
+          const pdfPage = await pdf.getPage(pageNumber);
+          const viewport = pdfPage.getViewport({ scale });
+          const canvas = host.querySelector("canvas");
+          if (!(canvas instanceof HTMLCanvasElement)) return;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          const ratio = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(viewport.width * ratio);
+          canvas.height = Math.floor(viewport.height * ratio);
+          canvas.style.width = `${Math.floor(viewport.width)}px`;
+          canvas.style.height = `${Math.floor(viewport.height)}px`;
+          host.style.width = `${Math.floor(viewport.width)}px`;
+          host.style.height = `${Math.floor(viewport.height)}px`;
+          ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+          await pdfPage.render({ canvasContext: ctx, viewport }).promise;
+          renderedPages.current.add(pageNumber);
+        } catch {
+          /* a failed page must not break the rest of the document */
+        } finally {
+          renderingPages.current.delete(pageNumber);
+        }
+      })();
+      renderingPages.current.set(pageNumber, work);
+      await work;
     },
     [pdf, scale],
   );
@@ -271,6 +280,7 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
     clearHighlights();
     setJump({ status: "searching" });
     void (async () => {
+      let firstMatch: { pageNumber: number; confidence: AnchorConfidence } | null = null;
       try {
         const order: number[] = [];
         const hinted = typeof page === "number" ? page + 1 : undefined;
@@ -278,7 +288,6 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
         if (hintedOk) order.push(hinted!);
         for (let n = 1; n <= pdf.numPages; n++) if (n !== hinted) order.push(n);
 
-        let firstMatch: { pageNumber: number; confidence: AnchorConfidence } | null = null;
         let extraMatches = 0;
         let painted = false;
 
@@ -304,14 +313,17 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
 
         for (const pageNumber of order) {
           if (cancelled) return;
-          const confidence = await matchOnPage(pageNumber);
+          let confidence: AnchorConfidence | null = null;
+          try {
+            confidence = await matchOnPage(pageNumber);
+          } catch {
+            continue; // skip a bad page; keep scanning
+          }
           if (!confidence) continue;
           if (!firstMatch) {
             firstMatch = { pageNumber, confidence };
-            // Paint immediately so long PDFs are not stuck on "Locating…".
             await paintMatch(firstMatch, confidence);
             painted = true;
-            // Keep scanning for one extra hit so duplicate quotes downgrade.
             continue;
           }
           extraMatches += 1;
@@ -331,7 +343,8 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
           await paintMatch(firstMatch, finalConfidence);
         }
       } catch {
-        if (!cancelled) setJump({ status: "missed" });
+        // Never overwrite a successful early paint with a false "missed".
+        if (!cancelled && !firstMatch) setJump({ status: "missed" });
       }
     })();
     return () => {

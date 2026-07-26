@@ -43,9 +43,10 @@ export function looksLikePdfUrl(url: string): boolean {
     const u = new URL(url);
     const path = u.pathname.toLowerCase();
     if (/\.pdf$/i.test(path)) return true;
-    // `/pdf`, `/pdf/`, `/pdf?...` (OpenReview, some OA hosts)
+    // Trailing `/pdf` or `/pdf/` (OpenReview, some OA hosts) — not `/blog/pdf/guide`.
     if (/(^|\/)pdf\/?$/i.test(path)) return true;
-    if (path.includes("/pdf/")) return true;
+    // DOI-style OA: `/doi/pdf/10.…`
+    if (/\/doi\/pdf\//i.test(path)) return true;
     return false;
   } catch {
     return false;

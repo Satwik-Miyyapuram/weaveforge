@@ -228,3 +228,19 @@ test("resolveArtifactRef matches basename against a signed URL and returns the l
     assert.equal(result.artifactName, signed);
   }
 });
+
+test("resolveArtifactRef fails closed on basename collisions", () => {
+  const done = exp({
+    id: "exp-done",
+    status: "done",
+    artifacts: [
+      "https://cdn.test/a/loss.png?token=1",
+      "https://cdn.test/b/loss.png?token=2",
+    ],
+  });
+  const result = resolveArtifactRef(
+    { experimentId: "exp-done", artifactName: "loss.png" },
+    { getExperiment: () => done },
+  );
+  assert.equal(result.status, "artifact_not_found");
+});

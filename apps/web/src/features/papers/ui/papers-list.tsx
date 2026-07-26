@@ -892,10 +892,26 @@ function PaperNote({
     const citeKey = resolveCiteKey(paper);
     const hasMarkers = /<!--\s*\/?wf:(generated|editable):/.test(draft);
     if (!hasMarkers && draft.trim()) {
-      const ok = confirm(
-        "This note has no template markers. Re-render will keep your existing text and append a fresh metadata block — it will not rewrite the old Authors/Year lines. Continue?",
+      const choice = window.prompt(
+        "This note has no template markers.\n\nType APPEND to keep your text and add a fresh metadata block,\nor REPLACE to start from a clean template (your current draft is discarded).",
+        "APPEND",
       );
-      if (!ok) return;
+      if (choice == null) return;
+      const normalized = choice.trim().toUpperCase();
+      if (normalized === "REPLACE") {
+        const next = reRenderPaperSourceNote("", {
+          title: paper.title,
+          authors: paper.authors,
+          year: paper.year,
+          venue: paper.venue,
+          doi: paper.doi,
+          citeKey,
+        });
+        setDraft(next);
+        setSaveError(null);
+        return;
+      }
+      if (normalized !== "APPEND") return;
     }
     const next = reRenderPaperSourceNote(draft, {
       title: paper.title,

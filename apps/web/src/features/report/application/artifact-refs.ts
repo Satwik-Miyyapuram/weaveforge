@@ -102,7 +102,10 @@ export function matchExperimentArtifact(
   if (artifacts.includes(refName)) return refName;
   const want = artifactBasename(refName);
   if (!want) return null;
-  return artifacts.find((a) => artifactBasename(a) === want) ?? null;
+  const hits = artifacts.filter((a) => artifactBasename(a) === want);
+  // Basename collision across two live URLs — fail closed rather than pick wrong.
+  if (hits.length !== 1) return null;
+  return hits[0]!;
 }
 
 /** Inverse of parse — round-trips with the canonical form. */

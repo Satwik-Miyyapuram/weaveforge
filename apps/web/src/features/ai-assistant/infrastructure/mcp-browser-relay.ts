@@ -93,14 +93,41 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
       if (sourceId) {
         const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId });
         if (doc?.text) {
+          const quoteExact = optional(args, "quoteExact");
+          const pageRaw = args.page;
+          const page =
+            typeof pageRaw === "number" && Number.isInteger(pageRaw) && pageRaw >= 0
+              ? pageRaw
+              : undefined;
+          const paperFromSource =
+            doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
+              ? doc.source.resourceId
+              : doc.source.resourceType === "zotero_annotation" || doc.source.resourceType === "zotero_note"
+                ? doc.source.resourceId.split(":")[0] || undefined
+                : undefined;
           evidence = [{
             sourceId,
             excerpt: doc.text,
             label: doc.source.label,
-            paperId: doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
-              ? doc.source.resourceId
-              : paperId,
+            ...(paperFromSource ? { paperId: paperFromSource } : {}),
             href: doc.source.href,
+            ...(quoteExact
+              ? {
+                  locus: {
+                    quote: {
+                      type: "TextQuoteSelector" as const,
+                      exact: quoteExact,
+                      ...(optional(args, "quotePrefix")
+                        ? { prefix: optional(args, "quotePrefix") }
+                        : {}),
+                      ...(optional(args, "quoteSuffix")
+                        ? { suffix: optional(args, "quoteSuffix") }
+                        : {}),
+                    },
+                  },
+                }
+              : {}),
+            ...(page != null ? { page } : {}),
           }];
         }
       }
