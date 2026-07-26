@@ -152,6 +152,7 @@ export function PapersScreen() {
       setData((prev) =>
         prev ? { ...prev, papers: prev.papers.map((x) => (x.id === p.id ? p : x)) } : prev,
       );
+      setGuestPaper((g) => (g?.id === p.id ? p : g));
     },
     [setData],
   );
@@ -159,6 +160,9 @@ export function PapersScreen() {
   const paperFromUrl = searchParams.get("paper");
   const appliedPaperFromUrl = useRef<string | null>(null);
   const paperOpenGeneration = useRef(0);
+  const listPaperStamp = paperFromUrl
+    ? papers.find((p) => p.id === paperFromUrl)?.updatedAt ?? "missing"
+    : null;
   useEffect(() => {
     if (!paperFromUrl) {
       appliedPaperFromUrl.current = null;
@@ -174,8 +178,9 @@ export function PapersScreen() {
       setOpenId(null);
       return;
     }
-    // Always hydrate a full paper (list summaries omit metadata.annotations).
-    if (appliedPaperFromUrl.current === paperFromUrl) {
+    // Re-hydrate when list stamp changes (e.g. Zotero sync) so annotations refresh.
+    const appliedKey = `${paperFromUrl}:${listPaperStamp ?? ""}`;
+    if (appliedPaperFromUrl.current === appliedKey) {
       setOpenId(paperFromUrl);
       return;
     }
@@ -193,7 +198,7 @@ export function PapersScreen() {
           setOpenId(null);
           return;
         }
-        appliedPaperFromUrl.current = requestedId;
+        appliedPaperFromUrl.current = appliedKey;
         setGuestPaper(p);
         setOpenId(requestedId);
       })
@@ -206,7 +211,7 @@ export function PapersScreen() {
     return () => {
       cancelled = true;
     };
-  }, [paperFromUrl, papers, isSharedView, pinnedSharedBy]);
+  }, [paperFromUrl, papers, isSharedView, pinnedSharedBy, listPaperStamp]);
 
   const closePaper = useCallback(() => {
     paperOpenGeneration.current += 1;

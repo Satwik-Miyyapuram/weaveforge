@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Paper, ReportSection } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
@@ -27,12 +27,15 @@ export function SectionRelatedExcerpts({
 }) {
   const [items, setItems] = useState<PinnedAnnotation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
 
   const reload = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     const papersFacade = getContainer().papers;
     const pins = await papersFacade.listAnnotationPinsForSection(section.id);
     const paperIds = [...new Set(pins.map((pin) => pin.paperId))];
     const papers = await Promise.all(paperIds.map((id) => papersFacade.getPaper(id)));
+    if (generation !== loadGeneration.current) return;
     const byPaper = new Map(
       papers.flatMap((paper) => (paper ? [[paper.id, paper] as const] : [])),
     );
@@ -48,9 +51,16 @@ export function SectionRelatedExcerpts({
   }, [section.id]);
 
   useEffect(() => {
+    let cancelled = false;
+    setError(null);
     void reload().catch((reason) => {
+      if (cancelled) return;
       setError(reason instanceof Error ? reason.message : String(reason));
     });
+    return () => {
+      cancelled = true;
+      loadGeneration.current += 1;
+    };
   }, [reload]);
 
   if (items.length === 0 && !error) {

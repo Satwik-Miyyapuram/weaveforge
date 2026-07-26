@@ -36,9 +36,7 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
       });
     }
     if (evidence.paperId) {
-      // Never prefer a stored `/reader?pdf=…` over the paper id (provenance swap).
-      const appHref = sanitizeAppHref(evidence.href);
-      if (appHref && !appHref.startsWith("/reader")) return appHref;
+      // Always bind the open link to evidence.paperId (ignore spoofed app hrefs).
       return `/papers?paper=${encodeURIComponent(evidence.paperId)}`;
     }
     return sanitizeReaderHref(evidence.href) ?? sanitizeAppHref(evidence.href);
