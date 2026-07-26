@@ -15,7 +15,8 @@ Accounts (throwaway). Must match `local-dev.example/accounts.mjs` seed:
   G  standalone (no lab)
 
 A/B required for share checks; C is the cross-lab deny account vs Alpha;
-C/D/E unlock hierarchy checks (F/G optional extras).
+C/D/E unlock hierarchy checks (profiles directory + explicit shares; milestones
+are not auto-visible up the tree after migration 0087).
 
 Env: SUPABASE_URL, SUPABASE_ANON_KEY, and TT_<X>_EMAIL/TT_<X>_PASSWORD for each
 account X in {A,B,C,D,E,F,G} you want exercised.
@@ -265,17 +266,30 @@ def main() -> int:
         if c is not None:
             check(not sees_vault(c, v_a), "C (other lab) cannot read A's shared vault page")
 
-        # --- hierarchy (auto visibility via can_access on milestones) ---
-        # Seed tree: B → C/D → E/F; A other lab; G standalone.
+        # --- hierarchy (profiles subtree + lab directory; milestones need shares) ---
+        # Migration 0087: milestone SELECT is owner OR shared_to_me only — supervisors
+        # no longer auto-read student milestones. Hierarchy still widens profiles.
         if c is not None and d is not None and e is not None:
             m_e = make_milestone(e, f"e-{tag}")
 
-            check(sees(b, m_e), "Professor B sees student E's milestone")
-            check(sees(c, m_e), "PhD C sees its student E")
+            check(not sees(b, m_e), "Professor B does not auto-read E's milestone (needs share)")
+            check(not sees(c, m_e), "PhD C does not auto-read E's milestone (needs share)")
             check(not sees(d, m_e), "PhD D does NOT see E (other branch under B)")
             check(not sees(a, m_e), "A (other lab) cannot see E's milestone")
             if g is not None:
                 check(not sees(g, m_e), "Standalone G cannot see E's milestone")
+
+            # supervisor share: E → C restores the "prof helps student" path
+            e.table("shares").insert(
+                {
+                    "recipient_id": c_uid,
+                    "resource_type": "milestone",
+                    "resource_id": m_e,
+                    "access": "comment",
+                }
+            ).execute()
+            check(sees(c, m_e), "PhD C sees E's milestone after E shares it")
+            check(not sees(b, m_e), "Professor B still cannot see E's milestone without a share")
 
             # peer share: E ↔ F (both masters under C)
             if _f is not None and _f_uid:
@@ -290,7 +304,7 @@ def main() -> int:
                 ).execute()
                 check(sees(_f, m_e), "F sees peer E's milestone after E shares it")
 
-            # directory: B sees beta lab-mates, not Alpha / standalone
+            # directory: B sees beta lab-mates via profiles RLS, not Alpha / standalone
             emails = {
                 r["email"].lower()
                 for r in b.table("profiles").select("email").execute().data

@@ -1,6 +1,4 @@
-/**
- * Expand `**/*.integration.ts` for `node --test` (Node does not glob star-star).
- */
+// Expand *.integration.ts for node --test (Node does not expand star-star globs).
 import { spawnSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
