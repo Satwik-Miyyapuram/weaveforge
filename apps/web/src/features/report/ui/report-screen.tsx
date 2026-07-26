@@ -180,6 +180,7 @@ export function ReportScreen() {
     return (
       <section className="screen report-screen">
         <SectionNote
+          key={openSection.id}
           section={openSection}
           readOnly={isReadOnlySection(openSection.id)}
           sharedByName={sharedOwnerName(openSection.id)}

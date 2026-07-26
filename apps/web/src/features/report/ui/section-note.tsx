@@ -62,6 +62,12 @@ export function SectionNote({
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
   useEffect(() => {
+    setEditing(false);
+    setDraft(section.notes ?? "");
+    setSaveError(null);
+  }, [section.id]);
+
+  useEffect(() => {
     if (!editing) setDraft(section.notes ?? "");
   }, [section.notes, editing]);
 

@@ -5,7 +5,7 @@ import { sanitizePdfUrl } from "./sanitize-reader-url";
  * Build a same-origin deep link into the read-only reader at a specific locus.
  * The locus is encoded inline (see core `encodeLocus`) so the link is
  * self-contained and needs no stored anchor row to resolve.
- * PDF URLs are allowlisted (http/s only) before being put in the query string.
+ * PDF URLs are allowlisted (https only) before being put in the query string.
  */
 export function buildLocusLink(input: {
   paperId?: string;

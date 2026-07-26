@@ -92,44 +92,44 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
       let evidence: import("@thesis/core").AiEvidence[] | undefined;
       if (sourceId) {
         const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId });
-        if (doc?.text) {
-          const quoteExact = optional(args, "quoteExact");
-          const pageRaw = args.page;
-          const page =
-            typeof pageRaw === "number" && Number.isInteger(pageRaw) && pageRaw >= 0
-              ? pageRaw
-              : undefined;
-          const paperFromSource =
-            doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
-              ? doc.source.resourceId
-              : doc.source.resourceType === "zotero_annotation" || doc.source.resourceType === "zotero_note"
-                ? doc.source.resourceId.split(":")[0] || undefined
-                : undefined;
-          evidence = [{
-            sourceId,
-            excerpt: doc.text,
-            label: doc.source.label,
-            ...(paperFromSource ? { paperId: paperFromSource } : {}),
-            href: doc.source.href,
-            ...(quoteExact
-              ? {
-                  locus: {
-                    quote: {
-                      type: "TextQuoteSelector" as const,
-                      exact: quoteExact,
-                      ...(optionalRaw(args, "quotePrefix")
-                        ? { prefix: optionalRaw(args, "quotePrefix") }
-                        : {}),
-                      ...(optionalRaw(args, "quoteSuffix")
-                        ? { suffix: optionalRaw(args, "quoteSuffix") }
-                        : {}),
-                    },
-                  },
-                }
-              : {}),
-            ...(page != null ? { page } : {}),
-          }];
+        if (!doc?.text) {
+          throw new Error("sourceId was provided but no excerpt could be resolved for evidence.");
         }
+        const quoteExact = optional(args, "quoteExact");
+        const page = optionalPage(args.page);
+        const paperFromSource =
+          doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
+            ? doc.source.resourceId
+            : doc.source.resourceType === "zotero_annotation" || doc.source.resourceType === "zotero_note"
+              ? doc.source.resourceId.split(":")[0] || undefined
+              : undefined;
+        if (paperFromSource && paperFromSource !== paperId) {
+          throw new Error("Evidence source belongs to a different paper than paperId.");
+        }
+        evidence = [{
+          sourceId,
+          excerpt: doc.text,
+          label: doc.source.label,
+          ...(paperFromSource ? { paperId: paperFromSource } : {}),
+          href: doc.source.href,
+          ...(quoteExact
+            ? {
+                locus: {
+                  quote: {
+                    type: "TextQuoteSelector" as const,
+                    exact: quoteExact,
+                    ...(optionalRaw(args, "quotePrefix")
+                      ? { prefix: optionalRaw(args, "quotePrefix") }
+                      : {}),
+                    ...(optionalRaw(args, "quoteSuffix")
+                      ? { suffix: optionalRaw(args, "quoteSuffix") }
+                      : {}),
+                  },
+                },
+              }
+            : {}),
+          ...(page != null ? { page } : {}),
+        }];
       }
       return ai.proposeDraft({
         sessionId, settings, kind: "append_paper_note", tool: "propose_append_paper_note",
@@ -159,6 +159,14 @@ function optional(args: Record<string, unknown>, key: string): string | undefine
 /** Affixes must keep abutting whitespace for quote matching — do not trim. */
 function optionalRaw(args: Record<string, unknown>, key: string): string | undefined {
   return typeof args[key] === "string" && args[key].length > 0 ? args[key] : undefined;
+}
+function optionalPage(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    if (Number.isInteger(n) && n >= 0) return n;
+  }
+  return undefined;
 }
 function stringList(value: unknown): string[] | undefined { return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined; }
 

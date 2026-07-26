@@ -41,8 +41,11 @@ create index if not exists paper_locus_anchors_paper_idx
 
 alter table paper_locus_anchors enable row level security;
 
+grant select, insert, update, delete on paper_locus_anchors to authenticated;
+
 create policy paper_locus_anchors_own on paper_locus_anchors
   for all
+  to authenticated
   using (
     user_id = (select auth.uid())
     and exists (
@@ -53,7 +56,10 @@ create policy paper_locus_anchors_own on paper_locus_anchors
       select 1 from papers pap
       where pap.id = paper_locus_anchors.paper_id
         and pap.user_id = (select auth.uid())
-        and pap.project_id = paper_locus_anchors.project_id
+        and (
+          pap.project_id = paper_locus_anchors.project_id
+          or pap.project_id is null
+        )
     )
   )
   with check (
@@ -66,7 +72,10 @@ create policy paper_locus_anchors_own on paper_locus_anchors
       select 1 from papers pap
       where pap.id = paper_locus_anchors.paper_id
         and pap.user_id = (select auth.uid())
-        and pap.project_id = paper_locus_anchors.project_id
+        and (
+          pap.project_id = paper_locus_anchors.project_id
+          or pap.project_id is null
+        )
     )
   );
 

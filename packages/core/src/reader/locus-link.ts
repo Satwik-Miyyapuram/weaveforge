@@ -4,6 +4,9 @@ import type { PdfLocus, TextPositionSelector, TextQuoteSelector } from "./pdf-lo
  * Deep-link (de)serialisation for jump-to-locus. A locus is encoded inline in
  * a same-origin URL param so "open the source at this sentence" works without a
  * server round-trip or a stored anchor id. Read-only; never trusts its input.
+ *
+ * `encodeLocus` returns raw JSON. Callers that put it in a query string should
+ * let `URLSearchParams` / the URL API percent-encode once — do not pre-encode.
  */
 
 function isQuote(value: unknown): value is TextQuoteSelector {
@@ -22,7 +25,20 @@ function isPosition(value: unknown): value is TextPositionSelector {
   );
 }
 
-/** Serialise a locus into a URL-safe query-param value. */
+function parseLocusJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Legacy links that pre-encoded before URLSearchParams / manual concat.
+    try {
+      return JSON.parse(decodeURIComponent(raw));
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** Serialise a locus into a query-param value (raw JSON; encode at the URL layer). */
 export function encodeLocus(locus: PdfLocus): string {
   const quote: TextQuoteSelector = {
     type: "TextQuoteSelector",
@@ -31,18 +47,13 @@ export function encodeLocus(locus: PdfLocus): string {
     ...(locus.quote.suffix != null ? { suffix: locus.quote.suffix } : {}),
   };
   const payload: PdfLocus = locus.position ? { quote, position: locus.position } : { quote };
-  return encodeURIComponent(JSON.stringify(payload));
+  return JSON.stringify(payload);
 }
 
 /** Parse a locus param back into a `PdfLocus`, or null when malformed. */
 export function decodeLocus(raw: string | null | undefined): PdfLocus | null {
   if (!raw) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(decodeURIComponent(raw));
-  } catch {
-    return null;
-  }
+  const parsed = parseLocusJson(raw);
   if (typeof parsed !== "object" || parsed === null) return null;
   const candidate = parsed as Record<string, unknown>;
   if (!isQuote(candidate.quote)) return null;

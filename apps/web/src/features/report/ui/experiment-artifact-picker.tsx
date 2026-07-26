@@ -7,8 +7,19 @@ import { Select } from "@/components/select";
 import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
 
 /** Readable label for an artifact URL/name in the dropdown. */
-function artifactLabel(name: string): string {
-  return artifactBasename(name) || name;
+function artifactLabel(name: string, siblings: readonly string[]): string {
+  const base = artifactBasename(name) || name;
+  const collisions = siblings.filter((a) => (artifactBasename(a) || a) === base);
+  if (collisions.length <= 1) return base;
+  try {
+    const host = new URL(name).hostname;
+    if (host) return `${base} (${host})`;
+  } catch {
+    /* not a URL */
+  }
+  // Truncate the distinguishing tail of the full path/URL.
+  const tail = name.length > 48 ? `…${name.slice(-44)}` : name;
+  return `${base} — ${tail}`;
 }
 
 /**
@@ -132,7 +143,7 @@ export function ExperimentArtifactPicker({
         ) : (
           artifacts.map((name) => (
             <option key={name} value={name}>
-              {artifactLabel(name)}
+              {artifactLabel(name, artifacts)}
             </option>
           ))
         )}

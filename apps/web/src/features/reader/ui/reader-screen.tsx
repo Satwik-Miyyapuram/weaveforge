@@ -7,7 +7,12 @@ import { decodeLocus, type PdfLocus } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoader } from "@/components/thesis-loader";
 import { PdfReader } from "./pdf-reader-lazy";
-import { resolvePaperPdfUrl, sanitizePdfUrl, proxiedPdfUrl } from "../application/sanitize-reader-url";
+import {
+  resolvePaperPdfUrl,
+  sanitizePdfUrl,
+  proxiedPdfUrl,
+  looksLikePdfUrl,
+} from "../application/sanitize-reader-url";
 
 /** Read-only reader route: renders a PDF and jumps to an optional locus (D). */
 export function ReaderScreen() {
@@ -22,25 +27,33 @@ export function ReaderScreen() {
     return Number.isInteger(n) && n >= 0 ? n : undefined;
   }, [pageParam]);
 
-  const pdfFromParam = useMemo(() => sanitizePdfUrl(pdfParam), [pdfParam]);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(pdfFromParam);
+  const pdfFromParam = useMemo(() => {
+    const sanitized = sanitizePdfUrl(pdfParam);
+    if (!sanitized) return null;
+    // Direct `?pdf=` must look like a PDF resource (not an HTML landing page).
+    return looksLikePdfUrl(sanitized) ? sanitized : null;
+  }, [pdfParam]);
+  // When `paper` is present it owns provenance — ignore a crafted `pdf` override.
+  const [pdfUrl, setPdfUrl] = useState<string | null>(paperId ? null : pdfFromParam);
   const [title, setTitle] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!pdfFromParam && Boolean(paperId));
+  const [loading, setLoading] = useState(Boolean(paperId));
   const [error, setError] = useState<string | null>(null);
 
   // Keep state in sync when the query string changes (client nav between loci).
   useEffect(() => {
     setError(null);
     setTitle(null);
-    if (pdfFromParam) {
-      setPdfUrl(pdfFromParam);
-      setLoading(false);
-      return;
-    }
     if (!paperId) {
+      if (pdfFromParam) {
+        setPdfUrl(pdfFromParam);
+        setLoading(false);
+        return;
+      }
       setPdfUrl(null);
       setLoading(false);
-      if (pdfParam) setError("That PDF link is not allowed — only http(s) URLs can be opened.");
+      if (pdfParam) {
+        setError("That PDF link is not allowed — only https PDF URLs can be opened.");
+      }
       return;
     }
     let cancelled = false;

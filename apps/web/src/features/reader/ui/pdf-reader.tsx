@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { resolveTextAnchor, type PdfLocus, type AnchorConfidence } from "@thesis/core";
-import { sanitizePdfUrl } from "../application/sanitize-reader-url";
+import { sanitizePdfUrl, originalUrlFromProxy } from "../application/sanitize-reader-url";
 
 /**
  * Read-only pdf.js render surface (Phase D). Dynamically imports pdf.js so no
@@ -107,24 +107,31 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
   const [error, setError] = useState<string | null>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const renderedPages = useRef(new Set<number>());
+  const renderingPages = useRef(new Map<number, Promise<void>>());
+  const renderGeneration = useRef(0);
   // Accept same-origin proxy paths or allowlisted http(s).
   const safeUrl =
     url.startsWith("/api/pdf-proxy?")
       ? url
       : sanitizePdfUrl(url);
-  const openUrl = sanitizePdfUrl(originalUrl) ?? sanitizePdfUrl(url);
+  const openUrl =
+    sanitizePdfUrl(originalUrl) ??
+    originalUrlFromProxy(url) ??
+    sanitizePdfUrl(url);
 
   useEffect(() => {
     let cancelled = false;
     let task: ReturnType<PdfLib["getDocument"]> | null = null;
+    renderGeneration.current += 1;
     renderedPages.current.clear();
+    renderingPages.current.clear();
     setError(null);
     setPdf(null);
     setNumPages(0);
     setJump({ status: locus ? "searching" : "idle" });
 
     if (!safeUrl) {
-      setError("That PDF link is not allowed — only http(s) URLs can be opened.");
+      setError("That PDF link is not allowed — only https URLs can be opened.");
       return;
     }
 
@@ -169,26 +176,30 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
 
   // Drop cached canvases when scale changes so highlights stay aligned.
   useEffect(() => {
+    renderGeneration.current += 1;
     renderedPages.current.clear();
+    renderingPages.current.clear();
     clearHighlights();
   }, [scale, clearHighlights]);
 
-  const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderPage = useCallback(
     async (pageNumber: number) => {
       if (!pdf || renderedPages.current.has(pageNumber)) return;
       const inflight = renderingPages.current.get(pageNumber);
       if (inflight) {
         await inflight;
-        return;
+        if (renderedPages.current.has(pageNumber) || !pdf) return;
       }
-      const work = (async () => {
+      const generation = renderGeneration.current;
+      let work!: Promise<void>;
+      work = (async () => {
         try {
           const host = containerRef.current?.querySelector<HTMLDivElement>(
             `[data-page="${pageNumber}"]`,
           );
           if (!host) return;
           const pdfPage = await pdf.getPage(pageNumber);
+          if (generation !== renderGeneration.current) return;
           const viewport = pdfPage.getViewport({ scale });
           const canvas = host.querySelector("canvas");
           if (!(canvas instanceof HTMLCanvasElement)) return;
@@ -203,11 +214,14 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           host.style.height = `${Math.floor(viewport.height)}px`;
           ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
           await pdfPage.render({ canvasContext: ctx, viewport }).promise;
+          if (generation !== renderGeneration.current) return;
           renderedPages.current.add(pageNumber);
         } catch {
           /* a failed page must not break the rest of the document */
         } finally {
-          renderingPages.current.delete(pageNumber);
+          if (renderingPages.current.get(pageNumber) === work) {
+            renderingPages.current.delete(pageNumber);
+          }
         }
       })();
       renderingPages.current.set(pageNumber, work);

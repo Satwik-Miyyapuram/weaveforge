@@ -172,14 +172,20 @@ export function PapersScreen() {
       return;
     }
     if (isSharedView || pinnedSharedBy.has(paperFromUrl)) {
+      const requestedId = paperFromUrl;
+      let cancelled = false;
       void getContainer()
-        .papers.getPaper(paperFromUrl)
+        .papers.getPaper(requestedId)
         .then((p) => {
-          if (!p) return;
-          appliedPaperFromUrl.current = paperFromUrl;
+          if (cancelled || !p) return;
+          if (paperFromUrl !== requestedId) return;
+          appliedPaperFromUrl.current = requestedId;
           setGuestPaper(p);
-          setOpenId(paperFromUrl);
+          setOpenId(requestedId);
         });
+      return () => {
+        cancelled = true;
+      };
     }
   }, [paperFromUrl, papers, isSharedView, pinnedSharedBy]);
 
@@ -252,6 +258,7 @@ export function PapersScreen() {
     return (
       <section className="screen">
         <PaperNote
+          key={openPaper.id}
           paper={openPaper}
           readOnly={readOnly}
           sharedByName={sharedOwnerName(openPaper.id)}

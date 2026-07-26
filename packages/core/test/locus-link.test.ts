@@ -12,6 +12,15 @@ test("encodeLocus round-trips through decodeLocus", () => {
   assert.deepEqual(decoded, locus);
 });
 
+test("encodeLocus round-trips quotes that contain percent signs", () => {
+  const withPct: PdfLocus = {
+    quote: { type: "TextQuoteSelector", exact: "accuracy was 50%" },
+  };
+  const viaParams = new URLSearchParams({ locus: encodeLocus(withPct) }).get("locus");
+  assert.deepEqual(decodeLocus(viaParams), withPct);
+  assert.deepEqual(decodeLocus(encodeURIComponent(encodeLocus(withPct))), withPct);
+});
+
 test("encodeLocus omits absent optional fields", () => {
   const bare: PdfLocus = { quote: { type: "TextQuoteSelector", exact: "x" } };
   const decoded = decodeLocus(encodeLocus(bare));

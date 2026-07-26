@@ -3,7 +3,32 @@
  * are untrusted — never put them in `<a href>` or pdf.js without checking.
  */
 
-/** Accept only http(s) PDF URLs for pdf.js / "open original" links. */
+/** Hosts the same-origin PDF proxy will fetch (must stay in sync with the route). */
+export const PDF_PROXY_ALLOWED_HOSTS = new Set([
+  "arxiv.org",
+  "www.arxiv.org",
+  "export.arxiv.org",
+  "openreview.net",
+  "www.openreview.net",
+]);
+
+/** Hard stream cap for proxied PDFs (also enforced when Content-Length is absent). */
+export const PDF_PROXY_MAX_BYTES = 80 * 1024 * 1024; // 80 MiB
+
+/** True when `raw` is an https URL on {@link PDF_PROXY_ALLOWED_HOSTS} with no credentials. */
+export function isAllowedPdfProxyUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  if (url.username || url.password) return false;
+  return PDF_PROXY_ALLOWED_HOSTS.has(url.hostname.toLowerCase());
+}
+
+/** Accept only https PDF URLs for pdf.js / "open original" links. */
 export function sanitizePdfUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
@@ -14,7 +39,7 @@ export function sanitizePdfUrl(raw: string | null | undefined): string | null {
   } catch {
     return null;
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (url.protocol !== "https:") return null;
   // Reject credentials-in-URL (phishing / exfil lookalikes).
   if (url.username || url.password) return null;
   return url.toString();
@@ -61,17 +86,21 @@ export function looksLikePdfUrl(url: string): boolean {
 export function proxiedPdfUrl(url: string): string {
   try {
     const u = new URL(url);
-    const host = u.hostname.toLowerCase();
-    const allowed =
-      host === "arxiv.org" ||
-      host === "www.arxiv.org" ||
-      host === "export.arxiv.org" ||
-      host === "openreview.net" ||
-      host === "www.openreview.net";
-    if (!allowed || u.protocol !== "https:") return url;
+    if (!isAllowedPdfProxyUrl(u.toString())) return url;
     return `/api/pdf-proxy?url=${encodeURIComponent(u.toString())}`;
   } catch {
     return url;
+  }
+}
+
+/** Recover the original https PDF URL from a same-origin proxy path, if present. */
+export function originalUrlFromProxy(url: string): string | null {
+  if (!url.startsWith("/api/pdf-proxy?")) return null;
+  try {
+    const target = new URL(url, "https://local.invalid").searchParams.get("url");
+    return sanitizePdfUrl(target);
+  } catch {
+    return null;
   }
 }
 

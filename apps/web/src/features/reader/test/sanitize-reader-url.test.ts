@@ -7,9 +7,9 @@ import {
   sanitizeReaderHref,
 } from "../application/sanitize-reader-url.js";
 
-test("sanitizePdfUrl accepts http(s) and rejects javascript/data/credentials", () => {
+test("sanitizePdfUrl accepts https only and rejects javascript/data/credentials/http", () => {
   assert.equal(sanitizePdfUrl("https://arxiv.org/pdf/1706.03762"), "https://arxiv.org/pdf/1706.03762");
-  assert.equal(sanitizePdfUrl("http://example.com/a.pdf"), "http://example.com/a.pdf");
+  assert.equal(sanitizePdfUrl("http://example.com/a.pdf"), null);
   assert.equal(sanitizePdfUrl("javascript:alert(1)"), null);
   assert.equal(sanitizePdfUrl("data:text/html,hi"), null);
   assert.equal(sanitizePdfUrl("https://user:pass@evil.test/a.pdf"), null);
