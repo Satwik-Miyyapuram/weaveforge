@@ -26,3 +26,4 @@ export {
   type IPdfSourceResolver,
   type PdfSourceResolution,
 } from "./pdf-source-ladder.js";
+export { encodeLocus, decodeLocus } from "./locus-link.js";

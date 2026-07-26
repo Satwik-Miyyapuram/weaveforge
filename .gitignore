@@ -31,6 +31,9 @@ apps/web/public/sw.js
 apps/web/public/sw.js.map
 apps/web/public/swe-worker*
 
+# pdf.js worker (copied from pdfjs-dist by scripts/copy-pdf-worker.mjs)
+apps/web/public/pdf.worker.min.mjs
+
 # python
 __pycache__/
 *.py[cod]

@@ -1,4 +1,5 @@
 import type { AiProposalKind } from "./ai-types.js";
+import type { AiEvidence } from "./ai-evidence.js";
 
 export interface AiWriteProposal {
   id: string;
@@ -12,6 +13,11 @@ export interface AiWriteProposal {
   expectedRevision?: string;
   /** Typed, encrypted executor input. The server never sees this payload. */
   payload?: Record<string, unknown>;
+  /**
+   * Claim-level provenance for the review queue (Phase D). Optional so existing
+   * drafts stay valid; the `/ai-review` split-pane renders it when present.
+   */
+  evidence?: readonly AiEvidence[];
 }
 
 export interface IAiProposalStore {
