@@ -1,8 +1,34 @@
 # WeaveForge — phased delivery plan (July 2026 roadmap)
 
-**Date:** 2026-07-25 · **Last updated:** 2026-07-26
+**Date:** 2026-07-25 · **Last updated:** 2026-07-27
 **Source of priorities:** `docs/competitive-research-verified-2026-07.md` §6 — a P0/P1/P2 list with effort × impact, but no sequencing.
 **This document** turns that list into ordered phases with dependencies and exit criteria. Phase letters label work (A–F); the resolved decisions are labelled D1–D4 because they scope the reader phase, and are not themselves a phase.
+
+## The gate — run `npm run check:all` before calling any phase done
+
+Added 2026-07-27, after a Phase C/D review found two failures that had survived **eleven** review-and-harden loops. Neither could have been caught, because nothing ran the check that fails:
+
+1. **The production build was broken.** `api/pdf-proxy/route.ts` exported helpers "for unit tests". A Next.js App Router route module may export only route handlers and route config, so `next build` failed on its generated route types — while `tsc --noEmit` passed clean. **`typecheck` is not a proxy for `build`.**
+2. **`next lint` failed with an error**, not a warning, on a `react-hooks/exhaustive-deps` violation. Lint was in no aggregate gate.
+
+Two further blind spots found at the same time:
+
+3. **No script ran the web unit tests.** `check:boundaries` and `test:core` both passed while 282 web tests sat unrun unless invoked per-workspace.
+4. **The web test glob missed files.** `src/**/test/*.test.ts` requires a directory literally named `test`, so `src/lib/recent-targets.test.ts` had never run. Widened to `src/**/*.test.ts`; the count went 282 → 284.
+
+```bash
+npm run check:all
+```
+
+That is `typecheck` → `lint` → `check:boundaries` → `test:core` → `test:web` → `build`, in that order — cheapest signal first, the ~2-minute build last. A phase is not done until this exits 0.
+
+**Integration tests are not in `check:all`** because they need live Supabase credentials. They were also silently self-skipping: `test:integration` never loaded `.env.local` or `local-dev/test-accounts.env`, so the guard clause tripped every run and the output read as passing. Fixed with a `--import ./scripts/load-test-env.ts` preload. Run them separately, and read "skipped" as "not verified":
+
+```bash
+npm run test:integration:web
+```
+
+---
 
 ## Why this exists
 
@@ -85,7 +111,7 @@ The hard part of the P0 was never the templating — it was re-rendering without
 
 ---
 
-## Phase C — UI wiring (interactive, with a human)
+## Phase C — UI wiring ✅ MOSTLY DONE (C3 label outstanding)
 
 Make Phase B reachable. Four jobs, all small, all against APIs that already exist and are tested. None needs a migration.
 
@@ -99,6 +125,17 @@ Make Phase B reachable. Four jobs, all small, all against APIs that already exis
 **Exit criteria:** a researcher can create a templated source note, re-render it without losing edits, insert a citation in a non-LaTeX format, see alerts ordered by usefulness, and embed an experiment figure in a report section.
 
 **Verification is manual.** These are UI changes and the gates do not cover them. Check each in the running app, and add Playwright coverage for C1 specifically — a template merge that eats someone's notes is the one failure here with no recovery.
+
+### Delivered 2026-07-26 — review findings
+
+| # | State | Evidence |
+|---|-------|----------|
+| C1 | **Done.** `reRenderPaperSourceNote` behind an explicit "Re-render template" button. The no-marker path prompts APPEND/REPLACE before it can discard a draft. `mergeTemplate` fails closed on any marker damage. Playwright coverage exists (`e2e/template-notes.spec.ts`) and asserts a sentinel survives a re-render. | `papers-list.tsx`, `note-template-engine.ts` |
+| C2 | **Done.** `CitationFormatSelect` in the paper and report editors; preference is per-project, keyed `thesis.citeFormat.<projectId>`. | `use-citation-format-preference.ts` |
+| C3 | **Partial.** Ranking is applied in `check-citation-alerts.use-case.ts`, so alerts arrive ordered, and `intents` / `isInfluential` are fetched and mapped in the S2 source. **The intent label is not rendered anywhere.** The brief asks to "show intent as a small label; `background` is the one people skip" — that half is outstanding. | `rank-citation-alerts.ts`, `semantic-scholar-citation-source.ts` |
+| C4 | **Done.** `ExperimentArtifactPicker` inserts `expartifact:` refs; stale resolution surfaces as a warning on the block. | `experiment-artifact-picker.tsx` |
+
+**Remaining for C3:** render the strongest intent as a chip on the alert row, and dim `background`. Ordering already works — this is presentation only.
 
 ---
 
@@ -168,6 +205,21 @@ Each new migration is committed as a file for human review and application. This
 **Not in this phase** (D2): creating, editing, or writing back annotations. Existing Zotero annotations render read-only.
 
 **Exit criteria:** an AI proposal at `/ai-review` shows claim-level evidence, and clicking it opens the source at the exact locus without leaving the app.
+
+### Delivered 2026-07-26 — review findings
+
+**Exit criteria met.** `/ai-review` renders a split pane with the used sentence highlighted and the surrounding context dimmed; "Open source at this passage" builds the locus link from `evidence.paperId` rather than trusting a stored href, and `/reader` resolves it.
+
+Bundle claim verified against a real production build: `/reader` is 5.24 kB (124 kB first load) while every other route is unchanged at 478 kB, and pdf.js is absent from the 91.2 kB shared chunk. "Zero bytes added to first paint on non-reader routes" holds.
+
+| Item | State |
+|------|-------|
+| pdf.js render surface | **Done.** Dynamic import, worker served same-origin from `public/` via `copy-pdf-worker.mjs`, pages render lazily on intersection. |
+| Jump-to-locus | **Done.** Text-scan before paint, hinted page first, low confidence surfaced rather than jumping wrong. `resolveTextAnchor` now normalises whitespace (incl. soft hyphens at line wraps) and maps spans back to original offsets. |
+| Provenance UI at `/ai-review` | **Done.** Split pane, per-claim evidence, "unverified match" and "locus not found" warnings. |
+| Locus persistence | **Schema only.** `0106_paper_locus_anchors.sql` is authored with owner-only RLS and, per D4, not applied. **No code reads or writes the table** — loci travel inline in the deep link today. Persistence is real work still outstanding; the exit criteria do not depend on it. |
+
+A same-origin PDF proxy (`/api/pdf-proxy`) was added beyond the original scope, because publishers omit CORS headers. It is authenticated, restricted to an https host allowlist, re-validates the allowlist on every redirect hop, sniffs `%PDF` magic bytes, and caps the streamed body at 80 MiB.
 
 ---
 

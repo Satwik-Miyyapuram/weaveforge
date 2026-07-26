@@ -43,14 +43,22 @@ agent process**, and re-check. Do not begin work until this command runs clean.
 - `docs/dev.md` — "SOLID boundaries (enforced in CI)"
 - `CONTRIBUTING.md` — commit rules and licence rules
 
-**Definition of done, per task.** All four must pass before the task counts as complete:
+**Definition of done, per task.** One command, and it must exit 0:
 
 ```bash
-npm run typecheck
-npm run test:core
-npm run check:boundaries
-npm run build:core
+npm run check:all
 ```
+
+That runs `typecheck` → `lint` → `check:boundaries` → `test:core` → `test:web` → `build`.
+
+**Superseded 2026-07-27.** This used to be `typecheck` + `test:core` + `check:boundaries` + `build:core`. That set was not enough, and a Phase C/D review found two failures that had survived eleven review loops because of it:
+
+- `tsc --noEmit` passed while `next build` failed — a Next.js `route.ts` may export only route handlers and route config, and the generated route types are checked only during the real build. **`typecheck` is not a proxy for `build`.**
+- `next lint` failed with an *error* and was in no gate at all.
+
+Also: nothing ran the ~284 web unit tests (`test:core` covers `packages/core` only), and the web test glob required a directory literally named `test`, so files like `src/lib/recent-targets.test.ts` had never run once. Both fixed.
+
+If a task touches anything under `apps/web`, `check:all` is the only signal that means anything. Do not report a task green on `typecheck` alone.
 
 **Commits.** Conventional commits, signed off (`git commit -s`), smallest coherent units. **Do not push. Do not open a pull request.** Leave everything local.
 

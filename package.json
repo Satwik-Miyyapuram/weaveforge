@@ -11,6 +11,8 @@
   "scripts": {
     "build:core": "npm run build --workspace @thesis/core",
     "test:core": "npm run test --workspace @thesis/core",
+    "test:web": "npm run test --workspace @thesis/web",
+    "lint": "npm run lint --workspace @thesis/web",
     "test:integration:web": "npm run test:integration --workspace @thesis/web",
     "test:e2e": "npm run test:e2e --workspace @thesis/web",
     "record:demos": "npm run record:demos --workspace @thesis/web",
@@ -21,6 +23,7 @@
     "check:dry": "node scripts/check-dry.mjs",
     "check:api-route-tests": "node scripts/check-api-route-tests.mjs",
     "check:boundaries": "npm run check:solid && npm run check:dry && npm run check:api-route-tests",
+    "check:all": "npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run build",
     "generate:routes": "node scripts/generate-module-routes.mjs",
     "generate:deployment": "node --import tsx scripts/generate-deployment-registry.mjs",
     "check:deployment-surface": "node --import tsx scripts/check-deployment-surface.mjs",
