@@ -28,7 +28,7 @@ from .features.experiments import (
 )
 from .tracking import track, track_experiment
 
-__version__ = "1.0.4"
+__version__ = "0.0.1"
 
 __all__ = [
     "Experiment",

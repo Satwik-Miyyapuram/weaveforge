@@ -3,10 +3,20 @@
 All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-**Version tags (`v1.0.4`, …) and PyPI releases apply to the Python SDK only**
-(`python/thesis_tracker`). The web app ships on `main`; see [`release.md`](release.md).
+**SDK tags (`vX.Y.Z`) publish to PyPI. Android tags (`android-v*`) build the TWA.**
+The web app ships on `main`. See [`release.md`](release.md).
 
 ## [Unreleased]
+
+## [0.0.1] - 2026-07-26
+
+### Added
+- First WeaveForge-branded SDK release (`thesis-tracker` `0.0.1`) from the public monorepo.
+- Dual release tracks: `vX.Y.Z` → PyPI, `android-v*` → signed APK/AAB.
+
+### Changed
+- Package metadata URLs now point at `Satwik-Miyyapuram/weaveforge`.
+- Android TWA manifest version set to `0.0.1` (versionCode `1`).
 
 ## [1.0.4] - 2026-07-14
 
@@ -75,6 +85,7 @@ All notable changes to this project are documented here. The format is based on
 - Back from paper notes, experiment detail, and vault notes returns to the list
   view instead of the previous app tab.
 
-[Unreleased]: https://github.com/Satwik-Miyyapuram/thesis_tracker/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.0.1
 [1.0.4]: https://github.com/Satwik-Miyyapuram/thesis_tracker/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Satwik-Miyyapuram/thesis_tracker/compare/v1.0.1...v1.0.3

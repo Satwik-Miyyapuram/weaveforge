@@ -27,9 +27,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Satwik-Miyyapuram/thesis_tracker"
-Repository = "https://github.com/Satwik-Miyyapuram/thesis_tracker"
-Issues = "https://github.com/Satwik-Miyyapuram/thesis_tracker/issues"
+Homepage = "https://github.com/Satwik-Miyyapuram/weaveforge"
+Repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
+Issues = "https://github.com/Satwik-Miyyapuram/weaveforge/issues"
 
 [project.optional-dependencies]
 # Sync sources are opt-in so the base install stays light; each source stays
