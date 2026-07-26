@@ -7,7 +7,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="${GITHUB_REPOSITORY:-Satwik-Miyyapuram/thesis_tracker}"
+REPO="${GITHUB_REPOSITORY:-Satwik-Miyyapuram/weaveforge}"
 BRANCH="${1:-main}"
 
 echo "Applying branch protection to ${REPO}@${BRANCH}..."
