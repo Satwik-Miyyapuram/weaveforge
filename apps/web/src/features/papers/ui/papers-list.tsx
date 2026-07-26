@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   PAPER_STATUSES,
@@ -53,6 +54,7 @@ import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-ann
 import { resolveCiteKey } from "@/features/overleaf/application/build-overleaf-export";
 import type { PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
 import { PaperExternalLink, paperExternalLink } from "./paper-external-link";
+import { buildLocusLink, resolvePaperPdfUrl } from "@/features/reader";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 
@@ -898,6 +900,14 @@ function PaperNote({
   const dirty = draft.trim() !== (paper.summary ?? "");
   const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
+  const readerHref = useMemo(() => {
+    const pdfUrl = resolvePaperPdfUrl({
+      url: paper.url,
+      arxivId: paper.arxivId,
+      pdfPath: paper.pdfPath,
+    });
+    return pdfUrl ? buildLocusLink({ paperId: paper.id }) : null;
+  }, [paper.id, paper.url, paper.arxivId, paper.pdfPath]);
 
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
@@ -1110,7 +1120,14 @@ function PaperNote({
             <li>Cite key: {String(paper.metadata["citeKey"])}</li>
           )}
         </ul>
-        <PaperExternalLink paper={paper} />
+        <div className="paper-source-actions">
+          {readerHref && (
+            <Link href={readerHref} className="btn-secondary btn-sm">
+              Open in reader
+            </Link>
+          )}
+          <PaperExternalLink paper={paper} />
+        </div>
       </div>
 
       <div className="paper-note-body">
