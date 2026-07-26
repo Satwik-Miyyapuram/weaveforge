@@ -1,22 +1,18 @@
 name: Build Android TWA
 
 # Builds + signs the TWA APK/AAB from the committed Bubblewrap project.
-# Runs on a version tag (v*) or manually. The signing keystore is injected
-# from GitHub Secrets — it is never committed to the repo.
+# Trigger: tag android-v* (e.g. android-v3) or workflow_dispatch.
+# Python SDK releases use vX.Y.Z tags — those must NOT build Android.
 #
 # Prerequisites (one time, done locally — see apps/web/twa/README.md):
-#   1. `bubblewrap init` has been run in apps/web/twa/ and the generated Android
-#      project (app/, gradle files, twa-manifest.json) IS committed — EXCEPT the
-#      keystore (*.jks is gitignored).
-#   2. These repo Secrets exist (Settings → Secrets and variables → Actions):
-#        ANDROID_KEYSTORE_B64      base64 of android-keystore.jks
-#        ANDROID_KEYSTORE_PASSWORD keystore password
-#        ANDROID_KEY_PASSWORD      key/alias password
-#        ANDROID_KEY_ALIAS         key alias (e.g. weaveforge)
+#   1. Bubblewrap project committed under apps/web/twa/ (keystore gitignored).
+#   2. Repo Secrets: ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD,
+#      ANDROID_KEY_PASSWORD, ANDROID_KEY_ALIAS
+#   3. assetlinks.json SHA-256 matches this keystore (run android-fingerprint.yml).
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["android-v*"]
   workflow_dispatch:
 
 jobs:
@@ -43,11 +39,29 @@ jobs:
       - name: Restore signing keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
-        run: echo "$KEYSTORE_B64" | base64 -d > android-keystore.jks
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "ANDROID_KEYSTORE_B64 secret missing"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > android-keystore.jks
+
+      - name: Verify assetlinks fingerprint matches keystore
+        env:
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          ALIAS="${KEY_ALIAS:-weaveforge}"
+          FP=$(keytool -list -v -keystore android-keystore.jks -storepass "$STORE_PASS" -alias "$ALIAS" \
+            | awk -F' ' '/SHA256:/{print $2; exit}')
+          echo "Keystore SHA-256: $FP"
+          ASSETLINKS="../../public/.well-known/assetlinks.json"
+          if ! grep -q "$FP" "$ASSETLINKS"; then
+            echo "::error::$ASSETLINKS is missing fingerprint $FP — URL bar will show in the TWA."
+            echo "Update assetlinks.json, deploy the web app, then re-run."
+            exit 1
+          fi
 
       - name: Build signed APK + AAB
         env:
-          # Bubblewrap reads these to sign non-interactively.
           BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: bubblewrap build --skipPwaValidation
@@ -60,6 +74,24 @@ jobs:
             apps/web/twa/app-release-signed.apk
             apps/web/twa/app-release-bundle.aab
           if-no-files-found: error
+
+      - name: Attach artifacts to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/android-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          # Create the release if this was a bare tag push
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "Android ${TAG#android-}" \
+              --notes "WeaveForge Android TWA (${TAG}). Sideload the APK or upload the AAB to Play Console."
+          fi
+          gh release upload "$TAG" \
+            app-release-signed.apk \
+            app-release-bundle.aab \
+            --clobber
 
       - name: Shred keystore
         if: always()

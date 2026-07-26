@@ -1,0 +1,55 @@
+name: Android keystore fingerprint
+
+# Prints the SHA-256 of the signing keystore (from GitHub Secrets) so
+# apps/web/public/.well-known/assetlinks.json can be kept in sync.
+# Manual only — never commit the keystore.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fingerprint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Restore signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "ANDROID_KEYSTORE_B64 secret missing"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > android-keystore.jks
+
+      - name: Print SHA-256 fingerprint
+        env:
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          ALIAS="${KEY_ALIAS:-weaveforge}"
+          FP=$(keytool -list -v -keystore android-keystore.jks -storepass "$STORE_PASS" -alias "$ALIAS" \
+            | awk -F' ' '/SHA256:/{print $2; exit}')
+          if [ -z "$FP" ]; then
+            echo "Could not read SHA256 for alias=$ALIAS"
+            keytool -list -keystore android-keystore.jks -storepass "$STORE_PASS" || true
+            exit 1
+          fi
+          echo "ALIAS=$ALIAS"
+          echo "SHA256=$FP"
+          echo "## Android signing fingerprint" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Alias: \`$ALIAS\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA-256: \`$FP\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Paste into \`apps/web/public/.well-known/assetlinks.json\` under \`sha256_cert_fingerprints\`." >> "$GITHUB_STEP_SUMMARY"
+          # Also write a machine-readable line for log scrapers
+          echo "FINGERPRINT_SHA256=$FP"
+
+      - name: Shred keystore
+        if: always()
+        run: rm -f android-keystore.jks

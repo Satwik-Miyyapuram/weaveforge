@@ -1,4 +1,4 @@
-## thesis-tracker vX.Y.Z
+## thesis-tracker SDK vX.Y.Z
 
 ```bash
 pip install thesis-tracker==X.Y.Z
@@ -13,6 +13,6 @@ pip install thesis-tracker==X.Y.Z
 ### Fixed
 - …
 
-**Full changelog:** https://github.com/Satwik-Miyyapuram/thesis_tracker/blob/vX.Y.Z/docs/CHANGELOG.md
+**Full changelog:** https://github.com/Satwik-Miyyapuram/weaveforge/blob/vX.Y.Z/docs/CHANGELOG.md
 
-<!-- Release notes are for the Python SDK only. Web app changes ship on main; see docs/release.md. -->
+<!-- Python SDK release only. Android uses tags android-v* (see docs/release.md). -->

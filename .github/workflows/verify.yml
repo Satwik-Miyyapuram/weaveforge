@@ -67,7 +67,7 @@ jobs:
         env:
           THESIS_TRACKER_API_URL: ${{ secrets.THESIS_TRACKER_API_URL }}
           THESIS_TRACKER_TOKEN: ${{ secrets.THESIS_TRACKER_TOKEN }}
-          THESIS_TRACKER_TEST_USER_EMAIL: ${{ secrets.TT_C_EMAIL }}
+          THESIS_TRACKER_TEST_USER_EMAIL: ${{ secrets.THESIS_TRACKER_TEST_USER_EMAIL }}
 
   ts-settings-contract:
     runs-on: ubuntu-latest

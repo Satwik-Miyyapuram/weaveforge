@@ -1,22 +1,33 @@
 name: Publish Python SDK
 
-# Publishes thesis-tracker to PyPI on a GitHub Release using PyPI Trusted
-# Publishing (OIDC) — no API token stored. Configure the trusted publisher once
-# at https://pypi.org/manage/project/thesis-tracker/settings/publishing/
-# (workflow: publish-python.yml, environment: pypi).
+# Publishes thesis-tracker to PyPI when a semver SDK tag is pushed / released.
+# Tags: vX.Y.Z only (e.g. v1.2.3). Android uses android-v* — never this workflow.
+#
+# Preferred auth: PyPI Trusted Publishing (OIDC) via the `pypi` environment.
+# Fallback: PYPI_API_TOKEN secret (full `pypi-...` string).
 
 on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   release:
     types: [published]
   workflow_dispatch:
 
 jobs:
   build-and-publish:
+    # Skip Android releases and non-semver tags that might still hit `release`.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'release' &&
+        startsWith(github.event.release.tag_name, 'v') &&
+        !startsWith(github.event.release.tag_name, 'android-') &&
+        contains(github.event.release.tag_name, '.'))
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
-      contents: read   # required for actions/checkout
-      id-token: write   # required for trusted publishing (OIDC)
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -34,8 +45,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: python/dist
-          # Preferred: PyPI Trusted Publishing (OIDC) via the `pypi` environment.
-          # Fallback: set `PYPI_API_TOKEN` in the `pypi` environment secrets.
-          # - Token value should be the full `pypi-...` string (NOT base64).
-          # - If provided, it bypasses trusted publishing and uses an API token.
           password: ${{ secrets.PYPI_API_TOKEN }}
