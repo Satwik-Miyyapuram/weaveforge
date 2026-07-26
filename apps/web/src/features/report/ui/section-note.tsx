@@ -10,12 +10,15 @@ import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharin
 import { compressImage } from "@/lib/image-compress";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/use-cite-links";
+import { CitationFormatSelect } from "@/components/citation-format-select";
+import { useCitationFormatPreference } from "@/lib/use-citation-format-preference";
 import {
   materializeReportBlobImages,
   reportImageMarkdown,
 } from "../lib/report-images-md";
 import { ReportSectionMarkdown } from "./report-section-markdown";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";
+import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
 
 /** Plain-text card preview — keeps outline cards compact like papers. */
 export function sectionNoteSnippet(body: string, max = 140): string {
@@ -56,6 +59,7 @@ export function SectionNote({
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
+  const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
   useEffect(() => {
     if (!editing) setDraft(section.notes ?? "");
@@ -237,6 +241,20 @@ export function SectionNote({
           )
         ) : (
           <div className="summary-editor">
+            <div className="summary-editor-bar">
+              <CitationFormatSelect
+                value={citationFormat}
+                onChange={setCitationFormat}
+                disabled={busy}
+              />
+              <ExperimentArtifactPicker
+                disabled={busy}
+                onInsert={(snippet) => {
+                  setDraft((prev) => `${prev.trimEnd()}\n\n${snippet}\n`);
+                  setSaveError(null);
+                }}
+              />
+            </div>
             <MarkdownCodeEditor
               className="summary-input markdown-code-editor--notes"
               value={draft}
@@ -245,6 +263,7 @@ export function SectionNote({
               onChange={setDraft}
               wikilinkTitles={wikilinkTitles}
               wikilinkCompletions={wikilinkCompletions}
+              citationFormat={citationFormat}
             />
             <div className="summary-editor-foot">
               {saveError && <span className="error">{saveError}</span>}

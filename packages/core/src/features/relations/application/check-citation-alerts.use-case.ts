@@ -6,6 +6,7 @@ import type { Paper } from "../../papers/domain/paper.js";
 import type { PaperRef } from "../../papers/application/metadata-source.js";
 import type { ICitationAlertTrackRepository } from "../domain/citation-alert-track-repository.js";
 import type { CitationCandidate, ICitationSource } from "./citation-source.js";
+import { rankCitationAlerts } from "./rank-citation-alerts.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -29,16 +30,32 @@ function mergeSeenIds(prior: readonly string[], current: readonly CitationCandid
   return [...out];
 }
 
+function intentLabel(item: CitationCandidate): string | null {
+  if (item.isInfluential === true) {
+    const intent = item.intents?.find((i) => i === "result" || i === "method") ?? item.intents?.[0];
+    return intent ? `influential · ${intent}` : "influential";
+  }
+  if (!item.intents?.length) return null;
+  // Prefer the strongest intent for the label (result > method > background).
+  for (const intent of ["result", "method", "background"] as const) {
+    if (item.intents.includes(intent)) return intent;
+  }
+  return item.intents[0] ?? null;
+}
+
 function logBody(paper: Paper, citing: CitationCandidate[]): string {
+  const ranked = rankCitationAlerts(citing);
   const lines = [
     `## Citation alert: ${paper.title}`,
     "",
-    `${citing.length} new paper${citing.length === 1 ? "" : "s"} cited this tracked paper:`,
+    `${ranked.length} new paper${ranked.length === 1 ? "" : "s"} cited this tracked paper:`,
     "",
   ];
-  for (const item of citing.slice(0, 20)) {
+  for (const item of ranked.slice(0, 20)) {
     const author = item.authors[0];
+    const intent = intentLabel(item);
     const meta = [
+      intent ? `\`${intent}\`` : null,
       author ? `${author}${item.authors.length > 1 ? " et al." : ""}` : null,
       item.year,
       typeof item.citationCount === "number"
@@ -50,7 +67,7 @@ function logBody(paper: Paper, citing: CitationCandidate[]): string {
     const title = item.url ? `[${item.title}](${item.url})` : item.title;
     lines.push(`- ${title}${meta ? ` — ${meta}` : ""}`);
   }
-  if (citing.length > 20) lines.push(`- …and ${citing.length - 20} more`);
+  if (ranked.length > 20) lines.push(`- …and ${ranked.length - 20} more`);
   return lines.join("\n");
 }
 
@@ -148,7 +165,7 @@ export class CheckCitationAlertsUseCase {
         if (!latest) continue;
 
         const seen = new Set(latest.seenCitingIds);
-        const fresh = current.filter((item) => !seen.has(item.id));
+        const fresh = rankCitationAlerts(current.filter((item) => !seen.has(item.id)));
         const seenCitingIds = mergeSeenIds(latest.seenCitingIds, current);
 
         if (fresh.length > 0) {

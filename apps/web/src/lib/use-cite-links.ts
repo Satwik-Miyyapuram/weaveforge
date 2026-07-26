@@ -8,12 +8,23 @@ import type { WikilinkResolver } from "@/components/markdown";
 
 export type CiteLinkEntry = { id: string; title: string };
 
-/** One autocomplete option — insert always uses `title` as `[[title]]`. */
+/** One autocomplete option — `[[title]]` insert, or formatted cite when paper is set. */
 export type CiteCompletion = {
   title: string;
   /** Shown in the completion list (e.g. Author (year) · Title). */
   label: string;
   detail?: string;
+  /** Paper fields for non-wikilink citation formats (Phase C2). */
+  paper?: {
+    id: string;
+    title: string;
+    authors: readonly string[];
+    year?: number;
+    doi?: string;
+    arxivId?: string;
+    bibtex?: string;
+    metadata?: Record<string, unknown>;
+  };
 };
 
 export interface CiteLinkCatalog {
@@ -32,19 +43,40 @@ const EMPTY: CiteLinkCatalog = {
   sections: [],
 };
 
-function paperCiteLabel(title: string, authors: readonly string[], year?: number): CiteCompletion {
+function paperCiteLabel(
+  paper: {
+    id: string;
+    title: string;
+    authors: readonly string[];
+    year?: number;
+    doi?: string;
+    arxivId?: string;
+    bibtex?: string;
+    metadata?: Record<string, unknown>;
+  },
+): CiteCompletion {
   const author =
-    authors.length === 0
+    paper.authors.length === 0
       ? ""
-      : authors.length === 1
-        ? authors[0]!
-        : `${authors[0]!} et al.`;
-  const yearBit = year != null ? `(${year})` : "";
+      : paper.authors.length === 1
+        ? paper.authors[0]!
+        : `${paper.authors[0]!} et al.`;
+  const yearBit = paper.year != null ? `(${paper.year})` : "";
   const head = [author, yearBit].filter(Boolean).join(" ");
   return {
-    title,
-    label: head ? `${head} · ${title}` : title,
+    title: paper.title,
+    label: head ? `${head} · ${paper.title}` : paper.title,
     detail: "paper",
+    paper: {
+      id: paper.id,
+      title: paper.title,
+      authors: paper.authors,
+      year: paper.year,
+      doi: paper.doi,
+      arxivId: paper.arxivId,
+      bibtex: paper.bibtex,
+      metadata: paper.metadata,
+    },
   };
 }
 
@@ -70,7 +102,7 @@ export async function loadCiteLinkCatalog(): Promise<CiteLinkCatalog> {
     if (!key || seen.has(key)) continue;
     seen.add(key);
     titles.push(p.title);
-    completions.push(paperCiteLabel(p.title, p.authors, p.year));
+    completions.push(paperCiteLabel(p));
   }
   for (const n of notes) {
     const key = normalizeTitleKey(n.title);

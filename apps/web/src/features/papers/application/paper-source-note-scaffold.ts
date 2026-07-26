@@ -1,7 +1,15 @@
 /**
  * Light ZotFlow-style scaffold inserted when a paper note is first created.
- * Headings only — no AI-generated prose.
+ * Uses the Phase C1 default template engine so re-render can refresh metadata
+ * without destroying researcher edits.
  */
+
+import { applyTemplate } from "@/features/vault/application/note-template-engine";
+import {
+  DEFAULT_SOURCE_NOTE_TEMPLATE,
+  sourceNoteTemplateContext,
+} from "@/features/vault/application/default-source-note-template";
+
 export function paperSourceNoteScaffold(input: {
   title: string;
   authors?: readonly string[];
@@ -10,25 +18,20 @@ export function paperSourceNoteScaffold(input: {
   doi?: string;
   citeKey?: string;
 }): string {
-  const meta = [
-    input.authors?.length ? `- Authors: ${input.authors.join(", ")}` : null,
-    input.year != null ? `- Year: ${input.year}` : null,
-    input.venue ? `- Venue: ${input.venue}` : null,
-    input.doi ? `- DOI: ${input.doi}` : null,
-    input.citeKey ? `- Cite key: ${input.citeKey}` : null,
-  ].filter(Boolean);
+  return applyTemplate(null, DEFAULT_SOURCE_NOTE_TEMPLATE, sourceNoteTemplateContext(input));
+}
 
-  return [
-    "## Summary",
-    "",
-    "",
-    "## Key points",
-    "",
-    "- ",
-    "",
-    "## Metadata",
-    "",
-    ...(meta.length ? meta : ["- "]),
-    "",
-  ].join("\n");
+/** Explicit re-render — never call silently on load. */
+export function reRenderPaperSourceNote(
+  existing: string,
+  input: {
+    title: string;
+    authors?: readonly string[];
+    year?: number;
+    venue?: string;
+    doi?: string;
+    citeKey?: string;
+  },
+): string {
+  return applyTemplate(existing, DEFAULT_SOURCE_NOTE_TEMPLATE, sourceNoteTemplateContext(input));
 }

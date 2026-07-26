@@ -31,6 +31,9 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
+import { useCiteLinkCatalog } from "@/lib/use-cite-links";
+import { CitationFormatSelect } from "@/components/citation-format-select";
+import { useCitationFormatPreference } from "@/lib/use-citation-format-preference";
 import type { VaultScreenData } from "@/features/vault/application/load-vault-screen.use-case";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 
@@ -636,6 +639,8 @@ function PageEditor({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { completions: wikilinkCompletions } = useCiteLinkCatalog();
+  const [citationFormat, setCitationFormat] = useCitationFormatPreference();
   const wikilinkTitles = useMemo(
     () => [...notes.map((n) => n.title), ...papers.map((p) => p.title), ...sections.map((s) => s.title)],
     [notes, papers, sections],
@@ -801,6 +806,13 @@ function PageEditor({
         )
       ) : (
         <div className="summary-editor">
+          <div className="summary-editor-bar">
+            <CitationFormatSelect
+              value={citationFormat}
+              onChange={setCitationFormat}
+              disabled={saving}
+            />
+          </div>
           <MarkdownCodeEditor
             className="summary-input markdown-code-editor--notes"
             value={draft}
@@ -808,6 +820,8 @@ function PageEditor({
             disabled={saving}
             onChange={setDraft}
             wikilinkTitles={wikilinkTitles}
+            wikilinkCompletions={wikilinkCompletions}
+            citationFormat={citationFormat}
           />
           <div className="summary-editor-foot">
             {saveError && <span className="error">{saveError}</span>}

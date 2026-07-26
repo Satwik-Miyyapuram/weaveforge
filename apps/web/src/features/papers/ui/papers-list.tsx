@@ -46,9 +46,12 @@ import { useScreenData } from "@/lib/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import { useCiteLinkCatalog } from "@/lib/use-cite-links";
+import { CitationFormatSelect } from "@/components/citation-format-select";
+import { useCitationFormatPreference } from "@/lib/use-citation-format-preference";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import type { PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
 import { PaperExternalLink, paperExternalLink } from "./paper-external-link";
+import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
@@ -829,6 +832,7 @@ function PaperNote({
   const [trackingBusy, setTrackingBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
+  const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
   useEffect(() => { if (!editing) setDraft(paper.summary ?? ""); }, [paper.summary, editing]);
   useEffect(() => {
@@ -880,6 +884,22 @@ function PaperNote({
     } catch (err) {
       setSaveError(formatError(err));
     }
+  }
+
+  /** Explicit re-render of the source-note template — never silent on load (C1). */
+  function reRenderTemplate() {
+    const citeKey =
+      typeof paper.metadata?.["citeKey"] === "string" ? paper.metadata["citeKey"] : undefined;
+    const next = reRenderPaperSourceNote(draft, {
+      title: paper.title,
+      authors: paper.authors,
+      year: paper.year,
+      venue: paper.venue,
+      doi: paper.doi,
+      citeKey,
+    });
+    setDraft(next);
+    setSaveError(null);
   }
 
   async function remove() {
@@ -1030,6 +1050,22 @@ function PaperNote({
             : <p className="muted summary-empty">No note yet — use “Add note” to write one.</p>
         ) : (
           <div className="summary-editor">
+            <div className="summary-editor-bar">
+              <CitationFormatSelect
+                value={citationFormat}
+                onChange={setCitationFormat}
+                disabled={busy}
+              />
+              <button
+                type="button"
+                className="link-btn"
+                onClick={reRenderTemplate}
+                disabled={busy}
+                title="Refresh generated metadata; your edits are preserved"
+              >
+                Re-render template
+              </button>
+            </div>
             <MarkdownCodeEditor
               className="summary-input markdown-code-editor--notes"
               value={draft}
@@ -1038,6 +1074,7 @@ function PaperNote({
               onChange={setDraft}
               wikilinkTitles={wikilinkTitles}
               wikilinkCompletions={wikilinkCompletions}
+              citationFormat={citationFormat}
             />
             <div className="summary-editor-foot">
               {saveError && <span className="error">{saveError}</span>}

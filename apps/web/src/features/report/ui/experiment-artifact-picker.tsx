@@ -1,0 +1,145 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { Experiment } from "@thesis/core";
+import { getContainer } from "@/bootstrap";
+import { Select } from "@/components/select";
+import { serialiseArtifactRef } from "../application/artifact-refs";
+
+/** Readable label for an artifact URL/name in the dropdown. */
+function artifactLabel(name: string): string {
+  try {
+    const path = new URL(name).pathname;
+    return decodeURIComponent(path.split("/").pop() || name);
+  } catch {
+    return name.split("/").pop() || name;
+  }
+}
+
+/**
+ * `/experiment` picker — inserts an `expartifact:` markdown ref (Phase C4).
+ */
+export function ExperimentArtifactPicker({
+  onInsert,
+  disabled = false,
+}: {
+  onInsert: (markdown: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [experimentId, setExperimentId] = useState("");
+  const [artifactName, setArtifactName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setBusy(true);
+    setError(null);
+    void getContainer()
+      .experiments.loadExperiments()
+      .then((list) => {
+        if (cancelled) return;
+        setExperiments(list);
+        const first = list.find((e) => (e.artifacts?.length ?? 0) > 0) ?? list[0];
+        if (first) {
+          setExperimentId(first.id);
+          setArtifactName(first.artifacts?.[0] ?? "");
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const selected = experiments.find((e) => e.id === experimentId);
+  const artifacts = selected?.artifacts ?? [];
+
+  function insert() {
+    if (!experimentId || !artifactName.trim()) return;
+    onInsert(
+      serialiseArtifactRef({
+        experimentId,
+        artifactName: artifactName.trim(),
+        alt: artifactName.trim(),
+      }),
+    );
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="link-btn"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        title="Insert experiment artifact"
+      >
+        /experiment
+      </button>
+    );
+  }
+
+  return (
+    <div className="experiment-artifact-picker" role="dialog" aria-label="Insert experiment artifact">
+      <Select
+        aria-label="Experiment"
+        value={experimentId}
+        disabled={busy || experiments.length === 0}
+        onChange={(e) => {
+          const id = e.target.value;
+          setExperimentId(id);
+          const next = experiments.find((item) => item.id === id);
+          setArtifactName(next?.artifacts?.[0] ?? "");
+        }}
+      >
+        {experiments.length === 0 ? (
+          <option value="">No experiments</option>
+        ) : (
+          experiments.map((exp) => (
+            <option key={exp.id} value={exp.id}>
+              {exp.name}
+            </option>
+          ))
+        )}
+      </Select>
+      <Select
+        aria-label="Artifact"
+        value={artifactName}
+        disabled={busy || artifacts.length === 0}
+        onChange={(e) => setArtifactName(e.target.value)}
+      >
+        {artifacts.length === 0 ? (
+          <option value="">No artifacts</option>
+        ) : (
+          artifacts.map((name) => (
+            <option key={name} value={name}>
+              {artifactLabel(name)}
+            </option>
+          ))
+        )}
+      </Select>
+      {error && <span className="error">{error}</span>}
+      <button type="button" className="link-btn" onClick={() => setOpen(false)} disabled={busy}>
+        cancel
+      </button>
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={insert}
+        disabled={busy || !experimentId || !artifactName.trim()}
+      >
+        Insert
+      </button>
+    </div>
+  );
+}

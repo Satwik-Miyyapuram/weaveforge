@@ -21,6 +21,9 @@ import {
   watchSiteTheme,
 } from "@/lib/codemirror-theme";
 import type { CiteCompletion } from "@/lib/use-cite-links";
+import type { EditorCitationFormat } from "@/lib/citation-format-preference";
+import { formatPaperCitation } from "@/features/overleaf/application/build-overleaf-export";
+import type { Paper } from "@thesis/core";
 
 /** Characters that may precede `@` for cite autocomplete (not email local-parts). */
 const AT_BOUNDARY = /[^A-Za-z0-9._%+-]/;
@@ -45,6 +48,12 @@ function filterCompletions(items: readonly CiteCompletion[], query: string) {
     .slice(0, 20);
 }
 
+/** How an `@` cite completion inserts under the chosen format (Phase C2). */
+function insertForCompletion(c: CiteCompletion, format: EditorCitationFormat): string {
+  if (format === "wikilink" || !c.paper) return `[[${c.title}]]`;
+  return formatPaperCitation(c.paper as Paper, format);
+}
+
 /**
  * Markdown editor — Lezer at edit time; @uiw/codemirror-themes matched to site theme.
  * Read/preview uses Shiki via {@link ShikiMarkdown}.
@@ -57,6 +66,7 @@ export function MarkdownCodeEditor({
   className,
   wikilinkTitles,
   wikilinkCompletions,
+  citationFormat = "wikilink",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -67,6 +77,8 @@ export function MarkdownCodeEditor({
   wikilinkTitles?: string[];
   /** Rich cite options (Author year · title). Preferred over `wikilinkTitles`. */
   wikilinkCompletions?: CiteCompletion[];
+  /** How `@` completions insert (Phase C2). `[[` always inserts the title. */
+  citationFormat?: EditorCitationFormat;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -76,6 +88,8 @@ export function MarkdownCodeEditor({
     toCompletions(wikilinkTitles, wikilinkCompletions),
   );
   completionsRef.current = toCompletions(wikilinkTitles, wikilinkCompletions);
+  const citationFormatRef = useRef(citationFormat);
+  citationFormatRef.current = citationFormat;
   const editableCompartment = useRef(new Compartment());
   const themeCompartment = useRef(new Compartment());
 
@@ -112,10 +126,11 @@ export function MarkdownCodeEditor({
       }
       const query = before.text.slice(1);
       if (!query && !ctx.explicit) return null;
+      const format = citationFormatRef.current;
       const options = filterCompletions(completionsRef.current, query).map((c) => ({
         label: c.label,
-        detail: c.detail,
-        apply: `[[${c.title}]]`,
+        detail: c.detail ?? (format === "wikilink" ? undefined : format),
+        apply: insertForCompletion(c, format),
         type: "text" as const,
       }));
       if (!options.length) return null;
