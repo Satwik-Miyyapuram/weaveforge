@@ -43,18 +43,28 @@ Both predate the verified competitive research, so neither accounts for ZotFlow,
 
 ---
 
-## Status at a glance (2026-07-26)
+## Status at a glance (2026-07-27)
 
 | Phase | Contents | State |
 |-------|----------|-------|
 | **A** | Pure domain foundations | ✅ **done** |
 | **B** | Feature logic — templates, citations, artifacts, ranking | ✅ **done** |
-| **C** | **UI wiring** — make B reachable by users | ⬜ next |
-| **D** | Reader + provenance (read-only) | ⬜ |
-| **E** | AI-assisted extraction fill | ⬜ |
+| **C** | UI wiring — make B reachable by users | ✅ **done** |
+| **D** | Reader + provenance (read-only) | ✅ **done** — exit criteria met; locus persistence outstanding |
+| **E** | **AI-assisted extraction fill** | ⬜ next |
 | **F** | P2 tail | ⬜ |
 
-A and B were delivered on branch `overnight/queue-2b-through-9`: 394 core tests, 52 web feature tests, all four gates green. **Every hard part is written and tested; none of it is reachable by a user yet.** That is what Phase C fixes.
+A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followed on `phase-c-d/ui-and-reader`. Current tree: 404 core tests, 284 web tests, 1 integration test, `npm run check:all` exits 0.
+
+### The one thing blocking a fully clean board
+
+`supabase/migrations/0106_paper_locus_anchors.sql` is **written but not applied** — confirmed against the live project, `public.paper_locus_anchors` does not exist. Per D4 an agent may author a migration but never apply one, so this needs a human:
+
+```bash
+npx supabase db push
+```
+
+Nothing regresses while it is unapplied: loci travel inline in the deep link, so every Phase D exit criterion passes today. Applying it unlocks *saved* anchors — highlights that survive re-extraction — which is the follow-on work, not a Phase D requirement.
 
 ## Dependency map
 
@@ -63,18 +73,18 @@ Phase A  pure domain            [DONE]
    |
    +--> Phase B  feature logic  [DONE]
             |
-            +--> Phase C  UI wiring        <- needs a human, no test surface
+            +--> Phase C  UI wiring              [DONE]
             |
-            +--> Phase D  reader + provenance
+            +--> Phase D  reader + provenance    [DONE]
                      |
-                     +--> Phase E  AI-assisted extraction fill
+                     +--> Phase E  AI-assisted extraction fill   <- next
                               |
                               +--> Phase F  P2 tail
 ```
 
-**Why UI is its own phase.** Web UI has no unit-test coverage in this repo — 23 test files under `apps/web/src/features/*/test/`, none touching `.tsx` — and the four done-check commands never exercise it. Unsupervised work there passes every gate while being functionally unverified, so it is deliberately separated and done interactively.
+**Why UI is its own phase.** Web UI still has no unit-test coverage in this repo — 81 test files under `apps/web/src`, none touching `.tsx` — and `check:all` does not exercise rendered behaviour. Unsupervised work there passes every gate while being functionally unverified, so it is deliberately separated and done interactively. `check:all` now at least catches the *build* and lint failures that `typecheck` alone missed; it still cannot tell you a screen looks right.
 
-C and D are independent of each other and can run in either order or in parallel.
+C and D were independent of each other and shipped together on one branch.
 
 ---
 
@@ -111,7 +121,7 @@ The hard part of the P0 was never the templating — it was re-rendering without
 
 ---
 
-## Phase C — UI wiring ✅ MOSTLY DONE (C3 label outstanding)
+## Phase C — UI wiring ✅ DONE
 
 Make Phase B reachable. Four jobs, all small, all against APIs that already exist and are tested. None needs a migration.
 
@@ -132,10 +142,10 @@ Make Phase B reachable. Four jobs, all small, all against APIs that already exis
 |---|-------|----------|
 | C1 | **Done.** `reRenderPaperSourceNote` behind an explicit "Re-render template" button. The no-marker path prompts APPEND/REPLACE before it can discard a draft. `mergeTemplate` fails closed on any marker damage. Playwright coverage exists (`e2e/template-notes.spec.ts`) and asserts a sentinel survives a re-render. | `papers-list.tsx`, `note-template-engine.ts` |
 | C2 | **Done.** `CitationFormatSelect` in the paper and report editors; preference is per-project, keyed `thesis.citeFormat.<projectId>`. | `use-citation-format-preference.ts` |
-| C3 | **Partial.** Ranking is applied in `check-citation-alerts.use-case.ts`, so alerts arrive ordered, and `intents` / `isInfluential` are fetched and mapped in the S2 source. **The intent label is not rendered anywhere.** The brief asks to "show intent as a small label; `background` is the one people skip" — that half is outstanding. | `rank-citation-alerts.ts`, `semantic-scholar-citation-source.ts` |
+| C3 | **Done.** `rankCitationAlerts` orders the alert, and `intentLabel` renders the strongest intent as an inline `` `label` `` per row (`influential · result`, `method`, `background`). Alerts surface as a **logbook entry**, not a list screen — which is why the label lives in `check-citation-alerts.use-case.ts` rather than a `.tsx`. `background` sinks by ranking rather than being hidden. | `rank-citation-alerts.ts`, `check-citation-alerts.use-case.ts` |
 | C4 | **Done.** `ExperimentArtifactPicker` inserts `expartifact:` refs; stale resolution surfaces as a warning on the block. | `experiment-artifact-picker.tsx` |
 
-**Remaining for C3:** render the strongest intent as a chip on the alert row, and dim `background`. Ordering already works — this is presentation only.
+**Phase C is complete.** All four exit criteria are met.
 
 ---
 

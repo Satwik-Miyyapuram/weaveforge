@@ -46,7 +46,7 @@ test("MCP relay and proposal RLS isolate private AI records between authenticate
   const proposalId = randomUUID();
   const { error: proposalError } = await owner.from("ai_proposals").insert({
     id: proposalId, kind: "append_paper_note", status: "pending", resource_type: "paper_note",
-    resource_id: randomUUID(), content_enc: "TTE1:opaque-test",
+    resource_id: randomUUID(), content: { body: "opaque-test", sourceLinks: [] },
   });
   assert.ifError(proposalError);
 
@@ -77,12 +77,12 @@ test("MCP relay and proposal RLS isolate private AI records between authenticate
     assert.deepEqual(foreignUpdate, []);
 
     const { data: foreignProposal, error: foreignProposalError } = await other
-      .from("ai_proposals").select("id, content_enc").eq("id", proposalId);
+      .from("ai_proposals").select("id, content").eq("id", proposalId);
     assert.ifError(foreignProposalError);
     assert.deepEqual(foreignProposal, []);
 
     const { error: crossOwnerAuditError } = await other.from("ai_audit_records").insert({
-      id: randomUUID(), proposal_id: proposalId, action: "rejected", content_enc: "TTE1:opaque-test",
+      id: randomUUID(), proposal_id: proposalId, action: "rejected", content: { reason: "opaque-test" },
     });
     assert.ok(crossOwnerAuditError, "foreign users must not attach audit records to another user's proposal");
   } finally {
