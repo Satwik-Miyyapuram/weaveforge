@@ -21,6 +21,8 @@ export { InMemoryCommentRepository } from "./in-memory-comment-repository.js";
 export { InMemoryLibraryPinRepository } from "./in-memory-library-pin-repository.js";
 export { InMemoryCitationAlertTrackRepository } from "./in-memory-citation-alert-track-repository.js";
 export { InMemoryAnnotationPinRepository } from "./in-memory-annotation-pin-repository.js";
+export { InMemoryAnnotationQuotationTypeRepository } from "./in-memory-annotation-quotation-type-repository.js";
+export { InMemoryLabSnapshotRepository } from "./in-memory-lab-snapshot-repository.js";
 export { InMemoryPaperFieldRepository } from "./in-memory-paper-field-repository.js";
 export { InMemorySettingsRepository } from "./in-memory-settings-repository.js";
 export { InMemoryBlobRegistry } from "./in-memory-blob-registry.js";

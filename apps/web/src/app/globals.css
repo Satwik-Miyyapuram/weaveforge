@@ -1667,8 +1667,17 @@ a.entity-icon-btn:hover {
   align-items: center; min-width: 0; max-width: 100%;
 }
 .annotation-actions .annotation-pin-select,
+.annotation-actions .annotation-quote-select,
 .annotation-actions .custom-select-container {
   flex: 1 1 160px; min-width: 0; max-width: 100%;
+}
+.annotation-quote-type {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
 }
 
 /* Report section: writing column + excerpts pane */

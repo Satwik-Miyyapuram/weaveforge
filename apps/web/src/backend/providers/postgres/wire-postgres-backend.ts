@@ -30,6 +30,8 @@ import type {
   ILibraryPinRepository,
   ICitationAlertTrackRepository,
   IAnnotationPinRepository,
+  IAnnotationQuotationTypeRepository,
+  ILabSnapshotRepository,
   IPaperFieldRepository,
 } from "@thesis/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -72,6 +74,8 @@ import { PostgresSharedReader } from "./repositories/shared-reader";
 import { PostgresLibraryPinRepository } from "./repositories/library-pin-repository";
 import { PostgresCitationAlertTrackRepository } from "./repositories/citation-alert-track-repository";
 import { PostgresAnnotationPinRepository } from "./repositories/annotation-pin-repository";
+import { PostgresAnnotationQuotationTypeRepository } from "./repositories/annotation-quotation-type-repository";
+import { PostgresLabSnapshotRepository } from "./repositories/lab-snapshot-repository";
 import { PostgresPaperFieldRepository } from "./repositories/paper-field-repository";
 import { PostgresMemberRepository } from "./repositories/member-repository";
 import { PostgresSupervisionRepository } from "./repositories/supervision-repository";
@@ -252,6 +256,20 @@ export function wirePostgresBackend(
     pid,
     { resourceType: "paper" },
   );
+  const annotationQuotationTypeRepository: IAnnotationQuotationTypeRepository = cacheRepo(
+    new PostgresAnnotationQuotationTypeRepository(pg, projectContext, session),
+    ["listForPaper"],
+    ["save", "remove"],
+    pid,
+    { resourceType: "paper" },
+  );
+  const labSnapshotRepository: ILabSnapshotRepository = cacheRepo(
+    new PostgresLabSnapshotRepository(pg, projectContext, session),
+    ["listMine", "listForMember", "getById"],
+    ["publish", "remove"],
+    pid,
+    { resourceType: "project" },
+  );
   const paperFieldRepository: IPaperFieldRepository = cacheRepo(
     new PostgresPaperFieldRepository(pg, projectContext, session),
     ["listDefs", "listValuesForPaper", "listValuesForProject"],
@@ -295,6 +313,8 @@ export function wirePostgresBackend(
     libraryPinRepository,
     citationAlertTrackRepository,
     annotationPinRepository,
+    annotationQuotationTypeRepository,
+    labSnapshotRepository,
     paperFieldRepository,
   };
 }

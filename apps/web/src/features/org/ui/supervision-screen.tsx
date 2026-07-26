@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  type LabSnapshot,
   type LogEntry,
   type Member,
   type Milestone,
@@ -11,11 +12,12 @@ import { getContainer } from "@/bootstrap";
 import { useProfile } from "./profile-provider";
 import { ScreenLoader } from "@/components/thesis-loader";
 import { MemberTreeSelect } from "./member-tree";
+import { formatError } from "@/lib/format-error";
 
 /**
- * Supervisor view: browse the people beneath you and follow their plan
- * (milestones) and logbook (log entries) — read only, and separate from your
- * own projects. Only these two surfaces are shared up the hierarchy.
+ * Supervisor view: browse the people beneath you and follow their published
+ * lab snapshots (preferred) plus live plan/logbook — read only, and separate
+ * from your own projects.
  */
 export function SupervisionScreen() {
   const { profile, team, loading } = useProfile();
@@ -81,6 +83,8 @@ export function SupervisionScreen() {
 function SuperviseePanel({ member }: { member: Member }) {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [snapshots, setSnapshots] = useState<LabSnapshot[]>([]);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,11 +92,13 @@ function SuperviseePanel({ member }: { member: Member }) {
     setLoading(true);
     setError(null);
     try {
-      const [ms, ls] = await getContainer().org.loadSupervisee(member.id);
+      const [ms, ls, snaps] = await getContainer().org.loadSupervisee(member.id);
       setMilestones(ms);
       setLogs(ls);
+      setSnapshots(snaps);
+      setSelectedSnapshotId(snaps[0]?.id ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setLoading(false);
     }
@@ -105,22 +111,64 @@ function SuperviseePanel({ member }: { member: Member }) {
   if (loading) return <p className="muted">Loading {member.fullName || member.email}…</p>;
   if (error) return <p className="error">{error}</p>;
 
+  const selectedSnapshot = snapshots.find((s) => s.id === selectedSnapshotId) ?? null;
+  const showFrozen = selectedSnapshot != null;
+  const displayMilestones = showFrozen ? selectedSnapshot.content.milestones : milestones;
+  const displayLogs = showFrozen ? selectedSnapshot.content.logs : logs;
+
   return (
     <div className="superv-panels">
       <div className="card add-form">
-        <h3 className="settings-group">Milestones ({milestones.length})</h3>
-        {milestones.length === 0 ? (
+        <h3 className="settings-group">Published snapshots ({snapshots.length})</h3>
+        {snapshots.length === 0 ? (
+          <p className="muted">
+            No published snapshots yet. Live plan and logbook are shown below until they publish one.
+          </p>
+        ) : (
+          <>
+            <label className="muted" htmlFor="superv-snapshot">
+              Reviewing
+            </label>
+            <select
+              id="superv-snapshot"
+              className="custom-select"
+              value={selectedSnapshotId ?? ""}
+              onChange={(event) => setSelectedSnapshotId(event.target.value || null)}
+            >
+              {snapshots.map((snap) => (
+                <option key={snap.id} value={snap.id}>
+                  {snap.title} · {snap.publishedAt.slice(0, 10)}
+                </option>
+              ))}
+            </select>
+            {selectedSnapshot?.note && (
+              <p className="superv-body">{selectedSnapshot.note}</p>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="card add-form">
+        <h3 className="settings-group">
+          Milestones ({displayMilestones.length})
+          {showFrozen ? " · snapshot" : " · live"}
+        </h3>
+        {displayMilestones.length === 0 ? (
           <p className="muted">No milestones yet.</p>
         ) : (
           <ul className="superv-list">
-            {milestones.map((m) => (
+            {displayMilestones.map((m) => (
               <li key={m.id} className="superv-item">
                 <div className="superv-item-head">
                   <span className="superv-item-title">{m.title}</span>
                   <span className={`superv-status s-${m.status}`}>{m.status.replace("_", " ")}</span>
                 </div>
-                {m.targetDate && <span className="muted">Target {m.targetDate}</span>}
-                {m.description && <p className="superv-body">{m.description}</p>}
+                {"targetDate" in m && m.targetDate && (
+                  <span className="muted">Target {m.targetDate}</span>
+                )}
+                {"description" in m && m.description && (
+                  <p className="superv-body">{m.description}</p>
+                )}
               </li>
             ))}
           </ul>
@@ -128,12 +176,15 @@ function SuperviseePanel({ member }: { member: Member }) {
       </div>
 
       <div className="card add-form">
-        <h3 className="settings-group">Logbook ({logs.length})</h3>
-        {logs.length === 0 ? (
+        <h3 className="settings-group">
+          Logbook ({displayLogs.length})
+          {showFrozen ? " · snapshot" : " · live"}
+        </h3>
+        {displayLogs.length === 0 ? (
           <p className="muted">No log entries yet.</p>
         ) : (
           <ul className="superv-list">
-            {logs.map((l) => (
+            {displayLogs.map((l) => (
               <li key={l.id} className="superv-item">
                 <div className="superv-item-head">
                   <span className="superv-item-title">{l.entryDate}</span>

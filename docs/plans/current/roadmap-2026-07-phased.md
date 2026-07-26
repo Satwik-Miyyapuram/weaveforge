@@ -52,9 +52,9 @@ Both predate the verified competitive research, so neither accounts for ZotFlow,
 | **C** | UI wiring — make B reachable by users | ✅ **done** |
 | **D** | Reader + provenance (read-only) | ✅ **done** — exit criteria met; locus persistence outstanding |
 | **E** | **AI-assisted extraction fill** | ✅ **done** |
-| **F** | P2 tail | ⬜ next |
+| **F** | P2 tail | ✅ **done** |
 
-A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followed on `phase-c-d/ui-and-reader`. Current tree: 404 core tests, 284 web tests, 1 integration test, `npm run check:all` exits 0.
+A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followed on `phase-c-d/ui-and-reader`. Current tree: 406 core tests, 290 web tests, 1 integration test, `npm run check:all` exits 0.
 
 ### The one thing blocking a fully clean board
 
@@ -79,7 +79,7 @@ Phase A  pure domain            [DONE]
                      |
                      +--> Phase E  AI-assisted extraction fill   [DONE]
                               |
-                              +--> Phase F  P2 tail   <- next
+                              +--> Phase F  P2 tail   [DONE]
 ```
 
 **Why UI is its own phase.** Web UI still has no unit-test coverage in this repo — 81 test files under `apps/web/src`, none touching `.tsx` — and `check:all` does not exercise rendered behaviour. Unsupervised work there passes every gate while being functionally unverified, so it is deliberately separated and done interactively. `check:all` now at least catches the *build* and lint failures that `typecheck` alone missed; it still cannot tell you a screen looks right.
@@ -259,12 +259,21 @@ A same-origin PDF proxy (`/api/pdf-proxy`) was added beyond the original scope, 
 
 ---
 
-## Phase F — P2 tail
+## Phase F — P2 tail ✅ DONE
 
 | Item | Effort | Notes |
 |------|--------|-------|
 | First-class quotation types | S | Direct / paraphrase / summary on annotation cards (§6.1). Citavi-style; cheap once D exists. |
 | Lab snapshot publishing | L | OSF-style freeze-and-publish to a supervisor instead of raw log exposure (§5). Needs a migration. |
+
+### Delivered 2026-07-27 — review findings
+
+**Exit criteria met** for the product path.
+
+| Item | State |
+|------|-------|
+| Quotation types | **Done.** Side table `annotation_quotation_types` (`0107`, authored not applied per D4); selector on annotation cards; survives Zotero sync. |
+| Lab snapshots | **Done.** `lab_snapshots` (`0108`, authored not applied); publish from logbook; `/supervision` prefers published freezes, falls back to live plan/log. |
 
 ---
 
@@ -294,9 +303,9 @@ From `competitive-research-verified-2026-07.md` §5 and §6, unchanged:
 | **C** | B | **P0** vault templates UI · P1 citation picker · P1 alert ordering · P1 artifact insertion |
 | **D** | A | **P0** provenance UI · P1 deep links (read-only) |
 | **E** | D | ✅ **P0** AI extraction fill |
-| **F** | D | P2 quotation types · P2 lab snapshots |
+| **F** | D | ✅ P2 quotation types · P2 lab snapshots |
 
-**Nothing is waiting on a decision.** Phase F is next.
+**Nothing is waiting on a decision.** Roadmap phases A–F are complete.
 
 ## Deferred decisions, with triggers
 
