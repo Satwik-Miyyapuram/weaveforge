@@ -54,7 +54,7 @@ function renderOne(ref: ArtifactRef, lookup: ArtifactLookup): string {
     case "experiment_not_found":
       return `> ⚠️ Missing experiment for artifact “${caption}”.`;
     case "artifact_not_found":
-      return `> ⚠️ Artifact “${caption}” was not found on experiment ${resolution.experiment.name}.`;
+      return `> ⚠️ Artifact “${caption}” was not found on experiment ${safeArtifactCaption(resolution.experiment.name)}.`;
   }
 }
 

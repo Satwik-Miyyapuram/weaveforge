@@ -52,5 +52,15 @@ test("resolvePaperPdfUrl maps arXiv abs and ids to pdf URLs", () => {
 test("looksLikePdfUrl rejects HTML paths that merely contain /pdf/", () => {
   assert.equal(looksLikePdfUrl("https://example.com/blog/pdf/guide.html"), false);
   assert.equal(looksLikePdfUrl("https://openreview.net/pdf?id=abc"), true);
+  assert.equal(looksLikePdfUrl("https://host.example/pdf/abc123"), true);
   assert.equal(looksLikePdfUrl("https://doi.org/doi/pdf/10.1/xyz"), true);
+});
+
+test("proxiedPdfUrl rewrites allowlisted hosts through the same-origin proxy", async () => {
+  const { proxiedPdfUrl } = await import("../application/sanitize-reader-url.js");
+  assert.equal(
+    proxiedPdfUrl("https://arxiv.org/pdf/1706.03762"),
+    "/api/pdf-proxy?url=" + encodeURIComponent("https://arxiv.org/pdf/1706.03762"),
+  );
+  assert.equal(proxiedPdfUrl("https://evil.test/a.pdf"), "https://evil.test/a.pdf");
 });

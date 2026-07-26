@@ -68,12 +68,17 @@ export function ExperimentArtifactPicker({
 
   function insert() {
     if (!experimentId || !artifactName.trim()) return;
-    const name = artifactBasename(artifactName) || artifactName.trim();
+    const selectedArtifacts = experiments.find((e) => e.id === experimentId)?.artifacts ?? [];
+    const base = artifactBasename(artifactName);
+    const collisions = selectedArtifacts.filter((a) => artifactBasename(a) === base);
+    // On basename collision keep the full URL so resolve can exact-match.
+    const name =
+      collisions.length > 1 ? artifactName.trim() : base || artifactName.trim();
     onInsert(
       serialiseArtifactRef({
         experimentId,
         artifactName: name,
-        alt: name,
+        alt: artifactBasename(name) || name,
       }),
     );
     setOpen(false);

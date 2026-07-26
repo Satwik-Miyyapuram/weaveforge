@@ -117,11 +117,11 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
                     quote: {
                       type: "TextQuoteSelector" as const,
                       exact: quoteExact,
-                      ...(optional(args, "quotePrefix")
-                        ? { prefix: optional(args, "quotePrefix") }
+                      ...(optionalRaw(args, "quotePrefix")
+                        ? { prefix: optionalRaw(args, "quotePrefix") }
                         : {}),
-                      ...(optional(args, "quoteSuffix")
-                        ? { suffix: optional(args, "quoteSuffix") }
+                      ...(optionalRaw(args, "quoteSuffix")
+                        ? { suffix: optionalRaw(args, "quoteSuffix") }
                         : {}),
                     },
                   },
@@ -152,7 +152,14 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
 }
 
 function required(args: Record<string, unknown>, key: string): string { const value = optional(args, key); if (!value) throw new Error(`${key} is required.`); return value; }
-function optional(args: Record<string, unknown>, key: string): string | undefined { return typeof args[key] === "string" && args[key].trim() ? args[key].trim() : undefined; }
+function optional(args: Record<string, unknown>, key: string): string | undefined {
+  return typeof args[key] === "string" && args[key].trim() ? args[key].trim() : undefined;
+}
+
+/** Affixes must keep abutting whitespace for quote matching — do not trim. */
+function optionalRaw(args: Record<string, unknown>, key: string): string | undefined {
+  return typeof args[key] === "string" && args[key].length > 0 ? args[key] : undefined;
+}
 function stringList(value: unknown): string[] | undefined { return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined; }
 
 async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("thesis-tracker-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }

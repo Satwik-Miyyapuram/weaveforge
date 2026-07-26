@@ -72,3 +72,8 @@ create policy paper_locus_anchors_own on paper_locus_anchors
 
 comment on table paper_locus_anchors is
   'Durable W3C text anchors into a paper''s extracted PDF text for jump-to-locus; owner-only, read-only reader surface (Phase D).';
+
+drop trigger if exists paper_locus_anchors_set_updated_at on paper_locus_anchors;
+create trigger paper_locus_anchors_set_updated_at
+  before update on paper_locus_anchors
+  for each row execute function set_updated_at();

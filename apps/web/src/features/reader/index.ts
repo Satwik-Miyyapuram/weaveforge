@@ -5,4 +5,6 @@ export {
   sanitizePdfUrl,
   sanitizeReaderHref,
   resolvePaperPdfUrl,
+  proxiedPdfUrl,
+  looksLikePdfUrl,
 } from "./application/sanitize-reader-url";

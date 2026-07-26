@@ -7,7 +7,7 @@ import { decodeLocus, type PdfLocus } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoader } from "@/components/thesis-loader";
 import { PdfReader } from "./pdf-reader-lazy";
-import { resolvePaperPdfUrl, sanitizePdfUrl } from "../application/sanitize-reader-url";
+import { resolvePaperPdfUrl, sanitizePdfUrl, proxiedPdfUrl } from "../application/sanitize-reader-url";
 
 /** Read-only reader route: renders a PDF and jumps to an optional locus (D). */
 export function ReaderScreen() {
@@ -79,7 +79,7 @@ export function ReaderScreen() {
           <p className="muted">Read-only view for verifying where a claim came from.</p>
         </div>
         {paperId && (
-          <Link className="secondary-btn" href={`/papers?focus=${encodeURIComponent(paperId)}`}>
+          <Link className="secondary-btn" href={`/papers?paper=${encodeURIComponent(paperId)}`}>
             Back to paper
           </Link>
         )}
@@ -98,7 +98,13 @@ export function ReaderScreen() {
         </div>
       )}
       {!loading && pdfUrl && (
-        <PdfReader key={pdfUrl} url={pdfUrl} locus={locus ?? undefined} page={page} />
+        <PdfReader
+          key={pdfUrl}
+          url={proxiedPdfUrl(pdfUrl)}
+          originalUrl={pdfUrl}
+          locus={locus ?? undefined}
+          page={page}
+        />
       )}
     </section>
   );

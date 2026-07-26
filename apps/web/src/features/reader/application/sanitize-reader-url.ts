@@ -42,14 +42,36 @@ export function looksLikePdfUrl(url: string): boolean {
   try {
     const u = new URL(url);
     const path = u.pathname.toLowerCase();
+    if (/\.html?$/i.test(path)) return false;
     if (/\.pdf$/i.test(path)) return true;
-    // Trailing `/pdf` or `/pdf/` (OpenReview, some OA hosts) — not `/blog/pdf/guide`.
+    // Trailing `/pdf` or `/pdf/` (OpenReview)
     if (/(^|\/)pdf\/?$/i.test(path)) return true;
-    // DOI-style OA: `/doi/pdf/10.…`
-    if (/\/doi\/pdf\//i.test(path)) return true;
+    // `/pdf/<id>` OA hosts and DOI-style `/doi/pdf/10.…`
+    if (/\/pdf\//i.test(path)) return true;
     return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Rewrite an allowlisted remote PDF URL through the same-origin proxy so pdf.js
+ * does not hit CORS. Unknown hosts are returned unchanged (caller may still fail).
+ */
+export function proxiedPdfUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const allowed =
+      host === "arxiv.org" ||
+      host === "www.arxiv.org" ||
+      host === "export.arxiv.org" ||
+      host === "openreview.net" ||
+      host === "www.openreview.net";
+    if (!allowed || u.protocol !== "https:") return url;
+    return `/api/pdf-proxy?url=${encodeURIComponent(u.toString())}`;
+  } catch {
+    return url;
   }
 }
 

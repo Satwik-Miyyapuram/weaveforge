@@ -31,8 +31,13 @@ interface PageText {
 }
 
 export interface PdfReaderProps {
-  /** Direct PDF URL to render (must already be allowlisted http(s)). */
+  /**
+   * PDF URL passed to pdf.js. May be a same-origin `/api/pdf-proxy?…` rewrite
+   * so cross-origin publishers do not hit CORS.
+   */
   url: string;
+  /** Original http(s) URL for "Open the original PDF" (never a javascript: link). */
+  originalUrl?: string;
   locus?: PdfLocus;
   /** 0-based page hint; when present the jump resolves there first. */
   page?: number;
@@ -95,14 +100,19 @@ function SafeExternalLink({ href, children }: { href: string; children: ReactNod
   );
 }
 
-export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
+export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PdfDocument | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const renderedPages = useRef(new Set<number>());
-  const safeUrl = sanitizePdfUrl(url);
+  // Accept same-origin proxy paths or allowlisted http(s).
+  const safeUrl =
+    url.startsWith("/api/pdf-proxy?")
+      ? url
+      : sanitizePdfUrl(url);
+  const openUrl = sanitizePdfUrl(originalUrl) ?? sanitizePdfUrl(url);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,6 +167,12 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
     containerRef.current?.querySelectorAll(".pdf-reader-hl").forEach((el) => el.remove());
   }, []);
 
+  // Drop cached canvases when scale changes so highlights stay aligned.
+  useEffect(() => {
+    renderedPages.current.clear();
+    clearHighlights();
+  }, [scale, clearHighlights]);
+
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderPage = useCallback(
     async (pageNumber: number) => {
@@ -167,11 +183,11 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
         return;
       }
       const work = (async () => {
-        const host = containerRef.current?.querySelector<HTMLDivElement>(
-          `[data-page="${pageNumber}"]`,
-        );
-        if (!host) return;
         try {
+          const host = containerRef.current?.querySelector<HTMLDivElement>(
+            `[data-page="${pageNumber}"]`,
+          );
+          if (!host) return;
           const pdfPage = await pdf.getPage(pageNumber);
           const viewport = pdfPage.getViewport({ scale });
           const canvas = host.querySelector("canvas");
@@ -356,7 +372,7 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
     return (
       <div className="pdf-reader-error card">
         <p>{error}</p>
-        <SafeExternalLink href={url}>Open the original PDF</SafeExternalLink>
+        {openUrl && <SafeExternalLink href={openUrl}>Open the original PDF</SafeExternalLink>}
       </div>
     );
   }
@@ -372,7 +388,7 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
           {jump.status === "missed" && (
             <>
               Could not locate the exact passage.{" "}
-              <SafeExternalLink href={url}>Open the original PDF</SafeExternalLink>
+              {openUrl && <SafeExternalLink href={openUrl}>Open the original PDF</SafeExternalLink>}
               .
             </>
           )}

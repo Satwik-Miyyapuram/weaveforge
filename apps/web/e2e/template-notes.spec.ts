@@ -6,10 +6,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 /**
  * Phase C1 guard: re-rendering a source-note template must refresh generated
- * metadata WITHOUT destroying the researcher's edits. Editable-region
- * byte-preservation is covered by unit tests; this E2E guards the UI path
- * (button → merge → save) including unmarked freeform text, which
- * `mergeTemplate` must also keep.
+ * metadata WITHOUT destroying the researcher's edits.
  */
 test.describe("source-note template re-render preserves edits (C1)", () => {
   test.describe.configure({ timeout: 120_000 });
@@ -25,7 +22,8 @@ test.describe("source-note template re-render preserves edits (C1)", () => {
     const sentinel = `KEEP-ME-${Date.now()}`;
 
     await page.goto("/papers");
-    await page.getByRole("button", { name: "+ Add paper" }).click();
+    await page.getByRole("button", { name: "+ Paper" }).click();
+    await page.getByText("Add paper", { exact: true }).click();
     await page.locator("#title").fill(title);
     await page.getByRole("button", { name: "Add paper", exact: true }).click();
 
@@ -35,20 +33,17 @@ test.describe("source-note template re-render preserves edits (C1)", () => {
     const editor = page.locator(".summary-input .cm-content");
     await editor.waitFor({ timeout: 30_000 });
 
-    // Install the template (explicit action — never silent on load).
     await page.getByRole("button", { name: "Re-render template" }).click();
     await expect(page.locator(".summary-input")).toContainText("<!-- wf:editable:notes -->", {
       timeout: 15_000,
     });
     await expect(page.locator(".summary-input")).toContainText(title);
 
-    // Append unmarked freeform text after the template — merge must keep it.
     await editor.click();
     await page.keyboard.press("Control+End");
     await page.keyboard.type(`\n\n## My appendix\n\n${sentinel}\n`);
     await expect(page.locator(".summary-input")).toContainText(sentinel);
 
-    // Re-render again — title/metadata refresh; appendix + sentinel survive.
     await page.getByRole("button", { name: "Re-render template" }).click();
     await expect(page.locator(".summary-input")).toContainText(sentinel, { timeout: 15_000 });
     await expect(page.locator(".summary-input")).toContainText("## My appendix");

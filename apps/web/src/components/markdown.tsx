@@ -57,19 +57,28 @@ function renderWikilink(inner: string, resolve: WikilinkResolver): string {
 }
 
 function formatText(s: string): string {
+  // Escape the whole string once for text nodes, then rebuild media/links with
+  // attribute escaping applied to the *raw* captures (escapeAttr includes &quot;
+  // and re-runs & → &amp; — so do not pass already-escaped strings into it).
   return escapeHtml(s)
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
     .replace(/\b_([^_]+)_\b/g, "<em>$1</em>")
     .replace(
       /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
-      (_m, alt: string, src: string) =>
-        `<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" class="md-image" loading="lazy" />`,
+      (_m, alt: string, src: string) => {
+        // Captures here are already HTML-escaped; only quote-escape for attrs.
+        const safeAlt = alt.replace(/"/g, "&quot;");
+        const safeSrc = src.replace(/"/g, "&quot;");
+        return `<img src="${safeSrc}" alt="${safeAlt}" class="md-image" loading="lazy" />`;
+      },
     )
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-      (_m, label: string, href: string) =>
-        `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer">${label}</a>`,
+      (_m, label: string, href: string) => {
+        const safeHref = href.replace(/"/g, "&quot;");
+        return `<a href="${safeHref}" target="_blank" rel="noreferrer">${label}</a>`;
+      },
     );
 }
 
