@@ -22,6 +22,7 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
 import {
   BellIcon,
+  BoardViewIcon,
   CardsViewIcon,
   DeleteIcon,
   EditIcon,
@@ -489,7 +490,7 @@ export function PapersScreen() {
                 className={layout === "board" ? "seg-on" : ""}
                 onClick={() => setLayout("board")}
               >
-                Board
+                <BoardViewIcon />
               </button>
             </div>
           </div>
