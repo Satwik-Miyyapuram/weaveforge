@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { createClient } from "@supabase/supabase-js";
-import ws from "ws";
+import { WebSocket as NodeWebSocket } from "ws";
 
 function env(...names: string[]): string | undefined {
   return names.map((name) => process.env[name]).find(Boolean);
@@ -22,7 +22,7 @@ test("MCP relay and proposal RLS isolate private AI records between authenticate
 
   const makeClient = () => createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    realtime: { transport: ws as unknown as typeof WebSocket },
+    realtime: { transport: NodeWebSocket as unknown as typeof WebSocket },
   });
   const owner = makeClient();
   const other = makeClient();

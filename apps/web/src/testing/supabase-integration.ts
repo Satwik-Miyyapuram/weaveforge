@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import ws from "ws";
+import { WebSocket as NodeWebSocket } from "ws";
 
 export interface SupabaseTestSession {
   db: SupabaseClient;
@@ -27,7 +27,7 @@ export async function connectSupabaseTest(): Promise<SupabaseTestSession | null>
 
   const db = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    realtime: { transport: ws as unknown as typeof WebSocket },
+    realtime: { transport: NodeWebSocket as unknown as typeof WebSocket },
   });
   const { error } = await db.auth.signInWithPassword({ email, password });
   if (error) throw error;
