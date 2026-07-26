@@ -51,7 +51,9 @@ create policy paper_locus_anchors_own on paper_locus_anchors
     )
     and exists (
       select 1 from papers pap
-      where pap.id = paper_locus_anchors.paper_id and pap.user_id = (select auth.uid())
+      where pap.id = paper_locus_anchors.paper_id
+        and pap.user_id = (select auth.uid())
+        and pap.project_id = paper_locus_anchors.project_id
     )
   )
   with check (
@@ -62,7 +64,9 @@ create policy paper_locus_anchors_own on paper_locus_anchors
     )
     and exists (
       select 1 from papers pap
-      where pap.id = paper_locus_anchors.paper_id and pap.user_id = (select auth.uid())
+      where pap.id = paper_locus_anchors.paper_id
+        and pap.user_id = (select auth.uid())
+        and pap.project_id = paper_locus_anchors.project_id
     )
   );
 

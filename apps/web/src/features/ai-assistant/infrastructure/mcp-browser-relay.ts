@@ -85,7 +85,34 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
       url: typeof args.url === "string" ? args.url : undefined, year: typeof args.year === "string" || typeof args.year === "number" ? args.year : undefined,
       abstract: typeof args.abstract === "string" ? args.abstract : undefined,
     });
-    case "propose_append_paper_note": { const addition = required(args, "addition"); return ai.proposeDraft({ sessionId, settings, kind: "append_paper_note", tool: "propose_append_paper_note", resourceId: required(args, "paperId"), resourceType: "paper_note", expectedRevision: optional(args, "expectedRevision"), content: `Append to paper note:\n\n${addition}`, payload: { addition } }); }
+    case "propose_append_paper_note": {
+      const addition = required(args, "addition");
+      const paperId = required(args, "paperId");
+      const sourceId = optional(args, "sourceId");
+      let evidence: import("@thesis/core").AiEvidence[] | undefined;
+      if (sourceId) {
+        const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId });
+        if (doc?.text) {
+          evidence = [{
+            sourceId,
+            excerpt: doc.text,
+            label: doc.source.label,
+            paperId: doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
+              ? doc.source.resourceId
+              : paperId,
+            href: doc.source.href,
+          }];
+        }
+      }
+      return ai.proposeDraft({
+        sessionId, settings, kind: "append_paper_note", tool: "propose_append_paper_note",
+        resourceId: paperId, resourceType: "paper_note",
+        expectedRevision: optional(args, "expectedRevision"),
+        content: `Append to paper note:\n\n${addition}`,
+        payload: { addition },
+        evidence,
+      });
+    }
     case "propose_create_vault_note": return ai.proposeDraft({ sessionId, settings, kind: "create_vault_note", tool: "propose_create_vault_note", content: `Create vault note: ${required(args, "title")}`, payload: { title: required(args, "title"), body: required(args, "body"), parentId: optional(args, "parentId") } });
     case "propose_create_log_entry": return ai.proposeDraft({ sessionId, settings, kind: "create_log_entry", tool: "propose_create_log_entry", content: `Create log entry:\n\n${required(args, "body")}`, payload: { body: required(args, "body"), entryDate: optional(args, "entryDate"), kind: optional(args, "kind") ?? "daily" } });
     case "propose_paper_update": return ai.proposeDraft({ sessionId, settings, kind: "paper_update", tool: "propose_paper_update", resourceId: required(args, "paperId"), resourceType: "paper", expectedRevision: optional(args, "expectedRevision"), content: `Update paper metadata`, payload: { status: optional(args, "status"), rating: typeof args.rating === "number" ? args.rating : undefined, tags: stringList(args.tags) } });

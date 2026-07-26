@@ -4,16 +4,11 @@ import { useEffect, useState } from "react";
 import type { Experiment } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { serialiseArtifactRef } from "../application/artifact-refs";
+import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
 
 /** Readable label for an artifact URL/name in the dropdown. */
 function artifactLabel(name: string): string {
-  try {
-    const path = new URL(name).pathname;
-    return decodeURIComponent(path.split("/").pop() || name);
-  } catch {
-    return name.split("/").pop() || name;
-  }
+  return artifactBasename(name) || name;
 }
 
 /**
@@ -47,10 +42,18 @@ export function ExperimentArtifactPicker({
         if (first) {
           setExperimentId(first.id);
           setArtifactName(first.artifacts?.[0] ?? "");
+        } else {
+          setExperimentId("");
+          setArtifactName("");
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setExperiments([]);
+          setExperimentId("");
+          setArtifactName("");
+        }
       })
       .finally(() => {
         if (!cancelled) setBusy(false);
@@ -65,11 +68,12 @@ export function ExperimentArtifactPicker({
 
   function insert() {
     if (!experimentId || !artifactName.trim()) return;
+    const name = artifactBasename(artifactName) || artifactName.trim();
     onInsert(
       serialiseArtifactRef({
         experimentId,
-        artifactName: artifactName.trim(),
-        alt: artifactName.trim(),
+        artifactName: name,
+        alt: name,
       }),
     );
     setOpen(false);

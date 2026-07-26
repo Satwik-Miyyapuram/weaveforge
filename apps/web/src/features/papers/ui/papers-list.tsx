@@ -49,6 +49,7 @@ import { useCiteLinkCatalog } from "@/lib/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import { useCitationFormatPreference } from "@/lib/use-citation-format-preference";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
+import { resolveCiteKey } from "@/features/overleaf/application/build-overleaf-export";
 import type { PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
 import { PaperExternalLink, paperExternalLink } from "./paper-external-link";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
@@ -888,8 +889,7 @@ function PaperNote({
 
   /** Explicit re-render of the source-note template — never silent on load (C1). */
   function reRenderTemplate() {
-    const citeKey =
-      typeof paper.metadata?.["citeKey"] === "string" ? paper.metadata["citeKey"] : undefined;
+    const citeKey = resolveCiteKey(paper);
     const hasMarkers = /<!--\s*\/?wf:(generated|editable):/.test(draft);
     if (!hasMarkers && draft.trim()) {
       const ok = confirm(

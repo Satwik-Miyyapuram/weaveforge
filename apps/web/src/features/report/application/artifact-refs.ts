@@ -78,6 +78,33 @@ function decodeRefPart(value: string): string | null {
   }
 }
 
+/** Basename of an artifact URL or path — stable identity across signed-URL churn. */
+export function artifactBasename(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "";
+  try {
+    const path = new URL(trimmed).pathname;
+    return decodeURIComponent(path.split("/").filter(Boolean).pop() || trimmed);
+  } catch {
+    return trimmed.split(/[\\/]/).filter(Boolean).pop() || trimmed;
+  }
+}
+
+/**
+ * Find the live artifact URL/name on an experiment that matches a stored ref.
+ * Prefers exact match, then basename match (so `loss.png` resolves against a
+ * signed `https://…/loss.png?token=…`).
+ */
+export function matchExperimentArtifact(
+  artifacts: readonly string[],
+  refName: string,
+): string | null {
+  if (artifacts.includes(refName)) return refName;
+  const want = artifactBasename(refName);
+  if (!want) return null;
+  return artifacts.find((a) => artifactBasename(a) === want) ?? null;
+}
+
 /** Inverse of parse — round-trips with the canonical form. */
 export function serialiseArtifactRef(ref: ArtifactRef): string {
   // Preserve an explicit empty alt (`![](...)`); default only when omitted.
@@ -143,7 +170,8 @@ export function resolveArtifactRef(
   }
 
   const artifacts = experiment.artifacts ?? [];
-  if (!artifacts.includes(ref.artifactName)) {
+  const matched = matchExperimentArtifact(artifacts, ref.artifactName);
+  if (!matched) {
     return { status: "artifact_not_found", experiment, ref };
   }
 
@@ -154,8 +182,8 @@ export function resolveArtifactRef(
     lookup.lastMetricAtMs?.(ref.experimentId),
   );
   if (stale) {
-    return { status: "experiment_stale", experiment, artifactName: ref.artifactName };
+    return { status: "experiment_stale", experiment, artifactName: matched };
   }
 
-  return { status: "resolved", experiment, artifactName: ref.artifactName };
+  return { status: "resolved", experiment, artifactName: matched };
 }

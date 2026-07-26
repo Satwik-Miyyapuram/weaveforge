@@ -38,12 +38,19 @@ test("resolveArtifactRefsMarkdown emits https figures and escapes alt newlines",
   assert.match(out, /!\[before after\]\(https:\/\/cdn\.test\/a\.png\)/);
 });
 
-test("resolveArtifactRefsMarkdown rejects bare relative artifact names", () => {
+test("resolveArtifactRefsMarkdown resolves basename refs to the live https URL", () => {
   const out = resolveArtifactRefsMarkdown("![fig](expartifact:e1/loss.png)", [
-    exp({ id: "e1", name: "Run", artifacts: ["loss.png"] }),
+    exp({ id: "e1", name: "Run", artifacts: ["https://cdn.test/loss.png?tok=1"] }),
   ]);
-  assert.match(out, /no renderable URL/);
-  assert.doesNotMatch(out, /!\[fig\]\(loss\.png\)/);
+  assert.match(out, /!\[fig\]\(https:\/\/cdn\.test\/loss\.png\?tok=1\)/);
+});
+
+test("safeArtifactCaption strips attribute breakout characters", () => {
+  assert.equal(safeArtifactCaption('x" onerror="alert(1)'), "x onerror=alert(1)");
+});
+
+test("safeImageDestination rejects quote breakouts", () => {
+  assert.equal(safeImageDestination('https://cdn.test/a.png" onerror="x'), null);
 });
 
 test("resolveArtifactRefsMarkdown surfaces missing experiments after a real load", () => {

@@ -11,12 +11,13 @@ import {
   type ArtifactRef,
 } from "./artifact-refs";
 
-/** Same rules as artifact-refs `escapeAlt` — keep markdown image alts injection-safe. */
+/** Same rules as artifact-refs `escapeAlt`, plus strip attr breakouts for XSS. */
 export function safeArtifactCaption(alt: string | undefined): string {
   const cleaned = (alt ?? "")
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/[\[\]]/g, "")
+    .replace(/["'<>`\[\]]/g, "")
+    .replace(/&/g, "")
     .trim();
   return cleaned || "artifact";
 }
@@ -25,8 +26,9 @@ export function safeArtifactCaption(alt: string | undefined): string {
 export function safeImageDestination(url: string): string | null {
   const trimmed = url.trim();
   if (!/^(https?:|blob:|vault:)/i.test(trimmed)) return null;
-  // encodeURIComponent leaves `()'!*` alone; parentheses still truncate Markdown
-  // destinations, and spaces break the image regex — encode those explicitly.
+  // Drop characters that break out of `formatText` img attrs or Markdown dests.
+  if (/["'<>`]/.test(trimmed)) return null;
+  // encodeURIComponent leaves `()` alone; parentheses still truncate Markdown.
   return trimmed.replace(/[()\s]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 

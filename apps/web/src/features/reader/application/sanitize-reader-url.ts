@@ -37,15 +37,33 @@ export function sanitizeReaderHref(raw: string | null | undefined): string | nul
   return trimmed;
 }
 
+/** True when a URL pathname looks like a direct PDF resource, not an HTML landing page. */
+export function looksLikePdfUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.toLowerCase();
+    if (/\.pdf$/i.test(path)) return true;
+    // `/pdf`, `/pdf/`, `/pdf?...` (OpenReview, some OA hosts)
+    if (/(^|\/)pdf\/?$/i.test(path)) return true;
+    if (path.includes("/pdf/")) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Best-effort map from a paper landing URL / arXiv id to a PDF URL the reader
  * can open. Returns null when we cannot derive a PDF (caller surfaces an error).
+ * `pdfPath` is reserved for a future signed-blob ladder and is ignored today.
  */
 export function resolvePaperPdfUrl(input: {
   url?: string | null;
   arxivId?: string | null;
+  /** @deprecated Ignored until storage-backed PDFs are wired; kept for call-site stability. */
   pdfPath?: string | null;
 }): string | null {
+  void input.pdfPath;
   const fromArxivId = input.arxivId?.trim();
   if (fromArxivId) {
     const id = fromArxivId.replace(/^arxiv:/i, "");
@@ -59,15 +77,9 @@ export function resolvePaperPdfUrl(input: {
   // Already a pdf path on arxiv
   const pdf = /^https?:\/\/(?:www\.)?arxiv\.org\/pdf\/([^?#\s]+)/i.exec(raw);
   if (pdf) return sanitizePdfUrl(`https://arxiv.org/pdf/${pdf[1]}`);
-  // Generic: accept only when the path looks like a PDF (or ends with .pdf).
   const sanitized = sanitizePdfUrl(raw);
   if (!sanitized) return null;
-  try {
-    const u = new URL(sanitized);
-    if (/\.pdf($|\?)/i.test(u.pathname) || u.pathname.includes("/pdf/")) return sanitized;
-  } catch {
-    return null;
-  }
+  if (looksLikePdfUrl(sanitized)) return sanitized;
   // Unknown HTML landing page — do not hand to pdf.js.
   return null;
 }

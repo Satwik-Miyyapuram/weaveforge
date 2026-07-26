@@ -52,7 +52,7 @@ export function ReportSectionMarkdown({ body, className }: { body: string; class
       .catch((err) => {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : "Could not load experiments.");
-          setExperiments([]);
+          // Keep experiments null so we do not flash false "missing experiment" warnings.
         }
       });
     return () => {

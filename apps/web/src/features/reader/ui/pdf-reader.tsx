@@ -107,7 +107,6 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
   useEffect(() => {
     let cancelled = false;
     let task: ReturnType<PdfLib["getDocument"]> | null = null;
-    let loaded: PdfDocument | null = null;
     renderedPages.current.clear();
     setError(null);
     setPdf(null);
@@ -125,10 +124,9 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
         task = lib.getDocument({ url: safeUrl, isEvalSupported: false });
         const doc = await task.promise;
         if (cancelled) {
-          void doc.destroy();
+          // Loading-task destroy in cleanup owns the proxy — do not double-free.
           return;
         }
-        loaded = doc;
         setPdf(doc);
         setNumPages(doc.numPages);
       } catch (err) {
@@ -144,7 +142,6 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
       } catch {
         /* ignore */
       }
-      if (loaded) void loaded.destroy().catch(() => undefined);
     };
     // locus intentionally omitted — jump effect owns locus changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,13 +151,20 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
     containerRef.current?.querySelectorAll(".pdf-reader-hl").forEach((el) => el.remove());
   }, []);
 
+  const renderingPages = useRef(new Set<number>());
   const renderPage = useCallback(
     async (pageNumber: number) => {
-      if (!pdf || renderedPages.current.has(pageNumber)) return;
+      if (!pdf || renderedPages.current.has(pageNumber) || renderingPages.current.has(pageNumber)) {
+        return;
+      }
+      renderingPages.current.add(pageNumber);
       const host = containerRef.current?.querySelector<HTMLDivElement>(
         `[data-page="${pageNumber}"]`,
       );
-      if (!host) return;
+      if (!host) {
+        renderingPages.current.delete(pageNumber);
+        return;
+      }
       try {
         const pdfPage = await pdf.getPage(pageNumber);
         const viewport = pdfPage.getViewport({ scale });
@@ -180,6 +184,8 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
         renderedPages.current.add(pageNumber);
       } catch {
         /* a failed page must not break the rest of the document — leave unset so retry works */
+      } finally {
+        renderingPages.current.delete(pageNumber);
       }
     },
     [pdf, scale],
@@ -254,7 +260,7 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
     return () => observer.disconnect();
   }, [pdf, numPages, renderPage]);
 
-  // Jump-to-locus: text-scan first, paint only the match, downgrade if ambiguous.
+  // Jump-to-locus: text-scan first, paint the first hit early, downgrade if ambiguous.
   useEffect(() => {
     if (!pdf || !locus) {
       clearHighlights();
@@ -265,55 +271,68 @@ export function PdfReader({ url, locus, page, scale = 1.35 }: PdfReaderProps) {
     clearHighlights();
     setJump({ status: "searching" });
     void (async () => {
-      const order: number[] = [];
-      const hinted = typeof page === "number" ? page + 1 : undefined;
-      if (hinted && hinted >= 1 && hinted <= pdf.numPages) order.push(hinted);
-      for (let n = 1; n <= pdf.numPages; n++) if (n !== hinted) order.push(n);
+      try {
+        const order: number[] = [];
+        const hinted = typeof page === "number" ? page + 1 : undefined;
+        const hintedOk = hinted != null && hinted >= 1 && hinted <= pdf.numPages;
+        if (hintedOk) order.push(hinted!);
+        for (let n = 1; n <= pdf.numPages; n++) if (n !== hinted) order.push(n);
 
-      let firstMatch: { pageNumber: number; confidence: AnchorConfidence } | null = null;
-      let extraMatches = 0;
+        let firstMatch: { pageNumber: number; confidence: AnchorConfidence } | null = null;
+        let extraMatches = 0;
+        let painted = false;
 
-      for (const pageNumber of order) {
-        if (cancelled) return;
-        const confidence = await matchOnPage(pageNumber);
-        if (!confidence) continue;
-        if (!firstMatch) {
-          firstMatch = { pageNumber, confidence };
-          // With a page hint we trust the first hit on that page and stop.
-          if (hinted) break;
-          // Without a hint, keep scanning to detect ambiguous quotes.
-          continue;
+        const paintMatch = async (
+          match: { pageNumber: number; confidence: AnchorConfidence },
+          confidence: AnchorConfidence,
+        ) => {
+          await renderPage(match.pageNumber);
+          if (cancelled) return;
+          clearHighlights();
+          await highlightOnPage(match.pageNumber);
+          if (cancelled) return;
+          const host = containerRef.current?.querySelector<HTMLElement>(
+            `[data-page="${match.pageNumber}"]`,
+          );
+          host?.scrollIntoView({ behavior: "smooth", block: "center" });
+          setJump({
+            status: confidence === "high" ? "found" : "low",
+            pageNumber: match.pageNumber,
+            confidence,
+          });
+        };
+
+        for (const pageNumber of order) {
+          if (cancelled) return;
+          const confidence = await matchOnPage(pageNumber);
+          if (!confidence) continue;
+          if (!firstMatch) {
+            firstMatch = { pageNumber, confidence };
+            // Paint immediately so long PDFs are not stuck on "Locating…".
+            await paintMatch(firstMatch, confidence);
+            painted = true;
+            // Keep scanning for one extra hit so duplicate quotes downgrade.
+            continue;
+          }
+          extraMatches += 1;
+          break;
         }
-        extraMatches += 1;
-        // One extra hit is enough to know the quote is ambiguous.
-        break;
+
+        if (cancelled) return;
+        if (!firstMatch) {
+          setJump({ status: "missed" });
+          return;
+        }
+
+        const finalConfidence: AnchorConfidence =
+          extraMatches > 0 || firstMatch.confidence === "low" ? "low" : firstMatch.confidence;
+
+        if (!painted || finalConfidence !== firstMatch.confidence || extraMatches > 0) {
+          await paintMatch(firstMatch, finalConfidence);
+        }
+      } catch {
+        if (!cancelled) setJump({ status: "missed" });
       }
-
-      if (cancelled) return;
-      if (!firstMatch) {
-        setJump({ status: "missed" });
-        return;
-      }
-
-      const confidence: AnchorConfidence =
-        !hinted && (extraMatches > 0 || firstMatch.confidence === "low")
-          ? "low"
-          : firstMatch.confidence;
-
-      await renderPage(firstMatch.pageNumber);
-      if (cancelled) return;
-      clearHighlights();
-      await highlightOnPage(firstMatch.pageNumber);
-      if (cancelled) return;
-      const host = containerRef.current?.querySelector<HTMLElement>(
-        `[data-page="${firstMatch.pageNumber}"]`,
-      );
-      host?.scrollIntoView({ behavior: "smooth", block: "center" });
-      setJump({
-        status: confidence === "high" ? "found" : "low",
-        pageNumber: firstMatch.pageNumber,
-        confidence,
-      });
     })();
     return () => {
       cancelled = true;

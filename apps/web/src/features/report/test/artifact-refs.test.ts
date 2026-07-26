@@ -215,3 +215,16 @@ test("resolveArtifactRef accepts a recent metric heartbeat", () => {
   );
   assert.equal(result.status, "resolved");
 });
+
+test("resolveArtifactRef matches basename against a signed URL and returns the live URL", () => {
+  const signed = "https://cdn.test/plots/loss.png?token=abc";
+  const done = exp({ id: "exp-done", status: "done", artifacts: [signed] });
+  const result = resolveArtifactRef(
+    { experimentId: "exp-done", artifactName: "loss.png" },
+    { getExperiment: () => done },
+  );
+  assert.equal(result.status, "resolved");
+  if (result.status === "resolved") {
+    assert.equal(result.artifactName, signed);
+  }
+});

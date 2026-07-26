@@ -40,6 +40,10 @@ test("resolvePaperPdfUrl maps arXiv abs and ids to pdf URLs", () => {
     resolvePaperPdfUrl({ url: "https://example.com/paper.pdf" }),
     "https://example.com/paper.pdf",
   );
+  assert.equal(
+    resolvePaperPdfUrl({ url: "https://openreview.net/pdf?id=abc" }),
+    "https://openreview.net/pdf?id=abc",
+  );
   assert.equal(resolvePaperPdfUrl({ url: "https://example.com/landing" }), null);
   assert.equal(resolvePaperPdfUrl({ url: "javascript:alert(1)" }), null);
 });

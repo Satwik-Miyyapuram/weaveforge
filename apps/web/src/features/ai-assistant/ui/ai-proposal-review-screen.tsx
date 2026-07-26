@@ -27,13 +27,15 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
     [evidence.excerpt, evidence.locus],
   );
   const link = useMemo(() => {
-    const fromStored = sanitizeReaderHref(evidence.href);
-    if (fromStored) return fromStored;
+    // Prefer rebuilding from paperId so a stored `/reader?pdf=…` cannot swap the source.
     if (locusLinkIsResolvable({ paperId: evidence.paperId })) {
       return buildLocusLink({ paperId: evidence.paperId, locus: evidence.locus, page: evidence.page });
     }
-    return null;
+    return sanitizeReaderHref(evidence.href);
   }, [evidence.href, evidence.paperId, evidence.locus, evidence.page]);
+
+  const locusMiss =
+    Boolean(evidence.locus) && highlight == null;
 
   return (
     <div className="ai-evidence">
@@ -42,6 +44,11 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
         {highlight?.confidence === "low" && (
           <span className="ai-evidence-warn" title="The source may have changed since this was cited">
             unverified match
+          </span>
+        )}
+        {locusMiss && (
+          <span className="ai-evidence-warn" title="The cited sentence could not be located in this excerpt">
+            locus not found
           </span>
         )}
       </div>
