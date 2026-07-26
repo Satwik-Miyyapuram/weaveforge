@@ -2,57 +2,59 @@
 
 Wraps the deployed PWA (`https://my-thesis-tracker-web.vercel.app`) into an
 installable Android APK/AAB. Same web code — the APK is a thin Chrome wrapper.
-Once the domain is verified via Digital Asset Links, the URL bar is hidden and
-Android treats the app's storage as durable (no eviction on close).
+Once the domain is verified via Digital Asset Links, the URL bar is hidden.
+
+## Releases
+
+Android ships on **`android-v*`** tags (e.g. `android-v3`). Python SDK uses
+**`vX.Y.Z`**. See [docs/release.md](../../../docs/release.md).
+
+```bash
+# after bumping appVersion* in twa-manifest.json and merging to main:
+git tag android-v3
+git push origin android-v3
+```
 
 ## Prerequisites (local machine, one time)
-- JDK 17+  (`java -version`)
+
+- JDK 17+ (`java -version`)
 - Android SDK / command-line tools (Bubblewrap can fetch these on first run)
-- Bubblewrap CLI:  `npm i -g @bubblewrap/cli`
+- Bubblewrap CLI: `npm i -g @bubblewrap/cli`
+- Repo secrets: `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`,
+  `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS` (see `.github/workflows/android-twa.yml`)
 
-## Build
-Run from this directory (`apps/web/twa`):
+## Init / local build
 
 ```bash
-# 1. Initialize from the config (generates the Android project + a signing keystore).
-#    Uses twa-manifest.json in this folder. It will create android-keystore.jks
-#    and prompt for a keystore password — SAVE THAT PASSWORD, it signs every release.
+# From apps/web/twa
 bubblewrap init --manifest ../public/manifest.webmanifest
+# creates android-keystore.jks — SAVE THE PASSWORD; never commit *.jks
 
-# (If init asks, accept the values already in twa-manifest.json.)
-
-# 2. Print the signing-key SHA256 fingerprint.
-bubblewrap fingerprint
-
-# 3. Paste that SHA256 into ../public/.well-known/assetlinks.json
-#    (replace REPLACE_WITH_SHA256_FROM_BUBBLEWRAP_FINGERPRINT), commit, and
-#    redeploy so https://my-thesis-tracker-web.vercel.app/.well-known/assetlinks.json
-#    serves the real fingerprint.
-
-# 4. Build the signed APK (for sideload testing) and AAB (for Play Store).
-bubblewrap build
-# → app-release-signed.apk  and  app-release-bundle.aab
+bubblewrap fingerprint   # SHA-256 for assetlinks.json
+bubblewrap build         # → app-release-signed.apk + app-release-bundle.aab
 ```
 
-## Verify domain linking
-- Deployed file must be reachable:
-  `https://my-thesis-tracker-web.vercel.app/.well-known/assetlinks.json`
-- Check with Google's tester:
-  https://developers.google.com/digital-asset-links/tools/generator
-- If the fingerprint is wrong/missing, the app still runs but shows the Chrome
-  URL bar and storage is not marked durable.
+## Digital Asset Links (fixes the Chrome URL bar)
 
-## Install & test
-```bash
-adb install app-release-signed.apk
-```
-Confirm: no URL bar, app opens standalone, data persists after force-close.
+1. Get the signing SHA-256 (local or CI):
+   ```bash
+   gh workflow run android-fingerprint.yml
+   ```
+   Or: `keytool -list -v -keystore android-keystore.jks -alias weaveforge`
+2. Put it in `../public/.well-known/assetlinks.json` under
+   `sha256_cert_fingerprints` (package `app.weaveforge.twa`).
+3. Deploy the web app so  
+   `https://my-thesis-tracker-web.vercel.app/.well-known/assetlinks.json`  
+   serves the new value.
+4. If you use **Play App Signing**, add Play’s app-signing cert SHA-256 too.
+
+Reinstall the app after assetlinks propagates (sometimes needs a few minutes +
+clearing Chrome’s Digital Asset Links cache / reinstall).
 
 ## Notes
-- `android-keystore.jks` and any `*.keystore` are gitignored — NEVER commit the
-  signing key. Back it up securely; losing it means you can't ship updates under
-  the same app identity.
-- Package id: `app.weaveforge.twa`. Changing it later = a different app.
-- If you use Play App Signing, add Google's signing SHA256 to assetlinks.json
-  too (Play re-signs your upload), else installs from the Store fail verification.
-- Bump `appVersion` + `appVersionCode` in twa-manifest.json for each release.
+
+- `android-keystore.jks` is gitignored — losing it means you cannot update the
+  same app identity.
+- Package id: `app.weaveforge.twa`. Changing it = a different app.
+- Bump `appVersion` / `appVersionName` / `appVersionCode` in `twa-manifest.json`
+  for each Android release.
