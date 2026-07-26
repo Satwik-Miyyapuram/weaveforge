@@ -46,8 +46,8 @@ export function sanitizePdfUrl(raw: string | null | undefined): string | null {
 }
 
 /**
- * Only same-origin `/reader…` paths may be used as evidence deep links.
- * Rebuild via {@link buildLocusLink} when the stored href is untrusted.
+ * Only same-origin `/reader…` paths may be used as evidence deep links into the
+ * PDF reader. Rebuild via {@link buildLocusLink} when the stored href is untrusted.
  */
 export function sanitizeReaderHref(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -55,9 +55,25 @@ export function sanitizeReaderHref(raw: string | null | undefined): string | nul
   if (!trimmed.startsWith("/reader")) return null;
   // Block protocol-relative and scheme smuggling (`/reader@evil`, `/reader\n…`).
   if (/[\s\\]/.test(trimmed)) return null;
-  if (trimmed.length > 1 && trimmed[1] !== "?" && trimmed[1] !== "/" && trimmed !== "/reader") {
-    // Allow `/reader` or `/reader?...` only (no `/reader-evil`).
-    if (!trimmed.startsWith("/reader?")) return null;
+  if (trimmed === "/reader" || trimmed.startsWith("/reader?")) return trimmed;
+  return null;
+}
+
+/**
+ * Same-origin app paths safe to render as evidence "Open source" links
+ * (`/papers`, `/notes`, `/reader`, …). Rejects scheme smuggling and unknown roots.
+ */
+export function sanitizeAppHref(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  if (/[\s\\]/.test(trimmed)) return null;
+  if (
+    !/^\/(reader|papers|notes|report|log|vault|lists|graph|experiments|plan|ai-review|dashboard|settings|org|git|link)(\/|\?|$)/.test(
+      trimmed,
+    )
+  ) {
+    return null;
   }
   return trimmed;
 }

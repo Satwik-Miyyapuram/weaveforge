@@ -12,12 +12,22 @@ const settings: AiAccessSettings = {
 
 test("relay manager starts each session once and stops every live relay on cleanup", () => {
   const stopped: string[] = [];
-  const manager = createMcpRelayManager(({ sessionId }) => () => { stopped.push(sessionId); });
+  const getters: Array<() => AiAccessSettings> = [];
+  const manager = createMcpRelayManager(({ sessionId, getSettings }) => {
+    getters.push(getSettings);
+    return () => { stopped.push(sessionId); };
+  });
 
   manager.ensureRelay("session-a", "secret-a", settings);
   manager.ensureRelay("session-a", "secret-a", settings);
   manager.ensureRelay("session-b", "secret-b", settings);
   assert.deepEqual(manager.runningRelays().map((relay) => relay.sessionId), ["session-a", "session-b"]);
+  assert.equal(getters.length, 2);
+
+  const tightened: AiAccessSettings = { ...settings, readCategories: [] };
+  manager.ensureRelay("session-a", "secret-a", tightened);
+  assert.deepEqual(getters[0]!().readCategories, []);
+  assert.deepEqual(manager.runningRelays().find((r) => r.sessionId === "session-a")?.settings.readCategories, []);
 
   manager.stopAllRelays();
   assert.deepEqual(stopped.sort(), ["session-a", "session-b"]);

@@ -111,15 +111,35 @@ export function ReportScreen() {
       return;
     }
     if (isSharedView || pinnedSharedBy.has(sectionFromUrl)) {
+      const requestedId = sectionFromUrl;
+      let cancelled = false;
       void getContainer()
-        .report.getSection(sectionFromUrl)
+        .report.getSection(requestedId)
         .then((s) => {
-          if (!s) return;
-          appliedSectionFromUrl.current = sectionFromUrl;
+          if (cancelled) return;
+          if (!s) {
+            appliedSectionFromUrl.current = null;
+            setGuestSection(null);
+            setOpenId(null);
+            return;
+          }
+          appliedSectionFromUrl.current = requestedId;
           setGuestSection(s);
-          setOpenId(sectionFromUrl);
+          setOpenId(requestedId);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          appliedSectionFromUrl.current = null;
+          setGuestSection(null);
+          setOpenId(null);
         });
+      return () => {
+        cancelled = true;
+      };
     }
+    appliedSectionFromUrl.current = null;
+    setGuestSection(null);
+    setOpenId(null);
   }, [sectionFromUrl, flat, isSharedView, pinnedSharedBy]);
 
   const closeSection = useCallback(() => {

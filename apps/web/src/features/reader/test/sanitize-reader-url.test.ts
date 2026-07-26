@@ -28,6 +28,16 @@ test("sanitizeReaderHref allows only /reader paths", () => {
   assert.equal(sanitizeReaderHref("/papers"), null);
 });
 
+test("sanitizeAppHref allows known app roots only", async () => {
+  const { sanitizeAppHref } = await import("../application/sanitize-reader-url.js");
+  assert.equal(sanitizeAppHref("/papers?paper=p1"), "/papers?paper=p1");
+  assert.equal(sanitizeAppHref("/notes?id=n1"), "/notes?id=n1");
+  assert.equal(sanitizeAppHref("/reader?paper=p1"), "/reader?paper=p1");
+  assert.equal(sanitizeAppHref("//evil.test"), null);
+  assert.equal(sanitizeAppHref("/evil"), null);
+  assert.equal(sanitizeAppHref("https://evil.test/papers"), null);
+});
+
 test("resolvePaperPdfUrl maps arXiv abs and ids to pdf URLs", () => {
   assert.equal(
     resolvePaperPdfUrl({ url: "https://arxiv.org/abs/1706.03762" }),

@@ -64,10 +64,14 @@ export function ReaderScreen() {
       .then((paper) => {
         if (cancelled) return;
         setTitle(paper?.title ?? null);
+        if (!paper) {
+          setError("Paper not found or inaccessible.");
+          return;
+        }
         const url = resolvePaperPdfUrl({
-          url: paper?.url,
-          arxivId: paper?.arxivId,
-          pdfPath: paper?.pdfPath,
+          url: paper.url,
+          arxivId: paper.arxivId,
+          pdfPath: paper.pdfPath,
         });
         if (url) setPdfUrl(url);
         else setError("This paper has no PDF URL the reader can open (HTML landing pages are skipped).");

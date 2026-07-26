@@ -4,6 +4,7 @@ export { buildLocusLink, locusLinkIsResolvable } from "./application/build-locus
 export {
   sanitizePdfUrl,
   sanitizeReaderHref,
+  sanitizeAppHref,
   resolvePaperPdfUrl,
   proxiedPdfUrl,
   looksLikePdfUrl,

@@ -13,7 +13,12 @@ const POLL_ACTIVE_MS = 1200;
 /** A hidden tab can still serve the local MCP client, just less eagerly. */
 const POLL_HIDDEN_MS = 15_000;
 
-export function startMcpBrowserRelay(input: { sessionId: string; pairingSecret: string; settings: AiAccessSettings }): () => void {
+export function startMcpBrowserRelay(input: {
+  sessionId: string;
+  pairingSecret: string;
+  /** Fresh settings on each dispatch so mid-session policy tightening applies. */
+  getSettings: () => AiAccessSettings;
+}): () => void {
   if (!GENERATED_MCP_ENABLED) return () => undefined;
   let stopped = false;
   let running = false;
@@ -35,9 +40,11 @@ export function startMcpBrowserRelay(input: { sessionId: string; pairingSecret: 
       if (!res.ok) return;
       const payload = await res.json() as { requests?: RelayRequest[] };
       for (const request of payload.requests ?? []) {
+        if (stopped) break;
+        if (!getContainer().aiAssistant.listActiveSessions().some((s) => s.grant.id === input.sessionId)) break;
         try {
           const command = await decrypt(sessionKey, request.request_enc);
-          const result = await dispatch(input.sessionId, input.settings, command);
+          const result = await dispatch(input.sessionId, input.getSettings(), command);
           const envelope = await encrypt(sessionKey, result);
           await fetch("/api/mcp/relay", { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, envelope }) });
         } catch {
@@ -96,6 +103,9 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
           throw new Error("sourceId was provided but no excerpt could be resolved for evidence.");
         }
         const quoteExact = optional(args, "quoteExact");
+        if (quoteExact && !doc.text.includes(quoteExact)) {
+          throw new Error("quoteExact was not found in the source excerpt.");
+        }
         const page = optionalPage(args.page);
         const paperFromSource =
           doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
@@ -103,14 +113,17 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
             : doc.source.resourceType === "zotero_annotation" || doc.source.resourceType === "zotero_note"
               ? doc.source.resourceId.split(":")[0] || undefined
               : undefined;
-        if (paperFromSource && paperFromSource !== paperId) {
+        if (!paperFromSource) {
+          throw new Error("Evidence sourceId must resolve to a paper-scoped source.");
+        }
+        if (paperFromSource !== paperId) {
           throw new Error("Evidence source belongs to a different paper than paperId.");
         }
         evidence = [{
           sourceId,
           excerpt: doc.text,
           label: doc.source.label,
-          ...(paperFromSource ? { paperId: paperFromSource } : {}),
+          paperId: paperFromSource,
           href: doc.source.href,
           ...(quoteExact
             ? {
@@ -171,7 +184,15 @@ function optionalPage(value: unknown): number | undefined {
 function stringList(value: unknown): string[] | undefined { return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined; }
 
 async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("thesis-tracker-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }
-const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+/** Chunked — `String.fromCharCode(...bytes)` overflows the stack on large ciphertexts. */
+const b64 = (bytes: Uint8Array) => {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+};
 const unb64 = (value: string) => Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
 async function encrypt(sessionKey: Promise<CryptoKey>, value: unknown): Promise<Envelope> { const iv = crypto.getRandomValues(new Uint8Array(12)); const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await sessionKey, new TextEncoder().encode(JSON.stringify(value))); return { iv: b64(iv), ciphertext: b64(new Uint8Array(data)) }; }
 async function decrypt(sessionKey: Promise<CryptoKey>, envelope: Envelope): Promise<{ tool?: string; arguments?: Record<string, unknown> }> { const data = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(envelope.iv) }, await sessionKey, unb64(envelope.ciphertext)); return JSON.parse(new TextDecoder().decode(data)); }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { resolveTextAnchor, type PdfLocus, type AnchorConfidence } from "@thesis/core";
+import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy } from "../application/sanitize-reader-url";
 
 /**
@@ -16,6 +17,12 @@ import { sanitizePdfUrl, originalUrlFromProxy } from "../application/sanitize-re
 
 type PdfLib = typeof import("pdfjs-dist");
 type PdfDocument = Awaited<ReturnType<PdfLib["getDocument"]>["promise"]>;
+type RenderTask = ReturnType<Awaited<ReturnType<PdfDocument["getPage"]>>["render"]>;
+
+/** Per-page resolve must ignore document-scoped position offsets. */
+function pageScopedLocus(locus: PdfLocus): PdfLocus {
+  return { quote: locus.quote };
+}
 
 interface TextItemGeometry {
   str: string;
@@ -108,8 +115,9 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
+  const renderTasks = useRef(new Map<number, RenderTask>());
   const renderGeneration = useRef(0);
-  // Accept same-origin proxy paths or allowlisted http(s).
+  // Accept same-origin proxy paths or allowlisted https.
   const safeUrl =
     url.startsWith("/api/pdf-proxy?")
       ? url
@@ -119,12 +127,24 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     originalUrlFromProxy(url) ??
     sanitizePdfUrl(url);
 
+  const cancelRenderTasks = useCallback(() => {
+    for (const task of renderTasks.current.values()) {
+      try {
+        task.cancel();
+      } catch {
+        /* ignore */
+      }
+    }
+    renderTasks.current.clear();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     let task: ReturnType<PdfLib["getDocument"]> | null = null;
     renderGeneration.current += 1;
     renderedPages.current.clear();
     renderingPages.current.clear();
+    cancelRenderTasks();
     setError(null);
     setPdf(null);
     setNumPages(0);
@@ -139,7 +159,20 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       try {
         const lib = await loadPdfLib();
         if (cancelled) return;
-        task = lib.getDocument({ url: safeUrl, isEvalSupported: false });
+        const httpHeaders: Record<string, string> = {};
+        if (safeUrl.startsWith("/api/pdf-proxy?")) {
+          const accessToken = await getContainer().auth.auth.getAccessToken();
+          if (!accessToken) {
+            if (!cancelled) setError("Sign in to open this PDF in the reader.");
+            return;
+          }
+          httpHeaders.Authorization = `Bearer ${accessToken}`;
+        }
+        task = lib.getDocument({
+          url: safeUrl,
+          isEvalSupported: false,
+          ...(Object.keys(httpHeaders).length ? { httpHeaders, withCredentials: false } : {}),
+        });
         if (cancelled) {
           try {
             task.destroy();
@@ -160,6 +193,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     })();
     return () => {
       cancelled = true;
+      cancelRenderTasks();
       try {
         task?.destroy();
       } catch {
@@ -168,7 +202,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     };
     // locus intentionally omitted — jump effect owns locus changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [safeUrl]);
+  }, [safeUrl, cancelRenderTasks]);
 
   const clearHighlights = useCallback(() => {
     containerRef.current?.querySelectorAll(".pdf-reader-hl").forEach((el) => el.remove());
@@ -179,8 +213,9 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     renderGeneration.current += 1;
     renderedPages.current.clear();
     renderingPages.current.clear();
+    cancelRenderTasks();
     clearHighlights();
-  }, [scale, clearHighlights]);
+  }, [scale, clearHighlights, cancelRenderTasks]);
 
   const renderPage = useCallback(
     async (pageNumber: number) => {
@@ -213,11 +248,22 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           host.style.width = `${Math.floor(viewport.width)}px`;
           host.style.height = `${Math.floor(viewport.height)}px`;
           ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-          await pdfPage.render({ canvasContext: ctx, viewport }).promise;
-          if (generation !== renderGeneration.current) return;
+          const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
+          renderTasks.current.set(pageNumber, renderTask);
+          try {
+            await renderTask.promise;
+          } finally {
+            if (renderTasks.current.get(pageNumber) === renderTask) {
+              renderTasks.current.delete(pageNumber);
+            }
+          }
+          if (generation !== renderGeneration.current) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+          }
           renderedPages.current.add(pageNumber);
         } catch {
-          /* a failed page must not break the rest of the document */
+          /* a failed / cancelled page must not break the rest of the document */
         } finally {
           if (renderingPages.current.get(pageNumber) === work) {
             renderingPages.current.delete(pageNumber);
@@ -238,7 +284,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       const content = await pdfPage.getTextContent();
       const items = textItemsFromContent(content);
       const pageText = buildPageText(items);
-      const anchor = resolveTextAnchor(pageText.text, locus);
+      const anchor = resolveTextAnchor(pageText.text, pageScopedLocus(locus));
       return anchor?.confidence ?? null;
     },
     [pdf, locus],
@@ -253,7 +299,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       const content = await pdfPage.getTextContent();
       const items = textItemsFromContent(content);
       const pageText = buildPageText(items);
-      const anchor = resolveTextAnchor(pageText.text, locus);
+      const anchor = resolveTextAnchor(pageText.text, pageScopedLocus(locus));
       if (!anchor) return;
 
       const host = containerRef.current?.querySelector<HTMLDivElement>(

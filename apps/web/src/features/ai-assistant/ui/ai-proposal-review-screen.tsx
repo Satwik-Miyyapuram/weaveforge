@@ -10,7 +10,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Markdown } from "@/components/markdown";
 import { ScreenLoader } from "@/components/thesis-loader";
-import { buildLocusLink, locusLinkIsResolvable, sanitizeReaderHref } from "@/features/reader";
+import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 
 const label: Record<AiWriteProposal["kind"], string> = {
   append_paper_note: "Append to paper note", create_vault_note: "Create vault note",
@@ -27,11 +27,19 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
     [evidence.excerpt, evidence.locus],
   );
   const link = useMemo(() => {
-    // Prefer rebuilding from paperId so a stored `/reader?pdf=…` cannot swap the source.
-    if (locusLinkIsResolvable({ paperId: evidence.paperId })) {
-      return buildLocusLink({ paperId: evidence.paperId, locus: evidence.locus, page: evidence.page });
+    const appHref = sanitizeReaderHref(evidence.href) ?? sanitizeAppHref(evidence.href);
+    // Jump-to-passage only when we have a locus; otherwise keep papers/notes hrefs.
+    if (evidence.paperId && evidence.locus) {
+      return buildLocusLink({
+        paperId: evidence.paperId,
+        locus: evidence.locus,
+        page: evidence.page,
+      });
     }
-    return sanitizeReaderHref(evidence.href);
+    if (evidence.paperId) {
+      return appHref ?? `/papers?paper=${encodeURIComponent(evidence.paperId)}`;
+    }
+    return appHref;
   }, [evidence.href, evidence.paperId, evidence.locus, evidence.page]);
 
   const locusMiss =
@@ -122,7 +130,23 @@ export function AiProposalReviewScreen() {
               {evidence.map((ev, i) => <EvidencePane key={`${item.id}-${ev.sourceId}-${i}`} evidence={ev} />)}
             </div>}
           </div>
-          {evidence.length === 0 && item.sourceLinks.length > 0 && <p className="muted">Sources: {item.sourceLinks.join(", ")}</p>}
+          {evidence.length === 0 && item.sourceLinks.length > 0 && (
+            <p className="muted">
+              Sources:{" "}
+              {item.sourceLinks.map((raw, i) => {
+                const href = sanitizeReaderHref(raw) ?? sanitizeAppHref(raw);
+                const sep = i > 0 ? ", " : "";
+                return href ? (
+                  <span key={`${item.id}-src-${i}`}>
+                    {sep}
+                    <Link href={href}>{raw}</Link>
+                  </span>
+                ) : (
+                  <span key={`${item.id}-src-${i}`}>{sep}{raw}</span>
+                );
+              })}
+            </p>
+          )}
           <div className="ai-review-actions"><button className="link-danger" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="primary-btn" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : item.kind === "append_paper_note" ? "Approve and append" : "Approve"}</button></div>
         </article>;
       })}</div>

@@ -177,16 +177,31 @@ export function PapersScreen() {
       void getContainer()
         .papers.getPaper(requestedId)
         .then((p) => {
-          if (cancelled || !p) return;
-          if (paperFromUrl !== requestedId) return;
+          if (cancelled) return;
+          if (!p) {
+            appliedPaperFromUrl.current = null;
+            setGuestPaper(null);
+            setOpenId(null);
+            return;
+          }
           appliedPaperFromUrl.current = requestedId;
           setGuestPaper(p);
           setOpenId(requestedId);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          appliedPaperFromUrl.current = null;
+          setGuestPaper(null);
+          setOpenId(null);
         });
       return () => {
         cancelled = true;
       };
     }
+    // Unknown / unshared id — don't keep showing a previous paper under a new URL.
+    appliedPaperFromUrl.current = null;
+    setGuestPaper(null);
+    setOpenId(null);
   }, [paperFromUrl, papers, isSharedView, pinnedSharedBy]);
 
   const closePaper = useCallback(() => {

@@ -9,20 +9,34 @@ import type { PdfLocus, TextPositionSelector, TextQuoteSelector } from "./pdf-lo
  * let `URLSearchParams` / the URL API percent-encode once — do not pre-encode.
  */
 
+const MAX_LOCUS_PARAM_CHARS = 8_000;
+const MAX_QUOTE_FIELD_CHARS = 2_000;
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === "string";
+}
+
 function isQuote(value: unknown): value is TextQuoteSelector {
   if (typeof value !== "object" || value === null) return false;
   const q = value as Record<string, unknown>;
-  return q.type === "TextQuoteSelector" && typeof q.exact === "string" && q.exact.length > 0;
+  if (q.type !== "TextQuoteSelector" || typeof q.exact !== "string" || q.exact.length === 0) {
+    return false;
+  }
+  if (q.exact.length > MAX_QUOTE_FIELD_CHARS) return false;
+  if (!isOptionalString(q.prefix) || !isOptionalString(q.suffix)) return false;
+  if (typeof q.prefix === "string" && q.prefix.length > MAX_QUOTE_FIELD_CHARS) return false;
+  if (typeof q.suffix === "string" && q.suffix.length > MAX_QUOTE_FIELD_CHARS) return false;
+  return true;
 }
 
 function isPosition(value: unknown): value is TextPositionSelector {
   if (typeof value !== "object" || value === null) return false;
   const p = value as Record<string, unknown>;
-  return (
-    p.type === "TextPositionSelector" &&
-    typeof p.start === "number" &&
-    typeof p.end === "number"
-  );
+  if (p.type !== "TextPositionSelector") return false;
+  if (typeof p.start !== "number" || typeof p.end !== "number") return false;
+  if (!Number.isFinite(p.start) || !Number.isFinite(p.end)) return false;
+  if (p.start < 0 || p.end < p.start) return false;
+  return true;
 }
 
 function parseLocusJson(raw: string): unknown {
@@ -53,6 +67,7 @@ export function encodeLocus(locus: PdfLocus): string {
 /** Parse a locus param back into a `PdfLocus`, or null when malformed. */
 export function decodeLocus(raw: string | null | undefined): PdfLocus | null {
   if (!raw) return null;
+  if (raw.length > MAX_LOCUS_PARAM_CHARS) return null;
   const parsed = parseLocusJson(raw);
   if (typeof parsed !== "object" || parsed === null) return null;
   const candidate = parsed as Record<string, unknown>;

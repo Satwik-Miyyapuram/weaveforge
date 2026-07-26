@@ -11,12 +11,12 @@ import {
   type ArtifactRef,
 } from "./artifact-refs";
 
-/** Same rules as artifact-refs `escapeAlt`, plus strip attr breakouts for XSS. */
+/** Same rules as artifact-refs `escapeAlt`, plus strip attr breakouts / markdown meta. */
 export function safeArtifactCaption(alt: string | undefined): string {
   const cleaned = (alt ?? "")
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/["'<>`\[\]]/g, "")
+    .replace(/["'<>`\[\]*_~\\]/g, "")
     .replace(/&/g, "")
     .trim();
   return cleaned || "artifact";

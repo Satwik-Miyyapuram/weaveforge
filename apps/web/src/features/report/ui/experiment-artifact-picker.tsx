@@ -11,15 +11,27 @@ function artifactLabel(name: string, siblings: readonly string[]): string {
   const base = artifactBasename(name) || name;
   const collisions = siblings.filter((a) => (artifactBasename(a) || a) === base);
   if (collisions.length <= 1) return base;
+  let host = "";
   try {
-    const host = new URL(name).hostname;
-    if (host) return `${base} (${host})`;
+    host = new URL(name).hostname;
   } catch {
     /* not a URL */
   }
-  // Truncate the distinguishing tail of the full path/URL.
-  const tail = name.length > 48 ? `…${name.slice(-44)}` : name;
-  return `${base} — ${tail}`;
+  const withHost = host ? `${base} (${host})` : base;
+  const hostStillCollides =
+    host &&
+    collisions.filter((a) => {
+      try {
+        return new URL(a).hostname === host;
+      } catch {
+        return false;
+      }
+    }).length > 1;
+  if (!host || hostStillCollides) {
+    const tail = name.length > 48 ? `…${name.slice(-44)}` : name;
+    return `${base} — ${tail}`;
+  }
+  return withHost;
 }
 
 /**

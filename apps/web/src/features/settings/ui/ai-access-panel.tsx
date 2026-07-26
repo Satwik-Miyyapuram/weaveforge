@@ -171,6 +171,13 @@ export function AiAccessPanel({ settings, onChange }: {
     return () => { cancelled = true; };
   }, [access.enabled, encryptionUnlocked]);
 
+  // Push tightened AI access into any live relay without restarting the poll loop.
+  useEffect(() => {
+    for (const entry of runningRelays()) {
+      ensureRelay(entry.sessionId, entry.secret, access);
+    }
+  }, [access]);
+
   function toggleSource(sourceId: string) {
     setSelectedSourceIds((current) => current.includes(sourceId)
       ? current.filter((id) => id !== sourceId)

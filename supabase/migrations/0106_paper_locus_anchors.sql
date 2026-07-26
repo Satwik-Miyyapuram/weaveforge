@@ -43,6 +43,7 @@ alter table paper_locus_anchors enable row level security;
 
 grant select, insert, update, delete on paper_locus_anchors to authenticated;
 
+drop policy if exists paper_locus_anchors_own on paper_locus_anchors;
 create policy paper_locus_anchors_own on paper_locus_anchors
   for all
   to authenticated

@@ -49,3 +49,26 @@ test("decodeLocus drops an invalid position but keeps the quote", () => {
     quote: { type: "TextQuoteSelector", exact: "keep me" },
   });
 });
+
+test("decodeLocus rejects oversized or mistyped quote/position fields", () => {
+  assert.equal(decodeLocus("x".repeat(9000)), null);
+  assert.equal(
+    decodeLocus(
+      JSON.stringify({
+        quote: { type: "TextQuoteSelector", exact: "ok", prefix: 12 },
+      }),
+    ),
+    null,
+  );
+  assert.deepEqual(
+    decodeLocus(
+      JSON.stringify({
+        quote: { type: "TextQuoteSelector", exact: "ok" },
+        position: { type: "TextPositionSelector", start: 5, end: 1 },
+      }),
+    ),
+    {
+      quote: { type: "TextQuoteSelector", exact: "ok" },
+    },
+  );
+});

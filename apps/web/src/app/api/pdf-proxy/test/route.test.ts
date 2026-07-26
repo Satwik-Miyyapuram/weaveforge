@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GET, isAllowedPdfProxyUrl } from "../route";
+import { GET, isAllowedPdfProxyUrl, proxyAllowlistedPdf } from "../route";
 
 function stubFetch(handler: (url: string) => Response) {
   const original = globalThis.fetch;
@@ -23,12 +23,18 @@ test("pdf-proxy: allowlist accepts arxiv/openreview https only", () => {
   assert.equal(isAllowedPdfProxyUrl("javascript:alert(1)"), false);
 });
 
-test("pdf-proxy: 400 when url is missing or not allowlisted", async () => {
-  const missing = await GET(new Request("http://localhost/api/pdf-proxy"));
-  assert.equal(missing.status, 400);
-  const bad = await GET(
-    new Request("http://localhost/api/pdf-proxy?url=" + encodeURIComponent("https://evil.test/a.pdf")),
+test("pdf-proxy: GET requires authentication", async () => {
+  const res = await GET(
+    new Request(
+      "http://localhost/api/pdf-proxy?url=" +
+        encodeURIComponent("https://arxiv.org/pdf/1706.03762"),
+    ),
   );
+  assert.equal(res.status, 401);
+});
+
+test("pdf-proxy: 400 when url is not allowlisted", async () => {
+  const bad = await proxyAllowlistedPdf("https://evil.test/a.pdf");
   assert.equal(bad.status, 400);
 });
 
@@ -41,12 +47,7 @@ test("pdf-proxy: streams an allowlisted PDF", async () => {
     });
   });
   try {
-    const res = await GET(
-      new Request(
-        "http://localhost/api/pdf-proxy?url=" +
-          encodeURIComponent("https://arxiv.org/pdf/1706.03762"),
-      ),
-    );
+    const res = await proxyAllowlistedPdf("https://arxiv.org/pdf/1706.03762");
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("content-type"), "application/pdf");
     assert.equal(res.headers.get("x-content-type-options"), "nosniff");
@@ -65,12 +66,7 @@ test("pdf-proxy: rejects HTML on an allowlisted host", async () => {
     }),
   );
   try {
-    const res = await GET(
-      new Request(
-        "http://localhost/api/pdf-proxy?url=" +
-          encodeURIComponent("https://arxiv.org/html/1706.03762"),
-      ),
-    );
+    const res = await proxyAllowlistedPdf("https://arxiv.org/html/1706.03762");
     assert.equal(res.status, 415);
   } finally {
     restore();
@@ -85,13 +81,27 @@ test("pdf-proxy: rejects bodies that fail the %PDF magic sniff", async () => {
     }),
   );
   try {
-    const res = await GET(
-      new Request(
-        "http://localhost/api/pdf-proxy?url=" +
-          encodeURIComponent("https://arxiv.org/pdf/fake"),
-      ),
-    );
+    const res = await proxyAllowlistedPdf("https://arxiv.org/pdf/fake");
     assert.equal(res.status, 415);
+  } finally {
+    restore();
+  }
+});
+
+test("pdf-proxy: accepts magic within the first 1KiB (not only byte 0)", async () => {
+  const restore = stubFetch(() => {
+    const prefix = new Uint8Array(8).fill(0);
+    const body = new Uint8Array(prefix.length + 8);
+    body.set(prefix);
+    body.set(new TextEncoder().encode("%PDF-1.4"), prefix.length);
+    return new Response(body, {
+      status: 200,
+      headers: { "content-type": "application/octet-stream" },
+    });
+  });
+  try {
+    const res = await proxyAllowlistedPdf("https://arxiv.org/pdf/offset");
+    assert.equal(res.status, 200);
   } finally {
     restore();
   }
@@ -107,12 +117,7 @@ test("pdf-proxy: refuses off-allowlist redirects before following", async () => 
     });
   });
   try {
-    const res = await GET(
-      new Request(
-        "http://localhost/api/pdf-proxy?url=" +
-          encodeURIComponent("https://arxiv.org/ct?url=http://evil"),
-      ),
-    );
+    const res = await proxyAllowlistedPdf("https://arxiv.org/ct?url=http://evil");
     assert.equal(res.status, 400);
     assert.deepEqual(seen, ["https://arxiv.org/ct?url=http://evil"]);
   } finally {

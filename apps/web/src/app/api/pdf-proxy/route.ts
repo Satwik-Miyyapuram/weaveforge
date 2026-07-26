@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireSdkUser } from "@/app/api/sdk/_shared";
 import {
   isAllowedPdfProxyUrl,
   PDF_PROXY_MAX_BYTES,
@@ -11,15 +12,16 @@ import {
  * pdf.js cannot fetch them from the browser. This route fetches on the server
  * for an allowlisted set of hosts and streams the bytes back same-origin.
  *
- * Security: only https URLs on the allowlist; no credentials; redirects are
- * followed manually only while each Location stays on the allowlist. Responses
- * must be PDF (magic + content-type). Body size is counted on the stream.
+ * Security: authenticated callers only; https allowlist; manual redirects;
+ * PDF magic + content-type; streamed byte cap. Header fetch has a short
+ * timeout; the body stream is not aborted by that header budget.
  */
 
 export const runtime = "nodejs";
 
 const MAX_REDIRECTS = 5;
-const FETCH_TIMEOUT_MS = 30_000;
+const HEADER_TIMEOUT_MS = 30_000;
+const PDF_MAGIC_WINDOW = 1024;
 
 export { isAllowedPdfProxyUrl };
 
@@ -63,21 +65,81 @@ function cappedPdfStream(body: ReadableStream<Uint8Array>, maxBytes: number): Re
   });
 }
 
-async function fetchAllowlisted(startUrl: string): Promise<Response | NextResponse> {
+async function readPrefix(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  minBytes: number,
+  maxBytes: number,
+): Promise<{ head: Uint8Array; rest: ReadableStream<Uint8Array> } | null> {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (total < minBytes) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    total += value.byteLength;
+    if (total >= maxBytes) break;
+  }
+  if (total === 0) return null;
+  const head = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    head.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const rest = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(head);
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            return;
+          }
+          controller.enqueue(value);
+        }
+      } catch (err) {
+        controller.error(err);
+      }
+    },
+    cancel(reason) {
+      return reader.cancel(reason);
+    },
+  });
+  return { head, rest };
+}
+
+function hasPdfMagic(bytes: Uint8Array): boolean {
+  const window = bytes.subarray(0, Math.min(PDF_MAGIC_WINDOW, bytes.byteLength));
+  const ascii = new TextDecoder("latin1").decode(window);
+  return ascii.includes("%PDF");
+}
+
+/** Core proxy logic (auth already enforced by the route). Exported for unit tests. */
+export async function proxyAllowlistedPdf(startUrl: string): Promise<Response> {
   let current = startUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     if (!isAllowedPdfProxyUrl(current)) {
       return NextResponse.json({ error: "URL host is not allowed for PDF proxy" }, { status: 400 });
     }
-    const upstream = await fetch(current, {
-      redirect: "manual",
-      cache: "no-store",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: {
-        "User-Agent": "weaveforge-reader/1.0 (mailto:noreply@example.com)",
-        Accept: "application/pdf,*/*",
-      },
-    });
+    const headerAbort = new AbortController();
+    const headerTimer = setTimeout(() => headerAbort.abort(), HEADER_TIMEOUT_MS);
+    let upstream: Response;
+    try {
+      upstream = await fetch(current, {
+        redirect: "manual",
+        cache: "no-store",
+        signal: headerAbort.signal,
+        headers: {
+          "User-Agent": "weaveforge-reader/1.0 (mailto:noreply@example.com)",
+          Accept: "application/pdf,*/*",
+        },
+      });
+    } catch {
+      clearTimeout(headerTimer);
+      return NextResponse.json({ error: "Upstream fetch failed" }, { status: 502 });
+    }
+    clearTimeout(headerTimer);
 
     if (upstream.status >= 300 && upstream.status < 400) {
       const location = upstream.headers.get("location");
@@ -104,7 +166,7 @@ async function fetchAllowlisted(startUrl: string): Promise<Response | NextRespon
       const status = upstream.status;
       void upstream.body?.cancel().catch(() => undefined);
       return NextResponse.json(
-        { error: `Upstream returned ${status}` },
+        { error: "Upstream fetch failed" },
         { status: status >= 400 && status < 600 ? status : 502 },
       );
     }
@@ -127,42 +189,16 @@ async function fetchAllowlisted(startUrl: string): Promise<Response | NextRespon
       return NextResponse.json({ error: "Upstream is not a PDF" }, { status: 415 });
     }
 
-    // Sniff the first bytes for %PDF before streaming the rest.
-    const reader = upstream.body.getReader();
-    const first = await reader.read();
-    if (first.done || !first.value?.byteLength) {
-      await reader.cancel().catch(() => undefined);
+    const prefixed = await readPrefix(upstream.body.getReader(), 5, PDF_MAGIC_WINDOW);
+    if (!prefixed) {
       return NextResponse.json({ error: "Empty upstream body" }, { status: 415 });
     }
-    const head = first.value;
-    const magic = new TextDecoder("ascii").decode(head.subarray(0, Math.min(5, head.byteLength)));
-    if (!magic.startsWith("%PDF")) {
-      await reader.cancel().catch(() => undefined);
+    if (!hasPdfMagic(prefixed.head)) {
+      void prefixed.rest.cancel().catch(() => undefined);
       return NextResponse.json({ error: "Upstream is not a PDF" }, { status: 415 });
     }
 
-    const rest = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        controller.enqueue(head);
-        try {
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) {
-              controller.close();
-              return;
-            }
-            controller.enqueue(value);
-          }
-        } catch (err) {
-          controller.error(err);
-        }
-      },
-      cancel(reason) {
-        return reader.cancel(reason);
-      },
-    });
-
-    return new NextResponse(cappedPdfStream(rest, PDF_PROXY_MAX_BYTES), {
+    return new NextResponse(cappedPdfStream(prefixed.rest, PDF_PROXY_MAX_BYTES), {
       status: 200,
       headers: pdfResponseHeaders(),
     });
@@ -172,6 +208,9 @@ async function fetchAllowlisted(startUrl: string): Promise<Response | NextRespon
 }
 
 export async function GET(request: Request) {
+  const auth = await requireSdkUser(request);
+  if (!auth.ok) return auth.response;
+
   const target = new URL(request.url).searchParams.get("url");
   if (!target) {
     return NextResponse.json({ error: "url is required" }, { status: 400 });
@@ -180,13 +219,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "URL host is not allowed for PDF proxy" }, { status: 400 });
   }
 
-  try {
-    return await fetchAllowlisted(target);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Upstream fetch failed";
-    if (message === "PDF too large") {
-      return NextResponse.json({ error: "PDF too large" }, { status: 413 });
-    }
-    return NextResponse.json({ error: message }, { status: 502 });
-  }
+  return proxyAllowlistedPdf(target);
 }
