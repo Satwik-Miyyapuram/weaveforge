@@ -22,14 +22,12 @@ Verified 2026-07-25:
 
 AGPL-3.0 code may be combined with AGPL-3.0 code. §13 requires that network users be offered the corresponding source of any modified version — WeaveForge publishes all of its source, so the hosted service is compliant by default. The pricing model (`docs/pricing-strategy.md`) charges for operator cost and withholds no features, which is precisely the model AGPL was written for.
 
-**This changes the plan's cost profile substantially.** ZotFlow's README credits its embedded PDF/EPUB/HTML reader engine to the Zotero Reader project. That engine is now available to us on the same terms it was available to them. Building the reader from scratch on pdf.js was the single most expensive item in this plan; vendoring `zotero/reader` removes most of it and brings Zotero annotation-format compatibility along for free.
-
-**Decision: evaluate `zotero/reader` as the reader engine before writing pdf.js integration code.** It builds three variants (`dev`, `web`, `zotero`); the `web` build is the candidate. See §6.1 for the evaluation criteria and the pdf.js fallback.
+**This changes the plan's cost profile.** ZotFlow's README credits its embedded PDF/EPUB/HTML reader engine to the Zotero Reader project. That engine is now legally available to us on the same terms it was available to them — which turns "which engine" from a licensing question into an engineering one. It was settled as **pdf.js**; see §1.1 for the decision and §1.2 for what we copy from Zotero Reader regardless.
 
 Practical rules that still apply:
 
 - **The repository is AGPL-3.0-only throughout, with no permissive carve-outs.** Incoming code must be AGPL-compatible: permissive licences (Apache-2.0, MIT, BSD) are fine and are recorded in `/NOTICE`; anything incompatible with AGPL-3.0 is not. A CI licence check should enforce compatibility repo-wide.
-- ZotFlow's source is legally usable now, but **prefer independent implementation**. Their code is built around Obsidian's plugin API and vault model, neither of which we have; lifting it would import assumptions that do not hold here. Match behaviour, take the engine, write our own integration.
+- ZotFlow's source is legally usable, but **prefer independent implementation**. Their code is built around Obsidian's plugin API and vault model, neither of which we have; lifting it would import assumptions that do not hold here. Match behaviour, write our own integration.
 - Record every vendored component in `/NOTICE` with its upstream project and licence.
 - Keep interoperating with Zotero's annotation JSON shape (`features/papers/infrastructure/zotero-annotations.ts`) — that was always a data format, never a licensing question.
 
@@ -37,7 +35,7 @@ Practical rules that still apply:
 
 ### 1.1 Reader engine — DECIDED 2026-07-25: **pdf.js**
 
-See `docs/future-work/roadmap-2026-07-phased.md` §C1 for the full rationale. Summary of the evidence that settled it: `zotero/reader` is actively maintained (pushed 2026-07-24) but is **not published to npm**, and building it requires recursive git submodules plus `NODE_OPTIONS=--openssl-legacy-provider`. Consuming it means vendoring a submodule and building from source in CI, on a legacy webpack toolchain, inside a Next.js 14 PWA with a ~1MB gzipped reader-chunk budget. We are also buying far more than we need: per decision C3 the scope is a **read-only rendering surface**, not an annotator.
+See `docs/future-work/roadmap-2026-07-phased.md` §D1 for the full rationale. Summary of the evidence that settled it: `zotero/reader` is actively maintained (pushed 2026-07-24) but is **not published to npm**, and building it requires recursive git submodules plus `NODE_OPTIONS=--openssl-legacy-provider`. Consuming it means vendoring a submodule and building from source in CI, on a legacy webpack toolchain, inside a Next.js 14 PWA with a ~1MB gzipped reader-chunk budget. We are also buying far more than we need: per decision D3 the scope is a **read-only rendering surface**, not an annotator.
 
 The anchor model in `packages/core/src/reader/` is renderer-agnostic, so this decision is cheap to revisit. **Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
 
@@ -68,17 +66,20 @@ The criteria below are retained for that revisit.
 
 **Why the commit SHA matters.** Vendored code with no recorded origin becomes unmaintainable within months: nobody can tell what was changed locally versus what upstream has since fixed. The SHA is what makes a future diff possible.
 
+### 1.3 Criteria if the engine decision is ever revisited
+
+Not active work. Retained so a future revisit of D1 starts from evidence rather than from scratch. Triggers: `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
+
 | Question | Why it matters |
 |----------|----------------|
-| Does the `web` build run standalone outside the Zotero client? | It is built for Zotero's environment; the `web` variant suggests yes, but this is the make-or-break question |
+| Does the `web` build run standalone outside the Zotero client? | It is built for Zotero's environment; the `dev` variant serving `reader.html` suggests yes, but this is the make-or-break question |
 | Bundle size, and can it be lazily imported? | §6 budgets under ~1MB gzipped for the reader chunk; the Zotero engine is likely larger |
 | Can its annotation layer be driven from our data model? | We need both Zotero rects and W3C selectors (§5.1) |
 | How is it themed? | Must accept the Catppuccin themes (`docs/themes.md`) |
 | Update cadence and coupling to Zotero client releases | We would inherit their release cycle |
 | EPUB and HTML support included? | Would collapse Phase 4's EPUB work into Phase 1 |
 
-**If it runs standalone at acceptable size:** adopt it, and Phases 1–2 shrink dramatically.
-**If it does not:** fall back to pdf.js exactly as originally planned — the rest of this document holds unchanged, since everything downstream is written against our own anchor model, not against a specific renderer.
+If a revisit ever adopts the engine wholesale, Phases 1–2 shrink substantially. Everything downstream is written against our own anchor model rather than a specific renderer, so the switch stays cheap.
 
 ---
 
@@ -88,11 +89,11 @@ Brief §11 currently reads: *"Full in-app PDF annotator (Zotero owns PDFs/annota
 
 That non-goal assumed two options — delegate entirely to Zotero, or build an annotator. ZotFlow demonstrates a third the rationale never costed. This plan supersedes the non-goal, but narrows it rather than discarding it:
 
-**New position — narrowed by decision C3 (2026-07-25).** WeaveForge renders PDFs in-app **read-only**, to verify AI provenance and support jump-to-locus. It does **not** create or edit annotations in-app. Zotero remains the system of record; existing annotations render read-only, and write-back is deferred to its own decision (C2).
+**New position — narrowed by decision D3 (2026-07-25).** WeaveForge renders PDFs in-app **read-only**, to verify AI provenance and support jump-to-locus. It does **not** create or edit annotations in-app. Zotero remains the system of record; existing annotations render read-only, and write-back is deferred to its own decision (D2).
 
 What stays a non-goal: creating or editing annotations in-app, becoming a PDF storage service, an OCR pipeline, or a Zotero replacement.
 
-This is a smaller amendment than earlier drafts of this section proposed, and it follows from C1 and C2 rather than driving them.
+This is a smaller amendment than earlier drafts of this section proposed, and it follows from D1 and D2 rather than driving them.
 
 Amend §11 and §6.1 ("PDFs are not stored in-product") before build. §6.1's claim becomes "PDFs are not stored in-product *by default*."
 

@@ -1,8 +1,8 @@
 # WeaveForge — phased delivery plan (July 2026 roadmap)
 
-**Date:** 2026-07-25
+**Date:** 2026-07-25 · **Last updated:** 2026-07-26
 **Source of priorities:** `docs/competitive-research-verified-2026-07.md` §6 — a P0/P1/P2 list with effort × impact, but no sequencing.
-**This document** turns that list into ordered phases with dependencies, decision gates, and exit criteria.
+**This document** turns that list into ordered phases with dependencies and exit criteria. Phase letters label work (A–F); the resolved decisions are labelled D1–D4 because they scope the reader phase, and are not themselves a phase.
 
 ## Why this exists
 
@@ -106,7 +106,7 @@ Make Phase B reachable. Four jobs, all small, all against APIs that already exis
 
 **Not a phase.** These were a gate that blocked the reader work; all four are now decided and Phase D is unblocked. Rationale is recorded so each can be revisited on evidence rather than re-argued from scratch.
 
-### C1 — Reader engine: **pdf.js.** `zotero/reader` documented as fallback.
+### D1 — Reader engine: **pdf.js.** `zotero/reader` documented as fallback.
 
 Evidence gathered 2026-07-25:
 
@@ -125,7 +125,7 @@ The reasons below are why we do **not** adopt their engine wholesale:
 
 1. **No npm package** means vendoring a submodule and building it from source inside our CI. That is a permanent maintenance tax on a solo project, and it is not a decision that is cheap to reverse.
 2. **`--openssl-legacy-provider`** signals a legacy webpack toolchain. Our host is Next.js 14 with a Serwist service worker and a reader-chunk budget under ~1MB gzipped (`pdf-viewer-plan.md` §6). That is an impedance mismatch, not a detail.
-3. **We are buying far less than the engine sells.** Per C3 below, Phase D needs a *read-only rendering surface for provenance verification*, not a full annotator. Taking the whole engine to get a viewer is over-buying.
+3. **We are buying far less than the engine sells.** Per D3 below, Phase D needs a *read-only rendering surface for provenance verification*, not a full annotator. Taking the whole engine to get a viewer is over-buying.
 4. **The anchor model is already renderer-agnostic** (`packages/core/src/reader/`), so choosing pdf.js costs little and preserves the option.
 
 **Honest counter:** ZotFlow embeds this engine successfully, so it is demonstrably possible. But ZotFlow is an Obsidian plugin — Electron, no bundle budget, no SSR, no service worker. A far friendlier host than a Next.js PWA.
@@ -134,19 +134,19 @@ The reasons below are why we do **not** adopt their engine wholesale:
 
 **Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
 
-### C2 — Zotero write-back: **deferred. Phase D is read-only.**
+### D2 — Zotero write-back: **deferred. Phase D is read-only.**
 
 The API spike needs live credentials and mutates a real Zotero library, so it cannot be done unsupervised. Rather than let that block everything, **remove it from the critical path**: Phase D reads and renders annotations, and creates none.
 
 This costs little. Annotations already sync inbound (§6.1), and the provenance UI — the actual P0 — only needs to *display* evidence. Write-back becomes its own later decision with its own spike, when a human can watch it.
 
-### C3 — Brief §11 amendment: **narrow, not broad.**
+### D3 — Brief §11 amendment: **narrow, not broad.**
 
 Amend the non-goal to permit **a read-only PDF rendering surface for provenance verification and jump-to-locus**. Explicitly still non-goals: creating or editing annotations in-app, becoming a PDF storage service, replacing Zotero as system of record.
 
-This is a smaller change than `pdf-viewer-plan.md` §2 originally proposed, and it follows from C1 and C2 rather than driving them.
+This is a smaller change than `pdf-viewer-plan.md` §2 originally proposed, and it follows from D1 and D2 rather than driving them.
 
-### C4 — Migration policy for agent work: **write, never apply.**
+### D4 — Migration policy for agent work: **write, never apply.**
 
 An agent **may author** migration files under `supabase/migrations/` when a task requires schema. It must **never apply, run, or otherwise execute them** against any database, and must never modify an existing migration.
 
@@ -156,16 +156,16 @@ Each new migration is committed as a file for human review and application. This
 
 ## Phase D — Reader and provenance (read-only)
 
-**Unblocked.** Scope set by C1 (pdf.js), C2 (read-only), C3 (narrow non-goal), C4 (migrations authored not applied).
+**Unblocked.** Scope set by D1 (pdf.js), D2 (read-only), D3 (narrow non-goal), D4 (migrations authored not applied).
 
 | Item | Roadmap | Effort | Notes |
 |------|---------|--------|-------|
-| Locus persistence | — | M | Migration **authored** for stored anchors; a human applies it (C4). |
+| Locus persistence | — | M | Migration **authored** for stored anchors; a human applies it (D4). |
 | pdf.js render surface | — | M | Read-only. Dynamic import, worker off main thread, virtualised pages, text layer on demand. Chunk budget ~1MB gzipped; **zero bytes added to first paint on non-reader routes**. |
 | Jump-to-locus | P1 | M | Uses A-2/2b/5. Resolve by quote, fall back to position, surface low confidence rather than jumping wrong. |
 | **Provenance UI at `/ai-review`** | **P0** | M | Split pane: proposed write on one side, source excerpt with the used sentence highlighted on the other, surrounding context dimmed. **Design for a review queue, not a chat pane** — that constraint is what makes it ours rather than a copy of Elicit. |
 
-**Not in this phase** (C2): creating, editing, or writing back annotations. Existing Zotero annotations render read-only.
+**Not in this phase** (D2): creating, editing, or writing back annotations. Existing Zotero annotations render read-only.
 
 **Exit criteria:** an AI proposal at `/ai-review` shows claim-level evidence, and clicking it opens the source at the exact locus without leaving the app.
 

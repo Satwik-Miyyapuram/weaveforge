@@ -59,7 +59,7 @@ npm run build:core
 **Never touch:**
 
 - Any RLS policy
-- **Migrations — amended policy (decision C4, 2026-07-25):** you **may author** a new migration file under `supabase/migrations/` when a task explicitly requires schema. You must **never apply, run, or execute** a migration against any database, and never edit an existing migration file. Commit new migrations as files for human review. No task in this queue currently requires one.
+- **Migrations — amended policy (decision D4, 2026-07-25):** you **may author** a new migration file under `supabase/migrations/` when a task explicitly requires schema. You must **never apply, run, or execute** a migration against any database, and never edit an existing migration file. Commit new migrations as files for human review. No task in this queue currently requires one.
 - any `.env` file, `local-dev/**`, `apps/web/e2e/.auth/**`
 - `package.json` dependencies — no new packages, for any task
 - `python/**` or `plugins/**`
