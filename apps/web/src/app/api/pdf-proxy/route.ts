@@ -81,7 +81,10 @@ async function readPrefix(
     chunks.push(value);
     total += value.byteLength;
   }
-  if (total < minBytes) return null;
+  if (total < minBytes) {
+    await reader.cancel().catch(() => undefined);
+    return null;
+  }
   const head = new Uint8Array(Math.min(total, maxBytes));
   let offset = 0;
   for (const chunk of chunks) {

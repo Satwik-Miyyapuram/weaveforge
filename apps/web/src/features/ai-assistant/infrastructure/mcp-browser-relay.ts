@@ -46,11 +46,30 @@ export function startMcpBrowserRelay(input: {
           const command = await decrypt(sessionKey, request.request_enc);
           const result = await dispatch(input.sessionId, input.getSettings(), command);
           const envelope = await encrypt(sessionKey, result);
-          try {
-            await fetch("/api/mcp/relay", { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, envelope }) });
-          } catch {
-            // Transport failure after a successful dispatch — do not cancel; the
-            // relay may still accept a retry from a later tick / other tab.
+          let delivered = false;
+          for (let attempt = 0; attempt < 3 && !delivered; attempt++) {
+            try {
+              const patch = await fetch("/api/mcp/relay", {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ id: request.id, envelope }),
+              });
+              delivered = patch.ok;
+              if (!delivered && attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+            } catch {
+              if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+            }
+          }
+          if (!delivered) {
+            try {
+              await fetch("/api/mcp/relay", {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ id: request.id, status: "cancelled" }),
+              });
+            } catch {
+              /* ignore */
+            }
           }
         } catch {
           // A malformed or no-longer-permitted request must not be retried by

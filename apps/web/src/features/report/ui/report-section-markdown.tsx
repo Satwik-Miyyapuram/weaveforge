@@ -29,14 +29,23 @@ function stripUnresolved(body: string, paths: readonly string[], urls: Map<strin
 }
 
 /** Renders section notes markdown with `reportimg:` and `expartifact:` resolved. */
-export function ReportSectionMarkdown({ body, className }: { body: string; className?: string }) {
+export function ReportSectionMarkdown({
+  body,
+  className,
+  /** Shared/guest sections cannot load the owner's experiments — skip resolve. */
+  skipArtifactResolve = false,
+}: {
+  body: string;
+  className?: string;
+  skipArtifactResolve?: boolean;
+}) {
   const { resolveWikilink, onWikilinkClick } = useWikilinkNavigation();
   const [experiments, setExperiments] = useState<Experiment[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const hasArtifactRefs = useMemo(() => parseArtifactRefs(body).length > 0, [body]);
   useEffect(() => {
-    if (!hasArtifactRefs) {
+    if (!hasArtifactRefs || skipArtifactResolve) {
       setExperiments(null);
       setLoadError(null);
       return;
@@ -58,14 +67,20 @@ export function ReportSectionMarkdown({ body, className }: { body: string; class
     return () => {
       cancelled = true;
     };
-  }, [hasArtifactRefs]);
+  }, [hasArtifactRefs, skipArtifactResolve]);
 
   const withArtifacts = useMemo(() => {
     if (!hasArtifactRefs) return body;
+    if (skipArtifactResolve) {
+      return body.replace(
+        /!?\[[^\]]*\]\(expartifact:[^)]+\)/gi,
+        "> ⚠️ Experiment artifacts are unavailable in shared view.",
+      );
+    }
     // Wait until load finishes — never flash false "missing experiment" warnings.
     if (experiments == null) return body;
     return resolveArtifactRefsMarkdown(body, experiments);
-  }, [body, experiments, hasArtifactRefs]);
+  }, [body, experiments, hasArtifactRefs, skipArtifactResolve]);
 
   const paths = useMemo(() => reportImagePathsInBody(withArtifacts), [withArtifacts]);
   const fetchOne = useCallback(

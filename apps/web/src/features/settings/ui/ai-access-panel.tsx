@@ -53,6 +53,12 @@ interface McpTokenRecord {
   lastUsedAt: string | null;
 }
 
+const DEFAULT_AI_ACCESS: AiAccessSettings = {
+  enabled: false,
+  readCategories: [],
+  proposalKinds: [],
+};
+
 export function AiAccessPanel({ settings, onChange }: {
   settings: UserSettings;
   onChange: (settings: UserSettings) => void;
@@ -71,11 +77,7 @@ export function AiAccessPanel({ settings, onChange }: {
   const [newMcpToken, setNewMcpToken] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [rememberConnection, setRememberConnection] = useState(() => Boolean(getUserIntegrationField(settings, "mcp", "pairingSecret")));
-  const access: AiAccessSettings = settings.aiAccess ?? {
-    enabled: false,
-    readCategories: [],
-    proposalKinds: [],
-  };
+  const access: AiAccessSettings = settings.aiAccess ?? DEFAULT_AI_ACCESS;
   const eligibleSources = sources.filter((source) => access.readCategories.includes(aiReadCategoryForResource(source.resourceType)));
   const sourcesByCategory = eligibleSources.reduce<Record<string, AiSourceOption[]>>((groups, source) => {
     (groups[source.category] ??= []).push(source);

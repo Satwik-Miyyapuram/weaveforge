@@ -239,7 +239,11 @@ export function SectionNote({
       <div className="paper-note-body">
         {!editing ? (
           hasNotes ? (
-            <ReportSectionMarkdown body={section.notes!} className="summary" />
+            <ReportSectionMarkdown
+              body={section.notes!}
+              className="summary"
+              skipArtifactResolve={readOnly}
+            />
           ) : (
             <p className="muted summary-empty">
               {readOnly ? "No note yet." : "No note yet — use “Write note” to start."}
