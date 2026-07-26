@@ -68,6 +68,10 @@ export function SectionNote({
     setEditing(false);
     setDraft(section.notes ?? "");
     setSaveError(null);
+    // Resets on section *identity* only. `section.notes` is deliberately not a
+    // dep — including it would drop the user out of edit mode on every
+    // save/refetch; the effect below owns note-content sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section.id]);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GET, isAllowedPdfProxyUrl, proxyAllowlistedPdf } from "../route";
+import { GET } from "../route";
+import { isAllowedPdfProxyUrl, proxyAllowlistedPdf } from "../_proxy";
 
 function stubFetch(handler: (url: string) => Response) {
   const original = globalThis.fetch;
