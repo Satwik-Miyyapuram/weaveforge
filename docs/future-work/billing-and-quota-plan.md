@@ -344,10 +344,11 @@ Comp codes are part of the billing module and strip with it (§9). With billing 
 - **Never blocked:** reads, deletes, export, sharing revocation, account deletion.
 - **Settings → Usage** renders every `QUOTA_REGISTRY` entry automatically. New feature, new row, appears with no UI work.
 - Copy is capacity-framed — "You've used 1,000 of 1,000 papers" — never moralising.
+- **Every upgrade link in this section is behind `showPricing()` (§9.2).** With pricing off, or for a comped user, the same blocks render with the limit and no sell. Warnings and blocks are capacity information and always show; only the upgrade path is conditional.
 
 ---
 
-## 9. Self-host stripping
+## 9. Self-host stripping and the pricing flag
 
 Billing is a feature module in `thesis-tracker.config.ts`, following `docs/modular-deployment-plan.md`. With it disabled:
 
@@ -357,6 +358,46 @@ Billing is a feature module in `thesis-tracker.config.ts`, following `docs/modul
 - `plan_entitlements` stays empty; §6 triggers no-op
 
 Verified by a build-profile test asserting the self-host bundle contains no Stripe code.
+
+### 9.1 Two independent switches
+
+"Is billing wired?" and "should this person be shown prices?" are different questions, and conflating them is how upgrade nags leak into a self-hosted instance.
+
+```ts
+// thesis-tracker.config.ts
+builtins: { features: [...] },   // omit "billing" -> module absent entirely
+billing: { pricingUi: false },   // module present, pricing surfaces hidden
+```
+
+| Switch | Effect |
+|---|---|
+| `"billing"` absent from `builtins.features` | Nothing exists — no routes, no Stripe code in the bundle, no tables, no quota. Self-host default. |
+| `billing.pricingUi: false` | Quota and usage still work; every **price, plan comparison, and upgrade call-to-action** is gone. For a lab or institution running a paid-for instance where the individual user has nothing to buy. |
+
+`pricingUi: false` must not degrade to a dead-end. When a limit is hit, the block copy states the limit and who to contact — never a price or a checkout link.
+
+### 9.2 Comped users never see pricing
+
+**Rule: anyone holding a live `source='comp'` entitlement sees no price, no plan comparison, and no upgrade prompt, anywhere.**
+
+They already have the thing being sold. Showing a friend on a lifetime grant an "Upgrade to Researcher — €9.99/mo" banner is at best noise and at worst insulting.
+
+This is one predicate, resolved server-side and exposed once:
+
+```ts
+/** True when price and upgrade surfaces may render for this viewer. */
+function showPricing(cfg: BillingConfig, ent: Entitlements): boolean {
+  if (!cfg.enabled || !cfg.pricingUi) return false;
+  if (ent.source === "comp" && ent.isLive) return false;  // lifetime or dated
+  return true;
+}
+```
+
+Consumed by a single `<PricingGate>` / `useShowPricing()` so no screen re-derives it — the failure mode here is one forgotten call site, and centralising is the only real defence. **Settings → Plan** still renders for a comped user: it shows the plan they hold and where it came from ("Lifetime — complimentary"), with no price and no checkout. What they lose is the *sell*, not the information.
+
+The predicate is false for comped users regardless of `pricingUi`, so a comped account on a commercial instance is covered without extra configuration.
+
+An 80% usage warning is **not** a pricing surface and still shows — it is capacity information. Only the upgrade path attached to it is suppressed.
 
 ---
 

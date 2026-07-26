@@ -20,5 +20,13 @@ export default defineConfig({
   //   integrations: ["zotero", "semantic-scholar"],
   // },
   // mcp: { enabled: false, tools: ["search_workspace", "get_source_excerpt"] },
+  //
+  // Billing is off unless "billing" is listed in builtins.features — a
+  // self-hosted instance ships no Stripe code, no quotas, and no prices.
+  // `pricingUi` is the separate, narrower switch: keep quota and usage
+  // working, but hide every price, plan comparison, and upgrade prompt.
+  // Users holding a complimentary lifetime grant never see pricing
+  // regardless of this flag. See docs/future-work/billing-and-quota-plan.md §9.
+  // billing: { pricingUi: false },
   plugins: [],
 });

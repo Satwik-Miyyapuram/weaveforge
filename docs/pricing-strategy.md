@@ -169,6 +169,10 @@ Mechanism is in `billing-and-quota-plan.md` §7.1. The commercial policy:
 
 Comped users still count in telemetry, and should be **excluded from conversion metrics** — they were never going to convert, and leaving them in makes the free-to-paid rate look worse than it is.
 
+**Comped users are never shown pricing.** No price, no plan comparison, no upgrade prompt — they already hold the thing being sold, and an upgrade banner aimed at a friend on a lifetime grant is noise at best. Settings still shows *which* plan they hold and that it is complimentary; what is removed is the sell, not the information. Enforced by a single predicate (`billing-and-quota-plan.md` §9.2), not by remembering to hide each banner.
+
+Pricing is also independently switchable per deployment: a self-hosted instance omits the billing module entirely, and a paid-for lab instance can keep quotas while hiding prices from users who have nothing to buy.
+
 ---
 
 ## 8. Anti-patterns to avoid
