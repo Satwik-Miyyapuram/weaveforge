@@ -1,7 +1,7 @@
 # Phase 3 — OCI infrastructure setup
 
 > **Status:** Paused — run this when you are ready to provision Oracle Cloud.  
-> **Index:** [`docs/self-host-roadmap.md`](../self-host-roadmap.md) · **Plan:** [`storage/migration-plan.md`](../storage/migration-plan.md)
+> **Index:** [`docs/self-host-roadmap.md`](../self-host-roadmap.md) · **Plan:** [`plans/working/migration-plan.md`](../plans/working/migration-plan.md)
 
 **Goal:** Stand up an empty **shadow environment** on Oracle Cloud: Postgres 16 + MinIO (cold blobs). Production stays on Supabase until Phase 4–5.
 
@@ -421,7 +421,7 @@ Optional server smoke (when you deploy with `DATABASE_URL` on Vercel):
 
 | Phase | Action |
 |-------|--------|
-| **4** | Copy data Supabase → OCI Postgres, Supabase Storage → R2 ([migration-plan.md](../storage/migration-plan.md)) |
+| **4** | Copy data Supabase → OCI Postgres, Supabase Storage → R2 ([migration-plan.md](../plans/working/migration-plan.md)) |
 | **5** | Cutover env vars; ~30 min maintenance |
 | **6** | Cron tier job R2 → MinIO ([tiering.md](../storage/tiering.md)) |
 
@@ -449,4 +449,4 @@ BLOB_COLD_BUCKET=thesis-tracker-cold
 ```
 
 Migrations: `./scripts/apply-migrations-oci.sh`  
-Docs: [`postgres-provider.md`](postgres-provider.md), [`migration-plan.md`](../storage/migration-plan.md)
+Docs: [`postgres-provider.md`](postgres-provider.md), [`migration-plan.md`](../plans/working/migration-plan.md)

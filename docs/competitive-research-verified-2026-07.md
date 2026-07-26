@@ -24,7 +24,7 @@
 
 *Verified 2026-07-25 against the README, `manifest.json`, docs site, and GitHub API — an earlier revision of this section relied on secondary summaries and got two facts wrong; both are corrected below.*
 
-**It vendors Zotero Reader.** The README credits "the PDF/EPUB/HTML reader engine embedded in ZotFlow" to the Zotero Reader project, the Markdown editor to Task Genius, and editor design to Zotero Better Notes. That is why the plugin is AGPL-3.0-only — the licence came with the engine. **Update 2026-07-25: WeaveForge is now AGPL-3.0-only as well, so the same engine is available to us on the same terms.** See `docs/future-work/pdf-viewer-plan.md` §1.1 for the adoption spike.
+**It vendors Zotero Reader.** The README credits "the PDF/EPUB/HTML reader engine embedded in ZotFlow" to the Zotero Reader project, the Markdown editor to Task Genius, and editor design to Zotero Better Notes. That is why the plugin is AGPL-3.0-only — the licence came with the engine. **Update 2026-07-25: WeaveForge is now AGPL-3.0-only as well, so the same engine is available to us on the same terms.** See `docs/plans/completed/pdf-viewer-plan.md` §1.1 for the adoption spike.
 
 **Who it is for and the job it wins.** Obsidian users who want their Zotero library, PDF reading, annotation, source notes, and citation insertion to happen without leaving the vault. It wins by eliminating the Zotero-desktop ↔ Obsidian context switch entirely.
 
@@ -55,7 +55,7 @@ ZotFlow demonstrates a third path: embed Zotero's own reader rather than build o
 
 **Update 2026-07-25 — WeaveForge relicensed to AGPL-3.0-only, so this path is open to us.** The relicensing decision was made on independent grounds (protecting the work from being taken closed and monetised without attribution — see `docs/pricing-strategy.md` §1), but a direct consequence is that `zotero/reader` is now available on the same terms ZotFlow got it. The non-goal's core rationale — "an in-app reader is expensive" — is substantially weakened, because most of that expense was building the reader.
 
-The decision to make is now narrower and cheaper than it looked: adopt the engine if the standalone `web` build holds up, and scope the surface to what `/ai-review` provenance verification actually needs. See `docs/future-work/pdf-viewer-plan.md` §1 and §1.1.
+The decision to make is now narrower and cheaper than it looked: adopt the engine if the standalone `web` build holds up, and scope the surface to what `/ai-review` provenance verification actually needs. See `docs/plans/completed/pdf-viewer-plan.md` §1 and §1.1.
 
 ### 2.2 Elicit — Threat: HIGH, with an exploitable ceiling
 
@@ -186,7 +186,7 @@ Grounds, all verified:
 
 Effort S/M/L, impact low/med/high.
 
-> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/future-work/roadmap-2026-07-phased.md`](future-work/roadmap-2026-07-phased.md).
+> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/plans/current/roadmap-2026-07-phased.md`](plans/current/roadmap-2026-07-phased.md).
 
 ### P0
 
@@ -294,7 +294,7 @@ This file consolidates verification over two external Deep Research runs commiss
 | Source document | Outcome |
 |-----------------|---------|
 | `docs/Research App Analysis and Improvement.md` | Usable. Followed the brief's structure; the `§`-citation gate correctly reclassified seven recommendations as already-shipped. Undersourced — six references for a nine-tool matrix. Corrections from §7 above have been applied to it. |
-| `docs/Competitive Strategy Report Plan.md` | Failed. Reported §14 as "omitted from the source document", invented its own Q1–Q10, and marked Q11–Q22 `UNANSWERED` against a section that exists. Teardowns sliced by workflow phase rather than by app. No matrix, no self-check, no consolidated roadmap. Retain only for the name-collision note below. |
+| `docs/plans/completed/Competitive Strategy Report Plan.md` | Failed. Reported §14 as "omitted from the source document", invented its own Q1–Q10, and marked Q11–Q22 `UNANSWERED` against a section that exists. Teardowns sliced by workflow phase rather than by app. No matrix, no self-check, no consolidated roadmap. Retain only for the name-collision note below. |
 
 Other internal docs: `docs/competitive-scan.md` (prior internal scan), `docs/future-work/BACKLOG.md` (shipped vs deferred).
 

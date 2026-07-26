@@ -36,10 +36,10 @@ Two phase-wise plans already exist and are **both complete**:
 
 | Plan | Scope | Status |
 |------|-------|--------|
-| `competitive-scan-implementation-plan.md` | Earlier internal scan — cite identity, discovery, library UX | Phases 0–5 **all done** |
-| `library-knowledge-loop-plan.md` | Annotation cards, pins, custom fields, extraction table, rollups | Phases 0–7 **all done** (migrations `0103`–`0105`) |
+| [`../completed/competitive-scan-implementation-plan.md`](../completed/competitive-scan-implementation-plan.md) | Earlier internal scan — cite identity, discovery, library UX | Phases 0–5 **all done** |
+| [`../completed/library-knowledge-loop-plan.md`](../completed/library-knowledge-loop-plan.md) | Annotation cards, pins, custom fields, extraction table, rollups | Phases 0–7 **all done** (migrations `0103`–`0105`) |
 
-Both predate the verified competitive research, so neither accounts for ZotFlow, the Weights & Biases downgrade, or Elicit's extraction ceiling. Two newer plans cover single features in depth (`pdf-viewer-plan.md`, `billing-and-quota-plan.md`) but neither sequences the roadmap as a whole. This document is the missing layer above them.
+Both predate the verified competitive research, so neither accounts for ZotFlow, the Weights & Biases downgrade, or Elicit's extraction ceiling. Two newer plans cover single features in depth ([`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md), [`../future/billing-and-quota-plan.md`](../future/billing-and-quota-plan.md)) but neither sequences the roadmap as a whole. This document is the missing layer above them.
 
 ---
 
@@ -270,7 +270,7 @@ A same-origin PDF proxy (`/api/pdf-proxy`) was added beyond the original scope, 
 
 ## Parallel track — billing
 
-`billing-and-quota-plan.md` is independent of everything above. Its Phases 1–2 (usage metering, then a read-only usage screen) are safe to ship at any time and are useful with no pricing attached. Do not start Phase 3 enforcement until real telemetry exists — that is the plan's own instruction and `COMMERCIALIZATION_AND_COST_PLAN.md` agrees.
+`billing-and-quota-plan.md` is independent of everything above. Its Phases 1–2 (usage metering, then a read-only usage screen) are safe to ship at any time and are useful with no pricing attached. Do not start Phase 3 enforcement until real telemetry exists — that is the plan's own instruction and [`../future/COMMERCIALIZATION_AND_COST_PLAN.md`](../future/COMMERCIALIZATION_AND_COST_PLAN.md) agrees.
 
 ---
 

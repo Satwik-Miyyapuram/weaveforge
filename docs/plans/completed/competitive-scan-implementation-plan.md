@@ -1,6 +1,6 @@
 # Competitive scan — phase-wise implementation plan
 
-Canonical strategy: [`../competitive-scan.md`](../competitive-scan.md).  
+Canonical strategy: [`../../competitive-scan.md`](../../competitive-scan.md).  
 This document is the **build plan**: phases, acceptance criteria, and primary code entry points.
 
 Branch: `feat/cite-excerpt-report-tabs` (cite/excerpt/report tabs + LaTeX `\cite` already in progress).

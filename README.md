@@ -147,8 +147,9 @@ Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/ext
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | PR checklist, dev workflow |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Python SDK release history |
 | [`docs/self-host-roadmap.md`](docs/self-host-roadmap.md) | Self-hosted Postgres + tiered blobs |
-| [`docs/hosting-and-cost-plan.md`](docs/hosting-and-cost-plan.md) | Hosted access, usage limits, pricing planning, and self-hosting |
-| [`docs/modular-deployment-plan.md`](docs/modular-deployment-plan.md) | Configurable feature, integration, MCP, backend, and storage boundaries |
+| [`docs/plans/README.md`](docs/plans/README.md) | Plan index — current / working / future / completed |
+| [`docs/plans/future/hosting-and-cost-plan.md`](docs/plans/future/hosting-and-cost-plan.md) | Hosted access, usage limits, pricing planning, and self-hosting |
+| [`docs/plans/completed/modular-deployment-plan.md`](docs/plans/completed/modular-deployment-plan.md) | Configurable feature, integration, MCP, backend, and storage boundaries |
 
 ---
 
