@@ -96,7 +96,9 @@ test("buildOverleafExportPackage turns [[Paper]] wikilinks into \\cite", () => {
   const main = result.files.find((f) => f.path === "main.tex")!.contents;
   const bib = result.files.find((f) => f.path === "references.bib")!.contents;
   assert.match(main, /Following \\cite\{paper_p1\} we proceed\./);
-  assert.match(bib, /@article\{paper_p1,/);
+  // @misc, not @article: the fixture paper has no venue, and an @article
+  // without a journal makes biber warn about a missing journaltitle.
+  assert.match(bib, /@misc\{paper_p1,/);
   assert.equal(result.warnings.length, 0);
 });
 
@@ -120,7 +122,7 @@ test("buildOverleafExportPackage prefers metadata.citeKey for \\cite keys", () =
   const main = result.files.find((f) => f.path === "main.tex")!.contents;
   const bib = result.files.find((f) => f.path === "references.bib")!.contents;
   assert.match(main, /\\cite\{vaswani2017attention\}/);
-  assert.match(bib, /@article\{vaswani2017attention,/);
+  assert.match(bib, /@misc\{vaswani2017attention,/);
 });
 
 test("formatCitation emits latex, pandoc, footnote, and raw forms", () => {
@@ -177,4 +179,89 @@ test("formatPaperCitation uses the shared resolveCiteKey precedence", () => {
   assert.equal(formatPaperCitation(keyed, "pandoc"), "[@attn]");
   assert.equal(formatPaperCitation(keyed, "footnote"), "[^attn]");
   assert.equal(formatPaperCitation(keyed, "raw"), "attn");
+});
+
+/** Bibliography entry for a single paper, as written to references.bib. */
+function bibFor(overrides: Partial<Paper>): string {
+  const result = buildOverleafExportPackage(tree, [{ ...papers[0]!, ...overrides }], {
+    includeBibliography: true,
+  });
+  return result.files.find((f) => f.path === "references.bib")!.contents;
+}
+
+test("bibtex escapes LaTeX specials that would break the Overleaf build", () => {
+  const bib = bibFor({
+    title: "Cost & Benefit: 100% Recall in C_4 #networks",
+    authors: ["Smith & Jones"],
+    venue: "Journal of 50% Things",
+  });
+  // Plain string comparison: these assertions are about backslashes, and a
+  // regex literal would need every one doubled again for no benefit.
+  assert.ok(
+    bib.includes("title = {Cost \\& Benefit: 100\\% Recall in C\\_4 \\#networks}"),
+    bib,
+  );
+  assert.ok(bib.includes("author = {Smith \\& Jones}"), bib);
+  assert.ok(bib.includes("journal = {Journal of 50\\% Things}"), bib);
+  // No bare special survives in a field *value*. Cite keys and entry types are
+  // excluded — `paper_p1` legitimately contains an underscore.
+  for (const line of bib.split("\n")) {
+    const value = /^\s+\w+ = \{(.*)\}[,]?$/.exec(line)?.[1];
+    if (value == null) continue;
+    for (const [index, ch] of [...value].entries()) {
+      if ("&%#_$".includes(ch)) {
+        assert.equal(value[index - 1], "\\", `unescaped ${ch} in field value: ${line}`);
+      }
+    }
+  }
+});
+
+test("bibtex keeps balanced braces so Better BibTeX case protection survives", () => {
+  const bib = bibFor({ title: "{BERT}: Pre-training of Deep {Transformers}" });
+  assert.match(bib, /title = \{\{BERT\}: Pre-training of Deep \{Transformers\}\}/);
+});
+
+test("bibtex escapes unbalanced braces, which biber cannot parse", () => {
+  const bib = bibFor({ title: "Broken {brace" });
+  assert.match(bib, /title = \{Broken \\{brace\}/);
+});
+
+test("bibtex picks the entry type from the venue", () => {
+  assert.match(bibFor({ venue: "Journal of Machine Learning Research" }), /^@article\{/m);
+  assert.match(
+    bibFor({ venue: "Proceedings of the 40th International Conference on Machine Learning" }),
+    /^@inproceedings\{/m,
+  );
+  assert.match(bibFor({ venue: "NeurIPS" }), /^@inproceedings\{/m);
+  // A conference paper must carry booktitle, not journal — biblatex ignores
+  // booktitle on an @article, which silently drops the venue.
+  assert.match(bibFor({ venue: "CVPR" }), /booktitle = \{CVPR\}/);
+});
+
+test("bibtex uses @misc for a venueless preprint rather than a journal-less @article", () => {
+  const bib = bibFor({ venue: undefined, arxivId: "1706.03762" });
+  assert.match(bib, /^@misc\{/m);
+  assert.doesNotMatch(bib, /journal =/);
+});
+
+test("bibtex emits the arXiv identifier and a derived url", () => {
+  const bib = bibFor({ arxivId: "arXiv:1706.03762", url: undefined });
+  assert.match(bib, /eprint = \{1706\.03762\}/);
+  assert.match(bib, /eprinttype = \{arxiv\}/);
+  assert.match(bib, /archivePrefix = \{arXiv\}/);
+  assert.match(bib, /url = \{https:\/\/arxiv\.org\/abs\/1706\.03762\}/);
+});
+
+test("bibtex leaves url and doi verbatim so links are not corrupted", () => {
+  const bib = bibFor({
+    doi: "10.1145/3292500.3330701",
+    url: "https://example.org/a_b?x=1&y=2%20z",
+  });
+  assert.match(bib, /doi = \{10\.1145\/3292500\.3330701\}/);
+  assert.match(bib, /url = \{https:\/\/example\.org\/a_b\?x=1&y=2%20z\}/);
+});
+
+test("bibtex passthrough rewrites the key on a stored Zotero entry", () => {
+  const bib = bibFor({ bibtex: "@inproceedings{their_key,\n  title={X}\n}", metadata: {} });
+  assert.match(bib, /@inproceedings\{their_key,/);
 });
