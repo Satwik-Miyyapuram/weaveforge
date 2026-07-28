@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildOverleafExportPackage,
+  collectCitedKeys,
   formatCitation,
   formatPaperCitation,
   resolveCiteKey,
@@ -264,4 +265,70 @@ test("bibtex leaves url and doi verbatim so links are not corrupted", () => {
 test("bibtex passthrough rewrites the key on a stored Zotero entry", () => {
   const bib = bibFor({ bibtex: "@inproceedings{their_key,\n  title={X}\n}", metadata: {} });
   assert.match(bib, /@inproceedings\{their_key,/);
+});
+
+const citingTree: ReportSectionTreeNode[] = [
+  {
+    section: {
+      id: "1",
+      title: "Introduction",
+      status: "drafting",
+      wordCount: 10,
+      sortOrder: 0,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      notes: "As shown in [[A Paper]] this holds.",
+    },
+    children: [],
+  },
+];
+
+const twoPapers: Paper[] = [
+  papers[0]!,
+  { ...papers[0]!, id: "p2", title: "Uncited Paper", metadata: { citeKey: "uncited2020" } },
+];
+
+test("bibliographyScope 'all' exports every paper and adds nocite", () => {
+  const result = buildOverleafExportPackage(citingTree, twoPapers, {
+    includeBibliography: true,
+    bibliographyScope: "all",
+  });
+  const bib = result.files.find((f) => f.path === "references.bib")!.contents;
+  const main = result.files.find((f) => f.path === "main.tex")!.contents;
+  assert.match(bib, /Uncited Paper/);
+  assert.equal(result.stats.bibliographyEntries, 2);
+  // Without nocite, biblatex numeric would print only the cited entry.
+  assert.ok(main.includes("\\nocite{*}"), main);
+  assert.match(main, /\printbibliography/);
+});
+
+test("bibliographyScope 'cited' drops uncited papers and omits nocite", () => {
+  const result = buildOverleafExportPackage(citingTree, twoPapers, {
+    includeBibliography: true,
+    bibliographyScope: "cited",
+  });
+  const bib = result.files.find((f) => f.path === "references.bib")!.contents;
+  const main = result.files.find((f) => f.path === "main.tex")!.contents;
+  assert.match(bib, /A Paper/);
+  assert.doesNotMatch(bib, /Uncited Paper/);
+  assert.equal(result.stats.bibliographyEntries, 1);
+  assert.ok(!main.includes("\\nocite"), main);
+});
+
+test("bibliographyScope 'cited' warns when the report cites nothing", () => {
+  const result = buildOverleafExportPackage(tree, twoPapers, {
+    includeBibliography: true,
+    bibliographyScope: "cited",
+  });
+  const main = result.files.find((f) => f.path === "main.tex")!.contents;
+  assert.equal(result.stats.bibliographyEntries, 0);
+  assert.ok(result.warnings.some((w) => w.includes("cites no papers")), result.warnings.join("; "));
+  // No entries means no printbibliography — an empty one is a biber warning.
+  assert.doesNotMatch(main, /\printbibliography/);
+});
+
+test("collectCitedKeys reads comma-separated cite lists", () => {
+  assert.deepEqual(
+    [...collectCitedKeys("text \\cite{a, b} more \\cite{c}")].sort(),
+    ["a", "b", "c"],
+  );
 });

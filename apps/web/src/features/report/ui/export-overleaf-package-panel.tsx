@@ -34,6 +34,7 @@ export function ExportOverleafPackagePanel({
   const [busy, setBusy] = useState(false);
   const [includeNotes, setIncludeNotes] = useState(true);
   const [includeBib, setIncludeBib] = useState(true);
+  const [bibScope, setBibScope] = useState<"cited" | "all">("all");
   const [title, setTitle] = useState("Thesis report");
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -53,6 +54,7 @@ export function ExportOverleafPackagePanel({
         title,
         includeSectionNotes: includeNotes,
         includeBibliography: includeBib,
+        bibliographyScope: bibScope,
       });
       setWarnings(result.warnings);
       if (result.warnings.length === 0) setOpen(false);
@@ -117,6 +119,24 @@ export function ExportOverleafPackagePanel({
               />
               <span>Include bibliography from paper library ({papers.length} papers)</span>
             </label>
+            {includeBib && (
+              <label className="export-overleaf-field">
+                Bibliography contains
+                <select
+                  value={bibScope}
+                  onChange={(e) => setBibScope(e.target.value as "cited" | "all")}
+                  disabled={busy}
+                >
+                  <option value="all">All {papers.length} papers in the library</option>
+                  <option value="cited">Only papers cited in this report</option>
+                </select>
+                <span className="muted">
+                  {bibScope === "all"
+                    ? "Adds \\nocite{*} so every entry prints, not just the cited ones."
+                    : "A finished thesis bibliography — uncited papers are left out."}
+                </span>
+              </label>
+            )}
             {error && <FormError>{error}</FormError>}
             {warnings.length > 0 && (
               <ul className="muted export-overleaf-warnings">
