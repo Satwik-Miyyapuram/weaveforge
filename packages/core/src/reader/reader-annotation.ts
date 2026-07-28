@@ -28,6 +28,20 @@ export function isReaderAnnotationType(value: string): value is ReaderAnnotation
   return (READER_ANNOTATION_TYPES as readonly string[]).includes(value);
 }
 
+/** R5 write-back bookkeeping for a reader annotation row. */
+export type AnnotationSyncState = "local" | "synced" | "pending" | "conflict";
+
+export const ANNOTATION_SYNC_STATES: readonly AnnotationSyncState[] = [
+  "local",
+  "synced",
+  "pending",
+  "conflict",
+] as const;
+
+export function isAnnotationSyncState(value: string): value is AnnotationSyncState {
+  return (ANNOTATION_SYNC_STATES as readonly string[]).includes(value);
+}
+
 export interface ReaderAnnotation {
   id: string;
   origin: AnnotationOrigin;
@@ -45,6 +59,9 @@ export interface ReaderAnnotation {
   sortIndex: string;
   createdAt: string;
   updatedAt: string;
+  /** R5 write-back bookkeeping — optional until sync touches the row. */
+  syncState?: AnnotationSyncState;
+  zoteroVersion?: number | null;
 }
 
 export interface NewReaderAnnotation {

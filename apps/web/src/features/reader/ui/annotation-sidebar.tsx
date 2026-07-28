@@ -165,6 +165,7 @@ export function AnnotationSidebar({
                 <span className="pdf-reader-sidebar-meta">
                   <span className="muted">
                     {a.origin === "local" ? "local · " : ""}
+                    {a.syncState ? `${a.syncState} · ` : ""}
                     {a.type}
                     {a.anchor.zoteroPosition
                       ? ` · p.${a.anchor.zoteroPosition.pageIndex + 1}`

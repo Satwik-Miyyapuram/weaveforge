@@ -9,7 +9,7 @@ import type {
   ReaderAnnotationPatch,
   ReaderAnnotationType,
 } from "@thesis/core";
-import { buildAnnotationSortIndex, isReaderAnnotationType } from "@thesis/core";
+import { buildAnnotationSortIndex, isAnnotationSyncState, isReaderAnnotationType } from "@thesis/core";
 import type { ProjectContext } from "@/lib/project-context";
 
 interface ReaderAnnotationRow {
@@ -25,6 +25,8 @@ interface ReaderAnnotationRow {
   anchor: CombinedPdfAnchor;
   page_index: number;
   sort_index: string;
+  sync_state?: string | null;
+  zotero_version?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -135,5 +137,7 @@ function toDomain(row: ReaderAnnotationRow): ReaderAnnotation {
     sortIndex: row.sort_index,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    syncState: row.sync_state && isAnnotationSyncState(row.sync_state) ? row.sync_state : "local",
+    zoteroVersion: row.zotero_version ?? null,
   };
 }

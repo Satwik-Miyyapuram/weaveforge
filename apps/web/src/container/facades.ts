@@ -239,6 +239,17 @@ export class PapersFacade {
     return this.deps.readerAnnotations.remove(id);
   }
 
+  /**
+   * R5 dry-run: build Zotero write payloads without calling the live API.
+   * Live push stays human-gated.
+   */
+  async dryRunZoteroAnnotationWriteBack(paperId: string, parentItemKey: string) {
+    const { DryRunZoteroAnnotationWriteBack } = await import("@thesis/core");
+    const anns = await this.deps.readerAnnotations.list(paperId);
+    const client = new DryRunZoteroAnnotationWriteBack();
+    return client.push(parentItemKey, anns);
+  }
+
   listReportSections() {
     return this.deps.reportSections.list();
   }
