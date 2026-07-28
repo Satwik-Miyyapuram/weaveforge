@@ -85,7 +85,8 @@ export interface ReaderAnnotation {
   origin: AnnotationOrigin;
   /** Zotero item key when origin === "zotero"; null for local-only. */
   zoteroKey: string | null;
-  type: "highlight" | "underline" | "strikeout" | "note" | "image" | "ink";
+  /** Zotero's complete set — see §3.6. There is no `strikeout`. */
+  type: "highlight" | "underline" | "note" | "image" | "ink" | "text";
   color: string;
   /** Selected text (empty for ink/image). */
   text: string;
@@ -173,6 +174,23 @@ So `"00008|000412|00574"` is page 8, character offset 412 into the page text, 57
 
 **Zotero itself already uses W3C selectors — just not for PDF.** From the same file: *"PDFPosition for PDFs, a WADM Selector for EPUBs and snapshots."* WADM is the W3C Web Annotation Data Model. This is direct validation of §3.1's dual anchor: we apply to PDF the durability mechanism Zotero already trusts for EPUB. Where Zotero has only rects, a repaginated or replaced file silently renders the highlight over the wrong text; `contentHash` + quote fallback is what turns that into an honest "position approximate".
 
+### 3.6 The annotation type set — verified, and smaller than it looks
+
+Zotero defines exactly six, from `chrome/content/zotero/xpcom/annotations.js`:
+
+| Type | ID | Geometry | Notes |
+|---|---|---|---|
+| `highlight` | 1 | `rects` | |
+| `note` | 2 | `rects` (small anchor box) | Sticky note |
+| `image` | 3 | `rects` (region) | Rasterise only on explicit pin |
+| `ink` | 4 | **`paths`** | Not a rect renderer |
+| `underline` | 5 | `rects` | |
+| `text` | 6 | `rects` | Free-standing typed text box, not tied to a selection |
+
+**There is no `strikeout`.** An earlier draft of this plan listed one and omitted `text` — both wrong. Inventing a type Zotero does not have produces annotations that cannot be written back in R5, and omitting a real one means we silently drop it on the way in. That second failure was live: `ANNOTATION_TYPES` in `zotero-annotations.ts` had five entries, and `parseAnnotationType` degrades unknown values to `undefined`, so a Zotero `text` annotation lost its type on every sync. Fixed 2026-07-27 with a test that asserts all six survive and that `strikeout` is still rejected.
+
+**Rule for R3:** local annotation types are a subset of this set, never a superset. If a type cannot round-trip through Zotero, it does not exist here either.
+
 ---
 
 ## 4. Data model
@@ -188,7 +206,9 @@ create table reader_annotations (
   paper_id       uuid not null references papers(id) on delete cascade,
   origin         text not null default 'local' check (origin in ('local','zotero')),
   zotero_key     text,
-  type           text not null check (type in ('highlight','underline','strikeout','note','image','ink')),
+  -- Zotero's complete type set (§3.6). No 'strikeout' — Zotero has none, and a
+  -- type it does not know cannot be written back in R5.
+  type           text not null check (type in ('highlight','underline','note','image','ink','text')),
   color          text not null default '#ffd400',
   text           text not null default '',
   comment        text not null default '',
@@ -259,7 +279,8 @@ Uses `ReaderAnnotation` (§3.1) and the `annotationPosition` rects captured in P
 
 First write phase. `IReaderAnnotationSink` gets its local implementation; no Zotero traffic.
 
-- Highlight, underline, strikeout from a text selection, with a colour picker
+- Highlight and underline from a text selection, with a colour picker
+- Free-standing **text** annotation (Zotero's `text` type — a typed box placed on the page, not tied to a selection)
 - Sticky note on a selection or a point
 - Image-region capture (store the rect; rasterise only on explicit pin)
 - Ink/freehand for stylus and touch
@@ -302,6 +323,58 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 - Opt-in `paper-pdfs` bucket (ladder step 6) with quota and tier eviction
 - Mobile — gated on the memory measurement in §10 of the old plan
 - Offline reading for cached documents
+
+---
+
+## 5.0 Annotation parity audit — does this plan cover everything ZotFlow does with annotations?
+
+Checked item by item against ZotFlow's README, 2026-07-27. **Yes, with one deliberate difference and one open decision.**
+
+| ZotFlow annotation capability | Covered | Where |
+|---|---|---|
+| Highlight | ✅ | R3 |
+| Underline | ✅ | R3 |
+| Sticky note | ✅ | R3 |
+| Ink / freehand | ✅ | R3 (via `paths`, §3.5) |
+| Image-region capture | ✅ | R3 |
+| Free-standing text annotation | ✅ | R3 — **added after the §3.6 audit; was missing** |
+| "Every annotation type Zotero supports" | ✅ | All six, §3.6 |
+| Render existing Zotero annotations | ✅ | R2 |
+| Cross-page highlights | ✅ | R2 via `nextPageRects` — **added after the §3.5 audit; was missing** |
+| Edit / delete / comment / tag | ✅ | R3 |
+| Annotation sidebar with filters | ✅ | R2 |
+| Bidirectional sync to Zotero | ✅ | R5 |
+| Field-level conflict diff | ✅ | R5 |
+| Per-library Bidirectional / Read-Only / Ignored | ✅ | R5 |
+| Annotate files with no Zotero item | ✅ | R3 — **differs by design:** a row in `reader_annotations`, not a co-located `.zf.json` sidecar. Ours syncs across devices and is queryable; theirs is portable with the file. We are a web app with a database, so the sidecar is the wrong shape for us |
+| Bulk annotation-image extraction | ✅ | R4 |
+| Copy quote + cite from the reader | ✅ | R2 |
+| Annotation ordering matching Zotero | ✅ | R3 must synthesise `sortIndex` in Zotero's format (§3.5) |
+| Themed / dark reader | ✅ | R4 |
+| **Native Zotero child notes** | ❌ | **Open decision — see below.** Not an annotation feature, but adjacent enough to be mistaken for one |
+
+**Two gaps this audit caught** are now closed in the plan and in the code: `nextPageRects` (cross-page highlights would have been silently truncated) and the `text` type (was being stripped on sync). Both existed because the plan was written from a feature list rather than from Zotero's source.
+
+### The child-notes decision
+
+This is the one genuine hole, and it is worth being precise about what it is, because it is easy to confuse with annotations.
+
+Zotero has **two different things** attached to an item:
+
+- **Annotations** — children of the *attachment* (the PDF). Anchored to a position in the file. This is everything above.
+- **Child notes** — children of the *bibliographic item*. A free Markdown/HTML note about the paper, with no position in any file. Zotero shows them in the item pane; they sync as their own item type.
+
+ZotFlow lets you create, edit, and delete Zotero child notes in place, and pushes them back.
+
+**We already have this concept twice over** — a paper's own note (`summary` / the note editor on the paper detail) and vault notes that can wikilink to a paper. So the question is not "can we store a note about a paper" but "should our paper note *be* a Zotero child note, and sync?"
+
+| Option | Consequence |
+|---|---|
+| **A. Do nothing** | A researcher's Zotero notes stay invisible here. Our notes stay invisible in Zotero. Two parallel note stores, no data loss, some confusion |
+| **B. Read-only import** | Show Zotero child notes on the paper, clearly labelled, not editable. Cheap, removes the "where did my note go" surprise, no write risk |
+| **C. Full bidirectional** | Our paper note *is* the Zotero child note. Highest parity, but two rich-text models and two edit surfaces racing — the note is now a merge target, and our notes support wikilinks and templates Zotero has no representation for |
+
+**Recommendation: B, scheduled after R5.** A is a real papercut; C risks corrupting notes people have written over years, and the wikilink/template mismatch means round-tripping is lossy in a way annotations are not. B gets most of the value for a fraction of the risk. Decide it as a product call, not during implementation.
 
 ---
 

@@ -83,6 +83,19 @@ test("pullAll parses well-formed annotationPosition and type/sort fields", async
   assert.notEqual(ann?.annotationPosition?.pageIndex, Number(ann?.page));
 });
 
+test("pullAll keeps every Zotero annotation type, including text", async () => {
+  // Unknown types degrade to undefined, so omitting one from the allow-list
+  // silently strips the type off a real annotation. `strikeout` is NOT a
+  // Zotero type and must stay rejected — inventing it would create
+  // annotations that cannot be written back.
+  for (const type of ["highlight", "underline", "note", "image", "ink", "text"]) {
+    const ann = await pullAnnotation({ annotationType: type, annotationText: "x" });
+    assert.equal(ann?.annotationType, type, `${type} must survive the pull`);
+  }
+  const bogus = await pullAnnotation({ annotationType: "strikeout", annotationText: "x" });
+  assert.equal(bogus?.annotationType, undefined);
+});
+
 test("pullAll keeps nextPageRects for a highlight crossing a page break", async () => {
   // pageIndex is the FIRST page; nextPageRects live on pageIndex + 1. Dropping
   // them truncates the highlight at the break.

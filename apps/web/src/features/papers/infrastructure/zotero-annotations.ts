@@ -8,12 +8,18 @@ import { zoteroHeaders, zoteroLibraryUrl } from "./zotero-web-api";
 
 export type { ZoteroAnnotation } from "../domain/zotero";
 
+/**
+ * Every type Zotero defines. Unknown values degrade to `undefined`, so a
+ * missing entry here silently strips the type off a real annotation — which is
+ * what happened to `text` (ANNOTATION_TYPE_TEXT, added after the others).
+ */
 const ANNOTATION_TYPES = new Set<ZoteroAnnotationType>([
   "highlight",
   "underline",
   "note",
   "image",
   "ink",
+  "text",
 ]);
 
 interface ZoteroTag { tag?: string }
