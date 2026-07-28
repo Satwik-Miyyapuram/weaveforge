@@ -561,6 +561,10 @@ export class VaultFacade {
     return this.deps.pages.getById(id);
   }
 
+  listPages() {
+    return this.deps.pages.list();
+  }
+
   get manageVaultPage() {
     return this.deps.manageVaultPage;
   }

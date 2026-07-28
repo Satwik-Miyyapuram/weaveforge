@@ -297,7 +297,7 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 
 **Delivered:** migration `0110_reader_annotations.sql` (authored, D4); in-memory / Supabase / Postgres sinks; facade CRUD; merge of Zotero-projected + local annotations; selection → create bar; ink / image / text tools; sidebar edit/delete/comment/tag/pin for local rows.
 
-### R4 — The loop closes
+### R4 — The loop closes ✅ DONE (2026-07-29)
 
 - Split view: reader beside the vault note or report section
 - Backlinks from an annotation to every note and section citing it
@@ -307,6 +307,8 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 - Dark-mode PDF rendering honouring the Catppuccin themes
 
 **Exit:** a researcher drafts a report section beside the PDF, citing their own highlights, without switching context.
+
+**Delivered:** `?pane=report|vault` split panel; annotation backlinks (pins + vault quote/key); batch image-region listing + activity log; shared-paper annotation samples at view; dark PDF canvas filter for mocha/dark themes; `planSourceNoteBatch` / `collectAnnotationImageRegions` pure helpers (tested).
 
 ### R5 — Zotero write-back (the deferred D2 spike, now scheduled)
 

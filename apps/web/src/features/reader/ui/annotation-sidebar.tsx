@@ -12,6 +12,7 @@ import {
   annotationPinKey,
   READER_ANNOTATION_COLORS,
 } from "../application/reader-annotation-helpers";
+import type { AnnotationBacklinkTarget } from "../application/annotation-backlinks";
 
 export interface ReportSectionOption {
   id: string;
@@ -34,6 +35,7 @@ interface AnnotationSidebarProps {
   ) => Promise<void>;
   onRemoveLocal?: (id: string) => Promise<void>;
   onPinLocal?: (ann: ReaderAnnotation, sectionId: string | null) => Promise<void>;
+  backlinks?: AnnotationBacklinkTarget[];
 }
 
 export function AnnotationSidebar({
@@ -48,6 +50,7 @@ export function AnnotationSidebar({
   onUpdateLocal,
   onRemoveLocal,
   onPinLocal,
+  backlinks = [],
 }: AnnotationSidebarProps) {
   const [typeFilter, setTypeFilter] = useState<ReaderAnnotationType | "">("");
   const [tagFilter, setTagFilter] = useState("");
@@ -266,6 +269,26 @@ export function AnnotationSidebar({
           <li className="muted">No annotations match these filters.</li>
         )}
       </ul>
+      {backlinks.length > 0 && (
+        <div className="pdf-reader-backlinks" aria-label="Annotation backlinks">
+          <strong>Cited in</strong>
+          <ul>
+            {backlinks.map((b) => (
+              <li key={`${b.kind}:${b.id}`}>
+                <a
+                  href={
+                    b.kind === "report_section"
+                      ? `/report?section=${encodeURIComponent(b.id)}`
+                      : `/vault?page=${encodeURIComponent(b.id)}`
+                  }
+                >
+                  {b.kind === "report_section" ? "Report" : "Note"} · {b.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </aside>
   );
 }

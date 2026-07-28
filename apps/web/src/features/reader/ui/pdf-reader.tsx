@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
@@ -44,6 +45,15 @@ import { AnnotationOverlay } from "./annotation-overlay";
 import { AnnotationSidebar, type ReportSectionOption } from "./annotation-sidebar";
 import { SelectionCreateBar } from "./selection-create-bar";
 import type { QuotationType, ReaderAnnotation } from "@thesis/core";
+import {
+  darkPdfCanvasFilter,
+  shouldUseDarkPdfRendering,
+} from "../application/reader-pdf-theme";
+import {
+  backlinksForAnnotation,
+  findAnnotationBacklinks,
+  type AnnotationBacklinkHit,
+} from "../application/annotation-backlinks";
 
 /**
  * pdf.js render surface. Dynamically imports pdf.js so no bytes reach first
@@ -215,6 +225,8 @@ export function PdfReader({
   const [createBusy, setCreateBusy] = useState(false);
   const [reportSections, setReportSections] = useState<ReportSectionOption[]>([]);
   const [pinsByKey, setPinsByKey] = useState<Map<string, string | null>>(new Map());
+  const [backlinkHits, setBacklinkHits] = useState<AnnotationBacklinkHit[]>([]);
+  const [darkPdf, setDarkPdf] = useState(false);
   const pageGeometries = useRef(new Map<number, PageTextGeometry>());
   const inkPath = useRef<number[]>([]);
   const dragRect = useRef<{
@@ -705,31 +717,60 @@ export function PdfReader({
     if (!paperId) {
       setReportSections([]);
       setPinsByKey(new Map());
+      setBacklinkHits([]);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
-        const [sections, pins] = await Promise.all([
+        const [sections, pins, vaultPages] = await Promise.all([
           getContainer().papers.listReportSections(),
           getContainer().papers.listAnnotationPinsForPaper(paperId),
+          getContainer().vault.listPages().catch(() => []),
         ]);
         if (cancelled) return;
         setReportSections(
           sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
         );
         setPinsByKey(new Map(pins.map((p) => [p.annotationKey, p.reportSectionId])));
+        setBacklinkHits(
+          findAnnotationBacklinks({
+            annotations,
+            pins,
+            sections: sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
+            vaultPages: vaultPages.map((p) => ({
+              id: p.id,
+              title: p.title || "Untitled note",
+              body: p.body ?? "",
+            })),
+          }),
+        );
       } catch {
         if (!cancelled) {
           setReportSections([]);
           setPinsByKey(new Map());
+          setBacklinkHits([]);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [paperId]);
+  }, [paperId, annotations]);
+
+  useEffect(() => {
+    const readTheme = () => {
+      const theme = document.documentElement.getAttribute("data-theme");
+      setDarkPdf(shouldUseDarkPdfRendering(theme));
+    };
+    readTheme();
+    const observer = new MutationObserver(readTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   function screenToPdf(pageHost: HTMLElement, clientX: number, clientY: number) {
     const rect = pageHost.getBoundingClientRect();
@@ -932,11 +973,12 @@ export function PdfReader({
 
   return (
     <div
-      className="pdf-reader"
+      className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}`}
       ref={rootRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
       aria-label="PDF reader"
+      style={darkPdf ? ({ ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } as CSSProperties) : undefined}
     >
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">
@@ -1023,6 +1065,9 @@ export function PdfReader({
                 canEditLocal={canCreate}
                 reportSections={reportSections}
                 pinsByKey={pinsByKey}
+                backlinks={
+                  selectedAnnId ? backlinksForAnnotation(backlinkHits, selectedAnnId) : []
+                }
                 onUpdateLocal={updateLocal}
                 onRemoveLocal={removeLocal}
                 onPinLocal={pinLocal}
