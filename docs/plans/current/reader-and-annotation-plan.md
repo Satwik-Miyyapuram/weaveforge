@@ -240,7 +240,7 @@ Owner-only RLS, and an `updated_at` trigger — the defect found in `0107` and f
 
 Each phase ships something a researcher can use. `npm run check:all` must exit 0 before any phase is called done.
 
-### R0 — Fix what is broken (half a day)
+### R0 — Fix what is broken ✅ DONE (2026-07-29)
 
 The reader is currently worse than no reader, and this is the cheapest possible fix.
 
@@ -250,6 +250,8 @@ The reader is currently worse than no reader, and this is the cheapest possible 
 - Keyboard: arrows, PageUp/Down, Home/End, `+`/`-`
 
 **Exit:** a PDF opens fitting the pane, and the whole page is visible without horizontal scrolling.
+
+**Delivered:** `reader-viewport.ts` + `reader-keyboard.ts` (pure, tested); `OpenAccessPdfResolver` on the ladder; toolbar + `useReaderViewport` in the pdf.js surface.
 
 ### R1 — Text layer and reading (the foundation for everything after)
 

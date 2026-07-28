@@ -8,13 +8,13 @@ import { getContainer } from "@/bootstrap";
 import { ScreenLoader } from "@/components/thesis-loader";
 import { PdfReader } from "./pdf-reader-lazy";
 import {
-  resolvePaperPdfUrl,
   sanitizePdfUrl,
   proxiedPdfUrl,
   looksLikePdfUrl,
 } from "../application/sanitize-reader-url";
+import { resolvePaperPdfSource } from "../application/resolve-paper-pdf-source";
 
-/** Read-only reader route: renders a PDF and jumps to an optional locus (D). */
+/** Reader route: renders a PDF via the source ladder and jumps to an optional locus. */
 export function ReaderScreen() {
   const params = useSearchParams();
   const paperId = params.get("paper");
@@ -30,16 +30,13 @@ export function ReaderScreen() {
   const pdfFromParam = useMemo(() => {
     const sanitized = sanitizePdfUrl(pdfParam);
     if (!sanitized) return null;
-    // Direct `?pdf=` must look like a PDF resource (not an HTML landing page).
     return looksLikePdfUrl(sanitized) ? sanitized : null;
   }, [pdfParam]);
-  // When `paper` is present it owns provenance — ignore a crafted `pdf` override.
   const [pdfUrl, setPdfUrl] = useState<string | null>(paperId ? null : pdfFromParam);
   const [title, setTitle] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(paperId));
   const [error, setError] = useState<string | null>(null);
 
-  // Keep state in sync when the query string changes (client nav between loci).
   useEffect(() => {
     setError(null);
     setTitle(null);
@@ -61,19 +58,22 @@ export function ReaderScreen() {
     setPdfUrl(null);
     void getContainer()
       .papers.getPaper(paperId)
-      .then((paper) => {
+      .then(async (paper) => {
         if (cancelled) return;
         setTitle(paper?.title ?? null);
         if (!paper) {
           setError("Paper not found or inaccessible.");
           return;
         }
-        const url = resolvePaperPdfUrl({
+        const resolution = await resolvePaperPdfSource({
+          id: paper.id,
           url: paper.url,
           arxivId: paper.arxivId,
+          doi: paper.doi,
           pdfPath: paper.pdfPath,
         });
-        if (url) setPdfUrl(url);
+        if (cancelled) return;
+        if (resolution.ok) setPdfUrl(resolution.hit.url);
         else setError("This paper has no PDF URL the reader can open (HTML landing pages are skipped).");
       })
       .catch((err) => {
@@ -93,7 +93,7 @@ export function ReaderScreen() {
         <div>
           <p className="eyebrow">Source</p>
           <h1>{title ?? "Reader"}</h1>
-          <p className="muted">Read-only view for verifying where a claim came from.</p>
+          <p className="muted">In-app PDF reader — fit width by default; zoom, rotate, and jump pages from the toolbar.</p>
         </div>
         {paperId && (
           <Link className="secondary-btn" href={`/papers?paper=${encodeURIComponent(paperId)}`}>

@@ -1,18 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { resolveTextAnchor, type PdfLocus, type AnchorConfidence } from "@thesis/core";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
+import {
+  readerKeyboardCommand,
+  resolveTextAnchor,
+  type PdfLocus,
+  type AnchorConfidence,
+  type ReaderContainerSize,
+  type ReaderPageSize,
+} from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl } from "../application/sanitize-reader-url";
+import { useReaderViewport } from "./use-reader-viewport";
+import { ReaderToolbar } from "./reader-toolbar";
 
 /**
- * Read-only pdf.js render surface (Phase D). Dynamically imports pdf.js so no
- * bytes reach first paint on non-reader routes; the worker runs off the main
- * thread. Pages render lazily as they scroll into view. Given a locus, text is
- * scanned first (no canvas) and only the matched page is painted + highlighted;
- * low confidence is surfaced rather than jumping wrong.
- *
- * This is a provenance-verification surface, not an annotator (D2/D3).
+ * pdf.js render surface. Dynamically imports pdf.js so no bytes reach first
+ * paint on non-reader routes. Viewport defaults to fit-width; anchors stay in
+ * PDF user space and are projected through viewport.transform at render time.
  */
 
 type PdfLib = typeof import("pdfjs-dist");
@@ -38,17 +50,11 @@ interface PageText {
 }
 
 export interface PdfReaderProps {
-  /**
-   * PDF URL passed to pdf.js. May be a same-origin `/api/pdf-proxy?…` rewrite
-   * so cross-origin publishers do not hit CORS.
-   */
   url: string;
-  /** Original http(s) URL for "Open the original PDF" (never a javascript: link). */
   originalUrl?: string;
   locus?: PdfLocus;
   /** 0-based page hint; when present the jump resolves there first. */
   page?: number;
-  scale?: number;
 }
 
 interface JumpState {
@@ -107,17 +113,35 @@ function SafeExternalLink({ href, children }: { href: string; children: ReactNod
   );
 }
 
-export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfReaderProps) {
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+}
+
+export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PdfDocument | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
+  const [pageSize, setPageSize] = useState<ReaderPageSize | null>(null);
+  const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
   const renderGeneration = useRef(0);
-  // Accept same-origin proxy paths only when the nested target is allowlisted.
+
+  const viewport = useReaderViewport({
+    initialPage: typeof page === "number" ? page + 1 : 1,
+    pageSize,
+    containerSize,
+    numPages,
+  });
+  const scale = viewport.renderScale;
+  const rotation = viewport.rotation;
+
   const safeUrl = (() => {
     if (url.startsWith("/api/pdf-proxy?")) {
       const original = originalUrlFromProxy(url);
@@ -145,6 +169,21 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
   }, []);
 
   useEffect(() => {
+    const host = containerRef.current;
+    if (!host || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      setContainerSize({
+        width: Math.max(1, host.clientWidth),
+        height: Math.max(1, host.clientHeight),
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [pdf]);
+
+  useEffect(() => {
     let cancelled = false;
     let task: ReturnType<PdfLib["getDocument"]> | null = null;
     renderGeneration.current += 1;
@@ -154,6 +193,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     setError(null);
     setPdf(null);
     setNumPages(0);
+    setPageSize(null);
     setJump({ status: locus ? "searching" : "idle" });
 
     if (!safeUrl) {
@@ -188,7 +228,11 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           return;
         }
         const doc = await task.promise;
-        if (cancelled) return; // cleanup's task.destroy() owns the proxy
+        if (cancelled) return;
+        const first = await doc.getPage(1);
+        if (cancelled) return;
+        const base = first.getViewport({ scale: 1, rotation: 0 });
+        setPageSize({ width: base.width, height: base.height });
         setPdf(doc);
         setNumPages(doc.numPages);
       } catch (err) {
@@ -214,14 +258,13 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     containerRef.current?.querySelectorAll(".pdf-reader-hl").forEach((el) => el.remove());
   }, []);
 
-  // Drop cached canvases when scale changes so highlights stay aligned.
   useEffect(() => {
     renderGeneration.current += 1;
     renderedPages.current.clear();
     renderingPages.current.clear();
     cancelRenderTasks();
     clearHighlights();
-  }, [scale, clearHighlights, cancelRenderTasks]);
+  }, [scale, rotation, clearHighlights, cancelRenderTasks]);
 
   const renderPage = useCallback(
     async (pageNumber: number) => {
@@ -241,7 +284,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           if (!host) return;
           const pdfPage = await pdf.getPage(pageNumber);
           if (generation !== renderGeneration.current) return;
-          const viewport = pdfPage.getViewport({ scale });
+          const viewport = pdfPage.getViewport({ scale, rotation });
           const canvas = host.querySelector("canvas");
           if (!(canvas instanceof HTMLCanvasElement)) return;
           const ctx = canvas.getContext("2d");
@@ -279,10 +322,9 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       renderingPages.current.set(pageNumber, work);
       await work;
     },
-    [pdf, scale],
+    [pdf, scale, rotation],
   );
 
-  /** Text-only scan — no canvas. Returns confidence if the locus matches this page. */
   const matchOnPage = useCallback(
     async (pageNumber: number): Promise<AnchorConfidence | null> => {
       if (!pdf || !locus) return null;
@@ -301,7 +343,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       if (!pdf || !locus) return;
       const lib = await loadPdfLib();
       const pdfPage = await pdf.getPage(pageNumber);
-      const viewport = pdfPage.getViewport({ scale });
+      const pageViewport = pdfPage.getViewport({ scale, rotation });
       const content = await pdfPage.getTextContent();
       const items = textItemsFromContent(content);
       const pageText = buildPageText(items);
@@ -316,7 +358,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       for (const range of pageText.items) {
         if (range.end <= anchor.start || range.start >= anchor.end) continue;
         const item = items[range.index]!;
-        const tx = lib.Util.transform(viewport.transform, item.transform);
+        const tx = lib.Util.transform(pageViewport.transform, item.transform);
         const fontHeight = Math.hypot(tx[2]!, tx[3]!) || item.height * scale;
         const width = (item.width || 0) * scale;
         const left = tx[4]!;
@@ -330,7 +372,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
         host.appendChild(hl);
       }
     },
-    [pdf, locus, scale],
+    [pdf, locus, scale, rotation],
   );
 
   useEffect(() => {
@@ -351,7 +393,16 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     return () => observer.disconnect();
   }, [pdf, numPages, renderPage]);
 
-  // Jump-to-locus: text-scan first, paint the first hit early, downgrade if ambiguous.
+  // Scroll when the toolbar / keyboard changes the current page.
+  useEffect(() => {
+    if (!pdf || numPages === 0) return;
+    const host = containerRef.current?.querySelector<HTMLElement>(
+      `[data-page="${viewport.page}"]`,
+    );
+    host?.scrollIntoView({ behavior: "smooth", block: "start" });
+    void renderPage(viewport.page);
+  }, [viewport.page, pdf, numPages, renderPage]);
+
   useEffect(() => {
     if (!pdf || !locus) {
       clearHighlights();
@@ -389,6 +440,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
             `[data-page="${match.pageNumber}"]`,
           );
           host?.scrollIntoView({ behavior: "smooth", block: "center" });
+          viewport.setPage(match.pageNumber);
           setJump({
             status: confidence === "high" ? "found" : "low",
             pageNumber: match.pageNumber,
@@ -402,7 +454,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           try {
             confidence = await matchOnPage(pageNumber);
           } catch {
-            continue; // skip a bad page; keep scanning
+            continue;
           }
           if (!confidence) continue;
           if (!firstMatch) {
@@ -428,7 +480,6 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           await paintMatch(firstMatch, finalConfidence);
         }
       } catch {
-        // Never overwrite a successful early paint with a false "missed".
         if (!cancelled && !firstMatch) setJump({ status: "missed" });
       }
     })();
@@ -436,7 +487,44 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       cancelled = true;
       clearHighlights();
     };
+    // viewport.setPage is stable enough; omit viewport object to avoid re-jumps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
+
+  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const command = readerKeyboardCommand({
+      key: event.key,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      altKey: event.altKey,
+      fromEditable: isEditableTarget(event.target),
+    });
+    if (!command) return;
+    event.preventDefault();
+    switch (command.type) {
+      case "zoom_in":
+        viewport.zoomIn();
+        break;
+      case "zoom_out":
+        viewport.zoomOut();
+        break;
+      case "fit_width":
+        viewport.fitWidth();
+        break;
+      case "rotate":
+        viewport.rotateClockwise();
+        break;
+      case "page_home":
+        viewport.setPage(1);
+        break;
+      case "page_end":
+        viewport.setPage(numPages);
+        break;
+      case "page_delta":
+        viewport.setPage(viewport.page + command.delta);
+        break;
+    }
+  }
 
   if (error) {
     return (
@@ -448,7 +536,13 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
   }
 
   return (
-    <div className="pdf-reader">
+    <div
+      className="pdf-reader"
+      ref={rootRef}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      aria-label="PDF reader"
+    >
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">
           {jump.status === "searching" && "Locating the cited passage…"}
@@ -464,6 +558,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           )}
         </div>
       )}
+      <ReaderToolbar viewport={viewport} numPages={numPages} />
       <div className="pdf-reader-scroll" ref={containerRef}>
         {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
         {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (

@@ -4092,9 +4092,21 @@ a.related-paper-url:hover { text-decoration: underline; }
 .ai-evidence-open { align-self: start; font-size: 0.85rem; font-weight: 600; }
 @media (max-width: 900px) { .ai-review-card--split .ai-review-body { grid-template-columns: 1fr; } }
 
-/* Read-only pdf.js reader (Phase D). */
+/* PDF reader (R0+). */
 .reader-screen { display: flex; flex-direction: column; min-height: 0; }
-.pdf-reader { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+.pdf-reader { display: flex; flex-direction: column; min-height: 0; gap: 8px; outline: none; }
+.pdf-reader-toolbar {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface);
+}
+.pdf-reader-toolbar-label { font-size: 0.85rem; min-width: 3.5rem; text-align: center; }
+.pdf-reader-page-jump {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 0.85rem;
+}
+.pdf-reader-page-jump input {
+  width: 4rem; padding: 4px 6px;
+}
 .pdf-reader-banner {
   padding: 8px 12px; border-radius: 8px; font-size: 0.86rem;
   border: 1px solid var(--line); background: var(--surface-alt);
@@ -4102,7 +4114,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .pdf-reader-banner--low { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
 .pdf-reader-banner--found { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 .pdf-reader-scroll {
-  overflow: auto; max-height: calc(100vh - 220px); display: flex; flex-direction: column;
+  overflow: auto; max-height: calc(100vh - 260px); display: flex; flex-direction: column;
   align-items: center; gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: 10px;
 }
 .pdf-reader-page {
