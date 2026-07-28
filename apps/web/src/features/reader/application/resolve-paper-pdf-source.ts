@@ -6,6 +6,7 @@
 import {
   OpenAccessPdfResolver,
   PdfByteCacheResolver,
+  WebDavPdfResolver,
   resolvePdfSource,
   type IPdfByteCache,
   type IPdfSourceResolver,
@@ -43,13 +44,18 @@ const openAccessResolver = new OpenAccessPdfResolver({
     }),
 });
 
-/** Resolvers in priority order — cache first when provided, then open-access. */
+const webDavResolver = new WebDavPdfResolver({
+  buildProxiedUrl: (path) => `/api/webdav-proxy?path=${encodeURIComponent(path)}`,
+});
+
+/** Resolvers in priority order — cache first when provided, then open-access, then WebDAV. */
 export function defaultPdfSourceResolvers(
   cache?: IPdfByteCache,
 ): readonly IPdfSourceResolver[] {
   const resolvers: IPdfSourceResolver[] = [];
   if (cache) resolvers.push(new PdfByteCacheResolver(cache));
   resolvers.push(openAccessResolver);
+  resolvers.push(webDavResolver);
   return resolvers;
 }
 

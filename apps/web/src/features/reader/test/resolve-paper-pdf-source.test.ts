@@ -37,3 +37,15 @@ test("resolvePaperPdfSource fails closed when nothing looks like a PDF", async (
   });
   assert.equal(miss.ok, false);
 });
+
+test("resolvePaperPdfSource uses WebDAV ladder step when metadata has a path", async () => {
+  const hit = await resolvePaperPdfSource({
+    id: "p1",
+    metadata: { webdavPath: "/library/paper.pdf" },
+  });
+  assert.equal(hit.ok, true);
+  if (hit.ok) {
+    assert.equal(hit.resolverId, "webdav");
+    assert.match(hit.hit.url, /webdav-proxy/);
+  }
+});

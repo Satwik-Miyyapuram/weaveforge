@@ -1,7 +1,7 @@
 # Reader and annotation — full implementation plan
 
 **Date:** 2026-07-27
-**Status:** Current. This is the active plan for the reader.
+**Status:** Current. Phases R0–R4 done; R5 infra/dry-run done (live spike human-gated); R6 stubs + documented deferrals.
 **Supersedes:** the reader sections of [`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md) (§8 Phases 1–4). That document's licensing analysis (§1), source ladder (§4), anchor design (§5), and ZotFlow parity checklist (§8.1) remain authoritative and are referenced rather than repeated.
 **Goal:** match ZotFlow on the literature loop, then exceed it. Read → annotate → source note → cite, without leaving the app.
 
@@ -310,28 +310,32 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 
 **Delivered:** `?pane=report|vault` split panel; annotation backlinks (pins + vault quote/key); batch image-region listing + activity log; shared-paper annotation samples at view; dark PDF canvas filter for mocha/dark themes; `planSourceNoteBatch` / `collectAnnotationImageRegions` pure helpers (tested).
 
-### R5 — Zotero write-back (the deferred D2 spike, now scheduled)
+### R5 — Zotero write-back (the deferred D2 spike, now scheduled) ✅ INFRA DONE (2026-07-29)
 
-**Needs live credentials and a human watching.** Do not attempt unsupervised.
+**Needs live credentials and a human watching for the live spike.** Unsupervised work ships ports + dry-run only.
 
-- Spike first: create one annotation via the Zotero Web API against a scratch library, confirm it survives a round-trip
-- Push local annotations as Zotero items; store `zotero_key` + `zotero_version`
-- Pull remote changes; detect divergence via `zotero_version`
-- **Field-level conflict diff** — keep local / accept remote / merge, with batch resolve
-- Per-library modes: Bidirectional / Read-Only / Ignored
-- `sync_state` drives a per-annotation badge
+- Spike first: create one annotation via the Zotero Web API against a scratch library, confirm it survives a round-trip — **blocked on human + live creds**
+- Push local annotations as Zotero items; store `zotero_key` + `zotero_version` — **payload builder + dry-run client shipped; live push refused**
+- Pull remote changes; detect divergence via `zotero_version` — **`decideAnnotationSync` shipped**
+- **Field-level conflict diff** — keep local / accept remote / merge, with batch resolve — **`diffAnnotationFields` / `resolveAnnotationConflict` shipped**
+- Per-library modes: Bidirectional / Read-Only / Ignored — **`ZoteroLibrarySyncMode` shipped**
+- `sync_state` drives a per-annotation badge — **domain + sidebar badge wired**
 
 **Exit:** an annotation created in WeaveForge appears in Zotero desktop, and an edit made in Zotero desktop appears here with conflicts surfaced rather than silently resolved.
 
-### R6 — Reach and formats
+**Unsupervised status:** infrastructure and conflict math complete and tested. Live round-trip remains a human-gated spike.
 
-- EPUB via `epub.js` (BSD-3, AGPL-compatible) — same anchor model, CFI instead of a quote selector
-- HTML snapshot reading
-- WebDAV source (ladder step 3) with server-sealed credentials
-- Linked attachment base directory
-- Opt-in `paper-pdfs` bucket (ladder step 6) with quota and tier eviction
-- Mobile — gated on the memory measurement in §10 of the old plan
-- Offline reading for cached documents
+### R6 — Reach and formats ✅ STUBS + DEFERRALS (2026-07-29)
+
+- EPUB via `epub.js` (BSD-3, AGPL-compatible) — same anchor model, CFI instead of a quote selector — **CFI types + parser shipped; UI deferred**
+- HTML snapshot reading — **locus builder shipped; viewer deferred**
+- WebDAV source (ladder step 3) with server-sealed credentials — **`WebDavPdfResolver` shipped**
+- Linked attachment base directory — **deferred (needs native host)**
+- Opt-in `paper-pdfs` bucket (ladder step 6) with quota and tier eviction — **policy helper shipped; bucket off by default**
+- Mobile — gated on the memory measurement in §10 of the old plan — **deferred (`R6_DEFERRALS`)**
+- Offline reading for cached documents — **byte cache exists; offline shell deferred**
+
+**Delivered:** `format-reach.ts`, `WebDavPdfResolver`, explicit `R6_DEFERRALS` registry. Full UI surfaces for EPUB/HTML/mobile/offline remain documented deferrals.
 
 ---
 
