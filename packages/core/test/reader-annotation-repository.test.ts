@@ -16,6 +16,7 @@ test("InMemoryReaderAnnotationRepository creates, lists, updates, removes", asyn
   });
   assert.equal(created.origin, "local");
   assert.equal(created.zoteroKey, null);
+  assert.equal(created.syncState, "local");
   assert.deepEqual(await repo.list("paper-1"), [created]);
   assert.deepEqual(await repo.list("other"), []);
 

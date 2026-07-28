@@ -67,8 +67,14 @@ export function draftImageRegion(input: {
   pageHeight: number;
   /** PDF user-space rect `[x1,y1,x2,y2]`. */
   rect: [number, number, number, number];
-}): NewReaderAnnotation {
+  /** Minimum width/height in PDF units (default 2). */
+  minSize?: number;
+}): NewReaderAnnotation | null {
   const [x1, y1, x2, y2] = input.rect;
+  const minSize = input.minSize ?? 2;
+  const width = Math.abs(x2 - x1);
+  const height = Math.abs(y2 - y1);
+  if (width < minSize || height < minSize) return null;
   const top = input.pageHeight - Math.max(y1, y2);
   return {
     type: "image",
@@ -78,7 +84,7 @@ export function draftImageRegion(input: {
     anchor: {
       zoteroPosition: {
         pageIndex: input.pageIndex,
-        rects: [[x1, y1, x2, y2]],
+        rects: [[Math.min(x1, x2), Math.min(y1, y2), Math.max(x1, x2), Math.max(y1, y2)]],
       },
     },
     sortIndex: buildAnnotationSortIndex(input.pageIndex, 0, top),

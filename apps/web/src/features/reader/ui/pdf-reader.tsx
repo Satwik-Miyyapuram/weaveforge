@@ -95,7 +95,10 @@ export interface PdfReaderProps {
   quotationTypes?: Map<string, QuotationType>;
   /** When set, selection can create local annotations (R3 sink). */
   paperId?: string;
-  onAnnotationsChange?: (next: ReaderAnnotation[]) => void;
+  onAnnotationsChange?: (
+    next: ReaderAnnotation[] | ((prev: ReaderAnnotation[]) => ReaderAnnotation[]),
+  ) => void;
+  onActivity?: (kind: string, message: string) => void;
 }
 
 interface JumpState {
@@ -201,6 +204,7 @@ export function PdfReader({
   quotationTypes,
   paperId,
   onAnnotationsChange,
+  onActivity,
 }: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -227,6 +231,7 @@ export function PdfReader({
   const [pinsByKey, setPinsByKey] = useState<Map<string, string | null>>(new Map());
   const [backlinkHits, setBacklinkHits] = useState<AnnotationBacklinkHit[]>([]);
   const [darkPdf, setDarkPdf] = useState(false);
+  const [annError, setAnnError] = useState<string | null>(null);
   const pageGeometries = useRef(new Map<number, PageTextGeometry>());
   const inkPath = useRef<number[]>([]);
   const dragRect = useRef<{
@@ -760,14 +765,16 @@ export function PdfReader({
 
   useEffect(() => {
     const readTheme = () => {
-      const theme = document.documentElement.getAttribute("data-theme");
-      setDarkPdf(shouldUseDarkPdfRendering(theme));
+      const root = document.documentElement;
+      const theme = root.getAttribute("data-theme");
+      const mode = root.getAttribute("data-mode");
+      setDarkPdf(mode === "dark" || shouldUseDarkPdfRendering(theme, mode));
     };
     readTheme();
     const observer = new MutationObserver(readTheme);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme"],
+      attributeFilter: ["data-theme", "data-mode"],
     });
     return () => observer.disconnect();
   }, []);
@@ -781,7 +788,7 @@ export function PdfReader({
   }
 
   function onSelectionMouseUp() {
-    if (!canCreate || createTool !== "select") return;
+    if (!canCreate || createTool !== "select" || rotation !== 0) return;
     const root = containerRef.current;
     if (!root) return;
     const sel = window.getSelection();
@@ -825,10 +832,14 @@ export function PdfReader({
     setCreateBusy(true);
     try {
       const created = await getContainer().papers.createReaderAnnotation(paperId, draft);
-      onAnnotationsChange([...annotations, created]);
+      onAnnotationsChange((prev) => [...prev.filter((a) => a.id !== created.id), created]);
+      onActivity?.("annotate", `Created ${created.type}`);
       setSelectedAnnId(created.id);
       setPendingCreate(null);
+      setAnnError(null);
       window.getSelection()?.removeAllRanges();
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Could not save the annotation.");
     } finally {
       setCreateBusy(false);
     }
@@ -841,11 +852,18 @@ export function PdfReader({
     if (!pendingCreate) return;
     const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
     if (!geometry) return;
+    let comment = "";
+    if (type === "note") {
+      const typed = window.prompt("Sticky note comment");
+      if (typed == null) return;
+      comment = typed.trim();
+    }
     const draft = draftFromTextSelection({
       type,
       color,
       selection: pendingCreate.selection,
       page: geometry,
+      comment,
     });
     if (!draft) return;
     await persistDraft(draft);
@@ -856,32 +874,51 @@ export function PdfReader({
     patch: { comment?: string; tags?: string[]; color?: string },
   ) {
     if (!onAnnotationsChange) return;
-    const updated = await getContainer().papers.updateReaderAnnotation(id, patch);
-    onAnnotationsChange(annotations.map((a) => (a.id === id ? updated : a)));
+    try {
+      const updated = await getContainer().papers.updateReaderAnnotation(id, patch);
+      onAnnotationsChange((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      onActivity?.("annotate", "Updated annotation");
+      setAnnError(null);
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Could not update the annotation.");
+    }
   }
 
   async function removeLocal(id: string) {
     if (!onAnnotationsChange) return;
-    await getContainer().papers.removeReaderAnnotation(id);
-    onAnnotationsChange(annotations.filter((a) => a.id !== id));
-    if (selectedAnnId === id) setSelectedAnnId(null);
+    if (!window.confirm("Delete this local annotation?")) return;
+    try {
+      await getContainer().papers.removeReaderAnnotation(id);
+      onAnnotationsChange((prev) => prev.filter((a) => a.id !== id));
+      onActivity?.("annotate", "Deleted annotation");
+      setAnnError(null);
+      if (selectedAnnId === id) setSelectedAnnId(null);
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Could not delete the annotation.");
+    }
   }
 
   async function pinLocal(ann: ReaderAnnotation, sectionId: string | null) {
     if (!paperId) return;
     const key = annotationPinKey(ann);
-    await getContainer().papers.setAnnotationPin(paperId, key, sectionId);
-    setPinsByKey((prev) => {
-      const next = new Map(prev);
-      if (sectionId) next.set(key, sectionId);
-      else next.delete(key);
-      return next;
-    });
+    try {
+      await getContainer().papers.setAnnotationPin(paperId, key, sectionId);
+      setPinsByKey((prev) => {
+        const next = new Map(prev);
+        if (sectionId) next.set(key, sectionId);
+        else next.delete(key);
+        return next;
+      });
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Could not pin the annotation.");
+    }
   }
 
   function onPagePointerDown(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
     if (!canCreate || !pageSize) return;
+    if (rotation !== 0) return;
     if (createTool === "select") return;
+    event.preventDefault();
     const host = event.currentTarget;
     const pt = screenToPdf(host, event.clientX, event.clientY);
     if (createTool === "ink") {
@@ -916,7 +953,7 @@ export function PdfReader({
   }
 
   function onPagePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!canCreate) return;
+    if (!canCreate || rotation !== 0) return;
     const host = event.currentTarget;
     const pt = screenToPdf(host, event.clientX, event.clientY);
     if (createTool === "ink" && inkPath.current.length >= 2) {
@@ -930,7 +967,7 @@ export function PdfReader({
   }
 
   function onPagePointerUp(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
-    if (!canCreate || !pageSize) return;
+    if (!canCreate || !pageSize || rotation !== 0) return;
     if (createTool === "ink" && inkPath.current.length >= 4) {
       const draft = draftInkAnnotation({
         color: createColor,
@@ -946,6 +983,7 @@ export function PdfReader({
     if (createTool === "image" && dragRect.current) {
       const d = dragRect.current;
       dragRect.current = null;
+      if (d.pageNumber !== pageNumber) return;
       const draft = draftImageRegion({
         color: createColor,
         pageIndex: pageNumber - 1,
@@ -957,7 +995,7 @@ export function PdfReader({
           Math.max(d.y0, d.y1),
         ],
       });
-      void persistDraft(draft);
+      if (draft) void persistDraft(draft);
     }
     void event;
   }
@@ -996,6 +1034,19 @@ export function PdfReader({
         </div>
       )}
       <ReaderToolbar viewport={viewport} numPages={numPages} />
+      {rotation !== 0 && (
+        <div className="pdf-reader-banner pdf-reader-banner--low" role="status">
+          Annotations and create tools pause while the page is rotated — reset rotation to edit.
+        </div>
+      )}
+      {annError && (
+        <div className="pdf-reader-banner pdf-reader-banner--low" role="alert">
+          {annError}{" "}
+          <button type="button" className="link-btn" onClick={() => setAnnError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="pdf-reader-tools">
         <ReaderSearchBar
           pages={pageTexts}
@@ -1022,6 +1073,7 @@ export function PdfReader({
             <select
               aria-label="Annotation tool"
               value={createTool}
+              disabled={rotation !== 0}
               onChange={(e) => setCreateTool(e.target.value as ReaderCreateTool)}
             >
               <option value="select">Select</option>
@@ -1033,16 +1085,21 @@ export function PdfReader({
               type="color"
               aria-label="Annotation colour"
               value={createColor}
+              disabled={rotation !== 0}
               onChange={(e) => setCreateColor(e.target.value)}
             />
           </>
         )}
       </div>
-      {pendingCreate && canCreate && (
+      {pendingCreate && canCreate && rotation === 0 && (
         <SelectionCreateBar
           pending={pendingCreate}
           busy={createBusy}
-          onCreate={(type, color) => void createFromPending(type, color)}
+          color={createColor}
+          onCreate={(type, color) => {
+            setCreateColor(color);
+            void createFromPending(type, color);
+          }}
           onCancel={() => setPendingCreate(null)}
         />
       )}
@@ -1097,7 +1154,7 @@ export function PdfReader({
               onPointerUp={(e) => onPagePointerUp(n, e)}
             >
               <canvas />
-              {pageSize && (
+              {pageSize && rotation === 0 && (
                 <AnnotationOverlay
                   annotations={annotations}
                   pageNumber={n}

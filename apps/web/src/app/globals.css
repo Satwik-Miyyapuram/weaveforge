@@ -4159,7 +4159,11 @@ a.related-paper-url:hover { text-decoration: underline; }
   opacity: 0.35; cursor: pointer;
 }
 .pdf-reader-ann.is-selected { outline: 2px solid var(--accent); opacity: 0.55; }
+.pdf-reader-ann.is-approximate { outline: 1px dashed var(--danger); }
 .pdf-reader-ann.is-underline { opacity: 1; }
+.pdf-reader--dark .pdf-reader-textlayer {
+  opacity: 0.45; mix-blend-mode: difference;
+}
 .pdf-reader-ann-svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .pdf-reader-create-bar {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
@@ -4170,6 +4174,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .pdf-reader-create-swatch {
   width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--border); padding: 0; cursor: pointer;
 }
+.pdf-reader-create-swatch.is-active { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pdf-reader-sidebar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .pdf-reader-sidebar-edit { display: grid; gap: 6px; margin-top: 4px; }
 .pdf-reader-sidebar-edit textarea,

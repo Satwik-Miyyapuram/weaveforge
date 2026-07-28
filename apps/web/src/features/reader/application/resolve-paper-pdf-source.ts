@@ -45,7 +45,8 @@ const openAccessResolver = new OpenAccessPdfResolver({
 });
 
 const webDavResolver = new WebDavPdfResolver({
-  buildProxiedUrl: (path) => `/api/webdav-proxy?path=${encodeURIComponent(path)}`,
+  // No sealed WebDAV proxy route yet — refuse rather than return a 404 URL.
+  buildProxiedUrl: () => null,
 });
 
 /** Resolvers in priority order — cache first when provided, then open-access, then WebDAV. */

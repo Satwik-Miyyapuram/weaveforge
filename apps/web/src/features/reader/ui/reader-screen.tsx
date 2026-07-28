@@ -111,6 +111,7 @@ export function ReaderScreen() {
           arxivId: paper.arxivId,
           doi: paper.doi,
           pdfPath: paper.pdfPath,
+          metadata: paper.metadata,
         });
         if (cancelled) return;
         if (resolution.ok) setPdfUrl(resolution.hit.url);
@@ -132,17 +133,45 @@ export function ReaderScreen() {
     let cancelled = false;
     void (async () => {
       try {
-        if (pane === "report" && sectionId) {
+        if (pane === "report") {
+          if (!sectionId) {
+            if (!cancelled) {
+              setSplitTitle("Pick a report section");
+              setSplitBody("Open a section from the report screen, or add ?section=<id> to the reader URL.");
+              setSplitHref("/report");
+            }
+            return;
+          }
           const section = await getContainer().report.getSection(sectionId);
-          if (cancelled || !section) return;
+          if (cancelled) return;
+          if (!section) {
+            setSplitTitle("Section not found");
+            setSplitBody("");
+            setSplitHref("/report");
+            return;
+          }
           setSplitTitle(section.title || "Untitled section");
           setSplitBody(section.notes ?? "");
           setSplitHref(`/report?section=${encodeURIComponent(section.id)}`);
           return;
         }
-        if (pane === "vault" && noteId) {
+        if (pane === "vault") {
+          if (!noteId) {
+            if (!cancelled) {
+              setSplitTitle("Pick a vault note");
+              setSplitBody("Open a note from the vault, or add ?note=<id> to the reader URL.");
+              setSplitHref("/vault");
+            }
+            return;
+          }
           const page = await getContainer().vault.getPage(noteId);
-          if (cancelled || !page) return;
+          if (cancelled) return;
+          if (!page) {
+            setSplitTitle("Note not found");
+            setSplitBody("");
+            setSplitHref("/vault");
+            return;
+          }
           setSplitTitle(page.title || "Untitled note");
           setSplitBody(page.body ?? "");
           setSplitHref(`/vault?page=${encodeURIComponent(page.id)}`);
@@ -230,9 +259,9 @@ export function ReaderScreen() {
             quotationTypes={quotationTypes}
             paperId={paperId ?? undefined}
             onAnnotationsChange={(next) => {
-              setAnnotations(next);
-              logActivity("annotate", `Annotations now ${next.length}`);
+              setAnnotations((prev) => (typeof next === "function" ? next(prev) : next));
             }}
+            onActivity={(kind, message) => logActivity(kind, message)}
           />
           {pane && (
             <ReaderSplitPanel

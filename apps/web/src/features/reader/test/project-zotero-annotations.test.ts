@@ -46,10 +46,8 @@ test("projectZoteroAnnotations skips notes and sorts by sortIndex", () => {
   assert.equal(projected[1]!.zoteroKey, "A1");
   assert.equal(projected[1]!.anchor.contentHash, "abc");
   assert.equal(projected[1]!.anchor.zoteroPosition?.rects?.[0]?.[0], 10);
-  assert.equal(
-    (projected[1]!.anchor.zoteroPosition as { nextPageRects?: number[][] }).nextPageRects?.[0]?.[0],
-    1,
-  );
+  assert.deepEqual(projected[1]!.anchor.zoteroPosition?.nextPageRects, [[1, 2, 3, 4]]);
+  assert.deepEqual(projected[0]!.anchor.zoteroPosition?.paths, [[0, 0, 1, 1]]);
   assert.equal(projected[1]!.origin, "zotero");
 });
 

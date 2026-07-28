@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   QUOTATION_TYPE_LABELS,
@@ -276,7 +277,7 @@ export function AnnotationSidebar({
           <ul>
             {backlinks.map((b) => (
               <li key={`${b.kind}:${b.id}`}>
-                <a
+                <Link
                   href={
                     b.kind === "report_section"
                       ? `/report?section=${encodeURIComponent(b.id)}`
@@ -284,7 +285,7 @@ export function AnnotationSidebar({
                   }
                 >
                   {b.kind === "report_section" ? "Report" : "Note"} · {b.title}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

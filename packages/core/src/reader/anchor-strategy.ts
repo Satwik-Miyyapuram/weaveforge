@@ -60,9 +60,10 @@ function hasUsableQuote(locus: PdfLocus | undefined): boolean {
 
 /**
  * Choose which anchor to trust for the current PDF.
- * Use rects only when `currentContentHash` matches the capture hash; otherwise
- * fall back to quote with low confidence. Never silently trust rects against a
- * different file.
+ * Use rects when:
+ * - both hashes are present and match, or
+ * - both hashes are empty (local annotation on the current unnamed PDF).
+ * Never silently trust rects against a different file.
  */
 export function chooseAnchorStrategy(
   anchor: CombinedPdfAnchor,
@@ -70,7 +71,9 @@ export function chooseAnchorStrategy(
 ): AnchorStrategy {
   const captureHash = anchor.contentHash?.trim() ?? "";
   const currentHash = currentContentHash.trim();
-  const hashMatches = Boolean(captureHash) && Boolean(currentHash) && captureHash === currentHash;
+  const bothEmpty = !captureHash && !currentHash;
+  const hashMatches =
+    bothEmpty || (Boolean(captureHash) && Boolean(currentHash) && captureHash === currentHash);
 
   if (hasUsableRects(anchor.zoteroPosition) && hashMatches) {
     return { kind: "rects", position: anchor.zoteroPosition, confidence: "high" };

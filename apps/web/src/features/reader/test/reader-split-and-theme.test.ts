@@ -7,6 +7,8 @@ test("shouldUseDarkPdfRendering recognises dark theme ids", () => {
   assert.equal(shouldUseDarkPdfRendering("mocha"), true);
   assert.equal(shouldUseDarkPdfRendering("latte"), false);
   assert.equal(shouldUseDarkPdfRendering(null), false);
+  assert.equal(shouldUseDarkPdfRendering(null, "dark"), true);
+  assert.equal(shouldUseDarkPdfRendering("latte", "dark"), true);
 });
 
 test("darkPdfCanvasFilter is stable", () => {

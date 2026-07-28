@@ -131,7 +131,7 @@ test("chooseAnchorStrategy ignores empty or missing rect arrays even when hash m
   );
 });
 
-test("chooseAnchorStrategy ignores empty hashes and whitespace-only quotes", () => {
+test("chooseAnchorStrategy trusts rects when both hashes are empty (local ann)", () => {
   assert.deepEqual(
     chooseAnchorStrategy(
       {
@@ -141,10 +141,28 @@ test("chooseAnchorStrategy ignores empty hashes and whitespace-only quotes", () 
       },
       "",
     ),
-    { kind: "quote", locus: locus("quote"), confidence: "low" },
+    {
+      kind: "rects",
+      position: { pageIndex: 0, rects: [[1, 2, 3, 4]] },
+      confidence: "high",
+    },
   );
   assert.deepEqual(
     chooseAnchorStrategy({ locus: locus("   ") }, "abc"),
     { kind: "none", confidence: "low" },
+  );
+});
+
+test("chooseAnchorStrategy does not trust rects when only one hash is set", () => {
+  assert.deepEqual(
+    chooseAnchorStrategy(
+      {
+        contentHash: "abc",
+        zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] },
+        locus: locus("quote"),
+      },
+      "",
+    ),
+    { kind: "quote", locus: locus("quote"), confidence: "low" },
   );
 });

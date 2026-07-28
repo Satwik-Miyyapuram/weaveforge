@@ -72,8 +72,21 @@ test("draftImageRegion stores a single rect", () => {
     pageHeight: 800,
     rect: [10, 20, 110, 120],
   });
-  assert.equal(draft.type, "image");
-  assert.deepEqual(draft.anchor.zoteroPosition?.rects, [[10, 20, 110, 120]]);
+  assert.ok(draft);
+  assert.equal(draft!.type, "image");
+  assert.deepEqual(draft!.anchor.zoteroPosition?.rects, [[10, 20, 110, 120]]);
+});
+
+test("draftImageRegion rejects tiny clicks", () => {
+  assert.equal(
+    draftImageRegion({
+      color: "#aaaaaa",
+      pageIndex: 0,
+      pageHeight: 800,
+      rect: [10, 20, 10.5, 20.5],
+    }),
+    null,
+  );
 });
 
 test("draftTextBox stores typed text and rect", () => {

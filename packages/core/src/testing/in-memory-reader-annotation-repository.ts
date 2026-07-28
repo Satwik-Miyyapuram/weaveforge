@@ -45,6 +45,8 @@ export class InMemoryReaderAnnotationRepository
       sortIndex,
       createdAt: now,
       updatedAt: now,
+      syncState: "local",
+      zoteroVersion: null,
       paperId,
     };
     this.items.set(row.id, row);

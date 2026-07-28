@@ -36,6 +36,8 @@ export function projectZoteroAnnotations(
           ? {
               pageIndex,
               ...(rects?.length ? { rects } : {}),
+              ...(nextPageRects?.length ? { nextPageRects } : {}),
+              ...(paths?.length ? { paths } : {}),
             }
           : undefined,
       locus: ann.text?.trim()
@@ -48,20 +50,12 @@ export function projectZoteroAnnotations(
         : undefined,
     };
 
-    // Preserve cross-page + ink geometry on the anchor via metadata-like fields
-    // attached through a stable extension on zoteroPosition when present.
-    if (anchor.zoteroPosition && (nextPageRects?.length || paths?.length)) {
-      (anchor.zoteroPosition as { nextPageRects?: number[][]; paths?: number[][] }).nextPageRects =
-        nextPageRects;
-      (anchor.zoteroPosition as { nextPageRects?: number[][]; paths?: number[][] }).paths = paths;
-    }
-
     const sortIndex =
       ann.annotationSortIndex?.trim() ||
       buildAnnotationSortIndex(
         typeof pageIndex === "number" ? pageIndex : 0,
         0,
-        typeof pageIndex === "number" ? 0 : 0,
+        0,
       );
 
     out.push({
