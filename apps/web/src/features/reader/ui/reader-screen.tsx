@@ -12,7 +12,7 @@ import {
   proxiedPdfUrl,
   looksLikePdfUrl,
 } from "../application/sanitize-reader-url";
-import { resolvePaperPdfSource } from "../application/resolve-paper-pdf-source";
+import { resolvePaperPdfSourceForReader } from "../application/resolve-paper-pdf-for-reader";
 import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
 import { mergeReaderAnnotations } from "../application/merge-reader-annotations";
 import { parseReaderSplitPane } from "../application/reader-split";
@@ -47,6 +47,7 @@ export function ReaderScreen() {
     return looksLikePdfUrl(sanitized) ? sanitized : null;
   }, [pdfParam]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(paperId ? null : pdfFromParam);
+  const [pdfRevokeUrl, setPdfRevokeUrl] = useState<string | null>(null);
   const [title, setTitle] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<import("@thesis/core").ReaderAnnotation[]>([]);
   const [quotationTypes, setQuotationTypes] = useState<Map<string, import("@thesis/core").QuotationType>>(
@@ -77,6 +78,7 @@ export function ReaderScreen() {
       return;
     }
     let cancelled = false;
+    let revokeOnCancel: string | null = null;
     setLoading(true);
     setPdfUrl(null);
     void getContainer()
@@ -105,7 +107,7 @@ export function ReaderScreen() {
         } catch {
           if (!cancelled) setQuotationTypes(new Map());
         }
-        const resolution = await resolvePaperPdfSource({
+        const resolution = await resolvePaperPdfSourceForReader({
           id: paper.id,
           url: paper.url,
           arxivId: paper.arxivId,
@@ -113,9 +115,23 @@ export function ReaderScreen() {
           pdfPath: paper.pdfPath,
           metadata: paper.metadata,
         });
-        if (cancelled) return;
-        if (resolution.ok) setPdfUrl(resolution.hit.url);
-        else setError("This paper has no PDF URL the reader can open (HTML landing pages are skipped).");
+        if (cancelled) {
+          if ("revokeUrl" in resolution && resolution.revokeUrl) {
+            URL.revokeObjectURL(resolution.revokeUrl);
+          }
+          return;
+        }
+        if (resolution.ok) {
+          setPdfUrl(resolution.hit.url);
+          if ("revokeUrl" in resolution && resolution.revokeUrl) {
+            revokeOnCancel = resolution.revokeUrl;
+            setPdfRevokeUrl(resolution.revokeUrl);
+          } else {
+            setPdfRevokeUrl(null);
+          }
+        } else {
+          setError("This paper has no PDF URL the reader can open (HTML landing pages are skipped).");
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -125,8 +141,15 @@ export function ReaderScreen() {
       });
     return () => {
       cancelled = true;
+      if (revokeOnCancel) URL.revokeObjectURL(revokeOnCancel);
     };
   }, [paperId, pdfFromParam, pdfParam]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfRevokeUrl) URL.revokeObjectURL(pdfRevokeUrl);
+    };
+  }, [pdfRevokeUrl]);
 
   useEffect(() => {
     if (!pane) return;
@@ -250,7 +273,7 @@ export function ReaderScreen() {
         <div className={`reader-main${pane ? " reader-main--split" : ""}`}>
           <PdfReader
             key={pdfUrl}
-            url={proxiedPdfUrl(pdfUrl)}
+            url={pdfUrl.startsWith("blob:") ? pdfUrl : proxiedPdfUrl(pdfUrl)}
             originalUrl={pdfUrl}
             locus={locus ?? undefined}
             page={page}

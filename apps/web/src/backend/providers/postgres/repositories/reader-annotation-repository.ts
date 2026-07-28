@@ -97,6 +97,7 @@ export class PostgresReaderAnnotationRepository
          tags = coalesce($6, tags),
          anchor = coalesce($7::jsonb, anchor),
          sort_index = coalesce($8, sort_index),
+         sync_state = 'pending',
          updated_at = now()
        where user_id = auth.uid() and project_id = $1 and id = $2
        returning *`,

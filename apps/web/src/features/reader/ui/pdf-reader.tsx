@@ -229,10 +229,17 @@ export function PdfReader({
   const [createBusy, setCreateBusy] = useState(false);
   const [reportSections, setReportSections] = useState<ReportSectionOption[]>([]);
   const [pinsByKey, setPinsByKey] = useState<Map<string, string | null>>(new Map());
+  const [pinsList, setPinsList] = useState<
+    { annotationKey: string; reportSectionId: string; paperId: string }[]
+  >([]);
   const [backlinkHits, setBacklinkHits] = useState<AnnotationBacklinkHit[]>([]);
   const [darkPdf, setDarkPdf] = useState(false);
   const [annError, setAnnError] = useState<string | null>(null);
+  const [vaultBacklinkPages, setVaultBacklinkPages] = useState<
+    { id: string; title: string; body: string }[]
+  >([]);
   const pageGeometries = useRef(new Map<number, PageTextGeometry>());
+  const suppressPageScroll = useRef(false);
   const inkPath = useRef<number[]>([]);
   const dragRect = useRef<{
     pageNumber: number;
@@ -488,6 +495,8 @@ export function PdfReader({
             const span = document.createElement("span");
             span.textContent = it.str;
             span.setAttribute("data-item-index", String(itemIndex));
+            span.style.position = "absolute";
+            span.style.whiteSpace = "pre";
             span.style.left = `${tx[4]!}px`;
             span.style.top = `${tx[5]! - fontHeight}px`;
             span.style.fontSize = `${Math.max(fontHeight, 1)}px`;
@@ -571,23 +580,44 @@ export function PdfReader({
     if (!pdf || numPages === 0) return;
     const root = containerRef.current;
     if (!root) return;
+    const ratios = new Map<number, number>();
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
           const n = Number((entry.target as HTMLElement).dataset.page);
-          if (n) void renderPage(n);
+          if (!n) continue;
+          if (entry.isIntersecting) void renderPage(n);
+          ratios.set(n, entry.intersectionRatio);
+        }
+        let bestPage = 0;
+        let bestRatio = 0;
+        for (const [n, ratio] of ratios) {
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            bestPage = n;
+          }
+        }
+        if (bestPage > 0 && bestRatio >= 0.35 && bestPage !== viewport.page) {
+          suppressPageScroll.current = true;
+          viewport.setPage(bestPage);
         }
       },
-      { root, rootMargin: "600px 0px" },
+      { root, rootMargin: "600px 0px", threshold: [0, 0.25, 0.35, 0.5, 0.75, 1] },
     );
     root.querySelectorAll("[data-page]").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [pdf, numPages, renderPage]);
+    // viewport.page / setPage intentionally used inside; omit viewport object
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdf, numPages, renderPage, viewport.page, viewport.setPage]);
 
   // Scroll when the toolbar / keyboard changes the current page.
   useEffect(() => {
     if (!pdf || numPages === 0) return;
+    if (suppressPageScroll.current) {
+      suppressPageScroll.current = false;
+      void renderPage(viewport.page);
+      return;
+    }
     const host = containerRef.current?.querySelector<HTMLElement>(
       `[data-page="${viewport.page}"]`,
     );
@@ -722,6 +752,8 @@ export function PdfReader({
     if (!paperId) {
       setReportSections([]);
       setPinsByKey(new Map());
+      setPinsList([]);
+      setVaultBacklinkPages([]);
       setBacklinkHits([]);
       return;
     }
@@ -738,30 +770,48 @@ export function PdfReader({
           sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
         );
         setPinsByKey(new Map(pins.map((p) => [p.annotationKey, p.reportSectionId])));
-        setBacklinkHits(
-          findAnnotationBacklinks({
-            annotations,
-            pins,
-            sections: sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
-            vaultPages: vaultPages.map((p) => ({
-              id: p.id,
-              title: p.title || "Untitled note",
-              body: p.body ?? "",
-            })),
-          }),
+        setPinsList(
+          pins.map((p) => ({
+            annotationKey: p.annotationKey,
+            reportSectionId: p.reportSectionId,
+            paperId: p.paperId,
+          })),
+        );
+        setVaultBacklinkPages(
+          vaultPages.map((p) => ({
+            id: p.id,
+            title: p.title || "Untitled note",
+            body: p.body ?? "",
+          })),
         );
       } catch {
         if (!cancelled) {
           setReportSections([]);
           setPinsByKey(new Map());
-          setBacklinkHits([]);
+          setPinsList([]);
+          setVaultBacklinkPages([]);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [paperId, annotations]);
+  }, [paperId]);
+
+  useEffect(() => {
+    if (!paperId) {
+      setBacklinkHits([]);
+      return;
+    }
+    setBacklinkHits(
+      findAnnotationBacklinks({
+        annotations,
+        pins: pinsList,
+        sections: reportSections,
+        vaultPages: vaultBacklinkPages,
+      }),
+    );
+  }, [paperId, annotations, pinsList, reportSections, vaultBacklinkPages]);
 
   useEffect(() => {
     const readTheme = () => {
@@ -781,9 +831,11 @@ export function PdfReader({
 
   function screenToPdf(pageHost: HTMLElement, clientX: number, clientY: number) {
     const rect = pageHost.getBoundingClientRect();
+    const pageNumber = Number(pageHost.dataset.page);
     const x = (clientX - rect.left) / scale;
     const yScreen = (clientY - rect.top) / scale;
-    const pageHeight = pageSize?.height ?? 0;
+    const pageHeight =
+      pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize?.height ?? 0;
     return { x, y: pageHeight - yScreen };
   }
 
@@ -909,6 +961,12 @@ export function PdfReader({
         else next.delete(key);
         return next;
       });
+      setPinsList((prev) => {
+        const without = prev.filter((p) => p.annotationKey !== key);
+        if (!sectionId) return without;
+        return [...without, { annotationKey: key, reportSectionId: sectionId, paperId }];
+      });
+      setAnnError(null);
     } catch (err) {
       setAnnError(err instanceof Error ? err.message : "Could not pin the annotation.");
     }
@@ -969,10 +1027,12 @@ export function PdfReader({
   function onPagePointerUp(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
     if (!canCreate || !pageSize || rotation !== 0) return;
     if (createTool === "ink" && inkPath.current.length >= 4) {
+      const pageHeight =
+        pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
       const draft = draftInkAnnotation({
         color: createColor,
         pageIndex: pageNumber - 1,
-        pageHeight: pageSize.height,
+        pageHeight,
         path: [...inkPath.current],
       });
       inkPath.current = [];
@@ -984,10 +1044,12 @@ export function PdfReader({
       const d = dragRect.current;
       dragRect.current = null;
       if (d.pageNumber !== pageNumber) return;
+      const pageHeight =
+        pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
       const draft = draftImageRegion({
         color: createColor,
         pageIndex: pageNumber - 1,
-        pageHeight: pageSize.height,
+        pageHeight,
         rect: [
           Math.min(d.x0, d.x1),
           Math.min(d.y0, d.y1),
@@ -1160,7 +1222,7 @@ export function PdfReader({
                   pageNumber={n}
                   scale={scale}
                   rotation={rotation}
-                  pageHeight={pageSize.height}
+                  pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
                   selectedId={selectedAnnId}
                   onSelect={(id) => setSelectedAnnId(id)}
                 />

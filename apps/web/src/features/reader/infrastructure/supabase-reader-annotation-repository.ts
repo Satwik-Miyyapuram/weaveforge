@@ -99,6 +99,8 @@ export class SupabaseReaderAnnotationRepository
     if (patch.tags !== undefined) updates.tags = patch.tags;
     if (patch.anchor !== undefined) updates.anchor = patch.anchor;
     if (patch.sortIndex !== undefined) updates.sort_index = patch.sortIndex;
+    // Local edits are pending write-back until R5 sync lands.
+    updates.sync_state = "pending";
     const { data, error } = await this.db
       .from(TABLE)
       .update(updates)

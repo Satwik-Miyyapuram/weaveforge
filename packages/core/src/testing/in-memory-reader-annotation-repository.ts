@@ -66,6 +66,7 @@ export class InMemoryReaderAnnotationRepository
       tags: patch.tags ? [...patch.tags] : existing.tags,
       anchor: patch.anchor ? structuredClone(patch.anchor) : existing.anchor,
       sortIndex: patch.sortIndex?.trim() || existing.sortIndex,
+      syncState: "pending",
       updatedAt: now,
     };
     this.items.set(id, next);

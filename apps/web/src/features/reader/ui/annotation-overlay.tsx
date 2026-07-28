@@ -70,6 +70,9 @@ export function AnnotationOverlay({
       }
     }
 
+    // Only paint stored rects when the hash strategy trusts them — never on mismatch.
+    if (strategy.kind !== "rects") continue;
+
     const rectSets: { rects: number[][]; page: number }[] = [];
     if (position.pageIndex === pageIndex && position.rects?.length) {
       rectSets.push({ rects: position.rects, page: pageIndex });
@@ -95,7 +98,7 @@ export function AnnotationOverlay({
           width,
           height,
           color: ann.color,
-          approximate: strategy.kind !== "rects",
+          approximate: false,
           underline: ann.type === "underline",
         });
       }

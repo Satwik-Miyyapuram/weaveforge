@@ -22,6 +22,7 @@ test("InMemoryReaderAnnotationRepository creates, lists, updates, removes", asyn
 
   const updated = await repo.update(created.id, { comment: "note" });
   assert.equal(updated.comment, "note");
+  assert.equal(updated.syncState, "pending");
   assert.notEqual(updated.updatedAt, created.updatedAt);
 
   await repo.remove(created.id);

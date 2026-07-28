@@ -4152,6 +4152,13 @@ a.related-paper-url:hover { text-decoration: underline; }
   position: absolute; inset: 0; overflow: hidden; line-height: 1;
   opacity: 0.25; mix-blend-mode: multiply; pointer-events: auto;
 }
+.pdf-reader-textlayer > span {
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0% 0%;
+  color: transparent;
+  cursor: text;
+}
 .pdf-reader-side { display: grid; gap: 8px; align-content: start; }
 .pdf-reader-ann-layer { position: absolute; inset: 0; pointer-events: none; }
 .pdf-reader-ann {
