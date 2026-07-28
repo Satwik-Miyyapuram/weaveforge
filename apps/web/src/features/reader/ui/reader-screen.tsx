@@ -14,6 +14,7 @@ import {
 } from "../application/sanitize-reader-url";
 import { resolvePaperPdfSource } from "../application/resolve-paper-pdf-source";
 import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
+import { mergeReaderAnnotations } from "../application/merge-reader-annotations";
 import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 
 /** Reader route: renders a PDF via the source ladder and jumps to an optional locus. */
@@ -72,7 +73,14 @@ export function ReaderScreen() {
           return;
         }
         const rawAnns = (paper.metadata?.["annotations"] as ZoteroAnnotation[] | undefined) ?? [];
-        setAnnotations(projectZoteroAnnotations(rawAnns));
+        const projected = projectZoteroAnnotations(rawAnns);
+        let local: import("@thesis/core").ReaderAnnotation[] = [];
+        try {
+          local = await getContainer().papers.listReaderAnnotations(paper.id);
+        } catch {
+          local = [];
+        }
+        if (!cancelled) setAnnotations(mergeReaderAnnotations(projected, local));
         try {
           const types = await getContainer().papers.listAnnotationQuotationTypesForPaper(paper.id);
           if (!cancelled) {
@@ -140,6 +148,8 @@ export function ReaderScreen() {
           annotations={annotations}
           paperTitle={title ?? "Paper"}
           quotationTypes={quotationTypes}
+          paperId={paperId ?? undefined}
+          onAnnotationsChange={setAnnotations}
         />
       )}
     </section>

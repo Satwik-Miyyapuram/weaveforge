@@ -280,7 +280,7 @@ Uses `ReaderAnnotation` (§3.1) and the `annotationPosition` rects captured in P
 
 **Exit:** every Zotero annotation on a paper is visible in the reader at the right place, or explicitly flagged as approximate; and a paper shows an annotations group, a notes group, or neither — never a heading for something it does not have. **This is where the feature stops being, in your words, a BS feature.**
 
-### R3 — Create annotations (local-only)
+### R3 — Create annotations (local-only) ✅ DONE (2026-07-29)
 
 First write phase. `IReaderAnnotationSink` gets its local implementation; no Zotero traffic.
 
@@ -294,6 +294,8 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 - Annotate a PDF with **no Zotero item at all** (§5.4 of the old plan) — ZotFlow needs a sidecar file for this; we have a database, so it is nearly free
 
 **Exit:** a researcher highlights a passage, comments on it, pins it into a report section, and it survives a reload and a re-render.
+
+**Delivered:** migration `0110_reader_annotations.sql` (authored, D4); in-memory / Supabase / Postgres sinks; facade CRUD; merge of Zotero-projected + local annotations; selection → create bar; ink / image / text tools; sidebar edit/delete/comment/tag/pin for local rows.
 
 ### R4 — The loop closes
 

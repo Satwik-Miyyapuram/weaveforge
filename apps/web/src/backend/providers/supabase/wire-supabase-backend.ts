@@ -30,6 +30,8 @@ import type {
   IAnnotationQuotationTypeRepository,
   ILabSnapshotRepository,
   IPaperFieldRepository,
+  IReaderAnnotationSink,
+  IReaderAnnotationSource,
   IBlobStore,
 } from "@thesis/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -55,6 +57,7 @@ import { SupabaseCitationAlertTrackRepository } from "@/features/relations/infra
 import { SupabaseAnnotationPinRepository } from "@/features/papers/infrastructure/supabase-annotation-pin-repository";
 import { SupabaseAnnotationQuotationTypeRepository } from "@/features/papers/infrastructure/supabase-annotation-quotation-type-repository";
 import { SupabaseLabSnapshotRepository } from "@/features/org/infrastructure/supabase-lab-snapshot-repository";
+import { SupabaseReaderAnnotationRepository } from "@/features/reader/infrastructure/supabase-reader-annotation-repository";
 import { SupabasePaperFieldRepository } from "@/features/papers/infrastructure/supabase-paper-field-repository";
 import { SupabaseReportSectionRepository } from "@/features/report/infrastructure/supabase-report-section-repository";
 import { SupabaseVaultPageRepository } from "@/features/vault/infrastructure/supabase-vault-page-repository";
@@ -112,6 +115,7 @@ export interface WiredSupabaseBackend {
   readonly annotationPinRepository: IAnnotationPinRepository;
   readonly annotationQuotationTypeRepository: IAnnotationQuotationTypeRepository;
   readonly labSnapshotRepository: ILabSnapshotRepository;
+  readonly readerAnnotationRepository: IReaderAnnotationSource & IReaderAnnotationSink;
   readonly paperFieldRepository: IPaperFieldRepository;
 }
 
@@ -289,6 +293,13 @@ export function wireSupabaseBackend(
     pid,
     { resourceType: "project" },
   );
+  const readerAnnotationRepository = cacheRepo(
+    new SupabaseReaderAnnotationRepository(db, projectContext, session),
+    ["list"],
+    ["create", "update", "remove"],
+    pid,
+    { resourceType: "paper" },
+  );
   const paperFieldRepository: IPaperFieldRepository = cacheRepo(
     new SupabasePaperFieldRepository(db, projectContext, session),
     ["listDefs", "listValuesForPaper", "listValuesForProject"],
@@ -334,6 +345,7 @@ export function wireSupabaseBackend(
     annotationPinRepository,
     annotationQuotationTypeRepository,
     labSnapshotRepository,
+    readerAnnotationRepository,
     paperFieldRepository,
   };
 }

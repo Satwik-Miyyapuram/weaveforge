@@ -10,6 +10,10 @@ export interface ZoteroRectPosition {
   pageIndex: number;
   /** PDF user-space rects `[x1, y1, x2, y2]`. */
   rects?: number[][];
+  /** Ink strokes — flat `[x,y,x,y,…]` point lists in PDF user space. */
+  paths?: number[][];
+  /** Tail of a highlight that crosses onto the next page. */
+  nextPageRects?: number[][];
 }
 
 /**

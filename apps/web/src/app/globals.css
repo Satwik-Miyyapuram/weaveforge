@@ -4159,7 +4159,28 @@ a.related-paper-url:hover { text-decoration: underline; }
   opacity: 0.35; cursor: pointer;
 }
 .pdf-reader-ann.is-selected { outline: 2px solid var(--accent); opacity: 0.55; }
-.pdf-reader-ann.is-approximate { outline: 1px dashed var(--danger); }
+.pdf-reader-ann.is-underline { opacity: 1; }
+.pdf-reader-ann-svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.pdf-reader-create-bar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.pdf-reader-create-quote { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-reader-create-colors { display: flex; gap: 4px; }
+.pdf-reader-create-swatch {
+  width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--border); padding: 0; cursor: pointer;
+}
+.pdf-reader-sidebar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pdf-reader-sidebar-edit { display: grid; gap: 6px; margin-top: 4px; }
+.pdf-reader-sidebar-edit textarea,
+.pdf-reader-sidebar-edit input,
+.pdf-reader-sidebar-pin select {
+  width: 100%; font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: inherit;
+}
+.pdf-reader-sidebar-pin { display: grid; gap: 2px; font-size: 0.85rem; }
+.pdf-reader-page--draw { touch-action: none; }
+.pdf-reader-page--draw .pdf-reader-textlayer { pointer-events: none; }
 .pdf-reader-sidebar {
   overflow: auto; max-height: calc(100vh - 300px);
   padding: 8px; border: 1px solid var(--line); border-radius: 8px;

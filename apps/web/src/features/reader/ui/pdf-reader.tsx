@@ -11,20 +11,38 @@ import {
 import {
   readerKeyboardCommand,
   resolveTextAnchor,
+  type PageTextGeometry,
   type PdfLocus,
   type AnchorConfidence,
   type ReaderContainerSize,
   type ReaderPageSize,
   type DocumentPageText,
+  type ReaderAnnotationType,
 } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl } from "../application/sanitize-reader-url";
+import {
+  pageNumberFromSelection,
+  selectionRangeFromDom,
+} from "../application/dom-selection-range";
+import {
+  draftFromTextSelection,
+  draftImageRegion,
+  draftInkAnnotation,
+  draftTextBox,
+} from "../application/draft-local-annotation";
+import {
+  annotationPinKey,
+  READER_ANNOTATION_COLORS,
+  type ReaderCreateTool,
+} from "../application/reader-annotation-helpers";
 import { useReaderViewport } from "./use-reader-viewport";
 import { ReaderToolbar } from "./reader-toolbar";
 import { ReaderSearchBar } from "./reader-search-bar";
 import { ReaderOutline, type ReaderOutlineItem } from "./reader-outline";
 import { AnnotationOverlay } from "./annotation-overlay";
-import { AnnotationSidebar } from "./annotation-sidebar";
+import { AnnotationSidebar, type ReportSectionOption } from "./annotation-sidebar";
+import { SelectionCreateBar } from "./selection-create-bar";
 import type { QuotationType, ReaderAnnotation } from "@thesis/core";
 
 /**
@@ -64,7 +82,10 @@ export interface PdfReaderProps {
   /** Projected reader annotations (Zotero and/or local). */
   annotations?: import("@thesis/core").ReaderAnnotation[];
   paperTitle?: string;
-  quotationTypes?: Map<string, import("@thesis/core").QuotationType>;
+  quotationTypes?: Map<string, QuotationType>;
+  /** When set, selection can create local annotations (R3 sink). */
+  paperId?: string;
+  onAnnotationsChange?: (next: ReaderAnnotation[]) => void;
 }
 
 interface JumpState {
@@ -168,6 +189,8 @@ export function PdfReader({
   annotations = [],
   paperTitle = "Paper",
   quotationTypes,
+  paperId,
+  onAnnotationsChange,
 }: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -182,10 +205,30 @@ export function PdfReader({
   const [showOutline, setShowOutline] = useState(false);
   const [spread, setSpread] = useState(false);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
+  const [createTool, setCreateTool] = useState<ReaderCreateTool>("select");
+  const [createColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
+  const [pendingCreate, setPendingCreate] = useState<{
+    pageNumber: number;
+    quote: string;
+    selection: import("@thesis/core").TextSelectionRange;
+  } | null>(null);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [reportSections, setReportSections] = useState<ReportSectionOption[]>([]);
+  const [pinsByKey, setPinsByKey] = useState<Map<string, string | null>>(new Map());
+  const pageGeometries = useRef(new Map<number, PageTextGeometry>());
+  const inkPath = useRef<number[]>([]);
+  const dragRect = useRef<{
+    pageNumber: number;
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  } | null>(null);
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
   const renderGeneration = useRef(0);
+  const canCreate = Boolean(paperId && onAnnotationsChange);
 
   const viewport = useReaderViewport({
     initialPage: typeof page === "number" ? page + 1 : 1,
@@ -404,25 +447,44 @@ export function PdfReader({
           textLayer.style.height = `${Math.floor(viewport.height)}px`;
           const content = await pdfPage.getTextContent();
           const lib = await loadPdfLib();
+          const geometryItems: import("@thesis/core").PageTextItem[] = [];
+          let itemIndex = 0;
           for (const raw of content.items) {
             const it = raw as {
               str?: string;
               transform?: number[];
               width?: number;
               height?: number;
+              hasEOL?: boolean;
             };
             if (typeof it.str !== "string" || !Array.isArray(it.transform)) continue;
+            geometryItems.push({
+              str: it.str,
+              transform: it.transform,
+              width: typeof it.width === "number" ? it.width : 0,
+              height: typeof it.height === "number" ? it.height : 0,
+              hasEOL: Boolean(it.hasEOL),
+            });
             const tx = lib.Util.transform(viewport.transform, it.transform);
             const fontHeight = Math.hypot(tx[2]!, tx[3]!) || (it.height ?? 0) * scale;
             const width = (it.width ?? 0) * scale;
             const span = document.createElement("span");
             span.textContent = it.str;
+            span.setAttribute("data-item-index", String(itemIndex));
             span.style.left = `${tx[4]!}px`;
             span.style.top = `${tx[5]! - fontHeight}px`;
             span.style.fontSize = `${Math.max(fontHeight, 1)}px`;
             span.style.width = `${Math.max(width, 1)}px`;
             textLayer.appendChild(span);
+            itemIndex += 1;
           }
+          const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
+          pageGeometries.current.set(pageNumber, {
+            pageIndex: pageNumber - 1,
+            pageWidth: base.width,
+            pageHeight: base.height,
+            items: geometryItems,
+          });
           renderedPages.current.add(pageNumber);
         } catch {
           /* a failed / cancelled page must not break the rest of the document */
@@ -639,6 +701,226 @@ export function PdfReader({
     }
   }
 
+  useEffect(() => {
+    if (!paperId) {
+      setReportSections([]);
+      setPinsByKey(new Map());
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [sections, pins] = await Promise.all([
+          getContainer().papers.listReportSections(),
+          getContainer().papers.listAnnotationPinsForPaper(paperId),
+        ]);
+        if (cancelled) return;
+        setReportSections(
+          sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
+        );
+        setPinsByKey(new Map(pins.map((p) => [p.annotationKey, p.reportSectionId])));
+      } catch {
+        if (!cancelled) {
+          setReportSections([]);
+          setPinsByKey(new Map());
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [paperId]);
+
+  function screenToPdf(pageHost: HTMLElement, clientX: number, clientY: number) {
+    const rect = pageHost.getBoundingClientRect();
+    const x = (clientX - rect.left) / scale;
+    const yScreen = (clientY - rect.top) / scale;
+    const pageHeight = pageSize?.height ?? 0;
+    return { x, y: pageHeight - yScreen };
+  }
+
+  function onSelectionMouseUp() {
+    if (!canCreate || createTool !== "select") return;
+    const root = containerRef.current;
+    if (!root) return;
+    const sel = window.getSelection();
+    const pageNumber = pageNumberFromSelection(sel, root);
+    if (!pageNumber) {
+      setPendingCreate(null);
+      return;
+    }
+    const layer = root.querySelector(`[data-page="${pageNumber}"] .pdf-reader-textlayer`);
+    if (!layer) {
+      setPendingCreate(null);
+      return;
+    }
+    const range = selectionRangeFromDom(sel, layer);
+    const geometry = pageGeometries.current.get(pageNumber);
+    if (!range || !geometry) {
+      setPendingCreate(null);
+      return;
+    }
+    const draft = draftFromTextSelection({
+      type: "highlight",
+      color: createColor,
+      selection: range,
+      page: geometry,
+    });
+    if (!draft) {
+      setPendingCreate(null);
+      return;
+    }
+    setPendingCreate({
+      pageNumber,
+      quote: draft.text ?? "",
+      selection: range,
+    });
+  }
+
+  async function persistDraft(
+    draft: import("@thesis/core").NewReaderAnnotation,
+  ): Promise<void> {
+    if (!paperId || !onAnnotationsChange) return;
+    setCreateBusy(true);
+    try {
+      const created = await getContainer().papers.createReaderAnnotation(paperId, draft);
+      onAnnotationsChange([...annotations, created]);
+      setSelectedAnnId(created.id);
+      setPendingCreate(null);
+      window.getSelection()?.removeAllRanges();
+    } finally {
+      setCreateBusy(false);
+    }
+  }
+
+  async function createFromPending(
+    type: Extract<ReaderAnnotationType, "highlight" | "underline" | "note">,
+    color: string,
+  ) {
+    if (!pendingCreate) return;
+    const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
+    if (!geometry) return;
+    const draft = draftFromTextSelection({
+      type,
+      color,
+      selection: pendingCreate.selection,
+      page: geometry,
+    });
+    if (!draft) return;
+    await persistDraft(draft);
+  }
+
+  async function updateLocal(
+    id: string,
+    patch: { comment?: string; tags?: string[]; color?: string },
+  ) {
+    if (!onAnnotationsChange) return;
+    const updated = await getContainer().papers.updateReaderAnnotation(id, patch);
+    onAnnotationsChange(annotations.map((a) => (a.id === id ? updated : a)));
+  }
+
+  async function removeLocal(id: string) {
+    if (!onAnnotationsChange) return;
+    await getContainer().papers.removeReaderAnnotation(id);
+    onAnnotationsChange(annotations.filter((a) => a.id !== id));
+    if (selectedAnnId === id) setSelectedAnnId(null);
+  }
+
+  async function pinLocal(ann: ReaderAnnotation, sectionId: string | null) {
+    if (!paperId) return;
+    const key = annotationPinKey(ann);
+    await getContainer().papers.setAnnotationPin(paperId, key, sectionId);
+    setPinsByKey((prev) => {
+      const next = new Map(prev);
+      if (sectionId) next.set(key, sectionId);
+      else next.delete(key);
+      return next;
+    });
+  }
+
+  function onPagePointerDown(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
+    if (!canCreate || !pageSize) return;
+    if (createTool === "select") return;
+    const host = event.currentTarget;
+    const pt = screenToPdf(host, event.clientX, event.clientY);
+    if (createTool === "ink") {
+      inkPath.current = [pt.x, pt.y];
+      host.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (createTool === "image") {
+      dragRect.current = {
+        pageNumber,
+        x0: pt.x,
+        y0: pt.y,
+        x1: pt.x,
+        y1: pt.y,
+      };
+      host.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (createTool === "text") {
+      const text = window.prompt("Text annotation");
+      if (!text?.trim()) return;
+      const draft = draftTextBox({
+        color: createColor,
+        pageIndex: pageNumber - 1,
+        pageHeight: pageSize.height,
+        text: text.trim(),
+        x: pt.x,
+        y: pt.y,
+      });
+      void persistDraft(draft);
+    }
+  }
+
+  function onPagePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!canCreate) return;
+    const host = event.currentTarget;
+    const pt = screenToPdf(host, event.clientX, event.clientY);
+    if (createTool === "ink" && inkPath.current.length >= 2) {
+      inkPath.current.push(pt.x, pt.y);
+      return;
+    }
+    if (createTool === "image" && dragRect.current) {
+      dragRect.current.x1 = pt.x;
+      dragRect.current.y1 = pt.y;
+    }
+  }
+
+  function onPagePointerUp(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
+    if (!canCreate || !pageSize) return;
+    if (createTool === "ink" && inkPath.current.length >= 4) {
+      const draft = draftInkAnnotation({
+        color: createColor,
+        pageIndex: pageNumber - 1,
+        pageHeight: pageSize.height,
+        path: [...inkPath.current],
+      });
+      inkPath.current = [];
+      if (draft) void persistDraft(draft);
+      return;
+    }
+    inkPath.current = [];
+    if (createTool === "image" && dragRect.current) {
+      const d = dragRect.current;
+      dragRect.current = null;
+      const draft = draftImageRegion({
+        color: createColor,
+        pageIndex: pageNumber - 1,
+        pageHeight: pageSize.height,
+        rect: [
+          Math.min(d.x0, d.x1),
+          Math.min(d.y0, d.y1),
+          Math.max(d.x0, d.x1),
+          Math.max(d.y0, d.y1),
+        ],
+      });
+      void persistDraft(draft);
+    }
+    void event;
+  }
+
   if (error) {
     return (
       <div className="pdf-reader-error card">
@@ -693,19 +975,57 @@ export function PdfReader({
         >
           {spread ? "Single page" : "Two-page"}
         </button>
+        {canCreate && (
+          <>
+            <select
+              aria-label="Annotation tool"
+              value={createTool}
+              onChange={(e) => setCreateTool(e.target.value as ReaderCreateTool)}
+            >
+              <option value="select">Select</option>
+              <option value="ink">Ink</option>
+              <option value="image">Image region</option>
+              <option value="text">Text box</option>
+            </select>
+            <input
+              type="color"
+              aria-label="Annotation colour"
+              value={createColor}
+              onChange={(e) => setCreateColor(e.target.value)}
+            />
+          </>
+        )}
       </div>
-      <div className={`pdf-reader-body${showOutline || annotations.length ? " pdf-reader-body--outline" : ""}`}>
-        {(showOutline || annotations.length > 0) && (
+      {pendingCreate && canCreate && (
+        <SelectionCreateBar
+          pending={pendingCreate}
+          busy={createBusy}
+          onCreate={(type, color) => void createFromPending(type, color)}
+          onCancel={() => setPendingCreate(null)}
+        />
+      )}
+      <div
+        className={`pdf-reader-body${
+          showOutline || annotations.length > 0 || canCreate ? " pdf-reader-body--outline" : ""
+        }`}
+      >
+        {(showOutline || annotations.length > 0 || canCreate) && (
           <div className="pdf-reader-side">
             {showOutline && (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
             )}
-            {annotations.length > 0 && (
+            {(annotations.length > 0 || canCreate) && (
               <AnnotationSidebar
                 annotations={annotations}
                 quotationTypes={quotationTypes}
                 paperTitle={paperTitle}
                 selectedId={selectedAnnId}
+                canEditLocal={canCreate}
+                reportSections={reportSections}
+                pinsByKey={pinsByKey}
+                onUpdateLocal={updateLocal}
+                onRemoveLocal={removeLocal}
+                onPinLocal={pinLocal}
                 onSelect={(id) => {
                   setSelectedAnnId(id);
                   const ann = annotations.find((a) => a.id === id);
@@ -719,12 +1039,20 @@ export function PdfReader({
         <div
           className={`pdf-reader-scroll${spread ? " pdf-reader-scroll--spread" : ""}`}
           ref={containerRef}
+          onMouseUp={onSelectionMouseUp}
         >
           {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
           {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
-            <div className="pdf-reader-page" data-page={n} key={n}>
+            <div
+              className={`pdf-reader-page${createTool !== "select" && canCreate ? " pdf-reader-page--draw" : ""}`}
+              data-page={n}
+              key={n}
+              onPointerDown={(e) => onPagePointerDown(n, e)}
+              onPointerMove={onPagePointerMove}
+              onPointerUp={(e) => onPagePointerUp(n, e)}
+            >
               <canvas />
-              {annotations.length > 0 && pageSize && (
+              {pageSize && (
                 <AnnotationOverlay
                   annotations={annotations}
                   pageNumber={n}

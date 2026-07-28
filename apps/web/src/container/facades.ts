@@ -110,6 +110,8 @@ export class PapersFacade {
       citationAlerts: CheckCitationAlertsUseCase;
       annotationPins: import("@thesis/core").IAnnotationPinRepository;
       annotationQuotationTypes: import("@thesis/core").IAnnotationQuotationTypeRepository;
+      readerAnnotations: import("@thesis/core").IReaderAnnotationSource &
+        import("@thesis/core").IReaderAnnotationSink;
       paperFields: ManagePaperFieldsUseCase;
       reportSections: import("@thesis/core").IReportSectionRepository;
     },
@@ -213,6 +215,28 @@ export class PapersFacade {
       annotationKey,
       quotationType,
     });
+  }
+
+  listReaderAnnotations(paperId: string) {
+    return this.deps.readerAnnotations.list(paperId);
+  }
+
+  createReaderAnnotation(
+    paperId: string,
+    draft: import("@thesis/core").NewReaderAnnotation,
+  ) {
+    return this.deps.readerAnnotations.create(paperId, draft);
+  }
+
+  updateReaderAnnotation(
+    id: string,
+    patch: import("@thesis/core").ReaderAnnotationPatch,
+  ) {
+    return this.deps.readerAnnotations.update(id, patch);
+  }
+
+  removeReaderAnnotation(id: string) {
+    return this.deps.readerAnnotations.remove(id);
   }
 
   listReportSections() {
