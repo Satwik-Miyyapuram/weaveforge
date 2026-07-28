@@ -508,5 +508,5 @@ R0–R2 need no migration. R3 needs `0110`. R5 needs live credentials and superv
 ## 9. Related
 
 - [`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md) — licensing (§1), source ladder (§4), anchor design (§5), ZotFlow parity checklist (§8.1)
-- [`roadmap-2026-07-phased.md`](roadmap-2026-07-phased.md) — decisions D1–D4; D2 is scheduled as R5 and D3 is superseded by §1 here
+- [`../completed/roadmap-2026-07-phased.md`](../completed/roadmap-2026-07-phased.md) — decisions D1–D4; D2 is scheduled as R5 and D3 is superseded by §1 here
 - [`../../competitive-research-verified-2026-07.md`](../../competitive-research-verified-2026-07.md) §2.1 — the verified ZotFlow teardown

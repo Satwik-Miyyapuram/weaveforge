@@ -1,6 +1,8 @@
 # WeaveForge — phased delivery plan (July 2026 roadmap)
 
-**Date:** 2026-07-25 · **Last updated:** 2026-07-27
+**Date:** 2026-07-25 · **Last updated:** 2026-07-29
+**Status:** ✅ **COMPLETE** — phases A–F delivered; archived under `completed/`.
+**Successor:** remaining reader work is [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) (R0–R6).
 **Source of priorities:** `docs/competitive-research-verified-2026-07.md` §6 — a P0/P1/P2 list with effort × impact, but no sequencing.
 **This document** turns that list into ordered phases with dependencies and exit criteria. Phase letters label work (A–F); the resolved decisions are labelled D1–D4 because they scope the reader phase, and are not themselves a phase.
 
@@ -36,14 +38,14 @@ Two phase-wise plans already exist and are **both complete**:
 
 | Plan | Scope | Status |
 |------|-------|--------|
-| [`../completed/competitive-scan-implementation-plan.md`](../completed/competitive-scan-implementation-plan.md) | Earlier internal scan — cite identity, discovery, library UX | Phases 0–5 **all done** |
-| [`../completed/library-knowledge-loop-plan.md`](../completed/library-knowledge-loop-plan.md) | Annotation cards, pins, custom fields, extraction table, rollups | Phases 0–7 **all done** (migrations `0103`–`0105`) |
+| [`competitive-scan-implementation-plan.md`](competitive-scan-implementation-plan.md) | Earlier internal scan — cite identity, discovery, library UX | Phases 0–5 **all done** |
+| [`library-knowledge-loop-plan.md`](library-knowledge-loop-plan.md) | Annotation cards, pins, custom fields, extraction table, rollups | Phases 0–7 **all done** (migrations `0103`–`0105`) |
 
-Both predate the verified competitive research, so neither accounts for ZotFlow, the Weights & Biases downgrade, or Elicit's extraction ceiling. Two newer plans cover single features in depth ([`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md), [`../future/billing-and-quota-plan.md`](../future/billing-and-quota-plan.md)) but neither sequences the roadmap as a whole. This document is the missing layer above them.
+Both predate the verified competitive research, so neither accounts for ZotFlow, the Weights & Biases downgrade, or Elicit's extraction ceiling. Two newer plans cover single features in depth ([`pdf-viewer-plan.md`](pdf-viewer-plan.md), [`../future/billing-and-quota-plan.md`](../future/billing-and-quota-plan.md)) but neither sequences the roadmap as a whole. This document is the missing layer above them.
 
 ---
 
-## Status at a glance (2026-07-27)
+## Status at a glance (2026-07-29)
 
 | Phase | Contents | State |
 |-------|----------|-------|
@@ -52,31 +54,20 @@ Both predate the verified competitive research, so neither accounts for ZotFlow,
 | **C** | UI wiring — make B reachable by users | ✅ **done** |
 | **D** | Reader + provenance (read-only) | ✅ **done** — exit criteria met; `0106` applied |
 | **E** | **AI-assisted extraction fill** | ✅ **done** |
-| **F** | P2 tail | ✅ **done** |
+| **F** | P2 tail | ✅ **done** — `0107`–`0109` applied |
 
-A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followed on `phase-c-d/ui-and-reader`. Current tree: 406 core tests, 290 web tests, 1 integration test, `npm run check:all` exits 0.
+**This roadmap is complete.** Migrations `0106`–`0109` are live (`paper_locus_anchors`, `annotation_quotation_types`, `lab_snapshots`, plus Phase F corrections). Further product work is not phase work on this board — it lives in [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) (R0–R6) and the parallel billing track under `../future/`.
 
-**All six phases are delivered.** Migrations `0106`–`0108` were applied by a human on 2026-07-27; `paper_locus_anchors`, `annotation_quotation_types`, and `lab_snapshots` are live and verified against the project.
+### Closure notes (2026-07-29)
 
-### Outstanding after the 2026-07-27 review
+| Item | Resolution |
+|---|---|
+| `0109_phase_f_corrections.sql` | **Applied 2026-07-29.** Quotation-type `updated_at` trigger + immutable lab snapshots (no UPDATE grant). |
+| Branch / PR | Phase F + follow-ups on `phase-f/quotation-types-and-snapshots` (PR #6). |
+| Bibliography limits | Three remain, none scheduled — thin manual `Paper` fields, unvalidated stored BibTeX, no CSL. See below. |
+| `pdf-viewer-plan.md` | Stays in `completed/` as the Phase D record. Remaining reader scope is the successor plan, not a re-open of this file. |
 
-**All six phases A–F are delivered.** What is left is not phase work:
-
-| # | Item | Who |
-|---|---|---|
-| 1 | Apply `0109_phase_f_corrections.sql` | **You** — D4 forbids an agent applying a migration |
-| 2 | Merge `phase-f/quotation-types-and-snapshots` into `main` (10 commits ahead) | Either |
-| 3 | Three bibliography limits below | Noted, not scheduled |
-| 4 | `pdf-viewer-plan.md` is filed under `completed/` but is not | Cosmetic |
-
-Everything else now lives in [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md), R0–R6.
-
-**`0109_phase_f_corrections.sql` — authored, needs applying.** Two defects found reviewing Phase F *after* 0107/0108 went live. Because those files are applied, they are left untouched (D4) and the fixes are forward-only:
-
-1. `annotation_quotation_types.updated_at` had no trigger, so it held the insert time forever. Quotation types are re-classified in place (direct → paraphrase), so the column was silently wrong rather than merely unused. 0107 mirrors `annotation_pins` (0103), which has no `updated_at` at all — which is why the omission was easy to miss.
-2. `lab_snapshots` granted UPDATE to the owner, which defeats the freeze. The table exists so a supervisee controls what the supervisor reviews; an owner who can rewrite `content` after publishing means the supervisor cannot trust what they are reading, and `published_at` does not move on update, so the change leaves no trace. No application code ever called update, so removing it breaks nothing.
-
-### Bibliography export — three defects fixed, four limits remain
+### Bibliography export — defects fixed; three limits remain (not scheduled)
 
 Fixed 2026-07-27 in `2d9daec`, after an audit of `build-overleaf-export.ts`:
 
@@ -86,20 +77,17 @@ Fixed 2026-07-27 in `2d9daec`, after an audit of `build-overleaf-export.ts`:
 
 **Fourth defect, fixed 2026-07-27 in `c2faa52`.** `references.bib` held every library paper while `main.tex` printed only the cited ones, because `style=numeric` suppresses uncited entries — exporting 20 papers and citing 2 produced a 2-entry bibliography. The file was right and the PDF was not what anyone expected. `bibliographyScope` now makes the two agree: `"all"` (default) keeps the full library and adds `\nocite{*}`; `"cited"` writes only what the report cites. Exposed as a dropdown in the export modal.
 
-**Not fixed — noted, not scheduled:**
+**Not fixed — noted, not scheduled (out of scope for this roadmap):**
 
 | Limit | Consequence |
 |---|---|
 | **`Paper` has no `volume`, `pages`, `publisher`, `editor`, `issn`** | Manually-added papers export thin entries. Papers that came from Zotero are unaffected — their stored `bibtex` is passed through intact, which is why this is a limit and not a bug |
 | **Stored `bibtex` is passed through unvalidated** | Only the first entry's key is rewritten. Malformed or multi-entry stored BibTeX reaches `references.bib` as-is |
-| **No CSL / citeproc** | We emit wikilink, LaTeX, Pandoc, footnote, and raw. ZotFlow also renders CSL styles. Deliberately unplanned — see `reader-and-annotation-plan.md` §5.1 |
+| **No CSL / citeproc** | We emit wikilink, LaTeX, Pandoc, footnote, and raw. ZotFlow also renders CSL styles. Deliberately unplanned — see [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) §5.1 |
 
-None blocks anything. The first only bites papers added by hand rather than through Zotero.
+None blocked A–F. The first only bites papers added by hand rather than through Zotero.
 
-**The reader is being taken further — see [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md).** Phases R0–R6 turn the provenance pane into a full annotation surface and then into Zotero write-back. D3 is superseded and D2 is scheduled as R5. R0 alone (fit-width, zoom, rotate, page controls) fixes the reader rendering every PDF at a fixed 135% and overflowing the pane.
-
-**The old PDF reader plan is mis-filed.** `docs/plans/completed/pdf-viewer-plan.md` sits under `completed/` but is only partially delivered — Phase D built what `/ai-review` needed and correctly stopped. Missing from its own Phase 1: the source-resolution ladder (`packages/core/src/reader/pdf-source-ladder.ts` is implemented and **never called**), an IndexedDB byte cache, zoom/rotate/page controls, **a text layer at all** (so no text selection or copy), and Zotero annotation overlays. Phases 2–4 are undelivered, and Phase 2 is deferred by decision (D2/D3), not oversight. The document now carries a verified status table at the top; consider moving it back to `current/`.
-
+**Reader follow-on** is [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md). Phases R0–R6 turn the provenance pane into a full annotation surface and then into Zotero write-back. D3 is superseded there and D2 is scheduled as R5.
 ## Dependency map
 
 ```
@@ -219,7 +207,7 @@ The reasons below are why we do **not** adopt their engine wholesale:
 
 *Original decision:* the API spike needs live credentials and mutates a real Zotero library, so it cannot be done unsupervised. Rather than let that block everything, it was removed from the critical path — Phase D reads and renders annotations, and creates none.
 
-**Still true, and still the reason it is late in the order.** What changed is that it is now on the schedule rather than pending a future decision: [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md) R5, after local annotation works. The supervision requirement is unchanged — R5 spikes against a scratch library with a human watching.
+**Still true, and still the reason it is late in the order.** What changed is that it is now on the schedule rather than pending a future decision: [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) R5, after local annotation works. The supervision requirement is unchanged — R5 spikes against a scratch library with a human watching.
 
 ### D3 — Brief §11 amendment: ~~narrow, not broad~~ **SUPERSEDED 2026-07-27.**
 
@@ -227,7 +215,7 @@ The reasons below are why we do **not** adopt their engine wholesale:
 
 **That was correct for shipping `/ai-review` and wrong as a resting place.** What it produced is a pane that renders a PDF at a fixed 135% zoom with no controls, no text selection, and no annotations — it verifies AI claims and does nothing else a researcher wants.
 
-**New position:** the reader is a first-class reading *and annotation* surface. See [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md) §1. Brief §11's "Full in-app PDF annotator (Zotero owns PDFs/annotations)" is now wrong on both halves and should be struck rather than narrowed. Zotero stays the system of record for the *library*; annotations are ours to create and sync back.
+**New position:** the reader is a first-class reading *and annotation* surface. See [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) §1. Brief §11's "Full in-app PDF annotator (Zotero owns PDFs/annotations)" is now wrong on both halves and should be struck rather than narrowed. Zotero stays the system of record for the *library*; annotations are ours to create and sync back.
 
 Non-goals that survive: becoming a PDF storage service by default, an OCR pipeline, or a Zotero replacement.
 
@@ -302,7 +290,7 @@ A same-origin PDF proxy (`/api/pdf-proxy`) was added beyond the original scope, 
 | Item | Effort | Notes |
 |------|--------|-------|
 | First-class quotation types | S | Direct / paraphrase / summary on annotation cards (§6.1). Citavi-style; cheap once D exists. |
-| Lab snapshot publishing | L | OSF-style freeze-and-publish to a supervisor instead of raw log exposure (§5). Needs a migration. |
+| Lab snapshot publishing | L | OSF-style freeze-and-publish to a supervisor instead of raw log exposure (§5). Migration `0108` (+ `0109` freeze fix). |
 
 ### Delivered 2026-07-27 — review findings
 
@@ -313,7 +301,7 @@ A same-origin PDF proxy (`/api/pdf-proxy`) was added beyond the original scope, 
 | Quotation types | **Done.** Side table `annotation_quotation_types` (`0107`, **applied 2026-07-27**); selector on annotation cards; survives Zotero sync. Keying on `(project, paper, annotation_key)` mirrors `annotation_pins` (`0103`) and is what makes it survive a sync that replaces `papers.metadata.annotations`. |
 | Lab snapshots | **Done.** `lab_snapshots` (`0108`, **applied 2026-07-27**); publish from logbook; `/supervision` prefers published freezes, falls back to live plan/log. `SELECT` widens to `can_access(user_id)` — the same supervisor-subtree function milestones and logs have used since `0015` — so no new exposure path was invented for this table. |
 
-**Two defects found reviewing the applied migrations; fixed forward in `0109` (see the status section at the top).** `updated_at` on the quotation types table was never maintained, and `lab_snapshots` allowed the owner to edit a published snapshot, which defeats the freeze the supervisor is meant to trust.
+**Two defects found reviewing the applied migrations; fixed forward in `0109` and applied 2026-07-29.** `updated_at` on the quotation types table was never maintained, and `lab_snapshots` allowed the owner to edit a published snapshot, which defeats the freeze the supervisor is meant to trust.
 
 ---
 
@@ -340,12 +328,12 @@ From `competitive-research-verified-2026-07.md` §5 and §6, unchanged:
 |-------|------|------------------------|
 | **A** | — | ✅ anchors · citation signals · source ladder · Zotero position fields |
 | **B** | A | ✅ **P0** template engine · P1 cite formatters · P1 alert ranking · P1 artifact refs |
-| **C** | B | **P0** vault templates UI · P1 citation picker · P1 alert ordering · P1 artifact insertion |
-| **D** | A | **P0** provenance UI · P1 deep links (read-only) |
+| **C** | B | ✅ **P0** vault templates UI · P1 citation picker · P1 alert ordering · P1 artifact insertion |
+| **D** | A | ✅ **P0** provenance UI · P1 deep links (read-only) |
 | **E** | D | ✅ **P0** AI extraction fill |
 | **F** | D | ✅ P2 quotation types · P2 lab snapshots |
 
-**Nothing is waiting on a decision.** Roadmap phases A–F are complete.
+**This roadmap is archived.** Phases A–F are complete. Active sequencing continues in [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md).
 
 ## Deferred decisions, with triggers
 

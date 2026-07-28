@@ -21,7 +21,7 @@ Phases 2–4 are entirely undelivered. **Phase 2 (annotation) is deferred by dec
 
 Nothing above is broken; it is unbuilt. The reader does what the provenance UI needs and no more.
 
-**Do not read this document as a record of shipped work.** The next person picking up the reader should start from this table, not from §8.
+**Do not read this document as a record of shipped work.** The next person picking up the reader should start from [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) (R0–R6), which supersedes Phases 1–4 here. Use the verified table above only as a snapshot of what Phase D left in place.
 
 **Original status:** Proposed. Requires a product-brief amendment (see §2) before build starts.
 **Driver:** ZotFlow ships an embedded reader inside Obsidian and is rated our leading competitive threat — see `docs/competitive-research-verified-2026-07.md` §2.1. Separately, the `/ai-review` provenance UI (P0) needs a way to show the source of an AI claim without a context break.
@@ -57,7 +57,7 @@ Practical rules that still apply:
 
 ### 1.1 Reader engine — DECIDED 2026-07-25: **pdf.js**
 
-See `docs/plans/current/roadmap-2026-07-phased.md` §D1 for the full rationale. Summary of the evidence that settled it: `zotero/reader` is actively maintained (pushed 2026-07-24) but is **not published to npm**, and building it requires recursive git submodules plus `NODE_OPTIONS=--openssl-legacy-provider`. Consuming it means vendoring a submodule and building from source in CI, on a legacy webpack toolchain, inside a Next.js 14 PWA with a ~1MB gzipped reader-chunk budget. We are also buying far more than we need: per decision D3 the scope is a **read-only rendering surface**, not an annotator.
+See `docs/plans/completed/roadmap-2026-07-phased.md` §D1 for the full rationale. Summary of the evidence that settled it: `zotero/reader` is actively maintained (pushed 2026-07-24) but is **not published to npm**, and building it requires recursive git submodules plus `NODE_OPTIONS=--openssl-legacy-provider`. Consuming it means vendoring a submodule and building from source in CI, on a legacy webpack toolchain, inside a Next.js 14 PWA with a ~1MB gzipped reader-chunk budget. We are also buying far more than we need: per decision D3 the scope is a **read-only rendering surface**, not an annotator.
 
 The anchor model in `packages/core/src/reader/` is renderer-agnostic, so this decision is cheap to revisit. **Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
 

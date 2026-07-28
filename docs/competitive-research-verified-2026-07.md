@@ -186,7 +186,7 @@ Grounds, all verified:
 
 Effort S/M/L, impact low/med/high.
 
-> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/plans/current/roadmap-2026-07-phased.md`](plans/current/roadmap-2026-07-phased.md).
+> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/plans/completed/roadmap-2026-07-phased.md`](plans/completed/roadmap-2026-07-phased.md) (complete). Active reader work: [`docs/plans/current/reader-and-annotation-plan.md`](plans/current/reader-and-annotation-plan.md).
 
 ### P0
 
