@@ -272,8 +272,9 @@ Uses `ReaderAnnotation` (§3.1) and the `annotationPosition` rects captured in P
 - Click annotation → scroll to it; click in page → focus it in the sidebar
 - Show the `0107` quotation type on each card
 - "Copy quote + cite" using the existing multi-format citation code
+- **Separate Zotero child notes from annotations** on the paper detail (§5.0): two groups, each rendered only when it has content, headings and counts derived per group rather than the current hardcoded "annotations & notes (N)". Notes drop the quotation-type selector and the pin control — a note has no page and is not a quotation from anywhere. Label "Notes from Zotero · read-only"
 
-**Exit:** every Zotero annotation on a paper is visible in the reader at the right place, or explicitly flagged as approximate. **This is where the feature stops being, in your words, a BS feature.**
+**Exit:** every Zotero annotation on a paper is visible in the reader at the right place, or explicitly flagged as approximate; and a paper shows an annotations group, a notes group, or neither — never a heading for something it does not have. **This is where the feature stops being, in your words, a BS feature.**
 
 ### R3 — Create annotations (local-only)
 
@@ -351,7 +352,7 @@ Checked item by item against ZotFlow's README, 2026-07-27. **Yes, with one delib
 | Copy quote + cite from the reader | ✅ | R2 |
 | Annotation ordering matching Zotero | ✅ | R3 must synthesise `sortIndex` in Zotero's format (§3.5) |
 | Themed / dark reader | ✅ | R4 |
-| **Native Zotero child notes** | ❌ | **Open decision — see below.** Not an annotation feature, but adjacent enough to be mistaken for one |
+| **Native Zotero child notes** | ⚠️ Partly | Already imported; presentation is wrong. **Decided — see below** |
 
 **Two gaps this audit caught** are now closed in the plan and in the code: `nextPageRects` (cross-page highlights would have been silently truncated) and the `text` type (was being stripped on sync). Both existed because the plan was written from a feature list rather than from Zotero's source.
 
@@ -374,7 +375,23 @@ ZotFlow lets you create, edit, and delete Zotero child notes in place, and pushe
 | **B. Read-only import** | Show Zotero child notes on the paper, clearly labelled, not editable. Cheap, removes the "where did my note go" surprise, no write risk |
 | **C. Full bidirectional** | Our paper note *is* the Zotero child note. Highest parity, but two rich-text models and two edit surfaces racing — the note is now a merge target, and our notes support wikilinks and templates Zotero has no representation for |
 
-**Recommendation: B, scheduled after R5.** A is a real papercut; C risks corrupting notes people have written over years, and the wikilink/template mismatch means round-tripping is lossy in a way annotations are not. B gets most of the value for a fraction of the risk. Decide it as a product call, not during implementation.
+### DECIDED 2026-07-27 — **B, read-only import.**
+
+C is rejected outright, not deferred. Our notes carry wikilinks and template regions that Zotero has no representation for, so a round-trip is **lossy on content people have written over years**. Annotations round-trip cleanly because they are anchored geometry plus text; notes do not. The parity gain is not worth being the tool that quietly ate someone's thesis notes.
+
+**Most of B already exists and was missed in the first audit.** `zotero-annotations.ts` already pulls child notes (`itemType=note`) and stores them in the same `metadata.annotations` array with `kind: "note"`, and `PaperAnnotations` already renders them with a "Zotero note" label. What is wrong is the presentation.
+
+**Work remaining — R2, small and self-contained:**
+
+1. **Split the list in two.** Annotations and notes are different things and currently share one flat list under one header. Render an **Annotations** group and a **Notes from Zotero** group.
+
+2. **Every group renders only if it has content.** The block as a whole already does this correctly — `PaperAnnotations` returns `null` when the array is empty — but the header hardcodes *"Zotero annotations & notes (N)"*, so a paper with only notes advertises annotations it does not have, and vice versa. Each group's heading and count come from that group.
+
+3. **Stop offering annotation-only controls on a note.** A child note has no page, no rects, and is not a quotation from anywhere — yet it currently gets the quotation-type selector (direct / paraphrase / summary) and the pin-to-section control. Both are meaningless on a note and imply a precision that does not exist. Notes keep copy and tags; they lose the quotation type and the pin.
+
+4. **Label the origin honestly.** "Notes from Zotero · read-only" — a user must never wonder why they cannot edit it, or whether editing here would reach Zotero.
+
+**Not in scope:** creating, editing, or deleting Zotero notes from WeaveForge. That is option C and is rejected above.
 
 ---
 
@@ -424,13 +441,42 @@ Full parity with *ZotFlow + Obsidian* remains explicitly not the target — see 
 
 ---
 
+## 6.1 Defects this plan's own audit found — and the rule that follows
+
+Three defects, found by checking the plan against Zotero's source rather than against a feature list. **All three are fixed** (commits `afd566b`, `991b10c`); they are recorded because the *pattern* matters more than the bugs.
+
+| # | Defect | Effect | Fixed by |
+|---|---|---|---|
+| 1 | `nextPageRects` dropped by the position parser | Any highlight crossing a page break was silently truncated at the boundary. On write-back it would have *corrupted* the annotation, not just displayed it short | Parse and retain it; test covers a cross-page highlight |
+| 2 | `text` type missing from `ANNOTATION_TYPES` | `parseAnnotationType` degrades unknowns to `undefined`, so a Zotero `text` annotation lost its type on **every** sync — kept its content, became unrenderable and unwritable | All six types allow-listed; test asserts each survives |
+| 3 | `strikeout` invented in this plan | Not a Zotero type. Would have produced local annotations that could never be written back in R5 — discovered only after users had created them | Removed from the plan, the `ReaderAnnotation` union, and the `0110` CHECK; test asserts it stays rejected |
+
+**All three share one cause: the plan was written from ZotFlow's feature list instead of Zotero's source.** A feature list tells you what exists, never what shape it is. `strikeout` *feels* like it should be there; `text` does not feel like it is; `nextPageRects` is invisible until a highlight happens to cross a page.
+
+### Rule for R3 and R5
+
+**Every Zotero-facing shape is verified against Zotero's own source before it is implemented, and the source location is cited in the code.** Not the API docs — annotation fields are absent from the public schema (`itemTypes.annotation.fields` is `[]`), so the docs cannot answer these questions, and secondary summaries get them wrong.
+
+Canonical sources, all read 2026-07-27:
+
+| Question | Source |
+|---|---|
+| Which annotation types exist | `zotero/zotero` `chrome/content/zotero/xpcom/annotations.js` — `ANNOTATION_TYPE_*` |
+| Position/geometry shape | `zotero/reader` `src/common/types.ts` — `PDFPosition` |
+| How `sortIndex` is built | `zotero/reader` `src/pdf/selection.js` — `getSortIndex` |
+
+**This matters far more in R5 than it did here.** These three were caught against a demo database. The same class of error in write-back mutates a real Zotero library — someone's actual research — and Zotero's sync will happily propagate a malformed annotation to every device before anyone notices. R5's spike against a scratch library is not a formality; it is the control for exactly this failure mode.
+
+---
+
 ## 7. Risks
 
 | Risk | Mitigation |
 |---|---|
 | Text layer alignment drifts at zoom/rotation | Derive everything from `viewport.transform`; never cache screen coordinates. Test at 50/100/200% and each rotation |
 | Bundle budget (~1MB gz reader chunk) | Reader is already a dynamic import off first paint. Re-measure at R1 and R3; `next build` output is in `check:all` |
-| Write-back corrupts a real Zotero library | R5 spikes against a scratch library first. Never bulk-push without a dry run |
+| Write-back corrupts a real Zotero library | R5 spikes against a scratch library first. Never bulk-push without a dry run. §6.1 — every Zotero-facing shape verified against Zotero's source, not its docs |
+| A shape we guessed wrong propagates through sync | Already happened three times in this plan (§6.1), caught against a demo. In R5 the blast radius is a real library on every synced device |
 | Ink/image annotations bloat storage | Store vectors and rects, not rasters. Rasterise only on explicit pin, through the existing tiered blob store |
 | Zotero sync wipes local annotations | Local annotations live in `reader_annotations`, never in `papers.metadata` — which sync replaces wholesale |
 | R3 needs a render-path rewrite | The whole point of §3. If R2's component cannot render a local annotation unchanged, the §3.1 commitment was broken |
