@@ -60,6 +60,17 @@ A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followe
 
 ### Outstanding after the 2026-07-27 review
 
+**All six phases A–F are delivered.** What is left is not phase work:
+
+| # | Item | Who |
+|---|---|---|
+| 1 | Apply `0109_phase_f_corrections.sql` | **You** — D4 forbids an agent applying a migration |
+| 2 | Merge `phase-f/quotation-types-and-snapshots` into `main` (10 commits ahead) | Either |
+| 3 | Three bibliography limits below | Noted, not scheduled |
+| 4 | `pdf-viewer-plan.md` is filed under `completed/` but is not | Cosmetic |
+
+Everything else now lives in [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md), R0–R6.
+
 **`0109_phase_f_corrections.sql` — authored, needs applying.** Two defects found reviewing Phase F *after* 0107/0108 went live. Because those files are applied, they are left untouched (D4) and the fixes are forward-only:
 
 1. `annotation_quotation_types.updated_at` had no trigger, so it held the insert time forever. Quotation types are re-classified in place (direct → paraphrase), so the column was silently wrong rather than merely unused. 0107 mirrors `annotation_pins` (0103), which has no `updated_at` at all — which is why the omission was easy to miss.
@@ -73,16 +84,17 @@ Fixed 2026-07-27 in `2d9daec`, after an audit of `build-overleaf-export.ts`:
 2. **Every entry was `@article`.** A conference paper filed as `@article` loses its venue outright — biblatex ignores `booktitle` on an article — and an `@article` with no journal makes biber warn about a missing `journaltitle`, which every arXiv preprint hit. Type is now chosen from the venue.
 3. **arXiv identifiers dropped.** `eprint`, `eprinttype`, and `archivePrefix` are now emitted together, which is what biblatex needs to render an arXiv reference.
 
-**Not fixed — these need decisions, not just work:**
+**Fourth defect, fixed 2026-07-27 in `c2faa52`.** `references.bib` held every library paper while `main.tex` printed only the cited ones, because `style=numeric` suppresses uncited entries — exporting 20 papers and citing 2 produced a 2-entry bibliography. The file was right and the PDF was not what anyone expected. `bibliographyScope` now makes the two agree: `"all"` (default) keeps the full library and adds `\nocite{*}`; `"cited"` writes only what the report cites. Exposed as a dropdown in the export modal.
+
+**Not fixed — noted, not scheduled:**
 
 | Limit | Consequence |
 |---|---|
-| **No `\nocite{*}`** | `style=numeric` prints only *cited* entries. A researcher exports 20 papers, cites 2, and gets a two-entry bibliography — then reports the export as broken. The `.bib` is correct; the rendered document is not what they expected. Decide: emit `\nocite{*}`, make it an export option, or say so in `README.txt` |
 | **`Paper` has no `volume`, `pages`, `publisher`, `editor`, `issn`** | Manually-added papers export thin entries. Papers that came from Zotero are unaffected — their stored `bibtex` is passed through intact, which is why this is a limit and not a bug |
 | **Stored `bibtex` is passed through unvalidated** | Only the first entry's key is rewritten. Malformed or multi-entry stored BibTeX reaches `references.bib` as-is |
 | **No CSL / citeproc** | We emit wikilink, LaTeX, Pandoc, footnote, and raw. ZotFlow also renders CSL styles. Deliberately unplanned — see `reader-and-annotation-plan.md` §5.1 |
 
-The first is the one most likely to generate a bug report, and it is a one-line change gated on a product decision.
+None blocks anything. The first only bites papers added by hand rather than through Zotero.
 
 **The reader is being taken further — see [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md).** Phases R0–R6 turn the provenance pane into a full annotation surface and then into Zotero write-back. D3 is superseded and D2 is scheduled as R5. R0 alone (fit-width, zoom, rotate, page controls) fixes the reader rendering every PDF at a fixed 135% and overflowing the pane.
 
