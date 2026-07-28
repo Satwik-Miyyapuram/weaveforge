@@ -154,23 +154,48 @@ export class ZoteroAnnotations {
 }
 
 /**
+ * Coordinate arrays from Zotero: `rects` and `nextPageRects` are 4-tuples,
+ * `paths` are flat point lists of arbitrary length. Anything malformed is
+ * dropped rather than propagated.
+ */
+function parseNumberArrays(raw: unknown, minLength: number): number[][] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const rows = raw.filter(
+    (r): r is number[] =>
+      Array.isArray(r) &&
+      r.length >= minLength &&
+      r.every((n) => typeof n === "number" && Number.isFinite(n)),
+  );
+  return rows.length > 0 ? rows : undefined;
+}
+
+/**
  * Parse Zotero's `annotationPosition` JSON string.
  * Absent, empty, or malformed input degrades to undefined — never throws.
+ *
+ * Shape per `zotero/reader` `src/common/types.ts` (`PDFPosition`). `paths` and
+ * `nextPageRects` are kept because dropping them loses real geometry: `paths`
+ * is the whole of an ink annotation, and `nextPageRects` is the tail of a
+ * highlight that crosses a page break.
  */
 function parseAnnotationPosition(raw: string | undefined): ZoteroAnnotationPosition | undefined {
   if (raw == null || raw.trim() === "") return undefined;
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
-    const pageIndex = (parsed as { pageIndex?: unknown }).pageIndex;
+    const source = parsed as Record<string, unknown>;
+    const pageIndex = source.pageIndex;
     if (typeof pageIndex !== "number" || !Number.isFinite(pageIndex)) return undefined;
-    const rectsRaw = (parsed as { rects?: unknown }).rects;
-    if (!Array.isArray(rectsRaw)) return { pageIndex };
-    const rects = rectsRaw.filter(
-      (r): r is number[] =>
-        Array.isArray(r) && r.length >= 4 && r.every((n) => typeof n === "number" && Number.isFinite(n)),
-    );
-    return rects.length > 0 ? { pageIndex, rects } : { pageIndex };
+    const rects = parseNumberArrays(source.rects, 4);
+    const nextPageRects = parseNumberArrays(source.nextPageRects, 4);
+    // Ink paths are flat [x1,y1,x2,y2,…] runs; two numbers is one point.
+    const paths = parseNumberArrays(source.paths, 2);
+    return {
+      pageIndex,
+      ...(rects ? { rects } : {}),
+      ...(nextPageRects ? { nextPageRects } : {}),
+      ...(paths ? { paths } : {}),
+    };
   } catch {
     return undefined;
   }

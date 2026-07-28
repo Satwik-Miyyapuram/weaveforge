@@ -83,6 +83,57 @@ test("pullAll parses well-formed annotationPosition and type/sort fields", async
   assert.notEqual(ann?.annotationPosition?.pageIndex, Number(ann?.page));
 });
 
+test("pullAll keeps nextPageRects for a highlight crossing a page break", async () => {
+  // pageIndex is the FIRST page; nextPageRects live on pageIndex + 1. Dropping
+  // them truncates the highlight at the break.
+  const ann = await pullAnnotation({
+    annotationText: "Spans a page boundary",
+    annotationType: "highlight",
+    annotationPosition: JSON.stringify({
+      pageIndex: 7,
+      rects: [[10, 20, 30, 40]],
+      nextPageRects: [[50, 700, 300, 720]],
+    }),
+  });
+  assert.deepEqual(ann?.annotationPosition, {
+    pageIndex: 7,
+    rects: [[10, 20, 30, 40]],
+    nextPageRects: [[50, 700, 300, 720]],
+  });
+});
+
+test("pullAll keeps ink paths, which are not rects", async () => {
+  // Ink geometry is flat [x1,y1,x2,y2,…] runs of arbitrary length, so the
+  // 4-number rect rule must not be applied to it.
+  const ann = await pullAnnotation({
+    annotationType: "ink",
+    annotationPosition: JSON.stringify({
+      pageIndex: 2,
+      paths: [[1, 2, 3, 4, 5, 6], [9, 10]],
+    }),
+  });
+  // Assert the absence first: assert.deepEqual is a TS assertion signature and
+  // narrows annotationPosition to the literal shape, after which `.rects` is
+  // no longer a known property.
+  assert.equal(ann?.annotationPosition?.rects, undefined);
+  assert.deepEqual(ann?.annotationPosition, {
+    pageIndex: 2,
+    paths: [[1, 2, 3, 4, 5, 6], [9, 10]],
+  });
+});
+
+test("pullAll drops malformed coordinate rows but keeps the page index", async () => {
+  const ann = await pullAnnotation({
+    annotationType: "highlight",
+    annotationPosition: JSON.stringify({
+      pageIndex: 3,
+      rects: [[1, 2, 3], ["a", "b", "c", "d"], null],
+      nextPageRects: "not-an-array",
+    }),
+  });
+  assert.deepEqual(ann?.annotationPosition, { pageIndex: 3 });
+});
+
 test("pullAll omits annotationPosition when absent", async () => {
   const ann = await pullAnnotation({
     annotationText: "Quote",

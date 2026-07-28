@@ -48,7 +48,23 @@ Build on this; do not rediscover it.
 
 **Missing:** text layer, zoom/rotate/page controls, byte cache, ladder wiring, annotation rendering, annotation creation, write-back.
 
-The single most useful existing asset is `CombinedPdfAnchor`. It was designed for write-back interop before there was a reader to use it, and it is why R3 is cheaper than it looks.
+### 2.1 We are not using rects anywhere — verified 2026-07-27
+
+This needs stating plainly because the table above makes it look better than it is. **Three pieces of good core code are written, exported, unit-tested, and called by nothing:**
+
+| Dead-but-correct | Called by app code? |
+|---|---|
+| `chooseAnchorStrategy` / `CombinedPdfAnchor` | **No.** Only docs reference it |
+| `resolvePdfSource` (the ladder) | **No** |
+| The `position` half of `PdfLocus` | **No** — `pageScopedLocus()` in `pdf-reader.tsx` strips it before every resolve |
+
+What the reader actually does is call `resolveTextAnchor(pageText.text, pageScopedLocus(locus))` — **quote matching only**. The highlight boxes it draws are recomputed at render time from pdf.js text-item geometry (`Util.transform(viewport.transform, item.transform)`), not from any stored rect.
+
+So today: no stored rects are read, no stored rects are written, and `zoteroPosition` is never populated — even though `annotationPosition` **is** captured from Zotero and sits in `papers.metadata.annotations` (and is now seeded). The data is there; nothing consumes it.
+
+**Consequence for sequencing:** R2 is not "render the rects we already use." It is the first time rects are used at all. Budget accordingly, and treat `chooseAnchorStrategy` as untested-in-anger rather than proven.
+
+The design is still right — it is why R3 is cheap. But "we have a dual anchor" currently describes a type, not a behaviour.
 
 ---
 
@@ -124,6 +140,38 @@ selectionToAnchor(range: Range, page: PageTextGeometry): CombinedPdfAnchor
 `scale` is currently a prop defaulting to `1.35`, and `reader-screen.tsx` never passes one — which is the reported bug: every PDF renders at 135% and overflows the pane.
 
 Replace with a `useReaderViewport()` controller owning `{ scale, fit, rotation, page }`, defaulting to **fit-width**. Annotation overlays must survive zoom and rotation, so this cannot stay a constant. Anchors are stored in **PDF user space**, never screen pixels — screen coordinates are derived at render time, which is what makes zoom-independence fall out for free.
+
+### 3.5 The Zotero position format — verified against source, 2026-07-27
+
+Read from `zotero/reader` directly, because **annotation fields are not in Zotero's public schema** — `itemTypes.annotation.fields` is literally `[]` in `api.zotero.org/schema`. They are special-cased in Zotero's code, so the API docs do not describe them and secondary summaries get them wrong.
+
+```ts
+// zotero/reader src/common/types.ts
+export type PDFPosition = {
+  pageIndex: number;           // zero-based
+  rects?: number[][];          // [x1, y1, x2, y2], one per line box
+  paths?: number[][];          // ink strokes — a different geometry, not rects
+  nextPageRects?: number[][];  // the tail of a highlight crossing a page break
+};
+```
+
+Three things follow, and all three must be handled:
+
+1. **Rects are PDF user space, origin bottom-left** — not screen pixels, not top-left. Confirmed by the reader's own arithmetic: it takes page height from the `viewBox` and flips with `top = pageHeight - rect[3]`. This is what makes zoom and rotation free: store document coordinates, derive screen coordinates through `viewport.transform` at render time. §3.4 depends on this.
+
+2. **`nextPageRects` — a single annotation can span two pages.** Its `pageIndex` is the *first* page; `rects` are on that page and `nextPageRects` on the next. A renderer that only reads `rects` silently truncates the highlight at the page break, and a writer that only emits `rects` corrupts a cross-page selection on write-back. Our `ZoteroAnnotationPosition` in `features/papers/domain/zotero.ts` does **not** carry this field yet — add it in R2, before anything renders.
+
+3. **Ink is `paths`, not `rects`.** Different geometry, different overlay primitive (SVG polyline, not a box). R3's ink support cannot reuse the highlight renderer.
+
+**`annotationSortIndex`** is a sortable string, not a number — built in `zotero/reader src/pdf/selection.js:399`:
+
+```js
+[ pageIndex.padStart(5,'0'), charOffset.padStart(6,'0'), Math.floor(top).padStart(5,'0') ].join('|')
+```
+
+So `"00008|000412|00574"` is page 8, character offset 412 into the page text, 574pt from the top. Zero-padding makes lexical sort equal reading order. Local annotations created in R3 must synthesise this in the same shape, or local and Zotero annotations will not interleave correctly in the sidebar — and R5 would push a malformed sort index back to Zotero.
+
+**Zotero itself already uses W3C selectors — just not for PDF.** From the same file: *"PDFPosition for PDFs, a WADM Selector for EPUBs and snapshots."* WADM is the W3C Web Annotation Data Model. This is direct validation of §3.1's dual anchor: we apply to PDF the durability mechanism Zotero already trusts for EPUB. Where Zotero has only rects, a repaginated or replaced file silently renders the highlight over the wrong text; `contentHash` + quote fallback is what turns that into an honest "position approximate".
 
 ---
 
@@ -254,6 +302,40 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 - Opt-in `paper-pdfs` bucket (ladder step 6) with quota and tier eviction
 - Mobile — gated on the memory measurement in §10 of the old plan
 - Offline reading for cached documents
+
+---
+
+## 5.1 ZotFlow capabilities we have in *no* form — verified 2026-07-27
+
+Checked by grepping the codebase for each, not from memory. "No form" means no type, no port, no dead code — nothing to build on.
+
+| Capability | Us | Covered by |
+|---|---|---|
+| EPUB reading | **Nothing** | R6 |
+| HTML/snapshot reading | **Nothing** | R6 |
+| WebDAV attachments | **Nothing** — the only hit is the word "WebDAV" in a doc comment in `pdf-source-ladder.ts` | R6 |
+| Linked attachment base directory | **Nothing** | R6 |
+| Ink / freehand | **Nothing** — and needs `paths`, not the rect renderer (§3.5) | R3 |
+| Image-region capture | **Nothing** | R3 |
+| Bulk annotation-image extraction | **Nothing** | R4 |
+| Native Zotero child notes | **Nothing** | **Unplanned** |
+| Per-library Bidirectional / Read-Only / Ignored | **Nothing** | R5 |
+| Field-level conflict diff | **Nothing** | R5 |
+| Batch ops (regenerate all notes / re-render all templates) | **Nothing** | R4 |
+| Activity Center (sync progress, task log) | **Nothing** | R4 |
+| CSL styles via citeproc | **Nothing** — we emit wikilink / LaTeX / Pandoc / footnote / raw, no CSL | **Unplanned** |
+| Drag-to-cite from a library tree | **Nothing** — `@` autocomplete exists, drag does not | **Unplanned** |
+| Virtualised Zotero library tree view | Partial — `list-zotero-collections.use-case.ts` and `ZoteroCollection` exist; no tree UI | **Unplanned** |
+| Sidecar annotation for non-library files | N/A — we use a table, not a `.zf.json` file | R3 |
+| Themed reader (dark mode) | **Nothing** | R4 |
+
+**Three are genuinely unplanned and need a decision, not just scheduling:**
+
+- **Native Zotero child notes** — creating and editing Zotero notes in-app. Overlaps our own vault notes; doing both may confuse where a note "lives". Decide before R5.
+- **CSL / citeproc** — real work (a CSL engine plus style files) for output formats a thesis writer using LaTeX or Pandoc mostly does not need. Cheap to skip, expensive to half-do.
+- **Drag-to-cite from a tree view** — needs the tree view first. Pleasant, not load-bearing.
+
+Everything else is sequenced above.
 
 ---
 
