@@ -65,6 +65,25 @@ A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followe
 1. `annotation_quotation_types.updated_at` had no trigger, so it held the insert time forever. Quotation types are re-classified in place (direct → paraphrase), so the column was silently wrong rather than merely unused. 0107 mirrors `annotation_pins` (0103), which has no `updated_at` at all — which is why the omission was easy to miss.
 2. `lab_snapshots` granted UPDATE to the owner, which defeats the freeze. The table exists so a supervisee controls what the supervisor reviews; an owner who can rewrite `content` after publishing means the supervisor cannot trust what they are reading, and `published_at` does not move on update, so the change leaves no trace. No application code ever called update, so removing it breaks nothing.
 
+### Bibliography export — three defects fixed, four limits remain
+
+Fixed 2026-07-27 in `2d9daec`, after an audit of `build-overleaf-export.ts`:
+
+1. **No escaping.** Bib field values were interpolated raw, so a paper titled "Cost & Benefit" or "100% Recall in C_4" emitted bare LaTeX specials and failed the Overleaf build. The document body was escaped via `escapeTitle`; the bibliography never was. Balanced braces are preserved (Better BibTeX's `{BERT}` case protection), unbalanced ones escaped, and `url`/`doi` left verbatim since biblatex treats them as verbatim fields.
+2. **Every entry was `@article`.** A conference paper filed as `@article` loses its venue outright — biblatex ignores `booktitle` on an article — and an `@article` with no journal makes biber warn about a missing `journaltitle`, which every arXiv preprint hit. Type is now chosen from the venue.
+3. **arXiv identifiers dropped.** `eprint`, `eprinttype`, and `archivePrefix` are now emitted together, which is what biblatex needs to render an arXiv reference.
+
+**Not fixed — these need decisions, not just work:**
+
+| Limit | Consequence |
+|---|---|
+| **No `\nocite{*}`** | `style=numeric` prints only *cited* entries. A researcher exports 20 papers, cites 2, and gets a two-entry bibliography — then reports the export as broken. The `.bib` is correct; the rendered document is not what they expected. Decide: emit `\nocite{*}`, make it an export option, or say so in `README.txt` |
+| **`Paper` has no `volume`, `pages`, `publisher`, `editor`, `issn`** | Manually-added papers export thin entries. Papers that came from Zotero are unaffected — their stored `bibtex` is passed through intact, which is why this is a limit and not a bug |
+| **Stored `bibtex` is passed through unvalidated** | Only the first entry's key is rewritten. Malformed or multi-entry stored BibTeX reaches `references.bib` as-is |
+| **No CSL / citeproc** | We emit wikilink, LaTeX, Pandoc, footnote, and raw. ZotFlow also renders CSL styles. Deliberately unplanned — see `reader-and-annotation-plan.md` §5.1 |
+
+The first is the one most likely to generate a bug report, and it is a one-line change gated on a product decision.
+
 **The reader is being taken further — see [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md).** Phases R0–R6 turn the provenance pane into a full annotation surface and then into Zotero write-back. D3 is superseded and D2 is scheduled as R5. R0 alone (fit-width, zoom, rotate, page controls) fixes the reader rendering every PDF at a fixed 135% and overflowing the pane.
 
 **The old PDF reader plan is mis-filed.** `docs/plans/completed/pdf-viewer-plan.md` sits under `completed/` but is only partially delivered — Phase D built what `/ai-review` needed and correctly stopped. Missing from its own Phase 1: the source-resolution ladder (`packages/core/src/reader/pdf-source-ladder.ts` is implemented and **never called**), an IndexedDB byte cache, zoom/rotate/page controls, **a text layer at all** (so no text selection or copy), and Zotero annotation overlays. Phases 2–4 are undelivered, and Phase 2 is deferred by decision (D2/D3), not oversight. The document now carries a verified status table at the top; consider moving it back to `current/`.
