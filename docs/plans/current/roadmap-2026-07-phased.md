@@ -65,7 +65,9 @@ A and B were delivered on branch `overnight/queue-2b-through-9`. C and D followe
 1. `annotation_quotation_types.updated_at` had no trigger, so it held the insert time forever. Quotation types are re-classified in place (direct → paraphrase), so the column was silently wrong rather than merely unused. 0107 mirrors `annotation_pins` (0103), which has no `updated_at` at all — which is why the omission was easy to miss.
 2. `lab_snapshots` granted UPDATE to the owner, which defeats the freeze. The table exists so a supervisee controls what the supervisor reviews; an owner who can rewrite `content` after publishing means the supervisor cannot trust what they are reading, and `published_at` does not move on update, so the change leaves no trace. No application code ever called update, so removing it breaks nothing.
 
-**The PDF reader plan is mis-filed.** `docs/plans/completed/pdf-viewer-plan.md` sits under `completed/` but is only partially delivered — Phase D built what `/ai-review` needed and correctly stopped. Missing from its own Phase 1: the source-resolution ladder (`packages/core/src/reader/pdf-source-ladder.ts` is implemented and **never called**), an IndexedDB byte cache, zoom/rotate/page controls, **a text layer at all** (so no text selection or copy), and Zotero annotation overlays. Phases 2–4 are undelivered, and Phase 2 is deferred by decision (D2/D3), not oversight. The document now carries a verified status table at the top; consider moving it back to `current/`.
+**The reader is being taken further — see [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md).** Phases R0–R6 turn the provenance pane into a full annotation surface and then into Zotero write-back. D3 is superseded and D2 is scheduled as R5. R0 alone (fit-width, zoom, rotate, page controls) fixes the reader rendering every PDF at a fixed 135% and overflowing the pane.
+
+**The old PDF reader plan is mis-filed.** `docs/plans/completed/pdf-viewer-plan.md` sits under `completed/` but is only partially delivered — Phase D built what `/ai-review` needed and correctly stopped. Missing from its own Phase 1: the source-resolution ladder (`packages/core/src/reader/pdf-source-ladder.ts` is implemented and **never called**), an IndexedDB byte cache, zoom/rotate/page controls, **a text layer at all** (so no text selection or copy), and Zotero annotation overlays. Phases 2–4 are undelivered, and Phase 2 is deferred by decision (D2/D3), not oversight. The document now carries a verified status table at the top; consider moving it back to `current/`.
 
 ## Dependency map
 
@@ -182,17 +184,21 @@ The reasons below are why we do **not** adopt their engine wholesale:
 
 **Revisit trigger:** `zotero/reader` publishes to npm, or drops the legacy OpenSSL requirement.
 
-### D2 — Zotero write-back: **deferred. Phase D is read-only.**
+### D2 — Zotero write-back: **deferred → SCHEDULED 2026-07-27 as R5.**
 
-The API spike needs live credentials and mutates a real Zotero library, so it cannot be done unsupervised. Rather than let that block everything, **remove it from the critical path**: Phase D reads and renders annotations, and creates none.
+*Original decision:* the API spike needs live credentials and mutates a real Zotero library, so it cannot be done unsupervised. Rather than let that block everything, it was removed from the critical path — Phase D reads and renders annotations, and creates none.
 
-This costs little. Annotations already sync inbound (§6.1), and the provenance UI — the actual P0 — only needs to *display* evidence. Write-back becomes its own later decision with its own spike, when a human can watch it.
+**Still true, and still the reason it is late in the order.** What changed is that it is now on the schedule rather than pending a future decision: [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md) R5, after local annotation works. The supervision requirement is unchanged — R5 spikes against a scratch library with a human watching.
 
-### D3 — Brief §11 amendment: **narrow, not broad.**
+### D3 — Brief §11 amendment: ~~narrow, not broad~~ **SUPERSEDED 2026-07-27.**
 
-Amend the non-goal to permit **a read-only PDF rendering surface for provenance verification and jump-to-locus**. Explicitly still non-goals: creating or editing annotations in-app, becoming a PDF storage service, replacing Zotero as system of record.
+*Original decision:* permit only a read-only rendering surface for provenance verification, keeping "creating or editing annotations in-app" a non-goal.
 
-This is a smaller change than `pdf-viewer-plan.md` §2 originally proposed, and it follows from D1 and D2 rather than driving them.
+**That was correct for shipping `/ai-review` and wrong as a resting place.** What it produced is a pane that renders a PDF at a fixed 135% zoom with no controls, no text selection, and no annotations — it verifies AI claims and does nothing else a researcher wants.
+
+**New position:** the reader is a first-class reading *and annotation* surface. See [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md) §1. Brief §11's "Full in-app PDF annotator (Zotero owns PDFs/annotations)" is now wrong on both halves and should be struck rather than narrowed. Zotero stays the system of record for the *library*; annotations are ours to create and sync back.
+
+Non-goals that survive: becoming a PDF storage service by default, an OCR pipeline, or a Zotero replacement.
 
 ### D4 — Migration policy for agent work: **write, never apply.**
 
