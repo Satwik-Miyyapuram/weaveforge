@@ -27,6 +27,8 @@ import type {
   ILibraryPinRepository,
   ICitationAlertTrackRepository,
   IAnnotationPinRepository,
+  IAnnotationQuotationTypeRepository,
+  ILabSnapshotRepository,
   IPaperFieldRepository,
   IBlobStore,
 } from "@thesis/core";
@@ -51,6 +53,8 @@ import {
 import { SupabasePaperRelationRepository } from "@/features/relations/infrastructure/supabase-paper-relation-repository";
 import { SupabaseCitationAlertTrackRepository } from "@/features/relations/infrastructure/supabase-citation-alert-track-repository";
 import { SupabaseAnnotationPinRepository } from "@/features/papers/infrastructure/supabase-annotation-pin-repository";
+import { SupabaseAnnotationQuotationTypeRepository } from "@/features/papers/infrastructure/supabase-annotation-quotation-type-repository";
+import { SupabaseLabSnapshotRepository } from "@/features/org/infrastructure/supabase-lab-snapshot-repository";
 import { SupabasePaperFieldRepository } from "@/features/papers/infrastructure/supabase-paper-field-repository";
 import { SupabaseReportSectionRepository } from "@/features/report/infrastructure/supabase-report-section-repository";
 import { SupabaseVaultPageRepository } from "@/features/vault/infrastructure/supabase-vault-page-repository";
@@ -106,6 +110,8 @@ export interface WiredSupabaseBackend {
   readonly libraryPinRepository: ILibraryPinRepository;
   readonly citationAlertTrackRepository: ICitationAlertTrackRepository;
   readonly annotationPinRepository: IAnnotationPinRepository;
+  readonly annotationQuotationTypeRepository: IAnnotationQuotationTypeRepository;
+  readonly labSnapshotRepository: ILabSnapshotRepository;
   readonly paperFieldRepository: IPaperFieldRepository;
 }
 
@@ -269,6 +275,20 @@ export function wireSupabaseBackend(
     pid,
     { resourceType: "paper" },
   );
+  const annotationQuotationTypeRepository: IAnnotationQuotationTypeRepository = cacheRepo(
+    new SupabaseAnnotationQuotationTypeRepository(db, projectContext, session),
+    ["listForPaper"],
+    ["save", "remove"],
+    pid,
+    { resourceType: "paper" },
+  );
+  const labSnapshotRepository: ILabSnapshotRepository = cacheRepo(
+    new SupabaseLabSnapshotRepository(db, projectContext, session),
+    ["listMine", "listForMember", "getById"],
+    ["publish", "remove"],
+    pid,
+    { resourceType: "project" },
+  );
   const paperFieldRepository: IPaperFieldRepository = cacheRepo(
     new SupabasePaperFieldRepository(db, projectContext, session),
     ["listDefs", "listValuesForPaper", "listValuesForProject"],
@@ -312,6 +332,8 @@ export function wireSupabaseBackend(
     libraryPinRepository,
     citationAlertTrackRepository,
     annotationPinRepository,
+    annotationQuotationTypeRepository,
+    labSnapshotRepository,
     paperFieldRepository,
   };
 }

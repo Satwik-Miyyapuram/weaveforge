@@ -9,6 +9,8 @@ export * from "./domain/paper.js";
 export * from "./domain/paper-repository.js";
 export * from "./domain/annotation-pin.js";
 export * from "./domain/annotation-pin-repository.js";
+export * from "./domain/annotation-quotation-type.js";
+export * from "./domain/annotation-quotation-type-repository.js";
 export * from "./domain/paper-field.js";
 export * from "./domain/paper-field-repository.js";
 export * from "./application/metadata-source.js";

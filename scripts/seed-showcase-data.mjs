@@ -91,6 +91,88 @@ function metricSeries(name, steps, fn) {
   }));
 }
 
+/**
+ * Zotero-shaped PDF annotations, cached on `papers.metadata.annotations` — the
+ * same place a real Zotero sync writes them. Keyed by paper title.
+ *
+ * These drive three surfaces at once, which is why the demo looked empty
+ * without them: the paper detail annotation cards, the graph side panel, and
+ * the "Pinned annotations" rail beside a report section (via annotation_pins).
+ *
+ * `annotationPosition` is a real Zotero position — zero-based `pageIndex` plus
+ * PDF user-space rects — so the reader has something to anchor to once it
+ * renders annotations (reader-and-annotation-plan.md R2). `page` is the display
+ * label and is deliberately a string; do not conflate the two.
+ */
+const SHOWCASE_ANNOTATIONS = {
+  "Attention Is All You Need": [
+    {
+      key: "SHOWCASE-ATTN-1",
+      kind: "annotation",
+      annotationType: "highlight",
+      text: "We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.",
+      comment: "Core claim — cite in Ch. 2 when motivating the encoder baseline.",
+      color: "#ffd400",
+      page: "1",
+      tags: ["transformers", "foundations"],
+      annotationPosition: { pageIndex: 0, rects: [[100.2, 604.5, 495.8, 628.1]] },
+      annotationSortIndex: "00000|000512|00604",
+    },
+    {
+      key: "SHOWCASE-ATTN-2",
+      kind: "annotation",
+      annotationType: "highlight",
+      text: "Self-attention, sometimes called intra-attention, is an attention mechanism relating different positions of a single sequence in order to compute a representation of the sequence.",
+      comment: "Definition to paraphrase rather than quote directly.",
+      color: "#a28ae5",
+      page: "2",
+      tags: ["transformers"],
+      annotationPosition: { pageIndex: 1, rects: [[100.2, 322.4, 495.8, 358.9]] },
+      annotationSortIndex: "00001|000318|00322",
+    },
+  ],
+  "Auto-Encoding Variational Bayes": [
+    {
+      key: "SHOWCASE-VAE-1",
+      kind: "annotation",
+      annotationType: "highlight",
+      text: "We introduce a stochastic variational inference and learning algorithm that scales to large datasets and, under some mild differentiability conditions, even works in the intractable case.",
+      comment: "The reparameterisation trick — direct dependency for Ch. 3 method.",
+      color: "#5fb236",
+      page: "1",
+      tags: ["vae", "latent-variables"],
+      annotationPosition: { pageIndex: 0, rects: [[92.0, 566.3, 503.1, 601.7]] },
+      annotationSortIndex: "00000|000476|00566",
+    },
+    {
+      key: "SHOWCASE-VAE-2",
+      kind: "note",
+      annotationType: "note",
+      comment:
+        "Compare the ELBO formulation here against beta-VAE's reweighting — the beta sweep in exp-04 is the empirical version of this trade-off.",
+      color: "#2ea8e5",
+      page: "4",
+      tags: ["vae", "disentanglement"],
+      annotationPosition: { pageIndex: 3, rects: [[76.4, 445.0, 120.4, 461.0]] },
+      annotationSortIndex: "00003|000221|00445",
+    },
+  ],
+  "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework": [
+    {
+      key: "SHOWCASE-BVAE-1",
+      kind: "annotation",
+      annotationType: "highlight",
+      text: "We introduce β-VAE, a new state-of-the-art framework for automated discovery of interpretable factorised latent representations from raw image data in a completely unsupervised manner.",
+      comment: "Motivates the β sweep. Summary-level use, not a direct quote.",
+      color: "#ff6666",
+      page: "1",
+      tags: ["disentanglement", "vae"],
+      annotationPosition: { pageIndex: 0, rects: [[105.6, 588.2, 490.4, 623.8]] },
+      annotationSortIndex: "00000|000498|00588",
+    },
+  ],
+};
+
 /** ~20 real-ish papers with overlapping tags so concept nodes populate the graph. */
 const SHOWCASE_PAPERS = [
   {
@@ -330,6 +412,13 @@ async function seedPhdShowcase(uid, projectId) {
         tags: p.tags,
         summary: p.summary,
         arxiv_id: p.arxiv_id ?? null,
+        // Always send metadata, never conditionally. A multi-row insert uses one
+        // column set for every row, so omitting the key here sends an explicit
+        // NULL for the papers that have no annotations — and `metadata` is
+        // NOT NULL, so the whole batch fails.
+        metadata: SHOWCASE_ANNOTATIONS[p.title]
+          ? { annotations: SHOWCASE_ANNOTATIONS[p.title] }
+          : {},
       })),
     )
     .select("id, title");
@@ -671,6 +760,49 @@ async function seedPhdShowcase(uid, projectId) {
     .select("id")
     .single();
   if (r2Err) throw r2Err;
+
+  // Pin annotations into Background so the "Pinned annotations" rail beside the
+  // section editor has content. Without these the rail renders its empty state
+  // even though the annotations exist on the papers.
+  const annotationPins = [
+    ["Attention Is All You Need", "SHOWCASE-ATTN-1"],
+    ["Auto-Encoding Variational Bayes", "SHOWCASE-VAE-1"],
+    ["β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework", "SHOWCASE-BVAE-1"],
+  ]
+    .filter(([title]) => byTitle[title])
+    .map(([title, annotationKey]) => ({
+      user_id: uid,
+      project_id: projectId,
+      paper_id: byTitle[title],
+      annotation_key: annotationKey,
+      report_section_id: ch2.id,
+    }));
+  if (annotationPins.length) {
+    const { error: pinErr } = await admin.from("annotation_pins").insert(annotationPins);
+    if (pinErr) throw pinErr;
+  }
+
+  // Phase F quotation taxonomy (migration 0107) — one of each so the selector
+  // on the annotation card demos all three states.
+  const quotationTypes = [
+    ["Attention Is All You Need", "SHOWCASE-ATTN-1", "direct"],
+    ["Attention Is All You Need", "SHOWCASE-ATTN-2", "paraphrase"],
+    ["β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework", "SHOWCASE-BVAE-1", "summary"],
+  ]
+    .filter(([title]) => byTitle[title])
+    .map(([title, annotationKey, quotationType]) => ({
+      user_id: uid,
+      project_id: projectId,
+      paper_id: byTitle[title],
+      annotation_key: annotationKey,
+      quotation_type: quotationType,
+    }));
+  if (quotationTypes.length) {
+    const { error: qtErr } = await admin
+      .from("annotation_quotation_types")
+      .insert(quotationTypes);
+    if (qtErr) throw qtErr;
+  }
 
   const { data: ch3, error: r3Err } = await admin
     .from("report_sections")

@@ -109,6 +109,7 @@ export class PapersFacade {
       images: IPaperImageStore;
       citationAlerts: CheckCitationAlertsUseCase;
       annotationPins: import("@thesis/core").IAnnotationPinRepository;
+      annotationQuotationTypes: import("@thesis/core").IAnnotationQuotationTypeRepository;
       paperFields: ManagePaperFieldsUseCase;
       reportSections: import("@thesis/core").IReportSectionRepository;
     },
@@ -191,6 +192,26 @@ export class PapersFacade {
       paperId,
       annotationKey,
       reportSectionId: sectionId,
+    });
+  }
+
+  listAnnotationQuotationTypesForPaper(paperId: string) {
+    return this.deps.annotationQuotationTypes.listForPaper(paperId);
+  }
+
+  async setAnnotationQuotationType(
+    paperId: string,
+    annotationKey: string,
+    quotationType: import("@thesis/core").QuotationType | null,
+  ) {
+    if (!quotationType) {
+      await this.deps.annotationQuotationTypes.remove(paperId, annotationKey);
+      return null;
+    }
+    return this.deps.annotationQuotationTypes.save({
+      paperId,
+      annotationKey,
+      quotationType,
     });
   }
 
@@ -1032,6 +1053,9 @@ export class OrgFacade {
       members: IMemberRepository;
       createMember: CreateMemberUseCase;
       supervision: ISupervisionRepository;
+      labSnapshots: import("@thesis/core").ILabSnapshotRepository;
+      milestones: import("@thesis/core").IMilestoneRepository;
+      logs: import("@thesis/core").ILogEntryRepository;
     },
   ) {}
 
@@ -1059,7 +1083,42 @@ export class OrgFacade {
     return Promise.all([
       this.deps.supervision.listMilestones(memberId),
       this.deps.supervision.listLogs(memberId),
+      this.deps.labSnapshots.listForMember(memberId),
     ]);
+  }
+
+  listMyLabSnapshots() {
+    return this.deps.labSnapshots.listMine();
+  }
+
+  async publishLabSnapshot(input: { title: string; note?: string }) {
+    const [milestones, logs] = await Promise.all([
+      this.deps.milestones.list(),
+      this.deps.logs.list(),
+    ]);
+    return this.deps.labSnapshots.publish({
+      title: input.title,
+      note: input.note,
+      content: {
+        milestones: milestones.map((m) => ({
+          id: m.id,
+          title: m.title,
+          description: m.description,
+          status: m.status,
+          targetDate: m.targetDate,
+        })),
+        logs: logs.map((l) => ({
+          id: l.id,
+          entryDate: l.entryDate,
+          kind: l.kind,
+          body: l.body,
+        })),
+      },
+    });
+  }
+
+  removeLabSnapshot(id: string) {
+    return this.deps.labSnapshots.remove(id);
   }
 }
 

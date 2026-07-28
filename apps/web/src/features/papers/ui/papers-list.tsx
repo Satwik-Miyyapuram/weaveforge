@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   PAPER_STATUSES,
   PAPER_FIELD_KINDS,
+  QUOTATION_TYPES,
+  QUOTATION_TYPE_LABELS,
   computeRollup,
   type Paper,
   type PaperFieldDef,
@@ -14,6 +16,7 @@ import {
   type PaperFieldValue,
   type PaperFieldValueData,
   type PaperStatus,
+  type QuotationType,
   type ReadingList,
 } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
@@ -1729,16 +1732,21 @@ function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: boolean
   const [msg, setMsg] = useState<string | null>(null);
   const [sections, setSections] = useState<{ id: string; title: string }[]>([]);
   const [pins, setPins] = useState<Map<string, string>>(new Map());
+  const [quotationTypes, setQuotationTypes] = useState<Map<string, QuotationType>>(new Map());
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const reloadPins = useCallback(async () => {
     const papers = getContainer().papers;
-    const [availableSections, currentPins] = await Promise.all([
+    const [availableSections, currentPins, currentTypes] = await Promise.all([
       papers.listReportSections(),
       papers.listAnnotationPinsForPaper(paper.id),
+      papers.listAnnotationQuotationTypesForPaper(paper.id),
     ]);
     setSections(availableSections.map(({ id, title }) => ({ id, title })));
     setPins(new Map(currentPins.map((pin) => [pin.annotationKey, pin.reportSectionId])));
+    setQuotationTypes(
+      new Map(currentTypes.map((row) => [row.annotationKey, row.quotationType])),
+    );
   }, [paper.id]);
 
   useEffect(() => {
@@ -1778,6 +1786,20 @@ function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: boolean
     }
   }
 
+  async function setQuotationType(annotationKey: string, value: string) {
+    setBusyKey(annotationKey);
+    setMsg(null);
+    try {
+      const next = value ? (value as QuotationType) : null;
+      await getContainer().papers.setAnnotationQuotationType(paper.id, annotationKey, next);
+      await reloadPins();
+    } catch (error) {
+      setMsg(formatError(error));
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
   return (
     <div className="annotations">
       <div className="muted annotations-head">
@@ -1790,6 +1812,11 @@ function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: boolean
             {a.color && <span className="annotation-swatch" style={{ background: a.color }} aria-hidden />}
             <div className="annotation-body">
               {a.kind === "note" && <span className="muted">Zotero note</span>}
+              {a.key && quotationTypes.get(a.key) && (
+                <span className="annotation-quote-type muted">
+                  {QUOTATION_TYPE_LABELS[quotationTypes.get(a.key)!]}
+                </span>
+              )}
               {a.text && <p className="annotation-text">{a.text}</p>}
               {a.comment && <p className="annotation-comment">{a.comment}</p>}
               {a.page && <p className="muted">p.{a.page}</p>}
@@ -1804,18 +1831,32 @@ function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: boolean
                     Copy quote + cite
                   </button>
                   {a.key && !readOnly && (
-                    <Select
-                      className="annotation-pin-select"
-                      aria-label="Pin annotation to report section"
-                      value={pins.get(a.key) ?? ""}
-                      disabled={busyKey === a.key}
-                      onChange={(event) => void setPin(a.key!, event.target.value || null)}
-                    >
-                      <option value="">Unpinned</option>
-                      {sections.map((section) => (
-                        <option key={section.id} value={section.id}>{section.title}</option>
-                      ))}
-                    </Select>
+                    <>
+                      <Select
+                        className="annotation-quote-select"
+                        aria-label="Quotation type"
+                        value={quotationTypes.get(a.key) ?? ""}
+                        disabled={busyKey === a.key}
+                        onChange={(event) => void setQuotationType(a.key!, event.target.value)}
+                      >
+                        <option value="">Quotation type</option>
+                        {QUOTATION_TYPES.map((type) => (
+                          <option key={type} value={type}>{QUOTATION_TYPE_LABELS[type]}</option>
+                        ))}
+                      </Select>
+                      <Select
+                        className="annotation-pin-select"
+                        aria-label="Pin annotation to report section"
+                        value={pins.get(a.key) ?? ""}
+                        disabled={busyKey === a.key}
+                        onChange={(event) => void setPin(a.key!, event.target.value || null)}
+                      >
+                        <option value="">Unpinned</option>
+                        {sections.map((section) => (
+                          <option key={section.id} value={section.id}>{section.title}</option>
+                        ))}
+                      </Select>
+                    </>
                   )}
                 </div>
               )}

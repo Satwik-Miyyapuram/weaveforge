@@ -230,7 +230,7 @@ The plan defines a six-step ladder for locating a paper's PDF: browser cache →
 
 ## Task 7 — Vault note template engine (Phase B, P0 — the hard part)
 
-**Spec:** `docs/plans/current/roadmap-2026-07-phased.md` Phase B, "vault note templates".
+**Spec:** `docs/plans/completed/roadmap-2026-07-phased.md` Phase B, "vault note templates".
 
 The highest-priority unblocked item on the roadmap. ZotFlow's templated source notes are its single strongest draw and `§6.9` has no equivalent — but the templating is not the hard part. **The hard part is re-rendering a template without destroying the researcher's own edits.** ZotFlow solves this with persistent and editable regions; a template that clobbers a week of notes on refresh is worse than no template at all.
 
@@ -256,7 +256,7 @@ Build the engine as **application-layer logic with no UI**. Follow the shape of 
 
 ## Task 8 — Experiment artifact references (Phase B, P1)
 
-**Spec:** `docs/plans/current/roadmap-2026-07-phased.md` Phase B, "artifact-to-report pinning".
+**Spec:** `docs/plans/completed/roadmap-2026-07-phased.md` Phase B, "artifact-to-report pinning".
 
 Report sections need to embed experiment artifacts. Build the **reference format and its resolution logic** now; the insertion UI comes later with a human.
 

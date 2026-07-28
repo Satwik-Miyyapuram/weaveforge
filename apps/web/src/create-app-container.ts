@@ -448,6 +448,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       images: paperImageStore,
       citationAlerts,
       annotationPins: backend.annotationPinRepository,
+      annotationQuotationTypes: backend.annotationQuotationTypeRepository,
       paperFields: managePaperFields,
       reportSections: reportSectionRepository,
     }),
@@ -550,6 +551,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       members: backend.memberRepository,
       createMember,
       supervision: backend.supervisionRepository,
+      labSnapshots: backend.labSnapshotRepository,
+      milestones: backend.milestoneRepository,
+      logs: backend.logEntryRepository,
     }),
     sharing: new SharingFacade({
       sharing: manageSharing,

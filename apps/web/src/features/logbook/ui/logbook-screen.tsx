@@ -12,6 +12,7 @@ import { DeleteIcon, EditIcon } from "@/components/view-icons";
 import { CollabBodyHost } from "@/features/collab";
 import { useScreenData } from "@/lib/use-screen-data";
 import { emptyArray } from "@/lib/empty";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -19,6 +20,7 @@ import { emptyArray } from "@/lib/empty";
  */
 export function LogbookScreen() {
   const [addOpen, setAddOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
 
   const loadEntries = useCallback(() => getContainer().logbook.loadEntries(), []);
   const { data, loading, error, reload: load } = useScreenData("logbook", loadEntries);
@@ -34,6 +36,9 @@ export function LogbookScreen() {
         <div className="head-row">
           <div className="screen-actions">
             <button className="btn-primary" onClick={() => setAddOpen(true)}>+ Entry</button>
+            <button type="button" className="btn-secondary" onClick={() => setPublishOpen(true)}>
+              Publish snapshot
+            </button>
           </div>
         </div>
       </header>
@@ -41,6 +46,12 @@ export function LogbookScreen() {
       {addOpen && (
         <Modal title="Add a log entry" onClose={() => setAddOpen(false)}>
           <AddLogEntryForm onAdded={() => { setAddOpen(false); void load(); }} />
+        </Modal>
+      )}
+
+      {publishOpen && (
+        <Modal title="Publish lab snapshot" onClose={() => setPublishOpen(false)}>
+          <PublishLabSnapshotForm onPublished={() => setPublishOpen(false)} />
         </Modal>
       )}
 
@@ -57,6 +68,57 @@ export function LogbookScreen() {
         ))}
       </ul>
     </section>
+  );
+}
+
+function PublishLabSnapshotForm({ onPublished }: { onPublished: () => void }) {
+  const [title, setTitle] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await getContainer().org.publishLabSnapshot({ title, note: note || undefined });
+      onPublished();
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="add-form" onSubmit={(event) => void submit(event)}>
+      <p className="muted">
+        Freezes this project&rsquo;s current milestones and log entries for your supervisor.
+      </p>
+      <label>
+        Title
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          required
+          placeholder="Week 12 check-in"
+        />
+      </label>
+      <label>
+        Note to supervisor (optional)
+        <textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          rows={3}
+          placeholder="What should they focus on?"
+        />
+      </label>
+      {error && <p className="error">{error}</p>}
+      <button type="submit" className="btn-primary" disabled={busy || !title.trim()}>
+        {busy ? "Publishing…" : "Publish"}
+      </button>
+    </form>
   );
 }
 
