@@ -23,6 +23,9 @@ import { useReaderViewport } from "./use-reader-viewport";
 import { ReaderToolbar } from "./reader-toolbar";
 import { ReaderSearchBar } from "./reader-search-bar";
 import { ReaderOutline, type ReaderOutlineItem } from "./reader-outline";
+import { AnnotationOverlay } from "./annotation-overlay";
+import { AnnotationSidebar } from "./annotation-sidebar";
+import type { QuotationType, ReaderAnnotation } from "@thesis/core";
 
 /**
  * pdf.js render surface. Dynamically imports pdf.js so no bytes reach first
@@ -58,6 +61,10 @@ export interface PdfReaderProps {
   locus?: PdfLocus;
   /** 0-based page hint; when present the jump resolves there first. */
   page?: number;
+  /** Projected reader annotations (Zotero and/or local). */
+  annotations?: import("@thesis/core").ReaderAnnotation[];
+  paperTitle?: string;
+  quotationTypes?: Map<string, import("@thesis/core").QuotationType>;
 }
 
 interface JumpState {
@@ -153,7 +160,15 @@ async function mapOutline(
   return out;
 }
 
-export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
+export function PdfReader({
+  url,
+  originalUrl,
+  locus,
+  page,
+  annotations = [],
+  paperTitle = "Paper",
+  quotationTypes,
+}: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PdfDocument | null>(null);
@@ -166,6 +181,7 @@ export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
   const [outline, setOutline] = useState<ReaderOutlineItem[]>([]);
   const [showOutline, setShowOutline] = useState(false);
   const [spread, setSpread] = useState(false);
+  const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
@@ -678,9 +694,27 @@ export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
           {spread ? "Single page" : "Two-page"}
         </button>
       </div>
-      <div className={`pdf-reader-body${showOutline ? " pdf-reader-body--outline" : ""}`}>
-        {showOutline && (
-          <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
+      <div className={`pdf-reader-body${showOutline || annotations.length ? " pdf-reader-body--outline" : ""}`}>
+        {(showOutline || annotations.length > 0) && (
+          <div className="pdf-reader-side">
+            {showOutline && (
+              <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
+            )}
+            {annotations.length > 0 && (
+              <AnnotationSidebar
+                annotations={annotations}
+                quotationTypes={quotationTypes}
+                paperTitle={paperTitle}
+                selectedId={selectedAnnId}
+                onSelect={(id) => {
+                  setSelectedAnnId(id);
+                  const ann = annotations.find((a) => a.id === id);
+                  const pageIdx = ann?.anchor.zoteroPosition?.pageIndex;
+                  if (typeof pageIdx === "number") viewport.setPage(pageIdx + 1);
+                }}
+              />
+            )}
+          </div>
         )}
         <div
           className={`pdf-reader-scroll${spread ? " pdf-reader-scroll--spread" : ""}`}
@@ -690,6 +724,17 @@ export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
           {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
             <div className="pdf-reader-page" data-page={n} key={n}>
               <canvas />
+              {annotations.length > 0 && pageSize && (
+                <AnnotationOverlay
+                  annotations={annotations}
+                  pageNumber={n}
+                  scale={scale}
+                  rotation={rotation}
+                  pageHeight={pageSize.height}
+                  selectedId={selectedAnnId}
+                  onSelect={(id) => setSelectedAnnId(id)}
+                />
+              )}
             </div>
           ))}
         </div>

@@ -266,7 +266,7 @@ The reader is currently worse than no reader, and this is the cheapest possible 
 
 **Delivered:** `selectionToAnchor`, `document-search`, `sort-index`, `reader-annotation` ports, `InMemoryPdfByteCache` + IndexedDB impl, text layer spans in `pdf-reader`, search bar, outline pane, two-page toggle.
 
-### R2 — Render Zotero annotations read-only
+### R2 — Render Zotero annotations read-only ✅ DONE (2026-07-29)
 
 Uses `ReaderAnnotation` (§3.1) and the `annotationPosition` rects captured in Phase 0 of the old plan.
 

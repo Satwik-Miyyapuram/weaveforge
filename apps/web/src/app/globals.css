@@ -4152,10 +4152,32 @@ a.related-paper-url:hover { text-decoration: underline; }
   position: absolute; inset: 0; overflow: hidden; line-height: 1;
   opacity: 0.25; mix-blend-mode: multiply; pointer-events: auto;
 }
-.pdf-reader-textlayer span {
-  position: absolute; white-space: pre; transform-origin: 0% 0%;
-  color: transparent; cursor: text;
+.pdf-reader-side { display: grid; gap: 8px; align-content: start; }
+.pdf-reader-ann-layer { position: absolute; inset: 0; pointer-events: none; }
+.pdf-reader-ann {
+  position: absolute; pointer-events: auto; border: none; padding: 0;
+  opacity: 0.35; cursor: pointer;
 }
+.pdf-reader-ann.is-selected { outline: 2px solid var(--accent); opacity: 0.55; }
+.pdf-reader-ann.is-approximate { outline: 1px dashed var(--danger); }
+.pdf-reader-sidebar {
+  overflow: auto; max-height: calc(100vh - 300px);
+  padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); font-size: 0.85rem;
+}
+.pdf-reader-sidebar-filters {
+  display: grid; gap: 4px; margin-bottom: 8px;
+}
+.pdf-reader-sidebar-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pdf-reader-sidebar-item {
+  display: flex; gap: 8px; width: 100%; text-align: left;
+  background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px;
+  cursor: pointer;
+}
+.pdf-reader-sidebar-item.is-selected { border-color: var(--accent); background: var(--surface-alt); }
+.pdf-reader-sidebar-swatch { width: 4px; border-radius: 2px; flex: none; }
+.pdf-reader-sidebar-meta { display: grid; gap: 2px; min-width: 0; }
+.pdf-reader-sidebar-text { overflow-wrap: anywhere; }
 .pdf-reader-hl {
   position: absolute; pointer-events: none; border-radius: 2px;
   background: color-mix(in srgb, var(--accent) 34%, transparent);

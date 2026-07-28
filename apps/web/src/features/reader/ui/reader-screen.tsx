@@ -13,6 +13,8 @@ import {
   looksLikePdfUrl,
 } from "../application/sanitize-reader-url";
 import { resolvePaperPdfSource } from "../application/resolve-paper-pdf-source";
+import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
+import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 
 /** Reader route: renders a PDF via the source ladder and jumps to an optional locus. */
 export function ReaderScreen() {
@@ -34,6 +36,10 @@ export function ReaderScreen() {
   }, [pdfParam]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(paperId ? null : pdfFromParam);
   const [title, setTitle] = useState<string | null>(null);
+  const [annotations, setAnnotations] = useState<import("@thesis/core").ReaderAnnotation[]>([]);
+  const [quotationTypes, setQuotationTypes] = useState<Map<string, import("@thesis/core").QuotationType>>(
+    new Map(),
+  );
   const [loading, setLoading] = useState(Boolean(paperId));
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +70,16 @@ export function ReaderScreen() {
         if (!paper) {
           setError("Paper not found or inaccessible.");
           return;
+        }
+        const rawAnns = (paper.metadata?.["annotations"] as ZoteroAnnotation[] | undefined) ?? [];
+        setAnnotations(projectZoteroAnnotations(rawAnns));
+        try {
+          const types = await getContainer().papers.listAnnotationQuotationTypesForPaper(paper.id);
+          if (!cancelled) {
+            setQuotationTypes(new Map(types.map((t) => [t.annotationKey, t.quotationType])));
+          }
+        } catch {
+          if (!cancelled) setQuotationTypes(new Map());
         }
         const resolution = await resolvePaperPdfSource({
           id: paper.id,
@@ -121,6 +137,9 @@ export function ReaderScreen() {
           originalUrl={pdfUrl}
           locus={locus ?? undefined}
           page={page}
+          annotations={annotations}
+          paperTitle={title ?? "Paper"}
+          quotationTypes={quotationTypes}
         />
       )}
     </section>
