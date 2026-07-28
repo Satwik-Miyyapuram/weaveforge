@@ -4123,7 +4123,39 @@ a.related-paper-url:hover { text-decoration: underline; }
   box-shadow: 0 1px 6px rgba(0,0,0,0.18);
   min-height: 320px; /* keep IntersectionObserver from painting every page at once before layout */
 }
-.pdf-reader-page canvas { display: block; }
+.pdf-reader-tools {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.pdf-reader-search {
+  display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1;
+}
+.pdf-reader-search input {
+  min-width: 12rem; flex: 1; padding: 4px 8px;
+}
+.pdf-reader-search-count { font-size: 0.8rem; min-width: 3rem; }
+.pdf-reader-body { display: grid; gap: 8px; min-height: 0; }
+.pdf-reader-body--outline {
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+}
+.pdf-reader-outline {
+  overflow: auto; max-height: calc(100vh - 300px);
+  padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); font-size: 0.85rem;
+}
+.pdf-reader-outline ul { list-style: none; margin: 0; padding-left: 0.75rem; }
+.pdf-reader-outline > ul { padding-left: 0; }
+.pdf-reader-outline-empty { font-size: 0.85rem; padding: 8px; }
+.pdf-reader-scroll--spread {
+  flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start;
+}
+.pdf-reader-textlayer {
+  position: absolute; inset: 0; overflow: hidden; line-height: 1;
+  opacity: 0.25; mix-blend-mode: multiply; pointer-events: auto;
+}
+.pdf-reader-textlayer span {
+  position: absolute; white-space: pre; transform-origin: 0% 0%;
+  color: transparent; cursor: text;
+}
 .pdf-reader-hl {
   position: absolute; pointer-events: none; border-radius: 2px;
   background: color-mix(in srgb, var(--accent) 34%, transparent);

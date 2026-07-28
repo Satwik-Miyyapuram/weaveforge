@@ -5,7 +5,10 @@
 
 import {
   OpenAccessPdfResolver,
+  PdfByteCacheResolver,
   resolvePdfSource,
+  type IPdfByteCache,
+  type IPdfSourceResolver,
   type PdfSourcePaper,
   type PdfSourceResolution,
 } from "@thesis/core";
@@ -40,13 +43,19 @@ const openAccessResolver = new OpenAccessPdfResolver({
     }),
 });
 
-/** Resolvers in priority order — cost-bearing sources must be appended last later. */
-export function defaultPdfSourceResolvers() {
-  return [openAccessResolver] as const;
+/** Resolvers in priority order — cache first when provided, then open-access. */
+export function defaultPdfSourceResolvers(
+  cache?: IPdfByteCache,
+): readonly IPdfSourceResolver[] {
+  const resolvers: IPdfSourceResolver[] = [];
+  if (cache) resolvers.push(new PdfByteCacheResolver(cache));
+  resolvers.push(openAccessResolver);
+  return resolvers;
 }
 
 export function resolvePaperPdfSource(
   paper: Parameters<typeof paperToPdfSourcePaper>[0],
+  cache?: IPdfByteCache,
 ): Promise<PdfSourceResolution> {
-  return resolvePdfSource(paperToPdfSourcePaper(paper), defaultPdfSourceResolvers());
+  return resolvePdfSource(paperToPdfSourcePaper(paper), defaultPdfSourceResolvers(cache));
 }

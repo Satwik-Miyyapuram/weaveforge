@@ -253,7 +253,7 @@ The reader is currently worse than no reader, and this is the cheapest possible 
 
 **Delivered:** `reader-viewport.ts` + `reader-keyboard.ts` (pure, tested); `OpenAccessPdfResolver` on the ladder; toolbar + `useReaderViewport` in the pdf.js surface.
 
-### R1 — Text layer and reading (the foundation for everything after)
+### R1 — Text layer and reading ✅ DONE (2026-07-29)
 
 - Text layer per page, aligned over the canvas, selectable and copyable
 - `selectionToAnchor()` (§3.3) — pure, unit-tested
@@ -263,6 +263,8 @@ The reader is currently worse than no reader, and this is the cheapest possible 
 - Continuous scroll and two-page spread
 
 **Exit:** text can be selected and copied; search finds and scrolls to a term; a selection produces a valid `CombinedPdfAnchor` in tests.
+
+**Delivered:** `selectionToAnchor`, `document-search`, `sort-index`, `reader-annotation` ports, `InMemoryPdfByteCache` + IndexedDB impl, text layer spans in `pdf-reader`, search bar, outline pane, two-page toggle.
 
 ### R2 — Render Zotero annotations read-only
 

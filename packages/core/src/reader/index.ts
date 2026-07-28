@@ -53,4 +53,34 @@ export {
   type ReaderKeyboardCommand,
   type ReaderKeyEvent,
 } from "./reader-keyboard.js";
+export {
+  READER_ANNOTATION_TYPES,
+  isReaderAnnotationType,
+  type AnnotationOrigin,
+  type ReaderAnnotationType,
+  type ReaderAnnotation,
+  type NewReaderAnnotation,
+  type ReaderAnnotationPatch,
+  type IReaderAnnotationSource,
+  type IReaderAnnotationSink,
+} from "./reader-annotation.js";
+export {
+  selectionToAnchor,
+  itemToRect,
+  type PageTextItem,
+  type PageTextGeometry,
+  type TextSelectionRange,
+} from "./selection-to-anchor.js";
+export {
+  findDocumentMatches,
+  nextMatchIndex,
+  type DocumentPageText,
+  type DocumentSearchMatch,
+} from "./document-search.js";
+export { buildAnnotationSortIndex } from "./sort-index.js";
+export {
+  InMemoryPdfByteCache,
+  PdfByteCacheResolver,
+  type IPdfByteCache,
+} from "./pdf-byte-cache.js";
 export { encodeLocus, decodeLocus } from "./locus-link.js";

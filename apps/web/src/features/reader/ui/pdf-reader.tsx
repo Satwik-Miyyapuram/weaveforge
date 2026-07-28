@@ -15,11 +15,14 @@ import {
   type AnchorConfidence,
   type ReaderContainerSize,
   type ReaderPageSize,
+  type DocumentPageText,
 } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl } from "../application/sanitize-reader-url";
 import { useReaderViewport } from "./use-reader-viewport";
 import { ReaderToolbar } from "./reader-toolbar";
+import { ReaderSearchBar } from "./reader-search-bar";
+import { ReaderOutline, type ReaderOutlineItem } from "./reader-outline";
 
 /**
  * pdf.js render surface. Dynamically imports pdf.js so no bytes reach first
@@ -119,6 +122,37 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
 }
 
+async function mapOutline(
+  doc: PdfDocument,
+  nodes: readonly { title?: string; dest?: unknown; items?: unknown[] }[],
+): Promise<ReaderOutlineItem[]> {
+  const out: ReaderOutlineItem[] = [];
+  for (const node of nodes) {
+    let pageNumber: number | null = null;
+    try {
+      if (node.dest) {
+        const dest =
+          typeof node.dest === "string" ? await doc.getDestination(node.dest) : node.dest;
+        if (Array.isArray(dest) && dest[0]) {
+          const idx = await doc.getPageIndex(dest[0] as Parameters<PdfDocument["getPageIndex"]>[0]);
+          pageNumber = idx + 1;
+        }
+      }
+    } catch {
+      pageNumber = null;
+    }
+    const children = Array.isArray(node.items)
+      ? await mapOutline(doc, node.items as { title?: string; dest?: unknown; items?: unknown[] }[])
+      : undefined;
+    out.push({
+      title: node.title?.trim() || "Untitled",
+      pageNumber,
+      ...(children?.length ? { items: children } : {}),
+    });
+  }
+  return out;
+}
+
 export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -128,6 +162,10 @@ export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const [pageSize, setPageSize] = useState<ReaderPageSize | null>(null);
   const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
+  const [pageTexts, setPageTexts] = useState<DocumentPageText[]>([]);
+  const [outline, setOutline] = useState<ReaderOutlineItem[]>([]);
+  const [showOutline, setShowOutline] = useState(false);
+  const [spread, setSpread] = useState(false);
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
@@ -194,6 +232,8 @@ export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
     setPdf(null);
     setNumPages(0);
     setPageSize(null);
+    setPageTexts([]);
+    setOutline([]);
     setJump({ status: locus ? "searching" : "idle" });
 
     if (!safeUrl) {
@@ -235,6 +275,32 @@ export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
         setPageSize({ width: base.width, height: base.height });
         setPdf(doc);
         setNumPages(doc.numPages);
+
+        // Extract text for search + outline (best-effort; never blocks rendering).
+        void (async () => {
+          try {
+            const texts: DocumentPageText[] = [];
+            for (let n = 1; n <= doc.numPages; n++) {
+              if (cancelled) return;
+              const p = await doc.getPage(n);
+              const content = await p.getTextContent();
+              const items = textItemsFromContent(content);
+              texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
+            }
+            if (!cancelled) setPageTexts(texts);
+          } catch {
+            if (!cancelled) setPageTexts([]);
+          }
+        })();
+        void (async () => {
+          try {
+            const raw = await doc.getOutline();
+            if (cancelled) return;
+            setOutline(await mapOutline(doc, raw ?? []));
+          } catch {
+            if (!cancelled) setOutline([]);
+          }
+        })();
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Could not load this PDF in the app.");
@@ -309,6 +375,37 @@ export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
           if (generation !== renderGeneration.current) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             return;
+          }
+          // Text layer — selectable / copyable; input device for future annotation (R3).
+          let textLayer = host.querySelector<HTMLDivElement>(".pdf-reader-textlayer");
+          if (!textLayer) {
+            textLayer = document.createElement("div");
+            textLayer.className = "pdf-reader-textlayer";
+            host.appendChild(textLayer);
+          }
+          textLayer.replaceChildren();
+          textLayer.style.width = `${Math.floor(viewport.width)}px`;
+          textLayer.style.height = `${Math.floor(viewport.height)}px`;
+          const content = await pdfPage.getTextContent();
+          const lib = await loadPdfLib();
+          for (const raw of content.items) {
+            const it = raw as {
+              str?: string;
+              transform?: number[];
+              width?: number;
+              height?: number;
+            };
+            if (typeof it.str !== "string" || !Array.isArray(it.transform)) continue;
+            const tx = lib.Util.transform(viewport.transform, it.transform);
+            const fontHeight = Math.hypot(tx[2]!, tx[3]!) || (it.height ?? 0) * scale;
+            const width = (it.width ?? 0) * scale;
+            const span = document.createElement("span");
+            span.textContent = it.str;
+            span.style.left = `${tx[4]!}px`;
+            span.style.top = `${tx[5]! - fontHeight}px`;
+            span.style.fontSize = `${Math.max(fontHeight, 1)}px`;
+            span.style.width = `${Math.max(width, 1)}px`;
+            textLayer.appendChild(span);
           }
           renderedPages.current.add(pageNumber);
         } catch {
@@ -559,13 +656,43 @@ export function PdfReader({ url, originalUrl, locus, page }: PdfReaderProps) {
         </div>
       )}
       <ReaderToolbar viewport={viewport} numPages={numPages} />
-      <div className="pdf-reader-scroll" ref={containerRef}>
-        {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
-        {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
-          <div className="pdf-reader-page" data-page={n} key={n}>
-            <canvas />
-          </div>
-        ))}
+      <div className="pdf-reader-tools">
+        <ReaderSearchBar
+          pages={pageTexts}
+          onJump={(match) => {
+            viewport.setPage(match.pageIndex + 1);
+          }}
+        />
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={() => setShowOutline((v) => !v)}
+        >
+          {showOutline ? "Hide outline" : "Outline"}
+        </button>
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={() => setSpread((v) => !v)}
+        >
+          {spread ? "Single page" : "Two-page"}
+        </button>
+      </div>
+      <div className={`pdf-reader-body${showOutline ? " pdf-reader-body--outline" : ""}`}>
+        {showOutline && (
+          <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
+        )}
+        <div
+          className={`pdf-reader-scroll${spread ? " pdf-reader-scroll--spread" : ""}`}
+          ref={containerRef}
+        >
+          {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
+          {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
+            <div className="pdf-reader-page" data-page={n} key={n}>
+              <canvas />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
