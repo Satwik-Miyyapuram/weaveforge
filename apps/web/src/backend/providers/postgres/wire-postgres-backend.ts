@@ -232,7 +232,15 @@ export function wirePostgresBackend(
     pid,
     { resourceType: "milestone" },
   );
-  const memberRepository: IMemberRepository = new PostgresMemberRepository(pg, session);
+  // Cached for the same reason as the Supabase provider: the `profiles` reads
+  // behind these methods are the slowest query on a screen load, and five
+  // screens await one before rendering.
+  const memberRepository: IMemberRepository = cacheRepo(
+    new PostgresMemberRepository(pg, session),
+    ["getMine", "listTeam", "listDirectory", "listLab"],
+    [],
+    pid,
+  );
   const supervisionRepository: ISupervisionRepository = new PostgresSupervisionRepository(pg);
   const projectBibliographyCollection: IProjectBibliographyCollectionStore =
     new PostgresProjectBibliographyCollectionStore(pg);
