@@ -36,8 +36,7 @@ import {
   OpenIcon,
 } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
-import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
-import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
+import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
 import { PaperMarkdown } from "./paper-markdown";
 import { paperImageMarkdown, materializePaperBlobImages } from "../lib/paper-images-md";
@@ -100,11 +99,14 @@ export function PapersScreen() {
 
   const loadScreen = useCallback(async (): Promise<PapersViewData> => {
     const data = await getContainer().papers.loadScreenData();
-    const ownerNames = await loadPinnedOwnerNames(data.pinnedSharedBy);
-    return { ...data, ownerNames };
+    // Owner labels arrive separately — see usePinnedOwnerNames. Awaiting the
+    // lab directory here delayed the whole screen by ~1.8s.
+    return { ...data, ownerNames: emptyMap<string, string>() };
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("papers", loadScreen);
+
+  usePinnedOwnerNames(data, setData);
 
   useEffect(() => {
     setError(loadError);

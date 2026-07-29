@@ -11,8 +11,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
-import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
+import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddSectionForm, type ReportParentOption } from "./add-section-form";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
@@ -60,11 +59,14 @@ export function ReportScreen() {
 
   const loadScreen = useCallback(async (): Promise<ReportViewData> => {
     const data = await getContainer().report.loadScreenData();
-    const ownerNames = await loadPinnedOwnerNames(data.pinnedSharedBy);
-    return { ...data, ownerNames };
+    // Owner labels arrive separately — see usePinnedOwnerNames. Awaiting the
+    // lab directory here delayed the whole screen by ~1.8s.
+    return { ...data, ownerNames: emptyMap<string, string>() };
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("report", loadScreen);
+
+  usePinnedOwnerNames(data, setData);
 
   useEffect(() => {
     setError(loadError);

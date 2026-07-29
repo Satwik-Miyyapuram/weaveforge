@@ -19,8 +19,7 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Select } from "@/components/select";
 import { EntityCard } from "@/components/entity-card";
 import { EditIcon } from "@/components/view-icons";
-import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
-import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
+import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { useScreenData } from "@/lib/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { PlanScreenData } from "@/features/plan/application/load-plan-screen.use-case";
@@ -45,11 +44,14 @@ export function PlanScreen() {
 
   const loadScreen = useCallback(async (): Promise<PlanViewData> => {
     const data = await getContainer().plan.loadScreenData();
-    const ownerNames = await loadPinnedOwnerNames(data.pinnedSharedBy);
-    return { ...data, ownerNames };
+    // Owner labels arrive separately — see usePinnedOwnerNames. Awaiting the
+    // lab directory here delayed the whole screen by ~1.8s.
+    return { ...data, ownerNames: emptyMap<string, string>() };
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("plan", loadScreen);
+
+  usePinnedOwnerNames(data, setData);
 
   useEffect(() => {
     setError(loadError);
