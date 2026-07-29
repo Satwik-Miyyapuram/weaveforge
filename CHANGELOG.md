@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-30
+
 ### Added
 - **Live Zotero annotation write-back** (`ZoteroApiAnnotationWriteBack`).
   Creates carry a `Zotero-Write-Token` so a retried request cannot duplicate a
@@ -28,6 +30,29 @@ follows [Semantic Versioning](https://semver.org/).
 - Annotation edits (colour, comment, tags) applied immediately instead of
   waiting for the write to return, matching create and delete. A failed edit
   rolls back to the previous value.
+- **Android: the app pointed at the previous domain.** Its trusted scope was
+  `my-thesis-tracker-web.vercel.app`, which now redirects — a trusted web
+  activity that navigates off its own origin drops out of full-screen and shows
+  a URL bar. Host, scope, icons, and web manifest URL all now point at
+  `weaveforge.vercel.app`.
+- Reader chrome was two independently wrapping bars; on a 360px phone they
+  broke into four rows and took ~190px before any document appeared. Now one
+  panel of grouped controls that scrolls rather than wraps, at ~100px.
+- Highlights waited for the write round-trip before appearing.
+- The PDF byte cache never populated: it fetched the publisher directly, which
+  CORS blocks for every host the source ladder can resolve.
+
+### Performance
+- Each route now loads only its own screen. Every route previously shipped all
+  fifteen, reporting 486 kB of first-load JavaScript with 178 B of its own
+  code; it is now 94.4 kB.
+- The member directory is cached like every other repository. Five screens
+  await it before rendering, and it was refetched on each — it is the slowest
+  query the app makes (~1.8s against the live database, where everything else
+  is ~220ms). Client-side navigation now issues no repeat reads.
+- Migration `0111` makes the constant half of the `profiles` policy's
+  `lab_root` comparison an InitPlan instead of re-evaluating it per row, and
+  indexes the column the recursion walks. **Apply with `supabase db push`.**
 
 ## [0.5.0] - 2026-07-29
 
@@ -121,5 +146,6 @@ following landed earlier but had never been carried in a tagged release.
 - Project OSS hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `CHANGELOG.md`, and a Python CI job (pytest + ruff + mypy).
 
-[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.5.1
 [0.5.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.5.0
