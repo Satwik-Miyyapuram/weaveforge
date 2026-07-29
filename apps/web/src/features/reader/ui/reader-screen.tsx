@@ -48,6 +48,7 @@ export function ReaderScreen() {
   }, [pdfParam]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(paperId ? null : pdfFromParam);
   const [pdfRevokeUrl, setPdfRevokeUrl] = useState<string | null>(null);
+  const [contentHash, setContentHash] = useState("");
   const [title, setTitle] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<import("@thesis/core").ReaderAnnotation[]>([]);
   const [quotationTypes, setQuotationTypes] = useState<Map<string, import("@thesis/core").QuotationType>>(
@@ -90,8 +91,28 @@ export function ReaderScreen() {
           setError("Paper not found or inaccessible.");
           return;
         }
+        // Resolve the source first: the ladder is what knows the content hash,
+        // and the projection needs it to stamp each Zotero rect with the file
+        // it was captured against.
+        const resolution = await resolvePaperPdfSourceForReader({
+          id: paper.id,
+          url: paper.url,
+          arxivId: paper.arxivId,
+          doi: paper.doi,
+          pdfPath: paper.pdfPath,
+          metadata: paper.metadata,
+        });
+        if (cancelled) {
+          if (resolution.ok && "revokeUrl" in resolution && resolution.revokeUrl) {
+            URL.revokeObjectURL(resolution.revokeUrl);
+          }
+          return;
+        }
+        const hash = (resolution.ok ? resolution.hit.contentHash?.trim() : "") || "";
+        setContentHash(hash);
+
         const rawAnns = (paper.metadata?.["annotations"] as ZoteroAnnotation[] | undefined) ?? [];
-        const projected = projectZoteroAnnotations(rawAnns);
+        const projected = projectZoteroAnnotations(rawAnns, { contentHash: hash });
         let local: import("@thesis/core").ReaderAnnotation[] = [];
         try {
           local = await getContainer().papers.listReaderAnnotations(paper.id);
@@ -106,20 +127,6 @@ export function ReaderScreen() {
           }
         } catch {
           if (!cancelled) setQuotationTypes(new Map());
-        }
-        const resolution = await resolvePaperPdfSourceForReader({
-          id: paper.id,
-          url: paper.url,
-          arxivId: paper.arxivId,
-          doi: paper.doi,
-          pdfPath: paper.pdfPath,
-          metadata: paper.metadata,
-        });
-        if (cancelled) {
-          if ("revokeUrl" in resolution && resolution.revokeUrl) {
-            URL.revokeObjectURL(resolution.revokeUrl);
-          }
-          return;
         }
         if (resolution.ok) {
           setPdfUrl(resolution.hit.url);
@@ -278,6 +285,7 @@ export function ReaderScreen() {
             locus={locus ?? undefined}
             page={page}
             annotations={annotations}
+            contentHash={contentHash}
             paperTitle={title ?? "Paper"}
             quotationTypes={quotationTypes}
             paperId={paperId ?? undefined}

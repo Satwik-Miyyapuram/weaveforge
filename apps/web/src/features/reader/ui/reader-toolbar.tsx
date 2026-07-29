@@ -43,7 +43,14 @@ export function ReaderToolbar({ viewport, numPages }: ReaderToolbarProps) {
           max={Math.max(1, numPages)}
           value={viewport.page}
           aria-label="Page number"
-          onChange={(event) => viewport.setPage(Number(event.target.value))}
+          onChange={(event) => {
+            // An empty field is mid-edit, not "page 0" — clamping it would
+            // yank the reader to page 1 the moment the user hits backspace.
+            const raw = event.target.value.trim();
+            if (!raw) return;
+            const next = Number(raw);
+            if (Number.isFinite(next)) viewport.setPage(next);
+          }}
         />
         <span className="muted">/ {Math.max(1, numPages)}</span>
       </label>

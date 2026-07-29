@@ -22,6 +22,26 @@ export interface ReaderKeyEvent {
 }
 
 /**
+ * Tag names whose own keyboard handling must win over reader shortcuts.
+ * `SELECT` matters as much as the text inputs: arrows change the selected
+ * option and printable keys type-ahead, so swallowing them breaks the
+ * annotation-tool and sidebar dropdowns.
+ */
+const EDITABLE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT", "OPTION"]);
+
+/**
+ * Whether an event target owns its keystrokes. Pure so the reader's DOM
+ * handler and its tests agree on one rule.
+ */
+export function isEditableReaderTarget(
+  target: { tagName?: string; isContentEditable?: boolean } | null | undefined,
+): boolean {
+  if (!target) return false;
+  if (target.isContentEditable) return true;
+  return EDITABLE_TAGS.has((target.tagName ?? "").toUpperCase());
+}
+
+/**
  * Return a command for navigable keys, or null when the event should pass through.
  * Ignores events from editable fields so page-jump inputs keep working.
  */

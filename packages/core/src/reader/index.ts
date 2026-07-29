@@ -63,6 +63,7 @@ export {
 } from "./reader-viewport.js";
 export {
   readerKeyboardCommand,
+  isEditableReaderTarget,
   type ReaderKeyboardCommand,
   type ReaderKeyEvent,
 } from "./reader-keyboard.js";

@@ -71,3 +71,53 @@ test("itemToRect maps transform to PDF user-space box", () => {
   );
   assert.equal(itemToRect({ str: "x", transform: [1], width: 1, height: 1 }), null);
 });
+
+test("itemToRect narrows to a character sub-range", () => {
+  const item = { str: "abcd", transform: [1, 0, 0, 1, 100, 500], width: 40, height: 10 };
+  // Whole item, explicitly and by default.
+  assert.deepEqual(itemToRect(item), [100, 500, 140, 510]);
+  assert.deepEqual(itemToRect(item, 0, 4), [100, 500, 140, 510]);
+  // Second half only — half the advance width, same baseline.
+  assert.deepEqual(itemToRect(item, 2, 4), [120, 500, 140, 510]);
+  assert.deepEqual(itemToRect(item, 1, 2), [110, 500, 120, 510]);
+});
+
+test("itemToRect clamps out-of-range bounds and drops empty slices", () => {
+  const item = { str: "abcd", transform: [1, 0, 0, 1, 100, 500], width: 40, height: 10 };
+  assert.deepEqual(itemToRect(item, -5, 99), [100, 500, 140, 510]);
+  assert.equal(itemToRect(item, 2, 2), null);
+  // Reversed bounds collapse rather than producing a negative-width rect.
+  assert.equal(itemToRect(item, 3, 1), null);
+});
+
+test("selectionToAnchor clips the first and last rect to the selected characters", () => {
+  // "lo world" — starts 4 chars into "Hello " (width 40 over 6 chars) and ends
+  // at "world"'s end. The old code emitted the full "Hello " rect, so a
+  // mid-word highlight painted the words before it too.
+  const page = geometry();
+  const anchor = selectionToAnchor(
+    { startItemIndex: 0, startOffset: 4, endItemIndex: 1, endOffset: 5 },
+    page,
+  );
+  assert.ok(anchor);
+  const rects = anchor.zoteroPosition?.rects;
+  assert.equal(rects?.length, 2);
+  // 72 + 40 * (4/6) = 98.666…, not 72.
+  assert.ok(rects![0]![0]! > 98 && rects![0]![0]! < 99, `left was ${rects![0]![0]}`);
+  assert.equal(rects![0]![2], 112);
+  // The fully covered trailing item keeps its whole rect.
+  assert.deepEqual(rects![1], [112, 700, 148, 712]);
+});
+
+test("selectionToAnchor keeps whole rects for fully covered middle items", () => {
+  const page = geometry();
+  const anchor = selectionToAnchor(
+    { startItemIndex: 0, startOffset: 0, endItemIndex: 2, endOffset: 5 },
+    page,
+  );
+  assert.deepEqual(anchor?.zoteroPosition?.rects, [
+    [72, 700, 112, 712],
+    [112, 700, 148, 712],
+    [72, 680, 108, 692],
+  ]);
+});

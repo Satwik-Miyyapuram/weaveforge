@@ -99,17 +99,32 @@ export class SupabaseReaderAnnotationRepository
     if (patch.tags !== undefined) updates.tags = patch.tags;
     if (patch.anchor !== undefined) updates.anchor = patch.anchor;
     if (patch.sortIndex !== undefined) updates.sort_index = patch.sortIndex;
-    // Local edits are pending write-back until R5 sync lands.
-    updates.sync_state = "pending";
+
+    const projectId = this.projectId;
     const { data, error } = await this.db
       .from(TABLE)
       .update(updates)
       .eq("id", id)
-      .eq("project_id", this.projectId)
+      .eq("project_id", projectId)
       .select("*")
       .single();
     if (error) throw error;
-    return toDomain(data as ReaderAnnotationRow);
+
+    // `pending` means "diverged from Zotero and owing a write-back". A row with
+    // no Zotero counterpart can never owe one, so it stays `local` — marking it
+    // pending would surface a sync state the user can never clear.
+    const row = data as ReaderAnnotationRow;
+    if (!row.zotero_key) return toDomain(row);
+
+    const { data: flagged, error: flagError } = await this.db
+      .from(TABLE)
+      .update({ sync_state: "pending" })
+      .eq("id", id)
+      .eq("project_id", projectId)
+      .select("*")
+      .single();
+    if (flagError) throw flagError;
+    return toDomain(flagged as ReaderAnnotationRow);
   }
 
   async remove(id: string): Promise<void> {

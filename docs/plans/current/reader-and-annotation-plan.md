@@ -477,6 +477,21 @@ Canonical sources, all read 2026-07-27:
 | Position/geometry shape | `zotero/reader` `src/common/types.ts` — `PDFPosition` |
 | How `sortIndex` is built | `zotero/reader` `src/pdf/selection.js` — `getSortIndex` |
 
+### Six more, from the post-implementation review of R0–R6
+
+Found by reading the shipped code rather than the plan. **All six are fixed** in the review commit; tests cover each.
+
+| # | Defect | Effect | Fix |
+|---|---|---|---|
+| 4 | `chooseAnchorStrategy` treated "no `rects`" as "no geometry" | An **ink** annotation carries only `paths`, and a cross-page tail only `nextPageRects` — both fell through to the quote branch, and neither has a quote, so both resolved to `kind: "none"` and **never rendered**. Defect 1's parser fix was being undone one layer up | `hasUsableGeometry` accepts `rects`, `nextPageRects`, or `paths` |
+| 5 | Ink strokes painted without the content-hash check | Rects were gated on hash match, paths were not — so a stale ink stroke drew at coordinates meaningless in the current file, the exact failure the gate exists to prevent | One gate before both, in `projectPageAnnotationGeometry` |
+| 6 | `contentHash` never threaded from the ladder to the overlay | Both sides were always `""`, so the "both empty ⇒ trust" branch fired every time and the hash gate was **inert** — it would have started failing silently open the day a resolver emitted a real hash | Threaded ladder → projection → `PdfReader` → overlay, and stamped onto new local anchors |
+| 7 | `selectionToAnchor` emitted the whole text run's rect for a partial selection | Highlighting one word painted the entire glyph run — every neighbouring word on the line. Written to Zotero, this is a *wrong* annotation, not just an ugly one | `itemToRect` takes a character sub-range and interpolates across the run's advance width |
+| 8 | `SELECT` not treated as an editable target | Arrow keys, `+`/`-`, and `r` inside the annotation-tool and sidebar dropdowns were swallowed and paged the document instead — the dropdowns were unusable by keyboard | `isEditableReaderTarget` in core, shared by the handler and its tests |
+| 9 | Every local edit forced `sync_state = 'pending'` | `pending` means "owes Zotero a write-back". A local-only annotation has no counterpart and can never clear it, so the sidebar showed a permanent, meaningless "pending ·" badge | Only rows with a `zotero_key` are flagged |
+
+Defects 4–6 compound: each on its own hides the next. 6 makes the gate inert, which masks 5, and 4 means the geometry never arrives to be gated. **A safety check that is never exercised is not a safety check** — if the hash gate had been wired from the start, 5 would have shown up as ink vanishing on the first mismatched file.
+
 **This matters far more in R5 than it did here.** These three were caught against a demo database. The same class of error in write-back mutates a real Zotero library — someone's actual research — and Zotero's sync will happily propagate a malformed annotation to every device before anyone notices. R5's spike against a scratch library is not a formality; it is the control for exactly this failure mode.
 
 ---

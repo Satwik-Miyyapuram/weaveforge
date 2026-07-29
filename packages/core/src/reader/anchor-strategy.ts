@@ -34,21 +34,33 @@ export type AnchorStrategy =
   | { kind: "quote"; locus: PdfLocus; confidence: "low" }
   | { kind: "none"; confidence: "low" };
 
-function hasUsableRects(rects: ZoteroRectPosition | undefined): rects is ZoteroRectPosition {
-  if (
-    rects == null ||
-    !Number.isInteger(rects.pageIndex) ||
-    rects.pageIndex < 0 ||
-    !Array.isArray(rects.rects) ||
-    rects.rects.length === 0
-  ) {
+function anyUsable(lists: number[][] | undefined, minLength: number): boolean {
+  if (!Array.isArray(lists)) return false;
+  return lists.some(
+    (list) =>
+      Array.isArray(list) &&
+      list.length >= minLength &&
+      list.slice(0, minLength).every((n) => typeof n === "number" && Number.isFinite(n)),
+  );
+}
+
+/**
+ * True when the position carries any renderable geometry. `rects` is the common
+ * case, but an ink annotation has only `paths`, and a highlight that starts on
+ * the previous page carries only `nextPageRects` for this one — treating those
+ * as "no geometry" would make them fall through to the quote branch and never
+ * render, since ink/image annotations have no quote either.
+ */
+function hasUsableGeometry(
+  position: ZoteroRectPosition | undefined,
+): position is ZoteroRectPosition {
+  if (position == null || !Number.isInteger(position.pageIndex) || position.pageIndex < 0) {
     return false;
   }
-  return rects.rects.some(
-    (rect) =>
-      Array.isArray(rect) &&
-      rect.length >= 4 &&
-      rect.slice(0, 4).every((n) => typeof n === "number" && Number.isFinite(n)),
+  return (
+    anyUsable(position.rects, 4) ||
+    anyUsable(position.nextPageRects, 4) ||
+    anyUsable(position.paths, 4)
   );
 }
 
@@ -75,7 +87,7 @@ export function chooseAnchorStrategy(
   const hashMatches =
     bothEmpty || (Boolean(captureHash) && Boolean(currentHash) && captureHash === currentHash);
 
-  if (hasUsableRects(anchor.zoteroPosition) && hashMatches) {
+  if (hasUsableGeometry(anchor.zoteroPosition) && hashMatches) {
     return { kind: "rects", position: anchor.zoteroPosition, confidence: "high" };
   }
 

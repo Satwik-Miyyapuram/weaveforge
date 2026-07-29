@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  isEditableReaderTarget,
   readerKeyboardCommand,
   resolveTextAnchor,
   type PageTextGeometry,
@@ -91,6 +92,12 @@ export interface PdfReaderProps {
   page?: number;
   /** Projected reader annotations (Zotero and/or local). */
   annotations?: import("@thesis/core").ReaderAnnotation[];
+  /**
+   * Hash of the PDF being rendered, when the source ladder knows it. Stored
+   * annotation rects are only trusted against a matching hash; empty on both
+   * sides means "unnamed local file", which is trusted.
+   */
+  contentHash?: string;
   paperTitle?: string;
   quotationTypes?: Map<string, QuotationType>;
   /** When set, selection can create local annotations (R3 sink). */
@@ -159,8 +166,7 @@ function SafeExternalLink({ href, children }: { href: string; children: ReactNod
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+  return isEditableReaderTarget(target);
 }
 
 async function mapOutline(
@@ -200,6 +206,7 @@ export function PdfReader({
   locus,
   page,
   annotations = [],
+  contentHash = "",
   paperTitle = "Paper",
   quotationTypes,
   paperId,
@@ -510,6 +517,9 @@ export function PdfReader({
             pageWidth: base.width,
             pageHeight: base.height,
             items: geometryItems,
+            // Stamp new anchors with the file they were captured against, so
+            // the overlay's trust check keeps working once hashes are real.
+            ...(contentHash ? { contentHash } : {}),
           });
           renderedPages.current.add(pageNumber);
         } catch {
@@ -523,7 +533,7 @@ export function PdfReader({
       renderingPages.current.set(pageNumber, work);
       await work;
     },
-    [pdf, scale, rotation],
+    [pdf, scale, rotation, contentHash],
   );
 
   const matchOnPage = useCallback(
@@ -1219,6 +1229,7 @@ export function PdfReader({
               {pageSize && rotation === 0 && (
                 <AnnotationOverlay
                   annotations={annotations}
+                  contentHash={contentHash}
                   pageNumber={n}
                   scale={scale}
                   rotation={rotation}

@@ -65,7 +65,9 @@ export function selectionToAnchor(
   for (let i = startItemIndex; i <= endItemIndex; i++) {
     const item = page.items[i]!;
     if (!item.str) continue;
-    const rect = itemToRect(item);
+    const from = i === startItemIndex ? startOffset : 0;
+    const to = i === endItemIndex ? endOffset : item.str.length;
+    const rect = itemToRect(item, from, to);
     if (rect) rects.push(rect);
   }
 
@@ -171,8 +173,19 @@ function absoluteOffset(
 /**
  * pdf.js text-item transform → axis-aligned PDF user-space rect [x1,y1,x2,y2]
  * with origin bottom-left (Zotero convention).
+ *
+ * `charFrom`/`charTo` narrow the rect to a character sub-range, so highlighting
+ * one word in a long run does not paint the whole run. pdf.js gives no
+ * per-glyph advances here, so the sub-range is interpolated linearly across
+ * `item.width` — exact for monospace, close enough elsewhere, and far better
+ * than the full-run rect. Out-of-range or reversed bounds fall back to the
+ * whole item.
  */
-export function itemToRect(item: PageTextItem): number[] | null {
+export function itemToRect(
+  item: PageTextItem,
+  charFrom = 0,
+  charTo = Number.POSITIVE_INFINITY,
+): number[] | null {
   const t = item.transform;
   if (!Array.isArray(t) || t.length < 6) return null;
   const x = t[4]!;
@@ -180,5 +193,14 @@ export function itemToRect(item: PageTextItem): number[] | null {
   const w = item.width;
   const h = item.height || Math.hypot(t[2]!, t[3]!) || 0;
   if (![x, y, w, h].every((n) => typeof n === "number" && Number.isFinite(n))) return null;
-  return [x, y, x + w, y + h];
+
+  const len = item.str.length;
+  const from = Math.max(0, Math.min(len, Math.floor(charFrom)));
+  const to = Math.max(from, Math.min(len, Math.floor(charTo)));
+  if (len === 0 || (from === 0 && to === len)) return [x, y, x + w, y + h];
+  // Zero-width slices are not renderable geometry — the caller drops them.
+  if (to === from) return null;
+  const startX = x + (w * from) / len;
+  const endX = x + (w * to) / len;
+  return [startX, y, endX, y + h];
 }
