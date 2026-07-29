@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -43,6 +44,7 @@ import { ReaderToolbar } from "./reader-toolbar";
 import { ReaderSearchBar } from "./reader-search-bar";
 import { ReaderOutline, type ReaderOutlineItem } from "./reader-outline";
 import { AnnotationOverlay } from "./annotation-overlay";
+import { bucketAnnotationsByPage } from "../application/project-annotation-geometry";
 import { AnnotationSidebar, type ReportSectionOption } from "./annotation-sidebar";
 import { SelectionCreateBar } from "./selection-create-bar";
 import type { QuotationType, ReaderAnnotation } from "@thesis/core";
@@ -113,6 +115,9 @@ interface JumpState {
   pageNumber?: number;
   confidence?: AnchorConfidence;
 }
+
+/** Stable empty array — a fresh `[]` per page would defeat memoisation. */
+const EMPTY_ANNOTATIONS: ReaderAnnotation[] = [];
 
 let pdfLibPromise: Promise<PdfLib> | null = null;
 
@@ -260,6 +265,9 @@ export function PdfReader({
   const renderTasks = useRef(new Map<number, RenderTask>());
   const renderGeneration = useRef(0);
   const canCreate = Boolean(paperId && onAnnotationsChange);
+  // Bucket once per annotation change rather than rescanning the whole list in
+  // every page's overlay on every zoom, scroll, and rotation.
+  const annotationsByPage = useMemo(() => bucketAnnotationsByPage(annotations), [annotations]);
 
   const viewport = useReaderViewport({
     initialPage: typeof page === "number" ? page + 1 : 1,
@@ -317,6 +325,14 @@ export function PdfReader({
     renderGeneration.current += 1;
     renderedPages.current.clear();
     renderingPages.current.clear();
+    // Page geometry is per-document. Keeping the previous document's items
+    // would let a selection on a not-yet-rendered page build an anchor from
+    // the *old* paper's text. The route remounts on url change, so this is
+    // belt-and-braces — but the component must honour its own url prop.
+    pageGeometries.current.clear();
+    // A pending "the observer moved the page, do not scroll" flag must not
+    // survive into the next document and swallow its first deliberate jump.
+    suppressPageScroll.current = false;
     cancelRenderTasks();
     setError(null);
     setPdf(null);
@@ -1228,7 +1244,7 @@ export function PdfReader({
               <canvas />
               {pageSize && rotation === 0 && (
                 <AnnotationOverlay
-                  annotations={annotations}
+                  annotations={annotationsByPage.get(n) ?? EMPTY_ANNOTATIONS}
                   contentHash={contentHash}
                   pageNumber={n}
                   scale={scale}

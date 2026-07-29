@@ -4,8 +4,10 @@
  */
 
 import type { IPdfByteCache, PdfSourceResolution } from "@thesis/core";
+import { getContainer } from "@/bootstrap";
 import { IndexedDbPdfByteCache } from "../infrastructure/indexeddb-pdf-byte-cache";
 import { resolvePaperPdfSource, paperToPdfSourcePaper } from "./resolve-paper-pdf-source";
+import { proxiedPdfUrl } from "./sanitize-reader-url";
 
 const CACHE_CAP = 32;
 let sharedCache: IPdfByteCache | null = null;
@@ -50,7 +52,7 @@ export async function resolvePaperPdfSourceForReader(
     };
   }
 
-  // Best-effort: seed cache from a successful remote resolve (same-origin proxy OK).
+  // Best-effort: seed cache from a successful remote resolve.
   const remote =
     /^https?:\/\//i.test(resolution.hit.url) || resolution.hit.url.startsWith("/");
   if (cache && paper.id && remote) {
@@ -60,14 +62,45 @@ export async function resolvePaperPdfSourceForReader(
   return resolution;
 }
 
+/**
+ * Rewrite a cross-origin PDF URL through the same-origin proxy before fetching
+ * it. Fetching the publisher directly is blocked by CORS on every allowlisted
+ * host, so the seed silently failed for arXiv and OpenReview — which is every
+ * source the ladder can actually resolve — leaving the cache permanently empty.
+ * The proxy is the same hop pdf.js is given, and it needs the same bearer token.
+ */
+export async function fetchPdfBytesForCache(
+  url: string,
+  /** Injected so the proxy hop can be tested without a container. */
+  getAccessToken: () => Promise<string | null> = () =>
+    getContainer().auth.auth.getAccessToken(),
+): Promise<ArrayBuffer | null> {
+  const target = url.startsWith("/") ? url : proxiedPdfUrl(url);
+  // Still cross-origin after the rewrite — an unallowlisted host. CORS would
+  // reject it, so do not spend a request on it.
+  if (!target.startsWith("/")) return null;
+
+  const headers: Record<string, string> = {};
+  if (target.startsWith("/api/pdf-proxy?")) {
+    const token = await getAccessToken();
+    if (!token) return null;
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const res = await fetch(target, Object.keys(headers).length ? { headers } : undefined);
+  if (!res.ok) return null;
+  const bytes = await res.arrayBuffer();
+  return bytes.byteLength > 0 ? bytes : null;
+}
+
 async function seedCacheFromUrl(cache: IPdfByteCache, key: string, url: string): Promise<void> {
   try {
+    // Only the first open of a paper pays for a second download; afterwards the
+    // ladder resolves `cache://` before it ever reaches a network step. pdf.js
+    // keeps its own URL so it can still range-request and paint page one early.
     const existing = await cache.get(key);
     if (existing && existing.byteLength > 0) return;
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const bytes = await res.arrayBuffer();
-    if (bytes.byteLength > 0) await cache.set(key, bytes);
+    const bytes = await fetchPdfBytesForCache(url);
+    if (bytes) await cache.set(key, bytes);
   } catch {
     /* cache seed is best-effort */
   }

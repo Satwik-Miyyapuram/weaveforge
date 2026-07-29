@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { CombinedPdfAnchor, ReaderAnnotation } from "@thesis/core";
-import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
+import {
+  bucketAnnotationsByPage,
+  projectPageAnnotationGeometry,
+} from "../application/project-annotation-geometry";
 
 const PAGE_HEIGHT = 792;
 
@@ -194,4 +197,73 @@ test("skips annotations with no stored position", () => {
     anchor: { locus: { quote: { type: "TextQuoteSelector", exact: "somewhere" } } },
   });
   assert.deepEqual(project([quoteOnly]), { boxes: [], strokes: [] });
+});
+
+test("bucketAnnotationsByPage groups by the page an annotation paints on", () => {
+  const first = ann({ id: "p1", anchor: { zoteroPosition: { pageIndex: 0, rects: [[0, 0, 1, 1]] } } });
+  const later = ann({ id: "p5", anchor: { zoteroPosition: { pageIndex: 4, rects: [[0, 0, 1, 1]] } } });
+  const buckets = bucketAnnotationsByPage([first, later]);
+  assert.deepEqual(buckets.get(1)?.map((a) => a.id), ["p1"]);
+  assert.deepEqual(buckets.get(5)?.map((a) => a.id), ["p5"]);
+  assert.equal(buckets.get(2), undefined);
+  assert.equal(buckets.size, 2);
+});
+
+test("bucketAnnotationsByPage puts a cross-page highlight in both buckets", () => {
+  // Anchored to page index 3, spilling onto index 4 — pages 4 and 5.
+  const spilling = ann({
+    id: "spill",
+    anchor: {
+      zoteroPosition: {
+        pageIndex: 3,
+        rects: [[72, 100, 500, 112]],
+        nextPageRects: [[72, 700, 300, 712]],
+      },
+    },
+  });
+  const buckets = bucketAnnotationsByPage([spilling]);
+  assert.deepEqual(buckets.get(4)?.map((a) => a.id), ["spill"]);
+  assert.deepEqual(buckets.get(5)?.map((a) => a.id), ["spill"]);
+  assert.equal(buckets.size, 2);
+});
+
+test("bucketAnnotationsByPage drops annotations that cannot be placed", () => {
+  const quoteOnly = ann({
+    id: "q",
+    anchor: { locus: { quote: { type: "TextQuoteSelector", exact: "somewhere" } } },
+  });
+  const negative = ann({ id: "n", anchor: { zoteroPosition: { pageIndex: -1 } } });
+  const fractional = ann({ id: "f", anchor: { zoteroPosition: { pageIndex: 1.5 } } });
+  assert.equal(bucketAnnotationsByPage([quoteOnly, negative, fractional]).size, 0);
+});
+
+test("bucketing and projection agree on which page paints what", () => {
+  // The bucket is a filter in front of the projector; if they disagree an
+  // annotation silently stops rendering. Assert they cannot drift apart.
+  const annotations = [
+    ann({ id: "a", anchor: { zoteroPosition: { pageIndex: 0, rects: [[0, 0, 10, 10]] } } }),
+    ann({
+      id: "b",
+      anchor: {
+        zoteroPosition: {
+          pageIndex: 1,
+          rects: [[0, 0, 10, 10]],
+          nextPageRects: [[0, 0, 10, 10]],
+        },
+      },
+    }),
+    ann({ id: "c", type: "ink", anchor: { zoteroPosition: { pageIndex: 2, paths: [[1, 2, 3, 4]] } } }),
+  ];
+  const buckets = bucketAnnotationsByPage(annotations);
+  for (let pageNumber = 1; pageNumber <= 4; pageNumber++) {
+    const fromAll = project(annotations, { pageNumber });
+    const fromBucket = projectPageAnnotationGeometry({
+      annotations: buckets.get(pageNumber) ?? [],
+      pageNumber,
+      scale: 1,
+      pageHeight: PAGE_HEIGHT,
+      contentHash: "",
+    });
+    assert.deepEqual(fromBucket, fromAll, `page ${pageNumber} must render identically`);
+  }
 });
