@@ -36,42 +36,58 @@ export function ReaderToolbar({ viewport, numPages }: ReaderToolbarProps) {
 
   return (
     <div className="pdf-reader-toolbar" role="toolbar" aria-label="PDF controls">
-      <button
-        type="button"
-        className="btn-secondary btn-sm"
-        onClick={viewport.zoomOut}
-        aria-label="Zoom out"
-        title="Zoom out (−)"
-      >
-        −
-      </button>
-      <span className="pdf-reader-toolbar-label" aria-live="polite">
-        {percent}%
-      </span>
-      <button
-        type="button"
-        className="btn-secondary btn-sm"
-        onClick={viewport.zoomIn}
-        aria-label="Zoom in"
-        title="Zoom in (+)"
-      >
-        +
-      </button>
-      <button type="button" className="btn-secondary btn-sm" onClick={viewport.fitWidth} title="Fit width">
-        Fit width
-      </button>
-      <button type="button" className="btn-secondary btn-sm" onClick={viewport.fitPage} title="Fit page">
-        Fit page
-      </button>
-      <button
-        type="button"
-        className="btn-secondary btn-sm"
-        onClick={viewport.rotateClockwise}
-        title="Rotate"
-      >
-        Rotate
-      </button>
-      <label className="pdf-reader-page-jump">
+      <div className="pdf-reader-group">
+        <button
+          type="button"
+          className="btn-secondary btn-sm pdf-reader-icon-btn"
+          onClick={viewport.zoomOut}
+          aria-label="Zoom out"
+          title="Zoom out (−)"
+        >
+          −
+        </button>
+        <span className="pdf-reader-toolbar-label" aria-live="polite">
+          {percent}%
+        </span>
+        <button
+          type="button"
+          className="btn-secondary btn-sm pdf-reader-icon-btn"
+          onClick={viewport.zoomIn}
+          aria-label="Zoom in"
+          title="Zoom in (+)"
+        >
+          +
+        </button>
+      </div>
+      <div className="pdf-reader-group">
+        <button
+          type="button"
+          className={`btn-secondary btn-sm${viewport.fit === "width" ? " is-active" : ""}`}
+          onClick={viewport.fitWidth}
+          aria-pressed={viewport.fit === "width"}
+          title="Fit width"
+        >
+          Fit width
+        </button>
+        <button
+          type="button"
+          className={`btn-secondary btn-sm${viewport.fit === "page" ? " is-active" : ""}`}
+          onClick={viewport.fitPage}
+          aria-pressed={viewport.fit === "page"}
+          title="Fit page"
+        >
+          Fit page
+        </button>
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={viewport.rotateClockwise}
+          title="Rotate (r)"
+        >
+          Rotate
+        </button>
+      </div>
+      <label className="pdf-reader-page-jump pdf-reader-group">
         <span className="muted">Page</span>
         <input
           type="number"

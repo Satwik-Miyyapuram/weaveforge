@@ -36,6 +36,8 @@ import {
 } from "../application/draft-local-annotation";
 import {
   annotationPinKey,
+  optimisticAnnotationFromDraft,
+  PENDING_ANNOTATION_PREFIX,
   READER_ANNOTATION_COLORS,
   type ReaderCreateTool,
 } from "../application/reader-annotation-helpers";
@@ -907,16 +909,31 @@ export function PdfReader({
     draft: import("@thesis/core").NewReaderAnnotation,
   ): Promise<void> {
     if (!paperId || !onAnnotationsChange) return;
+
+    // Paint first, persist second. The write is a network round-trip, and
+    // waiting for it meant the highlight appeared hundreds of milliseconds
+    // after the click — long enough to read as a dead button.
+    const tempId = `${PENDING_ANNOTATION_PREFIX}${
+      globalThis.crypto?.randomUUID?.() ?? String(Date.now())
+    }`;
+    const optimistic = optimisticAnnotationFromDraft(draft, tempId);
+    onAnnotationsChange((prev) => [...prev, optimistic]);
+    setSelectedAnnId(tempId);
+    setPendingCreate(null);
+    setAnnError(null);
+    window.getSelection()?.removeAllRanges();
+
     setCreateBusy(true);
     try {
       const created = await getContainer().papers.createReaderAnnotation(paperId, draft);
-      onAnnotationsChange((prev) => [...prev.filter((a) => a.id !== created.id), created]);
+      onAnnotationsChange((prev) => prev.map((a) => (a.id === tempId ? created : a)));
+      setSelectedAnnId((prev) => (prev === tempId ? created.id : prev));
       onActivity?.("annotate", `Created ${created.type}`);
-      setSelectedAnnId(created.id);
-      setPendingCreate(null);
-      setAnnError(null);
-      window.getSelection()?.removeAllRanges();
     } catch (err) {
+      // Roll the optimistic one back — leaving it would show a highlight that
+      // vanishes on the next reload with no explanation.
+      onAnnotationsChange((prev) => prev.filter((a) => a.id !== tempId));
+      setSelectedAnnId((prev) => (prev === tempId ? null : prev));
       setAnnError(err instanceof Error ? err.message : "Could not save the annotation.");
     } finally {
       setCreateBusy(false);
@@ -965,13 +982,25 @@ export function PdfReader({
   async function removeLocal(id: string) {
     if (!onAnnotationsChange) return;
     if (!window.confirm("Delete this local annotation?")) return;
+    // Remove on screen straight away, restore if the delete fails — the same
+    // round-trip that delayed creation left a deleted highlight sitting there.
+    let removed: ReaderAnnotation | undefined;
+    onAnnotationsChange((prev) => {
+      removed = prev.find((a) => a.id === id);
+      return prev.filter((a) => a.id !== id);
+    });
+    if (selectedAnnId === id) setSelectedAnnId(null);
+    setAnnError(null);
     try {
       await getContainer().papers.removeReaderAnnotation(id);
-      onAnnotationsChange((prev) => prev.filter((a) => a.id !== id));
       onActivity?.("annotate", "Deleted annotation");
-      setAnnError(null);
-      if (selectedAnnId === id) setSelectedAnnId(null);
     } catch (err) {
+      if (removed) {
+        const restore = removed;
+        onAnnotationsChange((prev) =>
+          prev.some((a) => a.id === restore.id) ? prev : [...prev, restore],
+        );
+      }
       setAnnError(err instanceof Error ? err.message : "Could not delete the annotation.");
     }
   }
@@ -1121,7 +1150,61 @@ export function PdfReader({
           )}
         </div>
       )}
-      <ReaderToolbar viewport={viewport} numPages={numPages} />
+      {/* One panel, two rows: viewport controls above, find/view/annotate below.
+          Two free-floating wrapping bars read as scattered chrome. */}
+      <div className="pdf-reader-chrome">
+        <ReaderToolbar viewport={viewport} numPages={numPages} />
+        <div className="pdf-reader-tools">
+        <ReaderSearchBar
+          pages={pageTexts}
+          onJump={(match) => {
+            viewport.setPage(match.pageIndex + 1);
+          }}
+        />
+        <div className="pdf-reader-group">
+          <button
+            type="button"
+            className={`btn-secondary btn-sm${showOutline ? " is-active" : ""}`}
+            aria-pressed={showOutline}
+            onClick={() => setShowOutline((v) => !v)}
+          >
+            Outline
+          </button>
+          <button
+            type="button"
+            className={`btn-secondary btn-sm${spread ? " is-active" : ""}`}
+            aria-pressed={spread}
+            onClick={() => setSpread((v) => !v)}
+          >
+            Two-page
+          </button>
+        </div>
+        {canCreate && (
+          <div className="pdf-reader-group">
+            <select
+              className="pdf-reader-tool-select"
+              aria-label="Annotation tool"
+              value={createTool}
+              disabled={rotation !== 0}
+              onChange={(e) => setCreateTool(e.target.value as ReaderCreateTool)}
+            >
+              <option value="select">Select</option>
+              <option value="ink">Ink</option>
+              <option value="image">Image region</option>
+              <option value="text">Text box</option>
+            </select>
+            <input
+              type="color"
+              className="pdf-reader-color-input"
+              aria-label="Annotation colour"
+              value={createColor}
+              disabled={rotation !== 0}
+              onChange={(e) => setCreateColor(e.target.value)}
+            />
+          </div>
+        )}
+        </div>
+      </div>
       {rotation !== 0 && (
         <div className="pdf-reader-banner pdf-reader-banner--low" role="status">
           Annotations and create tools pause while the page is rotated — reset rotation to edit.
@@ -1135,50 +1218,6 @@ export function PdfReader({
           </button>
         </div>
       )}
-      <div className="pdf-reader-tools">
-        <ReaderSearchBar
-          pages={pageTexts}
-          onJump={(match) => {
-            viewport.setPage(match.pageIndex + 1);
-          }}
-        />
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
-          onClick={() => setShowOutline((v) => !v)}
-        >
-          {showOutline ? "Hide outline" : "Outline"}
-        </button>
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
-          onClick={() => setSpread((v) => !v)}
-        >
-          {spread ? "Single page" : "Two-page"}
-        </button>
-        {canCreate && (
-          <>
-            <select
-              aria-label="Annotation tool"
-              value={createTool}
-              disabled={rotation !== 0}
-              onChange={(e) => setCreateTool(e.target.value as ReaderCreateTool)}
-            >
-              <option value="select">Select</option>
-              <option value="ink">Ink</option>
-              <option value="image">Image region</option>
-              <option value="text">Text box</option>
-            </select>
-            <input
-              type="color"
-              aria-label="Annotation colour"
-              value={createColor}
-              disabled={rotation !== 0}
-              onChange={(e) => setCreateColor(e.target.value)}
-            />
-          </>
-        )}
-      </div>
       {pendingCreate && canCreate && rotation === 0 && (
         <SelectionCreateBar
           pending={pendingCreate}
