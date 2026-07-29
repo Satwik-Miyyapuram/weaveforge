@@ -145,7 +145,7 @@ Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/ext
 | [`docs/themes.md`](docs/themes.md) | Light/dark themes |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Vulnerability reporting, RLS scope, data protection model |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | PR checklist, dev workflow |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Python SDK release history |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history (whole project) |
 | [`docs/self-host-roadmap.md`](docs/self-host-roadmap.md) | Self-hosted Postgres + tiered blobs |
 | [`docs/plans/README.md`](docs/plans/README.md) | Plan index — current / working / future / completed |
 | [`docs/plans/future/hosting-and-cost-plan.md`](docs/plans/future/hosting-and-cost-plan.md) | Hosted access, usage limits, pricing planning, and self-hosting |

@@ -36,6 +36,7 @@ import {
 } from "../application/draft-local-annotation";
 import {
   annotationPinKey,
+  applyAnnotationPatch,
   optimisticAnnotationFromDraft,
   PENDING_ANNOTATION_PREFIX,
   READER_ANNOTATION_COLORS,
@@ -969,12 +970,26 @@ export function PdfReader({
     patch: { comment?: string; tags?: string[]; color?: string },
   ) {
     if (!onAnnotationsChange) return;
+    // A colour change repaints the highlight, so waiting for the write shows a
+    // swatch that stays wrong until the network answers. Apply, then reconcile.
+    let previous: ReaderAnnotation | undefined;
+    onAnnotationsChange((prev) =>
+      prev.map((a) => {
+        if (a.id !== id) return a;
+        previous = a;
+        return applyAnnotationPatch(a, patch);
+      }),
+    );
+    setAnnError(null);
     try {
       const updated = await getContainer().papers.updateReaderAnnotation(id, patch);
       onAnnotationsChange((prev) => prev.map((a) => (a.id === id ? updated : a)));
       onActivity?.("annotate", "Updated annotation");
-      setAnnError(null);
     } catch (err) {
+      if (previous) {
+        const restore = previous;
+        onAnnotationsChange((prev) => prev.map((a) => (a.id === id ? restore : a)));
+      }
       setAnnError(err instanceof Error ? err.message : "Could not update the annotation.");
     }
   }

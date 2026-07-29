@@ -2,26 +2,43 @@
 
 This monorepo ships **two release tracks**. Do not mix their tags.
 
-| | **Python SDK** (`thesis-tracker`) | **Android TWA** |
-|---|-----------------------------------|-----------------|
-| Tag | `vX.Y.Z` (semver, e.g. `v1.2.3`) | `android-vN` (e.g. `android-v3`) |
-| Artifact | PyPI wheel/sdist | APK + AAB on the GitHub Release |
+| | **Project release** | **Android TWA** |
+|---|---------------------|-----------------|
+| Tag | `vX.Y.Z` (semver, e.g. `v0.5.0`) | `android-vN` (e.g. `android-v3`) |
+| Covers | Web app, `@thesis/core`, schema, and the `thesis-tracker` SDK | APK + AAB on the GitHub Release |
+| Artifact | GitHub Release + PyPI wheel/sdist | Signed Android bundle |
 | Workflow | `publish-python.yml` | `android-twa.yml` |
-| Version source | `python/thesis_tracker/__init__.py` | `apps/web/twa/twa-manifest.json` (`appVersion` / `appVersionCode`) |
-| Web app | Continuous on `main` (Vercel) — no release tag | Same host; Digital Asset Links must match the signing key |
+| Changelog | [`../CHANGELOG.md`](../CHANGELOG.md) | Same |
+| Web app | Deploys continuously on `main` (Vercel); the tag marks the version | Same host; Digital Asset Links must match the signing key |
+
+**One version line covers the whole repository.** The SDK is not versioned
+separately — it ships from the same tag, so its version must match. Releases
+before 0.5.0 kept a separate SDK history, archived in
+[`changelog-sdk-legacy.md`](changelog-sdk-legacy.md).
 
 All changes still land on `main` via pull request (branch protection). Tags are cut **from `main` after merge**.
 
-## Python SDK (`vX.Y.Z`)
+## Project release (`vX.Y.Z`)
 
-1. PR: bump `python/thesis_tracker/__init__.py`, update `docs/CHANGELOG.md`.
+1. PR: bump **every** version in step, and update [`../CHANGELOG.md`](../CHANGELOG.md).
+
+   ```
+   package.json                        "version"
+   apps/web/package.json               "version"
+   packages/core/package.json          "version"
+   python/thesis_tracker/__init__.py   __version__
+   ```
+
+   All four must match the tag. Missing the Python one is not caught by CI —
+   the publish only fails later, at PyPI, with `File already exists`, because
+   hatch read a version that had already been published.
 2. Merge when CI is green.
 3. On `main`:
    ```bash
    git pull origin main
    git tag vX.Y.Z
    git push origin vX.Y.Z
-   gh release create vX.Y.Z --title "SDK vX.Y.Z" --notes-file .github/release_template.md
+   gh release create vX.Y.Z --title "WeaveForge vX.Y.Z" --notes-file .github/release_template.md
    ```
 4. `publish-python.yml` publishes to PyPI. Confirm at https://pypi.org/project/thesis-tracker/ .
 
@@ -62,4 +79,4 @@ Package id: `app.weaveforge.twa`.
 
 ## Web app (no product tag)
 
-Merge to `main` → deploy. Document breaking schema changes in `supabase/migrations/`. Optional notes under `CHANGELOG.md` → `[Unreleased]` → **Web**.
+Merge to `main` → deploy. Document breaking schema changes in `supabase/migrations/`, and add user-visible changes to [`../CHANGELOG.md`](../CHANGELOG.md) under `[Unreleased]`.

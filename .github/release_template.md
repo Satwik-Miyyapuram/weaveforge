@@ -13,6 +13,6 @@ pip install thesis-tracker==X.Y.Z
 ### Fixed
 - …
 
-**Full changelog:** https://github.com/Satwik-Miyyapuram/weaveforge/blob/vX.Y.Z/docs/CHANGELOG.md
+**Full changelog:** https://github.com/Satwik-Miyyapuram/weaveforge/blob/vX.Y.Z/CHANGELOG.md
 
 <!-- Python SDK release only. Android uses tags android-v* (see docs/release.md). -->

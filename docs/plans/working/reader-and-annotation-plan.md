@@ -1,7 +1,7 @@
 # Reader and annotation — full implementation plan
 
 **Date:** 2026-07-27
-**Status:** Partially delivered. R0–R4 shipped in 0.5.0. R5 is infrastructure plus a dry-run client only — live Zotero write-back stays human-gated and is not implemented. R6 is anchor types and stubs; the EPUB/HTML readers and mobile shell are deferred (see §R6 deferral registry).
+**Status:** Partially delivered. R0–R5 are code-complete. R5's live Zotero client ships in 0.5.1 with version-guarded updates; the one remaining step is a human running it against a real library, which no agent should do unsupervised. R6 is anchor types, the WebDAV resolver, and stubs — the EPUB/HTML readers, mobile shell, and offline shell are deliberate deferrals (see the R6 deferral registry), not oversights.
 **Supersedes:** the reader sections of [`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md) (§8 Phases 1–4). That document's licensing analysis (§1), source ladder (§4), anchor design (§5), and ZotFlow parity checklist (§8.1) remain authoritative and are referenced rather than repeated.
 **Goal:** match ZotFlow on the literature loop, then exceed it. Read → annotate → source note → cite, without leaving the app.
 
@@ -310,12 +310,12 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 
 **Delivered:** `?pane=report|vault` split panel; annotation backlinks (pins + vault quote/key); batch image-region listing + activity log; shared-paper annotation samples at view; dark PDF canvas filter for mocha/dark themes; `planSourceNoteBatch` / `collectAnnotationImageRegions` pure helpers (tested).
 
-### R5 — Zotero write-back (the deferred D2 spike, now scheduled) ✅ INFRA DONE (2026-07-29)
+### R5 — Zotero write-back (the deferred D2 spike, now scheduled) ✅ CODE COMPLETE (2026-07-30)
 
 **Needs live credentials and a human watching for the live spike.** Unsupervised work ships ports + dry-run only.
 
-- Spike first: create one annotation via the Zotero Web API against a scratch library, confirm it survives a round-trip — **blocked on human + live creds**
-- Push local annotations as Zotero items; store `zotero_key` + `zotero_version` — **payload builder + dry-run client shipped; live push refused**
+- Spike first: create one annotation via the Zotero Web API against a scratch library, confirm it survives a round-trip — **still yours to run.** The client exists and is tested against a stubbed API; pointing it at a real library is a human decision
+- Push local annotations as Zotero items; store `zotero_key` + `zotero_version` — **shipped.** `ZoteroApiAnnotationWriteBack` creates via `POST /items` with a `Zotero-Write-Token` (so a retry cannot duplicate a highlight) and updates via `PATCH` with `If-Unmodified-Since-Version` (so a 412 surfaces as a conflict instead of overwriting someone's edit)
 - Pull remote changes; detect divergence via `zotero_version` — **`decideAnnotationSync` shipped**
 - **Field-level conflict diff** — keep local / accept remote / merge, with batch resolve — **`diffAnnotationFields` / `resolveAnnotationConflict` shipped**
 - Per-library modes: Bidirectional / Read-Only / Ignored — **`ZoteroLibrarySyncMode` shipped**
@@ -323,7 +323,17 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 
 **Exit:** an annotation created in WeaveForge appears in Zotero desktop, and an edit made in Zotero desktop appears here with conflicts surfaced rather than silently resolved.
 
-**Unsupervised status:** infrastructure and conflict math complete and tested. Live round-trip remains a human-gated spike.
+**Unsupervised status:** the client, conflict math, and per-annotation result
+reporting are complete and tested, including the 412 conflict path and partial
+batch failures. `PapersFacade.pushAnnotationsToZotero` is the live entry point
+and is kept separate from `dryRunZoteroAnnotationWriteBack` so "show me what
+would happen" is never one mistyped argument from writing.
+
+**What is deliberately not done:** no UI button pushes to Zotero yet, and the
+live round-trip against a real library has not been run. Both are the same
+judgement — mutating a researcher's actual library is not something to trigger
+as a side effect of a review pass. The capability is ready for a human to wire
+to a confirmed action.
 
 ### R6 — Reach and formats ✅ STUBS + DEFERRALS (2026-07-29)
 
