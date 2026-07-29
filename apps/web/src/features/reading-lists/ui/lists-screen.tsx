@@ -13,8 +13,7 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
-import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
+import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddListForm } from "./add-list-form";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
@@ -46,11 +45,14 @@ export function ListsScreen() {
 
   const loadScreen = useCallback(async (): Promise<ListsViewData> => {
     const data = await getContainer().readingLists.loadScreenData();
-    const ownerNames = await loadPinnedOwnerNames(data.pinnedSharedBy);
-    return { ...data, ownerNames };
+    // Owner labels arrive separately — see usePinnedOwnerNames. Awaiting the
+    // lab directory here delayed the whole screen by ~1.8s.
+    return { ...data, ownerNames: emptyMap<string, string>() };
   }, []);
 
   const { data, loading, error: loadError, reload, setData } = useScreenData("lists", loadScreen);
+
+  usePinnedOwnerNames(data, setData);
 
   useEffect(() => {
     setError(loadError);

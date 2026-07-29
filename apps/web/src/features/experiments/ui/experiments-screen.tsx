@@ -17,8 +17,7 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
 import { CompareViewIcon, FilterIcon, ListViewIcon } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
-import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
-import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
+import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { Select } from "@/components/select";
 import { MultiSelect } from "@/components/multi-select";
 import { usePersistedState } from "@/lib/use-persisted-state";
@@ -45,14 +44,17 @@ export function ExperimentsScreen() {
 
   const loadScreen = useCallback(async (): Promise<ExperimentsViewData> => {
     const data = await getContainer().experiments.loadScreenData();
-    const ownerNames = await loadPinnedOwnerNames(data.pinnedSharedBy);
-    return { ...data, ownerNames };
+    // Owner labels arrive separately — see usePinnedOwnerNames. Awaiting the
+    // lab directory here delayed the whole screen by ~1.8s.
+    return { ...data, ownerNames: emptyMap<string, string>() };
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData(
     "experiments",
     loadScreen,
   );
+
+  usePinnedOwnerNames(data, setData);
 
   useEffect(() => {
     setError(loadError);
