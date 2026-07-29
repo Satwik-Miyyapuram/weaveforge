@@ -1,6 +1,6 @@
 # Security Policy
 
-Thesis Tracker talks directly to your own Supabase project. The web app and the
+WeaveForge talks directly to your own Supabase project. The web app and the
 Python SDK hold Supabase credentials (a public anon key + your email/password, or
 a project id), and the SDK can upload files and write rows on your behalf. Please
 treat credential handling and access-control (RLS) issues as security-sensitive.

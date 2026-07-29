@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25 · **Last updated:** 2026-07-29
 **Status:** ✅ **COMPLETE** — phases A–F delivered; archived under `completed/`.
-**Successor:** remaining reader work is [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) (R0–R6).
+**Successor:** remaining reader work is [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md) (R0–R6).
 **Source of priorities:** `docs/competitive-research-verified-2026-07.md` §6 — a P0/P1/P2 list with effort × impact, but no sequencing.
 **This document** turns that list into ordered phases with dependencies and exit criteria. Phase letters label work (A–F); the resolved decisions are labelled D1–D4 because they scope the reader phase, and are not themselves a phase.
 
@@ -56,7 +56,7 @@ Both predate the verified competitive research, so neither accounts for ZotFlow,
 | **E** | **AI-assisted extraction fill** | ✅ **done** |
 | **F** | P2 tail | ✅ **done** — `0107`–`0109` applied |
 
-**This roadmap is complete.** Migrations `0106`–`0109` are live (`paper_locus_anchors`, `annotation_quotation_types`, `lab_snapshots`, plus Phase F corrections). Further product work is not phase work on this board — it lives in [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) (R0–R6) and the parallel billing track under `../future/`.
+**This roadmap is complete.** Migrations `0106`–`0109` are live (`paper_locus_anchors`, `annotation_quotation_types`, `lab_snapshots`, plus Phase F corrections). Further product work is not phase work on this board — it lives in [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md) (R0–R6) and the parallel billing track under `../future/`.
 
 ### Closure notes (2026-07-29)
 
@@ -83,11 +83,11 @@ Fixed 2026-07-27 in `2d9daec`, after an audit of `build-overleaf-export.ts`:
 |---|---|
 | **`Paper` has no `volume`, `pages`, `publisher`, `editor`, `issn`** | Manually-added papers export thin entries. Papers that came from Zotero are unaffected — their stored `bibtex` is passed through intact, which is why this is a limit and not a bug |
 | **Stored `bibtex` is passed through unvalidated** | Only the first entry's key is rewritten. Malformed or multi-entry stored BibTeX reaches `references.bib` as-is |
-| **No CSL / citeproc** | We emit wikilink, LaTeX, Pandoc, footnote, and raw. ZotFlow also renders CSL styles. Deliberately unplanned — see [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) §5.1 |
+| **No CSL / citeproc** | We emit wikilink, LaTeX, Pandoc, footnote, and raw. ZotFlow also renders CSL styles. Deliberately unplanned — see [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md) §5.1 |
 
 None blocked A–F. The first only bites papers added by hand rather than through Zotero.
 
-**Reader follow-on** is [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md). Phases R0–R6 turn the provenance pane into a full annotation surface and then into Zotero write-back. D3 is superseded there and D2 is scheduled as R5.
+**Reader follow-on** is [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md). Phases R0–R6 turn the provenance pane into a full annotation surface and then into Zotero write-back. D3 is superseded there and D2 is scheduled as R5.
 ## Dependency map
 
 ```
@@ -207,7 +207,7 @@ The reasons below are why we do **not** adopt their engine wholesale:
 
 *Original decision:* the API spike needs live credentials and mutates a real Zotero library, so it cannot be done unsupervised. Rather than let that block everything, it was removed from the critical path — Phase D reads and renders annotations, and creates none.
 
-**Still true, and still the reason it is late in the order.** What changed is that it is now on the schedule rather than pending a future decision: [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) R5, after local annotation works. The supervision requirement is unchanged — R5 spikes against a scratch library with a human watching.
+**Still true, and still the reason it is late in the order.** What changed is that it is now on the schedule rather than pending a future decision: [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md) R5, after local annotation works. The supervision requirement is unchanged — R5 spikes against a scratch library with a human watching.
 
 ### D3 — Brief §11 amendment: ~~narrow, not broad~~ **SUPERSEDED 2026-07-27.**
 
@@ -215,7 +215,7 @@ The reasons below are why we do **not** adopt their engine wholesale:
 
 **That was correct for shipping `/ai-review` and wrong as a resting place.** What it produced is a pane that renders a PDF at a fixed 135% zoom with no controls, no text selection, and no annotations — it verifies AI claims and does nothing else a researcher wants.
 
-**New position:** the reader is a first-class reading *and annotation* surface. See [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) §1. Brief §11's "Full in-app PDF annotator (Zotero owns PDFs/annotations)" is now wrong on both halves and should be struck rather than narrowed. Zotero stays the system of record for the *library*; annotations are ours to create and sync back.
+**New position:** the reader is a first-class reading *and annotation* surface. See [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md) §1. Brief §11's "Full in-app PDF annotator (Zotero owns PDFs/annotations)" is now wrong on both halves and should be struck rather than narrowed. Zotero stays the system of record for the *library*; annotations are ours to create and sync back.
 
 Non-goals that survive: becoming a PDF storage service by default, an OCR pipeline, or a Zotero replacement.
 
@@ -333,7 +333,7 @@ From `competitive-research-verified-2026-07.md` §5 and §6, unchanged:
 | **E** | D | ✅ **P0** AI extraction fill |
 | **F** | D | ✅ P2 quotation types · P2 lab snapshots |
 
-**This roadmap is archived.** Phases A–F are complete. Active sequencing continues in [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md).
+**This roadmap is archived.** Phases A–F are complete. Active sequencing continues in [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md).
 
 ## Deferred decisions, with triggers
 

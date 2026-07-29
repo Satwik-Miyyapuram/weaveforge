@@ -1,7 +1,7 @@
 # Reader and annotation — full implementation plan
 
 **Date:** 2026-07-27
-**Status:** Current. Phases R0–R4 done; R5 infra/dry-run done (live spike human-gated); R6 stubs + documented deferrals.
+**Status:** Partially delivered. R0–R4 shipped in 0.5.0. R5 is infrastructure plus a dry-run client only — live Zotero write-back stays human-gated and is not implemented. R6 is anchor types and stubs; the EPUB/HTML readers and mobile shell are deferred (see §R6 deferral registry).
 **Supersedes:** the reader sections of [`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md) (§8 Phases 1–4). That document's licensing analysis (§1), source ladder (§4), anchor design (§5), and ZotFlow parity checklist (§8.1) remain authoritative and are referenced rather than repeated.
 **Goal:** match ZotFlow on the literature loop, then exceed it. Read → annotate → source note → cite, without leaving the app.
 

@@ -153,7 +153,7 @@ Commit: `feat(papers): source-note layout on paper view`
 
 | # | Work | Accept |
 |---|------|--------|
-| 7.1 | Extend [`../usage-cite-and-excerpts.md`](../usage-cite-and-excerpts.md) for annotation cards, fields, extraction table | Guide matches shipped UI |
+| 7.1 | Extend [`../usage-cite-and-excerpts.md`](../../usage-cite-and-excerpts.md) for annotation cards, fields, extraction table | Guide matches shipped UI |
 | 7.2 | Update the competitive scan steal-list status and `BACKLOG.md` | #4 / #8 / #11 / rollups marked shipped |
 
 Commit: `docs: library knowledge loop usage`

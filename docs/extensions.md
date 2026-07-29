@@ -4,7 +4,7 @@ Thesis Tracker is built as a **modular monolith**: domain logic lives in `@thesi
 
 That layering is the extension model. You extend the app by implementing a **port** (interface) and wiring it in one place — not by patching feature screens.
 
-> **Deploy plugins (B–D):** register packages in [`thesis-tracker.config.ts`](../../thesis-tracker.config.ts) at the repo root. Integration manifests live in `apps/web/src/integrations/manifests/`. See [`plugins/README.md`](../../plugins/README.md).
+> **Deploy plugins (B–D):** register packages in [`thesis-tracker.config.ts`](../thesis-tracker.config.ts) at the repo root. Integration manifests live in `apps/web/src/integrations/manifests/`. See [`plugins/README.md`](../plugins/README.md).
 
 ---
 

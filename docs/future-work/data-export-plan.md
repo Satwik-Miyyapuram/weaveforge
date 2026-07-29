@@ -3,7 +3,7 @@
 **Status:** Future work — not a current priority (target: coming months)  
 **Priority:** Low — revisit after E2EE soak, external link sharing, and other near-term items  
 **Branch target:** `feat/data-export` (when scheduled)  
-**Related:** [`E2EE_PROGRESS.md`](E2EE_PROGRESS.md), [`e2ee plan.md`](e2ee%20plan.md)
+**Related:** [`e2ee-progress.md`](e2ee-progress.md)
 
 > This document is a design reference only. No implementation is planned in the immediate roadmap.
 

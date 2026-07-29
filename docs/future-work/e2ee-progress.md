@@ -1,7 +1,7 @@
 # E2EE implementation progress
 
 Branch: `main` (E2EE merged via PR #15)  
-Plan reference: [`e2ee plan.md`](e2ee%20plan.md)
+Plan reference: the original E2EE plan document, which is no longer in the repository.
 
 ## Status summary
 
@@ -16,8 +16,8 @@ Plan reference: [`e2ee plan.md`](e2ee%20plan.md)
 | 7 — Remaining entities | **Done** | All entities encrypted incl. **reading lists**; migration on unlock |
 | 8 — Hardening | **Done** | CSP, batch rekey, unit + Playwright E2E (share links green) |
 
-**Share links:** [`LINK_SHARE_PLAN.md`](LINK_SHARE_PLAN.md) — view-only external links  
-**Future (not priority):** [`DATA_EXPORT_PLAN.md`](DATA_EXPORT_PLAN.md) — full decrypted ZIP export
+**Share links:** the external link-sharing plan (no longer in the repository) — view-only external links  
+**Future (not priority):** [`data-export-plan.md`](data-export-plan.md) — full decrypted ZIP export
 
 ## Migrations to apply locally
 
@@ -152,7 +152,7 @@ Reset: `node scripts/delete-test-users.mjs && node scripts/seed-test-users.mjs`
 | CRDT provider | `apps/web/src/features/collab/infrastructure/encrypted-yjs-provider.ts` |
 | LWW invalidation | `apps/web/src/lib/project-lww-invalidator.ts` |
 | Share dialog | `apps/web/src/features/sharing/ui/share-dialog.tsx` |
-| Link share plan | `LINK_SHARE_PLAN.md` |
+| Link share plan | removed from the repository |
 
 ## Not committed (intentionally)
 
