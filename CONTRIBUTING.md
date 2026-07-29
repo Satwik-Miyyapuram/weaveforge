@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving Thesis Tracker. It's AGPL-3.0-only licensed throughout — see [LICENSE](LICENSE) — and
+Thanks for your interest in improving WeaveForge. It's AGPL-3.0-only licensed throughout — see [LICENSE](LICENSE) — and
 designed to be reused and extended.
 
 ## Ground rules
@@ -66,7 +66,7 @@ Supabase Cloud stops at the latest file in [`supabase/migrations/`](supabase/mig
 
 ## Adding a feature module
 
-**Full checklist:** [`docs/extensions.md`](extensions.md) §4 (registry, bootstrap, facades, routes).
+**Full checklist:** [`docs/extensions.md`](docs/extensions.md) §4 (registry, bootstrap, facades, routes).
 
 1. Create `features/<name>/` with the standard sub-layers.
 2. Define the entity and repository interface in `packages/core`.

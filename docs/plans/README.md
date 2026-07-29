@@ -4,21 +4,15 @@ Implementation and strategy plans, sorted by lifecycle.
 
 | Folder | Meaning |
 |--------|---------|
-| [`current/`](current/) | Active sequencing board — what is next |
 | [`working/`](working/) | In progress / partially delivered |
 | [`future/`](future/) | Proposed, not started |
 | [`completed/`](completed/) | Delivered (kept for history and cross-links) |
-
-## Current
-
-| Plan | Notes |
-|------|-------|
-| [`reader-and-annotation-plan.md`](current/reader-and-annotation-plan.md) | Full reader + annotation surface (R0–R6); active |
 
 ## Working
 
 | Plan | Notes |
 |------|-------|
+| [`reader-and-annotation-plan.md`](working/reader-and-annotation-plan.md) | Reader + annotations. R0–R4 shipped in 0.5.0; R5 is dry-run only, R6 is stubs |
 | [`migration-plan.md`](working/migration-plan.md) | Self-host Postgres + tiered blobs; phases 0–2 done, 3–6 open |
 
 ## Future
@@ -39,6 +33,6 @@ Implementation and strategy plans, sorted by lifecycle.
 | [`competitive-scan-implementation-plan.md`](completed/competitive-scan-implementation-plan.md) | Cite / discovery / library UX |
 | [`library-knowledge-loop-plan.md`](completed/library-knowledge-loop-plan.md) | Annotations, fields, extraction table |
 | [`pdf-viewer-plan.md`](completed/pdf-viewer-plan.md) | Phase D provenance reader record; further work → reader plan |
-| [`Competitive Strategy Report Plan.md`](completed/Competitive%20Strategy%20Report%20Plan.md) | Archived competitive report draft |
+| [`competitive-strategy-report-plan.md`](completed/competitive-strategy-report-plan.md) | Archived competitive report draft |
 
 Related non-plan notes still live under [`docs/future-work/`](../future-work/) (backlog, overnight queue, handoffs).

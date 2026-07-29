@@ -4,6 +4,14 @@
   "private": true,
   "description": "Open-source, modular tracker for a masters thesis (papers, experiments, logbook, report, meetings).",
   "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Satwik-Miyyapuram/weaveforge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Satwik-Miyyapuram/weaveforge/issues"
+  },
+  "homepage": "https://github.com/Satwik-Miyyapuram/weaveforge#readme",
   "workspaces": [
     "packages/*",
     "apps/*"

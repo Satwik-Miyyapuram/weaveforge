@@ -1,6 +1,6 @@
 # Contributors
 
-WeaveForge (Thesis Tracker) is maintained by Satwik Miyyapuram.
+WeaveForge is maintained by Satwik Miyyapuram. The project was previously named Thesis Tracker; the Python SDK keeps the `thesis-tracker` package name.
 
 Thanks to everyone who has contributed code, review, testing, or design input.
 

@@ -21,7 +21,7 @@ Phases 2–4 are entirely undelivered. **Phase 2 (annotation) is deferred by dec
 
 Nothing above is broken; it is unbuilt. The reader does what the provenance UI needs and no more.
 
-**Do not read this document as a record of shipped work.** The next person picking up the reader should start from [`../current/reader-and-annotation-plan.md`](../current/reader-and-annotation-plan.md) (R0–R6), which supersedes Phases 1–4 here. Use the verified table above only as a snapshot of what Phase D left in place.
+**Do not read this document as a record of shipped work.** The next person picking up the reader should start from [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md) (R0–R6), which supersedes Phases 1–4 here. Use the verified table above only as a snapshot of what Phase D left in place.
 
 **Original status:** Proposed. Requires a product-brief amendment (see §2) before build starts.
 **Driver:** ZotFlow ships an embedded reader inside Obsidian and is rated our leading competitive threat — see `docs/competitive-research-verified-2026-07.md` §2.1. Separately, the `/ai-review` provenance UI (P0) needs a way to show the source of an AI claim without a context break.

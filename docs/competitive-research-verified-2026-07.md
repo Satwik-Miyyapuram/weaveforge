@@ -186,7 +186,7 @@ Grounds, all verified:
 
 Effort S/M/L, impact low/med/high.
 
-> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/plans/completed/roadmap-2026-07-phased.md`](plans/completed/roadmap-2026-07-phased.md) (complete). Active reader work: [`docs/plans/current/reader-and-annotation-plan.md`](plans/current/reader-and-annotation-plan.md).
+> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/plans/completed/roadmap-2026-07-phased.md`](plans/completed/roadmap-2026-07-phased.md) (complete). Active reader work: [`docs/plans/working/reader-and-annotation-plan.md`](plans/working/reader-and-annotation-plan.md).
 
 ### P0
 
@@ -293,8 +293,8 @@ This file consolidates verification over two external Deep Research runs commiss
 
 | Source document | Outcome |
 |-----------------|---------|
-| `docs/Research App Analysis and Improvement.md` | Usable. Followed the brief's structure; the `§`-citation gate correctly reclassified seven recommendations as already-shipped. Undersourced — six references for a nine-tool matrix. Corrections from §7 above have been applied to it. |
-| `docs/plans/completed/Competitive Strategy Report Plan.md` | Failed. Reported §14 as "omitted from the source document", invented its own Q1–Q10, and marked Q11–Q22 `UNANSWERED` against a section that exists. Teardowns sliced by workflow phase rather than by app. No matrix, no self-check, no consolidated roadmap. Retain only for the name-collision note below. |
+| `docs/research-app-analysis.md` | Usable. Followed the brief's structure; the `§`-citation gate correctly reclassified seven recommendations as already-shipped. Undersourced — six references for a nine-tool matrix. Corrections from §7 above have been applied to it. |
+| `docs/plans/completed/competitive-strategy-report-plan.md` | Failed. Reported §14 as "omitted from the source document", invented its own Q1–Q10, and marked Q11–Q22 `UNANSWERED` against a section that exists. Teardowns sliced by workflow phase rather than by app. No matrix, no self-check, no consolidated roadmap. Retain only for the name-collision note below. |
 
 Other internal docs: `docs/competitive-scan.md` (prior internal scan), `docs/future-work/BACKLOG.md` (shipped vs deferred).
 

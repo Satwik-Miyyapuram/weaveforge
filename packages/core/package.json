@@ -3,6 +3,16 @@
   "version": "0.5.0",
   "description": "Shared, framework-agnostic domain contracts and types for Thesis Tracker.",
   "license": "AGPL-3.0-only",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Satwik-Miyyapuram/weaveforge.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/Satwik-Miyyapuram/weaveforge/issues"
+  },
+  "homepage": "https://github.com/Satwik-Miyyapuram/weaveforge#readme",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
