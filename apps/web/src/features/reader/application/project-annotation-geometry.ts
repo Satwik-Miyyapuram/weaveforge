@@ -42,6 +42,34 @@ export interface ProjectGeometryInput {
   contentHash: string;
 }
 
+/**
+ * Group annotations by the 1-based page they paint on, so each page's overlay
+ * scans only its own. Rendering every page against the whole list is
+ * O(pages x annotations) — 60 pages of a heavily annotated paper is tens of
+ * thousands of comparisons on every zoom or scroll.
+ *
+ * A highlight that crosses a page break paints on two pages, so it appears in
+ * both buckets. Annotations with no stored position appear in none.
+ */
+export function bucketAnnotationsByPage(
+  annotations: readonly ReaderAnnotation[],
+): Map<number, ReaderAnnotation[]> {
+  const byPage = new Map<number, ReaderAnnotation[]>();
+  const add = (pageNumber: number, ann: ReaderAnnotation) => {
+    const list = byPage.get(pageNumber);
+    if (list) list.push(ann);
+    else byPage.set(pageNumber, [ann]);
+  };
+
+  for (const ann of annotations) {
+    const position = ann.anchor.zoteroPosition;
+    if (!position || !Number.isInteger(position.pageIndex) || position.pageIndex < 0) continue;
+    add(position.pageIndex + 1, ann);
+    if (position.nextPageRects?.length) add(position.pageIndex + 2, ann);
+  }
+  return byPage;
+}
+
 function isRect(value: unknown): value is number[] {
   return (
     Array.isArray(value) &&

@@ -1,6 +1,6 @@
 {
   "name": "@thesis/core",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Shared, framework-agnostic domain contracts and types for Thesis Tracker.",
   "license": "AGPL-3.0-only",
   "type": "module",

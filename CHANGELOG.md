@@ -6,6 +6,66 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-29
+
+### Added
+- **In-app PDF reader and annotation layer.** The reader was previously a
+  provenance-verification pane: a fixed 135% zoom, no controls, no text layer,
+  no annotations. It is now a research surface.
+  - **Viewport controls** — fit-width by default (the page finally fits the
+    window), fit-page, zoom, rotate, page jump, and keyboard navigation.
+  - **Text layer** — the document is selectable, copyable, and searchable, with
+    an in-document find bar and a PDF outline sidebar.
+  - **Zotero annotations render in the page**, projected from PDF user space
+    (bottom-left origin) with a filterable sidebar. All six Zotero types are
+    supported: highlight, underline, note, image, ink, text.
+  - **Local annotations** (migration `0110`, `reader_annotations`) — create,
+    edit, tag, colour, and pin to a report section. Stored separately from
+    `papers.metadata` so a Zotero re-sync cannot destroy user work.
+  - **Split view** against a report section or vault note, annotation
+    backlinks, an activity log, and dark-mode PDF rendering.
+  - **Source ladder wired** — browser byte cache (IndexedDB), then open-access
+    resolution, then WebDAV. Previously implemented and called by nothing.
+  - **Zotero write-back** conflict maths and a dry-run client. Live mutation of
+    a real library is deliberately not enabled; the dry-run client refuses to
+    go live.
+- **Bibliography scope** for the Overleaf export: emit every paper in the
+  library, or only those cited in the report.
+- Playwright coverage for the reader, and a live-database RLS test for
+  `reader_annotations`.
+
+### Fixed
+- Ink annotations and page-crossing highlights never rendered: the anchor
+  strategy required `rects`, but ink carries only `paths` and a page-break tail
+  only `nextPageRects`, and neither has a quote to fall back to.
+- Stored geometry was painted without checking it belonged to the file on
+  screen. The content-hash gate existed but was never wired end to end, so it
+  always took its "trust everything" branch; ink bypassed it entirely.
+- Highlighting part of a text run stored the rect for the *whole* run, so
+  selecting one word covered its neighbours.
+- Dropdowns in the reader were unusable by keyboard — arrows, `+`/`-`, and `r`
+  were captured as viewport shortcuts before the control saw them.
+- Local annotations were permanently marked `pending` write-back, a state a
+  row with no Zotero counterpart can never clear. Fixed in both the Supabase
+  and self-hosted Postgres providers, which had drifted apart.
+- Annotations from a previously opened paper stayed on screen over the next
+  paper's PDF, at the old paper's coordinates.
+- The PDF byte cache never populated: it fetched the publisher directly, which
+  CORS blocks for every host the ladder can resolve, and swallowed the error.
+- Every page's annotation overlay scanned the whole annotation list, making
+  render cost O(pages x annotations).
+- The reader's page-number field could not be cleared, so editing it by
+  backspacing was impossible.
+- Zoom buttons had no accessible name, announcing only "plus" and "minus".
+- `migration 0109`: a missing `updated_at` trigger on
+  `annotation_quotation_types`, and a policy that let published lab snapshots
+  be edited.
+- Overleaf/BibTeX export: fields are escaped, `url` and `doi` are emitted
+  verbatim, and entry shape follows the publication type — removing a class of
+  biber warnings.
+- Root `test-results/` and `.design-sync` were no longer ignored by git.
+
+
 ### Added
 - **Collaboration / sharing** (`shares` + `comments`, migration `0018`): share a
   milestone, experiment, report section, reading list, or paper — or all of a
@@ -37,4 +97,5 @@ follows [Semantic Versioning](https://semver.org/).
 - `wall_time` from epoch/`datetime` sources is normalized to ISO so wandb curve
   inserts don't fail against the `timestamptz` column.
 
-[Unreleased]: https://github.com/Satwik-Miyyapuram/thesis_tracker/commits/main
+[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.5.0

@@ -70,9 +70,12 @@ export function AnnotationSidebar({
   const filtered = annotations.filter((a) => {
     if (typeFilter && a.type !== typeFilter) return false;
     if (tagFilter && !a.tags.includes(tagFilter)) return false;
-    if (pageFilter !== "") {
+    if (pageFilter.trim() !== "") {
+      // Compare as numbers: a string compare makes "01" or a stray space match
+      // nothing, with no indication why the list went empty.
+      const wanted = Number(pageFilter);
       const page = a.anchor.zoteroPosition?.pageIndex;
-      if (page == null || String(page + 1) !== pageFilter) return false;
+      if (!Number.isFinite(wanted) || page == null || page + 1 !== wanted) return false;
     }
     return true;
   });

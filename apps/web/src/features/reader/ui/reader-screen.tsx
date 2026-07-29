@@ -65,6 +65,12 @@ export function ReaderScreen() {
   useEffect(() => {
     setError(null);
     setTitle(null);
+    // Drop the previous paper's annotations before loading the next one.
+    // Without this they stay mounted over the new PDF at the old paper's
+    // coordinates, and survive indefinitely if the new load fails.
+    setAnnotations([]);
+    setQuotationTypes(new Map());
+    setContentHash("");
     if (!paperId) {
       if (pdfFromParam) {
         setPdfUrl(pdfFromParam);
