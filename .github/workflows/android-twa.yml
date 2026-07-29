@@ -50,8 +50,22 @@ jobs:
         run: |
           set -euo pipefail
           ALIAS="${KEY_ALIAS:-weaveforge}"
-          FP=$(keytool -list -v -keystore android-keystore.jks -storepass "$STORE_PASS" -alias "$ALIAS" \
-            | awk -F' ' '/SHA256:/{print $2; exit}')
+          # Read keytool fully before parsing. Piping straight into `awk ... exit`
+          # closes the pipe while keytool is still writing, so keytool takes
+          # SIGPIPE and `pipefail` fails the step before it prints anything —
+          # which is why this job had never got past this point.
+          if ! KEYTOOL_OUT=$(keytool -list -v -keystore android-keystore.jks \
+                -storepass "$STORE_PASS" -alias "$ALIAS" 2>&1); then
+            echo "::error::keytool could not read alias '$ALIAS' from the keystore."
+            echo "Check ANDROID_KEY_ALIAS and ANDROID_KEYSTORE_PASSWORD."
+            echo "$KEYTOOL_OUT" | tail -5
+            exit 1
+          fi
+          FP=$(printf '%s\n' "$KEYTOOL_OUT" | awk '/SHA256:/{print $2; exit}')
+          if [ -z "$FP" ]; then
+            echo "::error::No SHA-256 fingerprint found for alias '$ALIAS'."
+            exit 1
+          fi
           echo "Keystore SHA-256: $FP"
           ASSETLINKS="../../public/.well-known/assetlinks.json"
           if ! grep -q "$FP" "$ASSETLINKS"; then
