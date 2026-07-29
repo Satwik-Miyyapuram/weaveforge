@@ -6,6 +6,29 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Live Zotero annotation write-back** (`ZoteroApiAnnotationWriteBack`).
+  Creates carry a `Zotero-Write-Token` so a retried request cannot duplicate a
+  highlight; updates carry `If-Unmodified-Since-Version`, so an annotation
+  edited in Zotero since the last sync comes back as a conflict instead of
+  being overwritten. Results are reported per annotation, so one rejected item
+  does not fail the batch. Dry-run remains the default and a separate entry
+  point. No UI action triggers a live push yet.
+
+### Changed
+- One changelog for the whole project. The Python SDK ships from the same
+  repository tag as the web app, so the separate SDK history only invited the
+  two to drift; pre-0.5.0 SDK releases are archived in
+  [`docs/changelog-sdk-legacy.md`](docs/changelog-sdk-legacy.md).
+- `docs/release.md` now describes a single project release covering the web
+  app, core, schema, and SDK, and lists all four version files that must move
+  together — the omission that made the 0.5.0 PyPI publish fail.
+
+### Fixed
+- Annotation edits (colour, comment, tags) applied immediately instead of
+  waiting for the write to return, matching create and delete. A failed edit
+  rolls back to the previous value.
+
 ## [0.5.0] - 2026-07-29
 
 ### Added
@@ -64,9 +87,14 @@ follows [Semantic Versioning](https://semver.org/).
   verbatim, and entry shape follows the publication type — removing a class of
   biber warnings.
 - Root `test-results/` and `.design-sync` were no longer ignored by git.
+- `wall_time` from epoch/`datetime` sources is normalized to ISO so wandb curve
+  inserts don't fail against the `timestamptz` column.
 
+### Also in this first tagged release
 
-### Added
+The web application shipped continuously on `main` before 0.5.0, so the
+following landed earlier but had never been carried in a tagged release.
+
 - **Collaboration / sharing** (`shares` + `comments`, migration `0018`): share a
   milestone, experiment, report section, reading list, or paper — or all of a
   type — with people in your lab, via a searchable, role-filtered multi-select.
@@ -92,10 +120,6 @@ follows [Semantic Versioning](https://semver.org/).
 - CLI (`thesis-tracker list / import-tb / import-wandb`).
 - Project OSS hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `CHANGELOG.md`, and a Python CI job (pytest + ruff + mypy).
-
-### Fixed
-- `wall_time` from epoch/`datetime` sources is normalized to ISO so wandb curve
-  inserts don't fail against the `timestamptz` column.
 
 [Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.5.0...HEAD
 [0.5.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.5.0

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   annotationPinKey,
+  applyAnnotationPatch,
   isPendingAnnotationId,
   optimisticAnnotationFromDraft,
   READER_ANNOTATION_COLORS,
@@ -64,4 +65,44 @@ test("optimisticAnnotationFromDraft fills the defaults the column would", () => 
 test("pending ids are recognisable so they are never treated as server rows", () => {
   assert.equal(isPendingAnnotationId("pending:abc"), true);
   assert.equal(isPendingAnnotationId("6f1c2b1e-0000-4000-8000-000000000000"), false);
+});
+
+test("applyAnnotationPatch normalises exactly as the repository does", () => {
+  // If these drift, the optimistic value visibly changes when the server row
+  // arrives, which reads as the edit being rejected and silently redone.
+  const base = optimisticAnnotationFromDraft(
+    { type: "highlight", color: "#ffd400", pageIndex: 0, anchor: {}, tags: ["keep"] },
+    "a1",
+  );
+  const patched = applyAnnotationPatch(base, {
+    comment: "  trimmed  ",
+    color: "   ",
+    tags: ["x", "y"],
+  });
+  assert.equal(patched.comment, "trimmed");
+  assert.equal(patched.color, "#ffd400", "blank colour falls back to the default");
+  assert.deepEqual(patched.tags, ["x", "y"]);
+  assert.equal(patched.id, "a1");
+});
+
+test("applyAnnotationPatch leaves untouched fields alone", () => {
+  const base = optimisticAnnotationFromDraft(
+    { type: "note", color: "#2ea8e5", comment: "original", pageIndex: 1, anchor: {}, tags: ["t"] },
+    "a2",
+  );
+  const patched = applyAnnotationPatch(base, { color: "#ff6666" });
+  assert.equal(patched.color, "#ff6666");
+  assert.equal(patched.comment, "original");
+  assert.deepEqual(patched.tags, ["t"]);
+});
+
+test("applyAnnotationPatch does not alias the caller's tag array", () => {
+  const base = optimisticAnnotationFromDraft(
+    { type: "highlight", color: "#ffd400", pageIndex: 0, anchor: {} },
+    "a3",
+  );
+  const tags = ["one"];
+  const patched = applyAnnotationPatch(base, { tags });
+  tags.push("two");
+  assert.deepEqual(patched.tags, ["one"], "later mutation must not reach the annotation");
 });

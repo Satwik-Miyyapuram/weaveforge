@@ -1,12 +1,13 @@
-# Changelog
+# Python SDK changelog (archived, pre-0.5.0)
 
-All notable changes to this project are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+**Frozen.** From 0.5.0 onwards there is one changelog for the whole project:
+[`../CHANGELOG.md`](../CHANGELOG.md). The SDK ships from the same repository
+tag as the web app, so a separate history only invited the two to drift — which
+is exactly what happened.
 
-**SDK tags (`vX.Y.Z`) publish to PyPI. Android tags (`android-v*`) build the TWA.**
-The web app ships on `main`. See [`release.md`](release.md).
-
-## [Unreleased]
+This file is kept for the release history that predates the merge. Note the
+version line resets at `0.0.1`, when the package was rebranded for the public
+monorepo; it does not continue from `1.0.4`.
 
 ## [0.0.1] - 2026-07-26
 

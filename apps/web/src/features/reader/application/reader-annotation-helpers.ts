@@ -5,6 +5,26 @@ export function annotationPinKey(ann: Pick<ReaderAnnotation, "id" | "zoteroKey">
   return ann.zoteroKey?.trim() || ann.id;
 }
 
+/**
+ * Apply an edit locally exactly as the repository will store it.
+ *
+ * The trimming and the blank-colour default mirror
+ * `SupabaseReaderAnnotationRepository.update`. If they drifted apart the
+ * optimistic value would visibly change when the persisted row arrived, which
+ * looks like the edit was rejected and silently redone.
+ */
+export function applyAnnotationPatch(
+  ann: ReaderAnnotation,
+  patch: { comment?: string; tags?: string[]; color?: string },
+): ReaderAnnotation {
+  return {
+    ...ann,
+    ...(patch.color !== undefined ? { color: patch.color.trim() || "#ffd400" } : {}),
+    ...(patch.comment !== undefined ? { comment: patch.comment.trim() } : {}),
+    ...(patch.tags !== undefined ? { tags: [...patch.tags] } : {}),
+  };
+}
+
 /** Marks an annotation that exists only on screen, awaiting its server row. */
 export const PENDING_ANNOTATION_PREFIX = "pending:";
 

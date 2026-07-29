@@ -87,6 +87,7 @@ import { PassthroughBlobStore } from "@/storage/passthrough-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
+import { createCredentialReader } from "@/integrations/credentials";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -450,6 +451,14 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       annotationPins: backend.annotationPinRepository,
       annotationQuotationTypes: backend.annotationQuotationTypeRepository,
       readerAnnotations: backend.readerAnnotationRepository,
+      // Read at call time, not at wiring time: the key is only decryptable
+      // once the user has unlocked, which is after the container is built.
+      zoteroCredentials: async () => {
+        const read = createCredentialReader(backend.manageSettings);
+        const apiKey = await read("zotero", "apiKey");
+        const library = await read("zotero", "library");
+        return { ...(apiKey ? { apiKey } : {}), ...(library ? { library } : {}) };
+      },
       paperFields: managePaperFields,
       reportSections: reportSectionRepository,
     }),

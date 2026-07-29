@@ -112,6 +112,8 @@ export class PapersFacade {
       annotationQuotationTypes: import("@thesis/core").IAnnotationQuotationTypeRepository;
       readerAnnotations: import("@thesis/core").IReaderAnnotationSource &
         import("@thesis/core").IReaderAnnotationSink;
+      /** Zotero API key + library, read at call time (post-unlock). */
+      zoteroCredentials: import("@/features/papers/infrastructure/zotero-metadata-source").ZoteroCredentialsProvider;
       paperFields: ManagePaperFieldsUseCase;
       reportSections: import("@thesis/core").IReportSectionRepository;
     },
@@ -241,13 +243,33 @@ export class PapersFacade {
 
   /**
    * R5 dry-run: build Zotero write payloads without calling the live API.
-   * Live push stays human-gated.
+   * Kept as a separate entry point so "show me what would happen" can never be
+   * a mistyped argument away from actually writing.
    */
   async dryRunZoteroAnnotationWriteBack(paperId: string, parentItemKey: string) {
     const { DryRunZoteroAnnotationWriteBack } = await import("@thesis/core");
     const anns = await this.deps.readerAnnotations.list(paperId);
     const client = new DryRunZoteroAnnotationWriteBack();
     return client.push(parentItemKey, anns);
+  }
+
+  /**
+   * R5 live push — writes this paper's local annotations into Zotero.
+   *
+   * `parentItemKey` is the **attachment** key (the stored PDF), not the
+   * bibliographic item. Updates carry a version guard, so an annotation edited
+   * in Zotero since the last sync returns `conflict` rather than being
+   * overwritten. Callers must confirm with the user first; this mutates a real
+   * library and nothing here asks twice.
+   */
+  async pushAnnotationsToZotero(paperId: string, parentItemKey: string) {
+    const { ZoteroApiAnnotationWriteBack } = await import(
+      "@/features/reader/infrastructure/zotero-annotation-write-back"
+    );
+    const anns = await this.deps.readerAnnotations.list(paperId);
+    const local = anns.filter((a) => a.origin === "local");
+    const client = new ZoteroApiAnnotationWriteBack(this.deps.zoteroCredentials);
+    return client.push(parentItemKey, local, { live: true });
   }
 
   listReportSections() {
