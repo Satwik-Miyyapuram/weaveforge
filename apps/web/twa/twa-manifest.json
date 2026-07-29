@@ -1,6 +1,6 @@
 {
   "packageId": "app.weaveforge.twa",
-  "host": "my-thesis-tracker-web.vercel.app",
+  "host": "weaveforge.vercel.app",
   "name": "WeaveForge",
   "launcherName": "WeaveForge",
   "display": "standalone",
@@ -13,18 +13,18 @@
   "backgroundColor": "#000000",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://my-thesis-tracker-web.vercel.app/icons/icon-512.png",
-  "maskableIconUrl": "https://my-thesis-tracker-web.vercel.app/icons/maskable-512.png",
+  "iconUrl": "https://weaveforge.vercel.app/icons/icon-512.png",
+  "maskableIconUrl": "https://weaveforge.vercel.app/icons/maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "android-keystore.jks",
     "alias": "weaveforge"
   },
-  "appVersionName": "0.0.1",
-  "appVersionCode": 1,
+  "appVersionName": "0.5.1",
+  "appVersionCode": 3,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://my-thesis-tracker-web.vercel.app/manifest.webmanifest",
+  "webManifestUrl": "https://weaveforge.vercel.app/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -33,7 +33,7 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://my-thesis-tracker-web.vercel.app/",
+  "fullScopeUrl": "https://weaveforge.vercel.app/",
   "minSdkVersion": 21,
   "orientation": "any",
   "fingerprints": [],
@@ -43,5 +43,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "0.0.1"
+  "appVersion": "0.5.1"
 }
