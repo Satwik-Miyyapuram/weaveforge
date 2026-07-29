@@ -1,12 +1,12 @@
-# Thesis Tracker
+# WeaveForge
 
-[![CI](https://github.com/Satwik-Miyyapuram/thesis_tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Satwik-Miyyapuram/thesis_tracker/actions/workflows/ci.yml)
+[![CI](https://github.com/Satwik-Miyyapuram/weaveforge/actions/workflows/ci.yml/badge.svg)](https://github.com/Satwik-Miyyapuram/weaveforge/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](python/)
 
 **One workspace for your whole thesis** — papers, reading lists, citation graph, plan, logbook, report outline, experiments, vault notes, and lab collaboration. Open-source and self-hostable under AGPL-3.0-only; hosted WeaveForge access and usage limits are part of the pricing plan.
 
-Most thesis tools split the job: Zotero for papers, Notion for notes, wandb for runs, Google Docs for the write-up. Thesis Tracker keeps the **literature**, **plan**, **experiments**, and **writing** in one modular PWA, with optional Zotero sync, git integration, and supervisor sharing — so your advisor sees real objects, not screenshots.
+Most thesis tools split the job: Zotero for papers, Notion for notes, wandb for runs, Google Docs for the write-up. WeaveForge keeps the **literature**, **plan**, **experiments**, and **writing** in one modular PWA, with optional Zotero sync, git integration, and supervisor sharing — so your advisor sees real objects, not screenshots.
 
 ---
 
@@ -39,14 +39,14 @@ Built **TDD + SOLID**: framework-agnostic core (`@thesis/core`), repository cont
 
 ## Quick start
 
-**Prerequisites:** Node.js 20+, a [Supabase](https://supabase.com) project (or self-hosted Postgres — see [`docs/backend.md`](docs/backend.md)).
+**Prerequisites:** Node.js 22+, a [Supabase](https://supabase.com) project (or self-hosted Postgres — see [`docs/backend.md`](docs/backend.md)).
 
 ```bash
-git clone https://github.com/Satwik-Miyyapuram/thesis_tracker.git
-cd thesis_tracker
+git clone https://github.com/Satwik-Miyyapuram/weaveforge.git
+cd weaveforge
 npm install
 npm run build:core
-npm run test:core          # 170+ domain tests, no network
+npm run test:core          # 460+ domain tests, no network
 ```
 
 1. Copy `apps/web/.env.local.example` → `apps/web/.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
@@ -128,7 +128,7 @@ supabase/          SQL migrations — single schema source of truth
 - **Feature modules** — `registry.ts` builds nav; extend via ports + composition root (see [`docs/extensions.md`](docs/extensions.md)).
 - **RLS everywhere** — anon key in the browser is fine; Postgres policies enforce access. Sharing adds read/comment; writes stay owner-only.
 
-Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/extensions.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) (SOLID PR checklist) · `npm run check:solid` · `npm run check:dry`
+Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/extensions.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md) (SOLID PR checklist) · `npm run check:solid` · `npm run check:dry`
 
 ---
 
@@ -144,7 +144,7 @@ Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/ext
 | [`docs/backend.md`](docs/backend.md) | Supabase vs self-hosted Postgres |
 | [`docs/themes.md`](docs/themes.md) | Light/dark themes |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Vulnerability reporting, RLS scope, data protection model |
-| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | PR checklist, dev workflow |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | PR checklist, dev workflow |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Python SDK release history |
 | [`docs/self-host-roadmap.md`](docs/self-host-roadmap.md) | Self-hosted Postgres + tiered blobs |
 | [`docs/plans/README.md`](docs/plans/README.md) | Plan index — current / working / future / completed |
@@ -235,4 +235,4 @@ WeaveForge is open source for the researchers who use it, and the copyleft is wh
 
 Using or self-hosting WeaveForge places no obligations on you. Self-hosting has no subscription fee.
 
-[`docs/licensing.md`](docs/licensing.md) · [`NOTICE`](NOTICE) · [`CONTRIBUTORS.md`](CONTRIBUTORS.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)
+[`docs/licensing.md`](docs/licensing.md) · [`NOTICE`](NOTICE) · [`CONTRIBUTORS.md`](CONTRIBUTORS.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)

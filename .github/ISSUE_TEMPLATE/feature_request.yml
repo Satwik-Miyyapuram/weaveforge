@@ -1,0 +1,58 @@
+name: Feature request
+description: Suggest a capability or an improvement
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        WeaveForge is a research workspace, not a general note-taking app.
+        Proposals that keep the literature → plan → experiment → writing loop in
+        one place are the easiest to accept.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Papers / reading lists
+        - PDF reader / annotations
+        - Report / LaTeX export
+        - Experiments / Python SDK
+        - Vault notes
+        - Sharing / supervision
+        - Self-hosting / deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do today, and where does it break down? Describe the situation rather than the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Including other tools, and why they don't fit.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and the roadmap in `docs/plans/`.
+          required: true
