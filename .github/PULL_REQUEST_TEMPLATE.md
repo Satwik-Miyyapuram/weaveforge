@@ -1,42 +1,38 @@
 ## What & why
 
-<!-- What does this change and why? Link any issue: Closes #123 -->
+<!-- What changes, and what problem it solves. Link the issue: Closes #123 -->
 
 ## Component
 
 - [ ] Web app (`apps/web`)
-- [ ] Python SDK (`python/`)
+- [ ] PDF reader / annotations
 - [ ] Core contracts (`packages/core`)
+- [ ] Python SDK (`python/`)
 - [ ] Database / migrations (`supabase/`)
-- [ ] Docs
+- [ ] Docs / CI
 
 ## Checklist
 
-- [ ] Follows the modular + SOLID structure in `docs/DESIGN.md`
-      (domain/application don't import Supabase; wiring only in the composition root)
-- [ ] New/changed repositories pass the shared **contract tests** (in-memory + Supabase)
-- [ ] Tests added/updated and passing (`npm run test:core`, `pytest`)
-- [ ] `npm run typecheck` / lint clean; Python `ruff` + `pytest` clean
-- [ ] **`npm run check:solid`** — no Supabase in UI, no cross-feature ui imports, no repo in components
-- [ ] **`npm run check:dry`** — no duplicated pin/share/owner-label patterns (use core helpers)
-- [ ] No secrets (Supabase keys, tokens, passwords) in the diff
-- [ ] Docs / README updated if behavior or setup changed
+<!-- CI already runs typecheck, lint, core + web tests, the SOLID/DRY boundary
+     checks, and the build. Only what CI cannot see is listed here. -->
 
-## SOLID checklist
+- [ ] Tests cover the new behaviour, and would fail without this change
+- [ ] No secrets (Supabase keys, tokens, passwords) anywhere in the diff
+- [ ] Docs / README / `CHANGELOG.md` updated if behaviour or setup changed
+- [ ] Architecture holds: domain and application layers import no Supabase;
+      wiring stays in the composition root (see `docs/DESIGN.md`)
 
-- [ ] **No Supabase in UI** — no `@supabase/*` imports under `features/**/ui/**`
-- [ ] **No cross-feature `ui/` imports** — import via feature `index.ts` or `@thesis/core`
-- [ ] **New repo has contract test** — shared contract suite + in-memory test run
-- [ ] **Business logic not in bootstrap/components** — rules in use-cases; bootstrap wires only
+## Database changes
 
-## DRY checklist
+<!-- Delete this section if the PR touches no migrations. -->
 
-- [ ] **Share matching** — `shareCoversResource` / `shareAllowsComment` in use-cases only, not UI
-- [ ] **Pinned owner names** — `loadPinnedOwnerNames()` in screens, not `buildMemberNameMap` loops
-- [ ] **Pin merge** — `Load*ScreenUseCase` + `mergePinnedScreenData`, not inline in React
-- [ ] **Screen data** — multi-repo loads in use-cases wired in `bootstrap.ts`, not in UI
+- [ ] Migration is **additive and forward-only** — no edits to an already-applied file
+- [ ] RLS policies added or reviewed for every new table
+- [ ] Says below whether it has been applied to the hosted database
 
-## Environment (when touching dashboard, E2EE, or sharing)
+## Breaking changes
 
-- [ ] `supabase db push` applied on the target database (through latest migration)
-- [ ] Dashboard loads with cards; crypto tables present if testing E2EE (`0037+`)
+<!-- Anything changing an API, a stored shape, or existing behaviour.
+     Write "None" if there are none. -->
+
+None.

@@ -87,5 +87,5 @@ The web app ships on `main`. See [`release.md`](release.md).
 
 [Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.0.1...HEAD
 [0.0.1]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.0.1
-[1.0.4]: https://github.com/Satwik-Miyyapuram/thesis_tracker/compare/v1.0.3...v1.0.4
-[1.0.3]: https://github.com/Satwik-Miyyapuram/thesis_tracker/compare/v1.0.1...v1.0.3
+[1.0.4]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v1.0.1...v1.0.3

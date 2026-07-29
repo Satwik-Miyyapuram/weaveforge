@@ -1,0 +1,93 @@
+name: Bug report
+description: Something isn't working as expected
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file this.
+
+        **Do not paste Supabase keys, API tokens, or passwords** into any field below.
+        For a security vulnerability, use a
+        [private advisory](https://github.com/Satwik-Miyyapuram/weaveforge/security/advisories/new)
+        instead of this form.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Where does the problem appear?
+      options:
+        - Web app (apps/web)
+        - PDF reader / annotations
+        - Python SDK (python/)
+        - Database / migrations (supabase/)
+        - Zotero or Overleaf integration
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What went wrong, and what did you expect instead?
+      placeholder: |
+        Expected: the highlight stays on the sentence I selected.
+        Actual: it covers the whole line.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The smallest sequence that shows the problem.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release tag, or `git rev-parse --short HEAD`.
+      placeholder: v0.5.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Only the parts relevant to your report.
+      value: |
+        - OS / browser:
+        - Node version:
+        - Python version (SDK only):
+        - Deployment: hosted / self-hosted Supabase / self-hosted Postgres
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, screenshots, or console output
+      description: Rendered as code — no backticks needed. Redact any secrets first.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for a duplicate.
+          required: true
+        - label: This report contains no keys, tokens, or passwords.
+          required: true
