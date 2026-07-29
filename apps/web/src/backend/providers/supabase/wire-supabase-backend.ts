@@ -254,7 +254,17 @@ export function wireSupabaseBackend(
     pid,
     { resourceType: "milestone" },
   );
-  const memberRepository = new SupabaseMemberRepository(db, session);
+  // The only repository that was not cached. Its reads hit `profiles`, whose
+  // RLS predicate calls the recursive `lab_root` per row — measured at ~1.8s
+  // against a real database, dwarfing every other query on a screen load. Five
+  // screens await it before rendering, and it was refetched on each of them.
+  // Membership does not change during a session, so it caches like the rest.
+  const memberRepository = cacheRepo(
+    new SupabaseMemberRepository(db, session),
+    ["getMine", "listTeam", "listDirectory", "listLab"],
+    [],
+    pid,
+  );
   const supervisionRepository = new SupabaseSupervisionRepository(db);
   const projectBibliographyCollection = new ProjectZoteroStore(db);
   const rawBlobStore = wireStorage({ supabaseDb: db });
