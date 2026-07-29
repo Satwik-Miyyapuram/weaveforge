@@ -8,6 +8,10 @@
     "packages/*",
     "apps/*"
   ],
+  "engines": {
+    "//": "Node 22+ for a global WebSocket. supabase-js constructs a realtime client on createClient, and on Node 20 that throws before any query runs.",
+    "node": ">=22"
+  },
   "scripts": {
     "build:core": "npm run build --workspace @thesis/core",
     "test:core": "npm run test --workspace @thesis/core",
