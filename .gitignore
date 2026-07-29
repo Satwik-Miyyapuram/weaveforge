@@ -76,3 +76,8 @@ apps/web/twa/store_icon.png
 # playwright (root)
 test-results/
 .design-sync
+
+# OS junk
+desktop.ini
+Thumbs.db
+.DS_Store

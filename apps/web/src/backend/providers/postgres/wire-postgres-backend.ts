@@ -33,6 +33,8 @@ import type {
   IAnnotationQuotationTypeRepository,
   ILabSnapshotRepository,
   IPaperFieldRepository,
+  IReaderAnnotationSink,
+  IReaderAnnotationSource,
 } from "@thesis/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@thesis/core";
@@ -76,6 +78,7 @@ import { PostgresCitationAlertTrackRepository } from "./repositories/citation-al
 import { PostgresAnnotationPinRepository } from "./repositories/annotation-pin-repository";
 import { PostgresAnnotationQuotationTypeRepository } from "./repositories/annotation-quotation-type-repository";
 import { PostgresLabSnapshotRepository } from "./repositories/lab-snapshot-repository";
+import { PostgresReaderAnnotationRepository } from "./repositories/reader-annotation-repository";
 import { PostgresPaperFieldRepository } from "./repositories/paper-field-repository";
 import { PostgresMemberRepository } from "./repositories/member-repository";
 import { PostgresSupervisionRepository } from "./repositories/supervision-repository";
@@ -270,6 +273,13 @@ export function wirePostgresBackend(
     pid,
     { resourceType: "project" },
   );
+  const readerAnnotationRepository = cacheRepo(
+    new PostgresReaderAnnotationRepository(pg, projectContext, session),
+    ["list"],
+    ["create", "update", "remove"],
+    pid,
+    { resourceType: "paper" },
+  );
   const paperFieldRepository: IPaperFieldRepository = cacheRepo(
     new PostgresPaperFieldRepository(pg, projectContext, session),
     ["listDefs", "listValuesForPaper", "listValuesForProject"],
@@ -315,6 +325,7 @@ export function wirePostgresBackend(
     annotationPinRepository,
     annotationQuotationTypeRepository,
     labSnapshotRepository,
+    readerAnnotationRepository,
     paperFieldRepository,
   };
 }

@@ -449,6 +449,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       citationAlerts,
       annotationPins: backend.annotationPinRepository,
       annotationQuotationTypes: backend.annotationQuotationTypeRepository,
+      readerAnnotations: backend.readerAnnotationRepository,
       paperFields: managePaperFields,
       reportSections: reportSectionRepository,
     }),

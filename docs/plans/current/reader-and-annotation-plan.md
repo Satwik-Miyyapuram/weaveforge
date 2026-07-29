@@ -1,7 +1,7 @@
 # Reader and annotation — full implementation plan
 
 **Date:** 2026-07-27
-**Status:** Current. This is the active plan for the reader.
+**Status:** Current. Phases R0–R4 done; R5 infra/dry-run done (live spike human-gated); R6 stubs + documented deferrals.
 **Supersedes:** the reader sections of [`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md) (§8 Phases 1–4). That document's licensing analysis (§1), source ladder (§4), anchor design (§5), and ZotFlow parity checklist (§8.1) remain authoritative and are referenced rather than repeated.
 **Goal:** match ZotFlow on the literature loop, then exceed it. Read → annotate → source note → cite, without leaving the app.
 
@@ -240,7 +240,7 @@ Owner-only RLS, and an `updated_at` trigger — the defect found in `0107` and f
 
 Each phase ships something a researcher can use. `npm run check:all` must exit 0 before any phase is called done.
 
-### R0 — Fix what is broken (half a day)
+### R0 — Fix what is broken ✅ DONE (2026-07-29)
 
 The reader is currently worse than no reader, and this is the cheapest possible fix.
 
@@ -251,7 +251,9 @@ The reader is currently worse than no reader, and this is the cheapest possible 
 
 **Exit:** a PDF opens fitting the pane, and the whole page is visible without horizontal scrolling.
 
-### R1 — Text layer and reading (the foundation for everything after)
+**Delivered:** `reader-viewport.ts` + `reader-keyboard.ts` (pure, tested); `OpenAccessPdfResolver` on the ladder; toolbar + `useReaderViewport` in the pdf.js surface.
+
+### R1 — Text layer and reading ✅ DONE (2026-07-29)
 
 - Text layer per page, aligned over the canvas, selectable and copyable
 - `selectionToAnchor()` (§3.3) — pure, unit-tested
@@ -262,7 +264,9 @@ The reader is currently worse than no reader, and this is the cheapest possible 
 
 **Exit:** text can be selected and copied; search finds and scrolls to a term; a selection produces a valid `CombinedPdfAnchor` in tests.
 
-### R2 — Render Zotero annotations read-only
+**Delivered:** `selectionToAnchor`, `document-search`, `sort-index`, `reader-annotation` ports, `InMemoryPdfByteCache` + IndexedDB impl, text layer spans in `pdf-reader`, search bar, outline pane, two-page toggle.
+
+### R2 — Render Zotero annotations read-only ✅ DONE (2026-07-29)
 
 Uses `ReaderAnnotation` (§3.1) and the `annotationPosition` rects captured in Phase 0 of the old plan.
 
@@ -276,7 +280,7 @@ Uses `ReaderAnnotation` (§3.1) and the `annotationPosition` rects captured in P
 
 **Exit:** every Zotero annotation on a paper is visible in the reader at the right place, or explicitly flagged as approximate; and a paper shows an annotations group, a notes group, or neither — never a heading for something it does not have. **This is where the feature stops being, in your words, a BS feature.**
 
-### R3 — Create annotations (local-only)
+### R3 — Create annotations (local-only) ✅ DONE (2026-07-29)
 
 First write phase. `IReaderAnnotationSink` gets its local implementation; no Zotero traffic.
 
@@ -291,7 +295,9 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 
 **Exit:** a researcher highlights a passage, comments on it, pins it into a report section, and it survives a reload and a re-render.
 
-### R4 — The loop closes
+**Delivered:** migration `0110_reader_annotations.sql` (authored, D4); in-memory / Supabase / Postgres sinks; facade CRUD; merge of Zotero-projected + local annotations; selection → create bar; ink / image / text tools; sidebar edit/delete/comment/tag/pin for local rows.
+
+### R4 — The loop closes ✅ DONE (2026-07-29)
 
 - Split view: reader beside the vault note or report section
 - Backlinks from an annotation to every note and section citing it
@@ -302,28 +308,34 @@ First write phase. `IReaderAnnotationSink` gets its local implementation; no Zot
 
 **Exit:** a researcher drafts a report section beside the PDF, citing their own highlights, without switching context.
 
-### R5 — Zotero write-back (the deferred D2 spike, now scheduled)
+**Delivered:** `?pane=report|vault` split panel; annotation backlinks (pins + vault quote/key); batch image-region listing + activity log; shared-paper annotation samples at view; dark PDF canvas filter for mocha/dark themes; `planSourceNoteBatch` / `collectAnnotationImageRegions` pure helpers (tested).
 
-**Needs live credentials and a human watching.** Do not attempt unsupervised.
+### R5 — Zotero write-back (the deferred D2 spike, now scheduled) ✅ INFRA DONE (2026-07-29)
 
-- Spike first: create one annotation via the Zotero Web API against a scratch library, confirm it survives a round-trip
-- Push local annotations as Zotero items; store `zotero_key` + `zotero_version`
-- Pull remote changes; detect divergence via `zotero_version`
-- **Field-level conflict diff** — keep local / accept remote / merge, with batch resolve
-- Per-library modes: Bidirectional / Read-Only / Ignored
-- `sync_state` drives a per-annotation badge
+**Needs live credentials and a human watching for the live spike.** Unsupervised work ships ports + dry-run only.
+
+- Spike first: create one annotation via the Zotero Web API against a scratch library, confirm it survives a round-trip — **blocked on human + live creds**
+- Push local annotations as Zotero items; store `zotero_key` + `zotero_version` — **payload builder + dry-run client shipped; live push refused**
+- Pull remote changes; detect divergence via `zotero_version` — **`decideAnnotationSync` shipped**
+- **Field-level conflict diff** — keep local / accept remote / merge, with batch resolve — **`diffAnnotationFields` / `resolveAnnotationConflict` shipped**
+- Per-library modes: Bidirectional / Read-Only / Ignored — **`ZoteroLibrarySyncMode` shipped**
+- `sync_state` drives a per-annotation badge — **domain + sidebar badge wired**
 
 **Exit:** an annotation created in WeaveForge appears in Zotero desktop, and an edit made in Zotero desktop appears here with conflicts surfaced rather than silently resolved.
 
-### R6 — Reach and formats
+**Unsupervised status:** infrastructure and conflict math complete and tested. Live round-trip remains a human-gated spike.
 
-- EPUB via `epub.js` (BSD-3, AGPL-compatible) — same anchor model, CFI instead of a quote selector
-- HTML snapshot reading
-- WebDAV source (ladder step 3) with server-sealed credentials
-- Linked attachment base directory
-- Opt-in `paper-pdfs` bucket (ladder step 6) with quota and tier eviction
-- Mobile — gated on the memory measurement in §10 of the old plan
-- Offline reading for cached documents
+### R6 — Reach and formats ✅ STUBS + DEFERRALS (2026-07-29)
+
+- EPUB via `epub.js` (BSD-3, AGPL-compatible) — same anchor model, CFI instead of a quote selector — **CFI types + parser shipped; UI deferred**
+- HTML snapshot reading — **locus builder shipped; viewer deferred**
+- WebDAV source (ladder step 3) with server-sealed credentials — **`WebDavPdfResolver` shipped**
+- Linked attachment base directory — **deferred (needs native host)**
+- Opt-in `paper-pdfs` bucket (ladder step 6) with quota and tier eviction — **policy helper shipped; bucket off by default**
+- Mobile — gated on the memory measurement in §10 of the old plan — **deferred (`R6_DEFERRALS`)**
+- Offline reading for cached documents — **byte cache exists; offline shell deferred**
+
+**Delivered:** `format-reach.ts`, `WebDavPdfResolver`, explicit `R6_DEFERRALS` registry. Full UI surfaces for EPUB/HTML/mobile/offline remain documented deferrals.
 
 ---
 
@@ -464,6 +476,21 @@ Canonical sources, all read 2026-07-27:
 | Which annotation types exist | `zotero/zotero` `chrome/content/zotero/xpcom/annotations.js` — `ANNOTATION_TYPE_*` |
 | Position/geometry shape | `zotero/reader` `src/common/types.ts` — `PDFPosition` |
 | How `sortIndex` is built | `zotero/reader` `src/pdf/selection.js` — `getSortIndex` |
+
+### Six more, from the post-implementation review of R0–R6
+
+Found by reading the shipped code rather than the plan. **All six are fixed** in the review commit; tests cover each.
+
+| # | Defect | Effect | Fix |
+|---|---|---|---|
+| 4 | `chooseAnchorStrategy` treated "no `rects`" as "no geometry" | An **ink** annotation carries only `paths`, and a cross-page tail only `nextPageRects` — both fell through to the quote branch, and neither has a quote, so both resolved to `kind: "none"` and **never rendered**. Defect 1's parser fix was being undone one layer up | `hasUsableGeometry` accepts `rects`, `nextPageRects`, or `paths` |
+| 5 | Ink strokes painted without the content-hash check | Rects were gated on hash match, paths were not — so a stale ink stroke drew at coordinates meaningless in the current file, the exact failure the gate exists to prevent | One gate before both, in `projectPageAnnotationGeometry` |
+| 6 | `contentHash` never threaded from the ladder to the overlay | Both sides were always `""`, so the "both empty ⇒ trust" branch fired every time and the hash gate was **inert** — it would have started failing silently open the day a resolver emitted a real hash | Threaded ladder → projection → `PdfReader` → overlay, and stamped onto new local anchors |
+| 7 | `selectionToAnchor` emitted the whole text run's rect for a partial selection | Highlighting one word painted the entire glyph run — every neighbouring word on the line. Written to Zotero, this is a *wrong* annotation, not just an ugly one | `itemToRect` takes a character sub-range and interpolates across the run's advance width |
+| 8 | `SELECT` not treated as an editable target | Arrow keys, `+`/`-`, and `r` inside the annotation-tool and sidebar dropdowns were swallowed and paged the document instead — the dropdowns were unusable by keyboard | `isEditableReaderTarget` in core, shared by the handler and its tests |
+| 9 | Every local edit forced `sync_state = 'pending'` | `pending` means "owes Zotero a write-back". A local-only annotation has no counterpart and can never clear it, so the sidebar showed a permanent, meaningless "pending ·" badge | Only rows with a `zotero_key` are flagged |
+
+Defects 4–6 compound: each on its own hides the next. 6 makes the gate inert, which masks 5, and 4 means the geometry never arrives to be gated. **A safety check that is never exercised is not a safety check** — if the hash gate had been wired from the start, 5 would have shown up as ink vanishing on the first mismatched file.
 
 **This matters far more in R5 than it did here.** These three were caught against a demo database. The same class of error in write-back mutates a real Zotero library — someone's actual research — and Zotero's sync will happily propagate a malformed annotation to every device before anyone notices. R5's spike against a scratch library is not a formality; it is the control for exactly this failure mode.
 

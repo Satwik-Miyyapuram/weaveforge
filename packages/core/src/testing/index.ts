@@ -23,6 +23,7 @@ export { InMemoryCitationAlertTrackRepository } from "./in-memory-citation-alert
 export { InMemoryAnnotationPinRepository } from "./in-memory-annotation-pin-repository.js";
 export { InMemoryAnnotationQuotationTypeRepository } from "./in-memory-annotation-quotation-type-repository.js";
 export { InMemoryLabSnapshotRepository } from "./in-memory-lab-snapshot-repository.js";
+export { InMemoryReaderAnnotationRepository } from "./in-memory-reader-annotation-repository.js";
 export { InMemoryPaperFieldRepository } from "./in-memory-paper-field-repository.js";
 export { InMemorySettingsRepository } from "./in-memory-settings-repository.js";
 export { InMemoryBlobRegistry } from "./in-memory-blob-registry.js";

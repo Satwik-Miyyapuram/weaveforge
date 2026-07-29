@@ -1761,6 +1761,9 @@ function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: boolean
 
   if (anns.length === 0) return null;
 
+  const pageAnnotations = anns.filter((a) => a.kind !== "note");
+  const zoteroNotes = anns.filter((a) => a.kind === "note");
+
   async function copyCite(a: StoredAnnotation) {
     const quote = (a.text ?? a.comment ?? "").trim();
     if (!quote) return;
@@ -1802,68 +1805,114 @@ function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: boolean
 
   return (
     <div className="annotations">
-      <div className="muted annotations-head">
-        Zotero annotations & notes ({anns.length}) · read-only, synced from Zotero
-        {msg ? ` · ${msg}` : ""}
-      </div>
-      <ul className="annotation-list">
-        {anns.map((a, i) => (
-          <li key={a.key ?? i} className="annotation">
-            {a.color && <span className="annotation-swatch" style={{ background: a.color }} aria-hidden />}
-            <div className="annotation-body">
-              {a.kind === "note" && <span className="muted">Zotero note</span>}
-              {a.key && quotationTypes.get(a.key) && (
-                <span className="annotation-quote-type muted">
-                  {QUOTATION_TYPE_LABELS[quotationTypes.get(a.key)!]}
-                </span>
-              )}
-              {a.text && <p className="annotation-text">{a.text}</p>}
-              {a.comment && <p className="annotation-comment">{a.comment}</p>}
-              {a.page && <p className="muted">p.{a.page}</p>}
-              {a.tags && a.tags.length > 0 && (
-                <div className="tag-chips">
-                  {a.tags.map((t) => <span key={t} className="tag-chip">#{t}</span>)}
-                </div>
-              )}
-              {(a.text || a.comment) && (
-                <div className="annotation-actions">
-                  <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
-                    Copy quote + cite
-                  </button>
-                  {a.key && !readOnly && (
-                    <>
-                      <Select
-                        className="annotation-quote-select"
-                        aria-label="Quotation type"
-                        value={quotationTypes.get(a.key) ?? ""}
-                        disabled={busyKey === a.key}
-                        onChange={(event) => void setQuotationType(a.key!, event.target.value)}
-                      >
-                        <option value="">Quotation type</option>
-                        {QUOTATION_TYPES.map((type) => (
-                          <option key={type} value={type}>{QUOTATION_TYPE_LABELS[type]}</option>
-                        ))}
-                      </Select>
-                      <Select
-                        className="annotation-pin-select"
-                        aria-label="Pin annotation to report section"
-                        value={pins.get(a.key) ?? ""}
-                        disabled={busyKey === a.key}
-                        onChange={(event) => void setPin(a.key!, event.target.value || null)}
-                      >
-                        <option value="">Unpinned</option>
-                        {sections.map((section) => (
-                          <option key={section.id} value={section.id}>{section.title}</option>
-                        ))}
-                      </Select>
-                    </>
+      {msg && <div className="muted annotations-head">{msg}</div>}
+      {pageAnnotations.length > 0 && (
+        <>
+          <div className="muted annotations-head">
+            Annotations ({pageAnnotations.length}) · read-only, synced from Zotero
+          </div>
+          <ul className="annotation-list">
+            {pageAnnotations.map((a, i) => (
+              <li key={a.key ?? `ann-${i}`} className="annotation">
+                {a.color && (
+                  <span className="annotation-swatch" style={{ background: a.color }} aria-hidden />
+                )}
+                <div className="annotation-body">
+                  {a.key && quotationTypes.get(a.key) && (
+                    <span className="annotation-quote-type muted">
+                      {QUOTATION_TYPE_LABELS[quotationTypes.get(a.key)!]}
+                    </span>
+                  )}
+                  {a.text && <p className="annotation-text">{a.text}</p>}
+                  {a.comment && <p className="annotation-comment">{a.comment}</p>}
+                  {a.page && <p className="muted">p.{a.page}</p>}
+                  {a.tags && a.tags.length > 0 && (
+                    <div className="tag-chips">
+                      {a.tags.map((t) => (
+                        <span key={t} className="tag-chip">
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {(a.text || a.comment) && (
+                    <div className="annotation-actions">
+                      <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
+                        Copy quote + cite
+                      </button>
+                      {a.key && !readOnly && (
+                        <>
+                          <Select
+                            className="annotation-quote-select"
+                            aria-label="Quotation type"
+                            value={quotationTypes.get(a.key) ?? ""}
+                            disabled={busyKey === a.key}
+                            onChange={(event) => void setQuotationType(a.key!, event.target.value)}
+                          >
+                            <option value="">Quotation type</option>
+                            {QUOTATION_TYPES.map((type) => (
+                              <option key={type} value={type}>
+                                {QUOTATION_TYPE_LABELS[type]}
+                              </option>
+                            ))}
+                          </Select>
+                          <Select
+                            className="annotation-pin-select"
+                            aria-label="Pin annotation to report section"
+                            value={pins.get(a.key) ?? ""}
+                            disabled={busyKey === a.key}
+                            onChange={(event) => void setPin(a.key!, event.target.value || null)}
+                          >
+                            <option value="">Unpinned</option>
+                            {sections.map((section) => (
+                              <option key={section.id} value={section.id}>
+                                {section.title}
+                              </option>
+                            ))}
+                          </Select>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {zoteroNotes.length > 0 && (
+        <>
+          <div className="muted annotations-head">
+            Notes from Zotero ({zoteroNotes.length}) · read-only
+          </div>
+          <ul className="annotation-list">
+            {zoteroNotes.map((a, i) => (
+              <li key={a.key ?? `note-${i}`} className="annotation">
+                <div className="annotation-body">
+                  {a.text && <p className="annotation-text">{a.text}</p>}
+                  {a.comment && <p className="annotation-comment">{a.comment}</p>}
+                  {a.tags && a.tags.length > 0 && (
+                    <div className="tag-chips">
+                      {a.tags.map((t) => (
+                        <span key={t} className="tag-chip">
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {(a.text || a.comment) && (
+                    <div className="annotation-actions">
+                      <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
+                        Copy quote + cite
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

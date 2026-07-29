@@ -131,7 +131,7 @@ test("chooseAnchorStrategy ignores empty or missing rect arrays even when hash m
   );
 });
 
-test("chooseAnchorStrategy ignores empty hashes and whitespace-only quotes", () => {
+test("chooseAnchorStrategy trusts rects when both hashes are empty (local ann)", () => {
   assert.deepEqual(
     chooseAnchorStrategy(
       {
@@ -141,10 +141,75 @@ test("chooseAnchorStrategy ignores empty hashes and whitespace-only quotes", () 
       },
       "",
     ),
-    { kind: "quote", locus: locus("quote"), confidence: "low" },
+    {
+      kind: "rects",
+      position: { pageIndex: 0, rects: [[1, 2, 3, 4]] },
+      confidence: "high",
+    },
   );
   assert.deepEqual(
     chooseAnchorStrategy({ locus: locus("   ") }, "abc"),
     { kind: "none", confidence: "low" },
+  );
+});
+
+test("chooseAnchorStrategy does not trust rects when only one hash is set", () => {
+  assert.deepEqual(
+    chooseAnchorStrategy(
+      {
+        contentHash: "abc",
+        zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] },
+        locus: locus("quote"),
+      },
+      "",
+    ),
+    { kind: "quote", locus: locus("quote"), confidence: "low" },
+  );
+});
+
+test("chooseAnchorStrategy trusts ink paths as geometry when rects are absent", () => {
+  // An ink annotation carries `paths` and no rects, and has no text to quote.
+  // Treating "no rects" as "no geometry" made every ink stroke unrenderable.
+  const anchor: CombinedPdfAnchor = {
+    contentHash: "abc",
+    zoteroPosition: { pageIndex: 3, paths: [[10, 20, 30, 40]] },
+  };
+  assert.deepEqual(chooseAnchorStrategy(anchor, "abc"), {
+    kind: "rects",
+    position: { pageIndex: 3, paths: [[10, 20, 30, 40]] },
+    confidence: "high",
+  });
+});
+
+test("chooseAnchorStrategy trusts a nextPageRects-only tail", () => {
+  // The spill of a highlight that began on the previous page.
+  const anchor: CombinedPdfAnchor = {
+    zoteroPosition: { pageIndex: 4, nextPageRects: [[0, 700, 300, 720]] },
+  };
+  assert.equal(chooseAnchorStrategy(anchor, "").kind, "rects");
+});
+
+test("chooseAnchorStrategy still rejects ink paths on a hash mismatch", () => {
+  const anchor: CombinedPdfAnchor = {
+    contentHash: "old",
+    zoteroPosition: { pageIndex: 0, paths: [[1, 2, 3, 4]] },
+  };
+  assert.deepEqual(chooseAnchorStrategy(anchor, "new"), {
+    kind: "none",
+    confidence: "low",
+  });
+});
+
+test("chooseAnchorStrategy rejects malformed paths", () => {
+  assert.equal(
+    chooseAnchorStrategy({ zoteroPosition: { pageIndex: 0, paths: [[1, 2]] } }, "").kind,
+    "none",
+  );
+  assert.equal(
+    chooseAnchorStrategy(
+      { zoteroPosition: { pageIndex: 0, paths: [[1, 2, NaN, 4]] } },
+      "",
+    ).kind,
+    "none",
   );
 });

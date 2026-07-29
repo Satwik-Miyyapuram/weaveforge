@@ -1,18 +1,65 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { resolveTextAnchor, type PdfLocus, type AnchorConfidence } from "@thesis/core";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
+import {
+  isEditableReaderTarget,
+  readerKeyboardCommand,
+  resolveTextAnchor,
+  type PageTextGeometry,
+  type PdfLocus,
+  type AnchorConfidence,
+  type ReaderContainerSize,
+  type ReaderPageSize,
+  type DocumentPageText,
+  type ReaderAnnotationType,
+} from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl } from "../application/sanitize-reader-url";
+import {
+  pageNumberFromSelection,
+  selectionRangeFromDom,
+} from "../application/dom-selection-range";
+import {
+  draftFromTextSelection,
+  draftImageRegion,
+  draftInkAnnotation,
+  draftTextBox,
+} from "../application/draft-local-annotation";
+import {
+  annotationPinKey,
+  READER_ANNOTATION_COLORS,
+  type ReaderCreateTool,
+} from "../application/reader-annotation-helpers";
+import { useReaderViewport } from "./use-reader-viewport";
+import { ReaderToolbar } from "./reader-toolbar";
+import { ReaderSearchBar } from "./reader-search-bar";
+import { ReaderOutline, type ReaderOutlineItem } from "./reader-outline";
+import { AnnotationOverlay } from "./annotation-overlay";
+import { AnnotationSidebar, type ReportSectionOption } from "./annotation-sidebar";
+import { SelectionCreateBar } from "./selection-create-bar";
+import type { QuotationType, ReaderAnnotation } from "@thesis/core";
+import {
+  darkPdfCanvasFilter,
+  shouldUseDarkPdfRendering,
+} from "../application/reader-pdf-theme";
+import {
+  backlinksForAnnotation,
+  findAnnotationBacklinks,
+  type AnnotationBacklinkHit,
+} from "../application/annotation-backlinks";
 
 /**
- * Read-only pdf.js render surface (Phase D). Dynamically imports pdf.js so no
- * bytes reach first paint on non-reader routes; the worker runs off the main
- * thread. Pages render lazily as they scroll into view. Given a locus, text is
- * scanned first (no canvas) and only the matched page is painted + highlighted;
- * low confidence is surfaced rather than jumping wrong.
- *
- * This is a provenance-verification surface, not an annotator (D2/D3).
+ * pdf.js render surface. Dynamically imports pdf.js so no bytes reach first
+ * paint on non-reader routes. Viewport defaults to fit-width; anchors stay in
+ * PDF user space and are projected through viewport.transform at render time.
  */
 
 type PdfLib = typeof import("pdfjs-dist");
@@ -38,17 +85,27 @@ interface PageText {
 }
 
 export interface PdfReaderProps {
-  /**
-   * PDF URL passed to pdf.js. May be a same-origin `/api/pdf-proxy?…` rewrite
-   * so cross-origin publishers do not hit CORS.
-   */
   url: string;
-  /** Original http(s) URL for "Open the original PDF" (never a javascript: link). */
   originalUrl?: string;
   locus?: PdfLocus;
   /** 0-based page hint; when present the jump resolves there first. */
   page?: number;
-  scale?: number;
+  /** Projected reader annotations (Zotero and/or local). */
+  annotations?: import("@thesis/core").ReaderAnnotation[];
+  /**
+   * Hash of the PDF being rendered, when the source ladder knows it. Stored
+   * annotation rects are only trusted against a matching hash; empty on both
+   * sides means "unnamed local file", which is trusted.
+   */
+  contentHash?: string;
+  paperTitle?: string;
+  quotationTypes?: Map<string, QuotationType>;
+  /** When set, selection can create local annotations (R3 sink). */
+  paperId?: string;
+  onAnnotationsChange?: (
+    next: ReaderAnnotation[] | ((prev: ReaderAnnotation[]) => ReaderAnnotation[]),
+  ) => void;
+  onActivity?: (kind: string, message: string) => void;
 }
 
 interface JumpState {
@@ -107,17 +164,112 @@ function SafeExternalLink({ href, children }: { href: string; children: ReactNod
   );
 }
 
-export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfReaderProps) {
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return isEditableReaderTarget(target);
+}
+
+async function mapOutline(
+  doc: PdfDocument,
+  nodes: readonly { title?: string; dest?: unknown; items?: unknown[] }[],
+): Promise<ReaderOutlineItem[]> {
+  const out: ReaderOutlineItem[] = [];
+  for (const node of nodes) {
+    let pageNumber: number | null = null;
+    try {
+      if (node.dest) {
+        const dest =
+          typeof node.dest === "string" ? await doc.getDestination(node.dest) : node.dest;
+        if (Array.isArray(dest) && dest[0]) {
+          const idx = await doc.getPageIndex(dest[0] as Parameters<PdfDocument["getPageIndex"]>[0]);
+          pageNumber = idx + 1;
+        }
+      }
+    } catch {
+      pageNumber = null;
+    }
+    const children = Array.isArray(node.items)
+      ? await mapOutline(doc, node.items as { title?: string; dest?: unknown; items?: unknown[] }[])
+      : undefined;
+    out.push({
+      title: node.title?.trim() || "Untitled",
+      pageNumber,
+      ...(children?.length ? { items: children } : {}),
+    });
+  }
+  return out;
+}
+
+export function PdfReader({
+  url,
+  originalUrl,
+  locus,
+  page,
+  annotations = [],
+  contentHash = "",
+  paperTitle = "Paper",
+  quotationTypes,
+  paperId,
+  onAnnotationsChange,
+  onActivity,
+}: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PdfDocument | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
+  const [pageSize, setPageSize] = useState<ReaderPageSize | null>(null);
+  const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
+  const [pageTexts, setPageTexts] = useState<DocumentPageText[]>([]);
+  const [outline, setOutline] = useState<ReaderOutlineItem[]>([]);
+  const [showOutline, setShowOutline] = useState(false);
+  const [spread, setSpread] = useState(false);
+  const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
+  const [createTool, setCreateTool] = useState<ReaderCreateTool>("select");
+  const [createColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
+  const [pendingCreate, setPendingCreate] = useState<{
+    pageNumber: number;
+    quote: string;
+    selection: import("@thesis/core").TextSelectionRange;
+  } | null>(null);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [reportSections, setReportSections] = useState<ReportSectionOption[]>([]);
+  const [pinsByKey, setPinsByKey] = useState<Map<string, string | null>>(new Map());
+  const [pinsList, setPinsList] = useState<
+    { annotationKey: string; reportSectionId: string; paperId: string }[]
+  >([]);
+  const [backlinkHits, setBacklinkHits] = useState<AnnotationBacklinkHit[]>([]);
+  const [darkPdf, setDarkPdf] = useState(false);
+  const [annError, setAnnError] = useState<string | null>(null);
+  const [vaultBacklinkPages, setVaultBacklinkPages] = useState<
+    { id: string; title: string; body: string }[]
+  >([]);
+  const pageGeometries = useRef(new Map<number, PageTextGeometry>());
+  const suppressPageScroll = useRef(false);
+  const inkPath = useRef<number[]>([]);
+  const dragRect = useRef<{
+    pageNumber: number;
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  } | null>(null);
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
   const renderGeneration = useRef(0);
-  // Accept same-origin proxy paths only when the nested target is allowlisted.
+  const canCreate = Boolean(paperId && onAnnotationsChange);
+
+  const viewport = useReaderViewport({
+    initialPage: typeof page === "number" ? page + 1 : 1,
+    pageSize,
+    containerSize,
+    numPages,
+  });
+  const scale = viewport.renderScale;
+  const rotation = viewport.rotation;
+
   const safeUrl = (() => {
     if (url.startsWith("/api/pdf-proxy?")) {
       const original = originalUrlFromProxy(url);
@@ -145,6 +297,21 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
   }, []);
 
   useEffect(() => {
+    const host = containerRef.current;
+    if (!host || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      setContainerSize({
+        width: Math.max(1, host.clientWidth),
+        height: Math.max(1, host.clientHeight),
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [pdf]);
+
+  useEffect(() => {
     let cancelled = false;
     let task: ReturnType<PdfLib["getDocument"]> | null = null;
     renderGeneration.current += 1;
@@ -154,6 +321,9 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     setError(null);
     setPdf(null);
     setNumPages(0);
+    setPageSize(null);
+    setPageTexts([]);
+    setOutline([]);
     setJump({ status: locus ? "searching" : "idle" });
 
     if (!safeUrl) {
@@ -188,9 +358,39 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           return;
         }
         const doc = await task.promise;
-        if (cancelled) return; // cleanup's task.destroy() owns the proxy
+        if (cancelled) return;
+        const first = await doc.getPage(1);
+        if (cancelled) return;
+        const base = first.getViewport({ scale: 1, rotation: 0 });
+        setPageSize({ width: base.width, height: base.height });
         setPdf(doc);
         setNumPages(doc.numPages);
+
+        // Extract text for search + outline (best-effort; never blocks rendering).
+        void (async () => {
+          try {
+            const texts: DocumentPageText[] = [];
+            for (let n = 1; n <= doc.numPages; n++) {
+              if (cancelled) return;
+              const p = await doc.getPage(n);
+              const content = await p.getTextContent();
+              const items = textItemsFromContent(content);
+              texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
+            }
+            if (!cancelled) setPageTexts(texts);
+          } catch {
+            if (!cancelled) setPageTexts([]);
+          }
+        })();
+        void (async () => {
+          try {
+            const raw = await doc.getOutline();
+            if (cancelled) return;
+            setOutline(await mapOutline(doc, raw ?? []));
+          } catch {
+            if (!cancelled) setOutline([]);
+          }
+        })();
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Could not load this PDF in the app.");
@@ -214,14 +414,13 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
     containerRef.current?.querySelectorAll(".pdf-reader-hl").forEach((el) => el.remove());
   }, []);
 
-  // Drop cached canvases when scale changes so highlights stay aligned.
   useEffect(() => {
     renderGeneration.current += 1;
     renderedPages.current.clear();
     renderingPages.current.clear();
     cancelRenderTasks();
     clearHighlights();
-  }, [scale, clearHighlights, cancelRenderTasks]);
+  }, [scale, rotation, clearHighlights, cancelRenderTasks]);
 
   const renderPage = useCallback(
     async (pageNumber: number) => {
@@ -241,7 +440,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           if (!host) return;
           const pdfPage = await pdf.getPage(pageNumber);
           if (generation !== renderGeneration.current) return;
-          const viewport = pdfPage.getViewport({ scale });
+          const viewport = pdfPage.getViewport({ scale, rotation });
           const canvas = host.querySelector("canvas");
           if (!(canvas instanceof HTMLCanvasElement)) return;
           const ctx = canvas.getContext("2d");
@@ -267,6 +466,61 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             return;
           }
+          // Text layer — selectable / copyable; input device for future annotation (R3).
+          let textLayer = host.querySelector<HTMLDivElement>(".pdf-reader-textlayer");
+          if (!textLayer) {
+            textLayer = document.createElement("div");
+            textLayer.className = "pdf-reader-textlayer";
+            host.appendChild(textLayer);
+          }
+          textLayer.replaceChildren();
+          textLayer.style.width = `${Math.floor(viewport.width)}px`;
+          textLayer.style.height = `${Math.floor(viewport.height)}px`;
+          const content = await pdfPage.getTextContent();
+          const lib = await loadPdfLib();
+          const geometryItems: import("@thesis/core").PageTextItem[] = [];
+          let itemIndex = 0;
+          for (const raw of content.items) {
+            const it = raw as {
+              str?: string;
+              transform?: number[];
+              width?: number;
+              height?: number;
+              hasEOL?: boolean;
+            };
+            if (typeof it.str !== "string" || !Array.isArray(it.transform)) continue;
+            geometryItems.push({
+              str: it.str,
+              transform: it.transform,
+              width: typeof it.width === "number" ? it.width : 0,
+              height: typeof it.height === "number" ? it.height : 0,
+              hasEOL: Boolean(it.hasEOL),
+            });
+            const tx = lib.Util.transform(viewport.transform, it.transform);
+            const fontHeight = Math.hypot(tx[2]!, tx[3]!) || (it.height ?? 0) * scale;
+            const width = (it.width ?? 0) * scale;
+            const span = document.createElement("span");
+            span.textContent = it.str;
+            span.setAttribute("data-item-index", String(itemIndex));
+            span.style.position = "absolute";
+            span.style.whiteSpace = "pre";
+            span.style.left = `${tx[4]!}px`;
+            span.style.top = `${tx[5]! - fontHeight}px`;
+            span.style.fontSize = `${Math.max(fontHeight, 1)}px`;
+            span.style.width = `${Math.max(width, 1)}px`;
+            textLayer.appendChild(span);
+            itemIndex += 1;
+          }
+          const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
+          pageGeometries.current.set(pageNumber, {
+            pageIndex: pageNumber - 1,
+            pageWidth: base.width,
+            pageHeight: base.height,
+            items: geometryItems,
+            // Stamp new anchors with the file they were captured against, so
+            // the overlay's trust check keeps working once hashes are real.
+            ...(contentHash ? { contentHash } : {}),
+          });
           renderedPages.current.add(pageNumber);
         } catch {
           /* a failed / cancelled page must not break the rest of the document */
@@ -279,10 +533,9 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       renderingPages.current.set(pageNumber, work);
       await work;
     },
-    [pdf, scale],
+    [pdf, scale, rotation, contentHash],
   );
 
-  /** Text-only scan — no canvas. Returns confidence if the locus matches this page. */
   const matchOnPage = useCallback(
     async (pageNumber: number): Promise<AnchorConfidence | null> => {
       if (!pdf || !locus) return null;
@@ -301,7 +554,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       if (!pdf || !locus) return;
       const lib = await loadPdfLib();
       const pdfPage = await pdf.getPage(pageNumber);
-      const viewport = pdfPage.getViewport({ scale });
+      const pageViewport = pdfPage.getViewport({ scale, rotation });
       const content = await pdfPage.getTextContent();
       const items = textItemsFromContent(content);
       const pageText = buildPageText(items);
@@ -316,7 +569,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       for (const range of pageText.items) {
         if (range.end <= anchor.start || range.start >= anchor.end) continue;
         const item = items[range.index]!;
-        const tx = lib.Util.transform(viewport.transform, item.transform);
+        const tx = lib.Util.transform(pageViewport.transform, item.transform);
         const fontHeight = Math.hypot(tx[2]!, tx[3]!) || item.height * scale;
         const width = (item.width || 0) * scale;
         const left = tx[4]!;
@@ -330,28 +583,58 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
         host.appendChild(hl);
       }
     },
-    [pdf, locus, scale],
+    [pdf, locus, scale, rotation],
   );
 
   useEffect(() => {
     if (!pdf || numPages === 0) return;
     const root = containerRef.current;
     if (!root) return;
+    const ratios = new Map<number, number>();
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
           const n = Number((entry.target as HTMLElement).dataset.page);
-          if (n) void renderPage(n);
+          if (!n) continue;
+          if (entry.isIntersecting) void renderPage(n);
+          ratios.set(n, entry.intersectionRatio);
+        }
+        let bestPage = 0;
+        let bestRatio = 0;
+        for (const [n, ratio] of ratios) {
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            bestPage = n;
+          }
+        }
+        if (bestPage > 0 && bestRatio >= 0.35 && bestPage !== viewport.page) {
+          suppressPageScroll.current = true;
+          viewport.setPage(bestPage);
         }
       },
-      { root, rootMargin: "600px 0px" },
+      { root, rootMargin: "600px 0px", threshold: [0, 0.25, 0.35, 0.5, 0.75, 1] },
     );
     root.querySelectorAll("[data-page]").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [pdf, numPages, renderPage]);
+    // viewport.page / setPage intentionally used inside; omit viewport object
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdf, numPages, renderPage, viewport.page, viewport.setPage]);
 
-  // Jump-to-locus: text-scan first, paint the first hit early, downgrade if ambiguous.
+  // Scroll when the toolbar / keyboard changes the current page.
+  useEffect(() => {
+    if (!pdf || numPages === 0) return;
+    if (suppressPageScroll.current) {
+      suppressPageScroll.current = false;
+      void renderPage(viewport.page);
+      return;
+    }
+    const host = containerRef.current?.querySelector<HTMLElement>(
+      `[data-page="${viewport.page}"]`,
+    );
+    host?.scrollIntoView({ behavior: "smooth", block: "start" });
+    void renderPage(viewport.page);
+  }, [viewport.page, pdf, numPages, renderPage]);
+
   useEffect(() => {
     if (!pdf || !locus) {
       clearHighlights();
@@ -389,6 +672,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
             `[data-page="${match.pageNumber}"]`,
           );
           host?.scrollIntoView({ behavior: "smooth", block: "center" });
+          viewport.setPage(match.pageNumber);
           setJump({
             status: confidence === "high" ? "found" : "low",
             pageNumber: match.pageNumber,
@@ -402,7 +686,7 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           try {
             confidence = await matchOnPage(pageNumber);
           } catch {
-            continue; // skip a bad page; keep scanning
+            continue;
           }
           if (!confidence) continue;
           if (!firstMatch) {
@@ -428,7 +712,6 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           await paintMatch(firstMatch, finalConfidence);
         }
       } catch {
-        // Never overwrite a successful early paint with a false "missed".
         if (!cancelled && !firstMatch) setJump({ status: "missed" });
       }
     })();
@@ -436,7 +719,358 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
       cancelled = true;
       clearHighlights();
     };
+    // viewport.setPage is stable enough; omit viewport object to avoid re-jumps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
+
+  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const command = readerKeyboardCommand({
+      key: event.key,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      altKey: event.altKey,
+      fromEditable: isEditableTarget(event.target),
+    });
+    if (!command) return;
+    event.preventDefault();
+    switch (command.type) {
+      case "zoom_in":
+        viewport.zoomIn();
+        break;
+      case "zoom_out":
+        viewport.zoomOut();
+        break;
+      case "fit_width":
+        viewport.fitWidth();
+        break;
+      case "rotate":
+        viewport.rotateClockwise();
+        break;
+      case "page_home":
+        viewport.setPage(1);
+        break;
+      case "page_end":
+        viewport.setPage(numPages);
+        break;
+      case "page_delta":
+        viewport.setPage(viewport.page + command.delta);
+        break;
+    }
+  }
+
+  useEffect(() => {
+    if (!paperId) {
+      setReportSections([]);
+      setPinsByKey(new Map());
+      setPinsList([]);
+      setVaultBacklinkPages([]);
+      setBacklinkHits([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [sections, pins, vaultPages] = await Promise.all([
+          getContainer().papers.listReportSections(),
+          getContainer().papers.listAnnotationPinsForPaper(paperId),
+          getContainer().vault.listPages().catch(() => []),
+        ]);
+        if (cancelled) return;
+        setReportSections(
+          sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
+        );
+        setPinsByKey(new Map(pins.map((p) => [p.annotationKey, p.reportSectionId])));
+        setPinsList(
+          pins.map((p) => ({
+            annotationKey: p.annotationKey,
+            reportSectionId: p.reportSectionId,
+            paperId: p.paperId,
+          })),
+        );
+        setVaultBacklinkPages(
+          vaultPages.map((p) => ({
+            id: p.id,
+            title: p.title || "Untitled note",
+            body: p.body ?? "",
+          })),
+        );
+      } catch {
+        if (!cancelled) {
+          setReportSections([]);
+          setPinsByKey(new Map());
+          setPinsList([]);
+          setVaultBacklinkPages([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [paperId]);
+
+  useEffect(() => {
+    if (!paperId) {
+      setBacklinkHits([]);
+      return;
+    }
+    setBacklinkHits(
+      findAnnotationBacklinks({
+        annotations,
+        pins: pinsList,
+        sections: reportSections,
+        vaultPages: vaultBacklinkPages,
+      }),
+    );
+  }, [paperId, annotations, pinsList, reportSections, vaultBacklinkPages]);
+
+  useEffect(() => {
+    const readTheme = () => {
+      const root = document.documentElement;
+      const theme = root.getAttribute("data-theme");
+      const mode = root.getAttribute("data-mode");
+      setDarkPdf(mode === "dark" || shouldUseDarkPdfRendering(theme, mode));
+    };
+    readTheme();
+    const observer = new MutationObserver(readTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme", "data-mode"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  function screenToPdf(pageHost: HTMLElement, clientX: number, clientY: number) {
+    const rect = pageHost.getBoundingClientRect();
+    const pageNumber = Number(pageHost.dataset.page);
+    const x = (clientX - rect.left) / scale;
+    const yScreen = (clientY - rect.top) / scale;
+    const pageHeight =
+      pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize?.height ?? 0;
+    return { x, y: pageHeight - yScreen };
+  }
+
+  function onSelectionMouseUp() {
+    if (!canCreate || createTool !== "select" || rotation !== 0) return;
+    const root = containerRef.current;
+    if (!root) return;
+    const sel = window.getSelection();
+    const pageNumber = pageNumberFromSelection(sel, root);
+    if (!pageNumber) {
+      setPendingCreate(null);
+      return;
+    }
+    const layer = root.querySelector(`[data-page="${pageNumber}"] .pdf-reader-textlayer`);
+    if (!layer) {
+      setPendingCreate(null);
+      return;
+    }
+    const range = selectionRangeFromDom(sel, layer);
+    const geometry = pageGeometries.current.get(pageNumber);
+    if (!range || !geometry) {
+      setPendingCreate(null);
+      return;
+    }
+    const draft = draftFromTextSelection({
+      type: "highlight",
+      color: createColor,
+      selection: range,
+      page: geometry,
+    });
+    if (!draft) {
+      setPendingCreate(null);
+      return;
+    }
+    setPendingCreate({
+      pageNumber,
+      quote: draft.text ?? "",
+      selection: range,
+    });
+  }
+
+  async function persistDraft(
+    draft: import("@thesis/core").NewReaderAnnotation,
+  ): Promise<void> {
+    if (!paperId || !onAnnotationsChange) return;
+    setCreateBusy(true);
+    try {
+      const created = await getContainer().papers.createReaderAnnotation(paperId, draft);
+      onAnnotationsChange((prev) => [...prev.filter((a) => a.id !== created.id), created]);
+      onActivity?.("annotate", `Created ${created.type}`);
+      setSelectedAnnId(created.id);
+      setPendingCreate(null);
+      setAnnError(null);
+      window.getSelection()?.removeAllRanges();
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Could not save the annotation.");
+    } finally {
+      setCreateBusy(false);
+    }
+  }
+
+  async function createFromPending(
+    type: Extract<ReaderAnnotationType, "highlight" | "underline" | "note">,
+    color: string,
+  ) {
+    if (!pendingCreate) return;
+    const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
+    if (!geometry) return;
+    let comment = "";
+    if (type === "note") {
+      const typed = window.prompt("Sticky note comment");
+      if (typed == null) return;
+      comment = typed.trim();
+    }
+    const draft = draftFromTextSelection({
+      type,
+      color,
+      selection: pendingCreate.selection,
+      page: geometry,
+      comment,
+    });
+    if (!draft) return;
+    await persistDraft(draft);
+  }
+
+  async function updateLocal(
+    id: string,
+    patch: { comment?: string; tags?: string[]; color?: string },
+  ) {
+    if (!onAnnotationsChange) return;
+    try {
+      const updated = await getContainer().papers.updateReaderAnnotation(id, patch);
+      onAnnotationsChange((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      onActivity?.("annotate", "Updated annotation");
+      setAnnError(null);
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Could not update the annotation.");
+    }
+  }
+
+  async function removeLocal(id: string) {
+    if (!onAnnotationsChange) return;
+    if (!window.confirm("Delete this local annotation?")) return;
+    try {
+      await getContainer().papers.removeReaderAnnotation(id);
+      onAnnotationsChange((prev) => prev.filter((a) => a.id !== id));
+      onActivity?.("annotate", "Deleted annotation");
+      setAnnError(null);
+      if (selectedAnnId === id) setSelectedAnnId(null);
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Could not delete the annotation.");
+    }
+  }
+
+  async function pinLocal(ann: ReaderAnnotation, sectionId: string | null) {
+    if (!paperId) return;
+    const key = annotationPinKey(ann);
+    try {
+      await getContainer().papers.setAnnotationPin(paperId, key, sectionId);
+      setPinsByKey((prev) => {
+        const next = new Map(prev);
+        if (sectionId) next.set(key, sectionId);
+        else next.delete(key);
+        return next;
+      });
+      setPinsList((prev) => {
+        const without = prev.filter((p) => p.annotationKey !== key);
+        if (!sectionId) return without;
+        return [...without, { annotationKey: key, reportSectionId: sectionId, paperId }];
+      });
+      setAnnError(null);
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Could not pin the annotation.");
+    }
+  }
+
+  function onPagePointerDown(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
+    if (!canCreate || !pageSize) return;
+    if (rotation !== 0) return;
+    if (createTool === "select") return;
+    event.preventDefault();
+    const host = event.currentTarget;
+    const pt = screenToPdf(host, event.clientX, event.clientY);
+    if (createTool === "ink") {
+      inkPath.current = [pt.x, pt.y];
+      host.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (createTool === "image") {
+      dragRect.current = {
+        pageNumber,
+        x0: pt.x,
+        y0: pt.y,
+        x1: pt.x,
+        y1: pt.y,
+      };
+      host.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (createTool === "text") {
+      const text = window.prompt("Text annotation");
+      if (!text?.trim()) return;
+      const draft = draftTextBox({
+        color: createColor,
+        pageIndex: pageNumber - 1,
+        pageHeight: pageSize.height,
+        text: text.trim(),
+        x: pt.x,
+        y: pt.y,
+      });
+      void persistDraft(draft);
+    }
+  }
+
+  function onPagePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!canCreate || rotation !== 0) return;
+    const host = event.currentTarget;
+    const pt = screenToPdf(host, event.clientX, event.clientY);
+    if (createTool === "ink" && inkPath.current.length >= 2) {
+      inkPath.current.push(pt.x, pt.y);
+      return;
+    }
+    if (createTool === "image" && dragRect.current) {
+      dragRect.current.x1 = pt.x;
+      dragRect.current.y1 = pt.y;
+    }
+  }
+
+  function onPagePointerUp(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
+    if (!canCreate || !pageSize || rotation !== 0) return;
+    if (createTool === "ink" && inkPath.current.length >= 4) {
+      const pageHeight =
+        pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
+      const draft = draftInkAnnotation({
+        color: createColor,
+        pageIndex: pageNumber - 1,
+        pageHeight,
+        path: [...inkPath.current],
+      });
+      inkPath.current = [];
+      if (draft) void persistDraft(draft);
+      return;
+    }
+    inkPath.current = [];
+    if (createTool === "image" && dragRect.current) {
+      const d = dragRect.current;
+      dragRect.current = null;
+      if (d.pageNumber !== pageNumber) return;
+      const pageHeight =
+        pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
+      const draft = draftImageRegion({
+        color: createColor,
+        pageIndex: pageNumber - 1,
+        pageHeight,
+        rect: [
+          Math.min(d.x0, d.x1),
+          Math.min(d.y0, d.y1),
+          Math.max(d.x0, d.x1),
+          Math.max(d.y0, d.y1),
+        ],
+      });
+      if (draft) void persistDraft(draft);
+    }
+    void event;
+  }
 
   if (error) {
     return (
@@ -448,7 +1082,14 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
   }
 
   return (
-    <div className="pdf-reader">
+    <div
+      className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}`}
+      ref={rootRef}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      aria-label="PDF reader"
+      style={darkPdf ? ({ ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } as CSSProperties) : undefined}
+    >
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">
           {jump.status === "searching" && "Locating the cited passage…"}
@@ -464,13 +1105,142 @@ export function PdfReader({ url, originalUrl, locus, page, scale = 1.35 }: PdfRe
           )}
         </div>
       )}
-      <div className="pdf-reader-scroll" ref={containerRef}>
-        {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
-        {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
-          <div className="pdf-reader-page" data-page={n} key={n}>
-            <canvas />
+      <ReaderToolbar viewport={viewport} numPages={numPages} />
+      {rotation !== 0 && (
+        <div className="pdf-reader-banner pdf-reader-banner--low" role="status">
+          Annotations and create tools pause while the page is rotated — reset rotation to edit.
+        </div>
+      )}
+      {annError && (
+        <div className="pdf-reader-banner pdf-reader-banner--low" role="alert">
+          {annError}{" "}
+          <button type="button" className="link-btn" onClick={() => setAnnError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+      <div className="pdf-reader-tools">
+        <ReaderSearchBar
+          pages={pageTexts}
+          onJump={(match) => {
+            viewport.setPage(match.pageIndex + 1);
+          }}
+        />
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={() => setShowOutline((v) => !v)}
+        >
+          {showOutline ? "Hide outline" : "Outline"}
+        </button>
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={() => setSpread((v) => !v)}
+        >
+          {spread ? "Single page" : "Two-page"}
+        </button>
+        {canCreate && (
+          <>
+            <select
+              aria-label="Annotation tool"
+              value={createTool}
+              disabled={rotation !== 0}
+              onChange={(e) => setCreateTool(e.target.value as ReaderCreateTool)}
+            >
+              <option value="select">Select</option>
+              <option value="ink">Ink</option>
+              <option value="image">Image region</option>
+              <option value="text">Text box</option>
+            </select>
+            <input
+              type="color"
+              aria-label="Annotation colour"
+              value={createColor}
+              disabled={rotation !== 0}
+              onChange={(e) => setCreateColor(e.target.value)}
+            />
+          </>
+        )}
+      </div>
+      {pendingCreate && canCreate && rotation === 0 && (
+        <SelectionCreateBar
+          pending={pendingCreate}
+          busy={createBusy}
+          color={createColor}
+          onCreate={(type, color) => {
+            setCreateColor(color);
+            void createFromPending(type, color);
+          }}
+          onCancel={() => setPendingCreate(null)}
+        />
+      )}
+      <div
+        className={`pdf-reader-body${
+          showOutline || annotations.length > 0 || canCreate ? " pdf-reader-body--outline" : ""
+        }`}
+      >
+        {(showOutline || annotations.length > 0 || canCreate) && (
+          <div className="pdf-reader-side">
+            {showOutline && (
+              <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
+            )}
+            {(annotations.length > 0 || canCreate) && (
+              <AnnotationSidebar
+                annotations={annotations}
+                quotationTypes={quotationTypes}
+                paperTitle={paperTitle}
+                selectedId={selectedAnnId}
+                canEditLocal={canCreate}
+                reportSections={reportSections}
+                pinsByKey={pinsByKey}
+                backlinks={
+                  selectedAnnId ? backlinksForAnnotation(backlinkHits, selectedAnnId) : []
+                }
+                onUpdateLocal={updateLocal}
+                onRemoveLocal={removeLocal}
+                onPinLocal={pinLocal}
+                onSelect={(id) => {
+                  setSelectedAnnId(id);
+                  const ann = annotations.find((a) => a.id === id);
+                  const pageIdx = ann?.anchor.zoteroPosition?.pageIndex;
+                  if (typeof pageIdx === "number") viewport.setPage(pageIdx + 1);
+                }}
+              />
+            )}
           </div>
-        ))}
+        )}
+        <div
+          className={`pdf-reader-scroll${spread ? " pdf-reader-scroll--spread" : ""}`}
+          ref={containerRef}
+          onMouseUp={onSelectionMouseUp}
+        >
+          {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
+          {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
+            <div
+              className={`pdf-reader-page${createTool !== "select" && canCreate ? " pdf-reader-page--draw" : ""}`}
+              data-page={n}
+              key={n}
+              onPointerDown={(e) => onPagePointerDown(n, e)}
+              onPointerMove={onPagePointerMove}
+              onPointerUp={(e) => onPagePointerUp(n, e)}
+            >
+              <canvas />
+              {pageSize && rotation === 0 && (
+                <AnnotationOverlay
+                  annotations={annotations}
+                  contentHash={contentHash}
+                  pageNumber={n}
+                  scale={scale}
+                  rotation={rotation}
+                  pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
+                  selectedId={selectedAnnId}
+                  onSelect={(id) => setSelectedAnnId(id)}
+                />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

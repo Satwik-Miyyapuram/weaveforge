@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CommentsToggle } from "@/features/sharing/ui/comments-toggle";
 import { SharedPaperImages } from "@/features/sharing/ui/shared-paper-images";
+import { sharedPaperAnnotationSummary } from "@/features/sharing/application/shared-paper-annotations";
 import { AddToLibraryButton } from "@/features/sharing/ui/add-to-library-button";
 import { DuplicateCopyButton } from "@/features/sharing/ui/duplicate-copy-button";
 import { sharedItemHref, sharedItemTypeLabel } from "@/features/sharing/ui/shared-item-routes";
@@ -184,6 +185,7 @@ function SharedPaperCard({
           </span>
         </div>
         <SharedPaperImages metadata={paper.metadata} />
+        <SharedPaperAnnotations metadata={paper.metadata} />
       </Link>
       <div className="card-foot paper-card-foot shared-item-foot">
         <AddToLibraryButton resourceType="paper" resourceId={paper.id} ownerId={ownerId} />
@@ -200,4 +202,22 @@ function SharedPaperCard({
 export function PinnedPaperBadge({ ownerName }: { ownerName?: string }) {
   if (!ownerName) return null;
   return <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>;
+}
+
+function SharedPaperAnnotations({ metadata }: { metadata?: Record<string, unknown> }) {
+  const summary = sharedPaperAnnotationSummary(metadata);
+  if (summary.count === 0) return null;
+  return (
+    <div className="shared-paper-annotations" aria-label="Shared annotations">
+      <span className="metric-chip">
+        <em>annotations</em> {summary.count}
+      </span>
+      {summary.samples.map((s) => (
+        <p key={s.slice(0, 24)} className="muted paper-card-snippet">
+          “{s.slice(0, 120)}
+          {s.length > 120 ? "…" : ""}”
+        </p>
+      ))}
+    </div>
+  );
 }

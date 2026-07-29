@@ -2,6 +2,11 @@ export { PdfReader } from "./ui/pdf-reader-lazy";
 export type { PdfReaderProps } from "./ui/pdf-reader";
 export { buildLocusLink, locusLinkIsResolvable } from "./application/build-locus-link";
 export {
+  resolvePaperPdfSource,
+  paperToPdfSourcePaper,
+  defaultPdfSourceResolvers,
+} from "./application/resolve-paper-pdf-source";
+export {
   sanitizePdfUrl,
   sanitizeReaderHref,
   sanitizeAppHref,
