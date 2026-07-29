@@ -28,7 +28,10 @@ from .features.experiments import (
 )
 from .tracking import track, track_experiment
 
-__version__ = "0.0.1"
+# Hatch reads this as the package version (see pyproject [tool.hatch.version]).
+# The PyPI publish runs off the repo's vX.Y.Z tag, so this must be bumped in
+# step with it — PyPI refuses a re-upload of a version it already has.
+__version__ = "0.5.0"
 
 __all__ = [
     "Experiment",
