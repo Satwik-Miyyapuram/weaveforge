@@ -4095,17 +4095,61 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* PDF reader (R0+). */
 .reader-screen { display: flex; flex-direction: column; min-height: 0; }
 .pdf-reader { display: flex; flex-direction: column; min-height: 0; gap: 8px; outline: none; }
-.pdf-reader-toolbar {
-  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-  padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface);
+/* One control surface. The rows inside are separated by a hairline rather than
+   floating apart, so the reader reads as a single panel at every width. */
+.pdf-reader-chrome {
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  overflow: hidden;
 }
-.pdf-reader-toolbar-label { font-size: 0.85rem; min-width: 3.5rem; text-align: center; }
+.pdf-reader-toolbar,
+.pdf-reader-tools {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  /* Controls stay on one line and the strip scrolls. Wrapping produced four
+     ragged rows on a phone and ate a third of the screen. */
+  flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin;
+}
+.pdf-reader-tools { border-top: 1px solid var(--line); }
+/* Related controls sit in a bordered cluster so grouping is visible, not implied. */
+.pdf-reader-group {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  padding: 2px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-alt);
+}
+.pdf-reader-group .btn-secondary { white-space: nowrap; }
+.pdf-reader-group .btn-secondary.is-active {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  border-color: var(--accent);
+}
+.pdf-reader-icon-btn { min-width: 2rem; font-variant-numeric: tabular-nums; }
+.pdf-reader-toolbar-label {
+  font-size: 0.85rem; min-width: 3.25rem; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 .pdf-reader-page-jump {
-  display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 0.85rem;
+  font-size: 0.85rem;
+  /* Sits at the end of the row on wide screens, inline on narrow ones —
+     `margin-left:auto` left a canyon between it and the fit controls. */
+  margin-left: auto;
 }
 .pdf-reader-page-jump input {
-  width: 4rem; padding: 4px 6px;
+  width: 3.5rem; padding: 4px 6px; text-align: center;
+}
+.pdf-reader-tool-select { padding: 4px 6px; font-size: 0.85rem; }
+.pdf-reader-color-input {
+  width: 2rem; height: 1.85rem; padding: 0; border: none; background: none; cursor: pointer;
+}
+@media (max-width: 720px) {
+  /* "Page 3 / 15" is orientation, not a command. Pushing it to the end of a
+     scrolling strip hides it; lead with it instead. (Pinning it with sticky
+     just parks it on top of whatever scrolls underneath.) */
+  .pdf-reader-page-jump { margin-left: 0; order: -1; }
+  .pdf-reader-toolbar, .pdf-reader-tools { gap: 6px; padding: 5px 6px; }
+  /* Keep a usable field and let the strip scroll rather than crushing the
+     input to a few characters. Scoped through .pdf-reader-chrome so it beats
+     the base rule, which is defined later in this file. */
+  .pdf-reader-chrome .pdf-reader-search { flex: 0 0 auto; }
+  .pdf-reader-chrome .pdf-reader-search input { min-width: 9rem; }
 }
 .pdf-reader-banner {
   padding: 8px 12px; border-radius: 8px; font-size: 0.86rem;
@@ -4114,8 +4158,14 @@ a.related-paper-url:hover { text-decoration: underline; }
 .pdf-reader-banner--low { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
 .pdf-reader-banner--found { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 .pdf-reader-scroll {
-  overflow: auto; max-height: calc(100vh - 260px); display: flex; flex-direction: column;
+  /* dvh, not vh: on mobile the browser's collapsing address bar makes vh taller
+     than the visible area, pushing the last of the page under the chrome. */
+  overflow: auto; max-height: calc(100dvh - 260px); display: flex; flex-direction: column;
   align-items: center; gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: 10px;
+}
+@media (max-width: 720px) {
+  /* Less page chrome above the document, and room for the bottom tab bar. */
+  .pdf-reader-scroll { max-height: calc(100dvh - 210px); padding: 8px; gap: 10px; }
 }
 .pdf-reader-page {
   position: relative;
@@ -4123,19 +4173,25 @@ a.related-paper-url:hover { text-decoration: underline; }
   box-shadow: 0 1px 6px rgba(0,0,0,0.18);
   min-height: 320px; /* keep IntersectionObserver from painting every page at once before layout */
 }
-.pdf-reader-tools {
-  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-}
 .pdf-reader-search {
-  display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1;
+  display: inline-flex; gap: 4px; align-items: center; flex: 1 1 12rem; min-width: 0;
+  padding: 2px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-alt);
 }
 .pdf-reader-search input {
-  min-width: 12rem; flex: 1; padding: 4px 8px;
+  flex: 1; min-width: 6rem; padding: 4px 8px;
 }
+.pdf-reader-search .btn-secondary { white-space: nowrap; }
 .pdf-reader-search-count { font-size: 0.8rem; min-width: 3rem; }
 .pdf-reader-body { display: grid; gap: 8px; min-height: 0; }
 .pdf-reader-body--outline {
-  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+}
+@media (max-width: 860px) {
+  /* A 180px side column beside a PDF leaves neither usable; stack instead. */
+  .pdf-reader-body--outline { grid-template-columns: minmax(0, 1fr); }
+  .pdf-reader-side { order: 2; }
+  .pdf-reader-outline, .pdf-reader-sidebar { max-height: 40dvh; }
 }
 .pdf-reader-outline {
   overflow: auto; max-height: calc(100vh - 300px);
