@@ -97,14 +97,19 @@ export class PostgresReaderAnnotationRepository
          tags = coalesce($6, tags),
          anchor = coalesce($7::jsonb, anchor),
          sort_index = coalesce($8, sort_index),
-         sync_state = 'pending',
+         -- 'pending' means "owes Zotero a write-back". A row with no Zotero
+         -- counterpart can never clear it, so leave local-only rows alone.
+         sync_state = case when zotero_key is null then sync_state else 'pending' end,
          updated_at = now()
        where user_id = auth.uid() and project_id = $1 and id = $2
        returning *`,
       [
         this.projectId,
         id,
-        patch.color?.trim() ?? null,
+        // A blank colour is not a colour. Match the Supabase repository and
+        // fall back to the default rather than writing an empty string that
+        // renders as a transparent highlight.
+        patch.color !== undefined ? patch.color.trim() || "#ffd400" : null,
         patch.text !== undefined ? patch.text.trim() : null,
         patch.comment !== undefined ? patch.comment.trim() : null,
         patch.tags ?? null,
