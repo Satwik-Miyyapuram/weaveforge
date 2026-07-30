@@ -170,6 +170,20 @@ export function BellIcon(props: IconProps) {
   );
 }
 
+/**
+ * Struck-through bell — alerts are unavailable, as opposed to available but
+ * switched off. The plain bell alone could not tell those two apart.
+ */
+export function BellOffIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      <path d="M10 21h4" />
+      <path d="M3 3l18 18" />
+    </Svg>
+  );
+}
+
 /** Document + plus — duplicate into my library (not clipboard). */
 export function DuplicateIcon(props: IconProps) {
   return (
