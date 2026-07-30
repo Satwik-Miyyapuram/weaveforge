@@ -66,6 +66,7 @@ import {
   type AnnotationBacklinkHit,
 } from "../application/annotation-backlinks";
 import { Select } from "@/components/select";
+import { Modal } from "@/components/modal";
 
 /**
  * pdf.js render surface. Dynamically imports pdf.js so no bytes reach first
@@ -89,6 +90,16 @@ function pageScopedLocus(locus: PdfLocus): PdfLocus {
 type DraftShape =
   | { kind: "ink"; pageNumber: number; path: number[] }
   | { kind: "rect"; pageNumber: number; x0: number; y0: number; x1: number; y1: number };
+
+/** A drawn text-annotation region waiting for the user to type its contents. */
+interface PendingTextBox {
+  pageIndex: number;
+  pageHeight: number;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+}
 
 interface TextItemGeometry {
   str: string;
@@ -144,6 +155,18 @@ interface JumpState {
  * accident should not produce an invisible annotation.
  */
 const MIN_TEXT_BOX_PDF_SIZE = 8;
+
+/**
+ * What the armed tool will do on release. "Clip a region" and "Write a note"
+ * are both a dragged rectangle and look the same mid-drag, so the difference
+ * has to be stated rather than inferred.
+ */
+const CREATE_TOOL_HINTS: Record<ReaderCreateTool, string> = {
+  select: "Drag across text to highlight it.",
+  ink: "Draw freehand on the page.",
+  image: "Drag a box to clip that part of the page as a picture.",
+  text: "Drag a box, then type a note to sit there.",
+};
 
 /** Stable empty array — a fresh `[]` per page would defeat memoisation. */
 const EMPTY_ANNOTATIONS: ReaderAnnotation[] = [];
@@ -299,6 +322,10 @@ export function PdfReader({
    * the in-progress shape is painted, and is cleared when the drag ends.
    */
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
+  /** Region a text annotation was drawn over, awaiting its text. */
+  const [pendingTextBox, setPendingTextBox] = useState<PendingTextBox | null>(null);
+  /** Sticky note awaiting its comment, with the colour chosen for it. */
+  const [pendingNote, setPendingNote] = useState<{ color: string } | null>(null);
   const pendingShape = useRef<DraftShape | null>(null);
   const shapeFrame = useRef<number | null>(null);
 
@@ -1033,14 +1060,29 @@ export function PdfReader({
     if (!pendingCreate) return;
     const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
     if (!geometry) return;
-    let comment = "";
+    // A sticky note needs its text first. Collect it in the app rather than an
+    // OS prompt, then finish through the same path.
     if (type === "note") {
-      const typed = window.prompt("Sticky note comment");
-      if (typed == null) return;
-      comment = typed.trim();
+      setPendingNote({ color });
+      return;
     }
     const draft = draftFromTextSelection({
       type,
+      color,
+      selection: pendingCreate.selection,
+      page: geometry,
+      comment: "",
+    });
+    if (!draft) return;
+    await persistDraft(draft);
+  }
+
+  async function createNoteWithComment(color: string, comment: string) {
+    if (!pendingCreate) return;
+    const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
+    if (!geometry) return;
+    const draft = draftFromTextSelection({
+      type: "note",
       color,
       selection: pendingCreate.selection,
       page: geometry,
@@ -1202,13 +1244,11 @@ export function PdfReader({
         pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
       const width = Math.abs(d.x1 - d.x0);
       const height = Math.abs(d.y1 - d.y0);
-      const text = window.prompt("Text annotation");
-      if (!text?.trim()) return;
-      const draft = draftTextBox({
-        color: createColor,
+      // Hand off to the in-app composer rather than window.prompt, which is an
+      // unstyled OS dialog and on mobile hides the page you are annotating.
+      setPendingTextBox({
         pageIndex: pageNumber - 1,
         pageHeight,
-        text: text.trim(),
         x: Math.min(d.x0, d.x1),
         y: Math.min(d.y0, d.y1),
         // A tap rather than a drag still works: fall back to the default box
@@ -1217,7 +1257,6 @@ export function PdfReader({
           ? { width, height }
           : {}),
       });
-      void persistDraft(draft);
       return;
     }
     if (createTool === "image" && dragRect.current) {
@@ -1321,10 +1360,13 @@ export function PdfReader({
               disabled={rotation !== 0}
               onChange={(e) => setCreateTool(e.target.value as ReaderCreateTool)}
             >
-              <option value="select">Select</option>
-              <option value="ink">Ink</option>
-              <option value="image">Image region</option>
-              <option value="text">Text box</option>
+              {/* Named by what each does, not by what it is. "Image region"
+                  and "Text box" both drag out a rectangle, so the old labels
+                  gave no way to tell them apart. */}
+              <option value="select">Highlight text</option>
+              <option value="ink">Draw freehand</option>
+              <option value="image">Clip a region</option>
+              <option value="text">Write a note</option>
             </Select>
             <input
               type="color"
@@ -1342,6 +1384,11 @@ export function PdfReader({
         <div className="pdf-reader-banner pdf-reader-banner--low" role="status">
           Annotations and create tools pause while the page is rotated — reset rotation to edit.
         </div>
+      )}
+      {/* Both rectangle tools look identical while dragging, so say which one
+          is armed and what releasing will do. */}
+      {canCreate && rotation === 0 && CREATE_TOOL_HINTS[createTool] && (
+        <p className="pdf-reader-tool-hint muted">{CREATE_TOOL_HINTS[createTool]}</p>
       )}
       {annError && (
         <div className="pdf-reader-banner pdf-reader-banner--low" role="alert">
@@ -1438,6 +1485,44 @@ export function PdfReader({
           ))}
         </div>
       </div>
+      {pendingNote && (
+        <TextBoxComposer
+          title="Sticky note"
+          label="Comment"
+          submitLabel="Add note"
+          placeholder="What do you want to remember about this passage?"
+          onCancel={() => setPendingNote(null)}
+          onSubmit={(comment) => {
+            const { color } = pendingNote;
+            setPendingNote(null);
+            void createNoteWithComment(color, comment);
+          }}
+        />
+      )}
+      {pendingTextBox && (
+        <TextBoxComposer
+          title="Text annotation"
+          label="Note"
+          submitLabel="Add note"
+          placeholder="What does this part of the page say?"
+          onCancel={() => setPendingTextBox(null)}
+          onSubmit={(text) => {
+            const { pageIndex, pageHeight, x, y, width, height } = pendingTextBox;
+            setPendingTextBox(null);
+            void persistDraft(
+              draftTextBox({
+                color: createColor,
+                pageIndex,
+                pageHeight,
+                text,
+                x,
+                y,
+                ...(width != null && height != null ? { width, height } : {}),
+              }),
+            );
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1490,5 +1575,60 @@ function DraftShapeOverlay({
         )}
       </svg>
     </div>
+  );
+}
+
+/**
+ * In-app composer for a text annotation's contents.
+ *
+ * Replaces `window.prompt`, which is an unstyled OS dialog that ignores the
+ * app's theme and, on a phone, covers the page being annotated.
+ */
+function TextBoxComposer({
+  title,
+  label,
+  submitLabel,
+  placeholder,
+  onSubmit,
+  onCancel,
+}: {
+  title: string;
+  label: string;
+  submitLabel: string;
+  placeholder: string;
+  onSubmit: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState("");
+  const trimmed = text.trim();
+
+  return (
+    <Modal title={title} onClose={onCancel}>
+      <div className="form-stack">
+        <label className="field">
+          {label}
+          <textarea
+            rows={4}
+            value={text}
+            autoFocus
+            placeholder={placeholder}
+            onChange={(e) => setText(e.target.value)}
+          />
+        </label>
+        <div className="screen-actions">
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={!trimmed}
+            onClick={() => onSubmit(trimmed)}
+          >
+            {submitLabel}
+          </button>
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }

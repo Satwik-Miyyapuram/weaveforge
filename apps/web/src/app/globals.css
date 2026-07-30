@@ -4323,6 +4323,10 @@ a.related-paper-url:hover { text-decoration: underline; }
 .pdf-reader-textlayer {
   position: absolute; inset: 0; overflow: hidden; line-height: 1;
   opacity: 0.25; mix-blend-mode: multiply; pointer-events: auto;
+  /* The text layer is appended to the page after React renders the annotation
+     overlay, so without this it painted on top and ate every tap aimed at a
+     highlight. It must stay below the marks it sits behind. */
+  z-index: 1;
 }
 .pdf-reader-textlayer > span {
   position: absolute;
@@ -4338,7 +4342,13 @@ a.related-paper-url:hover { text-decoration: underline; }
   background: var(--reader-select-color, Highlight);
 }
 .pdf-reader-side { display: grid; gap: 8px; align-content: start; }
-.pdf-reader-ann-layer { position: absolute; inset: 0; pointer-events: none; }
+.pdf-reader-ann-layer {
+  position: absolute; inset: 0; pointer-events: none;
+  /* Above the text layer so a tap lands on the annotation. The layer itself is
+     transparent to pointer events, so anywhere without a mark still falls
+     through to the text layer and text selection keeps working. */
+  z-index: 2;
+}
 .pdf-reader-ann {
   position: absolute; pointer-events: auto; border: none; padding: 0;
   opacity: 0.35; cursor: pointer;
@@ -4438,3 +4448,6 @@ a.related-paper-url:hover { text-decoration: underline; }
 .pdf-reader-error { display: grid; gap: 12px; justify-items: start; }
 .ai-review-nav-link b { min-width: 1.25rem; text-align: center; border-radius: 999px; padding: 1px 5px; background: var(--accent); color: var(--on-accent); font-size: 0.72rem; }
 @media (max-width: 640px) { .ai-review-screen .screen-header, .ai-review-card-head, .ai-review-actions { align-items: flex-start; flex-direction: column; } .ai-review-toolbar { align-items: stretch; flex-direction: column; } }
+
+/* One-line statement of what the armed annotation tool will do. */
+.pdf-reader-tool-hint { margin: 6px 0 0; font-size: 0.8rem; }
