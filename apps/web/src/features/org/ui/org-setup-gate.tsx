@@ -6,6 +6,7 @@ import { useProfile } from "./profile-provider";
 import { createOrg, joinOrg, previewOrgCode, regenerateOrgCode, continueStandalone } from "../infrastructure/org-api";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
+import { Select } from "@/components/select";
 
 /**
  * First-run gate: create a lab, join with a code, or continue standalone.
@@ -205,11 +206,16 @@ function JoinLabForm({
     }
   }
 
+  const needsProfessor = Boolean(preview?.professors?.length) && !professorId;
+  const needsPhd = Boolean(preview?.phds?.length) && !phdId;
+  const missingSupervisor = needsProfessor || needsPhd;
+
   return (
     <form
       className="form-stack"
       onSubmit={(e) => {
         e.preventDefault();
+        if (missingSupervisor) return;
         void onSubmit({
           code,
           professorSupervisorId: professorId || undefined,
@@ -236,30 +242,45 @@ function JoinLabForm({
       {preview?.professors && preview.professors.length > 0 && (
         <label>
           Professor supervisor
-          <select value={professorId} onChange={(e) => setProfessorId(e.target.value)} required>
+          <Select
+            value={professorId}
+            onChange={(e) => setProfessorId(e.target.value)}
+            aria-label="Professor supervisor"
+          >
             <option value="">Select…</option>
             {preview.professors.map((p) => (
               <option key={p.id} value={p.id}>{p.label}</option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       {preview?.phds && preview.phds.length > 0 && (
         <label>
           PhD supervisor
-          <select value={phdId} onChange={(e) => setPhdId(e.target.value)} required>
+          <Select
+            value={phdId}
+            onChange={(e) => setPhdId(e.target.value)}
+            aria-label="PhD supervisor"
+          >
             <option value="">Select…</option>
             {preview.phds.map((p) => (
               <option key={p.id} value={p.id}>{p.label}</option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       {lookupError && <FormError>{lookupError}</FormError>}
       {error && <FormError>{error}</FormError>}
       <div className="head-row">
         <button type="button" className="btn-ghost" onClick={onBack}>Back</button>
-        <button type="submit" className="btn-primary" disabled={busy || !code.trim()}>
+        {/* The supervisor pickers used to carry `required`, which the themed
+            Select cannot express — it renders a button, not a form control — so
+            the same rule is enforced here instead. */}
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={busy || !code.trim() || missingSupervisor}
+        >
           {busy ? "Joining…" : "Join lab"}
         </button>
       </div>

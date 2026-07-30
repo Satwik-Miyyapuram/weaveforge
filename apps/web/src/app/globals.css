@@ -1595,6 +1595,18 @@ a.entity-icon-btn:hover {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
   margin-top: 6px; min-width: 0;
 }
+/* "This paper has no DOI/arXiv id" plus the control that fixes it. */
+.paper-source-hint { margin: 6px 0 0; font-size: 0.82rem; }
+.paper-ids-editor {
+  display: grid; gap: 8px; margin-top: 8px;
+  padding: 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-alt);
+}
+.paper-ids-field { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+.paper-ids-field input {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font: inherit; font-weight: 400;
+}
 .paper-source-actions .paper-external-link { margin: 0; }
 .paper-source-section {
   margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;

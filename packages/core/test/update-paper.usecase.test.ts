@@ -112,3 +112,29 @@ test("extractHashtags pulls normalized tags from text", async () => {
   assert.deepEqual(extractHashtags(undefined), []);
   assert.deepEqual(extractHashtags("no tags here"), []);
 });
+
+test("setIdentifiers normalizes a DOI URL down to the bare identifier", async () => {
+  const { add, update } = setup();
+  const paper = await add.addManual({ title: "Attention" });
+  const saved = await update.setIdentifiers(paper.id, {
+    doi: "  https://doi.org/10.1145/AbC  ",
+  });
+  assert.equal(saved.doi, "10.1145/abc");
+});
+
+test("setIdentifiers clears a field rather than storing an empty string", async () => {
+  const { add, update } = setup();
+  const paper = await add.addManual({ title: "VAE", arxivId: "1312.6114" });
+  const cleared = await update.setIdentifiers(paper.id, { arxivId: "   " });
+  // Citation tracking keys off `Boolean(doi || arxivId)`, so a blank string
+  // here would make an untrackable paper look trackable.
+  assert.equal(cleared.arxivId, undefined);
+  assert.equal(Boolean(cleared.doi || cleared.arxivId), false);
+});
+
+test("setIdentifiers trims an arXiv id and leaves its case alone", async () => {
+  const { add, update } = setup();
+  const paper = await add.addManual({ title: "Paper" });
+  const saved = await update.setIdentifiers(paper.id, { arxivId: " 2401.00001v2 " });
+  assert.equal(saved.arxivId, "2401.00001v2");
+});

@@ -14,6 +14,7 @@ import {
   READER_ANNOTATION_COLORS,
 } from "../application/reader-annotation-helpers";
 import type { AnnotationBacklinkTarget } from "../application/annotation-backlinks";
+import { Select } from "@/components/select";
 
 export interface ReportSectionOption {
   id: string;
@@ -114,7 +115,7 @@ export function AnnotationSidebar({
   return (
     <aside className="pdf-reader-sidebar" aria-label="Annotations">
       <div className="pdf-reader-sidebar-filters">
-        <select
+        <Select
           aria-label="Filter by type"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as ReaderAnnotationType | "")}
@@ -126,8 +127,8 @@ export function AnnotationSidebar({
           <option value="image">Image</option>
           <option value="ink">Ink</option>
           <option value="text">Text</option>
-        </select>
-        <select
+        </Select>
+        <Select
           aria-label="Filter by tag"
           value={tagFilter}
           onChange={(e) => setTagFilter(e.target.value)}
@@ -138,7 +139,7 @@ export function AnnotationSidebar({
               #{t}
             </option>
           ))}
-        </select>
+        </Select>
         <input
           type="number"
           min={1}
@@ -249,7 +250,7 @@ export function AnnotationSidebar({
               {localEditable && reportSections.length > 0 && onPinLocal && (
                 <label className="pdf-reader-sidebar-pin">
                   <span className="muted">Pin to section</span>
-                  <select
+                  <Select
                     aria-label="Pin annotation to report section"
                     value={pinnedSection ?? ""}
                     disabled={busyId === a.id}
@@ -264,7 +265,7 @@ export function AnnotationSidebar({
                         {s.title || "Untitled section"}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
               )}
             </li>

@@ -363,6 +363,7 @@ function CompareView({ experiments }: { experiments: Experiment[] }) {
                 <td>
                   <input
                     type="checkbox"
+                    className="themed-check"
                     checked={selected.includes(e.id)}
                     onChange={() => toggleSel(e.id)}
                     aria-label={`compare ${e.name}`}
