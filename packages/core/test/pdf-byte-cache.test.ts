@@ -33,3 +33,35 @@ test("PdfByteCacheResolver returns cache:// hits for the ladder", async () => {
   const miss = await resolvePdfSource({ id: "missing" }, [resolver]);
   assert.equal(miss.ok, false);
 });
+
+test("remove drops one entry and leaves the rest", async () => {
+  const cache = new InMemoryPdfByteCache(4);
+  await cache.set("paper-a", new ArrayBuffer(8));
+  await cache.set("paper-b", new ArrayBuffer(8));
+
+  await cache.remove("paper-a");
+
+  assert.equal(await cache.get("paper-a"), null);
+  assert.notEqual(await cache.get("paper-b"), null);
+  assert.equal(await cache.size(), 1);
+});
+
+test("remove is a no-op for a key that was never cached", async () => {
+  const cache = new InMemoryPdfByteCache(4);
+  await cache.set("paper-a", new ArrayBuffer(8));
+  await cache.remove("absent");
+  assert.equal(await cache.size(), 1);
+});
+
+test("the ladder skips a paper whose bytes were removed", async () => {
+  // Recovery path for a cached copy pdf.js refuses: evict, then the cache
+  // resolver must stop claiming the paper so a network resolver can win.
+  const cache = new InMemoryPdfByteCache(4);
+  const resolver = new PdfByteCacheResolver(cache);
+  await cache.set("paper-a", new ArrayBuffer(8));
+  assert.deepEqual(await resolver.resolve({ id: "paper-a" }), { url: "cache://paper-a" });
+
+  await cache.remove("paper-a");
+
+  assert.equal(await resolver.resolve({ id: "paper-a" }), null);
+});

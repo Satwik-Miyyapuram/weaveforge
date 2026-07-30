@@ -87,6 +87,17 @@ export class IndexedDbPdfByteCache implements IPdfByteCache {
     }
   }
 
+  async remove(key: string): Promise<void> {
+    const db = await openDb();
+    try {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(key);
+      await waitForTransaction(tx);
+    } finally {
+      db.close();
+    }
+  }
+
   async clear(): Promise<void> {
     const db = await openDb();
     try {

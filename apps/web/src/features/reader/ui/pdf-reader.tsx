@@ -125,6 +125,11 @@ export interface PdfReaderProps {
     next: ReaderAnnotation[] | ((prev: ReaderAnnotation[]) => ReaderAnnotation[]),
   ) => void;
   onActivity?: (kind: string, message: string) => void;
+  /**
+   * Called instead of showing an error when a locally cached copy fails to
+   * open, so the owner can evict it and retry from the network.
+   */
+  onSourceFailure?: (failedUrl: string) => void;
 }
 
 interface JumpState {
@@ -241,6 +246,7 @@ export function PdfReader({
   paperId,
   onAnnotationsChange,
   onActivity,
+  onSourceFailure,
 }: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -469,9 +475,15 @@ export function PdfReader({
           }
         })();
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Could not load this PDF in the app.");
+        if (cancelled) return;
+        // A cached copy that will not open is recoverable: the screen can drop
+        // it and refetch from the network. Offer that before showing an error,
+        // so a bad cache entry is not a dead end.
+        if (isReaderObjectUrl(safeUrl) && onSourceFailure) {
+          onSourceFailure(safeUrl);
+          return;
         }
+        setError(err instanceof Error ? err.message : "Could not load this PDF in the app.");
       }
     })();
     return () => {

@@ -3,6 +3,14 @@ import type { IPdfSourceResolver, PdfSourceHit, PdfSourcePaper } from "./pdf-sou
 export interface IPdfByteCache {
   get(key: string): Promise<ArrayBuffer | null>;
   set(key: string, bytes: ArrayBuffer): Promise<void>;
+  /**
+   * Drop one entry.
+   *
+   * Needed to recover from a cached copy that will not open — a truncated or
+   * partially written entry is otherwise served again on every visit, and
+   * `clear()` is too blunt to use for one bad document.
+   */
+  remove(key: string): Promise<void>;
   clear(): Promise<void>;
   /** Approximate entry count — for tests / diagnostics. */
   size(): Promise<number>;
@@ -38,6 +46,10 @@ export class InMemoryPdfByteCache implements IPdfByteCache {
       if (oldest == null) break;
       this.map.delete(oldest);
     }
+  }
+
+  async remove(key: string): Promise<void> {
+    this.map.delete(key);
   }
 
   async clear(): Promise<void> {
