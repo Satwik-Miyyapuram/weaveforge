@@ -1002,7 +1002,12 @@ textarea:focus {
    scrolling or overflow-hidden ancestor can clip it. Position comes from the
    inline style; `max-width` keeps a long option list on screen. */
 .custom-select-menu--fixed {
-  position: fixed; top: auto; left: auto; z-index: 200;
+  position: fixed; top: auto; left: auto;
+  /* Above .modal-backdrop (10000). Modal portals to <body> and so does this
+     menu, so the two are siblings in the same stacking context and compared
+     directly — at any lower value every dropdown inside a dialog paints behind
+     it. The menu exists only while open, so outranking the backdrop is safe. */
+  z-index: 10050;
   max-width: min(92vw, 26rem);
 }
 .custom-select-menu.up { transform-origin: bottom center; }
@@ -1013,9 +1018,10 @@ textarea:focus {
 /* Exclude the graph settings drawer: it's a `.card` but must keep its own
    position: fixed. Letting this rule flip it to relative drops it out of the
    viewport anchor and it jumps into flow when a dropdown opens. */
-.card:has(.custom-select-menu):not(.popover-panel):not(.graph-settings-drawer):not(.modal) { position: relative; z-index: 40; }
-.custom-select-container:has(.custom-select-menu) { z-index: 41; }
-.popover-panel:has(.custom-select-menu) { z-index: 61; }
+/* The three `:has(.custom-select-menu)` rules that used to live here lifted an
+   open dropdown's ancestors above their siblings. The menu is portalled to
+   <body> now, so it has no ancestors to lift and those selectors can never
+   match — removed rather than left as dead weight that reads like it matters. */
 /* Flip above the trigger when there isn't room below. */
 .custom-select-menu.up { top: auto; bottom: calc(100% + 4px); }
 .custom-select-item {
@@ -2134,11 +2140,16 @@ a.related-paper-url:hover { text-decoration: underline; }
   height: 14px;
 }
 /* Menu must outgrow a narrow trigger — otherwise "Skimmed" letter-ladders. */
-.status-select .custom-select-menu {
+/* The menu carries its instance class (see Select), so these target it
+   directly — as a descendant of `.status-select` they stopped matching when the
+   menu was portalled to <body>, and a narrow status trigger clipped its own
+   option labels. */
+.custom-select-menu.status-select {
   max-width: none;
   min-width: max(100%, 8.5rem);
   width: max-content;
 }
+.custom-select-menu.status-select .custom-select-item,
 .status-select .custom-select-item {
   white-space: nowrap;
   overflow-wrap: normal;
@@ -2640,9 +2651,9 @@ a.related-paper-url:hover { text-decoration: underline; }
   margin: 0;
 }
 .popover-panel .filters { margin: 0; gap: 10px; }
-.popover-panel .custom-select-menu {
-  z-index: 61; left: 0; right: auto; min-width: 100%; max-width: 100%;
-}
+/* Was: `.popover-panel .custom-select-menu` constraining the menu to the
+   panel's width. A portalled menu is no longer inside the panel, and its width
+   comes from the measured trigger instead. */
 
 .member-picker { display: grid; gap: 10px; }
 .mp-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
