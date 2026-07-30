@@ -35,11 +35,21 @@ async function loadStartupBundleUncached(userId: string): Promise<StartupSnapsho
   const { getLightContainer } = await import("@/light-bootstrap");
   const light = getLightContainer();
 
+  // Start loading the container graph now, in parallel with the settings read.
+  // It is ~17 JavaScript chunks and depends on nothing here, but it used to be
+  // imported only *after* this round trip resolved — so the browser sat idle
+  // through the query, then spent two seconds downloading JS. Constructing the
+  // container performs no reads, so this is not a probe: the fail-closed rule
+  // below still governs every query.
+  const containerPromise = import("@/bootstrap").then(({ ensureContainer }) => ensureContainer());
+
   const settings = await light.settings.getMetadata().catch(() => null);
   const needsPrivacyAccept = settings ? needsDisclaimerAcceptance(settings) : true;
 
   // Fail closed: no profile/org/crypto probes until the disclaimer is accepted.
   if (needsPrivacyAccept) {
+    // Keep the in-flight import from surfacing as an unhandled rejection.
+    void containerPromise.catch(() => undefined);
     return {
       settings,
       profile: null,
@@ -50,13 +60,18 @@ async function loadStartupBundleUncached(userId: string): Promise<StartupSnapsho
     };
   }
 
-  const { ensureContainer } = await import("@/bootstrap");
-  const c = await ensureContainer();
+  const c = await containerPromise;
   const [mine, members, lab, labs] = await Promise.all([
     c.org.loadProfile().catch(() => null),
     c.org.loadTeam().catch(() => [] as Member[]),
     c.org.loadLab().catch(() => [] as Member[]),
     fetchMemberships().catch(() => [] as OrgMembershipView[]),
+    // Warm the project list in the same batch. ProjectProvider mounts below
+    // every gate in the shell, so its own listProjects() was a further serial
+    // round trip after all of these had already finished — and nothing renders
+    // until it resolves, because the shell needs an active project. The
+    // repository is cache-wrapped, so that call now hits a settled entry.
+    c.projects.listProjects().catch(() => []),
   ]);
 
   let profile = mine;
