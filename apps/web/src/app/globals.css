@@ -998,6 +998,13 @@ textarea:focus {
   transform-origin: top center;
   animation: menu-in 0.16s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
+/* Portalled to <body> and pinned to the trigger in viewport coordinates, so no
+   scrolling or overflow-hidden ancestor can clip it. Position comes from the
+   inline style; `max-width` keeps a long option list on screen. */
+.custom-select-menu--fixed {
+  position: fixed; top: auto; left: auto; z-index: 200;
+  max-width: min(92vw, 26rem);
+}
 .custom-select-menu.up { transform-origin: bottom center; }
 @media (prefers-reduced-motion: reduce) { .custom-select-menu { animation: none; } }
 /* Card holding an open dropdown stacks above following cards so the menu isn't
@@ -4216,7 +4223,12 @@ a.related-paper-url:hover { text-decoration: underline; }
 .pdf-reader-page-jump input {
   width: 3.5rem; padding: 4px 6px; text-align: center;
 }
-.pdf-reader-tool-select { padding: 4px 6px; font-size: 0.85rem; }
+/* The toolbar is a nowrap flex strip, so the trigger must size to its content
+   rather than take the container default of width:100%. */
+.pdf-reader-tool-select { width: auto; flex: none; }
+.pdf-reader-tool-select .custom-select-button {
+  width: auto; padding: 4px 6px; font-size: 0.85rem; gap: 4px;
+}
 .pdf-reader-color-input {
   width: 2rem; height: 1.85rem; padding: 0; border: none; background: none; cursor: pointer;
 }

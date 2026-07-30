@@ -1,6 +1,16 @@
 "use client";
 
-import React, { useId, useState, useRef, useEffect } from "react";
+import React, { useCallback, useId, useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+
+interface MenuRect {
+  left: number;
+  width: number;
+  /** Set when the menu opens downward. */
+  top?: number;
+  /** Set when it opens upward, measured from the viewport bottom. */
+  bottom?: number;
+}
 
 interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> {
   onChange?: (e: { target: { value: string } }) => void;
@@ -63,6 +73,7 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [openUp, setOpenUp] = useState(false);
+  const [menuRect, setMenuRect] = useState<MenuRect | null>(null);
   const [active, setActive] = useState(-1);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,16 +105,57 @@ export function Select({
   const selectedOption = options[selectedIndex];
   const buttonClass = `custom-select-button${isStatus ? ` status-${val}` : ""}`;
 
+  /**
+   * Measure the trigger and pin the menu to it in viewport coordinates.
+   *
+   * The menu is portalled to <body> and positioned `fixed`, because an
+   * absolutely positioned menu is clipped by any ancestor that scrolls or hides
+   * overflow — the PDF reader's toolbar does both, which left its dropdown
+   * trapped inside the toolbar strip with nothing selectable.
+   */
+  const placeMenu = useCallback(() => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const below = window.innerHeight - rect.bottom;
+    const above = rect.top;
+    const MENU_MAX = searchable ? 320 : 260;
+    const up = below < MENU_MAX && above > below;
+    setOpenUp(up);
+    setMenuRect({
+      left: rect.left,
+      width: rect.width,
+      ...(up
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+    });
+  }, [searchable]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-        setQuery("");
-      }
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      // The menu is portalled out of the container, so a click inside it would
+      // otherwise read as "outside" and close before the option registers.
+      if (listRef.current?.contains(target)) return;
+      setOpen(false);
+      setQuery("");
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // A fixed menu does not travel with its trigger, so follow scroll/resize.
+  // Capture phase catches scrolls in the nested containers the trigger sits in.
+  useEffect(() => {
+    if (!open) return;
+    const reposition = () => placeMenu();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open, placeMenu]);
 
   // Keep the active (keyboard-highlighted) option scrolled into view.
   useEffect(() => {
@@ -122,13 +174,7 @@ export function Select({
   }, [open, searchable]);
 
   function openMenu() {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) {
-      const below = window.innerHeight - rect.bottom;
-      const above = rect.top;
-      const MENU_MAX = searchable ? 320 : 260;
-      setOpenUp(below < MENU_MAX && above > below);
-    }
+    placeMenu();
     const visibleSelected = visible.findIndex(({ index }) => index === selectedIndex);
     setActive(visibleSelected >= 0 ? visibleSelected : nextSelectableInVisible(0, 1));
     setQuery("");
@@ -232,12 +278,18 @@ export function Select({
           </svg>
         </span>
       </button>
-      {open && (
+      {open && menuRect && createPortal(
         <div
           ref={listRef}
-          className={`custom-select-menu${openUp ? " up" : ""}${searchable ? " searchable" : ""}`}
+          className={`custom-select-menu custom-select-menu--fixed${openUp ? " up" : ""}${searchable ? " searchable" : ""}`}
           role="listbox"
           onKeyDown={onKeyDown}
+          style={{
+            left: menuRect.left,
+            minWidth: menuRect.width,
+            ...(menuRect.top != null ? { top: menuRect.top } : {}),
+            ...(menuRect.bottom != null ? { bottom: menuRect.bottom } : {}),
+          }}
         >
           {searchable && (
             <div className="custom-select-search">
@@ -290,7 +342,8 @@ export function Select({
               );
             })
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
