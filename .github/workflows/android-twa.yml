@@ -18,6 +18,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Needed to create the android-v* release and upload the APK/AAB to it.
+    # Without this the default token is read-only and `gh release create` 403s.
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: apps/web/twa
