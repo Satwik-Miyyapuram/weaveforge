@@ -36,6 +36,22 @@ jobs:
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
+      # Without this Bubblewrap asks "Do you want Bubblewrap to install the
+      # JDK?" on first run. CI has no stdin, so the prompt reads EOF and the
+      # step dies with exit 130 before building anything. Point it at the JDK
+      # and SDK the previous steps already installed.
+      - name: Configure Bubblewrap non-interactively
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.bubblewrap"
+          cat > "$HOME/.bubblewrap/config.json" <<JSON
+          {
+            "jdkPath": "${JAVA_HOME}",
+            "androidSdkPath": "${ANDROID_HOME}"
+          }
+          JSON
+          cat "$HOME/.bubblewrap/config.json"
+
       - name: Restore signing keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
