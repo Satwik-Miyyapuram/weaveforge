@@ -4265,7 +4265,12 @@ a.related-paper-url:hover { text-decoration: underline; }
   /* dvh, not vh: on mobile the browser's collapsing address bar makes vh taller
      than the visible area, pushing the last of the page under the chrome. */
   overflow: auto; max-height: calc(100dvh - 260px); display: flex; flex-direction: column;
-  align-items: center; gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: 10px;
+  align-items: center;
+  /* `safe` keeps a zoomed page reachable: with plain centring, a page wider
+     than the viewport overflows equally on both sides and the left edge cannot
+     be scrolled to. Declared after the plain value as a progressive upgrade. */
+  align-items: safe center;
+  gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: 10px;
 }
 @media (max-width: 720px) {
   /* Less page chrome above the document, and room for the bottom tab bar. */
@@ -4276,6 +4281,13 @@ a.related-paper-url:hover { text-decoration: underline; }
   background: #fff;
   box-shadow: 0 1px 6px rgba(0,0,0,0.18);
   min-height: 320px; /* keep IntersectionObserver from painting every page at once before layout */
+  /* The scroller is a column flex container with a bounded height, so pages
+     inherited flex-shrink: 1. Once zoomed, their combined height exceeded that
+     bound and every page box was compressed while its canvas kept the pixel
+     height set at render time — so pages overlapped and the foot of each was
+     hidden under the next. Pages must keep their rendered size and let the
+     container scroll. */
+  flex: none;
 }
 .pdf-reader-search {
   display: inline-flex; gap: 4px; align-items: center; flex: 1 1 12rem; min-width: 0;
