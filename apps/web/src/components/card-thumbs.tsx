@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { Paper } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
@@ -43,7 +43,8 @@ function paperImagePaths(metadata: Paper["metadata"]): string[] {
  * few are ever requested.
  */
 export function PaperCardThumbs({ paper }: { paper: Paper }) {
-  const paths = paperImagePaths(paper.metadata).slice(0, MAX_THUMBS);
+  const all = useMemo(() => paperImagePaths(paper.metadata), [paper.metadata]);
+  const paths = useMemo(() => all.slice(0, MAX_THUMBS), [all]);
   const fetchBlob = useCallback(
     (path: string) =>
       getContainer()
@@ -53,8 +54,7 @@ export function PaperCardThumbs({ paper }: { paper: Paper }) {
   );
   const urls = useDecryptedObjectUrls(paths, fetchBlob);
   if (paths.length === 0) return null;
-  const total = paperImagePaths(paper.metadata).length;
-  return <CardThumbs urls={paths.map((p) => urls.get(p) ?? null)} total={total} />;
+  return <CardThumbs urls={paths.map((p) => urls.get(p) ?? null)} total={all.length} />;
 }
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|avif)(\?|#|$)/i;
