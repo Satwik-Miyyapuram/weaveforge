@@ -1799,6 +1799,7 @@ a.related-paper-url:hover { text-decoration: underline; }
   display: flex; align-items: center; justify-content: center;
   font-size: 0.78rem; color: var(--muted); background: var(--chip);
 }
+.metric-chip-more { color: var(--muted); font-style: italic; }
 .image-thumb .image-loading { position: absolute; inset: 0; }
 .image-del {
   position: absolute; top: 4px; right: 4px;

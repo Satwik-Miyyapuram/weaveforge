@@ -56,16 +56,21 @@ export function RelatedPaper({ paperId }: { paperId: string }) {
   );
 }
 
-export function ExpMetricChips({ exp }: { exp: Experiment }) {
+export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number }) {
   const metrics = Object.entries(exp.metrics ?? {});
   if (metrics.length === 0) return null;
+  // On a card, a run with a dozen metrics buries the title; show a few and a
+  // count. The detail view (no limit) keeps them all.
+  const shown = limit != null ? metrics.slice(0, limit) : metrics;
+  const hidden = metrics.length - shown.length;
   return (
     <div className="metric-chips">
-      {metrics.map(([k, v]) => (
+      {shown.map(([k, v]) => (
         <span key={k} className="metric-chip">
           <em>{k}</em> {formatMetricCell(k, v)}
         </span>
       ))}
+      {hidden > 0 ? <span className="metric-chip metric-chip-more">+{hidden} more</span> : null}
     </div>
   );
 }

@@ -518,7 +518,7 @@ function ExperimentCard({
       openLabel="Open experiment"
     >
       <ExpGitChips exp={exp} />
-      <ExpMetricChips exp={exp} />
+      <ExpMetricChips exp={exp} limit={3} />
       {exp.resultNote && <p className="summary">{exp.resultNote}</p>}
       <ExperimentCardThumbs artifacts={exp.artifacts} />
     </EntityCard>
