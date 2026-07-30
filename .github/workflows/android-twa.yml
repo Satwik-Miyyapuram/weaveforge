@@ -67,7 +67,14 @@ jobs:
             exit 1
           fi
           echo "Keystore SHA-256: $FP"
-          ASSETLINKS="../../public/.well-known/assetlinks.json"
+          # Relative to apps/web/twa, so one level up — `../..` is `apps/`, and
+          # grep on a missing file also returns non-zero, which made a wrong
+          # path look identical to a fingerprint mismatch.
+          ASSETLINKS="../public/.well-known/assetlinks.json"
+          if [ ! -f "$ASSETLINKS" ]; then
+            echo "::error::$ASSETLINKS not found (cwd $(pwd))."
+            exit 1
+          fi
           if ! grep -q "$FP" "$ASSETLINKS"; then
             echo "::error::$ASSETLINKS is missing fingerprint $FP — URL bar will show in the TWA."
             echo "Update assetlinks.json, deploy the web app, then re-run."
