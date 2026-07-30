@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface DecryptedBlobFetchers {
   fetchOne: (path: string) => Promise<Blob | null>;
@@ -18,7 +18,14 @@ export function useDecryptedObjectUrls(
   fetchers: DecryptedBlobFetchers | ((path: string) => Promise<Blob | null>),
 ): Map<string, string> {
   const [urls, setUrls] = useState<Map<string, string>>(new Map());
+  // `key` is the identity that matters: the effect depends on the *contents* of
+  // `paths`, never on the array's identity. Callers routinely build the array
+  // inline (`.slice()`, `.filter()`), so depending on the array itself made the
+  // effect re-run on every render — and since it calls setUrls, that is an
+  // unbounded fetch loop. The live array is read through a ref instead.
   const key = paths.join("|");
+  const pathsRef = useRef(paths);
+  pathsRef.current = paths;
   const fetchOne =
     typeof fetchers === "function" ? fetchers : fetchers.fetchOne;
   const fetchMany = typeof fetchers === "function" ? undefined : fetchers.fetchMany;
@@ -29,9 +36,11 @@ export function useDecryptedObjectUrls(
     let cancelled = false;
     const objectUrls: string[] = [];
 
+    const paths = pathsRef.current;
+
     void (async () => {
       if (paths.length === 0) {
-        setUrls(new Map());
+        setUrls((prev) => (prev.size === 0 ? prev : new Map()));
         return;
       }
 
@@ -77,7 +86,7 @@ export function useDecryptedObjectUrls(
       cancelled = true;
       for (const url of objectUrls) URL.revokeObjectURL(url);
     };
-  }, [key, paths, fetchOne, fetchMany, cacheBucket]);
+  }, [key, fetchOne, fetchMany, cacheBucket]);
 
   return urls;
 }
