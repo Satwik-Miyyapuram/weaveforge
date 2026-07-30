@@ -4308,6 +4308,12 @@ a.related-paper-url:hover { text-decoration: underline; }
   color: transparent;
   cursor: text;
 }
+/* Dragging across text is the highlight's live preview, so paint the selection
+   in the colour the highlight will be rather than the browser's default. The
+   layer already multiplies over the page, so the swatch colour reads true. */
+.pdf-reader-textlayer > span::selection {
+  background: var(--reader-select-color, Highlight);
+}
 .pdf-reader-side { display: grid; gap: 8px; align-content: start; }
 .pdf-reader-ann-layer { position: absolute; inset: 0; pointer-events: none; }
 .pdf-reader-ann {
