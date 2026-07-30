@@ -23,24 +23,25 @@ import {
  * (TabBar / ProjectProvider call getContainer() synchronously on render).
  */
 export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode }) {
-  const { loading, snapshot, refreshProfile } = useStartup();
-  const [needsAccept, setNeedsAccept] = useState(
-    () => snapshot?.needsPrivacyAccept ?? true,
-  );
+  // Gate on the disclaimer decision, not the org/profile bundle. `gateReady`
+  // is known from cache (returning users) or after the settings read (cold),
+  // long before profile/org data lands — and the screens do not need that data
+  // to render, so holding them for it is pure waiting.
+  const { gateReady, needsPrivacyAccept, refreshProfile } = useStartup();
+  const [needsAccept, setNeedsAccept] = useState(() => needsPrivacyAccept);
   const [containerReady, setContainerReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!snapshot) return;
-    setNeedsAccept(snapshot.needsPrivacyAccept);
-  }, [snapshot]);
+    setNeedsAccept(needsPrivacyAccept);
+  }, [needsPrivacyAccept]);
 
-  // Cached startup can report "disclaimer already accepted" before the heavy
-  // container has been created. Shell children call getContainer() sync on
-  // render, so wait for ensureContainer() before mounting them.
+  // Create the heavy container as soon as the decision says accepted — shell
+  // children call getContainer() sync on render, so it must exist before they
+  // mount, but it does not need to wait for the org/profile bundle.
   useEffect(() => {
-    if (loading || !snapshot || snapshot.needsPrivacyAccept) {
+    if (!gateReady || needsAccept) {
       setContainerReady(false);
       return;
     }
@@ -60,7 +61,7 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
     return () => {
       cancelled = true;
     };
-  }, [loading, snapshot]);
+  }, [gateReady, needsAccept]);
 
   const accept = useCallback(async () => {
     setBusy(true);
@@ -78,7 +79,8 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
 
   if (
     shouldShowWorkspaceLoader({
-      loading,
+      // The loader waits only for the disclaimer decision, not the org bundle.
+      loading: !gateReady,
       needsPrivacyAccept: needsAccept,
       containerReady,
       error,
@@ -130,7 +132,7 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
         </Modal>
       ) : null}
       {shouldMountShellChildren({
-        loading,
+        loading: !gateReady,
         needsPrivacyAccept: needsAccept,
         containerReady,
       })
