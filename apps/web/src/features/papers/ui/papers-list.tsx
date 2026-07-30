@@ -1141,14 +1141,16 @@ function PaperNote({
               onReplace={onReplace}
             />
           ) : (
-            !canTrackCitations && (
-              <p className="muted paper-source-hint">
-                No DOI or arXiv ID, so citation alerts can&rsquo;t watch this paper.{" "}
-                <button type="button" className="link-btn" onClick={() => setEditingIds(true)}>
-                  Add one
-                </button>
-              </p>
-            )
+            // Reachable either way: a paper with no identifier needs one added,
+            // and a paper with a wrong one needs it corrected.
+            <p className="muted paper-source-hint">
+              {canTrackCitations
+                ? "Citation alerts can watch this paper. "
+                : "No DOI or arXiv ID, so citation alerts can’t watch this paper. "}
+              <button type="button" className="link-btn" onClick={() => setEditingIds(true)}>
+                {canTrackCitations ? "Edit DOI / arXiv ID" : "Add one"}
+              </button>
+            </p>
           ))}
         <div className="paper-source-actions">
           {readerHref && (
