@@ -4320,7 +4320,20 @@ a.related-paper-url:hover { text-decoration: underline; }
   position: absolute; pointer-events: auto; border: none; padding: 0;
   opacity: 0.35; cursor: pointer;
 }
-.pdf-reader-ann.is-selected { outline: 2px solid var(--accent); opacity: 0.55; }
+/* Selection has to answer "what does Delete remove?" at a glance, so it reads
+   as a marquee around the mark rather than a subtle tint on it. */
+.pdf-reader-ann.is-selected {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+  opacity: 0.6;
+}
+.pdf-reader-ann-marquee {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
 .pdf-reader-ann.is-approximate { outline: 1px dashed var(--danger); }
 .pdf-reader-ann.is-underline { opacity: 1; }
 .pdf-reader--dark .pdf-reader-textlayer {

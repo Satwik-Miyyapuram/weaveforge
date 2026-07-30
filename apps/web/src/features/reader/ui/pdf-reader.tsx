@@ -133,6 +133,13 @@ interface JumpState {
   confidence?: AnchorConfidence;
 }
 
+/**
+ * Below this (PDF user-space units, ≈ points) a text-box drag is treated as a
+ * tap and the default box size is used instead — dragging a few pixels by
+ * accident should not produce an invisible annotation.
+ */
+const MIN_TEXT_BOX_PDF_SIZE = 8;
+
 /** Stable empty array — a fresh `[]` per page would defeat memoisation. */
 const EMPTY_ANNOTATIONS: ReaderAnnotation[] = [];
 
@@ -1121,7 +1128,9 @@ export function PdfReader({
       host.setPointerCapture(event.pointerId);
       return;
     }
-    if (createTool === "image") {
+    // Both tools drag out a region. Text used to place a fixed 120x24 box
+    // wherever you clicked, with no way to say how big it should be.
+    if (createTool === "image" || createTool === "text") {
       dragRect.current = {
         pageNumber,
         x0: pt.x,
@@ -1131,20 +1140,6 @@ export function PdfReader({
       };
       scheduleDraft({ kind: "rect", pageNumber, x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y });
       host.setPointerCapture(event.pointerId);
-      return;
-    }
-    if (createTool === "text") {
-      const text = window.prompt("Text annotation");
-      if (!text?.trim()) return;
-      const draft = draftTextBox({
-        color: createColor,
-        pageIndex: pageNumber - 1,
-        pageHeight: pageSize.height,
-        text: text.trim(),
-        x: pt.x,
-        y: pt.y,
-      });
-      void persistDraft(draft);
     }
   }
 
@@ -1161,7 +1156,7 @@ export function PdfReader({
       });
       return;
     }
-    if (createTool === "image" && dragRect.current) {
+    if ((createTool === "image" || createTool === "text") && dragRect.current) {
       dragRect.current.x1 = pt.x;
       dragRect.current.y1 = pt.y;
       scheduleDraft({ kind: "rect", ...dragRect.current });
@@ -1187,6 +1182,32 @@ export function PdfReader({
       return;
     }
     inkPath.current = [];
+    if (createTool === "text" && dragRect.current) {
+      const d = dragRect.current;
+      dragRect.current = null;
+      if (d.pageNumber !== pageNumber) return;
+      const pageHeight =
+        pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
+      const width = Math.abs(d.x1 - d.x0);
+      const height = Math.abs(d.y1 - d.y0);
+      const text = window.prompt("Text annotation");
+      if (!text?.trim()) return;
+      const draft = draftTextBox({
+        color: createColor,
+        pageIndex: pageNumber - 1,
+        pageHeight,
+        text: text.trim(),
+        x: Math.min(d.x0, d.x1),
+        y: Math.min(d.y0, d.y1),
+        // A tap rather than a drag still works: fall back to the default box
+        // size rather than creating something zero-sized and invisible.
+        ...(width >= MIN_TEXT_BOX_PDF_SIZE && height >= MIN_TEXT_BOX_PDF_SIZE
+          ? { width, height }
+          : {}),
+      });
+      void persistDraft(draft);
+      return;
+    }
     if (createTool === "image" && dragRect.current) {
       const d = dragRect.current;
       dragRect.current = null;
