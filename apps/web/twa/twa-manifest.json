@@ -20,8 +20,8 @@
     "path": "android-keystore.jks",
     "alias": "weaveforge"
   },
-  "appVersionName": "0.5.1",
-  "appVersionCode": 3,
+  "appVersionName": "0.5.2",
+  "appVersionCode": 4,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://weaveforge.vercel.app/manifest.webmanifest",
@@ -43,5 +43,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "0.5.1"
+  "appVersion": "0.5.2"
 }

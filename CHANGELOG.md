@@ -6,6 +6,37 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-07-30
+
+### Fixed
+- **Navigation no longer wedges after opening the Papers tab.** Paper card
+  thumbnails passed a freshly built array to `useDecryptedObjectUrls` on every
+  render, and the hook's effect depended on that array's identity rather than
+  its contents. Because the effect sets state, each run triggered the next — an
+  unbounded fetch loop across every visible card. It saturated the browser's
+  per-host connection pool, so the router's request for the next route never got
+  a slot and navigation silently timed out. The hook now keys on the path
+  contents alone, so no caller can reintroduce this.
+- **Rotation lock is respected in the Android app.** The TWA declared
+  `orientation: any`, which maps to Android's `SCREEN_ORIENTATION_FULL_SENSOR` —
+  a value that overrides the user's rotation lock by design. It is now
+  `default`, which defers to the system setting.
+- **Tapping a rounded control no longer flashes a square.** Chrome on Android
+  derives its tap highlight from an element's border-box rects, before the
+  `border-radius` clip applies. The platform overlay is disabled and replaced
+  with a press tint on the element itself, which the radius does clip.
+
+### Changed
+- **List cards are readable at a glance on a phone.** Tags, metric chips and git
+  chips are capped at three per card on one line with a `+N` overflow; notes,
+  papers and experiment result notes show their opening lines instead of a bare
+  title; and preview text shares a row with the thumbnails rather than stacking
+  above them.
+
+### Added
+- **A React hook test harness** for the `node:test` runner, with regression
+  coverage for the effect-dependency bug above.
+
 ## [0.5.1] - 2026-07-30
 
 ### Added
