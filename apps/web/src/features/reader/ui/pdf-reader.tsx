@@ -77,6 +77,14 @@ function pageScopedLocus(locus: PdfLocus): PdfLocus {
   return { quote: locus.quote };
 }
 
+/**
+ * A mark being drawn right now, in PDF coordinates — either a freehand path
+ * (flat x,y pairs, as `inkPath` holds them) or a dragged region.
+ */
+type DraftShape =
+  | { kind: "ink"; pageNumber: number; path: number[] }
+  | { kind: "rect"; pageNumber: number; x0: number; y0: number; x1: number; y1: number };
+
 interface TextItemGeometry {
   str: string;
   hasEOL?: boolean;
@@ -264,6 +272,41 @@ export function PdfReader({
     x1: number;
     y1: number;
   } | null>(null);
+  /**
+   * The stroke or region currently under the pointer, in PDF coordinates.
+   *
+   * `inkPath` and `dragRect` are refs, so mutating them during a drag never
+   * re-rendered anything — the mark only appeared once pointer-up persisted the
+   * annotation, with no feedback while drawing. This mirrors them into state so
+   * the in-progress shape is painted, and is cleared when the drag ends.
+   */
+  const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
+  const pendingShape = useRef<DraftShape | null>(null);
+  const shapeFrame = useRef<number | null>(null);
+
+  /**
+   * Publish the in-progress shape at most once per frame. Pointer-move fires far
+   * more often than the display refreshes, and each publish re-renders a page.
+   */
+  const scheduleDraft = useCallback((shape: DraftShape | null) => {
+    pendingShape.current = shape;
+    if (shapeFrame.current != null) return;
+    shapeFrame.current = window.requestAnimationFrame(() => {
+      shapeFrame.current = null;
+      setDraftShape(pendingShape.current);
+    });
+  }, []);
+
+  const clearDraft = useCallback(() => {
+    if (shapeFrame.current != null) {
+      window.cancelAnimationFrame(shapeFrame.current);
+      shapeFrame.current = null;
+    }
+    pendingShape.current = null;
+    setDraftShape(null);
+  }, []);
+
+  useEffect(() => clearDraft, [clearDraft]);
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
@@ -1052,6 +1095,7 @@ export function PdfReader({
     const pt = screenToPdf(host, event.clientX, event.clientY);
     if (createTool === "ink") {
       inkPath.current = [pt.x, pt.y];
+      scheduleDraft({ kind: "ink", pageNumber, path: [pt.x, pt.y] });
       host.setPointerCapture(event.pointerId);
       return;
     }
@@ -1063,6 +1107,7 @@ export function PdfReader({
         x1: pt.x,
         y1: pt.y,
       };
+      scheduleDraft({ kind: "rect", pageNumber, x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y });
       host.setPointerCapture(event.pointerId);
       return;
     }
@@ -1087,16 +1132,25 @@ export function PdfReader({
     const pt = screenToPdf(host, event.clientX, event.clientY);
     if (createTool === "ink" && inkPath.current.length >= 2) {
       inkPath.current.push(pt.x, pt.y);
+      scheduleDraft({
+        kind: "ink",
+        pageNumber: Number(host.dataset.page),
+        path: [...inkPath.current],
+      });
       return;
     }
     if (createTool === "image" && dragRect.current) {
       dragRect.current.x1 = pt.x;
       dragRect.current.y1 = pt.y;
+      scheduleDraft({ kind: "rect", ...dragRect.current });
     }
   }
 
   function onPagePointerUp(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
     if (!canCreate || !pageSize || rotation !== 0) return;
+    // The persisted annotation takes over from here; drop the live preview so
+    // the two cannot both be painted for a frame.
+    clearDraft();
     if (createTool === "ink" && inkPath.current.length >= 4) {
       const pageHeight =
         pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
@@ -1309,10 +1363,69 @@ export function PdfReader({
                   onSelect={(id) => setSelectedAnnId(id)}
                 />
               )}
+              {pageSize && rotation === 0 && draftShape?.pageNumber === n && (
+                <DraftShapeOverlay
+                  shape={draftShape}
+                  color={createColor}
+                  scale={scale}
+                  pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
+                />
+              )}
             </div>
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Paints the mark currently under the pointer.
+ *
+ * Uses the same projection as the persisted overlay — `x * scale` and
+ * `(pageHeight - y) * scale` — so the preview sits exactly where the saved
+ * annotation lands, with no jump on release.
+ */
+function DraftShapeOverlay({
+  shape,
+  color,
+  scale,
+  pageHeight,
+}: {
+  shape: DraftShape;
+  color: string;
+  scale: number;
+  pageHeight: number;
+}) {
+  const toScreen = (x: number, y: number) => `${x * scale},${(pageHeight - y) * scale}`;
+
+  return (
+    <div className="pdf-reader-ann-layer" aria-hidden>
+      <svg className="pdf-reader-ann-svg" width="100%" height="100%">
+        {shape.kind === "ink" ? (
+          <polyline
+            points={Array.from({ length: Math.floor(shape.path.length / 2) }, (_, i) =>
+              toScreen(shape.path[i * 2]!, shape.path[i * 2 + 1]!),
+            ).join(" ")}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <rect
+            x={Math.min(shape.x0, shape.x1) * scale}
+            y={(pageHeight - Math.max(shape.y0, shape.y1)) * scale}
+            width={Math.abs(shape.x1 - shape.x0) * scale}
+            height={Math.abs(shape.y1 - shape.y0) * scale}
+            fill="none"
+            stroke={color}
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+          />
+        )}
+      </svg>
     </div>
   );
 }
