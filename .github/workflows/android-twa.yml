@@ -101,7 +101,14 @@ jobs:
         env:
           BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: bubblewrap build --skipPwaValidation
+        run: |
+          set -euo pipefail
+          # manifest-checksum.txt is gitignored, so `build` never finds it and
+          # asks "would you like to regenerate your project?" — another prompt
+          # with no stdin. Regenerating explicitly answers it and rebuilds the
+          # Android project from twa-manifest.json, which is the file we edit.
+          bubblewrap update --skipVersionUpgrade
+          bubblewrap build --skipPwaValidation
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
