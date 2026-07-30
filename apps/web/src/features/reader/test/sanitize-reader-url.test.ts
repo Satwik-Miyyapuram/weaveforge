@@ -5,6 +5,7 @@ import {
   resolvePaperPdfUrl,
   sanitizePdfUrl,
   sanitizeReaderHref,
+  isReaderObjectUrl,
 } from "../application/sanitize-reader-url.js";
 
 test("sanitizePdfUrl accepts https only and rejects javascript/data/credentials/http", () => {
@@ -75,4 +76,38 @@ test("proxiedPdfUrl rewrites allowlisted hosts through the same-origin proxy", a
     "/api/pdf-proxy?url=" + encodeURIComponent("https://arxiv.org/pdf/1706.03762"),
   );
   assert.equal(proxiedPdfUrl("https://evil.test/a.pdf"), "https://evil.test/a.pdf");
+});
+
+test("isReaderObjectUrl accepts this origin's object URLs and nothing else", () => {
+  const origin = "https://weaveforge.test";
+  const priorLocation = (globalThis as { location?: unknown }).location;
+  Object.defineProperty(globalThis, "location", {
+    value: { origin },
+    configurable: true,
+    writable: true,
+  });
+  try {
+    // The reader caches PDF bytes and re-opens them through createObjectURL, so
+    // the second visit to any paper is a blob: URL. Rejecting it made the reader
+    // refuse to open a paper it had cached itself.
+    assert.equal(isReaderObjectUrl(`blob:${origin}/2f1c-4b`), true);
+    // Another origin's handle is not ours to read.
+    assert.equal(isReaderObjectUrl("blob:https://evil.example/2f1c-4b"), false);
+    assert.equal(isReaderObjectUrl("blob:not-a-url"), false);
+    assert.equal(isReaderObjectUrl("https://arxiv.org/pdf/1706.03762"), false);
+    assert.equal(isReaderObjectUrl("javascript:alert(1)"), false);
+    assert.equal(isReaderObjectUrl(null), false);
+  } finally {
+    Object.defineProperty(globalThis, "location", {
+      value: priorLocation,
+      configurable: true,
+      writable: true,
+    });
+  }
+});
+
+test("sanitizePdfUrl still refuses object URLs, so links never point at blobs", () => {
+  // isReaderObjectUrl is only for handing bytes to pdf.js; an <a href> or
+  // "open original" link must remain an https URL.
+  assert.equal(sanitizePdfUrl("blob:https://weaveforge.test/2f1c-4b"), null);
 });

@@ -23,7 +23,12 @@ import {
   type ReaderAnnotationType,
 } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
-import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl } from "../application/sanitize-reader-url";
+import {
+  sanitizePdfUrl,
+  originalUrlFromProxy,
+  isAllowedPdfProxyUrl,
+  isReaderObjectUrl,
+} from "../application/sanitize-reader-url";
 import {
   pageNumberFromSelection,
   selectionRangeFromDom,
@@ -330,6 +335,8 @@ export function PdfReader({
       const original = originalUrlFromProxy(url);
       return original && isAllowedPdfProxyUrl(original) ? url : null;
     }
+    // Bytes this app already cached and materialised — see isReaderObjectUrl.
+    if (isReaderObjectUrl(url)) return url;
     return sanitizePdfUrl(url);
   })();
   const openUrl = (() => {
@@ -787,6 +794,21 @@ export function PdfReader({
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
 
   function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    // Delete the selected annotation from the page itself. Deleting was only
+    // reachable by finding the same annotation again in the sidebar list.
+    if (
+      (event.key === "Delete" || event.key === "Backspace") &&
+      selectedAnnId &&
+      canCreate &&
+      !isEditableTarget(event.target)
+    ) {
+      const selected = annotations.find((a) => a.id === selectedAnnId);
+      if (selected?.origin === "local") {
+        event.preventDefault();
+        void removeLocal(selectedAnnId);
+        return;
+      }
+    }
     const command = readerKeyboardCommand({
       key: event.key,
       ctrlKey: event.ctrlKey,
@@ -1203,7 +1225,15 @@ export function PdfReader({
       tabIndex={0}
       onKeyDown={onKeyDown}
       aria-label="PDF reader"
-      style={darkPdf ? ({ ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } as CSSProperties) : undefined}
+      style={
+        {
+          // Tint the live text selection with the colour the highlight will
+          // actually be, so dragging over text previews the result instead of
+          // showing the browser's default blue until you confirm.
+          ["--reader-select-color" as string]: createColor,
+          ...(darkPdf ? { ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } : {}),
+        } as CSSProperties
+      }
     >
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">

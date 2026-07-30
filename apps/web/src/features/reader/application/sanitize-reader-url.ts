@@ -46,6 +46,29 @@ export function sanitizePdfUrl(raw: string | null | undefined): string | null {
 }
 
 /**
+ * True for an object URL this page minted (`blob:<origin>/<uuid>`).
+ *
+ * The reader's source ladder caches PDF bytes in IndexedDB and materialises
+ * them through `URL.createObjectURL`, so the second open of any paper hands
+ * pdf.js a `blob:` URL rather than an https one. Those are same-origin handles
+ * to bytes already in this tab — there is no network fetch and no host to
+ * allowlist — but they are not `https:`, so the plain PDF-URL check rejected
+ * them and the reader refused to open a paper it had itself cached.
+ *
+ * Deliberately narrower than "starts with blob:": a blob URL carries the origin
+ * that created it, and only our own is accepted.
+ */
+export function isReaderObjectUrl(raw: string | null | undefined): boolean {
+  if (!raw || !raw.startsWith("blob:")) return false;
+  if (typeof location === "undefined") return false;
+  try {
+    return new URL(raw.slice("blob:".length)).origin === location.origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Only same-origin `/reader…` paths may be used as evidence deep links into the
  * PDF reader. Rebuild via {@link buildLocusLink} when the stored href is untrusted.
  */
