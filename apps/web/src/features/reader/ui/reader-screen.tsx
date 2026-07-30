@@ -12,7 +12,11 @@ import {
   proxiedPdfUrl,
   looksLikePdfUrl,
 } from "../application/sanitize-reader-url";
-import { resolvePaperPdfSourceForReader } from "../application/resolve-paper-pdf-for-reader";
+import {
+  evictReaderPdfCache,
+  resolvePaperPdfSourceForReader,
+} from "../application/resolve-paper-pdf-for-reader";
+import { AnnotationSidebar } from "./annotation-sidebar";
 import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
 import { mergeReaderAnnotations } from "../application/merge-reader-annotations";
 import { parseReaderSplitPane } from "../application/reader-split";
@@ -48,6 +52,12 @@ export function ReaderScreen() {
   }, [pdfParam]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(paperId ? null : pdfFromParam);
   const [pdfRevokeUrl, setPdfRevokeUrl] = useState<string | null>(null);
+  /**
+   * Paper whose cached bytes were rejected by pdf.js, so the ladder is asked to
+   * skip the cache for it. Held per paper rather than as a bare flag, so it
+   * cannot leak into the next paper and force an unnecessary refetch.
+   */
+  const [cacheSkippedFor, setCacheSkippedFor] = useState<string | null>(null);
   const [contentHash, setContentHash] = useState("");
   const [title, setTitle] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<import("@thesis/core").ReaderAnnotation[]>([]);
@@ -100,14 +110,17 @@ export function ReaderScreen() {
         // Resolve the source first: the ladder is what knows the content hash,
         // and the projection needs it to stamp each Zotero rect with the file
         // it was captured against.
-        const resolution = await resolvePaperPdfSourceForReader({
-          id: paper.id,
-          url: paper.url,
-          arxivId: paper.arxivId,
-          doi: paper.doi,
-          pdfPath: paper.pdfPath,
-          metadata: paper.metadata,
-        });
+        const resolution = await resolvePaperPdfSourceForReader(
+          {
+            id: paper.id,
+            url: paper.url,
+            arxivId: paper.arxivId,
+            doi: paper.doi,
+            pdfPath: paper.pdfPath,
+            metadata: paper.metadata,
+          },
+          { skipCache: cacheSkippedFor === paper.id },
+        );
         if (cancelled) {
           if (resolution.ok && "revokeUrl" in resolution && resolution.revokeUrl) {
             URL.revokeObjectURL(resolution.revokeUrl);
@@ -156,7 +169,26 @@ export function ReaderScreen() {
       cancelled = true;
       if (revokeOnCancel) URL.revokeObjectURL(revokeOnCancel);
     };
-  }, [paperId, pdfFromParam, pdfParam]);
+  }, [paperId, pdfFromParam, pdfParam, cacheSkippedFor]);
+
+  /**
+   * A cached copy pdf.js refused to open. Drop it and re-run the ladder without
+   * the cache tier, which resolves the paper's real PDF URL.
+   *
+   * Seen on mobile as "Unexpected server response (0)" against a blob: URL —
+   * the entry can be truncated by a storage eviction mid-write, or its bytes
+   * reclaimed under memory pressure, and it would then be re-served on every
+   * future visit. Recovering here means a bad entry costs one refetch instead
+   * of leaving the paper permanently unopenable.
+   */
+  function handleSourceFailure(failedUrl: string) {
+    if (!paperId) return;
+    logActivity("reader", "Cached PDF could not be opened — refetching the original.");
+    URL.revokeObjectURL(failedUrl);
+    setPdfRevokeUrl(null);
+    void evictReaderPdfCache(paperId);
+    setCacheSkippedFor(paperId);
+  }
 
   useEffect(() => {
     return () => {
@@ -282,6 +314,19 @@ export function ReaderScreen() {
           <p>No PDF was provided for this locus.</p>
         </div>
       )}
+      {/* Annotations belong to the paper, not to the PDF, so they survive a
+          source that will not open — but they were only ever rendered as an
+          overlay on the document, which made them look lost. List them here so
+          the work is still reachable when the PDF is not. */}
+      {!loading && !pdfUrl && annotations.length > 0 && (
+        <AnnotationSidebar
+          annotations={annotations}
+          quotationTypes={quotationTypes}
+          paperTitle={title ?? "Paper"}
+          selectedId={null}
+          onSelect={() => {}}
+        />
+      )}
       {!loading && pdfUrl && (
         <div className={`reader-main${pane ? " reader-main--split" : ""}`}>
           <PdfReader
@@ -299,6 +344,7 @@ export function ReaderScreen() {
               setAnnotations((prev) => (typeof next === "function" ? next(prev) : next));
             }}
             onActivity={(kind, message) => logActivity(kind, message)}
+            onSourceFailure={handleSourceFailure}
           />
           {pane && (
             <ReaderSplitPanel

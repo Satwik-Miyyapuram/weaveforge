@@ -33,11 +33,34 @@ export async function materializeCachePdfUrl(
   return URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
 }
 
-/** Resolve + materialise; populate cache when a remote URL wins. */
+/**
+ * Drop a paper's cached bytes.
+ *
+ * Used when the cached copy fails to open: a truncated or evicted entry would
+ * otherwise be re-served on every future visit, so the reader would stay broken
+ * for that paper until storage was cleared by hand.
+ */
+export async function evictReaderPdfCache(paperId: string): Promise<void> {
+  const cache = getReaderPdfByteCache();
+  if (!cache) return;
+  try {
+    await cache.remove(paperId);
+  } catch {
+    // Best-effort: the fallback fetch matters, the eviction is housekeeping.
+  }
+}
+
+/**
+ * Resolve + materialise; populate cache when a remote URL wins.
+ *
+ * `skipCache` bypasses the cache tier entirely, so the ladder resolves to a
+ * network URL. That is the retry path when a cached blob will not open.
+ */
 export async function resolvePaperPdfSourceForReader(
   paper: Parameters<typeof paperToPdfSourcePaper>[0],
+  options: { skipCache?: boolean } = {},
 ): Promise<PdfSourceResolution & { revokeUrl?: string }> {
-  const cache = getReaderPdfByteCache();
+  const cache = options.skipCache ? undefined : getReaderPdfByteCache();
   const resolution = await resolvePaperPdfSource(paper, cache);
   if (!resolution.ok) return resolution;
 
