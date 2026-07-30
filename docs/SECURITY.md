@@ -18,7 +18,7 @@ security-sensitive.
 
 - Preferred: use GitHub's **private vulnerability reporting** —
   the repo's **Security → Report a vulnerability** tab.
-- Alternatively, email the maintainer at **pandu.satwik@gmail.com** with
+- Alternatively, email the maintainer at **satwik.miyyapuram+weaveforge@gmail.com** with
   `SECURITY` in the subject.
 
 Please include: a description, steps to reproduce, affected component
