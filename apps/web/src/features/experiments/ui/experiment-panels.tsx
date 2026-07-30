@@ -56,16 +56,21 @@ export function RelatedPaper({ paperId }: { paperId: string }) {
   );
 }
 
-export function ExpMetricChips({ exp }: { exp: Experiment }) {
+export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number }) {
   const metrics = Object.entries(exp.metrics ?? {});
   if (metrics.length === 0) return null;
+  // On a card, a run with a dozen metrics buries the title; show a few and a
+  // count. The detail view (no limit) keeps them all.
+  const shown = limit != null ? metrics.slice(0, limit) : metrics;
+  const hidden = metrics.length - shown.length;
   return (
     <div className="metric-chips">
-      {metrics.map(([k, v]) => (
+      {shown.map(([k, v]) => (
         <span key={k} className="metric-chip">
           <em>{k}</em> {formatMetricCell(k, v)}
         </span>
       ))}
+      {hidden > 0 ? <span className="metric-chip metric-chip-more">+{hidden} more</span> : null}
     </div>
   );
 }
@@ -103,7 +108,11 @@ function figureLabel(url: string, index: number): string {
 export function Artifacts({ urls, detail = false }: { urls: string[]; detail?: boolean }) {
   const images = urls.filter(isImageUrl);
   const links = urls.filter((u) => !isImageUrl(u));
-  const thumbClass = detail ? "paper-grid" : "artifact-thumbs";
+  // Detail: a uniform responsive grid of fixed-ratio tiles. The old
+  // column-masonry gave every figure a different height (contain-fit) and
+  // flowed column-major, which read as "images spilling onto the next line"
+  // on a narrow phone.
+  const thumbClass = detail ? "artifact-figures" : "artifact-thumbs";
   return (
     <div className="artifacts">
       {images.length > 0 && (

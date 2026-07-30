@@ -17,6 +17,7 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
 import { CompareViewIcon, FilterIcon, ListViewIcon } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
+import { ExperimentCardThumbs } from "@/components/card-thumbs";
 import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { Select } from "@/components/select";
 import { MultiSelect } from "@/components/multi-select";
@@ -517,8 +518,9 @@ function ExperimentCard({
       openLabel="Open experiment"
     >
       <ExpGitChips exp={exp} />
-      <ExpMetricChips exp={exp} />
+      <ExpMetricChips exp={exp} limit={3} />
       {exp.resultNote && <p className="summary">{exp.resultNote}</p>}
+      <ExperimentCardThumbs artifacts={exp.artifacts} />
     </EntityCard>
   );
 }

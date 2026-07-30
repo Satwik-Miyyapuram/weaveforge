@@ -36,6 +36,7 @@ import {
   OpenIcon,
 } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
+import { PaperCardThumbs } from "@/components/card-thumbs";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
 import { PaperMarkdown } from "./paper-markdown";
@@ -858,6 +859,7 @@ function PaperCard({
       openLabel="Open note"
     >
       {snippet ? <p className="entity-card-snippet">{snippet}</p> : null}
+      <PaperCardThumbs paper={paper} />
     </EntityCard>
   );
 }

@@ -14,7 +14,14 @@ import { useNavPending } from "@/lib/nav-pending";
  */
 const IGNORE = ".graph-wrap, .graph-canvas, .dashboard-grid-wrap, .table-scroll, .papers-table-scroll, input, textarea, select, .custom-select-menu, .sub-nav";
 
-export function SwipeViews({ children }: { children: React.ReactNode }) {
+export function SwipeViews({
+  children,
+  disabled = false,
+}: {
+  children: React.ReactNode;
+  /** Detail views (single paper/note/experiment) opt out of the gesture. */
+  disabled?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { beginNavigation } = useNavPending();
@@ -29,7 +36,7 @@ export function SwipeViews({ children }: { children: React.ReactNode }) {
   const idx = items.findIndex((it) => pathname?.startsWith(it.path));
 
   function onTouchStart(e: React.TouchEvent) {
-    if (items.length < 2) return;
+    if (disabled || items.length < 2) return;
     if (e.touches.length !== 1) {
       start.current = null;
       return;
@@ -45,7 +52,7 @@ export function SwipeViews({ children }: { children: React.ReactNode }) {
   function onTouchEnd(e: React.TouchEvent) {
     const s = start.current;
     start.current = null;
-    if (!s || items.length < 2) return;
+    if (disabled || !s || items.length < 2) return;
     if (e.changedTouches.length !== 1) return;
     const t = e.changedTouches[0];
     if (!t) return;
