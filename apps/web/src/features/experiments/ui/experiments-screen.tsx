@@ -18,6 +18,7 @@ import { Popover } from "@/components/popover";
 import { CompareViewIcon, FilterIcon, ListViewIcon } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
 import { ExperimentCardThumbs } from "@/components/card-thumbs";
+import { cardSnippet } from "@/lib/card-snippet";
 import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { Select } from "@/components/select";
 import { MultiSelect } from "@/components/multi-select";
@@ -517,10 +518,12 @@ function ExperimentCard({
       onOpen={openDetail}
       openLabel="Open experiment"
     >
-      <ExpGitChips exp={exp} />
+      <ExpGitChips exp={exp} limit={3} />
       <ExpMetricChips exp={exp} limit={3} />
-      {exp.resultNote && <p className="summary">{exp.resultNote}</p>}
-      <ExperimentCardThumbs artifacts={exp.artifacts} />
+      <div className="card-body-row">
+        {exp.resultNote && <p className="entity-card-snippet">{cardSnippet(exp.resultNote)}</p>}
+        <ExperimentCardThumbs artifacts={exp.artifacts} />
+      </div>
     </EntityCard>
   );
 }

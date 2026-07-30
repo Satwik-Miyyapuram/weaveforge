@@ -37,6 +37,7 @@ import {
 } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
 import { PaperCardThumbs } from "@/components/card-thumbs";
+import { cardSnippet } from "@/lib/card-snippet";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
 import { PaperMarkdown } from "./paper-markdown";
@@ -761,17 +762,6 @@ function PaperTableRow({
   );
 }
 
-/** Plain-text card preview (~50–100 chars) of a paper note. */
-function paperNoteSnippet(body: string, max = 100): string {
-  const text = body
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[#>*_`~]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text || text === "No summary yet.") return "";
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
 
 /** Compact paper card in the grid; clicking opens the full note page. */
 function PaperCard({
@@ -821,7 +811,7 @@ function PaperCard({
     paper.year != null ? String(paper.year) : null,
   ].filter(Boolean) as string[];
 
-  const snippet = paperNoteSnippet(paper.summary ?? "");
+  const snippet = cardSnippet(paper.summary ?? "");
 
   return (
     <EntityCard
@@ -858,8 +848,10 @@ function PaperCard({
       onOpen={onOpen}
       openLabel="Open note"
     >
-      {snippet ? <p className="entity-card-snippet">{snippet}</p> : null}
-      <PaperCardThumbs paper={paper} />
+      <div className="card-body-row">
+        {snippet ? <p className="entity-card-snippet">{snippet}</p> : null}
+        <PaperCardThumbs paper={paper} />
+      </div>
     </EntityCard>
   );
 }

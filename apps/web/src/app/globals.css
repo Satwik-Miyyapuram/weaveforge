@@ -1222,8 +1222,8 @@ label.mp-row input[type="checkbox"]:disabled,
   overflow-wrap: break-word;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
 }
 .entity-card-foot,
@@ -1786,11 +1786,22 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 .image-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
+/* Card body: preview text and thumbnails share one row so the images cost no
+   extra vertical band. Below ~360px of card interior the thumbs wrap under. */
+.card-body-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  flex-wrap: wrap; margin-top: 6px;
+}
+.card-body-row:empty { display: none; }
+.card-body-row > .entity-card-snippet,
+.card-body-row > .summary { flex: 1 1 160px; min-width: 0; margin: 0; }
+.card-body-row > .card-thumbs { flex: 0 0 auto; margin-top: 0; }
+
 /* First-few image thumbnails on an entity card (papers, experiments). */
 .card-thumbs { display: flex; gap: 6px; margin-top: 8px; }
 .card-thumb {
   position: relative; flex: 0 0 auto;
-  width: 64px; height: 48px; border-radius: 6px; overflow: hidden;
+  width: 52px; height: 40px; border-radius: 6px; overflow: hidden;
   border: 1px solid var(--line); background: var(--neutral);
 }
 .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1799,7 +1810,11 @@ a.related-paper-url:hover { text-decoration: underline; }
   display: flex; align-items: center; justify-content: center;
   font-size: 0.78rem; color: var(--muted); background: var(--chip);
 }
-.metric-chip-more { color: var(--muted); font-style: italic; }
+/* Capped chip rows (tags, metrics, git) stay on a single line on a card; the
+   overflow is reported as a "+N" chip rather than wrapping. */
+.chip-row--capped { flex-wrap: nowrap; overflow: hidden; }
+.chip-row--capped > * { min-width: 0; }
+.chip-more { color: var(--muted); font-style: italic; flex: 0 0 auto; }
 .image-thumb .image-loading { position: absolute; inset: 0; }
 .image-del {
   position: absolute; top: 4px; right: 4px;
