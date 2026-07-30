@@ -144,6 +144,28 @@ export function Select({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  /**
+   * Nudge the menu back on screen after it renders.
+   *
+   * It is left-aligned to the trigger and may be wider than it (status menus use
+   * `width: max-content`), so a trigger near the right edge would otherwise push
+   * its own options off the viewport. Measuring after paint is what makes this
+   * exact — the width is not known before then. Settles in one pass: once the
+   * menu is inside the margin the correction is zero and no state is set.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const MARGIN = 8;
+    const overflowRight = rect.right - (window.innerWidth - MARGIN);
+    const overflowLeft = MARGIN - rect.left;
+    const dx = overflowRight > 0 ? -overflowRight : overflowLeft > 0 ? overflowLeft : 0;
+    if (dx === 0) return;
+    setMenuRect((prev) => (prev ? { ...prev, left: prev.left + dx } : prev));
+  }, [open, menuRect?.left, menuRect?.width, query]);
+
   // A fixed menu does not travel with its trigger, so follow scroll/resize.
   // Capture phase catches scrolls in the nested containers the trigger sits in.
   useEffect(() => {
@@ -281,7 +303,10 @@ export function Select({
       {open && menuRect && createPortal(
         <div
           ref={listRef}
-          className={`custom-select-menu custom-select-menu--fixed${openUp ? " up" : ""}${searchable ? " searchable" : ""}`}
+          // The caller's class rides along: the menu is portalled out of the
+          // container, so per-instance rules that were written as descendants
+          // (`.status-select .custom-select-menu`) would otherwise stop matching.
+          className={`custom-select-menu custom-select-menu--fixed${className ? ` ${className}` : ""}${openUp ? " up" : ""}${searchable ? " searchable" : ""}`}
           role="listbox"
           onKeyDown={onKeyDown}
           style={{
