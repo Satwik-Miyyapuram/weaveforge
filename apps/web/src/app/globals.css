@@ -1785,6 +1785,20 @@ a.related-paper-url:hover { text-decoration: underline; }
   background: var(--neutral);
 }
 .image-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* First-few image thumbnails on an entity card (papers, experiments). */
+.card-thumbs { display: flex; gap: 6px; margin-top: 8px; }
+.card-thumb {
+  position: relative; flex: 0 0 auto;
+  width: 64px; height: 48px; border-radius: 6px; overflow: hidden;
+  border: 1px solid var(--line); background: var(--neutral);
+}
+.card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); }
+.card-thumb-more {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.78rem; color: var(--muted); background: var(--chip);
+}
 .image-thumb .image-loading { position: absolute; inset: 0; }
 .image-del {
   position: absolute; top: 4px; right: 4px;
@@ -2699,11 +2713,27 @@ a.related-paper-url:hover { text-decoration: underline; }
 .artifact-thumbs img {
   display: block; width: 120px; height: 90px; object-fit: cover;
 }
+/* Detail figures: natural aspect ratios, but flowed row-major with flex-wrap
+   instead of column-masonry. The old `column-width` layout filled column 1
+   top-to-bottom before column 2, which on a phone looked like figures spilling
+   onto the next line in the wrong order. On mobile this collapses to a single
+   full-width column. */
+.artifact-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0;
+}
 .artifact-card {
   min-width: 0;
+  flex: 1 1 240px;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--chip);
   transition: border-color 0.12s, background 0.12s;
 }
 .artifact-card:hover {
@@ -2714,8 +2744,10 @@ a.related-paper-url:hover { text-decoration: underline; }
   display: block;
   width: 100%;
   height: auto;
+  /* Keep the figure's own proportions; just cap a very tall one so it can't
+     dominate the column. */
+  max-height: 340px;
   object-fit: contain;
-  border-radius: 6px;
 }
 .artifact-caption {
   display: block;

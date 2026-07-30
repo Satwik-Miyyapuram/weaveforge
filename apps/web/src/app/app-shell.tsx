@@ -12,6 +12,7 @@ import { PrivacyDisclaimerGate } from "@/features/auth/ui/privacy-disclaimer-gat
 import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/use-layout-breakpoint";
+import { useIsDetailView } from "@/lib/use-detail-view";
 import { HeaderActions } from "./header-actions";
 import { ThemeToggle } from "./theme-toggle";
 import { TabBar } from "./tabbar";
@@ -74,6 +75,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   const { current } = useProject();
   const accountRoute = isAccountRoute(pathname);
   const { breakpoint, navEnter } = useLayoutBreakpoint();
+  const detailView = useIsDetailView();
   const [collapsed, setCollapsed] = useState(false);
   // Enable sidebar transitions only AFTER the layout has settled into place, so
   // the nav appearing on load (padding-left 0→232) doesn't slide the content
@@ -130,7 +132,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
         {/* Mobile's home for the account controls; on desktop they live in the
             nav. Rendered for one breakpoint only — mounting both and hiding one
             with CSS gave every switcher a second copy holding its own state. */}
-        {breakpoint === "mobile" && (
+        {breakpoint === "mobile" && !detailView && (
           <div className="brand mobile-only">
             <OrgSwitcher />
             <ProjectSwitcher />
@@ -142,8 +144,11 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
         )}
         {current ? (
           <div className="view-scope">
-            <SubNav />
-            <SwipeViews>
+            {/* Detail views (a single paper/note/experiment) carry their own
+                header and Back control, so the sub-tab strip and the
+                swipe-between-tabs gesture are hidden and disabled there. */}
+            {!detailView && <SubNav />}
+            <SwipeViews disabled={detailView}>
               <RoutePending>
                 <PageTransition>{children}</PageTransition>
               </RoutePending>

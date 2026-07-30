@@ -103,7 +103,11 @@ function figureLabel(url: string, index: number): string {
 export function Artifacts({ urls, detail = false }: { urls: string[]; detail?: boolean }) {
   const images = urls.filter(isImageUrl);
   const links = urls.filter((u) => !isImageUrl(u));
-  const thumbClass = detail ? "paper-grid" : "artifact-thumbs";
+  // Detail: a uniform responsive grid of fixed-ratio tiles. The old
+  // column-masonry gave every figure a different height (contain-fit) and
+  // flowed column-major, which read as "images spilling onto the next line"
+  // on a narrow phone.
+  const thumbClass = detail ? "artifact-figures" : "artifact-thumbs";
   return (
     <div className="artifacts">
       {images.length > 0 && (
