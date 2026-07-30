@@ -16,23 +16,31 @@ function isImageUrl(url: string): boolean {
   }
 }
 
-export function ExpGitChips({ exp }: { exp: Experiment }) {
+export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number }) {
+  const chips = [
+    exp.branch ? <span key="branch" className="git-chip"><em>branch</em> {exp.branch}</span> : null,
+    exp.commitSha ? (
+      commitUrl(exp.repoUrl, exp.commitSha) ? (
+        <a key="commit" className="git-chip link" href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
+          <em>commit</em> {shortSha(exp.commitSha)} ↗
+        </a>
+      ) : (
+        <span key="commit" className="git-chip"><em>commit</em> {shortSha(exp.commitSha)}</span>
+      )
+    ) : null,
+    exp.repoUrl ? (
+      <a key="repo" className="git-chip link" href={exp.repoUrl} target="_blank" rel="noreferrer">repo ↗</a>
+    ) : null,
+    exp.relatedPaper ? <RelatedPaper key="paper" paperId={exp.relatedPaper} /> : null,
+  ].filter(Boolean);
+  if (chips.length === 0) return null;
+  // Cards keep the row to one line; the detail view (no limit) shows them all.
+  const shown = limit != null ? chips.slice(0, limit) : chips;
+  const hidden = chips.length - shown.length;
   return (
-    <div className="git-chips">
-      {exp.branch && <span className="git-chip"><em>branch</em> {exp.branch}</span>}
-      {exp.commitSha && (
-        commitUrl(exp.repoUrl, exp.commitSha) ? (
-          <a className="git-chip link" href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
-            <em>commit</em> {shortSha(exp.commitSha)} ↗
-          </a>
-        ) : (
-          <span className="git-chip"><em>commit</em> {shortSha(exp.commitSha)}</span>
-        )
-      )}
-      {exp.repoUrl && (
-        <a className="git-chip link" href={exp.repoUrl} target="_blank" rel="noreferrer">repo ↗</a>
-      )}
-      {exp.relatedPaper && <RelatedPaper paperId={exp.relatedPaper} />}
+    <div className={limit != null ? "git-chips chip-row--capped" : "git-chips"}>
+      {shown}
+      {hidden > 0 ? <span className="git-chip chip-more">+{hidden}</span> : null}
     </div>
   );
 }
@@ -64,13 +72,13 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
   const shown = limit != null ? metrics.slice(0, limit) : metrics;
   const hidden = metrics.length - shown.length;
   return (
-    <div className="metric-chips">
+    <div className={limit != null ? "metric-chips chip-row--capped" : "metric-chips"}>
       {shown.map(([k, v]) => (
         <span key={k} className="metric-chip">
           <em>{k}</em> {formatMetricCell(k, v)}
         </span>
       ))}
-      {hidden > 0 ? <span className="metric-chip metric-chip-more">+{hidden} more</span> : null}
+      {hidden > 0 ? <span className="metric-chip chip-more">+{hidden}</span> : null}
     </div>
   );
 }

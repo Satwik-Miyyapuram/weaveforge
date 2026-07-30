@@ -28,6 +28,7 @@ import { compressImage } from "@/lib/image-compress";
 import { useScreenData } from "@/lib/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
+import { cardSnippet } from "@/lib/card-snippet";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
@@ -541,18 +542,6 @@ function noteBodyText(page: VaultPage): string {
   return page.body || page.bodyPreview || "";
 }
 
-/** Plain-text card preview (~50–100 chars): strip markdown, collapse whitespace. */
-function noteExcerpt(body: string, max = 100): string {
-  const text = body
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[#>*_`~]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return "";
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
 /** Papers-style card for a note: title + excerpt; click opens the full note. */
 function NoteCard({
   page,
@@ -569,7 +558,7 @@ function NoteCard({
 }) {
   const [busy, setBusy] = useState(false);
   const preview = noteBodyText(page);
-  const excerpt = noteExcerpt(preview);
+  const excerpt = cardSnippet(preview);
   const tags = useMemo(() => extractHashtags(preview), [preview]);
 
   async function remove() {

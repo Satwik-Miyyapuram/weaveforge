@@ -12,6 +12,8 @@ import { DeleteIcon, OpenIcon } from "@/components/view-icons";
  *         tags / body
  *         delete ……… status · actions · open
  */
+const MAX_CARD_TAGS = 3;
+
 export function EntityCard({
   as: Tag = "div",
   id,
@@ -91,12 +93,17 @@ export function EntityCard({
       {meta != null && meta !== "" && <p className="entity-card-meta">{meta}</p>}
 
       {tags && tags.length > 0 && (
-        <div className="tag-chips">
-          {tags.map((t) => (
+        // A heavily tagged entity would otherwise wrap to three rows and push
+        // the body off-screen on a phone. One line, then a count.
+        <div className="tag-chips chip-row--capped">
+          {tags.slice(0, MAX_CARD_TAGS).map((t) => (
             <span key={t} className="tag-chip">
               #{t}
             </span>
           ))}
+          {tags.length > MAX_CARD_TAGS && (
+            <span className="tag-chip chip-more">+{tags.length - MAX_CARD_TAGS}</span>
+          )}
         </div>
       )}
 
