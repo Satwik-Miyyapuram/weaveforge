@@ -102,3 +102,31 @@ test("draftTextBox stores typed text and rect", () => {
   assert.equal(draft.text, "Margin note");
   assert.equal(draft.anchor.locus?.quote?.exact, "Margin note");
 });
+
+test("draftTextBox sizes the rect from a dragged width/height", () => {
+  // The text tool now drags out its box instead of dropping a fixed 120x24 one
+  // wherever you clicked, so the drag size has to reach the stored rect.
+  const draft = draftTextBox({
+    color: "#5fb236",
+    pageIndex: 2,
+    pageHeight: 800,
+    text: "Sized note",
+    x: 40,
+    y: 100,
+    width: 220,
+    height: 60,
+  });
+  assert.deepEqual(draft.anchor.zoteroPosition?.rects, [[40, 100, 260, 160]]);
+});
+
+test("draftTextBox falls back to a default rect when no size is given", () => {
+  const draft = draftTextBox({
+    color: "#5fb236",
+    pageIndex: 0,
+    pageHeight: 800,
+    text: "Tapped note",
+    x: 40,
+    y: 100,
+  });
+  assert.deepEqual(draft.anchor.zoteroPosition?.rects, [[40, 100, 160, 124]]);
+});
