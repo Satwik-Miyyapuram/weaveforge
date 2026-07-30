@@ -48,6 +48,9 @@
   --clay: var(--s-warn);
   --danger: var(--s-danger);
   --nav-bg: var(--surface);
+  /* Touch press tint. Replaces the UA tap highlight, which ignores
+   * border-radius; as a background on the element it follows the radius. */
+  --press: color-mix(in srgb, var(--ink) 9%, transparent);
 
   /* Scrollbars — thumb/track follow active theme. */
   --scrollbar-thumb: color-mix(in srgb, var(--muted) 42%, var(--border-strong));

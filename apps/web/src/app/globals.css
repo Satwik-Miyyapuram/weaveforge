@@ -68,6 +68,26 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+
+/* Chrome on Android draws the tap highlight from an element's border-box rects,
+   before the border-radius clip applies — so every rounded card, chip and icon
+   button flashed a hard grey rectangle. Drop the UA overlay and supply our own
+   press feedback below, which does respect the radius. */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Press feedback for anything tappable. `background-color` on the element
+   itself is clipped by its own border-radius, so the shape is always right. */
+@media (hover: none) {
+  .card[role="button"]:active,
+  .entity-card[role="button"]:active,
+  .nav-link:active,
+  .sub-nav a:active,
+  .entity-icon-btn:active,
+  .git-chip.link:active,
+  button:not(:disabled):active {
+    background-color: var(--press);
+  }
+}
 /* Single scroll container with a permanently reserved scrollbar gutter, so
    switching tabs (short → tall content) doesn't shift the layout sideways. */
 html { overflow-x: hidden; overflow-y: scroll; scrollbar-gutter: stable; }
