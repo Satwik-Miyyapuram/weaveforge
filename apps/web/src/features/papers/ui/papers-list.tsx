@@ -147,7 +147,9 @@ export function PapersScreen() {
       const result = await getContainer().papers.checkCitationAlerts(true);
       setSyncMsg(
         result.tracked === 0
-          ? "No citation alerts are tracked yet."
+          ? // Saying "nothing is tracked" without saying how to track anything
+            // leaves the user stuck. Name the control that turns it on.
+            "No papers are tracked yet — open a paper and use the bell icon to watch it for new citations."
           : `Checked ${result.checked} tracked paper${result.checked === 1 ? "" : "s"} — ${result.found} new citation${result.found === 1 ? "" : "s"}.`,
       );
     } catch (err) {
@@ -881,6 +883,7 @@ function PaperNote({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [trackingCitations, setTrackingCitations] = useState<boolean | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
+  const [editingIds, setEditingIds] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
@@ -1050,13 +1053,24 @@ function PaperNote({
           ) : (
             <>
               <ShareButton resourceType="paper" resourceId={paper.id} title={`Share: ${paper.title}`} />
+              {/* Without an identifier this used to be a disabled button whose
+                  tooltip told you to add a DOI — with nowhere to add one. Now it
+                  opens the editor that fixes exactly that. */}
               <button
                 type="button"
                 className={`entity-icon-btn${trackingCitations ? " is-active" : ""}`}
-                onClick={() => void toggleCitationTracking()}
-                disabled={!canTrackCitations || trackingCitations == null || trackingBusy}
-                aria-pressed={trackingCitations ?? false}
-                aria-label={trackingCitations ? "Stop citation alerts" : "Track new citations"}
+                onClick={() =>
+                  canTrackCitations ? void toggleCitationTracking() : setEditingIds(true)
+                }
+                disabled={trackingCitations == null || trackingBusy}
+                aria-pressed={canTrackCitations ? trackingCitations ?? false : undefined}
+                aria-label={
+                  !canTrackCitations
+                    ? "Add a DOI or arXiv ID to track citations"
+                    : trackingCitations
+                      ? "Stop citation alerts"
+                      : "Track new citations"
+                }
                 title={
                   canTrackCitations
                     ? trackingCitations
@@ -1119,6 +1133,23 @@ function PaperNote({
             <li>Cite key: {String(paper.metadata["citeKey"])}</li>
           )}
         </ul>
+        {!readOnly &&
+          (editingIds ? (
+            <PaperIdentifiersEditor
+              paper={paper}
+              onClose={() => setEditingIds(false)}
+              onReplace={onReplace}
+            />
+          ) : (
+            !canTrackCitations && (
+              <p className="muted paper-source-hint">
+                No DOI or arXiv ID, so citation alerts can&rsquo;t watch this paper.{" "}
+                <button type="button" className="link-btn" onClick={() => setEditingIds(true)}>
+                  Add one
+                </button>
+              </p>
+            )
+          ))}
         <div className="paper-source-actions">
           {readerHref && (
             <Link href={readerHref} className="btn-secondary btn-sm">
@@ -1401,6 +1432,7 @@ function PaperFieldEditor({
                 <label key={p.id} className="paper-field-check">
                   <input
                     type="checkbox"
+                    className="themed-check"
                     checked={checked}
                     disabled={disabled}
                     onChange={() => {
@@ -1421,6 +1453,7 @@ function PaperFieldEditor({
                 <label key={opt} className="paper-field-check">
                   <input
                     type="checkbox"
+                    className="themed-check"
                     checked={checked}
                     disabled={disabled}
                     onChange={() => {
@@ -1720,6 +1753,74 @@ interface StoredAnnotation {
   color?: string;
   page?: string;
   tags?: string[];
+}
+
+/**
+ * Inline editor for a paper's DOI / arXiv ID.
+ *
+ * Citation alerts need one of these to query upstream. The UI used to state the
+ * requirement in a tooltip on a disabled button and offer no way to satisfy it.
+ */
+function PaperIdentifiersEditor({
+  paper,
+  onClose,
+  onReplace,
+}: {
+  paper: Paper;
+  onClose: () => void;
+  onReplace: (p: Paper) => void;
+}) {
+  const [doi, setDoi] = useState(paper.doi ?? "");
+  const [arxivId, setArxivId] = useState(paper.arxivId ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      onReplace(
+        await getContainer().papers.updatePaper.setIdentifiers(paper.id, { doi, arxivId }),
+      );
+      onClose();
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="paper-ids-editor">
+      <label className="paper-ids-field">
+        DOI
+        <input
+          value={doi}
+          onChange={(e) => setDoi(e.target.value)}
+          placeholder="10.1145/3292500"
+          disabled={busy}
+        />
+      </label>
+      <label className="paper-ids-field">
+        arXiv ID
+        <input
+          value={arxivId}
+          onChange={(e) => setArxivId(e.target.value)}
+          placeholder="1706.03762"
+          disabled={busy}
+        />
+      </label>
+      {error && <p className="error">{error}</p>}
+      <div className="screen-actions">
+        <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void save()}>
+          {busy ? "Saving…" : "Save"}
+        </button>
+        <button type="button" className="btn-secondary btn-sm" disabled={busy} onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /** Read-only list of Zotero PDF annotations cached on the paper (metadata.annotations). */

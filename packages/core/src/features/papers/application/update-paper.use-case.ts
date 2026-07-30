@@ -7,6 +7,7 @@
  */
 
 import {
+  normalizeDoi,
   normalizeTags,
   PaperValidationError,
   PAPER_STATUSES,
@@ -47,6 +48,23 @@ export class UpdatePaperUseCase {
       throw new PaperValidationError("Rating must be between 1 and 5.");
     }
     return this.mutate(id, (p) => ({ ...p, rating }));
+  }
+
+  /**
+   * Set or clear the paper's external identifiers.
+   *
+   * Citation alerts need one of these to query upstream, so a paper without
+   * either is silently unwatchable. Blank input clears the field rather than
+   * storing an empty string, so `Boolean(paper.doi || paper.arxivId)` stays a
+   * reliable "can this be tracked" test.
+   */
+  async setIdentifiers(
+    id: string,
+    identifiers: { doi?: string; arxivId?: string },
+  ): Promise<Paper> {
+    const doi = normalizeDoi(identifiers.doi) || undefined;
+    const arxivId = identifiers.arxivId?.trim() || undefined;
+    return this.mutate(id, (p) => ({ ...p, doi, arxivId }));
   }
 
   /** Replace the paper's tags (normalized). */

@@ -348,6 +348,7 @@ function ExtractionCell({
             <label key={opt} className="paper-field-check">
               <input
                 type="checkbox"
+                className="themed-check"
                 checked={checked}
                 disabled={disabled}
                 onChange={() => {

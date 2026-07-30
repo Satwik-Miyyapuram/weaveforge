@@ -13,6 +13,7 @@ import { useProfile } from "./profile-provider";
 import { ScreenLoader } from "@/components/thesis-loader";
 import { MemberTreeSelect } from "./member-tree";
 import { formatError } from "@/lib/format-error";
+import { Select } from "@/components/select";
 
 /**
  * Supervisor view: browse the people beneath you and follow their published
@@ -129,18 +130,18 @@ function SuperviseePanel({ member }: { member: Member }) {
             <label className="muted" htmlFor="superv-snapshot">
               Reviewing
             </label>
-            <select
+            <Select
               id="superv-snapshot"
-              className="custom-select"
               value={selectedSnapshotId ?? ""}
               onChange={(event) => setSelectedSnapshotId(event.target.value || null)}
+              aria-label="Reviewing"
             >
               {snapshots.map((snap) => (
                 <option key={snap.id} value={snap.id}>
                   {snap.title} · {snap.publishedAt.slice(0, 10)}
                 </option>
               ))}
-            </select>
+            </Select>
             {selectedSnapshot?.note && (
               <p className="superv-body">{selectedSnapshot.note}</p>
             )}

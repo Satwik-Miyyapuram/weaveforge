@@ -119,6 +119,7 @@ export function GraphSettingsDrawer({
           <label className="graph-check">
             <input
               type="checkbox"
+              className="themed-check"
               checked={settings.hideOrphans}
               onChange={(e) => onChange({ hideOrphans: e.target.checked })}
             />
@@ -127,6 +128,7 @@ export function GraphSettingsDrawer({
           <label className="graph-check">
             <input
               type="checkbox"
+              className="themed-check"
               checked={settings.showConcepts}
               onChange={(e) => onChange({ showConcepts: e.target.checked })}
             />
@@ -150,6 +152,7 @@ export function GraphSettingsDrawer({
               <label key={t} className="graph-check">
                 <input
                   type="checkbox"
+                  className="themed-check"
                   checked={settings.relationTypes.includes(t)}
                   onChange={(e) => {
                     const next = e.target.checked
@@ -227,6 +230,7 @@ export function GraphSettingsDrawer({
           <label className="graph-check">
             <input
               type="checkbox"
+              className="themed-check"
               checked={settings.showAutoStyle}
               onChange={(e) => onChange({ showAutoStyle: e.target.checked })}
             />

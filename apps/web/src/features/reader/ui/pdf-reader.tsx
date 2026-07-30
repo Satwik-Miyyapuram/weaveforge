@@ -60,6 +60,7 @@ import {
   findAnnotationBacklinks,
   type AnnotationBacklinkHit,
 } from "../application/annotation-backlinks";
+import { Select } from "@/components/select";
 
 /**
  * pdf.js render surface. Dynamically imports pdf.js so no bytes reach first
@@ -1196,7 +1197,7 @@ export function PdfReader({
         </div>
         {canCreate && (
           <div className="pdf-reader-group">
-            <select
+            <Select
               className="pdf-reader-tool-select"
               aria-label="Annotation tool"
               value={createTool}
@@ -1207,7 +1208,7 @@ export function PdfReader({
               <option value="ink">Ink</option>
               <option value="image">Image region</option>
               <option value="text">Text box</option>
-            </select>
+            </Select>
             <input
               type="color"
               className="pdf-reader-color-input"

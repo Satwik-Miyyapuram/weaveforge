@@ -56,6 +56,7 @@ export function MemberPicker({
             <label className="mp-row">
               <input
                 type="checkbox"
+                className="themed-check"
                 checked={selected.includes(m.id)}
                 onChange={() => onToggle(m.id)}
               />

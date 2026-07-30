@@ -5,6 +5,7 @@ import type { Paper, ReportSectionTreeNode } from "@thesis/core";
 import { downloadOverleafExportPackage } from "@/features/overleaf/application/download-overleaf-export";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
+import { Select } from "@/components/select";
 
 /**
  * Compact trigger + modal for a plaintext Overleaf ZIP (browser-only; nothing
@@ -122,14 +123,15 @@ export function ExportOverleafPackagePanel({
             {includeBib && (
               <label className="export-overleaf-field">
                 Bibliography contains
-                <select
+                <Select
                   value={bibScope}
                   onChange={(e) => setBibScope(e.target.value as "cited" | "all")}
                   disabled={busy}
+                  aria-label="Bibliography contains"
                 >
                   <option value="all">All {papers.length} papers in the library</option>
                   <option value="cited">Only papers cited in this report</option>
-                </select>
+                </Select>
                 <span className="muted">
                   {bibScope === "all"
                     ? "Adds \\nocite{*} so every entry prints, not just the cited ones."

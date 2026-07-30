@@ -11,6 +11,7 @@ import {
 } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import { RELATION_COLORS, tagColor } from "../application/build-graph-data";
+import { Select } from "@/components/select";
 
 interface StoredAnnotation {
   text?: string;
@@ -340,12 +341,18 @@ function ConceptPanel({
       {mergeOpen && (
         <div className="graph-merge-box">
           <label className="muted" htmlFor="merge-into">Merge into</label>
-          <select id="merge-into" value={mergeInto} onChange={(e) => setMergeInto(e.target.value)}>
+          <Select
+            id="merge-into"
+            value={mergeInto}
+            onChange={(e) => setMergeInto(e.target.value)}
+            aria-label="Merge into"
+            searchable
+          >
             <option value="">Pick concept…</option>
             {allConcepts.map((t) => (
               <option key={t} value={t}>#{t}</option>
             ))}
-          </select>
+          </Select>
           {error && <p className="error">{error}</p>}
           <button type="button" className="btn-primary" disabled={!mergeInto || busy} onClick={() => void merge()}>
             {busy ? "Merging…" : "Merge"}
