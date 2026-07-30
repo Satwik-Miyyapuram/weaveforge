@@ -26,6 +26,7 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
 import {
   BellIcon,
+  BellOffIcon,
   BoardViewIcon,
   CardsViewIcon,
   DeleteIcon,
@@ -1079,7 +1080,7 @@ function PaperNote({
                     : "Add a DOI or arXiv ID to track citations"
                 }
               >
-                <BellIcon />
+                {canTrackCitations ? <BellIcon /> : <BellOffIcon />}
               </button>
               {!editing && (
                 <button

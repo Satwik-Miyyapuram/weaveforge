@@ -940,12 +940,20 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 .field-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 12px; }
 .field-row-equal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 label { font-size: 0.8rem; color: var(--muted); }
-input {
+/* `input` was styled here but `textarea` was not, so a textarea only looked
+   right where some ancestor happened to style it (.add-form, the reader
+   sidebar). Everywhere else — the comments box among them — fell back to the
+   browser default. Both are styled together now, so a new textarea is correct
+   wherever it is placed. */
+input,
+textarea {
   width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
   background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
   outline: none; transition: border-color 0.15s, box-shadow 0.15s;
 }
-input:focus {
+textarea { resize: vertical; }
+input:focus,
+textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
@@ -1968,14 +1976,6 @@ a.related-paper-url:hover { text-decoration: underline; }
 .edit-actions { justify-content: flex-end; gap: 14px; }
 .log-date { font-weight: 600; }
 .log-body { margin: 0; white-space: pre-wrap; font-size: 0.95rem; }
-.add-form textarea {
-  width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
-  background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
-  outline: none; resize: vertical; transition: border-color 0.15s, box-shadow 0.15s;
-}
-.add-form textarea:focus {
-  border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
-}
 
 /* Report statuses */
 .status-not_started { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
@@ -2738,8 +2738,9 @@ a.related-paper-url:hover { text-decoration: underline; }
 .comment-author { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comment-time { font-size: 0.74rem; margin-left: auto; flex: none; }
 .comment-body { margin: 2px 0 0; padding-left: 36px; white-space: pre-wrap; font-size: 0.9rem; }
-.comment-add { display: grid; gap: 6px; }
-.comment-add textarea { width: 100%; min-height: 64px; }
+.comment-add { display: grid; gap: 6px; justify-items: end; }
+.comment-add textarea { min-height: 64px; }
+.comment-add .btn-primary { width: auto; }
 .shared-group { display: grid; gap: 8px; margin-bottom: 16px; }
 .shared-item { display: grid; gap: 8px; }
 .shared-item-link { display: grid; gap: 8px; color: inherit; text-decoration: none; }
