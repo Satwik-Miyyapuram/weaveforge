@@ -72,3 +72,103 @@ Our Catppuccin themes (Latte, Frappé, Mocha) are mapped exactly to the official
 - `Surface0` -> `--surface` (cards)
 - `Mantle` -> `--chip`, `--nav-bg` (sidebars/shells)
 - `Crust` -> `--input-bg` (deepest inset fields)
+
+## Depth, surfaces, and the reactive motion layer
+
+Three appearance controls sit alongside the theme pickers in
+**Settings → Appearance**. All three are attributes on `<html>`, applied before
+first paint by the boot script in `apps/web/src/lib/theme.ts`.
+
+### Surfaces — `data-surfaces`
+
+- `borderless` (default): panels drop their hairline (`border-color` goes
+  transparent, so nothing reflows) and get their edge from the `--e1`…`--e4`
+  elevation scale plus the `--rim` top highlight. Buttons, inputs and other
+  controls keep their borders — a borderless input has no affordance telling
+  you where to click.
+- `bordered`: the entire depth layer in `globals.css` is scoped to
+  `[data-surfaces="borderless"]`, so this restores every hairline at once.
+  Pair it with the High Contrast theme: a drop shadow carries almost no
+  contrast ratio, so the answer for a high-contrast user is the line back, not
+  a heavier shadow.
+
+### Reactive motion — `data-motion="reactive"`
+
+Off by default and purely additive. Everything the app animated before this
+flag existed still animates in both states; the flag gates only the
+pointer-reactive layer (card tilt, cursor sheen, press physics, entrance
+rise). `apps/web/src/app/reactive-motion.tsx` publishes the pointer position
+inside the hovered surface as `--rx` / `--ry` (0–1) from a single delegated,
+rAF-coalesced listener — and attaches no listeners at all when the toggle is
+off, the pointer is coarse, or the OS asks for reduced motion. The OS
+preference always wins over the app toggle.
+
+Four things are load-bearing in that CSS block, and each is easy to
+accidentally undo:
+
+- **`@property` registration.** `--rx`, `--ry` and `--rm-glow` are registered,
+  which gives them a type and therefore makes them *interpolable*. An
+  unregistered custom property is a string, and a gradient stop built from one
+  snaps rather than animates. The sheen animates its radius, blooming out of
+  and back into the point where the pointer entered. The position variables
+  are registered but never transitioned — a transition there would make the
+  light lag the cursor.
+- **Identity `translate` / `rotate` / `scale` on the base state.** Without
+  them, the first hover introduces a transform, creating a stacking context
+  and containing block mid-interaction, which can visibly reorder overlapping
+  cards.
+- **Separate transform channels.** Tilt is on `transform` (two-axis rotation
+  cannot be expressed with the single-axis `rotate` property), lift is on
+  `translate`, press is on `scale`. They compose; a single `transform` chain
+  meant `:active` replaced the tilt and snapped a pressed card flat.
+- **Scroll-driven entrance.** Cards rise on an `animation-timeline: view()`
+  timeline over `cover 0%`–`cover 22%`, so each animates as it actually scrolls
+  in, off the main thread, with no per-item index. A mount animation would run
+  for all 200 rows of a list at once — including the 190 offscreen — and re-run
+  on every filter change. Firefox has no view timelines yet and gets a mount
+  animation through `@supports not`.
+
+`--rm-spring` is a `cubic-bezier` overshoot upgraded to a real multi-oscillation
+`linear()` spring inside `@supports`. The upgrade is gated rather than declared
+as two back-to-back values, because a custom property accepts almost any token
+sequence: a browser without `linear()` would still accept the declaration and
+then fail at substitution time, silently dropping the timing function to `ease`.
+
+### Uploaded themes — `config.json`
+
+A user can load a theme file instead of hand-editing `themes.css`. Download the
+starter file from Settings → Appearance. Shape:
+
+```json
+{
+  "version": 1,
+  "name": "My theme",
+  "mode": "dark",
+  "surfaces": "borderless",
+  "motion": { "reactive": true, "scale": 1 },
+  "colors": { "bg": "#0b0d12", "accent": "#6ea8fe" },
+  "fonts": { "sans": "IBM Plex Sans, system-ui, sans-serif" },
+  "radius": { "card": "14px", "control": "10px", "chip": "999px" }
+}
+```
+
+The file is untrusted input and is validated by `parseThemeConfig`
+(`packages/core/src/features/settings/domain/theme-config.ts`) before anything
+is applied:
+
+- A byte cap is enforced *before* `JSON.parse`.
+- Keys come from allowlists; an unknown key is an error, not something ignored,
+  so a typo surfaces instead of silently doing nothing.
+- Values must match a grammar — hex / numeric `rgb()` / `hsl()` colors, font
+  stacks built from bounded family names, lengths in `px|rem|em` within range.
+- Accepted values are **re-serialized from the parsed pieces**, never passed
+  through verbatim.
+- Prototype-polluting keys reject the whole file.
+- Validation is all-or-nothing: one bad color rejects the file, because half a
+  palette is unreadable. Every problem is listed at once.
+
+The applier only ever calls `style.setProperty()` with a name from the same
+allowlist, so config text never reaches a stylesheet as text — a value cannot
+break out of its declaration and a key cannot become a selector or an
+`@import`. Configs read back from the settings row are re-validated on load
+rather than trusted for having passed once.

@@ -11,7 +11,13 @@ export function ProjectSwitcher() {
 
   return (
     <div className="proj-switcher">
-      <button className="proj-chip" onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className="proj-chip"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
         <span className="project-dot" style={{ background: current.color ?? "#7c9885" }} />
         <span>{current.name}</span>
         <span className="chev">

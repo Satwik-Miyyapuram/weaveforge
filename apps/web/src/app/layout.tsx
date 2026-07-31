@@ -5,6 +5,7 @@ import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { AppShell } from "./app-shell";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
+import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ClientRuntimeRecovery } from "@/components/client-runtime-recovery";
 
@@ -74,6 +75,7 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeColorMeta />
+        <ReactiveMotion />
         <ServiceWorkerRegister />
         <ClientRuntimeRecovery />
         <AuthProvider>

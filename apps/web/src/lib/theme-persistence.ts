@@ -4,13 +4,20 @@ import type { UserAppearance } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 import {
   applyControlSize,
+  applyCustomTheme,
+  applyReactiveMotion,
+  applySurfaceStyle,
   applyTheme,
   DEFAULT_DARK_THEME,
   DEFAULT_LIGHT_THEME,
   readStoredControlSize,
+  readStoredCustomTheme,
   readStoredMode,
+  readStoredReactiveMotion,
+  readStoredSurfaceStyle,
   readStoredThemeIds,
   sanitizeControlSize,
+  sanitizeSurfaceStyle,
   sanitizeThemeId,
   type ControlSizeId,
   type ThemeMode,
@@ -29,6 +36,9 @@ export function readLocalAppearance(): UserAppearance {
     lightTheme: light,
     darkTheme: dark,
     controlSize: readStoredControlSize(),
+    surfaces: readStoredSurfaceStyle(),
+    reactiveMotion: readStoredReactiveMotion(),
+    customTheme: readStoredCustomTheme() ?? undefined,
   };
 }
 
@@ -55,6 +65,19 @@ export function writeLocalAppearance(appearance: UserAppearance): void {
         sanitizeControlSize(appearance.controlSize),
       );
     }
+    if (appearance.surfaces) {
+      localStorage.setItem("thesis.surfaces", sanitizeSurfaceStyle(appearance.surfaces));
+    }
+    if (typeof appearance.reactiveMotion === "boolean") {
+      localStorage.setItem("thesis.reactiveMotion", appearance.reactiveMotion ? "1" : "0");
+    }
+    // `customTheme` on the appearance record has already been through
+    // normalizeThemeConfig, so what is stored is the validated shape.
+    if (appearance.customTheme) {
+      localStorage.setItem("thesis.customTheme", JSON.stringify(appearance.customTheme));
+    } else if (appearance.customTheme === null) {
+      localStorage.removeItem("thesis.customTheme");
+    }
   } catch {
     /* ignore */
   }
@@ -65,6 +88,9 @@ export function applyThemeFromLocalStorage(): void {
   const { light, dark } = readStoredThemeIds();
   applyTheme(mode, mode === "dark" ? dark : light);
   applyControlSize(readStoredControlSize());
+  applySurfaceStyle(readStoredSurfaceStyle());
+  applyReactiveMotion(readStoredReactiveMotion());
+  applyCustomTheme(readStoredCustomTheme());
 }
 
 function scheduleAppearanceSave(appearance: UserAppearance): void {
@@ -94,6 +120,11 @@ export function persistThemeChange(
     lightTheme: patch.lightTheme ?? current.lightTheme,
     darkTheme: patch.darkTheme ?? current.darkTheme,
     controlSize: sanitizeControlSize(patch.controlSize ?? current.controlSize) as ControlSizeId,
+    surfaces: sanitizeSurfaceStyle(patch.surfaces ?? current.surfaces),
+    reactiveMotion: patch.reactiveMotion ?? current.reactiveMotion ?? false,
+    // `undefined` in the patch means "not touched", `null` means "remove it" —
+    // so the fallback to `current` only happens for the former.
+    customTheme: patch.customTheme === undefined ? current.customTheme : patch.customTheme,
   };
   writeLocalAppearance(next);
   if (options?.apply !== false) {
@@ -104,6 +135,9 @@ export function persistThemeChange(
         : next.lightTheme ?? DEFAULT_LIGHT_THEME;
     applyTheme(mode, themeId);
     applyControlSize(next.controlSize ?? "default");
+    applySurfaceStyle(next.surfaces ?? "borderless");
+    applyReactiveMotion(next.reactiveMotion ?? false);
+    if (patch.customTheme !== undefined) applyCustomTheme(next.customTheme ?? null);
     window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   } else if (patch.controlSize) {
     applyControlSize(next.controlSize ?? "default");
@@ -122,12 +156,26 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
     const { ensureContainer } = await import("@/bootstrap");
     const container = await ensureContainer();
     const { appearance } = await container.settings.manageSettings.getMetadata();
-    if (appearance?.mode || appearance?.lightTheme || appearance?.darkTheme || appearance?.controlSize) {
+    if (
+      appearance?.mode ||
+      appearance?.lightTheme ||
+      appearance?.darkTheme ||
+      appearance?.controlSize ||
+      appearance?.surfaces ||
+      appearance?.reactiveMotion !== undefined ||
+      appearance?.customTheme !== undefined
+    ) {
       writeLocalAppearance({
         mode: appearance.mode ?? readStoredMode(),
         lightTheme: appearance.lightTheme ?? readStoredThemeIds().light,
         darkTheme: appearance.darkTheme ?? readStoredThemeIds().dark,
         controlSize: appearance.controlSize ?? readStoredControlSize(),
+        surfaces: appearance.surfaces ?? readStoredSurfaceStyle(),
+        reactiveMotion: appearance.reactiveMotion ?? readStoredReactiveMotion(),
+        customTheme:
+          appearance.customTheme === undefined
+            ? readStoredCustomTheme()
+            : appearance.customTheme,
       });
       applyThemeFromLocalStorage();
       window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
