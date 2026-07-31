@@ -36,9 +36,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 const basePath = process.env.BASE_PATH ?? "";
 
 export const metadata: Metadata = {
-  title: "WeaveForge — one workspace for a thesis",
+  title: "WeaveForge — one workspace for research",
   description:
-    "Papers, notes, plan, experiments and writing in one project, so the reasoning behind your thesis survives the three years it takes to finish it.",
+    "Papers, notes, plan, experiments and writing in one project, so the reasoning behind your research survives the years it takes to do it.",
   icons: { icon: `${basePath}/icons/weave_forge.svg` },
 };
 

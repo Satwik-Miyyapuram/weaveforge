@@ -277,7 +277,7 @@ const ORBIT = [
   { id: "plan", label: "plan", note: "4 milestones", tool: "a task app", line: "Milestones that carry dependencies and compute estimates, and know which note they came out of." },
   { id: "experiments", label: "experiments", note: "3 runs", tool: "Weights & Biases", line: "Runs land in the same database as the paper they implement, pinned to the branch and commit that produced them." },
   { id: "report", label: "report", note: "outline", tool: "Overleaf", line: "The outline is the project. Figures and citations are already resolved, so the LaTeX export needs no fixing." },
-  { id: "lab", label: "lab", note: "shared", tool: "screenshots in chat", line: "Your supervisor opens the object itself — the run, the section, the paper — scoped by the database." },
+  { id: "lab", label: "lab", note: "shared", tool: "screenshots in chat", line: "Your collaborators open the object itself — the run, the section, the paper — scoped by the database." },
 ];
 
 const C = {
@@ -429,14 +429,14 @@ function HeroScene() {
 }
 
 /**
- * The why, before any of the how. Each moment is a real point in a thesis
+ * The why, before any of the how. Each moment is a real point in a research project
  * where the work is already done and the *reason* for it has gone — and each
  * one names the thing that would have kept it.
  */
 const MOMENTS = [
   {
     quote: "“Why did you rule that out?”",
-    body: "You had a good reason early on. It was a margin note in a PDF, or a message to yourself, or nowhere at all. Your supervisor is asking two terms later.",
+    body: "You had a good reason early on. It was a margin note in a PDF, or a message to yourself, or nowhere at all. Someone asks two years later — a supervisor, a reviewer, the version of you writing the paper.",
     then: "excerpts and notes stay attached to the paper",
   },
   {
@@ -451,7 +451,7 @@ const MOMENTS = [
   },
   {
     quote: "“Send me an update.”",
-    body: "So you screenshot a chart, paste a paragraph, and describe the rest from memory — every fortnight, until you submit.",
+    body: "So you screenshot a chart, paste a paragraph, and describe the rest from memory — every fortnight, for as long as the project runs.",
     then: "share the objects themselves",
   },
 ];
@@ -462,7 +462,7 @@ function WhySection() {
       <div className={css.wrap}>
         <span className={css.eyebrow}>Why it exists</span>
         <h2 className={css.whyHeading}>
-          A thesis is mostly reasoning you will not remember having done.
+          Research is mostly reasoning you will not remember having done.
         </h2>
         <p className={css.lede}>
           The writing is the last stretch. The thinking is everything before it
@@ -489,7 +489,7 @@ function Graph({ upto }: { upto: number }) {
   const { nodes, links } = layoutGraph(W, H);
   return (
     <svg className={css.fig} viewBox={`0 0 ${W} ${H}`} role="img"
-         aria-label="Citation graph: papers, concept tags and typed relations from the thesis library">
+         aria-label="Citation graph: papers, concept tags and typed relations from the research library">
       {links.map((l, i) => (
         <line
           key={i}
@@ -732,7 +732,7 @@ function AnnotationsScene() {
   );
 }
 
-/** Rows: what a thesis actually needs · who covers it. Grounded in docs/competitive-scan.md. */
+/** Rows: what research actually needs · who covers it. Grounded in docs/competitive-scan.md. */
 const COMPARE_COLS = ["WeaveForge", "Zotero", "Obsidian", "Notion", "W&B", "Overleaf"] as const;
 type Cover = "yes" | "part" | "no";
 const COMPARE_ROWS: { need: string; cells: Record<(typeof COMPARE_COLS)[number], Cover>; note: string }[] = [
@@ -745,10 +745,10 @@ const COMPARE_ROWS: { need: string; cells: Record<(typeof COMPARE_COLS)[number],
   { need: "Plan with dependencies and compute estimates", note: "milestones that know what blocks them", cells: { WeaveForge: "yes", Zotero: "no", Obsidian: "part", Notion: "yes", "W&B": "no", Overleaf: "no" } },
   { need: "Experiment tracking", note: "one decorator, Lightning and Keras callbacks", cells: { WeaveForge: "yes", Zotero: "no", Obsidian: "no", Notion: "no", "W&B": "yes", Overleaf: "no" } },
   { need: "Live metrics while a run is going", note: "curves stream in beside the paper the run implements", cells: { WeaveForge: "yes", Zotero: "no", Obsidian: "no", Notion: "no", "W&B": "yes", Overleaf: "no" } },
-  { need: "Runs pinned to branch and commit", note: "a number in the thesis traces back to code that existed", cells: { WeaveForge: "yes", Zotero: "no", Obsidian: "no", Notion: "no", "W&B": "yes", Overleaf: "no" } },
+  { need: "Runs pinned to branch and commit", note: "a number in a paper traces back to code that existed", cells: { WeaveForge: "yes", Zotero: "no", Obsidian: "no", Notion: "no", "W&B": "yes", Overleaf: "no" } },
   { need: "Run → figure → section, without a screenshot", note: "the figure exports with the LaTeX", cells: { WeaveForge: "yes", Zotero: "no", Obsidian: "no", Notion: "no", "W&B": "no", Overleaf: "part" } },
   { need: "LaTeX export with the bibliography resolved", note: "outline, .bib, figures, \\cite{} keys", cells: { WeaveForge: "yes", Zotero: "part", Obsidian: "part", Notion: "no", "W&B": "no", Overleaf: "yes" } },
-  { need: "Supervision: share objects, not screenshots", note: "papers, runs and sections, scoped per person", cells: { WeaveForge: "yes", Zotero: "part", Obsidian: "no", Notion: "yes", "W&B": "part", Overleaf: "yes" } },
+  { need: "Collaboration: share objects, not screenshots", note: "papers, runs and sections, scoped per person", cells: { WeaveForge: "yes", Zotero: "part", Obsidian: "no", Notion: "yes", "W&B": "part", Overleaf: "yes" } },
   { need: "Access enforced by the database", note: "Postgres row-level security, not a check in a screen", cells: { WeaveForge: "yes", Zotero: "no", Obsidian: "no", Notion: "no", "W&B": "no", Overleaf: "no" } },
   { need: "Self-hostable, all of it", note: "AGPL-3.0-only · no hosted-only capability", cells: { WeaveForge: "yes", Zotero: "part", Obsidian: "part", Notion: "no", "W&B": "part", Overleaf: "part" } },
 ];
@@ -770,7 +770,7 @@ function CompareTable() {
         <p className={css.lede}>
           Nothing here is a bad tool — most of them are on this page because they are
           the best at what they do, and WeaveForge syncs with several rather than
-          replacing them. The gap is that a thesis is the whole chain, and the joins
+          replacing them. The gap is that research is the whole chain, and the joins
           between tools are exactly where the reasoning falls out.
         </p>
 
@@ -778,7 +778,7 @@ function CompareTable() {
           <table className={css.table}>
             <thead>
               <tr>
-                <th scope="col">What a thesis needs</th>
+                <th scope="col">What research needs</th>
                 {COMPARE_COLS.map((c) => (
                   <th scope="col" key={c} className={c === "WeaveForge" ? css.own : undefined}>{c}</th>
                 ))}
@@ -879,8 +879,9 @@ export default function PitchPage() {
             <span className={css.eyebrow}>Open source · AGPL-3.0 · self-hostable</span>
             <h1>By the time you write it, you won&rsquo;t remember why.</h1>
             <p className={css.lede}>
-              A thesis &mdash; nine months or four years &mdash; is reading, runs and
-              decisions scattered across six tools that each forget the other five.
+              Research &mdash; a nine-month thesis, a four-year PhD, a postdoc that
+              outlives both &mdash; is reading, runs and decisions scattered across six
+              tools that each forget the other five.
               WeaveForge is the one workspace that keeps the thread, so the paper you
               read in week three is still attached to the run it inspired and the
               section it ends up in.
@@ -891,7 +892,7 @@ export default function PitchPage() {
             </div>
             <div className={css.audience}>
               <a href="#chain"><b>Researchers</b> <span>the workspace</span></a>
-              <a href="#labs"><b>Labs</b> <span>supervision and sharing</span></a>
+              <a href="#labs"><b>Labs &amp; groups</b> <span>collaboration and supervision</span></a>
               <a href="#selfhost"><b>Self-hosters</b> <span>your Postgres, your data</span></a>
             </div>
           </div>
@@ -905,7 +906,7 @@ export default function PitchPage() {
           id="chain"
           eyebrow="How it works · the through-line"
           heading="A paper becomes a note. A note becomes a plan."
-          lede="Every other research tool holds one link of that chain and loses the rest at its boundary. Here is one paper from a real thesis, all the way through."
+          lede="Every other research tool holds one link of that chain and loses the rest at its boundary. Here is one paper from a real project, all the way through."
           views={[
             <div key="p">
               <p className={css.stageCap}>papers</p>
@@ -1031,7 +1032,7 @@ def train(run):
           ]}
           steps={[
             { idx: "01", title: "One decorator, no new dashboard.", body: "@track_experiment in your training script, and the run lands in the same database as the paper it implements. There is no separate tracking service to keep in sync." },
-            { idx: "02", title: "Pinned to the commit that produced it.", body: "Branch, commit hash and config travel with the run, so a number in your thesis can always be traced back to code that actually existed." },
+            { idx: "02", title: "Pinned to the commit that produced it.", body: "Branch, commit hash and config travel with the run, so a number in your paper can always be traced back to code that actually existed." },
             { idx: "03", title: "Watch it while it runs.", body: "run.log() streams metrics into the workspace, so the curve moves as the job does — in the same screen as the paper the run implements, not in a dashboard on a second monitor." },
             { idx: "04", title: "Compare sweeps without exporting anything.", body: "Overlaid curves and a comparison table, beside the papers the runs came from. Lightning and Keras callbacks ship with it, and TensorBoard or W&B histories import rather than re-run." },
             { idx: "05", title: "The figure is already the paper’s figure.", body: "Attach a run to a report section and its curve exports with the LaTeX — same numbers, no screenshot round trip." },
@@ -1058,14 +1059,14 @@ def train(run):
             { idx: "01", title: "Milestones that know what blocks them.", body: "Dependencies and compute estimates live on the milestone, so the plan understands that the graph-prior module cannot start until the baseline lands." },
             { idx: "02", title: "Cite while you write.", body: "Type [[ or @ and pick the paper. It resolves to a real citation on export, not a string you have to go back and fix." },
             { idx: "03", title: "Overleaf when you need it.", body: "Export the outline as a LaTeX project with \\cite{} keys, the .bib and your figures — or keep a linked Overleaf document in sync." },
-            { idx: "04", title: "A logbook that is not a chore.", body: "Dated markdown entries with hours and mood. It is the thing you will be grateful for when you write the methodology chapter months after the fact." },
+            { idx: "04", title: "A logbook that is not a chore.", body: "Dated markdown entries with hours and mood. It is the thing you will be grateful for when you write the methods up months after the fact." },
           ]}
         />
 
         <Scene
           id="labs"
           eyebrow="Labs & supervision"
-          heading="Your supervisor sees objects, not screenshots."
+          heading="Your group sees objects, not screenshots."
           lede="Collaboration is a permission on a row, not a second product bolted on the side."
           views={[
             <div key="l">
