@@ -1,0 +1,25 @@
+{
+  "name": "@thesis/pitch",
+  "version": "0.5.2",
+  "private": true,
+  "description": "Statically exported product pitch site, published to GitHub Pages.",
+  "scripts": {
+    "prebuild": "node scripts/copy-assets.mjs",
+    "predev": "node scripts/copy-assets.mjs",
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "postbuild": "node scripts/finish-export.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@thesis/core": "*",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,632 @@
+/*
+ * Marketing-only layout for the product pitch.
+ *
+ * Deliberately narrow in scope: this file holds the scrollytelling scaffold
+ * and nothing that the product already styles. Cards, status pills, tag
+ * chips, the graph frame and the type scale all come from globals.css via the
+ * real components, so changing the app changes this page too.
+ */
+
+.page {
+  /* `clip`, not `hidden`: overflow-x:hidden makes an element a scroll
+     container, and a scroll container is what `position: sticky` sticks to —
+     which silently breaks the sticky header and every pinned scene. */
+  overflow-x: clip;
+  background: var(--bg);
+  color: var(--ink);
+  position: relative;
+  isolation: isolate;
+}
+
+/* ---- Ground ----
+   Three fixed layers, all painted from theme tokens so every palette gets a
+   ground that belongs to it rather than a grey wash laid over the top:
+   ruled paper, a slow tinted aurora, and grain. Each is faint on its own —
+   at the point where you consciously notice a background on a page of text,
+   it is already far too strong. */
+
+/* Ruled paper: a fine dot grid for tooth, a coarse rule for the lab-book
+   reference. Masked toward the foot of the viewport so the page has depth
+   instead of one flat repeating field. */
+.page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 12%, transparent) 1px, transparent 0),
+    linear-gradient(color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px, 110px 110px, 110px 110px;
+  mask-image: linear-gradient(to bottom, #000 0%, #000 42%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+/* Grain. Two jobs: paper texture, and killing the banding that large soft
+   gradients show on 8-bit displays. Generated inline — the page must render
+   with no network, and a CSP on the deployed artifact blocks external hosts
+   outright. */
+.page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The aurora: three soft pools in accent and two status hues, blurred into
+   each other. It is a real element rather than a fourth background layer so
+   it can be moved — a pseudo-element carrying the grid too would drag the
+   grid along with it. */
+.aurora {
+  position: fixed;
+  /* Oversized: it drifts and rotates, and the edges must never come into
+     view when it does. */
+  inset: -30%;
+  z-index: -3;
+  pointer-events: none;
+  background-image:
+    radial-gradient(38vw 32vw at 22% 16%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    radial-gradient(34vw 30vw at 84% 40%, color-mix(in srgb, var(--s-info) 20%, transparent), transparent 70%),
+    radial-gradient(42vw 34vw at 46% 88%, color-mix(in srgb, var(--s-good) 15%, transparent), transparent 72%);
+  filter: blur(40px);
+  translate: 0 0;
+  rotate: 0deg;
+  scale: 1;
+  /* Slow, because it tracks the section you are reading. Anything quicker
+     turns a background into something that competes with the text. */
+  transition:
+    translate 1.4s cubic-bezier(0.33, 1, 0.68, 1),
+    rotate 1.4s cubic-bezier(0.33, 1, 0.68, 1),
+    scale 1.4s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Each section gets the light coming from a different place. The value comes
+   from the same scrollspy that drives the nav, so the ground and the header
+   always agree about where the reader is. */
+.page[data-sec="overview"] .aurora { translate: -3% 2%; rotate: 4deg; }
+.page[data-sec="why"] .aurora { translate: 4% -3%; rotate: -6deg; scale: 1.08; }
+.page[data-sec="chain"] .aurora { translate: -6% -4%; rotate: 9deg; }
+.page[data-sec="literature"] .aurora { translate: 5% 4%; rotate: -3deg; scale: 1.06; }
+.page[data-sec="annotations"] .aurora { translate: -5% 5%; rotate: 12deg; }
+.page[data-sec="experiments"] .aurora { translate: 6% -5%; rotate: -9deg; scale: 1.1; }
+.page[data-sec="writing"] .aurora { translate: -4% -6%; rotate: 5deg; }
+.page[data-sec="labs"] .aurora { translate: 3% 6%; rotate: -11deg; scale: 1.05; }
+.page[data-sec="selfhost"] .aurora { translate: -6% 3%; rotate: 7deg; }
+.page[data-sec="compare"] .aurora { translate: 2% -2%; rotate: -4deg; scale: 1.12; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora { transition: none; }
+}
+
+.wrap {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+@media (min-width: 800px) {
+  .wrap { padding: 0 40px; }
+}
+
+/* ---- Sticky header ---- */
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--border);
+}
+.headIn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 60px;
+}
+@media (min-width: 800px) { .headIn { height: 66px; } }
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+  flex: none;
+}
+.brand svg { width: 28px; height: 28px; border-radius: 7px; display: block; }
+.brandName {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.06rem;
+  letter-spacing: -0.02em;
+}
+@media (max-width: 430px) { .brandName { display: none; } }
+
+/* Never wraps: a wrapped sticky header eats a second row of the viewport on
+   every scroll. When it does not fit, it scrolls sideways. */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-width: 0;
+}
+.nav::-webkit-scrollbar { display: none; }
+.nav a {
+  flex: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.18s var(--layout-ease, ease), background 0.18s var(--layout-ease, ease);
+}
+.nav a:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.nav a[aria-current="true"] { color: var(--accent); background: var(--accent-soft); }
+.navSep { flex: none; width: 1px; height: 18px; background: var(--border-strong); margin: 0 6px; }
+@media (max-width: 900px) { .nav { display: none; } }
+
+.headActions { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+@media (min-width: 901px) { .headActions { margin-left: 0; } }
+
+.progress {
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .progress { animation: grow linear both; animation-timeline: scroll(root block); }
+    @keyframes grow { to { transform: scaleX(1); } }
+  }
+}
+
+/* ---- Hero ---- */
+.hero { padding: clamp(52px, 10vw, 120px) 0 clamp(40px, 6vw, 76px); }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.hero h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2.4rem, 1.4rem + 4.8vw, 4.4rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+  max-width: 15ch;
+  margin: 18px 0 0;
+}
+.lede {
+  color: var(--muted);
+  font-size: clamp(1.05rem, 0.98rem + 0.5vw, 1.28rem);
+  line-height: 1.6;
+  max-width: 56ch;
+  margin: 22px 0 0;
+}
+.btnRow { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+
+.audience { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 34px; }
+.audience a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 0.875rem;
+  color: var(--muted);
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+.audience a:hover { border-color: var(--accent); color: var(--ink); }
+.audience b { color: var(--ink); font-weight: 600; }
+
+/* ---- Constellation: the whole workspace, at once ----
+   The opening answer to "what is this". Six modules around one project, all
+   joined — the shape of the argument before any of it is explained. */
+/* The hero figure assembles itself as the reader scrolls: every part below
+   reads a data attribute the scene sets, and transitions between the two
+   states. Nothing here is keyframed — the reader is driving. */
+.figure { display: block; width: 100%; height: auto; margin: 0 auto; }
+
+/* The scene needs more vertical room than the others (the figure is nearly
+   square) and less per step, because it has eight of them. */
+/* Doubled class throughout: `.scene` sets `padding` as a shorthand and is
+   declared further down this file, so a single-class `.overview` rule loses
+   the cascade to it on equal specificity. */
+.scene.overview { padding-top: clamp(8px, 2vw, 24px); border-top: 0; }
+.overview .step { min-height: 52vh; }
+/* The hero figure is the tallest thing the page pins, so it gets the most
+   room before the cap starts cropping it. */
+@media (max-width: 899px) {
+  .overview .stage { max-height: 66vh; }
+}
+@media (min-width: 900px) {
+  /* The figure is the hero, so it gets the larger half — the reverse of the
+     other scenes, where the prose leads and the visual illustrates. */
+  .overview .sceneInner { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 40px; }
+  /* The hero gets more than the rest: its last step is the payoff frame, and
+     the figure must hold still while it is read. */
+  .overview .steps { padding-bottom: 34vh; }
+}
+
+.folder {
+  fill: none;
+  stroke: var(--border-strong);
+  transition: stroke 0.55s ease;
+}
+.folder[data-on="true"] { stroke: var(--accent); }
+.folderLabel {
+  stroke: none;
+  fill: var(--faint);
+  transition: fill 0.55s ease;
+}
+.folder[data-on="true"] .folderLabel { fill: var(--accent); }
+
+.slot {
+  fill: none;
+  stroke: var(--border);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+/* Only the unfilled slots show. `data-on` is deliberately inverted here: this
+   element marks absence, so it is on while its object is still elsewhere. */
+.slot[data-on="true"] { opacity: 0.9; }
+
+
+/* Individual `translate` and `rotate` rather than one `transform`: they
+   interpolate independently, and nothing later can clobber the position the
+   story put a card in by setting an unrelated transform. `fill-box` makes the
+   rotation happen about the card itself instead of the SVG origin.
+   The overshoot in the easing is the throw — it arrives with weight instead
+   of gliding into place. */
+.card {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  translate: 0 0;
+  rotate: 0deg;
+  transition:
+    translate 0.62s cubic-bezier(0.3, 1.35, 0.55, 1),
+    rotate 0.62s cubic-bezier(0.3, 1.35, 0.55, 1),
+    opacity 0.4s ease;
+  opacity: 0.7;
+}
+.card[data-on="true"] { opacity: 1; }
+.card rect {
+  fill: var(--surface);
+  stroke: var(--border);
+  transition: stroke 0.45s ease;
+}
+.card[data-on="true"] rect { stroke: var(--accent); }
+.cardDot { fill: var(--border-strong); transition: fill 0.45s ease; }
+.card[data-on="true"] .cardDot { fill: var(--accent); }
+.cardLabel { fill: var(--muted); transition: fill 0.45s ease; }
+.card[data-on="true"] .cardLabel { fill: var(--ink); }
+.cardNote { fill: var(--faint); }
+.cardIdx { fill: var(--faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .slot, .folder, .folderLabel { transition: none; }
+}
+
+/* ---- Why ---- */
+.why { padding: clamp(56px, 9vw, 120px) 0; border-top: 1px solid var(--border); scroll-margin-top: 70px; }
+.whyHeading {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.8rem, 1.25rem + 2.4vw, 2.7rem);
+  line-height: 1.07;
+  letter-spacing: -0.021em;
+  text-wrap: balance;
+  max-width: 46rem;
+  margin: 14px 0 0;
+}
+.whyGrid {
+  display: grid;
+  gap: 14px;
+  margin-top: clamp(28px, 4vw, 44px);
+}
+@media (min-width: 760px) {
+  .whyGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+}
+.moment {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 22px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--e1, none);
+  border: 1px solid var(--border);
+}
+.momentQuote {
+  font-family: var(--font-serif);
+  font-size: clamp(1.15rem, 1rem + 0.6vw, 1.4rem);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  margin: 0;
+}
+.moment p { margin: 0; font-size: 0.875rem; color: var(--muted); }
+.momentThen {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--accent);
+}
+
+/* ---- Scenes ---- */
+.scene {
+  padding: clamp(40px, 6vw, 72px) 0 clamp(56px, 8vw, 104px);
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 70px;
+}
+.sceneHead { display: grid; gap: 14px; margin-bottom: clamp(28px, 4vw, 48px); }
+.sceneHead h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.8rem, 1.25rem + 2.4vw, 2.7rem);
+  line-height: 1.07;
+  letter-spacing: -0.021em;
+  text-wrap: balance;
+  /* A fixed length, not `ch`. At display sizes `ch` is the width of a "0" in
+     a large serif, so a plausible-looking `18ch` lands near 300px and stacks
+     the headline five lines deep beside an empty half-row. */
+  max-width: 46rem;
+  margin: 0;
+}
+.sceneHead p { max-width: 54ch; margin: 0; }
+
+.sceneInner { display: grid; gap: 8px; }
+
+/* Stacked (phones): the visual pins under the header, steps run beneath it.
+   Height is capped so the reader still has somewhere to read. */
+.stage {
+  position: sticky;
+  top: 60px;
+  z-index: 5;
+  /* Sized to its content, capped so the reader always has somewhere to read.
+     A fixed height here silently sliced the bottom off five of the eight
+     scenes on a phone — a card cut in half mid-sentence.
+     A per-scene height is safe because the reading line is recomputed from
+     this panel's live rect on every frame, and because the height cannot
+     change *within* a scene: the cross-fading views all share one grid cell,
+     so the panel is always as tall as the tallest of them. */
+  height: auto;
+  max-height: 62vh;
+  overflow: hidden;
+  padding: 12px 0 16px;
+  background: var(--bg);
+  box-shadow: 0 12px 16px -12px rgba(0, 0, 0, 0.45);
+}
+/* Grid and flex items default to min-width:auto, so a wide code block refuses
+   to shrink below its longest line and spills straight across the steps
+   column beside it. Floor every box in the chain at zero and let the code
+   itself scroll. */
+.stage > *, .views, .view, .view > * { min-width: 0; }
+.stage pre {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-wrap: normal;
+}
+
+.stageCap {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 10px;
+}
+
+.steps {
+  display: grid;
+  /* Room after the last step. Without it the final step's midpoint sits
+     behind the pinned stage, so the step that closes a scene becomes the
+     active one while it is still hidden — and the sticky stage releases
+     while it is being read. Padding here rather than on the section: sticky
+     is bounded by its own parent's content box, and the section's padding
+     is outside the grid. */
+  padding-bottom: 26vh;
+}
+.step {
+  /* Tall enough that only one step sits near the reading line at a time.
+     Short steps crowd the line and the stage flickers on a slow scroll. */
+  min-height: 58vh;
+  display: grid;
+  align-content: center;
+  padding: 20px 0;
+  transition: opacity 0.4s ease;
+}
+.step h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.35rem, 1.1rem + 1.1vw, 1.8rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  margin: 0 0 8px;
+}
+.step p { font-size: 0.875rem; color: var(--muted); margin: 0; max-width: 46ch; }
+.idx {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--faint);
+  display: block;
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 900px) {
+  .sceneInner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: 56px;
+    align-items: start;
+  }
+  .stage {
+    top: calc(66px + 24px);
+    height: calc(100vh - 66px - 48px);
+    overflow: visible;
+    display: grid;
+    align-content: center;
+    background: none;
+    padding: 0;
+    box-shadow: none;
+  }
+  .step {
+    min-height: 74vh;
+    padding: 0;
+    /* Inactive steps recede so the one being read is unmistakable. Opacity
+       only — moving them would fight the scroll the reader is driving. */
+    opacity: 0.32;
+  }
+  .step[data-on="true"] { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step { opacity: 1 !important; }
+}
+
+/* Cross-fading views share one grid cell so the stage does not resize as the
+   story advances; centring keeps a short view off the top of a cell sized by
+   its tallest sibling. */
+.views { position: relative; display: grid; align-items: center; }
+.view {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s 0.45s;
+}
+.view[data-on="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s;
+}
+
+.stack { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+/* Key/value rows — layout only, no product styling reinvented. */
+.kv { margin: 8px 0 0; display: grid; }
+.kv > div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+.kv > div:first-child { border-top: 0; }
+.kv dt { color: var(--muted); flex: 1; min-width: 0; }
+.kv dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.fig { display: block; width: 100%; height: auto; }
+
+/* ---- Live run ---- */
+.liveHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.liveTitle { font-weight: 500; min-width: 0; }
+
+/* ---- Comparison table ----
+   Last section on the page: the answer to "I already have three of these". */
+.compare { padding: clamp(56px, 9vw, 116px) 0; border-top: 1px solid var(--border); scroll-margin-top: 70px; }
+
+/* The table never squeezes: below its natural width it scrolls sideways in its
+   own container, so the page body still never scrolls horizontally. */
+.tableScroll {
+  overflow-x: auto;
+  margin-top: clamp(28px, 4vw, 44px);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--e1, none);
+}
+.table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 0.875rem; }
+.table th, .table td { padding: 11px 12px; text-align: left; border-top: 1px solid var(--border); }
+.table thead th {
+  /* Not sticky: the scroll container around the table is the nearest scrolling
+     ancestor, so a sticky header here would pin to a box that only scrolls
+     sideways — motionless, for the cost of a stacking context. */
+  border-top: 0;
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.table tbody th {
+  font-weight: 500;
+  color: var(--ink);
+  min-width: 260px;
+  display: table-cell;
+}
+.rowNote { display: block; margin-top: 3px; font-size: 0.78rem; color: var(--faint); font-weight: 400; }
+.table td { text-align: center; width: 84px; font-size: 1.05rem; line-height: 1; }
+.table td[data-cover="yes"] { color: var(--accent); }
+.table td[data-cover="part"] { color: var(--muted); }
+.table td[data-cover="no"] { color: var(--faint); }
+/* Our own column is tinted, not bolded — the dots already carry the claim. */
+.own { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.table thead th.own { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 14px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--faint);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.close { padding: clamp(56px, 9vw, 116px) 0; border-top: 1px solid var(--border); }
+.close h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.8rem, 1.25rem + 2.4vw, 2.7rem);
+  letter-spacing: -0.021em;
+  margin: 0;
+  max-width: 16ch;
+}
+.foot { padding: 36px 0 52px; border-top: 1px solid var(--border); }
+.footIn { display: grid; gap: 18px; }
+@media (min-width: 700px) {
+  .footIn { grid-template-columns: 1fr auto; align-items: end; }
+}
+.links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.875rem; }
+.links a { color: var(--muted); text-decoration: none; }
+.links a:hover { color: var(--ink); text-decoration: underline; }

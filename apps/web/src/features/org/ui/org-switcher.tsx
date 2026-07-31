@@ -35,6 +35,8 @@ export function OrgSwitcher() {
         disabled={busy}
         onClick={() => setOpen((o) => !o)}
         aria-label="Switch lab"
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         <span className="org-dot" aria-hidden />
         <span>{active.orgName}</span>

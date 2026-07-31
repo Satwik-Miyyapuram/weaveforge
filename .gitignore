@@ -28,6 +28,9 @@ apps/web/e2e/.auth/
 
 # Serwist (generated at next build)
 apps/web/public/sw.js
+
+# Pitch site assets (copied from apps/web/public at build)
+apps/pitch/public/
 apps/web/public/sw.js.map
 apps/web/public/swe-worker*
 

@@ -36,6 +36,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   if (pathname === "/recover") return <EmailRecoveryScreen />;
   if (pathname === "/reset-password") return <PasswordResetScreen />;
+  // The product pitch is public and renders its own chrome: no auth gate, no
+  // project gate, no nav. It sits inside the app rather than beside it so the
+  // cards it shows are the app's real components, not a copy that drifts.
+  if (pathname === "/pitch") return <>{children}</>;
   if (loading) return <ThesisLoaderScreen />;
   if (!user) return <main className="app-shell"><LoginScreen /></main>;
   return (

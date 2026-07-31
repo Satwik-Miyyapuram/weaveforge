@@ -8,8 +8,16 @@
 @import "./themes.css";
 
 :root {
-  --radius: 14px;
-  --radius-sm: 10px;
+  /* Geometry and type read through the `--radius-*` / `--font-sans` slots an
+     uploaded config.json may set on <html>. An inline custom property on the
+     root element beats this declaration, and the fallback after the comma is
+     what applies when no theme file is loaded — so the defaults below are
+     still the single source of truth for the built-in look. */
+  --radius: var(--radius-card, 14px);
+  --radius-sm: var(--radius-control, 10px);
+  --radius-pill: var(--radius-chip, 999px);
+  /* Duration multiplier for the reactive layer; config.json may scale it. */
+  --motion-scale: 1;
   /* Icon / toggle control scale — overridden by data-control-size + viewport. */
   --control-sm: 28px;
   --control-md: 32px;
@@ -27,17 +35,22 @@
      capped here so wide/ultrawide screens don't sprawl edge-to-edge. */
   --app-max: 1200px;
   /* IBM Plex — self-hosted via next/font in layout.tsx. */
-  --font: var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font: var(--font-sans, var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   --font-serif: var(--font-plex-serif), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
+/* Each density also moves --icon-size. Without that only the button *box*
+   resized: the glyph inside stayed 16px at every setting, so the three options
+   differed by padding alone and read as the same control. The visible thing
+   has to change for the setting to be legible as a setting. */
 :root[data-control-size="compact"] {
   --control-sm: 24px;
   --control-md: 28px;
   --control-lg: 32px;
   --control-radius-sm: 7px;
   --control-radius: 8px;
+  --icon-size: 14px;
 }
 
 :root[data-control-size="comfortable"] {
@@ -46,6 +59,7 @@
   --control-lg: 44px;
   --control-radius-sm: 9px;
   --control-radius: 10px;
+  --icon-size: 19px;
 }
 
 /* Default density: slightly larger targets on phone. */
@@ -54,6 +68,7 @@
     --control-sm: 32px;
     --control-md: 36px;
     --control-lg: 40px;
+    --icon-size: 17px;
   }
 }
 
@@ -225,6 +240,13 @@ body,
   display: inline-flex; align-items: center; justify-content: center;
 }
 .sub-tab.active { color: var(--ink); }
+/* Baseline hover. A navigation tab that does not acknowledge the pointer reads
+   as disabled, so this is not part of the optional motion layer — it is the
+   affordance. The sliding indicator marks the *active* tab; this marks the one
+   you are about to pick. */
+.sub-tab:hover { color: var(--ink); }
+.sub-tab:not(.active):hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.sub-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Respect users who prefer reduced motion. */
 @media (prefers-reduced-motion: reduce) {
@@ -391,7 +413,7 @@ body,
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   background: linear-gradient(135deg, var(--clay), var(--accent));
 }
-.org-menu-label { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.org-menu-label { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .org-menu-role { font-size: 0.72rem; }
 .desktop-only .org-switcher { margin-left: 0; margin-bottom: 10px; width: 100%; }
 .vault-pinned-label { margin: 18px 0 10px; font-size: 0.75rem; }
@@ -411,7 +433,7 @@ body,
   display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 8px;
   border: 1px solid var(--border); background: transparent; color: var(--muted);
-  cursor: pointer; font-size: 20px; line-height: 1;
+  cursor: pointer; font-size: calc(var(--icon-size) + 4px); line-height: 1;
 }
 .header-overflow-btn:hover { background: var(--surface2); }
 .header-menu {
@@ -440,7 +462,10 @@ body,
   /* Reset UA button chrome (theme-toggle uses this class on a <button>). */
   background: none; border: none; cursor: pointer; font-family: inherit;
 }
-.header-link svg, .signout svg { width: 15px; height: 15px; flex: none; }
+/* Tracks the density setting like every other glyph. These were pinned at
+   15px, so the top bar — the most permanently visible chrome in the app —
+   looked identical at all three control sizes. */
+.header-link svg, .signout svg { width: var(--icon-size); height: var(--icon-size); flex: none; }
 .header-link:hover { color: var(--accent-ink); background: var(--hover); }
 .settings-group { margin: 6px 0 0; font-family: var(--font-serif); font-weight: 600; font-size: 1rem; }
 .account-info-grid { display: grid; gap: 10px 20px; margin: 14px 0 0; }
@@ -460,7 +485,7 @@ body,
 .integration-row { display: grid; gap: 10px; padding: 14px 0; border-top: 1px solid var(--line); }
 .integration-head { display: flex; align-items: center; gap: 10px; }
 .integration-logo { width: 26px; height: 26px; border-radius: 7px; flex: none; }
-.integration-main { display: grid; gap: 1px; flex: 1; min-width: 0; text-align: left; }
+.integration-main { display: grid; gap: 3px; flex: 1; min-width: 0; text-align: left; }
 .integration-main span { font-size: 0.8rem; }
 
 /* Connection rows: a tappable row that opens a config popup (design settings). */
@@ -528,7 +553,7 @@ body,
 .ai-source-group { border: 1px solid var(--line); border-radius: 9px; background: var(--surface2); overflow: hidden; }
 .ai-source-group summary { display: flex; align-items: center; min-height: var(--touch-min); padding: 8px 10px; cursor: pointer; list-style: none; }.ai-source-group summary::-webkit-details-marker { display: none; }
 .ai-source-group summary .chev { margin-left: auto; }.ai-source-group[open] summary .chev svg { transform: rotate(180deg); }
-.ai-source-group summary span { display: grid; gap: 1px; }.ai-source-group summary small { color: var(--muted); font-size: .75rem; }
+.ai-source-group summary span { display: grid; gap: 3px; }.ai-source-group summary small { color: var(--muted); font-size: .75rem; }
 .ai-source-group-actions { display: flex; justify-content: flex-end; padding: 0 10px 5px; border-bottom: 1px solid var(--line); }
 .ai-source-group .ai-permission-row { margin: 0 5px; }
 @media (max-width: 640px) { .ai-access-hero > .status { display: none; }.ai-list-2col { grid-template-columns: 1fr; }.ai-source-scope, .ai-session-duration, .ai-mcp-token-control { align-items: flex-start; flex-direction: column; }.ai-source-scope .custom-select-container, .ai-session-duration .custom-select-container, .ai-mcp-token-control .btn-secondary { width: 100%; max-width: none; } }
@@ -539,12 +564,18 @@ body,
 }
 .ai-active-session > span { display: grid; gap: 2px; min-width: 0; }
 .ai-active-session small { color: var(--muted); }
+/* A row in a list, not a card. It is deliberately excluded from the depth
+   layer: elevating each row turned a flush list into three floating slabs
+   stacked edge to edge with no gap between them, which is far busier than the
+   hairline it replaced. Rows separate by divider and hover tint; only the
+   panel around them is a surface. */
 .integration-item {
   display: flex; align-items: center; gap: 12px; width: 100%;
-  padding: 12px 6px; border: none; border-top: 1px solid var(--border);
+  padding: 14px 10px; border: none; border-top: 1px solid var(--border);
   background: transparent; cursor: pointer; font: inherit; color: var(--text);
   border-radius: 8px; transition: background 0.12s;
 }
+.integration-item:first-child { border-top: none; }
 .integration-item:hover { background: var(--surface2); }
 .integration-item .integration-main strong { font-size: 0.9rem; font-weight: 500; }
 .integration-item .status { margin-left: auto; }
@@ -856,7 +887,7 @@ body:has(.layout.has-nav) .device-transfer-banner {
 .auth-screen { max-width: 420px; margin: 6vh auto 0; }
 .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .auth-brand img, .auth-brand svg { width: 44px; height: 44px; border-radius: 13px; }
-.auth-brand div { display: grid; gap: 1px; }
+.auth-brand div { display: grid; gap: 3px; }
 .auth-brand span { color: var(--accent); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .auth-brand strong { font-family: var(--font-serif); font-size: 1.35rem; }
 .auth-hero { color: var(--muted); line-height: 1.55; margin: 0; }
@@ -952,6 +983,24 @@ textarea {
   outline: none; transition: border-color 0.15s, box-shadow 0.15s;
 }
 textarea { resize: vertical; }
+
+/* Number fields drop the native spinner. It is a UA widget: it ignores the
+   theme completely, so a themed field ends up with two grey OS arrows welded
+   to its right edge — the same drift the <Select> component exists to prevent.
+   Nothing is lost functionally: arrow keys, scroll-to-increment and the
+   min/max/step constraints all still work, and every number field in the app
+   now matches every text field. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 input:focus,
 textarea:focus {
   border-color: var(--accent);
@@ -4108,36 +4157,47 @@ a.related-paper-url:hover { text-decoration: underline; }
 .privacy-notice__p { margin: 0.5rem 0; line-height: 1.5; }
 .delete-account-panel { margin-top: 16px; }
 
-/* Settings in-page jump nav */
-.settings-jump {
+/* Settings section tabs. Inherits the shared `.seg` control (see the
+   experiments/papers layout switch) so there is one tab look in the app; only
+   the layout differs — eight text labels wrap, three icon buttons never do. */
+/* `width: max-content` keeps the strip the size of its tabs. Stretching it to
+   the column width made it read as a full-bleed bar with the tabs shoved into
+   the left third, rather than as one control — the papers layout switch it is
+   meant to match is content-width too.
+
+   It never wraps: a wrapped sticky strip silently steals a second and third
+   row from the viewport, and the row heights disagree once one row is full and
+   the next holds two items. When it does not fit it scrolls, at every width —
+   not only on phones, since the settings column is narrow on a split-screen
+   desktop as well. */
+.settings-tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  width: max-content;
+  max-width: 100%;
   margin: 0 0 18px;
-  padding: 0;
-  list-style: none;
   position: sticky;
   top: calc(8px + env(safe-area-inset-top, 0px));
   z-index: 15;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: 8px 0;
+  /* The scrollbar would sit inside the pill's rounded border and clip against
+     it; the overflowing edge is affordance enough, and the tabs are reachable
+     by keyboard regardless. */
+  scrollbar-width: none;
 }
-.settings-jump a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 0.78rem;
-  font-weight: 500;
+.settings-tabs::-webkit-scrollbar { display: none; }
+
+/* Uniform tabs: same box for every label regardless of word length, and a
+   shared min-height so the selected pill does not sit taller than its
+   neighbours. `flex: none` stops long labels from being squeezed thinner than
+   short ones once the strip starts scrolling. */
+.settings-tabs button {
+  flex: none;
+  white-space: nowrap;
+  min-height: var(--control-sm);
+  padding: 6px 14px;
 }
-.settings-jump a:hover { color: var(--ink); border-color: var(--border); }
 .settings-anchor {
   scroll-margin-top: calc(64px + env(safe-area-inset-top, 0px));
 }
@@ -4451,3 +4511,632 @@ a.related-paper-url:hover { text-decoration: underline; }
 
 /* One-line statement of what the armed annotation tool will do. */
 .pdf-reader-tool-hint { margin: 6px 0 0; font-size: 0.8rem; }
+
+/* =====================================================================
+ * DEPTH — borderless elevation
+ * =====================================================================
+ * Surfaces are separated by *light*, not by hairlines. Every panel that used
+ * `1px solid var(--border)` keeps its 1px box (border-color goes transparent,
+ * so nothing reflows) and earns its edge from the elevation tokens in
+ * themes.css instead.
+ *
+ * Rules of the layer:
+ *   - Every raised surface = ambient+contact shadow (--e1…--e4) + --rim.
+ *   - Hover lifts one level and translates 1px up; active drops back down.
+ *     Movement is what sells the depth — the shadow alone reads as static.
+ *   - Sticky/floating chrome (L3) stays frosted and gets the rim light so it
+ *     visibly occludes content scrolling beneath it.
+ *   - Buttons and form controls KEEP their borders. A borderless input has no
+ *     affordance telling you where to click, and a borderless button stops
+ *     looking pressable. Depth is for surfaces; outlines are for controls.
+ *   - Divider rules (`border-top` between rows inside one panel) also stay:
+ *     they separate content within a surface, not one surface from another.
+ *
+ * The whole layer is scoped to `[data-surfaces="borderless"]`, which is the
+ * default. Settings → Appearance → Surfaces flips it to "bordered", which
+ * restores every hairline: a shadow carries almost no contrast ratio, so
+ * high-contrast users need the lines back, not a heavier shadow.
+ * ------------------------------------------------------------------- */
+
+/* Chip geometry reads the uploadable slot. Outside the borderless gate —
+   it is a theme dimension, not a border treatment. */
+.filter-chip,
+.metric-chip,
+.proj-chip,
+.superv-chip { border-radius: var(--radius-pill); }
+
+/* ---- L1: resting surfaces ---------------------------------------------- */
+:root[data-surfaces="borderless"] :is(
+  .card,
+  .graph-wrap,
+  .github-link-card,
+  .api-token-env-hint,
+  .thesis-loader-tip,
+  .ai-connection-details,
+  .ai-source-group,
+  .ai-active-session,
+  .section-excerpts,
+  .papers-board-col,
+  .paper-note-body,
+  .paper-ids-editor,
+  .paper-fields-manager,
+  .experiment-artifact-picker,
+  .artifact-card,
+  .artifact-thumbs a,
+  .image-thumb,
+  .card-thumb,
+  .extraction-propose-panel,
+  .metric-chart-plot,
+  .linked-overleaf-section,
+  .linked-overleaf-row,
+  .mp-list,
+  .org-node,
+  .reader-split-panel,
+  .reader-activity,
+  .pdf-reader-outline,
+  .graph-focus-legend .graph-legend.card,
+  .dashboard-card
+) {
+  border-color: transparent;
+  box-shadow: var(--e1), var(--rim);
+}
+
+/* Interactive cards animate between levels. Declared separately from the
+   resting set so the transition is not paid for by static panels. */
+:root[data-surfaces="borderless"] :is(
+  .entity-card,
+  .paper-card,
+  .org-choice-card
+) {
+  border-color: transparent;
+  box-shadow: var(--e1), var(--rim);
+  transition:
+    box-shadow 0.18s var(--layout-ease),
+    transform 0.18s var(--layout-ease),
+    background 0.12s;
+}
+
+/* Nested cards stay flat and recessed — a card inside a card that also lifts
+   destroys the hierarchy the outer card just established. */
+:root[data-surfaces="borderless"] .entity-card--nested,
+:root[data-surfaces="borderless"] .paper-card--nested {
+  border-color: transparent;
+  box-shadow: var(--e-inset);
+}
+
+/* ---- L2: interactive lift ---------------------------------------------- */
+:root[data-surfaces="borderless"] :is(
+  .entity-card[role="button"],
+  .paper-card[role="button"],
+  .org-choice-card,
+  .artifact-thumbs a
+):hover {
+  border-color: transparent;
+  background: var(--surface);
+  box-shadow: var(--e2), var(--rim-strong);
+  transform: translateY(-1px);
+}
+
+:root[data-surfaces="borderless"] :is(
+  .entity-card[role="button"],
+  .paper-card[role="button"],
+  .org-choice-card,
+  .artifact-thumbs a
+):active {
+  box-shadow: var(--e1), var(--rim);
+  transform: translateY(0);
+}
+
+:root[data-surfaces="borderless"] .entity-card--nested[role="button"]:hover,
+:root[data-surfaces="borderless"] .paper-card--nested[role="button"]:hover {
+  box-shadow: var(--e1), var(--rim);
+  transform: none;
+}
+
+/* ---- L3: floating & sticky chrome --------------------------------------- */
+:root[data-surfaces="borderless"] :is(
+  .sub-nav,
+  .custom-select-menu,
+  .popover-panel,
+  .proj-menu,
+  .header-menu,
+  .jump-to-dialog,
+  .heading-help-bubble,
+  .graph-link-tooltip,
+  .graph-settings-drawer,
+  .pdf-reader-chrome,
+  .pdf-reader-group,
+  .pdf-reader-search,
+  .pdf-reader-sidebar
+) {
+  border-color: transparent;
+  box-shadow: var(--e3), var(--rim);
+}
+/* The settings tab strip is deliberately absent from the lists above: it is a
+   `.seg` control, and controls keep their outline. */
+
+/* ---- L4: interrupts ----------------------------------------------------- */
+:root[data-surfaces="borderless"] :is(.modal, .comments-sheet) {
+  border-color: transparent;
+  box-shadow: var(--e4), var(--rim);
+}
+
+/* ---- Recessed wells: depth *into* the page, not out of it --------------- */
+:root[data-surfaces="borderless"] :is(
+  .ai-proposal-content,
+  .ai-source-picker,
+  .shiki-markdown pre.shiki,
+  .markdown-code-editor,
+  .exp-run-cmd,
+  .device-transfer-code,
+  .graph-local-banner,
+  .extraction-pending-banner,
+  .pdf-reader-banner,
+  .crypto-migration-pill,
+  .metric-chip
+) {
+  border-color: transparent;
+  box-shadow: var(--e-inset);
+}
+
+/* ---- L3: primary nav ----
+   Mobile: the floating pill already frosts; give it the real elevation pair
+   plus a rim so it reads as hovering over the scrolling list, not printed on
+   it. Desktop: the sidebar drops its hairline and casts a directional shadow
+   to the right — occlusion is the strongest depth cue available on a flat
+   viewport, and a shadow falling *onto* the content says "in front" in a way
+   a 1px line never does. */
+:root[data-surfaces="borderless"] .nav {
+  border-color: transparent;
+  box-shadow: var(--e3), var(--rim);
+}
+
+@media (min-width: 900px) {
+  :root[data-surfaces="borderless"] .nav {
+    border-right-color: transparent;
+    box-shadow: 10px 0 26px -14px color-mix(in srgb, var(--ink) 34%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-surfaces="borderless"] :is(.entity-card, .paper-card, .org-choice-card) {
+    transition: box-shadow 0.18s var(--layout-ease);
+  }
+  :root[data-surfaces="borderless"] :is(
+    .entity-card[role="button"],
+    .paper-card[role="button"],
+    .org-choice-card,
+    .artifact-thumbs a
+  ):hover {
+    transform: none;
+  }
+}
+
+
+
+/* =====================================================================
+ * REACTIVE MOTION — opt-in animation layer
+ * =====================================================================
+ * Everything the app animated before this section existed still animates
+ * unconditionally. This block is *additive*: it applies only under
+ * `[data-motion="reactive"]`, which Settings → Appearance sets and which is
+ * off by default. Turning it off must never remove baseline motion, so no
+ * rule here may be the only definition of an existing transition.
+ *
+ * `--rx` / `--ry` are the pointer position inside the hovered surface, 0–1,
+ * published by ReactiveMotion (app/reactive-motion.tsx).
+ *
+ * Only `translate`, `rotate`, `scale`, `transform`, `opacity` and registered
+ * custom properties are animated — all of which composite without layout,
+ * which is what keeps a 200-card list scrolling while a card is tilting.
+ * `--motion-scale` (settable from config.json) stretches every duration here
+ * at once.
+ * ------------------------------------------------------------------- */
+
+/* Registering the pointer and glow properties gives them a *type*, which is
+ * what lets the browser interpolate them. An unregistered custom property is
+ * just a string, so a gradient stop built from one snaps between values
+ * instead of animating — that is why the sheen previously had to fade with
+ * `opacity`, and why it jumped back to the card's centre on the way out.
+ *
+ * `--rx` / `--ry` are registered but deliberately NOT transitioned: the sheen
+ * has to track the pointer exactly, and a transition there would make the
+ * light lag behind the cursor. Only the radius animates. */
+/* `inherits: true` on the pointer pair is required, not cosmetic. The script
+   writes --rx/--ry on the *card*, while the gradient that reads them lives on
+   the card's ::after. A pseudo-element inherits from its originating element,
+   so with `inherits: false` the pseudo never saw the pointer at all — it just
+   resolved the 0.5/0.5 initial value and pinned the light to dead centre.
+   Unregistered custom properties inherit by default, which is why this only
+   broke when they were registered.
+   --rm-glow stays non-inheriting: it is set directly on the ::after by the
+   hover rule, and letting it cascade into descendants would be noise. */
+@property --rx {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.5;
+}
+@property --ry {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.5;
+}
+@property --rm-glow {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+:root[data-motion="reactive"] {
+  --rm-fast: calc(0.14s * var(--motion-scale));
+  --rm-base: calc(0.26s * var(--motion-scale));
+  --rm-slow: calc(0.52s * var(--motion-scale));
+  /* Tilt is deliberately small. Past ~4deg a card stops reading as a surface
+     catching the light and starts reading as a toy. */
+  --rm-tilt: 3.2deg;
+  /* Glow colour. Deliberately a *luminance* shift of the surface rather than
+     the accent hue: a card catching light does not change colour, it gets
+     lighter or darker. Mixing toward --ink keeps the sheen inside the theme's
+     own colour family — on a light palette it is a slightly deeper shade of
+     the card, on a dark one a slightly lifted one. Tinting with --accent read
+     as a foreign blue wash sitting on top of a warm cream card.
+     Named as one token so a theme that does want a coloured sheen can override
+     it without touching the gradient. */
+  --rm-glow-tint: color-mix(in srgb, var(--ink) 8%, transparent);
+  /* Overshoot-and-settle curve. A single cubic-bezier can overshoot once,
+     which is most of the effect and is the baseline here. */
+  --rm-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Where linear() is available, upgrade the same variable to a real spring —
+   several decaying oscillations rather than one overshoot, which is what
+   makes a lift read as weight moving instead of a value being interpolated.
+   Done through @supports rather than by declaring both values back to back:
+   a custom property accepts nearly any token sequence, so a browser that
+   cannot use linear() would still take it and then fail at substitution
+   time, dropping the timing function to `ease`. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root[data-motion="reactive"] {
+    --rm-spring: linear(
+      0, 0.006 1.1%, 0.048 3.2%, 0.19 6.7%, 0.428 10.8%, 0.681 14.7%, 0.898 18.5%,
+      1.05 22.1%, 1.132 25.5%, 1.155 28.4%, 1.132 32%, 1.086 36.1%, 1.03 41.4%,
+      0.98 48.2%, 0.973 53.1%, 0.981 60.3%, 1.004 72.6%, 1
+    );
+  }
+}
+
+/* ---- Reactive surfaces: tilt toward the pointer, bloom a sheen under it ----
+   The identity `translate` / `rotate` / `scale` on the base state are load
+   bearing. Without them the first hover *introduces* a transform, which
+   creates a stacking context and a containing block mid-interaction and can
+   visibly reorder overlapping cards. */
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  [data-reactive]
+) {
+  position: relative;
+  translate: 0;
+  rotate: 0deg;
+  scale: 1;
+  transition:
+    transform var(--rm-base) var(--layout-ease),
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-fast) var(--layout-ease),
+    box-shadow var(--rm-base) var(--layout-ease);
+}
+
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  [data-reactive]
+):hover {
+  /* Tilt stays on `transform` because two-axis rotation cannot be expressed
+     with the individual `rotate` property, which takes one axis. Keeping the
+     lift on `translate` and the press on `scale` means the three compose
+     instead of overwriting one another — pressing a tilted card used to snap
+     it flat, because `:active` replaced the entire transform chain. */
+  transform:
+    perspective(760px)
+    rotateX(calc((0.5 - var(--ry)) * var(--rm-tilt) * -1))
+    rotateY(calc((var(--rx) - 0.5) * var(--rm-tilt)));
+  translate: 0 -3px;
+}
+
+:root[data-motion="reactive"] :is(
+  .entity-card[role="button"],
+  .paper-card[role="button"],
+  .org-choice-card,
+  [data-reactive]
+):active {
+  scale: 0.985;
+}
+
+/* The sheen is a pseudo-element so it cannot disturb the card's own
+   background, and `inherit` on the radius keeps it inside rounded corners.
+   It animates its *radius*, not its opacity: the light blooms outward from
+   wherever the pointer entered and shrinks back into that same point on the
+   way out. Fading a fixed-size gradient instead is what made it look like the
+   glow slid to the middle of the card before vanishing. */
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  [data-reactive]
+)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: --rm-glow var(--rm-base) ease-out;
+  background: radial-gradient(
+    var(--rm-glow, 0px) circle at calc(var(--rx, 0.5) * 100%) calc(var(--ry, 0.5) * 100%),
+    var(--rm-glow-tint),
+    transparent 70%
+  );
+}
+
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  [data-reactive]
+):hover::after {
+  --rm-glow: 280px;
+}
+
+/* ---- Controls ---- */
+:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .filter-chip, .seg button) {
+  translate: 0;
+  scale: 1;
+  transition:
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-fast) var(--layout-ease),
+    box-shadow var(--rm-base) var(--layout-ease),
+    background var(--rm-fast) var(--layout-ease);
+}
+:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary):hover {
+  translate: 0 -1px;
+  box-shadow: var(--e2);
+}
+:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .filter-chip, .seg button):active {
+  translate: 0;
+  scale: 0.97;
+}
+
+/* Sub-nav tabs. The baseline hover tint above is the affordance; this adds the
+   physical part. The label itself lifts here rather than an icon, because a
+   sub-tab is text — and the strip is not a touch target that a finger is
+   mid-travel toward, so 1px of movement costs nothing. */
+:root[data-motion="reactive"] .sub-tab {
+  translate: 0;
+  scale: 1;
+  transition:
+    color 0.2s ease,
+    background var(--rm-fast) var(--layout-ease),
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-fast) var(--layout-ease);
+}
+:root[data-motion="reactive"] .sub-tab:hover { translate: 0 -1px; }
+:root[data-motion="reactive"] .sub-tab:active { translate: 0; scale: 0.97; }
+
+/* Nav glyphs pop on hover. Icon only — the label stays put, so the hit target
+   does not move under a finger already travelling toward it. */
+:root[data-motion="reactive"] :is(.nav a, .tabbar a) :is(.vicon, .nav-icon) {
+  translate: 0;
+  scale: 1;
+  transition:
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-base) var(--rm-spring);
+}
+:root[data-motion="reactive"] :is(.nav a, .tabbar a):hover :is(.vicon, .nav-icon) {
+  translate: 0 -2px;
+  scale: 1.09;
+}
+
+
+/* ---- Top bar ----
+   The brand row (org chip, project chip, theme toggle, overflow menu) is the
+   one piece of chrome that is on screen on every route, and it was the only
+   interactive surface the reactive layer never covered. Same vocabulary as
+   everything else here: spring lift on hover, scale on press, glyph responds
+   a little more than its container. */
+:root[data-motion="reactive"] :is(
+  .proj-chip,
+  .header-link,
+  .header-overflow-btn,
+  .signout
+) {
+  translate: 0;
+  scale: 1;
+  transition:
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-fast) var(--layout-ease),
+    background var(--rm-fast) var(--layout-ease),
+    color var(--rm-fast) var(--layout-ease);
+}
+
+:root[data-motion="reactive"] :is(
+  .proj-chip,
+  .header-link,
+  .header-overflow-btn,
+  .signout
+):hover {
+  translate: 0 -1px;
+}
+
+:root[data-motion="reactive"] :is(
+  .proj-chip,
+  .header-link,
+  .header-overflow-btn,
+  .signout
+):active {
+  translate: 0;
+  scale: 0.95;
+}
+
+/* Glyphs lead the container slightly — the icon is what the eye tracks. */
+:root[data-motion="reactive"] :is(.header-link, .signout) svg {
+  scale: 1;
+  transition: scale var(--rm-base) var(--rm-spring);
+}
+:root[data-motion="reactive"] :is(.header-link, .signout):hover svg {
+  scale: 1.12;
+}
+
+/* The theme toggle turns its sun/moon rather than just growing it: the control
+   swaps between two glyphs on click, and a rotation on hover telegraphs that
+   it is a switch instead of a link. */
+:root[data-motion="reactive"] .theme-toggle svg {
+  rotate: 0deg;
+  transition:
+    rotate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-base) var(--rm-spring);
+}
+:root[data-motion="reactive"] .theme-toggle:hover svg {
+  rotate: 35deg;
+  scale: 1.12;
+}
+
+/* Chevrons point at the menu they opened. Driven by aria-expanded, so the
+   animation cannot disagree with what assistive tech is told. */
+:root[data-motion="reactive"] .proj-chip .chev,
+:root[data-motion="reactive"] .header-overflow-btn {
+  transition: rotate var(--rm-base) var(--layout-ease);
+}
+:root[data-motion="reactive"] .proj-chip .chev { rotate: 0deg; }
+:root[data-motion="reactive"] .proj-chip[aria-expanded="true"] .chev { rotate: 180deg; }
+:root[data-motion="reactive"] .header-overflow-btn { rotate: 0deg; }
+:root[data-motion="reactive"] .header-overflow-btn[aria-expanded="true"] { rotate: 90deg; }
+
+/* Dropdowns fall in from under their trigger instead of appearing whole.
+   `@starting-style` gives the entry a from-state without a mount class; there
+   is no matching exit because React unmounts these immediately on close, and
+   animating that would mean holding the node open past its own state. */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-motion="reactive"] :is(.header-menu, .proj-menu, .popover-panel) {
+    opacity: 1;
+    translate: 0;
+    transition:
+      opacity var(--rm-base) var(--layout-ease),
+      translate var(--rm-base) var(--layout-ease);
+  }
+
+  @starting-style {
+    :root[data-motion="reactive"] :is(.header-menu, .proj-menu, .popover-panel) {
+      opacity: 0;
+      translate: 0 -6px;
+    }
+  }
+}
+
+/* ---- Entrance ----
+   Driven by the card's own position in the scrollport rather than by mount.
+   A mount animation runs for every card in a 200-row list at once, including
+   the 190 nobody can see, and re-runs the whole list on every filter change.
+   A view timeline animates each card exactly as it scrolls in, runs off the
+   main thread, and needs no per-item index to stagger. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) and (animation-range: entry) {
+    @keyframes reactive-rise {
+      from { opacity: 0; translate: 0 10px; }
+    }
+
+    :root[data-motion="reactive"] :is(
+      .entity-card,
+      .paper-card,
+      .dashboard-card,
+      .artifact-card
+    ) {
+      animation: reactive-rise var(--rm-slow) var(--layout-ease) backwards;
+      animation-timeline: view();
+      /* `cover 0%`–`cover 22%` rather than the whole `entry` range: a card
+         should be settled well before it reaches the middle of the screen,
+         or the list looks like it is still loading while you are reading it. */
+      animation-range: cover 0% cover 22%;
+    }
+  }
+
+  /* Firefox has no view timelines yet. One short rise on mount is the honest
+     fallback — it is worse on long lists, which is exactly why it is not the
+     primary path. */
+  @supports not ((animation-timeline: view()) and (animation-range: entry)) {
+    @keyframes reactive-rise-mount {
+      from { opacity: 0; translate: 0 8px; }
+    }
+
+    :root[data-motion="reactive"] :is(
+      .entity-card,
+      .paper-card,
+      .dashboard-card,
+      .artifact-card
+    ) {
+      animation: reactive-rise-mount var(--rm-slow) var(--layout-ease) backwards;
+    }
+  }
+}
+
+/* The OS preference wins over the app toggle, always. A user who asked the
+   system for less motion did not ask twice. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="reactive"] * {
+    animation: none !important;
+  }
+  :root[data-motion="reactive"] :is(
+    .entity-card,
+    .paper-card,
+    .dashboard-card,
+    .artifact-card,
+    .org-choice-card,
+    [data-reactive]
+  ):hover {
+    transform: none;
+    translate: 0;
+  }
+  :root[data-motion="reactive"] :is(
+    .entity-card,
+    .paper-card,
+    .dashboard-card,
+    .artifact-card,
+    .org-choice-card,
+    [data-reactive]
+  )::after {
+    display: none;
+  }
+}
+
+/* ---- Appearance settings: motion toggle + theme file controls ---- */
+.toggle-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.toggle-row span { font-weight: 500; }
+
+.theme-config-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.theme-config-actions input[type="file"] {
+  flex: 1 1 14rem; min-width: 0; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--input-bg); color: var(--ink); font: inherit; font-size: 0.85rem;
+}
+.theme-config-actions input[type="file"]::file-selector-button {
+  margin-right: 10px; padding: 5px 10px;
+  border: 1px solid var(--line); border-radius: var(--control-radius-sm);
+  background: var(--surface2); color: var(--ink); font: inherit; font-size: 0.8rem; cursor: pointer;
+}
+
+/* Errors are a list because the parser reports every bad key at once — one
+   round trip per typo is a miserable way to author a theme. */
+.theme-config-errors ul {
+  margin: 0; padding: 8px 10px 8px 26px;
+  border-radius: var(--radius-sm); background: var(--s-danger-bg);
+  color: var(--ink); font-size: 0.8rem; max-height: 12rem; overflow-y: auto;
+}
+.theme-config-errors li { margin: 2px 0; font-family: var(--font-mono); word-break: break-word; }

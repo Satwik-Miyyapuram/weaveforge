@@ -11,6 +11,17 @@ import {
   type VaultPage,
 } from "@thesis/core";
 import { listDisplayColor } from "@/features/reading-lists";
+// The palette lives in a leaf module so that consumers wanting only a colour
+// do not pull this file's feature imports along with it. Re-exported below,
+// because every existing caller reaches for it through this module.
+import {
+  RELATION_COLORS,
+  STATUS_COLORS,
+  tagColor,
+  NOTE_COLOR,
+  WIKILINK_COLOR,
+  REPORT_COLOR,
+} from "../domain/graph-palette";
 import {
   effectiveRelationTypes,
   showConceptEdges,
@@ -20,33 +31,14 @@ import {
   type GroupBy,
 } from "./graph-view-settings";
 
-export const RELATION_COLORS: Record<RelationType, string> = {
-  cites: "#8a857c",
-  extends: "#7c9885",
-  contradicts: "#c0573f",
-  similar: "#c98a6b",
-  builds_on: "#5a7d8c",
-  uses_method: "#9a7bb0",
+export {
+  RELATION_COLORS,
+  STATUS_COLORS,
+  tagColor,
+  NOTE_COLOR,
+  WIKILINK_COLOR,
+  REPORT_COLOR,
 };
-
-export const STATUS_COLORS: Record<string, string> = {
-  to_read: "#b9b2a6",
-  reading: "#7c9885",
-  read: "#5a7d8c",
-  skimmed: "#c98a6b",
-};
-
-export function tagColor(tag: string): string {
-  let h = 0;
-  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) % 360;
-  return `hsl(${h}, 55%, 62%)`;
-}
-
-export const NOTE_COLOR = "#a0896a";
-/** Direct [[wikilink]] edges — distinct from tag/relation links. */
-export const WIKILINK_COLOR = "#6f7f9c";
-/** Report section nodes on the citation graph. */
-export const REPORT_COLOR = "#5e8f7b";
 
 export interface GNode {
   id: string;
