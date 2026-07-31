@@ -4451,3 +4451,118 @@ a.related-paper-url:hover { text-decoration: underline; }
 
 /* One-line statement of what the armed annotation tool will do. */
 .pdf-reader-tool-hint { margin: 6px 0 0; font-size: 0.8rem; }
+
+/* =====================================================================
+ * DEPTH LAYER — borderless elevation (exploration)
+ * =====================================================================
+ * Surfaces are separated by *light*, not by hairlines: every panel that
+ * used `1px solid var(--border)` keeps its 1px box (border-color goes
+ * transparent, so nothing reflows) and earns its edge from the elevation
+ * tokens in themes.css instead.
+ *
+ * Rules of the layer:
+ *   - Every raised surface = ambient+contact shadow (--e1…--e4) + --rim.
+ *   - Hover lifts one level and translates 1px up; active drops back down.
+ *     Movement is what sells the depth — the shadow alone reads as static.
+ *   - Sticky/floating chrome (L3) stays frosted and gets the rim light so
+ *     it visibly occludes content scrolling beneath it.
+ *   - Form controls keep their borders: a borderless input has no
+ *     affordance telling you where to click. Depth is for surfaces.
+ *
+ * Kept as one appended block so the whole experiment can be reverted by
+ * deleting from this banner down.
+ * ------------------------------------------------------------------- */
+
+/* ---- L1: resting surfaces ---- */
+.card,
+.graph-wrap {
+  border-color: transparent;
+  box-shadow: var(--e1), var(--rim);
+}
+
+.entity-card,
+.paper-card {
+  border-color: transparent;
+  box-shadow: var(--e1), var(--rim);
+  transition:
+    box-shadow 0.18s var(--layout-ease),
+    transform 0.18s var(--layout-ease),
+    background 0.12s;
+}
+
+/* Nested cards stay flat and recessed — a card inside a card that also
+   lifts destroys the hierarchy the outer card just established. */
+.entity-card--nested {
+  border-color: transparent;
+  box-shadow: var(--e-inset);
+}
+
+/* ---- L2: interactive lift ---- */
+.entity-card[role="button"]:hover,
+.paper-card[role="button"]:hover {
+  border-color: transparent;
+  background: var(--surface);
+  box-shadow: var(--e2), var(--rim-strong);
+  transform: translateY(-1px);
+}
+.entity-card[role="button"]:active,
+.paper-card[role="button"]:active {
+  box-shadow: var(--e1), var(--rim);
+  transform: translateY(0);
+}
+.entity-card--nested[role="button"]:hover,
+.paper-card--nested[role="button"]:hover {
+  box-shadow: var(--e1), var(--rim);
+  transform: none;
+}
+
+/* ---- L3: floating & sticky chrome ---- */
+.sub-nav,
+.settings-jump {
+  border-color: transparent;
+  box-shadow: var(--e3), var(--rim);
+}
+.settings-jump { border-radius: 12px; }
+
+.custom-select-menu,
+.popover-panel {
+  border-color: transparent;
+  box-shadow: var(--e3), var(--rim);
+}
+
+/* ---- L4: interrupts ---- */
+.modal {
+  border-color: transparent;
+  box-shadow: var(--e4), var(--rim);
+}
+
+/* ---- Recessed wells: depth into the page, not out of it ---- */
+.ai-proposal-content {
+  box-shadow: var(--e-inset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-card,
+  .paper-card { transition: box-shadow 0.18s var(--layout-ease); }
+  .entity-card[role="button"]:hover,
+  .paper-card[role="button"]:hover { transform: none; }
+}
+
+/* ---- L3: primary nav ----
+   Mobile: the floating pill already frosts; give it the real elevation pair
+   plus a rim so it reads as hovering over the scrolling list, not printed on
+   it. Desktop: the sidebar drops its hairline and casts a directional shadow
+   to the right — occlusion is the strongest depth cue available on a flat
+   viewport, and a shadow falling *onto* the content says "in front" in a way
+   a 1px line never does. */
+.nav {
+  border-color: transparent;
+  box-shadow: var(--e3), var(--rim);
+}
+
+@media (min-width: 900px) {
+  .nav {
+    border-right-color: transparent;
+    box-shadow: 10px 0 26px -14px color-mix(in srgb, var(--ink) 34%, transparent);
+  }
+}

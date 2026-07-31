@@ -77,6 +77,36 @@
     0 2px 8px rgba(30, 30, 40, 0.06),
     0 16px 32px rgba(30, 30, 40, 0.10),
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  /* ---- Elevation scale (L0–L4) ----------------------------------------
+   * One token per layer, each stacking a sharp *contact* shadow over a soft
+   * *ambient* one — that pairing is what reads as physical depth; a single
+   * big blur reads as a smudge. Shadows replace hairline borders on
+   * surfaces, so levels must stay visibly distinct from each other.
+   *   --e0  canvas / recessed  (no lift, optional inset hairline)
+   *   --e1  resting cards, panels, text areas
+   *   --e2  hovered / pressed-out interactive surfaces
+   *   --e3  sticky & floating chrome (pairs with --rim)
+   *   --e4  modals, sheets — wide diffused ambient
+   * --rim is the top highlight that keeps a shadowed surface from looking
+   * like a hole; it is what carries the edge once the border is gone.
+   * Dark themes override the whole block below. */
+  --e0: none;
+  --e1:
+    0 1px 2px rgba(30, 30, 40, 0.05),
+    0 4px 12px rgba(30, 30, 40, 0.04);
+  --e2:
+    0 2px 4px rgba(30, 30, 40, 0.07),
+    0 10px 24px rgba(30, 30, 40, 0.07);
+  --e3:
+    0 1px 2px rgba(30, 30, 40, 0.06),
+    0 14px 32px rgba(30, 30, 40, 0.10);
+  --e4:
+    0 4px 10px rgba(30, 30, 40, 0.10),
+    0 30px 64px rgba(30, 30, 40, 0.18);
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --rim-strong: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  /* Recessed wells (inputs, code blocks) — depth *into* the page. */
+  --e-inset: inset 0 1px 2px rgba(30, 30, 40, 0.06);
 }
 
 /* ============================================================= *
@@ -217,6 +247,34 @@
   /* pastel-dark omitted here — its full block below sets its own sel-ring/shadow. */
   --sel-ring: rgba(255, 255, 255, 0.14);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark elevation scale. Shadow alone barely separates two dark surfaces, so
+ * dark themes lean on the rim highlight (a light top edge) to define the
+ * boundary and use the shadow for the drop underneath. pastel-dark is
+ * included here even though it sets its own --shadow/--sel-ring. */
+[data-theme="dark"],
+[data-theme="mocha"],
+[data-theme="dracula"],
+[data-theme="amoled"],
+[data-theme="contrast"],
+[data-theme="vivid-dark"],
+[data-theme="pastel-dark"] {
+  --e1:
+    0 1px 2px rgba(0, 0, 0, 0.34),
+    0 4px 12px rgba(0, 0, 0, 0.28);
+  --e2:
+    0 2px 4px rgba(0, 0, 0, 0.42),
+    0 10px 24px rgba(0, 0, 0, 0.38);
+  --e3:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 14px 32px rgba(0, 0, 0, 0.46);
+  --e4:
+    0 4px 10px rgba(0, 0, 0, 0.46),
+    0 30px 64px rgba(0, 0, 0, 0.6);
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --rim-strong: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --e-inset: inset 0 1px 2px rgba(0, 0, 0, 0.34);
 }
 
 /* Slate */
