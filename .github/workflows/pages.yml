@@ -1,0 +1,70 @@
+name: Pitch site
+
+# Publishes the statically exported pitch site (apps/pitch) to GitHub Pages.
+#
+# The site renders the product's own page component from apps/web, so a change
+# to the real EntityCard or to the graph palette republishes the marketing page
+# too — which is the point of building it this way rather than as a copy.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/pitch/**"
+      - "apps/web/src/app/pitch/**"
+      - "apps/web/src/app/globals.css"
+      - "apps/web/src/app/themes.css"
+      - "apps/web/src/components/**"
+      - "apps/web/src/features/relations/domain/**"
+      - "apps/web/public/icons/**"
+      - "packages/core/src/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; queued runs supersede rather than race.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build the static export
+        env:
+          # Served from user.github.io/<repo>, so every asset needs the repo
+          # name in front of it. Set BASE_PATH to "" for a custom apex domain.
+          BASE_PATH: /${{ github.event.repository.name }}
+          # Where "Open the app" points. Set the APP_URL repository variable to
+          # the deployed app; without one, send visitors to the source instead
+          # of looping them back to this page.
+          NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL || format('https://github.com/{0}', github.repository) }}
+        run: npm run build --workspace @thesis/pitch
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/pitch/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
