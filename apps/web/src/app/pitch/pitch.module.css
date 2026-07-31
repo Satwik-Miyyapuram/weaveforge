@@ -252,10 +252,10 @@
    the cascade to it on equal specificity. */
 .scene.overview { padding-top: clamp(8px, 2vw, 24px); border-top: 0; }
 .overview .step { min-height: 52vh; }
-/* The figure is tall and narrow, so the stacked stage needs more than the 46vh
-   the other scenes use or the lower objects are cropped away. */
+/* The hero figure is the tallest thing the page pins, so it gets the most
+   room before the cap starts cropping it. */
 @media (max-width: 899px) {
-  .overview .stage { height: 62vh; }
+  .overview .stage { max-height: 66vh; }
 }
 @media (min-width: 900px) {
   /* The figure is the hero, so it gets the larger half — the reverse of the
@@ -403,11 +403,15 @@
   position: sticky;
   top: 60px;
   z-index: 5;
-  /* A fixed height, not max-height. The reading line in stacked mode is
-     measured from the bottom of this panel, so a stage that shrank to fit its
-     content moved the line scene by scene — and the step that counted as
-     "being read" changed with it. One height keeps the rule predictable. */
-  height: 46vh;
+  /* Sized to its content, capped so the reader always has somewhere to read.
+     A fixed height here silently sliced the bottom off five of the eight
+     scenes on a phone — a card cut in half mid-sentence.
+     A per-scene height is safe because the reading line is recomputed from
+     this panel's live rect on every frame, and because the height cannot
+     change *within* a scene: the cross-fading views all share one grid cell,
+     so the panel is always as tall as the tallest of them. */
+  height: auto;
+  max-height: 62vh;
   overflow: hidden;
   padding: 12px 0 16px;
   background: var(--bg);
