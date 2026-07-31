@@ -4,9 +4,9 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](python/)
 
-**One workspace for your whole thesis** — papers, reading lists, citation graph, plan, logbook, report outline, experiments, vault notes, and lab collaboration. Open-source and self-hostable under AGPL-3.0-only; hosted WeaveForge access and usage limits are part of the pricing plan.
+**One workspace for your whole research project** — papers, reading lists, citation graph, plan, logbook, report outline, experiments, vault notes, and lab collaboration. A nine-month thesis, a four-year PhD, or a postdoc that outlives both. Open-source and self-hostable under AGPL-3.0-only; hosted WeaveForge access and usage limits are part of the pricing plan.
 
-Most thesis tools split the job: Zotero for papers, Notion for notes, wandb for runs, Google Docs for the write-up. WeaveForge keeps the **literature**, **plan**, **experiments**, and **writing** in one modular PWA, with optional Zotero sync, git integration, and supervisor sharing — so your advisor sees real objects, not screenshots.
+Most research tools split the job: Zotero for papers, Notion for notes, wandb for runs, Google Docs for the write-up. WeaveForge keeps the **literature**, **plan**, **experiments**, and **writing** in one modular PWA, with optional Zotero sync, git integration, and supervisor sharing — so your advisor sees real objects, not screenshots.
 
 ---
 
@@ -16,7 +16,7 @@ Most thesis tools split the job: Zotero for papers, Notion for notes, wandb for 
 |---|--------------------------|----------------------------|
 | **What** | Next.js PWA — library, graph, plan, log, report, experiments, vault, sharing | Push runs, curves, and figures from training scripts |
 | **Install** | `npm install` + Supabase project | `pip install -e python` |
-| **Best for** | Day-to-day thesis work in the browser | `@track_experiment`, Lightning/Keras callbacks, TensorBoard/wandb import |
+| **Best for** | Day-to-day research in the browser | `@track_experiment`, Lightning/Keras callbacks, TensorBoard/wandb import |
 | **Docs** | [Quick start ↓](#quick-start) · [Features ↓](#features) | [Python SDK ↓](#python-sdk) · [`python/README.md`](python/README.md) |
 
 Both talk to the **same Postgres schema** (`supabase/migrations/`). Log a run in Python → compare it in the dashboard next to the paper it implements.
@@ -159,6 +159,7 @@ Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/ext
 
 ```
 apps/web/         Next.js PWA
+apps/pitch/       Static export of the pitch site (GitHub Pages)
 packages/core/    @thesis/core — shared domain + use-cases
 supabase/         Migrations 0001…0088 (see supabase/migrations/README.md)
 python/           thesis-tracker SDK
@@ -212,6 +213,8 @@ npm run test:integration:web
 npm run typecheck        # all workspaces
 npm run check:solid      # boundary lint (UI ↔ facades, no cross-feature /ui imports)
 npm run check:dry        # DRY lint (pin/share/owner-label patterns centralised in core)
+npm run dev --workspace @thesis/pitch     # pitch site @ :3100
+npm run build --workspace @thesis/pitch   # static export -> apps/pitch/out
 ```
 
 ---
@@ -220,10 +223,47 @@ npm run check:dry        # DRY lint (pin/share/owner-label patterns centralised 
 
 - **Web** → Vercel (or any Node host): root `apps/web`, set `NEXT_PUBLIC_SUPABASE_*`, add production URL to Supabase Auth redirects.
 - **Database** → Supabase hosted or self-hosted Postgres per [`docs/backend.md`](docs/backend.md).
+- **Pitch site** → GitHub Pages, built from `apps/pitch` by
+  [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to
+  `main` that touches it. See [The pitch site ↓](#the-pitch-site).
 
 Self-hosting has no WeaveForge subscription fee; infrastructure providers may
 still charge for compute, storage, email, backups, and bandwidth. Hosted
 WeaveForge pricing and usage limits are planned separately.
+
+---
+
+## The pitch site
+
+A public product page lives at `/pitch` in the app and is published to GitHub
+Pages as a static site.
+
+It is **not a copy**. `apps/pitch` is a second Next app with exactly one route,
+which re-exports the same page component the app serves — so every card on the
+marketing page is the product's own `<EntityCard>`, painted by the same
+`globals.css` and themed by the same `themes.css`. Change a card in the product
+and the published page changes with it.
+
+It exists as a separate app because the product cannot be statically exported:
+it has 34 API routes and a runtime that expects a server. The pitch has neither.
+
+```bash
+npm run dev --workspace @thesis/pitch      # :3100
+npm run build --workspace @thesis/pitch    # -> apps/pitch/out
+```
+
+**Publishing** needs two things set once in the repository:
+
+1. **Settings → Pages → Source: GitHub Actions.** Without this the deploy step
+   has nowhere to publish to.
+2. **An `APP_URL` repository variable** pointing at the deployed app — it is
+   where the page's "Open the app" buttons go. Without one they fall back to
+   this repository rather than looping visitors back to the pitch page.
+
+The workflow sets `BASE_PATH` to the repository name so assets resolve under
+`user.github.io/<repo>/`; set it to empty for a custom domain at the apex. It
+also writes `.nojekyll`, because Jekyll silently drops the `_next/` directory
+that every stylesheet and script lives in.
 
 ---
 
