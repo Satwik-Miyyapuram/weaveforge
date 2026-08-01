@@ -349,7 +349,7 @@
    declared further down this file, so a single-class `.overview` rule loses
    the cascade to it on equal specificity. */
 .scene.overview { padding-top: clamp(8px, 2vw, 24px); border-top: 0; }
-.overview .step { min-height: 52vh; }
+.overview .step { min-height: 42vh; }
 /* The hero figure is the tallest thing the page pins, so it gets the most
    room before the cap starts cropping it. */
 @media (max-width: 899px) {
@@ -461,7 +461,7 @@
   text-wrap: balance;
   margin: 0;
 }
-.moment p { margin: 0; font-size: 0.875rem; color: var(--muted); }
+.moment p { margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--muted); }
 .momentThen {
   margin-top: 6px;
   padding-top: 10px;
@@ -509,11 +509,55 @@
      change *within* a scene: the cross-fading views all share one grid cell,
      so the panel is always as tall as the tallest of them. */
   height: auto;
-  max-height: 62vh;
+  max-height: 66vh;
   overflow: hidden;
   padding: 12px 0 16px;
-  background: var(--bg);
-  box-shadow: 0 12px 16px -12px rgba(0, 0, 0, 0.45);
+  background: none;
+}
+
+/* The veil behind a pinned visual.
+   The panel cannot simply be transparent — the steps scroll underneath it —
+   but a solid fill painted a hard-edged rectangle of --bg over the ruled
+   ground and the aurora, which on a light theme reads as a pale box sitting
+   on the page. So the fill lives on a pseudo-element instead, where it can
+   lose both edges that gave it away: it bleeds past the column so there are
+   no sides, and it is masked to nothing at the foot so there is no bottom.
+   Content stays on the .stage itself and is never touched by the mask. */
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: -12px -50vw 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 88%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 66%, transparent) 55%,
+    transparent 100%
+  );
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  /* Masks the blur as well as the fill — without this the backdrop-filter
+     keeps a crisp rectangle exactly where the fill has faded away. */
+  mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+}
+@media (min-width: 900px) {
+  /* Side by side, nothing scrolls behind the visual, so it needs no veil. */
+  .stage::before { display: none; }
+}
+
+/* Keep a tall visual inside the panel's budget.
+   `height: auto` on the stage means the panel is as tall as its content, and
+   a figure sized purely by width grows with the column — at 800px wide the
+   hero figure wants ~960px of height, far past the cap, and the cap then
+   crops it. Bounding the drawing by height instead lets the SVG letterbox
+   itself: it scales down and centres, rather than losing its bottom edge. */
+@media (max-width: 899px) {
+  /* Well under the panel's own cap: a scene's visual is rarely the drawing
+     alone — the citation graph carries a legend beneath it, the live run a
+     table of values — and the drawing must leave room for them. */
+  .stage svg { max-height: 34vh; }
 }
 /* Grid and flex items default to min-width:auto, so a wide code block refuses
    to shrink below its longest line and spills straight across the steps
@@ -548,7 +592,7 @@
 .step {
   /* Tall enough that only one step sits near the reading line at a time.
      Short steps crowd the line and the stage flickers on a slow scroll. */
-  min-height: 58vh;
+  min-height: 50vh;
   display: grid;
   align-content: center;
   padding: 20px 0;
@@ -563,7 +607,7 @@
   text-wrap: balance;
   margin: 0 0 8px;
 }
-.step p { font-size: 0.875rem; color: var(--muted); margin: 0; max-width: 46ch; }
+.step p { font-size: 1rem; line-height: 1.65; color: var(--muted); margin: 0; max-width: 44ch; }
 .idx {
   font-family: var(--font-mono);
   font-size: 0.74rem;
@@ -575,8 +619,8 @@
 
 @media (min-width: 900px) {
   .sceneInner {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    gap: 56px;
+    grid-template-columns: minmax(0, 1.12fr) minmax(380px, 0.88fr);
+    gap: 48px;
     align-items: start;
   }
   .stage {
@@ -590,7 +634,7 @@
     box-shadow: none;
   }
   .step {
-    min-height: 74vh;
+    min-height: 56vh;
     padding: 0;
     /* Inactive steps recede so the one being read is unmistakable. Opacity
        only — moving them would fight the scroll the reader is driving. */

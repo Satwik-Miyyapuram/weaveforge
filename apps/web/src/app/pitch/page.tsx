@@ -5,6 +5,7 @@ import { EntityCard } from "@/components/entity-card";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ReactiveMotion } from "@/app/reactive-motion";
 import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, tagColor } from "@/features/relations/domain/graph-palette";
+import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-annotation-helpers";
 import {
   applyTheme,
   DARK_THEME_OPTIONS,
@@ -672,6 +673,79 @@ function LiveRun() {
  * and local annotations, the Citavi-style quotation taxonomy, and pins that
  * place an annotation in a report section.
  */
+/**
+ * A page of the PDF as the reader shows it.
+ *
+ * The colours are the reader's own palette, imported rather than picked, so
+ * the yellow here is the yellow a highlight actually gets. Body text is drawn
+ * as rules rather than lorem ipsum: at this size real words would be unreadable
+ * anyway, and fake ones invite the reader to try.
+ */
+function PdfPage() {
+  const W = 460, H = 300;
+  const yellow = READER_ANNOTATION_COLORS[0];
+  const blue = READER_ANNOTATION_COLORS[3];
+  const purple = READER_ANNOTATION_COLORS[4];
+  // x, y, width — the ragged right edge is what makes it read as prose.
+  const lines: [number, number, number][] = [
+    [96, 74, 300], [96, 88, 316], [96, 102, 286],
+    [96, 130, 312], [96, 144, 268],
+    [96, 186, 320], [96, 200, 300], [96, 214, 214],
+    [96, 242, 308], [96, 256, 244],
+  ];
+
+  return (
+    <div>
+      <p className={css.stageCap}>reader · higgins et al. · p. 4</p>
+      <svg className={css.fig} viewBox={`0 0 ${W} ${H}`} role="img"
+           aria-label="A PDF page in the reader, with a yellow highlight, a blue underline and a margin note">
+        <rect x={72} y={8} width={356} height={H - 16} rx={6}
+              fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
+
+        {/* Section heading on the page */}
+        <rect x={96} y={44} width={150} height={9} rx={2} fill="var(--muted)" opacity={0.85} />
+
+        {/* The highlight sits under the text, the way it does on paper. */}
+        <rect x={92} y={124} width={320} height={28} rx={3} fill={yellow} opacity={0.38} />
+
+        {lines.map(([x, y, w], i) => (
+          <rect key={i} x={x} y={y} width={w} height={6} rx={3}
+                fill="var(--ink)" opacity={0.42} />
+        ))}
+
+        {/* Underline annotation */}
+        <rect x={96} y={251} width={244} height={2} rx={1} fill={blue} />
+
+        {/* Margin note, in the gutter where you would actually put one */}
+        <g>
+          <circle cx={410} cy={92} r={9} fill={purple} />
+          <rect x={402} y={88} width={16} height={2} rx={1} fill="var(--surface)" />
+          <rect x={402} y={93} width={11} height={2} rx={1} fill="var(--surface)" />
+        </g>
+
+        {/* Selection popover: what you get when you let go of the drag. */}
+        <g>
+          <rect x={150} y={158} width={196} height={30} rx={8}
+                fill="var(--elev, var(--surface))" stroke="var(--border-strong)" strokeWidth={1} />
+          {READER_ANNOTATION_COLORS.slice(0, 5).map((c, i) => (
+            <circle key={c} cx={166 + i * 18} cy={173} r={6} fill={c}
+                    stroke={i === 0 ? "var(--ink)" : "none"} strokeWidth={i === 0 ? 1.5 : 0} />
+          ))}
+          <text x={266} y={177} fontSize={10} fontFamily="var(--font-mono)" fill="var(--muted)">
+            direct
+          </text>
+          <rect x={306} y={165} width={30} height={16} rx={4} fill="var(--accent-soft)" />
+          <text x={321} y={177} textAnchor="middle" fontSize={9}
+                fontFamily="var(--font-mono)" fill="var(--accent)">pin</text>
+        </g>
+
+        <text x={250} y={H - 14} textAnchor="middle" fontSize={9}
+              fontFamily="var(--font-mono)" fill="var(--faint)">4</text>
+      </svg>
+    </div>
+  );
+}
+
 function AnnotationsScene() {
   return (
     <Scene
@@ -680,8 +754,9 @@ function AnnotationsScene() {
       heading="The highlight is the object, not a stripe on a page."
       lede="A PDF reader inside the workspace, where every highlight carries its page locus, its use in your argument, and the section it is destined for."
       views={[
+        <PdfPage key="pdf" />,
         <div key="a">
-          <p className={css.stageCap}>reader · p. 4</p>
+          <p className={css.stageCap}>reader · the annotation as a row</p>
           <EntityCard title="Highlight · p. 4" meta="local · anchored to page locus, not a pixel offset" tags={["disentanglement", "to-verify"]}>
             <div className="callout">
               <p className="summary">
@@ -703,14 +778,6 @@ function AnnotationsScene() {
             <EntityCard as="li" nested title="direct · paraphrase · summary" meta="how you intend to use it, decided while reading" />
           </ul>
         </div>,
-        <div key="s">
-          <p className={css.stageCap}>zotero · write-back</p>
-          <ul className={css.stack}>
-            <EntityCard as="li" title="Higgins et al. · 14 annotations" meta="imported from Zotero" status={<StatusPill value="done" label="synced" />} />
-            <EntityCard as="li" title="Your highlight, p. 4" meta="made here · queued for Zotero" status={<StatusPill value="running" label="pending" />} />
-            <EntityCard as="li" title="Edited on both sides" meta="surfaced, never silently overwritten" status={<StatusPill value="not_started" label="conflict" />} />
-          </ul>
-        </div>,
         <div key="p">
           <p className={css.stageCap}>report · pinned excerpts</p>
           <EntityCard
@@ -729,6 +796,14 @@ function AnnotationsScene() {
               <div><dt>exports as</dt><dd>{"\\cite{higgins2017betavae}"}</dd></div>
             </dl>
           </EntityCard>
+        </div>,
+        <div key="s">
+          <p className={css.stageCap}>zotero · write-back</p>
+          <ul className={css.stack}>
+            <EntityCard as="li" title="Higgins et al. · 14 annotations" meta="imported from Zotero" status={<StatusPill value="done" label="synced" />} />
+            <EntityCard as="li" title="Your highlight, p. 4" meta="made here · queued for Zotero" status={<StatusPill value="running" label="pending" />} />
+            <EntityCard as="li" title="Edited on both sides" meta="surfaced, never silently overwritten" status={<StatusPill value="not_started" label="conflict" />} />
+          </ul>
         </div>,
       ]}
       steps={[
