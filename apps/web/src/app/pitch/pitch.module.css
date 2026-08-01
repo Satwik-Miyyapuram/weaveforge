@@ -56,10 +56,16 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* The aurora: three soft pools in accent and two status hues, blurred into
-   each other. It is a real element rather than a fourth background layer so
-   it can be moved — a pseudo-element carrying the grid too would drag the
-   grid along with it. */
+/* The aurora: three soft pools, blurred into each other. It is a real element
+   rather than a fourth background layer so it can be moved — a pseudo-element
+   carrying the grid too would drag the grid along with it.
+
+   All three are built from --accent. They used to use --s-info and --s-good
+   for variety, which was wrong: those are status tokens, so info is blue and
+   good is green in every single theme by definition. Two thirds of the
+   background therefore stayed blue-and-green whatever palette you picked, and
+   only one pool ever moved. Depth now comes from mixing the accent toward the
+   page's own ink and its soft tint, both of which are theme-aware. */
 .aurora {
   position: fixed;
   /* Oversized: it drifts and rotates, and the edges must never come into
@@ -69,8 +75,12 @@
   pointer-events: none;
   background-image:
     radial-gradient(38vw 32vw at 22% 16%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
-    radial-gradient(34vw 30vw at 84% 40%, color-mix(in srgb, var(--s-info) 20%, transparent), transparent 70%),
-    radial-gradient(42vw 34vw at 46% 88%, color-mix(in srgb, var(--s-good) 15%, transparent), transparent 72%);
+    radial-gradient(
+      34vw 30vw at 84% 40%,
+      color-mix(in srgb, color-mix(in srgb, var(--accent) 62%, var(--ink)) 24%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(42vw 34vw at 46% 88%, color-mix(in srgb, var(--accent-soft) 62%, transparent), transparent 72%);
   filter: blur(40px);
   translate: 0 0;
   rotate: 0deg;
