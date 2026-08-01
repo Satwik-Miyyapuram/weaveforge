@@ -16,3 +16,12 @@ await rm(to, { recursive: true, force: true });
 await mkdir(path.dirname(to), { recursive: true });
 await cp(from, to, { recursive: true });
 console.log(`copied icons -> ${path.relative(process.cwd(), to)}`);
+
+// The pdf.js worker, for the page that renders a real paper. Same reason as
+// the icons: copied at build time rather than committed twice.
+const worker = "pdf.worker.min.mjs";
+await cp(
+  path.resolve(here, "../../web/public", worker),
+  path.resolve(here, "../public", worker),
+);
+console.log(`copied ${worker}`);

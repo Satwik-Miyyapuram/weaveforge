@@ -1,9 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EntityCard } from "@/components/entity-card";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
+import { ReactiveMotion } from "@/app/reactive-motion";
 import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, tagColor } from "@/features/relations/domain/graph-palette";
+import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-annotation-helpers";
+import { AnnotationSidebar } from "@/features/reader/ui/annotation-sidebar";
+import { SelectionCreateBar } from "@/features/reader/ui/selection-create-bar";
+import { AnnotationOverlay } from "@/features/reader/ui/annotation-overlay";
+import type { QuotationType, ReaderAnnotation } from "@thesis/core";
+import {
+  applyTheme,
+  DARK_THEME_OPTIONS,
+  LIGHT_THEME_OPTIONS,
+  readStoredMode,
+  readStoredThemeIds,
+  type ThemeMode,
+} from "@/lib/theme";
+import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
 import css from "./pitch.module.css";
 
 /**
@@ -190,6 +205,22 @@ function useScrollSteps(count: number) {
         const r = s.getBoundingClientRect();
         const d = Math.abs(r.top + r.height / 2 - line);
         if (d < bestD) { bestD = d; best = n; }
+
+        // Stacked only: fade a step out before it reaches the pinned panel,
+        // so nothing is ever legible through the visual. Driven from the
+        // panel's live bottom edge because that varies per scene — the
+        // reader's annotation panel is 200px taller than the shortest one,
+        // and any single fixed distance leaves one scene or the other wrong.
+        if (top > 0) {
+          const fadeTo = top + 48;    // zero *before* it touches the panel
+          const fadeFrom = top + 190; // starts well below it
+          const t = (r.top - fadeTo) / (fadeFrom - fadeTo);
+          s.style.opacity = String(Math.max(0, Math.min(1, t)));
+        } else if (s.style.opacity) {
+          // Side by side, nothing passes behind: hand opacity back to the CSS
+          // that dims the inactive steps.
+          s.style.removeProperty("opacity");
+        }
       });
       setActive(best);
     };
@@ -306,9 +337,13 @@ const C = {
 const TOSS = ORBIT.map((m, i) => {
   const sy = C.SY + i * C.SG;
   const ox = [96, 26, 118, 34, 104, 20][i]!;
-  // The second card clears the folder tab: dropping it any higher puts a
-  // scattered label straight through "one project".
-  const oy = [8, 126, 244, 362, 480, 598][i]!;
+  // Each loose card waits half a slot *below* the slot it will land in.
+  // Spacing them freely put every one of them on the slot above — a scatter
+  // pitch of 118 against a slot pitch of 88 means the second card parks on
+  // the first card's slot, so "notes" sat on top of "library" the moment
+  // library landed. Offset from its own slot, a card can only ever overlap
+  // slots that are still empty.
+  const oy = sy + 44;
   return {
     ...m,
     sy,
@@ -662,6 +697,370 @@ function LiveRun() {
  * and local annotations, the Citavi-style quotation taxonomy, and pins that
  * place an annotation in a report section.
  */
+/**
+ * Real annotations, shown by the reader's real panel.
+ *
+ * <AnnotationSidebar> and <SelectionCreateBar> are the components the app
+ * renders beside a PDF — imported, not imitated. Only the rows are written
+ * here, and they are ordinary ReaderAnnotation values: a Zotero highlight
+ * that has synced, a local one still pending, and an underline. Everything
+ * about how they look, filter and lay out comes from the product.
+ */
+const READER_ANNOTATIONS: ReaderAnnotation[] = [
+  {
+    id: "ann-1",
+    origin: "zotero",
+    zoteroKey: "ZKEY4A2",
+    type: "highlight",
+    color: READER_ANNOTATION_COLORS[0],
+    text: "…a single hyperparameter β that balances latent channel capacity against reconstruction accuracy.",
+    comment: "Does β survive a structured prior?",
+    tags: ["disentanglement", "to-verify"],
+    anchor: {
+      contentHash: "9f1c…",
+      locus: { quote: { type: "TextQuoteSelector", exact: "a single hyperparameter" } },
+    },
+    sortIndex: "00004|000512|00087",
+    createdAt: "2026-02-11T09:14:00.000Z",
+    updatedAt: "2026-02-11T09:14:00.000Z",
+    syncState: "synced",
+  },
+  {
+    id: "ann-2",
+    origin: "local",
+    zoteroKey: null,
+    type: "underline",
+    color: READER_ANNOTATION_COLORS[3],
+    text: "unsupervised disentanglement is fundamentally impossible without inductive biases",
+    comment: "Locatello's objection — answer this in 2.1.2.",
+    tags: ["graph-prior"],
+    anchor: { locus: { quote: { type: "TextQuoteSelector", exact: "fundamentally impossible" } } },
+    sortIndex: "00006|000188|00042",
+    createdAt: "2026-02-12T16:02:00.000Z",
+    updatedAt: "2026-02-12T16:02:00.000Z",
+    syncState: "pending",
+  },
+  {
+    id: "ann-3",
+    origin: "zotero",
+    zoteroKey: "ZKEY7C9",
+    type: "note",
+    color: READER_ANNOTATION_COLORS[4],
+    text: "",
+    comment: "Figure 4 is the one to reproduce first.",
+    tags: [],
+    anchor: {
+      contentHash: "9f1c…",
+      locus: { quote: { type: "TextQuoteSelector", exact: "Figure 4" } },
+    },
+    sortIndex: "00009|000301|00010",
+    createdAt: "2026-02-13T11:40:00.000Z",
+    updatedAt: "2026-02-13T11:40:00.000Z",
+    syncState: "synced",
+  },
+];
+
+const READER_QUOTATION_TYPES = new Map<string, QuotationType>([
+  ["ZKEY4A2", "direct"],
+  ["ZKEY7C9", "summary"],
+]);
+
+/**
+ * A real page of a real paper, with the highlight resolved by quote.
+ *
+ * The PDF is "Attention Is All You Need" (Vaswani et al., 2017), fetched
+ * straight from arXiv at view time — not copied into this repository, and not
+ * rehosted. It renders with the same pdf.js the reader uses.
+ *
+ * The highlight is not drawn at fixed coordinates. The quote is searched for
+ * in the page's extracted text and the boxes come back from pdf.js, which is
+ * the whole claim the surrounding scene makes: an annotation anchored to words
+ * survives a file that has moved underneath it. Coordinates typed in by hand
+ * would have illustrated the opposite.
+ */
+/** Ceiling on the render scale, so a short quote cannot blow the page up. */
+const MAX_SCALE = 3.2;
+
+const PAPER = {
+  url: "https://arxiv.org/pdf/1706.03762v7",
+  cite: "Vaswani et al., 2017 · arXiv:1706.03762",
+};
+
+/**
+ * What to mark on the page, and with which of the reader's annotation types.
+ *
+ * Quotes are matched case-insensitively on normalised whitespace, so a line
+ * break inside a phrase does not defeat the search. Colours are the reader's
+ * own palette by index, not hex codes chosen here.
+ */
+const PAPER_MARKS: {
+  id: string;
+  type: "highlight" | "underline";
+  color: string;
+  quotes: string[];
+  comment: string;
+}[] = [
+  {
+    id: "mark-highlight",
+    type: "highlight",
+    color: READER_ANNOTATION_COLORS[0]!,
+    quotes: ["based solely on attention mechanisms", "dispensing with recurrence and convolutions"],
+    comment: "The claim the whole paper rests on.",
+  },
+  {
+    id: "mark-underline",
+    type: "underline",
+    color: READER_ANNOTATION_COLORS[3]!,
+    quotes: ["The dominant sequence transduction models"],
+    comment: "What it is arguing against.",
+  },
+];
+
+function PaperPage() {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [hit, setHit] = useState<{
+    anns: ReaderAnnotation[];
+    scale: number;
+    pageHeight: number;
+    /** How far to slide the page inside the frame, so the quote is centred. */
+    offsetX: number;
+    offsetY: number;
+    frameH: number;
+  } | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    let cancelled = false;
+
+    // 2MB of PDF is not something to fetch for a reader who never scrolls
+    // this far, so nothing happens until the scene is close.
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        void run();
+      },
+      { rootMargin: "400px" },
+    );
+    io.observe(host);
+
+    async function run() {
+      setState("loading");
+      try {
+        const pdfjs = await import("pdfjs-dist");
+        const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+        pdfjs.GlobalWorkerOptions.workerSrc = `${base}/pdf.worker.min.mjs`;
+
+        const doc = await pdfjs.getDocument({ url: PAPER.url }).promise;
+        if (cancelled) return;
+        const page = await doc.getPage(1);
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+
+        // Zoom in rather than shrink the whole page to fit. A full A4 page in
+        // a column this wide renders the abstract at about four pixels a line,
+        // which shows that a PDF is there and nothing about what it says. The
+        // page is rendered large and then slid so the quoted lines sit in the
+        // frame, with the lines above and below them for context.
+        // The frame, not the canvas's parent: the slide that carries the
+        // canvas is absolutely positioned, so it is as wide as the page it
+        // holds, and centring against it put the quote off the left edge.
+        const frameW = frameRef.current?.clientWidth ?? 460;
+        const unit = page.getViewport({ scale: 1 });
+
+        // Resolve the quotes against the page's own text, and hand the result
+        // to the reader as an ordinary annotation: rects in PDF user space
+        // with a bottom-left origin, which is the shape Zotero stores and the
+        // shape the overlay already knows how to project.
+        const content = await page.getTextContent();
+        const norm = (v: string) => v.replace(/\s+/g, " ").toLowerCase();
+        const stamp = "2026-02-11T09:14:00.000Z";
+        const anns: ReaderAnnotation[] = [];
+        const rects: number[][] = [];
+
+        for (const mark of PAPER_MARKS) {
+          const mine: number[][] = [];
+          for (const item of content.items) {
+            const it = item as { str?: string; transform?: number[]; width?: number };
+            if (!it.str || !it.transform) continue;
+            const hay = norm(it.str);
+            if (!mark.quotes.some((q) => hay.includes(norm(q).slice(0, 24)))) continue;
+            const t = it.transform;
+            const h = Math.hypot(t[2]!, t[3]!) || 12;
+            const x = t[4]!;
+            const y = t[5]!;
+            mine.push([x, y, x + (it.width ?? 0), y + h]);
+          }
+          if (!mine.length) continue;
+          rects.push(...mine);
+          anns.push({
+            id: mark.id,
+            origin: "local",
+            zoteroKey: null,
+            type: mark.type,
+            color: mark.color,
+            text: mark.quotes[0]!,
+            comment: mark.comment,
+            tags: [],
+            anchor: { zoteroPosition: { pageIndex: 0, rects: mine } },
+            sortIndex: "00001|000000|00000",
+            createdAt: stamp,
+            updatedAt: stamp,
+            syncState: "local",
+          });
+        }
+        if (!rects.length) { setState("failed"); return; }
+
+        // An ink stroke in the margin beside the marked lines — the reader's
+        // third annotation type, drawn through the same overlay from a `paths`
+        // list rather than rects.
+        const inkTop = Math.max(...rects.map((r) => r[3]!));
+        const inkBottom = Math.min(...rects.map((r) => r[1]!));
+        const inkX = Math.min(...rects.map((r) => r[0]!)) - 16;
+        const path: number[] = [];
+        const steps = 9;
+        for (let i = 0; i <= steps; i++) {
+          const y = inkTop - ((inkTop - inkBottom) * i) / steps;
+          path.push(inkX + (i % 2 === 0 ? 0 : 5), y);
+        }
+        anns.push({
+          id: "mark-ink",
+          origin: "local",
+          zoteroKey: null,
+          type: "ink",
+          color: READER_ANNOTATION_COLORS[2]!,
+          text: "",
+          comment: "Margin mark.",
+          tags: [],
+          anchor: { zoteroPosition: { pageIndex: 0, paths: [path] } },
+          sortIndex: "00001|000000|00001",
+          createdAt: stamp,
+          updatedAt: stamp,
+          syncState: "local",
+        });
+
+        // Bounding box of the quote, in PDF user space (bottom-left origin),
+        // then in the CSS pixels the page is drawn at.
+        // Scale so the marked lines fill the frame. A fixed zoom made a full
+        // abstract line 809px wide inside a 589px frame and cut both ends off;
+        // deriving it from the region cannot. Text-item transforms do not
+        // depend on the viewport, so this is all known before rendering.
+        const regionLeft = Math.min(...rects.map((r) => r[0]!)) - 20;
+        const regionRight = Math.max(...rects.map((r) => r[2]!));
+        const scale = Math.min(Math.max(frameW / (regionRight - regionLeft + 24), 1), MAX_SCALE);
+        const viewport = page.getViewport({ scale });
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.scale(dpr, dpr);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        if (cancelled) return;
+
+        const x0 = regionLeft;
+        const y0 = Math.min(...rects.map((r) => r[1]!));
+        const x1 = Math.max(...rects.map((r) => r[2]!));
+        const y1 = Math.max(...rects.map((r) => r[3]!));
+        const boxTop = (unit.height - y1) * scale;
+        const boxLeft = x0 * scale;
+        const boxH = (y1 - y0) * scale;
+        const boxW = (x1 - x0) * scale;
+        // Context: roughly three lines of the abstract above and below.
+        const pad = Math.max(72, boxH * 2.2);
+        const frameH = Math.max(220, Math.round(boxH + pad * 2));
+        // No contentHash on either side: the rects were measured against the
+        // very file on screen, so the overlay trusts them.
+        setHit({
+          scale,
+          pageHeight: unit.height,
+          frameH,
+          offsetX: Math.round(Math.max(0, boxLeft + boxW / 2 - frameW / 2)),
+          offsetY: Math.round(Math.max(0, boxTop - pad)),
+          anns,
+        });
+        setState("ready");
+      } catch {
+        // arXiv rate-limiting, an offline reader, a blocked request: the
+        // scene still has four other visuals, so this one bows out quietly.
+        if (!cancelled) setState("failed");
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      io.disconnect();
+    };
+  }, []);
+
+  return (
+    <div ref={hostRef}>
+      <p className={css.stageCap}>reader · {PAPER.cite}</p>
+      <div
+        ref={frameRef}
+        className={css.paper}
+        data-state={state}
+        style={hit ? { height: hit.frameH } : undefined}
+      >
+        {/* The page and its overlay move together, so the highlight stays on
+            its words no matter where the frame is looking. */}
+        <div
+          className={css.paperSlide}
+          style={hit ? { translate: `${-hit.offsetX}px ${-hit.offsetY}px` } : undefined}
+        >
+          <canvas ref={canvasRef} className={css.paperCanvas} />
+          {hit && (
+            <AnnotationOverlay
+              annotations={hit.anns}
+              pageNumber={1}
+              scale={hit.scale}
+              rotation={0}
+              pageHeight={hit.pageHeight}
+              selectedId={null}
+              onSelect={() => {}}
+            />
+          )}
+        </div>
+        {state !== "ready" && (
+          <p className={css.paperNote}>
+            {state === "failed"
+              ? "arXiv did not answer — the highlight below is the same annotation."
+              : "Fetching the paper from arXiv…"}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReaderPanel() {
+  return (
+    <div>
+      <p className={css.stageCap}>reader · higgins et al. · annotations</p>
+      <SelectionCreateBar
+        pending={{ pageNumber: 4, quote: "a single hyperparameter β that balances latent channel capacity" }}
+        onCreate={() => {}}
+        onCancel={() => {}}
+      />
+      <div className={css.readerPanel}>
+        <AnnotationSidebar
+          annotations={READER_ANNOTATIONS}
+          quotationTypes={READER_QUOTATION_TYPES}
+          paperTitle="β-VAE: Learning Basic Visual Concepts"
+          selectedId="ann-1"
+          onSelect={() => {}}
+        />
+      </div>
+    </div>
+  );
+}
+
 function AnnotationsScene() {
   return (
     <Scene
@@ -670,35 +1069,14 @@ function AnnotationsScene() {
       heading="The highlight is the object, not a stripe on a page."
       lede="A PDF reader inside the workspace, where every highlight carries its page locus, its use in your argument, and the section it is destined for."
       views={[
-        <div key="a">
-          <p className={css.stageCap}>reader · p. 4</p>
-          <EntityCard title="Highlight · p. 4" meta="local · anchored to page locus, not a pixel offset" tags={["disentanglement", "to-verify"]}>
-            <div className="callout">
-              <p className="summary">
-                &ldquo;…a single hyperparameter <b>β</b> that balances latent channel
-                capacity against reconstruction accuracy.&rdquo;
-              </p>
-            </div>
-            <dl className={css.kv}>
-              <div><dt>quotation type</dt><dd>direct</dd></div>
-              <div><dt>your comment</dt><dd>does β survive a graph prior?</dd></div>
-            </dl>
-          </EntityCard>
-        </div>,
+        <PaperPage key="paper" />,
+        <ReaderPanel key="reader" />,
         <div key="t">
           <p className={css.stageCap}>annotation types</p>
           <ul className={css.stack}>
             <EntityCard as="li" title="highlight · underline · note" meta="text annotations, with colour and comment" />
             <EntityCard as="li" title="image · ink · text" meta="figures, margin scrawl and typed boxes — Zotero’s full set" />
             <EntityCard as="li" nested title="direct · paraphrase · summary" meta="how you intend to use it, decided while reading" />
-          </ul>
-        </div>,
-        <div key="s">
-          <p className={css.stageCap}>zotero · write-back</p>
-          <ul className={css.stack}>
-            <EntityCard as="li" title="Higgins et al. · 14 annotations" meta="imported from Zotero" status={<StatusPill value="done" label="synced" />} />
-            <EntityCard as="li" title="Your highlight, p. 4" meta="made here · queued for Zotero" status={<StatusPill value="running" label="pending" />} />
-            <EntityCard as="li" title="Edited on both sides" meta="surfaced, never silently overwritten" status={<StatusPill value="not_started" label="conflict" />} />
           </ul>
         </div>,
         <div key="p">
@@ -719,6 +1097,14 @@ function AnnotationsScene() {
               <div><dt>exports as</dt><dd>{"\\cite{higgins2017betavae}"}</dd></div>
             </dl>
           </EntityCard>
+        </div>,
+        <div key="s">
+          <p className={css.stageCap}>zotero · write-back</p>
+          <ul className={css.stack}>
+            <EntityCard as="li" title="Higgins et al. · 14 annotations" meta="imported from Zotero" status={<StatusPill value="done" label="synced" />} />
+            <EntityCard as="li" title="Your highlight, p. 4" meta="made here · queued for Zotero" status={<StatusPill value="running" label="pending" />} />
+            <EntityCard as="li" title="Edited on both sides" meta="surfaced, never silently overwritten" status={<StatusPill value="not_started" label="conflict" />} />
+          </ul>
         </div>,
       ]}
       steps={[
@@ -814,8 +1200,175 @@ function CompareTable() {
   );
 }
 
+/**
+ * Theme picker for the pitch.
+ *
+ * The palettes are the product's own — imported, not listed again here — and
+ * they are applied with the product's own `applyTheme`, so what a visitor sees
+ * on this page is exactly what they would get in the app. That is the point of
+ * putting it in the header: the theming is a feature, and the cheapest way to
+ * demonstrate it is to let someone repaint the page they are reading.
+ */
+function ThemePalette() {
+  const [mode, setMode] = useState<ThemeMode>("dark");
+  const [ids, setIds] = useState<{ light: string; dark: string }>({ light: "light", dark: "amoled" });
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+
+  // Read what the boot script already put on <html> rather than assuming a
+  // default, so the control opens on the theme actually being displayed.
+  useEffect(() => {
+    setMode(readStoredMode());
+    setIds(readStoredThemeIds());
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!boxRef.current?.contains(e.target as globalThis.Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const choose = useCallback((nextMode: ThemeMode, id: string) => {
+    setMode(nextMode);
+    setIds((prev) => ({ ...prev, [nextMode]: id }));
+    applyTheme(nextMode, id);
+    try {
+      localStorage.setItem("thesis.mode", nextMode);
+      localStorage.setItem(`thesis.theme.${nextMode}`, id);
+    } catch {
+      // Private mode, or storage disabled. The theme still applies for this
+      // visit; only remembering it across visits is lost.
+    }
+    // Tells the reactive-motion layer to re-check whether it should be running.
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+  }, []);
+
+  const current = mode === "dark" ? ids.dark : ids.light;
+  const options = mode === "dark" ? DARK_THEME_OPTIONS : LIGHT_THEME_OPTIONS;
+  const label = options.find((o) => o.id === current)?.label ?? "Theme";
+
+  return (
+    <div className={css.palette} ref={boxRef}>
+      <button
+        type="button"
+        className={css.paletteBtn}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className={css.swatch} aria-hidden />
+        <span className={css.paletteLabel}>{label}</span>
+      </button>
+
+      {open && (
+        <div className={css.paletteMenu} role="menu">
+          <div className={css.paletteModes}>
+            {(["light", "dark"] as ThemeMode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={css.modeBtn}
+                aria-pressed={mode === m}
+                onClick={() => choose(m, m === "dark" ? ids.dark : ids.light)}
+              >
+                {m === "dark" ? "Dark" : "Light"}
+              </button>
+            ))}
+          </div>
+          <div className={css.paletteList}>
+            {options.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={o.id === current}
+                className={css.paletteItem}
+                onClick={() => choose(mode, o.id)}
+              >
+                {/* The real attribute: themes.css keys off `[data-theme=…]`
+                    with a bare selector, so this span is painted in that
+                    palette and the swatch shows its actual accent. */}
+                <span className={css.swatch} data-theme={o.id} aria-hidden />
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Turns the product's reactive motion layer on for the length of this page,
+ * and publishes the pointer position for the page-wide glow.
+ *
+ * The layer is opt-in inside the app, but the pitch is where it is being sold,
+ * so it runs here regardless of the visitor's stored preference — and the
+ * previous value is put back on unmount, so visiting /pitch inside the app
+ * cannot quietly flip a setting the user turned off.
+ */
+function useCursorGlow() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.dataset.motion;
+    root.dataset.motion = "reactive";
+    // <ReactiveMotion> is a child, and React runs child effects before the
+    // parent's — so it has already decided motion was off by the time this
+    // line runs. Tell it to look again, or the card sheen never attaches.
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const fine = window.matchMedia("(pointer: fine)");
+    let frame = 0;
+    let pending: PointerEvent | null = null;
+
+    const flush = () => {
+      frame = 0;
+      const e = pending;
+      pending = null;
+      if (!e) return;
+      root.style.setProperty("--gx", `${e.clientX.toFixed(0)}px`);
+      root.style.setProperty("--gy", `${e.clientY.toFixed(0)}px`);
+      root.style.setProperty("--g-on", "1");
+    };
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return;
+      pending = e;
+      if (!frame) frame = requestAnimationFrame(flush);
+    };
+    const onLeave = () => root.style.setProperty("--g-on", "0");
+
+    const on = () => !reduced.matches && fine.matches;
+    if (on()) {
+      document.addEventListener("pointermove", onMove, { passive: true });
+      document.addEventListener("pointerleave", onLeave, { passive: true });
+    }
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerleave", onLeave);
+      root.style.removeProperty("--gx");
+      root.style.removeProperty("--gy");
+      root.style.removeProperty("--g-on");
+      if (previous) root.dataset.motion = previous;
+      else delete root.dataset.motion;
+    };
+  }, []);
+}
+
 export default function PitchPage() {
   const [navOn, setNavOn] = useState<string>("");
+  useCursorGlow();
 
   useEffect(() => {
     const ids = ["overview", "why", "chain", "literature", "annotations", "experiments", "writing", "labs", "selfhost", "compare"];
@@ -845,6 +1398,11 @@ export default function PitchPage() {
       {/* Ground layer. Its position tracks the section the scrollspy reports,
           so the light moves with the reader rather than on a timer. */}
       <div className={css.aurora} aria-hidden />
+      {/* Follows the pointer. Painted above the ground layers, below content. */}
+      <div className={css.cursorGlow} aria-hidden />
+      {/* The product's own pointer plumbing, which publishes --rx/--ry on the
+          card under the cursor so the sheen in globals.css has somewhere to go. */}
+      <ReactiveMotion />
       <header className={css.head}>
         <div className={`${css.wrap} ${css.headIn}`}>
           <a className={css.brand} href="#top">
@@ -867,6 +1425,7 @@ export default function PitchPage() {
             {navLink("compare", "Compare")}
           </nav>
           <div className={css.headActions}>
+            <ThemePalette />
             <a className="btn-primary" href={APP_URL}>Open the app</a>
           </div>
           <div className={css.progress} aria-hidden />

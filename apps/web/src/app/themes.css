@@ -113,8 +113,13 @@
  *  LIGHT THEMES
  * ============================================================= */
 
-/* Paper — default light */
-:root {
+/* Paper — default light.
+   `[data-theme="light"]` is an alias, not a copy: applyTheme removes the
+   attribute for Paper, so the document never carries it, but naming it here
+   lets any subtree be painted in Paper the way every other theme already can
+   be — which is what a swatch previewing a palette needs. */
+:root,
+[data-theme="light"] {
   --bg: #f4f1ea;
   --surface: #fbfaf6;
   --surface2: #efece3;

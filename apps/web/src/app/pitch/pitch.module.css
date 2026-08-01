@@ -173,6 +173,104 @@
 .navSep { flex: none; width: 1px; height: 18px; background: var(--border-strong); margin: 0 6px; }
 @media (max-width: 900px) { .nav { display: none; } }
 
+/* ---- Theme palette ----
+   The swatches paint themselves by carrying `data-theme`, so each one shows
+   that palette's real accent and page colour straight out of themes.css.
+   Nothing here restates a colour, and a palette edited in the product shows
+   up here on the next build. */
+.palette { position: relative; flex: none; }
+.paletteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+.paletteBtn:hover { border-color: var(--accent); color: var(--ink); }
+.paletteLabel { white-space: nowrap; }
+@media (max-width: 620px) { .paletteLabel { display: none; } }
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  flex: none;
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(135deg, var(--accent) 0 50%, var(--bg) 50% 100%);
+}
+
+.paletteMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  min-width: 210px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--elev, var(--surface));
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.6);
+}
+.paletteModes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px; }
+.modeBtn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.modeBtn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+.paletteList { display: grid; gap: 2px; max-height: 46vh; overflow-y: auto; }
+.paletteItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.paletteItem:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
+.paletteItem[aria-checked="true"] { color: var(--accent); }
+
+/* ---- Cursor glow ----
+   Negative z-index so it paints over the ground layers and under every word
+   on the page: a glow that sits above the text washes it out, and one that
+   sits under the aurora is invisible. */
+.cursorGlow {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--g-on, 0);
+  transition: opacity 0.4s ease;
+  background: radial-gradient(
+    320px circle at var(--gx, 50%) var(--gy, 50%),
+    color-mix(in srgb, var(--accent) 20%, transparent),
+    transparent 68%
+  );
+}
+@media (prefers-reduced-motion: reduce) {
+  .cursorGlow { display: none; }
+}
+
 .headActions { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
 @media (min-width: 901px) { .headActions { margin-left: 0; } }
 
@@ -251,7 +349,7 @@
    declared further down this file, so a single-class `.overview` rule loses
    the cascade to it on equal specificity. */
 .scene.overview { padding-top: clamp(8px, 2vw, 24px); border-top: 0; }
-.overview .step { min-height: 52vh; }
+.overview .step { min-height: 42vh; }
 /* The hero figure is the tallest thing the page pins, so it gets the most
    room before the cap starts cropping it. */
 @media (max-width: 899px) {
@@ -267,10 +365,16 @@
 }
 
 .folder {
-  fill: none;
+  /* Filled, not outlined. The folder is the one thing in a pinned panel that
+     is not already an opaque card, so without a fill the step you have just
+     read scrolls straight through the middle of it. Filling the shape keeps
+     it an object; a background on the box around it would just be the panel
+     again. */
+  fill: var(--bg);
   stroke: var(--border-strong);
   transition: stroke 0.55s ease;
 }
+.folder path { fill: var(--bg); }
 .folder[data-on="true"] { stroke: var(--accent); }
 .folderLabel {
   stroke: none;
@@ -307,7 +411,12 @@
     opacity 0.4s ease;
   opacity: 0.7;
 }
-.card[data-on="true"] { opacity: 1; }
+/* Loose paper casts a shadow; filed paper does not. Without this a scattered
+   card that happens to drift over a card already in the folder reads as two
+   labels printed on top of each other rather than one sheet lying over
+   another — which is exactly what it is. */
+.card[data-on="false"] { filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.22)); }
+.card[data-on="true"] { opacity: 1; filter: none; }
 .card rect {
   fill: var(--surface);
   stroke: var(--border);
@@ -363,7 +472,7 @@
   text-wrap: balance;
   margin: 0;
 }
-.moment p { margin: 0; font-size: 0.875rem; color: var(--muted); }
+.moment p { margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--muted); }
 .momentThen {
   margin-top: 6px;
   padding-top: 10px;
@@ -411,21 +520,52 @@
      change *within* a scene: the cross-fading views all share one grid cell,
      so the panel is always as tall as the tallest of them. */
   height: auto;
-  max-height: 62vh;
+  max-height: 66vh;
   overflow: hidden;
   padding: 12px 0 16px;
-  background: var(--bg);
-  box-shadow: 0 12px 16px -12px rgba(0, 0, 0, 0.45);
+  background: none;
 }
+
+/* Nothing scrolls *through* a pinned visual, because the things in it are
+   opaque. The app's own card, code block and chip surfaces already are; the
+   figures are line art, so their page bodies take the same --bg fill. That is
+   the whole mechanism — no veil, no blur, no extra layer over the ground. */
+.stage :where(.card, pre, .tag-chip) { background-color: var(--surface); }
+.stage :where(.callout) { background-color: var(--surface2, var(--surface)); }
+
+/* Hover belongs here too: these are the app's cards, so they lift the way the
+   app's cards lift, and the sheen the reactive layer paints follows the
+   cursor across them. */
+.stage .card { transition: box-shadow 0.2s ease, border-color 0.2s ease; }
+.stage .card:hover { box-shadow: var(--e2, 0 10px 24px -14px rgba(0, 0, 0, 0.5)); }
+
+/* The reader's annotation panel is a scroll region in the app. Here it shows
+   its rows and stops, so it gets a height rather than its own scrollbar. */
+.readerPanel { margin-top: 10px; }
+.readerPanel :global(.annotation-sidebar) { max-height: none; }
+
 /* Grid and flex items default to min-width:auto, so a wide code block refuses
    to shrink below its longest line and spills straight across the steps
    column beside it. Floor every box in the chain at zero and let the code
    itself scroll. */
 .stage > *, .views, .view, .view > * { min-width: 0; }
-.stage pre {
+/* Code wraps rather than scrolls. Scrolling hid the right-hand end of every
+   line behind a scrollbar on a phone — a snippet nobody can read in full is
+   worse than one that takes an extra line — and `anywhere` is there for the
+   clone URL, which is longer than any narrow column. */
+.stage :global(.code-block) {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: clamp(0.66rem, 2.4vw, 0.82rem);
+  line-height: 1.65;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-wrap: normal;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
 }
 
 .stageCap {
@@ -450,7 +590,7 @@
 .step {
   /* Tall enough that only one step sits near the reading line at a time.
      Short steps crowd the line and the stage flickers on a slow scroll. */
-  min-height: 58vh;
+  min-height: 50vh;
   display: grid;
   align-content: center;
   padding: 20px 0;
@@ -465,7 +605,7 @@
   text-wrap: balance;
   margin: 0 0 8px;
 }
-.step p { font-size: 0.875rem; color: var(--muted); margin: 0; max-width: 46ch; }
+.step p { font-size: 1rem; line-height: 1.65; color: var(--muted); margin: 0; max-width: 44ch; }
 .idx {
   font-family: var(--font-mono);
   font-size: 0.74rem;
@@ -477,8 +617,8 @@
 
 @media (min-width: 900px) {
   .sceneInner {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    gap: 56px;
+    grid-template-columns: minmax(0, 1.12fr) minmax(380px, 0.88fr);
+    gap: 48px;
     align-items: start;
   }
   .stage {
@@ -492,7 +632,7 @@
     box-shadow: none;
   }
   .step {
-    min-height: 74vh;
+    min-height: 56vh;
     padding: 0;
     /* Inactive steps recede so the one being read is unmistakable. Opacity
        only — moving them would fight the scroll the reader is driving. */
@@ -630,3 +770,33 @@
 .links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.875rem; }
 .links a { color: var(--muted); text-decoration: none; }
 .links a:hover { color: var(--ink); text-decoration: underline; }
+
+/* ---- The real paper ----
+   A page of a PDF rendered by pdf.js, with highlight boxes positioned from
+   the coordinates pdf.js returns for the matched text. */
+/* A window onto the page, not the whole page. Height is set from the quote's
+   own geometry once it is found. */
+.paper {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--border);
+  min-height: 220px;
+}
+/* Carries the page and the annotation overlay together, so sliding the window
+   can never move one without the other. */
+.paperSlide { position: absolute; top: 0; left: 0; translate: 0 0; }
+.paperCanvas { display: block; }
+/* The highlight itself is the reader's own .pdf-reader-ann overlay, styled by
+   globals.css. Only the frame it sits in belongs to this page. */
+.paperNote {
+  position: absolute;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
