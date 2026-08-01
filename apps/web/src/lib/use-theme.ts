@@ -7,7 +7,12 @@ import {
 } from "@/lib/theme";
 import { persistThemeChange } from "@/lib/theme-persistence";
 
-export const THEME_CHANGE_EVENT = "thesis-theme-change";
+// Defined in a leaf module so listeners need not pull the persistence
+// layer (and the app container behind it) along with them. Re-exported
+// because callers have always reached for it through this module.
+import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
+
+export { THEME_CHANGE_EVENT };
 
 function readDarkFromDom(): boolean {
   return document.documentElement.dataset.mode === "dark";

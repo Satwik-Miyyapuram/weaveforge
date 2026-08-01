@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { THEME_CHANGE_EVENT } from "@/lib/use-theme";
+import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
 
 /**
  * Pointer plumbing for the reactive animation layer.

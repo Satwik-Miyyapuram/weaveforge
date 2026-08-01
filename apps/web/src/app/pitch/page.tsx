@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EntityCard } from "@/components/entity-card";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
+import { ReactiveMotion } from "@/app/reactive-motion";
 import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, tagColor } from "@/features/relations/domain/graph-palette";
+import {
+  applyTheme,
+  DARK_THEME_OPTIONS,
+  LIGHT_THEME_OPTIONS,
+  readStoredMode,
+  readStoredThemeIds,
+  type ThemeMode,
+} from "@/lib/theme";
+import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
 import css from "./pitch.module.css";
 
 /**
@@ -814,8 +824,175 @@ function CompareTable() {
   );
 }
 
+/**
+ * Theme picker for the pitch.
+ *
+ * The palettes are the product's own — imported, not listed again here — and
+ * they are applied with the product's own `applyTheme`, so what a visitor sees
+ * on this page is exactly what they would get in the app. That is the point of
+ * putting it in the header: the theming is a feature, and the cheapest way to
+ * demonstrate it is to let someone repaint the page they are reading.
+ */
+function ThemePalette() {
+  const [mode, setMode] = useState<ThemeMode>("dark");
+  const [ids, setIds] = useState<{ light: string; dark: string }>({ light: "light", dark: "amoled" });
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+
+  // Read what the boot script already put on <html> rather than assuming a
+  // default, so the control opens on the theme actually being displayed.
+  useEffect(() => {
+    setMode(readStoredMode());
+    setIds(readStoredThemeIds());
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!boxRef.current?.contains(e.target as globalThis.Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const choose = useCallback((nextMode: ThemeMode, id: string) => {
+    setMode(nextMode);
+    setIds((prev) => ({ ...prev, [nextMode]: id }));
+    applyTheme(nextMode, id);
+    try {
+      localStorage.setItem("thesis.mode", nextMode);
+      localStorage.setItem(`thesis.theme.${nextMode}`, id);
+    } catch {
+      // Private mode, or storage disabled. The theme still applies for this
+      // visit; only remembering it across visits is lost.
+    }
+    // Tells the reactive-motion layer to re-check whether it should be running.
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+  }, []);
+
+  const current = mode === "dark" ? ids.dark : ids.light;
+  const options = mode === "dark" ? DARK_THEME_OPTIONS : LIGHT_THEME_OPTIONS;
+  const label = options.find((o) => o.id === current)?.label ?? "Theme";
+
+  return (
+    <div className={css.palette} ref={boxRef}>
+      <button
+        type="button"
+        className={css.paletteBtn}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className={css.swatch} aria-hidden />
+        <span className={css.paletteLabel}>{label}</span>
+      </button>
+
+      {open && (
+        <div className={css.paletteMenu} role="menu">
+          <div className={css.paletteModes}>
+            {(["light", "dark"] as ThemeMode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={css.modeBtn}
+                aria-pressed={mode === m}
+                onClick={() => choose(m, m === "dark" ? ids.dark : ids.light)}
+              >
+                {m === "dark" ? "Dark" : "Light"}
+              </button>
+            ))}
+          </div>
+          <div className={css.paletteList}>
+            {options.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={o.id === current}
+                className={css.paletteItem}
+                onClick={() => choose(mode, o.id)}
+              >
+                {/* The real attribute: themes.css keys off `[data-theme=…]`
+                    with a bare selector, so this span is painted in that
+                    palette and the swatch shows its actual accent. */}
+                <span className={css.swatch} data-theme={o.id} aria-hidden />
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Turns the product's reactive motion layer on for the length of this page,
+ * and publishes the pointer position for the page-wide glow.
+ *
+ * The layer is opt-in inside the app, but the pitch is where it is being sold,
+ * so it runs here regardless of the visitor's stored preference — and the
+ * previous value is put back on unmount, so visiting /pitch inside the app
+ * cannot quietly flip a setting the user turned off.
+ */
+function useCursorGlow() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.dataset.motion;
+    root.dataset.motion = "reactive";
+    // <ReactiveMotion> is a child, and React runs child effects before the
+    // parent's — so it has already decided motion was off by the time this
+    // line runs. Tell it to look again, or the card sheen never attaches.
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const fine = window.matchMedia("(pointer: fine)");
+    let frame = 0;
+    let pending: PointerEvent | null = null;
+
+    const flush = () => {
+      frame = 0;
+      const e = pending;
+      pending = null;
+      if (!e) return;
+      root.style.setProperty("--gx", `${e.clientX.toFixed(0)}px`);
+      root.style.setProperty("--gy", `${e.clientY.toFixed(0)}px`);
+      root.style.setProperty("--g-on", "1");
+    };
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return;
+      pending = e;
+      if (!frame) frame = requestAnimationFrame(flush);
+    };
+    const onLeave = () => root.style.setProperty("--g-on", "0");
+
+    const on = () => !reduced.matches && fine.matches;
+    if (on()) {
+      document.addEventListener("pointermove", onMove, { passive: true });
+      document.addEventListener("pointerleave", onLeave, { passive: true });
+    }
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerleave", onLeave);
+      root.style.removeProperty("--gx");
+      root.style.removeProperty("--gy");
+      root.style.removeProperty("--g-on");
+      if (previous) root.dataset.motion = previous;
+      else delete root.dataset.motion;
+    };
+  }, []);
+}
+
 export default function PitchPage() {
   const [navOn, setNavOn] = useState<string>("");
+  useCursorGlow();
 
   useEffect(() => {
     const ids = ["overview", "why", "chain", "literature", "annotations", "experiments", "writing", "labs", "selfhost", "compare"];
@@ -845,6 +1022,11 @@ export default function PitchPage() {
       {/* Ground layer. Its position tracks the section the scrollspy reports,
           so the light moves with the reader rather than on a timer. */}
       <div className={css.aurora} aria-hidden />
+      {/* Follows the pointer. Painted above the ground layers, below content. */}
+      <div className={css.cursorGlow} aria-hidden />
+      {/* The product's own pointer plumbing, which publishes --rx/--ry on the
+          card under the cursor so the sheen in globals.css has somewhere to go. */}
+      <ReactiveMotion />
       <header className={css.head}>
         <div className={`${css.wrap} ${css.headIn}`}>
           <a className={css.brand} href="#top">
@@ -867,6 +1049,7 @@ export default function PitchPage() {
             {navLink("compare", "Compare")}
           </nav>
           <div className={css.headActions}>
+            <ThemePalette />
             <a className="btn-primary" href={APP_URL}>Open the app</a>
           </div>
           <div className={css.progress} aria-hidden />
