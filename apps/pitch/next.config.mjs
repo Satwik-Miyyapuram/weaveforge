@@ -22,6 +22,9 @@ const basePath = process.env.BASE_PATH ?? "";
 const nextConfig = {
   output: "export",
   basePath,
+  // basePath prefixes Link and next/image, but not a URL built in JS — the
+  // pdf.js worker is fetched by path, so the page needs the value too.
+  env: { NEXT_PUBLIC_BASE_PATH: basePath },
   // Trailing slashes so GitHub Pages resolves directory URLs to index.html
   // without a redirect it cannot be configured to perform.
   trailingSlash: true,

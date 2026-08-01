@@ -8,6 +8,7 @@ import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, tagColor } from "@/features/
 import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-annotation-helpers";
 import { AnnotationSidebar } from "@/features/reader/ui/annotation-sidebar";
 import { SelectionCreateBar } from "@/features/reader/ui/selection-create-bar";
+import { AnnotationOverlay } from "@/features/reader/ui/annotation-overlay";
 import type { QuotationType, ReaderAnnotation } from "@thesis/core";
 import {
   applyTheme,
@@ -764,6 +765,165 @@ const READER_QUOTATION_TYPES = new Map<string, QuotationType>([
   ["ZKEY7C9", "summary"],
 ]);
 
+/**
+ * A real page of a real paper, with the highlight resolved by quote.
+ *
+ * The PDF is "Attention Is All You Need" (Vaswani et al., 2017), fetched
+ * straight from arXiv at view time — not copied into this repository, and not
+ * rehosted. It renders with the same pdf.js the reader uses.
+ *
+ * The highlight is not drawn at fixed coordinates. The quote is searched for
+ * in the page's extracted text and the boxes come back from pdf.js, which is
+ * the whole claim the surrounding scene makes: an annotation anchored to words
+ * survives a file that has moved underneath it. Coordinates typed in by hand
+ * would have illustrated the opposite.
+ */
+const PAPER = {
+  url: "https://arxiv.org/pdf/1706.03762v7",
+  cite: "Vaswani et al., 2017 · arXiv:1706.03762",
+  // Two spans from the abstract, matched case-insensitively on normalised
+  // whitespace so a line break inside the phrase does not defeat the search.
+  quotes: [
+    "dispensing with recurrence and convolutions entirely",
+    "based solely on attention mechanisms",
+  ],
+};
+
+function PaperPage() {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [hit, setHit] = useState<{ ann: ReaderAnnotation; scale: number; pageHeight: number } | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    let cancelled = false;
+
+    // 2MB of PDF is not something to fetch for a reader who never scrolls
+    // this far, so nothing happens until the scene is close.
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        void run();
+      },
+      { rootMargin: "400px" },
+    );
+    io.observe(host);
+
+    async function run() {
+      setState("loading");
+      try {
+        const pdfjs = await import("pdfjs-dist");
+        const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+        pdfjs.GlobalWorkerOptions.workerSrc = `${base}/pdf.worker.min.mjs`;
+
+        const doc = await pdfjs.getDocument({ url: PAPER.url }).promise;
+        if (cancelled) return;
+        const page = await doc.getPage(1);
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+
+        // Render at the element's own width so the page is legible rather
+        // than a thumbnail, and at device resolution so it is not soft.
+        const cssWidth = canvas.parentElement?.clientWidth ?? 460;
+        const unit = page.getViewport({ scale: 1 });
+        const scale = cssWidth / unit.width;
+        const viewport = page.getViewport({ scale });
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.scale(dpr, dpr);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        if (cancelled) return;
+
+        // Resolve the quotes against the page's own text, and hand the result
+        // to the reader as an ordinary annotation: rects in PDF user space
+        // with a bottom-left origin, which is the shape Zotero stores and the
+        // shape the overlay already knows how to project.
+        const content = await page.getTextContent();
+        const norm = (v: string) => v.replace(/\s+/g, " ").toLowerCase();
+        const rects: number[][] = [];
+        for (const item of content.items) {
+          const it = item as { str?: string; transform?: number[]; width?: number };
+          if (!it.str || !it.transform) continue;
+          const hay = norm(it.str);
+          if (!PAPER.quotes.some((q) => hay.includes(norm(q).slice(0, 24)))) continue;
+          const t = it.transform;
+          const h = Math.hypot(t[2]!, t[3]!) || 12;
+          const x = t[4]!;
+          const y = t[5]!;
+          rects.push([x, y, x + (it.width ?? 0), y + h]);
+        }
+        if (!rects.length) { setState("failed"); return; }
+        setHit({
+          scale,
+          pageHeight: unit.height,
+          ann: {
+            id: "paper-1",
+            origin: "local",
+            zoteroKey: null,
+            type: "highlight",
+            color: READER_ANNOTATION_COLORS[0]!,
+            text: PAPER.quotes[0]!,
+            comment: "",
+            tags: [],
+            // No contentHash on either side: the rects were measured against
+            // the very file on screen, so they are trusted.
+            anchor: { zoteroPosition: { pageIndex: 0, rects } },
+            sortIndex: "00001|000000|00000",
+            createdAt: "2026-02-11T09:14:00.000Z",
+            updatedAt: "2026-02-11T09:14:00.000Z",
+            syncState: "local",
+          },
+        });
+        setState("ready");
+      } catch {
+        // arXiv rate-limiting, an offline reader, a blocked request: the
+        // scene still has four other visuals, so this one bows out quietly.
+        if (!cancelled) setState("failed");
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      io.disconnect();
+    };
+  }, []);
+
+  return (
+    <div ref={hostRef}>
+      <p className={css.stageCap}>reader · {PAPER.cite}</p>
+      <div className={css.paper} data-state={state}>
+        <canvas ref={canvasRef} className={css.paperCanvas} />
+        {hit && (
+          <AnnotationOverlay
+            annotations={[hit.ann]}
+            pageNumber={1}
+            scale={hit.scale}
+            rotation={0}
+            pageHeight={hit.pageHeight}
+            selectedId={null}
+            onSelect={() => {}}
+          />
+        )}
+        {state !== "ready" && (
+          <p className={css.paperNote}>
+            {state === "failed"
+              ? "arXiv did not answer — the highlight below is the same annotation."
+              : "Fetching the paper from arXiv…"}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ReaderPanel() {
   return (
     <div>
@@ -794,22 +954,8 @@ function AnnotationsScene() {
       heading="The highlight is the object, not a stripe on a page."
       lede="A PDF reader inside the workspace, where every highlight carries its page locus, its use in your argument, and the section it is destined for."
       views={[
+        <PaperPage key="paper" />,
         <ReaderPanel key="reader" />,
-        <div key="a">
-          <p className={css.stageCap}>reader · the annotation as a row</p>
-          <EntityCard title="Highlight · p. 4" meta="local · anchored to page locus, not a pixel offset" tags={["disentanglement", "to-verify"]}>
-            <div className="callout">
-              <p className="summary">
-                &ldquo;…a single hyperparameter <b>β</b> that balances latent channel
-                capacity against reconstruction accuracy.&rdquo;
-              </p>
-            </div>
-            <dl className={css.kv}>
-              <div><dt>quotation type</dt><dd>direct</dd></div>
-              <div><dt>your comment</dt><dd>does β survive a graph prior?</dd></div>
-            </dl>
-          </EntityCard>
-        </div>,
         <div key="t">
           <p className={css.stageCap}>annotation types</p>
           <ul className={css.stack}>
