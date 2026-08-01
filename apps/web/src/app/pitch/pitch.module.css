@@ -774,15 +774,20 @@
 /* ---- The real paper ----
    A page of a PDF rendered by pdf.js, with highlight boxes positioned from
    the coordinates pdf.js returns for the matched text. */
+/* A window onto the page, not the whole page. Height is set from the quote's
+   own geometry once it is found. */
 .paper {
   position: relative;
   border-radius: 10px;
   overflow: hidden;
-  background: var(--surface);
+  background: #fff;
   border: 1px solid var(--border);
   min-height: 220px;
 }
-.paperCanvas { display: block; width: 100%; height: auto; }
+/* Carries the page and the annotation overlay together, so sliding the window
+   can never move one without the other. */
+.paperSlide { position: absolute; top: 0; left: 0; translate: 0 0; }
+.paperCanvas { display: block; }
 /* The highlight itself is the reader's own .pdf-reader-ann overlay, styled by
    globals.css. Only the frame it sits in belongs to this page. */
 .paperNote {

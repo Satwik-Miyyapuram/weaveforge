@@ -778,21 +778,57 @@ const READER_QUOTATION_TYPES = new Map<string, QuotationType>([
  * survives a file that has moved underneath it. Coordinates typed in by hand
  * would have illustrated the opposite.
  */
+/** Ceiling on the render scale, so a short quote cannot blow the page up. */
+const MAX_SCALE = 3.2;
+
 const PAPER = {
   url: "https://arxiv.org/pdf/1706.03762v7",
   cite: "Vaswani et al., 2017 · arXiv:1706.03762",
-  // Two spans from the abstract, matched case-insensitively on normalised
-  // whitespace so a line break inside the phrase does not defeat the search.
-  quotes: [
-    "dispensing with recurrence and convolutions entirely",
-    "based solely on attention mechanisms",
-  ],
 };
+
+/**
+ * What to mark on the page, and with which of the reader's annotation types.
+ *
+ * Quotes are matched case-insensitively on normalised whitespace, so a line
+ * break inside a phrase does not defeat the search. Colours are the reader's
+ * own palette by index, not hex codes chosen here.
+ */
+const PAPER_MARKS: {
+  id: string;
+  type: "highlight" | "underline";
+  color: string;
+  quotes: string[];
+  comment: string;
+}[] = [
+  {
+    id: "mark-highlight",
+    type: "highlight",
+    color: READER_ANNOTATION_COLORS[0]!,
+    quotes: ["based solely on attention mechanisms", "dispensing with recurrence and convolutions"],
+    comment: "The claim the whole paper rests on.",
+  },
+  {
+    id: "mark-underline",
+    type: "underline",
+    color: READER_ANNOTATION_COLORS[3]!,
+    quotes: ["The dominant sequence transduction models"],
+    comment: "What it is arguing against.",
+  },
+];
 
 function PaperPage() {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [hit, setHit] = useState<{ ann: ReaderAnnotation; scale: number; pageHeight: number } | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [hit, setHit] = useState<{
+    anns: ReaderAnnotation[];
+    scale: number;
+    pageHeight: number;
+    /** How far to slide the page inside the frame, so the quote is centred. */
+    offsetX: number;
+    offsetY: number;
+    frameH: number;
+  } | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
 
   useEffect(() => {
@@ -825,11 +861,97 @@ function PaperPage() {
         const canvas = canvasRef.current;
         if (!canvas || cancelled) return;
 
-        // Render at the element's own width so the page is legible rather
-        // than a thumbnail, and at device resolution so it is not soft.
-        const cssWidth = canvas.parentElement?.clientWidth ?? 460;
+        // Zoom in rather than shrink the whole page to fit. A full A4 page in
+        // a column this wide renders the abstract at about four pixels a line,
+        // which shows that a PDF is there and nothing about what it says. The
+        // page is rendered large and then slid so the quoted lines sit in the
+        // frame, with the lines above and below them for context.
+        // The frame, not the canvas's parent: the slide that carries the
+        // canvas is absolutely positioned, so it is as wide as the page it
+        // holds, and centring against it put the quote off the left edge.
+        const frameW = frameRef.current?.clientWidth ?? 460;
         const unit = page.getViewport({ scale: 1 });
-        const scale = cssWidth / unit.width;
+
+        // Resolve the quotes against the page's own text, and hand the result
+        // to the reader as an ordinary annotation: rects in PDF user space
+        // with a bottom-left origin, which is the shape Zotero stores and the
+        // shape the overlay already knows how to project.
+        const content = await page.getTextContent();
+        const norm = (v: string) => v.replace(/\s+/g, " ").toLowerCase();
+        const stamp = "2026-02-11T09:14:00.000Z";
+        const anns: ReaderAnnotation[] = [];
+        const rects: number[][] = [];
+
+        for (const mark of PAPER_MARKS) {
+          const mine: number[][] = [];
+          for (const item of content.items) {
+            const it = item as { str?: string; transform?: number[]; width?: number };
+            if (!it.str || !it.transform) continue;
+            const hay = norm(it.str);
+            if (!mark.quotes.some((q) => hay.includes(norm(q).slice(0, 24)))) continue;
+            const t = it.transform;
+            const h = Math.hypot(t[2]!, t[3]!) || 12;
+            const x = t[4]!;
+            const y = t[5]!;
+            mine.push([x, y, x + (it.width ?? 0), y + h]);
+          }
+          if (!mine.length) continue;
+          rects.push(...mine);
+          anns.push({
+            id: mark.id,
+            origin: "local",
+            zoteroKey: null,
+            type: mark.type,
+            color: mark.color,
+            text: mark.quotes[0]!,
+            comment: mark.comment,
+            tags: [],
+            anchor: { zoteroPosition: { pageIndex: 0, rects: mine } },
+            sortIndex: "00001|000000|00000",
+            createdAt: stamp,
+            updatedAt: stamp,
+            syncState: "local",
+          });
+        }
+        if (!rects.length) { setState("failed"); return; }
+
+        // An ink stroke in the margin beside the marked lines — the reader's
+        // third annotation type, drawn through the same overlay from a `paths`
+        // list rather than rects.
+        const inkTop = Math.max(...rects.map((r) => r[3]!));
+        const inkBottom = Math.min(...rects.map((r) => r[1]!));
+        const inkX = Math.min(...rects.map((r) => r[0]!)) - 16;
+        const path: number[] = [];
+        const steps = 9;
+        for (let i = 0; i <= steps; i++) {
+          const y = inkTop - ((inkTop - inkBottom) * i) / steps;
+          path.push(inkX + (i % 2 === 0 ? 0 : 5), y);
+        }
+        anns.push({
+          id: "mark-ink",
+          origin: "local",
+          zoteroKey: null,
+          type: "ink",
+          color: READER_ANNOTATION_COLORS[2]!,
+          text: "",
+          comment: "Margin mark.",
+          tags: [],
+          anchor: { zoteroPosition: { pageIndex: 0, paths: [path] } },
+          sortIndex: "00001|000000|00001",
+          createdAt: stamp,
+          updatedAt: stamp,
+          syncState: "local",
+        });
+
+        // Bounding box of the quote, in PDF user space (bottom-left origin),
+        // then in the CSS pixels the page is drawn at.
+        // Scale so the marked lines fill the frame. A fixed zoom made a full
+        // abstract line 809px wide inside a 589px frame and cut both ends off;
+        // deriving it from the region cannot. Text-item transforms do not
+        // depend on the viewport, so this is all known before rendering.
+        const regionLeft = Math.min(...rects.map((r) => r[0]!)) - 20;
+        const regionRight = Math.max(...rects.map((r) => r[2]!));
+        const scale = Math.min(Math.max(frameW / (regionRight - regionLeft + 24), 1), MAX_SCALE);
         const viewport = page.getViewport({ scale });
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         canvas.width = Math.floor(viewport.width * dpr);
@@ -842,45 +964,26 @@ function PaperPage() {
         await page.render({ canvasContext: ctx, viewport }).promise;
         if (cancelled) return;
 
-        // Resolve the quotes against the page's own text, and hand the result
-        // to the reader as an ordinary annotation: rects in PDF user space
-        // with a bottom-left origin, which is the shape Zotero stores and the
-        // shape the overlay already knows how to project.
-        const content = await page.getTextContent();
-        const norm = (v: string) => v.replace(/\s+/g, " ").toLowerCase();
-        const rects: number[][] = [];
-        for (const item of content.items) {
-          const it = item as { str?: string; transform?: number[]; width?: number };
-          if (!it.str || !it.transform) continue;
-          const hay = norm(it.str);
-          if (!PAPER.quotes.some((q) => hay.includes(norm(q).slice(0, 24)))) continue;
-          const t = it.transform;
-          const h = Math.hypot(t[2]!, t[3]!) || 12;
-          const x = t[4]!;
-          const y = t[5]!;
-          rects.push([x, y, x + (it.width ?? 0), y + h]);
-        }
-        if (!rects.length) { setState("failed"); return; }
+        const x0 = regionLeft;
+        const y0 = Math.min(...rects.map((r) => r[1]!));
+        const x1 = Math.max(...rects.map((r) => r[2]!));
+        const y1 = Math.max(...rects.map((r) => r[3]!));
+        const boxTop = (unit.height - y1) * scale;
+        const boxLeft = x0 * scale;
+        const boxH = (y1 - y0) * scale;
+        const boxW = (x1 - x0) * scale;
+        // Context: roughly three lines of the abstract above and below.
+        const pad = Math.max(72, boxH * 2.2);
+        const frameH = Math.max(220, Math.round(boxH + pad * 2));
+        // No contentHash on either side: the rects were measured against the
+        // very file on screen, so the overlay trusts them.
         setHit({
           scale,
           pageHeight: unit.height,
-          ann: {
-            id: "paper-1",
-            origin: "local",
-            zoteroKey: null,
-            type: "highlight",
-            color: READER_ANNOTATION_COLORS[0]!,
-            text: PAPER.quotes[0]!,
-            comment: "",
-            tags: [],
-            // No contentHash on either side: the rects were measured against
-            // the very file on screen, so they are trusted.
-            anchor: { zoteroPosition: { pageIndex: 0, rects } },
-            sortIndex: "00001|000000|00000",
-            createdAt: "2026-02-11T09:14:00.000Z",
-            updatedAt: "2026-02-11T09:14:00.000Z",
-            syncState: "local",
-          },
+          frameH,
+          offsetX: Math.round(Math.max(0, boxLeft + boxW / 2 - frameW / 2)),
+          offsetY: Math.round(Math.max(0, boxTop - pad)),
+          anns,
         });
         setState("ready");
       } catch {
@@ -899,19 +1002,31 @@ function PaperPage() {
   return (
     <div ref={hostRef}>
       <p className={css.stageCap}>reader · {PAPER.cite}</p>
-      <div className={css.paper} data-state={state}>
-        <canvas ref={canvasRef} className={css.paperCanvas} />
-        {hit && (
-          <AnnotationOverlay
-            annotations={[hit.ann]}
-            pageNumber={1}
-            scale={hit.scale}
-            rotation={0}
-            pageHeight={hit.pageHeight}
-            selectedId={null}
-            onSelect={() => {}}
-          />
-        )}
+      <div
+        ref={frameRef}
+        className={css.paper}
+        data-state={state}
+        style={hit ? { height: hit.frameH } : undefined}
+      >
+        {/* The page and its overlay move together, so the highlight stays on
+            its words no matter where the frame is looking. */}
+        <div
+          className={css.paperSlide}
+          style={hit ? { translate: `${-hit.offsetX}px ${-hit.offsetY}px` } : undefined}
+        >
+          <canvas ref={canvasRef} className={css.paperCanvas} />
+          {hit && (
+            <AnnotationOverlay
+              annotations={hit.anns}
+              pageNumber={1}
+              scale={hit.scale}
+              rotation={0}
+              pageHeight={hit.pageHeight}
+              selectedId={null}
+              onSelect={() => {}}
+            />
+          )}
+        </div>
         {state !== "ready" && (
           <p className={css.paperNote}>
             {state === "failed"
