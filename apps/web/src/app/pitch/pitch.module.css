@@ -405,7 +405,12 @@
     opacity 0.4s ease;
   opacity: 0.7;
 }
-.card[data-on="true"] { opacity: 1; }
+/* Loose paper casts a shadow; filed paper does not. Without this a scattered
+   card that happens to drift over a card already in the folder reads as two
+   labels printed on top of each other rather than one sheet lying over
+   another — which is exactly what it is. */
+.card[data-on="false"] { filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.22)); }
+.card[data-on="true"] { opacity: 1; filter: none; }
 .card rect {
   fill: var(--surface);
   stroke: var(--border);
@@ -526,21 +531,25 @@
 .stage::before {
   content: "";
   position: absolute;
-  inset: -12px -50vw 0;
+  /* Extends past the foot of the panel so the fade happens *below* the
+     visual. Fading inside the panel is what let a step's heading show
+     through the middle of the figure. */
+  inset: -12px -50vw -60px;
   z-index: -1;
   pointer-events: none;
+  /* Opaque where the steps actually pass behind, fading to nothing at the
+     foot. Translucent looked better standing still and was unreadable in
+     motion: the step you have already read scrolls up through the visual and
+     collides with it. What made the old panel look like a box was its edges,
+     not its opacity — so it keeps the fill and loses the edges, bleeding past
+     the column on both sides and dissolving at the bottom. */
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--bg) 88%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 66%, transparent) 55%,
+    var(--bg) 0%,
+    var(--bg) 82%,
+    color-mix(in srgb, var(--bg) 45%, transparent) 93%,
     transparent 100%
   );
-  backdrop-filter: blur(12px) saturate(1.15);
-  -webkit-backdrop-filter: blur(12px) saturate(1.15);
-  /* Masks the blur as well as the fill — without this the backdrop-filter
-     keeps a crisp rectangle exactly where the fill has faded away. */
-  mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
 }
 @media (min-width: 900px) {
   /* Side by side, nothing scrolls behind the visual, so it needs no veil. */

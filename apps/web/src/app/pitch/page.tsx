@@ -317,9 +317,13 @@ const C = {
 const TOSS = ORBIT.map((m, i) => {
   const sy = C.SY + i * C.SG;
   const ox = [96, 26, 118, 34, 104, 20][i]!;
-  // The second card clears the folder tab: dropping it any higher puts a
-  // scattered label straight through "one project".
-  const oy = [8, 126, 244, 362, 480, 598][i]!;
+  // Each loose card waits half a slot *below* the slot it will land in.
+  // Spacing them freely put every one of them on the slot above — a scatter
+  // pitch of 118 against a slot pitch of 88 means the second card parks on
+  // the first card's slot, so "notes" sat on top of "library" the moment
+  // library landed. Offset from its own slot, a card can only ever overlap
+  // slots that are still empty.
+  const oy = sy + 44;
   return {
     ...m,
     sy,
