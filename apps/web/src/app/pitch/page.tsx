@@ -6,6 +6,9 @@ import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ReactiveMotion } from "@/app/reactive-motion";
 import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, tagColor } from "@/features/relations/domain/graph-palette";
 import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-annotation-helpers";
+import { AnnotationSidebar } from "@/features/reader/ui/annotation-sidebar";
+import { SelectionCreateBar } from "@/features/reader/ui/selection-create-bar";
+import type { QuotationType, ReaderAnnotation } from "@thesis/core";
 import {
   applyTheme,
   DARK_THEME_OPTIONS,
@@ -201,6 +204,22 @@ function useScrollSteps(count: number) {
         const r = s.getBoundingClientRect();
         const d = Math.abs(r.top + r.height / 2 - line);
         if (d < bestD) { bestD = d; best = n; }
+
+        // Stacked only: fade a step out before it reaches the pinned panel,
+        // so nothing is ever legible through the visual. Driven from the
+        // panel's live bottom edge because that varies per scene — the
+        // reader's annotation panel is 200px taller than the shortest one,
+        // and any single fixed distance leaves one scene or the other wrong.
+        if (top > 0) {
+          const fadeTo = top + 48;    // zero *before* it touches the panel
+          const fadeFrom = top + 190; // starts well below it
+          const t = (r.top - fadeTo) / (fadeFrom - fadeTo);
+          s.style.opacity = String(Math.max(0, Math.min(1, t)));
+        } else if (s.style.opacity) {
+          // Side by side, nothing passes behind: hand opacity back to the CSS
+          // that dims the inactive steps.
+          s.style.removeProperty("opacity");
+        }
       });
       setActive(best);
     };
@@ -678,74 +697,91 @@ function LiveRun() {
  * place an annotation in a report section.
  */
 /**
- * A page of the PDF as the reader shows it.
+ * Real annotations, shown by the reader's real panel.
  *
- * The colours are the reader's own palette, imported rather than picked, so
- * the yellow here is the yellow a highlight actually gets. Body text is drawn
- * as rules rather than lorem ipsum: at this size real words would be unreadable
- * anyway, and fake ones invite the reader to try.
+ * <AnnotationSidebar> and <SelectionCreateBar> are the components the app
+ * renders beside a PDF — imported, not imitated. Only the rows are written
+ * here, and they are ordinary ReaderAnnotation values: a Zotero highlight
+ * that has synced, a local one still pending, and an underline. Everything
+ * about how they look, filter and lay out comes from the product.
  */
-function PdfPage() {
-  const W = 460, H = 300;
-  const yellow = READER_ANNOTATION_COLORS[0];
-  const blue = READER_ANNOTATION_COLORS[3];
-  const purple = READER_ANNOTATION_COLORS[4];
-  // x, y, width — the ragged right edge is what makes it read as prose.
-  const lines: [number, number, number][] = [
-    [96, 74, 300], [96, 88, 316], [96, 102, 286],
-    [96, 130, 312], [96, 144, 268],
-    [96, 186, 320], [96, 200, 300], [96, 214, 214],
-    [96, 242, 308], [96, 256, 244],
-  ];
+const READER_ANNOTATIONS: ReaderAnnotation[] = [
+  {
+    id: "ann-1",
+    origin: "zotero",
+    zoteroKey: "ZKEY4A2",
+    type: "highlight",
+    color: READER_ANNOTATION_COLORS[0],
+    text: "…a single hyperparameter β that balances latent channel capacity against reconstruction accuracy.",
+    comment: "Does β survive a structured prior?",
+    tags: ["disentanglement", "to-verify"],
+    anchor: {
+      contentHash: "9f1c…",
+      locus: { quote: { type: "TextQuoteSelector", exact: "a single hyperparameter" } },
+    },
+    sortIndex: "00004|000512|00087",
+    createdAt: "2026-02-11T09:14:00.000Z",
+    updatedAt: "2026-02-11T09:14:00.000Z",
+    syncState: "synced",
+  },
+  {
+    id: "ann-2",
+    origin: "local",
+    zoteroKey: null,
+    type: "underline",
+    color: READER_ANNOTATION_COLORS[3],
+    text: "unsupervised disentanglement is fundamentally impossible without inductive biases",
+    comment: "Locatello's objection — answer this in 2.1.2.",
+    tags: ["graph-prior"],
+    anchor: { locus: { quote: { type: "TextQuoteSelector", exact: "fundamentally impossible" } } },
+    sortIndex: "00006|000188|00042",
+    createdAt: "2026-02-12T16:02:00.000Z",
+    updatedAt: "2026-02-12T16:02:00.000Z",
+    syncState: "pending",
+  },
+  {
+    id: "ann-3",
+    origin: "zotero",
+    zoteroKey: "ZKEY7C9",
+    type: "note",
+    color: READER_ANNOTATION_COLORS[4],
+    text: "",
+    comment: "Figure 4 is the one to reproduce first.",
+    tags: [],
+    anchor: {
+      contentHash: "9f1c…",
+      locus: { quote: { type: "TextQuoteSelector", exact: "Figure 4" } },
+    },
+    sortIndex: "00009|000301|00010",
+    createdAt: "2026-02-13T11:40:00.000Z",
+    updatedAt: "2026-02-13T11:40:00.000Z",
+    syncState: "synced",
+  },
+];
 
+const READER_QUOTATION_TYPES = new Map<string, QuotationType>([
+  ["ZKEY4A2", "direct"],
+  ["ZKEY7C9", "summary"],
+]);
+
+function ReaderPanel() {
   return (
     <div>
-      <p className={css.stageCap}>reader · higgins et al. · p. 4</p>
-      <svg className={css.fig} viewBox={`0 0 ${W} ${H}`} role="img"
-           aria-label="A PDF page in the reader, with a yellow highlight, a blue underline and a margin note">
-        <rect x={72} y={8} width={356} height={H - 16} rx={6}
-              fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
-
-        {/* Section heading on the page */}
-        <rect x={96} y={44} width={150} height={9} rx={2} fill="var(--muted)" opacity={0.85} />
-
-        {/* The highlight sits under the text, the way it does on paper. */}
-        <rect x={92} y={124} width={320} height={28} rx={3} fill={yellow} opacity={0.38} />
-
-        {lines.map(([x, y, w], i) => (
-          <rect key={i} x={x} y={y} width={w} height={6} rx={3}
-                fill="var(--ink)" opacity={0.42} />
-        ))}
-
-        {/* Underline annotation */}
-        <rect x={96} y={251} width={244} height={2} rx={1} fill={blue} />
-
-        {/* Margin note, in the gutter where you would actually put one */}
-        <g>
-          <circle cx={410} cy={92} r={9} fill={purple} />
-          <rect x={402} y={88} width={16} height={2} rx={1} fill="var(--surface)" />
-          <rect x={402} y={93} width={11} height={2} rx={1} fill="var(--surface)" />
-        </g>
-
-        {/* Selection popover: what you get when you let go of the drag. */}
-        <g>
-          <rect x={150} y={158} width={196} height={30} rx={8}
-                fill="var(--elev, var(--surface))" stroke="var(--border-strong)" strokeWidth={1} />
-          {READER_ANNOTATION_COLORS.slice(0, 5).map((c, i) => (
-            <circle key={c} cx={166 + i * 18} cy={173} r={6} fill={c}
-                    stroke={i === 0 ? "var(--ink)" : "none"} strokeWidth={i === 0 ? 1.5 : 0} />
-          ))}
-          <text x={266} y={177} fontSize={10} fontFamily="var(--font-mono)" fill="var(--muted)">
-            direct
-          </text>
-          <rect x={306} y={165} width={30} height={16} rx={4} fill="var(--accent-soft)" />
-          <text x={321} y={177} textAnchor="middle" fontSize={9}
-                fontFamily="var(--font-mono)" fill="var(--accent)">pin</text>
-        </g>
-
-        <text x={250} y={H - 14} textAnchor="middle" fontSize={9}
-              fontFamily="var(--font-mono)" fill="var(--faint)">4</text>
-      </svg>
+      <p className={css.stageCap}>reader · higgins et al. · annotations</p>
+      <SelectionCreateBar
+        pending={{ pageNumber: 4, quote: "a single hyperparameter β that balances latent channel capacity" }}
+        onCreate={() => {}}
+        onCancel={() => {}}
+      />
+      <div className={css.readerPanel}>
+        <AnnotationSidebar
+          annotations={READER_ANNOTATIONS}
+          quotationTypes={READER_QUOTATION_TYPES}
+          paperTitle="β-VAE: Learning Basic Visual Concepts"
+          selectedId="ann-1"
+          onSelect={() => {}}
+        />
+      </div>
     </div>
   );
 }
@@ -758,7 +794,7 @@ function AnnotationsScene() {
       heading="The highlight is the object, not a stripe on a page."
       lede="A PDF reader inside the workspace, where every highlight carries its page locus, its use in your argument, and the section it is destined for."
       views={[
-        <PdfPage key="pdf" />,
+        <ReaderPanel key="reader" />,
         <div key="a">
           <p className={css.stageCap}>reader · the annotation as a row</p>
           <EntityCard title="Highlight · p. 4" meta="local · anchored to page locus, not a pixel offset" tags={["disentanglement", "to-verify"]}>
