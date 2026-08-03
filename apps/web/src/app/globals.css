@@ -4604,6 +4604,17 @@ a.related-paper-url:hover { text-decoration: underline; }
   box-shadow: var(--e-inset);
 }
 
+/* A form flattened into a modal keeps its own `.card` class (see the
+   `.modal .add-form` rule above), so L1 hands back the depth that flattening
+   just took away and the dialog ends up with a second box drawn inside it.
+   The modal is the surface here; the form is only its contents.
+   `.card` is carried in the compound on purpose: L1's `:is()` weighs as much
+   as its most specific argument (`.graph-focus-legend .graph-legend.card`),
+   so this needs the same weight and must stay *after* L1 to win the cascade. */
+:root[data-surfaces="borderless"] .modal :is(.add-form, .list-add).card {
+  box-shadow: none;
+}
+
 /* ---- L2: interactive lift ---------------------------------------------- */
 :root[data-surfaces="borderless"] :is(
   .entity-card[role="button"],
