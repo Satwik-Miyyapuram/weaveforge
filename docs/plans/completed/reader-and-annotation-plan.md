@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-27
 **Status:** Partially delivered. R0–R5 are code-complete. R5's live Zotero client ships in 0.5.1 with version-guarded updates; the one remaining step is a human running it against a real library, which no agent should do unsupervised. R6 is anchor types, the WebDAV resolver, and stubs — the EPUB/HTML readers, mobile shell, and offline shell are deliberate deferrals (see the R6 deferral registry), not oversights.
-**Supersedes:** the reader sections of [`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md) (§8 Phases 1–4). That document's licensing analysis (§1), source ladder (§4), anchor design (§5), and ZotFlow parity checklist (§8.1) remain authoritative and are referenced rather than repeated.
+**Supersedes:** the reader sections of [`pdf-viewer-plan.md`](pdf-viewer-plan.md) (§8 Phases 1–4). That document's licensing analysis (§1), source ladder (§4), anchor design (§5), and ZotFlow parity checklist (§8.1) remain authoritative and are referenced rather than repeated.
 **Goal:** match ZotFlow on the literature loop, then exceed it. Read → annotate → source note → cite, without leaving the app.
 
 ---
@@ -544,6 +544,6 @@ R0–R2 need no migration. R3 needs `0110`. R5 needs live credentials and superv
 
 ## 9. Related
 
-- [`../completed/pdf-viewer-plan.md`](../completed/pdf-viewer-plan.md) — licensing (§1), source ladder (§4), anchor design (§5), ZotFlow parity checklist (§8.1)
-- [`../completed/roadmap-2026-07-phased.md`](../completed/roadmap-2026-07-phased.md) — decisions D1–D4; D2 is scheduled as R5 and D3 is superseded by §1 here
+- [`pdf-viewer-plan.md`](pdf-viewer-plan.md) — licensing (§1), source ladder (§4), anchor design (§5), ZotFlow parity checklist (§8.1)
+- [`roadmap-2026-07-phased.md`](roadmap-2026-07-phased.md) — decisions D1–D4; D2 is scheduled as R5 and D3 is superseded by §1 here
 - [`../../competitive-research-verified-2026-07.md`](../../competitive-research-verified-2026-07.md) §2.1 — the verified ZotFlow teardown

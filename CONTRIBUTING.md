@@ -88,7 +88,7 @@ Object/blob storage (paper images, experiment artifacts, vault assets) is a **se
 
 **Full guide:** [`docs/storage/README.md`](docs/storage/README.md)
 
-Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Phase 1 adds tiered R2 + OCI MinIO (`BLOB_PROVIDER=tiered`). See [`docs/plans/working/migration-plan.md`](docs/plans/working/migration-plan.md).
+Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Phase 1 adds tiered R2 + OCI MinIO (`BLOB_PROVIDER=tiered`). See [`docs/plans/completed/migration-plan.md`](docs/plans/completed/migration-plan.md).
 
 ## Web integrations (`apps/web/src/integrations/`)
 

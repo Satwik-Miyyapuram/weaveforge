@@ -449,7 +449,7 @@ Nothing in `features/experiments/` changes. The Settings usage screen picks it u
 ## 13. Related
 
 - `docs/pricing-strategy.md` — tiers, prices, what may never be metered
-- `docs/plans/future/COMMERCIALIZATION_AND_COST_PLAN.md` — cost drivers and pre-launch cost controls
+- `docs/plans/completed/COMMERCIALIZATION_AND_COST_PLAN.md` — cost drivers and pre-launch cost controls
 - `docs/plans/completed/modular-deployment-plan.md` — feature stripping
 - `docs/plans/completed/pdf-viewer-plan.md` — `pdfBytes` as a separately metered, opt-in resource
 - `apps/web/src/storage/passthrough-blob-store.ts`, `apps/web/src/storage/providers/tiered/tiered-blob-store.ts` — existing decorator precedent

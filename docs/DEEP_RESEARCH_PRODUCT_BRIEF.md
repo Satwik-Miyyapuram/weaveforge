@@ -704,7 +704,7 @@ Produce **all** of the following. A missing section is a failed deliverable.
 | `docs/plans/completed/library-knowledge-loop-plan.md` | Fields / annotations track |
 | `python/README.md` | SDK |
 | `plugins/thesis-tracker-research/README.md` | Codex plugin setup |
-| `docs/plans/future/hosting-and-cost-plan.md` | Hosted pricing thinking |
+| `docs/plans/completed/hosting-and-cost-plan.md` | Hosted pricing thinking |
 | `docs/plans/completed/modular-deployment-plan.md` | Feature stripping |
 
 ---

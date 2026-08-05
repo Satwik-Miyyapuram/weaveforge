@@ -174,7 +174,7 @@ Live Supabase contract tests: set `THESIS_TRACKER_SUPABASE_URL`, `THESIS_TRACKER
 ## Related
 
 - [`storage/README.md`](storage/README.md) — blob layer (R2 hot, OCI cold tiering)
-- [`plans/working/migration-plan.md`](plans/working/migration-plan.md) — phased self-host plan
+- [`plans/completed/migration-plan.md`](plans/completed/migration-plan.md) — phased self-host plan
 - [DESIGN.md](DESIGN.md) — SOLID, composition root, repository contracts
 - [integrations.md](integrations.md) — third-party services (Zotero, GitLab, …)
 - [dev.md](dev.md) — feature modules and facades
