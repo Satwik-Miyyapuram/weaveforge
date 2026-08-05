@@ -135,6 +135,15 @@ export function logPath(id: string, entryDate: string): string {
 }
 
 /** Assets live in one tree so a body's relative links resolve from anywhere. */
-export function assetPath(scope: "notes" | "papers" | "report", ownerId: string, file: string): string {
-  return `assets/${scope}/${ownerId}/${file}`;
+export const ASSET_DIR = "assets";
+
+/**
+ * Where a stored blob lands in the folder.
+ *
+ * `storagePath` keeps its owner and entity segments (`{userId}/{pageId}/{file}`)
+ * rather than being flattened to the filename: two notes may hold images called
+ * `diagram.png`, and the segments are what stop them colliding.
+ */
+export function assetPath(scope: "notes" | "papers" | "report", storagePath: string): string {
+  return `${ASSET_DIR}/${scope}/${storagePath}`;
 }

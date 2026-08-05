@@ -14,6 +14,7 @@
  */
 
 import { normalizeMarkdownImageSyntax } from "../features/vault/domain/vault-page.js";
+import { ASSET_DIR, assetPath } from "./folder-layout.js";
 
 export type BlobScheme = "vault" | "paperimg" | "reportimg";
 
@@ -26,7 +27,10 @@ const SCHEME_SCOPE: Record<BlobScheme, "notes" | "papers" | "report"> = {
 };
 
 const BLOB_REF_RE = /!\[([^\]]*)\]\((vault|paperimg|reportimg):([^)\s]+)\)/g;
-const RELATIVE_REF_RE = /!\[([^\]]*)\]\((?:\.\.\/)*assets\/(notes|papers|report)\/([^)\s]+)\)/g;
+const RELATIVE_REF_RE = new RegExp(
+  String.raw`!\[([^\]]*)\]\((?:\.\./)*${ASSET_DIR}/(notes|papers|report)/([^)\s]+)\)`,
+  "g",
+);
 
 /** How many `../` hops from a file at `depth` directories deep back to root. */
 function upTo(depth: number): string {
@@ -48,10 +52,7 @@ export function toRelativeBlobLinks(
     BLOB_REF_RE,
     (_match, alt: string, scheme: string, storagePath: string) => {
       const kind = scheme as BlobScheme;
-      const scope = SCHEME_SCOPE[kind];
-      // Keep the owner/entity segments: they disambiguate files with the same
-      // name across entities, and the importer re-anchors them anyway.
-      const folderPath = `assets/${scope}/${storagePath}`;
+      const folderPath = assetPath(SCHEME_SCOPE[kind], storagePath);
       assets.push({ scheme: kind, storagePath, folderPath });
       return `![${alt}](${upTo(depth)}${folderPath})`;
     },
