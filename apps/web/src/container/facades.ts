@@ -37,8 +37,12 @@ import type {
   DuplicateSharedPaperUseCase,
   NewLibraryPinInput,
   LibraryPin,
+  ReadingListItem,
+  Tag,
+  VaultPage,
+  WorkspaceSnapshot,
 } from "@thesis/core";
-import { isStaleRunningExperiment, STALE_RUNNING_MS } from "@thesis/core";
+import { isStaleRunningExperiment, STALE_RUNNING_MS, collectWorkspaceSnapshot } from "@thesis/core";
 import {
   AI_TOOL_NAMES,
   AiAccessPolicy,
@@ -1360,6 +1364,38 @@ export class ReadingListsFacade {
   }
 }
 
+/**
+ * One read of the whole project, for the consumers that need all of it: the
+ * ZIP/folder serializer, the search indexer, and AI retrieval.
+ *
+ * It deliberately holds repositories rather than other facades. The screen
+ * facades load *card projections* — `listSummaries()` drops note bodies
+ * entirely (`body: ""`) and paper abstracts, bibtex, and metadata
+ * (`PAPER_SUMMARY_COLUMNS`). Reading through them is what left the ZIP export
+ * with empty notes and, because both note assets and paper images are
+ * discovered by scanning those dropped fields, no attachments at all.
+ */
+export class WorkspaceFacade {
+  constructor(
+    private readonly deps: {
+      papers: { list(): Promise<Paper[]> };
+      vaultPages: { list(): Promise<VaultPage[]> };
+      readingLists: { list(): Promise<ReadingList[]> };
+      readingListItems: { listItemsForLists(ids: readonly string[]): Promise<ReadingListItem[]> };
+      reportSections: { list(): Promise<ReportSection[]> };
+      experiments: { list(): Promise<Experiment[]> };
+      milestones: { list(): Promise<Milestone[]> };
+      logEntries: { list(): Promise<LogEntry[]> };
+      relations: { list(): Promise<PaperRelation[]> };
+      tags: { list(): Promise<Tag[]> };
+    },
+  ) {}
+
+  snapshot(): Promise<WorkspaceSnapshot> {
+    return collectWorkspaceSnapshot(this.deps);
+  }
+}
+
 /** Swappable third-party integrations wired at the composition root. */
 export type { IntegrationsRegistry } from "@/integrations/registry";
 
@@ -1383,6 +1419,7 @@ export interface AppContainer {
   collab: CollabFacade;
   sync: SyncFacade;
   readingLists: ReadingListsFacade;
+  workspace: WorkspaceFacade;
   prefetchProject: PrefetchProjectUseCase;
   /** Active integration providers for this deployment (env-driven). */
   integrationConfig: import("@/integrations/config").IntegrationConfig;

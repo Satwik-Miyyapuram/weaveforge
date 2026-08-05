@@ -72,6 +72,7 @@ import {
   AuthFacade,
   SyncFacade,
   ReadingListsFacade,
+  WorkspaceFacade,
   CollabFacade,
   type AppContainer,
 } from "@/container/facades";
@@ -601,6 +602,20 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       lists: readingListRepository,
       listItems: readingListItemRepository,
       manageReadingList,
+    }),
+    // Repositories, not facades: the screen facades return card projections
+    // that drop note bodies, paper abstracts, and paper metadata.
+    workspace: new WorkspaceFacade({
+      papers: paperRepository,
+      vaultPages: vaultPageRepository,
+      readingLists: readingListRepository,
+      readingListItems: readingListItemRepository,
+      reportSections: reportSectionRepository,
+      experiments: experimentRepository,
+      milestones: milestoneRepository,
+      logEntries: logEntryRepository,
+      relations: backend.paperRelationRepository,
+      tags: backend.tagRepository,
     }),
     prefetchProject,
     integrationConfig: wiredIntegrations.config,
