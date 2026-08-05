@@ -9,3 +9,5 @@ export * from "./folder-layout.js";
 export * from "./blob-links.js";
 export * from "./serialize-workspace.js";
 export * from "./deserialize-workspace.js";
+export * from "./git-port.js";
+export * from "./folder-mirror.js";
