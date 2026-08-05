@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   AiAccessPolicy,
-  AI_MODEL_PROVIDER_ORDER,
+  SUGGESTED_AI_PROVIDER_IDS,
   normalizeAiAccessSettings,
   type AiAccessSettings,
   type AiSessionGrant,
@@ -35,8 +35,10 @@ const base = {
 };
 
 test("Codex is the priority provider without coupling contracts to a model SDK", () => {
-  assert.equal(AI_MODEL_PROVIDER_ORDER[0], "codex");
-  assert.deepEqual(AI_MODEL_PROVIDER_ORDER.includes("openai"), true);
+  // No provider is ranked: which model runs is an explicit user choice, and a
+  // default ordering is how a supposedly neutral system acquires a favourite.
+  assert.ok(SUGGESTED_AI_PROVIDER_IDS.includes("openai"));
+  assert.ok(SUGGESTED_AI_PROVIDER_IDS.includes("ollama"));
 });
 
 test("AI settings normalize to an explicit opt-in and known capabilities", () => {

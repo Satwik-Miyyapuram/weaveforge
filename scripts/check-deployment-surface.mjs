@@ -47,4 +47,37 @@ for (const page of walk(appRoot)) {
   }
 }
 
-console.log(`Deployment surface OK (MCP ${expectedMcp ? "enabled" : "disabled"}).`);
+// The stdio MCP server the external client talks to declares its own tool
+// array by hand. Nothing else cross-validates it, so a tool added to
+// AI_TOOL_NAMES without updating that file leaves the client unable to call it
+// — with no build or test failure to say so.
+const toolNamesSource = readFileSync(
+  join(root, "packages/core/src/features/ai-assistant/domain/ai-types.ts"),
+  "utf8",
+);
+const declaredTools = [
+  ...(/export const AI_TOOL_NAMES = \[([\s\S]*?)\] as const;/.exec(toolNamesSource)?.[1] ?? "")
+    .matchAll(/"([a-z_]+)"/g),
+].map((match) => match[1]);
+
+const pluginServerPath = join(root, "plugins/thesis-tracker-research/mcp-server/index.mjs");
+let pluginSource = "";
+try {
+  pluginSource = readFileSync(pluginServerPath, "utf8");
+} catch {
+  pluginSource = "";
+}
+
+if (pluginSource && declaredTools.length > 0) {
+  const missing = declaredTools.filter((tool) => !pluginSource.includes(`"${tool}"`));
+  if (missing.length > 0) {
+    throw new Error(
+      `MCP plugin server is missing tool declarations: ${missing.join(", ")}.\n` +
+        `Add them to ${pluginServerPath} — nothing else validates that file against AI_TOOL_NAMES.`,
+    );
+  }
+}
+
+console.log(
+  `Deployment surface OK (MCP ${expectedMcp ? "enabled" : "disabled"}, ${declaredTools.length} tools).`,
+);
