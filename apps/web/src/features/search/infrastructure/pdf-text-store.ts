@@ -71,6 +71,32 @@ export async function loadPdfTexts(projectId: string | null): Promise<PdfIndexSo
   }
 }
 
+/**
+ * Drop stored text for papers that no longer exist.
+ *
+ * The store is keyed by paper id and nothing deletes from it when a paper is
+ * removed, so without this a deleted paper keeps answering searches with page
+ * hits that lead nowhere.
+ */
+export async function removePdfTexts(
+  projectId: string | null,
+  paperIds: readonly string[],
+): Promise<void> {
+  if (typeof indexedDB === "undefined" || paperIds.length === 0) return;
+  try {
+    const db = await openAppDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PDF_TEXT_STORE, "readwrite");
+      const store = tx.objectStore(PDF_TEXT_STORE);
+      for (const paperId of paperIds) store.delete(key(projectId, paperId));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    /* best-effort: the index filters these out regardless */
+  }
+}
+
 /** Cleared on sign-out: this is full document text on a possibly shared device. */
 export async function clearPdfTexts(projectId?: string | null): Promise<void> {
   if (typeof indexedDB === "undefined") return;

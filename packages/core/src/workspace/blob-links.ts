@@ -18,8 +18,6 @@ import { ASSET_DIR, assetPath } from "./folder-layout.js";
 
 export type BlobScheme = "vault" | "paperimg" | "reportimg";
 
-export const BLOB_SCHEMES: readonly BlobScheme[] = ["vault", "paperimg", "reportimg"];
-
 const SCHEME_SCOPE: Record<BlobScheme, "notes" | "papers" | "report"> = {
   vault: "notes",
   paperimg: "papers",

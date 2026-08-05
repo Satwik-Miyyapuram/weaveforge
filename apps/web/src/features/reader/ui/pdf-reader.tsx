@@ -493,12 +493,17 @@ export function PdfReader({
             // Keep the text so this document stays searchable after the reader
             // closes. Piggybacks on the pass above — no extra fetch or parse.
             if (paperId) {
-              void savePdfText(getContainer().projects.context.projectId, {
+              const source = {
                 paperId,
                 title: paperTitle ?? "PDF",
                 pages: texts,
                 extractedAt: new Date().toISOString(),
-              });
+              };
+              void savePdfText(getContainer().projects.context.projectId, source);
+              // Findable now rather than after a reload: the text is already in
+              // hand, and a reader who searches straight after reading is the
+              // common case, not the edge one.
+              getContainer().search.indexPdf(source);
             }
           } catch {
             if (!cancelled) setPageTexts([]);

@@ -71,16 +71,6 @@ export type AiToolName = (typeof AI_TOOL_NAMES)[number];
  */
 export type AiModelProviderId = string;
 
-/** Suggested ids, for settings UI autocomplete only — not a whitelist. */
-export const SUGGESTED_AI_PROVIDER_IDS: readonly string[] = [
-  "anthropic",
-  "openai",
-  "google",
-  "ollama",
-  "openrouter",
-  "lmstudio",
-];
-
 export interface AiAccessSettings {
   enabled: boolean;
   disclosureAcceptedAt?: string;

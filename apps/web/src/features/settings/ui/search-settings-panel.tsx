@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MAX_FIELD_WEIGHT,
   MIN_FIELD_WEIGHT,
@@ -17,6 +17,7 @@ import {
   type LibraryIndexProgress,
 } from "@/features/search/application/index-library-pdfs";
 import { formatError } from "@/lib/format-error";
+import { getContainer } from "@/bootstrap";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {
@@ -117,6 +118,7 @@ export function SearchSettingsPanel({
       </label>
 
       <LibraryPdfIndexing />
+      <IndexSize />
     </div>
   );
 }
@@ -209,5 +211,43 @@ function LibraryPdfIndexing() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * What the index currently holds.
+ *
+ * Reported rather than enforced. The index lives in this browser, so past a
+ * few thousand documents it is worth knowing about — but silently dropping
+ * documents to stay under a threshold would make search quietly wrong, and
+ * whole-library PDF indexing is the one knob that moves this number a lot.
+ */
+function IndexSize() {
+  const [size, setSize] = useState<{ documents: number; large: boolean } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getContainer()
+      .search.ensure()
+      .then(() => {
+        if (!cancelled) setSize(getContainer().search.corpusSize);
+      })
+      .catch(() => {
+        /* the panel is informational; a failed build surfaces where search is used */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!size) return null;
+
+  return (
+    <p className="muted jump-to-meta">
+      {size.documents.toLocaleString()} item{size.documents === 1 ? "" : "s"} indexed
+      {size.large
+        ? " — large enough that searching may feel slow on a modest device. PDF pages are usually most of it."
+        : "."}
+    </p>
   );
 }

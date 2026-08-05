@@ -98,6 +98,30 @@ for (const file of snapshotConsumers) {
   }
 }
 
+// No provider is ranked. A default ordering, a fallback chain, or a hardcoded
+// list of "the providers" is how a supposedly neutral system acquires a
+// favourite: whichever name sits first becomes the one everyone runs, and the
+// endpoint the user actually chose becomes the exception. Which model runs is
+// an explicit choice made in settings, so the domain layer carries no roster.
+const providerRosterFiles = [
+  "packages/core/src/features/ai-assistant/domain/ai-types.ts",
+  "packages/core/src/features/ai-assistant/domain/ai-model-router.ts",
+  "packages/core/src/features/ai-assistant/domain/model-concept-extractor.ts",
+];
+for (const file of providerRosterFiles) {
+  const source = readFileSync(path.join(root, file), "utf8");
+  for (const banned of ["AI_MODEL_PROVIDER_ORDER", "SUGGESTED_AI_PROVIDER_IDS", "PROVIDER_PRESETS"]) {
+    if (source.includes(banned)) {
+      console.error(
+        `FAIL: ${file} declares ${banned} — the domain layer must not rank or enumerate providers.\n` +
+          "      Presets belong to the settings UI, where they are visibly starting\n" +
+          "      points rather than a whitelist the rest of the app reads.",
+      );
+      failed = true;
+    }
+  }
+}
+
 const facadeWiredSnapshot = (() => {
   const source = readFileSync(path.join(root, "apps/web/src/create-app-container.ts"), "utf8");
   const wiring = /new WorkspaceFacade\(\{([\s\S]*?)\}\)/.exec(source)?.[1] ?? "";

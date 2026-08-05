@@ -1,12 +1,15 @@
 import {
+  LARGE_CORPUS_WARNING,
   buildWikiGraph,
   findRelated,
   graphDegrees,
   graphDensity,
+  pdfDocIdsFor,
   searchRevision,
   toPdfSearchDocs,
   toSearchDocs,
   type GraphDensity,
+  type PdfIndexSource,
   type RelatedResult,
   type WikiGraph,
   type IWorkspaceSearchIndex,
@@ -17,7 +20,7 @@ import {
 } from "@thesis/core";
 import { applySearchSettings, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import { idbGetSearchIndex, idbSetSearchIndex } from "../infrastructure/search-index-idb";
-import { loadPdfTexts } from "../infrastructure/pdf-text-store";
+import { loadPdfTexts, removePdfTexts } from "../infrastructure/pdf-text-store";
 
 /**
  * Owns the lifecycle of the workspace search index: build from a snapshot,
@@ -32,6 +35,9 @@ export class WorkspaceSearch {
   private settings: SearchSettings | undefined;
   private graph: WikiGraph | null = null;
   private density: GraphDensity | null = null;
+  private documentCount = 0;
+  /** Pages held per paper, so a re-extraction knows what to retract. */
+  private pdfPageCounts = new Map<string, number>();
 
   constructor(
     private readonly deps: {
@@ -78,10 +84,23 @@ export class WorkspaceSearch {
     if (this.settings === undefined && this.deps.loadSettings) {
       this.settings = await this.deps.loadSettings().catch(() => undefined);
     }
-    const [snapshot, pdfTexts] = await Promise.all([
+    const [snapshot, storedPdfTexts] = await Promise.all([
       this.deps.snapshot(),
       loadPdfTexts(projectId),
     ]);
+
+    // Nothing deletes a paper's extracted text when the paper goes, so the
+    // store outlives the library. Indexing those pages would answer searches
+    // with hits that open a reader for a paper that is not there.
+    const paperIds = new Set(snapshot.papers.map((paper) => paper.id));
+    const pdfTexts = storedPdfTexts.filter((source) => paperIds.has(source.paperId));
+    if (pdfTexts.length !== storedPdfTexts.length) {
+      void removePdfTexts(
+        projectId,
+        storedPdfTexts.filter((source) => !paperIds.has(source.paperId)).map((s) => s.paperId),
+      );
+    }
+    this.pdfPageCounts = new Map(pdfTexts.map((source) => [source.paperId, source.pages.length]));
     // Build the link graph first: its degrees are the primary document-level
     // ranking signal, so documents have to be projected with them already in
     // place rather than patched afterwards.
@@ -92,6 +111,7 @@ export class WorkspaceSearch {
     // PDF pages join the same index: they are just documents with a page
     // number, so filters, ranking, and excerpting all apply unchanged.
     const docs = [...toSearchDocs(snapshot, degrees), ...toPdfSearchDocs(pdfTexts, degrees)];
+    this.documentCount = docs.length;
     const revision = searchRevision(docs);
 
     // A cached index is only trusted when its revision matches the corpus we
@@ -161,10 +181,52 @@ export class WorkspaceSearch {
     return this.density;
   }
 
+  /**
+   * Fold a freshly extracted PDF into the live index.
+   *
+   * Opening a PDF extracts its pages for the in-document search bar anyway;
+   * this makes that text findable straight away instead of on the next reload.
+   * The paper's existing pages are retracted first, so a re-extraction replaces
+   * rather than accumulates.
+   *
+   * The result is deliberately not written to the index cache. Its revision is
+   * computed from the corpus a build read, and an incremental change no longer
+   * matches it — the next build will read the same text from storage and
+   * produce a cache entry that is honestly labelled.
+   */
+  indexPdf(source: PdfIndexSource): void {
+    if (!this.index) return;
+
+    const previous = this.pdfPageCounts.get(source.paperId) ?? 0;
+    // Ids are generated for every page slot: pages too short to index were
+    // never added, and removing an id that is not there is a no-op.
+    this.index.remove(pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
+
+    const degrees = this.graph ? graphDegrees(this.graph) : undefined;
+    const docs = toPdfSearchDocs([source], degrees);
+    this.index.add(docs);
+    this.pdfPageCounts.set(source.paperId, source.pages.length);
+    this.documentCount = this.documentCount - previous + docs.length;
+  }
+
+  /**
+   * How big the index is, and whether it is past the size a browser holds
+   * comfortably.
+   *
+   * Surfaced rather than enforced. Silently truncating someone's corpus would
+   * make search quietly wrong; telling them the index is large lets them decide
+   * whether to stop indexing whole PDFs.
+   */
+  get corpusSize(): { documents: number; large: boolean } {
+    return { documents: this.documentCount, large: this.documentCount > LARGE_CORPUS_WARNING };
+  }
+
   /** Drop the in-memory index so the next `ensure()` rebuilds it. */
   invalidate(): void {
     this.index = null;
     this.graph = null;
     this.density = null;
+    this.documentCount = 0;
+    this.pdfPageCounts = new Map();
   }
 }

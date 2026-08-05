@@ -33,8 +33,6 @@ export const MAX_FIELD_WEIGHT = 20;
 /** Multiplier applied to a downranked kind. Enough to sink, not to hide. */
 export const DOWNRANK_FACTOR = 0.25;
 
-export const DEFAULT_SEARCH_SETTINGS: SearchSettings = {};
-
 const KNOWN_FIELDS = new Set<string>(Object.keys(FIELD_BOOSTS));
 const KNOWN_KINDS = new Set<string>(SEARCH_KINDS);
 
