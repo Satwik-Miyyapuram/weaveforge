@@ -1897,6 +1897,25 @@ a.entity-icon-btn:hover {
   font-size: 0.85rem;
 }
 
+/* ---- Related panel (graph / lexical suggestions) ---- */
+.related-panel { margin-top: 16px; }
+.related-panel-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.related-panel-list a { color: var(--ink); text-decoration: none; }
+.related-panel-list a:hover { color: var(--accent); text-decoration: underline; }
+
+/* ---- Wiki screen ---- */
+.wiki-plan-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+.wiki-lint-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 6px; }
+.wiki-lint-list li {
+  font-size: 0.85rem;
+  padding-left: 10px;
+  /* Severity is carried by a left rule rather than by text colour alone, so it
+     survives the themes that flatten colour contrast. */
+  border-left: 3px solid var(--line);
+}
+.wiki-lint-list li[data-severity="error"] { border-left-color: var(--danger); }
+.wiki-lint-list li[data-severity="warning"] { border-left-color: var(--s-warn, var(--accent)); }
+
 .related-papers { min-width: 0; }
 .related-papers-panel { margin-top: 8px; min-width: 0; }
 .related-papers-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }

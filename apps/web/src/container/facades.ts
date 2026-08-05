@@ -1096,6 +1096,45 @@ export class AiProposalFacade {
   }
 
   listPending(): Promise<AiWriteProposal[]> { return this.deps.proposals.listPending(); }
+
+  /**
+   * Queue a draft the user asked for themselves, from inside the app.
+   *
+   * Deliberately not routed through `CreateAiProposalDraftUseCase`: that path
+   * exists to gate an *external* agent acting over MCP, and evaluates a session
+   * grant to decide whether that agent may touch a resource. Here the actor is
+   * the signed-in user clicking a button in their own workspace, so there is no
+   * third party to authorise — applying the grant check would mean refusing to
+   * queue work the user explicitly requested.
+   *
+   * The write gate is unchanged: this only produces a pending row, and nothing
+   * reaches a repository until it is approved in the review queue.
+   */
+  async draftLocal(input: {
+    kind: AiProposalKind;
+    resourceId: string;
+    content: string;
+    payload?: Record<string, unknown>;
+    sourceLinks?: readonly string[];
+    expectedRevision?: string;
+  }): Promise<AiWriteProposal> {
+    const content = input.content.trim();
+    if (!content) throw new Error("A proposal needs a preview describing what it will do.");
+
+    const proposal: AiWriteProposal = {
+      id: this.deps.newId(),
+      kind: input.kind,
+      resourceId: input.resourceId,
+      content,
+      payload: input.payload,
+      createdAt: this.deps.now(),
+      status: "pending",
+      sourceLinks: input.sourceLinks ?? [],
+      expectedRevision: input.expectedRevision,
+    };
+    await this.deps.proposals.save(proposal);
+    return proposal;
+  }
   async pendingCount(): Promise<number> { return (await this.listPending()).length; }
   approve(id: string): Promise<"accepted" | "conflicted"> { return this.executeProposal.execute(id); }
 

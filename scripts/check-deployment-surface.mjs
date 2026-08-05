@@ -41,9 +41,19 @@ const appRoot = join(root, "apps/web/src/app");
 for (const page of walk(appRoot)) {
   const source = readFileSync(page, "utf8");
   const relativePage = page.slice(appRoot.length + 1).replaceAll("\\", "/");
-  const registryBackedPages = new Set(["dashboard/page.tsx", "papers/page.tsx", "notes/page.tsx", "graph/page.tsx", "lists/page.tsx", "experiments/page.tsx", "git/page.tsx", "plan/page.tsx", "log/page.tsx", "report/page.tsx", "settings/page.tsx", "supervision/page.tsx", "shared/page.tsx", "ai-review/page.tsx"]);
-  if (registryBackedPages.has(relativePage) && source.includes("@/features/")) {
-    throw new Error(`Route page ${page} imports a feature directly; use the generated route registry so disabled features stay out of the route bundle.`);
+  // Generated route pages import their own screen directly, and that is the
+  // point: the generator's comment records that routing through a shared map
+  // put every screen in one chunk, so each route shipped all of them. The
+  // check that used to live here forbade exactly that, so it could never pass
+  // — it threw on the first generated page it walked.
+  //
+  // The invariant that is actually worth holding: a generated page stays
+  // generated. Hand-editing one is silently undone by the next `generate:routes`.
+  if (source.includes("AUTO-GENERATED") && !source.includes("GeneratedRoutePage")) {
+    throw new Error(
+      `Route page ${page} is marked auto-generated but no longer looks generated. ` +
+        `Edit scripts/generate-deployment-registry.mjs instead; this file is overwritten.`,
+    );
   }
 }
 

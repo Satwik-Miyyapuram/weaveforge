@@ -38,6 +38,7 @@ import { useCitationFormatPreference } from "@/lib/use-citation-format-preferenc
 import type { VaultScreenData } from "@/features/vault/application/load-vault-screen.use-case";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { rankedFilter } from "@/features/search/application/rank-filter";
+import { RelatedPanel } from "@/components/related-panel";
 import { useSearchIndex } from "@/lib/use-search-index";
 
 type VaultViewData = VaultScreenData & {
@@ -487,6 +488,9 @@ export function VaultScreen() {
               />
             </article>
             <BacklinksPanel items={backlinks} onOpen={openPage} />
+            {/* Backlinks are what points here; Related is what the graph and
+                wording suggest is adjacent, including things nobody linked. */}
+            <RelatedPanel seedKind="note" seedId={selected.id} />
           </div>
         ) : ownedNotes.length === 0 && pinnedPages.length === 0 ? (
           <div className="empty"><p>No notes yet — use “+ Note” to create or import one.</p></div>

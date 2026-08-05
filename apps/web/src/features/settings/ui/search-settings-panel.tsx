@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   MAX_FIELD_WEIGHT,
   MIN_FIELD_WEIGHT,
@@ -10,6 +11,12 @@ import {
   type SearchSettings,
 } from "@thesis/core";
 import { MultiSelect } from "@/components/multi-select";
+import {
+  indexLibraryPdfs,
+  papersNeedingIndex,
+  type LibraryIndexProgress,
+} from "@/features/search/application/index-library-pdfs";
+import { formatError } from "@/lib/format-error";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {
@@ -108,6 +115,99 @@ export function SearchSettingsPanel({
         />
         Ignore Arabic diacritics when matching
       </label>
+
+      <LibraryPdfIndexing />
+    </div>
+  );
+}
+
+/**
+ * Index every PDF, not just the ones already opened.
+ *
+ * Kept as an explicit action with a count shown first, because this is the one
+ * part of search that costs anything: a paper you have never opened has to be
+ * downloaded before it can be read. Opening a PDF indexes it for free, so most
+ * people never need this.
+ */
+function LibraryPdfIndexing() {
+  const [pending, setPending] = useState<number | null>(null);
+  const [progress, setProgress] = useState<LibraryIndexProgress | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function check() {
+    setBusy(true);
+    setError(null);
+    setDone(null);
+    try {
+      setPending((await papersNeedingIndex()).length);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function run() {
+    setBusy(true);
+    setError(null);
+    try {
+      const papers = await papersNeedingIndex();
+      const result = await indexLibraryPdfs(papers, { onProgress: setProgress });
+      setProgress(null);
+      setPending(0);
+      setDone(
+        `Indexed ${result.indexed}` +
+          (result.skipped ? `, skipped ${result.skipped} with no reachable file` : "") +
+          (result.failed ? `, ${result.failed} could not be read` : "") +
+          ".",
+      );
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="field">
+      <label htmlFor="index-library">Search inside PDFs</label>
+      <p className="muted jump-to-meta">
+        PDFs are indexed as you read them, at no cost. Indexing the whole library downloads every
+        paper you have not opened yet, so it is a deliberate step.
+      </p>
+      {error && <p className="error">{error}</p>}
+      {progress && (
+        <p className="muted" aria-live="polite">
+          {progress.done} of {progress.total}
+          {progress.current ? ` — ${progress.current}` : ""}
+        </p>
+      )}
+      {done && <p className="muted">{done}</p>}
+      {pending !== null && !progress && !done && (
+        <p className="muted">
+          {pending === 0
+            ? "Every PDF in your library is already indexed."
+            : `${pending} paper${pending === 1 ? "" : "s"} not yet indexed.`}
+        </p>
+      )}
+      <div className="screen-actions">
+        <button
+          id="index-library"
+          className="btn-secondary"
+          type="button"
+          disabled={busy}
+          onClick={() => void check()}
+        >
+          Check what is missing
+        </button>
+        {pending !== null && pending > 0 && (
+          <button className="btn-secondary" type="button" disabled={busy} onClick={() => void run()}>
+            {busy ? "Indexing…" : `Index ${pending} PDF${pending === 1 ? "" : "s"}`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
