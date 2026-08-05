@@ -1,5 +1,10 @@
 import { zipSync, strToU8 } from "fflate";
-import { vaultAssetPathsInBody, workspaceSnapshotCounts, type WorkspaceSnapshot } from "@thesis/core";
+import {
+  serializeWorkspace,
+  vaultAssetPathsInBody,
+  workspaceSnapshotCounts,
+  type WorkspaceSnapshot,
+} from "@thesis/core";
 import { getContainer } from "@/bootstrap";
 
 function jsonFile(value: unknown): Uint8Array {
@@ -111,6 +116,63 @@ export async function buildExportFiles(
   }
 
   return files;
+}
+
+/**
+ * Markdown folder export: the same file map a folder mirror would write, zipped.
+ * Opens directly in Obsidian or VS Code — every file carries its `weaveforge-id`
+ * in frontmatter, so a re-import matches entities back up regardless of renames.
+ */
+export async function buildWorkspaceFolderFiles(
+  snapshot: WorkspaceSnapshot,
+  assets: ExportAssetReaders,
+): Promise<Record<string, Uint8Array>> {
+  const { files, assets: refs } = serializeWorkspace(snapshot);
+  const out: Record<string, Uint8Array> = {};
+  for (const [path, content] of Object.entries(files)) out[path] = strToU8(content);
+
+  // Blob refs were rewritten to folder-relative paths by the serializer; fetch
+  // each one once and write it where the markdown now points.
+  const byScope = { notes: [] as string[], papers: [] as string[], report: [] as string[] };
+  for (const ref of refs) {
+    const scope = ref.folderPath.split("/")[1] as keyof typeof byScope;
+    if (byScope[scope]) byScope[scope].push(ref.storagePath);
+  }
+
+  const fetched = new Map<string, Blob | null>();
+  if (byScope.notes.length) {
+    for (const [path, blob] of await assets.fetchVaultAssets(byScope.notes)) fetched.set(path, blob);
+  }
+  if (byScope.papers.length) {
+    for (const [path, blob] of await assets.fetchPaperImages(byScope.papers)) fetched.set(path, blob);
+  }
+
+  for (const ref of refs) {
+    const blob = fetched.get(ref.storagePath);
+    if (!blob) continue;
+    out[ref.folderPath] = new Uint8Array(await blob.arrayBuffer());
+  }
+
+  return out;
+}
+
+/** Download the workspace as a markdown folder. */
+export async function downloadWorkspaceFolder(): Promise<void> {
+  const c = getContainer();
+  const snapshot = await c.workspace.snapshot();
+  const files = await buildWorkspaceFolderFiles(snapshot, {
+    fetchVaultAssets: (paths) => c.vault.fetchAssetBlobs(paths),
+    fetchPaperImages: (paths) => c.papers.fetchImageBlobs(paths),
+  });
+  const date = new Date().toISOString().slice(0, 10);
+  const root = `weaveforge-${date}`;
+  const zipped = zipSync(
+    Object.fromEntries(Object.entries(files).map(([path, bytes]) => [`${root}/${path}`, bytes])),
+    { level: 6 },
+  );
+  const copy = new Uint8Array(zipped.byteLength);
+  copy.set(zipped);
+  downloadBlob(new Blob([copy.buffer], { type: "application/zip" }), `${root}.zip`);
 }
 
 /**

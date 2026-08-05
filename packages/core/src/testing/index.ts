@@ -51,3 +51,4 @@ export { runProjectRepositoryContract } from "./project-repository-contract.js";
 export { runExperimentRepositoryContract } from "./experiment-repository-contract.js";
 export { runMilestoneRepositoryContract } from "./milestone-repository-contract.js";
 export { runMemberRepositoryContract } from "./member-repository-contract.js";
+export { MemoryWorkspaceFs } from "./memory-workspace-fs.js";

@@ -3,3 +3,9 @@
  * serializer, the search indexer, and AI retrieval.
  */
 export * from "./workspace-snapshot.js";
+export * from "./fs-port.js";
+export * from "./frontmatter.js";
+export * from "./folder-layout.js";
+export * from "./blob-links.js";
+export * from "./serialize-workspace.js";
+export * from "./deserialize-workspace.js";
