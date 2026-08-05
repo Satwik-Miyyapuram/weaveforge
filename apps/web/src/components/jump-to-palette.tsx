@@ -17,12 +17,18 @@ import {
   type RecentTargetKind,
 } from "@/lib/recent-targets";
 
-/** Kinds the palette can navigate to and store in recent targets. */
-const PALETTE_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
+/** Kinds recorded as recent targets when opened. */
+const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
+
+/**
+ * Kinds the palette searches. PDF pages are included but are not recent-target
+ * kinds — they open the reader at a page rather than an entity screen.
+ */
+const PALETTE_KINDS = [...RECENT_KINDS, "pdf"] as const;
 
 type JumpItem = CiteCompletion & {
   id: string;
-  kind: RecentTargetKind;
+  kind: RecentTargetKind | "pdf";
   href: string;
   recent?: boolean;
   excerpt?: SearchExcerpt;
@@ -129,13 +135,14 @@ export function JumpToPalette() {
     if (hits.length > 0) {
       const byKey = new Map(items.map((item) => [`${item.kind}:${item.id}`, item]));
       return hits.map((hit) => {
-        const kind = hit.kind as RecentTargetKind;
-        const known = byKey.get(`${kind}:${hit.entityId}`);
+        const kind = hit.kind as JumpItem["kind"];
+        const known = kind === "pdf" ? undefined : byKey.get(`${kind}:${hit.entityId}`);
         const base = known ?? {
           title: hit.title,
           label: hit.title,
-          detail: kind,
-          id: hit.entityId,
+          // "PDF · page 12" reads better than a bare kind for a page hit.
+          detail: kind === "pdf" ? `PDF · page ${(hit.page ?? 0) + 1}` : kind,
+          id: kind === "pdf" ? `${hit.entityId}#${hit.page ?? 0}` : hit.entityId,
           kind,
           href: hit.href,
         };
@@ -155,12 +162,16 @@ export function JumpToPalette() {
     const next = rememberSearchQuery(history, query);
     setHistory(next);
     writeHistory(next);
-    rememberRecentTarget(getContainer().projects.context.projectId, {
-      kind: item.kind,
-      id: item.id,
-      title: item.title,
-      href: item.href,
-    });
+    // Only entity screens are recent targets; a PDF page is a location inside
+    // one, and recording it would push the paper itself out of the list.
+    if (item.kind !== "pdf") {
+      rememberRecentTarget(getContainer().projects.context.projectId, {
+        kind: item.kind,
+        id: item.id,
+        title: item.title,
+        href: item.href,
+      });
+    }
     setOpen(false);
     router.push(item.href);
   }

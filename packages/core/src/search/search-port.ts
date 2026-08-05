@@ -17,6 +17,7 @@ export const SEARCH_KINDS = [
   "experiment",
   "milestone",
   "log",
+  "pdf",
 ] as const;
 
 export type SearchKind = (typeof SEARCH_KINDS)[number];
@@ -44,6 +45,11 @@ export interface SearchDoc {
   /** In-app link to the entity. */
   href: string;
   /**
+   * Zero-based PDF page, for `pdf` documents only. Carried so a hit can
+   * deep-link to the page the match is actually on.
+   */
+  page?: number;
+  /**
    * Wiki-graph link degree. Zero until the graph phase populates it; the
    * ranker treats it as the primary document-level signal once present.
    */
@@ -57,6 +63,8 @@ export interface SearchHit {
   title: string;
   href: string;
   score: number;
+  /** Zero-based PDF page for `pdf` hits. */
+  page?: number;
   /** Query terms that matched, for highlighting. */
   terms: readonly string[];
   /**

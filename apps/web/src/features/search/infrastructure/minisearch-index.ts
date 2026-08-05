@@ -46,7 +46,7 @@ interface PersistedIndex {
 
 type StoredFields = Pick<
   SearchDoc,
-  "kind" | "entityId" | "title" | "href" | "updatedAt" | "degree" | "path" | "tags" | "body"
+  "kind" | "entityId" | "title" | "href" | "updatedAt" | "degree" | "path" | "tags" | "body" | "page"
 >;
 
 function miniSearchOptions(): Options<SearchDoc> {
@@ -55,7 +55,7 @@ function miniSearchOptions(): Options<SearchDoc> {
     fields: [...SEARCH_FIELDS],
     // `path`, `tags`, and `body` are stored so field filters and excerpting can
     // work against the same text the ranker saw.
-    storeFields: ["kind", "entityId", "title", "href", "updatedAt", "degree", "path", "tags", "body"],
+    storeFields: ["kind", "entityId", "title", "href", "updatedAt", "degree", "path", "tags", "body", "page"],
     // Arrays would otherwise stringify with commas glued to terms.
     extractField: (doc, field) => {
       const value = (doc as unknown as Record<string, unknown>)[field];
@@ -98,6 +98,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         path: doc.path,
         tags: doc.tags,
         body: doc.body,
+        page: doc.page,
       });
     }
     this.engine.addAll(docs as SearchDoc[]);
@@ -158,6 +159,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         title: fields.title,
         href: fields.href,
         score: result.score,
+        page: fields.page,
         terms: result.terms,
         excerpt: options.excerpts
           ? buildExcerpt(fields.body ?? "", result.terms, { maxChars: 200 })

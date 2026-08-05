@@ -23,6 +23,7 @@ import {
   type ReaderAnnotationType,
 } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
+import { savePdfText } from "@/features/search/infrastructure/pdf-text-store";
 import {
   sanitizePdfUrl,
   originalUrlFromProxy,
@@ -487,7 +488,18 @@ export function PdfReader({
               const items = textItemsFromContent(content);
               texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
             }
-            if (!cancelled) setPageTexts(texts);
+            if (cancelled) return;
+            setPageTexts(texts);
+            // Keep the text so this document stays searchable after the reader
+            // closes. Piggybacks on the pass above — no extra fetch or parse.
+            if (paperId) {
+              void savePdfText(getContainer().projects.context.projectId, {
+                paperId,
+                title: paperTitle ?? "PDF",
+                pages: texts,
+                extractedAt: new Date().toISOString(),
+              });
+            }
           } catch {
             if (!cancelled) setPageTexts([]);
           }

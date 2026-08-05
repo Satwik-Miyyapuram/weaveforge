@@ -29,6 +29,7 @@ const KIND_LABELS: Record<SearchKind, string> = {
   experiment: "Experiments",
   milestone: "Milestones",
   log: "Logbook entries",
+  pdf: "PDF page text",
 };
 
 export function SearchSettingsPanel({

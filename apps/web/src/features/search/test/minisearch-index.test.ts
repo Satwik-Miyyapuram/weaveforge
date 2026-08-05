@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { searchRevision, toSearchDocs, type SearchDoc, type WorkspaceSnapshot } from "@thesis/core";
+import { searchRevision, toPdfSearchDocs, toSearchDocs, type SearchDoc, type WorkspaceSnapshot } from "@thesis/core";
 import { SEARCH_SCHEMA_VERSION, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
@@ -326,4 +326,48 @@ test("excerpts are opt-in and highlight the matched terms", () => {
   assert.ok(hit.excerpt);
   assert.ok(hit.excerpt!.highlights.length > 0);
   assert.match(hit.excerpt!.text, /Message passing/i);
+});
+
+// ------------------------------------------------------ PDF pages (Phase 4)
+
+function pdfDocs() {
+  return toPdfSearchDocs([
+    {
+      paperId: "p1",
+      title: "Attention Is All You Need",
+      extractedAt: "2026-08-05T00:00:00.000Z",
+      pages: [
+        { pageIndex: 0, text: "The dominant sequence transduction models use recurrence." },
+        { pageIndex: 11, text: "Scaled dot product attention computes the compatibility function." },
+      ],
+    },
+  ]);
+}
+
+test("PDF page text is searchable and reports the page", () => {
+  const docs = [...corpus(), ...pdfDocs()];
+  const hits = buildSearchIndex(docs, searchRevision(docs)).search("dot product");
+
+  assert.equal(hits[0]!.kind, "pdf");
+  assert.equal(hits[0]!.page, 11);
+  assert.equal(hits[0]!.href, "/reader?paper=p1&page=11");
+});
+
+test("PDF hits can be filtered out like any other kind", () => {
+  const docs = [...corpus(), ...pdfDocs()];
+  const index = buildSearchIndex(docs, searchRevision(docs));
+
+  assert.ok(index.search("kind:pdf").every((hit) => hit.kind === "pdf"));
+  assert.ok(index.search("recurrence", { kinds: ["paper"] }).every((hit) => hit.kind !== "pdf"));
+});
+
+test("a PDF page survives the cache round-trip with its page number", () => {
+  const docs = [...corpus(), ...pdfDocs()];
+  const revision = searchRevision(docs);
+  const restored = miniSearchIndexFactory.load(
+    buildSearchIndex(docs, revision).serialize(),
+    revision,
+  );
+
+  assert.equal(restored!.search("dot product")[0]!.page, 11);
 });

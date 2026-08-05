@@ -1,5 +1,6 @@
 import {
   searchRevision,
+  toPdfSearchDocs,
   toSearchDocs,
   type IWorkspaceSearchIndex,
   type SearchHit,
@@ -9,6 +10,7 @@ import {
 } from "@thesis/core";
 import { applySearchSettings, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import { idbGetSearchIndex, idbSetSearchIndex } from "../infrastructure/search-index-idb";
+import { loadPdfTexts } from "../infrastructure/pdf-text-store";
 
 /**
  * Owns the lifecycle of the workspace search index: build from a snapshot,
@@ -54,8 +56,13 @@ export class WorkspaceSearch {
 
   private async build(): Promise<IWorkspaceSearchIndex> {
     const projectId = this.deps.projectId();
-    const snapshot = await this.deps.snapshot();
-    const docs = toSearchDocs(snapshot);
+    const [snapshot, pdfTexts] = await Promise.all([
+      this.deps.snapshot(),
+      loadPdfTexts(projectId),
+    ]);
+    // PDF pages join the same index: they are just documents with a page
+    // number, so filters, ranking, and excerpting all apply unchanged.
+    const docs = [...toSearchDocs(snapshot), ...toPdfSearchDocs(pdfTexts)];
     const revision = searchRevision(docs);
 
     // A cached index is only trusted when its revision matches the corpus we

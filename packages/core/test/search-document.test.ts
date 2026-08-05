@@ -5,6 +5,7 @@ import {
   SEARCH_KINDS,
   extractHeadings,
   searchRevision,
+  toPdfSearchDocs,
   toSearchDocs,
   type WorkspaceSnapshot,
 } from "../src/index.js";
@@ -195,6 +196,9 @@ test("ids are unique across kinds that share an id space", () => {
 });
 
 test("every declared kind has a route", () => {
+  // Two projections feed the index: the snapshot covers workspace entities,
+  // and PDF page text comes from the reader. Between them they must cover
+  // every declared kind, or a document exists that nothing can navigate to.
   const full = toSearchDocs(
     snapshot({
       vaultPages: [note()],
@@ -207,8 +211,18 @@ test("every declared kind has a route", () => {
     }),
   );
 
-  assert.deepEqual([...new Set(full.map((d) => d.kind))].sort(), [...SEARCH_KINDS].sort());
-  for (const doc of full) assert.match(doc.href, /^\//, `${doc.kind} has no route`);
+  const pdfPages = toPdfSearchDocs([
+    {
+      paperId: "p1",
+      title: "P",
+      extractedAt: "2026-01-01T00:00:00.000Z",
+      pages: [{ pageIndex: 0, text: "Enough page text to clear the minimum length bar." }],
+    },
+  ]);
+  const everyDoc = [...full, ...pdfPages];
+
+  assert.deepEqual([...new Set(everyDoc.map((d) => d.kind))].sort(), [...SEARCH_KINDS].sort());
+  for (const doc of everyDoc) assert.match(doc.href, /^\//, `${doc.kind} has no route`);
 });
 
 test("revision changes when content is edited or removed", () => {

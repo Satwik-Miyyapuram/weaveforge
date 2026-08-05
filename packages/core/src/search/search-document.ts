@@ -86,6 +86,9 @@ function href(kind: SearchKind, id: string): string {
     milestone: `/plan?milestone=${encodeURIComponent(id)}`,
     list: `/lists`,
     log: `/log`,
+    // PDF page documents build their own href (they need the page number);
+    // this entry exists only so the map stays exhaustive over SearchKind.
+    pdf: `/reader?paper=${encodeURIComponent(id)}`,
   };
   return routes[kind];
 }

@@ -10,3 +10,4 @@ export * from "./search-query.js";
 export * from "./search-excerpt.js";
 export * from "./search-settings.js";
 export * from "./search-history.js";
+export * from "./pdf-search-document.js";

@@ -2,6 +2,7 @@ import { clearPersistedMcpSessions } from "@/features/ai-assistant/infrastructur
 import { stopAllRelays } from "@/features/ai-assistant/infrastructure/mcp-relay-manager";
 import { idbClearScreenCaches } from "@/lib/screen-cache-idb";
 import { idbClearSearchIndexes } from "@/features/search/infrastructure/search-index-idb";
+import { clearPdfTexts } from "@/features/search/infrastructure/pdf-text-store";
 
 function isAppStorageKey(key: string): boolean {
   return key.startsWith("tt:") || key.startsWith("thesis.");
@@ -40,5 +41,6 @@ export async function clearLocalDeviceData(): Promise<void> {
   // The search index holds full note bodies and paper abstracts, so it has to
   // go on sign-out for the same reason the screen caches do.
   await idbClearSearchIndexes();
+  await clearPdfTexts();
   await clearServiceWorkerCaches();
 }
