@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   excerptSegments,
+  forgetSearchQuery,
   normalizeSearchHistory,
   rememberSearchQuery,
   type SearchExcerpt,
@@ -236,6 +237,20 @@ export function JumpToPalette() {
               <li key={entry}>
                 <button type="button" className="jump-to-chip" onClick={() => setQuery(entry)}>
                   {entry}
+                </button>
+                {/* A search you regret is a search you should be able to drop,
+                    without clearing the five useful ones next to it. */}
+                <button
+                  type="button"
+                  className="jump-to-chip-remove"
+                  aria-label={`Remove “${entry}” from recent searches`}
+                  onClick={() => {
+                    const next = forgetSearchQuery(history, entry);
+                    setHistory(next);
+                    writeHistory(next);
+                  }}
+                >
+                  ×
                 </button>
               </li>
             ))}

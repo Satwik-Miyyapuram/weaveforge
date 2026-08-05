@@ -1881,16 +1881,32 @@ a.entity-icon-btn:hover {
   padding: 0;
   margin: 0 0 8px;
 }
+.jump-to-history li {
+  display: inline-flex;
+  align-items: stretch;
+}
 .jump-to-chip {
   border: 1px solid var(--line);
   background: var(--surface2);
   color: var(--muted);
-  border-radius: var(--radius-pill);
-  padding: 3px 10px;
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+  border-right: 0;
+  padding: 3px 4px 3px 10px;
   font-size: 0.75rem;
   cursor: pointer;
 }
-.jump-to-chip:hover { color: var(--ink); border-color: var(--border-strong); }
+.jump-to-chip-remove {
+  border: 1px solid var(--line);
+  background: var(--surface2);
+  color: var(--muted);
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  padding: 3px 8px 3px 4px;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.jump-to-chip:hover, .jump-to-chip-remove:hover { color: var(--ink); border-color: var(--border-strong); }
+.jump-to-chip-remove:hover { background: var(--surface3, var(--surface2)); }
 
 .jump-to-create {
   color: var(--accent) !important;
