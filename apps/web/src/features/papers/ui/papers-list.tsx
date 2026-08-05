@@ -40,6 +40,7 @@ import { EntityCard } from "@/components/entity-card";
 import { PaperCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
 import { rankedFilter } from "@/features/search/application/rank-filter";
+import { RelatedPanel } from "@/components/related-panel";
 import { useSearchIndex } from "@/lib/use-search-index";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
@@ -1172,6 +1173,10 @@ function PaperNote({
           <PaperExternalLink paper={paper} />
         </div>
       </div>
+
+      {/* What the graph and wording put next to this paper — including things
+          nobody linked by hand. */}
+      <RelatedPanel seedKind="paper" seedId={paper.id} />
 
       <div className="paper-note-body">
         <details className="paper-source-section" open>

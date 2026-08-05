@@ -37,6 +37,12 @@ export class WorkspaceSearch {
     private readonly deps: {
       snapshot(): Promise<WorkspaceSnapshot>;
       projectId(): string | null;
+      /**
+       * Saved ranking preferences. Read lazily at build time rather than
+       * pushed in at startup: settings live behind auth, and the container is
+       * constructed before there is a session to read them with.
+       */
+      loadSettings?(): Promise<SearchSettings | undefined>;
     },
   ) {}
 
@@ -65,6 +71,13 @@ export class WorkspaceSearch {
 
   private async build(): Promise<IWorkspaceSearchIndex> {
     const projectId = this.deps.projectId();
+
+    // Without this, saved weights only took effect after the user revisited
+    // settings and pressed save — a preference silently ignored on every fresh
+    // load is worse than not offering it.
+    if (this.settings === undefined && this.deps.loadSettings) {
+      this.settings = await this.deps.loadSettings().catch(() => undefined);
+    }
     const [snapshot, pdfTexts] = await Promise.all([
       this.deps.snapshot(),
       loadPdfTexts(projectId),

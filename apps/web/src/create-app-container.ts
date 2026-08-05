@@ -623,6 +623,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     search: new WorkspaceSearch({
       snapshot: () => workspace.snapshot(),
       projectId: pid,
+      loadSettings: async () => (await backend.manageSettings.get()).search,
     }),
     prefetchProject,
     integrationConfig: wiredIntegrations.config,
