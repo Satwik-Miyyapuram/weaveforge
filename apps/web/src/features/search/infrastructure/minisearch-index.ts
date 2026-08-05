@@ -1,6 +1,11 @@
 import MiniSearch, { type Options, type SearchResult } from "minisearch";
 import {
   FIELD_BOOSTS,
+  isEmptyQuery,
+  isFilterOnly,
+  parseSearchQuery,
+  processTerm,
+  tokenize,
   MIN_PREFIX_LENGTH,
   SEARCH_FIELDS,
   documentBoost,
@@ -8,7 +13,9 @@ import {
   type IWorkspaceSearchIndex,
   type IWorkspaceSearchIndexFactory,
   type SearchDoc,
+  type ParsedQuery,
   type SearchHit,
+  type SearchKind,
   type SearchQueryOptions,
 } from "@thesis/core";
 
@@ -24,28 +31,37 @@ import {
  * hundred milliseconds, whereas a subtly mismatched index returns wrong results
  * indefinitely with no visible symptom.
  */
-export const SEARCH_SCHEMA_VERSION = 1;
+export const SEARCH_SCHEMA_VERSION = 2;
 
 interface PersistedIndex {
   schemaVersion: number;
   revision: string;
   index: string;
   /** Stored alongside so document boosts survive a reload. */
-  docs: Record<string, Pick<SearchDoc, "kind" | "entityId" | "title" | "href" | "updatedAt" | "degree">>;
+  docs: Record<string, StoredFields>;
 }
 
-type StoredFields = Pick<SearchDoc, "kind" | "entityId" | "title" | "href" | "updatedAt" | "degree">;
+type StoredFields = Pick<
+  SearchDoc,
+  "kind" | "entityId" | "title" | "href" | "updatedAt" | "degree" | "path" | "tags" | "body"
+>;
 
 function miniSearchOptions(): Options<SearchDoc> {
   return {
     idField: "id",
     fields: [...SEARCH_FIELDS],
-    storeFields: ["kind", "entityId", "title", "href", "updatedAt", "degree"],
+    // `path`, `tags`, and `body` are stored so field filters and excerpting can
+    // work against the same text the ranker saw.
+    storeFields: ["kind", "entityId", "title", "href", "updatedAt", "degree", "path", "tags", "body"],
     // Arrays would otherwise stringify with commas glued to terms.
     extractField: (doc, field) => {
       const value = (doc as unknown as Record<string, unknown>)[field];
       return Array.isArray(value) ? value.join(" ") : ((value as string) ?? "");
     },
+    // Shared with the query side: a term tokenized one way at index time and
+    // another at query time simply never matches.
+    tokenize: (text) => tokenize(text),
+    processTerm: (term) => processTerm(term),
   };
 }
 
@@ -73,6 +89,9 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         href: doc.href,
         updatedAt: doc.updatedAt,
         degree: doc.degree,
+        path: doc.path,
+        tags: doc.tags,
+        body: doc.body,
       });
     }
     this.engine.addAll(docs as SearchDoc[]);
@@ -87,13 +106,22 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
   }
 
   search(query: string, options: SearchQueryOptions = {}): readonly SearchHit[] {
-    const trimmed = query.trim();
-    if (!trimmed) return [];
+    const parsed = parseSearchQuery(query);
+    if (isEmptyQuery(parsed)) return [];
 
     const limit = Math.max(1, Math.min(options.limit ?? 30, 200));
-    const kinds = options.kinds ? new Set(options.kinds) : null;
+    // Caller-supplied kinds and `kind:` in the query intersect — a screen
+    // scoped to notes must not be widened by typing `kind:paper`.
+    const callerKinds = options.kinds ? new Set(options.kinds) : null;
+    const queryKinds = parsed.kinds.length ? new Set(parsed.kinds) : null;
 
-    const results = this.engine.search(trimmed, {
+    // A filter-only query ("kind:note", "tag:vae") has nothing to rank, so
+    // enumerate the stored documents and apply the filters to all of them.
+    if (isFilterOnly(parsed)) {
+      return this.filterOnly(parsed, callerKinds, queryKinds, limit);
+    }
+
+    const results = this.engine.search(parsed.text, {
       boost: { ...FIELD_BOOSTS },
       prefix: (term) => (options.prefix === false ? false : term.length >= MIN_PREFIX_LENGTH),
       fuzzy: (term) =>
@@ -108,7 +136,8 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         if (!fields) return 1;
         return documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 });
       },
-      filter: kinds ? (result) => kinds.has((result as SearchResult & StoredFields).kind) : undefined,
+      filter: (result) =>
+        this.matchesFilters(result as SearchResult & StoredFields, parsed, callerKinds, queryKinds),
     });
 
     return results.slice(0, limit).map((result) => {
@@ -123,6 +152,65 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         terms: result.terms,
       };
     });
+  }
+
+  /**
+   * Field filters plus exclusions. Exclusions are checked against the stored
+   * text rather than the inverted index so `-"work in progress"` excludes on
+   * the phrase, not on either word.
+   */
+  private matchesFilters(
+    fields: StoredFields,
+    parsed: ParsedQuery,
+    callerKinds: Set<SearchKind> | null,
+    queryKinds: Set<SearchKind> | null,
+  ): boolean {
+    if (callerKinds && !callerKinds.has(fields.kind)) return false;
+    if (queryKinds && !queryKinds.has(fields.kind)) return false;
+
+    const path = (fields.path ?? "").toLowerCase();
+    if (parsed.paths.length && !parsed.paths.every((needle) => path.includes(needle))) return false;
+
+    if (parsed.tags.length) {
+      const tags = (Array.isArray(fields.tags) ? fields.tags : []).map((t) => t.toLowerCase());
+      if (!parsed.tags.every((needle) => tags.includes(needle))) return false;
+    }
+
+    // Phrases and exclusions both need the raw text: the inverted index knows
+    // terms, not adjacency, so `"message passing"` would otherwise match any
+    // document containing both words anywhere.
+    if (parsed.phrases.length || parsed.exclude.length) {
+      const haystack = `${fields.title} ${path} ${fields.body ?? ""}`.toLowerCase();
+      if (!parsed.phrases.every((phrase) => haystack.includes(phrase))) return false;
+      if (parsed.exclude.some((needle) => haystack.includes(needle))) return false;
+    }
+
+    return true;
+  }
+
+  /** Enumerate stored documents for queries that carry filters but no terms. */
+  private filterOnly(
+    parsed: ParsedQuery,
+    callerKinds: Set<SearchKind> | null,
+    queryKinds: Set<SearchKind> | null,
+    limit: number,
+  ): readonly SearchHit[] {
+    const hits: SearchHit[] = [];
+    for (const [id, fields] of this.stored) {
+      if (!this.matchesFilters(fields, parsed, callerKinds, queryKinds)) continue;
+      hits.push({
+        id,
+        kind: fields.kind,
+        entityId: fields.entityId,
+        title: fields.title,
+        href: fields.href,
+        // No term scoring to report; order by the document signal alone.
+        score: documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }),
+        terms: [],
+      });
+      if (hits.length >= limit * 4) break;
+    }
+    return hits.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
   serialize(): string {

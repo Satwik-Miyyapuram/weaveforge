@@ -199,3 +199,79 @@ test("a well-linked document outranks an unlinked one on an equal match", () => 
 
   assert.equal(hits[0]!.entityId, "b", "link degree should break an otherwise equal tie");
 });
+
+// ------------------------------------------------------- query syntax (Phase 2)
+
+test("kind: restricts results to that entity kind", () => {
+  const hits = index().search("kind:paper");
+
+  assert.ok(hits.length > 0);
+  assert.ok(hits.every((hit) => hit.kind === "paper"));
+});
+
+test("a caller's kinds are intersected with kind:, never widened by it", () => {
+  // A notes screen must not start showing papers because the user typed
+  // kind:paper into its filter box.
+  const hits = index().search("kind:paper", { kinds: ["note"] });
+
+  assert.deepEqual(hits, []);
+});
+
+test("tag: filters on indexed tags", () => {
+  const hits = index().search("tag:vae");
+
+  assert.ok(hits.length > 0);
+  assert.ok(hits.every((hit) => hit.entityId === "n1"));
+});
+
+test("exclusions remove otherwise-matching documents", () => {
+  const withAll = index().search("models");
+  const without = index().search("models -recurrence");
+
+  assert.ok(withAll.some((hit) => hit.entityId === "p1"));
+  assert.ok(!without.some((hit) => hit.entityId === "p1"), "the excluded term should drop the paper");
+});
+
+test("a quoted phrase requires adjacency, not just both words", () => {
+  const loose = index().search("passing message");
+  const phrase = index().search('"message passing"');
+
+  assert.ok(loose.some((hit) => hit.entityId === "n2"));
+  assert.ok(phrase.some((hit) => hit.entityId === "n2"));
+  assert.ok(
+    !phrase.some((hit) => hit.entityId === "n1"),
+    "a document with neither adjacency nor the words should not match",
+  );
+});
+
+test("diacritics fold, so an unaccented query finds accented text", () => {
+  const docs = toSearchDocs(snapshot({ vaultPages: [note("d1", "Café notes", "Réunion at the café.")] }));
+  const hits = buildSearchIndex(docs, searchRevision(docs)).search("cafe");
+
+  assert.equal(hits[0]!.entityId, "d1");
+});
+
+test("CJK queries match without whitespace segmentation", () => {
+  const docs = toSearchDocs(snapshot({ vaultPages: [note("c1", "变分自编码器", "变分自编码器的实现")] }));
+  const hits = buildSearchIndex(docs, searchRevision(docs)).search("编码");
+
+  assert.equal(hits[0]!.entityId, "c1");
+});
+
+test("camelCase text is findable by its parts", () => {
+  const docs = toSearchDocs(snapshot({ vaultPages: [note("k1", "Code", "call parseHTTPResponse here")] }));
+  const hits = buildSearchIndex(docs, searchRevision(docs)).search("response");
+
+  assert.equal(hits[0]!.entityId, "k1");
+});
+
+test("a filter-only query still returns results", () => {
+  const hits = index().search("kind:note");
+
+  assert.ok(hits.length >= 3, "kind:note alone should enumerate the notes");
+  assert.ok(hits.every((hit) => hit.kind === "note"));
+});
+
+test("an unknown kind: narrows to nothing rather than matching everything", () => {
+  assert.deepEqual(index().search("kind:banana"), []);
+});
