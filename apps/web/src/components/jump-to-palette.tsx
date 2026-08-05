@@ -244,7 +244,7 @@ export function JumpToPalette() {
         <ul className="jump-to-list" role="listbox">
           {filtered.map((c, i) => (
             <li key={`${c.kind}-${c.id}`} role="option" aria-selected={i === active}>
-              <button type="button" onClick={() => go(c)} aria-selected={i === active}>
+              <button type="button" onClick={() => go(c)}>
                 <div>{c.label}</div>
                 {c.excerpt && c.excerpt.text && (
                   <div className="jump-to-excerpt">

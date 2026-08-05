@@ -1849,7 +1849,7 @@ a.entity-icon-btn:hover {
   width: 100%; text-align: left; border: none; background: none;
   padding: 8px 6px; cursor: pointer; color: var(--ink); border-radius: 6px;
 }
-.jump-to-list button:hover, .jump-to-list button[aria-selected="true"] {
+.jump-to-list button:hover, .jump-to-list [aria-selected="true"] button {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .jump-to-meta { font-size: 0.75rem; color: var(--muted); }

@@ -637,20 +637,30 @@ function PapersTable({
     return list;
   }, [papers, sortKey, sortDir]);
 
-  function sortLabel(key: SortKey, label: string) {
+  /**
+   * A sortable column header.
+   *
+   * `aria-sort` belongs on the header cell, not on the button inside it — a
+   * button has no sort state, a columnheader does.
+   */
+  function sortHeader(key: SortKey, label: string, className: string) {
     const active = sortKey === key;
     return (
-      <button
-        type="button"
-        className={`link-btn papers-sort-btn${active ? " papers-sort-btn--on" : ""}`}
-        onClick={() => toggleSort(key)}
+      <th
+        className={className}
         aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
       >
-        {label}
-        <span className="papers-sort-arrow" aria-hidden>
-          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-        </span>
-      </button>
+        <button
+          type="button"
+          className={`link-btn papers-sort-btn${active ? " papers-sort-btn--on" : ""}`}
+          onClick={() => toggleSort(key)}
+        >
+          {label}
+          <span className="papers-sort-arrow" aria-hidden>
+            {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+          </span>
+        </button>
+      </th>
     );
   }
 
@@ -659,10 +669,10 @@ function PapersTable({
       <table className="cmp-table papers-table">
         <thead>
           <tr>
-            <th className="papers-col-title">{sortLabel("title", "Title")}</th>
-            <th className="papers-col-authors">{sortLabel("authors", "Authors")}</th>
-            <th className="papers-col-year">{sortLabel("year", "Year")}</th>
-            <th className="papers-col-status">{sortLabel("status", "Status")}</th>
+            {sortHeader("title", "Title", "papers-col-title")}
+            {sortHeader("authors", "Authors", "papers-col-authors")}
+            {sortHeader("year", "Year", "papers-col-year")}
+            {sortHeader("status", "Status", "papers-col-status")}
             <th className="papers-col-link">Link</th>
             <th className="papers-col-open" aria-label="Open" />
           </tr>
