@@ -4,6 +4,11 @@ import { useState } from "react";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import {
+  activeProviderLabel,
+  clearActiveProvider,
+  setActiveProvider,
+} from "@/features/ai-assistant/application/ai-provider-session";
+import {
   ByokModelConversation,
   PROVIDER_PRESETS,
   type ProviderApi,
@@ -28,6 +33,7 @@ export function AiProviderPanel() {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [active, setActive] = useState(activeProviderLabel);
 
   function applyPreset(id: string) {
     setPresetId(id);
@@ -42,19 +48,39 @@ export function AiProviderPanel() {
   const needsKey = api !== "ollama";
   const ready = baseUrl.trim() && model.trim() && (!needsKey || apiKey.trim());
 
+  function descriptor() {
+    const preset = PROVIDER_PRESETS.find((entry) => entry.id === presetId);
+    return {
+      id: presetId || "custom",
+      label: preset?.label ?? "Custom",
+      baseUrl: baseUrl.trim(),
+      api,
+      model: model.trim(),
+    };
+  }
+
+  /**
+   * Test, then keep it.
+   *
+   * A separate "save" button would let someone enable a provider that has never
+   * answered — the first thing they would learn is a failed wiki scan. A reply
+   * is the only evidence the endpoint, key, model name, and wire format are all
+   * right together, so it is what activation is gated on.
+   */
   async function test() {
     setTesting(true);
     setError(null);
     setResult(null);
     try {
-      const client = new ByokModelConversation(
-        { id: presetId || "custom", label: presetId || "Custom", baseUrl, api, model },
-        apiKey,
-      );
+      const chosen = descriptor();
+      const client = new ByokModelConversation(chosen, apiKey);
       const response = await client.complete({
-        messages: [{ role: "user", content: "Reply with the single word: ready" }],
-      } as never);
+        messages: [{ role: "user" as const, content: "Reply with the single word: ready" }],
+        temperature: 0,
+      });
       setResult(response.text.trim().slice(0, 200) || "(empty reply)");
+      setActiveProvider(chosen, apiKey);
+      setActive(activeProviderLabel());
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -135,6 +161,13 @@ export function AiProviderPanel() {
       {error && <p className="error">{error}</p>}
       {result && <p className="muted">Provider replied: “{result}”</p>}
 
+      {active && (
+        <p className="muted">
+          Active for this session: <strong>{active.label}</strong> · {active.model}. The wiki
+          will use it to find concepts; everything else still works without it.
+        </p>
+      )}
+
       <div className="screen-actions">
         <button
           className="btn-secondary"
@@ -142,8 +175,23 @@ export function AiProviderPanel() {
           disabled={testing || !ready}
           onClick={() => void test()}
         >
-          {testing ? "Testing…" : "Test connection"}
+          {testing ? "Testing…" : active ? "Test and update" : "Test and use"}
         </button>
+        {active && (
+          <button
+            className="btn-ghost"
+            type="button"
+            disabled={testing}
+            onClick={() => {
+              clearActiveProvider();
+              setActive(null);
+              setApiKey("");
+              setResult(null);
+            }}
+          >
+            Stop using it
+          </button>
+        )}
       </div>
 
       <p className="muted jump-to-meta">

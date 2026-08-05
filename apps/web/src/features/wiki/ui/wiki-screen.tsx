@@ -6,6 +6,10 @@ import type { LintFinding, WikiPagePlan } from "@thesis/core";
 import { Modal } from "@/components/modal";
 import { formatError } from "@/lib/format-error";
 import {
+  activeProviderLabel,
+  onProviderChange,
+} from "@/features/ai-assistant/application/ai-provider-session";
+import {
   applyMerge,
   previewMerge,
   previewWikiBuild,
@@ -29,6 +33,12 @@ export function WikiScreen() {
   const [queued, setQueued] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [merge, setMerge] = useState<{ primaryId: string; secondaryId: string } | null>(null);
+  const [provider, setProvider] = useState(activeProviderLabel);
+
+  // The provider is configured in Settings, which is a different tree; without
+  // this the copy here would keep claiming the scan runs on-device after the
+  // user has pointed at a model.
+  useEffect(() => onProviderChange(() => setProvider(activeProviderLabel())), []);
 
   const refreshLint = useCallback(async () => {
     setBusy("lint");
@@ -103,7 +113,18 @@ export function WikiScreen() {
         <h3 className="settings-group">Draft new pages</h3>
         <p className="muted">
           Scans your notes and papers for concepts that come up repeatedly and drafts a page for
-          each. Runs entirely on this device — no API key needed.
+          each.{" "}
+          {provider ? (
+            <>
+              Using <strong>{provider.label}</strong> · {provider.model}, called straight from this
+              browser.
+            </>
+          ) : (
+            <>
+              Runs entirely on this device — no API key needed. Point at a model in{" "}
+              <Link href="/settings#settings-provider">Settings</Link> for a closer read.
+            </>
+          )}
         </p>
         <div className="screen-actions">
           <button className="btn-secondary" type="button" disabled={busy !== null} onClick={() => void scan()}>
@@ -121,7 +142,8 @@ export function WikiScreen() {
         {preview && (
           <>
             <p className="muted">
-              Scanned {preview.documentsScanned} document{preview.documentsScanned === 1 ? "" : "s"}.{" "}
+              Scanned {preview.documentsScanned} document{preview.documentsScanned === 1 ? "" : "s"}
+              {preview.extractorId === "model" ? " with your model" : " on this device"}.{" "}
               {preview.plans.length} new page{preview.plans.length === 1 ? "" : "s"} to propose
               {preview.alreadyCovered > 0 && `, ${preview.alreadyCovered} already covered`}.
             </p>

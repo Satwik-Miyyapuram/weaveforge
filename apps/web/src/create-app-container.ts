@@ -90,6 +90,8 @@ import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-sto
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
 import { createCredentialReader } from "@/integrations/credentials";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
+import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
+import { closeFolder } from "@/features/workspace/application/workspace-folder";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -128,6 +130,11 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
 
   registerSessionReset(() => {
     projectContext.projectId = null;
+    // The API key lives only in memory, but "only in memory" has to include
+    // "not across a sign-out" — the next person at this browser is not the one
+    // who typed it.
+    clearActiveProvider();
+    closeFolder();
   });
 
   const crdtUpdateStore = new SupabaseCrdtUpdateStore(backend.db);

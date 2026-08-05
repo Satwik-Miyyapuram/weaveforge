@@ -12,6 +12,7 @@ import {
   type WikiPagePlan,
 } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
+import { modelExtractor } from "@/features/ai-assistant/application/ai-provider-session";
 
 /**
  * Driving concept extraction and wiki maintenance from the app.
@@ -62,16 +63,30 @@ export interface WikiBuildPreview {
   /** Concepts found but already covered, so "nothing to do" is explicable. */
   alreadyCovered: number;
   documentsScanned: number;
+  /** Which extractor ran, so the result can say where it came from. */
+  extractorId: string;
+}
+
+/**
+ * The extractor a scan will use.
+ *
+ * Lexical unless the user has pointed at a model. Lexical is not a placeholder:
+ * it is deterministic, free, private, and immediate, and for a first pass over
+ * a workspace full of hashtags and wikilinks it is often the better answer. A
+ * configured model makes the scan better, not possible.
+ */
+export function defaultExtractor(): IConceptExtractor {
+  return modelExtractor() ?? new LexicalConceptExtractor();
 }
 
 /**
  * Plan the pages worth adding.
  *
- * Defaults to the lexical extractor, which needs no key and no configuration.
- * A model-backed extractor can be passed in instead once one is set up.
+ * Takes an extractor so a caller can force one; without an argument it follows
+ * whatever the user has configured.
  */
 export async function previewWikiBuild(
-  extractor: IConceptExtractor = new LexicalConceptExtractor(),
+  extractor: IConceptExtractor = defaultExtractor(),
 ): Promise<WikiBuildPreview> {
   const documents = await wikiSourceDocuments();
   const existing = await existingWikiPages();
@@ -94,6 +109,7 @@ export async function previewWikiBuild(
     plans,
     alreadyCovered: extraction.concepts.length - plans.length,
     documentsScanned: documents.length,
+    extractorId: extractor.id,
   };
 }
 
