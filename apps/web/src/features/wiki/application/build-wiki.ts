@@ -1,11 +1,13 @@
 import {
   LexicalConceptExtractor,
   lintWiki,
+  mergeWikiPages,
   planFixOrder,
   planWikiPages,
   type ExtractionDocument,
   type IConceptExtractor,
   type LintReport,
+  type MergeResult,
   type WikiPageRef,
   type WikiPagePlan,
 } from "@thesis/core";
@@ -127,4 +129,62 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
 export async function runWikiLint(): Promise<{ report: LintReport; steps: ReturnType<typeof planFixOrder> }> {
   const report = lintWiki(await existingWikiPages());
   return { report, steps: planFixOrder(report) };
+}
+
+/**
+ * Preview a merge of two wiki pages.
+ *
+ * Preview and apply are separate because merging is lossy: the user has to see
+ * what survives, and specifically whether any contradictions were found, before
+ * agreeing to it.
+ */
+export async function previewMerge(
+  primaryId: string,
+  secondaryId: string,
+): Promise<{ primaryTitle: string; secondaryTitle: string; result: MergeResult } | null> {
+  const pages = await existingWikiPages();
+  const primary = pages.find((page) => page.id === primaryId);
+  const secondary = pages.find((page) => page.id === secondaryId);
+  if (!primary || !secondary) return null;
+
+  return {
+    primaryTitle: primary.title,
+    secondaryTitle: secondary.title,
+    result: mergeWikiPages(
+      { id: primary.id, title: primary.title, body: primary.body },
+      { id: secondary.id, title: secondary.title, body: secondary.body },
+    ),
+  };
+}
+
+/**
+ * Apply a merge: the primary keeps everything, the secondary is removed.
+ *
+ * Applied directly rather than queued for review, because the user is already
+ * reviewing it — they picked the pair and read the merged text. Routing an
+ * explicitly confirmed, explicitly previewed action through a second approval
+ * queue would be ceremony, not safety.
+ *
+ * The absorbed title is recorded as an alias in the merged body, so links to
+ * the removed page still resolve.
+ */
+export async function applyMerge(
+  primaryId: string,
+  secondaryId: string,
+  merged: MergeResult,
+): Promise<void> {
+  const container = getContainer();
+  const primary = await container.vault.getPage(primaryId);
+  if (!primary) throw new Error("The page being merged into no longer exists.");
+
+  const aliasNote = merged.aliases.length
+    ? `\n\n<!-- also known as: ${merged.aliases.join(", ")} -->`
+    : "";
+
+  await container.vault.manageVaultPage.update(primary.id, {
+    title: merged.title,
+    body: `${merged.body}${aliasNote}`,
+  });
+  await container.vault.manageVaultPage.remove(secondaryId);
+  container.search.invalidate();
 }

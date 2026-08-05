@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { LintFinding, WikiPagePlan } from "@thesis/core";
-import { getContainer } from "@/bootstrap";
+import { Modal } from "@/components/modal";
 import { formatError } from "@/lib/format-error";
 import {
+  applyMerge,
+  previewMerge,
   previewWikiBuild,
   proposeWikiPages,
   runWikiLint,
@@ -26,6 +28,7 @@ export function WikiScreen() {
   const [error, setError] = useState<string | null>(null);
   const [queued, setQueued] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [merge, setMerge] = useState<{ primaryId: string; secondaryId: string } | null>(null);
 
   const refreshLint = useCallback(async () => {
     setBusy("lint");
@@ -196,6 +199,17 @@ export function WikiScreen() {
                   {step.findings.slice(0, 20).map((finding: LintFinding, index) => (
                     <li key={`${finding.pageId}-${index}`} data-severity={finding.severity}>
                       {finding.message}
+                      {finding.relatedPageId && (
+                        <button
+                          type="button"
+                          className="link-btn"
+                          onClick={() =>
+                            setMerge({ primaryId: finding.relatedPageId!, secondaryId: finding.pageId })
+                          }
+                        >
+                          Merge…
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -207,6 +221,94 @@ export function WikiScreen() {
           </>
         )}
       </div>
+      {merge && (
+        <MergeDialog
+          primaryId={merge.primaryId}
+          secondaryId={merge.secondaryId}
+          onClose={() => setMerge(null)}
+          onMerged={() => {
+            setMerge(null);
+            void refreshLint();
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * Confirm a merge by showing what it produces.
+ *
+ * Contradictions are called out specifically, because they are the one thing a
+ * merge cannot decide: both statements survive, and someone has to choose.
+ */
+function MergeDialog({
+  primaryId,
+  secondaryId,
+  onClose,
+  onMerged,
+}: {
+  primaryId: string;
+  secondaryId: string;
+  onClose: () => void;
+  onMerged: () => void;
+}) {
+  const [preview, setPreview] = useState<Awaited<ReturnType<typeof previewMerge>>>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void previewMerge(primaryId, secondaryId)
+      .then(setPreview)
+      .catch((err) => setError(formatError(err)));
+  }, [primaryId, secondaryId]);
+
+  return (
+    <Modal title="Merge pages" onClose={onClose}>
+      {error && <p className="error">{error}</p>}
+      {!preview ? (
+        <p className="muted">Preparing…</p>
+      ) : (
+        <>
+          <p className="muted">
+            “{preview.secondaryTitle}” is folded into “{preview.primaryTitle}”, which keeps the
+            title. Links to the old name keep working — it is recorded as an alias.
+          </p>
+
+          {preview.result.contradictions.length > 0 && (
+            <p className="error">
+              {preview.result.contradictions.length} statement
+              {preview.result.contradictions.length === 1 ? "" : "s"} disagree. Both sides are kept
+              under “Conflicting notes” for you to resolve — the merge will not pick one.
+            </p>
+          )}
+
+          <pre className="wiki-merge-preview">{preview.result.body}</pre>
+
+          <div className="screen-actions">
+            <button className="btn-ghost" type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                setError(null);
+                void applyMerge(primaryId, secondaryId, preview.result)
+                  .then(onMerged)
+                  .catch((err) => {
+                    setError(formatError(err));
+                    setBusy(false);
+                  });
+              }}
+            >
+              {busy ? "Merging…" : "Merge"}
+            </button>
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }

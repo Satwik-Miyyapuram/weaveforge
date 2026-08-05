@@ -1915,6 +1915,22 @@ a.entity-icon-btn:hover {
 }
 .wiki-lint-list li[data-severity="error"] { border-left-color: var(--danger); }
 .wiki-lint-list li[data-severity="warning"] { border-left-color: var(--s-warn, var(--accent)); }
+.wiki-lint-list .link-btn { margin-left: 8px; font-size: 0.78rem; }
+
+/* Merge preview: monospace so the merged markdown reads as the file it becomes. */
+.wiki-merge-preview {
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  margin: 8px 0;
+}
 
 .related-papers { min-width: 0; }
 .related-papers-panel { margin-top: 8px; min-width: 0; }
