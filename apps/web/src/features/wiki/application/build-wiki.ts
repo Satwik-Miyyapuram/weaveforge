@@ -1,9 +1,11 @@
 import {
   LexicalConceptExtractor,
+  buildWikiIndex,
   lintWiki,
   mergeWikiPages,
   planFixOrder,
   planWikiPages,
+  replaceWikiIndex,
   type ExtractionDocument,
   type IConceptExtractor,
   type LintReport,
@@ -203,4 +205,50 @@ export async function applyMerge(
   });
   await container.vault.manageVaultPage.remove(secondaryId);
   container.search.invalidate();
+}
+
+/**
+ * Rewrite the wiki root's index of pages.
+ *
+ * The index lives in the root note between markers, so anything written around
+ * it survives — regeneration is only entitled to the region it generated. It is
+ * applied directly rather than queued: it derives entirely from pages that
+ * already exist and already passed review, so there is no new claim in it for a
+ * reviewer to check.
+ */
+export async function regenerateWikiIndex(): Promise<{ pages: number }> {
+  const container = getContainer();
+  const snapshot = await container.workspace.snapshot();
+  const root = snapshot.vaultPages.find((page) => page.title === WIKI_ROOT_TITLE);
+  if (!root) throw new Error("There is no wiki yet — scan for concepts first.");
+
+  const pages = await existingWikiPages();
+  await container.vault.manageVaultPage.update(root.id, {
+    title: root.title,
+    body: replaceWikiIndex(root.body, buildWikiIndex(pages)),
+  });
+  container.search.invalidate();
+  return { pages: pages.length };
+}
+
+/**
+ * Queue the page a dead link points at.
+ *
+ * The link already says what it wants to exist; the missing half is a page to
+ * land on. It goes through review like any other generated page rather than
+ * appearing, because "a link mentioned it" is thin evidence that a page is
+ * worth having.
+ */
+export async function proposeMissingPage(target: string): Promise<void> {
+  const title = target.trim();
+  if (!title) return;
+
+  await proposeWikiPages([
+    {
+      title,
+      body: `# ${title}\n\n_Not written yet._\n`,
+      mentions: 1,
+      sourceDocumentIds: [],
+    },
+  ]);
 }

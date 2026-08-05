@@ -18,6 +18,7 @@ export * from "./domain/ai-mcp-gateway.js";
 export * from "./domain/ai-extraction.js";
 export * from "./domain/lexical-concept-extractor.js";
 export * from "./domain/model-concept-extractor.js";
+export * from "./domain/wiki-index.js";
 export * from "./application/plan-wiki-pages.use-case.js";
 export * from "./domain/wiki-lint.js";
 export * from "./domain/wiki-merge.js";

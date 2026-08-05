@@ -13,7 +13,9 @@ import {
   applyMerge,
   previewMerge,
   previewWikiBuild,
+  proposeMissingPage,
   proposeWikiPages,
+  regenerateWikiIndex,
   runWikiLint,
   type WikiBuildPreview,
 } from "../application/build-wiki";
@@ -28,12 +30,13 @@ import {
 export function WikiScreen() {
   const [preview, setPreview] = useState<WikiBuildPreview | null>(null);
   const [lint, setLint] = useState<Awaited<ReturnType<typeof runWikiLint>> | null>(null);
-  const [busy, setBusy] = useState<"scan" | "queue" | "lint" | null>(null);
+  const [busy, setBusy] = useState<"scan" | "queue" | "lint" | "index" | "fix" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [queued, setQueued] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [merge, setMerge] = useState<{ primaryId: string; secondaryId: string } | null>(null);
   const [provider, setProvider] = useState(activeProviderLabel);
+  const [indexed, setIndexed] = useState<string | null>(null);
 
   // The provider is configured in Settings, which is a different tree; without
   // this the copy here would keep claiming the scan runs on-device after the
@@ -81,6 +84,35 @@ export function WikiScreen() {
       const chosen = preview.plans.filter((plan) => selected.has(plan.title));
       setQueued(await proposeWikiPages(chosen));
       setPreview(null);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function rebuildIndex() {
+    setBusy("index");
+    setError(null);
+    try {
+      const { pages } = await regenerateWikiIndex();
+      setIndexed(`Index rebuilt — ${pages} page${pages === 1 ? "" : "s"} listed.`);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Queue a page for every link that points at one that does not exist. */
+  async function fixDeadLinks(targets: readonly string[]) {
+    setBusy("fix");
+    setError(null);
+    try {
+      for (const target of targets) await proposeMissingPage(target);
+      setIndexed(
+        `Queued ${targets.length} missing page${targets.length === 1 ? "" : "s"} for review.`,
+      );
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -200,7 +232,11 @@ export function WikiScreen() {
           <button className="btn-secondary" type="button" disabled={busy !== null} onClick={() => void refreshLint()}>
             {busy === "lint" ? "Checking…" : "Re-check"}
           </button>
+          <button className="btn-secondary" type="button" disabled={busy !== null} onClick={() => void rebuildIndex()}>
+            {busy === "index" ? "Rebuilding…" : "Rebuild index page"}
+          </button>
         </div>
+        {indexed && <p className="muted">{indexed}</p>}
 
         {lint && lint.report.findings.length === 0 && (
           <p className="muted">Nothing to fix.</p>
@@ -217,6 +253,26 @@ export function WikiScreen() {
                 <h4 className="settings-group">
                   {step.description} ({step.findings.length})
                 </h4>
+                {step.kind === "dead-link" && (
+                  <div className="screen-actions">
+                    <button
+                      className="link-btn"
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() =>
+                        void fixDeadLinks([
+                          ...new Set(
+                            step.findings
+                              .map((finding) => finding.target)
+                              .filter((target): target is string => !!target),
+                          ),
+                        ])
+                      }
+                    >
+                      {busy === "fix" ? "Queueing…" : "Queue a page for each missing link"}
+                    </button>
+                  </div>
+                )}
                 <ul className="wiki-lint-list">
                   {step.findings.slice(0, 20).map((finding: LintFinding, index) => (
                     <li key={`${finding.pageId}-${index}`} data-severity={finding.severity}>

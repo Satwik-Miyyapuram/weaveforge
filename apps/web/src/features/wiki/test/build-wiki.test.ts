@@ -105,3 +105,38 @@ test("an empty wiki produces no findings and no plans", async () => {
   const extraction = await extractor.extract({ documents: [] });
   assert.deepEqual(planWikiPages({ extraction, existingTitles: [] }), []);
 });
+
+test("the index the screen rebuilds reflects the pages lint sees", async () => {
+  const { buildWikiIndex, replaceWikiIndex } = await import("@thesis/core");
+  const pages = [
+    { id: "w1", title: "GAN", body: "A generative adversarial network." },
+    { id: "w2", title: "VAE", body: "A variational autoencoder." },
+  ];
+
+  const root = replaceWikiIndex("Notes about the wiki.\n", buildWikiIndex(pages));
+  assert.ok(root.includes("- [[GAN]]"));
+  assert.ok(root.includes("- [[VAE]]"));
+
+  // A page removed by a merge must leave the index on the next rebuild.
+  const afterMerge = replaceWikiIndex(root, buildWikiIndex(pages.slice(0, 1)));
+  assert.ok(afterMerge.includes("- [[GAN]]"));
+  assert.ok(!afterMerge.includes("- [[VAE]]"));
+  assert.ok(afterMerge.startsWith("Notes about the wiki."));
+});
+
+test("dead links name the target the screen queues a page for", () => {
+  const report = lintWiki([
+    { id: "w1", title: "GAN", body: "Compare with [[Diffusion Model]] and [[Diffusion Model]]." },
+  ]);
+
+  const targets = [
+    ...new Set(
+      report.findings
+        .filter((finding) => finding.kind === "dead-link")
+        .map((finding) => finding.target)
+        .filter((target): target is string => !!target),
+    ),
+  ];
+
+  assert.deepEqual(targets, ["Diffusion Model"], "one missing page, however many links point at it");
+});
