@@ -37,6 +37,8 @@ import { CitationFormatSelect } from "@/components/citation-format-select";
 import { useCitationFormatPreference } from "@/lib/use-citation-format-preference";
 import type { VaultScreenData } from "@/features/vault/application/load-vault-screen.use-case";
 import { rememberRecentTarget } from "@/lib/recent-targets";
+import { rankedFilter } from "@/features/search/application/rank-filter";
+import { useSearchIndex } from "@/lib/use-search-index";
 
 type VaultViewData = VaultScreenData & {
   ownerNames: Map<string, string>;
@@ -82,6 +84,7 @@ export function VaultScreen() {
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("vault", loadScreen);
+  const searchIndex = useSearchIndex();
 
   useEffect(() => {
     setError(loadError);
@@ -280,21 +283,27 @@ export function VaultScreen() {
 
   const filterNotes = useCallback(
     (notes: VaultPage[]) => {
-      const q = search.trim().toLowerCase();
       const inAnyList = (id: string) =>
         listFilter.some((lid) => membership.get(lid)?.has(id) ?? false);
       const hasAnyTag = (p: VaultPage) =>
         tagFilter.some((t) => extractHashtags(noteBodyText(p)).includes(t));
-      return notes.filter(
+      // List and tag filters first: they are cheap set membership, and the
+      // ranked pass should only order what survives them.
+      const scoped = notes.filter(
         (p) =>
           (listFilter.length === 0 || inAnyList(p.id)) &&
-          (tagFilter.length === 0 || hasAnyTag(p)) &&
-          (!q ||
-            p.title.toLowerCase().includes(q) ||
-            noteBodyText(p).toLowerCase().includes(q)),
+          (tagFilter.length === 0 || hasAnyTag(p)),
       );
+      return rankedFilter({
+        items: scoped,
+        query: search,
+        kinds: ["note"],
+        search: searchIndex,
+        idOf: (p) => p.id,
+        fallbackText: (p) => `${p.title}\n${noteBodyText(p)}`,
+      });
     },
-    [search, listFilter, tagFilter, membership],
+    [search, listFilter, tagFilter, membership, searchIndex],
   );
 
   const visibleOwned = useMemo(() => filterNotes(ownedNotes), [ownedNotes, filterNotes]);

@@ -4,11 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/use-cite-links";
 import { getContainer } from "@/bootstrap";
+import { useSearchIndex } from "@/lib/use-search-index";
 import {
   readRecentTargets,
   rememberRecentTarget,
   type RecentTargetKind,
 } from "@/lib/recent-targets";
+
+/** Kinds the palette can navigate to and store in recent targets. */
+const PALETTE_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
 
 type JumpItem = CiteCompletion & {
   id: string;
@@ -26,6 +30,7 @@ export function JumpToPalette() {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<JumpItem[]>([]);
   const [active, setActive] = useState(0);
+  const searchIndex = useSearchIndex();
 
   const reload = useCallback(async () => {
     const catalog = await loadCiteLinkCatalog();
@@ -83,12 +88,41 @@ export function JumpToPalette() {
   }, [reload]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return items.slice(0, 30);
+
+    // Ranked search across every indexed field — body text, headings, tags,
+    // aliases — not just the titles the catalog carries.
+    //
+    // Restricted to the kinds this palette can navigate to and record as a
+    // recent target. The index covers experiments, milestones, and logbook
+    // entries too; surfacing those needs `RecentTargetKind` widened first,
+    // so it belongs with the rest of the search UX work rather than here.
+    const hits = searchIndex(q, { limit: 30, kinds: PALETTE_KINDS });
+    if (hits.length > 0) {
+      const byKey = new Map(items.map((item) => [`${item.kind}:${item.id}`, item]));
+      return hits.map((hit) => {
+        const kind = hit.kind as RecentTargetKind;
+        return (
+          byKey.get(`${kind}:${hit.entityId}`) ?? {
+            title: hit.title,
+            label: hit.title,
+            detail: kind,
+            id: hit.entityId,
+            kind,
+            href: hit.href,
+          }
+        );
+      });
+    }
+
+    // Index not built yet, or genuinely no ranked match: the substring pass
+    // still answers, so the palette never regresses to empty.
+    const lower = q.toLowerCase();
     return items
-      .filter((c) => c.label.toLowerCase().includes(q) || c.title.toLowerCase().includes(q))
+      .filter((c) => c.label.toLowerCase().includes(lower) || c.title.toLowerCase().includes(lower))
       .slice(0, 30);
-  }, [items, query]);
+  }, [items, query, searchIndex]);
 
   function go(item: JumpItem) {
     rememberRecentTarget(getContainer().projects.context.projectId, {

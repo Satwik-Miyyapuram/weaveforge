@@ -89,6 +89,7 @@ import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-st
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
 import { createCredentialReader } from "@/integrations/credentials";
+import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -435,6 +436,21 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     readingLists: readingListRepository,
   });
 
+  // Repositories, not facades: the screen facades return card projections that
+  // drop note bodies, paper abstracts, and paper metadata.
+  const workspace = new WorkspaceFacade({
+    papers: paperRepository,
+    vaultPages: vaultPageRepository,
+    readingLists: readingListRepository,
+    readingListItems: readingListItemRepository,
+    reportSections: reportSectionRepository,
+    experiments: experimentRepository,
+    milestones: milestoneRepository,
+    logEntries: logEntryRepository,
+    relations: backend.paperRelationRepository,
+    tags: backend.tagRepository,
+  });
+
   const container: AppContainer = {
     integrations: { bibliography, notifications, logSync, gitRead },
     backendConfig: backend.config,
@@ -603,19 +619,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       listItems: readingListItemRepository,
       manageReadingList,
     }),
-    // Repositories, not facades: the screen facades return card projections
-    // that drop note bodies, paper abstracts, and paper metadata.
-    workspace: new WorkspaceFacade({
-      papers: paperRepository,
-      vaultPages: vaultPageRepository,
-      readingLists: readingListRepository,
-      readingListItems: readingListItemRepository,
-      reportSections: reportSectionRepository,
-      experiments: experimentRepository,
-      milestones: milestoneRepository,
-      logEntries: logEntryRepository,
-      relations: backend.paperRelationRepository,
-      tags: backend.tagRepository,
+    workspace,
+    search: new WorkspaceSearch({
+      snapshot: () => workspace.snapshot(),
+      projectId: pid,
     }),
     prefetchProject,
     integrationConfig: wiredIntegrations.config,

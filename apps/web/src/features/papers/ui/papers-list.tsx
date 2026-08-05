@@ -39,6 +39,8 @@ import {
 import { EntityCard } from "@/components/entity-card";
 import { PaperCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
+import { rankedFilter } from "@/features/search/application/rank-filter";
+import { useSearchIndex } from "@/lib/use-search-index";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
 import { PaperMarkdown } from "./paper-markdown";
@@ -108,6 +110,7 @@ export function PapersScreen() {
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("papers", loadScreen);
+  const searchIndex = useSearchIndex();
 
   usePinnedOwnerNames(data, setData);
 
@@ -274,21 +277,28 @@ export function PapersScreen() {
   }, [papers]);
 
   const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const statuses = new Set(statusFilter);
     const inAnyList = (id: string) =>
       listFilter.some((lid) => membership.get(lid)?.has(id) ?? false);
     const hasAnyTag = (p: Paper) => tagFilter.some((t) => p.tags.includes(t));
-    return papers.filter(
+    // Facet filters first; the ranked pass then orders what survives them.
+    const scoped = papers.filter(
       (p) =>
         (statuses.size === 0 || statuses.has(p.status)) &&
         (listFilter.length === 0 || inAnyList(p.id)) &&
-        (tagFilter.length === 0 || hasAnyTag(p)) &&
-        (!q ||
-          p.title.toLowerCase().includes(q) ||
-          p.authors.some((a) => a.toLowerCase().includes(q))),
+        (tagFilter.length === 0 || hasAnyTag(p)),
     );
-  }, [papers, statusFilter, listFilter, tagFilter, membership, search]);
+    // Now also matches on abstract, summary, venue, and identifiers — not just
+    // title and author.
+    return rankedFilter({
+      items: scoped,
+      query: search,
+      kinds: ["paper"],
+      search: searchIndex,
+      idOf: (p) => p.id,
+      fallbackText: (p) => `${p.title}\n${p.authors.join(" ")}`,
+    });
+  }, [papers, statusFilter, listFilter, tagFilter, membership, search, searchIndex]);
 
   const openPaper = openId
     ? (guestPaper?.id === openId ? guestPaper : null) ??

@@ -1420,6 +1420,7 @@ export interface AppContainer {
   sync: SyncFacade;
   readingLists: ReadingListsFacade;
   workspace: WorkspaceFacade;
+  search: import("@/features/search/application/workspace-search").WorkspaceSearch;
   prefetchProject: PrefetchProjectUseCase;
   /** Active integration providers for this deployment (env-driven). */
   integrationConfig: import("@/integrations/config").IntegrationConfig;
