@@ -1,3 +1,5 @@
+import type { SearchExcerpt } from "./search-excerpt.js";
+
 /**
  * Search contracts. Types and interfaces only — the ranking library lives in
  * the web app so this package keeps its zero-dependency guarantee.
@@ -57,9 +59,16 @@ export interface SearchHit {
   score: number;
   /** Query terms that matched, for highlighting. */
   terms: readonly string[];
+  /**
+   * Snippet around the matched terms. Built by the index, which holds the body
+   * text — the hit itself deliberately does not carry the full document.
+   */
+  excerpt?: SearchExcerpt;
 }
 
 export interface SearchQueryOptions {
+  /** Build highlighted snippets. Off by default; costs a scan per hit. */
+  excerpts?: boolean;
   limit?: number;
   kinds?: readonly SearchKind[];
   /** Prefix matching for terms at or above the configured length. */

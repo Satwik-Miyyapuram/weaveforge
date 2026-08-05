@@ -8,3 +8,5 @@ export * from "./search-document.js";
 export * from "./search-tokenizer.js";
 export * from "./search-query.js";
 export * from "./search-excerpt.js";
+export * from "./search-settings.js";
+export * from "./search-history.js";

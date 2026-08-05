@@ -4,9 +4,10 @@ import {
   type IWorkspaceSearchIndex,
   type SearchHit,
   type SearchQueryOptions,
+  type SearchSettings,
   type WorkspaceSnapshot,
 } from "@thesis/core";
-import { buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
+import { applySearchSettings, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import { idbGetSearchIndex, idbSetSearchIndex } from "../infrastructure/search-index-idb";
 
 /**
@@ -19,6 +20,7 @@ import { idbGetSearchIndex, idbSetSearchIndex } from "../infrastructure/search-i
 export class WorkspaceSearch {
   private index: IWorkspaceSearchIndex | null = null;
   private building: Promise<IWorkspaceSearchIndex> | null = null;
+  private settings: SearchSettings | undefined;
 
   constructor(
     private readonly deps: {
@@ -61,10 +63,13 @@ export class WorkspaceSearch {
     const cached = await idbGetSearchIndex(projectId);
     if (cached) {
       const restored = miniSearchIndexFactory.load(cached, revision);
-      if (restored) return restored;
+      if (restored) {
+        applySearchSettings(restored, this.settings);
+        return restored;
+      }
     }
 
-    const index = buildSearchIndex(docs, revision);
+    const index = buildSearchIndex(docs, revision, this.settings);
     void idbSetSearchIndex(projectId, index.serialize());
     return index;
   }
@@ -72,6 +77,16 @@ export class WorkspaceSearch {
   /** Synchronous query; returns nothing until the index is ready. */
   search(query: string, options?: SearchQueryOptions): readonly SearchHit[] {
     return this.index ? this.index.search(query, options) : [];
+  }
+
+  /**
+   * Apply ranking preferences. Scoring reads them per query, so this takes
+   * effect immediately — retokenizing the corpus for a weight change would be
+   * a rebuild the user has no reason to wait for.
+   */
+  setSettings(settings: SearchSettings | undefined): void {
+    this.settings = settings;
+    if (this.index) applySearchSettings(this.index, settings);
   }
 
   /** Drop the in-memory index so the next `ensure()` rebuilds it. */

@@ -48,6 +48,10 @@ export interface DocumentBoostOptions {
   now?: number;
   /** Half-life for the recency tiebreak. */
   recencyHalfLifeDays?: number;
+  /** Multiplier from user settings (kind downranking). Defaults to 1. */
+  kindMultiplier?: number;
+  /** Set false to drop the recency tiebreak entirely. */
+  recency?: boolean;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -69,14 +73,15 @@ export function documentBoost(doc: SearchDoc, options: DocumentBoostOptions = {}
   // Saturating rather than linear: the gap between 0 and 5 links is meaningful,
   // between 60 and 65 it is not, and linear growth would let hubs win outright.
   const degreeBoost = 1 + Math.log1p(Math.max(0, doc.degree)) / Math.log(10);
+  const kindFactor = options.kindMultiplier ?? 1;
 
   const updated = Date.parse(doc.updatedAt);
-  if (!Number.isFinite(updated)) return degreeBoost;
+  if (options.recency === false || !Number.isFinite(updated)) return degreeBoost * kindFactor;
 
   const ageDays = Math.max(0, (now - updated) / DAY_MS);
   // Bounded to [1, 1.15] so it can only order documents the content score has
   // already tied — never overturn a genuinely better match.
   const recencyBoost = 1 + 0.15 * Math.pow(0.5, ageDays / halfLife);
 
-  return degreeBoost * recencyBoost;
+  return degreeBoost * recencyBoost * kindFactor;
 }

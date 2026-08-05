@@ -1,6 +1,8 @@
 import MiniSearch, { type Options, type SearchResult } from "minisearch";
 import {
-  FIELD_BOOSTS,
+  effectiveFieldBoosts,
+  kindMultiplier,
+  buildExcerpt,
   isEmptyQuery,
   isFilterOnly,
   parseSearchQuery,
@@ -15,6 +17,7 @@ import {
   type SearchDoc,
   type ParsedQuery,
   type SearchHit,
+  type SearchSettings,
   type SearchKind,
   type SearchQueryOptions,
 } from "@thesis/core";
@@ -66,6 +69,9 @@ function miniSearchOptions(): Options<SearchDoc> {
 }
 
 class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
+  /** User ranking preferences; defaults apply when unset. */
+  settings: SearchSettings | undefined;
+
   constructor(
     private readonly engine: MiniSearch<SearchDoc>,
     public revision: string,
@@ -122,7 +128,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
     }
 
     const results = this.engine.search(parsed.text, {
-      boost: { ...FIELD_BOOSTS },
+      boost: effectiveFieldBoosts(this.settings),
       prefix: (term) => (options.prefix === false ? false : term.length >= MIN_PREFIX_LENGTH),
       fuzzy: (term) =>
         typeof options.fuzzy === "number"
@@ -134,7 +140,10 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
       boostDocument: (id, _term, storedFields) => {
         const fields = (storedFields ?? this.stored.get(String(id))) as StoredFields | undefined;
         if (!fields) return 1;
-        return documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 });
+        return documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
+          kindMultiplier: kindMultiplier(fields.kind, this.settings),
+          recency: this.settings?.recencyBoost,
+        });
       },
       filter: (result) =>
         this.matchesFilters(result as SearchResult & StoredFields, parsed, callerKinds, queryKinds),
@@ -150,6 +159,9 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         href: fields.href,
         score: result.score,
         terms: result.terms,
+        excerpt: options.excerpts
+          ? buildExcerpt(fields.body ?? "", result.terms, { maxChars: 200 })
+          : undefined,
       };
     });
   }
@@ -205,7 +217,10 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         title: fields.title,
         href: fields.href,
         // No term scoring to report; order by the document signal alone.
-        score: documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }),
+        score: documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
+          kindMultiplier: kindMultiplier(fields.kind, this.settings),
+          recency: this.settings?.recencyBoost,
+        }),
         terms: [],
       });
       if (hits.length >= limit * 4) break;
@@ -254,8 +269,18 @@ export const miniSearchIndexFactory: IWorkspaceSearchIndexFactory = {
 };
 
 /** Build an index and stamp it with the corpus revision. */
-export function buildSearchIndex(docs: readonly SearchDoc[], revision: string): IWorkspaceSearchIndex {
+export function buildSearchIndex(
+  docs: readonly SearchDoc[],
+  revision: string,
+  settings?: SearchSettings,
+): IWorkspaceSearchIndex {
   const index = miniSearchIndexFactory.create(docs) as MiniSearchWorkspaceIndex;
   index.revision = revision;
+  index.settings = settings;
   return index;
+}
+
+/** Apply new ranking preferences without rebuilding the index. */
+export function applySearchSettings(index: IWorkspaceSearchIndex, settings?: SearchSettings): void {
+  (index as MiniSearchWorkspaceIndex).settings = settings;
 }

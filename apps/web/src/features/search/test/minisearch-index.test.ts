@@ -275,3 +275,55 @@ test("a filter-only query still returns results", () => {
 test("an unknown kind: narrows to nothing rather than matching everything", () => {
   assert.deepEqual(index().search("kind:banana"), []);
 });
+
+// ---------------------------------------------------- user settings (Phase 3)
+
+test("field weights are user-tunable and change the ranking", () => {
+  const docs = toSearchDocs(
+    snapshot({
+      vaultPages: [
+        note("t1", "latent", "unrelated prose"),
+        note("t2", "Unrelated title", "latent latent latent"),
+      ],
+    }),
+  );
+  const revision = searchRevision(docs);
+
+  const byDefault = buildSearchIndex(docs, revision).search("latent");
+  assert.equal(byDefault[0]!.entityId, "t1", "title normally wins");
+
+  const bodyHeavy = buildSearchIndex(docs, revision, {
+    weights: { title: 1, body: 20 },
+  }).search("latent");
+  assert.equal(bodyHeavy[0]!.entityId, "t2", "raising the body weight should flip it");
+});
+
+test("a downranked kind sinks but is not removed", () => {
+  const docs = toSearchDocs(
+    snapshot({
+      vaultPages: [note("n9", "Baseline")],
+      papers: [
+        {
+          id: "p9", title: "Baseline", authors: [], tags: [],
+          createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+        } as never,
+      ],
+    }),
+  );
+  const revision = searchRevision(docs);
+
+  const sunk = buildSearchIndex(docs, revision, { downrankedKinds: ["note"] }).search("baseline");
+
+  assert.ok(sunk.some((hit) => hit.kind === "note"), "downranking must not exclude");
+  assert.equal(sunk[0]!.kind, "paper", "the downranked kind should sort below");
+});
+
+test("excerpts are opt-in and highlight the matched terms", () => {
+  const without = index().search("message passing")[0]!;
+  assert.equal(without.excerpt, undefined, "excerpts cost a scan, so they are off by default");
+
+  const hit = index().search("message passing", { excerpts: true })[0]!;
+  assert.ok(hit.excerpt);
+  assert.ok(hit.excerpt!.highlights.length > 0);
+  assert.match(hit.excerpt!.text, /Message passing/i);
+});

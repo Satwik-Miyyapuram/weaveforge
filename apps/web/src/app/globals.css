@@ -1854,6 +1854,49 @@ a.entity-icon-btn:hover {
 }
 .jump-to-meta { font-size: 0.75rem; color: var(--muted); }
 
+/* Result snippet. Clamped to two lines so a long note cannot push the rest of
+   the results below the fold. */
+.jump-to-excerpt {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* `mark` defaults to a yellow the themes never use; tint the accent instead. */
+.jump-to-excerpt mark {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  color: var(--ink);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.jump-to-history {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0 0 8px;
+}
+.jump-to-chip {
+  border: 1px solid var(--line);
+  background: var(--surface2);
+  color: var(--muted);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.jump-to-chip:hover { color: var(--ink); border-color: var(--border-strong); }
+
+.jump-to-create {
+  color: var(--accent) !important;
+  font-size: 0.85rem;
+}
+
 .related-papers { min-width: 0; }
 .related-papers-panel { margin-top: 8px; min-width: 0; }
 .related-papers-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
