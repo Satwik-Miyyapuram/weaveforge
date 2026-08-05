@@ -68,6 +68,25 @@ test("reading-list membership is fetched for the collected list ids", async () =
   assert.equal(snapshot.readingListItems.length, 1);
 });
 
+test("never reaches for a lossy summary reader when one is offered", async () => {
+  // The failure this guards: a reader that also exposes `listSummaries()` — the
+  // card projection, which returns `body: ""`. Picking it here is what emptied
+  // the export. If someone "optimises" the snapshot onto summaries, this fails.
+  let summariesCalled = false;
+  const dualReader = {
+    list: async () => [{ id: "n1", title: "Method", body: "full body" } as never],
+    listSummaries: async () => {
+      summariesCalled = true;
+      return [{ id: "n1", title: "Method", body: "" } as never];
+    },
+  };
+
+  const snapshot = await collectWorkspaceSnapshot(readers({ vaultPages: dualReader }), () => NOW);
+
+  assert.equal(summariesCalled, false, "snapshot called the lossy summary reader");
+  assert.equal(snapshot.vaultPages[0]?.body, "full body");
+});
+
 test("counts summarise the snapshot for the export manifest", async () => {
   const snapshot = await collectWorkspaceSnapshot(readers(), () => NOW);
 

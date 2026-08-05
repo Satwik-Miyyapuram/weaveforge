@@ -3,6 +3,7 @@
  * SOLID boundary checks for CI / pre-PR. Exits 1 when violations are found.
  */
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -72,6 +73,40 @@ const repoInUi = (() => {
 if (repoInUi.length) {
   console.error("FAIL: UI reaches repositories via getContainer (use facades):");
   for (const line of repoInUi) console.error(`  ${line}`);
+  failed = true;
+}
+
+// The workspace snapshot is the full read of a project behind the export, the
+// folder mirror, and the search index. It must come from repositories: the
+// screen facades return card projections that drop note bodies and paper
+// abstract/bibtex/metadata, and both attachment scans key off those fields.
+// Reading through them once shipped exports with empty notes and no assets.
+const snapshotConsumers = [
+  "apps/web/src/features/export/application/export-user-data.ts",
+];
+for (const file of snapshotConsumers) {
+  const source = readFileSync(path.join(root, file), "utf8");
+  for (const banned of ["loadScreenData(", "listSummaries("]) {
+    if (source.includes(banned)) {
+      console.error(
+        `FAIL: ${file} calls ${banned} — build from container.workspace.snapshot() instead.\n` +
+          "      Card projections drop note bodies and paper metadata, which silently\n" +
+          "      empties the export and drops every attachment.",
+      );
+      failed = true;
+    }
+  }
+}
+
+const facadeWiredSnapshot = (() => {
+  const source = readFileSync(path.join(root, "apps/web/src/create-app-container.ts"), "utf8");
+  const wiring = /new WorkspaceFacade\(\{([\s\S]*?)\}\)/.exec(source)?.[1] ?? "";
+  return [...wiring.matchAll(/^\s*\w+:\s*([\w.]*Facade)\b/gm)].map((m) => m[1]);
+})();
+if (facadeWiredSnapshot.length) {
+  console.error(
+    `FAIL: WorkspaceFacade is wired with facades (${facadeWiredSnapshot.join(", ")}) — pass repositories.`,
+  );
   failed = true;
 }
 
