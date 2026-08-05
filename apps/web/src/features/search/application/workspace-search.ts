@@ -1,7 +1,14 @@
 import {
+  buildWikiGraph,
+  findRelated,
+  graphDegrees,
+  graphDensity,
   searchRevision,
   toPdfSearchDocs,
   toSearchDocs,
+  type GraphDensity,
+  type RelatedResult,
+  type WikiGraph,
   type IWorkspaceSearchIndex,
   type SearchHit,
   type SearchQueryOptions,
@@ -23,6 +30,8 @@ export class WorkspaceSearch {
   private index: IWorkspaceSearchIndex | null = null;
   private building: Promise<IWorkspaceSearchIndex> | null = null;
   private settings: SearchSettings | undefined;
+  private graph: WikiGraph | null = null;
+  private density: GraphDensity | null = null;
 
   constructor(
     private readonly deps: {
@@ -60,9 +69,16 @@ export class WorkspaceSearch {
       this.deps.snapshot(),
       loadPdfTexts(projectId),
     ]);
+    // Build the link graph first: its degrees are the primary document-level
+    // ranking signal, so documents have to be projected with them already in
+    // place rather than patched afterwards.
+    this.graph = buildWikiGraph(snapshot);
+    this.density = graphDensity(this.graph);
+    const degrees = graphDegrees(this.graph);
+
     // PDF pages join the same index: they are just documents with a page
     // number, so filters, ranking, and excerpting all apply unchanged.
-    const docs = [...toSearchDocs(snapshot), ...toPdfSearchDocs(pdfTexts)];
+    const docs = [...toSearchDocs(snapshot, degrees), ...toPdfSearchDocs(pdfTexts, degrees)];
     const revision = searchRevision(docs);
 
     // A cached index is only trusted when its revision matches the corpus we
@@ -96,8 +112,46 @@ export class WorkspaceSearch {
     if (this.index) applySearchSettings(this.index, settings);
   }
 
+  /**
+   * Documents related to a seed. Tries graph expansion, then lexical
+   * similarity, then shared tags — the arm is reported so the UI can explain a
+   * thin result instead of leaving it puzzling.
+   */
+  related(seedId: string, limit = 8): RelatedResult[] {
+    if (!this.graph || !this.index) return [];
+    const index = this.index;
+    return findRelated(seedId, {
+      graph: this.graph,
+      // More-like-this: search the seed's own title, which is the one piece of
+      // its text available without holding the corpus in memory here.
+      lexical: (id, max) => {
+        const title = id.split(":").slice(1).join(":");
+        return index
+          .search(title, { limit: max + 1 })
+          .filter((hit) => hit.id !== id)
+          .map((hit) => ({ id: hit.id, score: hit.score }));
+      },
+    }, limit);
+  }
+
+  /** The link graph behind ranking and related-document lookup. */
+  get wikiGraph(): WikiGraph | null {
+    return this.graph;
+  }
+
+  /**
+   * How connected the workspace is. Worth surfacing: on a sparse graph the
+   * related-documents cascade falls back to lexical, and that is a fact about
+   * the workspace rather than a bug.
+   */
+  get graphStats(): GraphDensity | null {
+    return this.density;
+  }
+
   /** Drop the in-memory index so the next `ensure()` rebuilds it. */
   invalidate(): void {
     this.index = null;
+    this.graph = null;
+    this.density = null;
   }
 }
