@@ -1921,6 +1921,9 @@ a.entity-icon-btn:hover {
 
 /* ---- Wiki screen ---- */
 .wiki-plan-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+/* A workspace can hold hundreds of sources; the list scrolls rather than
+   pushing the button that acts on it off the screen. */
+.wiki-source-list { max-height: 260px; overflow-y: auto; padding-right: 4px; }
 .wiki-lint-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 6px; }
 .wiki-lint-list li {
   font-size: 0.85rem;

@@ -13,6 +13,7 @@ import {
   applyMerge,
   previewMerge,
   previewWikiBuild,
+  wikiSourceDocuments,
   proposeMissingPage,
   proposeWikiPages,
   regenerateWikiIndex,
@@ -37,6 +38,8 @@ export function WikiScreen() {
   const [merge, setMerge] = useState<{ primaryId: string; secondaryId: string } | null>(null);
   const [provider, setProvider] = useState(activeProviderLabel);
   const [indexed, setIndexed] = useState<string | null>(null);
+  const [sources, setSources] = useState<{ id: string; title: string }[] | null>(null);
+  const [scope, setScope] = useState<Set<string>>(new Set());
 
   // The provider is configured in Settings, which is a different tree; without
   // this the copy here would keep claiming the scan runs on-device after the
@@ -59,12 +62,27 @@ export function WikiScreen() {
     void refreshLint();
   }, [refreshLint]);
 
-  async function scan() {
+  /** Show the documents so a scan can be narrowed before it costs anything. */
+  async function chooseSources() {
+    setBusy("scan");
+    setError(null);
+    try {
+      const documents = await wikiSourceDocuments();
+      setSources(documents.map((doc) => ({ id: doc.id, title: doc.title })));
+      setScope(new Set(documents.map((doc) => doc.id)));
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function scan(sourceIds?: readonly string[]) {
     setBusy("scan");
     setError(null);
     setQueued(null);
     try {
-      const result = await previewWikiBuild();
+      const result = await previewWikiBuild(undefined, sourceIds);
       setPreview(result);
       // Everything proposed starts selected: the common case is accepting the
       // scan, and unticking a few is less work than ticking most.
@@ -160,9 +178,69 @@ export function WikiScreen() {
         </p>
         <div className="screen-actions">
           <button className="btn-secondary" type="button" disabled={busy !== null} onClick={() => void scan()}>
-            {busy === "scan" ? "Scanning…" : "Scan for concepts"}
+            {busy === "scan" && !sources ? "Scanning…" : "Scan everything"}
+          </button>
+          {/* With a model configured a scan costs the user money per document,
+              so narrowing it has to be reachable before running, not after. */}
+          <button
+            className="btn-ghost"
+            type="button"
+            disabled={busy !== null}
+            onClick={() => (sources ? setSources(null) : void chooseSources())}
+          >
+            {sources ? "Cancel" : "Choose what to scan…"}
           </button>
         </div>
+
+        {sources && (
+          <>
+            <p className="muted">
+              {scope.size} of {sources.length} selected.{" "}
+              <button className="link-btn" type="button" onClick={() => setScope(new Set())}>
+                Select none
+              </button>{" "}
+              <button
+                className="link-btn"
+                type="button"
+                onClick={() => setScope(new Set(sources.map((source) => source.id)))}
+              >
+                Select all
+              </button>
+            </p>
+            <ul className="wiki-plan-list wiki-source-list">
+              {sources.map((source) => (
+                <li key={source.id}>
+                  <label className="field-inline">
+                    <input
+                      type="checkbox"
+                      className="themed-check"
+                      checked={scope.has(source.id)}
+                      onChange={() =>
+                        setScope((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(source.id)) next.delete(source.id);
+                          else next.add(source.id);
+                          return next;
+                        })
+                      }
+                    />
+                    <span>{source.title}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div className="screen-actions">
+              <button
+                className="btn-primary"
+                type="button"
+                disabled={busy !== null || scope.size === 0}
+                onClick={() => void scan([...scope])}
+              >
+                {busy === "scan" ? "Scanning…" : `Scan ${scope.size} document${scope.size === 1 ? "" : "s"}`}
+              </button>
+            </div>
+          </>
+        )}
 
         {queued !== null && (
           <p className="muted">

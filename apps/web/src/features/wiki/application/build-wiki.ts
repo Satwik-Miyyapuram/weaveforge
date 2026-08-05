@@ -29,20 +29,25 @@ import { modelExtractor } from "@/features/ai-assistant/application/ai-provider-
 /** Notes and papers are the source material; generated pages are excluded. */
 export const WIKI_ROOT_TITLE = "Wiki";
 
-export async function wikiSourceDocuments(): Promise<ExtractionDocument[]> {
+export async function wikiSourceDocuments(
+  /** Restrict to these ids. Omitted means every note and paper. */
+  sourceIds?: readonly string[],
+): Promise<ExtractionDocument[]> {
   const snapshot = await getContainer().workspace.snapshot();
   const wikiRoot = snapshot.vaultPages.find((page) => page.title === WIKI_ROOT_TITLE);
   const generated = new Set(
     wikiRoot ? snapshot.vaultPages.filter((p) => p.parentId === wikiRoot.id).map((p) => p.id) : [],
   );
+  const wanted = sourceIds ? new Set(sourceIds) : null;
+  const chosen = (id: string) => !wanted || wanted.has(id);
 
   return [
     // Extracting from generated pages would feed the wiki its own output and
     // amplify whatever it got wrong on the first pass.
     ...snapshot.vaultPages
-      .filter((page) => !generated.has(page.id))
+      .filter((page) => !generated.has(page.id) && chosen(page.id))
       .map((page) => ({ id: page.id, title: page.title, text: page.body })),
-    ...snapshot.papers.map((paper) => ({
+    ...snapshot.papers.filter((paper) => chosen(paper.id)).map((paper) => ({
       id: paper.id,
       title: paper.title,
       text: [paper.abstract, paper.summary].filter(Boolean).join("\n\n"),
@@ -89,8 +94,10 @@ export function defaultExtractor(): IConceptExtractor {
  */
 export async function previewWikiBuild(
   extractor: IConceptExtractor = defaultExtractor(),
+  /** Ids to read. Omitted scans everything, which is the usual case. */
+  sourceIds?: readonly string[],
 ): Promise<WikiBuildPreview> {
-  const documents = await wikiSourceDocuments();
+  const documents = await wikiSourceDocuments(sourceIds);
   const existing = await existingWikiPages();
   const titles = existing.map((page) => page.title);
 
