@@ -14,6 +14,8 @@ import { useProject } from "@/features/projects";
 import { OrgPanel } from "@/features/org";
 import { SyncSettings } from "@/features/sync";
 import { SearchSettingsPanel } from "./search-settings-panel";
+import { WorkspaceFolderPanel } from "./workspace-folder-panel";
+import { AiProviderPanel } from "./ai-provider-panel";
 import { AccountInfoPanel } from "./account-info-panel";
 import { PrivacyNotice } from "./privacy-notice";
 import { DeleteAccountPanel } from "./delete-account-panel";
@@ -39,6 +41,7 @@ const SETTINGS_TABS = [
   { id: "org", label: "Org" },
   { id: "appearance", label: "Appearance" },
   { id: "search", label: "Search" },
+  { id: "folder", label: "Folder" },
   { id: "ai", label: "AI" },
   { id: "tokens", label: "Tokens" },
   { id: "integrations", label: "Integrations" },
@@ -244,6 +247,10 @@ export function SettingsScreen() {
           <OrgPanel />
         </div>
       )}
+
+      {tab === "folder" && <WorkspaceFolderPanel />}
+
+      {tab === "ai" && <AiProviderPanel />}
 
       {tab === "search" && (
         <SearchSettingsPanel
