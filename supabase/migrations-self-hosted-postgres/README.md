@@ -15,7 +15,8 @@ as these instructions once said, fails on the first file.
 
 1. `0000_self_host_prereqs.sql` — roles and schema stubs.
 2. Every file in [`../migrations/`](../migrations/), `0001` … latest.
-3. Everything else in this folder.
+3. Everything else in this folder, in order — `0025` (auth stub) then
+   `0026` (grants, which needs the tables to exist).
 
 Use [`scripts/apply-migrations-oci.sh`](../../scripts/apply-migrations-oci.sh),
 which does exactly that and verifies the result. Manually:
