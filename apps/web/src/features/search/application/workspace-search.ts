@@ -1,6 +1,7 @@
 import {
   LARGE_CORPUS_WARNING,
   buildWikiGraph,
+  fuseRankings,
   findRelated,
   graphDegrees,
   graphDensity,
@@ -14,6 +15,7 @@ import {
   type RelatedResult,
   type WikiGraph,
   type IWorkspaceSearchIndex,
+  type SearchDoc,
   type SearchHit,
   type SearchKind,
   type SearchQueryOptions,
@@ -21,6 +23,7 @@ import {
   type WorkspaceSnapshot,
 } from "@thesis/core";
 import { applySearchSettings, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
+import type { SemanticIndex } from "./semantic-index";
 import { idbGetSearchIndex, idbSetSearchIndex } from "../infrastructure/search-index-idb";
 import { loadPdfTexts, removePdfTexts } from "../infrastructure/pdf-text-store";
 
@@ -40,8 +43,12 @@ export class WorkspaceSearch {
   private documentCount = 0;
   /** Kinds whose documents no longer match the database. */
   private readonly stale = new Set<SearchKind>();
+  /** The optional semantic arm; null unless the user turned it on. */
+  private semantic: SemanticIndex | null = null;
   /** Pages held per paper, so a re-extraction knows what to retract. */
   private pdfPageCounts = new Map<string, number>();
+  /** The projection the index was built from, kept for the semantic arm. */
+  private docs: readonly SearchDoc[] = [];
 
   constructor(
     private readonly deps: {
@@ -127,6 +134,7 @@ export class WorkspaceSearch {
       ...toAnnotationSearchDocs(snapshot.readerAnnotations, paperTitles, degrees),
     ];
     this.documentCount = docs.length;
+    this.docs = docs;
     const revision = searchRevision(docs);
 
     // A cached index is only trusted when its revision matches the corpus we
@@ -212,6 +220,69 @@ export class WorkspaceSearch {
   /** Synchronous query; returns nothing until the index is ready. */
   search(query: string, options?: SearchQueryOptions): readonly SearchHit[] {
     return this.index ? this.index.search(query, options) : [];
+  }
+
+  /**
+   * Attach or detach the semantic arm.
+   *
+   * Passed in rather than constructed here: building one downloads a model, and
+   * that is a decision for the settings screen to make and for this class to
+   * merely use.
+   */
+  setSemanticIndex(semantic: SemanticIndex | null): void {
+    this.semantic = semantic;
+  }
+
+  get semanticReady(): boolean {
+    return this.semantic?.ready ?? false;
+  }
+
+  /** Every document currently indexed, for the semantic arm to embed. */
+  indexedDocuments(): readonly SearchDoc[] {
+    return this.docs;
+  }
+
+  /**
+   * Keyword and semantic results, fused.
+   *
+   * Async because embedding the query is a forward pass through the encoder.
+   * The synchronous `search` stays for callers that type into a palette on
+   * every keystroke; this is for the ones that can await an answer.
+   *
+   * With no semantic arm this is the keyword ranking, unchanged — the fusion
+   * has to be invisible when there is nothing to fuse, or turning the feature
+   * off would quietly become a different product.
+   */
+  async searchHybrid(query: string, options: SearchQueryOptions = {}): Promise<readonly SearchHit[]> {
+    const keyword = this.search(query, options);
+    const semantic = this.semantic;
+    if (!semantic?.ready) return keyword;
+
+    let nearest: { id: string; score: number }[] = [];
+    try {
+      nearest = await semantic.search(query, options.limit ?? 30);
+    } catch {
+      // The encoder failing is not a reason to return nothing; the keyword arm
+      // is the one that always works.
+      return keyword;
+    }
+
+    // Semantic hits are ids; the stored fields live in the keyword index, so a
+    // document it does not hold cannot be rendered and is dropped.
+    const known = new Map(keyword.map((hit) => [hit.id, hit]));
+    const vectorHits = nearest.flatMap((hit) => {
+      const existing = known.get(hit.id);
+      if (existing) return [existing];
+      const rebuilt = this.index?.hitById(hit.id);
+      return rebuilt ? [rebuilt] : [];
+    });
+
+    // Keyword first, so its excerpt is the one that survives fusion.
+    return fuseRankings(
+      [{ items: keyword }, { items: vectorHits }],
+      (hit) => hit.id,
+      { limit: options.limit ?? 30 },
+    );
   }
 
   /**

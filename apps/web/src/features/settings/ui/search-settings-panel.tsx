@@ -18,6 +18,14 @@ import {
 } from "@/features/search/application/index-library-pdfs";
 import { formatError } from "@/lib/format-error";
 import { getContainer } from "@/bootstrap";
+import {
+  disableSemanticSearch,
+  enableSemanticSearch,
+  semanticEnabled,
+  semanticSize,
+  semanticSupported,
+} from "@/features/search/application/semantic-search";
+import type { EmbedProgress } from "@/features/search/application/semantic-index";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {
@@ -118,6 +126,7 @@ export function SearchSettingsPanel({
         Ignore Arabic diacritics when matching
       </label>
 
+      <SemanticSearchToggle />
       <LibraryPdfIndexing />
       <IndexSize />
     </div>
@@ -250,5 +259,94 @@ function IndexSize() {
         ? " — large enough that searching may feel slow on a modest device. PDF pages are usually most of it."
         : "."}
     </p>
+  );
+}
+
+/**
+ * Meaning-based search, opt-in.
+ *
+ * Off by default, and the copy says what it costs before the button is pressed.
+ * A one-time download of tens of megabytes and a pass over the whole corpus is
+ * not something to start on someone's behalf — least of all on a phone or a
+ * metered connection.
+ */
+function SemanticSearchToggle() {
+  const [on, setOn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<EmbedProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [passages, setPassages] = useState(0);
+
+  useEffect(() => {
+    setOn(semanticEnabled());
+    setPassages(semanticSize());
+  }, []);
+
+  if (!semanticSupported()) {
+    return (
+      <p className="muted jump-to-meta">
+        Meaning-based search needs Web Workers and WebAssembly, which this browser does not offer.
+        Keyword search is unaffected.
+      </p>
+    );
+  }
+
+  async function toggle(next: boolean) {
+    setBusy(true);
+    setError(null);
+    setProgress(null);
+    try {
+      if (next) {
+        await enableSemanticSearch({ onProgress: setProgress });
+        setPassages(semanticSize());
+      } else {
+        await disableSemanticSearch();
+        setPassages(0);
+      }
+      setOn(next);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+
+  const download = progress?.download;
+
+  return (
+    <div className="field">
+      <label className="field-inline">
+        <input
+          type="checkbox"
+          className="themed-check"
+          checked={on}
+          disabled={busy}
+          onChange={(e) => void toggle(e.target.checked)}
+        />
+        Also search by meaning, not just words
+      </label>
+      <p className="muted jump-to-meta">
+        Finds a passage that answers your question even when it shares no words with it. Runs
+        entirely on this device: a one-time ~25 MB model download, then a pass over your
+        workspace. Keyword search keeps working throughout, and both are combined in the results.
+      </p>
+
+      {error && <p className="error">{error}</p>}
+
+      {busy && (
+        <p className="muted" aria-live="polite">
+          {download
+            ? `Downloading the model — ${Math.round((download.loaded / Math.max(download.total, 1)) * 100)}%`
+            : progress
+              ? `Reading your workspace — ${progress.done} of ${progress.total} passages`
+              : "Starting…"}
+        </p>
+      )}
+
+      {on && !busy && passages > 0 && (
+        <p className="muted jump-to-meta">{passages.toLocaleString()} passages embedded.</p>
+      )}
+    </div>
   );
 }

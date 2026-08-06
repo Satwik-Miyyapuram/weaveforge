@@ -240,3 +240,98 @@ test("editing a paper leaves notes alone", async () => {
   assert.equal(search.corpusSize.documents, before, "count is unchanged by a no-op refresh");
   assert.equal(search.search("GAN").length, 1, "the note is still there");
 });
+
+// ------------------------------------------------- hybrid keyword + semantic
+
+/** A semantic arm that returns a fixed ranking, standing in for the encoder. */
+function fakeSemantic(ranking: readonly string[]) {
+  return {
+    ready: true,
+    async search(_query: string, _limit: number) {
+      return ranking.map((id, i) => ({ id, score: 1 - i * 0.1 }));
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex;
+}
+
+test("without a semantic arm, hybrid search is exactly the keyword ranking", async () => {
+  const search = searchFor({
+    vaultPages: [note("n1", "Attention", "positions"), note("n2", "Other", "unrelated")],
+  });
+  await search.ensure();
+
+  const keyword = search.search("attention", { limit: 10 });
+  const hybrid = await search.searchHybrid("attention", { limit: 10 });
+  assert.deepEqual(hybrid.map((h) => h.id), keyword.map((h) => h.id));
+});
+
+test("a document only the semantic arm found still reaches the results", async () => {
+  const search = searchFor({
+    vaultPages: [
+      note("n1", "Attention", "attention over positions"),
+      note("n2", "Latents", "the posterior stays close to the prior"),
+    ],
+  });
+  await search.ensure();
+  assert.equal(search.search("attention").some((h) => h.id === "note:n2"), false);
+
+  search.setSemanticIndex(fakeSemantic(["note:n2"]));
+  const hybrid = await search.searchHybrid("attention", { limit: 10 });
+
+  assert.ok(hybrid.some((h) => h.id === "note:n2"), "the vector arm contributes its own find");
+  assert.ok(hybrid.some((h) => h.id === "note:n1"), "the keyword arm keeps its own");
+});
+
+test("a document both arms rank leads the fused list", async () => {
+  const search = searchFor({
+    vaultPages: [
+      note("n1", "Sideline", "attention"),
+      note("n2", "Centre", "attention attention attention"),
+    ],
+  });
+  await search.ensure();
+
+  search.setSemanticIndex(fakeSemantic(["note:n1"]));
+  const hybrid = await search.searchHybrid("attention", { limit: 10 });
+  assert.equal(hybrid[0]!.id, "note:n1", "second on keywords but first on meaning wins");
+});
+
+test("a semantic hit for a document the index no longer holds is dropped", async () => {
+  const search = searchFor({ vaultPages: [note("n1", "Attention", "attention")] });
+  await search.ensure();
+
+  search.setSemanticIndex(fakeSemantic(["note:deleted"]));
+  const hybrid = await search.searchHybrid("attention", { limit: 10 });
+
+  assert.equal(hybrid.some((h) => h.id === "note:deleted"), false, "a stale vector renders nothing");
+  assert.equal(hybrid.length, 1);
+});
+
+test("an encoder failure falls back to keywords rather than to nothing", async () => {
+  const search = searchFor({ vaultPages: [note("n1", "Attention", "attention")] });
+  await search.ensure();
+
+  search.setSemanticIndex({
+    ready: true,
+    async search() {
+      throw new Error("the model died");
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+
+  const hybrid = await search.searchHybrid("attention", { limit: 10 });
+  assert.equal(hybrid.length, 1, "the arm that always works still answers");
+});
+
+test("detaching the semantic arm restores keyword-only results", async () => {
+  const search = searchFor({ vaultPages: [note("n1", "Attention", "attention")] });
+  await search.ensure();
+
+  search.setSemanticIndex(fakeSemantic(["note:n1"]));
+  assert.equal(search.semanticReady, true);
+
+  search.setSemanticIndex(null);
+  assert.equal(search.semanticReady, false);
+  assert.deepEqual(
+    (await search.searchHybrid("attention", { limit: 10 })).map((h) => h.id),
+    search.search("attention", { limit: 10 }).map((h) => h.id),
+  );
+});

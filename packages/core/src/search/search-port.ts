@@ -100,6 +100,14 @@ export interface IWorkspaceSearchIndex {
    * difference can be retracted without touching anything else.
    */
   idsOfKind(kinds: readonly SearchKind[]): string[];
+  /**
+   * Rebuild a hit from stored fields, for a document another arm ranked.
+   *
+   * The semantic arm returns ids and nothing else; everything needed to render
+   * a result — title, href, kind, page — lives here. Null when the id is not
+   * held, which is how a stale vector for a deleted document is discarded.
+   */
+  hitById(id: string): SearchHit | null;
   search(query: string, options?: SearchQueryOptions): readonly SearchHit[];
   /** JSON for the IndexedDB cache. */
   serialize(): string;

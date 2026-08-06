@@ -113,6 +113,25 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
     return out;
   }
 
+  hitById(id: string): SearchHit | null {
+    const fields = this.stored.get(id);
+    if (!fields) return null;
+    return {
+      id,
+      kind: fields.kind,
+      entityId: fields.entityId,
+      title: fields.title,
+      href: fields.href,
+      // No score: this document was ranked by another arm, and inventing a
+      // keyword score for it would corrupt the fusion that asked for it.
+      score: 0,
+      // No matched terms either: nothing in this document matched a keyword, so
+      // highlighting it would draw a box around an arbitrary word.
+      terms: [],
+      ...(fields.page !== undefined ? { page: fields.page } : {}),
+    };
+  }
+
   remove(ids: readonly string[]): void {
     for (const id of ids) {
       if (!this.stored.has(id)) continue;

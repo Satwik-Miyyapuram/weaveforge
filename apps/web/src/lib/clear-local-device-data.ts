@@ -3,6 +3,7 @@ import { stopAllRelays } from "@/features/ai-assistant/infrastructure/mcp-relay-
 import { idbClearScreenCaches } from "@/lib/screen-cache-idb";
 import { idbClearSearchIndexes } from "@/features/search/infrastructure/search-index-idb";
 import { clearPdfTexts } from "@/features/search/infrastructure/pdf-text-store";
+import { idbClearVectors } from "@/features/search/infrastructure/vector-store-idb";
 
 function isAppStorageKey(key: string): boolean {
   return key.startsWith("tt:") || key.startsWith("thesis.");
@@ -42,5 +43,8 @@ export async function clearLocalDeviceData(): Promise<void> {
   // go on sign-out for the same reason the screen caches do.
   await idbClearSearchIndexes();
   await clearPdfTexts();
+  // Vectors encode the text they were built from; leaving them is leaving the
+  // workspace's content on a device the next person may be using.
+  await idbClearVectors();
   await clearServiceWorkerCaches();
 }
