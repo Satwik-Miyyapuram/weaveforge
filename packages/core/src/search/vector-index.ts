@@ -33,6 +33,37 @@ export class VectorDimensionError extends Error {
   }
 }
 
+/**
+ * Min-heap over parallel score/slot arrays, keyed by score.
+ *
+ * Two typed arrays rather than an array of objects: the scan touches these on
+ * every candidate, and the point of the heap is to stop allocating per hit.
+ */
+function siftUp(scores: Float64Array, slots: Int32Array, from: number): void {
+  let child = from;
+  while (child > 0) {
+    const parent = (child - 1) >> 1;
+    if (scores[parent]! <= scores[child]!) break;
+    [scores[parent], scores[child]] = [scores[child]!, scores[parent]!];
+    [slots[parent], slots[child]] = [slots[child]!, slots[parent]!];
+    child = parent;
+  }
+}
+
+function siftDown(scores: Float64Array, slots: Int32Array, held: number): void {
+  let parent = 0;
+  for (;;) {
+    const left = parent * 2 + 1;
+    if (left >= held) break;
+    const right = left + 1;
+    const smaller = right < held && scores[right]! < scores[left]! ? right : left;
+    if (scores[parent]! <= scores[smaller]!) break;
+    [scores[parent], scores[smaller]] = [scores[smaller]!, scores[parent]!];
+    [slots[parent], slots[smaller]] = [slots[smaller]!, slots[parent]!];
+    parent = smaller;
+  }
+}
+
 /** Grow by half again, so a bulk insert does not reallocate per vector. */
 function grownCapacity(needed: number, current: number): number {
   let next = Math.max(current, 64);
@@ -128,18 +159,43 @@ export class VectorIndex {
     if (this.count === 0 || limit <= 0) return [];
 
     const probe = normalizeVector(Float32Array.from(query));
-    const hits: VectorHit[] = [];
+
+    // A bounded heap rather than collecting every candidate and sorting.
+    // Measured, the dot products were never the cost: allocating one object per
+    // above-threshold vector and sorting the pile was. Keeping only `limit`
+    // entries makes the scan allocate a fixed amount however large the index.
+    const heapScores = new Float64Array(limit);
+    const heapSlots = new Int32Array(limit);
+    let held = 0;
+    // Everything below the weakest kept hit can be rejected with one compare.
+    let floor = minScore;
 
     for (let slot = 0; slot < this.count; slot += 1) {
       const offset = slot * this.dimensions;
       let score = 0;
       for (let d = 0; d < this.dimensions; d += 1) score += this.data[offset + d]! * probe[d]!;
-      if (score < minScore) continue;
-      hits.push({ id: this.ids[slot]!, score });
+      if (score < floor) continue;
+
+      if (held < limit) {
+        heapScores[held] = score;
+        heapSlots[held] = slot;
+        held += 1;
+        siftUp(heapScores, heapSlots, held - 1);
+        if (held === limit) floor = Math.max(minScore, heapScores[0]!);
+        continue;
+      }
+
+      // Full: the root is the weakest kept hit, so it is the one to displace.
+      heapScores[0] = score;
+      heapSlots[0] = slot;
+      siftDown(heapScores, heapSlots, held);
+      floor = Math.max(minScore, heapScores[0]!);
     }
 
+    const hits: VectorHit[] = [];
+    for (let i = 0; i < held; i += 1) hits.push({ id: this.ids[heapSlots[i]!]!, score: heapScores[i]! });
     hits.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
-    return hits.slice(0, limit);
+    return hits;
   }
 
   /** Ids currently held, in no meaningful order. */

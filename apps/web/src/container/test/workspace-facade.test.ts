@@ -64,6 +64,7 @@ function spyDeps() {
           return [];
         },
       },
+      projectId: () => "project-1",
     } as never,
   };
 }
@@ -114,9 +115,51 @@ test("fetches reading-list membership for the lists it collected", async () => {
         return [];
       },
     },
+    projectId: () => "project-1",
   } as never;
 
   await new WorkspaceFacade(deps).snapshot();
 
   assert.deepEqual(calls, ["l1,l2"]);
+});
+
+test("a second read does not re-download the bodies that did not change", async () => {
+  const { calls, deps } = spyDeps();
+  const facade = new WorkspaceFacade(deps);
+
+  await facade.snapshot();
+  await facade.snapshot();
+
+  // Notes and papers are most of a snapshot's bytes, so they are the two that
+  // describe themselves first and fetch only what differs.
+  for (const key of ["papers", "vaultPages"]) {
+    assert.deepEqual(
+      calls.get(key),
+      ["list", "listStamps"],
+      `${key} was read in full twice instead of by delta`,
+    );
+  }
+});
+
+test("switching project throws the baseline away rather than merging into it", async () => {
+  const { calls, deps } = spyDeps();
+  let project = "project-1";
+  const facade = new WorkspaceFacade({ ...(deps as object), projectId: () => project } as never);
+
+  await facade.snapshot();
+  project = "project-2";
+  await facade.snapshot();
+
+  // A delta merges into what it holds; reusing one project's rows as another's
+  // baseline would surface the wrong project's notes, not merely stale ones.
+  assert.deepEqual(calls.get("papers"), ["list", "list"]);
+});
+
+test("concurrent callers share one read", async () => {
+  const { calls, deps } = spyDeps();
+  const facade = new WorkspaceFacade(deps);
+
+  await Promise.all([facade.snapshot(), facade.snapshot(), facade.snapshot()]);
+
+  assert.deepEqual(calls.get("papers"), ["list"], "three screens mounting is still one read");
 });

@@ -4,6 +4,7 @@ import {
   type VaultPage,
   type VaultPageFilter,
   type VaultPageTreeNode,
+  type EntityStamp,
 } from "@thesis/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "@/backend/providers/postgres/pg-runner";
@@ -39,6 +40,34 @@ export class PostgresVaultPageRepository implements IVaultPageRepository {
       [id],
     );
     return row ? toDomain(row) : null;
+  }
+
+  /**
+   * Ids and versions only — the cheap first half of a delta read. Two columns
+   * over the table is a fraction of what the rows weigh, and it is what lets
+   * the caller ask for only the handful that changed.
+   */
+  async listStamps(): Promise<EntityStamp[]> {
+    const params: unknown[] = [];
+    let where = "1=1";
+    if (this.pid) {
+      params.push(this.pid);
+      where = `project_id = $${params.length}`;
+    }
+    const rows = await this.pg.query<{ id: string; updated_at: string | null; created_at: string }>(
+      `select id, updated_at, created_at from vault_pages where ${where} order by sort_order asc`,
+      params,
+    );
+    return rows.map((row) => ({ id: row.id, updatedAt: row.updated_at ?? row.created_at }));
+  }
+
+  async listByIds(ids: readonly string[]): Promise<VaultPage[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.pg.query<VaultPageRow>(
+      `select * from vault_pages where id = any($1)`,
+      [ids as string[]],
+    );
+    return rows.map(toDomain);
   }
 
   async list(filter?: VaultPageFilter): Promise<VaultPage[]> {

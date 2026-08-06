@@ -7,6 +7,7 @@ import {
   type VaultPageFilter,
   type VaultPageTreeNode,
 } from "@thesis/core";
+import type { EntityStamp } from "@thesis/core";
 import type { ProjectContext } from "@/lib/project-context";
 
 interface VaultPageRow {
@@ -19,6 +20,9 @@ interface VaultPageRow {
   created_at: string;
   updated_at: string;
 }
+
+/** Ids per `in (...)` request; the list travels in the URL. */
+const ID_CHUNK = 200;
 
 const TABLE = "vault_pages";
 
@@ -44,6 +48,34 @@ export class SupabaseVaultPageRepository implements IVaultPageRepository {
       .maybeSingle();
     if (error) throw error;
     return data ? toDomain(data as VaultPageRow) : null;
+  }
+
+  /** Ids and versions only — the cheap first half of a delta read. */
+  async listStamps(): Promise<EntityStamp[]> {
+    let query = this.db.from(TABLE).select("id,updated_at,created_at");
+    if (this.pid) query = query.eq("project_id", this.pid);
+    query = query.order("sort_order", { ascending: true });
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data as { id: string; updated_at: string | null; created_at: string }[]).map((row) => ({
+      id: row.id,
+      updatedAt: row.updated_at ?? row.created_at,
+    }));
+  }
+
+  async listByIds(ids: readonly string[]): Promise<VaultPage[]> {
+    if (ids.length === 0) return [];
+    const out: VaultPage[] = [];
+    // Chunked: an `in` list travels in the URL, and a large one is rejected.
+    for (let start = 0; start < ids.length; start += ID_CHUNK) {
+      const { data, error } = await this.db
+        .from(TABLE)
+        .select("*")
+        .in("id", ids.slice(start, start + ID_CHUNK) as string[]);
+      if (error) throw error;
+      out.push(...(data as VaultPageRow[]).map(toDomain));
+    }
+    return out;
   }
 
   async list(filter?: VaultPageFilter): Promise<VaultPage[]> {

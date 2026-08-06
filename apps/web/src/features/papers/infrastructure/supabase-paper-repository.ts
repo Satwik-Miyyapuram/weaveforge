@@ -6,6 +6,7 @@ import {
   type PaperFilter,
   type PaperStatus,
 } from "@thesis/core";
+import type { EntityStamp } from "@thesis/core";
 import type { ProjectContext } from "@/lib/project-context";
 import {
   attachEncryptedRow,
@@ -49,6 +50,9 @@ interface PaperRow {
 const TABLE = "papers";
 
 /** Full list projection for sync/search consumers that need abstracts/bibtex. */
+/** Ids per `in (...)` request; the list travels in the URL. */
+const ID_CHUNK = 200;
+
 const PAPER_LIST_COLUMNS =
   "id,title,authors,status,year,read_at,pdf_path,tags,created_at,updated_at,doi_bidx,arxiv_bidx,venue,abstract,summary,doi,arxiv_id,url,bibtex,metadata,rating,project_id";
 
@@ -72,6 +76,41 @@ export class SupabasePaperRepository implements IPaperRepository {
       .maybeSingle();
     if (error) throw error;
     return data ? toDomain(data as PaperRow) : null;
+  }
+
+  /**
+   * Ids and versions only — the cheap first half of a delta read.
+   *
+   * Two columns over the whole table is a fraction of a percent of what the
+   * rows themselves weigh, and it is what lets the caller ask for the handful
+   * that actually changed.
+   */
+  async listStamps(): Promise<EntityStamp[]> {
+    let query = this.db.from(TABLE).select("id,updated_at,created_at");
+    if (this.pid) query = query.eq("project_id", this.pid);
+    query = query.order("created_at", { ascending: false });
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data as { id: string; updated_at: string | null; created_at: string }[]).map((row) => ({
+      id: row.id,
+      updatedAt: row.updated_at ?? row.created_at,
+    }));
+  }
+
+  async listByIds(ids: readonly string[]): Promise<Paper[]> {
+    if (ids.length === 0) return [];
+    const out: Paper[] = [];
+    // Chunked: an `in` list is part of the URL, and a few thousand ids past
+    // the server's line-length limit fails the request outright.
+    for (let start = 0; start < ids.length; start += ID_CHUNK) {
+      const { data, error } = await this.db
+        .from(TABLE)
+        .select(PAPER_LIST_COLUMNS)
+        .in("id", ids.slice(start, start + ID_CHUNK) as string[]);
+      if (error) throw error;
+      out.push(...(data as PaperRow[]).map(toDomain));
+    }
+    return out;
   }
 
   async list(filter?: PaperFilter): Promise<Paper[]> {

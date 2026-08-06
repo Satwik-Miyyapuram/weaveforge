@@ -19,6 +19,11 @@ import {
 import { formatError } from "@/lib/format-error";
 import { getContainer } from "@/bootstrap";
 import {
+  WEB_CACHE_DOCUMENT_LIMIT,
+  isInstalledApp,
+  shouldPersistIndex,
+} from "@/features/search/infrastructure/index-cache-policy";
+import {
   disableSemanticSearch,
   enableSemanticSearch,
   semanticEnabled,
@@ -252,13 +257,25 @@ function IndexSize() {
 
   if (!size) return null;
 
+  const cached = shouldPersistIndex(size.documents);
+
   return (
-    <p className="muted jump-to-meta">
-      {size.documents.toLocaleString()} item{size.documents === 1 ? "" : "s"} indexed
-      {size.large
-        ? " — large enough that searching may feel slow on a modest device. PDF pages are usually most of it."
-        : "."}
-    </p>
+    <>
+      <p className="muted jump-to-meta">
+        {size.documents.toLocaleString()} item{size.documents === 1 ? "" : "s"} indexed
+        {size.large
+          ? " — large enough that searching may feel slow on a modest device. PDF pages are usually most of it."
+          : "."}
+      </p>
+      {!cached && (
+        <p className="muted jump-to-meta">
+          Too large to keep between visits in a browser tab, so it is rebuilt each session — in
+          the background, not while you wait. Above {WEB_CACHE_DOCUMENT_LIMIT.toLocaleString()}{" "}
+          items the cache costs more to write than the rebuild it saves.{" "}
+          {!isInstalledApp() && "Installing the app keeps it on this device instead."}
+        </p>
+      )}
+    </>
   );
 }
 

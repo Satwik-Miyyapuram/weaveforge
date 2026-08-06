@@ -18,6 +18,7 @@ import type { Milestone } from "../features/plan/domain/milestone.js";
 import type { LogEntry } from "../features/logbook/domain/log-entry.js";
 import type { Tag } from "../features/tags/domain/tag.js";
 import type { ReaderAnnotation } from "../reader/reader-annotation.js";
+import { readWithDelta, type DeltaLister } from "./snapshot-delta.js";
 
 /**
  * Minimal structural reader. Deliberately not the full `IReadableRepository`:
@@ -37,9 +38,15 @@ export interface WorkspaceLister<T> {
  * full-body reader; nothing in this module may call `listSummaries()`.
  */
 export interface WorkspaceSnapshotReaders {
-  papers: WorkspaceLister<Paper>;
+  /**
+   * Notes and papers carry bodies and abstracts and are most of a snapshot's
+   * bytes, so their readers may describe themselves first and be read by
+   * delta. Everything else is small enough that one list is cheaper than two
+   * round trips.
+   */
+  papers: DeltaLister<Paper>;
   /** MUST return full bodies. */
-  vaultPages: WorkspaceLister<VaultPage>;
+  vaultPages: DeltaLister<VaultPage>;
   readingLists: WorkspaceLister<ReadingList>;
   reportSections: WorkspaceLister<ReportSection>;
   experiments: WorkspaceLister<Experiment>;
@@ -113,6 +120,11 @@ async function listOr<T>(reader: WorkspaceLister<T> | undefined): Promise<T[]> {
 export async function collectWorkspaceSnapshot(
   readers: WorkspaceSnapshotReaders,
   now: () => string = () => new Date().toISOString(),
+  /**
+   * The last snapshot, if there is one. Given it, the two heavy entities are
+   * refreshed by delta instead of re-downloaded — see `snapshot-delta`.
+   */
+  previous?: WorkspaceSnapshot,
 ): Promise<WorkspaceSnapshot> {
   const [
     papers,
@@ -126,8 +138,8 @@ export async function collectWorkspaceSnapshot(
     tags,
     readerAnnotations,
   ] = await Promise.all([
-    readers.papers.list(),
-    readers.vaultPages.list(),
+    readWithDelta(readers.papers, previous?.papers, (row) => row.updatedAt || row.createdAt),
+    readWithDelta(readers.vaultPages, previous?.vaultPages, (row) => row.updatedAt || row.createdAt),
     readers.readingLists.list(),
     readers.reportSections.list(),
     readers.experiments.list(),

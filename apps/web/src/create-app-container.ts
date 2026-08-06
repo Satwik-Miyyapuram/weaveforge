@@ -137,6 +137,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
 
   registerSessionReset(() => {
     projectContext.projectId = null;
+    workspace.resetSnapshotBaseline();
     // The API key lives only in memory, but "only in memory" has to include
     // "not across a sign-out" — the next person at this browser is not the one
     // who typed it.
@@ -466,6 +467,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     // Reader highlights: `list` is per-paper, so the index needs the
     // project-wide read that carries the paper and page on each row.
     readerAnnotations: { list: () => backend.readerAnnotationRepository.listForProject() },
+    projectId: pid,
   });
 
   const container: AppContainer = {
