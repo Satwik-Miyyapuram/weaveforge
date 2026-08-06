@@ -89,7 +89,12 @@ export function AiProviderPanel() {
   }
 
   return (
-    <section id="settings-provider" className="card add-form settings-anchor">
+    <section
+      id="settings-provider"
+      className="card add-form settings-anchor"
+      role="tabpanel"
+      aria-labelledby="settings-tab-ai"
+    >
       <h3 className="settings-group">AI provider</h3>
       <p className="muted">
         Point WeaveForge at any OpenAI-compatible, Anthropic, or Ollama endpoint. Calls go

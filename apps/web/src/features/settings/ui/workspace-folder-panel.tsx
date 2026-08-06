@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ImportDiff, WorkspaceCommit } from "@thesis/core";
 import { formatError } from "@/lib/format-error";
 import {
@@ -32,6 +32,7 @@ export function WorkspaceFolderPanel() {
   const [status, setStatus] = useState<string | null>(null);
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
   const [diff, setDiff] = useState<(ImportDiff & { skipped?: string[] }) | null>(null);
+  const archiveInput = useRef<HTMLInputElement | null>(null);
 
   const run = async (label: string, work: () => Promise<void>) => {
     setBusy(label);
@@ -46,7 +47,12 @@ export function WorkspaceFolderPanel() {
   };
 
   return (
-    <section id="settings-folder" className="card add-form settings-anchor">
+    <section
+      id="settings-folder"
+      className="card add-form settings-anchor"
+      role="tabpanel"
+      aria-labelledby="settings-tab-folder"
+    >
       <h3 className="settings-group">Folder</h3>
       <p className="muted">
         Write your workspace out as markdown you can open in Obsidian or VS Code. Every file
@@ -57,7 +63,7 @@ export function WorkspaceFolderPanel() {
       {status && <p className="muted">{status}</p>}
 
       {!session ? (
-        <>
+        <div className="field">
           <label className="field-inline">
             <input
               type="checkbox"
@@ -105,9 +111,9 @@ export function WorkspaceFolderPanel() {
               everywhere, but the files are not visible in Finder or Explorer.
             </p>
           )}
-        </>
+        </div>
       ) : (
-        <>
+        <div className="field">
           <p className="muted">
             Connected to {session.kind === "picked" ? "a folder on this device" : "browser storage"}
             {session.git === "isomorphic" ? ", with git history" : ""}.
@@ -173,7 +179,7 @@ export function WorkspaceFolderPanel() {
               </ul>
             </>
           )}
-        </>
+        </div>
       )}
 
       <h4 className="settings-group">Bring changes back in</h4>
@@ -181,19 +187,33 @@ export function WorkspaceFolderPanel() {
         Edited the files somewhere else? Import them here. Notes are matched by their recorded
         id, so renames are handled. You see the diff before anything is written.
       </p>
+      {/* The native control is driven by a real button rather than shown raw:
+          an unstyled "Choose File / No file chosen" is the one element on the
+          screen that does not belong to this app. */}
       <input
+        ref={archiveInput}
         type="file"
-        accept=".zip"
-        aria-label="Import a workspace ZIP"
-        disabled={busy !== null}
+        accept=".zip,application/zip"
+        hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
+          e.target.value = "";
           if (!file) return;
           void run("zip", async () => {
             setDiff(await previewArchiveImport(new Uint8Array(await file.arrayBuffer())));
           });
         }}
       />
+      <div className="screen-actions">
+        <button
+          className="btn-secondary"
+          type="button"
+          disabled={busy !== null}
+          onClick={() => archiveInput.current?.click()}
+        >
+          {busy === "zip" ? "Reading…" : "Import a ZIP…"}
+        </button>
+      </div>
 
       {diff && <ImportPreview diff={diff} onApplied={(msg) => { setStatus(msg); setDiff(null); }} />}
     </section>

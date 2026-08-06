@@ -1115,6 +1115,61 @@ textarea:focus {
   color: var(--accent-fg, #fff); font-size: 11px; line-height: 15px; text-align: center;
 }
 
+/* A checkbox and its label on one line. Alignment is flex-start rather than
+   centre so a label that wraps to two lines keeps its box beside the first
+   line instead of floating to the middle of the block. */
+.field-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.field-inline input[type="checkbox"] { margin-top: 2px; }
+
+/* Range inputs, themed. Unscoped because the browser default is a blue
+   the palette does not contain, and every place this app shows a slider
+   should look like the rest of it. */
+input[type="range"] {
+  width: 100%;
+  padding: 0;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 55%, transparent);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 55%, transparent);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 18%, transparent);
+}
 /* Native checkboxes restyled to match ms-check / theme tokens. */
 input[type="checkbox"].themed-check,
 label.graph-check input[type="checkbox"],
@@ -3337,43 +3392,6 @@ a.related-paper-url:hover { text-decoration: underline; }
   font-size: 0.8rem; color: var(--ink); cursor: pointer;
   line-height: 1.35;
 }
-.graph-settings-drawer input[type="range"] {
-  width: 100%;
-  padding: 0;
-  height: 20px;
-  margin: 0;
-  cursor: pointer;
-  accent-color: var(--accent);
-  background: transparent;
-}
-.graph-settings-drawer input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--line) 55%, transparent);
-}
-.graph-settings-drawer input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--surface);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 18%, transparent);
-}
-.graph-settings-drawer input[type="range"]::-moz-range-track {
-  height: 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--line) 55%, transparent);
-}
-.graph-settings-drawer input[type="range"]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--surface);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 18%, transparent);
-}
 .graph-settings-drawer input[type="search"] {
   width: 100%;
 }
@@ -3563,6 +3581,15 @@ a.related-paper-url:hover { text-decoration: underline; }
   justify-content: center;
   transition: background 0.15s, color 0.15s;
 }
+/* The search entry is a button, not a link — it opens a palette rather than
+   navigating. Reset the parts a button brings with it so it sits in the row
+   exactly like its neighbours. */
+button.nav-link {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
 .nav-link .nav-icon {
   width: var(--nav-icon-size);
   height: var(--nav-icon-size);
@@ -3659,7 +3686,7 @@ a.related-paper-url:hover { text-decoration: underline; }
     transition: background 0.15s, color 0.15s, padding 0.2s var(--layout-ease);
     overflow: hidden;
   }
-  .nav-link .nav-icon { width: calc(var(--icon-size) + 3px); height: calc(var(--icon-size) + 3px); flex: none; }
+.nav-link .nav-icon { width: calc(var(--icon-size) + 3px); height: calc(var(--icon-size) + 3px); flex: none; }
   .nav-link:hover { background: var(--pill); color: var(--ink); }
   .nav-home { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
   .nav-bottom.desktop-only {
