@@ -29,7 +29,8 @@
     "test:integration": "node ./scripts/run-integration-tests.mjs",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
-    "record:demos": "tsx e2e/demo-clips/record.ts"
+    "record:demos": "tsx e2e/demo-clips/record.ts",
+    "migrate": "./scripts/migrate-to-oracle.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1085.0",

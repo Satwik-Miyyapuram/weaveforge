@@ -8,6 +8,18 @@ export interface BackendConfig {
   readonly provider: BackendProviderId;
   /** Supabase project URL (required when provider = supabase). */
   readonly supabaseUrl?: string;
+  /**
+   * Where the data API lives, when it is not Supabase's.
+   *
+   * Supabase's REST endpoint is PostgREST, so a self-hosted PostgREST speaks
+   * the same protocol and the browser needs no rewriting — only a different
+   * address. Auth stays at `supabaseUrl` regardless: tokens are still issued by
+   * Supabase Auth, and the self-hosted PostgREST validates them with the same
+   * JWT secret.
+   *
+   * Unset means "same as Supabase", which is the current arrangement.
+   */
+  readonly dataUrl?: string;
   /** Supabase anon/public key (required when provider = supabase). */
   readonly supabaseAnonKey?: string;
   /** Service role key — server routes only (optional in browser bundle). */
@@ -34,6 +46,7 @@ function fromEnv(env: EnvReader): BackendConfig {
   return {
     provider,
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+    dataUrl: env.NEXT_PUBLIC_DATA_URL,
     supabaseAnonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET,

@@ -5,9 +5,9 @@
 > Steps 1–5 build and verify a replica of your data on OCI. They are ready, and
 > every one of them is reversible.
 >
-> **Step 6, the cutover itself, is not ready** — the browser talks to the
-> database over PostgREST, so switching the provider to `postgres` breaks the
-> client bundle. Step 6 explains the two ways to finish it. Read it before you
+> **Step 6, the cutover, is a second variable** — `NEXT_PUBLIC_DATA_URL`,
+> pointing at a PostgREST you run. Not `NEXT_PUBLIC_BACKEND_PROVIDER`, which is
+> server-side only and will break the browser bundle. Read Step 6 before you
 > plan the day.
 
 Supabase stays the database throughout. The migration only ever *reads* from
@@ -32,22 +32,24 @@ the migration holds cursors the transaction pooler will not.
 
 ---
 
-## Step 0 — Environment
+## The whole thing
 
 Put this in a file you do not commit (`.env.migration`):
 
 ```ini
-# Source: read-only, never written to
+# Source — read only, never written to.
+# Supabase → Project Settings → Database → Connection string → URI.
+# Session pooler or direct; NOT the transaction pooler.
 SOURCE_DATABASE_URL=postgresql://postgres.abcdef:PASSWORD@aws-0-eu-west-2.pooler.supabase.com:5432/postgres
 
-# Target: the OCI Postgres
+# Target — the OCI Postgres.
 DATABASE_URL=postgresql://thesis:PASSWORD@129.12.34.56:5432/thesis
 
-# Auth stays on Supabase, so these stay set after cutover
+# Auth stays on Supabase for good; these never go away.
 NEXT_PUBLIC_SUPABASE_URL=https://abcdef.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
-# Only if you are also moving images and artifacts
+# Only for images and artifacts (Step 5).
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 R2_ACCOUNT_ID=...
 R2_ACCESS_KEY_ID=...
@@ -55,74 +57,45 @@ R2_SECRET_ACCESS_KEY=...
 R2_BUCKET=thesis-tracker-hot
 ```
 
+Then:
+
 ```bash
 set -a && source .env.migration && set +a
+npm run migrate
 ```
 
----
+That runs preflight, applies the schema if it is missing, copies the data, and
+verifies the result. It stops at the first problem and says what to do about
+it, and every stage is safe to repeat — so after fixing whatever it named, run
+it again.
 
-## Step 1 — Preflight
+Expect, on a clean target: **40 tables, 109 policies**, then a table-by-table
+copy, then eight green checks ending in `Safe to cut over`.
 
-```bash
-npm run migrate:preflight
-```
-
-Checks both databases are reachable, the schema is applied, `auth.users` exists,
-and the connecting user can disable triggers. **It will not let you start a
-migration that cannot finish.** Fix anything it reports and run it again.
-
-If it says the target has no schema:
+### If you would rather go step by step
 
 ```bash
-./scripts/apply-migrations-oci.sh
-```
-
-Expect **40 tables and 109 policies**.
-
----
-
-## Step 2 — Dry run
-
-```bash
+npm run migrate:preflight   # is everything in place?
+npm run migrate:schema      # apply the schema
 npm run migrate:data -- --dry-run
-```
-
-Prints what is in the source, writes nothing. Sanity-check the counts against
-what you expect to own.
-
----
-
-## Step 3 — Migrate
-
-```bash
 npm run migrate:data
-```
-
-Safe to interrupt and safe to repeat. Conflicting rows are updated from the
-source, and triggers are disabled during the load so timestamps arrive exactly
-as they are on Supabase.
-
----
-
-## Step 4 — Verify
-
-```bash
 npm run migrate:verify
 ```
 
-This is the gate. It checks four things:
+### What the verify step actually checks
 
-1. **Row counts** match, table by table.
-2. **Contents** are byte-identical, by hashing each table ordered by primary key.
+1. **Row counts**, table by table.
+2. **Contents** — each table hashed, ordered by primary key. Byte-identical or
+   it fails.
 3. **Ownership** — every row's owner exists, and profiles kept their real role
    rather than the defaults a trigger would have written.
-4. **Row-level security** actually isolates: it connects as `authenticated`,
-   sets one user's claim, and asserts another user's rows are invisible.
+4. **Isolation** — it connects as `authenticated`, sets one user's claim, and
+   asserts another user's rows are invisible.
 
-**Do not continue unless it prints `Safe to cut over`.** Point 4 is not
-ceremony — Postgres does not apply RLS to a table's owner, so a
-misconfiguration here means every user can read every other user's data, and
-nothing else in this list would notice.
+**Do not go further unless it prints `Safe to cut over`.** Point 4 is the one
+that matters most: Postgres does not apply RLS to a table's owner, so a
+misconfiguration there means every user can read every other user's data, and
+nothing else in the list would notice.
 
 ---
 
@@ -143,58 +116,68 @@ Nothing is deleted from Supabase Storage. Leave it until you are sure.
 
 ## Step 6 — Cut over
 
-**Stop. This step is not ready, and setting the variable will break the app.**
+Setting `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` **will not work** and is not
+what you want. Twenty-two repositories run in the browser and reach the
+database over HTTP through PostgREST — that is what `this.db.from("papers")`
+compiles to — and a browser cannot open a Postgres connection. The provider
+switch is for server-side code only.
 
-`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` throws in the browser bundle, by
-design — see `wire-postgres-backend.client.ts`:
+The browser's data API is PostgREST, and Supabase's *is* PostgREST. So the
+cutover is to run your own, in front of your own Postgres, and point the client
+at it. Auth stays with Supabase for good.
 
-> Postgres backend is server-only (pg pool). Keep
-> `NEXT_PUBLIC_BACKEND_PROVIDER=supabase` for the browser bundle.
+`infra/oci/docker-compose.yml` already includes the service.
 
-The reason is architectural, not a missing flag. Twenty-two repositories run
-**in the browser** and reach the database over HTTP through PostgREST — that is
-what `this.db.from("papers")` compiles to. A browser cannot open a Postgres
-connection, so pointing the provider at `pg` leaves the client with nothing to
-talk to.
+### On the OCI box
 
-So after Steps 1–5 you have a **verified replica** of your data on OCI, kept
-current by re-running the migration, and an app still served from Supabase.
-That is a real and useful position — it is the shadow environment Phase 3 set
-out to build — but it is not a cutover.
+Add to `~/thesis-infra/.env`:
 
-### What cutover actually requires
+```ini
+# Supabase → Project Settings → API → JWT Settings → JWT Secret.
+# PostgREST validates the tokens Supabase Auth issues, so it needs the same one.
+SUPABASE_JWT_SECRET=...
 
-Two options. Neither is done.
+# Your app's origin. `*` is fine while this is only you.
+CORS_ALLOWED_ORIGINS=https://your-app.vercel.app
+```
 
-**Option A — PostgREST in front of OCI Postgres (recommended).**
-Supabase's data API *is* PostgREST. Run the same thing on the OCI box, give it
-the Supabase JWT secret so it validates the tokens auth already issues, and the
-browser keeps speaking the protocol it speaks today.
+```bash
+docker compose up -d postgrest
+curl -s http://localhost:3000/papers -H "Authorization: Bearer <a real token>" | head
+```
 
-- Run the `postgrest/postgrest` container against `DATABASE_URL`, with
-  `PGRST_JWT_SECRET` set to Supabase's JWT secret and `PGRST_DB_ANON_ROLE=anon`.
-- Split the data endpoint from the auth endpoint: `createSupabaseClient` builds
-  one client for both today, so this needs a second URL — auth continues to
-  point at Supabase, data points at PostgREST.
-- The schema already assumes exactly this: RLS policies, the `authenticated`
-  role, and `auth.uid()` reading `request.jwt.claim.sub`. `0026_self_host_grants.sql`
-  grants that role what it needs.
+An empty array is success — RLS is applied and that token owns no rows *yet*
+on this database. `401` means the JWT secret is wrong. A row you recognise
+means it is working.
 
-Roughly a day: mostly configuration, one real code change to separate the two
-client URLs.
+### In the app
 
-**Option B — the Phase 5 API layer.**
-Move all twenty-two repositories behind Next API routes so the browser talks to
-your server and only the server talks to Postgres. More code, more control,
-and it removes the PostgREST dependency entirely. Weeks, not days.
+One variable:
 
-Until one of them exists, leave `NEXT_PUBLIC_BACKEND_PROVIDER=supabase`.
+```ini
+NEXT_PUBLIC_DATA_URL=https://oci.example.com:3000
+```
+
+Leave `NEXT_PUBLIC_SUPABASE_URL` and the anon key exactly as they are, and
+leave `NEXT_PUBLIC_BACKEND_PROVIDER=supabase`. Redeploy.
+
+Table reads and writes now go to your Postgres; sign-in, sessions, storage and
+realtime still go to Supabase. Nothing else in the app changes, because nothing
+else knows the difference.
 
 ### Rolling back
 
-Nothing to roll back yet — you have not cut over. The migration never wrote to
-Supabase and never deleted anything, so the replica can be dropped and rebuilt
-freely.
+Remove `NEXT_PUBLIC_DATA_URL` and redeploy. Supabase still holds every row —
+the migration never wrote to it and never deleted anything. If you had already
+been writing to OCI, migrate those rows back first by swapping
+`SOURCE_DATABASE_URL` and `DATABASE_URL` and running `npm run migrate` again.
+
+### Put the box behind TLS before anyone else uses it
+
+A bare `:3000` over the public internet sends session tokens in the clear. Fine
+for a shadow environment you are testing alone; not fine once it is real. Put
+Caddy or nginx in front with a certificate, and point `NEXT_PUBLIC_DATA_URL` at
+`https://`.
 
 ---
 
@@ -218,9 +201,23 @@ freely.
 `./scripts/apply-migrations-oci.sh` again — it is idempotent.
 
 **Users see each other's data**
-Stop and roll back. This means the app is not running as `authenticated`.
-Check `pg-runner.ts` still issues `SET LOCAL ROLE`, and that `DATABASE_URL`
-does not point at a superuser — a superuser bypasses RLS regardless of role.
+Stop and roll back. Either the app is not running as `authenticated` — check
+`pg-runner.ts` still issues `SET LOCAL ROLE` — or `DATABASE_URL` points at a
+superuser, which bypasses RLS regardless of role. `PGRST_DB_URI` may connect as
+the owner; PostgREST switches role per request, which is what makes it safe.
+
+**Every list is empty after pointing at PostgREST, with no error**
+`auth.uid()` is returning null, so every policy denies. Re-apply
+`0000_self_host_prereqs.sql`: it reads both `request.jwt.claim.sub` (Supabase's
+shape) and `request.jwt.claims` (stock PostgREST's). An older copy read only
+the first and returned null behind PostgREST.
+
+**`401` from the data API**
+`PGRST_JWT_SECRET` does not match the one Supabase signs with. Copy it again
+from Project Settings → API → JWT Settings.
+
+**CORS errors in the browser console**
+`CORS_ALLOWED_ORIGINS` does not include your app's origin.
 
 **`cannot insert a non-DEFAULT value into column`**
 A generated column. The migration excludes them; if you see this, the target

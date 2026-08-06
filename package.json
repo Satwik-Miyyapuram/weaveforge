@@ -49,7 +49,8 @@
     "migrate:schema": "./scripts/apply-migrations-oci.sh",
     "migrate:data": "node scripts/migrate-supabase-to-postgres.mjs",
     "migrate:blobs": "node scripts/migrate-blobs.mjs",
-    "migrate:verify": "node scripts/verify-migration.mjs"
+    "migrate:verify": "node scripts/verify-migration.mjs",
+    "migrate": "./scripts/migrate-to-oracle.sh"
   },
   "devDependencies": {
     "supabase": "^2.109.1"

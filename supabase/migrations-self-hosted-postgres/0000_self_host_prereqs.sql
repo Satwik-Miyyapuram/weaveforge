@@ -46,20 +46,31 @@ create table if not exists auth.users (
 alter table auth.users add column if not exists raw_user_meta_data jsonb not null default '{}'::jsonb;
 
 /**
- * The current user id, read from the transaction-local claim.
+ * The current user id, from whichever way the caller stated it.
  *
- * `apps/web/src/backend/providers/postgres/pg-runner.ts` sets
- * `request.jwt.claim.sub` with `set_config(..., true)` per transaction, so this
- * returns null outside one — which fails every RLS policy closed rather than
- * open. That is the intended behaviour for a connection that has not said who
- * it is.
+ * Two shapes exist and both have to work.
+ *
+ * `request.jwt.claim.sub` is what Supabase's PostgREST sets, and what
+ * `pg-runner.ts` sets directly when the app talks to Postgres from the server.
+ *
+ * `request.jwt.claims` is what *stock* PostgREST sets — one JSON object holding
+ * every claim. Reading only the first shape means `auth.uid()` returns null
+ * behind a self-hosted PostgREST, and a null uid does not raise anything: every
+ * policy simply fails closed, so the app loads and every list is empty. That is
+ * a far worse failure than an error, because nothing points at the cause.
+ *
+ * Null outside a transaction that set either is deliberate — a connection that
+ * has not said who it is should see nothing.
  */
 create or replace function auth.uid()
 returns uuid
 language sql
 stable
 as $$
-  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
+  )::uuid;
 $$;
 
 create or replace function auth.role()
@@ -67,7 +78,11 @@ returns text
 language sql
 stable
 as $$
-  select coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), 'authenticated');
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    'authenticated'
+  );
 $$;
 
 -- -------------------------------------------------------------- storage

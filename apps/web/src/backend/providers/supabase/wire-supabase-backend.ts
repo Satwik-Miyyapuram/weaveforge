@@ -135,7 +135,7 @@ export function wireSupabaseBackend(
     );
   }
 
-  const db = createSupabaseClient(url, anonKey);
+  const db = createSupabaseClient(url, anonKey, config.dataUrl);
   const session = new SupabaseSessionProvider(db);
   const auth = new SupabaseAuthService(db);
   const adminProvisioner =
