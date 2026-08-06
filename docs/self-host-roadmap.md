@@ -84,6 +84,7 @@ BLOB_COLD_BUCKET=thesis-tracker-cold
 |-------|------|
 | **This index** | `docs/self-host-roadmap.md` |
 | **OCI Phase 3 (full)** | [`docs/backend/oci-phase3-setup.md`](backend/oci-phase3-setup.md) |
+| **Cutover runbook (Phase 4)** | [`docs/backend/migration-runbook.md`](backend/migration-runbook.md) |
 | Phase plan | [`docs/plans/completed/migration-plan.md`](plans/completed/migration-plan.md) |
 | Postgres provider | [`docs/backend/postgres-provider.md`](backend/postgres-provider.md) |
 | R2 setup | [`docs/storage/r2-setup.md`](storage/r2-setup.md) |
@@ -97,7 +98,7 @@ BLOB_COLD_BUCKET=thesis-tracker-cold
 Pick what matters most to you:
 
 1. **Product / thesis use** — run the app on Supabase; no infra work.
-2. **Phase 4 scripts** — implement `migrate:supabase-to-postgres` and blob export (so cutover is one command after OCI exists).
+2. ~~**Phase 4 scripts**~~ — done. `npm run migrate:preflight | migrate:schema | migrate:data | migrate:verify | migrate:blobs`, with the sequence written up in [`migration-runbook.md`](backend/migration-runbook.md).
 3. **Client + Postgres gap** — browser still uses Supabase wire until Phase 5 API layer; optional future work.
 4. **Python SDK + experiments** — push runs from training code if that is your focus.
 5. **Fix build prerender** — static export shows “undefined component” on some pages (pre-existing; compile succeeds).

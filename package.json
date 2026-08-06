@@ -44,7 +44,12 @@
     "build": "npm run build --workspace @thesis/web",
     "dev": "npm run dev --workspace @thesis/web",
     "serve": "npm run serve --workspace @thesis/web",
-    "start": "npm run start --workspace @thesis/web"
+    "start": "npm run start --workspace @thesis/web",
+    "migrate:preflight": "node scripts/migration-preflight.mjs",
+    "migrate:schema": "./scripts/apply-migrations-oci.sh",
+    "migrate:data": "node scripts/migrate-supabase-to-postgres.mjs",
+    "migrate:blobs": "node scripts/migrate-blobs.mjs",
+    "migrate:verify": "node scripts/verify-migration.mjs"
   },
   "devDependencies": {
     "supabase": "^2.109.1"
