@@ -236,7 +236,6 @@ export function JumpToPalette() {
     setHistory(next);
     writeHistory(next);
     setOpen(false);
-    getContainer().search.invalidate();
     router.push(`/notes?page=${encodeURIComponent(page.id)}`);
   }, [query, history, router]);
 

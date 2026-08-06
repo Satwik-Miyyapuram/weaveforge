@@ -15,6 +15,7 @@ import {
   type WikiGraph,
   type IWorkspaceSearchIndex,
   type SearchHit,
+  type SearchKind,
   type SearchQueryOptions,
   type SearchSettings,
   type WorkspaceSnapshot,
@@ -37,6 +38,8 @@ export class WorkspaceSearch {
   private graph: WikiGraph | null = null;
   private density: GraphDensity | null = null;
   private documentCount = 0;
+  /** Kinds whose documents no longer match the database. */
+  private readonly stale = new Set<SearchKind>();
   /** Pages held per paper, so a re-extraction knows what to retract. */
   private pdfPageCounts = new Map<string, number>();
 
@@ -62,7 +65,10 @@ export class WorkspaceSearch {
    * screen mounting at once must not each tokenize the whole corpus.
    */
   async ensure(): Promise<IWorkspaceSearchIndex> {
-    if (this.index) return this.index;
+    if (this.index) {
+      await this.refreshStale();
+      return this.index;
+    }
     if (this.building) return this.building;
 
     this.building = this.build()
@@ -137,6 +143,70 @@ export class WorkspaceSearch {
     const index = buildSearchIndex(docs, revision, this.settings);
     void idbSetSearchIndex(projectId, index.serialize());
     return index;
+  }
+
+  /**
+   * A write happened; note which kinds it can have changed.
+   *
+   * Marking rather than rebuilding, for two reasons. A save should not pay for
+   * re-tokenizing the corpus while the user waits, and a burst of writes — an
+   * import, a bulk tag edit — should cost one refresh rather than one each.
+   * The work happens on the next `ensure()`, which is what every screen calls
+   * before it searches.
+   */
+  markStale(resourceType: string | undefined): void {
+    if (!this.index) return;
+    const kinds = KINDS_FOR_RESOURCE[resourceType ?? ""];
+    if (!kinds) {
+      // An unmapped write could have touched anything; the honest response is
+      // to distrust the whole index rather than guess at a subset.
+      this.invalidate();
+      return;
+    }
+    for (const kind of kinds) this.stale.add(kind);
+  }
+
+  /**
+   * Bring stale kinds back in line, leaving everything else alone.
+   *
+   * The snapshot read is not the cost it looks like: repository caches are
+   * cleared per resource type on write, so only the repository that changed
+   * actually goes to the network. What this avoids is the expensive half —
+   * re-tokenizing PDF page text, which is most of the index and is untouched by
+   * editing a note.
+   */
+  private async refreshStale(): Promise<void> {
+    const index = this.index;
+    if (!index || this.stale.size === 0) return;
+
+    const kinds = [...this.stale];
+    this.stale.clear();
+
+    const snapshot = await this.deps.snapshot();
+    // Links change with notes and papers, so the graph is rebuilt whenever one
+    // of those is stale — degrees are a ranking input for every kind.
+    if (kinds.some((kind) => kind === "note" || kind === "paper")) {
+      this.graph = buildWikiGraph(snapshot);
+      this.density = graphDensity(this.graph);
+    }
+    const degrees = this.graph ? graphDegrees(this.graph) : new Map<string, number>();
+
+    const wanted = new Set(kinds);
+    const fresh = [
+      ...toSearchDocs(snapshot, degrees),
+      ...toAnnotationSearchDocs(
+        snapshot.readerAnnotations,
+        new Map(snapshot.papers.map((paper) => [paper.id, paper.title])),
+        degrees,
+      ),
+    ].filter((doc) => wanted.has(doc.kind));
+
+    // Retract first: a note that was deleted has no fresh document to overwrite
+    // it, and would otherwise keep answering queries.
+    const before = index.idsOfKind(kinds);
+    index.remove(before);
+    index.add(fresh);
+    this.documentCount += fresh.length - before.length;
   }
 
   /** Synchronous query; returns nothing until the index is ready. */
@@ -237,5 +307,42 @@ export class WorkspaceSearch {
     this.density = null;
     this.documentCount = 0;
     this.pdfPageCounts = new Map();
+    this.stale.clear();
   }
 }
+
+/**
+ * Which search kinds a write to a repository can change.
+ *
+ * Deliberately narrow. A note edit cannot change a milestone, and treating
+ * every write as "rebuild everything" is what made adding one note cost the
+ * whole corpus. Resource types absent here fall back to a full rebuild rather
+ * than a guess — see `markStale`.
+ *
+ * `pdf` is in no entry: page documents are projected from extracted text, not
+ * from a repository row, and are refreshed by `indexPdf` when a document is
+ * read. Renaming a paper leaves its page documents showing the old title until
+ * the next full build — a property of where that title is stored, not of this
+ * map.
+ */
+const KINDS_FOR_RESOURCE: Record<string, readonly SearchKind[] | undefined> = {
+  paper: ["paper", "annotation"],
+  vault_page: ["note"],
+  reading_list: ["list"],
+  reading_list_item: [],
+  report_section: ["section"],
+  experiment: ["experiment"],
+  milestone: ["milestone"],
+  log_entry: ["log"],
+  // Relations and tags change how documents rank, not what they say.
+  paper_relation: ["paper", "note"],
+  tag: ["paper"],
+  paper_tag: ["paper"],
+  // Writes that cannot affect any indexed field.
+  comment: [],
+  share: [],
+  library_pin: [],
+  citation_alert_track: [],
+  dashboard_layout: [],
+  graph_settings: [],
+};

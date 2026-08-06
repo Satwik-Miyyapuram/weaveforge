@@ -270,7 +270,6 @@ export async function applyFolderImport(diff: ImportDiff): Promise<{ created: nu
   }
 
   pendingAssets = new Map();
-  if (created || updated) container.search.invalidate();
   return { created, updated };
 }
 

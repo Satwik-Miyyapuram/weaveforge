@@ -119,8 +119,15 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const pid = () => projectContext.projectId;
   const projectLww = new ProjectLwwInvalidator();
   setActiveProjectIdForCache(pid);
+  // Assigned below, once the container exists. Every repository write routes
+  // through this hook, and the search index has to hear about them or an edit
+  // stays invisible to search until the next reload.
+  let search: WorkspaceSearch | null = null;
   configureProjectCacheHooks({
-    onWrite: (resourceType) => projectLww.notifyPeers(resourceType),
+    onWrite: (resourceType) => {
+      projectLww.notifyPeers(resourceType);
+      search?.markStale(resourceType);
+    },
     register: (cache) => projectLww.registerCache(cache),
   });
   const backend = wireBackend(readBackendConfig(), projectContext, pid);
@@ -630,11 +637,11 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       manageReadingList,
     }),
     workspace,
-    search: new WorkspaceSearch({
+    search: (search = new WorkspaceSearch({
       snapshot: () => workspace.snapshot(),
       projectId: pid,
       loadSettings: async () => (await backend.manageSettings.get()).search,
-    }),
+    })),
     prefetchProject,
     integrationConfig: wiredIntegrations.config,
   };

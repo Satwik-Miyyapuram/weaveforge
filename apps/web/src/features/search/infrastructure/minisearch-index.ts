@@ -104,6 +104,15 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
     this.engine.addAll(docs as SearchDoc[]);
   }
 
+  idsOfKind(kinds: readonly SearchKind[]): string[] {
+    const wanted = new Set<string>(kinds);
+    const out: string[] = [];
+    for (const [id, fields] of this.stored) {
+      if (wanted.has(fields.kind)) out.push(id);
+    }
+    return out;
+  }
+
   remove(ids: readonly string[]): void {
     for (const id of ids) {
       if (!this.stored.has(id)) continue;

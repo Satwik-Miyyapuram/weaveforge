@@ -92,6 +92,14 @@ export interface IWorkspaceSearchIndex {
   replaceAll(docs: readonly SearchDoc[]): void;
   add(docs: readonly SearchDoc[]): void;
   remove(ids: readonly string[]): void;
+  /**
+   * Ids currently held for these kinds.
+   *
+   * What makes a partial refresh possible: re-projecting one kind produces the
+   * documents that should be there, and this says which are there now, so the
+   * difference can be retracted without touching anything else.
+   */
+  idsOfKind(kinds: readonly SearchKind[]): string[];
   search(query: string, options?: SearchQueryOptions): readonly SearchHit[];
   /** JSON for the IndexedDB cache. */
   serialize(): string;

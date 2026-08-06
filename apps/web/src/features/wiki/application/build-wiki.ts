@@ -211,7 +211,6 @@ export async function applyMerge(
     body: `${merged.body}${aliasNote}`,
   });
   await container.vault.manageVaultPage.remove(secondaryId);
-  container.search.invalidate();
 }
 
 /**
@@ -234,7 +233,6 @@ export async function regenerateWikiIndex(): Promise<{ pages: number }> {
     title: root.title,
     body: replaceWikiIndex(root.body, buildWikiIndex(pages)),
   });
-  container.search.invalidate();
   return { pages: pages.length };
 }
 
