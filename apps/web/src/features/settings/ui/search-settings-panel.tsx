@@ -191,8 +191,10 @@ function LibraryPdfIndexing() {
     <div className="field">
       <label htmlFor="index-library">Search inside PDFs</label>
       <p className="muted jump-to-meta">
-        PDFs are indexed as you read them, at no cost. Indexing the whole library downloads every
-        paper you have not opened yet, so it is a deliberate step.
+        PDFs are indexed as you read them, at no cost. Indexing the whole library fetches every
+        paper you have not opened yet — from arXiv and the other open-access hosts, not from us,
+        so it pauses a few seconds between papers to stay a welcome guest. Expect it to run in
+        the background for a while on a large library.
       </p>
       {error && <p className="error">{error}</p>}
       {progress && (

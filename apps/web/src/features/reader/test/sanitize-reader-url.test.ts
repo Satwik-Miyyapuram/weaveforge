@@ -111,3 +111,32 @@ test("sanitizePdfUrl still refuses object URLs, so links never point at blobs", 
   // "open original" link must remain an https URL.
   assert.equal(sanitizePdfUrl("blob:https://weaveforge.test/2f1c-4b"), null);
 });
+
+/**
+ * The library indexer decides which papers are worth fetching by asking this
+ * function, because the reader resolves them with it too. They diverged once:
+ * the indexer filtered on `pdfPath`, a field reserved for a storage ladder that
+ * does not exist and that nothing writes, so "index the whole library" reported
+ * every paper as unreadable and did nothing. These pin the agreement.
+ */
+test("a paper with only an arXiv id is readable, and so indexable", () => {
+  assert.ok(resolvePaperPdfUrl({ arxivId: "1706.03762" }));
+  assert.ok(resolvePaperPdfUrl({ arxivId: "arXiv:1706.03762" }));
+});
+
+test("a paper with only a direct PDF url is readable", () => {
+  assert.ok(resolvePaperPdfUrl({ url: "https://example.edu/papers/attention.pdf" }));
+});
+
+test("pdfPath alone makes nothing readable — it is ignored today", () => {
+  assert.equal(
+    resolvePaperPdfUrl({ pdfPath: "user/paper/file.pdf" }),
+    null,
+    "filtering a library scan on this field is what silently emptied it",
+  );
+});
+
+test("a paper with no url and no identifier is not readable", () => {
+  assert.equal(resolvePaperPdfUrl({}), null);
+  assert.equal(resolvePaperPdfUrl({ url: "   " }), null);
+});

@@ -1,5 +1,6 @@
 import type { DocumentPageText, Paper } from "@thesis/core";
 import { getContainer } from "@/bootstrap";
+import { resolvePaperPdfUrl } from "@/features/reader/application/sanitize-reader-url";
 import { resolvePaperPdfSourceForReader } from "@/features/reader/application/resolve-paper-pdf-for-reader";
 import { savePdfText } from "../infrastructure/pdf-text-store";
 
@@ -42,7 +43,16 @@ export async function papersNeedingIndex(): Promise<Paper[]> {
   const already = new Set(
     (await loadPdfTexts(container.projects.context.projectId)).map((entry) => entry.paperId),
   );
-  return snapshot.papers.filter((paper) => Boolean(paper.pdfPath) && !already.has(paper.id));
+  // Whether a paper can be read, asked of the thing that does the reading.
+  // `pdfPath` looked like the right field and is not: it is reserved for a
+  // storage-backed ladder that does not exist, nothing ever writes it, and
+  // filtering on it meant this returned an empty list for every workspace —
+  // "index the whole library" quietly did nothing at all.
+  return snapshot.papers.filter(
+    (paper) =>
+      !already.has(paper.id) &&
+      resolvePaperPdfUrl({ url: paper.url, arxivId: paper.arxivId }) !== null,
+  );
 }
 
 async function extractPages(bytes: ArrayBuffer): Promise<DocumentPageText[]> {
@@ -65,12 +75,37 @@ async function extractPages(bytes: ArrayBuffer): Promise<DocumentPageText[]> {
 }
 
 /**
+ * Courtesy pause between fetches.
+ *
+ * These PDFs come from arXiv and other open-access hosts, not from us — the
+ * app stores a URL and the client fetches it. A few hundred papers pulled in a
+ * tight loop from one address is exactly the pattern those hosts rate-limit,
+ * and arXiv asks for a delay between requests in as many words. Three seconds
+ * makes a 200-paper library a fifteen-minute background job, which is the
+ * honest price of not being blocked halfway through.
+ *
+ * Skipped when the copy is already in the local cache: no request is made, so
+ * there is nobody to be polite to.
+ */
+const FETCH_DELAY_MS = 3_000;
+
+const pause = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      resolve();
+    }, { once: true });
+  });
+
+/**
  * Read and index the given papers, one at a time.
  *
- * Sequential on purpose: parallel downloads of large PDFs would spike memory
- * and give the progress bar nothing meaningful to report. A failure on one
- * document is recorded and skipped rather than aborting the run — one
- * unreadable PDF should not cost the other hundred.
+ * Sequential on purpose: parallel downloads of large PDFs would spike memory,
+ * give the progress bar nothing meaningful to report, and turn a polite
+ * sequence of requests into a burst. A failure on one document is recorded and
+ * skipped rather than aborting the run — one unreadable PDF should not cost
+ * the other hundred.
  */
 export async function indexLibraryPdfs(
   papers: readonly Paper[],
@@ -96,11 +131,6 @@ export async function indexLibraryPdfs(
     if (options.signal?.aborted) break;
     report(position, paper.title);
 
-    if (!paper.pdfPath) {
-      skipped += 1;
-      continue;
-    }
-
     let revoke: string | undefined;
     try {
       // The same source ladder the reader uses, so a cached copy is reused and
@@ -118,6 +148,12 @@ export async function indexLibraryPdfs(
         continue;
       }
       revoke = "revokeUrl" in resolution ? resolution.revokeUrl : undefined;
+
+      // A cache hit is served from this device; anything else is somebody
+      // else's server, and gets the courtesy delay before it is asked again.
+      const fromCache = resolution.resolverId === "browser-cache";
+      if (!fromCache && indexed + failed > 0) await pause(FETCH_DELAY_MS, options.signal);
+      if (options.signal?.aborted) break;
 
       const bytes = await (await fetch(resolution.hit.url)).arrayBuffer();
       const pages = await extractPages(bytes);
