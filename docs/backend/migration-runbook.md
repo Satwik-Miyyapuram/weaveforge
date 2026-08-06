@@ -1,11 +1,18 @@
 # Cutover runbook — Supabase → self-hosted Postgres
 
-> **Read this once before starting.** Every step is reversible until the last
-> one, and the last one is a single environment variable.
+> **Read this once before starting.**
+>
+> Steps 1–5 build and verify a replica of your data on OCI. They are ready, and
+> every one of them is reversible.
+>
+> **Step 6, the cutover itself, is not ready** — the browser talks to the
+> database over PostgREST, so switching the provider to `postgres` breaks the
+> client bundle. Step 6 explains the two ways to finish it. Read it before you
+> plan the day.
 
-Supabase stays the database until you change `NEXT_PUBLIC_BACKEND_PROVIDER`.
-Everything before that is a copy: the migration only ever *reads* from Supabase,
-so a failed attempt costs time and nothing else.
+Supabase stays the database throughout. The migration only ever *reads* from
+it, so a failed attempt costs time and nothing else, and the app keeps serving
+from Supabase the entire time.
 
 **Auth never moves.** Users keep signing in through Supabase Auth. What moves is
 the data they own.
@@ -136,26 +143,64 @@ Nothing is deleted from Supabase Storage. Leave it until you are sure.
 
 ## Step 6 — Cut over
 
-One variable, in your deployment environment:
+**Stop. This step is not ready, and setting the variable will break the app.**
 
-```ini
-NEXT_PUBLIC_BACKEND_PROVIDER=postgres
-```
+`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` throws in the browser bundle, by
+design — see `wire-postgres-backend.client.ts`:
 
-Keep `DATABASE_URL` set, and keep the Supabase variables — auth still needs
-them. Redeploy.
+> Postgres backend is server-only (pg pool). Keep
+> `NEXT_PUBLIC_BACKEND_PROVIDER=supabase` for the browser bundle.
+
+The reason is architectural, not a missing flag. Twenty-two repositories run
+**in the browser** and reach the database over HTTP through PostgREST — that is
+what `this.db.from("papers")` compiles to. A browser cannot open a Postgres
+connection, so pointing the provider at `pg` leaves the client with nothing to
+talk to.
+
+So after Steps 1–5 you have a **verified replica** of your data on OCI, kept
+current by re-running the migration, and an app still served from Supabase.
+That is a real and useful position — it is the shadow environment Phase 3 set
+out to build — but it is not a cutover.
+
+### What cutover actually requires
+
+Two options. Neither is done.
+
+**Option A — PostgREST in front of OCI Postgres (recommended).**
+Supabase's data API *is* PostgREST. Run the same thing on the OCI box, give it
+the Supabase JWT secret so it validates the tokens auth already issues, and the
+browser keeps speaking the protocol it speaks today.
+
+- Run the `postgrest/postgrest` container against `DATABASE_URL`, with
+  `PGRST_JWT_SECRET` set to Supabase's JWT secret and `PGRST_DB_ANON_ROLE=anon`.
+- Split the data endpoint from the auth endpoint: `createSupabaseClient` builds
+  one client for both today, so this needs a second URL — auth continues to
+  point at Supabase, data points at PostgREST.
+- The schema already assumes exactly this: RLS policies, the `authenticated`
+  role, and `auth.uid()` reading `request.jwt.claim.sub`. `0026_self_host_grants.sql`
+  grants that role what it needs.
+
+Roughly a day: mostly configuration, one real code change to separate the two
+client URLs.
+
+**Option B — the Phase 5 API layer.**
+Move all twenty-two repositories behind Next API routes so the browser talks to
+your server and only the server talks to Postgres. More code, more control,
+and it removes the PostgREST dependency entirely. Weeks, not days.
+
+Until one of them exists, leave `NEXT_PUBLIC_BACKEND_PROVIDER=supabase`.
 
 ### Rolling back
 
-Set it back to `supabase` and redeploy. Supabase still has every row: the
-migration never wrote to it, and never deleted anything. The only thing lost is
-whatever was written to the new database while it was live — so if you are
-rolling back after real use, migrate that back first with the source and target
-swapped.
+Nothing to roll back yet — you have not cut over. The migration never wrote to
+Supabase and never deleted anything, so the replica can be dropped and rebuilt
+freely.
 
 ---
 
 ## Verify after cutover
+
+*(Applies once Step 6 is done.)*
 
 - Sign in. You are signing in through Supabase either way; if this fails the
   problem is auth config, not the migration.

@@ -98,8 +98,8 @@ BLOB_COLD_BUCKET=thesis-tracker-cold
 Pick what matters most to you:
 
 1. **Product / thesis use** — run the app on Supabase; no infra work.
-2. ~~**Phase 4 scripts**~~ — done. `npm run migrate:preflight | migrate:schema | migrate:data | migrate:verify | migrate:blobs`, with the sequence written up in [`migration-runbook.md`](backend/migration-runbook.md).
-3. **Client + Postgres gap** — browser still uses Supabase wire until Phase 5 API layer; optional future work.
+2. ~~**Phase 4 scripts**~~ — done and verified: `npm run migrate:preflight | migrate:schema | migrate:data | migrate:verify | migrate:blobs`, written up in [`migration-runbook.md`](backend/migration-runbook.md). This gets a **verified replica** onto OCI. It does **not** cut over — see below.
+3. **Phase 5 — the thing that actually moves traffic.** Twenty-two repositories run in the browser and reach the database through PostgREST, so `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` throws in the client bundle by design. Two routes: run PostgREST in front of OCI Postgres (about a day, mostly config), or move those repositories behind Next API routes (weeks). Detail in the runbook's Step 6.
 4. **Python SDK + experiments** — push runs from training code if that is your focus.
 5. **Fix build prerender** — static export shows “undefined component” on some pages (pre-existing; compile succeeds).
 
