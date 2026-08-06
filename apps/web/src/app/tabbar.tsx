@@ -8,6 +8,7 @@ import { getContainer } from "@/bootstrap";
 import { prefetchScreenForPath } from "@/lib/prefetch-screen";
 import type { LayoutBreakpoint, NavEnterAnim } from "@/lib/use-layout-breakpoint";
 import { NavIcon } from "./nav-icon";
+import { openSearchPalette } from "@/components/jump-to-palette";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ProjectSwitcher } from "@/features/projects";
 import { OrgSwitcher } from "@/features/org";
@@ -73,6 +74,14 @@ export function TabBar({
           <NavIcon name={homeNavItem.icon} />
           <span className="nav-label">{homeNavItem.label}</span>
         </Link>
+        {/* Search had no visible entry point at all — Ctrl/Cmd+K only, which is
+            undiscoverable and unreachable on a phone. It sits in the nav rather
+            than in a header because the nav is the one surface present on every
+            screen and at every breakpoint. */}
+        <button type="button" className="nav-link nav-search" onClick={openSearchPalette}>
+          <NavIcon name="search" />
+          <span className="nav-label">Search</span>
+        </button>
         {navGroups.map((group) => {
           const active = group.items.some((it) => pathname?.startsWith(it.path));
           return (

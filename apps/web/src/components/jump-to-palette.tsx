@@ -25,11 +25,27 @@ const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly Re
  * Kinds the palette searches. PDF pages are included but are not recent-target
  * kinds — they open the reader at a page rather than an entity screen.
  */
-const PALETTE_KINDS = [...RECENT_KINDS, "pdf"] as const;
+/**
+ * Kinds the palette shows. PDF pages and highlights are locations inside a
+ * paper rather than entities of their own, which is why they are listed here
+ * but never recorded as recent targets.
+ */
+const PALETTE_KINDS = [...RECENT_KINDS, "pdf", "annotation"] as const;
+
+/**
+ * Hits that point into a document rather than at one.
+ *
+ * A type predicate rather than a `Set.has` so what remains narrows to a
+ * `RecentTargetKind` — the recent-targets list only accepts entity kinds, and
+ * the compiler should be the thing enforcing that.
+ */
+function isInDocument(kind: JumpItem["kind"]): kind is "pdf" | "annotation" {
+  return kind === "pdf" || kind === "annotation";
+}
 
 type JumpItem = CiteCompletion & {
   id: string;
-  kind: RecentTargetKind | "pdf";
+  kind: RecentTargetKind | "pdf" | "annotation";
   href: string;
   recent?: boolean;
   excerpt?: SearchExcerpt;
@@ -51,6 +67,21 @@ function writeHistory(history: readonly string[]): void {
   } catch {
     /* storage disabled or full; history is a convenience, not state */
   }
+}
+
+/**
+ * Event the nav's search button fires.
+ *
+ * A DOM event rather than shared state or a context: the button lives in the
+ * navigation and the palette lives in the shell's main region, two unrelated
+ * trees, and threading a "please open" callback between them would put plumbing
+ * in every component along the way for one interaction.
+ */
+export const OPEN_SEARCH_EVENT = "weaveforge:open-search";
+
+/** Ask the palette to open, from anywhere. */
+export function openSearchPalette(): void {
+  window.dispatchEvent(new CustomEvent(OPEN_SEARCH_EVENT));
 }
 
 /**
@@ -105,21 +136,29 @@ export function JumpToPalette() {
     setItems([...recent, ...all.filter((item) => !recentKeys.has(`${item.kind}:${item.id}`))]);
   }, []);
 
+  const openPalette = useCallback(() => {
+    setOpen(true);
+    setQuery("");
+    setActive(0);
+    setHistory(readHistory());
+    void reload();
+  }, [reload]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen(true);
-        setQuery("");
-        setActive(0);
-        setHistory(readHistory());
-        void reload();
+        openPalette();
       }
       if (e.key === "Escape") setOpen(false);
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [reload]);
+    window.addEventListener(OPEN_SEARCH_EVENT, openPalette);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_SEARCH_EVENT, openPalette);
+    };
+  }, [openPalette]);
 
   const filtered = useMemo(() => {
     const q = query.trim();
@@ -137,13 +176,23 @@ export function JumpToPalette() {
       const byKey = new Map(items.map((item) => [`${item.kind}:${item.id}`, item]));
       return hits.map((hit) => {
         const kind = hit.kind as JumpItem["kind"];
-        const known = kind === "pdf" ? undefined : byKey.get(`${kind}:${hit.entityId}`);
+        const inDocument = isInDocument(kind);
+        // An in-document hit never reuses the paper's catalog entry: it has to
+        // keep its own page-specific href, or every highlight would navigate to
+        // the top of the paper.
+        const known = inDocument ? undefined : byKey.get(`${kind}:${hit.entityId}`);
+        const page = (hit.page ?? 0) + 1;
         const base = known ?? {
           title: hit.title,
           label: hit.title,
           // "PDF · page 12" reads better than a bare kind for a page hit.
-          detail: kind === "pdf" ? `PDF · page ${(hit.page ?? 0) + 1}` : kind,
-          id: kind === "pdf" ? `${hit.entityId}#${hit.page ?? 0}` : hit.entityId,
+          detail:
+            kind === "pdf"
+              ? `PDF · page ${page}`
+              : kind === "annotation"
+                ? `highlight · page ${page}`
+                : kind,
+          id: inDocument ? `${hit.entityId}#${kind}${hit.page ?? 0}` : hit.entityId,
           kind,
           href: hit.href,
         };
@@ -163,9 +212,10 @@ export function JumpToPalette() {
     const next = rememberSearchQuery(history, query);
     setHistory(next);
     writeHistory(next);
-    // Only entity screens are recent targets; a PDF page is a location inside
-    // one, and recording it would push the paper itself out of the list.
-    if (item.kind !== "pdf") {
+    // Only entity screens are recent targets; a PDF page or a highlight is a
+    // location inside one, and recording it would push the paper itself out of
+    // the list.
+    if (!isInDocument(item.kind)) {
       rememberRecentTarget(getContainer().projects.context.projectId, {
         kind: item.kind,
         id: item.id,
