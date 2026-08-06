@@ -11,6 +11,7 @@ export * from "./search-excerpt.js";
 export * from "./search-settings.js";
 export * from "./search-history.js";
 export * from "./pdf-search-document.js";
+export * from "./annotation-search-document.js";
 export * from "./wiki-graph.js";
 export * from "./personalized-pagerank.js";
 export * from "./related.js";

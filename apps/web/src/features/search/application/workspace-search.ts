@@ -6,6 +6,7 @@ import {
   graphDensity,
   pdfDocIdsFor,
   searchRevision,
+  toAnnotationSearchDocs,
   toPdfSearchDocs,
   toSearchDocs,
   type GraphDensity,
@@ -110,7 +111,15 @@ export class WorkspaceSearch {
 
     // PDF pages join the same index: they are just documents with a page
     // number, so filters, ranking, and excerpting all apply unchanged.
-    const docs = [...toSearchDocs(snapshot, degrees), ...toPdfSearchDocs(pdfTexts, degrees)];
+    // Highlights and their comments join the same index. A comment is often
+    // the only written trace of a thought, so leaving it out means search
+    // misses the thing most worth finding.
+    const paperTitles = new Map(snapshot.papers.map((paper) => [paper.id, paper.title]));
+    const docs = [
+      ...toSearchDocs(snapshot, degrees),
+      ...toPdfSearchDocs(pdfTexts, degrees),
+      ...toAnnotationSearchDocs(snapshot.readerAnnotations, paperTitles, degrees),
+    ];
     this.documentCount = docs.length;
     const revision = searchRevision(docs);
 

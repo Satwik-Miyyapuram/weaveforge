@@ -8,6 +8,7 @@ import type {
   ReaderAnnotation,
   ReaderAnnotationPatch,
   ReaderAnnotationType,
+  WorkspaceAnnotation,
 } from "@thesis/core";
 import { buildAnnotationSortIndex, isAnnotationSyncState, isReaderAnnotationType } from "@thesis/core";
 import type { ProjectContext } from "@/lib/project-context";
@@ -59,6 +60,29 @@ export class SupabaseReaderAnnotationRepository
       .order("sort_index", { ascending: true });
     if (error) throw error;
     return (data as ReaderAnnotationRow[]).map(toDomain);
+  }
+
+  /**
+   * Every annotation in the project, for the search index.
+   *
+   * Separate from `list` because that one answers "what is on this paper" and
+   * the caller already knows the paper; here the paper and page have to travel
+   * with each row or a hit cannot open where it came from.
+   */
+  async listForProject(): Promise<WorkspaceAnnotation[]> {
+    const projectId = this.ctx.projectId;
+    if (!projectId) return [];
+    const { data, error } = await this.db
+      .from(TABLE)
+      .select("*")
+      .eq("project_id", projectId)
+      .order("sort_index", { ascending: true });
+    if (error) throw error;
+    return (data as ReaderAnnotationRow[]).map((row) => ({
+      ...toDomain(row),
+      paperId: row.paper_id,
+      pageIndex: row.page_index,
+    }));
   }
 
   async create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation> {

@@ -79,6 +79,7 @@ export {
   type ReaderAnnotationPatch,
   type IReaderAnnotationSource,
   type IReaderAnnotationSink,
+  type IReaderAnnotationProjectSource,
   type AnnotationSyncState,
 } from "./reader-annotation.js";
 export {

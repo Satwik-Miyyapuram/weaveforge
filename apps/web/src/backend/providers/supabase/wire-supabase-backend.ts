@@ -31,6 +31,7 @@ import type {
   ILabSnapshotRepository,
   IPaperFieldRepository,
   IReaderAnnotationSink,
+  IReaderAnnotationProjectSource,
   IReaderAnnotationSource,
   IBlobStore,
 } from "@thesis/core";
@@ -115,7 +116,9 @@ export interface WiredSupabaseBackend {
   readonly annotationPinRepository: IAnnotationPinRepository;
   readonly annotationQuotationTypeRepository: IAnnotationQuotationTypeRepository;
   readonly labSnapshotRepository: ILabSnapshotRepository;
-  readonly readerAnnotationRepository: IReaderAnnotationSource & IReaderAnnotationSink;
+  readonly readerAnnotationRepository: IReaderAnnotationSource &
+    IReaderAnnotationSink &
+    IReaderAnnotationProjectSource;
   readonly paperFieldRepository: IPaperFieldRepository;
 }
 
@@ -305,7 +308,7 @@ export function wireSupabaseBackend(
   );
   const readerAnnotationRepository = cacheRepo(
     new SupabaseReaderAnnotationRepository(db, projectContext, session),
-    ["list"],
+    ["list", "listForProject"],
     ["create", "update", "remove"],
     pid,
     { resourceType: "paper" },

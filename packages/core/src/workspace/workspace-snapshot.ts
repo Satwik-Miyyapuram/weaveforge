@@ -17,6 +17,7 @@ import type { Experiment } from "../features/experiments/domain/experiment.js";
 import type { Milestone } from "../features/plan/domain/milestone.js";
 import type { LogEntry } from "../features/logbook/domain/log-entry.js";
 import type { Tag } from "../features/tags/domain/tag.js";
+import type { ReaderAnnotation } from "../reader/reader-annotation.js";
 
 /**
  * Minimal structural reader. Deliberately not the full `IReadableRepository`:
@@ -50,6 +51,27 @@ export interface WorkspaceSnapshotReaders {
   readingListItems?: {
     listItemsForLists(listIds: readonly string[]): Promise<ReadingListItem[]>;
   };
+  /**
+   * Optional: reader highlights and their comments, project-wide.
+   *
+   * Absent in deployments without the reader, and absent from the folder
+   * mirror — an annotation is a position in a PDF, and a markdown file cannot
+   * hold one. It is here because search needs it: a highlight's comment is
+   * often the only place a thought was written down.
+   */
+  readerAnnotations?: WorkspaceLister<WorkspaceAnnotation>;
+}
+
+/**
+ * A reader annotation with the context search needs.
+ *
+ * `paperId` and `pageIndex` are not on `ReaderAnnotation` — it is always read
+ * for one paper at a time, so the caller already knows both. Reading every
+ * annotation in a project loses that, so they travel with the row.
+ */
+export interface WorkspaceAnnotation extends ReaderAnnotation {
+  paperId: string;
+  pageIndex: number;
 }
 
 export interface WorkspaceSnapshot {
@@ -63,6 +85,7 @@ export interface WorkspaceSnapshot {
   logEntries: readonly LogEntry[];
   relations: readonly PaperRelation[];
   tags: readonly Tag[];
+  readerAnnotations: readonly WorkspaceAnnotation[];
   /** When the snapshot was taken; the serializer stamps it into the manifest. */
   collectedAt: string;
 }
@@ -101,6 +124,7 @@ export async function collectWorkspaceSnapshot(
     logEntries,
     relations,
     tags,
+    readerAnnotations,
   ] = await Promise.all([
     readers.papers.list(),
     readers.vaultPages.list(),
@@ -111,6 +135,7 @@ export async function collectWorkspaceSnapshot(
     readers.logEntries.list(),
     listOr(readers.relations),
     listOr(readers.tags),
+    listOr(readers.readerAnnotations),
   ]);
 
   // Membership needs the list ids, so it cannot join the batch above.
@@ -129,6 +154,7 @@ export async function collectWorkspaceSnapshot(
     logEntries,
     relations,
     tags,
+    readerAnnotations,
     collectedAt: now(),
   };
 }

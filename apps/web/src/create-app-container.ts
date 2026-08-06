@@ -456,6 +456,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     logEntries: logEntryRepository,
     relations: backend.paperRelationRepository,
     tags: backend.tagRepository,
+    // Reader highlights: `list` is per-paper, so the index needs the
+    // project-wide read that carries the paper and page on each row.
+    readerAnnotations: { list: () => backend.readerAnnotationRepository.listForProject() },
   });
 
   const container: AppContainer = {

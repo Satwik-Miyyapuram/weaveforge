@@ -5,6 +5,7 @@ import {
   SEARCH_KINDS,
   extractHeadings,
   searchRevision,
+  toAnnotationSearchDocs,
   toPdfSearchDocs,
   toSearchDocs,
   type WorkspaceSnapshot,
@@ -22,6 +23,7 @@ function snapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot
     logEntries: [],
     relations: [],
     tags: [],
+    readerAnnotations: [],
     collectedAt: "2026-08-05T00:00:00.000Z",
     ...overrides,
   };
@@ -196,9 +198,10 @@ test("ids are unique across kinds that share an id space", () => {
 });
 
 test("every declared kind has a route", () => {
-  // Two projections feed the index: the snapshot covers workspace entities,
-  // and PDF page text comes from the reader. Between them they must cover
-  // every declared kind, or a document exists that nothing can navigate to.
+  // Three projections feed the index: the snapshot covers workspace entities,
+  // PDF page text and reader highlights each come from the reader. Between them
+  // they must cover every declared kind, or a document exists that nothing can
+  // navigate to.
   const full = toSearchDocs(
     snapshot({
       vaultPages: [note()],
@@ -219,7 +222,28 @@ test("every declared kind has a route", () => {
       pages: [{ pageIndex: 0, text: "Enough page text to clear the minimum length bar." }],
     },
   ]);
-  const everyDoc = [...full, ...pdfPages];
+  const annotations = toAnnotationSearchDocs(
+    [
+      {
+        id: "a1",
+        paperId: "p1",
+        pageIndex: 0,
+        origin: "local",
+        zoteroKey: null,
+        type: "highlight",
+        color: "#ffd400",
+        text: "A highlighted passage.",
+        comment: "",
+        tags: [],
+        anchor: {},
+        sortIndex: "00000|0000|0000",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    new Map([["p1", "P"]]),
+  );
+  const everyDoc = [...full, ...pdfPages, ...annotations];
 
   assert.deepEqual([...new Set(everyDoc.map((d) => d.kind))].sort(), [...SEARCH_KINDS].sort());
   for (const doc of everyDoc) assert.match(doc.href, /^\//, `${doc.kind} has no route`);

@@ -18,6 +18,7 @@ export const SEARCH_KINDS = [
   "milestone",
   "log",
   "pdf",
+  "annotation",
 ] as const;
 
 export type SearchKind = (typeof SEARCH_KINDS)[number];

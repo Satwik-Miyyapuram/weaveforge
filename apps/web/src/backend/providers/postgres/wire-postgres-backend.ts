@@ -34,6 +34,7 @@ import type {
   ILabSnapshotRepository,
   IPaperFieldRepository,
   IReaderAnnotationSink,
+  IReaderAnnotationProjectSource,
   IReaderAnnotationSource,
 } from "@thesis/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -283,7 +284,7 @@ export function wirePostgresBackend(
   );
   const readerAnnotationRepository = cacheRepo(
     new PostgresReaderAnnotationRepository(pg, projectContext, session),
-    ["list"],
+    ["list", "listForProject"],
     ["create", "update", "remove"],
     pid,
     { resourceType: "paper" },

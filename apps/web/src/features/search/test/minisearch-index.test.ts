@@ -15,6 +15,7 @@ function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
     logEntries: [],
     relations: [],
     tags: [],
+    readerAnnotations: [],
     collectedAt: "2026-08-05T00:00:00.000Z",
     ...over,
   };

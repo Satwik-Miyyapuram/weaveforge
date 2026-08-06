@@ -1427,6 +1427,7 @@ export class WorkspaceFacade {
       logEntries: { list(): Promise<LogEntry[]> };
       relations: { list(): Promise<PaperRelation[]> };
       tags: { list(): Promise<Tag[]> };
+      readerAnnotations: { list(): Promise<import("@thesis/core").WorkspaceAnnotation[]> };
     },
   ) {}
 
