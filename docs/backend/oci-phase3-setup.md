@@ -283,32 +283,45 @@ mc ls oci/thesis-tracker-cold
 
 ## Part F — Apply database schema (OCI only)
 
-**Do not** use `supabase db push` for the self-hosted auth stub. On your laptop (with repo cloned):
+**Do not** use `supabase db push` for the self-hosted stubs. On your laptop (with repo cloned):
 
 ```bash
 export DATABASE_URL="postgres://thesis:PASSWORD@129.12.34.56:5432/thesis"
 
-# From repo root — applies all supabase/migrations, then 0025 auth stub
+# From repo root — prerequisites, then all base migrations, then follow-ups
 ./scripts/apply-migrations-oci.sh
 ```
 
-Or manually:
+**Order is not cosmetic.** A stock Postgres has no `auth` schema, no `storage`
+or `realtime` schemas, and none of the `anon` / `authenticated` / `service_role`
+roles — Supabase provides all of them implicitly. The base migrations use them
+from `0001_papers.sql`, which puts a foreign key on `auth.users` and an RLS
+policy on `auth.uid()`. So the prerequisites go first:
 
 ```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f supabase/migrations-self-hosted-postgres/0000_self_host_prereqs.sql
+
 for f in supabase/migrations/*.sql; do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
 done
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations-self-hosted-postgres/0025_self_host_auth.sql
+
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f supabase/migrations-self-hosted-postgres/0025_self_host_auth.sql
 ```
 
 Verify:
 
 ```bash
 psql "$DATABASE_URL" -c "\dt public.*"
-psql "$DATABASE_URL" -c "select count(*) from pg_tables where schemaname = 'public';"
+psql "$DATABASE_URL" -tAc "select count(*) from pg_tables where schemaname = 'public';"
+psql "$DATABASE_URL" -tAc "select count(*) from pg_policies where schemaname = 'public';"
 ```
 
-You should see `papers`, `projects`, `blob_objects`, etc.
+Expect **40 tables and 109 policies**, and `papers`, `projects`, `blob_objects`
+among them. Those counts come from a clean run against Postgres 16.13; a
+different total means something failed silently and you should re-run with
+`ON_ERROR_STOP=1` and read the first error rather than the last.
 
 See [`supabase/README.md`](../../supabase/README.md) for folder meanings.
 
