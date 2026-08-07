@@ -38,6 +38,22 @@ const withSerwist = withSerwistInit({
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@weaveforge/core"],
+  // The docs live on their own host (GitHub Pages, apps/pitch), but people
+  // reach for /docs on the app's domain because that is where they already are.
+  // Send them rather than showing a 404.
+  //
+  // Not permanent: a 308 is cached by the browser indefinitely, and if the docs
+  // ever move back under this domain that cache is not ours to clear.
+  async redirects() {
+    return [
+      { source: "/docs", destination: "https://docs.weaveforge.org/docs/", permanent: false },
+      {
+        source: "/docs/:path*",
+        destination: "https://docs.weaveforge.org/docs/:path*",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {
