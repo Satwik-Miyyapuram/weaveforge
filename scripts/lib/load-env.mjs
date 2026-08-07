@@ -20,8 +20,14 @@ const LINE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/;
  * @returns {boolean} Whether a file was found and read.
  */
 export function loadMigrationEnv(root) {
-  const path = join(root, ".env.migration");
-  if (!existsSync(path)) return false;
+  // `secrets/` first, repo root second. Everything credential-shaped now lives
+  // in the ignored `secrets/` directory; the root path stays supported so a
+  // checkout that predates the move keeps working rather than failing with a
+  // message about an unset variable.
+  const path = [join(root, "secrets", ".env.migration"), join(root, ".env.migration")].find(
+    (candidate) => existsSync(candidate),
+  );
+  if (!path) return false;
 
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     if (line.trimStart().startsWith("#")) continue;

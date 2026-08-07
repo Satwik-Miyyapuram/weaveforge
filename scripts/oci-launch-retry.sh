@@ -13,16 +13,20 @@
 # anything that will never succeed, and only retries the one error that is
 # genuinely worth waiting on.
 #
-# Reads .env.oci if present. Everything can also be passed as an environment
+# Reads secrets/.env.oci if present. Everything can also be passed as an environment
 # variable. Nothing here is a secret — OCIDs are identifiers, not credentials —
-# but .env.oci is gitignored anyway.
+# but secrets/ is gitignored entirely.
 
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-[[ -f .env.oci ]] && { set -a; . ./.env.oci; set +a; }
+# secrets/ first, repo root second — the root path stays supported so an older
+# checkout keeps working.
+for candidate in secrets/.env.oci .env.oci; do
+  [[ -f "$candidate" ]] && { set -a; . "./$candidate"; set +a; break; }
+done
 
 # The CLI's "permissions are too open" check misparses ACLs on some Windows
 # setups and prints a paragraph of nonsense before every call. Check the real
@@ -80,7 +84,7 @@ if [[ -z "${COMPARTMENT_ID:-}" ]]; then
   COMPARTMENT_ID="$(oci iam compartment list --all \
     --query "data[?\"lifecycle-state\"=='ACTIVE'] | [0].id" --raw-output 2>/dev/null)"
   [[ -n "$COMPARTMENT_ID" && "$COMPARTMENT_ID" != "null" ]] \
-    || die "Could not find a compartment. Set COMPARTMENT_ID in .env.oci."
+    || die "Could not find a compartment. Set COMPARTMENT_ID in secrets/.env.oci."
 fi
 note "  compartment  ${COMPARTMENT_ID:0:28}…"
 
@@ -95,7 +99,7 @@ if [[ -z "${SUBNET_ID:-}" ]]; then
   SUBNET_ID="$(oci network subnet list --compartment-id "$COMPARTMENT_ID" --all \
     --query "data[?contains(\"subnet-domain-name\",'sub')] | [0].id" --raw-output 2>/dev/null)"
   [[ -n "$SUBNET_ID" && "$SUBNET_ID" != "null" ]] \
-    || die "Could not find a subnet. Set SUBNET_ID in .env.oci (Networking → VCN → Subnets)."
+    || die "Could not find a subnet. Set SUBNET_ID in secrets/.env.oci (Networking → VCN → Subnets)."
 fi
 note "  subnet       ${SUBNET_ID:0:28}…"
 
@@ -115,7 +119,7 @@ if [[ -z "${IMAGE_ID:-}" ]]; then
     --operating-system "Canonical Ubuntu" --shape "$SHAPE" \
     --query "data[?contains(\"display-name\",'$IMAGE_PATTERN')] | [0].id" --raw-output 2>/dev/null)"
   [[ -n "$IMAGE_ID" && "$IMAGE_ID" != "null" ]] \
-    || die "No Ubuntu image matching '$IMAGE_PATTERN'. Set IMAGE_ID or IMAGE_PATTERN in .env.oci."
+    || die "No Ubuntu image matching '$IMAGE_PATTERN'. Set IMAGE_ID or IMAGE_PATTERN in secrets/.env.oci."
 fi
 IMAGE_NAME="$(oci compute image get --image-id "$IMAGE_ID" \
   --query 'data."display-name"' --raw-output 2>/dev/null)"

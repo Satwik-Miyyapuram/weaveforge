@@ -129,14 +129,32 @@ Database page.
 
 ## 0.3 Never commit any of this
 
-The secrets above go in files git must ignore. Verify before you write anything:
+Everything credential-shaped goes in **`secrets/`**, which `.gitignore` excludes
+whole — `.env.migration`, `.env.oci`, and any key a cloud console downloads.
+See [`secrets/README.md`](../../secrets/README.md). Verify before writing
+anything into it:
 
 ```bash
-git check-ignore -v .env.migration
+git check-ignore -v secrets/.env.migration
 ```
 
-If that prints nothing, the file is **not** ignored — stop and add
-`.env.migration` to `.gitignore` first.
+If that prints nothing, the file is **not** ignored — stop and add `/secrets/`
+to `.gitignore` first.
+
+⚠️ **Watch where your browser saves cloud-console downloads.** OCI hands you an
+API key and an SSH key as files, and browsers save to whatever directory was
+used last — which is how both ended up in this repository's root during the
+original run. They were caught before the commit, but a key pushed to a public
+repo is a full account compromise, and deleting it in a later commit does not
+remove it from history: the only fix is rotation.
+
+`.gitignore` therefore keeps `*.pem`, `*.key` and `.env*` patterns *as well as*
+the `/secrets/` rule. One directory rule is a single careless edit from being
+wrong.
+
+Two things cannot move into `secrets/`, because their tools only look in one
+place: `apps/web/.env.local` (Next.js) and `~/.oci/` (the OCI CLI). Those are
+outside the repo or already ignored where they are.
 
 ## 0.4 Make an SSH key
 
@@ -535,7 +553,7 @@ is not on PATH in a default PowerShell session, so the `.sh` will not run there:
 ```
 
 ```bash
-cp scripts/.env.oci.example .env.oci   # optional; it auto-discovers otherwise
+cp scripts/.env.oci.example secrets/.env.oci   # optional; it auto-discovers otherwise
 ./scripts/oci-launch-retry.sh
 ```
 
@@ -965,9 +983,10 @@ Already built and tested. You are running it, not writing it. It reads from
 Supabase and never writes to it, so a failed attempt costs time and nothing
 else, and the app keeps serving from Supabase throughout.
 
-## 2.1 Write `.env.migration`
+## 2.1 Write `secrets/.env.migration`
 
-In the repo root — the file git ignores — using the values from 0.2:
+Everything credential-shaped lives in `secrets/`, which is git-ignored whole.
+Create the file there, using the values from 0.2:
 
 ```ini
 # Source. Read-only, never written to.
