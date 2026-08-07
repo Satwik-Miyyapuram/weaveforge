@@ -10,10 +10,41 @@ out/
 build/
 *.tsbuildinfo
 
-# env / secrets
+# --- secrets ---------------------------------------------------------------
+#
+# One folder for everything credential-shaped that has to live in the checkout:
+# `.env.migration`, `.env.oci`, and any key a cloud console downloaded here.
+# See secrets/README.md.
+#
+# `.env.local` cannot move — Next.js only reads it from the app directory — and
+# neither can ~/.oci or ~/.ssh, so the patterns below stay as a second layer.
+# A single directory rule is one edit away from being wrong.
+#
+# Contents rather than the directory itself (`/secrets/*`, not `/secrets/`), so
+# the README can be un-ignored: git does not descend into an excluded directory,
+# and a negation inside one never matches.
+/secrets/*
+!/secrets/README.md
+
 .env
 .env.local
 .env*.local
+.env.migration
+.env.oci
+oci-launch-retry.log
+
+# Private keys. Cloud consoles download these straight to whatever directory the
+# browser last used, which is often a checkout — and an OCI API key or SSH key
+# committed to a public repo is a full account compromise, not a near miss.
+*.pem
+*.key
+*_rsa
+*_ed25519
+id_*
+# Public halves are not secret — they exist to be published — but they still do
+# not belong in a checkout, and an un-ignore rule for them re-included a key
+# from secrets/ that the directory rule had correctly excluded.
+*.pub
 local-dev/
 
 # demo captures (regenerate locally; README embeds added later)

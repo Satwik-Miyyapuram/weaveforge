@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AiProposalFacade } from "@/container/facades";
-import { AiProposalExecutorRegistry } from "@thesis/core";
-import type { AiWriteProposal } from "@thesis/core";
+import { AiProposalExecutorRegistry } from "@weaveforge/core";
+import type { AiWriteProposal } from "@weaveforge/core";
 
 function draft(id = "proposal-1"): AiWriteProposal {
   return { id, kind: "append_paper_note", resourceId: "paper-1", content: "AI addition", createdAt: "2026-07-15T00:00:00.000Z", status: "pending", sourceLinks: [], expectedRevision: "rev-1" };

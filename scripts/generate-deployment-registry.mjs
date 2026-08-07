@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import userConfig from "../thesis-tracker.config.ts";
+import userConfig from "../weaveforge.config.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUTPUT = join(ROOT, "apps/web/src/deployment/generated-registry.ts");
@@ -15,6 +15,7 @@ const features = [
   ["dashboard", "@/features/dashboard/module", "dashboardModule", false],
   ["papers", "@/features/papers/module", "papersModule", false],
   ["vault", "@/features/vault/module", "vaultModule", false],
+  ["wiki", "@/features/wiki/module", "wikiModule", false],
   ["graph", "@/features/relations/module", "graphModule", false],
   ["reading-lists", "@/features/reading-lists/module", "readingListsModule", false],
   ["experiments", "@/features/experiments/module", "experimentsModule", false],
@@ -56,6 +57,7 @@ const routeComponents = {
   dashboard: ["/dashboard", "@/features/dashboard", "DashboardScreen", "DashboardScreen"],
   papers: ["/papers", "@/features/papers", "PapersScreen", "PapersScreen"],
   vault: ["/notes", "@/features/vault", "VaultScreen", "VaultScreen"],
+  wiki: ["/wiki", "@/features/wiki", "WikiScreen", "WikiScreen"],
   graph: ["/graph", "@/features/relations", "GraphScreen", "GraphScreen"],
   "reading-lists": ["/lists", "@/features/reading-lists", "ListsScreen", "ListsScreen"],
   experiments: ["/experiments", "@/features/experiments", "ExperimentsScreen", "ExperimentsScreen"],
@@ -86,6 +88,7 @@ const generatedRoutePages = {
   "/settings": "apps/web/src/app/settings/page.tsx",
   "/shared": "apps/web/src/app/shared/page.tsx",
   "/supervision": "apps/web/src/app/supervision/page.tsx",
+  "/wiki": "apps/web/src/app/wiki/page.tsx",
   "/ai-review": "apps/web/src/app/ai-review/page.tsx",
 };
 

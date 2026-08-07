@@ -16,7 +16,7 @@ const SAMPLE_PDF = "https://arxiv.org/pdf/1706.03762";
 
 test.describe("PDF reader", () => {
   test.beforeEach(async ({ page }, testInfo) => {
-    if (!e2eEnabled()) testInfo.skip(true, "Set THESIS_TRACKER_* env vars for the E2E user");
+    if (!e2eEnabled()) testInfo.skip(true, "Set WEAVEFORGE_* env vars for the E2E user");
     const user = e2eUserA();
     await bootstrapSession(page, user.email, user.password);
   });

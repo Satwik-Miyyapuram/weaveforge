@@ -1,18 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { UserSettings, UserIntegrationDescriptor } from "@thesis/core";
+import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import {
   applyUserIntegrationFields,
   getUserIntegrationField,
   isUserIntegrationConnected,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { OrgPanel } from "@/features/org";
 import { SyncSettings } from "@/features/sync";
+import { SearchSettingsPanel } from "./search-settings-panel";
+import { WorkspaceFolderPanel } from "./workspace-folder-panel";
+import { AiProviderPanel } from "./ai-provider-panel";
 import { AccountInfoPanel } from "./account-info-panel";
 import { PrivacyNotice } from "./privacy-notice";
 import { DeleteAccountPanel } from "./delete-account-panel";
@@ -37,6 +40,8 @@ const SETTINGS_TABS = [
   { id: "account", label: "Account" },
   { id: "org", label: "Org" },
   { id: "appearance", label: "Appearance" },
+  { id: "search", label: "Search" },
+  { id: "folder", label: "Folder" },
   { id: "ai", label: "AI" },
   { id: "tokens", label: "Tokens" },
   { id: "integrations", label: "Integrations" },
@@ -198,6 +203,8 @@ export function SettingsScreen() {
     setError(null);
     try {
       await getContainer().settings.manageSettings.save(settings);
+      // Ranking is read per query, so this lands without a reindex.
+      getContainer().search.setSettings(settings.search);
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -239,6 +246,17 @@ export function SettingsScreen() {
         <div id="settings-org" className="settings-anchor" role="tabpanel" aria-labelledby="settings-tab-org">
           <OrgPanel />
         </div>
+      )}
+
+      {tab === "folder" && <WorkspaceFolderPanel />}
+
+      {tab === "ai" && <AiProviderPanel />}
+
+      {tab === "search" && (
+        <SearchSettingsPanel
+          value={settings.search}
+          onChange={(search) => setSettings((prev) => ({ ...prev, search }))}
+        />
       )}
 
       {tab === "appearance" && (

@@ -59,23 +59,17 @@ export const AI_TOOL_NAMES = [
 ] as const;
 export type AiToolName = (typeof AI_TOOL_NAMES)[number];
 
-export type AiModelProviderId =
-  | "codex"
-  | "openai"
-  | "anthropic"
-  | "google"
-  | "ollama"
-  | "custom";
-
-/** Codex is the preferred client path; the rest remain adapter-compatible. */
-export const AI_MODEL_PROVIDER_ORDER: readonly AiModelProviderId[] = [
-  "codex",
-  "openai",
-  "anthropic",
-  "google",
-  "ollama",
-  "custom",
-];
+/**
+ * A provider identifier. Open on purpose: any OpenAI- or Anthropic-compatible
+ * endpoint is a valid provider here, including a local Ollama or an
+ * organisation's own gateway, and a closed union would have forced every one of
+ * those into "custom".
+ *
+ * There is deliberately no default ordering. Ranking providers in the type
+ * layer is how a supposedly neutral system acquires a favourite; which model
+ * runs is the user's choice, made explicitly in settings.
+ */
+export type AiModelProviderId = string;
 
 export interface AiAccessSettings {
   enabled: boolean;

@@ -1,4 +1,4 @@
-import type { ICurrentUserProvider } from "@thesis/core";
+import type { ICurrentUserProvider } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   EMPTY_SETTINGS,
@@ -8,7 +8,7 @@ import {
   type SettingsMetadata,
   type ISettingsRepository,
   type UserSettings,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /**
  * Supabase implementation of ISettingsRepository. One row per user; user_id is

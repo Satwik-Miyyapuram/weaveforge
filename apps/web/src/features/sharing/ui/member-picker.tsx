@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ROLE_LABELS, ROLES, type Member, type Role } from "@thesis/core";
+import { ROLE_LABELS, ROLES, type Member, type Role } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
 
 /**

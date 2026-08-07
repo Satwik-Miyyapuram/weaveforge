@@ -6,8 +6,8 @@ import type {
   IShareRepository,
   Milestone,
   Paper,
-} from "@thesis/core";
-import { mergePinnedScreenData } from "@thesis/core";
+} from "@weaveforge/core";
+import { mergePinnedScreenData } from "@weaveforge/core";
 
 export interface PlanScreenData {
   milestones: Milestone[];
@@ -23,7 +23,7 @@ export class LoadPlanScreenUseCase {
       milestones: IMilestoneRepository;
       papers: IPaperRepository;
       experiments: IExperimentRepository;
-      pins?: import("@thesis/core").ILibraryPinRepository;
+      pins?: import("@weaveforge/core").ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

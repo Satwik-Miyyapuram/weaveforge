@@ -59,10 +59,10 @@ Key references:
 
 ## ZIP layout (mirrors website structure)
 
-Top-level name: `thesis-tracker-export-{iso-date}/`
+Top-level name: `weaveforge-export-{iso-date}/`
 
 ```
-thesis-tracker-export-2026-07-12/
+weaveforge-export-2026-07-12/
 ├── manifest.json                 # schema version, export metadata, checksums
 ├── README.txt                    # human-readable index
 │
@@ -153,7 +153,7 @@ This matches nav/feature modules: **papers, graph, reading-lists, experiments, p
 
 - **`schemaVersion`** — bump when layout changes
 - **`files[]`** — optional integrity checks
-- Domain types = existing `@thesis/core` interfaces serialized as JSON (camelCase, same as repos return after decrypt)
+- Domain types = existing `@weaveforge/core` interfaces serialized as JSON (camelCase, same as repos return after decrypt)
 
 ---
 
@@ -271,7 +271,7 @@ Wire in `bootstrap.ts` → `SettingsFacade` or `CryptoFacade`.
 - Button: **“Download all data (decrypted ZIP)”**
 - Disabled until unlocked; tooltip if locked
 - Progress modal: project name, blob count, cancel token
-- Success: auto-download `thesis-tracker-export-{date}.zip`
+- Success: auto-download `weaveforge-export-{date}.zip`
 - Copy: warn that ZIP contains **plaintext secrets** (settings keys, paper notes)
 
 ---

@@ -17,7 +17,7 @@ test.describe("sharing", () => {
 
   test.beforeEach(({ }, testInfo) => {
     if (!e2eEnabled()) {
-      testInfo.skip(true, "Set THESIS_TRACKER_* env vars for both users");
+      testInfo.skip(true, "Set WEAVEFORGE_* env vars for both users");
     }
   });
 

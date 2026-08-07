@@ -1,7 +1,7 @@
-## thesis-tracker SDK vX.Y.Z
+## weaveforge SDK vX.Y.Z
 
 ```bash
-pip install thesis-tracker==X.Y.Z
+pip install weaveforge==X.Y.Z
 ```
 
 ### Added

@@ -1,8 +1,8 @@
-# thesis-tracker (Python SDK)
+# weaveforge (Python SDK)
 
 **Push ML experiments into the same dashboard as your papers and thesis plan.**
 
-The [Thesis Tracker](../README.md) web app tracks literature, milestones, and report progress. This package connects your **training scripts** to that same Supabase database — runs, step-indexed curves, and figure artifacts show up under **Experiments** without a separate wandb/MLflow silo.
+The [WeaveForge](../README.md) web app tracks literature, milestones, and report progress. This package connects your **training scripts** to that same Supabase database — runs, step-indexed curves, and figure artifacts show up under **Experiments** without a separate wandb/MLflow silo.
 
 ## Why use it
 
@@ -15,11 +15,11 @@ The [Thesis Tracker](../README.md) web app tracks literature, milestones, and re
 ## Install
 
 ```bash
-pip install thesis-tracker                 # core (supabase + httpx)
-pip install 'thesis-tracker[figures]'      # matplotlib/Pillow artifacts
-pip install 'thesis-tracker[tensorboard]'  # tbparse import
-pip install 'thesis-tracker[wandb]'        # wandb import
-pip install 'thesis-tracker[all,dev]'      # everything + pytest
+pip install weaveforge                 # core (supabase + httpx)
+pip install 'weaveforge[figures]'      # matplotlib/Pillow artifacts
+pip install 'weaveforge[tensorboard]'  # tbparse import
+pip install 'weaveforge[wandb]'        # wandb import
+pip install 'weaveforge[all,dev]'      # everything + pytest
 ```
 
 Sync sources register at import time but stay unavailable until their extra is installed (clear error if you call one without deps).
@@ -28,23 +28,23 @@ Sync sources register at import time but stay unavailable until their extra is i
 
 Generate a personal access token in the web app (**Settings → Python SDK access tokens**).
 Tokens are created on demand, stored hashed server-side, and shown once — like GitHub or PyPI.
-Use them with the [`thesis-tracker`](https://pypi.org/project/thesis-tracker/) package:
+Use them with the [`weaveforge`](https://pypi.org/project/weaveforge/) package:
 
 ```bash
-pip install thesis-tracker
-export THESIS_TRACKER_TOKEN=tt_...
-export THESIS_TRACKER_API_URL=http://localhost:3000
-export THESIS_TRACKER_PROJECT="My Thesis"   # or THESIS_TRACKER_PROJECT_ID=<uuid>
+pip install weaveforge
+export WEAVEFORGE_TOKEN=tt_...
+export WEAVEFORGE_API_URL=http://localhost:3000
+export WEAVEFORGE_PROJECT="My Thesis"   # or WEAVEFORGE_PROJECT_ID=<uuid>
 ```
 
-The SDK sends the token to your Thesis Tracker instance, which validates it and applies row-level security as your user.
+The SDK sends the token to your WeaveForge instance, which validates it and applies row-level security as your user.
 
 Apply migrations through at least `0017` (metrics + artifacts bucket) — see root [README § Database](../README.md#database).
 
 ## Quick example
 
 ```python
-from thesis_tracker import track_experiment
+from weaveforge import track_experiment
 
 @track_experiment(name="beta-vae sweep", config={"latent_dim": 32},
                   sync={"tensorboard": "runs/beta4"})
@@ -59,14 +59,14 @@ train(beta=4.0)
 
 - **`@track_experiment`** — creates row (`running`), pins git state, logs metrics, uploads figures, sets `done`/`failed` on exit.
 - **`with track(...) as run:`** — same without a decorator.
-- **Callbacks** — `thesis_tracker.integrations.lightning.ThesisTrackerCallback`, `.keras.ThesisTrackerCallback`.
+- **Callbacks** — `weaveforge.integrations.lightning.WeaveForgeCallback`, `.keras.WeaveForgeCallback`.
 
 ## CLI
 
 ```bash
-thesis-tracker list --project "My Thesis"
-thesis-tracker import-tb runs/beta4 --name "beta-vae sweep"
-thesis-tracker import-wandb entity/project/run_id
+weaveforge list --project "My Thesis"
+weaveforge import-tb runs/beta4 --name "beta-vae sweep"
+weaveforge import-wandb entity/project/run_id
 ```
 
 ## Extend (Open/Closed)

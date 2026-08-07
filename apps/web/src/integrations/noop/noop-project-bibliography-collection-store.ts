@@ -1,4 +1,4 @@
-import type { IProjectBibliographyCollectionStore } from "@thesis/core";
+import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
 
 /** No per-project bibliography collection when bibliography integration is disabled. */
 export class NoopProjectBibliographyCollectionStore implements IProjectBibliographyCollectionStore {

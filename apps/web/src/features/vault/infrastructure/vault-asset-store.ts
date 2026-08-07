@@ -1,4 +1,4 @@
-import type { IBlobStore, ICurrentUserProvider, IEncryptedBlobStore } from "@thesis/core";
+import type { IBlobStore, ICurrentUserProvider, IEncryptedBlobStore } from "@weaveforge/core";
 import type { IVaultAssetStore } from "../domain/vault-assets";
 
 const BUCKET = "vault-assets";

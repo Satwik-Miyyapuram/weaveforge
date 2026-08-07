@@ -2,7 +2,7 @@
 
 import { useAuth } from "./auth-provider";
 import { LoginScreen } from "./login-screen";
-import { ThesisLoaderScreen } from "@/components/thesis-loader";
+import { ThesisLoaderScreen } from "@/components/weaveforge-loader";
 
 /**
  * Renders children only when signed in. When signed out it renders `fallback`

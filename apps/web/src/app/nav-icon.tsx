@@ -4,6 +4,12 @@
  * Opaque icon handles are declared in packages/core.
  */
 const PATHS: Record<string, React.ReactNode> = {
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.6-3.6" />
+    </>
+  ),
   book: <path d="M4 5a2 2 0 0 1 2-2h10v16H6a2 2 0 0 0-2 2V5Zm12 14H6" />,
   list: (
     <>

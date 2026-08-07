@@ -1,7 +1,7 @@
 # WeaveForge — Verified competitive findings (July 2026)
 
 **Date:** 2026-07-25
-**Product:** WeaveForge (repo/SDK code name `thesis-tracker`) — a research workspace for Master's/PhD researchers connecting literature, notes, plan, experiments, writing outline, and lab collaboration in one Next.js + Supabase PWA, plus a Python SDK writing the same Postgres schema.
+**Product:** WeaveForge (repo/SDK code name `weaveforge`) — a research workspace for Master's/PhD researchers connecting literature, notes, plan, experiments, writing outline, and lab collaboration in one Next.js + Supabase PWA, plus a Python SDK writing the same Postgres schema.
 **Status:** Standalone. Every finding below is verified against a primary source and carries its own citation. `§` references point to `docs/DEEP_RESEARCH_PRODUCT_BRIEF.md` for product ground truth, but no other document is required to act on this one.
 
 ---
@@ -186,7 +186,7 @@ Grounds, all verified:
 
 Effort S/M/L, impact low/med/high.
 
-> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/plans/completed/roadmap-2026-07-phased.md`](plans/completed/roadmap-2026-07-phased.md) (complete). Active reader work: [`docs/plans/working/reader-and-annotation-plan.md`](plans/working/reader-and-annotation-plan.md).
+> **Sequenced delivery plan:** this section is a *priority* list, not an execution order. For phases, dependencies, decision gates, and exit criteria see [`docs/plans/completed/roadmap-2026-07-phased.md`](plans/completed/roadmap-2026-07-phased.md) (complete). Active reader work: [`docs/plans/completed/reader-and-annotation-plan.md`](plans/completed/reader-and-annotation-plan.md).
 
 ### P0
 
@@ -298,4 +298,4 @@ This file consolidates verification over two external Deep Research runs commiss
 
 Other internal docs: `docs/competitive-scan.md` (prior internal scan), `docs/future-work/BACKLOG.md` (shipped vs deferred).
 
-**Name collision note** — partially salvageable from the failed run, and partially wrong. Verified 2026-07-25: `WEAVEFORGE LIMITED` is an active UK-registered company (property/investment, number 04598210); `glyphweaveforge` is an unrelated Rust crate; `WeaveFox` is an unrelated platform; the GitHub org `weaveforge` is held by an unrelated dormant dev team; multiple GitHub repositories are named `thesis-tracker`. **The claimed TTRPG using the WeaveForge name does not appear to exist** — that came from the failed run citing a Reddit thread, and direct searching finds only a game called *Weave*. No software trademark for WeaveForge was found. Resolution and rationale: `docs/licensing.md`.
+**Name collision note** — partially salvageable from the failed run, and partially wrong. Verified 2026-07-25: `WEAVEFORGE LIMITED` is an active UK-registered company (property/investment, number 04598210); `glyphweaveforge` is an unrelated Rust crate; `WeaveFox` is an unrelated platform; the GitHub org `weaveforge` is held by an unrelated dormant dev team; multiple GitHub repositories are named `weaveforge`. **The claimed TTRPG using the WeaveForge name does not appear to exist** — that came from the failed run citing a Reddit thread, and direct searching finds only a game called *Weave*. No software trademark for WeaveForge was found. Resolution and rationale: `docs/licensing.md`.

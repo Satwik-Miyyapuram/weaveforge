@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 /** Shared with me — header route, read-only grants view. */
 export const sharingModule: FeatureModule = {

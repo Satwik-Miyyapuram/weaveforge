@@ -6,7 +6,7 @@ import {
   nextMatchIndex,
   type DocumentPageText,
   type DocumentSearchMatch,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 interface ReaderSearchBarProps {
   pages: DocumentPageText[];

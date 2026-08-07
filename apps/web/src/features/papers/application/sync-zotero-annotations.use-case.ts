@@ -1,4 +1,4 @@
-import { extractHashtags, type IPaperRepository, type ManageTagsUseCase, type Paper } from "@thesis/core";
+import { extractHashtags, type IPaperRepository, type ManageTagsUseCase, type Paper } from "@weaveforge/core";
 import type { IZoteroAnnotationPull } from "../domain/zotero";
 
 export class SyncZoteroAnnotationsUseCase {

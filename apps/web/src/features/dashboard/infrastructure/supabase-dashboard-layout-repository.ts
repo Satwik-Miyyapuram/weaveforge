@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { DashboardLayout, IDashboardLayoutRepository } from "@thesis/core";
-import { parseDashboardLayout } from "@thesis/core";
+import type { DashboardLayout, IDashboardLayoutRepository } from "@weaveforge/core";
+import { parseDashboardLayout } from "@weaveforge/core";
 
 const TABLE = "projects";
 

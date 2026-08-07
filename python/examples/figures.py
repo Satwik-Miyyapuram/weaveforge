@@ -1,6 +1,6 @@
 """Attach a matplotlib figure to a run.
 
-    pip install 'thesis-tracker[figures]'
+    pip install 'weaveforge[figures]'
     python examples/figures.py
 
 `run.log_figure(fig)` needs no matplotlib import in the SDK itself (it's
@@ -13,7 +13,7 @@ import matplotlib
 matplotlib.use("Agg")  # headless
 import matplotlib.pyplot as plt  # noqa: E402
 
-from thesis_tracker import track  # noqa: E402
+from weaveforge import track  # noqa: E402
 
 
 def main():

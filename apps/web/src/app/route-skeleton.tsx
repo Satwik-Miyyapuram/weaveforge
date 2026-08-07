@@ -1,6 +1,6 @@
 "use client";
 
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 
 /**
  * Shown while navigating, over the previous route.

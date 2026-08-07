@@ -2,8 +2,8 @@
 
 import { Modal } from "@/components/modal";
 import { cardsForRole, type CardDef } from "../application/card-registry";
-import type { DashboardCardType } from "@thesis/core";
-import type { Role } from "@thesis/core";
+import type { DashboardCardType } from "@weaveforge/core";
+import type { Role } from "@weaveforge/core";
 
 export function CardPickerSheet({
   role,

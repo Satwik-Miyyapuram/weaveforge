@@ -1,4 +1,4 @@
-import type { IPaperRepository, Paper } from "@thesis/core";
+import type { IPaperRepository, Paper } from "@weaveforge/core";
 import type { IZoteroExporter } from "../domain/zotero";
 
 export class AutoPushToZoteroUseCase {

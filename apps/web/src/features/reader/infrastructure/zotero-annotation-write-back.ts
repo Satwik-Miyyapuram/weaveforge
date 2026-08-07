@@ -3,7 +3,7 @@ import {
   type IZoteroAnnotationWriteBack,
   type ReaderAnnotation,
   type ZoteroAnnotationWritePayload,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ZoteroCredentialsProvider } from "@/features/papers/infrastructure/zotero-metadata-source";
 import {
   zoteroHeaders,

@@ -2,7 +2,7 @@
 
 import pytest
 
-from thesis_tracker.cli import build_parser
+from weaveforge.cli import build_parser
 
 
 def test_list_parses():

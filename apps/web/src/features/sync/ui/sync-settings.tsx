@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { emptyIntegration, type Integration } from "../domain/integration";
 import {

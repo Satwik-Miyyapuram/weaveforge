@@ -1,4 +1,4 @@
-import type { IBlobStore, ICurrentUserProvider, IEncryptedBlobStore } from "@thesis/core";
+import type { IBlobStore, ICurrentUserProvider, IEncryptedBlobStore } from "@weaveforge/core";
 
 const BUCKET = "report-images";
 const SIGNED_TTL_S = 3600;

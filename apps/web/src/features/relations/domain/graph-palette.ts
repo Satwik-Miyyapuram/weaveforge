@@ -1,4 +1,4 @@
-import type { RelationType } from "@thesis/core";
+import type { RelationType } from "@weaveforge/core";
 
 /**
  * Colours for every kind of node and edge on the citation graph.

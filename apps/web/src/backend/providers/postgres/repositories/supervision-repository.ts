@@ -7,7 +7,7 @@ import type {
   Milestone,
   MilestoneDependency,
   MilestoneStatus,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface MilestoneRow {

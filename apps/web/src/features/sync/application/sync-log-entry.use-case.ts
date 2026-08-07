@@ -1,4 +1,4 @@
-import type { LogEntry } from "@thesis/core";
+import type { LogEntry } from "@weaveforge/core";
 import type { IGitLabLogExporter, IIntegrationsStore } from "../domain/sync-ports";
 
 export class SyncLogEntryUseCase {

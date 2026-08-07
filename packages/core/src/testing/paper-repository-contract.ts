@@ -8,7 +8,7 @@
  * Usage from a test file:
  *
  *   import { describe } from "node:test";
- *   import { runPaperRepositoryContract } from "@thesis/core/testing";
+ *   import { runPaperRepositoryContract } from "@weaveforge/core/testing";
  *   runPaperRepositoryContract("InMemory", () => new InMemoryPaperRepository());
  */
 

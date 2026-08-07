@@ -1,4 +1,4 @@
-import type { DashboardCardType, DashboardLayoutItem, Member } from "@thesis/core";
+import type { DashboardCardType, DashboardLayoutItem, Member } from "@weaveforge/core";
 import type { DashboardStats } from "../../application/build-dashboard-stats";
 import type { SupervisionStats } from "../../application/build-supervision-stats";
 import {

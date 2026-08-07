@@ -1,6 +1,6 @@
 # Theming Architecture
 
-Thesis Tracker uses a pure CSS-variable theming system to maintain high performance without JavaScript layout thrashing. All colors in the app are controlled through semantic design tokens.
+WeaveForge uses a pure CSS-variable theming system to maintain high performance without JavaScript layout thrashing. All colors in the app are controlled through semantic design tokens.
 
 ## How it works
 

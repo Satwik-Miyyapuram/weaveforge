@@ -18,7 +18,7 @@ import {
   type PaperStatus,
   type QuotationType,
   type ReadingList,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
@@ -39,6 +39,9 @@ import {
 import { EntityCard } from "@/components/entity-card";
 import { PaperCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
+import { rankedFilter } from "@/features/search/application/rank-filter";
+import { RelatedPanel } from "@/components/related-panel";
+import { useSearchIndex } from "@/lib/use-search-index";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
 import { PaperMarkdown } from "./paper-markdown";
@@ -108,6 +111,7 @@ export function PapersScreen() {
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("papers", loadScreen);
+  const searchIndex = useSearchIndex();
 
   usePinnedOwnerNames(data, setData);
 
@@ -274,21 +278,28 @@ export function PapersScreen() {
   }, [papers]);
 
   const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const statuses = new Set(statusFilter);
     const inAnyList = (id: string) =>
       listFilter.some((lid) => membership.get(lid)?.has(id) ?? false);
     const hasAnyTag = (p: Paper) => tagFilter.some((t) => p.tags.includes(t));
-    return papers.filter(
+    // Facet filters first; the ranked pass then orders what survives them.
+    const scoped = papers.filter(
       (p) =>
         (statuses.size === 0 || statuses.has(p.status)) &&
         (listFilter.length === 0 || inAnyList(p.id)) &&
-        (tagFilter.length === 0 || hasAnyTag(p)) &&
-        (!q ||
-          p.title.toLowerCase().includes(q) ||
-          p.authors.some((a) => a.toLowerCase().includes(q))),
+        (tagFilter.length === 0 || hasAnyTag(p)),
     );
-  }, [papers, statusFilter, listFilter, tagFilter, membership, search]);
+    // Now also matches on abstract, summary, venue, and identifiers — not just
+    // title and author.
+    return rankedFilter({
+      items: scoped,
+      query: search,
+      kinds: ["paper"],
+      search: searchIndex,
+      idOf: (p) => p.id,
+      fallbackText: (p) => `${p.title}\n${p.authors.join(" ")}`,
+    });
+  }, [papers, statusFilter, listFilter, tagFilter, membership, search, searchIndex]);
 
   const openPaper = openId
     ? (guestPaper?.id === openId ? guestPaper : null) ??
@@ -626,20 +637,30 @@ function PapersTable({
     return list;
   }, [papers, sortKey, sortDir]);
 
-  function sortLabel(key: SortKey, label: string) {
+  /**
+   * A sortable column header.
+   *
+   * `aria-sort` belongs on the header cell, not on the button inside it — a
+   * button has no sort state, a columnheader does.
+   */
+  function sortHeader(key: SortKey, label: string, className: string) {
     const active = sortKey === key;
     return (
-      <button
-        type="button"
-        className={`link-btn papers-sort-btn${active ? " papers-sort-btn--on" : ""}`}
-        onClick={() => toggleSort(key)}
+      <th
+        className={className}
         aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
       >
-        {label}
-        <span className="papers-sort-arrow" aria-hidden>
-          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-        </span>
-      </button>
+        <button
+          type="button"
+          className={`link-btn papers-sort-btn${active ? " papers-sort-btn--on" : ""}`}
+          onClick={() => toggleSort(key)}
+        >
+          {label}
+          <span className="papers-sort-arrow" aria-hidden>
+            {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+          </span>
+        </button>
+      </th>
     );
   }
 
@@ -648,10 +669,10 @@ function PapersTable({
       <table className="cmp-table papers-table">
         <thead>
           <tr>
-            <th className="papers-col-title">{sortLabel("title", "Title")}</th>
-            <th className="papers-col-authors">{sortLabel("authors", "Authors")}</th>
-            <th className="papers-col-year">{sortLabel("year", "Year")}</th>
-            <th className="papers-col-status">{sortLabel("status", "Status")}</th>
+            {sortHeader("title", "Title", "papers-col-title")}
+            {sortHeader("authors", "Authors", "papers-col-authors")}
+            {sortHeader("year", "Year", "papers-col-year")}
+            {sortHeader("status", "Status", "papers-col-status")}
             <th className="papers-col-link">Link</th>
             <th className="papers-col-open" aria-label="Open" />
           </tr>
@@ -1162,6 +1183,10 @@ function PaperNote({
           <PaperExternalLink paper={paper} />
         </div>
       </div>
+
+      {/* What the graph and wording put next to this paper — including things
+          nobody linked by hand. */}
+      <RelatedPanel seedKind="paper" seedId={paper.id} />
 
       <div className="paper-note-body">
         <details className="paper-source-section" open>

@@ -1,9 +1,9 @@
-import type { DashboardCardType, Role } from "@thesis/core";
-import { ROLE_RANK } from "@thesis/core";
+import type { DashboardCardType, Role } from "@weaveforge/core";
+import { ROLE_RANK } from "@weaveforge/core";
 
 /**
  * Card catalog (OCP). To add a card:
- * 1. Extend `DashboardCardType` in `@thesis/core`
+ * 1. Extend `DashboardCardType` in `@weaveforge/core`
  * 2. Add a `CardDef` entry below (with `deps`)
  * 3. Add one renderer in `ui/cards/card-renderers.tsx`
  */

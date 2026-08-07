@@ -144,7 +144,7 @@ function SharedPaperCard({
   ownerName,
   ownerId,
 }: {
-  paper: import("@thesis/core").Paper;
+  paper: import("@weaveforge/core").Paper;
   href: string;
   ownerName: string;
   ownerId: string;

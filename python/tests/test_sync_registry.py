@@ -2,8 +2,8 @@
 
 import pytest
 
-from thesis_tracker.features.experiments.domain.metric_point import MetricSeries
-from thesis_tracker.sync import SyncRegistry
+from weaveforge.features.experiments.domain.metric_point import MetricSeries
+from weaveforge.sync import SyncRegistry
 
 
 class FakeSource:

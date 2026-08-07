@@ -1,19 +1,6 @@
-const DB_NAME = "thesis-screen-cache";
-const STORE = "screens";
-const VERSION = 1;
+import { SCREEN_STORE as STORE, openAppDb as openDb } from "./app-idb";
 
 /** Cached screen payloads — cleared on logout so no data persists after sign-out. */
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, VERSION);
-    req.onupgradeneeded = () => {
-      req.result.createObjectStore(STORE);
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
 
 export async function idbGetScreenCache<T>(key: string): Promise<T | undefined> {
   if (typeof indexedDB === "undefined") return undefined;

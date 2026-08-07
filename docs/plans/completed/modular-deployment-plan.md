@@ -8,7 +8,7 @@ compiled bundle.
 
 ## Configuration contract
 
-`thesis-tracker.config.ts` keeps every built-in component when `builtins` is
+`weaveforge.config.ts` keeps every built-in component when `builtins` is
 omitted. An explicit allowlist can narrow a deployment:
 
 ```ts
@@ -36,7 +36,7 @@ remain additive and can contribute feature modules or integration manifests.
 | MCP | Relay routes, tool registry, proposal executors | MCP on/off plus tool-capability allowlist; never compile credentials or secrets into the client |
 | Storage | Supabase and tiered/blob providers | Server-side storage-provider selection |
 | Database backend | Supabase and Postgres adapters | Server-side backend-provider selection |
-| Optional plugins | `ThesisTrackerPlugin` modules/manifests | Additive npm packages configured by the deployment |
+| Optional plugins | `WeaveForgePlugin` modules/manifests | Additive npm packages configured by the deployment |
 | Background jobs | Explicit bootstrap gates | Environment/config feature flags |
 
 ## Build-time validation

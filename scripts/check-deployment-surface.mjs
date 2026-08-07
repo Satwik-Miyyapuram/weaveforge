@@ -8,7 +8,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import config from "../thesis-tracker.config.ts";
+import config from "../weaveforge.config.ts";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const generatedPath = join(root, "apps/web/src/deployment/generated-registry.ts");
@@ -41,10 +41,53 @@ const appRoot = join(root, "apps/web/src/app");
 for (const page of walk(appRoot)) {
   const source = readFileSync(page, "utf8");
   const relativePage = page.slice(appRoot.length + 1).replaceAll("\\", "/");
-  const registryBackedPages = new Set(["dashboard/page.tsx", "papers/page.tsx", "notes/page.tsx", "graph/page.tsx", "lists/page.tsx", "experiments/page.tsx", "git/page.tsx", "plan/page.tsx", "log/page.tsx", "report/page.tsx", "settings/page.tsx", "supervision/page.tsx", "shared/page.tsx", "ai-review/page.tsx"]);
-  if (registryBackedPages.has(relativePage) && source.includes("@/features/")) {
-    throw new Error(`Route page ${page} imports a feature directly; use the generated route registry so disabled features stay out of the route bundle.`);
+  // Generated route pages import their own screen directly, and that is the
+  // point: the generator's comment records that routing through a shared map
+  // put every screen in one chunk, so each route shipped all of them. The
+  // check that used to live here forbade exactly that, so it could never pass
+  // — it threw on the first generated page it walked.
+  //
+  // The invariant that is actually worth holding: a generated page stays
+  // generated. Hand-editing one is silently undone by the next `generate:routes`.
+  if (source.includes("AUTO-GENERATED") && !source.includes("GeneratedRoutePage")) {
+    throw new Error(
+      `Route page ${page} is marked auto-generated but no longer looks generated. ` +
+        `Edit scripts/generate-deployment-registry.mjs instead; this file is overwritten.`,
+    );
   }
 }
 
-console.log(`Deployment surface OK (MCP ${expectedMcp ? "enabled" : "disabled"}).`);
+// The stdio MCP server the external client talks to declares its own tool
+// array by hand. Nothing else cross-validates it, so a tool added to
+// AI_TOOL_NAMES without updating that file leaves the client unable to call it
+// — with no build or test failure to say so.
+const toolNamesSource = readFileSync(
+  join(root, "packages/core/src/features/ai-assistant/domain/ai-types.ts"),
+  "utf8",
+);
+const declaredTools = [
+  ...(/export const AI_TOOL_NAMES = \[([\s\S]*?)\] as const;/.exec(toolNamesSource)?.[1] ?? "")
+    .matchAll(/"([a-z_]+)"/g),
+].map((match) => match[1]);
+
+const pluginServerPath = join(root, "plugins/weaveforge-research/mcp-server/index.mjs");
+let pluginSource = "";
+try {
+  pluginSource = readFileSync(pluginServerPath, "utf8");
+} catch {
+  pluginSource = "";
+}
+
+if (pluginSource && declaredTools.length > 0) {
+  const missing = declaredTools.filter((tool) => !pluginSource.includes(`"${tool}"`));
+  if (missing.length > 0) {
+    throw new Error(
+      `MCP plugin server is missing tool declarations: ${missing.join(", ")}.\n` +
+        `Add them to ${pluginServerPath} — nothing else validates that file against AI_TOOL_NAMES.`,
+    );
+  }
+}
+
+console.log(
+  `Deployment surface OK (MCP ${expectedMcp ? "enabled" : "disabled"}, ${declaredTools.length} tools).`,
+);

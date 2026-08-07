@@ -1,5 +1,5 @@
-import type { GraphPersistedState } from "@thesis/core";
-import { DEFAULT_GRAPH_PERSISTED_STATE, parseGraphPersistedState } from "@thesis/core";
+import type { GraphPersistedState } from "@weaveforge/core";
+import { DEFAULT_GRAPH_PERSISTED_STATE, parseGraphPersistedState } from "@weaveforge/core";
 
 const LEGACY_KEYS = {
   lists: "thesis.graph.lists",

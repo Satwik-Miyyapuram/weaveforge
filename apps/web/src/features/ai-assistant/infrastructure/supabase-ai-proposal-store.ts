@@ -5,7 +5,7 @@ import type {
   IAiAuditStore,
   IAiProposalStore,
   ICurrentUserProvider,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 type ProposalRow = {
   id: string;

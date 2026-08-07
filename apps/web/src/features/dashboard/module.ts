@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 export const dashboardModule: FeatureModule = {
   id: "dashboard",

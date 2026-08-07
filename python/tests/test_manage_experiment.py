@@ -2,11 +2,11 @@
 
 import pytest
 
-from thesis_tracker import NewExperimentInput, short_sha
-from thesis_tracker.features.experiments.application import ManageExperimentUseCase
-from thesis_tracker.features.experiments.domain.experiment import ExperimentValidationError
-from thesis_tracker.features.experiments.domain.metric_point import MetricPoint
-from thesis_tracker.testing import (
+from weaveforge import NewExperimentInput, short_sha
+from weaveforge.features.experiments.application import ManageExperimentUseCase
+from weaveforge.features.experiments.domain.experiment import ExperimentValidationError
+from weaveforge.features.experiments.domain.metric_point import MetricPoint
+from weaveforge.testing import (
     FixedClock,
     InMemoryExperimentRepository,
     InMemoryMetricRepository,

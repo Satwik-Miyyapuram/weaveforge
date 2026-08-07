@@ -1,5 +1,5 @@
 {
-  "name": "thesis-tracker",
+  "name": "weaveforge",
   "version": "0.5.2",
   "private": true,
   "description": "Open-source, modular tracker for a masters thesis (papers, experiments, logbook, report, meetings).",
@@ -21,13 +21,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "build:core": "npm run build --workspace @thesis/core",
-    "test:core": "npm run test --workspace @thesis/core",
-    "test:web": "npm run test --workspace @thesis/web",
-    "lint": "npm run lint --workspace @thesis/web",
-    "test:integration:web": "npm run test:integration --workspace @thesis/web",
-    "test:e2e": "npm run test:e2e --workspace @thesis/web",
-    "record:demos": "npm run record:demos --workspace @thesis/web",
+    "build:core": "npm run build --workspace @weaveforge/core",
+    "test:core": "npm run test --workspace @weaveforge/core",
+    "test:web": "npm run test --workspace @weaveforge/web",
+    "lint": "npm run lint --workspace @weaveforge/web",
+    "test:integration:web": "npm run test:integration --workspace @weaveforge/web",
+    "test:e2e": "npm run test:e2e --workspace @weaveforge/web",
+    "record:demos": "npm run record:demos --workspace @weaveforge/web",
     "seed:showcase": "node scripts/seed-showcase-data.mjs",
     "setup:local-dev": "node scripts/setup-local-dev.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -41,10 +41,17 @@
     "generate:deployment": "node --import tsx scripts/generate-deployment-registry.mjs",
     "check:deployment-surface": "node --import tsx scripts/check-deployment-surface.mjs",
     "prebuild": "npm run generate:deployment",
-    "build": "npm run build --workspace @thesis/web",
-    "dev": "npm run dev --workspace @thesis/web",
-    "serve": "npm run serve --workspace @thesis/web",
-    "start": "npm run start --workspace @thesis/web"
+    "build": "npm run build --workspace @weaveforge/web",
+    "dev": "npm run dev --workspace @weaveforge/web",
+    "serve": "npm run serve --workspace @weaveforge/web",
+    "start": "npm run start --workspace @weaveforge/web",
+    "migrate:ping": "node scripts/ping-target.mjs",
+    "migrate:preflight": "node scripts/migration-preflight.mjs",
+    "migrate:schema": "node scripts/apply-migrations-oci.mjs",
+    "migrate:data": "node scripts/migrate-supabase-to-postgres.mjs",
+    "migrate:blobs": "node scripts/migrate-blobs.mjs",
+    "migrate:verify": "node scripts/verify-migration.mjs",
+    "migrate": "node scripts/migrate-to-oracle.mjs"
   },
   "devDependencies": {
     "supabase": "^2.109.1"

@@ -7,7 +7,7 @@ import {
   type QuotationType,
   type ReaderAnnotation,
   type ReaderAnnotationType,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import {
   annotationPinKey,

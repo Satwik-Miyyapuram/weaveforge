@@ -3,8 +3,8 @@ import type {
   LibraryPin,
   NewLibraryPinInput,
   ShareableType,
-} from "@thesis/core";
-import type { ICurrentUserProvider } from "@thesis/core";
+} from "@weaveforge/core";
+import type { ICurrentUserProvider } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
 

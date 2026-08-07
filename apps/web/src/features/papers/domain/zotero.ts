@@ -1,4 +1,4 @@
-import type { Paper } from "@thesis/core";
+import type { Paper } from "@weaveforge/core";
 
 /**
  * Zotero PDF annotation kinds from the Web API `annotationType` field.

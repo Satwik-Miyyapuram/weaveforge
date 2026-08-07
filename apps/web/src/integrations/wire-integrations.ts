@@ -1,4 +1,4 @@
-import type { IMetadataSource, IProjectBibliographyCollectionStore } from "@thesis/core";
+import type { IMetadataSource, IProjectBibliographyCollectionStore } from "@weaveforge/core";
 import { getAppConfig } from "@/deployment/app-config";
 import { readIntegrationConfig, type IntegrationConfig } from "./config";
 import { NoopBibliographyIntegration } from "./noop/noop-bibliography-integration";

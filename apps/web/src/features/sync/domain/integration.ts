@@ -1,6 +1,6 @@
 /**
  * Per-project integration config (git sync + notifications). Web-side type —
- * the sync layer is infrastructure, so this lives outside @thesis/core.
+ * the sync layer is infrastructure, so this lives outside @weaveforge/core.
  *
  * Field semantics per provider: see `integration-fields.ts` (e.g. Mattermost
  * stores server URL in `repo` and channel id in `branch`).

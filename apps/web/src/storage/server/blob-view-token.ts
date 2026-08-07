@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { BlobTier } from "@thesis/core";
+import type { BlobTier } from "@weaveforge/core";
 
 export interface BlobViewPayload {
   uid: string;

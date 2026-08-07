@@ -24,7 +24,7 @@ Feature code uses **`IBlobStore`** via `PaperImageStore` — never Supabase Stor
 
 ## Docs
 
-- [`../plans/working/migration-plan.md`](../plans/working/migration-plan.md) — phased self-host (Postgres + tiered blobs, Supabase Auth)
+- [`../plans/completed/migration-plan.md`](../plans/completed/migration-plan.md) — phased self-host (Postgres + tiered blobs, Supabase Auth)
 - [`tiering.md`](tiering.md) — R2 hot → OCI cold eviction formula
 - [`r2-setup.md`](r2-setup.md) — enable R2, create bucket, API token, env vars
 

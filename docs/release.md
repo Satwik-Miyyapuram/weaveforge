@@ -5,7 +5,7 @@ This monorepo ships **two release tracks**. Do not mix their tags.
 | | **Project release** | **Android TWA** |
 |---|---------------------|-----------------|
 | Tag | `vX.Y.Z` (semver, e.g. `v0.5.0`) | `android-vN` (e.g. `android-v3`) |
-| Covers | Web app, `@thesis/core`, schema, and the `thesis-tracker` SDK | APK + AAB on the GitHub Release |
+| Covers | Web app, `@weaveforge/core`, schema, and the `weaveforge` SDK | APK + AAB on the GitHub Release |
 | Artifact | GitHub Release + PyPI wheel/sdist | Signed Android bundle |
 | Workflow | `publish-python.yml` | `android-twa.yml` |
 | Changelog | [`../CHANGELOG.md`](../CHANGELOG.md) | Same |
@@ -26,7 +26,7 @@ All changes still land on `main` via pull request (branch protection). Tags are 
    package.json                        "version"
    apps/web/package.json               "version"
    packages/core/package.json          "version"
-   python/thesis_tracker/__init__.py   __version__
+   python/weaveforge/__init__.py   __version__
    ```
 
    All four must match the tag. Missing the Python one is not caught by CI —
@@ -40,7 +40,7 @@ All changes still land on `main` via pull request (branch protection). Tags are 
    git push origin vX.Y.Z
    gh release create vX.Y.Z --title "WeaveForge vX.Y.Z" --notes-file .github/release_template.md
    ```
-4. `publish-python.yml` publishes to PyPI. Confirm at https://pypi.org/project/thesis-tracker/ .
+4. `publish-python.yml` publishes to PyPI. Confirm at https://pypi.org/project/weaveforge/ .
 
 Do not re-use a PyPI version. Prefer Trusted Publishing; `PYPI_API_TOKEN` is the fallback.
 
@@ -68,7 +68,7 @@ Manual rebuild without a tag: **Actions → Build Android TWA → Run workflow**
 
 Deployed file must serve the signing cert fingerprint:
 
-`https://my-thesis-tracker-web.vercel.app/.well-known/assetlinks.json`
+`https://my-weaveforge-web.vercel.app/.well-known/assetlinks.json`
 
 - Sideload / self-signed builds → fingerprint of `android-keystore.jks` (alias `weaveforge`).
 - Play App Signing → **also** add Google Play’s app-signing cert SHA-256 from Play Console.

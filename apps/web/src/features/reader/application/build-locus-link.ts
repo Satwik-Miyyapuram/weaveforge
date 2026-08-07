@@ -1,4 +1,4 @@
-import { encodeLocus, type PdfLocus } from "@thesis/core";
+import { encodeLocus, type PdfLocus } from "@weaveforge/core";
 import { sanitizePdfUrl } from "./sanitize-reader-url";
 
 /**

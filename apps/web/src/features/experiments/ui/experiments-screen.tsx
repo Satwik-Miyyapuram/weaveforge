@@ -9,7 +9,7 @@ import {
   type Experiment,
   type ExperimentStatus,
   type MetricPoint,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useNavPending } from "@/lib/nav-pending";
 import { Modal } from "@/components/modal";
@@ -62,7 +62,7 @@ export function ExperimentsScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const items = data?.experiments ?? emptyArray<import("@thesis/core").Experiment>();
+  const items = data?.experiments ?? emptyArray<import("@weaveforge/core").Experiment>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
 

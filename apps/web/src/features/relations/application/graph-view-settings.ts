@@ -5,7 +5,7 @@ export type {
   GraphPinnedPosition,
   GraphViewSettings,
   GroupBy,
-} from "@thesis/core";
+} from "@weaveforge/core";
 export {
   DEFAULT_GRAPH_PERSISTED_STATE,
   DEFAULT_GRAPH_SETTINGS,
@@ -16,4 +16,4 @@ export {
   parseGraphPersistedState,
   showConceptEdges,
   showRelationEdges,
-} from "@thesis/core";
+} from "@weaveforge/core";

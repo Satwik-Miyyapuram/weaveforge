@@ -10,7 +10,7 @@
  * wiped by clearLocalDeviceData, the wrap key by clearPersistedMcpSessions).
  */
 
-import type { AiAccessSettings, AiActiveSession } from "@thesis/core";
+import type { AiAccessSettings, AiActiveSession } from "@weaveforge/core";
 import { singleFlight } from "@/lib/single-flight";
 
 export interface PersistedMcpSession {

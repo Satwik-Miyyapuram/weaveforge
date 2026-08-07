@@ -2,7 +2,7 @@
 # Cloud migrations: supabase/migrations/  (required path for `supabase db push`)
 # Self-hosted only:  supabase/migrations-self-hosted-postgres/
 # See supabase/README.md
-project_id = "thesis-tracker"
+project_id = "weaveforge"
 
 [auth]
 # Disable email confirmations locally so that signing up registers the user immediately

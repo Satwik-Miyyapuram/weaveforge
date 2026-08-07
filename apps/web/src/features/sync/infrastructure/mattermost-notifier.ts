@@ -1,4 +1,4 @@
-import type { CitationCandidate, Milestone, Paper } from "@thesis/core";
+import type { CitationCandidate, Milestone, Paper } from "@weaveforge/core";
 import type { Integration } from "../domain/integration";
 import { mattermostConnection, mattermostConnectionReady } from "../domain/integration-fields";
 

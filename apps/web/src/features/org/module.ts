@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 /** Supervisor view — header route for PhD+ roles. /org redirects to Settings. */
 export const orgModule: FeatureModule = {

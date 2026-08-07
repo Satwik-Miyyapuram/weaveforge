@@ -2,7 +2,7 @@
 
 **Purpose of this document.** Give an external research model (e.g. Gemini Deep Research) a complete, accurate inventory of what WeaveForge already ships, how it works, and what constraints are non-negotiable — so it can compare us to other note / reference / writing / discovery / experiment tools and recommend concrete feature improvements without inventing capabilities we do not have.
 
-**Product name.** The product is **WeaveForge**. The repository and Python SDK use the internal code name `thesis-tracker`. Refer to the product as WeaveForge throughout.
+**Product name.** The product is **WeaveForge**. The repository and Python SDK use the internal code name `weaveforge`. Refer to the product as WeaveForge throughout.
 
 ---
 
@@ -13,7 +13,7 @@ A prior Deep Research run failed by retrieving an unrelated product with a simil
 **We are NOT, and no claim about us may be sourced from:**
 
 - Any **investment / financial** "thesis tracker" — investment theses, market-close jobs, Yahoo Finance or FRED pulls, price targets, trade confidence scores, "wins and losses" track records. Different product, same name. If a source discusses financial theses, it is not about us; discard it entirely.
-- Anthropic's `thesis-tracker` **agent skill** listed in financial-services skill directories. Not our product.
+- Anthropic's `weaveforge` **agent skill** listed in financial-services skill directories. Not our product.
 - Any **Cloudflare Workers / edge SQLite / D1** architecture. We are Next.js on Vercel with Postgres via Supabase (§2).
 - Any **Zod-validated autonomous MCP tool server with Bearer-token nightly cron writes**. Our MCP is browser-paired, fail-closed, proposal-only, default off (§6.16).
 
@@ -84,12 +84,12 @@ Connectiveness is the product idea: a paper can sit in a list, appear on the gra
 | Layer | Technology |
 |-------|------------|
 | Web PWA | Next.js 14, React 18, TypeScript, Serwist service worker, CodeMirror 6, KaTeX, Shiki, react-force-graph-2d / d3-force, react-grid-layout, Yjs + y-codemirror (collab), uPlot, fflate, isomorphic-git, libsodium |
-| Domain | `@thesis/core` (`packages/core`) — entities, ports, use-cases; **no** React/Supabase |
+| Domain | `@weaveforge/core` (`packages/core`) — entities, ports, use-cases; **no** React/Supabase |
 | Database | Postgres via Supabase (default); migrations in `supabase/migrations/` (through `0105+`) |
 | Auth | Supabase Auth (email + optional Google); JWT + **Postgres RLS** |
 | Blobs | Supabase Storage buckets; pluggable `IBlobStore` (R2/S3/tiered planned) |
-| Python SDK | `python/` — PyPI package `thesis-tracker`; httpx + supabase; Lightning/Keras/TensorBoard/wandb extras |
-| MCP plugin | `plugins/thesis-tracker-research/` — Codex marketplace plugin; model-agnostic MCP client |
+| Python SDK | `python/` — PyPI package `weaveforge`; httpx + supabase; Lightning/Keras/TensorBoard/wandb extras |
+| MCP plugin | `plugins/weaveforge-research/` — Codex marketplace plugin; model-agnostic MCP client |
 | Android | Trusted Web Activity wrapper (`apps/web/twa/`) |
 | Deploy | Vercel + Supabase; self-host Postgres path documented |
 | Quality | TDD; SOLID/DRY boundary lints; colocated API route tests; Playwright e2e |
@@ -99,7 +99,7 @@ Connectiveness is the product idea: a paper can sit in a list, appear on the gra
 ```
 UI (features/*/ui)
   → Facades (container/facades.ts)   // ISP UI API
-  → Use-cases (@thesis/core)
+  → Use-cases (@weaveforge/core)
   → Repository ports
   → Supabase / Postgres adapters (infrastructure)
 ```
@@ -119,7 +119,7 @@ UI never calls `supabase.from()` directly — only via repositories through `get
 
 ### Modular deployment
 
-`thesis-tracker.config.ts` + code generation can allowlist/strip features, integrations, and MCP at deploy time (hosted vs self-host profiles).
+`weaveforge.config.ts` + code generation can allowlist/strip features, integrations, and MCP at deploy time (hosted vs self-host profiles).
 
 ---
 
@@ -325,14 +325,14 @@ Table: `vault_pages`.
 - Git branch/commit pin; link to related paper; compare view (table + overlaid charts).
 - Stale-running detection (~2 minutes without heartbeat/update).
 
-**Python SDK (`thesis-tracker` on PyPI)**
+**Python SDK (`weaveforge` on PyPI)**
 
 - Auth: personal access tokens `tt_…` created in **Settings → Python SDK / API tokens**; hashed at rest; shown once; same RLS as the user.
-- Env: `THESIS_TRACKER_TOKEN`, `THESIS_TRACKER_API_URL`, `THESIS_TRACKER_PROJECT` or `…_PROJECT_ID`.
+- Env: `WEAVEFORGE_TOKEN`, `WEAVEFORGE_API_URL`, `WEAVEFORGE_PROJECT` or `…_PROJECT_ID`.
 - `@track_experiment` / context manager: creates run, logs metrics, uploads figures, sets status on exit.
 - Framework callbacks: Lightning, Keras.
 - Import: TensorBoard, wandb, or custom `MetricSource` (Open/Closed).
-- CLI: `thesis-tracker list`, `import-tb`, `import-wandb`.
+- CLI: `weaveforge list`, `import-tb`, `import-wandb`.
 
 **SDK HTTP APIs:** `/api/sdk/{whoami,projects,experiments,metrics,artifacts}`
 
@@ -447,7 +447,7 @@ Each action creates a **pending proposal**. User approves only on `/ai-review`. 
 - No silent autonomous writes
 - Credentials stay server-key sealed; Zotero calls (when approved) go browser → Zotero, not through MCP plaintext
 
-Plugin docs: `plugins/thesis-tracker-research/README.md`. Plan: `docs/plans/completed/AI_MCP_PLAN.md`. Live contract: `docs/MCP_IMPLEMENTATION.md` (some historical “E2EE” wording may lag the plaintext entity model — relay envelopes still use pairing-secret encryption).
+Plugin docs: `plugins/weaveforge-research/README.md`. Plan: `docs/plans/completed/AI_MCP_PLAN.md`. Live contract: `docs/MCP_IMPLEMENTATION.md` (some historical “E2EE” wording may lag the plaintext entity model — relay envelopes still use pairing-secret encryption).
 
 Tables: `ai_proposals`, `ai_audit_records`, `ai_mcp_relay_requests`, MCP token storage.
 
@@ -703,8 +703,8 @@ Produce **all** of the following. A missing section is a failed deliverable.
 | `docs/future-work/BACKLOG.md` | Shipped vs deferred |
 | `docs/plans/completed/library-knowledge-loop-plan.md` | Fields / annotations track |
 | `python/README.md` | SDK |
-| `plugins/thesis-tracker-research/README.md` | Codex plugin setup |
-| `docs/plans/future/hosting-and-cost-plan.md` | Hosted pricing thinking |
+| `plugins/weaveforge-research/README.md` | Codex plugin setup |
+| `docs/plans/completed/hosting-and-cost-plan.md` | Hosted pricing thinking |
 | `docs/plans/completed/modular-deployment-plan.md` | Feature stripping |
 
 ---

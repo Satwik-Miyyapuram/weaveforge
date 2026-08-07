@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ROLE_LABELS, ROLE_RANK, memberRoleLabel, type Member } from "@thesis/core";
+import { ROLE_LABELS, ROLE_RANK, memberRoleLabel, type Member } from "@weaveforge/core";
 
 /** A member plus the people who report (transitively) to them. */
 export interface MemberNode {

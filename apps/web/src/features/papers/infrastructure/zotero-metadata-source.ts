@@ -1,4 +1,4 @@
-import type { IMetadataSource, PaperMetadata, PaperRef } from "@thesis/core";
+import type { IMetadataSource, PaperMetadata, PaperRef } from "@weaveforge/core";
 import { zoteroHeaders, zoteroLibraryUrl } from "./zotero-web-api";
 
 /**

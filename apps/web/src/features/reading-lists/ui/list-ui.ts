@@ -1,4 +1,4 @@
-import type { ReadingList } from "@thesis/core";
+import type { ReadingList } from "@weaveforge/core";
 
 /** Preset list colors (matches graph/status palette). */
 export const LIST_COLOR_PRESETS = [

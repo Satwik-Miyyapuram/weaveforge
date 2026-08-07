@@ -1,6 +1,6 @@
 # Developer Guide
 
-Thesis Tracker is built using **SOLID** principles, emphasizing a clean, modular structure. The core domain (`@thesis/core`) is completely agnostic to UI and frameworks, while the web app (`apps/web`) acts as the presentation layer.
+WeaveForge is built using **SOLID** principles, emphasizing a clean, modular structure. The core domain (`@weaveforge/core`) is completely agnostic to UI and frameworks, while the web app (`apps/web`) acts as the presentation layer.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ To add a new feature (e.g., a "Timer" module):
 3. **Export the Module Definition**
    Create `module.ts` in your feature folder to fulfill the `FeatureModule` contract:
    ```ts
-   import type { FeatureModule } from "@thesis/core";
+   import type { FeatureModule } from "@weaveforge/core";
 
    export const timerModule: FeatureModule = {
      id: "timer",
@@ -89,9 +89,9 @@ When landing sharing, library, or org onboarding work, confirm:
 
 | Area | Rule |
 |------|------|
-| **Share matching** | Use `shareCoversResource` / `shareAllowsComment` from `@thesis/core` in use-cases — never in UI components. |
+| **Share matching** | Use `shareCoversResource` / `shareAllowsComment` from `@weaveforge/core` in use-cases — never in UI components. |
 | **Library pins** | Writes go through `PinSharedResourceUseCase`; repos must pass `runLibraryPinRepositoryContract`. |
-| **Screen data** | Multi-repo orchestration lives in `Load*ScreenUseCase` classes wired in `bootstrap.ts`, not in React screens. Pin merge uses `mergePinnedScreenData` from `@thesis/core`. |
+| **Screen data** | Multi-repo orchestration lives in `Load*ScreenUseCase` classes wired in `bootstrap.ts`, not in React screens. Pin merge uses `mergePinnedScreenData` from `@weaveforge/core`. |
 | **Pinned owner labels** | Use `loadPinnedOwnerNames()` — do not duplicate `buildMemberNameMap` loops in screens. |
 | **Duplicate copy** | Papers: `DuplicateSharedPaperUseCase` (core). Vault pages: `DuplicateSharedVaultPageUseCase` (web, asset re-upload). Both require an active share grant. |
 | **Org API routes** | Shared helpers in `apps/web/src/app/api/org/_shared.ts`; code preview requires auth. |

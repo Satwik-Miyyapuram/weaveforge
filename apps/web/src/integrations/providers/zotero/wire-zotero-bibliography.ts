@@ -6,7 +6,7 @@ import type {
   ISettingsRepository,
   ManageSettingsUseCase,
   ManageTagsUseCase,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { ZoteroMetadataSource } from "@/features/papers/infrastructure/zotero-metadata-source";
 import { ZoteroExporter } from "@/features/papers/infrastructure/zotero-exporter";
 import { ZoteroSync } from "@/features/papers/infrastructure/zotero-sync";

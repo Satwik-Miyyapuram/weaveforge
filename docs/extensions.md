@@ -1,10 +1,10 @@
-# Extending Thesis Tracker
+# Extending WeaveForge
 
-Thesis Tracker is built as a **modular monolith**: domain logic lives in `@thesis/core`, infrastructure is swapped at the composition root, and the UI talks to **facades** — not Supabase, not repositories, not third-party SDKs.
+WeaveForge is built as a **modular monolith**: domain logic lives in `@weaveforge/core`, infrastructure is swapped at the composition root, and the UI talks to **facades** — not Supabase, not repositories, not third-party SDKs.
 
 That layering is the extension model. You extend the app by implementing a **port** (interface) and wiring it in one place — not by patching feature screens.
 
-> **Deploy plugins (B–D):** register packages in [`thesis-tracker.config.ts`](../thesis-tracker.config.ts) at the repo root. Integration manifests live in `apps/web/src/integrations/manifests/`. See [`plugins/README.md`](../plugins/README.md).
+> **Deploy plugins (B–D):** register packages in [`weaveforge.config.ts`](../weaveforge.config.ts) at the repo root. Integration manifests live in `apps/web/src/integrations/manifests/`. See [`plugins/README.md`](../plugins/README.md).
 
 ---
 
@@ -35,8 +35,8 @@ That layering is the extension model. You extend the app by implementing a **por
 | Backend selection | `apps/web/src/backend/wire-backend.ts` |
 | Integrations | `apps/web/src/integrations/wire-integrations.ts` |
 | Blob storage | `apps/web/src/storage/wire-storage.ts` |
-| Python SDK | `python/thesis_tracker/container.py` |
-| Python sync | `python/thesis_tracker/sync/registry.py` |
+| Python SDK | `python/weaveforge/container.py` |
+| Python sync | `python/weaveforge/sync/registry.py` |
 
 ---
 
@@ -68,9 +68,9 @@ The closest thing to a “plugin” today. Env vars select the implementation at
 
 **Checklist** (full detail in [`integrations.md`](integrations.md)):
 
-1. Implement the port in `@thesis/core` (or reuse an existing one).
+1. Implement the port in `@weaveforge/core` (or reuse an existing one).
 2. Add a manifest under `apps/web/src/integrations/manifests/<name>.ts` (see `zotero.ts`).
-3. Register the manifest in `manifests/builtin.ts` **or** ship it from an npm plugin via `integrationManifests` in `thesis-tracker.config.ts`.
+3. Register the manifest in `manifests/builtin.ts` **or** ship it from an npm plugin via `integrationManifests` in `weaveforge.config.ts`.
 4. Set `NEXT_PUBLIC_*_PROVIDER` env var to the manifest `id`.
 5. Optional: `apps/web/src/app/api/<name>/route.ts` for CORS-safe browser calls.
 6. Run `npm run check:solid`.
@@ -103,8 +103,8 @@ Bibliography providers may also export a metadata source (Zotero does both).
 For experiment tracking from training scripts — **no web changes required**.
 
 ```python
-from thesis_tracker.sync.registry import default_registry
-from thesis_tracker.sync.source import MetricSource
+from weaveforge.sync.registry import default_registry
+from weaveforge.sync.source import MetricSource
 
 class CsvMetricSource:
     id = "my-csv"
@@ -180,7 +180,7 @@ Adding a feature today requires edits in **several** places (by design — expli
 | Relational DB + auth | `NEXT_PUBLIC_BACKEND_PROVIDER` | `wire-backend.ts` |
 | Object blobs | `BLOB_PROVIDER` | `wire-storage.ts` |
 
-Implement repository interfaces from `@thesis/core`, pass the shared **contract test suite**, add a `case` in the wire switch.
+Implement repository interfaces from `@weaveforge/core`, pass the shared **contract test suite**, add a `case` in the wire switch.
 
 Postgres self-hosting: [`backend/postgres-provider.md`](backend/postgres-provider.md).
 
@@ -220,7 +220,7 @@ Gated by `readIntegrationConfig()` so disabled providers never appear.
 | UI boundaries | `npm run check:solid` + `npm run check:dry` |
 | Integrations | Adapter unit tests + optional live test with env creds |
 | Python sync | `pytest` with fabricated rows (`tests/test_sync_sources.py`) |
-| Full CI | `npm run test:core`, `npm test --workspace @thesis/web`, PR to `main` |
+| Full CI | `npm run test:core`, `npm test --workspace @weaveforge/web`, PR to `main` |
 
 A module is done when contract tests pass on **both** in-memory and real backend implementations (Liskov).
 

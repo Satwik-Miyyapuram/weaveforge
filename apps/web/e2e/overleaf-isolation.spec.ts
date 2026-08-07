@@ -21,7 +21,7 @@ function report(id: string, ownerProjectId: string, title: string) {
 
 test.describe("Overleaf browser privacy boundary", () => {
   test.beforeEach(async ({ page }, testInfo) => {
-    if (!e2eEnabled()) testInfo.skip(true, "Set THESIS_TRACKER_* env vars to run browser tests");
+    if (!e2eEnabled()) testInfo.skip(true, "Set WEAVEFORGE_* env vars to run browser tests");
     await bootstrapSession(page, e2eUserA().email, e2eUserA().password);
   });
 

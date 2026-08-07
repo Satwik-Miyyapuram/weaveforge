@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ICurrentUserProvider, IProjectRepository, Project } from "@thesis/core";
+import type { ICurrentUserProvider, IProjectRepository, Project } from "@weaveforge/core";
 
 interface ProjectRow {
   id: string;

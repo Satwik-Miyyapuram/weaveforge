@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 /**
  * The papers feature module descriptor. The app shell discovers this via the

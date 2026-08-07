@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   }
   const upstream = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(idList)}`;
   const res = await fetch(upstream, {
-    headers: { "User-Agent": "thesis-tracker (mailto:noreply@example.com)" },
+    headers: { "User-Agent": "weaveforge (mailto:noreply@example.com)" },
   });
   const body = await res.text();
   return new NextResponse(body, {

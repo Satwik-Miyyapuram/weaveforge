@@ -5,7 +5,7 @@ import type {
   LibraryPin,
   NewLibraryPinInput,
   ShareableType,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 
 interface PinRow {

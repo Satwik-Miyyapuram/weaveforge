@@ -19,6 +19,7 @@ create index if not exists library_pins_user_project_idx
 
 alter table library_pins enable row level security;
 
+drop policy if exists library_pins_own on library_pins;
 create policy library_pins_own on library_pins
   for all
   using (user_id = auth.uid())

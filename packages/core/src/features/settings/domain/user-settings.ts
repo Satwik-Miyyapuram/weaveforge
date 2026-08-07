@@ -9,6 +9,7 @@
 import { integrationsBagFromLegacy } from "./user-integration-credentials.js";
 import { normalizeAppearance, type UserAppearance } from "./user-appearance.js";
 import { normalizeAiAccessSettings, type AiAccessSettings } from "../../ai-assistant/index.js";
+import { normalizeSearchSettings, type SearchSettings } from "../../../search/search-settings.js";
 
 export type { UserAppearance, ControlSize } from "./user-appearance.js";
 export { normalizeAppearance, parseUserAppearance } from "./user-appearance.js";
@@ -33,6 +34,8 @@ export interface UserSettings {
   appearance?: UserAppearance;
   /** Explicit, fail-closed access controls for the AI assistant. */
   aiAccess?: AiAccessSettings;
+  /** Ranking preferences for workspace search. */
+  search?: SearchSettings;
 }
 
 export const EMPTY_SETTINGS: UserSettings = {};
@@ -66,6 +69,9 @@ export function normalizeUserSettings(settings: UserSettings): UserSettings {
   if (appearance) out.appearance = appearance;
 
   if (settings.aiAccess) out.aiAccess = normalizeAiAccessSettings(settings.aiAccess);
+
+  const search = normalizeSearchSettings(settings.search);
+  if (search) out.search = search;
 
   const integrations = settings.integrations ?? integrationsBagFromLegacy(settings);
   if (integrations) {

@@ -1,4 +1,4 @@
-import type { Milestone } from "@thesis/core";
+import type { Milestone } from "@weaveforge/core";
 import type { IIntegrationsStore, IMattermostNotifier } from "../domain/sync-ports";
 import { milestoneMessage } from "../infrastructure/mattermost-notifier";
 

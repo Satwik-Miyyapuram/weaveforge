@@ -1,6 +1,6 @@
 name: Publish Python SDK
 
-# Publishes thesis-tracker to PyPI when a semver SDK tag is pushed / released.
+# Publishes weaveforge to PyPI when a semver SDK tag is pushed / released.
 # Tags: vX.Y.Z only (e.g. v1.2.3). Android uses android-v* — never this workflow.
 #
 # Preferred auth: PyPI Trusted Publishing (OIDC) via the `pypi` environment.

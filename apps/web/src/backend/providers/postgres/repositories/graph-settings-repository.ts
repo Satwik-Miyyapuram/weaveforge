@@ -2,7 +2,7 @@ import {
   parseGraphPersistedState,
   type GraphPersistedState,
   type IGraphSettingsRepository,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 type Row = {

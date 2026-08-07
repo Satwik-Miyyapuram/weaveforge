@@ -1,6 +1,6 @@
 """Framework-callback plumbing (offline — the pure scalar extraction)."""
 
-from thesis_tracker.integrations._common import to_scalars
+from weaveforge.integrations._common import to_scalars
 
 
 class _FakeTensor:

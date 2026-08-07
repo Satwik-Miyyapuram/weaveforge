@@ -10,9 +10,9 @@ built-in sources use. No SDK code changes needed (Open/Closed).
 import csv
 import io
 
-from thesis_tracker import track
-from thesis_tracker.features.experiments.domain.metric_point import MetricSeries
-from thesis_tracker.sync import default_registry
+from weaveforge import track
+from weaveforge.features.experiments.domain.metric_point import MetricSeries
+from weaveforge.sync import default_registry
 
 CSV = "step,loss,acc\n0,1.0,0.4\n1,0.6,0.7\n2,0.3,0.9\n"
 

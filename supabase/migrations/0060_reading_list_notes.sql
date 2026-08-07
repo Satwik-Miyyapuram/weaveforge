@@ -6,6 +6,7 @@ alter table reading_list_items
 
 alter table reading_list_items drop constraint if exists reading_list_items_list_id_paper_id_key;
 
+alter table reading_list_items drop constraint if exists reading_list_items_ref_check;
 alter table reading_list_items
   add constraint reading_list_items_ref_check check (
     (paper_id is not null and vault_page_id is null)

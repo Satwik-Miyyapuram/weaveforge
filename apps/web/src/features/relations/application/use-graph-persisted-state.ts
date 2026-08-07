@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { GraphPersistedState, GraphViewSettings } from "@thesis/core";
+import type { GraphPersistedState, GraphViewSettings } from "@weaveforge/core";
 import {
   DEFAULT_GRAPH_PERSISTED_STATE,
   DEFAULT_GRAPH_SETTINGS,
   mergeGraphPersistedState,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import {

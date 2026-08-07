@@ -3,7 +3,7 @@
  * Implements IPdfByteCache; core stays DOM-free.
  */
 
-import type { IPdfByteCache } from "@thesis/core";
+import type { IPdfByteCache } from "@weaveforge/core";
 import { pickKeysToEvict } from "../application/pdf-cache-eviction";
 
 const DB_NAME = "weaveforge-pdf-cache";

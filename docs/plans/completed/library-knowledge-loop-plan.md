@@ -26,7 +26,7 @@ Migrations: `0103_annotation_pins`, `0104_paper_fields`, `0105_paper_field_relat
 
 ## Why this track
 
-The cite/excerpt loop shipped in [PR #29](https://github.com/Satwik-Miyyapuram/thesis_tracker/pull/29)
+The cite/excerpt loop shipped in [PR #29](https://github.com/Satwik-Miyyapuram/weaveforge/pull/29)
 made highlights usable while writing, but it modelled every highlight as a **vault note** under
 `Excerpts/`. That was the fastest path to "excerpts are objects", and it works, but it has costs:
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CrdtUpdateRecord, ICrdtUpdateStore } from "@thesis/core";
+import type { CrdtUpdateRecord, ICrdtUpdateStore } from "@weaveforge/core";
 import { decodeBytea, encodeBytea } from "@/lib/bytea.js";
 
 const TABLE = "crdt_updates";

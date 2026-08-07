@@ -9,9 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Member, OrgMembershipView, UserSettings } from "@thesis/core";
+import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
-import { hasActiveLab, needsDisclaimerAcceptance, needsStandaloneRoleSync } from "@thesis/core";
+import { hasActiveLab, needsDisclaimerAcceptance, needsStandaloneRoleSync } from "@weaveforge/core";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
 import { singleFlight } from "@/lib/single-flight";
 

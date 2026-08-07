@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Paper, ReportSection } from "@thesis/core";
+import type { Paper, ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 

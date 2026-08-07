@@ -1,4 +1,4 @@
-import type { LogEntry, Milestone } from "@thesis/core";
+import type { LogEntry, Milestone } from "@weaveforge/core";
 import type { GitBranch, GitCommit } from "../infrastructure/git-client";
 import type { Integration, SyncProvider } from "./integration";
 

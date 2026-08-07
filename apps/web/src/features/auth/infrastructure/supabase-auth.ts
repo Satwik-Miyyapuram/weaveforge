@@ -3,7 +3,7 @@ import type {
   AuthChangeCallback,
   AuthUser,
   IAuthService,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /**
  * Supabase implementation of IAuthService.

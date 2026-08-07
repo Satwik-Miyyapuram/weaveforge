@@ -6,8 +6,8 @@ import type {
   DashboardCardType,
   DashboardLayout,
   DashboardLayoutItem,
-} from "@thesis/core";
-import { parseDashboardLayout as parseDashboardLayoutCore } from "@thesis/core";
+} from "@weaveforge/core";
+import { parseDashboardLayout as parseDashboardLayoutCore } from "@weaveforge/core";
 
 import { CARD_REGISTRY, getCardDef } from "./card-registry";
 

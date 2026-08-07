@@ -16,6 +16,7 @@ create index if not exists annotation_pins_project_section_idx
 
 alter table annotation_pins enable row level security;
 
+drop policy if exists annotation_pins_own on annotation_pins;
 create policy annotation_pins_own on annotation_pins
   for all
   using (user_id = (select auth.uid()))

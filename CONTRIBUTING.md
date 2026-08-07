@@ -88,7 +88,7 @@ Object/blob storage (paper images, experiment artifacts, vault assets) is a **se
 
 **Full guide:** [`docs/storage/README.md`](docs/storage/README.md)
 
-Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Phase 1 adds tiered R2 + OCI MinIO (`BLOB_PROVIDER=tiered`). See [`docs/plans/working/migration-plan.md`](docs/plans/working/migration-plan.md).
+Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Phase 1 adds tiered R2 + OCI MinIO (`BLOB_PROVIDER=tiered`). See [`docs/plans/completed/migration-plan.md`](docs/plans/completed/migration-plan.md).
 
 ## Web integrations (`apps/web/src/integrations/`)
 
@@ -98,7 +98,7 @@ The PWA wires third-party services through env-selected providers at the composi
 
 To add or swap a provider (bibliography, citation, notification, log sync, git read):
 
-1. Implement the port in `@thesis/core` (or reuse an existing one).
+1. Implement the port in `@weaveforge/core` (or reuse an existing one).
 2. Add an adapter under `integrations/providers/<name>/`.
 3. Register in `integrations/config.ts`, the wire switch (`wire-integrations.ts` or `wire-citations.ts`), and `integrations/descriptors.ts`.
 4. Add an API proxy route if the browser needs CORS help (`app/api/<name>/route.ts`).
@@ -117,7 +117,7 @@ only `infrastructure/` and `container.py` do.
 cd python
 pip install -e '.[dev]' ruff mypy
 pytest          # offline; the Supabase integration test auto-skips without creds
-ruff check thesis_tracker tests
+ruff check weaveforge tests
 mypy
 ```
 
@@ -126,7 +126,7 @@ mypy
 You don't edit the SDK to support a new logger — you add a class and register it:
 
 1. Implement the `MetricSource` protocol (`id`, `available()`, `read(ref)`) and/or
-   `ArtifactSource` (`collect(ref)`) — see `thesis_tracker/sync/source.py`.
+   `ArtifactSource` (`collect(ref)`) — see `weaveforge/sync/source.py`.
 2. Import your heavy dependency lazily (inside the method) and raise
    `MissingDependencyError` if it's absent, so the source stays
    registered-but-unavailable until installed.
@@ -147,7 +147,7 @@ Conventional-commit style is appreciated: `feat:`, `fix:`, `docs:`, `refactor:`,
 
 The **entire** repository is licensed under **AGPL-3.0-only** — the web
 application, `packages/core`, the Python SDK under `python/`, and the Codex MCP
-plugin under `plugins/thesis-tracker-research/`. There are no exceptions and no
+plugin under `plugins/weaveforge-research/`. There are no exceptions and no
 per-directory carve-outs. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 By submitting a contribution you agree it is licensed under AGPL-3.0-only. Note

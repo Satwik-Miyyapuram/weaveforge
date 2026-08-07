@@ -136,16 +136,16 @@ export function ApiTokensPanel() {
       <h3 className="settings-group">Python SDK access tokens</h3>
       <p className="muted api-token-intro">
         Generate personal access tokens for the{" "}
-        <a href="https://pypi.org/project/thesis-tracker/" target="_blank" rel="noreferrer">
-          thesis-tracker
+        <a href="https://pypi.org/project/weaveforge/" target="_blank" rel="noreferrer">
+          weaveforge
         </a>{" "}
         Python package. Use them in scripts and notebooks to push experiments, metrics, and
         artifacts into this workspace — without sharing your login session.
       </p>
       <pre className="api-token-env-hint">
-        pip install thesis-tracker{"\n"}
-        export THESIS_TRACKER_TOKEN=tt_…{"\n"}
-        export THESIS_TRACKER_API_URL=https://your-app.example.com
+        pip install weaveforge{"\n"}
+        export WEAVEFORGE_TOKEN=tt_…{"\n"}
+        export WEAVEFORGE_API_URL=https://your-app.example.com
       </pre>
 
       {error ? <p className="error">{error}</p> : null}

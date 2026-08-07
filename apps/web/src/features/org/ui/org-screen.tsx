@@ -6,10 +6,10 @@ import {
   creatableRoles,
   hasActiveLab,
   type Role,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { Select } from "@/components/select";
 import { useProfile } from "./profile-provider";
 import { OrgChart } from "./member-tree";

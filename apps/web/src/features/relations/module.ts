@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 /**
  * The graph (paper relations) feature module descriptor. Discovered via the

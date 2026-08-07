@@ -9,7 +9,7 @@ import type {
   ReadingListTreeNode,
   ReportSection,
   TagWithPaperCount,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 import {
   ALL_DASHBOARD_DATA_SOURCES,

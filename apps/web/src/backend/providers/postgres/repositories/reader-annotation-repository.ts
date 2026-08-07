@@ -7,8 +7,9 @@ import type {
   ReaderAnnotation,
   ReaderAnnotationPatch,
   ReaderAnnotationType,
-} from "@thesis/core";
-import { buildAnnotationSortIndex, isAnnotationSyncState, isReaderAnnotationType } from "@thesis/core";
+  WorkspaceAnnotation,
+} from "@weaveforge/core";
+import { buildAnnotationSortIndex, isAnnotationSyncState, isReaderAnnotationType } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
 
@@ -56,6 +57,27 @@ export class PostgresReaderAnnotationRepository
       [projectId, paperId],
     );
     return rows.map(toDomain);
+  }
+
+  /**
+   * Every annotation in the project, for the search index. `list` answers "what
+   * is on this paper"; here the paper and page have to travel with each row or
+   * a hit cannot open where it came from.
+   */
+  async listForProject(): Promise<WorkspaceAnnotation[]> {
+    const projectId = this.ctx.projectId;
+    if (!projectId) return [];
+    const rows = await this.pg.query<ReaderAnnotationRow>(
+      `select * from reader_annotations
+       where user_id = auth.uid() and project_id = $1
+       order by sort_index asc`,
+      [projectId],
+    );
+    return rows.map((row) => ({
+      ...toDomain(row),
+      paperId: row.paper_id,
+      pageIndex: row.page_index,
+    }));
   }
 
   async create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation> {

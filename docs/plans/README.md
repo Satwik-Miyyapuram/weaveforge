@@ -4,35 +4,32 @@ Implementation and strategy plans, sorted by lifecycle.
 
 | Folder | Meaning |
 |--------|---------|
-| [`working/`](working/) | In progress / partially delivered |
-| [`future/`](future/) | Proposed, not started |
-| [`completed/`](completed/) | Delivered (kept for history and cross-links) |
+| `working/` | In progress / partially delivered — **currently empty** |
+| `future/` | Proposed, not started — **currently empty** |
+| [`completed/`](completed/) | Delivered or archived (kept for history and cross-links) |
 
-## Working
-
-| Plan | Notes |
-|------|-------|
-| [`reader-and-annotation-plan.md`](working/reader-and-annotation-plan.md) | Reader + annotations. R0–R4 shipped in 0.5.0; R5 is dry-run only, R6 is stubs |
-| [`migration-plan.md`](working/migration-plan.md) | Self-host Postgres + tiered blobs; phases 0–2 done, 3–6 open |
-
-## Future
-
-| Plan | Notes |
-|------|-------|
-| [`billing-and-quota-plan.md`](future/billing-and-quota-plan.md) | Entitlements / metering (status: proposed) |
-| [`hosting-and-cost-plan.md`](future/hosting-and-cost-plan.md) | Hosted vs self-host licensing boundary |
-| [`COMMERCIALIZATION_AND_COST_PLAN.md`](future/COMMERCIALIZATION_AND_COST_PLAN.md) | Cost drivers and OCI guidance |
+Recreate `working/` or `future/` when a new plan needs one; nothing is in flight
+on this board today.
 
 ## Completed
 
 | Plan | Notes |
 |------|-------|
 | [`roadmap-2026-07-phased.md`](completed/roadmap-2026-07-phased.md) | Competitive roadmap phases A–F — **complete** |
+| [`reader-and-annotation-plan.md`](completed/reader-and-annotation-plan.md) | Reader + annotations R0–R6. R0–R5 code-complete; R5's live Zotero run needs a human, R6 deferrals are registered in the plan |
+| [`migration-plan.md`](completed/migration-plan.md) | Self-host Postgres + tiered blobs. Phases 0–2 delivered; 3–6 documented but **not provisioned** — see [`../self-host-roadmap.md`](../self-host-roadmap.md) |
 | [`AI_MCP_PLAN.md`](completed/AI_MCP_PLAN.md) | MCP research assistant |
 | [`modular-deployment-plan.md`](completed/modular-deployment-plan.md) | Feature/integration allowlists |
 | [`competitive-scan-implementation-plan.md`](completed/competitive-scan-implementation-plan.md) | Cite / discovery / library UX |
 | [`library-knowledge-loop-plan.md`](completed/library-knowledge-loop-plan.md) | Annotations, fields, extraction table |
-| [`pdf-viewer-plan.md`](completed/pdf-viewer-plan.md) | Phase D provenance reader record; further work → reader plan |
+| [`pdf-viewer-plan.md`](completed/pdf-viewer-plan.md) | Phase D provenance reader record; superseded by the reader plan |
 | [`competitive-strategy-report-plan.md`](completed/competitive-strategy-report-plan.md) | Archived competitive report draft |
+| [`hosting-and-cost-plan.md`](completed/hosting-and-cost-plan.md) | Hosted vs self-host licensing boundary (AGPL-3.0) |
+| [`COMMERCIALIZATION_AND_COST_PLAN.md`](completed/COMMERCIALIZATION_AND_COST_PLAN.md) | Cost drivers and OCI guidance; its tier table is superseded by [`../pricing-strategy.md`](../pricing-strategy.md) |
 
-Related non-plan notes still live under [`docs/future-work/`](../future-work/) (backlog, overnight queue, handoffs).
+## Elsewhere
+
+- **Billing / pricing** — [`../future-work/billing-and-quota-plan.md`](../future-work/billing-and-quota-plan.md)
+  (entitlements and metering, status: proposed). Strategy lives in
+  [`../pricing-strategy.md`](../pricing-strategy.md).
+- Other non-plan notes — [`../future-work/`](../future-work/) (backlog, overnight queue, handoffs).

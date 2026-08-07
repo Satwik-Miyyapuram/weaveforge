@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { OrgValidationError } from "@thesis/core";
-import type { OrgInviteRole } from "@thesis/core";
+import { OrgValidationError } from "@weaveforge/core";
+import type { OrgInviteRole } from "@weaveforge/core";
 import {
   orgApiErrorResponse,
   requireOrgApiUser,

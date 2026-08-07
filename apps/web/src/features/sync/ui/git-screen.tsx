@@ -7,7 +7,7 @@ import type { Integration, SyncProvider } from "../domain/integration";
 import { gitConnection } from "../domain/integration-fields";
 import type { GitBranch, GitCommit } from "../infrastructure/git-client";
 import { Select } from "@/components/select";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 
 function repoWebUrl(i: Integration): string {
   const { repo } = gitConnection(i);

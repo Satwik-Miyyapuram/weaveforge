@@ -2,6 +2,7 @@
 import { dashboardModule } from "@/features/dashboard/module";
 import { papersModule } from "@/features/papers/module";
 import { vaultModule } from "@/features/vault/module";
+import { wikiModule } from "@/features/wiki/module";
 import { graphModule } from "@/features/relations/module";
 import { readingListsModule } from "@/features/reading-lists/module";
 import { experimentsModule } from "@/features/experiments/module";
@@ -20,9 +21,9 @@ import { githubGitReadManifest } from "@/integrations/manifests/git-read";
 import { gitlabGitReadManifest } from "@/integrations/manifests/git-read";
 import { createAiProposalExecutors } from "@/features/ai-assistant/application/proposal-executors";
 
-export const GENERATED_BUILTIN_FEATURE_IDS = ["dashboard", "papers", "vault", "graph", "reading-lists", "experiments", "git", "plan", "logbook", "report", "settings", "sharing", "org"] as const;
+export const GENERATED_BUILTIN_FEATURE_IDS = ["dashboard", "papers", "vault", "wiki", "graph", "reading-lists", "experiments", "git", "plan", "logbook", "report", "settings", "sharing", "org"] as const;
 export const GENERATED_BUILTIN_INTEGRATION_IDS = ["zotero", "semantic-scholar", "mattermost", "gitlab-log-sync", "github", "gitlab"] as const;
-export const GENERATED_BUILTIN_MODULES = [dashboardModule, papersModule, vaultModule, graphModule, readingListsModule, experimentsModule, gitModule, planModule, logbookModule, reportModule] as const;
+export const GENERATED_BUILTIN_MODULES = [dashboardModule, papersModule, vaultModule, wikiModule, graphModule, readingListsModule, experimentsModule, gitModule, planModule, logbookModule, reportModule] as const;
 export const GENERATED_BUILTIN_SHELL_MODULES = [settingsModule, sharingModule, orgModule] as const;
 export const GENERATED_BUILTIN_INTEGRATION_MANIFESTS = [zoteroBibliographyManifest, semanticScholarCitationManifest, mattermostNotificationManifest, gitlabLogSyncManifest, githubGitReadManifest, gitlabGitReadManifest] as const;
 export const GENERATED_MCP_ENABLED = true as const;

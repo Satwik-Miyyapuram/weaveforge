@@ -2,7 +2,7 @@ import type {
   IBibliographyIntegration,
   ILogSyncIntegration,
   INotificationIntegration,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { IGitClient } from "@/features/sync/domain/sync-ports";
 
 /** Swappable third-party integrations wired at the composition root. */

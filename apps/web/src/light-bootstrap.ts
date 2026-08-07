@@ -1,6 +1,6 @@
 "use client";
 
-import type { IAuthService, ManageSettingsUseCase } from "@thesis/core";
+import type { IAuthService, ManageSettingsUseCase } from "@weaveforge/core";
 import { readBackendConfig } from "@/backend/config";
 import { wireLightBackend } from "@/backend/wire-light-backend";
 

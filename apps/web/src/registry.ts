@@ -1,4 +1,4 @@
-import type { FeatureModule, NavItem } from "@thesis/core";
+import type { FeatureModule, NavItem } from "@weaveforge/core";
 import {
   GENERATED_BUILTIN_MODULES,
   GENERATED_BUILTIN_SHELL_MODULES,
@@ -46,7 +46,7 @@ export function allBuiltinModules(): readonly FeatureModule[] {
 }
 
 /**
- * Build the feature module registry from deployment config (env + thesis-tracker.config.ts).
+ * Build the feature module registry from deployment config (env + weaveforge.config.ts).
  */
 export function buildModuleRegistry(config: IntegrationConfig = readIntegrationConfig()): ModuleRegistry {
   const pluginModules = getAppConfig().pluginModules;

@@ -6,10 +6,10 @@ import {
   highlightWithinExcerpt,
   type AiEvidence,
   type AiWriteProposal,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Markdown } from "@/components/markdown";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 
 const label: Record<AiWriteProposal["kind"], string> = {

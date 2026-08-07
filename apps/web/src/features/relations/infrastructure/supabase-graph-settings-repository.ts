@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { GraphPersistedState, IGraphSettingsRepository } from "@thesis/core";
-import { parseGraphPersistedState } from "@thesis/core";
+import type { GraphPersistedState, IGraphSettingsRepository } from "@weaveforge/core";
+import { parseGraphPersistedState } from "@weaveforge/core";
 
 const TABLE = "projects";
 

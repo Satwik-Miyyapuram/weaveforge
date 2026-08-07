@@ -1,4 +1,4 @@
-import type { IBlobStore } from "@thesis/core";
+import type { IBlobStore } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Supabase Storage adapter for {@link IBlobStore}. */

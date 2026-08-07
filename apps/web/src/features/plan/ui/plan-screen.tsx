@@ -12,7 +12,7 @@ import {
   type MilestoneDependency,
   type MilestoneStatus,
   type Paper,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -57,9 +57,9 @@ export function PlanScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const items = data?.milestones ?? emptyArray<import("@thesis/core").Milestone>();
-  const papers = data?.papers ?? emptyArray<import("@thesis/core").Paper>();
-  const experiments = data?.experiments ?? emptyArray<import("@thesis/core").Experiment>();
+  const items = data?.milestones ?? emptyArray<import("@weaveforge/core").Milestone>();
+  const papers = data?.papers ?? emptyArray<import("@weaveforge/core").Paper>();
+  const experiments = data?.experiments ?? emptyArray<import("@weaveforge/core").Experiment>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const milestoneCanComment = data?.milestoneCanComment ?? emptyMap<string, boolean>();
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();

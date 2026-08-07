@@ -6,7 +6,7 @@ import {
   type PageTextGeometry,
   type ReaderAnnotationType,
   type TextSelectionRange,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 export function draftFromTextSelection(input: {
   type: Extract<ReaderAnnotationType, "highlight" | "underline" | "note">;

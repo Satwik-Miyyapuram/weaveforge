@@ -1,4 +1,4 @@
-import type { ShareableType } from "@thesis/core";
+import type { ShareableType } from "@weaveforge/core";
 import type { SharedItem, ISharedReader } from "../domain/shared-reader";
 
 export type { SharedItem } from "../domain/shared-reader";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decodeLocus, type PdfLocus } from "@thesis/core";
+import { decodeLocus, type PdfLocus } from "@weaveforge/core";
 import { buildLocusLink, locusLinkIsResolvable } from "../application/build-locus-link.js";
 
 const locus: PdfLocus = {

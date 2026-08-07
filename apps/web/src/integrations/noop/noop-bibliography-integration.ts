@@ -4,7 +4,7 @@ import type {
   BibliographySyncResult,
   IBibliographyIntegration,
   Paper,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /** Disabled bibliography provider — safe no-ops for local-only deployments. */
 export class NoopBibliographyIntegration implements IBibliographyIntegration {

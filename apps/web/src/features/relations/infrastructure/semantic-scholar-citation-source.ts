@@ -1,4 +1,4 @@
-import type { CitationCandidate, ICitationSource, PaperRef } from "@thesis/core";
+import type { CitationCandidate, ICitationSource, PaperRef } from "@weaveforge/core";
 
 /**
  * Semantic Scholar citation source. Implements ICitationSource so it can be

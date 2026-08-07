@@ -4,7 +4,7 @@ import type {
   BlobTier,
   IBlobRegistry,
   RegisterBlobInput,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 interface BlobRow {
   bucket: string;

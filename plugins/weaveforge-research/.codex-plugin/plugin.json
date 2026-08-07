@@ -1,0 +1,40 @@
+{
+  "name": "weaveforge-research",
+  "version": "0.1.0+codex.20260715130307",
+  "description": "Research workflows and privacy-safe MCP guidance for WeaveForge.",
+  "author": {
+    "name": "WeaveForge contributors",
+    "url": "https://github.com/Satwik-Miyyapuram/weaveforge"
+  },
+  "homepage": "https://github.com/Satwik-Miyyapuram/weaveforge",
+  "repository": "https://github.com/Satwik-Miyyapuram/weaveforge",
+  "license": "AGPL-3.0-only",
+  "keywords": [
+    "research",
+    "thesis",
+    "mcp",
+    "e2ee",
+    "zotero"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "WeaveForge Research",
+    "shortDescription": "Use WeaveForge safely from Codex.",
+    "longDescription": "Research-aware Codex guidance and a reserved MCP connection for an explicitly authorised WeaveForge workspace.",
+    "developerName": "WeaveForge contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/Satwik-Miyyapuram/weaveforge",
+    "brandColor": "#45679B",
+    "defaultPrompt": [
+      "Help me plan a literature review from my permitted WeaveForge sources.",
+      "Summarize the research evidence I explicitly share from WeaveForge.",
+      "Draft an append-only paper-note addendum with evidence links."
+    ]
+  }
+}

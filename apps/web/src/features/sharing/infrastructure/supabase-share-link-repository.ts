@@ -4,8 +4,8 @@ import type {
   ResolvedShareLink,
   ShareLink,
   ShareLinkSaveInput,
-} from "@thesis/core";
-import type { ShareableType } from "@thesis/core";
+} from "@weaveforge/core";
+import type { ShareableType } from "@weaveforge/core";
 import { decodeBytea, decodePostgresBase64, encodeBytea } from "@/lib/bytea.js";
 
 function throwSupabaseError(error: { message?: string }, fallback: string): never {

@@ -5,7 +5,7 @@ import {
   THEME_RADIUS_KEYS,
   type SurfaceStyle,
   type ThemeConfig,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 export type { SurfaceStyle, ThemeConfig };
 

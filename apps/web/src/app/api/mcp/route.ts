@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AiBrowserPairingRequiredError, aiMcpToolManifest } from "@thesis/core";
+import { AiBrowserPairingRequiredError, aiMcpToolManifest } from "@weaveforge/core";
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
 
 export const dynamic = "force-dynamic";

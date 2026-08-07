@@ -7,7 +7,7 @@ import {
   formatPaperCitation,
   resolveCiteKey,
 } from "../application/build-overleaf-export";
-import type { Paper, ReportSectionTreeNode } from "@thesis/core";
+import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 
 const tree: ReportSectionTreeNode[] = [
   {

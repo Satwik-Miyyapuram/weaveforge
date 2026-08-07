@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { BlobTier, IBlobRegistry, IBlobStore, ICurrentUserProvider } from "@thesis/core";
+import type { BlobTier, IBlobRegistry, IBlobStore, ICurrentUserProvider } from "@weaveforge/core";
 import { readBackendConfig } from "@/backend/config";
 import { getPgPool } from "@/backend/providers/postgres/pool";
 import { PgRunner } from "@/backend/providers/postgres/pg-runner";

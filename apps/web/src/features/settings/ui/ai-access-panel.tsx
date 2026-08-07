@@ -12,7 +12,7 @@ import {
   type AiProposalKind,
   type AiReadCategory,
   type UserSettings,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import type { AiSourceOption } from "@/container/facades";

@@ -1,5 +1,5 @@
-import type { IAuthService, ManageSettingsUseCase } from "@thesis/core";
-import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@thesis/core";
+import type { IAuthService, ManageSettingsUseCase } from "@weaveforge/core";
+import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
 import type { BackendConfig } from "./config";
 import { readBackendConfig } from "./config";
 import { createSupabaseClient } from "./providers/supabase/client";

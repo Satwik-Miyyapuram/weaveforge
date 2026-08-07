@@ -1,5 +1,5 @@
 import { unzipSync } from "fflate";
-import { normalizeTitleKey, stripFrontmatter, uniqueTitle } from "@thesis/core";
+import { normalizeTitleKey, stripFrontmatter, uniqueTitle } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 
 export interface ImportResult {

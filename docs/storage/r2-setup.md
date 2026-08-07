@@ -1,4 +1,4 @@
-# Cloudflare R2 setup — Thesis Tracker hot tier
+# Cloudflare R2 setup — WeaveForge hot tier
 
 One-time setup for `BLOB_PROVIDER=tiered`. Cold tier (OCI MinIO) is Phase 3.
 
@@ -12,23 +12,23 @@ The Cloudflare API returns **"Please enable R2 through the Cloudflare Dashboard"
 
 ## 2. Create bucket
 
-**Dashboard:** **Create bucket** → name: `thesis-tracker-hot` → Create
+**Dashboard:** **Create bucket** → name: `weaveforge-hot` → Create
 
 **Or Wrangler (after `wrangler login`):**
 
 ```bash
-npx wrangler r2 bucket create thesis-tracker-hot --location=weur
+npx wrangler r2 bucket create weaveforge-hot --location=weur
 ```
 
 Use `weur` (Western Europe) or `enam` (US East) — pick closest to your users/OCI VM.
 
-→ `R2_BUCKET=thesis-tracker-hot`
+→ `R2_BUCKET=weaveforge-hot`
 
 ## 3. Create R2 API token
 
 1. R2 Overview → **Manage R2 API Tokens** → **Create API token**
 2. **Permissions:** **Object Read & Write**
-3. **Scope:** this bucket only (`thesis-tracker-hot`) — recommended
+3. **Scope:** this bucket only (`weaveforge-hot`) — recommended
 4. Create → copy **Access Key ID** and **Secret Access Key** (secret shown once)
 
 | Dashboard field | `.env.local` |
@@ -58,7 +58,7 @@ NEXT_PUBLIC_BLOB_PROVIDER=tiered
 R2_ACCOUNT_ID=your_account_id
 R2_ACCESS_KEY_ID=your_access_key_id
 R2_SECRET_ACCESS_KEY=your_secret_access_key
-R2_BUCKET=thesis-tracker-hot
+R2_BUCKET=weaveforge-hot
 ```
 
 `NEXT_PUBLIC_BLOB_PROVIDER` tells the **browser** to call `/api/blobs/*` instead of Supabase Storage. R2 keys stay server-only (no `NEXT_PUBLIC_` prefix). You can also set `BLOB_PROVIDER=tiered` as a server-only alias.
@@ -66,7 +66,7 @@ R2_BUCKET=thesis-tracker-hot
 Restart dev:
 
 ```bash
-npm run dev -w @thesis/web
+npm run dev -w @weaveforge/web
 ```
 
 ## 6. Verify

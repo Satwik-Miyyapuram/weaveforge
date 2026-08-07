@@ -6,7 +6,7 @@ import type {
   PaperTag,
   TagSource,
   TagWithPaperCount,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 
 interface TagRow {

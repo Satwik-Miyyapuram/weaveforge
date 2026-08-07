@@ -5,10 +5,10 @@ Run through this once, before the first public push.
 ## 1. Licence state (done)
 
 - [x] `LICENSE` — AGPL-3.0-only, verbatim from gnu.org
-- [x] `python/LICENSE`, `plugins/thesis-tracker-research/LICENSE` — AGPL-3.0-only
+- [x] `python/LICENSE`, `plugins/weaveforge-research/LICENSE` — AGPL-3.0-only
 - [x] `package.json` × 3 → `AGPL-3.0-only`
 - [x] `python/pyproject.toml` → `AGPL-3.0-only` + AGPL trove classifier
-- [x] `plugins/thesis-tracker-research/.codex-plugin/plugin.json` → `AGPL-3.0-only`
+- [x] `plugins/weaveforge-research/.codex-plugin/plugin.json` → `AGPL-3.0-only`
 - [x] `NOTICE`, `CONTRIBUTORS.md`, `CONTRIBUTING.md`, `docs/licensing.md`
 - [x] README badge and licence section
 - [x] No permissive carve-outs anywhere

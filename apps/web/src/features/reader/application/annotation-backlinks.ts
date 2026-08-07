@@ -1,4 +1,4 @@
-import type { AnnotationPin, ReaderAnnotation } from "@thesis/core";
+import type { AnnotationPin, ReaderAnnotation } from "@weaveforge/core";
 
 export interface AnnotationBacklinkTarget {
   kind: "report_section" | "vault_page";

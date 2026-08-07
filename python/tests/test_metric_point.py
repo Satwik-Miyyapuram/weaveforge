@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from thesis_tracker.features.experiments.domain.metric_point import (
+from weaveforge.features.experiments.domain.metric_point import (
     MetricPoint,
     MetricSeries,
     normalize_wall_time,

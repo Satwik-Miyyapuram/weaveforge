@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   AiAccessPolicy,
-  AI_MODEL_PROVIDER_ORDER,
   normalizeAiAccessSettings,
   type AiAccessSettings,
   type AiSessionGrant,
@@ -33,11 +32,6 @@ const base = {
   now: "2026-07-14T12:00:00.000Z",
   encryptionUnlocked: true,
 };
-
-test("Codex is the priority provider without coupling contracts to a model SDK", () => {
-  assert.equal(AI_MODEL_PROVIDER_ORDER[0], "codex");
-  assert.deepEqual(AI_MODEL_PROVIDER_ORDER.includes("openai"), true);
-});
 
 test("AI settings normalize to an explicit opt-in and known capabilities", () => {
   assert.deepEqual(normalizeAiAccessSettings({}), {

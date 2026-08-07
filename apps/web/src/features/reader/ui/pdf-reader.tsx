@@ -21,8 +21,9 @@ import {
   type ReaderPageSize,
   type DocumentPageText,
   type ReaderAnnotationType,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { savePdfText } from "@/features/search/infrastructure/pdf-text-store";
 import {
   sanitizePdfUrl,
   originalUrlFromProxy,
@@ -55,7 +56,7 @@ import { AnnotationOverlay } from "./annotation-overlay";
 import { bucketAnnotationsByPage } from "../application/project-annotation-geometry";
 import { AnnotationSidebar, type ReportSectionOption } from "./annotation-sidebar";
 import { SelectionCreateBar } from "./selection-create-bar";
-import type { QuotationType, ReaderAnnotation } from "@thesis/core";
+import type { QuotationType, ReaderAnnotation } from "@weaveforge/core";
 import {
   darkPdfCanvasFilter,
   shouldUseDarkPdfRendering,
@@ -121,7 +122,7 @@ export interface PdfReaderProps {
   /** 0-based page hint; when present the jump resolves there first. */
   page?: number;
   /** Projected reader annotations (Zotero and/or local). */
-  annotations?: import("@thesis/core").ReaderAnnotation[];
+  annotations?: import("@weaveforge/core").ReaderAnnotation[];
   /**
    * Hash of the PDF being rendered, when the source ladder knows it. Stored
    * annotation rects are only trusted against a matching hash; empty on both
@@ -289,7 +290,7 @@ export function PdfReader({
   const [pendingCreate, setPendingCreate] = useState<{
     pageNumber: number;
     quote: string;
-    selection: import("@thesis/core").TextSelectionRange;
+    selection: import("@weaveforge/core").TextSelectionRange;
   } | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
   const [reportSections, setReportSections] = useState<ReportSectionOption[]>([]);
@@ -487,7 +488,23 @@ export function PdfReader({
               const items = textItemsFromContent(content);
               texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
             }
-            if (!cancelled) setPageTexts(texts);
+            if (cancelled) return;
+            setPageTexts(texts);
+            // Keep the text so this document stays searchable after the reader
+            // closes. Piggybacks on the pass above — no extra fetch or parse.
+            if (paperId) {
+              const source = {
+                paperId,
+                title: paperTitle ?? "PDF",
+                pages: texts,
+                extractedAt: new Date().toISOString(),
+              };
+              void savePdfText(getContainer().projects.context.projectId, source);
+              // Findable now rather than after a reload: the text is already in
+              // hand, and a reader who searches straight after reading is the
+              // common case, not the edge one.
+              getContainer().search.indexPdf(source);
+            }
           } catch {
             if (!cancelled) setPageTexts([]);
           }
@@ -594,7 +611,7 @@ export function PdfReader({
           textLayer.style.height = `${Math.floor(viewport.height)}px`;
           const content = await pdfPage.getTextContent();
           const lib = await loadPdfLib();
-          const geometryItems: import("@thesis/core").PageTextItem[] = [];
+          const geometryItems: import("@weaveforge/core").PageTextItem[] = [];
           let itemIndex = 0;
           for (const raw of content.items) {
             const it = raw as {
@@ -1019,7 +1036,7 @@ export function PdfReader({
   }
 
   async function persistDraft(
-    draft: import("@thesis/core").NewReaderAnnotation,
+    draft: import("@weaveforge/core").NewReaderAnnotation,
   ): Promise<void> {
     if (!paperId || !onAnnotationsChange) return;
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { normalizeTitleKey } from "@thesis/core";
+import { normalizeTitleKey } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import type { WikilinkResolver } from "@/components/markdown";
 

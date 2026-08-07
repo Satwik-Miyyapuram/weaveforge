@@ -35,7 +35,7 @@ import {
   CompactCrdtLogUseCase,
   appendPaperNote,
   AiProposalExecutorRegistry,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-metadata-source";
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
@@ -72,6 +72,7 @@ import {
   AuthFacade,
   SyncFacade,
   ReadingListsFacade,
+  WorkspaceFacade,
   CollabFacade,
   type AppContainer,
 } from "@/container/facades";
@@ -88,6 +89,9 @@ import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-st
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
 import { createCredentialReader } from "@/integrations/credentials";
+import { WorkspaceSearch } from "@/features/search/application/workspace-search";
+import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
+import { closeFolder } from "@/features/workspace/application/workspace-folder";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -115,8 +119,15 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const pid = () => projectContext.projectId;
   const projectLww = new ProjectLwwInvalidator();
   setActiveProjectIdForCache(pid);
+  // Assigned below, once the container exists. Every repository write routes
+  // through this hook, and the search index has to hear about them or an edit
+  // stays invisible to search until the next reload.
+  let search: WorkspaceSearch | null = null;
   configureProjectCacheHooks({
-    onWrite: (resourceType) => projectLww.notifyPeers(resourceType),
+    onWrite: (resourceType) => {
+      projectLww.notifyPeers(resourceType);
+      search?.markStale(resourceType);
+    },
     register: (cache) => projectLww.registerCache(cache),
   });
   const backend = wireBackend(readBackendConfig(), projectContext, pid);
@@ -126,6 +137,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
 
   registerSessionReset(() => {
     projectContext.projectId = null;
+    workspace.resetSnapshotBaseline();
+    // The API key lives only in memory, but "only in memory" has to include
+    // "not across a sign-out" — the next person at this browser is not the one
+    // who typed it.
+    clearActiveProvider();
+    closeFolder();
   });
 
   const crdtUpdateStore = new SupabaseCrdtUpdateStore(backend.db);
@@ -434,6 +451,25 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     readingLists: readingListRepository,
   });
 
+  // Repositories, not facades: the screen facades return card projections that
+  // drop note bodies, paper abstracts, and paper metadata.
+  const workspace = new WorkspaceFacade({
+    papers: paperRepository,
+    vaultPages: vaultPageRepository,
+    readingLists: readingListRepository,
+    readingListItems: readingListItemRepository,
+    reportSections: reportSectionRepository,
+    experiments: experimentRepository,
+    milestones: milestoneRepository,
+    logEntries: logEntryRepository,
+    relations: backend.paperRelationRepository,
+    tags: backend.tagRepository,
+    // Reader highlights: `list` is per-paper, so the index needs the
+    // project-wide read that carries the paper and page on each row.
+    readerAnnotations: { list: () => backend.readerAnnotationRepository.listForProject() },
+    projectId: pid,
+  });
+
   const container: AppContainer = {
     integrations: { bibliography, notifications, logSync, gitRead },
     backendConfig: backend.config,
@@ -547,7 +583,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       newId: () => uuidIds.newId(),
       now: () => systemClock.nowIso(),
       allowedTools: GENERATED_MCP_TOOL_NAMES.length
-        ? (GENERATED_MCP_TOOL_NAMES as readonly import("@thesis/core").AiToolName[])
+        ? (GENERATED_MCP_TOOL_NAMES as readonly import("@weaveforge/core").AiToolName[])
         : undefined,
     }),
     aiProposals: new AiProposalFacade({
@@ -602,6 +638,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       listItems: readingListItemRepository,
       manageReadingList,
     }),
+    workspace,
+    search: (search = new WorkspaceSearch({
+      snapshot: () => workspace.snapshot(),
+      projectId: pid,
+      loadSettings: async () => (await backend.manageSettings.get()).search,
+    })),
     prefetchProject,
     integrationConfig: wiredIntegrations.config,
   };

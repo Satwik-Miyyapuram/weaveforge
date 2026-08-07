@@ -31,11 +31,12 @@ import type {
   ILabSnapshotRepository,
   IPaperFieldRepository,
   IReaderAnnotationSink,
+  IReaderAnnotationProjectSource,
   IReaderAnnotationSource,
   IBlobStore,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@thesis/core";
+import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import { SupabaseDashboardLayoutRepository } from "@/features/dashboard/infrastructure/supabase-dashboard-layout-repository";
 import { SupabaseGraphSettingsRepository } from "@/features/relations/infrastructure/supabase-graph-settings-repository";
@@ -115,7 +116,9 @@ export interface WiredSupabaseBackend {
   readonly annotationPinRepository: IAnnotationPinRepository;
   readonly annotationQuotationTypeRepository: IAnnotationQuotationTypeRepository;
   readonly labSnapshotRepository: ILabSnapshotRepository;
-  readonly readerAnnotationRepository: IReaderAnnotationSource & IReaderAnnotationSink;
+  readonly readerAnnotationRepository: IReaderAnnotationSource &
+    IReaderAnnotationSink &
+    IReaderAnnotationProjectSource;
   readonly paperFieldRepository: IPaperFieldRepository;
 }
 
@@ -132,7 +135,7 @@ export function wireSupabaseBackend(
     );
   }
 
-  const db = createSupabaseClient(url, anonKey);
+  const db = createSupabaseClient(url, anonKey, config.dataUrl);
   const session = new SupabaseSessionProvider(db);
   const auth = new SupabaseAuthService(db);
   const adminProvisioner =
@@ -305,7 +308,7 @@ export function wireSupabaseBackend(
   );
   const readerAnnotationRepository = cacheRepo(
     new SupabaseReaderAnnotationRepository(db, projectContext, session),
-    ["list"],
+    ["list", "listForProject"],
     ["create", "update", "remove"],
     pid,
     { resourceType: "paper" },

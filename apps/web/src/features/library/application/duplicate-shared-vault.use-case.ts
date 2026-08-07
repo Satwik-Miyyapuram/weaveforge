@@ -3,8 +3,8 @@ import type {
   IVaultPageRepository,
   ManageVaultPageUseCase,
   VaultPage,
-} from "@thesis/core";
-import { LibraryPinError, shareCoversResource, vaultAssetPathsInBody } from "@thesis/core";
+} from "@weaveforge/core";
+import { LibraryPinError, shareCoversResource, vaultAssetPathsInBody } from "@weaveforge/core";
 import type { IVaultAssetStore } from "@/features/vault/domain/vault-assets";
 
 export class DuplicateSharedVaultPageUseCase {

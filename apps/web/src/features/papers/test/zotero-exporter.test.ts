@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Paper } from "@thesis/core";
+import type { Paper } from "@weaveforge/core";
 import { ZoteroExporter } from "../infrastructure/zotero-exporter";
 
 const paper: Paper = { id: "paper-1", title: "Direct browser write", authors: ["Ada Lovelace"], status: "to_read", tags: [], metadata: {}, createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
 
-test("ZoteroExporter writes directly to Zotero without a Thesis Tracker proxy", async () => {
+test("ZoteroExporter writes directly to Zotero without a WeaveForge proxy", async () => {
   let request: { url: string; init?: RequestInit } | undefined;
   const exporter = new ZoteroExporter(
     async () => ({ apiKey: "secret", library: "users/42" }),

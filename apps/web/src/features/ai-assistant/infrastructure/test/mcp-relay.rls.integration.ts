@@ -9,12 +9,12 @@ function env(...names: string[]): string | undefined {
 }
 
 test("MCP relay and proposal RLS isolate private AI records between authenticated users", async (t) => {
-  const url = env("THESIS_TRACKER_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
-  const key = env("THESIS_TRACKER_SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  const emailA = env("THESIS_TRACKER_EMAIL", "TT_A_EMAIL", "TEST_ACCOUNT_EMAIL_PRIMARY");
-  const emailB = env("THESIS_TRACKER_B_EMAIL", "TT_B_EMAIL", "TEST_ACCOUNT_EMAIL_SECONDARY");
-  const passwordA = env("THESIS_TRACKER_PASSWORD", "TT_A_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD");
-  const passwordB = env("THESIS_TRACKER_B_PASSWORD", "TT_B_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD");
+  const url = env("WEAVEFORGE_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
+  const key = env("WEAVEFORGE_SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const emailA = env("WEAVEFORGE_EMAIL", "TT_A_EMAIL", "TEST_ACCOUNT_EMAIL_PRIMARY");
+  const emailB = env("WEAVEFORGE_B_EMAIL", "TT_B_EMAIL", "TEST_ACCOUNT_EMAIL_SECONDARY");
+  const passwordA = env("WEAVEFORGE_PASSWORD", "TT_A_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD");
+  const passwordB = env("WEAVEFORGE_B_PASSWORD", "TT_B_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD");
   if (!url || !key || !emailA || !emailB || !passwordA || !passwordB) {
     t.diagnostic("Skipping — configure Supabase URL/key and two disposable test users");
     return;

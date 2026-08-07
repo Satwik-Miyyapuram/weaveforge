@@ -1,3 +1,4 @@
+import type { WorkspaceAnnotation } from "../workspace/workspace-snapshot.js";
 import type { CombinedPdfAnchor } from "./anchor-strategy.js";
 
 /** Provenance of an annotation shown in the reader. */
@@ -87,6 +88,19 @@ export interface ReaderAnnotationPatch {
 /** Read port — R1 wires a source; creation affordances appear only when a sink exists. */
 export interface IReaderAnnotationSource {
   list(paperId: string): Promise<ReaderAnnotation[]>;
+}
+
+/**
+ * Project-wide read port.
+ *
+ * Separate from `IReaderAnnotationSource` because the two answer different
+ * questions: the reader asks "what is on this paper" and already knows which
+ * one, while the search index asks for everything and needs each row to say
+ * where it came from. Folding both into one interface would force every reader
+ * call site to carry a paper id it does not have.
+ */
+export interface IReaderAnnotationProjectSource {
+  listForProject(): Promise<WorkspaceAnnotation[]>;
 }
 
 /** Write port — local-only in R3; Zotero-backed in R5. */

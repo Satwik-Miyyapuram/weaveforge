@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LOG_KINDS, type LogKind } from "@thesis/core";
+import { LOG_KINDS, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 

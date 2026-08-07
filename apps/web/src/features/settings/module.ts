@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 /** Settings — header route (People/Org, integrations, Zotero). */
 export const settingsModule: FeatureModule = {

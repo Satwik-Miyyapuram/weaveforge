@@ -1,6 +1,6 @@
 # Database migrations
 
-Thesis Tracker has **two migration targets**. Pick the folder that matches where your Postgres runs.
+WeaveForge has **two migration targets**. Pick the folder that matches where your Postgres runs.
 
 | Folder | Where it runs | How to apply |
 |--------|----------------|--------------|

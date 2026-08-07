@@ -31,8 +31,8 @@ export function loadLocalDevEnv(repoRoot?: string) {
     if (!process.env.E2E_TEST_PASSWORD) process.env.E2E_TEST_PASSWORD = pw;
     if (!process.env.TT_A_PASSWORD) process.env.TT_A_PASSWORD = pw;
     if (!process.env.TT_B_PASSWORD) process.env.TT_B_PASSWORD = pw;
-    if (!process.env.THESIS_TRACKER_PASSWORD) process.env.THESIS_TRACKER_PASSWORD = pw;
-    if (!process.env.THESIS_TRACKER_B_PASSWORD) process.env.THESIS_TRACKER_B_PASSWORD = pw;
+    if (!process.env.WEAVEFORGE_PASSWORD) process.env.WEAVEFORGE_PASSWORD = pw;
+    if (!process.env.WEAVEFORGE_B_PASSWORD) process.env.WEAVEFORGE_B_PASSWORD = pw;
     if (!process.env.DEMO_CLIP_PASSWORD) process.env.DEMO_CLIP_PASSWORD = pw;
   }
 

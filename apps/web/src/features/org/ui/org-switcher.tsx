@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { isExplicitLabMembership, ROLE_LABELS } from "@thesis/core";
+import { isExplicitLabMembership, ROLE_LABELS } from "@weaveforge/core";
 import { useProfile } from "./profile-provider";
 
 /** Header chip for switching between labs when the user has multiple memberships. */

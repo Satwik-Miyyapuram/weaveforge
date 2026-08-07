@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { ShareableType } from "@thesis/core";
+import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { DuplicateIcon } from "@/components/view-icons";
 

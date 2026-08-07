@@ -8,7 +8,7 @@ import {
   isReaderAnnotationType,
   type CombinedPdfAnchor,
   type ReaderAnnotation,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 
 export function projectZoteroAnnotations(

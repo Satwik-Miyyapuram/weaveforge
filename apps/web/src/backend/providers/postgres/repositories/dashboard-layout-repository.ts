@@ -1,4 +1,4 @@
-import { parseDashboardLayout, type DashboardLayout, type IDashboardLayoutRepository } from "@thesis/core";
+import { parseDashboardLayout, type DashboardLayout, type IDashboardLayoutRepository } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface LayoutRow {

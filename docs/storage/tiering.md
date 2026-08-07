@@ -2,7 +2,7 @@
 
 How the **`storage/`** layer moves infrequently used files from **Cloudflare R2** (hot) to **OCI MinIO** (cold) when the hot quota fills up.
 
-Parent plan: [`../plans/working/migration-plan.md`](../plans/working/migration-plan.md). Layer overview: [`README.md`](README.md).
+Parent plan: [`../plans/completed/migration-plan.md`](../plans/completed/migration-plan.md). Layer overview: [`README.md`](README.md).
 
 ---
 
@@ -74,11 +74,11 @@ NEXT_PUBLIC_BLOB_PROVIDER=tiered  # browser: supabase | tiered
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
-R2_BUCKET=thesis-tracker-hot
+R2_BUCKET=weaveforge-hot
 BLOB_COLD_ENDPOINT=
 BLOB_COLD_ACCESS_KEY_ID=
 BLOB_COLD_SECRET_ACCESS_KEY=
-BLOB_COLD_BUCKET=thesis-tracker-cold
+BLOB_COLD_BUCKET=weaveforge-cold
 ```
 
 ---

@@ -16,9 +16,9 @@ export interface FeatureModulePluginRegistration {
 
 /**
  * A deploy-time plugin package exports a factory returning this shape.
- * Register via `thesis-tracker.config.ts` → `plugins: [myPlugin()]`.
+ * Register via `weaveforge.config.ts` → `plugins: [myPlugin()]`.
  */
-export interface ThesisTrackerPlugin {
+export interface WeaveForgePlugin {
   readonly id: string;
   readonly integrations?: readonly IntegrationPluginRegistration[];
   readonly modules?: readonly FeatureModule[];

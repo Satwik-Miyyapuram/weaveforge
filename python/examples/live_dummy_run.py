@@ -9,7 +9,7 @@ Integrations tested (when optional deps are installed):
 
 Install everything:
 
-    pip install 'thesis-tracker[all]' tensorboard torch
+    pip install 'weaveforge[all]' tensorboard torch
 
 Run via the helper script or directly:
 
@@ -36,8 +36,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from thesis_tracker import track
-from thesis_tracker.sync import default_registry
+from weaveforge import track
+from weaveforge.sync import default_registry
 
 STEP_SLEEP_SEC = float(os.environ.get("LIVE_DUMMY_STEP_SEC", "3"))
 MAX_STEPS = int(os.environ.get("LIVE_DUMMY_STEPS", "40"))
@@ -74,9 +74,9 @@ def _probe_integrations() -> IntegrationStatus:
     if not st.matplotlib:
         st.notes.append("matplotlib: pip install matplotlib")
     if not st.tensorboard_read:
-        st.notes.append("tensorboard read: pip install 'thesis-tracker[tensorboard]'")
+        st.notes.append("tensorboard read: pip install 'weaveforge[tensorboard]'")
     if not st.wandb:
-        st.notes.append("wandb: pip install 'thesis-tracker[wandb]'")
+        st.notes.append("wandb: pip install 'weaveforge[wandb]'")
     return st
 
 
@@ -88,7 +88,7 @@ def _experiment_name() -> str:
 
 
 def _dashboard_url(experiment_id: str) -> str:
-    base = os.environ.get("THESIS_TRACKER_API_URL", "http://localhost:3000").rstrip("/")
+    base = os.environ.get("WEAVEFORGE_API_URL", "http://localhost:3000").rstrip("/")
     return f"{base}/experiments/{experiment_id}"
 
 
@@ -121,7 +121,7 @@ def _start_wandb_run(name: str) -> tuple[Any | None, str | None]:
 
     mode = os.environ.get("WANDB_MODE", "online")
     wandb.init(
-        project=os.environ.get("WANDB_PROJECT", "thesis-tracker-demo"),
+        project=os.environ.get("WANDB_PROJECT", "weaveforge-demo"),
         name=name[:128],
         mode=mode,
         reinit=True,
@@ -184,7 +184,7 @@ def _upload_initial_gallery(run) -> list[str]:
     run.log_bytes("sdk-inline.svg", svg.encode("utf-8"), "image/svg+xml")
     uploaded.append("sdk-inline.svg")
 
-    run.log_artifact("https://wandb.ai/demo/thesis-tracker/runs/integration-demo")
+    run.log_artifact("https://wandb.ai/demo/weaveforge/runs/integration-demo")
     return uploaded
 
 

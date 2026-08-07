@@ -1,7 +1,7 @@
-"""Integration tests against the Thesis Tracker HTTP SDK (/api/sdk/*).
+"""Integration tests against the WeaveForge HTTP SDK (/api/sdk/*).
 
-Skipped unless THESIS_TRACKER_TOKEN and THESIS_TRACKER_API_URL are set.
-When THESIS_TRACKER_TEST_USER_EMAIL is set (e.g. c@example.com), whoami must
+Skipped unless WEAVEFORGE_TOKEN and WEAVEFORGE_API_URL are set.
+When WEAVEFORGE_TEST_USER_EMAIL is set (e.g. c@example.com), whoami must
 match that account.
 """
 
@@ -12,7 +12,7 @@ import uuid
 
 import pytest
 
-from thesis_tracker.config import ConfigError, Settings
+from weaveforge.config import ConfigError, Settings
 
 
 def _settings_or_skip() -> Settings:
@@ -25,15 +25,15 @@ def _settings_or_skip() -> Settings:
 @pytest.fixture(scope="module")
 def container():
     _settings_or_skip()
-    from thesis_tracker.container import connect
+    from weaveforge.container import connect
 
     return connect()
 
 
 def test_whoami_matches_expected_account(container):
-    expected = os.environ.get("THESIS_TRACKER_TEST_USER_EMAIL", "").strip().lower()
+    expected = os.environ.get("WEAVEFORGE_TEST_USER_EMAIL", "").strip().lower()
     if not expected:
-        pytest.skip("Set THESIS_TRACKER_TEST_USER_EMAIL to assert account identity.")
+        pytest.skip("Set WEAVEFORGE_TEST_USER_EMAIL to assert account identity.")
 
     who = container.api.get("/api/sdk/whoami")
     assert who.get("userId") == container.user_id
@@ -41,7 +41,7 @@ def test_whoami_matches_expected_account(container):
 
 
 def test_artifact_upload(container):
-    from thesis_tracker import NewExperimentInput
+    from weaveforge import NewExperimentInput
 
     uc = container.manage_experiment
     exp = uc.add(NewExperimentInput(name=f"itest-art-{uuid.uuid4().hex[:8]}"))

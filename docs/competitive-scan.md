@@ -226,7 +226,7 @@ The layer *before* reading. Two families: **visual citation-graph explorers** (R
 | 11  | Cross-surface search / recents                  | Liquid binder                               | Thesis OS coherence without a new canvas                       | M      |
 | 12  | Saved DB views on Papers (board/timeline)       | Notion / Obsidian Bases                     | View layer over existing library, no new data                  | M      |
 
-**Status:** #1–3, #5–7, #10 and the board half of #12 shipped in [PR #29](https://github.com/Satwik-Miyyapuram/thesis_tracker/pull/29); #9 shipped in [PR #33](https://github.com/Satwik-Miyyapuram/thesis_tracker/pull/33). #4, #8, #11 and the Notion relation/rollup idea are implemented on `feat/library-knowledge-loop` ([`plans/completed/library-knowledge-loop-plan.md`](plans/completed/library-knowledge-loop-plan.md)), which also replaces the `Excerpts/` vault notes with annotation cards under each paper.
+**Status:** #1–3, #5–7, #10 and the board half of #12 shipped in [PR #29](https://github.com/Satwik-Miyyapuram/weaveforge/pull/29); #9 shipped in [PR #33](https://github.com/Satwik-Miyyapuram/weaveforge/pull/33). #4, #8, #11 and the Notion relation/rollup idea are implemented on `feat/library-knowledge-loop` ([`plans/completed/library-knowledge-loop-plan.md`](plans/completed/library-knowledge-loop-plan.md)), which also replaces the `Excerpts/` vault notes with annotation cards under each paper.
 
 
 ---

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { normalizeMarkdownImageSyntax, type Experiment } from "@thesis/core";
+import { normalizeMarkdownImageSyntax, type Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/shiki-markdown";
 import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";

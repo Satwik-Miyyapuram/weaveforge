@@ -37,7 +37,7 @@ const withSerwist = withSerwistInit({
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@thesis/core"],
+  transpilePackages: ["@weaveforge/core"],
   async headers() {
     return [
       {
@@ -65,7 +65,7 @@ const nextConfig = {
     ];
   },
   webpack: (config, { isServer, dev }) => {
-    // @thesis/core is consumed as TypeScript source with ESM ".js" import
+    // @weaveforge/core is consumed as TypeScript source with ESM ".js" import
     // specifiers (NodeNext style). Teach webpack to resolve ".js" -> ".ts".
     config.resolve.extensionAlias = {
       ".js": [".ts", ".tsx", ".js"],
@@ -78,12 +78,31 @@ const nextConfig = {
         aggregateTimeout: 300,
       };
     }
+    // The encoder runtime ships prebuilt ESM that webpack's parser rejects as
+    // "import outside module code". It is already a module; this says so.
+    config.module.rules.push({
+      test: /\.m?js$/,
+      include: /node_modules[\\/](@huggingface[\\/]transformers|onnxruntime-web|onnxruntime-common)/,
+      type: "javascript/auto",
+      resolve: { fullySpecified: false },
+    });
+
     if (!isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,
         [path.resolve(__dirname, "src/backend/providers/postgres/wire-postgres-backend.ts")]:
           path.resolve(__dirname, "src/backend/providers/postgres/wire-postgres-backend.client.ts"),
+        // The encoder runtime ships a Node backend built on native `.node`
+        // binaries. Nothing in a browser can load those, and webpack cannot
+        // parse them; the WASM backend is the one that runs here.
+        "onnxruntime-node": false,
       };
+    }
+    // The encoder is only ever constructed inside a worker in the browser. On
+    // the server the import must not be followed at all — resolving it drags in
+    // platform-specific binaries for whatever machine did the build.
+    if (isServer) {
+      config.externals = [...(config.externals ?? []), "@huggingface/transformers"];
     }
     return config;
   },

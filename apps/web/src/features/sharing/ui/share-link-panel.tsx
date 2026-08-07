@@ -5,7 +5,7 @@ import {
   SHARE_LINK_DEFAULT_TTL_DAYS,
   type ShareLink,
   type ShareableType,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 
 function formatExpiry(iso: string): string {

@@ -29,14 +29,14 @@ const nextConfig = {
   // without a redirect it cannot be configured to perform.
   trailingSlash: true,
   reactStrictMode: true,
-  transpilePackages: ["@thesis/core"],
+  transpilePackages: ["@weaveforge/core"],
   // No image optimisation server exists behind a static export.
   images: { unoptimized: true },
   webpack: (config) => {
     // Resolve the product's own `@/…` specifiers against apps/web, so the
     // imported page pulls the real EntityCard and the real palette.
     config.resolve.alias = { ...config.resolve.alias, "@": webSrc };
-    // @thesis/core is consumed as TypeScript source with ESM ".js" import
+    // @weaveforge/core is consumed as TypeScript source with ESM ".js" import
     // specifiers (NodeNext style). Teach webpack to resolve ".js" -> ".ts".
     config.resolve.extensionAlias = {
       ".js": [".ts", ".tsx", ".js"],

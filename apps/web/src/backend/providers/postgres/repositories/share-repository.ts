@@ -4,7 +4,7 @@ import type {
   NewShareInput,
   Share,
   ShareableType,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface ShareRow {

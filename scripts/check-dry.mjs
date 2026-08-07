@@ -38,10 +38,10 @@ if (pinnedLabelDupes.length) {
   failed = true;
 }
 
-/** Share-matching rules live in @thesis/core — not in UI. */
+/** Share-matching rules live in @weaveforge/core — not in UI. */
 const shareMatchInUi = rgLines("shareCoversResource|shareAllowsComment", '--glob "**/ui/**"');
 if (shareMatchInUi.length) {
-  console.error("FAIL: share matching belongs in use-cases / @thesis/core, not UI:");
+  console.error("FAIL: share matching belongs in use-cases / @weaveforge/core, not UI:");
   for (const line of shareMatchInUi) console.error(`  ${line}`);
   failed = true;
 }

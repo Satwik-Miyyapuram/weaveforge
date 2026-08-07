@@ -3,7 +3,7 @@
 **Status:** MCP implementation is complete. Follow-up encryption UX now uses
 remembered browser-device secrets plus a user-held recovery code. CI/PR remain
 release tasks; in-app answer UI remains deliberately deferred.
-**Owner:** Thesis Tracker  
+**Owner:** WeaveForge  
 **Last updated:** 2026-07-15
 
 ## 0. Implementation status snapshot
@@ -13,7 +13,7 @@ It includes the model-agnostic core contracts, fail-closed access policy,
 opt-in Settings surface, encrypted browser relay, bounded local retrieval,
 Codex plugin, encrypted proposal/audit storage, review UI, and browser-local
 approval executors. The plugin exposes live reads plus draft-only proposal
-tools. No MCP tool can directly mutate Thesis Tracker or Zotero data.
+tools. No MCP tool can directly mutate WeaveForge or Zotero data.
 
 Sessions are browser-local and end on lock, sign-out, revocation, or expiry.
 The dedicated relay token is revocable and persists independently, so a new
@@ -36,7 +36,7 @@ test work is listed explicitly in section 19.5.
 | `2ca4878` | Browser-local proposal executors after user approval |
 | `3827e69` | Routed every live MCP write tool through encrypted proposals |
 
-The repository now also contains the `thesis-tracker-research` Codex plugin.
+The repository now also contains the `weaveforge-research` Codex plugin.
 It supplies researcher-facing safety guidance, a validated marketplace entry,
 and a dependency-free MCP client exposing the approved live tool surface.
 
@@ -82,7 +82,7 @@ used only as user-provided testing context and are not stored in the repository.
 
 ## 1. Purpose
 
-Build a source-grounded research assistant for Thesis Tracker. It helps a researcher work with the papers, Zotero annotations, and notes they explicitly choose, then turns its output into reviewable additions to the workspace.
+Build a source-grounded research assistant for WeaveForge. It helps a researcher work with the papers, Zotero annotations, and notes they explicitly choose, then turns its output into reviewable additions to the workspace.
 
 The initial experience is a Codex plugin backed by a remote Model Context
 Protocol (MCP) service. Codex provides the conversational interface; Thesis
@@ -94,7 +94,7 @@ This feature must preserve the product's existing end-to-end encryption (E2EE) m
 
 ## 2. Product statement
 
-> Thesis Tracker's assistant works from the research material a user chooses to share. It is source-grounded, clearly identifies its sources, and never silently overwrites the user's work.
+> WeaveForge's assistant works from the research material a user chooses to share. It is source-grounded, clearly identifies its sources, and never silently overwrites the user's work.
 
 The assistant is not an autonomous agent with broad account access. It is a user-controlled research workspace.
 
@@ -103,17 +103,17 @@ The assistant is not an autonomous agent with broad account access. It is a user
 ### Goals
 
 - Let a user create an AI workspace containing an explicit selection of papers, paper notes, Zotero annotations/notes, reading lists, vault notes, experiments, milestones, and logbook entries.
-- Answer questions using only the active workspace's selected sources and cite the corresponding Thesis Tracker/Zotero source.
+- Answer questions using only the active workspace's selected sources and cite the corresponding WeaveForge/Zotero source.
 - Retrieve source excerpts locally before sending the minimum relevant context to a configured model provider.
 - Let the assistant propose structured actions that the user reviews before saving.
 - Support append-only AI additions to paper notes. Existing paper-note text must never be replaced or deleted by the assistant.
-- Support reviewed additions of papers to Thesis Tracker and Zotero collections.
+- Support reviewed additions of papers to WeaveForge and Zotero collections.
 - Establish the internal tool contracts and permission model that a future MCP adapter can safely expose.
 
 ### Non-goals for v1
 
 - Report-section reading or writing. The report module is excluded until its writing experience exists.
-- Storage, retrieval, or processing of PDFs in Thesis Tracker. PDFs are not stored by the product and may be moved/linked by ZotMoov.
+- Storage, retrieval, or processing of PDFs in WeaveForge. PDFs are not stored by the product and may be moved/linked by ZotMoov.
 - Editing Zotero highlights, existing annotations, existing Zotero notes, or PDFs.
 - Whole-vault or whole-project access by default.
 - Autonomous, background, scheduled, or silent writes.
@@ -157,7 +157,7 @@ UI code calls only the `aiAssistant` facade. The facade delegates to use-cases; 
 
 ### E2EE
 
-Thesis Tracker encrypts the content of papers, vault pages, reading lists, log entries, experiments, and other entities. The server persists ciphertext and has no keyring capable of reading user content. The unlocked browser holds the in-memory keyring and already decrypts content through encrypted repository adapters.
+WeaveForge encrypts the content of papers, vault pages, reading lists, log entries, experiments, and other entities. The server persists ciphertext and has no keyring capable of reading user content. The unlocked browser holds the in-memory keyring and already decrypts content through encrypted repository adapters.
 
 Consequences:
 
@@ -168,7 +168,7 @@ Consequences:
 
 ### Zotero and ZotMoov
 
-Zotero is the authority for bibliographic items, user notes, and annotations. ZotMoov moves or links attachment files; Thesis Tracker does not ingest those PDFs. The assistant may use Zotero metadata, notes, and annotations only when those are synced or explicitly retrieved through a user-authorized Zotero integration.
+Zotero is the authority for bibliographic items, user notes, and annotations. ZotMoov moves or links attachment files; WeaveForge does not ingest those PDFs. The assistant may use Zotero metadata, notes, and annotations only when those are synced or explicitly retrieved through a user-authorized Zotero integration.
 
 The assistant must never read attachment paths, linked-file paths, or PDF bytes. It must not edit existing highlights or annotations. It may propose a new Zotero item for a user-selected collection after review.
 
@@ -241,7 +241,7 @@ MCP gateway / application orchestration (no decryption keys)
         |
         | routes a request for an active, paired session
         v
-Unlocked Thesis Tracker browser
+Unlocked WeaveForge browser
   - enforces the workspace source grant
   - decrypts allowed content locally
   - performs local retrieval
@@ -261,7 +261,7 @@ browser/device session:
 Codex/ChatGPT -> authenticated MCP gateway -> paired unlocked browser -> encrypted repositories
 ```
 
-If no paired, unlocked session exists, tools must fail closed with: `Open Thesis Tracker and unlock encryption to access this workspace.` The gateway never falls back to direct database reads.
+If no paired, unlocked session exists, tools must fail closed with: `Open WeaveForge and unlock encryption to access this workspace.` The gateway never falls back to direct database reads.
 
 ## 6. Consent and permissions
 
@@ -394,7 +394,7 @@ v1 permits only **new Zotero bibliographic items** after explicit review. It doe
 3. The browser builds/searches a local index and selects relevant snippets.
 4. The client sends the question, instructions, and selected snippets to the model provider.
 5. The response contains source references using stable local source IDs.
-6. The UI renders source chips that open the original Thesis Tracker entity or Zotero reference.
+6. The UI renders source chips that open the original WeaveForge entity or Zotero reference.
 
 Do not upload an entire project or vault to a provider-hosted vector store in v1. A local browser index (IndexedDB) is the preferred privacy-preserving baseline. A later cloud-index option requires a separate explicit consent path because embeddings and chunks are external disclosures.
 
@@ -526,13 +526,13 @@ the source was not selected.
 
 ### Phase 2 — Codex plugin — complete
 
-- [x] Add a repository-packaged `thesis-tracker-research` Codex plugin.
+- [x] Add a repository-packaged `weaveforge-research` Codex plugin.
 - [x] Add an installable marketplace entry and validate its manifest structure.
 - [x] Add E2EE-aware read, write, and prompt-injection guidance.
 - [x] Kept the MCP list empty until the secure endpoint existed; Phase 3 now
   replaces that placeholder with the live tool surface.
 
-**Exit status:** Codex has a safe, installable Thesis Tracker research workflow;
+**Exit status:** Codex has a safe, installable WeaveForge research workflow;
 it makes no false claim of data access before user authorisation.
 
 ### Phase 3 — paired read-only MCP service — implementation complete
@@ -741,7 +741,7 @@ full CI suite and open the PR after the final local verification pass.
 ## 20. Privacy hardening gate and reusable proposal architecture
 
 No new AI approval executor may ship until it passes this gate: a user-held
-third-party credential must not be forwarded to the Thesis Tracker server in a
+third-party credential must not be forwarded to the WeaveForge server in a
 request header or body. Credentials remain encrypted at rest and are decrypted
 only in the unlocked browser (or a future local connector).
 
@@ -750,10 +750,10 @@ only in the unlocked browser (or a future local connector).
 | Integration | Current transport | Required outcome |
 | --- | --- | --- |
 | Zotero approved item write | Browser → Zotero directly | Complete; server does not see the key or item payload. |
-| Zotero sync, metadata, annotations, collections | Browser → Zotero directly | Complete; reads, writes, and collection discovery never send the key to Thesis Tracker. |
+| Zotero sync, metadata, annotations, collections | Browser → Zotero directly | Complete; reads, writes, and collection discovery never send the key to WeaveForge. |
 | Semantic Scholar | Browser → Semantic Scholar directly | Complete. |
 | GitHub/GitLab reads and GitLab log sync | Browser → provider directly | Complete. GitHub supports browser CORS; GitLab instances must expose the required API CORS headers. No proxy fallback exists. |
-| Mattermost notifications | Browser → Mattermost directly | Complete. Self-hosted servers must allow the Thesis Tracker origin through `AllowCorsFrom`; otherwise use a future local connector. |
+| Mattermost notifications | Browser → Mattermost directly | Complete. Self-hosted servers must allow the WeaveForge origin through `AllowCorsFrom`; otherwise use a future local connector. |
 
 ### 20.2 Proposal platform (provider-neutral)
 

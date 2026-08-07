@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { LOG_KINDS, type LogEntry, type LogKind } from "@thesis/core";
+import { LOG_KINDS, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -24,7 +24,7 @@ export function LogbookScreen() {
 
   const loadEntries = useCallback(() => getContainer().logbook.loadEntries(), []);
   const { data, loading, error, reload: load } = useScreenData("logbook", loadEntries);
-  const entries = data ?? emptyArray<import("@thesis/core").LogEntry>();
+  const entries = data ?? emptyArray<import("@weaveforge/core").LogEntry>();
 
   if (loading) {
     return <ScreenLoading status="Loading logbook…" />;

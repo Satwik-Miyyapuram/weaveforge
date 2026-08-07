@@ -1,4 +1,4 @@
-import type { CitationCandidate, INotificationIntegration, Milestone, Paper } from "@thesis/core";
+import type { CitationCandidate, INotificationIntegration, Milestone, Paper } from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import {
   citationAlertMessage,

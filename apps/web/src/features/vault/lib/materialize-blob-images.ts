@@ -1,4 +1,4 @@
-import { normalizeMarkdownImageSyntax, vaultImageMarkdown } from "@thesis/core";
+import { normalizeMarkdownImageSyntax, vaultImageMarkdown } from "@weaveforge/core";
 
 function extFromMime(mime: string): string {
   if (mime === "image/jpeg") return "jpeg";

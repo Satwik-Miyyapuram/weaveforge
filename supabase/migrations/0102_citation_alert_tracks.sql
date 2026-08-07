@@ -18,6 +18,7 @@ create index if not exists citation_alert_tracks_user_project_idx
 
 alter table citation_alert_tracks enable row level security;
 
+drop policy if exists citation_alert_tracks_own on citation_alert_tracks;
 create policy citation_alert_tracks_own on citation_alert_tracks
   for all
   using (user_id = (select auth.uid()))

@@ -1,4 +1,4 @@
-import type { ILogSyncIntegration, LogEntry } from "@thesis/core";
+import type { ILogSyncIntegration, LogEntry } from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import { GitLabLogExporter } from "@/features/sync/infrastructure/gitlab-log-exporter";
 

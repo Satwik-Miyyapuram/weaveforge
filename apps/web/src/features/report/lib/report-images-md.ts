@@ -1,4 +1,4 @@
-import { normalizeMarkdownImageSyntax } from "@thesis/core";
+import { normalizeMarkdownImageSyntax } from "@weaveforge/core";
 
 /** Prefix for report section images: `![](reportimg:userId/sectionId/file.webp)`. */
 export const REPORT_IMAGE_PREFIX = "reportimg:";

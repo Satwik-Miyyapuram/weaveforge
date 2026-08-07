@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import type { Paper } from "@thesis/core";
+import type { Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
 

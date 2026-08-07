@@ -1,4 +1,4 @@
-import type { IBlobRegistry, IBlobStore } from "@thesis/core";
+import type { IBlobRegistry, IBlobStore } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildTieredBlobStoreFromConfig, buildTieredBlobStoreFromRegistry } from "./build-tiered-blob-store";
 import { readStorageConfig, type StorageConfig } from "./config";

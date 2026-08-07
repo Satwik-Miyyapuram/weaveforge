@@ -4,7 +4,7 @@ import {
   resolveSupervisorId,
   validateNewMember,
   MemberValidationError,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getAdminProvisioner } from "@/backend/wire-backend";
 
 /**
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     email?: string;
     password?: string;
     fullName?: string;
-    role?: import("@thesis/core").Role;
+    role?: import("@weaveforge/core").Role;
     supervisorId?: string;
   };
 
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       email: raw.email ?? "",
       password: raw.password ?? "",
       fullName: raw.fullName,
-      role: raw.role as import("@thesis/core").Role,
+      role: raw.role as import("@weaveforge/core").Role,
       supervisorId: raw.supervisorId,
     });
   } catch (err) {

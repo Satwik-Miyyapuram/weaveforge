@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ReportSection } from "@thesis/core";
+import type { ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 

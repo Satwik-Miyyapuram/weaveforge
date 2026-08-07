@@ -1,4 +1,4 @@
-import type { IMetadataSource, PaperMetadata, PaperRef } from "@thesis/core";
+import type { IMetadataSource, PaperMetadata, PaperRef } from "@weaveforge/core";
 
 /**
  * URL metadata source. Resolves an arbitrary paper URL to metadata by reading
@@ -35,8 +35,13 @@ export class UrlMetadataSource implements IMetadataSource {
       `${this.baseUrl}?url=${encodeURIComponent(ref.value.trim())}`,
     );
     if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`Could not read that URL (${res.status}). ${detail}`.trim());
+      // The route explains *why* in `error`; show that rather than a status
+      // code with a JSON blob glued to it.
+      const detail = await res
+        .json()
+        .then((body: { error?: string }) => body?.error)
+        .catch(() => undefined);
+      throw new Error(detail ?? `Could not read that URL (${res.status}).`);
     }
     const d = (await res.json()) as UrlMetaResponse;
     if (!d.title) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { RELATION_TYPES, type ReadingList, type RelationType } from "@thesis/core";
+import { RELATION_TYPES, type ReadingList, type RelationType } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { useState } from "react";

@@ -12,7 +12,7 @@ import {
   type IPdfSourceResolver,
   type PdfSourcePaper,
   type PdfSourceResolution,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { resolvePaperPdfUrl } from "./sanitize-reader-url";
 
 export function paperToPdfSourcePaper(input: {

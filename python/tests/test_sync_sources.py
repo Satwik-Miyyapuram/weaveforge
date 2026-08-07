@@ -1,10 +1,10 @@
 """Sync sources: registration, and their pure parsing transforms (offline)."""
 
 
-from thesis_tracker.sync import default_registry
-from thesis_tracker.sync.matplotlib import _render_figure
-from thesis_tracker.sync.tensorboard import _scalars_to_series
-from thesis_tracker.sync.wandb import _history_to_series
+from weaveforge.sync import default_registry
+from weaveforge.sync.matplotlib import _render_figure
+from weaveforge.sync.tensorboard import _scalars_to_series
+from weaveforge.sync.wandb import _history_to_series
 
 
 def test_builtin_sources_registered():

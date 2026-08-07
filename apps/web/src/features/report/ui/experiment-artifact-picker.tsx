@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Experiment } from "@thesis/core";
+import type { Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";

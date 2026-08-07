@@ -1,4 +1,4 @@
-import { buildAnnotationSortIndex, type NewReaderAnnotation, type ReaderAnnotation } from "@thesis/core";
+import { buildAnnotationSortIndex, type NewReaderAnnotation, type ReaderAnnotation } from "@weaveforge/core";
 
 /** Pin / quotation-type key: Zotero key when present, else local id. */
 export function annotationPinKey(ann: Pick<ReaderAnnotation, "id" | "zoteroKey">): string {

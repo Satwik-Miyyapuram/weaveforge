@@ -1,6 +1,6 @@
 # Production bundle baseline
 
-Measured with `npm run build --workspace @thesis/web` on 2026-07-14.
+Measured with `npm run build --workspace @weaveforge/web` on 2026-07-14.
 
 - Shared first-load JavaScript: **89.6 kB**
 - Largest route first-load bundles: papers **552 kB**, notes **551 kB**, dashboard **511 kB**, graph **510 kB**

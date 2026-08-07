@@ -1,4 +1,4 @@
-import type { UserIntegrationDescriptor } from "@thesis/core";
+import type { UserIntegrationDescriptor } from "@weaveforge/core";
 import { getAppConfig } from "@/deployment/app-config";
 import type { IntegrationConfig } from "./config";
 import type { ProjectSyncDescriptor } from "./descriptors-types";

@@ -5,10 +5,10 @@ import { getContainer } from "@/bootstrap";
 import { useProfile } from "@/features/org";
 import { useProject } from "@/features/projects";
 import { formatError } from "@/lib/format-error";
-import { isSupervisorRole } from "@thesis/core";
-import type { DashboardLayout, DashboardCardType } from "@thesis/core";
+import { isSupervisorRole } from "@weaveforge/core";
+import type { DashboardLayout, DashboardCardType } from "@weaveforge/core";
 import { registerDashboardUiCacheClear } from "@/lib/clear-session-caches";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 
 import {
   appendCardPair,

@@ -9,7 +9,7 @@ import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-a
 import { AnnotationSidebar } from "@/features/reader/ui/annotation-sidebar";
 import { SelectionCreateBar } from "@/features/reader/ui/selection-create-bar";
 import { AnnotationOverlay } from "@/features/reader/ui/annotation-overlay";
-import type { QuotationType, ReaderAnnotation } from "@thesis/core";
+import type { QuotationType, ReaderAnnotation } from "@weaveforge/core";
 import {
   applyTheme,
   DARK_THEME_OPTIONS,

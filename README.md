@@ -33,7 +33,7 @@ Both talk to the **same Postgres schema** (`supabase/migrations/`). Log a run in
 - **Privacy model** — data stored server-side with encryption at rest; Postgres RLS is the access boundary (owner-or-shared); external **view links** (`/link?t=…`) with optional expiry. Not end-to-end encrypted.
 - **Labs without IT** — professors create a lab and share three invite codes (professor / PhD / masters); join with a code or run **standalone**.
 
-Built **TDD + SOLID**: framework-agnostic core (`@thesis/core`), repository contracts with shared test suites, feature facades for the UI, env-driven integrations (Zotero, GitHub, GitLab, Mattermost, Semantic Scholar).
+Built **TDD + SOLID**: framework-agnostic core (`@weaveforge/core`), repository contracts with shared test suites, feature facades for the UI, env-driven integrations (Zotero, GitHub, GitLab, Mattermost, Semantic Scholar).
 
 ---
 
@@ -85,7 +85,7 @@ cd python && pip install -e '.[all,dev]'
 ```
 
 ```python
-from thesis_tracker import track_experiment
+from weaveforge import track_experiment
 
 @track_experiment(name="ablation lr=1e-4", sync={"tensorboard": "runs/exp1"})
 def train(run):
@@ -98,16 +98,16 @@ train()
 ```
 
 - **Decorator or context manager** — creates experiment, logs curves to `experiment_metrics`, uploads artifacts, sets status on exit.
-- **Framework callbacks** — `thesis_tracker.integrations.lightning`, `.keras`.
+- **Framework callbacks** — `weaveforge.integrations.lightning`, `.keras`.
 - **Import existing runs** — TensorBoard, wandb, or custom `MetricSource` (Open/Closed).
-- **CLI** — `thesis-tracker list`, `import-tb`, `import-wandb`.
+- **CLI** — `weaveforge list`, `import-tb`, `import-wandb`.
 
 Generate a token in **Settings → Python SDK access tokens**, then configure:
 
 ```bash
-export THESIS_TRACKER_TOKEN=tt_...
-export THESIS_TRACKER_API_URL=http://localhost:3000
-export THESIS_TRACKER_PROJECT="My Thesis"   # or THESIS_TRACKER_PROJECT_ID=<uuid>
+export WEAVEFORGE_TOKEN=tt_...
+export WEAVEFORGE_API_URL=http://localhost:3000
+export WEAVEFORGE_PROJECT="My Thesis"   # or WEAVEFORGE_PROJECT_ID=<uuid>
 ```
 
 Details: [`python/README.md`](python/README.md).
@@ -148,7 +148,7 @@ Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/ext
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history (whole project) |
 | [`docs/self-host-roadmap.md`](docs/self-host-roadmap.md) | Self-hosted Postgres + tiered blobs |
 | [`docs/plans/README.md`](docs/plans/README.md) | Plan index — current / working / future / completed |
-| [`docs/plans/future/hosting-and-cost-plan.md`](docs/plans/future/hosting-and-cost-plan.md) | Hosted access, usage limits, pricing planning, and self-hosting |
+| [`docs/plans/completed/hosting-and-cost-plan.md`](docs/plans/completed/hosting-and-cost-plan.md) | Hosted access, usage limits, pricing planning, and self-hosting |
 | [`docs/plans/completed/modular-deployment-plan.md`](docs/plans/completed/modular-deployment-plan.md) | Configurable feature, integration, MCP, backend, and storage boundaries |
 
 ---
@@ -160,9 +160,9 @@ Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/ext
 ```
 apps/web/         Next.js PWA
 apps/pitch/       Static export of the pitch site (GitHub Pages)
-packages/core/    @thesis/core — shared domain + use-cases
+packages/core/    @weaveforge/core — shared domain + use-cases
 supabase/         Migrations 0001…0088 (see supabase/migrations/README.md)
-python/           thesis-tracker SDK
+python/           weaveforge SDK
 docs/             Design, dev guide, integrations
 ```
 
@@ -207,14 +207,14 @@ On first sign-in, complete org setup in **Settings → People** (create/join a l
 
 ```bash
 npm run dev              # web app @ :3000
-npm run build:core       # compile @thesis/core
+npm run build:core       # compile @weaveforge/core
 npm run test:core        # domain + contract tests
 npm run test:integration:web
 npm run typecheck        # all workspaces
 npm run check:solid      # boundary lint (UI ↔ facades, no cross-feature /ui imports)
 npm run check:dry        # DRY lint (pin/share/owner-label patterns centralised in core)
-npm run dev --workspace @thesis/pitch     # pitch site @ :3100
-npm run build --workspace @thesis/pitch   # static export -> apps/pitch/out
+npm run dev --workspace @weaveforge/pitch     # pitch site @ :3100
+npm run build --workspace @weaveforge/pitch   # static export -> apps/pitch/out
 ```
 
 ---
@@ -248,8 +248,8 @@ It exists as a separate app because the product cannot be statically exported:
 it has 34 API routes and a runtime that expects a server. The pitch has neither.
 
 ```bash
-npm run dev --workspace @thesis/pitch      # :3100
-npm run build --workspace @thesis/pitch    # -> apps/pitch/out
+npm run dev --workspace @weaveforge/pitch      # :3100
+npm run build --workspace @weaveforge/pitch    # -> apps/pitch/out
 ```
 
 **Publishing** needs two things set once in the repository:

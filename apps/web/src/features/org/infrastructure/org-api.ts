@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
-import type { OrgInviteRole, OrgMembershipView } from "@thesis/core";
+import type { OrgInviteRole, OrgMembershipView } from "@weaveforge/core";
 
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
 

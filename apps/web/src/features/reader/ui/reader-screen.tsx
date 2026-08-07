@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { decodeLocus, type PdfLocus } from "@thesis/core";
+import { decodeLocus, type PdfLocus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader-lazy";
 import {
   sanitizePdfUrl,
@@ -60,8 +60,8 @@ export function ReaderScreen() {
   const [cacheSkippedFor, setCacheSkippedFor] = useState<string | null>(null);
   const [contentHash, setContentHash] = useState("");
   const [title, setTitle] = useState<string | null>(null);
-  const [annotations, setAnnotations] = useState<import("@thesis/core").ReaderAnnotation[]>([]);
-  const [quotationTypes, setQuotationTypes] = useState<Map<string, import("@thesis/core").QuotationType>>(
+  const [annotations, setAnnotations] = useState<import("@weaveforge/core").ReaderAnnotation[]>([]);
+  const [quotationTypes, setQuotationTypes] = useState<Map<string, import("@weaveforge/core").QuotationType>>(
     new Map(),
   );
   const [loading, setLoading] = useState(Boolean(paperId));
@@ -132,7 +132,7 @@ export function ReaderScreen() {
 
         const rawAnns = (paper.metadata?.["annotations"] as ZoteroAnnotation[] | undefined) ?? [];
         const projected = projectZoteroAnnotations(rawAnns, { contentHash: hash });
-        let local: import("@thesis/core").ReaderAnnotation[] = [];
+        let local: import("@weaveforge/core").ReaderAnnotation[] = [];
         try {
           local = await getContainer().papers.listReaderAnnotations(paper.id);
         } catch {

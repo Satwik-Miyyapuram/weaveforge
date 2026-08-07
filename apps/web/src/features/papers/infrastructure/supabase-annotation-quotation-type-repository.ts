@@ -5,8 +5,8 @@ import type {
   ICurrentUserProvider,
   QuotationType,
   SaveAnnotationQuotationTypeInput,
-} from "@thesis/core";
-import { isQuotationType } from "@thesis/core";
+} from "@weaveforge/core";
+import { isQuotationType } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 
 interface AnnotationQuotationTypeRow {

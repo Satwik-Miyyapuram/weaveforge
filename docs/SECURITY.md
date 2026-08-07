@@ -1,6 +1,6 @@
 # Security Policy
 
-Thesis Tracker talks directly to your own Supabase project. The web app holds
+WeaveForge talks directly to your own Supabase project. The web app holds
 Supabase credentials (a public anon key + your session), and the Python SDK uses
 **personal access tokens** that act on your behalf under Row-Level Security.
 Please treat credential handling and access-control (RLS) issues as

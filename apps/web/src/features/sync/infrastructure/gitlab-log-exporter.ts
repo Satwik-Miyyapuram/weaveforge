@@ -1,4 +1,4 @@
-import type { LogEntry } from "@thesis/core";
+import type { LogEntry } from "@weaveforge/core";
 import type { Integration } from "../domain/integration";
 import { gitConnection, gitConnectionReady } from "../domain/integration-fields";
 

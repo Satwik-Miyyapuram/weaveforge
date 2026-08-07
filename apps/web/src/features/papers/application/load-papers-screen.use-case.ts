@@ -5,8 +5,8 @@ import type {
   IShareRepository,
   Paper,
   ReadingList,
-} from "@thesis/core";
-import { mergePinnedScreenData } from "@thesis/core";
+} from "@weaveforge/core";
+import { mergePinnedScreenData } from "@weaveforge/core";
 
 export interface PapersScreenData {
   papers: Paper[];
@@ -24,7 +24,7 @@ export class LoadPapersScreenUseCase {
       papers: IPaperRepository;
       lists: IReadingListRepository;
       listItems: IReadingListItemRepository;
-      pins?: import("@thesis/core").ILibraryPinRepository;
+      pins?: import("@weaveforge/core").ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

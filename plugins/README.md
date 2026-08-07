@@ -4,10 +4,10 @@ Example plugin: `apps/web/src/plugins/example/`
 
 ## Enable the timer demo
 
-1. Edit `thesis-tracker.config.ts` at the repo root:
+1. Edit `weaveforge.config.ts` at the repo root:
 
 ```ts
-import { defineConfig } from "@thesis/core";
+import { defineConfig } from "@weaveforge/core";
 import { exampleTimerPlugin } from "./apps/web/src/plugins/example";
 
 export default defineConfig({
@@ -25,5 +25,5 @@ npm run generate:routes
 
 ## Integration plugins
 
-Export a `WebThesisTrackerPlugin` with `integrationManifests` from your package.
+Export a `WebWeaveForgePlugin` with `integrationManifests` from your package.
 See `docs/extensions.md` and `apps/web/src/integrations/manifests/`.

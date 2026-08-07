@@ -1,4 +1,4 @@
-import type { ICurrentUserProvider } from "@thesis/core";
+import type { ICurrentUserProvider } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Resolves the signed-in user id from a Supabase browser session. */

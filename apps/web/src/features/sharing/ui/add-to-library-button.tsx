@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ShareableType } from "@thesis/core";
+import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { BookmarkIcon } from "@/components/view-icons";
 

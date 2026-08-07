@@ -1,4 +1,4 @@
-/** Test doubles and Liskov contract suites — import via `@thesis/core/testing` only. */
+/** Test doubles and Liskov contract suites — import via `@weaveforge/core/testing` only. */
 export { InMemoryDashboardLayoutRepository } from "./in-memory-dashboard-layout-repository.js";
 export { InMemoryGraphSettingsRepository } from "./in-memory-graph-settings-repository.js";
 export { InMemoryPaperRepository } from "./in-memory-paper-repository.js";
@@ -51,3 +51,4 @@ export { runProjectRepositoryContract } from "./project-repository-contract.js";
 export { runExperimentRepositoryContract } from "./experiment-repository-contract.js";
 export { runMilestoneRepositoryContract } from "./milestone-repository-contract.js";
 export { runMemberRepositoryContract } from "./member-repository-contract.js";
+export { MemoryWorkspaceFs } from "./memory-workspace-fs.js";

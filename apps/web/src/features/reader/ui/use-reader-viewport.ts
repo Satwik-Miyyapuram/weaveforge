@@ -15,7 +15,7 @@ import {
   type ReaderPageSize,
   type ReaderRotation,
   type ReaderViewportState,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 export interface UseReaderViewportOptions {
   /** 1-based initial page. */

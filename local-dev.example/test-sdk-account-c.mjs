@@ -13,7 +13,7 @@ import { primaryTestEmail, requireTestPassword, REPO } from "./_load-env.mjs";
 
 const TEST_EMAIL = primaryTestEmail();
 const TEST_PASSWORD = requireTestPassword();
-const API_URL = process.env.THESIS_TRACKER_API_URL || "http://localhost:3000";
+const API_URL = process.env.WEAVEFORGE_API_URL || "http://localhost:3000";
 const ENV_PATH = resolve(REPO, "apps/web/.env.local");
 
 function loadEnv(path) {
@@ -92,9 +92,9 @@ async function main() {
       cwd: resolve(REPO, "python"),
       env: {
         ...process.env,
-        THESIS_TRACKER_TOKEN: sdkToken,
-        THESIS_TRACKER_API_URL: API_URL,
-        THESIS_TRACKER_TEST_USER_EMAIL: TEST_EMAIL,
+        WEAVEFORGE_TOKEN: sdkToken,
+        WEAVEFORGE_API_URL: API_URL,
+        WEAVEFORGE_TEST_USER_EMAIL: TEST_EMAIL,
       },
       stdio: "inherit",
       shell: process.platform === "win32",

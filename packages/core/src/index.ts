@@ -1,5 +1,5 @@
 /**
- * @thesis/core — shared, framework-agnostic domain contracts and types.
+ * @weaveforge/core — shared, framework-agnostic domain contracts and types.
  *
  * This package owns the entities, repository interfaces, and use-cases. It has
  * no dependency on React, Next, Supabase, or any I/O library. The web app and
@@ -31,4 +31,6 @@ export * from "./features/collab/index.js";
 export * from "./features/ai-assistant/index.js";
 export * from "./storage/index.js";
 export * from "./reader/index.js";
+export * from "./workspace/index.js";
+export * from "./search/index.js";
 export * from "./backend/index.js";

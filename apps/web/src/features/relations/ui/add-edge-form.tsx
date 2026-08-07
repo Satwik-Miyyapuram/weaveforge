@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RELATION_TYPES, type Paper, type RelationType } from "@thesis/core";
+import { RELATION_TYPES, type Paper, type RelationType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 

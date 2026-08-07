@@ -21,7 +21,7 @@ Phases 2–4 are entirely undelivered. **Phase 2 (annotation) is deferred by dec
 
 Nothing above is broken; it is unbuilt. The reader does what the provenance UI needs and no more.
 
-**Do not read this document as a record of shipped work.** The next person picking up the reader should start from [`../working/reader-and-annotation-plan.md`](../working/reader-and-annotation-plan.md) (R0–R6), which supersedes Phases 1–4 here. Use the verified table above only as a snapshot of what Phase D left in place.
+**Do not read this document as a record of shipped work.** The next person picking up the reader should start from [`reader-and-annotation-plan.md`](reader-and-annotation-plan.md) (R0–R6), which supersedes Phases 1–4 here. Use the verified table above only as a snapshot of what Phase D left in place.
 
 **Original status:** Proposed. Requires a product-brief amendment (see §2) before build starts.
 **Driver:** ZotFlow ships an embedded reader inside Obsidian and is rated our leading competitive threat — see `docs/competitive-research-verified-2026-07.md` §2.1. Separately, the `/ai-review` provenance UI (P0) needs a way to show the source of an AI claim without a context break.
@@ -37,7 +37,7 @@ Verified 2026-07-25:
 | Component | License | Usable in WeaveForge? |
 |-----------|---------|----------------------|
 | WeaveForge (`/LICENSE`) | **AGPL-3.0-only** | — |
-| `python/` SDK, `plugins/thesis-tracker-research/` | **AGPL-3.0-only** (no carve-outs) | — |
+| `python/` SDK, `plugins/weaveforge-research/` | **AGPL-3.0-only** (no carve-outs) | — |
 | Zotero reader (`zotero/reader`, `COPYING`) | **AGPL-3.0** incl. §13 network clause | **Yes** |
 | ZotFlow (`duanxianpi/obsidian-zotflow`) | **AGPL-3.0-only** | Yes, but see below |
 | pdf.js (`mozilla/pdf.js`) | Apache-2.0 | Yes |
@@ -248,7 +248,7 @@ Budget target: reader chunk under ~1MB gzipped, zero bytes added to first paint 
 
 ## 7. Architecture
 
-Follows the existing pattern — `UI → facades → use-cases (@thesis/core) → ports → adapters` — and the sibling structure under `apps/web/src/features/papers/`.
+Follows the existing pattern — `UI → facades → use-cases (@weaveforge/core) → ports → adapters` — and the sibling structure under `apps/web/src/features/papers/`.
 
 ```
 packages/core/src/reader/
@@ -269,7 +269,7 @@ apps/web/src/features/reader/
 ```
 
 - Resolution ladder = a chain of `IPdfSourceResolver` implementations composed in `wire-storage.ts`. Adding WebDAV later is a new adapter, not a change to the use-case (Open/Closed).
-- Register the feature in `thesis-tracker.config.ts` so it is strippable at deploy time per the brief's modular-deployment model.
+- Register the feature in `weaveforge.config.ts` so it is strippable at deploy time per the brief's modular-deployment model.
 - UI never calls `supabase.from()` — repositories via `getContainer()`, per the brief's §2 rule.
 - New migration for `paper_annotations` (or extend `metadata` on `papers` — prefer a table; annotations are queried and joined).
 

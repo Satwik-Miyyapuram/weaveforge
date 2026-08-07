@@ -34,10 +34,11 @@ import type {
   ILabSnapshotRepository,
   IPaperFieldRepository,
   IReaderAnnotationSink,
+  IReaderAnnotationProjectSource,
   IReaderAnnotationSource,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@thesis/core";
+import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
@@ -283,7 +284,7 @@ export function wirePostgresBackend(
   );
   const readerAnnotationRepository = cacheRepo(
     new PostgresReaderAnnotationRepository(pg, projectContext, session),
-    ["list"],
+    ["list", "listForProject"],
     ["create", "update", "remove"],
     pid,
     { resourceType: "paper" },

@@ -3,7 +3,7 @@ import { loadLocalDevEnv } from "./load-local-dev-env";
 loadLocalDevEnv();
 
 const NAMES = [
-  "THESIS_TRACKER_SUPABASE_URL",
+  "WEAVEFORGE_SUPABASE_URL",
   "SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_URL",
 ] as const;
@@ -21,7 +21,7 @@ function resolveTestPassword(): string {
     env(
       "E2E_TEST_PASSWORD",
       "TEST_ACCOUNT_PASSWORD",
-      "THESIS_TRACKER_PASSWORD",
+      "WEAVEFORGE_PASSWORD",
       "TT_A_PASSWORD",
       "DEMO_CLIP_PASSWORD",
     ) ?? ""
@@ -30,11 +30,11 @@ function resolveTestPassword(): string {
 
 export function e2eEnabled(): boolean {
   const url = env(...NAMES);
-  const emailA = env("THESIS_TRACKER_EMAIL", "TT_A_EMAIL", "TEST_ACCOUNT_EMAIL_PRIMARY");
-  const passwordA = env("THESIS_TRACKER_PASSWORD", "TT_A_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD");
-  const emailB = env("THESIS_TRACKER_B_EMAIL", "TT_B_EMAIL", "THESIS_TRACKER_EMAIL_B");
+  const emailA = env("WEAVEFORGE_EMAIL", "TT_A_EMAIL", "TEST_ACCOUNT_EMAIL_PRIMARY");
+  const passwordA = env("WEAVEFORGE_PASSWORD", "TT_A_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD");
+  const emailB = env("WEAVEFORGE_B_EMAIL", "TT_B_EMAIL", "WEAVEFORGE_EMAIL_B");
   const passwordB = env(
-    "THESIS_TRACKER_B_PASSWORD",
+    "WEAVEFORGE_B_PASSWORD",
     "TT_B_PASSWORD",
     "E2E_TEST_PASSWORD",
     "TEST_ACCOUNT_PASSWORD",
@@ -44,8 +44,8 @@ export function e2eEnabled(): boolean {
 
 export function e2eUserA() {
   return {
-    email: env("THESIS_TRACKER_EMAIL", "TT_A_EMAIL", "TEST_ACCOUNT_EMAIL_PRIMARY")!,
-    password: env("THESIS_TRACKER_PASSWORD", "TT_A_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD")!,
+    email: env("WEAVEFORGE_EMAIL", "TT_A_EMAIL", "TEST_ACCOUNT_EMAIL_PRIMARY")!,
+    password: env("WEAVEFORGE_PASSWORD", "TT_A_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD")!,
   };
 }
 
@@ -53,10 +53,10 @@ export function e2eUserB() {
   const password = resolveTestPassword();
   return {
     email:
-      env("THESIS_TRACKER_B_EMAIL", "TT_B_EMAIL", "THESIS_TRACKER_EMAIL_B") ??
+      env("WEAVEFORGE_B_EMAIL", "TT_B_EMAIL", "WEAVEFORGE_EMAIL_B") ??
       "b@example.com",
     password:
-      env("THESIS_TRACKER_B_PASSWORD", "TT_B_PASSWORD") || password,
+      env("WEAVEFORGE_B_PASSWORD", "TT_B_PASSWORD") || password,
   };
 }
 

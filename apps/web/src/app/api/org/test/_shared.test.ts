@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { OrgInviteValidationError, OrgValidationError } from "@thesis/core";
+import { OrgInviteValidationError, OrgValidationError } from "@weaveforge/core";
 import { bearerToken, orgApiErrorResponse, requireOrgApiUser } from "../_shared";
 
 test("bearerToken: strips a case-insensitive Bearer prefix", () => {

@@ -62,7 +62,7 @@ follows [Semantic Versioning](https://semver.org/).
   waiting for the write to return, matching create and delete. A failed edit
   rolls back to the previous value.
 - **Android: the app pointed at the previous domain.** Its trusted scope was
-  `my-thesis-tracker-web.vercel.app`, which now redirects — a trusted web
+  `my-weaveforge-web.vercel.app`, which now redirects — a trusted web
   activity that navigates off its own origin drops out of full-screen and shows
   a URL bar. Host, scope, icons, and web manifest URL all now point at
   `weaveforge.vercel.app`.
@@ -158,7 +158,7 @@ following landed earlier but had never been carried in a tagged release.
   **Shared with me** screen and can leave feedback where granted. Writes stay
   owner-only. Graph screen tightened (fit-to-view + one controls box) and a
   consistent `?` help affordance replaced heading subtitles.
-- **Python SDK (`thesis-tracker`)** for experiment tracking: a decorator-first
+- **Python SDK (`weaveforge`)** for experiment tracking: a decorator-first
   API (`@track_experiment` / `with track()`), a `Run` handle for metrics,
   figures, and artifacts, and a composition root that authenticates with
   email/password so RLS applies.
@@ -173,7 +173,7 @@ following landed earlier but had never been carried in a tagged release.
   `experiment-artifacts` storage bucket (migration `0017`).
 - **Thesis linking**: experiments can reference a related paper from the SDK and
   surface it in the UI.
-- CLI (`thesis-tracker list / import-tb / import-wandb`).
+- CLI (`weaveforge list / import-tb / import-wandb`).
 - Project OSS hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `CHANGELOG.md`, and a Python CI job (pytest + ruff + mypy).
 
