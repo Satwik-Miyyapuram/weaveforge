@@ -43,6 +43,12 @@ const PRIVATE_DIRS = new Set(["plans", "future-work", "demo"]);
  * is one click away on GitHub. It is simply not documentation.
  */
 const PRIVATE_FILES = new Set([
+  // Documents client-side E2EE under a heading that reads "What is
+  // implemented". It is not: SECURITY.md says plainly that E2EE was dropped and
+  // that row-level security is now the sole access boundary. Publishing both
+  // would tell a reader their data is end-to-end encrypted when it is not,
+  // which is the one kind of stale documentation that does harm.
+  "CRYPTO_RECOVERY.md",
   "DEEP_RESEARCH_PRODUCT_BRIEF.md",
   "PRODUCT_AND_ICON_BRIEF.md",
   "DESIGN.md",
@@ -88,6 +94,19 @@ function titleOf(markdown: string, relPath: string): string {
     .replace(/^\w/, (c) => c.toUpperCase());
 }
 
+/**
+ * URL segments for a file.
+ *
+ * `storage/README.md` is that folder's index, so it becomes `/docs/storage/`
+ * rather than `/docs/storage/README/` — a page titled "README" is an artefact
+ * of the filesystem, not something a reader asked for.
+ */
+function slugFor(relPath: string): string[] {
+  const withoutExt = relPath.replace(/\.md$/, "");
+  if (withoutExt.endsWith("/README")) return withoutExt.slice(0, -"/README".length).split("/");
+  return withoutExt.split("/");
+}
+
 let cached: DocPage[] | null = null;
 
 export function allDocs(): DocPage[] {
@@ -96,7 +115,7 @@ export function allDocs(): DocPage[] {
     .map((full) => path.relative(DOCS_ROOT, full).split(path.sep).join("/"))
     .filter(isPublished)
     .map((relPath) => {
-      const slug = relPath.replace(/\.md$/, "").split("/");
+      const slug = slugFor(relPath);
       return {
         slug,
         relPath,
@@ -147,7 +166,7 @@ function rewriteHref(href: string, fromRel: string): string {
     // to the repository instead: the target still exists, it is just not part
     // of the manual.
     if (!isPublished(resolved)) return `${REPO_BLOB}/docs/${resolved}${suffix}`;
-    return `/docs/${resolved.replace(/\.md$/, "")}/${suffix}`;
+    return `/docs/${slugFor(resolved).join("/")}/${suffix}`;
   }
   return `${REPO_BLOB}/docs/${resolved}${suffix}`;
 }
