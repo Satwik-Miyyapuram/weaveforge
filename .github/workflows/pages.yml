@@ -1,4 +1,4 @@
-name: Pitch site
+name: Pitch and docs site
 
 # Publishes the statically exported pitch site (apps/pitch) to GitHub Pages.
 #
@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - "apps/pitch/**"
+      - "docs/**"
       - "apps/web/src/app/pitch/**"
       - "apps/web/src/app/globals.css"
       - "apps/web/src/app/themes.css"
@@ -46,9 +47,12 @@ jobs:
 
       - name: Build the static export
         env:
-          # Served from user.github.io/<repo>, so every asset needs the repo
-          # name in front of it. Set BASE_PATH to "" for a custom apex domain.
-          BASE_PATH: /${{ github.event.repository.name }}
+          # Served from docs.weaveforge.org (apps/pitch/public/CNAME), so the
+          # site is at the root of its own host and needs no prefix. It was
+          # /<repo> while this served from user.github.io/<repo>; leaving that
+          # set behind a custom domain prefixes every asset with a path that
+          # does not exist there.
+          BASE_PATH: ""
           # Where "Open the app" points. Set the APP_URL repository variable to
           # the deployed app; without one, send visitors to the source instead
           # of looping them back to this page.
