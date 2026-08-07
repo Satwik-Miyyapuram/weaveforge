@@ -92,9 +92,18 @@ export function missingConfigMessage(cfg: BackendConfig, required: readonly Conf
 export function readBackendConfig(env?: EnvReader): BackendConfig {
   if (env) return fromEnv(env);
   // Direct process.env access so Next.js inlines NEXT_PUBLIC_* in the client bundle.
+  //
+  // Every NEXT_PUBLIC_* the browser needs must be spelled out here, literally.
+  // `fromEnv` above reads the same names off a passed-in bag, which is why
+  // tests and server callers saw `dataUrl` while the browser never did: Next
+  // only substitutes `process.env.NEXT_PUBLIC_X` when it appears verbatim in
+  // the source, so a value reached through a variable is simply absent from the
+  // bundle. Omitting `dataUrl` here made the cutover switch a no-op — setting
+  // it in Vercel changed nothing, with no error to explain why.
   return {
     provider: pick(process.env.NEXT_PUBLIC_BACKEND_PROVIDER, PROVIDERS, "supabase"),
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    dataUrl: process.env.NEXT_PUBLIC_DATA_URL,
     supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET,
