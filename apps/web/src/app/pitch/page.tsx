@@ -32,6 +32,16 @@ import css from "./pitch.module.css";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "/";
 
 /**
+ * Documentation and source.
+ *
+ * `/docs/` is relative on purpose: on the exported site the docs are a sibling
+ * route, and inside the product `/docs` redirects to the docs host. One link
+ * that is correct in both places.
+ */
+const DOCS_URL = "/docs/";
+const REPO_URL = "https://github.com/Satwik-Miyyapuram/weaveforge";
+
+/**
  * Public product pitch.
  *
  * Every object on this page is rendered by the app's own <EntityCard>, painted
@@ -1425,6 +1435,19 @@ export default function PitchPage() {
             {navLink("compare", "Compare")}
           </nav>
           <div className={css.headActions}>
+            {/* Not in the section nav above: that is anchors within this page,
+                and these two leave it. */}
+            <a className={css.headLink} href={DOCS_URL}>Docs</a>
+            <a
+              className={css.headLink}
+              href={REPO_URL}
+              aria-label="Source on GitHub"
+              title="Source on GitHub"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                <path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.1.82-.26.82-.58l-.01-2.04c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.62-5.48 5.92.43.37.81 1.1.81 2.22l-.01 3.29c0 .32.21.69.82.57A12 12 0 0 0 12 .5Z" />
+              </svg>
+            </a>
             <ThemePalette />
             <a className="btn-primary" href={APP_URL}>Open the app</a>
           </div>
@@ -1726,9 +1749,9 @@ $ npm run dev           # → http://localhost:3000`}</pre>
         <div className={`${css.wrap} ${css.footIn}`}>
           <p className="muted">WeaveForge · one workspace for papers, plan, experiments and writing · AGPL-3.0-only</p>
           <div className={css.links}>
-            <a href="https://github.com/Satwik-Miyyapuram/weaveforge">Source</a>
-            <a href="https://github.com/Satwik-Miyyapuram/weaveforge#readme">Docs</a>
-            <a href="https://github.com/Satwik-Miyyapuram/weaveforge/issues">Issues</a>
+            <a href={REPO_URL}>Source</a>
+            <a href={DOCS_URL}>Docs</a>
+            <a href={`${REPO_URL}/issues`}>Issues</a>
           </div>
         </div>
       </footer>

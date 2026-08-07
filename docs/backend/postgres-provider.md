@@ -1,6 +1,11 @@
-# Postgres backend provider (Phase 2)
+# Postgres backend provider
 
-**Status:** Complete — all repositories wired; ready for OCI cutover after migrations + smoke tests.
+**Status:** In production. Table data is served from self-hosted Postgres on
+Oracle Cloud; Supabase remains the identity provider.
+
+The browser reaches the database through PostgREST rather than this adapter —
+see [`oracle-shift-guide.md`](oracle-shift-guide.md). This page describes the
+**server-side** provider, which API routes and scripts use.
 
 ## Goal
 

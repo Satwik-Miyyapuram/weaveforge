@@ -23,6 +23,55 @@ export interface DocPage {
   section: string;
 }
 
+/**
+ * What gets published.
+ *
+ * `docs/` is the working folder for the project, not a manual: most of it is
+ * plans, strategy notes and engineering reports written for whoever is building
+ * the thing. A visitor looking for "how do I use this" should not have to walk
+ * past a competitive analysis and a backlog to find it.
+ *
+ * Excluded by folder, because everything in these is internal by nature:
+ */
+const PRIVATE_DIRS = new Set(["plans", "future-work", "demo"]);
+
+/**
+ * Excluded by name — internal even though they sit at the top level. Strategy,
+ * competitive research, release process and one-off engineering reports.
+ *
+ * Nothing here is secret; it is all in a public repository, and each of these
+ * is one click away on GitHub. It is simply not documentation.
+ */
+const PRIVATE_FILES = new Set([
+  // Documents client-side E2EE under a heading that reads "What is
+  // implemented". It is not: SECURITY.md says plainly that E2EE was dropped and
+  // that row-level security is now the sole access boundary. Publishing both
+  // would tell a reader their data is end-to-end encrypted when it is not,
+  // which is the one kind of stale documentation that does harm.
+  "CRYPTO_RECOVERY.md",
+  "DEEP_RESEARCH_PRODUCT_BRIEF.md",
+  "PRODUCT_AND_ICON_BRIEF.md",
+  "DESIGN.md",
+  "UI-SPEC.md",
+  "PRIVACY_TEST_MATRIX.md",
+  "competitive-scan.md",
+  "competitive-research-verified-2026-07.md",
+  "research-app-analysis.md",
+  "pricing-strategy.md",
+  "performance-bundle-report.md",
+  "supabase-advisor-disposition.md",
+  "publishing-checklist.md",
+  "release.md",
+  "changelog-sdk-legacy.md",
+  "self-host-roadmap.md",
+]);
+
+function isPublished(relPath: string): boolean {
+  const [head] = relPath.split("/");
+  if (head && PRIVATE_DIRS.has(head)) return false;
+  return !PRIVATE_FILES.has(relPath);
+}
+
 function walk(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = path.join(dir, entry);
@@ -45,18 +94,32 @@ function titleOf(markdown: string, relPath: string): string {
     .replace(/^\w/, (c) => c.toUpperCase());
 }
 
+/**
+ * URL segments for a file.
+ *
+ * `storage/README.md` is that folder's index, so it becomes `/docs/storage/`
+ * rather than `/docs/storage/README/` — a page titled "README" is an artefact
+ * of the filesystem, not something a reader asked for.
+ */
+function slugFor(relPath: string): string[] {
+  const withoutExt = relPath.replace(/\.md$/, "");
+  if (withoutExt.endsWith("/README")) return withoutExt.slice(0, -"/README".length).split("/");
+  return withoutExt.split("/");
+}
+
 let cached: DocPage[] | null = null;
 
 export function allDocs(): DocPage[] {
   if (cached) return cached;
   cached = walk(DOCS_ROOT)
-    .map((full) => {
-      const relPath = path.relative(DOCS_ROOT, full).split(path.sep).join("/");
-      const slug = relPath.replace(/\.md$/, "").split("/");
+    .map((full) => path.relative(DOCS_ROOT, full).split(path.sep).join("/"))
+    .filter(isPublished)
+    .map((relPath) => {
+      const slug = slugFor(relPath);
       return {
         slug,
         relPath,
-        title: titleOf(readFileSync(full, "utf8"), relPath),
+        title: titleOf(readFileSync(path.join(DOCS_ROOT, relPath), "utf8"), relPath),
         section: slug.length > 1 ? slug[0]! : "",
       };
     })
@@ -99,7 +162,11 @@ function rewriteHref(href: string, fromRel: string): string {
     return `${REPO_BLOB}/${resolved.replace(/^(\.\.\/)+/, "")}${suffix}`;
   }
   if (resolved.endsWith(".md")) {
-    return `/docs/${resolved.replace(/\.md$/, "")}/${suffix}`;
+    // A link to a document this site does not publish would 404 here. Send it
+    // to the repository instead: the target still exists, it is just not part
+    // of the manual.
+    if (!isPublished(resolved)) return `${REPO_BLOB}/docs/${resolved}${suffix}`;
+    return `/docs/${slugFor(resolved).join("/")}/${suffix}`;
   }
   return `${REPO_BLOB}/docs/${resolved}${suffix}`;
 }
