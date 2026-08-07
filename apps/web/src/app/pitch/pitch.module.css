@@ -282,6 +282,23 @@
 }
 
 .headActions { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+
+/* Docs / GitHub in the header. Quieter than "Open the app", which stays the
+   one thing the page is asking for. */
+.headLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control, 8px);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.headLink:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+/* Below the nav breakpoint the bar is tight; the icon carries GitHub alone. */
+@media (max-width: 640px) { .headLink:not([aria-label]) { display: none; } }
 @media (min-width: 901px) { .headActions { margin-left: 0; } }
 
 .progress {
