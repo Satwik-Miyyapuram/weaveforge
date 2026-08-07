@@ -7,7 +7,6 @@ import {
 } from "./artifact-request";
 
 const BUCKET = "experiment-artifacts";
-const EXPIRES_IN = 10 * 365 * 24 * 3600;
 
 /**
  * Upload an experiment artifact from the Python SDK.
@@ -42,7 +41,17 @@ export async function POST(request: Request) {
   });
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
 
-  const { data: signed, error: signErr } = await bucket.createSignedUrl(path, EXPIRES_IN);
-  if (signErr) return NextResponse.json({ error: signErr.message }, { status: 500 });
-  return NextResponse.json({ url: signed?.signedUrl ?? path, path });
+  // Return the path, not a signed URL.
+  //
+  // This used to sign for ten years and hand that back, and the SDK stored the
+  // result in `experiments.artifacts` as though it were a permanent address.
+  // SigV4 caps a presigned URL at seven days and R2 enforces the cap silently:
+  // the ten-year request did not fail, it was clamped. Every artifact link died
+  // a week after upload, and the row kept pointing at it — so the figure showed
+  // R2's `<Code>ExpiredRequest</Code>` XML instead of an image, with nothing in
+  // the app to say why.
+  //
+  // A path has no expiry. The reader mints a short-lived URL when it actually
+  // needs one, which is what paper images already do.
+  return NextResponse.json({ path, url: path });
 }
