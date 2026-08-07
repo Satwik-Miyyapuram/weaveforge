@@ -5,7 +5,7 @@ import type {
   ISettingsRepository,
   ManageSettingsUseCase,
   ManageTagsUseCase,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import type { ProjectContext } from "@/lib/project-context";
 import type { IntegrationConfig } from "./config";

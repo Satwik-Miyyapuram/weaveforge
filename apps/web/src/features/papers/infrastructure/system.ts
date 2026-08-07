@@ -1,4 +1,4 @@
-import type { Clock, IdGenerator } from "@thesis/core";
+import type { Clock, IdGenerator } from "@weaveforge/core";
 
 /** Concrete system Clock — injected so domain/use-cases stay pure & testable. */
 export const systemClock: Clock = {

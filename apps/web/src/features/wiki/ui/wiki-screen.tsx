@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { LintFinding, WikiPagePlan } from "@thesis/core";
+import type { LintFinding, WikiPagePlan } from "@weaveforge/core";
 import { Modal } from "@/components/modal";
 import { formatError } from "@/lib/format-error";
 import {

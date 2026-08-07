@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { forceCollide } from "d3-force";
-import type { Paper, PaperRelation, ReadingList, ReportSection, VaultPage } from "@thesis/core";
+import type { Paper, PaperRelation, ReadingList, ReportSection, VaultPage } from "@weaveforge/core";
 import {
   buildGraphData,
   type GLink,

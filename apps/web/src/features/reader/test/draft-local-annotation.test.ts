@@ -6,7 +6,7 @@ import {
   draftInkAnnotation,
   draftTextBox,
 } from "../application/draft-local-annotation.js";
-import type { PageTextGeometry } from "@thesis/core";
+import type { PageTextGeometry } from "@weaveforge/core";
 
 const page: PageTextGeometry = {
   pageIndex: 2,

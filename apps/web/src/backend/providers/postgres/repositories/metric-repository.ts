@@ -1,4 +1,4 @@
-import type { IMetricRepository, MetricPoint } from "@thesis/core";
+import type { IMetricRepository, MetricPoint } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface MetricRow {

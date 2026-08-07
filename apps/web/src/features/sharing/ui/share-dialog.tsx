@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Member, Share, ShareableType, ShareAccess } from "@thesis/core";
-import { isBlanketShare, shareSupportsEditAccess } from "@thesis/core";
+import type { Member, Share, ShareableType, ShareAccess } from "@weaveforge/core";
+import { isBlanketShare, shareSupportsEditAccess } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";

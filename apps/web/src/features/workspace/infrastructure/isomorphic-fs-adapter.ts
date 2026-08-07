@@ -1,4 +1,4 @@
-import type { IWorkspaceFs } from "@thesis/core";
+import type { IWorkspaceFs } from "@weaveforge/core";
 
 /**
  * `IWorkspaceFs` → the `node:fs/promises` surface isomorphic-git expects.

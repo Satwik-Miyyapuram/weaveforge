@@ -1,4 +1,4 @@
-import type { IBlobRegistry, IBlobStore } from "@thesis/core";
+import type { IBlobRegistry, IBlobStore } from "@weaveforge/core";
 
 export interface TieredBlobStoreOptions {
   hot: IBlobStore;

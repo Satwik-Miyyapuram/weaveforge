@@ -1,28 +1,28 @@
-import type { ThesisTrackerConfig, ThesisTrackerPlugin } from "@thesis/core";
+import type { WeaveForgeConfig, WeaveForgePlugin } from "@weaveforge/core";
 import type { IntegrationManifest } from "@/integrations/manifests/types";
 import { GENERATED_BUILTIN_INTEGRATION_MANIFESTS } from "@/deployment/generated-registry";
 import { buildManifestRegistry, type IntegrationManifestRegistry } from "@/integrations/manifests/types";
-import userConfig from "../../../../thesis-tracker.config";
+import userConfig from "../../../../weaveforge.config";
 
 /** Web deploy plugin — may ship integration wire manifests or feature modules. */
-export interface WebThesisTrackerPlugin extends ThesisTrackerPlugin {
+export interface WebWeaveForgePlugin extends WeaveForgePlugin {
   readonly integrationManifests?: readonly IntegrationManifest[];
 }
 
 export interface ResolvedAppConfig {
-  readonly plugins: readonly WebThesisTrackerPlugin[];
+  readonly plugins: readonly WebWeaveForgePlugin[];
   readonly integrationManifests: IntegrationManifestRegistry;
-  readonly pluginModules: readonly import("@thesis/core").FeatureModule[];
+  readonly pluginModules: readonly import("@weaveforge/core").FeatureModule[];
   /** Undefined means all built-in feature modules are enabled. */
   readonly enabledBuiltinFeatureIds?: readonly string[];
 }
 
-function asWebPlugins(config: ThesisTrackerConfig): WebThesisTrackerPlugin[] {
-  return (config.plugins ?? []) as WebThesisTrackerPlugin[];
+function asWebPlugins(config: WeaveForgeConfig): WebWeaveForgePlugin[] {
+  return (config.plugins ?? []) as WebWeaveForgePlugin[];
 }
 
 export function resolveAppConfig(
-  config: ThesisTrackerConfig = userConfig,
+  config: WeaveForgeConfig = userConfig,
 ): ResolvedAppConfig {
   const plugins = asWebPlugins(config);
   const extraManifests = plugins.flatMap((p) => p.integrationManifests ?? []);

@@ -1,6 +1,6 @@
 """SupabaseProjectReader.id_by_name against a fake query builder (offline)."""
 
-from thesis_tracker.features.projects.infrastructure.supabase_project_reader import (
+from weaveforge.features.projects.infrastructure.supabase_project_reader import (
     SupabaseProjectReader,
 )
 

@@ -113,5 +113,5 @@ Verify after each phase: `npx tsc --noEmit -p apps/web` and targeted unit tests.
 - Infinite canvas / Theme Studio
 - In-app PDF reader/highlighter
 - Word / Google Docs plugins
-- Saved-search citation alerts (steal #9) — shipped separately ([PR #33](https://github.com/Satwik-Miyyapuram/thesis_tracker/pull/33))
+- Saved-search citation alerts (steal #9) — shipped separately ([PR #33](https://github.com/Satwik-Miyyapuram/weaveforge/pull/33))
 - Elicit-style extraction tables (steal #8), Notion relation/rollup properties, templated source notes (#4) and recents (#11) — planned in [`library-knowledge-loop-plan.md`](library-knowledge-loop-plan.md)

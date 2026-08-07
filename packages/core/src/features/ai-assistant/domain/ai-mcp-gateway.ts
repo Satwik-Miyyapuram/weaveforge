@@ -20,7 +20,7 @@ export function aiMcpToolManifest(): readonly AiMcpToolManifestEntry[] {
 export class AiBrowserPairingRequiredError extends Error {
   readonly code = "browser_pairing_required" as const;
   constructor() {
-    super("Open Thesis Tracker and unlock encryption to access this workspace.");
+    super("Open WeaveForge and unlock encryption to access this workspace.");
     this.name = "AiBrowserPairingRequiredError";
   }
 }

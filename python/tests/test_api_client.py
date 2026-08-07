@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from thesis_tracker.infrastructure.api_client import ApiClient, ApiUrlRedirectError
+from weaveforge.infrastructure.api_client import ApiClient, ApiUrlRedirectError
 
 
 def _client(handler: httpx.MockTransport) -> ApiClient:
@@ -41,7 +41,7 @@ def test_a_redirecting_api_url_fails_with_an_actionable_message(status: int) -> 
         api.get("/api/sdk/whoami")
     message = str(excinfo.value)
     assert "canonical.test" in message
-    assert "THESIS_TRACKER_API_URL" in message
+    assert "WEAVEFORGE_API_URL" in message
 
 
 def test_redirects_are_caught_on_post_and_delete_too() -> None:

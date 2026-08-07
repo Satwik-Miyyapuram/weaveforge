@@ -22,6 +22,9 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
+import { loadMigrationEnv } from "./lib/load-env.mjs";
+
+loadMigrationEnv(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const require = createRequire(join(dirname(fileURLToPath(import.meta.url)), "../apps/web/package.json"));
 const pg = require("pg");
 const { Client } = pg;

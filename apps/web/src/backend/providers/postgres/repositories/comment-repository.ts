@@ -1,4 +1,4 @@
-import type { Comment, ICommentRepository, NewCommentInput } from "@thesis/core";
+import type { Comment, ICommentRepository, NewCommentInput } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface CommentRow {

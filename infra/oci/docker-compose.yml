@@ -1,22 +1,43 @@
-# Thesis Tracker — OCI Phase 3 (Postgres + MinIO)
-# Copy to your VM: ~/thesis-infra/docker-compose.yml
+# WeaveForge — OCI Phase 3 (Postgres + MinIO)
+# Copy to your VM: ~/weaveforge-infra/docker-compose.yml
 # Configure: cp .env.example .env && nano .env
 
 services:
   postgres:
     image: postgres:16
-    container_name: thesis-postgres
+    container_name: weaveforge-postgres
     restart: unless-stopped
+    # Stock postgres ships settings sized for a small container: 128MB of shared
+    # buffers and a 4GB cache estimate. On a 12GB box that leaves most of the
+    # machine unused.
+    #
+    # `shared_buffers=3GB` also does something the tuning guides do not mention:
+    # Oracle reclaims an Always Free instance only when CPU, network *and*
+    # memory all sit under 20% for seven days. Holding a quarter of RAM keeps
+    # the memory arm above that line permanently, so the box cannot be judged
+    # idle no matter how quiet the traffic gets.
+    command: >
+      postgres
+      -c shared_buffers=3GB
+      -c effective_cache_size=8GB
+      -c work_mem=16MB
+      -c maintenance_work_mem=512MB
+      -c max_connections=50
+    # Postgres puts dynamic shared memory for parallel workers in /dev/shm, and
+    # Docker's 64MB default is too small for it once shared_buffers is raised.
+    shm_size: 1gb
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-thesis}
+      POSTGRES_USER: ${POSTGRES_USER:-weaveforge}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-thesis}
+      POSTGRES_DB: ${POSTGRES_DB:-weaveforge}
     ports:
       - "5432:5432"
     volumes:
-      - ${PGDATA_HOST:-/mnt/pgdata}:/var/lib/postgresql/data
+      # A subdirectory, not the mount point itself: an ext4 volume's root holds
+      # `lost+found`, and initdb refuses a non-empty data directory.
+      - ${PGDATA_HOST:-/mnt/pgdata/data}:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-thesis} -d ${POSTGRES_DB:-thesis}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-weaveforge} -d ${POSTGRES_DB:-weaveforge}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +50,7 @@ services:
   # secret Supabase signs its tokens with, so the tokens it issues validate here.
   postgrest:
     image: postgrest/postgrest:latest
-    container_name: thesis-postgrest
+    container_name: weaveforge-postgrest
     restart: unless-stopped
     depends_on:
       postgres:
@@ -37,7 +58,7 @@ services:
     environment:
       # Connects as the owner; PostgREST switches to the role in the JWT per
       # request, which is what makes RLS apply.
-      PGRST_DB_URI: postgres://${POSTGRES_USER:-thesis}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-thesis}
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-weaveforge}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-weaveforge}
       PGRST_DB_SCHEMAS: public
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:?Set SUPABASE_JWT_SECRET in .env}
@@ -57,17 +78,17 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: thesis-minio
+    container_name: weaveforge-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-thesisminio}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-weaveforgeminio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - ${MINIO_DATA_HOST:-/mnt/minio}:/data
+      - ${MINIO_DATA_HOST:-/mnt/minio/data}:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s

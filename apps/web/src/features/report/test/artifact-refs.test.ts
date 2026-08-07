@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Experiment } from "@thesis/core";
+import type { Experiment } from "@weaveforge/core";
 import {
   parseArtifactRefs,
   resolveArtifactRef,

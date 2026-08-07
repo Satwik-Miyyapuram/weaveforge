@@ -7,7 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import type { Project } from "@thesis/core";
+import type { Project } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { clearAllScreenCaches } from "@/lib/screen-cache";
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { shortSha, type Experiment, type MetricPoint } from "@thesis/core";
+import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";

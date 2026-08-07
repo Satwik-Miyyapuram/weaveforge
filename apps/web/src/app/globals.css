@@ -1,5 +1,5 @@
 /*
- * Thesis Tracker — base styles.
+ * WeaveForge — base styles.
  * Aesthetic: modern, flowy, cozy, semi-minimalistic. All colors come from theme
  * tokens in themes.css (imported below); this file references only var(--…).
  * Constants that never vary by theme (radius, font) live in :root here.
@@ -107,6 +107,18 @@ html, body { margin: 0; padding: 0; }
    switching tabs (short → tall content) doesn't shift the layout sideways. */
 html { overflow-x: hidden; overflow-y: scroll; scrollbar-gutter: stable; }
 body {
+  /* Fill the viewport even when a screen is short.
+
+     `body` carries the theme background, and it is only as tall as its content —
+     on a screen taller than the page (a login form, a loading state, a project
+     list with one row) it stopped partway down and the rest of the window was
+     left to whatever the browser paints behind the document. On the AMOLED
+     theme that read as the page ending in a hard horizontal edge.
+
+     `dvh` rather than `vh` so a mobile browser's collapsing address bar does not
+     leave a matching strip at the bottom. */
+  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
@@ -640,14 +652,14 @@ body,
 .auth-loading { padding: 32px 0; }
 
 /* Branded gate loader — orbit motif + rotating feature tips */
-.thesis-loader-screen {
+.weaveforge-loader-screen {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: min(72vh, 640px);
   padding: 24px 20px 48px;
 }
-.thesis-loader {
+.weaveforge-loader {
   width: min(420px, 100%);
   text-align: center;
   display: flex;
@@ -655,27 +667,27 @@ body,
   align-items: center;
   gap: 0;
 }
-.thesis-loader-mark {
+.weaveforge-loader-mark {
   position: relative;
   width: 88px;
   height: 88px;
   margin-bottom: 20px;
 }
-.thesis-loader-core {
+.weaveforge-loader-core {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
 }
-.thesis-loader-core .dot {
+.weaveforge-loader-core .dot {
   width: 14px;
   height: 14px;
   border-radius: 999px;
   background: var(--accent);
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
-  animation: thesis-loader-pulse 2.4s ease-in-out infinite;
+  animation: weaveforge-loader-pulse 2.4s ease-in-out infinite;
 }
-.thesis-loader-orbit {
+.weaveforge-loader-orbit {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -686,21 +698,21 @@ body,
   background: var(--ink);
   opacity: 0.55;
   transform-origin: 0 0;
-  animation: thesis-loader-spin 9s linear infinite;
+  animation: weaveforge-loader-spin 9s linear infinite;
 }
-.thesis-loader-orbit--a { animation-duration: 7s; background: var(--accent); opacity: 0.9; }
-.thesis-loader-orbit--b { animation-duration: 9s; animation-delay: -2s; }
-.thesis-loader-orbit--c { animation-duration: 11s; animation-delay: -4.5s; width: 6px; height: 6px; margin: -3px 0 0 -3px; }
-.thesis-loader-orbit--d { animation-duration: 13s; animation-delay: -1s; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; opacity: 0.35; }
-@keyframes thesis-loader-spin {
+.weaveforge-loader-orbit--a { animation-duration: 7s; background: var(--accent); opacity: 0.9; }
+.weaveforge-loader-orbit--b { animation-duration: 9s; animation-delay: -2s; }
+.weaveforge-loader-orbit--c { animation-duration: 11s; animation-delay: -4.5s; width: 6px; height: 6px; margin: -3px 0 0 -3px; }
+.weaveforge-loader-orbit--d { animation-duration: 13s; animation-delay: -1s; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; opacity: 0.35; }
+@keyframes weaveforge-loader-spin {
   from { transform: rotate(0deg) translateX(38px) rotate(0deg); }
   to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
 }
-@keyframes thesis-loader-pulse {
+@keyframes weaveforge-loader-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.08); opacity: 0.88; }
 }
-.thesis-loader-brand {
+.weaveforge-loader-brand {
   font-family: var(--font-serif);
   font-weight: 600;
   font-size: 1.35rem;
@@ -708,7 +720,7 @@ body,
   margin: 0 0 6px;
   color: var(--ink);
 }
-.thesis-loader-status {
+.weaveforge-loader-status {
   margin: 0 0 18px;
   font-size: 0.82rem;
   font-weight: 600;
@@ -716,7 +728,7 @@ body,
   text-transform: uppercase;
   color: var(--muted);
 }
-.thesis-loader-tip {
+.weaveforge-loader-tip {
   display: grid;
   gap: 6px;
   padding: 14px 16px;
@@ -728,17 +740,17 @@ body,
   transform: translateY(6px);
   transition: opacity 0.22s ease, transform 0.22s ease;
 }
-.thesis-loader-tip--in {
+.weaveforge-loader-tip--in {
   opacity: 1;
   transform: none;
 }
-.thesis-loader-tip strong {
+.weaveforge-loader-tip strong {
   display: block;
   font-size: 0.92rem;
   font-weight: 600;
   color: var(--ink);
 }
-.thesis-loader-tip span {
+.weaveforge-loader-tip span {
   display: block;
   font-size: 0.84rem;
   line-height: 1.45;
@@ -746,47 +758,47 @@ body,
 }
 
 /* Inline — inside feature screens */
-.thesis-loader-wrap {
+.weaveforge-loader-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: min(52vh, 420px);
   padding: 28px 16px 40px;
 }
-.thesis-loader--inline {
+.weaveforge-loader--inline {
   width: min(400px, 100%);
 }
-.thesis-loader--inline .thesis-loader-mark {
+.weaveforge-loader--inline .weaveforge-loader-mark {
   width: 64px;
   height: 64px;
   margin-bottom: 14px;
 }
-.thesis-loader-mark--compact .thesis-loader-orbit--a,
-.thesis-loader-mark--compact .thesis-loader-orbit--b,
-.thesis-loader-mark--compact .thesis-loader-orbit--c,
-.thesis-loader-mark--compact .thesis-loader-orbit--d {
-  animation-name: thesis-loader-spin-compact;
+.weaveforge-loader-mark--compact .weaveforge-loader-orbit--a,
+.weaveforge-loader-mark--compact .weaveforge-loader-orbit--b,
+.weaveforge-loader-mark--compact .weaveforge-loader-orbit--c,
+.weaveforge-loader-mark--compact .weaveforge-loader-orbit--d {
+  animation-name: weaveforge-loader-spin-compact;
 }
-.thesis-loader-mark--compact .thesis-loader-core .dot {
+.weaveforge-loader-mark--compact .weaveforge-loader-core .dot {
   width: 11px;
   height: 11px;
 }
-@keyframes thesis-loader-spin-compact {
+@keyframes weaveforge-loader-spin-compact {
   from { transform: rotate(0deg) translateX(26px) rotate(0deg); }
   to   { transform: rotate(360deg) translateX(26px) rotate(-360deg); }
 }
-.thesis-loader--inline .thesis-loader-status {
+.weaveforge-loader--inline .weaveforge-loader-status {
   margin-bottom: 14px;
   font-size: 0.78rem;
 }
-.thesis-loader--inline .thesis-loader-tip {
+.weaveforge-loader--inline .weaveforge-loader-tip {
   width: 100%;
 }
-.thesis-loader-wrap--compact {
+.weaveforge-loader-wrap--compact {
   min-height: 200px;
   padding: 12px 0 20px;
 }
-.thesis-loader-wrap--compact .thesis-loader--inline .thesis-loader-tip {
+.weaveforge-loader-wrap--compact .weaveforge-loader--inline .weaveforge-loader-tip {
   font-size: 0.9em;
 }
 
@@ -827,7 +839,7 @@ body,
   content-visibility: auto;
   contain-intrinsic-size: 140px;
 }
-.route-pending .thesis-loader-wrap--compact {
+.route-pending .weaveforge-loader-wrap--compact {
   min-height: min(40vh, 320px);
 }
 
@@ -967,6 +979,8 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
    wide by a long select value (would otherwise overflow the card on the edge/
    add forms). Pairs with min-width:0 on .custom-select-container below. */
 .field { display: grid; gap: 6px; min-width: 0; }
+/* Sub-label under an input (e.g. what a pasted reference was recognized as). */
+.field-hint { margin: 0; font-size: 0.76rem; overflow-wrap: anywhere; }
 .auth-secondary-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 20px; margin-top: 14px; }
 .field-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 12px; }
 .field-row-equal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -4675,7 +4689,7 @@ button.nav-link {
   .graph-wrap,
   .github-link-card,
   .api-token-env-hint,
-  .thesis-loader-tip,
+  .weaveforge-loader-tip,
   .ai-connection-details,
   .ai-source-group,
   .ai-active-session,
@@ -4698,9 +4712,18 @@ button.nav-link {
   .reader-split-panel,
   .reader-activity,
   .pdf-reader-outline,
-  .graph-focus-legend .graph-legend.card,
   .dashboard-card
 ) {
+  border-color: transparent;
+  box-shadow: var(--e1), var(--rim);
+}
+
+/* Kept out of the list above on purpose. `:is()` takes the specificity of its
+   *most* specific argument, so a two-class descendant in there raised the whole
+   list to (0,3,0) and quietly outranked every later override written against a
+   single class — which is how a form nested in a modal kept its rim ("double
+   wall"). Anything needing a compound selector gets its own rule. */
+:root[data-surfaces="borderless"] .graph-focus-legend .graph-legend.card {
   border-color: transparent;
   box-shadow: var(--e1), var(--rim);
 }
@@ -4794,6 +4817,17 @@ button.nav-link {
 :root[data-surfaces="borderless"] :is(.modal, .comments-sheet) {
   border-color: transparent;
   box-shadow: var(--e4), var(--rim);
+}
+
+/* A modal is already a surface. Its own content panel must not draw a second
+   one — in bordered mode the L0 reset at `.modal .add-form` handles it, but
+   the borderless L1 rule above is more specific and put the rim back, so the
+   form read as a card inside a card ("double wall"). Direct children only:
+   deliberately nested surfaces (choice cards, thumbs) keep their depth. */
+:root[data-surfaces="borderless"] :is(.modal, .comments-sheet) > :is(.card, .add-form, .list-add) {
+  border-color: transparent;
+  box-shadow: none;
+  background: none;
 }
 
 /* ---- Recessed wells: depth *into* the page, not out of it --------------- */

@@ -1,5 +1,5 @@
-import { imagesOf, UpdatePaperUseCase, type IPaperRepository, type Paper } from "@thesis/core";
-import type { IBibliographyIntegration } from "@thesis/core";
+import { imagesOf, UpdatePaperUseCase, type IPaperRepository, type Paper } from "@weaveforge/core";
+import type { IBibliographyIntegration } from "@weaveforge/core";
 import type { IPaperImageStore } from "../domain/zotero";
 
 export class DeletePaperUseCase {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { ReaderAnnotation } from "@thesis/core";
+import type { ReaderAnnotation } from "@weaveforge/core";
 import { ZoteroApiAnnotationWriteBack } from "../infrastructure/zotero-annotation-write-back";
 
 const CREDS = async () => ({ apiKey: "key-123", library: "users/42" });

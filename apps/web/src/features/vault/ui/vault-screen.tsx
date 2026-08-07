@@ -9,7 +9,7 @@ import {
   vaultImageMarkdown,
   type VaultPage,
   type VaultPageTreeNode,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { removeHashtagFromBody } from "@/features/papers/lib/note-tags";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
@@ -91,9 +91,9 @@ export function VaultScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const tree = data?.tree ?? emptyArray<import("@thesis/core").VaultPageTreeNode>();
-  const flat = data?.flat ?? emptyArray<import("@thesis/core").VaultPage>();
-  const lists = data?.lists ?? emptyArray<import("@thesis/core").ReadingList>();
+  const tree = data?.tree ?? emptyArray<import("@weaveforge/core").VaultPageTreeNode>();
+  const flat = data?.flat ?? emptyArray<import("@weaveforge/core").VaultPage>();
+  const lists = data?.lists ?? emptyArray<import("@weaveforge/core").ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const vaultCanComment = data?.vaultCanComment ?? emptyMap<string, boolean>();

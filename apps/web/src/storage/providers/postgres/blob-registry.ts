@@ -3,7 +3,7 @@ import type {
   BlobTier,
   IBlobRegistry,
   RegisterBlobInput,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { PgRunner } from "@/backend/providers/postgres/pg-runner";
 
 interface BlobRow {

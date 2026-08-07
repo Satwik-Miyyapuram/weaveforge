@@ -1,4 +1,4 @@
-import { safeWorkspacePath, type IWorkspaceFs, type WorkspaceStat } from "@thesis/core";
+import { safeWorkspacePath, type IWorkspaceFs, type WorkspaceStat } from "@weaveforge/core";
 
 /**
  * `IWorkspaceFs` over the File System Access API.

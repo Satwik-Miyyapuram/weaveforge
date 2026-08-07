@@ -1,4 +1,4 @@
-import type { SearchSettings, WorkspaceSnapshot } from "@thesis/core";
+import type { SearchSettings, WorkspaceSnapshot } from "@weaveforge/core";
 import type { BuildIndexRequest, BuildIndexResponse } from "./search-index-worker";
 
 /**

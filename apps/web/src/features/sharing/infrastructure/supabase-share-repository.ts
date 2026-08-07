@@ -5,7 +5,7 @@ import type {
   NewShareInput,
   Share,
   ShareableType,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /**
  * Supabase adapter for shares (migration 0018). `owner_id` defaults to

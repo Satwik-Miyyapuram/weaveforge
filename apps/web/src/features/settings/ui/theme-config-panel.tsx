@@ -6,7 +6,7 @@ import {
   themeConfigTemplate,
   THEME_CONFIG_MAX_BYTES,
   type ThemeConfig,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { persistThemeChange } from "@/lib/theme-persistence";
 
 /**

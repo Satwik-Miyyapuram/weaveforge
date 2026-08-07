@@ -1,4 +1,4 @@
-import type { AiAccessSettings } from "@thesis/core";
+import type { AiAccessSettings } from "@weaveforge/core";
 import { startMcpBrowserRelay } from "./mcp-browser-relay";
 
 /**

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CombinedPdfAnchor, ReaderAnnotation } from "@thesis/core";
+import type { CombinedPdfAnchor, ReaderAnnotation } from "@weaveforge/core";
 import {
   bucketAnnotationsByPage,
   projectPageAnnotationGeometry,

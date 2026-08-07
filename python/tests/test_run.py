@@ -3,11 +3,11 @@
 
 import pytest
 
-from thesis_tracker import track, track_experiment
-from thesis_tracker.features.experiments.domain.metric_point import MetricSeries
-from thesis_tracker.sync import SyncRegistry
-from thesis_tracker.sync.source import Artifact
-from thesis_tracker.testing import MemoryContainer
+from weaveforge import track, track_experiment
+from weaveforge.features.experiments.domain.metric_point import MetricSeries
+from weaveforge.sync import SyncRegistry
+from weaveforge.sync.source import Artifact
+from weaveforge.testing import MemoryContainer
 
 
 class FakeFigure:
@@ -20,7 +20,7 @@ class FakeFigure:
 def test_decorator_runs_and_records(monkeypatch):
     c = MemoryContainer()
     # keep the test offline: no real git subprocess, no supabase connect
-    monkeypatch.setattr("thesis_tracker.tracking.capture_git_state", lambda cwd=None: {})
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
 
     @track_experiment(name="beta-vae", config={"latent_dim": 32}, container=c)
     def train(beta, run):
@@ -47,7 +47,7 @@ def test_decorator_runs_and_records(monkeypatch):
 
 def test_context_manager_marks_failed_on_error(monkeypatch):
     c = MemoryContainer()
-    monkeypatch.setattr("thesis_tracker.tracking.capture_git_state", lambda cwd=None: {})
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
 
     with pytest.raises(ValueError):
         with track("boom", container=c) as run:
@@ -61,7 +61,7 @@ def test_context_manager_marks_failed_on_error(monkeypatch):
 
 def test_log_figure_uploads_and_links(monkeypatch):
     c = MemoryContainer()
-    monkeypatch.setattr("thesis_tracker.tracking.capture_git_state", lambda cwd=None: {})
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
 
     with track("figs", container=c) as run:
         url = run.log_figure(FakeFigure(), name="recon")
@@ -74,7 +74,7 @@ def test_log_figure_uploads_and_links(monkeypatch):
 
 def test_sync_source_ingests_curves_and_artifacts(monkeypatch):
     c = MemoryContainer()
-    monkeypatch.setattr("thesis_tracker.tracking.capture_git_state", lambda cwd=None: {})
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
 
     reg = SyncRegistry()
 

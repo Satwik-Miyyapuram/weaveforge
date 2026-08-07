@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "./project-provider";
 
 /** Pull a readable message out of Error or a Supabase/PostgREST error object. */

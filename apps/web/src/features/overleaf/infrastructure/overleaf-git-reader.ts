@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
-import { parseLatexSectionTree, type LatexSourceFile } from "@thesis/core";
+import { parseLatexSectionTree, type LatexSourceFile } from "@weaveforge/core";
 
 const MAX_FILES = 250;
 const MAX_FILE_BYTES = 2_000_000;

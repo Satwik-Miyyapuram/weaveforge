@@ -14,6 +14,7 @@ export * from "./domain/annotation-quotation-type-repository.js";
 export * from "./domain/paper-field.js";
 export * from "./domain/paper-field-repository.js";
 export * from "./application/metadata-source.js";
+export * from "./application/parse-paper-ref.js";
 export * from "./application/add-paper.use-case.js";
 export * from "./application/update-paper.use-case.js";
 export * from "./application/manage-paper-fields.use-case.js";

@@ -1,5 +1,5 @@
 /**
- * Server-only invite code generation (Node crypto). Import via `@thesis/core/org-crypto`
+ * Server-only invite code generation (Node crypto). Import via `@weaveforge/core/org-crypto`
  * — not re-exported from the main package entry (browser-safe).
  */
 

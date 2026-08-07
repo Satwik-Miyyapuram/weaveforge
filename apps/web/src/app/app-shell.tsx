@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/features/auth/ui/auth-provider";
 import { LoginScreen } from "@/features/auth/ui/login-screen";
-import { ThesisLoaderScreen } from "@/components/thesis-loader";
+import { ThesisLoaderScreen } from "@/components/weaveforge-loader";
 import { ProjectProvider, ProjectSwitcher, ProjectsScreen, useProject } from "@/features/projects";
 import { ProfileProvider, OrgSwitcher } from "@/features/org";
 import { PrivacyDisclaimerGate } from "@/features/auth/ui/privacy-disclaimer-gate";

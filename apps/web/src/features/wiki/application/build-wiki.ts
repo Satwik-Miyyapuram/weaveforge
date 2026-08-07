@@ -12,7 +12,7 @@ import {
   type MergeResult,
   type WikiPageRef,
   type WikiPagePlan,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { modelExtractor } from "@/features/ai-assistant/application/ai-provider-session";
 

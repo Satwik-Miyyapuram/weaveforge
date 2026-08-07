@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { explainArm, type RelatedArm } from "@thesis/core";
+import { explainArm, type RelatedArm } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useSearchIndex } from "@/lib/use-search-index";
 

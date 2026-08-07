@@ -1,4 +1,4 @@
-import type { EmbedRequest, IEmbedder } from "@thesis/core";
+import type { EmbedRequest, IEmbedder } from "@weaveforge/core";
 import type { EmbedWorkerRequest, EmbedWorkerResponse } from "./embedding-worker";
 
 /**

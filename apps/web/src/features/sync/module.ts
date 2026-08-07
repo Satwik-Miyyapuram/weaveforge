@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 /** Git tab — view the connected repo (commits/branches), track runs. */
 export const gitModule: FeatureModule = {

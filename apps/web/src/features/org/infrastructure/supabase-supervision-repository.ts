@@ -8,7 +8,7 @@ import type {
   Milestone,
   MilestoneDependency,
   MilestoneStatus,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /**
  * Reads a supervisee's milestones and log entries by owner user id, across all

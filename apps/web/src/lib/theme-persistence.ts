@@ -1,6 +1,6 @@
 "use client";
 
-import type { UserAppearance } from "@thesis/core";
+import type { UserAppearance } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import {
   applyControlSize,

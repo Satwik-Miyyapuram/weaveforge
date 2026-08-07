@@ -1,4 +1,4 @@
-import type { IBlobStore, ICurrentUserProvider, IEncryptedBlobStore } from "@thesis/core";
+import type { IBlobStore, ICurrentUserProvider, IEncryptedBlobStore } from "@weaveforge/core";
 import type { IPaperImageStore } from "../domain/zotero";
 
 const BUCKET = "paper-images";

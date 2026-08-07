@@ -1,5 +1,5 @@
-import type { LogEntry, Member, Milestone } from "@thesis/core";
-import { addDays } from "@thesis/core";
+import type { LogEntry, Member, Milestone } from "@weaveforge/core";
+import { addDays } from "@weaveforge/core";
 
 export interface SuperviseeSummary {
   member: Member;

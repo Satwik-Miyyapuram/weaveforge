@@ -1,4 +1,4 @@
-import type { ISettingsRepository } from "@thesis/core";
+import type { ISettingsRepository } from "@weaveforge/core";
 import type { ZoteroCollection } from "../domain/zotero";
 import { zoteroHeaders, zoteroLibraryUrl } from "../infrastructure/zotero-web-api";
 

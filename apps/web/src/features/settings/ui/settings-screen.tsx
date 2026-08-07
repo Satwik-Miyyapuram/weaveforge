@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { UserSettings, UserIntegrationDescriptor } from "@thesis/core";
+import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import {
   applyUserIntegrationFields,
   getUserIntegrationField,
   isUserIntegrationConnected,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { OrgPanel } from "@/features/org";
 import { SyncSettings } from "@/features/sync";

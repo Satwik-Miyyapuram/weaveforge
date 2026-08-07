@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { strFromU8 } from "fflate";
-import type { WorkspaceSnapshot } from "@thesis/core";
+import type { WorkspaceSnapshot } from "@weaveforge/core";
 import { buildExportFiles } from "../application/export-user-data";
 
 /**

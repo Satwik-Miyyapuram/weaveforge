@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Paper, PaperRelation, ReadingList, ReportSection, VaultPage } from "@thesis/core";
+import type { Paper, PaperRelation, ReadingList, ReportSection, VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";

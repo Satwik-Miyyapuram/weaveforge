@@ -23,7 +23,7 @@ import {
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import { formatPaperCitation } from "@/features/overleaf/application/build-overleaf-export";
-import type { Paper } from "@thesis/core";
+import type { Paper } from "@weaveforge/core";
 
 /** Characters that may precede `@` for cite autocomplete (not email local-parts). */
 const AT_BOUNDARY = /[^A-Za-z0-9._%+-]/;

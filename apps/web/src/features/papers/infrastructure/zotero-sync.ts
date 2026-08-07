@@ -1,4 +1,4 @@
-import { normalizeDoi, type NewPaperInput, type Paper } from "@thesis/core";
+import { normalizeDoi, type NewPaperInput, type Paper } from "@weaveforge/core";
 import type { ZoteroSyncResult } from "../domain/zotero";
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
 import { toZoteroItem } from "./zotero-exporter";

@@ -3,7 +3,7 @@ import type {
   INotificationIntegration,
   Milestone,
   Paper,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /** Disabled notification provider. */
 export class NoopNotificationIntegration implements INotificationIntegration {

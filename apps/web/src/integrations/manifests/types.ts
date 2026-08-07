@@ -6,7 +6,7 @@ import type {
   INotificationIntegration,
   IProjectBibliographyCollectionStore,
   UserIntegrationDescriptor,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { IGitClient } from "@/features/sync/domain/sync-ports";
 import type { WireIntegrationsDeps } from "../wire-integrations";
 import type { WireCitationsDeps } from "../wire-citations";

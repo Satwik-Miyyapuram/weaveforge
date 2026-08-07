@@ -1,6 +1,6 @@
-import type { IReportSectionRepository, IShareRepository, ReportSection } from "@thesis/core";
-import { buildSectionTree, mergePinnedScreenData } from "@thesis/core";
-import type { ReportSectionTreeNode } from "@thesis/core";
+import type { IReportSectionRepository, IShareRepository, ReportSection } from "@weaveforge/core";
+import { buildSectionTree, mergePinnedScreenData } from "@weaveforge/core";
+import type { ReportSectionTreeNode } from "@weaveforge/core";
 
 export interface ReportScreenData {
   tree: ReportSectionTreeNode[];
@@ -14,7 +14,7 @@ export class LoadReportScreenUseCase {
   constructor(
     private readonly deps: {
       sections: IReportSectionRepository;
-      pins?: import("@thesis/core").ILibraryPinRepository;
+      pins?: import("@weaveforge/core").ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

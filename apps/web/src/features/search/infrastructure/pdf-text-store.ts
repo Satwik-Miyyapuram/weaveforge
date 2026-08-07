@@ -10,7 +10,7 @@
  * load on blob storage.
  */
 
-import type { PdfIndexSource } from "@thesis/core";
+import type { PdfIndexSource } from "@weaveforge/core";
 import { PDF_TEXT_STORE, openAppDb } from "@/lib/app-idb";
 
 /** Guard against one pathological document filling the user's quota. */

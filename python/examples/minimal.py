@@ -1,6 +1,6 @@
 """Minimal decorator example.
 
-Run against a real project (set the THESIS_TRACKER_* env vars first)::
+Run against a real project (set the WEAVEFORGE_* env vars first)::
 
     python examples/minimal.py
 
@@ -11,7 +11,7 @@ as summary metrics, and marks the run done (or failed) on exit.
 
 import math
 
-from thesis_tracker import track_experiment
+from weaveforge import track_experiment
 
 
 @track_experiment(name="beta-vae demo", config={"latent_dim": 32})

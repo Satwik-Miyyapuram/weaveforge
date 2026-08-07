@@ -1,6 +1,6 @@
 "use client";
 
-import type { Paper } from "@thesis/core";
+import type { Paper } from "@weaveforge/core";
 
 export function paperExternalLink(paper: Paper): { href: string; label: string } | null {
   if (paper.url?.trim()) return { href: paper.url.trim(), label: "Paper link" };

@@ -53,7 +53,7 @@ jobs:
           # the deployed app; without one, send visitors to the source instead
           # of looping them back to this page.
           NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL || format('https://github.com/{0}', github.repository) }}
-        run: npm run build --workspace @thesis/pitch
+        run: npm run build --workspace @weaveforge/pitch
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,4 +1,4 @@
-# Thesis Tracker — UI Inventory & Design Spec
+# WeaveForge — UI Inventory & Design Spec
 
 A complete inventory of every screen, control, form, filter, list item, and
 state currently in the web app. Purpose: hand this to a designer to produce a

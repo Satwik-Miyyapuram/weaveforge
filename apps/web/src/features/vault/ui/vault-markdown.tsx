@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { normalizeMarkdownImageSyntax, VAULT_IMAGE_PREFIX, vaultAssetPathsInBody } from "@thesis/core";
+import { normalizeMarkdownImageSyntax, VAULT_IMAGE_PREFIX, vaultAssetPathsInBody } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/shiki-markdown";
 import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
 import { makeWikilinkResolver, type CiteLinkEntry } from "@/lib/use-cite-links";
+import { stripRegionMarkers } from "../application/note-template-engine";
 
 /** Minimal title/id pair for wikilink resolution. */
 export type WikilinkEntry = CiteLinkEntry;
@@ -32,7 +33,7 @@ function expandEmbeds(body: string, resolveEmbed: (title: string) => string | nu
 const VAULT_ASSETS_BUCKET = "vault-assets";
 
 function stripUnresolvedVaultImages(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  let next = normalizeMarkdownImageSyntax(body);
+  let next = stripRegionMarkers(normalizeMarkdownImageSyntax(body));
   for (const path of paths) {
     if (urls.has(path)) continue;
     const ref = `${VAULT_IMAGE_PREFIX}${path}`;

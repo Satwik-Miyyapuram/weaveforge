@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { normalizeMarkdownImageSyntax } from "@thesis/core";
+import { normalizeMarkdownImageSyntax } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/shiki-markdown";
+import { stripRegionMarkers } from "@/features/vault/application/note-template-engine";
 import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
 import { useWikilinkNavigation } from "@/lib/use-cite-links";
 import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "../lib/paper-images-md";
@@ -16,7 +17,7 @@ function escapeRegExp(s: string): string {
 }
 
 function stripUnresolved(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  let next = normalizeMarkdownImageSyntax(body);
+  let next = stripRegionMarkers(normalizeMarkdownImageSyntax(body));
   for (const path of paths) {
     if (urls.has(path)) continue;
     const ref = `${PAPER_IMAGE_PREFIX}${path}`;

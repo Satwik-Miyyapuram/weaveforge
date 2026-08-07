@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { PAPER_STATUSES, type Paper, type PaperRef, type PaperStatus } from "@thesis/core";
+import { useMemo, useState } from "react";
+import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { paperSourceNoteScaffold } from "../application/paper-source-note-scaffold";
@@ -18,9 +18,17 @@ const REF_LABELS: Record<RefKind, string> = {
 
 const REF_PLACEHOLDERS: Record<RefKind, string> = {
   url: "https://arxiv.org/abs/2305.12345",
-  arxiv: "2305.12345",
-  doi: "10.1145/3592979",
+  arxiv: "2305.12345 — or an abs/pdf link",
+  doi: "10.1145/3592979 — or a doi.org link",
   zotero: "ABCD1234",
+};
+
+/** What the pasted value actually resolves to, for the hint under the field. */
+const DETECTED_LABELS: Record<RefKind, string> = {
+  url: "reading the page",
+  arxiv: "arXiv",
+  doi: "Crossref DOI",
+  zotero: "Zotero",
 };
 
 const REF_ORDER: RefKind[] = ["url", "arxiv", "doi", "zotero"];
@@ -38,6 +46,14 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The picker states intent; the parser decides what was actually pasted, so
+  // an abs link in the arXiv box resolves as arXiv. Shown so the researcher
+  // sees which source will answer before submitting.
+  const detected = useMemo(
+    () => (refValue.trim() ? parsePaperRef(refKind, refValue) : null),
+    [refKind, refValue],
+  );
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -45,7 +61,7 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
     try {
       const papers = getContainer().papers;
       const paper = refValue.trim()
-        ? await papers.importPaper.fromRef({ kind: refKind, value: refValue.trim() })
+        ? await papers.importPaper.fromRef({ kind: refKind, value: refValue.trim() }, status)
         : await papers.addPaper.addManual({ title, status });
       if (!paper.summary || paper.summary === "No summary yet.") {
         const citeKey =
@@ -105,7 +121,14 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
             value={refValue}
             onChange={(e) => setRefValue(e.target.value)}
             placeholder={REF_PLACEHOLDERS[refKind]}
+            aria-describedby={detected ? "refValueHint" : undefined}
           />
+          {detected && (
+            <p id="refValueHint" className="muted field-hint">
+              Recognized as {DETECTED_LABELS[detected.kind]}
+              {detected.kind !== "url" ? ` — ${detected.value}` : ""}
+            </p>
+          )}
         </div>
         <div className="field">
           <label htmlFor="status">Status</label>

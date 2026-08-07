@@ -7,7 +7,7 @@ import {
   normalizeSearchHistory,
   rememberSearchQuery,
   type SearchExcerpt,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { useRouter } from "next/navigation";
 import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/use-cite-links";
 import { getContainer } from "@/bootstrap";

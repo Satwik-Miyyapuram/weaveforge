@@ -4,7 +4,7 @@ import type {
   ExperimentFilter,
   ExperimentStatus,
   IExperimentRepository,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import {
   attachEncryptedRow,

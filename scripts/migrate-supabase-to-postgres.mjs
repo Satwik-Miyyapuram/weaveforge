@@ -3,7 +3,7 @@
  * Copy the Supabase database into the self-hosted one.
  *
  *   SOURCE_DATABASE_URL=postgres://...supabase...  \
- *   DATABASE_URL=postgres://thesis:...@oci:5432/thesis \
+ *   DATABASE_URL=postgres://weaveforge:...@oci:5432/weaveforge \
  *   node scripts/migrate-supabase-to-postgres.mjs [--dry-run] [--yes]
  *
  * Safe to run more than once. Every insert is `on conflict do nothing` against
@@ -26,6 +26,9 @@ import {
   tableLoadOrder,
 } from "./lib/pg-migrate.mjs";
 
+import { loadMigrationEnv } from "./lib/load-env.mjs";
+
+loadMigrationEnv(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const require = createRequire(join(dirname(fileURLToPath(import.meta.url)), "../apps/web/package.json"));
 const pg = require("pg");
 const { Client } = pg;

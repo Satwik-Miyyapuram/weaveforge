@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readBackendConfig } from "@/backend/config";
 import { OrgInviteService } from "@/features/org/infrastructure/org-invite-service";
-import { OrgInviteValidationError, OrgValidationError } from "@thesis/core";
+import { OrgInviteValidationError, OrgValidationError } from "@weaveforge/core";
 
 export function orgApiService(): OrgInviteService {
   const cfg = readBackendConfig();

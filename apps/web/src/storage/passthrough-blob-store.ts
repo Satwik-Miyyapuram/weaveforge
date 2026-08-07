@@ -1,5 +1,5 @@
-import type { IBlobStore, IEncryptedBlobStore } from "@thesis/core";
-import { guessBlobContentType } from "@thesis/core";
+import type { IBlobStore, IEncryptedBlobStore } from "@weaveforge/core";
+import { guessBlobContentType } from "@weaveforge/core";
 
 const FETCH_TTL_S = 300;
 

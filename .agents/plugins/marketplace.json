@@ -1,14 +1,14 @@
 {
   "name": "personal",
   "interface": {
-    "displayName": "Thesis Tracker Development"
+    "displayName": "WeaveForge Development"
   },
   "plugins": [
     {
-      "name": "thesis-tracker-research",
+      "name": "weaveforge-research",
       "source": {
         "source": "local",
-        "path": "./plugins/thesis-tracker-research"
+        "path": "./plugins/weaveforge-research"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -1,4 +1,4 @@
-# Thesis Tracker — design foundations (light)
+# WeaveForge — design foundations (light)
 
 This is a **foundations-only** design system: the design tokens of the default
 light theme. There is no bundled component library here — the app's components

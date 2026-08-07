@@ -1,4 +1,4 @@
-WeaveForge (Thesis Tracker)
+WeaveForge (WeaveForge)
 Copyright 2026 Satwik Miyyapuram
 
 ================================================================================
@@ -9,8 +9,8 @@ This entire repository is licensed under the GNU Affero General Public License,
 version 3 only (AGPL-3.0-only). See LICENSE for the full text.
 
 That covers everything without exception: the web application, packages/core,
-the `thesis-tracker` Python SDK under python/, and the Codex MCP plugin under
-plugins/thesis-tracker-research/.
+the `weaveforge` Python SDK under python/, and the Codex MCP plugin under
+plugins/weaveforge-research/.
 
 WeaveForge is open source for the people who use it. The copyleft is
 deliberate. If you build on this work, run it as a service, or ship a

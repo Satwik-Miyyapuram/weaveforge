@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { SearchHit, SearchQueryOptions } from "@thesis/core";
+import type { SearchHit, SearchQueryOptions } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 
 export type WorkspaceSearchFn = (query: string, options?: SearchQueryOptions) => readonly SearchHit[];

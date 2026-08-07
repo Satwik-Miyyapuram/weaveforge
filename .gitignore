@@ -14,6 +14,22 @@ build/
 .env
 .env.local
 .env*.local
+# Migration credentials — both database URIs in one file.
+.env.migration
+# OCI launch settings (OCIDs — identifiers, not secrets, but tenancy-specific).
+.env.oci
+oci-launch-retry.log
+
+# Private keys. Cloud consoles download these straight to whatever directory the
+# browser last used, which is often a checkout — and an OCI API key or SSH key
+# committed to a public repo is a full account compromise, not a near miss.
+# Belt and braces: they belong in ~/.oci and ~/.ssh, never here.
+*.pem
+*.key
+*_rsa
+*_ed25519
+id_*
+!*.pub
 local-dev/
 
 # demo captures (regenerate locally; README embeds added later)

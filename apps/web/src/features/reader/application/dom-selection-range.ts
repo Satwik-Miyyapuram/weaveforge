@@ -1,4 +1,4 @@
-import type { TextSelectionRange } from "@thesis/core";
+import type { TextSelectionRange } from "@weaveforge/core";
 
 export interface ItemTextOffset {
   itemIndex: number;

@@ -5,7 +5,7 @@ import {
   collectAnnotationImageRegions,
   planSourceNoteBatch,
 } from "../application/batch-annotation-ops.js";
-import type { ReaderAnnotation } from "@thesis/core";
+import type { ReaderAnnotation } from "@weaveforge/core";
 
 function ann(partial: Partial<ReaderAnnotation> & Pick<ReaderAnnotation, "id" | "type">): ReaderAnnotation {
   return {

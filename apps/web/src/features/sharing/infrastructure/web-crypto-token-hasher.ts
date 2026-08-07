@@ -1,4 +1,4 @@
-import type { IShareLinkTokenHasher } from "@thesis/core";
+import type { IShareLinkTokenHasher } from "@weaveforge/core";
 
 export class WebCryptoShareLinkTokenHasher implements IShareLinkTokenHasher {
   async hash(token: Uint8Array): Promise<Uint8Array> {

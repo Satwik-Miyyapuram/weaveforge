@@ -3,7 +3,7 @@ import type {
   ICitationAlertTrackRepository,
   ICurrentUserProvider,
   NewCitationAlertTrackInput,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
 

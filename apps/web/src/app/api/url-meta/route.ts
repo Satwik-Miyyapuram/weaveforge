@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { extractDoi, normalizeArxivId } from "@weaveforge/core";
 
 /**
  * Extract paper metadata from an arbitrary URL.
@@ -15,7 +16,10 @@ export async function GET(request: Request) {
   }
   let parsed: URL;
   try {
-    parsed = new URL(target);
+    // A scheme-less host (`nature.com/articles/…`) is a URL the user meant;
+    // assume https rather than rejecting it. The protocol guard below still
+    // runs, so this cannot smuggle in a file:/ftp: target.
+    parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(target) ? target : `https://${target}`);
   } catch {
     return NextResponse.json({ error: "invalid url" }, { status: 400 });
   }
@@ -23,13 +27,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "url must be http(s)" }, { status: 400 });
   }
 
+  // arXiv URLs: use the arXiv API rather than scraping the abs page. The page
+  // does carry citation meta tags, but the API is stable, gives the abstract
+  // in full, and never trips a bot wall.
+  const arxivInUrl = normalizeArxivId(target);
+  if (arxivInUrl) {
+    const meta = await fetchArxiv(arxivInUrl, target);
+    if (meta) return NextResponse.json(meta);
+    // Fall through to scraping if arXiv is unreachable.
+  }
+
   // If the URL contains a DOI (e.g. dl.acm.org/doi/10.x, doi.org/10.x),
   // resolve via Crossref instead of scraping — many sites block bots outright.
-  const doiInUrl = /10\.\d{4,9}\/[^\s?#"']+/.exec(decodeURIComponent(target))?.[0]
-    ?.replace(/[).]+$/, "");
+  const doiInUrl = extractDoi(target);
   if (doiInUrl) {
     const cr = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doiInUrl)}`, {
-      headers: { "User-Agent": "thesis-tracker (mailto:noreply@example.com)" },
+      headers: { "User-Agent": "weaveforge (mailto:noreply@example.com)" },
     });
     if (cr.ok) {
       const m = ((await cr.json()) as { message?: any }).message ?? {};
@@ -73,8 +86,56 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: `Could not read that URL: ${hint}.` }, { status: res.status });
   }
   const html = await res.text();
-  return NextResponse.json(extractMetadata(html, parsed.toString()));
+  const meta = extractMetadata(html, parsed.toString());
+
+  // A 200 does not mean we got the paper. Cloudflare/Datadome interstitials
+  // ("Client Challenge", "Verifying your browser") answer 200 with a normal
+  // <title> and no citation tags — importing that would file a paper called
+  // "Client Challenge". Refuse anything that carries no citation metadata.
+  if (!meta.hasCitationMeta) {
+    const wall = BOT_WALL_TITLE.test(meta.title ?? "");
+    return NextResponse.json(
+      {
+        error: wall
+          ? "That site blocked automated access. Import by DOI or arXiv id instead."
+          : "No citation metadata found on that page. Import by DOI or arXiv id, or add the paper manually.",
+      },
+      { status: 422 },
+    );
+  }
+  return NextResponse.json(meta);
 }
+
+async function fetchArxiv(id: string, url: string): Promise<ExtractedMeta | null> {
+  const res = await fetch(
+    `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(id)}`,
+  ).catch(() => null);
+  if (!res?.ok) return null;
+  const xml = await res.text();
+  const entry = /<entry>([\s\S]*?)<\/entry>/.exec(xml)?.[1];
+  if (!entry) return null;
+  const pick = (tag: string) =>
+    decode(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(entry)?.[1]?.trim() ?? "");
+  const title = pick("title").replace(/\s+/g, " ");
+  if (!title) return null;
+  const published = pick("published");
+  const doi = /<arxiv:doi[^>]*>([\s\S]*?)<\/arxiv:doi>/.exec(entry)?.[1]?.trim();
+  return {
+    title,
+    authors: [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)]
+      .map((m) => decode(m[1]?.trim() ?? ""))
+      .filter(Boolean),
+    year: published ? Number(published.slice(0, 4)) || undefined : undefined,
+    doi: doi || undefined,
+    arxivId: id,
+    abstract: pick("summary").replace(/\s+/g, " ") || undefined,
+    url,
+    hasCitationMeta: true,
+  };
+}
+
+const BOT_WALL_TITLE =
+  /client challenge|verifying your browser|just a moment|attention required|are you a robot|access denied|captcha|checking your browser/i;
 
 interface ExtractedMeta {
   title?: string;
@@ -85,6 +146,9 @@ interface ExtractedMeta {
   arxivId?: string;
   abstract?: string;
   url: string;
+  /** True when the page carried real bibliographic tags (Highwire / Dublin
+   *  Core), as opposed to only an OpenGraph or <title> fallback. */
+  hasCitationMeta: boolean;
 }
 
 /** Read all <meta name=.. content=..> (and property=..) pairs from the head. */
@@ -141,6 +205,10 @@ function extractMetadata(html: string, url: string): ExtractedMeta {
   );
   const year = dateStr ? Number(/\d{4}/.exec(dateStr)?.[0]) || undefined : undefined;
 
+  const hasCitationMeta = [...m.keys()].some(
+    (k) => k.startsWith("citation_") || k.startsWith("dc."),
+  );
+
   const doiRaw = first("citation_doi", "dc.identifier.doi", "doi");
   const doi = doiRaw?.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "").trim();
 
@@ -159,6 +227,7 @@ function extractMetadata(html: string, url: string): ExtractedMeta {
     arxivId,
     abstract: first("citation_abstract", "dc.description", "og:description", "description")?.replace(/\s+/g, " "),
     url,
+    hasCitationMeta,
   };
 }
 

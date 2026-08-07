@@ -1,10 +1,10 @@
 """Run the shared contract suites against the in-memory implementations."""
 
-from thesis_tracker.testing import (
+from weaveforge.testing import (
     InMemoryExperimentRepository,
     InMemoryMetricRepository,
 )
-from thesis_tracker.testing.contracts import (
+from weaveforge.testing.contracts import (
     check_experiment_repository,
     check_metric_repository,
 )

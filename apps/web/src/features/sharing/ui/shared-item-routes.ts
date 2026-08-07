@@ -1,6 +1,6 @@
 import type { SharedItem } from "@/features/sharing/domain/shared-reader";
 
-import type { ShareableType } from "@thesis/core";
+import type { ShareableType } from "@weaveforge/core";
 
 export function sharedResourceHref(resourceType: ShareableType, resourceId: string): string {
   return sharedItemHref({

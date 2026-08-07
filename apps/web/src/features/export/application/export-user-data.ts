@@ -4,7 +4,7 @@ import {
   vaultAssetPathsInBody,
   workspaceSnapshotCounts,
   type WorkspaceSnapshot,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 
 function jsonFile(value: unknown): Uint8Array {

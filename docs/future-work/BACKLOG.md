@@ -43,12 +43,13 @@ already reworked to **server-key** (done). Affected tables (`ai_proposals`, `ai_
 
 | # | Item | Where | Notes |
 |---|------|-------|-------|
+| 0 | **`experiment_metrics` storage — fixes A + B + C** | [`metrics-storage-plan.md`](metrics-storage-plan.md) | ⏳ **after the OCI cutover** (changing schema first breaks the migration's byte-identical verify). Measured 439 B/row: half is a surrogate UUID nothing queries plus a 10-value string repeated per row. A: composite PK + `metric_id` lookup → ~110 B (migration `0112`). C: downsample on write at the ingest route → bounded growth. B: chunked `float8[]` → ~10–15 B/point. Order matters — B reuses A's `metric_id` and supersedes its row layout |
 | 6 | **Merge `drop-e2ee` → `main`** | — | ✅ merged (ff) + pushed |
 | 7 | **Perf roadmap** | plan doc removed | ✅ rewritten for post-E2EE (plaintext + RLS; no decrypt workers) |
 | 8 | **Restore server-side title search** | paper repos | ✅ `ilike` re-enabled (postgres + supabase) |
 | 9 | **Stale E2EE docs** | `docs/UI-SPEC.md`, delete `hybrid-encryption-plan.md` | ✅ done (CHANGELOG kept as history) |
 | 10 | **Tests** | API + e2e | ✅ every Next `/api/*/route.ts` has colocated `test/route.test.ts` (`check:api-route-tests`); e2e covers papers/vault/logbook CRUD + sharing + equations + MCP + Overleaf + settings credential/MCP APIs. Domain CRUD is covered by core use-case tests + e2e PostgREST assertions (see API surfaces below). |
-| 11 | **Ops — Bug 1** | env | ✅ GH Actions secrets synced; Supabase smoke 200. CI `startup_failure` was **account billing lock** (not minutes — 668/3000 left); unlocked and CI green on [PR #23](https://github.com/Satwik-Miyyapuram/thesis_tracker/pull/23). Vercel linked: `satwik-miyyapurams-projects/thesis-tracker-web` — confirm host env vars (`SUPABASE_*`, service role, JWT, Overleaf key) in the Vercel dashboard. |
+| 11 | **Ops — Bug 1** | env | ✅ GH Actions secrets synced; Supabase smoke 200. CI `startup_failure` was **account billing lock** (not minutes — 668/3000 left); unlocked and CI green on [PR #23](https://github.com/Satwik-Miyyapuram/weaveforge/pull/23). Vercel linked: `satwik-miyyapurams-projects/weaveforge-web` — confirm host env vars (`SUPABASE_*`, service role, JWT, Overleaf key) in the Vercel dashboard. |
 
 ### API surfaces (intentional — not a bug)
 

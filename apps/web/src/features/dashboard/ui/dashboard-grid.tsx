@@ -9,7 +9,7 @@ import "react-resizable/css/styles.css";
 import { getCardDef, isStatCard } from "../application/card-registry";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 import { getRglBreakpoint } from "@/lib/use-layout-breakpoint";
-import type { DashboardLayout, DashboardLayoutItem } from "@thesis/core";
+import type { DashboardLayout, DashboardLayoutItem } from "@weaveforge/core";
 import {
   mergeRglPositions,
   normalizeSmLayout,
@@ -23,7 +23,7 @@ import {
 import { DashboardCardBody } from "./cards/dashboard-card-body";
 import type { DashboardStats } from "../application/build-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
-import type { Member } from "@thesis/core";
+import type { Member } from "@weaveforge/core";
 
 const BREAKPOINTS = { lg: DESKTOP_BREAKPOINT_PX, sm: 0 };
 const COLS = { lg: 12, sm: 4 };

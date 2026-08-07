@@ -1,4 +1,4 @@
-import type { IProjectBibliographyCollectionStore } from "@thesis/core";
+import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface CollectionRow {

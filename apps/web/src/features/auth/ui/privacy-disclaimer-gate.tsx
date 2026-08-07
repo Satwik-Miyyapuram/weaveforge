@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getLightContainer } from "@/light-bootstrap";
-import { ThesisLoaderScreen } from "@/components/thesis-loader";
+import { ThesisLoaderScreen } from "@/components/weaveforge-loader";
 import { Modal } from "@/components/modal";
 import {
   PRIVACY_DISCLAIMER_PARAGRAPHS,

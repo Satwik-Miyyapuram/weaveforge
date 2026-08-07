@@ -19,10 +19,13 @@ create index if not exists ai_mcp_relay_requests_owner_session_idx
 alter table ai_mcp_relay_requests enable row level security;
 grant select, insert, update on ai_mcp_relay_requests to authenticated;
 
+drop policy if exists "ai_mcp_relay_requests_owner_select" on ai_mcp_relay_requests;
 create policy "ai_mcp_relay_requests_owner_select" on ai_mcp_relay_requests
   for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "ai_mcp_relay_requests_owner_insert" on ai_mcp_relay_requests;
 create policy "ai_mcp_relay_requests_owner_insert" on ai_mcp_relay_requests
   for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "ai_mcp_relay_requests_owner_update" on ai_mcp_relay_requests;
 create policy "ai_mcp_relay_requests_owner_update" on ai_mcp_relay_requests
   for update to authenticated using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);

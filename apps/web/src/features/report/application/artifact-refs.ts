@@ -13,7 +13,7 @@ import {
   isStaleRunningExperiment,
   type Experiment,
   STALE_RUNNING_MS,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 export const EXPERIMENT_ARTIFACT_PREFIX = "expartifact:";
 

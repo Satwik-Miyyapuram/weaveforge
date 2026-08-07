@@ -160,6 +160,16 @@ export function parseRegions(document: string): ParseRegionsResult {
   return { ok: true, segments };
 }
 
+/**
+ * Remove region markers for display. The markdown renderer escapes raw HTML,
+ * so an untouched `<!-- wf:… -->` shows up as literal text in the note body.
+ * Read-mode only — persisted documents keep their markers, or re-render would
+ * have nothing to merge into.
+ */
+export function stripRegionMarkers(document: string): string {
+  return document.replace(/[ \t]*<!--\s*\/?wf:(?:generated|editable):[A-Za-z0-9_-]+\s*-->[ \t]*\n?/g, "");
+}
+
 /** Render a template with variable substitution (markers left intact). */
 export function renderTemplate(template: string, context: TemplateContext): string {
   return substituteVariables(template, context);

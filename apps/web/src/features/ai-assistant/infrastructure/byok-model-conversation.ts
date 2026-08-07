@@ -2,7 +2,7 @@ import type {
   AiModelAdapter,
   AiModelRequest,
   AiModelResponse,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /**
  * Bring-your-own-key model access, called straight from the browser.

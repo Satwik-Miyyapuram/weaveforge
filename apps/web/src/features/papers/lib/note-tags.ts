@@ -3,7 +3,7 @@ import {
   TAG_SOURCES,
   type ManageTagsUseCase,
   type Paper,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /**
  * Tags live in the note markdown as `#hashtags`. These helpers keep that the

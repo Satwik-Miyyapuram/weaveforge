@@ -20,11 +20,11 @@ import {
   type SearchSettings,
   type SearchKind,
   type SearchQueryOptions,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /**
  * BM25 index over the workspace snapshot. The only module that imports
- * MiniSearch — the ranking rules themselves live in `@thesis/core` so they stay
+ * MiniSearch — the ranking rules themselves live in `@weaveforge/core` so they stay
  * testable without a library and can later be exposed as user settings.
  */
 

@@ -1,7 +1,7 @@
 /**
  * Record short WebM demo clips for the README (one per major screen).
  *
- *   npm run record:demos --workspace @thesis/web
+ *   npm run record:demos --workspace @weaveforge/web
  *
  * Requires a running app (starts dev server unless PLAYWRIGHT_SKIP_WEBSERVER=1)
  * and a seeded account (credentials in local-dev/test-accounts.env).

@@ -1,4 +1,4 @@
-import { ModelConceptExtractor, type IConceptExtractor } from "@thesis/core";
+import { ModelConceptExtractor, type IConceptExtractor } from "@weaveforge/core";
 import {
   ByokModelConversation,
   type ProviderDescriptor,

@@ -1,4 +1,4 @@
-import { isSafeWorkspacePath } from "@thesis/core";
+import { isSafeWorkspacePath } from "@weaveforge/core";
 
 /**
  * Bounds on an imported archive.

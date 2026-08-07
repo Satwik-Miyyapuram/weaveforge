@@ -7,10 +7,10 @@ import {
   isStaleRunningExperiment,
   type Experiment,
   type ExperimentStatus,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { ShareButton, CommentsToggle } from "@/features/sharing";
 import {
   Artifacts,

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import type uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import type { MetricPoint } from "@thesis/core";
-import { formatMetricValue } from "@thesis/core";
+import type { MetricPoint } from "@weaveforge/core";
+import { formatMetricValue } from "@weaveforge/core";
 
 export interface MetricSeries {
   id: string;

@@ -1,4 +1,4 @@
-import type { ShareableType } from "@thesis/core";
+import type { ShareableType } from "@weaveforge/core";
 import type { SharedItem, ISharedReader } from "@/features/sharing/domain/shared-reader";
 import type { PgRunner } from "../pg-runner";
 

@@ -95,7 +95,7 @@ One decorator serves every count-limited entity. This is the piece that makes fu
 
 ```ts
 // apps/web/src/billing/quota-guarded-repository.ts
-import type { IQuotaPolicy, QuotaKey } from "@thesis/core";
+import type { IQuotaPolicy, QuotaKey } from "@weaveforge/core";
 
 /** Minimal shape every create-capable repository already satisfies. */
 interface Creatable<TInput, TOutput> {
@@ -350,7 +350,7 @@ Comp codes are part of the billing module and strip with it (§9). With billing 
 
 ## 9. Self-host stripping and the pricing flag
 
-Billing is a feature module in `thesis-tracker.config.ts`, following `docs/plans/completed/modular-deployment-plan.md`. With it disabled:
+Billing is a feature module in `weaveforge.config.ts`, following `docs/plans/completed/modular-deployment-plan.md`. With it disabled:
 
 - Composition roots wire the plain repositories with no decorators
 - `NullEntitlementsProvider` returns `Infinity` for every key
@@ -364,7 +364,7 @@ Verified by a build-profile test asserting the self-host bundle contains no Stri
 "Is billing wired?" and "should this person be shown prices?" are different questions, and conflating them is how upgrade nags leak into a self-hosted instance.
 
 ```ts
-// thesis-tracker.config.ts
+// weaveforge.config.ts
 builtins: { features: [...] },   // omit "billing" -> module absent entirely
 billing: { pricingUi: false },   // module present, pricing surfaces hidden
 ```

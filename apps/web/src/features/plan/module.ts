@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 /** Plan (forward-looking milestones) feature module descriptor. */
 export const planModule: FeatureModule = {

@@ -1,5 +1,5 @@
-import type { ManageSettingsUseCase } from "@thesis/core";
-import { getUserIntegrationField } from "@thesis/core";
+import type { ManageSettingsUseCase } from "@weaveforge/core";
+import { getUserIntegrationField } from "@weaveforge/core";
 
 /** Async credential reader for integration adapters (DIP). */
 export type IntegrationCredentialReader = (

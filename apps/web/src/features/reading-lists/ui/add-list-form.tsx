@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ReadingList } from "@thesis/core";
+import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { LIST_COLOR_PRESETS } from "./list-ui";

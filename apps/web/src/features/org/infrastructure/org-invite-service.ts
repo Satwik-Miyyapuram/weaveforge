@@ -10,11 +10,11 @@ import {
   type Organization,
   OrgInviteValidationError,
   OrgValidationError,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import {
   generateOrgInviteCode,
   hashOrgInviteCodeInput,
-} from "@thesis/core/org-crypto";
+} from "@weaveforge/core/org-crypto";
 
 interface CodeRow {
   id: string;

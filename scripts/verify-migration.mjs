@@ -18,6 +18,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { rowCounts, tableLoadOrder } from "./lib/pg-migrate.mjs";
 
+import { loadMigrationEnv } from "./lib/load-env.mjs";
+
+loadMigrationEnv(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const require = createRequire(join(dirname(fileURLToPath(import.meta.url)), "../apps/web/package.json"));
 const pg = require("pg");
 const { Client } = pg;
@@ -189,9 +192,24 @@ async function main() {
   // The real test: read as one user and confirm another's rows are invisible.
   // Done in a transaction as a non-superuser role, because a superuser bypasses
   // RLS entirely and would pass this while the policies were wide open.
-  const { rows: twoUsers } = await target.query("select id from auth.users order by id limit 2");
-  if (twoUsers.length === 2) {
-    const [alice, bob] = twoUsers;
+  //
+  // Both probe users must actually *own* papers. Picking arbitrary users — say
+  // the two lowest ids — usually finds two who own nothing, and then the
+  // isolation assertion passes against an empty set: alice sees zero of bob's
+  // rows because there are no rows to see. That is a vacuous pass on the one
+  // check standing between users and each other's data, so pick deliberately.
+  const { rows: owners } = await target.query(
+    `select user_id as id, count(*)::int as n
+       from papers
+      where user_id is not null
+      group by user_id
+      having count(*) > 0
+      order by count(*) desc
+      limit 2`,
+  );
+
+  if (owners.length === 2) {
+    const [alice, bob] = owners;
     await target.query("begin");
     try {
       await target.query("set local role authenticated");
@@ -201,15 +219,22 @@ async function main() {
         "select count(*)::int as n from papers where user_id = $1",
         [bob.id],
       );
-      check(theirs[0].n === 0, "one user cannot read another user's papers");
-      check(mine[0].n > 0, `the signed-in user still sees their own ${mine[0].n} papers`);
+      check(theirs[0].n === 0, `one user cannot read another user's ${bob.n} papers`);
+      check(
+        mine[0].n > 0,
+        mine[0].n > 0
+          ? `the signed-in user still sees their own ${mine[0].n} papers`
+          : `the signed-in user sees 0 of their own ${alice.n} papers — auth.uid() is likely returning null, so every policy denies`,
+      );
     } catch (error) {
       check(false, `RLS probe failed: ${error.message}`);
     } finally {
       await target.query("rollback");
     }
   } else {
-    notes.push("fewer than two users; RLS isolation was not probed");
+    notes.push(
+      "fewer than two users own papers; RLS isolation was not probed — this proves nothing either way",
+    );
   }
 
   console.log("");

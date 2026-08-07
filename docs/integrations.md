@@ -1,12 +1,12 @@
 # Web integrations & plugins
 
-Thesis Tracker wires third-party services through a **plugin-style integration layer** at the composition root. Feature code and UI depend on **ports** (interfaces in `@thesis/core`) and **facades** — never on Zotero, GitLab, Mattermost, or Semantic Scholar directly.
+WeaveForge wires third-party services through a **plugin-style integration layer** at the composition root. Feature code and UI depend on **ports** (interfaces in `@weaveforge/core`) and **facades** — never on Zotero, GitLab, Mattermost, or Semantic Scholar directly.
 
 Swapping a provider (e.g. Zotero → Mendeley) means: implement the port, add a manifest under `integrations/manifests/`, wire via `wire-integrations.ts`, set an env var. No edits to papers/plan/logbook screens.
 
 > **Manifests:** built-in providers register via `integrations/manifests/` + `builtin.ts`. `descriptors.ts` aggregates Settings UI metadata from manifests.
 
-> **Not the Python SDK.** `python/thesis_tracker/integrations/` is a separate extension system for experiment-tracking callbacks (TensorBoard, wandb, Keras). See [CONTRIBUTING.md § Python SDK](CONTRIBUTING.md#adding-a-sync-source-the-extension-point).
+> **Not the Python SDK.** `python/weaveforge/integrations/` is a separate extension system for experiment-tracking callbacks (TensorBoard, wandb, Keras). See [CONTRIBUTING.md § Python SDK](CONTRIBUTING.md#adding-a-sync-source-the-extension-point).
 >
 > **Broader extension map:** [`extensions.md`](extensions.md)
 
@@ -104,7 +104,7 @@ Example: Mendeley as a Zotero replacement.
 Create `apps/web/src/integrations/providers/mendeley/bibliography-integration.ts`:
 
 ```ts
-import type { IBibliographyIntegration, Paper } from "@thesis/core";
+import type { IBibliographyIntegration, Paper } from "@weaveforge/core";
 
 export class MendeleyBibliographyIntegration implements IBibliographyIntegration {
   readonly providerId = "mendeley";
@@ -420,9 +420,9 @@ Run before opening a PR:
 
 ```bash
 npm run build:core
-npm test -w @thesis/core
-npm run build --workspace @thesis/web
-npm test -w @thesis/web
+npm test -w @weaveforge/core
+npm run build --workspace @weaveforge/web
+npm test -w @weaveforge/web
 npm run check:solid
 ```
 

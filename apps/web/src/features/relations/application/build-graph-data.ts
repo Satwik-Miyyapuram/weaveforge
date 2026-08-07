@@ -9,7 +9,7 @@ import {
   type RelationType,
   type ReportSection,
   type VaultPage,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { listDisplayColor } from "@/features/reading-lists";
 // The palette lives in a leaf module so that consumers wanting only a colour
 // do not pull this file's feature imports along with it. Re-exported below,

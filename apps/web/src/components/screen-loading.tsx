@@ -1,6 +1,6 @@
 "use client";
 
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 
 /**
  * Full-screen loader while a list screen has no cached data yet.

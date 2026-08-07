@@ -1,4 +1,4 @@
-import type { IAccountProvisioner, Member, NewMemberInput } from "@thesis/core";
+import type { IAccountProvisioner, Member, NewMemberInput } from "@weaveforge/core";
 import type { IAuthService } from "@/features/auth/domain/auth";
 
 /**

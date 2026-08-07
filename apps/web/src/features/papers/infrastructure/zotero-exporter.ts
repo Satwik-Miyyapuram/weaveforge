@@ -1,4 +1,4 @@
-import type { Paper } from "@thesis/core";
+import type { Paper } from "@weaveforge/core";
 import type {
   ZoteroCredentialsProvider,
 } from "./zotero-metadata-source";

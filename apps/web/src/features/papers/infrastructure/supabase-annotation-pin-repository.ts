@@ -4,7 +4,7 @@ import type {
   IAnnotationPinRepository,
   ICurrentUserProvider,
   SaveAnnotationPinInput,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 
 interface AnnotationPinRow {

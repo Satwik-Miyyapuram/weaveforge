@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { ImportDiff, WorkspaceCommit } from "@thesis/core";
+import type { ImportDiff, WorkspaceCommit } from "@weaveforge/core";
 import { formatError } from "@/lib/format-error";
 import {
   applyFolderImport,

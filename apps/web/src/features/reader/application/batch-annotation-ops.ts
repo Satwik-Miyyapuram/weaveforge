@@ -1,4 +1,4 @@
-import type { ReaderAnnotation } from "@thesis/core";
+import type { ReaderAnnotation } from "@weaveforge/core";
 
 export interface BatchImageRegion {
   annotationId: string;

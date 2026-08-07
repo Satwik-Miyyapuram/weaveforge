@@ -1,4 +1,4 @@
-import { normalizeMarkdownImageSyntax } from "@thesis/core";
+import { normalizeMarkdownImageSyntax } from "@weaveforge/core";
 
 /** Prefix embedded paper images use in markdown: `![](paperimg:userId/paperId/file.webp)`. */
 export const PAPER_IMAGE_PREFIX = "paperimg:";

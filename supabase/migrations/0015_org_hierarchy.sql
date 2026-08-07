@@ -52,7 +52,7 @@ $$;
 
 -- True if the current user may access data owned by `owner`: it's their own
 -- data, they are an admin, or `owner` sits somewhere in their supervisee
--- subtree. Mirrors accessibleMemberIds() in @thesis/core.
+-- subtree. Mirrors accessibleMemberIds() in @weaveforge/core.
 create or replace function can_access(owner uuid)
 returns boolean
 language sql

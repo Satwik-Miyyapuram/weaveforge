@@ -1,4 +1,4 @@
-import type { ILogSyncIntegration, LogEntry } from "@thesis/core";
+import type { ILogSyncIntegration, LogEntry } from "@weaveforge/core";
 
 /** Disabled log-sync provider. */
 export class NoopLogSyncIntegration implements ILogSyncIntegration {

@@ -1,5 +1,5 @@
-import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue, PaperFieldValueData } from "@thesis/core";
-import { computeRollup } from "@thesis/core";
+import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue, PaperFieldValueData } from "@weaveforge/core";
+import { computeRollup } from "@weaveforge/core";
 
 export type ExtractionColumnId = "title" | "year" | "status" | `field:${string}`;
 

@@ -9,7 +9,7 @@ import {
   type ReadingList,
   type ReadingListTreeNode,
   type VaultPage,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 export interface ReadingListsScreenData {
   tree: ReadingListTreeNode[];
@@ -26,7 +26,7 @@ export class LoadReadingListsScreenUseCase {
       lists: IReadingListRepository;
       papers: IPaperRepository;
       notes: IVaultPageRepository;
-      pins?: import("@thesis/core").ILibraryPinRepository;
+      pins?: import("@weaveforge/core").ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

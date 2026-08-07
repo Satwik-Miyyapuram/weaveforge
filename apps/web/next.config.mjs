@@ -37,7 +37,7 @@ const withSerwist = withSerwistInit({
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@thesis/core"],
+  transpilePackages: ["@weaveforge/core"],
   async headers() {
     return [
       {
@@ -65,7 +65,7 @@ const nextConfig = {
     ];
   },
   webpack: (config, { isServer, dev }) => {
-    // @thesis/core is consumed as TypeScript source with ESM ".js" import
+    // @weaveforge/core is consumed as TypeScript source with ESM ".js" import
     // specifiers (NodeNext style). Teach webpack to resolve ".js" -> ".ts".
     config.resolve.extensionAlias = {
       ".js": [".ts", ".tsx", ".js"],

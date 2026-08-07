@@ -1,5 +1,5 @@
 import type { Pool, PoolClient, QueryResultRow } from "pg";
-import type { ICurrentUserProvider } from "@thesis/core";
+import type { ICurrentUserProvider } from "@weaveforge/core";
 
 const JWT_SUB_KEY = "request.jwt.claim.sub";
 

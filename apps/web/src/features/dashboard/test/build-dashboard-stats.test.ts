@@ -6,7 +6,7 @@ import {
   librarySnapshot,
   buildDashboardStats,
 } from "../application/build-dashboard-stats";
-import type { Paper, ReportSection, Milestone, Experiment, LogEntry, TagWithPaperCount } from "@thesis/core";
+import type { Paper, ReportSection, Milestone, Experiment, LogEntry, TagWithPaperCount } from "@weaveforge/core";
 
 const paper = (id: string, status: Paper["status"]): Paper =>
   ({

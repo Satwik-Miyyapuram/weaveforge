@@ -1,13 +1,13 @@
 """Import a Weights & Biases run's history + summary into a run, and link it.
 
-    pip install 'thesis-tracker[wandb]'
+    pip install 'weaveforge[wandb]'
     wandb login
     python examples/wandb_sync.py entity/project/run_id
 """
 
 import sys
 
-from thesis_tracker import track
+from weaveforge import track
 
 
 def main(run_path: str):

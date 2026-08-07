@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { searchRevision, toPdfSearchDocs, toSearchDocs, type SearchDoc, type WorkspaceSnapshot } from "@thesis/core";
+import { searchRevision, toPdfSearchDocs, toSearchDocs, type SearchDoc, type WorkspaceSnapshot } from "@weaveforge/core";
 import { SEARCH_SCHEMA_VERSION, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {

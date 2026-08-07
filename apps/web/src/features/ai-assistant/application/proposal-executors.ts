@@ -4,8 +4,8 @@ import type {
   ManageMilestoneUseCase, ManagePaperFieldsUseCase, ManageReadingListUseCase, ManageVaultPageUseCase,
   NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
   PaperFieldValueData, PaperStatus, UpdatePaperUseCase,
-} from "@thesis/core";
-import { appendPaperNote } from "@thesis/core";
+} from "@weaveforge/core";
+import { appendPaperNote } from "@weaveforge/core";
 
 /** Typed browser-only approval executors. Invalid drafts fail closed before a write. */
 export function createAiProposalExecutors(deps: {

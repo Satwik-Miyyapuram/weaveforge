@@ -7,10 +7,10 @@ import {
   type LogEntry,
   type Member,
   type Milestone,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "./profile-provider";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { MemberTreeSelect } from "./member-tree";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";

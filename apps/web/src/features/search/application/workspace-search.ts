@@ -21,7 +21,7 @@ import {
   type SearchQueryOptions,
   type SearchSettings,
   type WorkspaceSnapshot,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { applySearchSettings, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import type { SemanticIndex } from "./semantic-index";
 import { idbGetSearchIndex, idbSetSearchIndex } from "../infrastructure/search-index-idb";
@@ -52,7 +52,7 @@ export class WorkspaceSearch {
   /** The projection the index was built from, kept for the semantic arm. */
   private docs: readonly SearchDoc[] = [];
   /** Extracted PDF text for the live papers, read once per build. */
-  private pdfTexts: readonly import("@thesis/core").PdfIndexSource[] = [];
+  private pdfTexts: readonly import("@weaveforge/core").PdfIndexSource[] = [];
 
   constructor(
     private readonly deps: {

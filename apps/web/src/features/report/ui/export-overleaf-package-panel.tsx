@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Paper, ReportSectionTreeNode } from "@thesis/core";
+import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { downloadOverleafExportPackage } from "@/features/overleaf/application/download-overleaf-export";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";

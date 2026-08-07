@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { IAdminUserProvisioner, Member, ProvisionUserInput, Role } from "@thesis/core";
+import type { IAdminUserProvisioner, Member, ProvisionUserInput, Role } from "@weaveforge/core";
 
 interface ProfileRow {
   user_id: string;

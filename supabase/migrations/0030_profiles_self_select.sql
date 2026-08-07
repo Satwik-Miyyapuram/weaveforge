@@ -1,5 +1,6 @@
 -- Migration: ensure users can always read their own profile + backfill legacy accounts.
 
+drop policy if exists "profiles_select_self" on profiles;
 create policy "profiles_select_self" on profiles
   for select using (user_id = auth.uid());
 

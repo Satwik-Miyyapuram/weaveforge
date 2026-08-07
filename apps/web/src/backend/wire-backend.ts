@@ -1,6 +1,6 @@
 import type { BackendConfig } from "./config";
 import { readBackendConfig } from "./config";
-import type { IAdminUserProvisioner } from "@thesis/core";
+import type { IAdminUserProvisioner } from "@weaveforge/core";
 import { SupabaseAdminUserProvisioner } from "./providers/supabase/admin-provisioner";
 // The real postgres wiring pulls in `pg` (Node-only; its deps need `fs`), which
 // breaks the SSR compilation of every client component that reaches this module

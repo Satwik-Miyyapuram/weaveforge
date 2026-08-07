@@ -4,7 +4,7 @@ import type {
   IWorkspaceFs,
   IWorkspaceGit,
   WorkspaceCommit,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { isomorphicFsFrom } from "./isomorphic-fs-adapter";
 
 /**

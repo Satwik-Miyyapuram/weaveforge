@@ -6,8 +6,8 @@ import type {
   ReadingList,
   VaultPage,
   VaultPageTreeNode,
-} from "@thesis/core";
-import { buildPageTree, mergePinnedScreenData } from "@thesis/core";
+} from "@weaveforge/core";
+import { buildPageTree, mergePinnedScreenData } from "@weaveforge/core";
 
 export interface VaultScreenData {
   tree: VaultPageTreeNode[];
@@ -26,7 +26,7 @@ export class LoadVaultScreenUseCase {
       pages: IVaultPageRepository;
       lists: IReadingListRepository;
       listItems: IReadingListItemRepository;
-      pins?: import("@thesis/core").ILibraryPinRepository;
+      pins?: import("@weaveforge/core").ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

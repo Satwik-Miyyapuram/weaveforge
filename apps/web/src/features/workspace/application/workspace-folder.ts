@@ -12,7 +12,7 @@ import {
   type MirrorResult,
   type WorkspaceCommit,
   type WorkspaceSnapshot,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";

@@ -1,4 +1,4 @@
-import type { IBlobStore } from "@thesis/core";
+import type { IBlobStore } from "@weaveforge/core";
 import { getSupabase } from "@/lib/supabase";
 
 /**

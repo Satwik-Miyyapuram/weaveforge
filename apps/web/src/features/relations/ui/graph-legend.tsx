@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RELATION_TYPES, type RelationType } from "@thesis/core";
+import { RELATION_TYPES, type RelationType } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, WIKILINK_COLOR } from "../application/build-graph-data";
 

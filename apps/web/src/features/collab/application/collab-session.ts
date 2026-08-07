@@ -1,4 +1,4 @@
-import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@thesis/core";
+import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
 
 /** Runtime collab session deps (wired in bootstrap; no Supabase types in UI). */
 export interface CollabSession {

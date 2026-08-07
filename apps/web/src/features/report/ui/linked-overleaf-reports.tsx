@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { LatexSectionNode } from "@thesis/core";
+import type { LatexSectionNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import { useLayoutBreakpoint } from "@/lib/use-layout-breakpoint";

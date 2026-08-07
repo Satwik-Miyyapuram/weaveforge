@@ -1,4 +1,4 @@
-import type { LogEntry, Member, Milestone, ISupervisionRepository } from "@thesis/core";
+import type { LogEntry, Member, Milestone, ISupervisionRepository } from "@weaveforge/core";
 
 export async function fetchSuperviseeMilestonesAndLogs(
   repo: ISupervisionRepository,

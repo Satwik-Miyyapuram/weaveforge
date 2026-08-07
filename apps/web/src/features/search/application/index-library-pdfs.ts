@@ -1,4 +1,4 @@
-import type { DocumentPageText, Paper } from "@thesis/core";
+import type { DocumentPageText, Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { resolvePaperPdfUrl } from "@/features/reader/application/sanitize-reader-url";
 import { resolvePaperPdfSourceForReader } from "@/features/reader/application/resolve-paper-pdf-for-reader";

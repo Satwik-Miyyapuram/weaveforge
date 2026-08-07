@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { IMetricRepository, MetricPoint } from "@thesis/core";
+import type { IMetricRepository, MetricPoint } from "@weaveforge/core";
 
 interface MetricRow {
   experiment_id: string;

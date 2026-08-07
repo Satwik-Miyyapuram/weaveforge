@@ -6,7 +6,7 @@ import type {
   IReadingListRepository,
   Paper,
   VaultPage,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { SharedItem } from "@/features/sharing/domain/shared-reader";
 
 export type SharedItemDetail = SharedItem & {

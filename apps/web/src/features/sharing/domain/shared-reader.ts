@@ -1,4 +1,4 @@
-import type { ShareableType } from "@thesis/core";
+import type { ShareableType } from "@weaveforge/core";
 
 export interface SharedItem {
   id: string;

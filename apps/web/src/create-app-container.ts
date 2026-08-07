@@ -35,7 +35,7 @@ import {
   CompactCrdtLogUseCase,
   appendPaperNote,
   AiProposalExecutorRegistry,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-metadata-source";
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
@@ -583,7 +583,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       newId: () => uuidIds.newId(),
       now: () => systemClock.nowIso(),
       allowedTools: GENERATED_MCP_TOOL_NAMES.length
-        ? (GENERATED_MCP_TOOL_NAMES as readonly import("@thesis/core").AiToolName[])
+        ? (GENERATED_MCP_TOOL_NAMES as readonly import("@weaveforge/core").AiToolName[])
         : undefined,
     }),
     aiProposals: new AiProposalFacade({

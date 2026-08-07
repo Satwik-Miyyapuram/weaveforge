@@ -1,5 +1,5 @@
 {
-  "name": "@thesis/pitch",
+  "name": "@weaveforge/pitch",
   "version": "0.5.2",
   "private": true,
   "description": "Statically exported product pitch site, published to GitHub Pages.",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@thesis/core": "*",
+    "@weaveforge/core": "*",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"

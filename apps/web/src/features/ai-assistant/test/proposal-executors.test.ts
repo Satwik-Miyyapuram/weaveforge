@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AiProposalExecutorRegistry, type AiProposalKind, type AiWriteProposal } from "@thesis/core";
+import { AiProposalExecutorRegistry, type AiProposalKind, type AiWriteProposal } from "@weaveforge/core";
 import { createAiProposalExecutors } from "../application/proposal-executors";
 
 const draft = (kind: AiProposalKind, payload: Record<string, unknown>): AiWriteProposal => ({ id: `proposal-${kind}`, kind, resourceId: "paper-1", content: "Append this", createdAt: "2026-07-15T00:00:00.000Z", status: "pending", sourceLinks: [], payload });

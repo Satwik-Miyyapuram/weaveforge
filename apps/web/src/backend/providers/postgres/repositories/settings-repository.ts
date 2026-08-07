@@ -6,8 +6,8 @@ import {
   type SettingsMetadata,
   type ISettingsRepository,
   type UserSettings,
-} from "@thesis/core";
-import type { ICurrentUserProvider } from "@thesis/core";
+} from "@weaveforge/core";
+import type { ICurrentUserProvider } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface SettingsRow {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { AiAccessSettings } from "@thesis/core";
+import type { AiAccessSettings } from "@weaveforge/core";
 import { createMcpRelayManager } from "../mcp-relay-manager";
 
 const settings: AiAccessSettings = {

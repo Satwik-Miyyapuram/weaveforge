@@ -1,4 +1,4 @@
-import type { ReaderAnnotation } from "@thesis/core";
+import type { ReaderAnnotation } from "@weaveforge/core";
 
 /** Merge Zotero-projected + local annotations; locals win on id collision. */
 export function mergeReaderAnnotations(

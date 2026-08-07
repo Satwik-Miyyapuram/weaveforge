@@ -4,14 +4,14 @@ import {
   type Paper,
   type PaperFilter,
   type PaperStatus,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import {
   attachEncryptedRow,
   encryptedRowFields,
   encryptedListRowFields,
 } from "@/lib/encrypted-row";
-import type { EntityStamp } from "@thesis/core";
+import type { EntityStamp } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface PaperRow {

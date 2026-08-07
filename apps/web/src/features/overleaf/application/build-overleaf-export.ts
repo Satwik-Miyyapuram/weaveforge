@@ -1,5 +1,5 @@
-import type { Paper, ReportSectionTreeNode } from "@thesis/core";
-import { markdownToLatex, normalizeTitleKey } from "@thesis/core";
+import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
+import { markdownToLatex, normalizeTitleKey } from "@weaveforge/core";
 
 export interface OverleafExportOptions {
   /** Document title for `\title{}`. */

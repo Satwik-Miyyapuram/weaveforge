@@ -1,4 +1,4 @@
-import type { AiAccessSettings } from "@thesis/core";
+import type { AiAccessSettings } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
 
@@ -131,7 +131,7 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
       const addition = required(args, "addition");
       const paperId = required(args, "paperId");
       const sourceId = optional(args, "sourceId");
-      let evidence: import("@thesis/core").AiEvidence[] | undefined;
+      let evidence: import("@weaveforge/core").AiEvidence[] | undefined;
       if (sourceId) {
         const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId });
         if (!doc?.text) {
@@ -284,7 +284,7 @@ async function buildPaperEvidence(
     page?: number;
   },
 ): Promise<{
-  evidence: import("@thesis/core").AiEvidence[];
+  evidence: import("@weaveforge/core").AiEvidence[];
 }> {
   const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId: input.sourceId });
   if (!doc?.text) {
@@ -325,7 +325,7 @@ async function buildPaperEvidence(
   };
 }
 
-async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("thesis-tracker-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }
+async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("weaveforge-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }
 /** Chunked — `String.fromCharCode(...bytes)` overflows the stack on large ciphertexts. */
 const b64 = (bytes: Uint8Array) => {
   let binary = "";

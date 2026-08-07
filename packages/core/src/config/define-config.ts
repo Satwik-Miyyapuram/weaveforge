@@ -1,4 +1,4 @@
-import type { ThesisTrackerPlugin } from "./plugin.js";
+import type { WeaveForgePlugin } from "./plugin.js";
 import type { AiToolName } from "../features/ai-assistant/domain/ai-types.js";
 
 /**
@@ -17,13 +17,13 @@ export interface McpSelection {
   readonly tools?: readonly AiToolName[];
 }
 
-export interface ThesisTrackerConfig {
-  readonly plugins?: readonly ThesisTrackerPlugin[];
+export interface WeaveForgeConfig {
+  readonly plugins?: readonly WeaveForgePlugin[];
   readonly builtins?: BuiltinSelection;
   readonly mcp?: McpSelection;
 }
 
-/** Root config helper for `thesis-tracker.config.ts`. */
-export function defineConfig(config: ThesisTrackerConfig): ThesisTrackerConfig {
+/** Root config helper for `weaveforge.config.ts`. */
+export function defineConfig(config: WeaveForgeConfig): WeaveForgeConfig {
   return config;
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@thesis/web",
+  "name": "@weaveforge/web",
   "version": "0.5.2",
   "private": true,
   "license": "AGPL-3.0-only",
@@ -51,7 +51,7 @@
     "@playwright/test": "^1.61.1",
     "@serwist/next": "^9.5.12",
     "@supabase/supabase-js": "^2.45.0",
-    "@thesis/core": "*",
+    "@weaveforge/core": "*",
     "@uiw/codemirror-theme-dracula": "^4.25.11",
     "@uiw/codemirror-theme-github": "^4.25.11",
     "@uiw/codemirror-theme-tokyo-night": "^4.25.11",

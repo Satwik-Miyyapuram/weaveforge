@@ -16,7 +16,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 
+import { loadMigrationEnv } from "./lib/load-env.mjs";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+loadMigrationEnv(root);
 const require = createRequire(join(root, "apps/web/package.json"));
 const pg = require("pg");
 const { Client } = pg;
@@ -117,7 +120,20 @@ async function main() {
   if (SOURCE_URL) {
     const source = await probe("source", SOURCE_URL);
     if (!source.reachable) {
-      problems.push(`cannot reach the source: ${source.error}`);
+      // ENOTFOUND on a Supabase direct host is almost never a typo: those hosts
+      // publish an AAAA record and no A, so any network without IPv6 fails to
+      // resolve them. The session pooler is IPv4 and works identically here.
+      const ipv6Trap =
+        /ENOTFOUND/.test(source.error) && /^db\..*\.supabase\.co/.test(new URL(SOURCE_URL).hostname);
+      problems.push(
+        `cannot reach the source: ${source.error}` +
+          (ipv6Trap
+            ? "\n      That host is IPv6-only, and this machine has no IPv6 route — it is not a typo.\n" +
+              "      Use the Session pooler string instead (Supabase → Connect → Session pooler):\n" +
+              "      postgres://postgres.<projectref>:PASSWORD@aws-0-<region>.pooler.supabase.com:5432/postgres\n" +
+              "      Port 5432, not 6543 — 6543 is the transaction pooler and will fail mid-copy."
+            : ""),
+      );
       console.log(`  ✗ source unreachable`);
     } else {
       console.log(`  ✓ source: Postgres ${source.version}, ${source.tables} tables`);

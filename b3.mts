@@ -1,4 +1,4 @@
-import { searchRevision } from "@thesis/core";
+import { searchRevision } from "@weaveforge/core";
 import { buildSearchIndex, miniSearchIndexFactory } from "./apps/web/src/features/search/infrastructure/minisearch-index";
 let s = 7; const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
 const W = "attention transformer gradient latent corpus baseline ablation inference".split(" ");

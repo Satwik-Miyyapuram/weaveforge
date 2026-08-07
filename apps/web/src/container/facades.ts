@@ -41,8 +41,8 @@ import type {
   Tag,
   VaultPage,
   WorkspaceSnapshot,
-} from "@thesis/core";
-import { isStaleRunningExperiment, STALE_RUNNING_MS, collectWorkspaceSnapshot } from "@thesis/core";
+} from "@weaveforge/core";
+import { isStaleRunningExperiment, STALE_RUNNING_MS, collectWorkspaceSnapshot } from "@weaveforge/core";
 import {
   AI_TOOL_NAMES,
   AiAccessPolicy,
@@ -64,15 +64,15 @@ import {
   type IAiAuditStore,
   type IAiPaperNoteAppender,
   type IAiProposalStore,
-} from "@thesis/core";
-import type { IAuthService } from "@thesis/core";
-import type { IDashboardLayoutRepository, DashboardLayout, IProjectBibliographyCollectionStore, IGraphSettingsRepository, GraphPersistedState } from "@thesis/core";
+} from "@weaveforge/core";
+import type { IAuthService } from "@weaveforge/core";
+import type { IDashboardLayoutRepository, DashboardLayout, IProjectBibliographyCollectionStore, IGraphSettingsRepository, GraphPersistedState } from "@weaveforge/core";
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
 import type { LoadSharedWithMeScreenUseCase, LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
 import type { IIntegrationsStore, IGitClient } from "@/features/sync/domain/sync-ports";
-import type { ISupervisionRepository } from "@thesis/core";
-import type { IProjectRepository, Project } from "@thesis/core";
-import type { ManageProjectUseCase } from "@thesis/core";
+import type { ISupervisionRepository } from "@weaveforge/core";
+import type { IProjectRepository, Project } from "@weaveforge/core";
+import type { ManageProjectUseCase } from "@weaveforge/core";
 import type { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import type { ProjectContext } from "@/lib/project-context";
 import type { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
@@ -89,9 +89,9 @@ import type {
 import type { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CollabSnapshotHelpers, CollabSession } from "@/features/collab/application/collab-session";
-import type { ICrdtUpdateStore, ICurrentUserProvider } from "@thesis/core";
-import type { RemoveRelationUseCase } from "@thesis/core";
-import type { IMetricRepository, MetricPoint } from "@thesis/core";
+import type { ICrdtUpdateStore, ICurrentUserProvider } from "@weaveforge/core";
+import type { RemoveRelationUseCase } from "@weaveforge/core";
+import type { IMetricRepository, MetricPoint } from "@weaveforge/core";
 import type { IPaperImageStore } from "@/features/papers/domain/zotero";
 import type { IntegrationsRegistry } from "@/integrations/registry";
 import { applyBibliographyAnnotations } from "@/integrations/providers/zotero/bibliography-integration";
@@ -105,21 +105,21 @@ export class PapersFacade {
       load: LoadPapersScreenUseCase;
       deletePaper: DeletePaperUseCase;
       bibliography: IBibliographyIntegration;
-      papers: import("@thesis/core").IPaperRepository;
+      papers: import("@weaveforge/core").IPaperRepository;
       manageTags: ManageTagsUseCase;
       updatePaper: UpdatePaperUseCase;
       importPaper: ImportPaperUseCase;
       addPaper: AddPaperUseCase;
       images: IPaperImageStore;
       citationAlerts: CheckCitationAlertsUseCase;
-      annotationPins: import("@thesis/core").IAnnotationPinRepository;
-      annotationQuotationTypes: import("@thesis/core").IAnnotationQuotationTypeRepository;
-      readerAnnotations: import("@thesis/core").IReaderAnnotationSource &
-        import("@thesis/core").IReaderAnnotationSink;
+      annotationPins: import("@weaveforge/core").IAnnotationPinRepository;
+      annotationQuotationTypes: import("@weaveforge/core").IAnnotationQuotationTypeRepository;
+      readerAnnotations: import("@weaveforge/core").IReaderAnnotationSource &
+        import("@weaveforge/core").IReaderAnnotationSink;
       /** Zotero API key + library, read at call time (post-unlock). */
       zoteroCredentials: import("@/features/papers/infrastructure/zotero-metadata-source").ZoteroCredentialsProvider;
       paperFields: ManagePaperFieldsUseCase;
-      reportSections: import("@thesis/core").IReportSectionRepository;
+      reportSections: import("@weaveforge/core").IReportSectionRepository;
     },
   ) {}
 
@@ -210,7 +210,7 @@ export class PapersFacade {
   async setAnnotationQuotationType(
     paperId: string,
     annotationKey: string,
-    quotationType: import("@thesis/core").QuotationType | null,
+    quotationType: import("@weaveforge/core").QuotationType | null,
   ) {
     if (!quotationType) {
       await this.deps.annotationQuotationTypes.remove(paperId, annotationKey);
@@ -229,14 +229,14 @@ export class PapersFacade {
 
   createReaderAnnotation(
     paperId: string,
-    draft: import("@thesis/core").NewReaderAnnotation,
+    draft: import("@weaveforge/core").NewReaderAnnotation,
   ) {
     return this.deps.readerAnnotations.create(paperId, draft);
   }
 
   updateReaderAnnotation(
     id: string,
-    patch: import("@thesis/core").ReaderAnnotationPatch,
+    patch: import("@weaveforge/core").ReaderAnnotationPatch,
   ) {
     return this.deps.readerAnnotations.update(id, patch);
   }
@@ -251,7 +251,7 @@ export class PapersFacade {
    * a mistyped argument away from actually writing.
    */
   async dryRunZoteroAnnotationWriteBack(paperId: string, parentItemKey: string) {
-    const { DryRunZoteroAnnotationWriteBack } = await import("@thesis/core");
+    const { DryRunZoteroAnnotationWriteBack } = await import("@weaveforge/core");
     const anns = await this.deps.readerAnnotations.list(paperId);
     const client = new DryRunZoteroAnnotationWriteBack();
     return client.push(parentItemKey, anns);
@@ -356,7 +356,7 @@ export class PapersFacade {
 
 export interface GraphScreenData {
   papers: Paper[];
-  notes: import("@thesis/core").VaultPage[];
+  notes: import("@weaveforge/core").VaultPage[];
   sections: ReportSection[];
   relations: PaperRelation[];
   lists: ReadingList[];
@@ -366,17 +366,17 @@ export interface GraphScreenData {
 export class GraphFacade {
   constructor(
     private readonly deps: {
-      papers: import("@thesis/core").IPaperRepository;
-      notes: import("@thesis/core").IVaultPageRepository;
-      sections: import("@thesis/core").IReportSectionRepository;
-      relations: import("@thesis/core").IPaperRelationRepository;
-      lists: import("@thesis/core").IReadingListRepository;
-      listItems: import("@thesis/core").IReadingListItemRepository;
+      papers: import("@weaveforge/core").IPaperRepository;
+      notes: import("@weaveforge/core").IVaultPageRepository;
+      sections: import("@weaveforge/core").IReportSectionRepository;
+      relations: import("@weaveforge/core").IPaperRelationRepository;
+      lists: import("@weaveforge/core").IReadingListRepository;
+      listItems: import("@weaveforge/core").IReadingListItemRepository;
       addRelation: AddRelationUseCase;
       linkCitations: LinkCitationsUseCase;
       removeRelation: RemoveRelationUseCase;
       manageTags: ManageTagsUseCase;
-      tags: import("@thesis/core").ITagRepository;
+      tags: import("@weaveforge/core").ITagRepository;
       settings: IGraphSettingsRepository;
     },
   ) {}
@@ -429,7 +429,7 @@ export class PlanFacade {
   constructor(
     private readonly deps: {
       load: LoadPlanScreenUseCase;
-      milestones: import("@thesis/core").IMilestoneRepository;
+      milestones: import("@weaveforge/core").IMilestoneRepository;
       manageMilestone: ManageMilestoneUseCase;
       notifications: INotificationIntegration;
     },
@@ -484,7 +484,7 @@ export class ReportFacade {
   constructor(
     private readonly deps: {
       load: LoadReportScreenUseCase;
-      sections: import("@thesis/core").IReportSectionRepository;
+      sections: import("@weaveforge/core").IReportSectionRepository;
       manageReportSection: ManageReportSectionUseCase;
       images: import("@/features/report/infrastructure/report-image-store").ReportImageStore;
     },
@@ -538,7 +538,7 @@ export class CollabFacade {
     private readonly inner: {
       crdtStore: ICrdtUpdateStore;
       crdtSnapshotStore: import("@/features/collab/infrastructure/crdt-snapshot-store").CrdtSnapshotStore;
-      compactCrdtLog: import("@thesis/core").CompactCrdtLogUseCase;
+      compactCrdtLog: import("@weaveforge/core").CompactCrdtLogUseCase;
       db: SupabaseClient;
       session: ICurrentUserProvider;
       projectId: () => string | null;
@@ -583,8 +583,8 @@ export class VaultFacade {
   constructor(
     private readonly deps: {
       load: LoadVaultScreenUseCase;
-      pages: import("@thesis/core").IVaultPageRepository;
-      manageVaultPage: import("@thesis/core").ManageVaultPageUseCase;
+      pages: import("@weaveforge/core").IVaultPageRepository;
+      manageVaultPage: import("@weaveforge/core").ManageVaultPageUseCase;
       assets: import("@/features/vault/domain/vault-assets").IVaultAssetStore;
       duplicateSharedPage: DuplicateSharedVaultPageUseCase;
     },
@@ -631,8 +631,8 @@ export class ExperimentsFacade {
   constructor(
     private readonly deps: {
       load: LoadExperimentsScreenUseCase;
-      experiments: import("@thesis/core").IExperimentRepository;
-      papers: import("@thesis/core").IPaperRepository;
+      experiments: import("@weaveforge/core").IExperimentRepository;
+      papers: import("@weaveforge/core").IPaperRepository;
       metrics: IMetricRepository;
       manageExperiment: ManageExperimentUseCase;
     },
@@ -694,14 +694,14 @@ export class DashboardFacade {
       layout: IDashboardLayoutRepository;
       prefetch: PrefetchProjectUseCase;
       projectId: () => string | null;
-      papers: import("@thesis/core").IPaperRepository;
-      sections: import("@thesis/core").IReportSectionRepository;
-      milestones: import("@thesis/core").IMilestoneRepository;
-      experiments: import("@thesis/core").IExperimentRepository;
+      papers: import("@weaveforge/core").IPaperRepository;
+      sections: import("@weaveforge/core").IReportSectionRepository;
+      milestones: import("@weaveforge/core").IMilestoneRepository;
+      experiments: import("@weaveforge/core").IExperimentRepository;
       logEntries: ILogEntryRepository;
-      relations: import("@thesis/core").IPaperRelationRepository;
-      lists: import("@thesis/core").IReadingListRepository;
-      tags: import("@thesis/core").ITagRepository;
+      relations: import("@weaveforge/core").IPaperRelationRepository;
+      lists: import("@weaveforge/core").IReadingListRepository;
+      tags: import("@weaveforge/core").ITagRepository;
       supervision: ISupervisionRepository;
     },
   ) {}
@@ -789,12 +789,12 @@ export class AiAssistantFacade {
 
   constructor(
     private readonly deps: {
-      papers: import("@thesis/core").IPaperRepository;
-      vaultPages: import("@thesis/core").IVaultPageRepository;
-      readingLists: import("@thesis/core").IReadingListRepository;
+      papers: import("@weaveforge/core").IPaperRepository;
+      vaultPages: import("@weaveforge/core").IVaultPageRepository;
+      readingLists: import("@weaveforge/core").IReadingListRepository;
       logEntries: ILogEntryRepository;
-      experiments: import("@thesis/core").IExperimentRepository;
-      milestones: import("@thesis/core").IMilestoneRepository;
+      experiments: import("@weaveforge/core").IExperimentRepository;
+      milestones: import("@weaveforge/core").IMilestoneRepository;
       proposals: IAiProposalStore;
       isEncryptionUnlocked: () => boolean;
       newId: () => string;
@@ -946,7 +946,7 @@ export class AiAssistantFacade {
   async proposeDraft(input: {
     sessionId: string; settings: AiAccessSettings; kind: AiProposalKind; tool: AiToolName;
     content: string; payload: Record<string, unknown>; resourceId?: string; resourceType?: AiResourceType;
-    expectedRevision?: string; evidence?: readonly import("@thesis/core").AiEvidence[];
+    expectedRevision?: string; evidence?: readonly import("@weaveforge/core").AiEvidence[];
   }): Promise<{ status: "requires_review"; proposalId: string; kind: AiProposalKind; message: string }> {
     const session = this.requireActiveSession(input.sessionId);
     const proposal = await this.createProposal.execute({
@@ -1034,13 +1034,13 @@ export class AiAssistantFacade {
   private sourceText(
     source: AiWorkspaceSource,
     indexes: {
-      papers: Map<string, import("@thesis/core").Paper>;
-      vaultPages: Map<string, import("@thesis/core").VaultPage>;
-      readingLists: Map<string, import("@thesis/core").ReadingList>;
-      logEntries: Map<string, import("@thesis/core").LogEntry>;
-      experiments: Map<string, import("@thesis/core").Experiment>;
-      milestones: Map<string, import("@thesis/core").Milestone>;
-      zoteroEntries: Map<string, { paper: import("@thesis/core").Paper; entry: StoredZoteroEntry }>;
+      papers: Map<string, import("@weaveforge/core").Paper>;
+      vaultPages: Map<string, import("@weaveforge/core").VaultPage>;
+      readingLists: Map<string, import("@weaveforge/core").ReadingList>;
+      logEntries: Map<string, import("@weaveforge/core").LogEntry>;
+      experiments: Map<string, import("@weaveforge/core").Experiment>;
+      milestones: Map<string, import("@weaveforge/core").Milestone>;
+      zoteroEntries: Map<string, { paper: import("@weaveforge/core").Paper; entry: StoredZoteroEntry }>;
     },
   ): string | null {
     const paper = indexes.papers.get(source.resourceId);
@@ -1063,7 +1063,7 @@ export class AiAssistantFacade {
     return null;
   }
 
-  private zoteroEntries(paper: import("@thesis/core").Paper): StoredZoteroEntry[] {
+  private zoteroEntries(paper: import("@weaveforge/core").Paper): StoredZoteroEntry[] {
     const entries = paper.metadata?.["annotations"];
     return Array.isArray(entries) ? entries.filter((entry): entry is StoredZoteroEntry =>
       Boolean(entry) && typeof entry === "object" && (typeof entry.text === "string" || typeof entry.comment === "string"),
@@ -1157,9 +1157,9 @@ export class OrgFacade {
       members: IMemberRepository;
       createMember: CreateMemberUseCase;
       supervision: ISupervisionRepository;
-      labSnapshots: import("@thesis/core").ILabSnapshotRepository;
-      milestones: import("@thesis/core").IMilestoneRepository;
-      logs: import("@thesis/core").ILogEntryRepository;
+      labSnapshots: import("@weaveforge/core").ILabSnapshotRepository;
+      milestones: import("@weaveforge/core").IMilestoneRepository;
+      logs: import("@weaveforge/core").ILogEntryRepository;
     },
   ) {}
 
@@ -1231,18 +1231,18 @@ export class SharingFacade {
     private readonly deps: {
       sharing: ManageSharingUseCase;
       comments: ManageCommentsUseCase;
-      createShareLink: import("@thesis/core").CreateShareLinkUseCase | null;
-      redeemShareLink: import("@thesis/core").RedeemShareLinkUseCase | null;
-      manageShareLinks: import("@thesis/core").ManageShareLinksUseCase | null;
-      revokeShareLink: import("@thesis/core").RevokeShareLinkUseCase | null;
+      createShareLink: import("@weaveforge/core").CreateShareLinkUseCase | null;
+      redeemShareLink: import("@weaveforge/core").RedeemShareLinkUseCase | null;
+      manageShareLinks: import("@weaveforge/core").ManageShareLinksUseCase | null;
+      revokeShareLink: import("@weaveforge/core").RevokeShareLinkUseCase | null;
       session: ICurrentUserProvider;
       sharedReader: ISharedReader;
       members: IMemberRepository;
       pinShared: PinSharedResourceUseCase;
       duplicateSharedPaper: DuplicateSharedPaperUseCase;
-      libraryPins: import("@thesis/core").ILibraryPinRepository;
-      papers: import("@thesis/core").IPaperRepository;
-      experiments: import("@thesis/core").IExperimentRepository;
+      libraryPins: import("@weaveforge/core").ILibraryPinRepository;
+      papers: import("@weaveforge/core").IPaperRepository;
+      experiments: import("@weaveforge/core").IExperimentRepository;
       loadSharedWithMe: LoadSharedWithMeScreenUseCase;
     },
   ) {}
@@ -1252,7 +1252,7 @@ export class SharingFacade {
   }
 
   async createShareLink(input: {
-    resourceType: import("@thesis/core").ShareableType;
+    resourceType: import("@weaveforge/core").ShareableType;
     resourceId: string;
     expiresAt?: string | null;
   }) {
@@ -1266,7 +1266,7 @@ export class SharingFacade {
     return this.deps.redeemShareLink.execute(urlToken);
   }
 
-  listShareLinks(resourceType: import("@thesis/core").ShareableType, resourceId: string) {
+  listShareLinks(resourceType: import("@weaveforge/core").ShareableType, resourceId: string) {
     if (!this.deps.manageShareLinks) return Promise.resolve([]);
     return this.deps.manageShareLinks.listForResource(resourceType, resourceId);
   }
@@ -1307,11 +1307,11 @@ export class SharingFacade {
     return this.deps.duplicateSharedPaper.execute(input);
   }
 
-  unpinShared(resourceType: import("@thesis/core").ShareableType, resourceId: string) {
+  unpinShared(resourceType: import("@weaveforge/core").ShareableType, resourceId: string) {
     return this.deps.libraryPins.unpin(resourceType, resourceId);
   }
 
-  isPinned(resourceType: import("@thesis/core").ShareableType, resourceId: string) {
+  isPinned(resourceType: import("@weaveforge/core").ShareableType, resourceId: string) {
     return this.deps.libraryPins.isPinned(resourceType, resourceId);
   }
 }
@@ -1376,8 +1376,8 @@ export class ReadingListsFacade {
   constructor(
     private readonly deps: {
       load: LoadReadingListsScreenUseCase;
-      lists: import("@thesis/core").IReadingListRepository;
-      listItems: import("@thesis/core").IReadingListItemRepository;
+      lists: import("@weaveforge/core").IReadingListRepository;
+      listItems: import("@weaveforge/core").IReadingListItemRepository;
       manageReadingList: ManageReadingListUseCase;
     },
   ) {}
@@ -1427,7 +1427,7 @@ export class WorkspaceFacade {
       logEntries: { list(): Promise<LogEntry[]> };
       relations: { list(): Promise<PaperRelation[]> };
       tags: { list(): Promise<Tag[]> };
-      readerAnnotations: { list(): Promise<import("@thesis/core").WorkspaceAnnotation[]> };
+      readerAnnotations: { list(): Promise<import("@weaveforge/core").WorkspaceAnnotation[]> };
       /** Which project the baseline belongs to; a change invalidates it. */
       projectId(): string | null;
     },

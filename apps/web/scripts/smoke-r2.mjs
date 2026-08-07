@@ -48,7 +48,7 @@ try {
     new PutObjectCommand({
       Bucket: bucket,
       Key: key,
-      Body: "thesis-tracker-r2-smoke",
+      Body: "weaveforge-r2-smoke",
       ContentType: "text/plain",
     }),
   );

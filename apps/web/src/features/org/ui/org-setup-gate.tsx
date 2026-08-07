@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ROLE_LABELS, type OrgInviteCodePlaintext } from "@thesis/core";
+import { ROLE_LABELS, type OrgInviteCodePlaintext } from "@weaveforge/core";
 import { useProfile } from "./profile-provider";
 import { createOrg, joinOrg, previewOrgCode, regenerateOrgCode, continueStandalone } from "../infrastructure/org-api";
 import { Modal } from "@/components/modal";

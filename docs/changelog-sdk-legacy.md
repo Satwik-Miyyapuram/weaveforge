@@ -12,7 +12,7 @@ monorepo; it does not continue from `1.0.4`.
 ## [0.0.1] - 2026-07-26
 
 ### Added
-- First WeaveForge-branded SDK release (`thesis-tracker` `0.0.1`) from the public monorepo.
+- First WeaveForge-branded SDK release (`weaveforge` `0.0.1`) from the public monorepo.
 - Dual release tracks: `vX.Y.Z` → PyPI, `android-v*` → signed APK/AAB.
 
 ### Changed
@@ -23,7 +23,7 @@ monorepo; it does not continue from `1.0.4`.
 
 ### Changed
 - Python SDK docs and `.env.example` now reference **Settings → Python SDK access tokens**.
-- `THESIS_TRACKER_API_URL` is required alongside `THESIS_TRACKER_TOKEN`.
+- `WEAVEFORGE_API_URL` is required alongside `WEAVEFORGE_TOKEN`.
 
 ### Fixed
 - `Run` updates metrics, artifacts, and status without refetching the experiment row on every call.
@@ -53,7 +53,7 @@ monorepo; it does not continue from `1.0.4`.
   **Shared with me** screen and can leave feedback where granted. Writes stay
   owner-only. Graph screen tightened (fit-to-view + one controls box) and a
   consistent `?` help affordance replaced heading subtitles.
-- **Python SDK (`thesis-tracker`)** for experiment tracking: a decorator-first
+- **Python SDK (`weaveforge`)** for experiment tracking: a decorator-first
   API (`@track_experiment` / `with track()`), a `Run` handle for metrics,
   figures, and artifacts, and a composition root that authenticates with
   email/password so RLS applies.
@@ -68,7 +68,7 @@ monorepo; it does not continue from `1.0.4`.
   `experiment-artifacts` storage bucket (migration `0017`).
 - **Thesis linking**: experiments can reference a related paper from the SDK and
   surface it in the UI.
-- CLI (`thesis-tracker list / import-tb / import-wandb`).
+- CLI (`weaveforge list / import-tb / import-wandb`).
 - Project OSS hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `CHANGELOG.md`, and a Python CI job (pytest + ruff + mypy).
 

@@ -6,7 +6,7 @@ import {
   type ReadingListFilter,
   type ReadingListItem,
   type ReadingListTreeNode,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
 import {

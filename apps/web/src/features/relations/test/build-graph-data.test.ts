@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import type { Paper, PaperRelation } from "@thesis/core";
+import type { Paper, PaperRelation } from "@weaveforge/core";
 import { buildGraphData, tagColor } from "../application/build-graph-data";
 import { DEFAULT_GRAPH_SETTINGS } from "../application/graph-view-settings";
 

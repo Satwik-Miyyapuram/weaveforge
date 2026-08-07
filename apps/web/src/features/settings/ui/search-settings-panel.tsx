@@ -9,7 +9,7 @@ import {
   type SearchField,
   type SearchKind,
   type SearchSettings,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
 import {
   indexLibraryPdfs,

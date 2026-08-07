@@ -1,8 +1,8 @@
-# Thesis Tracker — Product and Icon Brief
+# WeaveForge — Product and Icon Brief
 
 ## One-sentence description
 
-**Thesis Tracker is a private research workspace that brings a thesis's
+**WeaveForge is a private research workspace that brings a thesis's
 literature, notes, plan, experiments, writing outline, and collaboration into
 one connected place.**
 
@@ -22,10 +22,10 @@ Doing a thesis normally scatters work across several disconnected tools:
 - Google Docs or Word for the report.
 - Messages and screenshots for supervision.
 
-Thesis Tracker connects those pieces without pretending it replaces the tools
+WeaveForge connects those pieces without pretending it replaces the tools
 that already do their specialist jobs well. Zotero remains the bibliographic
 authority; Git remains the code history; training scripts can still create
-experiments. Thesis Tracker is the **research map** that connects them.
+experiments. WeaveForge is the **research map** that connects them.
 
 ## Who it is for
 
@@ -39,7 +39,7 @@ corporate project dashboard or an autonomous AI agent.
 
 ## The core mental model
 
-Think of Thesis Tracker as a **connected research desk** with seven related
+Think of WeaveForge as a **connected research desk** with seven related
 areas:
 
 | Area | What it holds | Why it matters |
@@ -79,9 +79,9 @@ exists.
 - Sharing is deliberate and scoped to resources or resource types.
 - External integration credentials, such as a Zotero key, are encrypted in the
   client and used directly with the provider rather than relayed through the
-  Thesis Tracker server.
-- PDFs are not stored by Thesis Tracker. Zotero and ZotMoov manage the source
-  files; Thesis Tracker works with metadata, notes, and annotations the user
+  WeaveForge server.
+- PDFs are not stored by WeaveForge. Zotero and ZotMoov manage the source
+  files; WeaveForge works with metadata, notes, and annotations the user
   chooses to sync.
 - The AI/MCP connection is opt-in, source-scoped, time-bounded, and revocable.
   It only sees selected material while the browser is unlocked. AI actions are
@@ -92,7 +92,7 @@ surveillance, cloud extraction, or an all-seeing AI.
 
 ## Technical character, in plain language
 
-Thesis Tracker is a self-hostable web app and PWA, with a companion Python SDK
+WeaveForge is a self-hostable web app and PWA, with a companion Python SDK
 for logging research experiments from code. It integrates with Zotero, Git,
 GitLab/GitHub, Mattermost, Semantic Scholar, and common ML experiment sources.
 
@@ -212,7 +212,7 @@ When making the icon, create these versions from the same core mark:
 
 1. App/PWA icon: square, no text, recognisable at 16–512 px.
 2. Favicon: simplified one- or two-shape version.
-3. Product mark: icon plus the words “Thesis Tracker”.
+3. Product mark: icon plus the words “WeaveForge”.
 4. Light and dark variants.
 5. Monochrome variant for documentation and print.
 
@@ -223,7 +223,7 @@ into visual noise, reduce it to two nodes and one line.
 
 ### Recommended prompt
 
-> Minimal app icon for “Thesis Tracker”, a private all-in-one research
+> Minimal app icon for “WeaveForge”, a private all-in-one research
 > workspace for papers, notes, experiments, planning, and thesis writing. A
 > rounded document/page shape combined with three small connected graph nodes,
 > suggesting a thesis built from connected research. Calm scholarly modern
@@ -240,12 +240,12 @@ into visual noise, reduce it to two nodes and one line.
 
 ### Literary prompt
 
-> Minimal vector app icon for “Thesis Tracker”: an annotated thesis page or
+> Minimal vector app icon for “WeaveForge”: an annotated thesis page or
 > open notebook with one elegant connected-node line, expressing reading,
 > thinking, experiments, and writing as one process. Warm academic editorial
 > feel, ink blue and soft paper colour, modern geometric simplicity, no text.
 
 ## Final positioning line
 
-**Thesis Tracker is the private, connected workspace where a thesis takes
+**WeaveForge is the private, connected workspace where a thesis takes
 shape.**

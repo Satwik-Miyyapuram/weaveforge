@@ -10,7 +10,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("AI & MCP access", () => {
   test.beforeEach(async ({ page }, testInfo) => {
-    if (!e2eEnabled()) testInfo.skip(true, "Set THESIS_TRACKER_* env vars for both users");
+    if (!e2eEnabled()) testInfo.skip(true, "Set WEAVEFORGE_* env vars for both users");
     const user = e2eUserA();
     await bootstrapSession(page, user.email, user.password);
   });
@@ -151,7 +151,7 @@ test.describe("AI & MCP access", () => {
 });
 
 type Envelope = { iv: string; ciphertext: string };
-function key(secret: string) { return pbkdf2Sync(secret, "thesis-tracker-mcp-v1", 100_000, 32, "sha256"); }
+function key(secret: string) { return pbkdf2Sync(secret, "weaveforge-mcp-v1", 100_000, 32, "sha256"); }
 function seal(secret: string, value: unknown): Envelope { const iv = randomBytes(12); const cipher = createCipheriv("aes-256-gcm", key(secret), iv); const data = Buffer.concat([cipher.update(JSON.stringify(value), "utf8"), cipher.final()]); return { iv: iv.toString("base64"), ciphertext: Buffer.concat([data, cipher.getAuthTag()]).toString("base64") }; }
 function open(secret: string, envelope: Envelope): unknown { const raw = Buffer.from(envelope.ciphertext, "base64"); const decipher = createDecipheriv("aes-256-gcm", key(secret), Buffer.from(envelope.iv, "base64")); decipher.setAuthTag(raw.subarray(-16)); return JSON.parse(Buffer.concat([decipher.update(raw.subarray(0, -16)), decipher.final()]).toString("utf8")); }
 async function waitForRelay(request: import("@playwright/test").APIRequestContext, token: string, id: string, browserRelayResponses: readonly string[] = [], sessionId?: string, browserRelaySessions: ReadonlySet<string> = new Set(), browserRelayClaimCounts: readonly number[] = [], browserRelayPatchStatuses: readonly string[] = []): Promise<{ status: string; response_enc?: Envelope }> { let lastStatus = "unknown"; for (let attempt = 0; attempt < 60; attempt++) { const response = await request.get(`/api/mcp/relay?id=${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } }); const payload = await response.json() as { request: { status: string; response_enc?: Envelope } }; lastStatus = payload.request.status; if (lastStatus === "complete") return payload.request; await new Promise((resolve) => setTimeout(resolve, 500)); } const manualClaim = sessionId ? await request.get(`/api/mcp/relay/browser?sessionId=${encodeURIComponent(sessionId)}`, { headers: { Authorization: `Bearer ${token}` } }) : null; const claimed = manualClaim ? (await manualClaim.json() as { requests?: unknown[] }).requests?.length ?? 0 : 0; throw new Error(`Timed out waiting for the browser relay response (request: ${lastStatus}; browser sessions: ${[...browserRelaySessions].join(", ") || "none"}; poll responses: ${browserRelayResponses.join(", ") || "none"}; poll claim counts: ${browserRelayClaimCounts.join(", ") || "none"}; PATCH statuses: ${browserRelayPatchStatuses.join(", ") || "none"}; manual claims: ${claimed}).`); }

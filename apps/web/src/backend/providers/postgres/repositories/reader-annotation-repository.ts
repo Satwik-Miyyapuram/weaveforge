@@ -8,8 +8,8 @@ import type {
   ReaderAnnotationPatch,
   ReaderAnnotationType,
   WorkspaceAnnotation,
-} from "@thesis/core";
-import { buildAnnotationSortIndex, isAnnotationSyncState, isReaderAnnotationType } from "@thesis/core";
+} from "@weaveforge/core";
+import { buildAnnotationSortIndex, isAnnotationSyncState, isReaderAnnotationType } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
 

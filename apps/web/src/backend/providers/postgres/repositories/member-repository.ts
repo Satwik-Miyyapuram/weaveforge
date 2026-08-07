@@ -5,7 +5,7 @@ import {
   type IMemberRepository,
   type Member,
   type Role,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface ProfileRow {

@@ -7,7 +7,7 @@ name: Verify against live Supabase
 # Account layout must match `local-dev.example/accounts.mjs` / seed-test-users:
 #   A Lab Alpha professor · B Lab Beta professor · C/D phd under B ·
 #   E/F masters under C · G standalone
-# Optional for HTTP SDK job: THESIS_TRACKER_API_URL, THESIS_TRACKER_TOKEN
+# Optional for HTTP SDK job: WEAVEFORGE_API_URL, WEAVEFORGE_TOKEN
 # Re-run marker: 2026-07-26 (secrets + seed-aligned hierarchy).
 
 on:
@@ -65,9 +65,9 @@ jobs:
         working-directory: python
         run: pytest tests/test_integration_api.py -q
         env:
-          THESIS_TRACKER_API_URL: ${{ secrets.THESIS_TRACKER_API_URL }}
-          THESIS_TRACKER_TOKEN: ${{ secrets.THESIS_TRACKER_TOKEN }}
-          THESIS_TRACKER_TEST_USER_EMAIL: ${{ secrets.THESIS_TRACKER_TEST_USER_EMAIL }}
+          WEAVEFORGE_API_URL: ${{ secrets.WEAVEFORGE_API_URL }}
+          WEAVEFORGE_TOKEN: ${{ secrets.WEAVEFORGE_TOKEN }}
+          WEAVEFORGE_TEST_USER_EMAIL: ${{ secrets.WEAVEFORGE_TEST_USER_EMAIL }}
 
   ts-settings-contract:
     runs-on: ubuntu-latest
@@ -83,12 +83,12 @@ jobs:
       - name: TypeScript live Supabase integration tests
         run: npm run test:integration:web
         env:
-          THESIS_TRACKER_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          THESIS_TRACKER_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
-          THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
-          THESIS_TRACKER_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
-          THESIS_TRACKER_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
+          WEAVEFORGE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          WEAVEFORGE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          WEAVEFORGE_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          WEAVEFORGE_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          WEAVEFORGE_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
+          WEAVEFORGE_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
           TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
           TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
           TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}

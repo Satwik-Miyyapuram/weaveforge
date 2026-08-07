@@ -1,4 +1,4 @@
-import type { ShareableType } from "@thesis/core";
+import type { ShareableType } from "@weaveforge/core";
 import type { WiredBackend } from "@/backend/wire-backend";
 import type { ProjectContext } from "@/lib/project-context";
 

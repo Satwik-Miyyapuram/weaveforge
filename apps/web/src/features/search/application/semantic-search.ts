@@ -1,4 +1,4 @@
-import { searchRevision, type SearchDoc } from "@thesis/core";
+import { searchRevision, type SearchDoc } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { SemanticIndex, type EmbedProgress } from "./semantic-index";
 import { WorkerEmbedder, supportsLocalEmbedding } from "../infrastructure/worker-embedder";

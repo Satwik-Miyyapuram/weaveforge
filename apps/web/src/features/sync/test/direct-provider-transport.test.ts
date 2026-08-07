@@ -25,7 +25,7 @@ test("Git provider reads send tokens directly to the provider", async () => {
   assert.equal(new Headers(requests[1]?.init?.headers).get("PRIVATE-TOKEN"), "gl-secret");
 });
 
-test("GitLab and Mattermost writes have no Thesis Tracker credential relay", async () => {
+test("GitLab and Mattermost writes have no WeaveForge credential relay", async () => {
   const requests: { url: string; init?: RequestInit }[] = [];
   const fetchFn: typeof fetch = async (url, init) => {
     requests.push({ url: String(url), init });

@@ -5,7 +5,7 @@ import {
   type VaultPageFilter,
   type VaultPageTreeNode,
   type EntityStamp,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "@/backend/providers/postgres/pg-runner";
 

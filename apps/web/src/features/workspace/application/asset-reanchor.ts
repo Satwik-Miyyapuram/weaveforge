@@ -1,4 +1,4 @@
-import { ASSET_DIR, relativeAssetPaths, toRelativeBlobLinks } from "@thesis/core";
+import { ASSET_DIR, relativeAssetPaths, toRelativeBlobLinks } from "@weaveforge/core";
 
 /**
  * Deciding what an imported body's image links are allowed to point at.

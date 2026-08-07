@@ -10,7 +10,7 @@ import importlib.util
 
 import pytest
 
-from thesis_tracker.config import ConfigError, Settings
+from weaveforge.config import ConfigError, Settings
 
 _HAS_SUPABASE = importlib.util.find_spec("supabase") is not None
 

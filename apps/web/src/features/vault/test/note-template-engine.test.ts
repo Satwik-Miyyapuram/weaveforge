@@ -5,9 +5,11 @@ import {
   mergeTemplate,
   parseRegions,
   renderTemplate,
+  stripRegionMarkers,
   substituteVariables,
   wrapRegion,
 } from "../application/note-template-engine";
+import { DEFAULT_SOURCE_NOTE_TEMPLATE } from "../application/default-source-note-template";
 
 const TEMPLATE = [
   "# {{title}}",
@@ -225,4 +227,13 @@ test("applyTemplate treats whitespace-only existing notes as empty", () => {
   });
   assert.equal(out, renderTemplate(TEMPLATE, { title: "Fresh", year: 2026, tags: [] }));
   assert.match(out, /<!-- wf:editable:notes -->/);
+});
+
+test("stripRegionMarkers removes markers for display without touching the body", () => {
+  const doc = applyTemplate(null, DEFAULT_SOURCE_NOTE_TEMPLATE, { title: "BISCUIT" });
+  const shown = stripRegionMarkers(doc);
+  assert.ok(!shown.includes("<!--"), "no HTML comment survives display");
+  assert.ok(shown.includes("# BISCUIT"));
+  assert.ok(shown.includes("Write a short summary."));
+  assert.ok(shown.startsWith("# BISCUIT"), "inline marker leaves the heading at line start");
 });

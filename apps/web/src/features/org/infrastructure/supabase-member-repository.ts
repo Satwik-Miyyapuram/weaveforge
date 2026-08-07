@@ -6,7 +6,7 @@ import {
   type IMemberRepository,
   type Member,
   type Role,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { singleFlight } from "@/lib/single-flight";
 
 /**

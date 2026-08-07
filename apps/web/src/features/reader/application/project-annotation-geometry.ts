@@ -7,7 +7,7 @@
  * can be tested without a DOM or pdf.js.
  */
 
-import { chooseAnchorStrategy, type ReaderAnnotation } from "@thesis/core";
+import { chooseAnchorStrategy, type ReaderAnnotation } from "@weaveforge/core";
 
 export interface AnnotationBox {
   id: string;

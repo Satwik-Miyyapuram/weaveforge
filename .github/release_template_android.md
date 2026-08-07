@@ -1,6 +1,6 @@
 ## WeaveForge Android android-vN
 
-Signed TWA build for `app.weaveforge.twa` → `https://my-thesis-tracker-web.vercel.app`.
+Signed TWA build for `app.weaveforge.twa` → `https://my-weaveforge-web.vercel.app`.
 
 ### Install
 - **APK** (sideload): download `app-release-signed.apk` from this release

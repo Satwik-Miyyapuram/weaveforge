@@ -1,4 +1,4 @@
-import type { FeatureModule } from "@thesis/core";
+import type { FeatureModule } from "@weaveforge/core";
 
 /** Experiments (code/run tracker) feature module descriptor. */
 export const experimentsModule: FeatureModule = {

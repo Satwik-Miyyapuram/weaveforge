@@ -10,7 +10,7 @@ import {
   type SearchDoc,
   type SearchSettings,
   type WorkspaceSnapshot,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { buildSearchIndex } from "./minisearch-index";
 import { loadPdfTexts } from "./pdf-text-store";
 

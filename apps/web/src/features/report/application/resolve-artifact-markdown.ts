@@ -3,7 +3,7 @@
  * Kept out of the React component so it can be unit-tested under node:test.
  */
 
-import type { Experiment } from "@thesis/core";
+import type { Experiment } from "@weaveforge/core";
 import {
   parseArtifactRefs,
   resolveArtifactRef,

@@ -1,7 +1,7 @@
 [project]
-name = "thesis-tracker"
+name = "weaveforge"
 dynamic = ["version"]
-description = "Push experiments, training curves, and figures (TensorBoard / wandb / matplotlib) into your self-hosted Thesis Tracker dashboard."
+description = "Push experiments, training curves, and figures (TensorBoard / wandb / matplotlib) into your self-hosted WeaveForge dashboard."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "AGPL-3.0-only" }
@@ -46,17 +46,17 @@ all = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-thesis-tracker = "thesis_tracker.cli:main"
+weaveforge = "weaveforge.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "thesis_tracker/__init__.py"
+path = "weaveforge/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["thesis_tracker"]
+packages = ["weaveforge"]
 
 [tool.ruff]
 line-length = 100
@@ -68,4 +68,4 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
-files = ["thesis_tracker"]
+files = ["weaveforge"]

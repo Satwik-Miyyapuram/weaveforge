@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Comment, Member } from "@thesis/core";
+import type { Comment, Member } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { DeleteIcon } from "@/components/view-icons";
 import { useProfile } from "@/features/org";

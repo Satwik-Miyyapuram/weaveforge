@@ -5,7 +5,7 @@ import {
   teamAttentionItems,
   buildSupervisionStats,
 } from "../application/build-supervision-stats";
-import type { Member, Milestone, LogEntry } from "@thesis/core";
+import type { Member, Milestone, LogEntry } from "@weaveforge/core";
 
 const member = (id: string): Member =>
   ({ id, email: `${id}@test.com`, role: "masters", createdAt: "" }) as Member;

@@ -1,6 +1,6 @@
 "use client";
 
-import { hasActiveLab, needsStandaloneRoleSync, resolveDisplayRole, ROLE_LABELS } from "@thesis/core";
+import { hasActiveLab, needsStandaloneRoleSync, resolveDisplayRole, ROLE_LABELS } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";

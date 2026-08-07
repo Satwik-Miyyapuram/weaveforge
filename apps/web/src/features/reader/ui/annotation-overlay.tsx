@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReaderAnnotation } from "@thesis/core";
+import type { ReaderAnnotation } from "@weaveforge/core";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
 
 interface AnnotationOverlayProps {

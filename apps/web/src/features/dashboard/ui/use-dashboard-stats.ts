@@ -3,7 +3,7 @@ import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import { formatError } from "@/lib/format-error";
 import { registerDashboardUiCacheClear } from "@/lib/clear-session-caches";
-import type { DashboardCardType, Member } from "@thesis/core";
+import type { DashboardCardType, Member } from "@weaveforge/core";
 
 import { buildDashboardStats, type DashboardStats } from "../application/build-dashboard-stats";
 import {

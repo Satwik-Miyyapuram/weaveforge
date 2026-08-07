@@ -1,7 +1,7 @@
 """Row<->domain mapping for the Supabase experiment adapter (no network)."""
 
-from thesis_tracker.features.experiments.domain.experiment import Experiment
-from thesis_tracker.features.experiments.infrastructure.supabase_experiment_repository import (
+from weaveforge.features.experiments.domain.experiment import Experiment
+from weaveforge.features.experiments.infrastructure.supabase_experiment_repository import (
     to_domain,
     to_row,
 )

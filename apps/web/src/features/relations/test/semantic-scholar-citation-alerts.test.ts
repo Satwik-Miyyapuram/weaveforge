@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rankCitationAlerts, type CitationCandidate } from "@thesis/core";
+import { rankCitationAlerts, type CitationCandidate } from "@weaveforge/core";
 import { SemanticScholarCitationSource } from "../infrastructure/semantic-scholar-citation-source";
 
 test("Semantic Scholar incoming citations page and map stable candidates", async () => {

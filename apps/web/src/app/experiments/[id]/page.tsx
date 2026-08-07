@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ScreenLoader } from "@/components/thesis-loader";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 import { ExperimentDetailScreen } from "@/features/experiments/ui/experiment-detail-screen";
 
 export default function ExperimentDetailPage({ params }: { params: { id: string } }) {

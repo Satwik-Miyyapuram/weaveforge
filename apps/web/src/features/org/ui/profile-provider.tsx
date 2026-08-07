@@ -7,8 +7,8 @@ import {
   useEffect,
   useState,
 } from "react";
-import type { Member, OrgMembershipView } from "@thesis/core";
-import { hasActiveLab, needsStandaloneRoleSync } from "@thesis/core";
+import type { Member, OrgMembershipView } from "@weaveforge/core";
+import { hasActiveLab, needsStandaloneRoleSync } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useStartupOptional } from "@/features/startup";
 import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } from "../infrastructure/org-api";

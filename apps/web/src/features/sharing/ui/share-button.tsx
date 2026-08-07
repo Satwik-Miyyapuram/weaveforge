@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ShareableType } from "@thesis/core";
+import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShareIcon } from "@/components/view-icons";
 import { ShareDialog } from "./share-dialog";

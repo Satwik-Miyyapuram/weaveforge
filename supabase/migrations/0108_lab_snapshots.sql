@@ -31,7 +31,12 @@ create index if not exists lab_snapshots_project_idx
 
 alter table lab_snapshots enable row level security;
 
-grant select, insert, update, delete on lab_snapshots to authenticated;
+-- No UPDATE grant. A snapshot is a freeze: if the supervisee could edit
+-- `content` after publishing, the supervisor cannot trust that what they are
+-- reviewing is what was published, which is the entire point of the table.
+-- Correcting a snapshot means deleting it and publishing again, which is
+-- visible via published_at rather than silent.
+grant select, insert, delete on lab_snapshots to authenticated;
 
 drop policy if exists lab_snapshots_select_access on lab_snapshots;
 create policy lab_snapshots_select_access on lab_snapshots
@@ -45,12 +50,8 @@ create policy lab_snapshots_insert_own on lab_snapshots
   to authenticated
   with check (user_id = (select auth.uid()));
 
+-- Deliberately no UPDATE policy — see the grant above.
 drop policy if exists lab_snapshots_update_own on lab_snapshots;
-create policy lab_snapshots_update_own on lab_snapshots
-  for update
-  to authenticated
-  using (user_id = (select auth.uid()))
-  with check (user_id = (select auth.uid()));
 
 drop policy if exists lab_snapshots_delete_own on lab_snapshots;
 create policy lab_snapshots_delete_own on lab_snapshots

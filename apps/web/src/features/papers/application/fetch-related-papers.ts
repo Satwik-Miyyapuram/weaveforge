@@ -2,7 +2,7 @@
  * Fetch related / recommended papers from Semantic Scholar for a seed library paper.
  * Filters out items already in the local library (by DOI / arXiv / title).
  */
-import { normalizeDoi, normalizeTitleKey, type Paper } from "@thesis/core";
+import { normalizeDoi, normalizeTitleKey, type Paper } from "@weaveforge/core";
 
 export type RelatedPaperHit = {
   title: string;

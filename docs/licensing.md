@@ -1,6 +1,6 @@
 # Licensing
 
-**WeaveForge (Thesis Tracker) is licensed under AGPL-3.0-only. The entire repository. No exceptions.**
+**WeaveForge (WeaveForge) is licensed under AGPL-3.0-only. The entire repository. No exceptions.**
 
 See [`LICENSE`](../LICENSE) for the full text and [`NOTICE`](../NOTICE) for attribution requirements.
 
@@ -10,8 +10,8 @@ See [`LICENSE`](../LICENSE) for the full text and [`NOTICE`](../NOTICE) for attr
 |------|---------|
 | `apps/web/` — web application | AGPL-3.0-only |
 | `packages/core/` — domain layer | AGPL-3.0-only |
-| `python/` — `thesis-tracker` SDK | AGPL-3.0-only |
-| `plugins/thesis-tracker-research/` — Codex MCP plugin | AGPL-3.0-only |
+| `python/` — `weaveforge` SDK | AGPL-3.0-only |
+| `plugins/weaveforge-research/` — Codex MCP plugin | AGPL-3.0-only |
 | everything else | AGPL-3.0-only |
 
 There are no permissive carve-outs and no dual licensing.

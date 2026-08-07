@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import userConfig from "../thesis-tracker.config.ts";
+import userConfig from "../weaveforge.config.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUTPUT = join(ROOT, "apps/web/src/deployment/generated-registry.ts");

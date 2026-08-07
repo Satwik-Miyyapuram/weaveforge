@@ -21,7 +21,9 @@
 
 Postgres wiring uses the Node `pg` driver — **server-only** (API routes). The browser bundle must keep `NEXT_PUBLIC_BACKEND_PROVIDER=supabase` until Phase 5 adds a client-facing API layer.
 
-Server-side (API routes, scripts):
+Phase 5 arrived as PostgREST rather than a Next API layer: the browser keeps speaking the protocol it already speaks, and the cutover is `NEXT_PUBLIC_DATA_URL` — [`oracle-shift-guide.md`](oracle-shift-guide.md). `NEXT_PUBLIC_BACKEND_PROVIDER` stays `supabase` in any deployed app.
+
+Server-side only (API routes, scripts, local dev):
 
 ```ini
 NEXT_PUBLIC_BACKEND_PROVIDER=postgres

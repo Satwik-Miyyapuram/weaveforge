@@ -1,5 +1,5 @@
 import { zipSync, strToU8 } from "fflate";
-import type { Paper, ReportSectionTreeNode } from "@thesis/core";
+import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { buildOverleafExportPackage, type OverleafExportOptions } from "./build-overleaf-export";
 import { downloadBlob } from "@/features/export/application/export-user-data";

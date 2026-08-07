@@ -1,4 +1,4 @@
-import type { SearchKind } from "@thesis/core";
+import type { SearchKind } from "@weaveforge/core";
 import type { WorkspaceSearchFn } from "@/lib/use-search-index";
 
 /**

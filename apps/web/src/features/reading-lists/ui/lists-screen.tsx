@@ -8,7 +8,7 @@ import type {
   ReadingListItem,
   ReadingListTreeNode,
   VaultPage,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";

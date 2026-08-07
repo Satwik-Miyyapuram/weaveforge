@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { BlobTier } from "@thesis/core";
+import type { BlobTier } from "@weaveforge/core";
 import { readBackendConfig } from "@/backend/config";
 
 const UUID_RE =

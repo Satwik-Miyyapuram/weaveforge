@@ -1,7 +1,7 @@
 {
-  "name": "@thesis/core",
+  "name": "@weaveforge/core",
   "version": "0.5.2",
-  "description": "Shared, framework-agnostic domain contracts and types for Thesis Tracker.",
+  "description": "Shared, framework-agnostic domain contracts and types for WeaveForge.",
   "license": "AGPL-3.0-only",
   "private": true,
   "repository": {

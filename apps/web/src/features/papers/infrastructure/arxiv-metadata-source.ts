@@ -1,4 +1,4 @@
-import type { IMetadataSource, PaperMetadata, PaperRef } from "@thesis/core";
+import { normalizeArxivId, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
 
 /**
  * arXiv metadata source. Implements the IMetadataSource contract so it can be
@@ -23,7 +23,8 @@ export class ArxivMetadataSource implements IMetadataSource {
   }
 
   async fetch(ref: PaperRef): Promise<PaperMetadata> {
-    const id = ref.value.trim();
+    // Accept an abs/pdf URL or an `arXiv:` prefixed string, not just a bare id.
+    const id = normalizeArxivId(ref.value) ?? ref.value.trim();
     const res = await this.fetchFn(`${this.baseUrl}?id_list=${encodeURIComponent(id)}`);
     if (!res.ok) {
       throw new Error(`arXiv request failed: ${res.status} ${res.statusText}`);

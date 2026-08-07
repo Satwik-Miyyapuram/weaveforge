@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fromRelativeBlobLinks, toRelativeBlobLinks } from "@thesis/core";
+import { fromRelativeBlobLinks, toRelativeBlobLinks } from "@weaveforge/core";
 import {
   assetExtension,
   assetMimeType,

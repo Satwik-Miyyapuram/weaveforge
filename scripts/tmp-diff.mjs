@@ -1,0 +1,21 @@
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { loadMigrationEnv } from "./lib/load-env.mjs";
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+loadMigrationEnv(root);
+const { Client } = createRequire(join(root, "apps/web/package.json"))("pg");
+const list = async (url, ssl) => {
+  const c = new Client({ connectionString: url, ...(ssl ? { ssl: { rejectUnauthorized: false } } : {}) });
+  await c.connect();
+  const r = await c.query("select tablename from pg_tables where schemaname='public' order by 1");
+  await c.end();
+  return r.rows.map(x => x.tablename);
+};
+const src = await list(process.env.SOURCE_DATABASE_URL, true);
+const tgt = await list(process.env.DATABASE_URL, false);
+console.log(`source ${src.length} tables, target ${tgt.length} tables`);
+const missing = src.filter(t => !tgt.includes(t));
+const extra = tgt.filter(t => !src.includes(t));
+console.log("in source, missing from target:", missing.join(", ") || "(none)");
+console.log("in target, not in source:", extra.join(", ") || "(none)");

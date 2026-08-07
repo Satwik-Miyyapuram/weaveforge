@@ -8,7 +8,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import config from "../thesis-tracker.config.ts";
+import config from "../weaveforge.config.ts";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const generatedPath = join(root, "apps/web/src/deployment/generated-registry.ts");
@@ -70,7 +70,7 @@ const declaredTools = [
     .matchAll(/"([a-z_]+)"/g),
 ].map((match) => match[1]);
 
-const pluginServerPath = join(root, "plugins/thesis-tracker-research/mcp-server/index.mjs");
+const pluginServerPath = join(root, "plugins/weaveforge-research/mcp-server/index.mjs");
 let pluginSource = "";
 try {
   pluginSource = readFileSync(pluginServerPath, "utf8");

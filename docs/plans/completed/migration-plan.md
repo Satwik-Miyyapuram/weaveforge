@@ -2,7 +2,7 @@
 
 Phased path from **Supabase Cloud** (managed Postgres + Auth) to **self-hosted Postgres** with optional **tiered blob storage** (R2 hot + OCI MinIO cold), while keeping Supabase Auth as the identity provider (Option A).
 
-**Index:** [`../../self-host-roadmap.md`](../../self-host-roadmap.md) · **OCI runbook:** [`../../backend/oci-phase3-setup.md`](../../backend/oci-phase3-setup.md)
+**Index:** [`../../self-host-roadmap.md`](../../self-host-roadmap.md) · **OCI runbook:** [`../../backend/oracle-shift-guide.md`](../../backend/oracle-shift-guide.md)
 
 ---
 
@@ -13,7 +13,7 @@ Phased path from **Supabase Cloud** (managed Postgres + Auth) to **self-hosted P
 | 0 Schema | Done | Apply all files in [`supabase/migrations/`](../../../supabase/migrations/) (`0001` … latest) on Supabase Cloud |
 | 1 Storage (R2 hot) | Done | Optional `NEXT_PUBLIC_BLOB_PROVIDER=tiered` — see [`../../storage/r2-setup.md`](../../storage/r2-setup.md) |
 | 2 Postgres code | Done | `wire-postgres-backend.ts` + contract tests — not used in prod yet |
-| 3 OCI infra | Paused | VM + Postgres + MinIO — [`../../backend/oci-phase3-setup.md`](../../backend/oci-phase3-setup.md) |
+| 3 OCI infra | Paused | VM + Postgres + MinIO — [`../../backend/oracle-shift-guide.md`](../../backend/oracle-shift-guide.md) |
 | 4 Shadow migrate | Not started | Export Supabase relational data → OCI Postgres; blobs → R2. No automated scripts in repo yet. |
 | 5 Cutover | Not started | Point `DATABASE_URL` at OCI; set `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` on server; keep Supabase Auth env vars |
 | 6 Auto tiering | Not started | Cron eviction R2 → MinIO — [`../../storage/tiering.md`](../../storage/tiering.md) |
@@ -53,9 +53,9 @@ BLOB_PROVIDER=tiered
 R2_ACCOUNT_ID=...
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
-R2_BUCKET_NAME=thesis-tracker-hot
+R2_BUCKET_NAME=weaveforge-hot
 BLOB_COLD_ENDPOINT=http://OCI_IP:9000
-BLOB_COLD_BUCKET=thesis-tracker-cold
+BLOB_COLD_BUCKET=weaveforge-cold
 ```
 
 ---

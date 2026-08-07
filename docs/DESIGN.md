@@ -1,4 +1,4 @@
-# Thesis Tracker — Design Document
+# WeaveForge — Design Document
 
 **Status:** Draft v1 · **Owner:** Satwik · **Last updated:** 2026-07-12
 **License:** AGPL-3.0-only (entire repository) · **Goal:** an open-source, reusable, modular tracker for a masters thesis on latent representation spaces.
@@ -66,7 +66,7 @@ features/<feature>/
 
 ### 3.2 Repository layout (monorepo)
 ```
-thesis-tracker/
+weaveforge/
 ├── apps/
 │   └── web/                      # Next.js PWA
 │       └── src/features/<feature>/{domain,application,infrastructure,ui}
@@ -74,7 +74,7 @@ thesis-tracker/
 │   ├── core/                     # shared domain contracts + types (TS)
 │   └── config/                   # shared lint/tsconfig
 ├── python/
-│   └── thesis_tracker/           # CLI/SDK, same module shape
+│   └── weaveforge/           # CLI/SDK, same module shape
 │       └── features/<feature>/{domain,application,infrastructure}
 ├── supabase/
 │   └── migrations/               # the single source of truth for the schema
@@ -142,7 +142,7 @@ These are not abstract aspirations — each maps to enforceable rules and concre
 ### 4.5 Dependency Inversion Principle (DIP)
 *Depend on abstractions, not concretions.*
 - Domain/application depend on interfaces defined in `domain/` and `backend/` (auth, session, blob). Concrete adapters are constructed at the composition root (`wireBackend()`, `bootstrap.ts`) and **injected**.
-- A single **composition root** (`apps/web/src/bootstrap.ts`, `python/thesis_tracker/container.py`) is the only place that knows concrete implementations and wires them together. Everywhere else receives dependencies via constructor/params.
+- A single **composition root** (`apps/web/src/bootstrap.ts`, `python/weaveforge/container.py`) is the only place that knows concrete implementations and wires them together. Everywhere else receives dependencies via constructor/params.
 
 ```ts
 // domain (no SDK import anywhere here)

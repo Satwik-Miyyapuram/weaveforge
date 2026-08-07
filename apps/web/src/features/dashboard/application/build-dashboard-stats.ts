@@ -6,8 +6,8 @@ import type {
   PaperRelation,
   ReportSection,
   TagWithPaperCount,
-} from "@thesis/core";
-import { addDays } from "@thesis/core";
+} from "@weaveforge/core";
+import { addDays } from "@weaveforge/core";
 
 export interface ProgressStat {
   done: number;

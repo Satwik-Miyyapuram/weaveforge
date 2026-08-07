@@ -1,4 +1,4 @@
-import type { Member } from "@thesis/core";
+import type { Member } from "@weaveforge/core";
 
 export function memberDisplayName(member: Member): string {
   return member.fullName ?? member.email ?? "Member";

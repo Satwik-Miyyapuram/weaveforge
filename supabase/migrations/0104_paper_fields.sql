@@ -35,11 +35,13 @@ create index if not exists paper_field_values_field_idx
 alter table paper_field_defs enable row level security;
 alter table paper_field_values enable row level security;
 
+drop policy if exists paper_field_defs_own on paper_field_defs;
 create policy paper_field_defs_own on paper_field_defs
   for all
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
 
+drop policy if exists paper_field_values_own on paper_field_values;
 create policy paper_field_values_own on paper_field_values
   for all
   using (user_id = (select auth.uid()))

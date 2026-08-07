@@ -29,8 +29,8 @@ function loadEnv(path) {
 }
 
 async function resolveApiUrl() {
-  if (process.env.THESIS_TRACKER_API_URL) {
-    return process.env.THESIS_TRACKER_API_URL.replace(/\/$/, "");
+  if (process.env.WEAVEFORGE_API_URL) {
+    return process.env.WEAVEFORGE_API_URL.replace(/\/$/, "");
   }
   for (const port of [3001, 3000]) {
     const base = `http://localhost:${port}`;
@@ -47,7 +47,7 @@ async function resolveApiUrl() {
 async function main() {
   const apiUrl = await resolveApiUrl();
 
-  let token = process.env.THESIS_TRACKER_TOKEN?.trim();
+  let token = process.env.WEAVEFORGE_TOKEN?.trim();
   if (!token) {
     const env = loadEnv(ENV_PATH);
     const url = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -70,7 +70,7 @@ async function main() {
     token = data.session.access_token;
     console.log(`Signed in as ${TEST_EMAIL}`);
   } else {
-    console.log("Using THESIS_TRACKER_TOKEN from environment");
+    console.log("Using WEAVEFORGE_TOKEN from environment");
   }
 
   console.log(`API: ${apiUrl}`);
@@ -87,8 +87,8 @@ async function main() {
       ...(process.env.WANDB_API_KEY?.trim()
         ? {}
         : { WANDB_MODE: "disabled", WANDB_SILENT: "true" }),
-      THESIS_TRACKER_TOKEN: token,
-      THESIS_TRACKER_API_URL: apiUrl,
+      WEAVEFORGE_TOKEN: token,
+      WEAVEFORGE_API_URL: apiUrl,
       LIVE_DUMMY_STEP_SEC: process.env.LIVE_DUMMY_STEP_SEC || "3",
       LIVE_DUMMY_STEPS: process.env.LIVE_DUMMY_STEPS || "40",
     },

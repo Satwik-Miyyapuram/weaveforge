@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue } from "@thesis/core";
+import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue } from "@weaveforge/core";
 import {
   buildProposeFillPrompt,
   emptyCellPaperIds,

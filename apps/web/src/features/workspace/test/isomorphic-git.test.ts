@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MemoryWorkspaceFs } from "@thesis/core/testing";
+import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
 
 /**

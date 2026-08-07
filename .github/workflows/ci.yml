@@ -50,7 +50,7 @@ jobs:
         run: npm run test:core
 
       - name: Run Web unit tests
-        run: npm test --workspace @thesis/web
+        run: npm test --workspace @weaveforge/web
 
       - name: Run Typechecks
         run: npm run typecheck
@@ -68,10 +68,10 @@ jobs:
         run: npm run check:api-route-tests
 
       - name: Lint Web App
-        run: npm run lint --workspace @thesis/web
+        run: npm run lint --workspace @weaveforge/web
 
       - name: Build Web App
-        run: npm run build --workspace @thesis/web
+        run: npm run build --workspace @weaveforge/web
 
   full-validation:
     if: github.event_name == 'workflow_dispatch'
@@ -95,12 +95,12 @@ jobs:
       - name: Run Web Supabase contract tests
         run: npm run test:integration:web
         env:
-          THESIS_TRACKER_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          THESIS_TRACKER_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
-          THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
-          THESIS_TRACKER_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
-          THESIS_TRACKER_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
+          WEAVEFORGE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          WEAVEFORGE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          WEAVEFORGE_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          WEAVEFORGE_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          WEAVEFORGE_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
+          WEAVEFORGE_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
           TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
           TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
           TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
@@ -111,7 +111,7 @@ jobs:
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
       - name: Build Web App
-        run: npm run build --workspace @thesis/web
+        run: npm run build --workspace @weaveforge/web
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -122,12 +122,12 @@ jobs:
         working-directory: apps/web
 
       - name: Run Playwright end-to-end tests
-        run: npm run test:e2e --workspace @thesis/web
+        run: npm run test:e2e --workspace @weaveforge/web
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          THESIS_TRACKER_EMAIL: ${{ secrets.TT_A_EMAIL }}
-          THESIS_TRACKER_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          WEAVEFORGE_EMAIL: ${{ secrets.TT_A_EMAIL }}
+          WEAVEFORGE_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
           TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
           TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
           TEST_ACCOUNT_EMAIL_PRIMARY: ${{ secrets.TEST_ACCOUNT_EMAIL_PRIMARY }}
@@ -151,7 +151,7 @@ jobs:
 
       - name: Lint (ruff)
         working-directory: python
-        run: ruff check thesis_tracker tests
+        run: ruff check weaveforge tests
 
       - name: Type-check (mypy)
         working-directory: python

@@ -8,7 +8,7 @@ test.describe("settings privileged APIs", () => {
   test.describe.configure({ timeout: 120_000 });
 
   test.beforeEach(async ({ page }, testInfo) => {
-    if (!e2eEnabled()) testInfo.skip(true, "Set THESIS_TRACKER_* env vars for the E2E user");
+    if (!e2eEnabled()) testInfo.skip(true, "Set WEAVEFORGE_* env vars for the E2E user");
     const user = e2eUserA();
     await bootstrapSession(page, user.email, user.password);
   });

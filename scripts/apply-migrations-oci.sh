@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Apply Thesis Tracker schema to OCI / self-hosted Postgres.
+# Apply WeaveForge schema to OCI / self-hosted Postgres — the psql original.
 # Usage: DATABASE_URL=postgres://... ./scripts/apply-migrations-oci.sh
+#
+# `npm run migrate:schema` now runs apply-migrations-oci.mjs, which applies the
+# same files in the same order through the `pg` driver and so needs no psql on
+# PATH — on Windows that means the EnterpriseDB installer, which wants admin
+# rights and whose CDN returns 403 often enough to block people. This is kept
+# for anyone who prefers it; the two are expected to stay in step.
 #
 # Order matters and used to be wrong. The base migrations reference `auth.users`
 # in a foreign key and `auth.uid()` in an RLS policy from 0001 onwards, so the
@@ -11,7 +17,7 @@
 set -euo pipefail
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "ERROR: Set DATABASE_URL (postgres://user:pass@host:5432/thesis)" >&2
+  echo "ERROR: Set DATABASE_URL (postgres://user:pass@host:5432/weaveforge)" >&2
   exit 1
 fi
 

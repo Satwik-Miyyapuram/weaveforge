@@ -34,5 +34,14 @@ create policy annotation_quotation_types_own on annotation_quotation_types
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
 
+-- `updated_at` is meaningless without this: a quotation type is re-classified
+-- in place (direct -> paraphrase), so the column would otherwise hold the
+-- insert time forever. `annotation_pins` (0103) has no updated_at and needs
+-- no trigger; this table does.
+drop trigger if exists annotation_quotation_types_set_updated_at on annotation_quotation_types;
+create trigger annotation_quotation_types_set_updated_at
+  before update on annotation_quotation_types
+  for each row execute function set_updated_at();
+
 comment on table annotation_quotation_types is
   'Citavi-style quotation taxonomy for Zotero annotations cached on papers.';

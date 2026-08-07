@@ -24,13 +24,17 @@ create index if not exists ai_proposals_resource_idx
 alter table ai_proposals enable row level security;
 grant select, insert, update, delete on ai_proposals to authenticated;
 
+drop policy if exists "ai_proposals_owner_select" on ai_proposals;
 create policy "ai_proposals_owner_select" on ai_proposals
   for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "ai_proposals_owner_insert" on ai_proposals;
 create policy "ai_proposals_owner_insert" on ai_proposals
   for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "ai_proposals_owner_update" on ai_proposals;
 create policy "ai_proposals_owner_update" on ai_proposals
   for update to authenticated using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+drop policy if exists "ai_proposals_owner_delete" on ai_proposals;
 create policy "ai_proposals_owner_delete" on ai_proposals
   for delete to authenticated using ((select auth.uid()) = user_id);
 
@@ -53,8 +57,10 @@ create index if not exists ai_audit_records_proposal_idx
 alter table ai_audit_records enable row level security;
 grant select, insert on ai_audit_records to authenticated;
 
+drop policy if exists "ai_audit_records_owner_select" on ai_audit_records;
 create policy "ai_audit_records_owner_select" on ai_audit_records
   for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "ai_audit_records_owner_insert" on ai_audit_records;
 create policy "ai_audit_records_owner_insert" on ai_audit_records
   for insert to authenticated with check ((select auth.uid()) = user_id);
 

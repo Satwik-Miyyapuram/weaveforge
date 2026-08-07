@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { IProjectBibliographyCollectionStore } from "@thesis/core";
+import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
 
 /**
  * Per-project Zotero collection mapping. Reads/writes `projects.zotero_collection`.

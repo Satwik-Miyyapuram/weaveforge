@@ -3,7 +3,7 @@
  * pdf.js can open. Also seeds the cache when a network URL wins.
  */
 
-import type { IPdfByteCache, PdfSourceResolution } from "@thesis/core";
+import type { IPdfByteCache, PdfSourceResolution } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { IndexedDbPdfByteCache } from "../infrastructure/indexeddb-pdf-byte-cache";
 import { resolvePaperPdfSource, paperToPdfSourcePaper } from "./resolve-paper-pdf-source";

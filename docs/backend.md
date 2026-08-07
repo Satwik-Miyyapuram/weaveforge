@@ -1,13 +1,13 @@
 # Backend & hosting
 
-Thesis Tracker separates **domain logic** (`@thesis/core`) from **persistence, auth, and blob storage**. The web app selects a backend provider at deploy time — same pattern as [integrations](integrations.md).
+WeaveForge separates **domain logic** (`@weaveforge/core`) from **persistence, auth, and blob storage**. The web app selects a backend provider at deploy time — same pattern as [integrations](integrations.md).
 
 Today the default is **Supabase** (managed Postgres + Auth + Storage). For larger orgs or self-hosting, you can target:
 
 - **Postgres + your own auth** (Oracle Cloud free-tier VM, Neon, RDS, …)
 - **Cloudflare** (Workers/Pages + Hyperdrive or D1 + R2 + Access)
 
-Repository interfaces in `@thesis/core` are the swap boundary — not PostgREST query builders.
+Repository interfaces in `@weaveforge/core` are the swap boundary — not PostgREST query builders.
 
 ---
 
@@ -66,7 +66,9 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...               # server only — /api/admin/crea
 DATABASE_URL=postgres://user:pass@host:5432/thesis
 ```
 
-`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and is **Phase 2 (in progress)** — see [`docs/backend/postgres-provider.md`](backend/postgres-provider.md). Default remains `supabase`.
+`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side** adapter — see [`docs/backend/postgres-provider.md`](backend/postgres-provider.md). Default remains `supabase`.
+
+It is **not** the self-hosting switch, and setting it in a deployed app breaks the browser bundle: the client repositories reach the database over HTTP through PostgREST, which a Postgres connection string cannot replace. To move a deployed app onto your own database, set `NEXT_PUBLIC_DATA_URL` — [`docs/backend/oracle-shift-guide.md`](backend/oracle-shift-guide.md).
 
 ---
 
@@ -103,7 +105,7 @@ User-facing setup: [README §3–5](../README.md).
 
 6. **Wire** — add `case "postgres":` in `wire-backend.ts`; blob adapter in `wire-storage.ts`.
 
-7. **Deploy** — set `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` and `DATABASE_URL`.
+7. **Deploy** — set `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` and `DATABASE_URL` for **server-side** code. The browser needs a data API of its own; see [`oracle-shift-guide.md`](backend/oracle-shift-guide.md).
 
 ### Oracle Cloud free tier (sketch)
 
@@ -154,7 +156,7 @@ Do **not** abstract PostgREST per-table — one adapter class per repository is 
 
 ## Python SDK
 
-`python/thesis_tracker/container.py` still uses Supabase directly. When the web `postgres` provider lands, mirror the same ports in Python (`IExperimentRepository`, etc.) and add a `DATABASE_URL` code path.
+`python/weaveforge/container.py` still uses Supabase directly. When the web `postgres` provider lands, mirror the same ports in Python (`IExperimentRepository`, etc.) and add a `DATABASE_URL` code path.
 
 ---
 
@@ -162,12 +164,12 @@ Do **not** abstract PostgREST per-table — one adapter class per repository is 
 
 ```bash
 npm run build:core
-npm test -w @thesis/core
-npm test -w @thesis/web
+npm test -w @weaveforge/core
+npm test -w @weaveforge/web
 npm run check:solid
 ```
 
-Live Supabase contract tests: set `THESIS_TRACKER_SUPABASE_URL`, `THESIS_TRACKER_SUPABASE_ANON_KEY`, and either `THESIS_TRACKER_TOKEN` (preferred) or legacy `THESIS_TRACKER_EMAIL` / `THESIS_TRACKER_PASSWORD`.
+Live Supabase contract tests: set `WEAVEFORGE_SUPABASE_URL`, `WEAVEFORGE_SUPABASE_ANON_KEY`, and either `WEAVEFORGE_TOKEN` (preferred) or legacy `WEAVEFORGE_EMAIL` / `WEAVEFORGE_PASSWORD`.
 
 ---
 

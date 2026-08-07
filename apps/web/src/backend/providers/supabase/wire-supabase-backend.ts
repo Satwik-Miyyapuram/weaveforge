@@ -34,9 +34,9 @@ import type {
   IReaderAnnotationProjectSource,
   IReaderAnnotationSource,
   IBlobStore,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@thesis/core";
+import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import { SupabaseDashboardLayoutRepository } from "@/features/dashboard/infrastructure/supabase-dashboard-layout-repository";
 import { SupabaseGraphSettingsRepository } from "@/features/relations/infrastructure/supabase-graph-settings-repository";

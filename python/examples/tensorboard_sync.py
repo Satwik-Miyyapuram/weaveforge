@@ -1,6 +1,6 @@
 """Import TensorBoard scalar curves into a run.
 
-    pip install 'thesis-tracker[tensorboard]'
+    pip install 'weaveforge[tensorboard]'
     python examples/tensorboard_sync.py /path/to/tb/logdir
 
 `sync={"tensorboard": logdir}` pulls every scalar tag as a curve on exit; the
@@ -9,7 +9,7 @@ last value of each also lands in the summary chips.
 
 import sys
 
-from thesis_tracker import track
+from weaveforge import track
 
 
 def main(logdir: str):

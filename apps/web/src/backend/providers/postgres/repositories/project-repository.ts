@@ -1,4 +1,4 @@
-import type { ICurrentUserProvider, IProjectRepository, Project } from "@thesis/core";
+import type { ICurrentUserProvider, IProjectRepository, Project } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 
 interface ProjectRow {

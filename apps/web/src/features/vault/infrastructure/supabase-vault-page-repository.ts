@@ -6,8 +6,8 @@ import {
   type VaultPage,
   type VaultPageFilter,
   type VaultPageTreeNode,
-} from "@thesis/core";
-import type { EntityStamp } from "@thesis/core";
+} from "@weaveforge/core";
+import type { EntityStamp } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 
 interface VaultPageRow {

@@ -1,5 +1,5 @@
 /**
- * @thesis/core — shared, framework-agnostic domain contracts and types.
+ * @weaveforge/core — shared, framework-agnostic domain contracts and types.
  *
  * This package owns the entities, repository interfaces, and use-cases. It has
  * no dependency on React, Next, Supabase, or any I/O library. The web app and

@@ -15,7 +15,7 @@
       "@/*": [
         "./src/*"
       ],
-      "@thesis/core": [
+      "@weaveforge/core": [
         "../../packages/core/src/index.ts"
       ]
     },
@@ -25,7 +25,7 @@
   "include": [
     "next-env.d.ts",
     "src/**/*",
-    "../../thesis-tracker.config.ts",
+    "../../weaveforge.config.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [

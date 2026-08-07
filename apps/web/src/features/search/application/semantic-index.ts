@@ -4,7 +4,7 @@ import {
   type IEmbedder,
   type SearchDoc,
   type VectorHit,
-} from "@thesis/core";
+} from "@weaveforge/core";
 
 /**
  * The semantic half of search.

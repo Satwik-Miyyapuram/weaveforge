@@ -114,3 +114,104 @@ test("url-meta: passes through an upstream non-OK status with a hint", async () 
     restore();
   }
 });
+
+test("url-meta: arXiv URLs resolve through the arXiv API, not the abs page", async () => {
+  const restore = stubFetch((url) => {
+    assert.match(url, /export\.arxiv\.org\/api\/query/);
+    return new Response(
+      `<feed><entry><title>BISCUIT: Causal Representation Learning</title>` +
+        `<summary>We study binary interactions.</summary>` +
+        `<published>2023-06-01T00:00:00Z</published>` +
+        `<author><name>Phillip Lippe</name></author>` +
+        `<arxiv:doi>10.1000/biscuit</arxiv:doi></entry></feed>`,
+    );
+  });
+  try {
+    const target = "https://arxiv.org/abs/2306.09643";
+    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.title, "BISCUIT: Causal Representation Learning");
+    assert.equal(body.arxivId, "2306.09643");
+    assert.equal(body.year, 2023);
+    assert.deepEqual(body.authors, ["Phillip Lippe"]);
+    assert.equal(body.abstract, "We study binary interactions.");
+  } finally {
+    restore();
+  }
+});
+
+test("url-meta: 422 on a bot wall rather than importing its <title>", async () => {
+  const restore = stubFetch(() =>
+    new Response("<html><head><title>Client Challenge</title></head></html>", {
+      headers: { "content-type": "text/html" },
+    }),
+  );
+  try {
+    const target = "https://www.nature.com/articles/s41586-021-03819-2";
+    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    assert.equal(res.status, 422);
+    assert.match((await res.json()).error, /blocked automated access/);
+  } finally {
+    restore();
+  }
+});
+
+test("url-meta: 422 when a page has no citation metadata at all", async () => {
+  const restore = stubFetch(() =>
+    new Response("<html><head><title>Some blog post</title></head></html>", {
+      headers: { "content-type": "text/html" },
+    }),
+  );
+  try {
+    const target = "https://example.com/post";
+    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    assert.equal(res.status, 422);
+    assert.match((await res.json()).error, /No citation metadata/);
+  } finally {
+    restore();
+  }
+});
+
+test("url-meta: a scheme-less host is fetched over https", async () => {
+  let seen = "";
+  const restore = stubFetch((url) => {
+    seen = url;
+    return new Response(
+      '<html><head><meta name="citation_title" content="Scheme Less"/></head></html>',
+      { headers: { "content-type": "text/html" } },
+    );
+  });
+  try {
+    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent("example.com/paper")}`));
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).title, "Scheme Less");
+    assert.equal(seen, "https://example.com/paper");
+  } finally {
+    restore();
+  }
+});
+
+test("url-meta: an explicit http target is kept as http, not upgraded", async () => {
+  let seen = "";
+  const restore = stubFetch((url) => {
+    seen = url;
+    return new Response(
+      '<html><head><meta name="citation_title" content="Plain HTTP"/></head></html>',
+      { headers: { "content-type": "text/html" } },
+    );
+  });
+  try {
+    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent("http://example.com/paper")}`));
+    assert.equal(res.status, 200);
+    assert.equal(seen, "http://example.com/paper");
+  } finally {
+    restore();
+  }
+});
+
+test("url-meta: the scheme-less fallback still cannot smuggle in file:", async () => {
+  const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent("file:///etc/passwd")}`));
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /http\(s\)/);
+});

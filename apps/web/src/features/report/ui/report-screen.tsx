@@ -7,7 +7,7 @@ import {
   type ReportSection,
   type ReportSectionTreeNode,
   type ReportStatus,
-} from "@thesis/core";
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -72,8 +72,8 @@ export function ReportScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const tree = data?.tree ?? emptyArray<import("@thesis/core").ReportSectionTreeNode>();
-  const flat = data?.flat ?? emptyArray<import("@thesis/core").ReportSection>();
+  const tree = data?.tree ?? emptyArray<import("@weaveforge/core").ReportSectionTreeNode>();
+  const flat = data?.flat ?? emptyArray<import("@weaveforge/core").ReportSection>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const reportCanComment = data?.reportCanComment ?? emptyMap<string, boolean>();
   const reportCanEdit = data?.reportCanEdit ?? emptyMap<string, boolean>();

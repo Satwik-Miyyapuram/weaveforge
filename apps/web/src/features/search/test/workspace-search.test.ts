@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PdfIndexSource, WorkspaceSnapshot } from "@thesis/core";
+import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReaderAnnotationType } from "@thesis/core";
+import type { ReaderAnnotationType } from "@weaveforge/core";
 import { READER_ANNOTATION_COLORS } from "../application/reader-annotation-helpers";
 
 export interface PendingSelectionCreate {
