@@ -497,7 +497,7 @@ What actually helps, in order:
    below.
 
 Nothing downstream is blocked while you wait: the migration scripts, schema and
-`.env.migration` can all be prepared without a VM.
+`secrets/.env.migration` can all be prepared without a VM.
 
 #### Retrying automatically
 
@@ -942,7 +942,7 @@ then leave this running in its own terminal:
 cloudflared access tcp --hostname db.yourdomain.com --url localhost:5432
 ```
 
-`.env.migration` then points at your own machine, because that is where the
+`secrets/.env.migration` then points at your own machine, because that is where the
 tunnel surfaces:
 
 ```ini
@@ -1160,7 +1160,7 @@ Remove `NEXT_PUBLIC_DATA_URL` and redeploy. Supabase still holds every row —
 the migration never wrote to it and never deleted anything. About a minute.
 
 If you had already been writing to Oracle and want those rows back, swap
-`SOURCE_DATABASE_URL` and `DATABASE_URL` in `.env.migration` and run
+`SOURCE_DATABASE_URL` and `DATABASE_URL` in `secrets/.env.migration` and run
 `npm run migrate` again in the other direction.
 
 ---
@@ -1177,7 +1177,7 @@ npm run migrate:blobs -- --cold      # to MinIO on your VM (cold tier)
 ```
 
 Nothing is deleted from Supabase Storage. Needs `SUPABASE_SERVICE_ROLE_KEY` and
-the R2 variables in `.env.migration`. Skippable — do it once the database move
+the R2 variables in `secrets/.env.migration`. Skippable — do it once the database move
 has settled.
 
 To use MinIO as the cold tier, make its bucket first: open
@@ -1230,7 +1230,7 @@ The things that cause real damage rather than lost time.
 1. **`lsblk` before `mkfs`.** Formatting the wrong disk destroys the VM.
 2. **`Safe to cut over` before stage 3.** The isolation check is the only thing
    between you and every user reading every other user's data.
-3. **`.env.migration` must be git-ignored.** Verify with `git check-ignore`.
+3. **Credentials live in `secrets/`, which is git-ignored.** Verify with `git check-ignore`, and never let a console download a key into the repo root.
 4. **Session pooler, not transaction pooler**, for the Supabase URI.
 5. **TLS before the box is real.** Tokens in the clear are account takeover.
 6. **`netfilter-persistent save`**, or the firewall rules vanish on reboot.
