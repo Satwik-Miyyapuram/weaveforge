@@ -3,34 +3,28 @@ import test from "node:test";
 import { shouldTrackPointer } from "../reactive-motion";
 
 /**
- * Which devices get the cursor glow.
+ * When the cursor glow tracks the pointer.
  *
- * The rule used to read `(pointer: fine)`, which describes the *primary*
- * pointer. On a touchscreen laptop that is the digitiser even with a mouse
- * attached, so the listeners never attached, `--rx`/`--ry` were never written,
- * and the glow sat in the middle of every card — lit, but following nothing.
+ * The rule used to guess at the hardware — first `(pointer: fine)`, which
+ * describes the *primary* pointer and so reads as "no mouse" on any touchscreen
+ * laptop, then `(any-pointer: fine)`, which was still wrong on the machine that
+ * reported it. Both failed the same way: no listener, so `--rx`/`--ry` were
+ * never written and the glow sat in the middle of every card, lit and following
+ * nothing. The device question is gone; only the two things the user actually
+ * chose are left.
  */
 
-const on = {
-  motion: "reactive",
-  reducedMotion: false,
-  anyPointerFine: true,
-};
+const on = { motion: "reactive", reducedMotion: false };
 
-test("a touchscreen laptop with a mouse still tracks the pointer", () => {
-  // The regression: `(pointer: fine)` is false here, `(any-pointer: fine)` true.
+test("tracks whenever reactive motion is on — no hardware guessing", () => {
   assert.equal(shouldTrackPointer(on), true);
 });
 
-test("a touch-only device does not", () => {
-  assert.equal(shouldTrackPointer({ ...on, anyPointerFine: false }), false);
-});
-
-test("reduced motion wins over everything", () => {
+test("reduced motion wins over the preference", () => {
   assert.equal(shouldTrackPointer({ ...on, reducedMotion: true }), false);
 });
 
-test("the user's own setting wins too", () => {
+test("the user's own setting is respected", () => {
   assert.equal(shouldTrackPointer({ ...on, motion: "calm" }), false);
   assert.equal(shouldTrackPointer({ ...on, motion: undefined }), false);
 });

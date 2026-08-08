@@ -142,7 +142,10 @@ services:
       # carries the project's ES256 public keys. Left on, verification of real
       # user tokens breaks again on the next restart, and the symptom is a
       # generic `error_generating_signer` at channel join. Flip this to false in
-      # `.env` once the tenant exists.
+      # `.env` once the tenant exists — and if it ever flips back, the
+      # `realtime-tenant-keys` service below puts the keys in again on the next
+      # start, so this is a preference now rather than the only thing holding
+      # collaboration up.
       SEED_SELF_HOST: ${REALTIME_SEED_SELF_HOST:-true}
       RUN_JANITOR: "true"
       ERL_AFLAGS: -proto_dist inet_tcp
@@ -165,6 +168,63 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # Re-applies the project's public signing keys to the Realtime tenant.
+  #
+  # Realtime's self-host seed does not create-if-missing: it rewrites the tenant
+  # row on every boot, and that wipes `jwt_jwks` — the column holding the ES256
+  # keys Supabase now signs sessions with. Without it, Realtime can verify the
+  # legacy HS256 keys and nothing else, so every channel join from a real user
+  # answers `error_generating_signer` and co-editing stops. The failure is
+  # config, not code, and it comes back on any restart.
+  #
+  # Rather than leave that resting on `REALTIME_SEED_SELF_HOST=false` staying
+  # false forever, this puts the keys back after every start. Idempotent, so it
+  # is safe on a stack that is already correct, and it means the seed flag can
+  # be flipped by accident without taking collaboration down with it.
+  #
+  # The `oct` entry is filtered out: that one carries the legacy shared secret,
+  # which Realtime already has as API_JWT_SECRET and which has no business in a
+  # column meant for public keys.
+  realtime-tenant-keys:
+    image: postgres:16
+    container_name: weaveforge-realtime-tenant-keys
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_healthy
+      realtime:
+        condition: service_started
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_USER: ${POSTGRES_USER:-weaveforge}
+      POSTGRES_DB: ${POSTGRES_DB:-weaveforge}
+      JWT_KEYS: ${JWT_KEYS:?Set JWT_KEYS in .env}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        export PGHOST=postgres PGUSER="$${POSTGRES_USER}" PGDATABASE="$${POSTGRES_DB}"
+        # Realtime creates the tenant on first boot; wait rather than race it.
+        for i in $$(seq 1 30); do
+          if psql -tAc "select 1 from _realtime.tenants where external_id = 'realtime-dev'" | grep -q 1; then
+            break
+          fi
+          sleep 2
+        done
+        # Through stdin, not `-c`: psql only interpolates `:'var'` in scripts.
+        printf '%s' "$$JWT_KEYS" > /tmp/jwt_keys.json
+        psql -v ON_ERROR_STOP=1 <<'SQL'
+        \set keys `cat /tmp/jwt_keys.json`
+        update _realtime.tenants
+           set jwt_jwks = jsonb_build_object(
+                 'keys',
+                 (select jsonb_agg(k)
+                    from jsonb_array_elements(:'keys'::jsonb -> 'keys') k
+                   where k->>'kty' <> 'oct'))
+         where external_id = 'realtime-dev';
+        SQL
+        echo "tenant signing keys are in place"
 
   # One hostname, two services.
   #
