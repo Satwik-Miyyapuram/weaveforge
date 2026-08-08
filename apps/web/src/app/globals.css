@@ -3719,7 +3719,16 @@ button.nav-link {
   .nav--enter-slide {
     animation: nav-slide-in var(--layout-duration) var(--layout-ease) both;
   }
-  .nav-links { display: flex; flex-direction: column; justify-content: flex-start; gap: 4px; flex: 1; }
+  /* `min-height: 0` and the scroll are what keep the bottom block on screen.
+     The sidebar is pinned `top: 0; bottom: 0` and nothing inside it could
+     scroll, so on a short viewport the column simply overflowed and Sign out —
+     the last item — ended up below the fold with no way to reach it. The links
+     give way first; the account block stays put. */
+  .nav-links {
+    display: flex; flex-direction: column; justify-content: flex-start; gap: 4px;
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
   .nav-link {
     flex: none; flex-direction: row; justify-content: flex-start; gap: 12px;
     font-size: 0.92rem; font-weight: 500;
@@ -3733,6 +3742,19 @@ button.nav-link {
   .nav-bottom.desktop-only {
     display: flex; flex-direction: column; gap: 6px;
     margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line);
+    flex: none;                       /* never compressed by the links above */
+  }
+  /* Account links stack in the sidebar instead of wrapping. `.header-actions`
+     is a wrapping pill row, which is right for the mobile top bar and wrong in
+     a 216px column: the pills wrapped into ragged two-per-row lines that made
+     the block taller than the items in it needed. */
+  .nav-bottom .header-actions {
+    flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 2px;
+  }
+  .nav-bottom .header-actions .header-link,
+  .nav-bottom .header-actions .signout {
+    justify-content: flex-start; gap: 12px; padding: 8px 14px; border-radius: 999px;
+    font-size: 0.86rem;
   }
   .nav-link.active { color: var(--active-fg); background: var(--active-bg); }
   

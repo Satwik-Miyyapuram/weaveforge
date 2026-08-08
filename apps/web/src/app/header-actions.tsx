@@ -9,7 +9,6 @@ import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
 
 const DOCS_URL = "https://docs.weaveforge.org/docs/";
-const REPO_URL = "https://github.com/Satwik-Miyyapuram/weaveforge";
 
 const GridIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
@@ -43,11 +42,6 @@ const HelpIcon = () => (
     <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
-const GitHubIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="action-icon" aria-hidden="true">
-    <path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.1.82-.26.82-.58l-.01-2.04c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.62-5.48 5.92.43.37.81 1.1.81 2.22l-.01 3.29c0 .32.21.69.82.57A12 12 0 0 0 12 .5Z" />
-  </svg>
-);
 const LogoutIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -64,7 +58,7 @@ const LogoutIcon = () => (
 export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" }) {
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
-  const { setProject } = useProject();
+  const { current, setProject } = useProject();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pendingProposals, setPendingProposals] = useState(0);
@@ -108,9 +102,16 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
 
   const links = (
     <>
-      <button type="button" className="header-link" title="Projects" onClick={goToProjects}>
-        <GridIcon /><span>Projects</span>
-      </button>
+      {/* Only when the project switcher is not showing. With a project
+          selected the switcher sits right above this in the sidebar and its
+          menu already offers "New / all projects" — two controls, two different
+          shapes, one action. This one exists purely as the escape hatch for the
+          case the switcher hides itself: an account route with no project. */}
+      {!current && (
+        <button type="button" className="header-link" title="Projects" onClick={goToProjects}>
+          <GridIcon /><span>Projects</span>
+        </button>
+      )}
       {canSupervise && (
         <Link href="/supervision" className="header-link" title="Supervisor view" onClick={() => setOpen(false)}>
           <EyeIcon /><span>Supervise</span>
@@ -140,16 +141,6 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
         onClick={() => setOpen(false)}
       >
         <HelpIcon /><span>Help &amp; docs</span>
-      </a>
-      <a
-        href={REPO_URL}
-        className="header-link"
-        title="Source on GitHub"
-        target="_blank"
-        rel="noreferrer"
-        onClick={() => setOpen(false)}
-      >
-        <GitHubIcon /><span>GitHub</span>
       </a>
       <button className="signout" onClick={() => void signOut()} title={user.email}>
         <LogoutIcon /><span>Sign out</span>
