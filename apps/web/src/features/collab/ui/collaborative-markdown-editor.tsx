@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
+import { EditorState, type Extension } from "@codemirror/state";
 import { markdown } from "@codemirror/lang-markdown";
 import { defaultKeymap } from "@codemirror/commands";
 import { yCollab } from "y-codemirror.next";
@@ -50,6 +50,10 @@ export function CollaborativeMarkdownEditor({
   displayName,
   onSave,
   className,
+  extraExtensions,
+  readOnly = false,
+  editorClassName,
+  onViewCreated,
 }: {
   resourceType: string;
   resourceId: string;
@@ -59,6 +63,22 @@ export function CollaborativeMarkdownEditor({
   displayName: string;
   onSave: (body: string) => Promise<void>;
   className?: string;
+  /**
+   * CodeMirror stack to use instead of the plain markdown default. Notes pass
+   * their own so co-editing keeps wikilink/cite completion, search and history —
+   * see `markdownEditorExtensions`. Must be referentially stable: the editor
+   * rebuilds when it changes.
+   */
+  extraExtensions?: Extension[];
+  readOnly?: boolean;
+  /** Class for the element CodeMirror mounts into, not the presence wrapper. */
+  editorClassName?: string;
+  /**
+   * Runs with the live `EditorView`; return a teardown. Lets a caller keep
+   * compartments in `extraExtensions` reconfigured — the notes editor uses it to
+   * follow the site theme without rebuilding the document.
+   */
+  onViewCreated?: (view: EditorView) => (() => void) | void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,6 +86,8 @@ export function CollaborativeMarkdownEditor({
   onSaveRef.current = onSave;
   const displayNameRef = useRef(displayName);
   displayNameRef.current = displayName;
+  const onViewCreatedRef = useRef(onViewCreated);
+  onViewCreatedRef.current = onViewCreated;
   const awarenessRef = useRef<Awareness | null>(null);
   // The body as the server last saw it. Seeding the Y.Doc with `initialBody`
   // fires the observer, and every teardown used to flush unconditionally — so
@@ -140,13 +162,17 @@ export function CollaborativeMarkdownEditor({
       onConnected: () => setTransportError(null),
     });
 
+    // Keyed by awareness client id, not by name. Keying by name meant two
+    // sessions of one account — or two people who happen to share a display
+    // name — collapsed into a single entry, so the presence line never appeared
+    // for exactly the case it is most needed in.
     const syncPeers = () => {
-      const names = new Set<string>();
-      awareness.getStates().forEach((state) => {
-        const name = (state.user as { name?: string } | undefined)?.name;
-        if (name) names.add(name);
+      const names: string[] = [];
+      awareness.getStates().forEach((state, clientId) => {
+        if (clientId === doc.clientID) return;
+        names.push((state.user as { name?: string } | undefined)?.name || "Someone");
       });
-      setPeers([...names]);
+      setPeers(names);
     };
     awareness.on("change", syncPeers);
     syncPeers();
@@ -157,17 +183,19 @@ export function CollaborativeMarkdownEditor({
     const state = EditorState.create({
       doc: yText.toString(),
       extensions: [
-        lineNumbers(),
-        markdown(),
-        keymap.of(defaultKeymap),
+        ...(extraExtensions ?? [lineNumbers(), markdown(), keymap.of(defaultKeymap), EditorView.lineWrapping]),
+        // After the caller's stack, so the Yjs binding owns the document and
+        // the undo history it installs wins over a plain `history()`.
         yCollab(yText, awareness),
-        EditorView.lineWrapping,
+        EditorView.editable.of(!readOnly),
       ],
     });
 
     const view = new EditorView({ state, parent: host });
+    const disposeView = onViewCreatedRef.current?.(view);
 
     return () => {
+      if (typeof disposeView === "function") disposeView();
       if (saveTimer.current) clearTimeout(saveTimer.current);
       yText.unobserve(onYText);
       awareness.off("change", syncPeers);
@@ -185,13 +213,13 @@ export function CollaborativeMarkdownEditor({
       doc.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- remount when resource or author changes
-  }, [resourceType, resourceId, authorId, session]);
+  }, [resourceType, resourceId, authorId, session, extraExtensions, readOnly]);
 
   return (
     <div className={className}>
-      {peers.length > 1 ? (
+      {peers.length > 0 ? (
         <div className="collab-presence muted" role="status">
-          Editing with {peers.filter((n) => n !== displayName).join(", ") || "others"}
+          Editing with {peers.join(", ")}
         </div>
       ) : null}
       {transportError ? (
@@ -199,7 +227,7 @@ export function CollaborativeMarkdownEditor({
           Live sync unavailable ({transportError}). Your edits are still saved.
         </p>
       ) : null}
-      <div ref={hostRef} />
+      <div ref={hostRef} className={editorClassName} />
     </div>
   );
 }

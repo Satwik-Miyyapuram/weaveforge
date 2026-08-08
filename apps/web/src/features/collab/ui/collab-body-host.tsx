@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { Extension } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
 import { CollaborativeMarkdownEditor } from "./collaborative-markdown-editor.js";
 
@@ -10,12 +12,21 @@ export function CollabBodyHost({
   initialBody,
   onSave,
   className,
+  extraExtensions,
+  readOnly,
+  editorClassName,
+  onViewCreated,
 }: {
   resourceType: string;
   resourceId: string;
   initialBody: string;
   onSave: (body: string) => Promise<void>;
   className?: string;
+  /** Caller's CodeMirror stack — see `CollaborativeMarkdownEditor`. */
+  extraExtensions?: Extension[];
+  readOnly?: boolean;
+  editorClassName?: string;
+  onViewCreated?: (view: EditorView) => (() => void) | void;
 }) {
   const [authorId, setAuthorId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Editor");
@@ -51,6 +62,10 @@ export function CollabBodyHost({
       displayName={displayName}
       onSave={onSave}
       className={className}
+      extraExtensions={extraExtensions}
+      readOnly={readOnly}
+      editorClassName={editorClassName}
+      onViewCreated={onViewCreated}
     />
   );
 }
