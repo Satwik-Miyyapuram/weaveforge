@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { CollaborativeMarkdownEditor } from "./collaborative-markdown-editor.js";
 
@@ -28,10 +28,18 @@ export function CollabBodyHost({
       .then((p) => setDisplayName(p?.fullName ?? p?.email ?? "Editor"));
   }, []);
 
+  // `collabSession` builds a fresh object every call, and the editor keys its
+  // Yjs/CodeMirror effect on that object. Calling it inline made the identity
+  // change on every render, so the editor tore itself down and rebuilt — and
+  // each teardown flushed a save, which re-rendered the host, which built
+  // another session. Memoised per resource; the container is a singleton.
+  const session = useMemo(
+    () => getContainer().collab.collabSession(resourceType, resourceId),
+    [resourceType, resourceId],
+  );
+
   if (!getContainer().collab.enabled()) return null;
   if (!authorId) return <p className="muted">Loading editor…</p>;
-
-  const session = getContainer().collab.collabSession(resourceType, resourceId);
 
   return (
     <CollaborativeMarkdownEditor

@@ -82,6 +82,32 @@ let realtimeKey: string | null = null;
  * When `realtimeUrl` is unset this returns the main client, so nothing changes
  * for a deployment that has not moved its data.
  */
+/**
+ * Encode every outgoing socket frame as Phoenix's plain-JSON tuple.
+ *
+ * `realtime-js` binary-encodes *all* `broadcast` pushes — see `Serializer.encode`,
+ * which takes the binary "user broadcast push" branch for any broadcast whose
+ * payload carries an `event`, whatever the payload's type. The self-hosted
+ * Realtime on OCI does not speak that frame kind: it answers by tearing the
+ * whole websocket down with a 1011, taking the co-editing channel *and* the
+ * project-wide cache-invalidation channel with it.
+ *
+ * The failure is invisible from the app's side — the join succeeds, the client
+ * reconnects, and the next send kills it again — so co-editing looked like it
+ * had no transport at all while every `phx_join` reported `SUBSCRIBED`.
+ *
+ * JSON frames are what the joins already use and what the server has always
+ * understood, so pinning the encoder to them costs nothing but the binary
+ * fast path for ArrayBuffer payloads, which this app does not send: CRDT
+ * updates go over the wire base64-encoded.
+ */
+function encodeRealtimeMessageAsJson(
+  msg: { join_ref?: string | null; ref?: string | null; topic: string; event: string; payload: unknown },
+  callback: (result: string) => void,
+): void {
+  callback(JSON.stringify([msg.join_ref, msg.ref, msg.topic, msg.event, msg.payload]));
+}
+
 export function getRealtimeClient(main: SupabaseClient): SupabaseClient {
   const config = readBackendConfig();
   const url = config.realtimeUrl;
@@ -103,6 +129,7 @@ export function getRealtimeClient(main: SupabaseClient): SupabaseClient {
       // then retries forever, so the log fills with `Unauthorized` for a
       // resource the user plainly owns.
       accessToken: async () => (await main.auth.getSession()).data.session?.access_token ?? null,
+      realtime: { encode: encodeRealtimeMessageAsJson },
     });
     realtimeKey = key;
     // Prime the socket's token immediately. `setAuth()` with no argument
