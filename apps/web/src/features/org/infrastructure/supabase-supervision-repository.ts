@@ -59,6 +59,45 @@ export class SupabaseSupervisionRepository implements ISupervisionRepository {
     if (error) throw error;
     return (data as LogEntryRow[]).map(logToDomain);
   }
+
+  async listMilestonesFor(memberIds: readonly string[]): Promise<Map<string, Milestone[]>> {
+    if (memberIds.length === 0) return new Map();
+    const { data, error } = await this.db
+      .from("milestones")
+      .select("*, user_id")
+      .in("user_id", memberIds)
+      .order("target_date", { ascending: true, nullsFirst: false });
+    if (error) throw error;
+    return groupByOwner(data as (MilestoneRow & { user_id: string })[], memberIds, milestoneToDomain);
+  }
+
+  async listLogsFor(memberIds: readonly string[]): Promise<Map<string, LogEntry[]>> {
+    if (memberIds.length === 0) return new Map();
+    const { data, error } = await this.db
+      .from("log_entries")
+      .select("*, user_id")
+      .in("user_id", memberIds)
+      .order("entry_date", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return groupByOwner(data as (LogEntryRow & { user_id: string })[], memberIds, logToDomain);
+  }
+}
+
+/**
+ * Split rows back out by owner, preserving the order the database returned.
+ *
+ * Every requested id gets an entry, empty or not: a supervisee with no logs has
+ * to read as "nothing yet", not as "not loaded".
+ */
+function groupByOwner<Row extends { user_id: string }, T>(
+  rows: readonly Row[],
+  memberIds: readonly string[],
+  toDomain: (row: Row) => T,
+): Map<string, T[]> {
+  const byOwner = new Map<string, T[]>(memberIds.map((id) => [id, []]));
+  for (const row of rows) byOwner.get(row.user_id)?.push(toDomain(row));
+  return byOwner;
 }
 
 function milestoneToDomain(r: MilestoneRow): Milestone {

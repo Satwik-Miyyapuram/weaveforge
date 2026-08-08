@@ -216,7 +216,7 @@ function SafeExternalLink({ href, children }: { href: string; children: ReactNod
   const safe = sanitizePdfUrl(href);
   if (!safe) return null;
   return (
-    <a className="secondary-btn" href={safe} target="_blank" rel="noreferrer">
+    <a className="btn-secondary" href={safe} target="_blank" rel="noreferrer">
       {children}
     </a>
   );

@@ -15,7 +15,7 @@ export function getSupabase() {
         "Copy apps/web/.env.local.example to .env.local and fill it in.",
     );
   }
-  return createSupabaseClient(url, key);
+  return createSupabaseClient(url, key, config.dataUrl);
 }
 
 export type { SupabaseClient } from "@supabase/supabase-js";

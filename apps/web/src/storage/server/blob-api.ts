@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createRestClient } from "@/backend/providers/supabase/client";
 import type { BlobTier, IBlobRegistry, IBlobStore, ICurrentUserProvider } from "@weaveforge/core";
 import { readBackendConfig } from "@/backend/config";
 import { getPgPool } from "@/backend/providers/postgres/pool";
@@ -97,7 +98,7 @@ export function supabaseClientForToken(accessToken: string): SupabaseClient {
   if (!url || !anonKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY.");
   }
-  return createClient(url, anonKey, {
+  return createRestClient(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });
 }

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createRestClient } from "@/backend/providers/supabase/client";
 import type { BlobTier } from "@weaveforge/core";
 import { readBackendConfig } from "@/backend/config";
 
@@ -59,7 +59,7 @@ async function sharedResourceToUser(
   const url = backend.supabaseUrl;
   const serviceKey = backend.supabaseServiceRoleKey;
   if (!url || !serviceKey) return false;
-  const admin = createClient(url, serviceKey);
+  const admin = createRestClient(url, serviceKey);
   const { data, error } = await admin.rpc("shared_to_user", {
     rtype: resourceType,
     rid: resourceId,
@@ -79,7 +79,7 @@ export async function resolveBlobTierForViewer(
   const serviceKey = backend.supabaseServiceRoleKey;
   if (!url || !serviceKey) return null;
 
-  const admin = createClient(url, serviceKey);
+  const admin = createRestClient(url, serviceKey);
   const { data, error } = await admin
     .from("blob_objects")
     .select("user_id, tier")

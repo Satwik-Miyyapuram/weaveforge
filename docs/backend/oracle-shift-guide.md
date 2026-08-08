@@ -1114,18 +1114,63 @@ recognise means the copy worked and you are done.
 
 ## 3.3 Flip it
 
-One variable, in Vercel → Settings → Environment Variables:
+Two variables, in Vercel → Settings → Environment Variables:
 
 ```ini
-NEXT_PUBLIC_DATA_URL=https://your-oci-host:3000
+NEXT_PUBLIC_DATA_URL=https://api.example.org
+NEXT_PUBLIC_REALTIME_URL=https://api.example.org
 ```
 
 Leave `NEXT_PUBLIC_SUPABASE_URL`, the anon key, and
 `NEXT_PUBLIC_BACKEND_PROVIDER=supabase` exactly as they are. Redeploy.
 
-Table reads and writes now go to your Postgres; sign-in, sessions, storage and
-realtime still go to Supabase. Nothing else in the app changes, because nothing
-else knows the difference.
+Table reads and writes now go to your Postgres; sign-in and sessions still go to
+Supabase.
+
+### Why realtime has to move with the data
+
+It reads earlier in this guide as though realtime could stay behind. It cannot,
+and the failure is quiet enough to be worth spelling out.
+
+Co-editing does not sync through the database — it is a broadcast channel, with
+Realtime acting as a relay. The channel is opened `private: true`, which means
+Realtime authorizes the join with an RLS policy on `realtime.messages`
+(migration `0044`), and that policy calls `can_view_resource`, which reads
+`vault_pages`, `papers` and `shares`.
+
+Those reads happen in whatever database Realtime is connected to. Leave it on
+Supabase after the data has moved and it authorizes against a copy frozen at
+migration time:
+
+- a note created after the cutover has no row there → **join denied, co-editing
+  dead on that note**;
+- a collaborator added after the cutover is invisible → **denied**;
+- documents that existed before, with unchanged permissions, keep working.
+
+Half the app syncs, half does not, and the editor reports nothing — it just
+stops converging. So the stack runs its own Realtime against its own Postgres,
+where the policy is asking about rows that are actually current.
+
+Nothing else in the app changes. Only broadcast is used — there are no
+`postgres_changes` subscriptions anywhere — so there is no replication slot,
+publication, or WAL configuration to get right.
+
+### After Realtime's first boot, re-apply the policies
+
+Realtime runs its own migrations on startup and owns the `realtime` schema;
+depending on version it replaces `realtime.messages`, taking the policies with
+it. Put them back — this is safe to run against live data and is why the
+follow-ups are separable:
+
+```bash
+DATABASE_URL="postgres://weaveforge:$PW@localhost:15432/weaveforge" \
+  npm run migrate:schema -- --follow-ups-only
+```
+
+That also applies `0028_realtime_broadcast_policies.sql`, which authorizes the
+`proj:{projectId}` cache-invalidation topic. `0044` only ever resolved `crdt:`
+topics, so that channel had been failing closed since it shipped — harmlessly
+(a stale tab refetches on its own schedule), which is why nobody noticed.
 
 ## 3.4 ⚠️ Get a certificate before anyone else uses it
 
@@ -1150,6 +1195,9 @@ Either way, point `NEXT_PUBLIC_DATA_URL` at the `https://` address.
 - Sign in. *(This goes through Supabase either way — if it fails, the problem is
   auth config, not the migration.)*
 - Open a paper, a note, the graph.
+- **Create a new note, then open it in two browsers and type in both.** This is
+  the check that catches a realtime still pointed at Supabase: an old note would
+  sync and hide the problem, a new one will not sync at all.
 - **Sign in as a second user and confirm you cannot see the first one's work.**
   Stage 2 proved this at the database; this proves it through the app.
 - Write something, reload, confirm it persisted.

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createRestClient } from "@/backend/providers/supabase/client";
 import { readBackendConfig } from "@/backend/config";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { isApiTokenFormat } from "@/features/settings/infrastructure/api-token-crypto";
@@ -13,7 +13,7 @@ export function sdkDbForUserToken(token: string) {
   const url = cfg.supabaseUrl;
   const anonKey = cfg.supabaseAnonKey;
   if (!url || !anonKey) throw new Error("Missing Supabase URL or anon key.");
-  return createClient(url, anonKey, {
+  return createRestClient(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     // API routes are stateless. Prevent supabase-js from attempting to restore
     // or refresh an unrelated server-side session instead of this request's

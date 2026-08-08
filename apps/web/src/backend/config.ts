@@ -20,6 +20,18 @@ export interface BackendConfig {
    * Unset means "same as Supabase", which is the current arrangement.
    */
   readonly dataUrl?: string;
+  /**
+   * Where the realtime service lives, when it is not Supabase's.
+   *
+   * Broadcast channels are authorized by RLS policies on `realtime.messages`,
+   * and those policies read the application tables (`can_view_resource`). They
+   * therefore have to run against the database that actually holds the data:
+   * once `dataUrl` moves, a Supabase-hosted realtime authorizes against a
+   * frozen copy and denies every resource created after the cutover.
+   *
+   * Unset means "same as Supabase", which is correct until the data moves.
+   */
+  readonly realtimeUrl?: string;
   /** Supabase anon/public key (required when provider = supabase). */
   readonly supabaseAnonKey?: string;
   /** Service role key — server routes only (optional in browser bundle). */
@@ -47,6 +59,7 @@ function fromEnv(env: EnvReader): BackendConfig {
     provider,
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
     dataUrl: env.NEXT_PUBLIC_DATA_URL,
+    realtimeUrl: env.NEXT_PUBLIC_REALTIME_URL,
     supabaseAnonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET,
@@ -104,6 +117,7 @@ export function readBackendConfig(env?: EnvReader): BackendConfig {
     provider: pick(process.env.NEXT_PUBLIC_BACKEND_PROVIDER, PROVIDERS, "supabase"),
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
     dataUrl: process.env.NEXT_PUBLIC_DATA_URL,
+    realtimeUrl: process.env.NEXT_PUBLIC_REALTIME_URL,
     supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET,

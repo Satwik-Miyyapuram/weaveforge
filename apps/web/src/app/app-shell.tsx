@@ -86,8 +86,15 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // around. Collapse-toggle animations still play once this is on.
   const [anim, setAnim] = useState(false);
 
-  // Warm the cache for the active project so the first visit to each tab is
-  // instant instead of hitting Supabase on mount.
+  // Deliberately does NOT warm every list for the project.
+  //
+  // It used to: ten tables — papers, notes, pins, logs, sections, lists, the
+  // relation graph, experiments, milestones, tags — on every page load, whatever
+  // screen the user was on. That is what made a single screen cost ~30 requests.
+  // Screens load their own data, `prefetchScreenForPath` warms the next one on
+  // tab hover, and the screen cache (memory + IndexedDB) keeps a revisit free,
+  // so the blanket read bought a first-visit head start the other three
+  // mechanisms already cover.
   useEffect(() => {
     if (!current) return;
     const projectId = current.id;
@@ -97,7 +104,6 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       const ctx = getContainer().projects.context;
       if (ctx.projectId !== projectId) return;
-      void getContainer().dashboard.prefetch();
       // Browser-triggered citation alerts: at most once per tracked paper/day.
       // Use-case also aborts writes if projectId changes mid-poll.
       void getContainer().papers.checkCitationAlerts().catch(() => undefined);

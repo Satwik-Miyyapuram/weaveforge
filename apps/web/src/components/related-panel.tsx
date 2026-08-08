@@ -31,7 +31,9 @@ export function RelatedPanel({
   seedId: string;
   limit?: number;
 }) {
-  const searchIndex = useSearchIndex();
+  // This panel genuinely needs the index — it is what "related" is computed
+  // from — so it warms it rather than waiting for someone else to.
+  const searchIndex = useSearchIndex(true);
   const [items, setItems] = useState<RelatedItem[] | null>(null);
 
   useEffect(() => {

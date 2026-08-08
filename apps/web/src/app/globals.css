@@ -950,9 +950,16 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
   cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
   color: var(--text); background: transparent; border: 1px solid var(--border-strong);
   padding: 8px 14px; border-radius: 9px; transition: background 0.15s, border-color 0.15s;
+  /* Links wear this class too (reader, AI review) — a button that underlines
+     itself does not read as a button. */
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
 }
 .btn-secondary:hover { background: var(--surface2); }
 .btn-secondary:disabled { opacity: 0.6; cursor: default; }
+/* Destructive secondary — pairs with .btn-primary so a decision reads as one
+   control group, while still colouring the side that discards something. */
+.btn-secondary.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border-strong)); }
+.btn-secondary.danger:hover { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
 /* Ghost: borderless secondary for low-emphasis chrome (e.g. org setup Back). */
 .btn-ghost {
   cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
@@ -4360,7 +4367,30 @@ button.nav-link {
 .ai-review-card time, .ai-kind { color: var(--muted); font-size: 0.82rem; }
 .ai-kind { color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 .ai-proposal-content { overflow-wrap: anywhere; margin: 16px 0; padding: 12px; border-radius: 8px; background: var(--surface-alt); font: inherit; line-height: 1.55; }
-.ai-review-actions { padding-top: 14px; border-top: 1px solid var(--line); }
+.ai-review-actions { padding-top: 14px; border-top: 1px solid var(--line); justify-content: flex-end; }
+/* Reject sits left of Approve but both belong to one decision, so they share a
+   row end rather than being pushed to opposite edges of the card. */
+.ai-review-actions > * { flex: none; }
+
+/* "AI settings" is a two-word control, not a paragraph — it wrapped mid-label
+   at narrow widths and read as a broken box next to the heading. */
+.ai-review-screen .screen-header .btn-secondary {
+  white-space: nowrap; align-self: start; text-decoration: none;
+}
+
+/* Sources read as named chips, not a comma-run of ids. */
+.ai-review-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; }
+.ai-review-sources-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); margin-right: 2px;
+}
+.ai-review-source {
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 3px 9px; border-radius: 999px; font-size: 0.78rem;
+  color: var(--text); background: var(--surface-alt); border: 1px solid var(--line);
+  text-decoration: none;
+}
+a.ai-review-source:hover { border-color: var(--border-strong); background: var(--surface2); }
 
 /* Provenance split pane (Phase D): proposed write | source evidence. */
 .ai-review-body { display: grid; gap: 16px; margin: 12px 0; }
@@ -5101,15 +5131,19 @@ button.nav-link {
 :root[data-motion="reactive"] .sub-tab:active { translate: 0; scale: 0.97; }
 
 /* Nav glyphs pop on hover. Icon only — the label stays put, so the hit target
-   does not move under a finger already travelling toward it. */
-:root[data-motion="reactive"] :is(.nav a, .tabbar a) :is(.vicon, .nav-icon) {
+   does not move under a finger already travelling toward it.
+
+   Matched on `.nav-link`, not on the element type. Every entry in the nav is a
+   link except Search, which opens the palette and so is a `<button>` — an
+   `a`-scoped selector animated the whole bar apart from that one item. */
+:root[data-motion="reactive"] :is(.nav, .tabbar) .nav-link :is(.vicon, .nav-icon) {
   translate: 0;
   scale: 1;
   transition:
     translate var(--rm-slow) var(--rm-spring),
     scale var(--rm-base) var(--rm-spring);
 }
-:root[data-motion="reactive"] :is(.nav a, .tabbar a):hover :is(.vicon, .nav-icon) {
+:root[data-motion="reactive"] :is(.nav, .tabbar) .nav-link:hover :is(.vicon, .nav-icon) {
   translate: 0 -2px;
   scale: 1.09;
 }

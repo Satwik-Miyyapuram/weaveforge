@@ -80,8 +80,16 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   }, [open]);
 
   useEffect(() => {
-    const refresh = () => void getContainer().aiProposals.pendingCount().then(setPendingProposals).catch(() => setPendingProposals(0));
-    refresh();
+    const read = () =>
+      void getContainer().aiProposals.pendingCount().then(setPendingProposals).catch(() => setPendingProposals(0));
+    // On mount the memoized count is what we want — three copies of this
+    // component mount as the breakpoint settles. On an explicit change event it
+    // is exactly what we do not want, so drop it first.
+    const refresh = () => {
+      getContainer().aiProposals.forgetPending();
+      read();
+    };
+    read();
     window.addEventListener("ai-proposals-changed", refresh);
     return () => window.removeEventListener("ai-proposals-changed", refresh);
   }, []);

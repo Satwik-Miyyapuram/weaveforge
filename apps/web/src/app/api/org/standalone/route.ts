@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createRestClient } from "@/backend/providers/supabase/client";
 import { readBackendConfig } from "@/backend/config";
 
 function bearerToken(request: Request): string | null {
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing Supabase URL or anon key." }, { status: 500 });
   }
 
-  const db = createClient(url, anonKey, {
+  const db = createRestClient(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const { error: userErr } = await db.auth.getUser(token);

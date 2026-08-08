@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createRestClient } from "./client";
 import type { IAdminUserProvisioner, Member, ProvisionUserInput, Role } from "@weaveforge/core";
 
 interface ProfileRow {
@@ -27,7 +27,7 @@ export class SupabaseAdminUserProvisioner implements IAdminUserProvisioner {
   ) {}
 
   private admin() {
-    return createClient(this.url, this.serviceRoleKey, { auth: { persistSession: false } });
+    return createRestClient(this.url, this.serviceRoleKey, { auth: { persistSession: false } });
   }
 
   async resolveCaller(accessToken: string): Promise<Member | null> {

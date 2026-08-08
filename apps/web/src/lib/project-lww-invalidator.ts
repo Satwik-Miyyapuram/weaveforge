@@ -3,6 +3,7 @@
  */
 
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import { getRealtimeClient } from "@/backend/providers/supabase/client";
 
 import {
   isKnownResourceType,
@@ -106,7 +107,9 @@ export class ProjectLwwInvalidator {
     if (this.channel) void this.channel.unsubscribe();
     this.channel = null;
     if (!projectId) return;
-    this.channel = db.channel(`proj:${projectId}`, {
+    // Same socket split as co-editing — see `getRealtimeClient`.
+    const realtime = getRealtimeClient(db);
+    this.channel = realtime.channel(`proj:${projectId}`, {
       config: { broadcast: { self: false }, private: true },
     });
     this.channel.on("broadcast", { event: "lww" }, ({ payload }) => {
@@ -120,7 +123,11 @@ export class ProjectLwwInvalidator {
         invalidateAllRepoCaches();
       }
     });
-    void this.channel.subscribe();
+    // Token first, then join. A private channel is authorized against the
+    // caller's identity, and a join that goes out before the socket has a token
+    // is an anonymous one — refused, then retried on a loop.
+    const channel = this.channel;
+    void realtime.realtime.setAuth().then(() => channel.subscribe());
   }
 
   notifyPeers(resourceType?: ResourceType) {

@@ -11,6 +11,62 @@ import { getContainer } from "@/bootstrap";
 import { Markdown } from "@/components/markdown";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
+import { loadCiteLinkCatalog } from "@/lib/use-cite-links";
+
+/** What a source id points at, once resolved to something a person can read. */
+interface SourceTarget {
+  title: string;
+  href: string;
+}
+
+/**
+ * Source ids resolved to titles.
+ *
+ * A proposal records what it read as entity ids, which is right for storage and
+ * useless on screen: "Sources: d67bb6f5-970d-…" tells a reviewer nothing about
+ * whether the evidence is a paper they trust. The cite-link catalog already
+ * carries id → title → href for papers, notes, and report sections, which is
+ * exactly the set a proposal can cite.
+ */
+function useSourceTargets(): Map<string, SourceTarget> {
+  const [targets, setTargets] = useState<Map<string, SourceTarget>>(() => new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadCiteLinkCatalog()
+      .then((catalog) => {
+        if (cancelled) return;
+        const next = new Map<string, SourceTarget>();
+        for (const paper of catalog.papers) {
+          next.set(paper.id, { title: paper.title, href: `/papers?paper=${encodeURIComponent(paper.id)}` });
+        }
+        for (const note of catalog.notes) {
+          next.set(note.id, { title: note.title, href: `/notes?page=${encodeURIComponent(note.id)}` });
+        }
+        for (const section of catalog.sections) {
+          next.set(section.id, {
+            title: section.title,
+            href: `/report?section=${encodeURIComponent(section.id)}`,
+          });
+        }
+        setTargets(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return targets;
+}
+
+/** A source id shortened for display, for the ones nothing resolves. */
+function unresolvedSourceLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.length <= 12) return trimmed;
+  // A bare id is not worth 36 characters of a sentence; a URL keeps its shape.
+  return /^[0-9a-f-]{32,}$/i.test(trimmed) ? `${trimmed.slice(0, 8)}…` : trimmed;
+}
 
 const label: Record<AiWriteProposal["kind"], string> = {
   append_paper_note: "Append to paper note", create_vault_note: "Create vault note",
@@ -111,6 +167,7 @@ export function AiProposalReviewScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sourceTargets = useSourceTargets();
   const reload = useCallback(async () => {
     setLoading(true);
     try { setItems(await getContainer().aiProposals.listPending()); setError(null); }
@@ -138,10 +195,10 @@ export function AiProposalReviewScreen() {
   }
   if (loading) return <ScreenLoader />;
   return <section className="screen ai-review-screen">
-    <div className="screen-header"><div><p className="eyebrow">AI safety</p><h1>Review suggestions</h1><p className="muted">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p></div><Link className="secondary-btn" href="/settings">AI settings</Link></div>
+    <div className="screen-header"><div><p className="eyebrow">AI safety</p><h1>Review suggestions</h1><p className="muted">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p></div><Link className="btn-secondary" href="/settings">AI settings</Link></div>
     {error && <p className="form-error" role="alert">{error}</p>}
     {!items.length ? <div className="card empty-state"><h2>Nothing to review</h2><p>New AI suggestions will appear here before they can change your research workspace.</p></div> : <>
-      <div className="ai-review-toolbar"><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong>{appendOnly.length > 1 && <button className="primary-btn" disabled={busy !== null} onClick={() => void approveAll()}>Approve all safe additions</button>}</div>
+      <div className="ai-review-toolbar"><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong>{appendOnly.length > 1 && <button className="btn-primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve all safe additions</button>}</div>
       <div className="ai-review-list">{items.map((item) => {
         const evidence = item.evidence ?? [];
         return <article className={`card ai-review-card${evidence.length ? " ai-review-card--split" : ""}`} key={item.id}>
@@ -157,23 +214,26 @@ export function AiProposalReviewScreen() {
             </div>}
           </div>
           {evidence.length === 0 && item.sourceLinks.length > 0 && (
-            <p className="muted">
-              Sources:{" "}
+            <p className="ai-review-sources muted">
+              <span className="ai-review-sources-label">Sources</span>
               {item.sourceLinks.map((raw, i) => {
-                const href = sanitizeReaderHref(raw) ?? sanitizeAppHref(raw);
-                const sep = i > 0 ? ", " : "";
+                const target = sourceTargets.get(raw.trim());
+                const href = target?.href ?? sanitizeReaderHref(raw) ?? sanitizeAppHref(raw);
+                const text = target?.title ?? unresolvedSourceLabel(raw);
+                const key = `${item.id}-src-${i}`;
                 return href ? (
-                  <span key={`${item.id}-src-${i}`}>
-                    {sep}
-                    <Link href={href}>{raw}</Link>
-                  </span>
+                  <Link className="ai-review-source" key={key} href={href} title={raw}>
+                    {text}
+                  </Link>
                 ) : (
-                  <span key={`${item.id}-src-${i}`}>{sep}{raw}</span>
+                  <span className="ai-review-source" key={key} title={raw}>
+                    {text}
+                  </span>
                 );
               })}
             </p>
           )}
-          <div className="ai-review-actions"><button className="link-danger" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="primary-btn" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</button></div>
+          <div className="ai-review-actions"><button className="btn-secondary danger" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="btn-primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</button></div>
         </article>;
       })}</div>
     </>}

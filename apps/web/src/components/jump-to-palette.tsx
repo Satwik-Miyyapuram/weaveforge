@@ -93,7 +93,8 @@ export function JumpToPalette() {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<JumpItem[]>([]);
   const [active, setActive] = useState(0);
-  const searchIndex = useSearchIndex();
+  // Warmed on open, not on mount: the palette is in the shell of every screen.
+  const searchIndex = useSearchIndex(open);
   const [history, setHistory] = useState<string[]>([]);
 
   const reload = useCallback(async () => {

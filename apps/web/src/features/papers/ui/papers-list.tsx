@@ -111,7 +111,9 @@ export function PapersScreen() {
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("papers", loadScreen);
-  const searchIndex = useSearchIndex();
+  // Only a typed query ranks through the index; building it for an untouched
+  // list would read the whole project on every visit to the screen.
+  const searchIndex = useSearchIndex(search.trim().length > 0);
 
   usePinnedOwnerNames(data, setData);
 

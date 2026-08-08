@@ -29,25 +29,51 @@ import { modelExtractor } from "@/features/ai-assistant/application/ai-provider-
 /** Notes and papers are the source material; generated pages are excluded. */
 export const WIKI_ROOT_TITLE = "Wiki";
 
+/**
+ * Notes, with bodies.
+ *
+ * Deliberately not `workspace.snapshot()`. A snapshot reads every entity in the
+ * project — experiments, milestones, log entries, relations, tags, reading
+ * lists and their items, reader annotations — which is eleven round trips to
+ * answer a question about vault pages. Nothing here has ever looked at any of
+ * the other nine collections.
+ */
+async function notes() {
+  return getContainer().vault.listPages();
+}
+
+/** The wiki root and the pages under it, from one read of the notes. */
+function wikiPagesFrom(pages: readonly { id: string; title: string; body: string; parentId?: string | null }[]) {
+  const root = pages.find((page) => page.title === WIKI_ROOT_TITLE);
+  const generated = root ? pages.filter((page) => page.parentId === root.id) : [];
+  return { root, generated };
+}
+
 export async function wikiSourceDocuments(
   /** Restrict to these ids. Omitted means every note and paper. */
   sourceIds?: readonly string[],
 ): Promise<ExtractionDocument[]> {
-  const snapshot = await getContainer().workspace.snapshot();
-  const wikiRoot = snapshot.vaultPages.find((page) => page.title === WIKI_ROOT_TITLE);
-  const generated = new Set(
-    wikiRoot ? snapshot.vaultPages.filter((p) => p.parentId === wikiRoot.id).map((p) => p.id) : [],
-  );
+  const container = getContainer();
+  const [pages, papers] = await Promise.all([notes(), container.papers.listPapers()]);
+  return sourceDocuments(pages, papers, sourceIds);
+}
+
+function sourceDocuments(
+  pages: Awaited<ReturnType<typeof notes>>,
+  papers: Awaited<ReturnType<ReturnType<typeof getContainer>["papers"]["listPapers"]>>,
+  sourceIds?: readonly string[],
+): ExtractionDocument[] {
+  const generated = new Set(wikiPagesFrom(pages).generated.map((page) => page.id));
   const wanted = sourceIds ? new Set(sourceIds) : null;
   const chosen = (id: string) => !wanted || wanted.has(id);
 
   return [
     // Extracting from generated pages would feed the wiki its own output and
     // amplify whatever it got wrong on the first pass.
-    ...snapshot.vaultPages
+    ...pages
       .filter((page) => !generated.has(page.id) && chosen(page.id))
       .map((page) => ({ id: page.id, title: page.title, text: page.body })),
-    ...snapshot.papers.filter((paper) => chosen(paper.id)).map((paper) => ({
+    ...papers.filter((paper) => chosen(paper.id)).map((paper) => ({
       id: paper.id,
       title: paper.title,
       text: [paper.abstract, paper.summary].filter(Boolean).join("\n\n"),
@@ -57,12 +83,15 @@ export async function wikiSourceDocuments(
 
 /** Pages already in the wiki, for dedupe and lint. */
 export async function existingWikiPages(): Promise<WikiPageRef[]> {
-  const snapshot = await getContainer().workspace.snapshot();
-  const wikiRoot = snapshot.vaultPages.find((page) => page.title === WIKI_ROOT_TITLE);
-  if (!wikiRoot) return [];
-  return snapshot.vaultPages
-    .filter((page) => page.parentId === wikiRoot.id)
-    .map((page) => ({ id: page.id, title: page.title, body: page.body }));
+  return wikiPageRefs(await notes());
+}
+
+function wikiPageRefs(pages: Awaited<ReturnType<typeof notes>>): WikiPageRef[] {
+  return wikiPagesFrom(pages).generated.map((page) => ({
+    id: page.id,
+    title: page.title,
+    body: page.body,
+  }));
 }
 
 export interface WikiBuildPreview {
@@ -97,9 +126,12 @@ export async function previewWikiBuild(
   /** Ids to read. Omitted scans everything, which is the usual case. */
   sourceIds?: readonly string[],
 ): Promise<WikiBuildPreview> {
-  const documents = await wikiSourceDocuments(sourceIds);
-  const existing = await existingWikiPages();
-  const titles = existing.map((page) => page.title);
+  // One read of the notes answers both questions — what to scan, and what is
+  // already covered. Two calls here used to mean two passes over the project.
+  const container = getContainer();
+  const [pages, papers] = await Promise.all([notes(), container.papers.listPapers()]);
+  const documents = sourceDocuments(pages, papers, sourceIds);
+  const titles = wikiPageRefs(pages).map((page) => page.title);
 
   const extraction = await extractor.extract({
     documents,
@@ -131,8 +163,7 @@ export async function previewWikiBuild(
  */
 export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<number> {
   const container = getContainer();
-  const snapshot = await container.workspace.snapshot();
-  let root = snapshot.vaultPages.find((page) => page.title === WIKI_ROOT_TITLE);
+  let root = wikiPagesFrom(await notes()).root;
   if (!root) {
     root = await container.vault.manageVaultPage.add({ title: WIKI_ROOT_TITLE });
   }
@@ -224,11 +255,11 @@ export async function applyMerge(
  */
 export async function regenerateWikiIndex(): Promise<{ pages: number }> {
   const container = getContainer();
-  const snapshot = await container.workspace.snapshot();
-  const root = snapshot.vaultPages.find((page) => page.title === WIKI_ROOT_TITLE);
+  const all = await notes();
+  const { root } = wikiPagesFrom(all);
   if (!root) throw new Error("There is no wiki yet — scan for concepts first.");
 
-  const pages = await existingWikiPages();
+  const pages = wikiPageRefs(all);
   await container.vault.manageVaultPage.update(root.id, {
     title: root.title,
     body: replaceWikiIndex(root.body, buildWikiIndex(pages)),

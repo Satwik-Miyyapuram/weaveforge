@@ -10,6 +10,23 @@ export async function fetchSuperviseeMilestonesAndLogs(
 }> {
   const milestonesByMember = new Map<string, Milestone[]>();
   const logsByMember = new Map<string, LogEntry[]>();
+
+  // Two queries for the whole team when the repository can do it, instead of
+  // two per supervisee. A supervisor with six students was making twelve.
+  if (repo.listMilestonesFor && repo.listLogsFor) {
+    const ids = supervisees.map((member) => member.id);
+    const [milestones, logs] = await Promise.allSettled([
+      repo.listMilestonesFor(ids),
+      repo.listLogsFor(ids),
+    ]);
+    const failure = [milestones, logs].find((r) => r.status === "rejected");
+    return {
+      milestonesByMember: milestones.status === "fulfilled" ? milestones.value : milestonesByMember,
+      logsByMember: logs.status === "fulfilled" ? logs.value : logsByMember,
+      error: failure?.status === "rejected" ? failure.reason : null,
+    };
+  }
+
   const pairs = await Promise.allSettled(
     supervisees.map(async (m) => {
       const [milestones, logs] = await Promise.all([

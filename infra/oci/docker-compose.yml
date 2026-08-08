@@ -23,6 +23,14 @@ services:
       -c work_mem=16MB
       -c maintenance_work_mem=512MB
       -c max_connections=50
+      -c wal_level=logical
+      -c max_replication_slots=10
+      -c max_wal_senders=10
+    # `wal_level=logical` is Realtime's requirement, not a tuning choice: it
+    # opens a replication slot for broadcast changes and the tenant refuses to
+    # start without it — "logical decoding requires wal_level >= logical", after
+    # which every channel join answers `error_generating_signer`.
+    #
     # Postgres puts dynamic shared memory for parallel workers in /dev/shm, and
     # Docker's 64MB default is too small for it once shared_buffers is raised.
     shm_size: 1gb
@@ -61,8 +69,19 @@ services:
       PGRST_DB_URI: postgres://${POSTGRES_USER:-weaveforge}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-weaveforge}
       PGRST_DB_SCHEMAS: public
       PGRST_DB_ANON_ROLE: anon
-      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:?Set SUPABASE_JWT_SECRET in .env}
-      # Supabase signs with HS256 and a plain secret, not a JWKS.
+      # A JWK Set, not a plain secret.
+      #
+      # Supabase projects have moved to asymmetric signing keys: session tokens
+      # are ES256 with a `kid`, verifiable from the project's JWKS. The legacy
+      # API keys (anon, service_role) are still HS256 against the old shared
+      # secret. Configured with only that secret, PostgREST verifies the legacy
+      # keys and rejects every real user with `PGRST301: No suitable key was
+      # found to decode the JWT` — which is how this was found: server-side
+      # calls worked perfectly and no signed-in user could read a row.
+      #
+      # `JWT_KEYS` holds both: the project's EC public key and an `oct` entry
+      # carrying the legacy secret. PostgREST selects by algorithm.
+      PGRST_JWT_SECRET: ${JWT_KEYS:?Set JWT_KEYS in .env — see infra/oci/README}
       PGRST_JWT_SECRET_IS_BASE64: "false"
       PGRST_DB_USE_LEGACY_GUCS: "true"
       PGRST_SERVER_PORT: 3000
@@ -71,10 +90,107 @@ services:
     ports:
       - "3000:3000"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null || exit 1"]
+      # A TCP connect, because this image ships no HTTP client at all — no
+      # curl, no wget, not even busybox. The previous check shelled out to wget
+      # and so reported the container unhealthy for its whole life while it
+      # served every request correctly. `bash` is present, and its /dev/tcp
+      # redirection is enough to prove the listener is accepting connections.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/3000'"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # Broadcast relay for co-editing and cache invalidation.
+  #
+  # It has to run here, not on Supabase, because a private channel is authorized
+  # by RLS on `realtime.messages`, and those policies (migration 0044) call
+  # `can_view_resource`, which reads `vault_pages`, `papers` and `shares`. That
+  # question only has a correct answer in the database holding the current rows.
+  # Pointed at Supabase after the data moved, it authorizes against a frozen
+  # copy: documents from before the cutover keep syncing, anything created after
+  # is refused, and the editor shows no error — it just stops converging.
+  #
+  # Only broadcast is used (no `postgres_changes` anywhere in the app), so there
+  # is no replication slot or publication to configure.
+  realtime:
+    image: supabase/realtime:v2.34.47
+    container_name: weaveforge-realtime
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-weaveforge}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      DB_NAME: ${POSTGRES_DB:-weaveforge}
+      # Realtime keeps its own bookkeeping out of `public`.
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: ${REALTIME_DB_ENC_KEY:?Set REALTIME_DB_ENC_KEY (exactly 16 chars) in .env}
+      SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE:?Set REALTIME_SECRET_KEY_BASE (64+ chars) in .env}
+      # The same secret Supabase Auth signs with, so its tokens authenticate
+      # here exactly as they do at PostgREST.
+      API_JWT_SECRET: ${SUPABASE_JWT_SECRET:?Set SUPABASE_JWT_SECRET in .env}
+      APP_NAME: weaveforge
+      # Single-tenant: seeds the `realtime-dev` tenant, which is the tenant the
+      # client's apikey resolves to without a Kong in front.
+      #
+      # First boot only. The seed does not create-if-missing, it rewrites the
+      # tenant row every start — including nulling `jwt_jwks`, the column that
+      # carries the project's ES256 public keys. Left on, verification of real
+      # user tokens breaks again on the next restart, and the symptom is a
+      # generic `error_generating_signer` at channel join. Flip this to false in
+      # `.env` once the tenant exists.
+      SEED_SELF_HOST: ${REALTIME_SEED_SELF_HOST:-true}
+      RUN_JANITOR: "true"
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      # The image's entrypoint runs `ulimit -n $RLIMIT_NOFILE` unguarded, so an
+      # unset value is not a default — it is a crash loop before boot.
+      RLIMIT_NOFILE: "10000"
+    # No `command` override: the image's own entrypoint runs the migrations and
+    # the self-host seed before starting the server, which is exactly the order
+    # this needs.
+    ports:
+      # Bound to loopback: the browser reaches it through Caddy on 443, which is
+      # also what supplies TLS and the `/realtime/v1` path the client expects.
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      # This image has curl but no wget. The tenant health endpoint wants an
+      # API token and answers 403 unauthenticated, so accept any HTTP response:
+      # what is being tested is that the server is listening and replying.
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:4000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # One hostname, two services.
+  #
+  # supabase-js derives every endpoint from a single base URL — `/rest/v1/...`
+  # for tables, `/realtime/v1/websocket` for the socket — and Supabase serves
+  # both through Kong. This does that routing so the app can point both
+  # NEXT_PUBLIC_DATA_URL and NEXT_PUBLIC_REALTIME_URL at the same host.
+  #
+  # It does not terminate TLS: Cloudflare Tunnel does that at the edge and
+  # forwards over loopback, which is why every service port on this box stays
+  # closed to the internet. Point the tunnel's ingress at 8080 instead of 3000
+  # and the existing bare-table URLs keep working — the fallback route is
+  # PostgREST.
+  gateway:
+    image: caddy:2
+    container_name: weaveforge-gateway
+    restart: unless-stopped
+    depends_on:
+      - postgrest
+      - realtime
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
 
   minio:
     image: minio/minio:latest
@@ -95,3 +211,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+volumes:
+  # Certificates and ACME account state. Losing these means re-issuing on every
+  # restart, which Let's Encrypt rate-limits.
+  caddy-data:
+  caddy-config:
