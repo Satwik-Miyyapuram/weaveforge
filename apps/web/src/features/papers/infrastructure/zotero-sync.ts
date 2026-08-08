@@ -2,9 +2,12 @@ import { normalizeDoi, type NewPaperInput, type Paper } from "@weaveforge/core";
 import type { ZoteroSyncResult } from "../domain/zotero";
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
 import { toZoteroItem } from "./zotero-exporter";
-import { zoteroHeaders, zoteroLibraryUrl } from "./zotero-web-api";
+import { fetchAllZoteroItems, zoteroHeaders, zoteroLibraryUrl, zoteroTopLevelPath } from "./zotero-web-api";
 
 export type { ZoteroSyncResult } from "../domain/zotero";
+
+/** Zotero item types that are children of a paper, never papers themselves. */
+const CHILD_ITEM_TYPES = new Set(["attachment", "note", "annotation"]);
 
 interface ZoteroCreator { firstName?: string; lastName?: string; name?: string }
 interface ZoteroData {
@@ -54,25 +57,27 @@ export class ZoteroSync {
 
     // --- pull side: read ALL remote items (paginated; scoped to the project's
     // collection). Reading only the first page would make items past the page
-    // size look "missing" and get re-pushed every sync → duplicates. ---
-    const PAGE = 100;
-    const remoteRaw: { data?: ZoteroData }[] = [];
-    for (let start = 0; ; start += PAGE) {
-      const listUrl =
-        `${libraryUrl}/items?limit=${PAGE}&start=${start}` +
-        (col ? `&collection=${encodeURIComponent(col)}` : "");
-      const listRes = await this.fetchFn(listUrl, { headers });
-      if (!listRes.ok) {
-        const d = await listRes.text().catch(() => "");
-        throw new Error(`Zotero list failed (${listRes.status}). ${d}`.trim());
-      }
-      const page = (await listRes.json()) as { data?: ZoteroData }[];
-      remoteRaw.push(...page);
-      if (page.length < PAGE) break;
-    }
+    // size look "missing" and get re-pushed every sync → duplicates. Pages
+    // after the first go out together — see `fetchAllZoteroItems`. ---
+    const remoteRaw = await fetchAllZoteroItems<{ data?: ZoteroData }>({
+      baseUrl: libraryUrl,
+      // Top-level items only. `/items` also returns attachments, notes and
+      // annotations, and a Zotero PDF attachment is titled "Preprint PDF" or
+      // "Full Text PDF" — which passed the `has a title` filter below, carried
+      // no DOI or arXiv id, and so keyed on its own title and was imported as
+      // though it were a paper. That is where the "Preprint PDF" entries in the
+      // library came from.
+      path: zoteroTopLevelPath(col),
+      headers,
+      fetchFn: this.fetchFn,
+      label: "list",
+    });
     const remote = remoteRaw
       .map((r) => r.data)
-      .filter((d): d is ZoteroData => !!d && !!d.title);
+      .filter((d): d is ZoteroData => !!d && !!d.title)
+      // Belt and braces: the endpoint should not return these, but importing a
+      // child item as a paper is bad enough to be worth refusing twice.
+      .filter((d) => !CHILD_ITEM_TYPES.has(d.itemType ?? ""));
 
     const local = await this.deps.listPapers();
     // Match if any content key overlaps. Each side emits its DOI + arXiv keys
@@ -89,17 +94,32 @@ export class ZoteroSync {
     // (additive), then PUSH (additive), then DELETE (destructive) last.
 
     // --- pull: remote items not present locally (by any content key) ---
+    //
+    // The tag pass used to re-read the *entire* paper list inside this loop,
+    // once per pulled item, to find the row it had just created — so pulling
+    // 200 papers meant 200 full reads of a table that was growing as it went.
+    // One read afterwards finds all of them.
     let pulled = 0;
+    const pulledItems: ZoteroData[] = [];
     for (const d of remote) {
       const ks = keysOfRemote(d);
       if (ks.length === 0 || ks.some((k) => localKeys.has(k))) continue;
       await this.deps.addPaper(remoteToInput(d));
       ks.forEach((k) => localKeys.add(k));
       pulled += 1;
-      const created = (await this.deps.listPapers()).find(
-        (p) => (p.metadata?.zoteroKey as string | undefined) === d.key,
-      );
-      if (created && this.deps.onItemTags) await this.deps.onItemTags(created, d);
+      if (this.deps.onItemTags && d.key) pulledItems.push(d);
+    }
+
+    if (pulledItems.length > 0 && this.deps.onItemTags) {
+      const byZoteroKey = new Map<string, Paper>();
+      for (const p of await this.deps.listPapers()) {
+        const zk = p.metadata?.["zoteroKey"] as string | undefined;
+        if (zk) byZoteroKey.set(zk, p);
+      }
+      for (const d of pulledItems) {
+        const created = d.key ? byZoteroKey.get(d.key) : undefined;
+        if (created) await this.deps.onItemTags(created, d);
+      }
     }
 
     // --- push: local papers not present remotely. A paper already pushed (has
