@@ -7,8 +7,8 @@ import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
+import { accountLinks, type AccountLinkId } from "./account-links";
 
-const DOCS_URL = "https://docs.weaveforge.org/docs/";
 
 const GridIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
@@ -100,51 +100,67 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
     setOpen(false);
   };
 
+  const ICONS: Record<AccountLinkId, () => JSX.Element> = {
+    projects: GridIcon,
+    supervise: EyeIcon,
+    shared: ShareIcon,
+    "ai-review": () => <></>,
+    settings: GearIcon,
+    docs: HelpIcon,
+    signout: LogoutIcon,
+  };
+  const TITLES: Partial<Record<AccountLinkId, string>> = {
+    projects: "Projects",
+    supervise: "Supervisor view",
+    shared: "Shared with me",
+    "ai-review": "Review AI suggestions",
+    settings: "Settings",
+    docs: "Documentation",
+  };
+
+  // Rendered from `accountLinks`, so which entries exist — and which
+  // deliberately do not — is decided in one tested place rather than in JSX.
   const links = (
     <>
-      {/* Only when the project switcher is not showing. With a project
-          selected the switcher sits right above this in the sidebar and its
-          menu already offers "New / all projects" — two controls, two different
-          shapes, one action. This one exists purely as the escape hatch for the
-          case the switcher hides itself: an account route with no project. */}
-      {!current && (
-        <button type="button" className="header-link" title="Projects" onClick={goToProjects}>
-          <GridIcon /><span>Projects</span>
-        </button>
-      )}
-      {canSupervise && (
-        <Link href="/supervision" className="header-link" title="Supervisor view" onClick={() => setOpen(false)}>
-          <EyeIcon /><span>Supervise</span>
-        </Link>
-      )}
-      <Link href="/shared" className="header-link" title="Shared with me" onClick={() => setOpen(false)}>
-        <ShareIcon /><span>Shared</span>
-      </Link>
-      {pendingProposals > 0 && <Link href="/ai-review" className="header-link ai-review-nav-link" title="Review AI suggestions" onClick={() => setOpen(false)}>
-        <span>Review AI</span><b>{pendingProposals}</b>
-      </Link>}
-      <Link href="/settings" className="header-link" title="Settings" onClick={() => setOpen(false)}>
-        <GearIcon /><span>Settings</span>
-      </Link>
-      {/* Help sits with Settings rather than inside it: someone looking for the
-          documentation is usually stuck, and asking them to find it under a
-          settings page is asking them to search while stuck.
+      {accountLinks({ canSupervise, hasProject: !!current, pendingProposals }).map((link) => {
+        const Icon = ICONS[link.id];
 
-          Both are external, so both open in a new tab — losing unsaved work to
-          a documentation link would be its own small betrayal. */}
-      <a
-        href={DOCS_URL}
-        className="header-link"
-        title="Documentation"
-        target="_blank"
-        rel="noreferrer"
-        onClick={() => setOpen(false)}
-      >
-        <HelpIcon /><span>Help &amp; docs</span>
-      </a>
-      <button className="signout" onClick={() => void signOut()} title={user.email}>
-        <LogoutIcon /><span>Sign out</span>
-      </button>
+        if (link.id === "signout") {
+          return (
+            <button key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
+              <Icon /><span>{link.label}</span>
+            </button>
+          );
+        }
+        if (link.id === "projects") {
+          return (
+            <button key={link.id} type="button" className="header-link" title={TITLES[link.id]} onClick={goToProjects}>
+              <Icon /><span>{link.label}</span>
+            </button>
+          );
+        }
+        if (link.id === "ai-review") {
+          return (
+            <Link key={link.id} href={link.href!} className="header-link ai-review-nav-link" title={TITLES[link.id]} onClick={() => setOpen(false)}>
+              <span>{link.label}</span><b>{link.badge}</b>
+            </Link>
+          );
+        }
+        // External links open in a new tab — losing unsaved work to a
+        // documentation link would be its own small betrayal.
+        if (link.external) {
+          return (
+            <a key={link.id} href={link.href} className="header-link" title={TITLES[link.id]} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
+              <Icon /><span>{link.label}</span>
+            </a>
+          );
+        }
+        return (
+          <Link key={link.id} href={link.href!} className="header-link" title={TITLES[link.id]} onClick={() => setOpen(false)}>
+            <Icon /><span>{link.label}</span>
+          </Link>
+        );
+      })}
     </>
   );
 

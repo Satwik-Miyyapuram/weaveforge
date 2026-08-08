@@ -10,30 +10,12 @@ import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import type { CollabSession } from "../application/collab-session.js";
 import { EncryptedYjsProvider } from "../infrastructure/encrypted-yjs-provider.js";
+import { seedIfEmpty } from "../domain/seed-document.js";
+import { shouldPersistBody } from "../domain/save-policy.js";
 
 const SAVE_MS = 1500;
 
 const PRESENCE_COLORS = ["#e06c75", "#61afef", "#98c379", "#d19a66", "#c678dd", "#56b6c2"];
-
-/**
- * The row's body as a Yjs update that every client generates *identically*.
- *
- * Seeding by calling `yText.insert(0, body)` locally cannot work for more than
- * one client: each insert is a distinct operation from a distinct author, so
- * two people opening the same never-co-edited entry both insert the body and
- * the CRDT — correctly — keeps both copies. Building the update from a throwaway
- * document pinned to client id 0 makes the operation byte-identical everywhere,
- * so Yjs recognises it as already-applied and merges it to a single copy no
- * matter how many clients contribute it or how often it is replayed.
- */
-function seedUpdate(body: string): Uint8Array {
-  const seedDoc = new Y.Doc();
-  seedDoc.clientID = 0;
-  seedDoc.getText("body").insert(0, body);
-  const update = Y.encodeStateAsUpdate(seedDoc);
-  seedDoc.destroy();
-  return update;
-}
 
 function pickColor(seed: string) {
   let h = 0;
@@ -104,7 +86,7 @@ export function CollaborativeMarkdownEditor({
 
   const scheduleSave = useCallback((body: string) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (!ready.current || body === lastSaved.current) return;
+    if (!shouldPersistBody({ ready: ready.current, next: body, lastSaved: lastSaved.current })) return;
     saveTimer.current = setTimeout(() => {
       lastSaved.current = body;
       void onSaveRef.current(body);
@@ -154,7 +136,7 @@ export function CollaborativeMarkdownEditor({
       // stored history takes the row's body — otherwise the log is the truth
       // and seeding would duplicate it.
       seed: () => {
-        if (yText.length === 0 && initialBody) Y.applyUpdate(doc, seedUpdate(initialBody));
+        seedIfEmpty(doc, initialBody);
         lastSaved.current = yText.toString();
         ready.current = true;
       },
@@ -204,7 +186,7 @@ export function CollaborativeMarkdownEditor({
       // on every teardown, and the host closed the form on save — so the editor
       // shut itself the moment it opened.
       const pending = yText.toString();
-      if (ready.current && pending !== lastSaved.current) {
+      if (shouldPersistBody({ ready: ready.current, next: pending, lastSaved: lastSaved.current })) {
         lastSaved.current = pending;
         void onSaveRef.current(pending);
       }
