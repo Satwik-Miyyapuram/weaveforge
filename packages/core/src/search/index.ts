@@ -4,6 +4,8 @@
  */
 export * from "./search-port.js";
 export * from "./search-tuning.js";
+export * from "./search-acronyms.js";
+export * from "./search-retry.js";
 export * from "./search-document.js";
 export * from "./search-tokenizer.js";
 export * from "./search-query.js";

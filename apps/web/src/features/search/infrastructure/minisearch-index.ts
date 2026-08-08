@@ -12,6 +12,7 @@ import {
   SEARCH_FIELDS,
   documentBoost,
   fuzzinessForTerm,
+  planFuzzyRetry,
   type IWorkspaceSearchIndex,
   type IWorkspaceSearchIndexFactory,
   type SearchDoc,
@@ -34,7 +35,7 @@ import {
  * hundred milliseconds, whereas a subtly mismatched index returns wrong results
  * indefinitely with no visible symptom.
  */
-export const SEARCH_SCHEMA_VERSION = 2;
+export const SEARCH_SCHEMA_VERSION = 3;
 
 interface PersistedIndex {
   schemaVersion: number;
@@ -156,27 +157,44 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
       return this.filterOnly(parsed, callerKinds, queryKinds, limit);
     }
 
-    const results = this.engine.search(parsed.text, {
-      boost: effectiveFieldBoosts(this.settings),
-      prefix: (term) => (options.prefix === false ? false : term.length >= MIN_PREFIX_LENGTH),
-      fuzzy: (term) =>
-        typeof options.fuzzy === "number"
-          ? options.fuzzy
-          : options.fuzzy === false
-            ? 0
-            : fuzzinessForTerm(term),
-      // Document-level signal: link degree first, recency only as a tiebreak.
-      boostDocument: (id, _term, storedFields) => {
-        const fields = (storedFields ?? this.stored.get(String(id))) as StoredFields | undefined;
-        if (!fields) return 1;
-        return documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
-          kindMultiplier: kindMultiplier(fields.kind, this.settings),
-          recency: this.settings?.recencyBoost,
-        });
-      },
-      filter: (result) =>
-        this.matchesFilters(result as SearchResult & StoredFields, parsed, callerKinds, queryKinds),
-    });
+    const run = (fuzzyFor: (term: string) => number) =>
+      this.engine.search(parsed.text, {
+        boost: effectiveFieldBoosts(this.settings),
+        prefix: (term) => (options.prefix === false ? false : term.length >= MIN_PREFIX_LENGTH),
+        fuzzy: fuzzyFor,
+        // Document-level signal: link degree first, recency only as a tiebreak.
+        boostDocument: (id, _term, storedFields) => {
+          const fields = (storedFields ?? this.stored.get(String(id))) as StoredFields | undefined;
+          if (!fields) return 1;
+          return documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
+            kindMultiplier: kindMultiplier(fields.kind, this.settings),
+            recency: this.settings?.recencyBoost,
+          });
+        },
+        filter: (result) =>
+          this.matchesFilters(result as SearchResult & StoredFields, parsed, callerKinds, queryKinds),
+      });
+
+    const firstPass = (term: string) =>
+      typeof options.fuzzy === "number"
+        ? options.fuzzy
+        : options.fuzzy === false
+          ? 0
+          : fuzzinessForTerm(term);
+
+    let results = run(firstPass);
+
+    // Nothing matched. Before reporting an empty result, allow one more edit
+    // per term — which is what a transposition costs under Levenshtein, and the
+    // reason "nerual" cannot reach "neural" on the first pass. Only queries that
+    // already failed pay for this, so the common path is untouched.
+    if (results.length === 0 && options.fuzzy !== false && typeof options.fuzzy !== "number") {
+      const plan = planFuzzyRetry({
+        resultCount: 0,
+        termCount: parsed.text.split(/\s+/).filter(Boolean).length,
+      });
+      if (plan.retry) results = run((term) => plan.fuzzinessFor(term));
+    }
 
     return results.slice(0, limit).map((result) => {
       const fields = result as SearchResult & StoredFields;
