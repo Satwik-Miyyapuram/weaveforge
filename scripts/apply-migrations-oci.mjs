@@ -104,6 +104,37 @@ async function main() {
     // migration is fine and only the extras give it away.
     const followUpsOnly = process.argv.includes("--follow-ups-only");
 
+    // Apply one named migration and nothing else.
+    //
+    // `--follow-ups-only` exists for the self-hosted extras, which are all
+    // `create or replace`. It cannot help with a *new* base migration: those
+    // are skipped wholesale, so a migration added after the cutover had no way
+    // to reach a live database short of pasting it into psql by hand. Naming
+    // the file is narrower than `ALLOW_REAPPLY_OVER_DATA=1`, which would replay
+    // all 100-odd of them.
+    const onlyIndex = process.argv.indexOf("--only");
+    const only = onlyIndex >= 0 ? process.argv[onlyIndex + 1] : undefined;
+    if (onlyIndex >= 0 && !only) {
+      console.error("\n✖ --only needs a migration name, e.g. --only 0114\n");
+      process.exitCode = 1;
+      return;
+    }
+
+    if (only) {
+      const matches = [...sqlFilesIn(MIGRATIONS), ...sqlFilesIn(SELF_HOSTED)].filter((f) =>
+        basename(f).includes(only),
+      );
+      if (matches.length === 0) {
+        console.error(`\n✖ No migration matches "${only}".\n`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(`==> Applying ${matches.length} migration(s) matching "${only}" ...`);
+      for (const file of matches) await applyFile(client, file);
+      console.log("==> Done.");
+      return;
+    }
+
     const { rows: state } = await client.query(
       `select
          (select count(*) from pg_tables where schemaname = 'public') as tables,
