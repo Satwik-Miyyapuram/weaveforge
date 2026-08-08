@@ -32,7 +32,12 @@ import { cardSnippet } from "@/lib/card-snippet";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
-import { useCiteLinkCatalog } from "@/lib/use-cite-links";
+import { markdownEditorExtensions, toCompletions } from "@/components/markdown-editor-extensions";
+import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
+import { Compartment } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
+import { CollabBodyHost } from "@/features/collab";
+import { useCiteLinkCatalog, type CiteCompletion } from "@/lib/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import { useCitationFormatPreference } from "@/lib/use-citation-format-preference";
 import type { VaultScreenData } from "@/features/vault/application/load-vault-screen.use-case";
@@ -648,12 +653,51 @@ function PageEditor({
     [notes, papers, sections],
   );
 
+  // The collaborative editor rebuilds its document when the extension array
+  // changes, so this has to be built once and fed new completions through refs
+  // rather than rebuilt whenever a note or paper is added.
+  const collabRef = useRef(false);
+  const completionsRef = useRef<CiteCompletion[]>([]);
+  completionsRef.current = toCompletions(wikilinkTitles, wikilinkCompletions);
+  const citationFormatRef = useRef(citationFormat);
+  citationFormatRef.current = citationFormat;
+  const editableCompartment = useRef(new Compartment());
+  const themeCompartment = useRef(new Compartment());
+  const collabExtensions = useMemo(
+    () =>
+      markdownEditorExtensions({
+        placeholder: "Write markdown… #hashtags and [[wikilinks]] link this note in the graph.",
+        completionsRef,
+        citationFormatRef,
+        editableCompartment: editableCompartment.current,
+        themeCompartment: themeCompartment.current,
+      }),
+    [],
+  );
+  const watchThemeForView = useCallback(
+    (view: EditorView) =>
+      watchSiteTheme(() => {
+        view.dispatch({
+          effects: themeCompartment.current.reconfigure(createCodeMirrorThemeForSite()),
+        });
+      }),
+    [],
+  );
+
   useEffect(() => {
     setTitle(page.title);
     setDraft(page.body);
-    setEditing(false);
     setSaveError(null);
+    // A body change closes the plain editor because its `draft` would otherwise
+    // be stale against the row. The collaborative editor has no such problem —
+    // its document *is* the shared state — and closing it here would shut the
+    // editor under the user every time their own autosave came back around.
+    if (!collabRef.current) setEditing(false);
   }, [page.id, page.title, page.body]);
+
+  useEffect(() => {
+    if (page.id) setEditing(false);
+  }, [page.id]);
 
   const canEditBody = !readOnly;
   const canEditTitle = canEditBody && !sharedPage;
@@ -661,7 +705,31 @@ function PageEditor({
   const hasBody = !!page.body.trim();
   const titleDirty = canEditTitle && title.trim() !== page.title;
   const bodyDirty = draft !== page.body;
-  const dirty = titleDirty || bodyDirty;
+
+  // Co-editing is for notes you own and can write to. A shared or read-only
+  // page has no edit affordance at all, and pushing CRDT updates for one would
+  // mean joining a channel the viewer has no write authorization on.
+  const collab = canEditBody && !sharedPage && getContainer().collab.enabled();
+  collabRef.current = collab;
+  // With collab on the body persists itself, so only the title can be dirty.
+  const dirty = collab ? titleDirty : titleDirty || bodyDirty;
+
+  /**
+   * Autosave from the collaborative editor: body only, and no `setEditing(false)`.
+   * Title stays on "Save note" — it is a plain input, not part of the CRDT
+   * document, so it has no other way to be persisted.
+   */
+  const saveCollabBody = useCallback(
+    async (nextBody: string) => {
+      setDraft(nextBody);
+      const vault = getContainer().vault;
+      const body = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
+        vault.uploadAsset(id, blob, ext),
+      );
+      await vault.manageVaultPage.update(page.id, { body });
+    },
+    [page.id],
+  );
 
   async function save() {
     setSaving(true);
@@ -705,6 +773,13 @@ function PageEditor({
     } catch (err) {
       setSaveError(formatError(err));
     }
+  }
+
+  function closeEditor() {
+    setTitle(page.title);
+    setSaveError(null);
+    setEditing(false);
+    void onChanged();
   }
 
   function cancelEdit() {
@@ -815,28 +890,43 @@ function PageEditor({
               disabled={saving}
             />
           </div>
-          <MarkdownCodeEditor
-            className="summary-input markdown-code-editor--notes"
-            value={draft}
-            placeholder="Write markdown… #hashtags and [[wikilinks]] link this note in the graph."
-            disabled={saving}
-            onChange={setDraft}
-            wikilinkTitles={wikilinkTitles}
-            wikilinkCompletions={wikilinkCompletions}
-            citationFormat={citationFormat}
-          />
+          {collab ? (
+            <CollabBodyHost
+              resourceType="vault_page"
+              resourceId={page.id}
+              initialBody={page.body}
+              onSave={saveCollabBody}
+              className="summary-input-collab"
+              editorClassName="markdown-code-editor summary-input markdown-code-editor--notes"
+              extraExtensions={collabExtensions}
+              onViewCreated={watchThemeForView}
+            />
+          ) : (
+            <MarkdownCodeEditor
+              className="summary-input markdown-code-editor--notes"
+              value={draft}
+              placeholder="Write markdown… #hashtags and [[wikilinks]] link this note in the graph."
+              disabled={saving}
+              onChange={setDraft}
+              wikilinkTitles={wikilinkTitles}
+              wikilinkCompletions={wikilinkCompletions}
+              citationFormat={citationFormat}
+            />
+          )}
           <div className="summary-editor-foot">
             {saveError && <span className="error">{saveError}</span>}
-            <button type="button" className="link-btn" onClick={cancelEdit} disabled={saving}>
-              cancel
+            {/* Cancelling a collaborative edit cannot roll the body back — it is
+                already shared and saved — so the escape hatch is just "close". */}
+            <button type="button" className="link-btn" onClick={collab ? closeEditor : cancelEdit} disabled={saving}>
+              {collab ? "close" : "cancel"}
             </button>
             <button
               type="button"
               className="btn-primary"
-              disabled={saving || !dirty || !title.trim()}
+              disabled={saving || (!dirty && !collab) || !title.trim()}
               onClick={() => void save()}
             >
-              {saving ? "Saving…" : "Save note"}
+              {saving ? "Saving…" : collab ? "Done" : "Save note"}
             </button>
           </div>
         </div>

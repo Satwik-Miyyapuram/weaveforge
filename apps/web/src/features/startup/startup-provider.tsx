@@ -249,6 +249,14 @@ export function StartupProvider({
     })
       .then((data) => {
         if (!active) return;
+        // Backstop for `onDecision`. The bundle is single-flighted, so a second
+        // caller (StrictMode's remount, or two providers for the same user)
+        // joins the in-flight promise and its `onDecision` is never invoked —
+        // only the first caller's is, and that one is already inactive. Without
+        // this the gate never becomes ready and the shell sits on its loader
+        // forever. Resolving the decision from the settled bundle costs the
+        // second caller only the early-decision head start.
+        applyDecision(data.needsPrivacyAccept);
         setSnapshot(data);
         writeCachedSnapshot(userId, data);
       })

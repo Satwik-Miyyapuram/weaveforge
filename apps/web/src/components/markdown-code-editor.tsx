@@ -1,58 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
-import { search, searchKeymap } from "@codemirror/search";
 import { Compartment, EditorState } from "@codemirror/state";
-import {
-  EditorView,
-  drawSelection,
-  highlightActiveLine,
-  highlightActiveLineGutter,
-  keymap,
-  lineNumbers,
-  placeholder as cmPlaceholder,
-} from "@codemirror/view";
-import {
-  createCodeMirrorThemeForSite,
-  watchSiteTheme,
-} from "@/lib/codemirror-theme";
+import { EditorView } from "@codemirror/view";
+import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
-import { formatPaperCitation } from "@/features/overleaf/application/build-overleaf-export";
-import type { Paper } from "@weaveforge/core";
-
-/** Characters that may precede `@` for cite autocomplete (not email local-parts). */
-const AT_BOUNDARY = /[^A-Za-z0-9._%+-]/;
-
-function toCompletions(
-  titles: readonly string[] | undefined,
-  completions: readonly CiteCompletion[] | undefined,
-): CiteCompletion[] {
-  if (completions?.length) return [...completions];
-  return (titles ?? []).map((t) => ({ title: t, label: t }));
-}
-
-function filterCompletions(items: readonly CiteCompletion[], query: string) {
-  const q = query.toLowerCase();
-  return items
-    .filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.label.toLowerCase().includes(q) ||
-        (c.detail?.toLowerCase().includes(q) ?? false),
-    )
-    .slice(0, 20);
-}
-
-/** How an `@` cite completion inserts under the chosen format (Phase C2). */
-function insertForCompletion(c: CiteCompletion, format: EditorCitationFormat): string {
-  if (format === "wikilink" || !c.paper) return `[[${c.title}]]`;
-  return formatPaperCitation(c.paper as Paper, format);
-}
+import { markdownEditorExtensions, toCompletions } from "./markdown-editor-extensions";
 
 /**
  * Markdown editor — Lezer at edit time; @uiw/codemirror-themes matched to site theme.
@@ -103,70 +57,17 @@ export function MarkdownCodeEditor({
       }
     });
 
-    const wikilinkSource = (ctx: CompletionContext): CompletionResult | null => {
-      const before = ctx.matchBefore(/\[\[[^\]\n]*/);
-      if (!before || (before.from === before.to && !ctx.explicit)) return null;
-      const query = before.text.slice(2);
-      const options = filterCompletions(completionsRef.current, query).map((c) => ({
-        label: c.label,
-        detail: c.detail,
-        apply: `${c.title}]]`,
-        type: "text" as const,
-      }));
-      if (!options.length) return null;
-      return { from: before.from + 2, options, filter: false };
-    };
-
-    const atCiteSource = (ctx: CompletionContext): CompletionResult | null => {
-      const before = ctx.matchBefore(/@[^\s\]\n]*/);
-      if (!before) return null;
-      if (before.from > 0) {
-        const prev = ctx.state.doc.sliceString(before.from - 1, before.from);
-        if (!AT_BOUNDARY.test(prev)) return null;
-      }
-      const query = before.text.slice(1);
-      if (!query && !ctx.explicit) return null;
-      const format = citationFormatRef.current;
-      const options = filterCompletions(completionsRef.current, query).map((c) => ({
-        label: c.label,
-        detail: c.detail ?? (format === "wikilink" ? undefined : format),
-        apply: insertForCompletion(c, format),
-        type: "text" as const,
-      }));
-      if (!options.length) return null;
-      return { from: before.from, options, filter: false };
-    };
-
     const extensions = [
-      lineNumbers(),
-      highlightActiveLine(),
-      highlightActiveLineGutter(),
-      themeCompartment.current.of(createCodeMirrorThemeForSite()),
-      markdown({
-        base: markdownLanguage,
-        codeLanguages: languages,
-        pasteURLAsLink: true,
+      ...markdownEditorExtensions({
+        placeholder,
+        disabled,
+        completionsRef,
+        citationFormatRef,
+        editableCompartment: editableCompartment.current,
+        themeCompartment: themeCompartment.current,
       }),
-      history(),
-      autocompletion({ override: [wikilinkSource, atCiteSource], icons: false }),
-      search({ top: true }),
-      keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-      drawSelection(),
-      EditorView.lineWrapping,
       updateListener,
-      editableCompartment.current.of(EditorView.editable.of(!disabled)),
-      EditorView.theme({
-        "&": { height: "100%" },
-        ".cm-scroller": { overflow: "auto" },
-        ".cm-content": { padding: "10px 0" },
-        ".cm-line": { padding: "0 4px 0 2px" },
-        ".cm-gutters": { borderRight: "1px solid var(--line)" },
-      }),
     ];
-
-    if (placeholder) {
-      extensions.push(cmPlaceholder(placeholder));
-    }
 
     const state = EditorState.create({
       doc: value,
