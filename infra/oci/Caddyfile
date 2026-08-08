@@ -73,8 +73,25 @@
 		defer
 	}
 
-	# Realtime first: the more specific prefix, and the websocket upgrade has to
-	# reach the path the server actually listens on.
+	# Realtime's REST side, which is not the socket.
+	#
+	# `channel.send()` does not always go over the websocket: when the channel
+	# is not subscribed, supabase-js POSTs to `/realtime/v1/api/broadcast`
+	# instead. That is a plain HTTP endpoint at `/api/broadcast` on the server,
+	# so it must not be folded into the socket mount below — doing so turned
+	# every one of those sends into a 404, which is silent (the caller does not
+	# await it) and cost cross-tab cache invalidation.
+	handle_path /realtime/v1/api/* {
+		rewrite * /api{uri}
+		reverse_proxy realtime:4000 {
+			header_up Host realtime-dev.localhost
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto https
+		}
+	}
+
+	# Then the socket: the websocket upgrade has to reach the path the server
+	# actually listens on.
 	handle_path /realtime/v1/* {
 		# Two rewrites, both required:
 		#
