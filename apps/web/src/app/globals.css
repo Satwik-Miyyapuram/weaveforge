@@ -4938,9 +4938,10 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
  * instead of animating — that is why the sheen previously had to fade with
  * `opacity`, and why it jumped back to the card's centre on the way out.
  *
- * `--rx` / `--ry` are registered but deliberately NOT transitioned: the sheen
- * has to track the pointer exactly, and a transition there would make the
- * light lag behind the cursor. Only the radius animates. */
+ * `--rx` / `--ry` are registered but deliberately NOT transitioned: the light
+ * has to sit exactly under the pointer, and a transition there would make it
+ * lag behind the cursor. Nothing about the gradient animates now — only the
+ * opacity that reveals it. */
 /* `inherits: true` on the pointer pair is required, not cosmetic. The script
    writes --rx/--ry on the *card*, while the gradient that reads them lives on
    the card's ::after. A pseudo-element inherits from its originating element,
@@ -4948,8 +4949,8 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
    resolved the 0.5/0.5 initial value and pinned the light to dead centre.
    Unregistered custom properties inherit by default, which is why this only
    broke when they were registered.
-   --rm-glow stays non-inheriting: it is set directly on the ::after by the
-   hover rule, and letting it cascade into descendants would be noise. */
+   --rm-glow inherits for the same reason: the ::after reads it, and a card or
+   theme that wants a larger pool sets it on the card. */
 @property --rx {
   syntax: "<number>";
   inherits: true;
@@ -4960,10 +4961,13 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   inherits: true;
   initial-value: 0.5;
 }
+/* The size of the pool of light under the cursor. Constant: it is not
+   animated any more, because a glow whose radius grows on hover reads as
+   coming *out of* the card rather than being revealed by it. */
 @property --rm-glow {
   syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
+  inherits: true;
+  initial-value: 260px;
 }
 
 :root[data-motion="reactive"] {
@@ -5057,12 +5061,19 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   scale: 0.985;
 }
 
-/* The sheen is a pseudo-element so it cannot disturb the card's own
-   background, and `inherit` on the radius keeps it inside rounded corners.
-   It animates its *radius*, not its opacity: the light blooms outward from
-   wherever the pointer entered and shrinks back into that same point on the
-   way out. Fading a fixed-size gradient instead is what made it look like the
-   glow slid to the middle of the card before vanishing. */
+/* A light under the cursor, and the card is the mask.
+   
+   The glow does not belong to the card and does not come out of it: it is a
+   fixed-size pool of light sitting wherever the pointer is, and the card simply
+   shows the part of it that falls inside its own bounds. The pseudo-element is
+   `inset: 0` with an inherited radius, so that clipping is the whole effect —
+   move the cursor to a corner and you get a corner's worth of light, not a
+   glow that has repositioned itself.
+
+   Earlier this animated the gradient's *radius*, which made the light look like
+   it was blooming out of the card on enter and being sucked back in on exit.
+   The size is constant now; only opacity moves, and quickly, so the light reads
+   as already there and merely uncovered. */
 :root[data-motion="reactive"] :is(
   .entity-card,
   .paper-card,
@@ -5076,9 +5087,10 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  transition: --rm-glow var(--rm-base) ease-out;
+  opacity: 0;
+  transition: opacity var(--rm-fast) var(--layout-ease);
   background: radial-gradient(
-    var(--rm-glow, 0px) circle at calc(var(--rx, 0.5) * 100%) calc(var(--ry, 0.5) * 100%),
+    var(--rm-glow) circle at calc(var(--rx, 0.5) * 100%) calc(var(--ry, 0.5) * 100%),
     var(--rm-glow-tint),
     transparent 70%
   );
@@ -5092,7 +5104,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   .org-choice-card,
   [data-reactive]
 ):hover::after {
-  --rm-glow: 280px;
+  opacity: 1;
 }
 
 /* ---- Controls ---- */
