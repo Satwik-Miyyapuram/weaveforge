@@ -115,3 +115,4 @@ test-results/
 desktop.ini
 Thumbs.db
 .DS_Store
+.vercel

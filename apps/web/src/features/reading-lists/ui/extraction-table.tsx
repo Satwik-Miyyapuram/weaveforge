@@ -233,7 +233,7 @@ export function ExtractionTable({
                         </p>
                         <button
                           type="button"
-                          className="secondary-btn btn-sm"
+                          className="btn-secondary btn-sm"
                           onClick={() => void copyProposePrompt(fieldId)}
                         >
                           Copy agent prompt

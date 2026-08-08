@@ -5,6 +5,7 @@
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getRealtimeClient } from "@/backend/providers/supabase/client";
 import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
 import type { Awareness } from "y-protocols/awareness";
 import { applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from "y-protocols/awareness";
@@ -41,7 +42,8 @@ export class EncryptedYjsProvider {
     null;
 
   constructor(private readonly opts: EncryptedYjsProviderOptions) {
-    const db = opts.db as SupabaseClient;
+    // The socket, which after a cutover is not the same host as the data API.
+    const db = getRealtimeClient(opts.db as SupabaseClient);
     this.channel = db.channel(`crdt:${opts.resourceType}:${opts.resourceId}`, {
       config: { broadcast: { self: false }, private: true },
     });
@@ -51,7 +53,8 @@ export class EncryptedYjsProvider {
     this.channel.on("broadcast", { event: "awareness" }, ({ payload }) => {
       void this.onAwarenessRemote(payload as { data?: string });
     });
-    void this.channel.subscribe();
+    // Token first, then join — see the note in `project-lww-invalidator`.
+    void db.realtime.setAuth().then(() => this.channel.subscribe());
     opts.doc.on("update", this.onLocalUpdate);
     if (opts.awareness) this.bindAwareness(opts.awareness);
     void this.bootstrapFromStore();

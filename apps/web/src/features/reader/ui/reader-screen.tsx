@@ -286,7 +286,7 @@ export function ReaderScreen() {
         </div>
         <div className="reader-screen-actions">
           {paperId && (
-            <Link className="secondary-btn" href={`/papers?paper=${encodeURIComponent(paperId)}`}>
+            <Link className="btn-secondary" href={`/papers?paper=${encodeURIComponent(paperId)}`}>
               Back to paper
             </Link>
           )}

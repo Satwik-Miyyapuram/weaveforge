@@ -206,7 +206,17 @@ export function wireSupabaseBackend(
     pid,
     { resourceType: "report_section" },
   );
-  const rawVaultPageRepository = new SupabaseVaultPageRepository(db, projectContext);
+  // "raw" is about the projection, not the caching: it returns full bodies
+  // where the screen loader takes summaries. It was the last uncached
+  // repository, so every consumer that wanted real note bodies — wiki, search,
+  // export, the folder mirror — paid its own round trip on the same page.
+  const rawVaultPageRepository = cacheRepo(
+    new SupabaseVaultPageRepository(db, projectContext),
+    ["getById", "list", "listSummaries", "getTree"],
+    ["save", "delete"],
+    pid,
+    { resourceType: "vault_page" },
+  );
   const readingListRepository = cacheRepo(
     new SupabaseReadingListRepository(db, projectContext),
     ["getById", "list", "getTree"],

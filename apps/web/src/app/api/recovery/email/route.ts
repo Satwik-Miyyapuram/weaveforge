@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createRestClient } from "@/backend/providers/supabase/client";
 import { missingConfigMessage, readBackendConfig } from "@/backend/config";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
 
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   if (missing || !url || !service) {
     return NextResponse.json({ error: missing ?? "Email recovery is not configured on this server." }, { status: 503 });
   }
-  const admin = createClient(url, service, { auth: { persistSession: false } });
+  const admin = createRestClient(url, service, { auth: { persistSession: false } });
   const { data, error } = await admin
     .from("user_email_recovery_secrets")
     .select("user_id")
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     // Resend carries no body; a malformed one is treated the same way.
   }
 
-  const admin = createClient(url, service, { auth: { persistSession: false } });
+  const admin = createRestClient(url, service, { auth: { persistSession: false } });
 
   // The verified email is the whole boundary, so read it server-side rather
   // than trusting anything the client sends.
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
   const origin = request.headers.get("origin") ?? new URL(request.url).origin;
   const redirectTo = `${origin}/recover?secret=${encodeURIComponent(secret)}`;
 
-  const sender = createClient(url, anon, { auth: { persistSession: false } });
+  const sender = createRestClient(url, anon, { auth: { persistSession: false } });
   const { error: sendErr } = await sender.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
   if (sendErr) return NextResponse.json({ error: sendErr.message }, { status: 502 });
 

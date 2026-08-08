@@ -30,7 +30,9 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
     );
   }
 
-  const db = createSupabaseClient(url, anonKey);
+  // `config.dataUrl` explicitly: this runs before the full container, so the
+  // client it builds is the one the whole session gets.
+  const db = createSupabaseClient(url, anonKey, config.dataUrl);
   const session = new SupabaseSessionProvider(db);
   const auth = new SupabaseAuthService(db);
   const settingsRepository = new SupabaseSettingsRepository(db, session);

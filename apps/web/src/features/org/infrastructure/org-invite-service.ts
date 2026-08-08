@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createRestClient } from "@/backend/providers/supabase/client";
 import {
   normalizeOrgInviteCode,
   resolveOrgJoinAssignment,
@@ -47,7 +48,7 @@ export class OrgInviteService {
   ) {}
 
   private admin(): SupabaseClient {
-    return createClient(this.url, this.serviceRoleKey, { auth: { persistSession: false } });
+    return createRestClient(this.url, this.serviceRoleKey, { auth: { persistSession: false } });
   }
 
   async resolveUserId(accessToken: string): Promise<string | null> {

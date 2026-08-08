@@ -58,7 +58,7 @@ export function ReaderSplitPanel({ kind, title, bodyPreview, href, onClose }: Re
         </button>
       </div>
       <pre className="reader-split-body">{bodyPreview || "Nothing to preview yet."}</pre>
-      <Link className="secondary-btn" href={href}>
+      <Link className="btn-secondary" href={href}>
         Open full {kind === "report" ? "section" : "note"}
       </Link>
     </aside>

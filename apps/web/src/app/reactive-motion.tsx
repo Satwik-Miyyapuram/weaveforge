@@ -31,6 +31,23 @@ import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
 const REACTIVE_SURFACES =
   ".entity-card, .paper-card, .dashboard-card, .artifact-card, .org-choice-card, .integration-item, [data-reactive]";
 
+/**
+ * Whether the pointer listeners should be attached.
+ *
+ * Pulled out of the effect so the device rule can be tested: it is the piece
+ * that decided, wrongly, that a touchscreen laptop has no mouse.
+ */
+export function shouldTrackPointer(input: {
+  /** `data-motion` on the root — the user's own preference. */
+  motion: string | undefined;
+  /** `(prefers-reduced-motion: reduce)`. */
+  reducedMotion: boolean;
+  /** `(any-pointer: fine)` — is there *a* precise pointer, primary or not. */
+  anyPointerFine: boolean;
+}): boolean {
+  return input.motion === "reactive" && !input.reducedMotion && input.anyPointerFine;
+}
+
 export function ReactiveMotion() {
   useEffect(() => {
     let detach: (() => void) | null = null;
@@ -94,13 +111,25 @@ export function ReactiveMotion() {
     }
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const fine = window.matchMedia("(pointer: fine)");
+    // `any-pointer`, not `pointer`.
+    //
+    // `(pointer: fine)` describes the *primary* input, and on a touchscreen
+    // laptop — a Surface, an XPS with touch — that is the touch digitiser even
+    // while a mouse is plugged in. The listeners then never attached, so
+    // `--rx`/`--ry` were never written and the cursor glow sat pinned to the
+    // middle of every card: present, lit, and not following anything.
+    //
+    // `any-pointer: fine` asks the question actually being asked — is there any
+    // pointing device here that can hover — and a touch-only device still
+    // matches neither, so nothing is attached where nothing can hover.
+    const fine = window.matchMedia("(any-pointer: fine)");
 
     const sync = () => {
-      const on =
-        document.documentElement.dataset.motion === "reactive" &&
-        !reduced.matches &&
-        fine.matches;
+      const on = shouldTrackPointer({
+        motion: document.documentElement.dataset.motion,
+        reducedMotion: reduced.matches,
+        anyPointerFine: fine.matches,
+      });
       if (on) attach();
       else detach?.();
     };

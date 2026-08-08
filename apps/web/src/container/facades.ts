@@ -81,6 +81,10 @@ import type { LoadExperimentsScreenUseCase, ExperimentsScreenData } from "@/feat
 import type { LoadVaultScreenUseCase, VaultScreenData } from "@/features/vault/application/load-vault-screen.use-case";
 import type { LoadReportScreenUseCase, ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { reportImagePathsInBody } from "@/features/report/lib/report-images-md";
+import { singleFlight } from "@/lib/single-flight";
+
+/** How long the pending-proposal count is reused across the shell's badges. */
+const PENDING_PROPOSALS_MEMO_MS = 15_000;
 import type { LoadPlanScreenUseCase, PlanScreenData as PlanScreenLoadData } from "@/features/plan/application/load-plan-screen.use-case";
 import type {
   LoadReadingListsScreenUseCase,
@@ -156,6 +160,11 @@ export class PapersFacade {
 
   getPaper(id: string) {
     return this.deps.papers.getById(id);
+  }
+
+  /** Every paper in the project, read through the cached repository. */
+  listPapers() {
+    return this.deps.papers.list();
   }
 
   get updatePaper() {
@@ -1107,7 +1116,34 @@ export class AiProposalFacade {
     });
   }
 
-  listPending(): Promise<AiWriteProposal[]> { return this.deps.proposals.listPending(); }
+  /**
+   * Pending proposals, shared across the burst of callers a page load makes.
+   *
+   * The review badge is rendered by every `HeaderActions` the shell mounts —
+   * nav, mobile header, menu — and they mount as the breakpoint resolves rather
+   * than together, so single-flight alone still left several identical queries.
+   * The short window covers the whole boot; anything that changes the queue
+   * dispatches `ai-proposals-changed`, and that path clears it.
+   */
+  listPending(): Promise<AiWriteProposal[]> {
+    const now = Date.now();
+    if (this.pendingMemo && now - this.pendingMemo.at < PENDING_PROPOSALS_MEMO_MS) {
+      return this.pendingMemo.value;
+    }
+    const value = singleFlight("ai-proposals:pending", () => this.deps.proposals.listPending());
+    this.pendingMemo = { at: now, value };
+    void value.catch(() => {
+      if (this.pendingMemo?.value === value) this.pendingMemo = null;
+    });
+    return value;
+  }
+
+  private pendingMemo: { at: number; value: Promise<AiWriteProposal[]> } | null = null;
+
+  /** Drop the memo — call after anything that changes the queue. */
+  forgetPending(): void {
+    this.pendingMemo = null;
+  }
 
   /**
    * Queue a draft the user asked for themselves, from inside the app.
@@ -1145,16 +1181,22 @@ export class AiProposalFacade {
       expectedRevision: input.expectedRevision,
     };
     await this.deps.proposals.save(proposal);
+    this.forgetPending();
     return proposal;
   }
   async pendingCount(): Promise<number> { return (await this.listPending()).length; }
-  approve(id: string): Promise<"accepted" | "conflicted"> { return this.executeProposal.execute(id); }
+  async approve(id: string): Promise<"accepted" | "conflicted"> {
+    const result = await this.executeProposal.execute(id);
+    this.forgetPending();
+    return result;
+  }
 
   async reject(id: string): Promise<void> {
     const proposal = await this.deps.proposals.getById(id);
     if (!proposal) throw new Error("AI proposal not found");
     if (proposal.status !== "pending") throw new Error("AI proposal is no longer pending");
     await this.deps.proposals.save({ ...proposal, status: "rejected" });
+    this.forgetPending();
     await this.deps.audit.save({ id: this.deps.newId(), proposalId: id, action: "rejected", createdAt: this.deps.now() });
   }
 
@@ -1402,9 +1444,27 @@ export class ReadingListsFacade {
     return this.deps.lists.getById(id);
   }
 
-  listItems(listId: string) {
-    return this.deps.listItems.listItems(listId);
+  /**
+   * Items in one list — coalesced with every other list asking in the same tick.
+   *
+   * The lists screen renders a node per list and each node loads its own items,
+   * so a workspace with seven lists made seven round trips to paint one screen.
+   * The repository already has a batched read; this collects the ids the render
+   * pass asks for and issues exactly one.
+   */
+  listItems(listId: string): Promise<ReadingListItem[]> {
+    this.pendingItemIds.add(listId);
+    this.itemBatch ??= Promise.resolve().then(() => {
+      const ids = [...this.pendingItemIds];
+      this.pendingItemIds.clear();
+      this.itemBatch = null;
+      return this.deps.listItems.listItemsForLists(ids);
+    });
+    return this.itemBatch.then((rows) => rows.filter((row) => row.listId === listId));
   }
+
+  private readonly pendingItemIds = new Set<string>();
+  private itemBatch: Promise<ReadingListItem[]> | null = null;
 
   listItemsForLists(listIds: readonly string[]) {
     return this.deps.listItems.listItemsForLists(listIds);

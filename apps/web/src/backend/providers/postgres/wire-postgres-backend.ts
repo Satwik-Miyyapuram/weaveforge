@@ -182,7 +182,15 @@ export function wirePostgresBackend(
     pid,
     { resourceType: "report_section" },
   );
-  const rawVaultPageRepository = new PostgresVaultPageRepository(pg, projectContext);
+  // "raw" is the projection (full bodies), not an opt-out of caching — see the
+  // Supabase wiring for why this one was costing repeated reads per page.
+  const rawVaultPageRepository = cacheRepo(
+    new PostgresVaultPageRepository(pg, projectContext),
+    ["getById", "list", "listSummaries", "getTree"],
+    ["save", "delete"],
+    pid,
+    { resourceType: "vault_page" },
+  );
   const readingListRepository: IReadingListRepository = cacheRepo(
     new PostgresReadingListRepository(pg, projectContext),
     ["getById", "list", "getTree"],

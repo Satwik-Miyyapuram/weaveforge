@@ -16,11 +16,18 @@ export type WorkspaceSearchFn = (query: string, options?: SearchQueryOptions) =>
  * The build is deferred to an idle callback so first paint is never delayed by
  * tokenizing the corpus. Failure is silent — every caller falls back to
  * substring matching, so a failed build costs ranking, never the search box.
+ *
+ * `warm` gates the build. Building reads the whole project — every entity, one
+ * request each — and the jump palette that asks for it is mounted on every
+ * screen, so warming on mount charged every page load for a search nobody had
+ * run yet. Callers pass true when the user reaches for search: the palette when
+ * it opens, a list when a query is typed.
  */
-export function useSearchIndex(): WorkspaceSearchFn {
+export function useSearchIndex(warm = false): WorkspaceSearchFn {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (!warm) return;
     let cancelled = false;
     const start = () => {
       void getContainer()
@@ -41,7 +48,7 @@ export function useSearchIndex(): WorkspaceSearchFn {
       if (idle && cancelIdle) cancelIdle(handle);
       else window.clearTimeout(handle);
     };
-  }, []);
+  }, [warm]);
 
   return useCallback(
     (query: string, options?: SearchQueryOptions) => {

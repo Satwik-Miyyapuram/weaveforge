@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createRestClient } from "@/backend/providers/supabase/client";
 import { missingConfigMessage, readBackendConfig } from "@/backend/config";
 import { encodeBytea } from "@/lib/bytea";
 import {
@@ -52,11 +53,11 @@ export class ApiTokenService {
   ) {}
 
   private admin(): SupabaseClient {
-    return createClient(this.url, this.serviceRoleKey, { auth: { persistSession: false } });
+    return createRestClient(this.url, this.serviceRoleKey, { auth: { persistSession: false } });
   }
 
   private userClient(accessToken: string): SupabaseClient {
-    return createClient(this.url, this.anonKey, {
+    return createRestClient(this.url, this.anonKey, {
       global: { headers: { Authorization: `Bearer ${accessToken}` } },
     });
   }

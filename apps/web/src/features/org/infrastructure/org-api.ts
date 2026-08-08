@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
+import { singleFlight } from "@/lib/single-flight";
 import type { OrgInviteRole, OrgMembershipView } from "@weaveforge/core";
 
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
@@ -108,8 +109,17 @@ export async function fetchOwnedOrgs() {
   return body.organizations ?? [];
 }
 
-/** Labs the signed-in user belongs to (for the org switcher). */
-export async function fetchMemberships(): Promise<OrgMembershipView[]> {
+/**
+ * Labs the signed-in user belongs to (for the org switcher).
+ *
+ * Shared between concurrent callers: the startup bundle and `ProfileProvider`
+ * both want it during boot, and the answer is the same row set either way.
+ */
+export function fetchMemberships(): Promise<OrgMembershipView[]> {
+  return singleFlight("org:memberships", fetchMembershipsUncached);
+}
+
+async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
   const supabase = getSupabase();
   const { data: session } = await supabase.auth.getSession();
   const userId = session.session?.user.id;
