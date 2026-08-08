@@ -2137,6 +2137,26 @@ a.related-paper-url:hover { text-decoration: underline; }
 .summary-editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .summary-editor-foot .error { margin-right: auto; }
 
+/* Co-editing chrome: who else is in the document, and whether live sync is up.
+   Both sit above the editor and must not push it around, so they are compact
+   single lines rather than banners. */
+.summary-input-collab { display: grid; gap: 6px; min-width: 0; max-width: 100%; }
+.collab-presence, .collab-offline {
+  margin: 0; font-size: 0.82rem; line-height: 1.4;
+}
+.collab-presence::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+  border-radius: 50%; background: var(--accent); vertical-align: middle;
+}
+.collab-offline { color: var(--warn, var(--ink)); }
+/* Remote carets and name tags drawn by y-codemirror. */
+.cm-ySelectionCaret { position: relative; border-left: 1px solid; border-right: 1px solid; margin: 0 -1px; box-sizing: border-box; }
+.cm-ySelectionInfo {
+  position: absolute; top: -1.05em; left: -1px; font-size: 0.68rem; line-height: 1.1;
+  padding: 1px 4px; border-radius: 3px 3px 3px 0; white-space: nowrap;
+  color: #fff; opacity: 0.9; user-select: none; pointer-events: none;
+}
+
 /* Editor toolbar row: cite-format picker, template re-render, artifact picker (Phase C). */
 .summary-editor-bar {
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px;

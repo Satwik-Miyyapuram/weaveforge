@@ -193,11 +193,17 @@ function EditLogForm({
   const [error, setError] = useState<string | null>(null);
   const useCollab = getContainer().collab.enabled();
 
+  /**
+   * Autosave from the collaborative editor. Deliberately does *not* call
+   * `onSaved` — that closes the form, and the editor saves while the user is
+   * still typing in it. Keeping the local `body` in step means the Kind select
+   * can be submitted later without clobbering collaborative edits.
+   */
   async function saveBody(nextBody: string) {
+    setBody(nextBody);
     const logbook = getContainer().logbook;
     const updated = await logbook.addLogEntry.update(entry.id, { body: nextBody, kind });
     try { await logbook.pushLog(updated); } catch { /* git sync best-effort */ }
-    await onSaved();
   }
 
   async function submit(e: React.FormEvent) {
@@ -251,8 +257,12 @@ function EditLogForm({
         <button type="button" className="link-btn" onClick={onCancel} disabled={busy}>
           cancel
         </button>
-        <button className="btn-primary" disabled={busy || useCollab}>
-          {busy ? "Saving…" : useCollab ? "Auto-saving…" : "Save"}
+        {/* In collab mode the body is already persisted by the editor's
+            autosave, so this button is about leaving the form — but it still
+            submits, because the Kind select is not collaborative and would
+            otherwise have no way to be saved at all. */}
+        <button className="btn-primary" disabled={busy}>
+          {busy ? "Saving…" : useCollab ? "Done" : "Save"}
         </button>
       </div>
     </form>

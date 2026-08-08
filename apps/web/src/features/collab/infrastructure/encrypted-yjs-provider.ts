@@ -29,6 +29,19 @@ export interface EncryptedYjsProviderOptions {
   getSnapshotUpto?: () => Promise<number>;
   setSnapshotUpto?: (uptoId: number) => Promise<void>;
   compactCrdtLog?: CompactCrdtLogUseCase;
+  /**
+   * Puts the row's stored body into an empty document. Runs *after* the CRDT
+   * log is replayed, and only then, because the log already carries the body
+   * for every resource that has been co-edited before: seeding up front and
+   * replaying on top of it concatenated the two, so every reopen doubled the
+   * text. The callback is responsible for its own "is the doc still empty"
+   * check — see `CollaborativeMarkdownEditor`.
+   */
+  seed?: () => void;
+  /** Surfaces transport failures that are otherwise silent. */
+  onError?: (stage: string, detail: string) => void;
+  /** Fires on every successful join, so a stale failure notice can be cleared. */
+  onConnected?: () => void;
 }
 
 export class EncryptedYjsProvider {
@@ -38,6 +51,7 @@ export class EncryptedYjsProvider {
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPersistedId = 0;
   private destroyed = false;
+  private subscribed = false;
   private awarenessHandler: ((payload: { added: number[]; updated: number[]; removed: number[] }) => void) | null =
     null;
 
@@ -54,7 +68,22 @@ export class EncryptedYjsProvider {
       void this.onAwarenessRemote(payload as { data?: string });
     });
     // Token first, then join — see the note in `project-lww-invalidator`.
-    void db.realtime.setAuth().then(() => this.channel.subscribe());
+    void db.realtime
+      .setAuth()
+      .then(() =>
+        this.channel.subscribe((status, err) => {
+          this.subscribed = status === "SUBSCRIBED";
+          if (process.env.NODE_ENV !== "production") {
+            console.debug(`[collab] ${this.channel.topic} → ${status}${err ? `: ${err.message}` : ""}`);
+          }
+          if (this.destroyed) return;
+          if (status === "SUBSCRIBED") this.opts.onConnected?.();
+          else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            this.opts.onError?.("subscribe", `${status}${err ? `: ${err.message}` : ""}`);
+          }
+        }),
+      )
+      .catch((err) => this.opts.onError?.("setAuth", err instanceof Error ? err.message : String(err)));
     opts.doc.on("update", this.onLocalUpdate);
     if (opts.awareness) this.bindAwareness(opts.awareness);
     void this.bootstrapFromStore();
@@ -86,7 +115,12 @@ export class EncryptedYjsProvider {
     const merged = mergeUpdates(this.pending);
     this.pending = [];
     const data = btoa(String.fromCharCode(...merged));
-    await this.channel.send({ type: "broadcast", event: "yjs", payload: { data } });
+    try {
+      const res = await this.channel.send({ type: "broadcast", event: "yjs", payload: { data } });
+      if (res !== "ok") this.opts.onError?.("send", `broadcast returned ${String(res)}`);
+    } catch (err) {
+      this.opts.onError?.("send", err instanceof Error ? err.message : String(err));
+    }
   }
 
   private async onRemote(payload: { data?: string }) {
@@ -102,16 +136,25 @@ export class EncryptedYjsProvider {
   }
 
   private async bootstrapFromStore() {
-    const snapshotUpto = (await this.opts.getSnapshotUpto?.()) ?? 0;
-    this.lastPersistedId = snapshotUpto;
-    const rows = await this.opts.crdtStore.listAfter(
-      this.opts.resourceType,
-      this.opts.resourceId,
-      snapshotUpto,
-    );
-    for (const row of rows) {
-      Y.applyUpdate(this.opts.doc, row.payload, this);
-      this.lastPersistedId = row.id;
+    try {
+      const snapshotUpto = (await this.opts.getSnapshotUpto?.()) ?? 0;
+      this.lastPersistedId = snapshotUpto;
+      const rows = await this.opts.crdtStore.listAfter(
+        this.opts.resourceType,
+        this.opts.resourceId,
+        snapshotUpto,
+      );
+      for (const row of rows) {
+        Y.applyUpdate(this.opts.doc, row.payload, this);
+        this.lastPersistedId = row.id;
+      }
+    } catch (err) {
+      this.opts.onError?.("bootstrap", err instanceof Error ? err.message : String(err));
+    } finally {
+      // Always seed, even when the replay failed: an empty editor over a
+      // non-empty row would otherwise look like the body had been deleted, and
+      // the first keystroke would persist that deletion.
+      if (!this.destroyed) this.opts.seed?.();
     }
   }
 
@@ -152,12 +195,24 @@ export class EncryptedYjsProvider {
     this.opts.doc.off("update", this.onLocalUpdate);
     if (this.mergeTimer) clearTimeout(this.mergeTimer);
     if (this.persistTimer) clearTimeout(this.persistTimer);
-    await this.persistTail();
-    await this.maybeCompact();
     if (this.opts.awareness && this.awarenessHandler) {
       this.opts.awareness.off("update", this.awarenessHandler);
       removeAwarenessStates(this.opts.awareness, [this.opts.doc.clientID], this);
     }
+
+    // Leave the channel *before* the awaits below, in this method's synchronous
+    // prologue. Tearing down last meant the `phx_leave` went out after
+    // `persistTail`'s round trip — long enough for React to have mounted the
+    // replacement editor, which joins the same topic. supabase-js keys channels
+    // by topic, so the late leave closed the *new* channel and live sync was
+    // dead for the rest of the session while the editor still looked fine.
+    //
+    // `unsubscribe`, not `removeChannel`: the latter drops the channel from the
+    // client's registry, and supabase-js disconnects the shared socket once the
+    // registry empties — taking the project-wide invalidation channel with it.
     void this.channel.unsubscribe();
+
+    await this.persistTail();
+    await this.maybeCompact();
   }
 }
