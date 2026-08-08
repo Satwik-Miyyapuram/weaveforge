@@ -4,7 +4,13 @@ import type {
   ZoteroAnnotationPosition,
   ZoteroAnnotationType,
 } from "../domain/zotero";
-import { zoteroHeaders, zoteroLibraryUrl } from "./zotero-web-api";
+import {
+  fetchAllZoteroItems,
+  fetchZoteroItemKeys,
+  zoteroHeaders,
+  zoteroLibraryUrl,
+  zoteroTopLevelPath,
+} from "./zotero-web-api";
 
 export type { ZoteroAnnotation } from "../domain/zotero";
 
@@ -40,8 +46,6 @@ interface ZoteroItem {
   };
 }
 
-const PAGE = 100;
-
 export class ZoteroAnnotations {
   constructor(
     private readonly credentials: ZoteroCredentialsProvider,
@@ -59,13 +63,33 @@ export class ZoteroAnnotations {
     const baseUrl = zoteroLibraryUrl(creds.library, this.apiOrigin);
     const col = creds.collection;
 
-    const allowedPaperKeys = col
-      ? await this.collectionTopLevelKeys(baseUrl, headers, col)
-      : null;
+    // The four reads are independent of one another — the attachment map is
+    // only needed to *join* annotations to papers, not to fetch them — so they
+    // go out together. Run one after another, each waiting on the last page of
+    // the one before, they were the whole cost of a sync.
+    const items = (itemType: string | undefined, collection?: string) =>
+      fetchAllZoteroItems<ZoteroItem>({
+        baseUrl,
+        headers,
+        params: { itemType, collection },
+        fetchFn: this.fetchFn,
+        label: itemType ?? "items",
+      });
+
+    const [allowedPaperKeys, attachments, annotations, notes] = await Promise.all([
+      col
+        // Top-level only: this set gates which parents count as papers, so
+        // letting attachment keys into it would defeat the collection scope.
+        ? fetchZoteroItemKeys({ baseUrl, path: zoteroTopLevelPath(col), headers, fetchFn: this.fetchFn })
+        : Promise.resolve(null),
+      items("attachment"),
+      items("annotation"),
+      items("note"),
+    ]);
 
     // Pass 1: attachment → parent paper key (library-wide; children are not in collections).
     const attachToPaper = new Map<string, string>();
-    for await (const it of this.paginate(baseUrl, "attachment", headers)) {
+    for (const it of attachments) {
       if (!it.key || !it.data?.parentItem) continue;
       const paperKey = it.data.parentItem;
       if (allowedPaperKeys && !allowedPaperKeys.has(paperKey)) continue;
@@ -74,7 +98,7 @@ export class ZoteroAnnotations {
 
     // Pass 2: annotations, resolved to their paper via the attachment map.
     const byPaper = new Map<string, ZoteroAnnotation[]>();
-    for await (const it of this.paginate(baseUrl, "annotation", headers)) {
+    for (const it of annotations) {
       const attKey = it.data?.parentItem;
       const paperKey = attKey ? attachToPaper.get(attKey) : undefined;
       if (!paperKey) continue;
@@ -100,7 +124,7 @@ export class ZoteroAnnotations {
 
     // Zotero notes are direct child items of a paper. Keep them separate from
     // highlights so AI access can be scoped to precisely selected note sources.
-    for await (const it of this.paginate(baseUrl, "note", headers)) {
+    for (const it of notes) {
       const paperKey = it.data?.parentItem;
       if (!paperKey || (allowedPaperKeys && !allowedPaperKeys.has(paperKey))) continue;
       const text = toPlainText(it.data?.note);
@@ -113,50 +137,6 @@ export class ZoteroAnnotations {
     return byPaper;
   }
 
-  /** Top-level Zotero item keys in a collection (papers, not attachments/annotations). */
-  private async collectionTopLevelKeys(
-    baseUrl: string,
-    headers: Record<string, string>,
-    collection: string,
-  ): Promise<Set<string>> {
-    const keys = new Set<string>();
-    for await (const it of this.paginate(baseUrl, undefined, headers, collection)) {
-      if (it.key) keys.add(it.key);
-    }
-    return keys;
-  }
-
-  private async *paginate(
-    baseUrl: string,
-    itemType: string | undefined,
-    headers: Record<string, string>,
-    collection?: string,
-  ): AsyncGenerator<ZoteroItem> {
-    for (let start = 0; ; start += PAGE) {
-      const params = new URLSearchParams({
-        limit: String(PAGE),
-        start: String(start),
-      });
-      if (itemType) params.set("itemType", itemType);
-      if (collection) params.set("collection", collection);
-      const url = `${baseUrl}/items?${params.toString()}`;
-      let res = await this.fetchFn(url, { headers });
-      for (let attempt = 0; res.status === 429 && attempt < 3; attempt++) {
-        await delay(retryAfterMs(res, attempt));
-        res = await this.fetchFn(url, { headers });
-      }
-      if (!res.ok) {
-        const d = await res.text().catch(() => "");
-        const label = itemType ?? "items";
-        throw new Error(`Zotero ${label} fetch failed (${res.status}). ${d}`.trim());
-      }
-      const page = (await res.json()) as ZoteroItem[];
-      for (const it of page) yield it;
-      const backoff = Number(res.headers.get("Backoff"));
-      if (backoff > 0) await delay(backoff * 1000);
-      if (page.length < PAGE) break;
-    }
-  }
 }
 
 /**
@@ -228,12 +208,4 @@ function toPlainText(note: string | undefined): string | undefined {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   return text || undefined;
-}
-
-function retryAfterMs(res: Response, attempt: number): number {
-  const ra = Number(res.headers.get("Retry-After"));
-  return ra > 0 ? ra * 1000 : 1000 * (attempt + 1);
-}
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
