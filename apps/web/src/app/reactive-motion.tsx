@@ -34,18 +34,28 @@ const REACTIVE_SURFACES =
 /**
  * Whether the pointer listeners should be attached.
  *
- * Pulled out of the effect so the device rule can be tested: it is the piece
- * that decided, wrongly, that a touchscreen laptop has no mouse.
+ * Deliberately says nothing about what kind of pointer the device has.
+ *
+ * It used to: first `(pointer: fine)`, then `(any-pointer: fine)`. Both are
+ * answers to "might this device have a mouse", asked once, off a signal the
+ * browser is free to report differently per platform — and on the machine that
+ * reported this bug neither produced a listener. The glow then sat at the
+ * centre of every card, lit and following nothing, which is a worse failure
+ * than doing the work on a device that never moves a cursor.
+ *
+ * What the work actually costs when nobody hovers: one delegated `pointermove`
+ * that returns immediately for `pointerType === "touch"`. That is cheaper than
+ * being wrong, so the capability question is not asked at all — the CSS only
+ * paints a glow under `[data-motion="reactive"]` anyway, so an unread custom
+ * property is the worst case.
  */
 export function shouldTrackPointer(input: {
   /** `data-motion` on the root — the user's own preference. */
   motion: string | undefined;
   /** `(prefers-reduced-motion: reduce)`. */
   reducedMotion: boolean;
-  /** `(any-pointer: fine)` — is there *a* precise pointer, primary or not. */
-  anyPointerFine: boolean;
 }): boolean {
-  return input.motion === "reactive" && !input.reducedMotion && input.anyPointerFine;
+  return input.motion === "reactive" && !input.reducedMotion;
 }
 
 export function ReactiveMotion() {
@@ -111,37 +121,33 @@ export function ReactiveMotion() {
     }
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    // `any-pointer`, not `pointer`.
-    //
-    // `(pointer: fine)` describes the *primary* input, and on a touchscreen
-    // laptop — a Surface, an XPS with touch — that is the touch digitiser even
-    // while a mouse is plugged in. The listeners then never attached, so
-    // `--rx`/`--ry` were never written and the cursor glow sat pinned to the
-    // middle of every card: present, lit, and not following anything.
-    //
-    // `any-pointer: fine` asks the question actually being asked — is there any
-    // pointing device here that can hover — and a touch-only device still
-    // matches neither, so nothing is attached where nothing can hover.
-    const fine = window.matchMedia("(any-pointer: fine)");
 
     const sync = () => {
       const on = shouldTrackPointer({
         motion: document.documentElement.dataset.motion,
         reducedMotion: reduced.matches,
-        anyPointerFine: fine.matches,
       });
       if (on) attach();
       else detach?.();
     };
 
     sync();
+    // `data-motion` is written by the theme layer, which fires this event. The
+    // observer is the belt to that braces: the attribute is also set during
+    // hydration and by anything else that touches the root, and a preference
+    // that arrives a tick after mount must still turn the effect on rather than
+    // wait for the next theme change.
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-motion"],
+    });
     window.addEventListener(THEME_CHANGE_EVENT, sync);
     reduced.addEventListener("change", sync);
-    fine.addEventListener("change", sync);
     return () => {
+      observer.disconnect();
       window.removeEventListener(THEME_CHANGE_EVENT, sync);
       reduced.removeEventListener("change", sync);
-      fine.removeEventListener("change", sync);
       detach?.();
     };
   }, []);
