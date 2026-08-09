@@ -6,6 +6,63 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Collaborative editing actually works, and now covers vault notes.** Two
+  people can edit the same note or logbook entry at once, with peer cursors and
+  presence. It had never run: `crdt_updates` was empty because the editor closed
+  itself before anyone could type, and the socket died on the first send. Notes
+  keep wikilink and `@cite` completion, find-in-note and undo — co-editing a note
+  is the same editor with a shared document behind it, not a plainer one. See
+  [Collaborative editing](docs/collaborative-editing.md).
+
+### Fixed
+- **The logbook's Edit button appeared to do nothing.** The form opened and shut
+  in the same frame: the editor flushed a save on teardown, and the save handler
+  closed the form. Autosave no longer closes anything, and a save must differ
+  from what the server last had.
+- **Notes and log entries doubled their text on every reopen.** The document was
+  seeded with the row's body before the CRDT log was replayed, and seeded again
+  by every client that opened it. The seed is now built from a document pinned to
+  one client id, so it is byte-identical everywhere and deduplicates itself, and
+  it only applies to a document with no history.
+- **No update ever reached the other window.** `realtime-js` binary-encodes every
+  broadcast push, and the self-hosted Realtime answers that frame kind by closing
+  the whole websocket — taking the project-wide cache-invalidation channel with
+  it — while every `phx_join` still reported `SUBSCRIBED`. Outgoing frames are
+  pinned to Phoenix's plain-JSON tuple.
+- **Closing a collaborative editor discarded the last few seconds of typing from
+  the shared history.** `destroy()` set its `destroyed` flag before persisting,
+  and the persist path skips when that flag is set, so the closing flush wrote
+  nothing; reopening replayed a log that was behind. Found by a regression test.
+- **First sign-in on a new browser hung on "Preparing your workspace…".** The
+  startup bundle is single-flighted, so the second caller joined the in-flight
+  promise and its `onDecision` callback never fired, leaving the disclaimer gate
+  unready for ever. The gate is now also resolved from the settled bundle.
+- **Zotero imported PDF attachments as papers.** The sync read `/items`, which
+  returns attachments and child notes, and only checked that an item had a title
+  — so "Preprint PDF" and "Snapshot" arrived as bibliography entries, duplicating
+  their own parents because an attachment's URL yields a versioned arXiv id. It
+  reads `/items/top` now. `scripts/prune-zotero-attachment-papers.mjs` removes
+  rows already written.
+- **Sign out could sit below the bottom of the sidebar, unreachable.** Nothing
+  inside the fixed-height nav could scroll. The links scroll now and the account
+  block stays pinned. The block also lost its GitHub link and a duplicate
+  Projects control.
+
+### Changed
+- **`experiment_metrics` costs a tenth of what it did.** It is the only table
+  that grows without bound, so it alone decides when the 50 GB volume fills.
+  Measured on the live database: 448.7 B/point before, 130.9 after the schema
+  narrowed (migration `0114`), 22.5 after settled points are packed into arrays
+  (`0115`). Metric series are also downsampled on write — every point below step
+  10,000, then halving per octave — which makes a run's footprint logarithmic in
+  its length rather than linear. See
+  [the plan](docs/future-work/metrics-storage-plan.md).
+- **Zotero syncs in a fraction of the time.** Page reads use `Total-Results` to
+  fetch offsets in parallel instead of walking them one at a time, and the
+  attachment, annotation and note passes run together. Measured against a mock
+  at 250 ms latency with 3,000 annotations: 10.3 s → 2.4 s.
+
 ## [0.5.2] - 2026-07-30
 
 ### Fixed

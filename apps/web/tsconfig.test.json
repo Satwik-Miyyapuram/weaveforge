@@ -1,0 +1,17 @@
+{
+  // Test-run compiler settings. Identical to the app's, with one change.
+  //
+  // `jsx: "preserve"` is correct for the app: Next compiles the JSX itself. But
+  // the node:test runner transpiles through tsx/esbuild, which falls back to
+  // the *classic* JSX transform when it sees `preserve` — and classic emits
+  // `React.createElement`, so rendering any component that contains JSX fails
+  // with "React is not defined" unless every such file imports React by hand.
+  //
+  // The automatic runtime imports the factory itself, which is what Next
+  // already produces for the real build. Setting it only here keeps the app's
+  // configuration untouched.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  }
+}

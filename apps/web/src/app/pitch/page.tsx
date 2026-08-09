@@ -1649,7 +1649,7 @@ def train(run):
           id="labs"
           eyebrow="Labs & supervision"
           heading="Your group sees objects, not screenshots."
-          lede="Collaboration is a permission on a row, not a second product bolted on the side."
+          lede="Collaboration is a permission on a row and a cursor in your note — not a second product bolted on the side."
           views={[
             <div key="l">
               <p className={css.stageCap}>people · vision-group</p>
@@ -1666,6 +1666,19 @@ def train(run):
                 <EntityCard as="li" className="exp-item" title="β-VAE sweep — seed 42" meta="experiment · read only" status={<StatusPill value="done" label="shared" />} />
                 <EntityCard as="li" nested title="“Good — but show the ablation before you write this up.”" meta="dr. m. haddad · 2d ago" />
               </ul>
+            </div>,
+            <div key="coedit">
+              <p className={css.stageCap}>vault note · two people, one document</p>
+              <EntityCard title="Disentanglement reading cluster" meta="editing with dr. m. haddad">
+                <pre className="code-block">{`β-VAE trades reconstruction for disentanglement.
+The ablation in §4 is the one to reproduce▏          ← you
+                                     ▏dr. m. haddad`}</pre>
+                <dl className={css.kv}>
+                  <div><dt>merge strategy</dt><dd>CRDT · no last-writer-wins</dd></div>
+                  <div><dt>save button</dt><dd>none</dd></div>
+                  <div><dt>conflict dialogs</dt><dd>0</dd></div>
+                </dl>
+              </EntityCard>
             </div>,
             <div key="rls">
               <p className={css.stageCap}>postgres · row-level security</p>
@@ -1692,9 +1705,10 @@ create policy paper_read on papers
           ]}
           steps={[
             { idx: "01", title: "A lab in three codes.", body: "A professor creates the lab and hands out three invite codes — professor, PhD, Master’s. Joining takes one paste. No IT ticket, no admin console to learn." },
-            { idx: "02", title: "Share objects, not screenshots.", body: "Share a paper, an experiment, a report section, or a whole type. Your labmate pins it into their own library, comments on it, and co-edits where you granted that." },
-            { idx: "03", title: "Scoped by the database.", body: "Postgres row-level security is the access boundary, not application code. Owner-or-shared is enforced where the data lives, so a bug in a screen cannot leak a row." },
-            { idx: "04", title: "Or nobody at all.", body: "Standalone is a first-class path: the entire product with the collaboration surface out of the way. Data is encrypted at rest but not end-to-end — the docs say so plainly." },
+            { idx: "02", title: "Share objects, not screenshots.", body: "Share a paper, an experiment, a report section, or a whole type. Your labmate pins it into their own library and comments on it — on the object, where the work is, not in a thread somewhere else." },
+            { idx: "03", title: "Write the note together.", body: "Notes and log entries are live documents. Both cursors are on screen, both sets of keystrokes land, and the text merges as a CRDT — so there is no save button, no “someone else has saved this” dialog, and no version of the note that quietly won. Wikilinks, citation completion and find-in-note all still work while you do it." },
+            { idx: "04", title: "Scoped by the database.", body: "Postgres row-level security is the access boundary, not application code. Owner-or-shared is enforced where the data lives, so a bug in a screen cannot leak a row." },
+            { idx: "05", title: "Or nobody at all.", body: "Standalone is a first-class path: the entire product with the collaboration surface out of the way. Data is encrypted at rest but not end-to-end — the docs say so plainly." },
           ]}
         />
 

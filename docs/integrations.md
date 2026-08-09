@@ -43,6 +43,30 @@ User credentials are edited in **Settings → Integrations**. Project connectors
 - Overleaf export maps `[[Paper Title]]` → `\cite{key}` (`markdown-to-latex` + `build-overleaf-export`). Prefer `metadata.citeKey` / bibtex key when set.
 - **Find related papers** (paper note) calls Semantic Scholar recommendations / references; adds via `addPaper.addManual`. User guide: [`usage-cite-and-excerpts.md`](usage-cite-and-excerpts.md).
 
+#### Two rules the Zotero reads depend on
+
+Both were bugs. Neither is obvious from the endpoint names.
+
+**Read `/items/top`, never `/items`.** `/items` returns attachments, child notes
+and annotations alongside bibliography entries, and a Zotero PDF attachment is
+*titled* — "Preprint PDF", "Full Text PDF", "Snapshot". Anything that filters on
+"has a title" imports them as papers. They also duplicate their own parent
+rather than merging with it, because an attachment's URL yields a **versioned**
+arXiv id (`2308.01542v1`) where the paper carries the base id (`2308.01542`), so
+the two never match. On one real library this was 37 of 115 papers. Use
+`zoteroTopLevelPath(collection)`; `scripts/prune-zotero-attachment-papers.mjs`
+cleans up rows already written.
+
+**Page reads in parallel, from `Total-Results`.** Zotero returns the match count
+on the first page, so the remaining offsets are known immediately and are
+fetched four at a time by `fetchAllZoteroItems`; annotations, attachments and
+notes are three independent reads and go out together. Walking them serially
+made a sync take tens of seconds. Two traps: `headers.get` returns `null` when
+the header is absent and `Number(null)` is `0` — which is *finite*, so a naive
+read stops after one page and silently loses everything past the first hundred;
+and `Backoff`/`Retry-After` must pause **every** in-flight request, not just the
+one that carried the header.
+
 ### Runtime flow
 
 1. **`readIntegrationConfig()`** reads `NEXT_PUBLIC_*` env vars (deployment-time plugin selection).

@@ -151,11 +151,18 @@ async function loadStartupBundleUncached(
   };
 }
 
+/** The uncached loader, as a type a test can substitute. */
+export type StartupBundleLoader = typeof loadStartupBundleUncached;
+
 function loadStartupBundle(
   userId: string,
   opts?: Parameters<typeof loadStartupBundleUncached>[1],
+  load: StartupBundleLoader = loadStartupBundleUncached,
 ): Promise<StartupSnapshot> {
-  return singleFlight(`startup:${userId}`, () => loadStartupBundleUncached(userId, opts));
+  // Single-flighted around the *injected* loader rather than inside it, so a
+  // test that substitutes the loader still goes through the same sharing —
+  // which is where the first-login hang lived.
+  return singleFlight(`startup:${userId}`, () => load(userId, opts));
 }
 
 /**
@@ -191,9 +198,17 @@ function writeCachedSnapshot(userId: string, snapshot: StartupSnapshot): void {
 export function StartupProvider({
   userId,
   children,
+  loadBundle,
 }: {
   userId: string;
   children: ReactNode;
+  /**
+   * Substitutes the network half of startup. Only tests pass it; the default is
+   * the real loader. Injected rather than module-mocked because the loader
+   * pulls in the whole container graph, and a test of *this* component's gate
+   * logic has no business constructing one.
+   */
+  loadBundle?: StartupBundleLoader;
 }) {
   const [snapshot, setSnapshot] = useState<StartupSnapshot | null>(() => readCachedSnapshot(userId));
   // Instant paint is only safe for the disclaimer modal (light container). A
@@ -224,13 +239,17 @@ export function StartupProvider({
   const refreshProfile = useCallback(async () => {
     // A refresh follows an explicit accept, so acceptance is known — skip the
     // gate and go straight to the parallel batch.
-    const next = await loadStartupBundle(userId, {
-      assumeAccepted: cacheProvesAccepted(readCachedSnapshot(userId)),
-      onDecision: applyDecision,
-    });
+    const next = await loadStartupBundle(
+      userId,
+      {
+        assumeAccepted: cacheProvesAccepted(readCachedSnapshot(userId)),
+        onDecision: applyDecision,
+      },
+      loadBundle,
+    );
     setSnapshot(next);
     writeCachedSnapshot(userId, next);
-  }, [userId, applyDecision]);
+  }, [userId, applyDecision, loadBundle]);
 
   useEffect(() => {
     let active = true;
@@ -241,12 +260,16 @@ export function StartupProvider({
     } else {
       setLoading(true);
     }
-    void loadStartupBundle(userId, {
-      assumeAccepted: cacheProvesAccepted(cached),
-      onDecision: (needs) => {
-        if (active) applyDecision(needs);
+    void loadStartupBundle(
+      userId,
+      {
+        assumeAccepted: cacheProvesAccepted(cached),
+        onDecision: (needs) => {
+          if (active) applyDecision(needs);
+        },
       },
-    })
+      loadBundle,
+    )
       .then((data) => {
         if (!active) return;
         // Backstop for `onDecision`. The bundle is single-flighted, so a second
@@ -266,7 +289,7 @@ export function StartupProvider({
     return () => {
       active = false;
     };
-  }, [userId, applyDecision]);
+  }, [userId, applyDecision, loadBundle]);
 
   const value = useMemo(
     () => ({ loading, gateReady, needsPrivacyAccept, snapshot, refreshProfile }),

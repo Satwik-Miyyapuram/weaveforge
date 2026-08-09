@@ -196,6 +196,7 @@ Apply the full chain with `supabase db push`. Notable groups: sharing (`0018`), 
 ### Collaboration
 
 - **Share** individual items or whole types with labmates; recipients use **Shared with me** and can **pin** into their library.
+- **Co-editing** — vault notes and logbook entries are live multi-user documents: peer cursors, presence, no save button and no overwrite. Backed by a Yjs CRDT over Realtime, durable in `crdt_updates`. See [Collaborative editing](docs/collaborative-editing.md).
 - **Labs** — Settings → People → create/join lab or continue standalone. Professors get three invite codes.
 - **Supervisor view** — read-only access to supervisees' milestones and log entries along the org tree.
 
