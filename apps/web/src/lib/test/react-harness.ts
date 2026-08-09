@@ -5,7 +5,7 @@
  * `node --import tsx --test` alongside the pure-function tests in this folder.
  * Only hooks are supported — assert on the returned value, not on markup.
  */
-import { createElement } from "react";
+import { createElement, type ReactElement, type ReactNode } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 // react-test-renderer logs a deprecation notice on import under React 18.3.
@@ -29,6 +29,15 @@ export interface HookHarness<P, T> {
   unmount: () => Promise<void>;
 }
 
+export interface RenderHookOptions {
+  /**
+   * Wraps the probe — a context provider, `StrictMode`, or both. Needed for any
+   * hook that reads context, and the only way to exercise a provider's own
+   * effects from this harness.
+   */
+  wrapper?: (children: ReactNode) => ReactElement;
+}
+
 /**
  * Render `hook` with `initialProps` and return a handle for re-rendering it.
  * Effects have run (and their awaited work settled) by the time this resolves.
@@ -36,6 +45,7 @@ export interface HookHarness<P, T> {
 export async function renderHook<P, T>(
   hook: (props: P) => T,
   initialProps: P,
+  options: RenderHookOptions = {},
 ): Promise<HookHarness<P, T>> {
   let value: T;
   const Probe = ({ hookProps }: { hookProps: P }) => {
@@ -43,9 +53,14 @@ export async function renderHook<P, T>(
     return null;
   };
 
+  const wrap = (props: P) => {
+    const probe = createElement(Probe, { hookProps: props });
+    return options.wrapper ? options.wrapper(probe) : probe;
+  };
+
   let renderer: ReactTestRenderer;
   await act(async () => {
-    renderer = create(createElement(Probe, { hookProps: initialProps }));
+    renderer = create(wrap(initialProps));
   });
 
   const flush = async () => {
@@ -58,7 +73,7 @@ export async function renderHook<P, T>(
     },
     rerender: async (props: P) => {
       await act(async () => {
-        renderer.update(createElement(Probe, { hookProps: props }));
+        renderer.update(wrap(props));
       });
     },
     flush,

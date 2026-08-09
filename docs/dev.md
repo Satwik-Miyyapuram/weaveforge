@@ -110,6 +110,40 @@ When landing sharing, library, or org onboarding work, confirm:
 
 UI talks to **`getContainer().<feature>`** facades only; repositories stay behind use-cases in `bootstrap.ts`.
 
+## Testing hooks and providers
+
+The web unit suite is `node:test` with no DOM. Hooks and context providers are
+still testable: `renderHook` in
+[`lib/test/react-harness.ts`](../apps/web/src/lib/test/react-harness.ts) renders
+through `react-test-renderer`, which needs no browser environment.
+
+```ts
+const harness = await renderHook(() => useStartup(), undefined, {
+  wrapper: (children) => <MyProvider>{children}</MyProvider>,
+});
+await harness.flush();          // let effects and their awaited work settle
+assert.equal(harness.current.ready, true);
+await harness.unmount();
+```
+
+Assert on the value the hook returns, not on markup — there is none.
+
+Two things worth knowing before writing one:
+
+- **Test files may be `.ts` or `.tsx`.** JSX in tests compiles through
+  `tsconfig.test.json`, which switches to the automatic JSX runtime; the app's
+  own `jsx: "preserve"` makes tsx fall back to the classic transform, and any
+  component containing JSX then fails with "React is not defined".
+- **`StrictMode` does not double-invoke effects here.** react-test-renderer
+  does not reproduce react-dom's development behaviour, so wrapping a test in
+  `StrictMode` to force a remount proves nothing — a test written that way
+  passed against the very bug it was meant to catch. Drive the remount
+  explicitly: mount, `unmount()`, mount again, holding any in-flight promise
+  open across both.
+
+Prefer moving a rule into a pure module and testing that; render only when the
+thing under test *is* the React wiring.
+
 ## Merging to `main`
 
 `main` is **protected**. Before a PR can merge:

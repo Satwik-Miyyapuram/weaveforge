@@ -101,7 +101,7 @@ let realtimeKey: string | null = null;
  * fast path for ArrayBuffer payloads, which this app does not send: CRDT
  * updates go over the wire base64-encoded.
  */
-function encodeRealtimeMessageAsJson(
+export function encodeRealtimeMessageAsJson(
   msg: { join_ref?: string | null; ref?: string | null; topic: string; event: string; payload: unknown },
   callback: (result: string) => void,
 ): void {

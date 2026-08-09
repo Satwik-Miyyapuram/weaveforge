@@ -158,9 +158,20 @@ export class EncryptedYjsProvider {
     }
   }
 
-  private async persistTail() {
+  /**
+   * Write the document's current state to the CRDT log.
+   *
+   * `force` is what teardown uses. The `destroyed` guard exists to stop the
+   * idle timer firing into a provider that has gone away — but `destroy()` sets
+   * that flag before it calls this, so the final flush silently did nothing:
+   * every edit made since the last idle persist reached the row body (the
+   * editor saves that on its own debounce) and never reached the log. Reopening
+   * replayed a log that was behind, found a non-empty document so skipped the
+   * seed, and showed text older than what had been typed.
+   */
+  private async persistTail(force = false) {
     this.persistTimer = null;
-    if (this.destroyed) return;
+    if (this.destroyed && !force) return;
     const merged = encodeStateAsUpdate(this.opts.doc);
     const saved = await this.opts.crdtStore.append({
       resourceType: this.opts.resourceType,
@@ -212,7 +223,9 @@ export class EncryptedYjsProvider {
     // registry empties — taking the project-wide invalidation channel with it.
     void this.channel.unsubscribe();
 
-    await this.persistTail();
+    // Forced: `destroyed` is already true above, and this is the flush that
+    // carries the last few seconds of typing into the log.
+    await this.persistTail(true);
     await this.maybeCompact();
   }
 }
