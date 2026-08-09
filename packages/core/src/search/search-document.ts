@@ -8,6 +8,7 @@
  */
 
 import type { WorkspaceSnapshot } from "../workspace/workspace-snapshot.js";
+import { acronymsForTitle } from "./search-acronyms.js";
 import { extractHashtags } from "../features/papers/domain/paper.js";
 import { MAX_INDEXED_BODY_CHARS } from "./search-tuning.js";
 import type { SearchDoc, SearchKind } from "./search-port.js";
@@ -136,7 +137,14 @@ export function toSearchDocs(
         title: paper.title,
         // Authors and venue behave like aliases: people search papers by who
         // wrote them at least as often as by title.
-        aliases: [...paper.authors, paper.venue, paper.doi, paper.arxivId].filter(
+        aliases: [
+          ...paper.authors,
+          paper.venue,
+          paper.doi,
+          paper.arxivId,
+          // "GAN", "DDPM", "β-VAE" — how people actually refer to a paper.
+          ...acronymsForTitle(paper.title),
+        ].filter(
           (v): v is string => Boolean(v),
         ),
         headings: extractHeadings(paper.summary),
