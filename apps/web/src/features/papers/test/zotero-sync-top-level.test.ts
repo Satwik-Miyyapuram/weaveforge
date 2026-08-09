@@ -35,16 +35,31 @@ function mockLibrary() {
 
 function syncWith(fetchFn: typeof fetch, local: Paper[] = []) {
   const added: NewPaperInput[] = [];
+  const deleted: string[] = [];
   const sync = new ZoteroSync({
     credentials: async () => ({ apiKey: "k", library: "users/1" }),
     listPapers: async () => local,
     addPaper: async (input) => {
       added.push(input);
     },
+    deletePaper: async (id) => {
+      deleted.push(id);
+    },
     fetchFn,
     baseUrl: "https://api.zotero.org",
   });
-  return { sync, added };
+  return { sync, added, deleted };
+}
+
+function paper(over: Partial<Paper>): Paper {
+  return {
+    id: "p1",
+    title: "Untitled",
+    authors: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...over,
+  } as Paper;
 }
 
 test("zotero sync: a PDF attachment is never imported as a paper", async () => {
@@ -98,6 +113,51 @@ test("zotero sync: a collection scopes to that collection's top-level items", as
     requested[0]!.includes("/collections/COL9/items/top"),
     `expected the collection's top-level endpoint, got ${requested[0]}`,
   );
+});
+
+test("zotero sync: a leftover attachment row is deleted, never pushed back", async () => {
+  // The row an older sync created from ATT1: attachment title, attachment key,
+  // no DOI. Its key is absent from /items/top (attachments are child items), so
+  // the sync must read that as "gone from Zotero" and delete it locally —
+  // pushing it would create a top-level "Preprint PDF" item that the next pull
+  // imports as a real paper, and the junk never leaves.
+  const posted: unknown[] = [];
+  const fetchFn = (async (input: string | URL | Request, init?: RequestInit) => {
+    if (init?.method === "POST") {
+      posted.push(JSON.parse(String(init.body)));
+      return new Response(JSON.stringify({ successful: {} }), { status: 200 });
+    }
+    return new Response(JSON.stringify([{ data: PAPER }]), {
+      status: 200,
+      headers: { "Total-Results": "1" },
+    });
+  }) as unknown as typeof fetch;
+
+  const leftover = paper({
+    id: "junk",
+    title: "Preprint PDF",
+    metadata: { zoteroKey: "ATT1" },
+  });
+  const { sync, deleted } = syncWith(fetchFn, [leftover]);
+  const result = await sync.sync();
+
+  assert.deepEqual(posted, [], `a leftover attachment row was pushed to Zotero: ${JSON.stringify(posted)}`);
+  assert.equal(result.pushed, 0);
+  assert.deepEqual(deleted, ["junk"]);
+});
+
+test("zotero sync: an item with a parentItem is not a paper, whatever its type says", async () => {
+  const child = { key: "C1", itemType: "journalArticle", parentItem: "PAPER1", title: "SAGE PDF Full Text" };
+  const fetchFn = (async () =>
+    new Response(JSON.stringify([{ data: PAPER }, { data: child }]), {
+      status: 200,
+      headers: { "Total-Results": "2" },
+    })) as unknown as typeof fetch;
+
+  const { sync, added } = syncWith(fetchFn);
+  await sync.sync();
+
+  assert.deepEqual(added.map((p) => p.title), ["Attention Is All You Need"]);
 });
 
 test("zotero sync: an attachment reaching the filter anyway is still refused", async () => {

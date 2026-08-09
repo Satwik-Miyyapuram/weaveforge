@@ -1,5 +1,9 @@
 import {
   buildAnnotationSortIndex,
+  clampInkWidth,
+  compactInkPath,
+  INK_DEFAULT_WIDTH,
+  INK_MAX_PATHS_PER_ANNOTATION,
   selectionToAnchor,
   type CombinedPdfAnchor,
   type NewReaderAnnotation,
@@ -38,17 +42,23 @@ export function draftInkAnnotation(input: {
   color: string;
   pageIndex: number;
   pageHeight: number;
-  /** Flat `[x,y,…]` PDF user-space path. */
+  /** Flat `[x,y,…]` PDF user-space path, as captured. */
   path: number[];
+  /** Nib width in PDF units; a highlighter is simply a wide one. */
+  width?: number;
 }): NewReaderAnnotation | null {
-  if (input.path.length < 4) return null;
-  const ys = input.path.filter((_, i) => i % 2 === 1);
+  // Compact before storing, never after: the raw capture is the thing that is
+  // hundreds of times larger than the stroke's shape needs (see ink-stroke.ts).
+  const path = compactInkPath(input.path);
+  if (path.length < 4) return null;
+  const ys = path.filter((_, i) => i % 2 === 1);
   const topPdf = Math.max(...ys);
   const top = input.pageHeight - topPdf;
   const anchor: CombinedPdfAnchor = {
     zoteroPosition: {
       pageIndex: input.pageIndex,
-      paths: [input.path],
+      paths: [path],
+      width: clampInkWidth(input.width ?? INK_DEFAULT_WIDTH),
     },
   };
   return {
@@ -58,6 +68,33 @@ export function draftInkAnnotation(input: {
     pageIndex: input.pageIndex,
     anchor,
     sortIndex: buildAnnotationSortIndex(input.pageIndex, 0, top),
+  };
+}
+
+/**
+ * Add a stroke to an ink annotation that already exists.
+ *
+ * Strokes drawn as one mark — the three strokes of an "A", a word, a circled
+ * paragraph — belong in one annotation. Writing each to its own row meant a
+ * sentence cost twenty rows, twenty sidebar entries, and twenty deletes; it also
+ * multiplied the per-row overhead (id, timestamps, sort index, sync bookkeeping)
+ * by twenty for geometry that is a few dozen bytes.
+ *
+ * Returns null when the stroke does not belong here — a full annotation, a
+ * different page, or nothing drawable — and the caller starts a new one.
+ */
+export function appendInkStroke(
+  anchor: CombinedPdfAnchor,
+  path: number[],
+): CombinedPdfAnchor | null {
+  const position = anchor.zoteroPosition;
+  if (!position || !Array.isArray(position.paths)) return null;
+  if (position.paths.length >= INK_MAX_PATHS_PER_ANNOTATION) return null;
+  const compact = compactInkPath(path);
+  if (compact.length < 4) return null;
+  return {
+    ...anchor,
+    zoteroPosition: { ...position, paths: [...position.paths, compact] },
   };
 }
 

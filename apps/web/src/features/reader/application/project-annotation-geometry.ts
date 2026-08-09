@@ -7,7 +7,15 @@
  * can be tested without a DOM or pdf.js.
  */
 
-import { chooseAnchorStrategy, type ReaderAnnotation } from "@weaveforge/core";
+import {
+  chooseAnchorStrategy,
+  isHighlighterInk,
+  INK_DEFAULT_WIDTH,
+  pdfPointToScreen,
+  pdfRectToScreenBox,
+  type PageProjection,
+  type ReaderAnnotation,
+} from "@weaveforge/core";
 
 export interface AnnotationBox {
   id: string;
@@ -24,6 +32,10 @@ export interface AnnotationStroke {
   color: string;
   /** SVG `points` attribute value, already in CSS pixels. */
   points: string;
+  /** Nib width in CSS pixels. */
+  width: number;
+  /** Wide strokes are highlighter marks: translucent, multiplied over the page. */
+  highlighter: boolean;
 }
 
 export interface PageAnnotationGeometry {
@@ -38,6 +50,13 @@ export interface ProjectGeometryInput {
   scale: number;
   /** Unrotated page height in PDF user-space units. */
   pageHeight: number;
+  /**
+   * Unrotated page width. Needed once rotation is supported: a 180° page maps
+   * x to `pageWidth - x`, which the height alone cannot express.
+   */
+  pageWidth: number;
+  /** Page rotation in degrees — 0, 90, 180 or 270. */
+  rotation: number;
   /** Hash of the PDF on screen; "" means unknown. */
   contentHash: string;
 }
@@ -81,10 +100,11 @@ function isRect(value: unknown): value is number[] {
 export function projectPageAnnotationGeometry(
   input: ProjectGeometryInput,
 ): PageAnnotationGeometry {
-  const { annotations, pageNumber, scale, pageHeight, contentHash } = input;
+  const { annotations, pageNumber, scale, pageHeight, pageWidth, rotation, contentHash } = input;
   const pageIndex = pageNumber - 1;
   const boxes: AnnotationBox[] = [];
   const strokes: AnnotationStroke[] = [];
+  const projection: PageProjection = { pageWidth, pageHeight, scale, rotation };
 
   for (const ann of annotations) {
     const position = ann.anchor.zoteroPosition;
@@ -95,6 +115,8 @@ export function projectPageAnnotationGeometry(
     if (chooseAnchorStrategy(ann.anchor, contentHash).kind !== "rects") continue;
 
     if (position.pageIndex === pageIndex && position.paths?.length) {
+      const inkWidth = typeof position.width === "number" ? position.width : INK_DEFAULT_WIDTH;
+      const highlighter = isHighlighterInk(position.width);
       for (const path of position.paths) {
         if (!Array.isArray(path) || path.length < 4) continue;
         const points: string[] = [];
@@ -103,10 +125,18 @@ export function projectPageAnnotationGeometry(
           const y = path[i + 1];
           if (typeof x !== "number" || typeof y !== "number") continue;
           if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-          points.push(`${x * scale},${(pageHeight - y) * scale}`);
+          const screen = pdfPointToScreen(x, y, projection);
+          points.push(`${screen.x},${screen.y}`);
         }
         if (points.length >= 2) {
-          strokes.push({ id: ann.id, color: ann.color, points: points.join(" ") });
+          strokes.push({
+            id: ann.id,
+            color: ann.color,
+            points: points.join(" "),
+            // The nib is a physical width on the page, so it zooms with it.
+            width: inkWidth * scale,
+            highlighter,
+          });
         }
       }
     }
@@ -123,15 +153,13 @@ export function projectPageAnnotationGeometry(
     for (const rects of rectSets) {
       for (const rect of rects) {
         if (!isRect(rect)) continue;
-        const [x1, y1, x2, y2] = rect as [number, number, number, number];
-        const bottom = Math.min(y1, y2);
-        const topPdf = Math.max(y1, y2);
+        const box = pdfRectToScreenBox(rect as [number, number, number, number], projection);
         boxes.push({
           id: ann.id,
-          left: Math.min(x1, x2) * scale,
-          top: (pageHeight - topPdf) * scale,
-          width: Math.abs(x2 - x1) * scale,
-          height: (topPdf - bottom) * scale,
+          left: box.left,
+          top: box.top,
+          width: box.width,
+          height: box.height,
           color: ann.color,
           underline: ann.type === "underline",
         });

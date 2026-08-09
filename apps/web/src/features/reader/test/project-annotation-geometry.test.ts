@@ -7,6 +7,7 @@ import {
 } from "../application/project-annotation-geometry";
 
 const PAGE_HEIGHT = 792;
+const PAGE_WIDTH = 612;
 
 function ann(overrides: Partial<ReaderAnnotation> & { anchor: CombinedPdfAnchor }): ReaderAnnotation {
   return {
@@ -25,12 +26,17 @@ function ann(overrides: Partial<ReaderAnnotation> & { anchor: CombinedPdfAnchor 
   };
 }
 
-function project(annotations: ReaderAnnotation[], over: Partial<{ pageNumber: number; scale: number; contentHash: string }> = {}) {
+function project(
+  annotations: ReaderAnnotation[],
+  over: Partial<{ pageNumber: number; scale: number; contentHash: string; rotation: number }> = {},
+) {
   return projectPageAnnotationGeometry({
     annotations,
     pageNumber: over.pageNumber ?? 1,
     scale: over.scale ?? 1,
     pageHeight: PAGE_HEIGHT,
+    pageWidth: PAGE_WIDTH,
+    rotation: over.rotation ?? 0,
     contentHash: over.contentHash ?? "",
   });
 }
@@ -123,6 +129,71 @@ test("projects ink paths as scaled, flipped polyline points", () => {
   assert.equal(boxes.length, 0, "ink has no rects to box");
   assert.equal(strokes.length, 1);
   assert.equal(strokes[0]!.points, "10,10 20,20");
+});
+
+test("ink carries its nib width, scaled with the page", () => {
+  const inkAnn = ann({
+    id: "ink",
+    type: "ink",
+    anchor: { zoteroPosition: { pageIndex: 0, paths: [[10, 782, 20, 772]], width: 3 } },
+  });
+
+  assert.equal(project([inkAnn]).strokes[0]!.width, 3);
+  assert.equal(
+    project([inkAnn], { scale: 2 }).strokes[0]!.width,
+    6,
+    "the nib is a width on the page, so it zooms with it",
+  );
+});
+
+test("a wide nib is a highlighter, a narrow one is a pen", () => {
+  const stroke = (width?: number) =>
+    project([
+      ann({
+        id: "ink",
+        type: "ink",
+        anchor: { zoteroPosition: { pageIndex: 0, paths: [[10, 700, 200, 700]], ...(width != null ? { width } : {}) } },
+      }),
+    ]).strokes[0]!;
+
+  assert.equal(stroke(2).highlighter, false);
+  assert.equal(stroke(14).highlighter, true);
+  assert.equal(stroke().highlighter, false, "ink stored before widths existed stays a pen");
+  assert.equal(stroke().width, 2, "and gets the default nib rather than a zero-width line");
+});
+
+test("rotation moves annotations with the page instead of stranding them", () => {
+  // The reader used to refuse to paint anything at all once the page was
+  // rotated — precisely the state a sideways scan is read in.
+  const highlight = ann({
+    anchor: { zoteroPosition: { pageIndex: 0, rects: [[72, 700, 172, 712]] } },
+  });
+
+  const upright = project([highlight]).boxes[0]!;
+  assert.deepEqual({ left: upright.left, top: upright.top }, { left: 72, top: 80 });
+
+  const quarter = project([highlight], { rotation: 90 }).boxes[0]!;
+  // At 90° the page box is 792 wide by 612 tall, and the highlight's PDF y
+  // becomes its screen x.
+  assert.deepEqual(
+    { left: quarter.left, top: quarter.top, width: quarter.width, height: quarter.height },
+    { left: 700, top: 72, width: 12, height: 100 },
+  );
+
+  const half = project([highlight], { rotation: 180 }).boxes[0]!;
+  assert.deepEqual(
+    { left: half.left, top: half.top, width: half.width, height: half.height },
+    { left: PAGE_WIDTH - 172, top: 700, width: 100, height: 12 },
+  );
+});
+
+test("ink follows the same rotation as the rest of the page", () => {
+  const inkAnn = ann({
+    id: "ink",
+    type: "ink",
+    anchor: { zoteroPosition: { pageIndex: 0, paths: [[10, 782, 20, 772]] } },
+  });
+  assert.equal(project([inkAnn], { rotation: 90 }).strokes[0]!.points, "782,10 772,20");
 });
 
 test("drops malformed rects and path points instead of emitting NaN geometry", () => {
@@ -262,6 +333,8 @@ test("bucketing and projection agree on which page paints what", () => {
       pageNumber,
       scale: 1,
       pageHeight: PAGE_HEIGHT,
+      pageWidth: PAGE_WIDTH,
+      rotation: 0,
       contentHash: "",
     });
     assert.deepEqual(fromBucket, fromAll, `page ${pageNumber} must render identically`);

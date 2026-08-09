@@ -32,10 +32,6 @@ import { cardSnippet } from "@/lib/card-snippet";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
-import { markdownEditorExtensions, toCompletions } from "@/components/markdown-editor-extensions";
-import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
-import { Compartment } from "@codemirror/state";
-import type { EditorView } from "@codemirror/view";
 import { CollabBodyHost } from "@/features/collab";
 import { useCiteLinkCatalog, type CiteCompletion } from "@/lib/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
@@ -653,35 +649,19 @@ function PageEditor({
     [notes, papers, sections],
   );
 
-  // The collaborative editor rebuilds its document when the extension array
-  // changes, so this has to be built once and fed new completions through refs
-  // rather than rebuilt whenever a note or paper is added.
   const collabRef = useRef(false);
-  const completionsRef = useRef<CiteCompletion[]>([]);
-  completionsRef.current = toCompletions(wikilinkTitles, wikilinkCompletions);
-  const citationFormatRef = useRef(citationFormat);
-  citationFormatRef.current = citationFormat;
-  const editableCompartment = useRef(new Compartment());
-  const themeCompartment = useRef(new Compartment());
-  const collabExtensions = useMemo(
-    () =>
-      markdownEditorExtensions({
-        placeholder: "Write markdown… #hashtags and [[wikilinks]] link this note in the graph.",
-        completionsRef,
-        citationFormatRef,
-        editableCompartment: editableCompartment.current,
-        themeCompartment: themeCompartment.current,
-      }),
-    [],
-  );
-  const watchThemeForView = useCallback(
-    (view: EditorView) =>
-      watchSiteTheme(() => {
-        view.dispatch({
-          effects: themeCompartment.current.reconfigure(createCodeMirrorThemeForSite()),
-        });
-      }),
-    [],
+  // Described as data, not as a CodeMirror extension array: building the stack
+  // here meant importing CodeMirror into this screen, which put the whole
+  // editor in /notes' first-load bundle even for a reader who never edits.
+  // `CollabBodyHost` builds it inside its own lazily-loaded chunk.
+  const collabEditing = useMemo(
+    () => ({
+      placeholder: "Write markdown… #hashtags and [[wikilinks]] link this note in the graph.",
+      wikilinkTitles,
+      wikilinkCompletions,
+      citationFormat,
+    }),
+    [wikilinkTitles, wikilinkCompletions, citationFormat],
   );
 
   useEffect(() => {
@@ -898,8 +878,7 @@ function PageEditor({
               onSave={saveCollabBody}
               className="summary-input-collab"
               editorClassName="markdown-code-editor summary-input markdown-code-editor--notes"
-              extraExtensions={collabExtensions}
-              onViewCreated={watchThemeForView}
+              markdownEditing={collabEditing}
             />
           ) : (
             <MarkdownCodeEditor

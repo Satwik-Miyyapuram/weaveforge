@@ -81,6 +81,10 @@ export function SettingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [, setSaved] = useState(false);
   const [collections, setCollections] = useState<{ key: string; name: string }[]>([]);
+  /** State of the live credential probe shown inside the connection dialog. */
+  const [collectionsProbe, setCollectionsProbe] = useState<
+    "idle" | "loading" | "ready" | "empty" | "failed"
+  >("idle");
   const [projectCollection, setProjectCollection] = useState<string>("");
   const [lightTheme, setLightTheme] = useState<string>(DEFAULT_LIGHT_THEME);
   const [darkTheme, setDarkTheme] = useState<string>(DEFAULT_DARK_THEME);
@@ -186,6 +190,65 @@ export function SettingsScreen() {
   useEffect(() => {
     void loadCollections();
   }, [loadCollections]);
+
+  // The credentials currently typed into the open connection dialog. Read as a
+  // stable string so the effect below re-runs on an edit but not on unrelated
+  // settings changes.
+  const bibliographyProviderId =
+    integrationConfig.bibliography !== "none" ? integrationConfig.bibliography : null;
+  const typedBibliographyCredentials = useMemo(() => {
+    if (!bibliographyProviderId || activeProvider?.providerId !== bibliographyProviderId) {
+      return null;
+    }
+    const entries = activeProvider.fields.map(
+      (field) =>
+        [field.id, getUserIntegrationField(settings, bibliographyProviderId, field.id) ?? ""] as const,
+    );
+    if (entries.some(([, value]) => value.trim() === "")) return null;
+    return Object.fromEntries(entries);
+  }, [activeProvider, bibliographyProviderId, settings]);
+  const credentialsKey = typedBibliographyCredentials
+    ? JSON.stringify(typedBibliographyCredentials)
+    : "";
+
+  /**
+   * Fill the collection picker from the credentials being typed.
+   *
+   * Previously this list came only from *saved* settings, so connecting Zotero
+   * meant typing a key, saving, reopening the dialog, and only then choosing a
+   * collection — the form said as much ("Save credentials, then reopen"). The
+   * request is debounced because it goes to Zotero on every keystroke otherwise,
+   * and a stale reply is dropped so a slow response for a half-typed key cannot
+   * overwrite the list for the finished one.
+   */
+  // Reopening the dialog must not show the previous provider's verdict.
+  useEffect(() => {
+    setCollectionsProbe("idle");
+  }, [activeProvider?.providerId]);
+
+  useEffect(() => {
+    if (!credentialsKey) return;
+    let cancelled = false;
+    setCollectionsProbe("loading");
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const found = await getContainer().settings.listBibliographyCollections(
+            JSON.parse(credentialsKey) as Record<string, string>,
+          );
+          if (cancelled) return;
+          setCollections(found);
+          setCollectionsProbe(found.length > 0 ? "ready" : "empty");
+        } catch {
+          if (!cancelled) setCollectionsProbe("failed");
+        }
+      })();
+    }, 500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [credentialsKey]);
 
   async function saveCollection(key: string) {
     setProjectCollection(key);
@@ -416,8 +479,25 @@ export function SettingsScreen() {
                     <option key={c.key} value={c.key}>{c.name}</option>
                   ))}
                 </Select>
-                {collections.length === 0 && (
-                  <span className="muted">Save credentials, then reopen to pick a collection.</span>
+                {/* The picker now reflects the credentials as they are typed, so
+                    it can say what the library actually returned instead of
+                    telling the user to save and come back. */}
+                {collectionsProbe === "loading" && (
+                  <span className="muted">Checking the library…</span>
+                )}
+                {collectionsProbe === "failed" && (
+                  <span className="muted">
+                    Could not read collections — check the API key and library.
+                  </span>
+                )}
+                {collectionsProbe === "empty" && (
+                  <span className="muted">This library has no collections.</span>
+                )}
+                {collectionsProbe === "idle" && collections.length === 0 && (
+                  <span className="muted">
+                    Enter {activeProvider.fields.map((f) => f.label.toLowerCase()).join(" and ")} to
+                    list collections.
+                  </span>
                 )}
               </div>
             )}

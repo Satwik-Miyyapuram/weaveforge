@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
 
@@ -11,6 +12,7 @@ interface AnnotationOverlayProps {
   scale: number;
   rotation: number;
   pageHeight: number;
+  pageWidth: number;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
@@ -44,22 +46,35 @@ function strokeBounds(
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-export function AnnotationOverlay({
+function AnnotationOverlayInner({
   annotations,
   pageNumber,
   contentHash = "",
   scale,
+  rotation,
   pageHeight,
+  pageWidth,
   selectedId,
   onSelect,
 }: AnnotationOverlayProps) {
-  const { boxes, strokes } = projectPageAnnotationGeometry({
-    annotations,
-    pageNumber,
-    scale,
-    pageHeight,
-    contentHash,
-  });
+  // Projection is the reader's per-frame cost: ~1.7 ms for a page holding 100
+  // ink annotations, 6.5 ms at 400. Drawing a stroke re-renders this component
+  // once per animation frame, and every *other* page's overlay along with it,
+  // so without this the whole document is re-projected 60 times a second while
+  // the pen is down. Memoised on the inputs the geometry actually depends on.
+  const { boxes, strokes } = useMemo(
+    () =>
+      projectPageAnnotationGeometry({
+        annotations,
+        pageNumber,
+        scale,
+        pageHeight,
+        pageWidth,
+        rotation,
+        contentHash,
+      }),
+    [annotations, pageNumber, scale, pageHeight, pageWidth, rotation, contentHash],
+  );
 
   if (boxes.length === 0 && strokes.length === 0) return null;
 
@@ -73,22 +88,29 @@ export function AnnotationOverlay({
             // is far too subtle to answer "what will Delete remove?". Draw the
             // stroke's extent as a dashed box, matching the boxed annotations.
             const bounds = selected ? strokeBounds(s.points) : null;
+            // The marquee must clear the nib, or a highlighter's own width
+            // spills outside the box that claims to contain it.
+            const pad = 4 + s.width / 2;
             return (
               <g key={`${s.id}-ink-${i}`}>
                 {bounds && (
                   <rect
                     className="pdf-reader-ann-marquee"
-                    x={bounds.x - 4}
-                    y={bounds.y - 4}
-                    width={bounds.width + 8}
-                    height={bounds.height + 8}
+                    x={bounds.x - pad}
+                    y={bounds.y - pad}
+                    width={bounds.width + pad * 2}
+                    height={bounds.height + pad * 2}
                   />
                 )}
                 <polyline
+                  className={s.highlighter ? "pdf-reader-ink pdf-reader-ink--highlighter" : "pdf-reader-ink"}
                   points={s.points}
                   fill="none"
                   stroke={s.color}
-                  strokeWidth={selected ? 3 : 2}
+                  // The nib width is the annotation's own, so a pressed pen
+                  // stroke reads as heavier than a light one and a highlighter
+                  // covers a line of text. Selection adds a hair, not a jump.
+                  strokeWidth={Math.max(s.width + (selected ? 1 : 0), 0.5)}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   onClick={() => onSelect(s.id)}
@@ -120,3 +142,12 @@ export function AnnotationOverlay({
     </div>
   );
 }
+
+/**
+ * Every page in the document mounts one of these, so a re-render of the reader
+ * fans out across the whole file. The props are the page's own geometry and a
+ * bucketed annotation array whose identity only changes when that page's
+ * annotations do — so a stroke on page 3 leaves pages 1, 2, 4… untouched
+ * instead of re-projecting each of them.
+ */
+export const AnnotationOverlay = memo(AnnotationOverlayInner);

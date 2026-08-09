@@ -1,12 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  appendInkStroke,
   draftFromTextSelection,
   draftImageRegion,
   draftInkAnnotation,
   draftTextBox,
 } from "../application/draft-local-annotation.js";
-import type { PageTextGeometry } from "@weaveforge/core";
+import { INK_MAX_PATHS_PER_ANNOTATION, type PageTextGeometry } from "@weaveforge/core";
 
 const page: PageTextGeometry = {
   pageIndex: 2,
@@ -46,7 +47,7 @@ test("draftFromTextSelection returns null for empty selection", () => {
   );
 });
 
-test("draftInkAnnotation stores paths", () => {
+test("draftInkAnnotation stores paths, minus the points the shape implies", () => {
   const draft = draftInkAnnotation({
     color: "#2ea8e5",
     pageIndex: 0,
@@ -55,7 +56,66 @@ test("draftInkAnnotation stores paths", () => {
   });
   assert.ok(draft);
   assert.equal(draft!.type, "ink");
-  assert.deepEqual(draft!.anchor.zoteroPosition?.paths, [[10, 20, 30, 40, 50, 60]]);
+  // The three captured points are collinear, so the middle one is redundant —
+  // storing it would cost bytes forever and change nothing on screen.
+  assert.deepEqual(draft!.anchor.zoteroPosition?.paths, [[10, 20, 50, 60]]);
+  assert.equal(draft!.anchor.zoteroPosition?.width, 2, "a nib width is always stored");
+});
+
+test("draftInkAnnotation keeps a curve's shape while shrinking it", () => {
+  const raw: number[] = [];
+  for (let i = 0; i < 500; i++) raw.push(i * 0.4, 400 + Math.sin(i / 7) * 5);
+
+  const draft = draftInkAnnotation({ color: "#000", pageIndex: 0, pageHeight: 800, path: raw });
+  const stored = draft!.anchor.zoteroPosition!.paths![0]!;
+
+  assert.ok(stored.length >= 4);
+  assert.ok(
+    stored.length < raw.length / 4,
+    `stored ${stored.length / 2} of ${raw.length / 2} points — compaction did not run`,
+  );
+  assert.equal(stored[0], raw[0], "the stroke still starts where the pen touched down");
+});
+
+test("draftInkAnnotation carries the nib width a highlighter needs", () => {
+  const draft = draftInkAnnotation({
+    color: "#ffd400",
+    pageIndex: 0,
+    pageHeight: 800,
+    path: [10, 20, 90, 20],
+    width: 14,
+  });
+  assert.equal(draft!.anchor.zoteroPosition?.width, 14);
+});
+
+test("appendInkStroke keeps one mark in one row", () => {
+  const first = draftInkAnnotation({
+    color: "#000",
+    pageIndex: 0,
+    pageHeight: 800,
+    path: [10, 20, 90, 20],
+  })!;
+
+  const merged = appendInkStroke(first.anchor, [10, 40, 90, 40]);
+
+  assert.equal(merged?.zoteroPosition?.paths?.length, 2);
+  assert.equal(merged?.zoteroPosition?.width, first.anchor.zoteroPosition?.width);
+  assert.equal(
+    appendInkStroke(first.anchor, [1, 1]),
+    null,
+    "a stroke too short to draw is not worth a write",
+  );
+});
+
+test("appendInkStroke refuses to grow one row without bound", () => {
+  const paths = Array.from({ length: INK_MAX_PATHS_PER_ANNOTATION }, () => [0, 0, 10, 10]);
+  const full = { zoteroPosition: { pageIndex: 0, paths, width: 2 } };
+
+  assert.equal(
+    appendInkStroke(full, [20, 20, 30, 30]),
+    null,
+    "a full annotation must send the next stroke to a new row",
+  );
 });
 
 test("draftInkAnnotation rejects short paths", () => {

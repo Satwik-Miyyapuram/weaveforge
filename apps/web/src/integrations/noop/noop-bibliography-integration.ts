@@ -26,7 +26,9 @@ export class NoopBibliographyIntegration implements IBibliographyIntegration {
     /* no remote library */
   }
 
-  async listCollections(): Promise<BibliographyCollection[]> {
+  async listCollections(
+    _credentials?: import("@weaveforge/core").BibliographyCredentials,
+  ): Promise<BibliographyCollection[]> {
     return [];
   }
 }

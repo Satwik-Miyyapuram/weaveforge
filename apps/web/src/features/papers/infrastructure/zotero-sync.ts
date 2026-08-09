@@ -12,6 +12,8 @@ const CHILD_ITEM_TYPES = new Set(["attachment", "note", "annotation"]);
 interface ZoteroCreator { firstName?: string; lastName?: string; name?: string }
 interface ZoteroData {
   key?: string;
+  /** Set when the item hangs off a parent — an attachment, note or annotation. */
+  parentItem?: string;
   title?: string;
   creators?: ZoteroCreator[];
   publicationTitle?: string;
@@ -76,8 +78,10 @@ export class ZoteroSync {
       .map((r) => r.data)
       .filter((d): d is ZoteroData => !!d && !!d.title)
       // Belt and braces: the endpoint should not return these, but importing a
-      // child item as a paper is bad enough to be worth refusing twice.
-      .filter((d) => !CHILD_ITEM_TYPES.has(d.itemType ?? ""));
+      // child item as a paper is bad enough to be worth refusing twice. A
+      // `parentItem` is the same statement from the other side — an item that
+      // hangs off a paper is not one, whatever its `itemType` says.
+      .filter((d) => !CHILD_ITEM_TYPES.has(d.itemType ?? "") && !d.parentItem);
 
     const local = await this.deps.listPapers();
     // Match if any content key overlaps. Each side emits its DOI + arXiv keys
@@ -122,11 +126,19 @@ export class ZoteroSync {
       }
     }
 
-    // --- push: local papers not present remotely. A paper already pushed (has
-    // a zoteroKey still present remotely) is skipped regardless of key match. ---
+    // --- push: local papers that have never been in Zotero. ---
+    //
+    // A stored `zoteroKey` means this row came from — or was already pushed to
+    // — Zotero, so it is never a push candidate again. Pushing on "key exists
+    // but is missing from the remote snapshot" is what re-seeded junk: rows
+    // pulled from PDF attachments before the top-level fix carry an attachment
+    // key, attachments are (correctly) absent from `/items/top`, and so every
+    // sync exported "SAGE PDF Full Text" back to Zotero as a fresh top-level
+    // item — which the next pull then imported as a genuine paper, immune to
+    // every child-item filter. A key that is gone from the remote snapshot is a
+    // delete to propagate, handled below; it is never a reason to push.
     const toPush = local.filter((p) => {
-      const zk = p.metadata?.["zoteroKey"] as string | undefined;
-      if (zk && remoteItemKeys.has(zk)) return false;
+      if (p.metadata?.["zoteroKey"]) return false;
       return keysOfLocal(p).length > 0 && !hasRemoteMatch(p);
     });
     let pushed = 0;

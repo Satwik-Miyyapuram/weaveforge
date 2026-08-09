@@ -4643,6 +4643,17 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   opacity: 0.45; mix-blend-mode: difference;
 }
 .pdf-reader-ann-svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+/* A pen sits on top of the page; a highlighter sits under the words. Multiply
+   is what makes a broad stroke tint the text instead of painting it out. */
+.pdf-reader-ink--highlighter {
+  mix-blend-mode: multiply;
+  opacity: 0.45;
+}
+.pdf-reader--dark .pdf-reader-ink--highlighter {
+  /* The page canvas is inverted in dark mode, so multiply would darken to mud. */
+  mix-blend-mode: screen;
+  opacity: 0.35;
+}
 .pdf-reader-create-bar {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface);
@@ -4662,8 +4673,14 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   background: var(--surface); color: inherit;
 }
 .pdf-reader-sidebar-pin { display: grid; gap: 2px; font-size: 0.85rem; }
-.pdf-reader-page--draw { touch-action: none; }
+.pdf-reader-page--draw { touch-action: none; cursor: crosshair; }
 .pdf-reader-page--draw .pdf-reader-textlayer { pointer-events: none; }
+/* Once a stylus is in use, touch is not drawing (palm rejection), so give
+   finger scrolling back instead of freezing the document under a drawing tool. */
+.pdf-reader-page--draw.pdf-reader-page--pen { touch-action: pan-x pan-y; }
+.pdf-reader-page--erase { cursor: cell; }
+/* While erasing, a click must reach the page, not the ink it is rubbing out. */
+.pdf-reader-page--erase .pdf-reader-ann-layer * { pointer-events: none; }
 .pdf-reader--dark .pdf-reader-page canvas {
   filter: var(--pdf-dark-filter, invert(1) hue-rotate(180deg));
 }
