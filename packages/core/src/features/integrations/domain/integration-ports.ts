@@ -31,13 +31,26 @@ export interface BibliographyAnnotation {
  * Swappable bibliography / reference-manager integration (Zotero today; Mendeley, etc. later).
  * Implementations live in the app infrastructure layer; domain depends only on this port.
  */
+/**
+ * Credentials typed into the connection form but not yet saved, keyed by the
+ * provider descriptor's field ids (`{ apiKey, library }` for Zotero).
+ *
+ * Listing collections used to read the *stored* settings, so the collection
+ * picker in the connection dialog stayed empty until the credentials had been
+ * saved and the dialog reopened — the form told you as much. Passing what the
+ * user has already typed lets the list fill in while they are still looking at
+ * it, and doubles as a check that the key works before it is stored.
+ */
+export type BibliographyCredentials = Readonly<Record<string, string>>;
+
 export interface IBibliographyIntegration {
   readonly providerId: string;
   syncLibrary(): Promise<BibliographySyncResult>;
   pullAnnotations(): Promise<Map<string, BibliographyAnnotation[]>>;
   pushPaper(paper: Paper): Promise<string | undefined>;
   removeRemotePaper(remoteKey: string): Promise<void>;
-  listCollections(): Promise<BibliographyCollection[]>;
+  /** Uses `credentials` when given, else whatever is stored for the provider. */
+  listCollections(credentials?: BibliographyCredentials): Promise<BibliographyCollection[]>;
 }
 
 /** Per-project bibliography folder/collection (provider-specific key stored opaquely). */

@@ -39,16 +39,27 @@ export class DuplicateSharedVaultPageUseCase {
     const paths = vaultAssetPathsInBody(source.body);
     if (paths.length === 0) return page;
 
+    // Each asset is an independent download-then-upload pair. Copying them one
+    // after another made duplicating an image-heavy note take as many serial
+    // round trips as it had images; they do not depend on each other, so they
+    // travel together. Rewrites are applied afterwards, in the body's own
+    // order, so the result does not depend on which copy finished first.
+    const copied = await Promise.all(
+      paths.map(async (oldPath) => {
+        try {
+          const blob = await this.deps.assets.fetchDecrypted(oldPath);
+          const ext = oldPath.split(".").pop() ?? "bin";
+          return { oldPath, newPath: await this.deps.assets.upload(page.id, blob, ext) };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
     let body = source.body;
-    for (const oldPath of paths) {
-      try {
-        const blob = await this.deps.assets.fetchDecrypted(oldPath);
-        const ext = oldPath.split(".").pop() ?? "bin";
-        const newPath = await this.deps.assets.upload(page.id, blob, ext);
-        body = body.replaceAll(`vault:${oldPath}`, `vault:${newPath}`);
-      } catch {
-        continue;
-      }
+    for (const entry of copied) {
+      if (!entry) continue;
+      body = body.replaceAll(`vault:${entry.oldPath}`, `vault:${entry.newPath}`);
     }
 
     if (body !== source.body) {

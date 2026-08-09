@@ -2,6 +2,7 @@ import { extractHashtags, type IPaperRepository, type ManageTagsUseCase } from "
 import { appendTagHashtags, reconcileTagsFromBody } from "@/features/papers/lib/note-tags";
 import type {
   BibliographyAnnotation,
+  BibliographyCredentials,
   IBibliographyIntegration,
 } from "@weaveforge/core";
 import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from "@/features/papers/domain/zotero";
@@ -9,6 +10,18 @@ import type { ISettingsRepository } from "@weaveforge/core";
 import { getUserIntegrationField } from "@weaveforge/core";
 import { zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
 import { getSupabase } from "@/lib/supabase";
+
+/**
+ * Zotero's own settings page shows a bare user id ("123456"), so that is what
+ * people paste. The API needs a library *path*. The collections route already
+ * accepts either; do the same here so a direct-fetch build behaves identically.
+ */
+function normalizeZoteroLibrary(library: string | undefined): string | undefined {
+  const value = library?.trim();
+  if (!value) return undefined;
+  if (/^\d+$/.test(value)) return `users/${value}`;
+  return /^(users|groups)\/\d+$/.test(value) ? value : undefined;
+}
 
 export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
   readonly providerId = "zotero";
@@ -41,10 +54,19 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
     await this.deps.exporter.remove(remoteKey);
   }
 
-  async listCollections() {
-    const s = await this.deps.settings.get();
-    const apiKey = getUserIntegrationField(s, "zotero", "apiKey");
-    const library = getUserIntegrationField(s, "zotero", "library");
+  async listCollections(credentials?: BibliographyCredentials) {
+    // Prefer what the user has typed over what was last saved, so the picker
+    // fills in while the connection dialog is still open.
+    const typedKey = credentials?.["apiKey"]?.trim();
+    const typedLibrary = credentials?.["library"]?.trim();
+    let apiKey = typedKey;
+    let library = typedLibrary;
+    if (!apiKey || !library) {
+      const s = await this.deps.settings.get();
+      apiKey = apiKey || getUserIntegrationField(s, "zotero", "apiKey");
+      library = library || getUserIntegrationField(s, "zotero", "library");
+    }
+    library = normalizeZoteroLibrary(library);
     if (!apiKey || !library) return [];
     if (!this.deps.fetchFn) {
       const { data: sessionData } = await getSupabase().auth.getSession();

@@ -1,6 +1,7 @@
 export type {
   BibliographyAnnotation,
   BibliographyCollection,
+  BibliographyCredentials,
   BibliographySyncResult,
   IBibliographyIntegration,
   IProjectBibliographyCollectionStore,

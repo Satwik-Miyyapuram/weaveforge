@@ -12,6 +12,12 @@ export interface ZoteroRectPosition {
   rects?: number[][];
   /** Ink strokes — flat `[x,y,x,y,…]` point lists in PDF user space. */
   paths?: number[][];
+  /**
+   * Nib width for `paths`, in PDF units — Zotero's own ink field, so it
+   * round-trips. One width per annotation rather than per point: see
+   * `ink-stroke.ts` for why pressure is applied per stroke.
+   */
+  width?: number;
   /** Tail of a highlight that crosses onto the next page. */
   nextPageRects?: number[][];
 }

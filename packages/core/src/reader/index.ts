@@ -97,6 +97,41 @@ export {
 } from "./document-search.js";
 export { buildAnnotationSortIndex } from "./sort-index.js";
 export {
+  shouldAppendInkPoint,
+  simplifyInkPath,
+  quantizeInkPath,
+  compactInkPath,
+  inkPathJsonSize,
+  inkWidthForPressure,
+  meanPressure,
+  clampInkWidth,
+  isHighlighterInk,
+  canJoinInkGroup,
+  inkPathsHitTest,
+  inkPathsBounds,
+  translateInkPaths,
+  INK_MIN_POINT_DISTANCE,
+  INK_SIMPLIFY_TOLERANCE,
+  INK_COORD_DECIMALS,
+  INK_MAX_POINTS,
+  INK_MAX_PATHS_PER_ANNOTATION,
+  INK_GROUP_WINDOW_MS,
+  INK_DEFAULT_WIDTH,
+  INK_MIN_WIDTH,
+  INK_MAX_WIDTH,
+  HIGHLIGHTER_WIDTH,
+  HIGHLIGHTER_MIN_WIDTH,
+  type InkGroupCandidate,
+} from "./ink-stroke.js";
+export {
+  pdfPointToScreen,
+  screenPointToPdf,
+  pdfRectToScreenBox,
+  projectedPageSize,
+  normalisePageRotation,
+  type PageProjection,
+} from "./page-projection.js";
+export {
   decideAnnotationSync,
   diffAnnotationFields,
   resolveAnnotationConflict,

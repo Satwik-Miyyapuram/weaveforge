@@ -21,13 +21,19 @@ export class DeletePaperUseCase {
         /* best-effort */
       }
     }
-    for (const img of imagesOf(paper)) {
-      try {
-        await this.deps.images.remove(img);
-      } catch {
-        /* best-effort */
-      }
-    }
+    // A paper's images are independent objects in blob storage, so deleting
+    // them one round trip at a time made the delete take as long as the paper
+    // had figures. Best-effort per image, as before — one failure must not
+    // strand the rest or the row itself.
+    await Promise.all(
+      imagesOf(paper).map(async (img) => {
+        try {
+          await this.deps.images.remove(img);
+        } catch {
+          /* best-effort */
+        }
+      }),
+    );
     await this.deps.updatePaper.remove(paper.id);
   }
 }

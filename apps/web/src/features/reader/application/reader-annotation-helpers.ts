@@ -74,4 +74,17 @@ export const READER_ANNOTATION_COLORS = [
   "#aaaaaa",
 ] as const;
 
-export type ReaderCreateTool = "select" | "ink" | "image" | "text";
+/**
+ * What a pointer drag on the page does.
+ *
+ * `ink` and `highlighter` both produce Zotero ink annotations and differ only
+ * in nib width — see `HIGHLIGHTER_MIN_WIDTH` in core for why the distinction is
+ * carried by the width rather than by a field Zotero would drop.
+ */
+export type ReaderCreateTool = "select" | "ink" | "highlighter" | "erase" | "image" | "text";
+
+export const READER_INK_TOOLS = new Set<ReaderCreateTool>(["ink", "highlighter"]);
+
+export function isInkTool(tool: ReaderCreateTool): boolean {
+  return READER_INK_TOOLS.has(tool);
+}

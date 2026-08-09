@@ -834,6 +834,7 @@ function PaperPage() {
     anns: ReaderAnnotation[];
     scale: number;
     pageHeight: number;
+    pageWidth: number;
     /** How far to slide the page inside the frame, so the quote is centred. */
     offsetX: number;
     offsetY: number;
@@ -990,6 +991,7 @@ function PaperPage() {
         setHit({
           scale,
           pageHeight: unit.height,
+          pageWidth: unit.width,
           frameH,
           offsetX: Math.round(Math.max(0, boxLeft + boxW / 2 - frameW / 2)),
           offsetY: Math.round(Math.max(0, boxTop - pad)),
@@ -1032,6 +1034,7 @@ function PaperPage() {
               scale={hit.scale}
               rotation={0}
               pageHeight={hit.pageHeight}
+              pageWidth={hit.pageWidth}
               selectedId={null}
               onSelect={() => {}}
             />

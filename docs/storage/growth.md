@@ -54,6 +54,33 @@ weeks earlier. After `0116` swept it: **248 kB → 32 kB**.
 The lesson generalises: *a table can be documented as ephemeral, honour its own
 expiry, and still never delete a row.* An expiry column is not retention.
 
+### `reader_annotations` — effort-shaped, until ink arrived
+
+Annotations are effort-shaped: one row per thing a person deliberately marked.
+Ink breaks that assumption, because the row's *size* is set by the input device
+rather than by the person. A stylus samples at 120–240 Hz, so a two-second
+stroke captured raw is ~360 points — **13.3 kB of JSON for one pen stroke** —
+and a page of handwriting is megabytes. Nothing deletes it, and nothing should:
+these are the user's notes.
+
+So the bound is applied at the point of capture instead, in
+`packages/core/src/reader/ink-stroke.ts`:
+
+| Budget | Mechanism | Effect |
+|---|---|---|
+| Sampling | points closer than 0.75 pt to the previous one are never recorded | drops the samples that land inside the nib |
+| Shape | Ramer–Douglas–Peucker at 0.35 pt before the write | a typical stroke loses 80–90% of its points and no visible detail |
+| Precision | coordinates rounded to 2 dp | a PDF point is ~0.35 mm; the digits below this were float noise |
+| Per stroke | hard cap of 400 points, reached by simplifying harder | no single stroke is unbounded, whatever the device does |
+| Per mark | strokes drawn together join one annotation, up to 64 | a handwritten sentence is one row, not twenty — and one row's per-row overhead, not twenty |
+
+Measured on that same two-second stroke: 360 captured samples → 188 after the
+sampling filter → **33 stored points, 446 B — a 30× reduction**, with the same
+mark on screen. Pressure is the one thing deliberately *not* stored per point — it
+would add a third number to every sample, and Zotero's ink annotation has
+nowhere to put it; one width per stroke gets the same visual result for a
+constant 8 bytes.
+
 ## Indexes
 
 Indexes are **59% of the database**, and 57 of them have never been scanned
