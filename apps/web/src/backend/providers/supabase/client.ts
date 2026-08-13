@@ -163,7 +163,23 @@ function dataApiFetch(supabaseUrl: string, dataUrl: string): typeof fetch {
 
     // PostgREST serves the tables at its root, so `/rest/v1` is dropped.
     const rewritten = `${dataBase}${href.slice(restPrefix.length)}`;
-    return fetch(rewritten, typeof input === "string" || input instanceof URL ? init : input);
+    // Never let a framework cache stand in front of the database.
+    //
+    // Next.js patches the global `fetch`, and a route handler's fetches are
+    // cached unless they opt out. Every database read through this rewrite was
+    // therefore eligible, and the MCP relay showed what that costs: the browser
+    // starts polling for work *before* any work exists, the first claim caches
+    // an empty batch for that session, and every later poll is served that same
+    // empty answer — so a live relay never sees a single request, while a
+    // one-off claim on a fresh session succeeds because it misses the cache.
+    // These are database calls; none of them are cacheable, ever.
+    const uncached: RequestInit = { cache: "no-store" };
+    if (typeof input === "string" || input instanceof URL) {
+      return fetch(rewritten, { ...init, ...uncached });
+    }
+    // A Request carries its own body and headers; rebuild it around the new URL
+    // rather than passing it as `init`, so the opt-out actually applies.
+    return fetch(new Request(rewritten, input), uncached);
   };
 }
 

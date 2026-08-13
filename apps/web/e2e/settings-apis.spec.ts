@@ -4,6 +4,10 @@ import { e2eEnabled, e2eUserA } from "./helpers/env.js";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
+// Settings is tabbed now and opens on Account; each panel below lives behind
+// its own tab, which the screen exposes as a hash deep link.
+const SETTINGS_TAB = "/settings#settings-ai";
+
 test.describe("settings privileged APIs", () => {
   test.describe.configure({ timeout: 120_000 });
 
@@ -21,7 +25,7 @@ test.describe("settings privileged APIs", () => {
       }
     });
 
-    await page.goto("/settings");
+    await page.goto(SETTINGS_TAB);
     await expect(page.getByText("AI & MCP", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
 
     // Repo loads secrets through the Next credentials route (server-key seal).
@@ -36,7 +40,7 @@ test.describe("settings privileged APIs", () => {
       }
     });
 
-    await page.goto("/settings");
+    await page.goto("/settings#settings-tokens");
     await expect(page.getByText("Python SDK access tokens").first()).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => tokenGets.length, { timeout: 20_000 }).toBeGreaterThan(0);
   });
@@ -49,7 +53,7 @@ test.describe("settings privileged APIs", () => {
       }
     });
 
-    await page.goto("/settings");
+    await page.goto(SETTINGS_TAB);
     await page.getByRole("button", { name: /AI assistant access/i }).click();
     const enable = page.getByRole("switch", { name: "Enable AI assistant access" });
     await expect(enable).toBeVisible({ timeout: 15_000 });
