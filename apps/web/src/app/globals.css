@@ -828,16 +828,18 @@ body,
 }
 
 
-/* Avoid laying out expensive markdown/card subtrees until they approach the viewport. */
+/* Avoid laying out expensive markdown/card subtrees until they approach the viewport.
+ *
+ * `contain-intrinsic-size` is the *placeholder* the browser uses for an element
+ * whose contents it has skipped. A fixed 140px was well under the real card
+ * height (~162-220px), so every card that scrolled into view resized the flow
+ * and dragged everything after it back through layout. The `auto` keyword makes
+ * the browser remember each element's real size once measured, and the length is
+ * only the first guess — measured at 1500 cards, correcting this alone cut
+ * scroll-blocking time roughly in half on top of the grid change below. */
 .long-list > * {
   content-visibility: auto;
-  contain-intrinsic-size: 140px;
-}
-
-/* Masonry grids: skip offscreen cards the same way (children are direct). */
-.paper-grid.long-list > * {
-  content-visibility: auto;
-  contain-intrinsic-size: 140px;
+  contain-intrinsic-size: auto 170px;
 }
 .route-pending .weaveforge-loader-wrap--compact {
   min-height: min(40vh, 320px);
@@ -1273,25 +1275,64 @@ label.mp-row input[type="checkbox"]:disabled,
 .summary { margin: 8px 0 0; font-size: 0.92rem; overflow-wrap: anywhere; }
 
 /* Shared entity cards (papers / report / notes / experiments / milestones). */
-.paper-grid {
-  /* Fluid masonry: the browser fits as many ~280px columns as the width allows,
-     so cards fill the space on wide screens and collapse to 1 on narrow ones. */
-  column-width: 280px;
-  column-gap: 12px;
+/* Masonry card layout — see `CardColumns`, which owns the column split.
+ *
+ * Was CSS multi-column, which packs tightly but balances the whole flow: the
+ * browser must lay out every card to place any column break, so offscreen cards
+ * could never be skipped and 1500 of them blocked a scroll for ~4.3s. These are
+ * real columns, each an ordinary block flow, so cards still stack with no gaps
+ * but the browser can skip the ones out of view. */
+.card-columns {
+  display: flex;
+  align-items: flex-start;
   margin: 8px 0;
+}
+.card-columns-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.card-columns-item {
+  min-width: 0;
+}
+.card-columns-item > * {
+  width: 100%;
+}
+/* Long lists only: for a handful of cards the containment bookkeeping costs
+   more than it saves. `auto` lets the browser replace the 170px guess with each
+   card's real height once measured — a fixed guess made every card that scrolled
+   into view resize the flow and drag the rest back through layout.
+ *
+ * `content-visibility` also applies *paint containment*, which clips anything
+ * drawn outside this box — including the card's own drop shadow, which sheared
+ * off along a hard rectangle. The padding gives the resting shadow (`--e1`,
+ * reaching ~16px below and ~12px to the sides) somewhere to land inside the
+ * contained box, and the matching negative margin puts the margin box back onto
+ * the card's edges so column widths and the 12px gaps are exactly as before. */
+.card-columns-item.is-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 170px;
+  padding: 6px 14px 18px;
+  margin: -6px -14px -18px;
+  /* Those padded halos overlap the neighbouring column, so the wrapper must not
+     swallow clicks meant for the card underneath it. */
+  pointer-events: none;
+}
+.card-columns-item.is-deferred > * {
+  pointer-events: auto;
+}
+/* Hover raises the card to `--e2` (~34px below), which is deeper than the
+   padding above. Dropping containment for the one card under the pointer lets
+   that larger shadow paint in full; every other card stays deferred. */
+.card-columns-item.is-deferred:has(:hover) {
+  content-visibility: visible;
 }
 .entity-card-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin: 8px 0;
-}
-.paper-grid > .entity-card,
-.paper-grid > .paper-card,
-.paper-grid > .artifact-card {
-  break-inside: avoid;
-  width: 100%;
-  margin-bottom: 12px;
 }
 .entity-card,
 .paper-card {

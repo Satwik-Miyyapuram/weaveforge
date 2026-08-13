@@ -37,6 +37,7 @@ import {
   OpenIcon,
 } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
+import { CardColumns } from "@/components/card-columns";
 import { PaperCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
 import { rankedFilter } from "@/features/search/application/rank-filter";
@@ -545,10 +546,12 @@ export function PapersScreen() {
       )}
 
       {visible.length > 0 && layout === "cards" && (
-        <div className={`paper-grid${visible.length > 20 ? " long-list" : ""}`}>
-          {visible.map((p) => (
+        <CardColumns
+          items={visible}
+          getKey={(p) => p.id}
+          deferOffscreen={visible.length > 20}
+          renderItem={(p) => (
             <PaperCard
-              key={p.id}
               paper={p}
               readOnly={isReadOnlyPaper(p.id)}
               sharedByName={sharedOwnerName(p.id)}
@@ -556,8 +559,8 @@ export function PapersScreen() {
               onReplace={replace}
               onChanged={load}
             />
-          ))}
-        </div>
+          )}
+        />
       )}
 
       {visible.length > 0 && layout === "board" && (
