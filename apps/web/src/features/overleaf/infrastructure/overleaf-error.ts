@@ -1,5 +1,8 @@
+import { formatError } from "@/lib/format-error";
+
+
 export function safeOverleafError(error: unknown, token?: string): string {
-  const raw = error instanceof Error ? error.message : String(error);
+  const raw = formatError(error);
   const redacted = token ? raw.split(token).join("[redacted]") : raw;
   return redacted.replace(/https?:\/\/[^\s]+/gi, (url) => {
     try {

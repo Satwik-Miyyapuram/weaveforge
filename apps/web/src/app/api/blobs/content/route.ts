@@ -3,6 +3,7 @@ import { readStorageConfig } from "@/storage/config";
 import { resolveBlobTierForViewer } from "@/storage/server/blob-access";
 import { streamBlobObject } from "@/storage/server/blob-api";
 import { verifyBlobViewToken } from "@/storage/server/blob-view-token";
+import { formatError } from "@/lib/format-error";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   try {
     payload = verifyBlobViewToken(token);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = formatError(err);
     return NextResponse.json({ error: message }, { status: 503 });
   }
   if (!payload) return NextResponse.json({ error: "Invalid or expired token." }, { status: 401 });
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = formatError(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

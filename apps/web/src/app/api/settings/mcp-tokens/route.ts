@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { bearerToken } from "@/app/api/sdk/_shared";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
+import { formatError } from "@/lib/format-error";
 
 function disabled() {
   return NextResponse.json({ error: "mcp_disabled" }, { status: 404, headers: { "Cache-Control": "no-store" } });
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   const accessToken = bearerToken(request);
   if (!accessToken) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   try { return NextResponse.json(await apiTokenService().createMcpRelayToken(accessToken, "Codex MCP connection")); }
-  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 401 }); }
+  catch (error) { return NextResponse.json({ error: formatError(error) }, { status: 401 }); }
 }
 
 export async function GET(request: Request) {
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   const accessToken = bearerToken(request);
   if (!accessToken) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   try { return NextResponse.json({ tokens: await apiTokenService().listMcpRelayTokens(accessToken) }); }
-  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 401 }); }
+  catch (error) { return NextResponse.json({ error: formatError(error) }, { status: 401 }); }
 }
 
 export async function DELETE(request: Request) {
@@ -32,5 +33,5 @@ export async function DELETE(request: Request) {
   try {
     await apiTokenService().revokeToken(accessToken, id);
     return NextResponse.json({ ok: true });
-  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 401 }); }
+  } catch (error) { return NextResponse.json({ error: formatError(error) }, { status: 401 }); }
 }

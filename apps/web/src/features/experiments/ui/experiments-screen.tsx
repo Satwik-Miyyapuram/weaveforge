@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  EXPERIMENT_STATUSES,
-  experimentActivityAt,
-  isStaleRunningExperiment,
-  type Experiment,
-  type ExperimentStatus,
-  type MetricPoint,
-} from "@weaveforge/core";
+  EXPERIMENT_STATUSES, experimentActivityAt, isStaleRunningExperiment, type Experiment, type ExperimentStatus, type MetricPoint } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useNavPending } from "@/lib/nav-pending";
 import { Modal } from "@/components/modal";
@@ -27,6 +21,7 @@ import { useScreenData } from "@/lib/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 import { formatMetricCell, MetricChart } from "./metric-chart";
+import { formatError } from "@/lib/format-error";
 import {
   ExpGitChips,
   ExpMetricChips,
@@ -556,7 +551,7 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
       setName(""); setBranch(""); setCommit(""); setRepoUrl(""); setConfig("");
       onAdded();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

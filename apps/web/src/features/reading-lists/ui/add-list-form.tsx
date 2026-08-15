@@ -5,6 +5,7 @@ import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { LIST_COLOR_PRESETS } from "./list-ui";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Add-list form. UI only: collects input and delegates to the manage use-case.
@@ -36,7 +37,7 @@ export function AddListForm({
       setName("");
       onAdded?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

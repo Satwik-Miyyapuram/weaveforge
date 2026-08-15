@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import {
-  assertAllowedBlobBucket,
-  assertBlobPathOwned,
-} from "@/storage/server/blob-access";
+  assertAllowedBlobBucket, assertBlobPathOwned, } from "@/storage/server/blob-access";
 import { bearerToken, buildTieredBlobStoreForToken, userIdFromToken } from "@/storage/server/blob-api";
 import { readStorageConfig } from "@/storage/config";
+import { formatError } from "@/lib/format-error";
 
 export async function POST(request: Request) {
   if (readStorageConfig().provider !== "tiered") {
@@ -40,7 +39,7 @@ export async function POST(request: Request) {
     );
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = formatError(err);
     const status = message.startsWith("Forbidden") ? 403 : message === "Not authenticated." ? 401 : 500;
     return NextResponse.json({ error: message }, { status });
   }

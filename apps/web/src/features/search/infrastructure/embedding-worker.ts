@@ -99,6 +99,9 @@ self.addEventListener("message", (event: MessageEvent<EmbedWorkerRequest>) => {
       post({
         id: request.id,
         type: "error",
+        // Not the shared `errorMessage` helper: importing it would pull the
+        // core package into the worker bundle, and the only errors that reach
+        // here come from the encoder runtime, which throws real Errors.
         message: error instanceof Error ? error.message : String(error),
       });
     }

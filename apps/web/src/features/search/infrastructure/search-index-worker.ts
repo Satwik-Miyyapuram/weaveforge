@@ -13,6 +13,7 @@ import {
 } from "@weaveforge/core";
 import { buildSearchIndex } from "./minisearch-index";
 import { loadPdfTexts } from "./pdf-text-store";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Building the search index, off the main thread.
@@ -97,7 +98,7 @@ self.addEventListener("message", (event: MessageEvent<BuildIndexRequest>) => {
       post({
         id: request.id,
         type: "error",
-        message: error instanceof Error ? error.message : String(error),
+        message: formatError(error),
       });
     }
   })();

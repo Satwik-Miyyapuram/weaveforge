@@ -3,15 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  type Paper,
-  type PaperRelation,
-  type RelationType,
-  type ReportSection,
-  type VaultPage,
-} from "@weaveforge/core";
+  type Paper, type PaperRelation, type RelationType, type ReportSection, type VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { RELATION_COLORS, tagColor } from "../application/build-graph-data";
 import { Select } from "@/components/select";
+import { formatError } from "@/lib/format-error";
 
 interface StoredAnnotation {
   text?: string;
@@ -323,7 +319,7 @@ function ConceptPanel({
       onMerged();
       onSelectConcept(mergeInto);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

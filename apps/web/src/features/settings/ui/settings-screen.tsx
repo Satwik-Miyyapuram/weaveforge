@@ -28,6 +28,7 @@ import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
 import { ThemeConfigPanel } from "./theme-config-panel";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Settings sections, as tabs. This screen used to render all eight stacked
@@ -114,7 +115,7 @@ export function SettingsScreen() {
     try {
       setSettings(await getContainer().settings.manageSettings.get());
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setLoading(false);
     }
@@ -270,7 +271,7 @@ export function SettingsScreen() {
       getContainer().search.setSettings(settings.search);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

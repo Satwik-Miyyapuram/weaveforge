@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { OrgValidationError } from "@weaveforge/core";
 import type { OrgInviteRole } from "@weaveforge/core";
+import { formatError } from "@/lib/format-error";
 import {
   orgApiErrorResponse,
   requireOrgApiUser,
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     const code = await auth.svc.regenerateCode(auth.userId, body.orgId, body.targetRole);
     return NextResponse.json(code);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = formatError(err);
     const status = err instanceof OrgValidationError ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
   }

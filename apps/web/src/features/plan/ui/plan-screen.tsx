@@ -3,16 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  DEPENDENCY_KINDS,
-  MILESTONE_STATUSES,
-  type ComputeNeed,
-  type DependencyKind,
-  type Experiment,
-  type Milestone,
-  type MilestoneDependency,
-  type MilestoneStatus,
-  type Paper,
-} from "@weaveforge/core";
+  DEPENDENCY_KINDS, MILESTONE_STATUSES, type ComputeNeed, type DependencyKind, type Experiment, type Milestone, type MilestoneDependency, type MilestoneStatus, type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -23,6 +14,7 @@ import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } fr
 import { useScreenData } from "@/lib/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { PlanScreenData } from "@/features/plan/application/load-plan-screen.use-case";
+import { formatError } from "@/lib/format-error";
 
 type PlanViewData = PlanScreenData & { ownerNames: Map<string, string> };
 
@@ -521,7 +513,7 @@ function MilestoneForm({
       }
       await onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

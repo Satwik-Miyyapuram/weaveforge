@@ -5,6 +5,7 @@ import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperSta
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { paperSourceNoteScaffold } from "../application/paper-source-note-scaffold";
+import { formatError } from "@/lib/format-error";
 
 
 type RefKind = PaperRef["kind"]; // "arxiv" | "doi" | "zotero"
@@ -83,7 +84,7 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
       setRefValue("");
       onAdded?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Paper, ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
+import { formatError } from "@/lib/format-error";
 
 interface StoredAnnotation {
   key?: string;
@@ -55,7 +56,7 @@ export function SectionRelatedExcerpts({
     setError(null);
     void reload().catch((reason) => {
       if (cancelled) return;
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(formatError(reason));
     });
     return () => {
       cancelled = true;
@@ -135,6 +136,6 @@ async function papersFacadeUnpin(
     await getContainer().papers.setAnnotationPin(paperId, annotationKey, null);
     await reload();
   } catch (reason) {
-    setError(reason instanceof Error ? reason.message : String(reason));
+    setError(formatError(reason));
   }
 }

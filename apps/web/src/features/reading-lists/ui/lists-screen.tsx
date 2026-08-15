@@ -357,7 +357,7 @@ function ListNode({
       setShowAdd(false);
       onChanged();
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : String(err));
+      setAddError(formatError(err));
     } finally {
       setAddBusy(false);
       await loadItems();

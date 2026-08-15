@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  bodyLinksTo,
-  extractHashtags,
-  normalizeTitleKey,
-  vaultImageMarkdown,
-  type VaultPage,
-  type VaultPageTreeNode,
-} from "@weaveforge/core";
+  bodyLinksTo, extractHashtags, normalizeTitleKey, vaultImageMarkdown, type VaultPage, type VaultPageTreeNode } from "@weaveforge/core";
 import { removeHashtagFromBody } from "@/features/papers/lib/note-tags";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
@@ -237,7 +231,7 @@ export function VaultScreen() {
       setImportMsg(`${parts.join(", ")}.`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setImporting(false);
     }
@@ -263,7 +257,7 @@ export function VaultScreen() {
         setPushed();
         router.push(`/notes?${params.toString()}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(formatError(err));
       }
     },
     [load, searchParams, setPushed, router],

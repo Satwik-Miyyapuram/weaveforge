@@ -6,6 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import { useLayoutBreakpoint } from "@/lib/use-layout-breakpoint";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { formatError } from "@/lib/format-error";
 
 type LinkedReport = {
   id: string; project_id: string; title: string; connection_id: string; overleaf_project_id: string;
@@ -52,7 +53,7 @@ export function LinkedOverleafReports() {
       setSelected((s) => (s && s.id === selected.id ? { ...s, section_targets: next } : s));
     } catch (err) {
       setTargets(prev);
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     }
   }
 
@@ -67,7 +68,7 @@ export function LinkedOverleafReports() {
       if (selected?.id === report.id) { setSelected(null); setContent(null); }
       setConfirmId(null);
       await reload();
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) { setError(formatError(err)); }
   }
 
   const reload = useCallback(async () => {
@@ -77,7 +78,7 @@ export function LinkedOverleafReports() {
       setReports((response.reports ?? []).filter((report) => report.project_id === current.id));
       setError(null);
     }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    catch (err) { setError(formatError(err)); }
   }, [current?.id]);
   useEffect(() => { void reload(); }, [reload]);
 
@@ -90,7 +91,7 @@ export function LinkedOverleafReports() {
       const payload = await response.json() as ReportContent & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Could not fetch the Overleaf report.");
       setContent(payload);
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) { setError(formatError(err)); }
     finally { setLoading(false); }
   }
 
@@ -318,7 +319,7 @@ function EditOverleafReportForm({ report, onSaved, onCancel, onError }: {
         }),
       });
       onSaved();
-    } catch (err) { onError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) { onError(formatError(err)); }
     finally { setBusy(false); }
   }
   return (
@@ -343,7 +344,7 @@ function LinkOverleafForm({ projectId, onLinked, onError }: { projectId: string;
       const connection = await api("/api/overleaf/connections", { method: "POST", body: JSON.stringify({ name: form.get("connectionName"), token: form.get("token") }) });
       await api("/api/overleaf/reports", { method: "POST", body: JSON.stringify({ projectId, connectionId: connection.connection?.id, title: form.get("title"), overleafProjectId: form.get("overleafProjectId"), entryFile: form.get("entryFile") }) });
       onLinked();
-    } catch (err) { onError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) { onError(formatError(err)); }
     finally { setBusy(false); }
   }
   return <form className="linked-overleaf-form" onSubmit={(event) => void submit(event)}><label>Connection name<input name="connectionName" required placeholder="My Overleaf account" /></label><label>Overleaf Git token<input name="token" type="password" required autoComplete="off" /></label><label>Report title<input name="title" required placeholder="MSc thesis" /></label><label>Overleaf project ID<input name="overleafProjectId" required placeholder="1234567" /></label><label>Entry file<input name="entryFile" defaultValue="main.tex" required /></label><button className="btn-primary" disabled={busy} type="submit">{busy ? "Linking…" : "Save and link report"}</button></form>;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
 import { sealCredentialString, openCredentialString } from "@/features/settings/infrastructure/settings-credential-crypto";
+import { formatError } from "@/lib/format-error";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       const secrets = clean(JSON.parse(openCredentialString(data.credentials_enc as string)) as Secrets);
       return NextResponse.json(secrets, { headers: { "Cache-Control": "no-store" } });
     } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+      return NextResponse.json({ error: formatError(err) }, { status: 500 });
     }
   }
   const legacy = clean({
