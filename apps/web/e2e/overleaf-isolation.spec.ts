@@ -61,7 +61,7 @@ test.describe("Overleaf browser privacy boundary", () => {
       } });
     });
 
-    await page.goto("/report");
+    await page.goto("/report/overleaf");
     await expect(page.getByRole("heading", { name: "Overleaf reports" })).toBeVisible();
     await page.getByRole("button", { name: "Link report" }).click();
     await page.getByLabel("Connection name").fill("Test Overleaf");
@@ -71,7 +71,9 @@ test.describe("Overleaf browser privacy boundary", () => {
     await page.getByRole("button", { name: "Save and link report" }).click();
     await expect(page.getByRole("button", { name: /MSc thesis/ })).toBeVisible();
     await page.getByRole("button", { name: /MSc thesis/ }).click();
-    await expect(page.getByText("Introduction")).toBeVisible();
+    // The section list and the LaTeX source preview both say "Introduction";
+    // the section title is the one that proves the sections rendered.
+    await expect(page.locator(".linked-overleaf-section__title", { hasText: "Introduction" })).toBeVisible();
 
     expect(await page.locator("body").innerText()).not.toContain(rawToken);
     expect(responseBodies.join("\\n")).not.toContain(rawToken);
@@ -86,7 +88,7 @@ test.describe("Overleaf browser privacy boundary", () => {
       await route.fulfill({ json: { reports: [report("report-a", requestedProjectId, "Visible thesis"), report("report-b", "project-b", "Foreign thesis")] } });
     });
 
-    await page.goto("/report");
+    await page.goto("/report/overleaf");
     await expect(page.getByRole("heading", { name: "Overleaf reports" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Visible thesis/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Foreign thesis/ })).not.toBeVisible();

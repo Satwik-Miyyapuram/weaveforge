@@ -3,6 +3,18 @@ import { bootstrapSession, drainLoginGates, signIn } from "./helpers/auth.js";
 import { ensurePaperExists, firstPaperTitle } from "./helpers/papers.js";
 import { e2eEnabled, e2eUserA, e2eUserB } from "./helpers/env.js";
 
+/**
+ * A context that is *not* already signed in.
+ *
+ * `browser.newContext()` inherits the project's `use.storageState`, which is the
+ * saved session for user A. These tests are the only ones that build their own
+ * contexts — the rest opt out with `test.use(...)` — so when that shared session
+ * was introduced they silently started every "sign in as user B" against a page
+ * that was already user A's dashboard. The login form never appeared, and the
+ * failure read as a timeout waiting for a heading rather than as what it was.
+ */
+const CLEAN = { storageState: { cookies: [], origins: [] } };
+
 async function confirmShareFingerprint(page: Page) {
   const fp = page.locator(".share-fingerprint").first();
   if (!(await fp.isVisible({ timeout: 5000 }).catch(() => false))) return;
@@ -25,8 +37,8 @@ test.describe("sharing", () => {
     const userA = e2eUserA();
     const userB = e2eUserB();
 
-    const contextA = await browser.newContext();
-    const contextB = await browser.newContext();
+    const contextA = await browser.newContext(CLEAN);
+    const contextB = await browser.newContext(CLEAN);
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
 
@@ -44,14 +56,14 @@ test.describe("sharing", () => {
     const userA = e2eUserA();
     const userB = e2eUserB();
 
-    const ownerCtx = await browser.newContext();
-    const visitorCtx = await browser.newContext();
+    const ownerCtx = await browser.newContext(CLEAN);
+    const visitorCtx = await browser.newContext(CLEAN);
     const owner = await ownerCtx.newPage();
     const visitor = await visitorCtx.newPage();
 
     await bootstrapSession(owner, userA.email, userA.password);
     await ensurePaperExists(owner);
-    await owner.getByRole("button", { name: "share", exact: true }).first().click();
+    await owner.getByRole("button", { name: "Share", exact: true }).first().click();
     await owner.getByRole("button", { name: "Create view link" }).click();
     const linkUrlEl = owner.getByTestId("share-link-url");
     await expect(linkUrlEl).toBeVisible({ timeout: 20_000 });
@@ -73,8 +85,8 @@ test.describe("sharing", () => {
     const userA = e2eUserA();
     const userB = e2eUserB();
 
-    const ownerCtx = await browser.newContext();
-    const recipientCtx = await browser.newContext();
+    const ownerCtx = await browser.newContext(CLEAN);
+    const recipientCtx = await browser.newContext(CLEAN);
     const owner = await ownerCtx.newPage();
     const recipient = await recipientCtx.newPage();
 
@@ -82,22 +94,37 @@ test.describe("sharing", () => {
     await ensurePaperExists(owner);
     const paperTitle = await firstPaperTitle(owner);
 
-    await owner.getByRole("button", { name: "share", exact: true }).first().click();
-    await owner.getByPlaceholder("Search people…").fill(userB.email.split("@")[0]!);
-    const memberRow = owner.locator(".mp-row").filter({ hasText: new RegExp(userB.email.split("@")[0]!, "i") }).first();
-    if (!(await memberRow.isVisible({ timeout: 10000 }).catch(() => false))) {
-      test.skip(true, "Recipient not in lab directory — run seed-test-users or join same org");
-    }
+    const handle = userB.email.split("@")[0]!;
+    const memberRow = owner.locator(".mp-row").filter({ hasText: new RegExp(handle, "i") }).first();
+
+    // The lab directory is fetched when the dialog opens. A fetch that loses
+    // the race with the typed query leaves an empty list to filter, which read
+    // as "recipient not in the directory" and skipped the test outright — the
+    // one assertion this spec exists for, silently not run. Retry the open
+    // instead: the directory is a fact about the accounts, not about timing.
+    await expect(async () => {
+      if (!(await memberRow.isVisible().catch(() => false))) {
+        if (!(await owner.getByPlaceholder("Search people…").isVisible().catch(() => false))) {
+          await owner.getByRole("button", { name: "Share", exact: true }).first().click();
+        }
+        await owner.locator(".mp-row").first().waitFor({ timeout: 15_000 });
+        await owner.getByPlaceholder("Search people…").fill(handle);
+      }
+      await expect(memberRow).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 90_000 });
     await memberRow.locator('input[type="checkbox"]').check();
 
     await confirmShareFingerprint(owner);
-    await expect(owner.getByRole("button", { name: /Share with/i })).toBeEnabled({ timeout: 15000 });
-    await owner.getByRole("button", { name: /Share with/i }).click();
+    // The grant button reads "Share (n)" once people are selected — it used to
+    // say "Share with …".
+    const grant = owner.locator(".share-add-submit");
+    await expect(grant).toBeEnabled({ timeout: 15000 });
+    await grant.click();
     await expect(owner.getByText(/Shared with|view-only link/i).first()).toBeVisible({ timeout: 20000 });
 
     await bootstrapSession(recipient, userB.email, userB.password);
     await recipient.goto("/shared");
-    await expect(recipient.getByText(paperTitle, { exact: false })).toBeVisible({ timeout: 30000 });
+    await expect(recipient.getByText(paperTitle, { exact: false }).first()).toBeVisible({ timeout: 30000 });
 
     await ownerCtx.close();
     await recipientCtx.close();
