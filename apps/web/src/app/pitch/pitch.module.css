@@ -827,3 +827,26 @@
   color: var(--muted);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
+
+/* Particle scroll host.
+ *
+ * `ParticleScroll` captures a scrollable subtree and repaints it through WebGL,
+ * so the narrative has to scroll *inside* it rather than with the document.
+ * Pinning it to the viewport is what gives the effect a fixed formation line to
+ * assemble content against; the header above and footer below keep scrolling
+ * normally and stay solid.
+ *
+ * On browsers without the HTML-in-Canvas API the component renders its children
+ * directly, and this box is still the scroller — so the page reads identically,
+ * just without particles.
+ */
+.particleScroller {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* The sticky header inside the narrative sticks to this scroller, not the
+   document, which is the behaviour the pinned scenes already expect. */
+.particleScroller > div {
+  scrollbar-width: thin;
+}
