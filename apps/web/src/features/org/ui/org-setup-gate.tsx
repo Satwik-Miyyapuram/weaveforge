@@ -7,6 +7,7 @@ import { createOrg, joinOrg, previewOrgCode, regenerateOrgCode, continueStandalo
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
+import { formatError } from "@/lib/format-error";
 
 /**
  * First-run gate: create a lab, join with a code, or continue standalone.
@@ -46,7 +47,7 @@ export function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> })
       await continueStandalone();
       await onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -76,7 +77,7 @@ export function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> })
             setCreatedCodes(res.codes ?? null);
             if (!res.codes?.length) onDone();
           } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            setError(formatError(err));
           } finally {
             setBusy(false);
           }
@@ -98,7 +99,7 @@ export function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> })
             await joinOrg(input);
             onDone();
           } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            setError(formatError(err));
           } finally {
             setBusy(false);
           }
@@ -202,7 +203,7 @@ function JoinLabForm({
       setPreview(await previewOrgCode(code));
     } catch (err) {
       setPreview(null);
-      setLookupError(err instanceof Error ? err.message : String(err));
+      setLookupError(formatError(err));
     }
   }
 
@@ -300,7 +301,7 @@ export function OrgCodesPanel({ orgId, orgName }: { orgId: string; orgName: stri
       const res = await regenerateOrgCode(orgId, role);
       if (res.code) setRevealed((prev) => ({ ...prev, [role]: res.code! }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(null);
     }

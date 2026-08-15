@@ -33,6 +33,19 @@ done
 
 A clean run against Postgres 16 gives **40 tables and 109 policies** in `public`.
 
+## Applying one migration to a live database
+
+The guard above refuses to replay the base migrations over existing data. To
+apply a single new one — the usual case after the cutover — name it:
+
+```bash
+npm run migrate:schema -- --only provision
+```
+
+The match runs over both folders, base first, so a pair like
+`0117_ensure_user_provisioned.sql` and `0029_self_host_user_provisioning.sql`
+applies in the right order from one command.
+
 ## What lives here?
 
 Extra schema that **must not** exist on Supabase Cloud — e.g. a minimal `auth.users` stub and `auth.uid()` reading the JWT `sub` your app sets per connection (see `apps/web/src/backend/providers/postgres/pg-runner.ts`).

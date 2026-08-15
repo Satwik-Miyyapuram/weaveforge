@@ -1,4 +1,4 @@
-import type { IAuthService, ManageSettingsUseCase } from "@weaveforge/core";
+import type { IAuthService, ISelfProvisioner, ManageSettingsUseCase } from "@weaveforge/core";
 import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
 import type { BackendConfig } from "./config";
 import { readBackendConfig } from "./config";
@@ -6,6 +6,7 @@ import { createSupabaseClient } from "./providers/supabase/client";
 import { SupabaseSessionProvider } from "./providers/supabase/session";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/supabase-settings-repository";
+import { SupabaseSelfProvisioner } from "@/features/org/infrastructure/supabase-self-provisioner";
 
 /**
  * Pre-disclaimer backend: auth + settings only.
@@ -14,6 +15,8 @@ import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/s
 export interface LightBackend {
   readonly auth: IAuthService;
   readonly manageSettings: ManageSettingsUseCase;
+  /** Pre-disclaimer because the disclaimer itself is the first write. */
+  readonly selfProvisioner: ISelfProvisioner;
 }
 
 export function wireLightBackend(config: BackendConfig = readBackendConfig()): LightBackend {
@@ -37,5 +40,5 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   const auth = new SupabaseAuthService(db);
   const settingsRepository = new SupabaseSettingsRepository(db, session);
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
-  return { auth, manageSettings };
+  return { auth, manageSettings, selfProvisioner: new SupabaseSelfProvisioner(db) };
 }
