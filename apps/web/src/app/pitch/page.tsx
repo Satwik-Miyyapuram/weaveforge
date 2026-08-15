@@ -223,9 +223,22 @@ function useScrollSteps(count: number) {
         // reader's annotation panel is 200px taller than the shortest one,
         // and any single fixed distance leaves one scene or the other wrong.
         if (top > 0) {
-          const fadeTo = top + 48;    // zero *before* it touches the panel
-          const fadeFrom = top + 190; // starts well below it
-          const t = (r.top - fadeTo) / (fadeFrom - fadeTo);
+          // Measured from the words, not from the box around them. A step is
+          // half a screen tall with its text centred in it, so its box top is
+          // a couple of hundred pixels above the first line — fading on that
+          // faded the step being read down to nothing while its text sat in
+          // clear space well below the panel.
+          //
+          // The band is the step's own first 44px of travel *under* the panel,
+          // not a stretch of clear space below it: a step whose first line has
+          // not reached the panel yet has nothing behind anything and is fully
+          // opaque. On a short phone the readable band is barely taller than a
+          // step, so any fade that starts below the panel edge dims the step
+          // being read — which is the one thing it must never do.
+          const ink = s.firstElementChild?.getBoundingClientRect().top ?? r.top;
+          const fadeTo = top - 40;  // gone by the time it is properly behind
+          const fadeFrom = top + 4; // full strength the moment it is clear
+          const t = (ink - fadeTo) / (fadeFrom - fadeTo);
           s.style.opacity = String(Math.max(0, Math.min(1, t)));
         } else if (s.style.opacity) {
           // Side by side, nothing passes behind: hand opacity back to the CSS
@@ -1405,8 +1418,24 @@ export default function PitchPage() {
     return () => io.disconnect();
   }, []);
 
-  const navLink = (id: string, label: string) => (
-    <a href={`#${id}`} aria-current={navOn === id ? "true" : undefined}>{label}</a>
+  /**
+   * A section link in the header.
+   *
+   * `low` marks the entries the bar sheds first. The full set does not fit
+   * beside the brand and the actions until the window is wide enough for the
+   * header's own 1320px measure, and a nav that overflows is a nav with links
+   * nobody can reach — so the four least load-bearing ones (each reachable
+   * from the prose, and two of them from the hero's audience chips) drop out
+   * below that, rather than the last two silently falling off the end.
+   */
+  const navLink = (id: string, label: string, low = false) => (
+    <a
+      href={`#${id}`}
+      className={low ? css.navLow : undefined}
+      aria-current={navOn === id ? "true" : undefined}
+    >
+      {label}
+    </a>
   );
 
   return (
@@ -1427,15 +1456,15 @@ export default function PitchPage() {
           </a>
           <nav className={css.nav} aria-label="Sections">
             {navLink("overview", "Overview")}
-            {navLink("why", "Why")}
-            <span className={css.navSep} aria-hidden />
+            {navLink("why", "Why", true)}
+            <span className={`${css.navSep} ${css.navLow}`} aria-hidden />
             {navLink("chain", "The chain")}
             {navLink("literature", "Literature")}
             {navLink("annotations", "Reading")}
             {navLink("experiments", "Experiments")}
-            {navLink("writing", "Writing")}
-            <span className={css.navSep} aria-hidden />
-            {navLink("labs", "Labs")}
+            {navLink("writing", "Writing", true)}
+            <span className={`${css.navSep} ${css.navLow}`} aria-hidden />
+            {navLink("labs", "Labs", true)}
             <span className={css.navSep} aria-hidden />
             {navLink("selfhost", "Self-host")}
             {navLink("compare", "Compare")}
