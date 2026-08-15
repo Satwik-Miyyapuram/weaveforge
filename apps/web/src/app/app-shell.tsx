@@ -20,6 +20,7 @@ import { SubNav } from "./sub-nav";
 import { PageTransition } from "./page-transition";
 import { JumpToPalette } from "@/components/jump-to-palette";
 import { NavPendingProvider } from "@/lib/nav-pending";
+import { ShareDialogHost } from "@/features/sharing";
 import { RoutePending } from "./route-pending";
 import { SwipeViews } from "./swipe-views";
 import { StartupProvider } from "@/features/startup";
@@ -189,7 +190,11 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   );
 
   if (current) {
-    return <NavPendingProvider>{shell}</NavPendingProvider>;
+    return (
+      <NavPendingProvider>
+        <ShareDialogHost>{shell}</ShareDialogHost>
+      </NavPendingProvider>
+    );
   }
-  return shell;
+  return <ShareDialogHost>{shell}</ShareDialogHost>;
 }

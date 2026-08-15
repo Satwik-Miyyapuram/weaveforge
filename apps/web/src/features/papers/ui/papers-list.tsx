@@ -4,21 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  PAPER_STATUSES,
-  PAPER_FIELD_KINDS,
-  QUOTATION_TYPES,
-  QUOTATION_TYPE_LABELS,
-  computeRollup,
-  type Paper,
-  type PaperFieldDef,
-  type PaperFieldKind,
-  type PaperFieldRollupAgg,
-  type PaperFieldValue,
-  type PaperFieldValueData,
-  type PaperStatus,
-  type QuotationType,
-  type ReadingList,
-} from "@weaveforge/core";
+  PAPER_STATUSES, PAPER_FIELD_KINDS, QUOTATION_TYPES, QUOTATION_TYPE_LABELS, computeRollup, type Paper, type PaperFieldDef, type PaperFieldKind, type PaperFieldRollupAgg, type PaperFieldValue, type PaperFieldValueData, type PaperStatus, type QuotationType, type ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
@@ -141,7 +127,7 @@ export function PapersScreen() {
       );
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setSyncing(false);
     }
@@ -2079,7 +2065,7 @@ function RelatedPapersPanel({ paper, onChanged }: { paper: Paper; onChanged: () 
       setHits(next);
       if (next.length === 0) setMsg("No related papers found (needs DOI or arXiv id).");
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -2102,7 +2088,7 @@ function RelatedPapersPanel({ paper, onChanged }: { paper: Paper; onChanged: () 
       setHits((prev) => prev.filter((h) => h.title !== hit.title));
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

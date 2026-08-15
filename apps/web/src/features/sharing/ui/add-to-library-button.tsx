@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { BookmarkIcon } from "@/components/view-icons";
+import { formatError } from "@/lib/format-error";
 
 export function AddToLibraryButton({
   resourceType,
@@ -47,7 +48,7 @@ export function AddToLibraryButton({
       setMsg("Added to your library");
       onPinned?.();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : String(err));
+      setMsg(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -62,7 +63,7 @@ export function AddToLibraryButton({
       setMsg("Removed from library");
       onPinned?.();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : String(err));
+      setMsg(formatError(err));
     } finally {
       setBusy(false);
     }

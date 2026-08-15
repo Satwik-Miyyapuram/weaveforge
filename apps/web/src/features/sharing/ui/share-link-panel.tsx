@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  SHARE_LINK_DEFAULT_TTL_DAYS,
-  type ShareLink,
-  type ShareableType,
-} from "@weaveforge/core";
+  SHARE_LINK_DEFAULT_TTL_DAYS, type ShareLink, type ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { formatError } from "@/lib/format-error";
 
 function formatExpiry(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -54,7 +52,7 @@ export function ShareLinkPanel({
       setCreatedUrl(url);
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }
@@ -67,7 +65,7 @@ export function ShareLinkPanel({
       await getContainer().sharing.revokeShareLink({ id });
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }

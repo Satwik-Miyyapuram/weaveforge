@@ -30,9 +30,19 @@ export function Modal({
 
   useEffect(() => {
     if (!mounted) return;
+    // Locking the scroll takes the scrollbar away, which widens every element
+    // behind the modal. That is not only a visible jump: `CardColumns` watches
+    // its own width and re-deals the cards when the column count changes, so a
+    // modal opened from a card could widen the page, gain a column, remount the
+    // card it lives in — and close itself. Hold the width still.
+    const gutter = window.innerWidth - document.documentElement.clientWidth;
+    const prevOverflow = document.body.style.overflow;
+    const prevPadding = document.body.style.paddingRight;
     document.body.style.overflow = "hidden";
+    if (gutter > 0) document.body.style.paddingRight = `${gutter}px`;
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPadding;
     };
   }, [mounted]);
 

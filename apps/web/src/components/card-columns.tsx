@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 /**
  * Masonry card layout that a browser can actually skip work for.
@@ -50,15 +50,25 @@ export function CardColumns<T>({
   deferOffscreen?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const [columnCount, setColumnCount] = useState(1);
+  // 0 means "not measured yet". Cards are held back for that one pass on
+  // purpose: a card that first mounts in a one-column deal and is then re-dealt
+  // into three loses its own state, because it lands in a different column's
+  // subtree. That state includes whether a card's dialog is open — a share
+  // dialog opened the moment a list rendered would close itself again.
+  const [columnCount, setColumnCount] = useState(0);
 
   // Column count follows the container, not the viewport: these grids sit next
   // to sidebars that open and close, and a media query cannot see that.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     const measure = (width: number) => {
-      if (width <= 0) return;
+      // A container with no width yet (display:none ancestor, for one) must
+      // still deal the cards somewhere, or nothing ever renders.
+      if (width <= 0) {
+        setColumnCount((prev) => (prev === 0 ? 1 : prev));
+        return;
+      }
       const next = Math.max(1, Math.floor((width + gap) / (minColumnWidth + gap)));
       setColumnCount((prev) => (prev === next ? prev : next));
     };
@@ -71,6 +81,7 @@ export function CardColumns<T>({
   }, [gap, minColumnWidth]);
 
   const columns = useMemo(() => {
+    if (columnCount < 1) return [];
     const buckets: { item: T; key: string }[][] = Array.from(
       { length: columnCount },
       () => [],

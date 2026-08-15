@@ -88,7 +88,7 @@ export class SupabasePaperRepository implements IPaperRepository {
   async listStamps(): Promise<EntityStamp[]> {
     let query = this.db.from(TABLE).select("id,updated_at,created_at");
     if (this.pid) query = query.eq("project_id", this.pid);
-    query = query.order("created_at", { ascending: false });
+    query = query.order("created_at", { ascending: false }).order("id", { ascending: true });
     const { data, error } = await query;
     if (error) throw error;
     return (data as { id: string; updated_at: string | null; created_at: string }[]).map((row) => ({
@@ -122,7 +122,12 @@ export class SupabasePaperRepository implements IPaperRepository {
     if (filter?.titleContains) {
       query = query.ilike("title", `%${filter.titleContains}%`);
     }
-    query = query.order("created_at", { ascending: false });
+    // `created_at` alone is not a total order: papers imported together share a
+    // timestamp, and Postgres is then free to return those rows in any order.
+    // The card grid deals items into real columns by position, so a reshuffled
+    // tie moves cards between columns — remounting them, and closing whatever
+    // dialog one of them had open. `id` makes the order total.
+    query = query.order("created_at", { ascending: false }).order("id", { ascending: true });
     const { data, error } = await query;
     if (error) throw error;
     return (data as PaperRow[]).map(toDomain);
@@ -131,7 +136,7 @@ export class SupabasePaperRepository implements IPaperRepository {
   async listSummaries(): Promise<Paper[]> {
     let query = this.db.from(TABLE).select(PAPER_SUMMARY_COLUMNS);
     if (this.pid) query = query.eq("project_id", this.pid);
-    query = query.order("created_at", { ascending: false });
+    query = query.order("created_at", { ascending: false }).order("id", { ascending: true });
     const { data, error } = await query;
     if (error) throw error;
     return (data as PaperRow[]).map(toDomain);
