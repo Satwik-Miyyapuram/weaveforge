@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { bearerToken, blobRegistryForToken, userIdFromToken } from "@/storage/server/blob-api";
 import { blobContentUrl } from "@/storage/server/blob-view-token";
 import { readStorageConfig } from "@/storage/config";
+import { formatError } from "@/lib/format-error";
 
 export async function POST(request: Request) {
   if (readStorageConfig().provider !== "tiered") {
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
     );
     return NextResponse.json({ urls });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = formatError(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -216,7 +216,7 @@ function EditLogForm({
       try { await logbook.pushLog(updated); } catch { /* git sync best-effort */ }
       await onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

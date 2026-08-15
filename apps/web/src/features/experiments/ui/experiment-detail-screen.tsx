@@ -3,15 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  EXPERIMENT_STATUSES,
-  isStaleRunningExperiment,
-  type Experiment,
-  type ExperimentStatus,
-} from "@weaveforge/core";
+  EXPERIMENT_STATUSES, isStaleRunningExperiment, type Experiment, type ExperimentStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { ShareButton, CommentsToggle } from "@/features/sharing";
+import { formatError } from "@/lib/format-error";
 import {
   Artifacts,
   ExpConfigPanel,
@@ -45,7 +42,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
         setError(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setLoading(false);
     }

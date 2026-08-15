@@ -6,6 +6,7 @@ import { downloadOverleafExportPackage } from "@/features/overleaf/application/d
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Compact trigger + modal for a plaintext Overleaf ZIP (browser-only; nothing
@@ -60,7 +61,7 @@ export function ExportOverleafPackagePanel({
       setWarnings(result.warnings);
       if (result.warnings.length === 0) setOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

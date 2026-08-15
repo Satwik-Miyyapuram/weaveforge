@@ -1,8 +1,11 @@
 -- OCI / self-hosted Postgres only. NOT applied by `supabase db push`.
 -- Run after copying supabase/migrations/0001–0024 to your OCI instance.
 --
--- Sync auth.users rows from Supabase Auth (webhook or batch job). App sets
--- request.jwt.claim.sub per transaction (see apps/web/.../postgres/pg-runner.ts).
+-- Rows are mirrored from Supabase Auth on demand -- see 0029, which materialises
+-- the calling user's row from their verified JWT the first time they ask. This
+-- file used to say "webhook or batch job"; no such job was ever built, and until
+-- 0029 every account created after the cutover existed in Auth and nowhere else.
+-- App sets request.jwt.claim.sub per transaction (see .../postgres/pg-runner.ts).
 
 create schema if not exists auth;
 

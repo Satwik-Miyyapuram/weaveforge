@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { bootstrapSession } from "./helpers/auth.js";
 import { e2eEnabled, e2eUserA } from "./helpers/env.js";
+import { ensurePaperExists, openPaper } from "./helpers/papers.js";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -21,13 +22,11 @@ test.describe("source-note template re-render preserves edits (C1)", () => {
     const title = `E2E Template ${Date.now()}`;
     const sentinel = `KEEP-ME-${Date.now()}`;
 
-    await page.goto("/papers");
-    await page.getByRole("button", { name: "+ Paper" }).click();
-    await page.getByText("Add paper", { exact: true }).click();
-    await page.locator("#title").fill(title);
-    await page.getByRole("button", { name: "Add paper", exact: true }).click();
-
-    await page.getByText(title, { exact: false }).first().click();
+    // Create through the shared helper: it waits for the card the run actually
+    // created rather than for "some text on the page", so a list that is still
+    // loading no longer reads as "the paper was never added".
+    await ensurePaperExists(page, title);
+    await openPaper(page, title);
     await page.getByRole("button", { name: /Edit note|Add note/ }).click();
 
     const editor = page.locator(".summary-input .cm-content");

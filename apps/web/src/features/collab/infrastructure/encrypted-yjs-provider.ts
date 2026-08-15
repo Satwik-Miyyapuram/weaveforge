@@ -11,6 +11,7 @@ import type { Awareness } from "y-protocols/awareness";
 import { applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { mergeUpdates, encodeStateAsUpdate } from "yjs";
+import { formatError } from "@/lib/format-error";
 
 const MERGE_MS = 200;
 const PERSIST_IDLE_MS = 5000;
@@ -83,7 +84,7 @@ export class EncryptedYjsProvider {
           }
         }),
       )
-      .catch((err) => this.opts.onError?.("setAuth", err instanceof Error ? err.message : String(err)));
+      .catch((err) => this.opts.onError?.("setAuth", formatError(err)));
     opts.doc.on("update", this.onLocalUpdate);
     if (opts.awareness) this.bindAwareness(opts.awareness);
     void this.bootstrapFromStore();
@@ -119,7 +120,7 @@ export class EncryptedYjsProvider {
       const res = await this.channel.send({ type: "broadcast", event: "yjs", payload: { data } });
       if (res !== "ok") this.opts.onError?.("send", `broadcast returned ${String(res)}`);
     } catch (err) {
-      this.opts.onError?.("send", err instanceof Error ? err.message : String(err));
+      this.opts.onError?.("send", formatError(err));
     }
   }
 
@@ -149,7 +150,7 @@ export class EncryptedYjsProvider {
         this.lastPersistedId = row.id;
       }
     } catch (err) {
-      this.opts.onError?.("bootstrap", err instanceof Error ? err.message : String(err));
+      this.opts.onError?.("bootstrap", formatError(err));
     } finally {
       // Always seed, even when the replay failed: an empty editor over a
       // non-empty row would otherwise look like the body had been deleted, and

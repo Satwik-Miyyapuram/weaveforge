@@ -5,6 +5,7 @@ import { getContainer } from "@/bootstrap";
 import { useAuth } from "@/features/auth";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
+import { formatError } from "@/lib/format-error";
 
 const CONFIRMATION = "DELETE_USER";
 
@@ -50,7 +51,7 @@ export function DeleteAccountPanel() {
       setOtpSent(true);
       setEmailHint(payload.emailHint ?? user?.email ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setSendingOtp(false);
     }
@@ -81,7 +82,7 @@ export function DeleteAccountPanel() {
       await signOut();
       window.location.href = "/";
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

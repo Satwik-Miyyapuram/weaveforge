@@ -3,6 +3,7 @@ import { createRestClient } from "@/backend/providers/supabase/client";
 import { readBackendConfig } from "@/backend/config";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { isApiTokenFormat } from "@/features/settings/infrastructure/api-token-crypto";
+import { formatError } from "@/lib/format-error";
 
 export function bearerToken(request: Request): string | null {
   return request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
@@ -49,7 +50,7 @@ export async function requireSdkUser(request: Request): Promise<
     }
     return { ok: true, db, userId: data.user.id };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = formatError(err);
     const status = message.includes("SUPABASE_JWT_SECRET") ? 503 : 500;
     return { ok: false, response: NextResponse.json({ error: message }, { status }) };
   }
@@ -71,6 +72,6 @@ export async function requireMcpRelayUser(request: Request): Promise<
     if (error || !data.user?.id) return { ok: false, response: NextResponse.json({ error: "Invalid MCP token." }, { status: 401 }) };
     return { ok: true, db, userId: data.user.id };
   } catch (error) {
-    return { ok: false, response: NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 503 }) };
+    return { ok: false, response: NextResponse.json({ error: formatError(error) }, { status: 503 }) };
   }
 }

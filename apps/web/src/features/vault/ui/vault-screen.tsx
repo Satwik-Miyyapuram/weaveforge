@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  bodyLinksTo,
-  extractHashtags,
-  normalizeTitleKey,
-  vaultImageMarkdown,
-  type VaultPage,
-  type VaultPageTreeNode,
-} from "@weaveforge/core";
+  bodyLinksTo, extractHashtags, normalizeTitleKey, vaultImageMarkdown, type VaultPage, type VaultPageTreeNode } from "@weaveforge/core";
 import { removeHashtagFromBody } from "@/features/papers/lib/note-tags";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
@@ -17,6 +11,7 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
 import { DeleteIcon, EditIcon, FilterIcon, ImageIcon } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
+import { CardColumns } from "@/components/card-columns";
 import { MultiSelect } from "@/components/multi-select";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
@@ -236,7 +231,7 @@ export function VaultScreen() {
       setImportMsg(`${parts.join(", ")}.`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setImporting(false);
     }
@@ -262,7 +257,7 @@ export function VaultScreen() {
         setPushed();
         router.push(`/notes?${params.toString()}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(formatError(err));
       }
     },
     [load, searchParams, setPushed, router],
@@ -500,27 +495,32 @@ export function VaultScreen() {
         ) : (
           <>
             {visibleOwned.length > 0 && (
-              <div className={`paper-grid ${visibleOwned.length > 20 ? "long-list" : ""}`}>
-                {visibleOwned.map((p) => (
-                  <NoteCard key={p.id} page={p} onOpen={() => openPage(p.id)} onChanged={load} />
-                ))}
-              </div>
+              <CardColumns
+                items={visibleOwned}
+                getKey={(p) => p.id}
+                deferOffscreen={visibleOwned.length > 20}
+                renderItem={(p) => (
+                  <NoteCard page={p} onOpen={() => openPage(p.id)} onChanged={load} />
+                )}
+              />
             )}
             {visiblePinned.length > 0 && (
               <>
                 <h4 className="settings-group vault-pinned-label">Shared with you</h4>
-                <div className={`paper-grid ${visiblePinned.length > 20 ? "long-list" : ""}`}>
-                  {visiblePinned.map((p) => (
+                <CardColumns
+                  items={visiblePinned}
+                  getKey={(p) => p.id}
+                  deferOffscreen={visiblePinned.length > 20}
+                  renderItem={(p) => (
                     <NoteCard
-                      key={p.id}
                       page={p}
                       readOnly
                       sharedByName={sharedOwnerName(p.id)}
                       onOpen={() => openPage(p.id)}
                       onChanged={load}
                     />
-                  ))}
-                </div>
+                  )}
+                />
               </>
             )}
           </>

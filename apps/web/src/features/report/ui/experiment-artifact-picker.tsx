@@ -5,6 +5,7 @@ import type { Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
+import { formatError } from "@/lib/format-error";
 
 /** Collision key matching {@link artifactLabel} / insert serialization. */
 function artifactCollisionKey(name: string): string {
@@ -77,7 +78,7 @@ export function ExperimentArtifactPicker({
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
+          setError(formatError(err));
           setExperiments([]);
           setExperimentId("");
           setArtifactName("");

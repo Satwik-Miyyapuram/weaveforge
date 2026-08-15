@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatError } from "@/lib/format-error";
 import {
   downloadUserDataExport,
   downloadWorkspaceFolder,
@@ -17,7 +18,7 @@ export function ExportDataPanel() {
     try {
       await (kind === "folder" ? downloadWorkspaceFolder() : downloadUserDataExport());
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(null);
     }

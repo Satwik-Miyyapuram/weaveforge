@@ -5,6 +5,7 @@ import type { Comment, Member } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { DeleteIcon } from "@/components/view-icons";
 import { useProfile } from "@/features/org";
+import { formatError } from "@/lib/format-error";
 
 /**
  * A lightweight feedback thread on an item. Anyone with view access sees it;
@@ -56,7 +57,7 @@ export function CommentsPanel({
       setBody("");
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }

@@ -8,6 +8,7 @@ import { gitConnection } from "../domain/integration-fields";
 import type { GitBranch, GitCommit } from "../infrastructure/git-client";
 import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
+import { formatError } from "@/lib/format-error";
 
 function repoWebUrl(i: Integration): string {
   const { repo } = gitConnection(i);
@@ -54,7 +55,7 @@ export function GitScreen() {
       setBranches(bs);
       setCommits(cs);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,7 @@ export function GitScreen() {
       });
       setError(`Tracked branch “${branch}” as an experiment.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setTracking(false);
     }

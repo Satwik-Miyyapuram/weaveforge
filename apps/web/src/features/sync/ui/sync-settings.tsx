@@ -12,6 +12,7 @@ import {
   type ProjectSyncDescriptor,
 } from "@/integrations/descriptors";
 import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
+import { formatError } from "@/lib/format-error";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -106,7 +107,7 @@ function IntegrationRow({
       setSaved(true);
       setOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setSaving(false);
     }

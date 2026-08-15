@@ -9,3 +9,4 @@ export { SharedItemRenderer, PinnedPaperBadge } from "./ui/shared-item-renderer"
 export { AddToLibraryButton } from "./ui/add-to-library-button";
 export { usePinnedOwnerNames } from "./ui/use-pinned-owner-names";
 export { DuplicateCopyButton } from "./ui/duplicate-copy-button";
+export { ShareDialogHost } from "./ui/share-dialog-host";

@@ -19,6 +19,7 @@ import { useGraphPersistedState } from "../application/use-graph-persisted-state
 import { useScreenData } from "@/lib/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { GraphScreenData } from "@/container/facades";
+import { formatError } from "@/lib/format-error";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -137,7 +138,7 @@ export function GraphScreen() {
       );
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setLinking(false);
     }

@@ -11,6 +11,7 @@ import {
 } from "@/features/legal/privacy-disclaimer";
 import { useStartup } from "@/features/startup";
 import { FormError } from "@/components/form-error";
+import { formatError } from "@/lib/format-error";
 import {
   shouldMountShellChildren,
   shouldShowWorkspaceLoader,
@@ -55,7 +56,7 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
+          setError(formatError(err));
         }
       });
     return () => {
@@ -67,11 +68,25 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
     setBusy(true);
     setError(null);
     try {
-      await getLightContainer().settings.acceptDisclaimer();
+      const light = getLightContainer();
+      try {
+        await light.settings.acceptDisclaimer();
+      } catch (first) {
+        // This is the first row a new account ever writes, so it is where a
+        // half-provisioned identity surfaces — as a foreign key violation on
+        // user_settings. Startup already tries to provision, best-effort; if
+        // that attempt failed (offline for a moment, a slow cold start) this is
+        // the last place to recover before the user is simply stuck behind a
+        // modal they cannot dismiss. One retry, then report the original error.
+        await light.selfProvisioner.ensureProvisioned().catch(() => {
+          throw first;
+        });
+        await light.settings.acceptDisclaimer();
+      }
       await refreshProfile();
       setNeedsAccept(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

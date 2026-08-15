@@ -1,6 +1,6 @@
 "use client";
 
-import type { IAuthService, ManageSettingsUseCase } from "@weaveforge/core";
+import type { IAuthService, ISelfProvisioner, ManageSettingsUseCase } from "@weaveforge/core";
 import { readBackendConfig } from "@/backend/config";
 import { wireLightBackend } from "@/backend/wire-light-backend";
 
@@ -8,6 +8,7 @@ import { wireLightBackend } from "@/backend/wire-light-backend";
 export interface LightContainer {
   settings: ManageSettingsUseCase;
   auth: IAuthService;
+  selfProvisioner: ISelfProvisioner;
 }
 
 let lightContainer: LightContainer | null = null;
@@ -23,7 +24,11 @@ export function getLightContainer(): LightContainer {
   if (lightContainer && lightCacheKey === cacheKey) return lightContainer;
 
   const backend = wireLightBackend(config);
-  lightContainer = { settings: backend.manageSettings, auth: backend.auth };
+  lightContainer = {
+    settings: backend.manageSettings,
+    auth: backend.auth,
+    selfProvisioner: backend.selfProvisioner,
+  };
   lightCacheKey = cacheKey;
   return lightContainer;
 }

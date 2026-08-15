@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
 import { sealOverleafToken } from "@/features/overleaf/infrastructure/overleaf-token-crypto";
+import { formatError } from "@/lib/format-error";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ connection: data }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 503 });
+    return NextResponse.json({ error: formatError(error) }, { status: 503 });
   }
 }
 

@@ -5,6 +5,7 @@ import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";
 import { useState } from "react";
+import { formatError } from "@/lib/format-error";
 
 function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
@@ -60,7 +61,7 @@ export function AccountInfoPanel() {
       event.currentTarget.reset();
       setPasswordSuccess(true);
     } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : String(err));
+      setPasswordError(formatError(err));
     } finally {
       setPasswordBusy(false);
     }

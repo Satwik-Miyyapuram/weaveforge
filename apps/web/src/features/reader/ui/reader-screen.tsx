@@ -27,6 +27,7 @@ import {
 } from "../application/batch-annotation-ops";
 import { ActivityCenter, ReaderSplitPanel } from "./reader-loop-panels";
 import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
+import { formatError } from "@/lib/format-error";
 
 /** Reader route: renders a PDF via the source ladder and jumps to an optional locus. */
 export function ReaderScreen() {
@@ -160,7 +161,7 @@ export function ReaderScreen() {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(formatError(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

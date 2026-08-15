@@ -4,21 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  PAPER_STATUSES,
-  PAPER_FIELD_KINDS,
-  QUOTATION_TYPES,
-  QUOTATION_TYPE_LABELS,
-  computeRollup,
-  type Paper,
-  type PaperFieldDef,
-  type PaperFieldKind,
-  type PaperFieldRollupAgg,
-  type PaperFieldValue,
-  type PaperFieldValueData,
-  type PaperStatus,
-  type QuotationType,
-  type ReadingList,
-} from "@weaveforge/core";
+  PAPER_STATUSES, PAPER_FIELD_KINDS, QUOTATION_TYPES, QUOTATION_TYPE_LABELS, computeRollup, type Paper, type PaperFieldDef, type PaperFieldKind, type PaperFieldRollupAgg, type PaperFieldValue, type PaperFieldValueData, type PaperStatus, type QuotationType, type ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
@@ -37,6 +23,7 @@ import {
   OpenIcon,
 } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
+import { CardColumns } from "@/components/card-columns";
 import { PaperCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
 import { rankedFilter } from "@/features/search/application/rank-filter";
@@ -140,7 +127,7 @@ export function PapersScreen() {
       );
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setSyncing(false);
     }
@@ -545,10 +532,12 @@ export function PapersScreen() {
       )}
 
       {visible.length > 0 && layout === "cards" && (
-        <div className={`paper-grid${visible.length > 20 ? " long-list" : ""}`}>
-          {visible.map((p) => (
+        <CardColumns
+          items={visible}
+          getKey={(p) => p.id}
+          deferOffscreen={visible.length > 20}
+          renderItem={(p) => (
             <PaperCard
-              key={p.id}
               paper={p}
               readOnly={isReadOnlyPaper(p.id)}
               sharedByName={sharedOwnerName(p.id)}
@@ -556,8 +545,8 @@ export function PapersScreen() {
               onReplace={replace}
               onChanged={load}
             />
-          ))}
-        </div>
+          )}
+        />
       )}
 
       {visible.length > 0 && layout === "board" && (
@@ -2076,7 +2065,7 @@ function RelatedPapersPanel({ paper, onChanged }: { paper: Paper; onChanged: () 
       setHits(next);
       if (next.length === 0) setMsg("No related papers found (needs DOI or arXiv id).");
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -2099,7 +2088,7 @@ function RelatedPapersPanel({ paper, onChanged }: { paper: Paper; onChanged: () 
       setHits((prev) => prev.filter((h) => h.title !== hit.title));
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

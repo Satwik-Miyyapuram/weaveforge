@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getLightContainer } from "@/light-bootstrap";
 import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Passwordless login. Sends a Supabase magic-link to the entered email. On
@@ -37,7 +38,7 @@ export function LoginScreen() {
         await getLightContainer().auth.signInWithPassword(email.trim(), password);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -50,7 +51,7 @@ export function LoginScreen() {
       await getLightContainer().auth.signInWithGoogle(redirectTo());
       // Browser redirects to Google; nothing more to do here.
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
       setBusy(false);
     }
   }
@@ -62,7 +63,7 @@ export function LoginScreen() {
       await getLightContainer().auth.sendMagicLink(email.trim(), redirectTo());
       setMagicLinkSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -77,7 +78,7 @@ export function LoginScreen() {
       await getLightContainer().auth.sendPasswordReset(email.trim(), `${origin}/reset-password`);
       setResetSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -90,7 +91,7 @@ export function LoginScreen() {
       await getLightContainer().auth.sendEmailOtp(email.trim());
       setOtpSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -103,7 +104,7 @@ export function LoginScreen() {
     try {
       await getLightContainer().auth.verifyEmailOtp(email.trim(), otp.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

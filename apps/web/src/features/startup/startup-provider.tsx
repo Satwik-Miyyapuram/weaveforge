@@ -103,6 +103,19 @@ async function loadStartupBundleUncached(
   // than after the settings round trip so the browser is not idle through it.
   const containerPromise = import("@/bootstrap").then(({ ensureContainer }) => ensureContainer());
 
+  // Sign-in and storage are two databases here: Supabase Auth issues the token,
+  // the self-hosted Postgres holds every row that references the user. A new
+  // account exists only in the first until something bridges them, and the very
+  // first write — accepting the privacy disclaimer — then dies on a foreign key.
+  // So bridge it before anything writes, and pay nothing for it: this rides
+  // alongside the settings read rather than in front of it, and after the first
+  // success the adapter answers from memory.
+  // The handler is attached here, not at the await below: the rejection lands
+  // long after this tick, and a promise with no handler at that moment is an
+  // unhandled rejection — which in dev raises the Next error overlay over the
+  // whole app for a failure that is deliberately not fatal.
+  const provisionedPromise = light.selfProvisioner.ensureProvisioned().catch(() => undefined);
+
   const settingsPromise = light.settings.getMetadata().catch(() => null);
 
   // Only three things were ever serial on the critical path: auth, then
@@ -120,6 +133,12 @@ async function loadStartupBundleUncached(
     : null;
 
   const settings = await settingsPromise;
+  // Awaited after the settings read it ran beside, so it adds no latency of its
+  // own. Not fatal: a deployment where Auth and the data live in one database
+  // needs no bridging, and one where the RPC is missing should still reach the
+  // disclaimer rather than a blank screen — the accept below reports the real
+  // failure if there is one.
+  await provisionedPromise;
   const needsPrivacyAccept = settings ? needsDisclaimerAcceptance(settings) : true;
   // The gate can decide now; the org batch below no longer blocks the shell.
   opts?.onDecision?.(needsPrivacyAccept, settings);

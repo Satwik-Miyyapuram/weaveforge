@@ -3,15 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  highlightWithinExcerpt,
-  type AiEvidence,
-  type AiWriteProposal,
-} from "@weaveforge/core";
+  highlightWithinExcerpt, type AiEvidence, type AiWriteProposal } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Markdown } from "@/components/markdown";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 import { loadCiteLinkCatalog } from "@/lib/use-cite-links";
+import { formatError } from "@/lib/format-error";
 
 /** What a source id points at, once resolved to something a person can read. */
 interface SourceTarget {
@@ -171,7 +169,7 @@ export function AiProposalReviewScreen() {
   const reload = useCallback(async () => {
     setLoading(true);
     try { setItems(await getContainer().aiProposals.listPending()); setError(null); }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    catch (err) { setError(formatError(err)); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void reload(); }, [reload]);
@@ -183,14 +181,14 @@ export function AiProposalReviewScreen() {
       if (action === "approve") await getContainer().aiProposals.approve(id);
       else await getContainer().aiProposals.reject(id);
       changed(); await reload();
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) { setError(formatError(err)); }
     finally { setBusy(null); }
   }
   async function approveAll() {
     if (!appendOnly.length) return;
     setBusy("all"); setError(null);
     try { await getContainer().aiProposals.approveSafeBatch(appendOnly.map((item) => item.id)); changed(); await reload(); }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    catch (err) { setError(formatError(err)); }
     finally { setBusy(null); }
   }
   if (loading) return <ScreenLoader />;

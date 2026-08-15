@@ -3,13 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useProject } from "@/features/projects";
 import {
-  getScreenCache,
-  isScreenCacheFresh,
-  screenCacheKey,
-  setScreenCache,
-} from "./screen-cache";
+  getScreenCache, isScreenCacheFresh, screenCacheKey, setScreenCache, } from "./screen-cache";
 import { idbGetScreenCache, idbSetScreenCache } from "./screen-cache-idb";
 import { perfNow, recordPerf, recordPerfSince } from "./perf";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Load screen data with stale-while-revalidate: show cached payload instantly on
@@ -60,7 +57,7 @@ export function useScreenData<T>(screen: string, load: () => Promise<T>) {
       setData(fresh);
       recordPerfSince(`screen.${screen}.fetch_ms`, startedAt);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
+import { formatError } from "@/lib/format-error";
 
 export type ReportParentOption = { section: ReportSection; depth: number };
 
@@ -51,7 +52,7 @@ export function AddSectionForm({
       setDeadline("");
       onAdded?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

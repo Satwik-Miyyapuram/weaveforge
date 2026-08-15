@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LOG_KINDS, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -27,7 +28,7 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
       setBody("");
       onAdded?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

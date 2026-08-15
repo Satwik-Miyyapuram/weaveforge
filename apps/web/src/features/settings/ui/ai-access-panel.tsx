@@ -2,22 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS,
-  AI_PROPOSAL_KINDS,
-  AI_READ_CATEGORIES,
-  aiReadCategoryForResource,
-  applyUserIntegrationFields,
-  getUserIntegrationField,
-  type AiAccessSettings,
-  type AiProposalKind,
-  type AiReadCategory,
-  type UserSettings,
-} from "@weaveforge/core";
+  AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS, AI_PROPOSAL_KINDS, AI_READ_CATEGORIES, aiReadCategoryForResource, applyUserIntegrationFields, getUserIntegrationField, type AiAccessSettings, type AiProposalKind, type AiReadCategory, type UserSettings } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import type { AiSourceOption } from "@/container/facades";
 import { Select } from "@/components/select";
 import { ensureRelay, runningRelays, stopAllRelays, stopRelay } from "@/features/ai-assistant/infrastructure/mcp-relay-manager";
+import { formatError } from "@/lib/format-error";
 import {
   clearPersistedMcpSessions,
   loadPersistedMcpSessions,
@@ -225,7 +216,7 @@ export function AiAccessPanel({ settings, onChange }: {
       persistSessions();
       setSelectedSourceIds([]);
     } catch (err) {
-      setSessionError(err instanceof Error ? err.message : String(err));
+      setSessionError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -243,7 +234,7 @@ export function AiAccessPanel({ settings, onChange }: {
       setNewMcpToken(payload.plaintext);
       if (payload.record) setMcpTokens((current) => [payload.record!, ...current]);
     } catch (err) {
-      setSessionError(err instanceof Error ? err.message : String(err));
+      setSessionError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -262,7 +253,7 @@ export function AiAccessPanel({ settings, onChange }: {
       setMcpTokens((current) => current.filter((token) => token.id !== id));
       setNewMcpToken(null);
     } catch (err) {
-      setSessionError(err instanceof Error ? err.message : String(err));
+      setSessionError(formatError(err));
     } finally {
       setBusy(false);
     }

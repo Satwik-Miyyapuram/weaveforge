@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readBackendConfig } from "@/backend/config";
 import { OrgInviteService } from "@/features/org/infrastructure/org-invite-service";
 import { OrgInviteValidationError, OrgValidationError } from "@weaveforge/core";
+import { formatError } from "@/lib/format-error";
 
 export function orgApiService(): OrgInviteService {
   const cfg = readBackendConfig();
@@ -16,7 +17,7 @@ export function bearerToken(request: Request): string | null {
 }
 
 export function orgApiErrorResponse(err: unknown) {
-  const message = err instanceof Error ? err.message : String(err);
+  const message = formatError(err);
   const status =
     err instanceof OrgInviteValidationError || err instanceof OrgValidationError ? 400 : 500;
   return NextResponse.json({ error: message }, { status });

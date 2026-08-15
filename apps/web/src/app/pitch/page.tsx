@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EntityCard } from "@/components/entity-card";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ReactiveMotion } from "@/app/reactive-motion";
+import { ParticleScroll } from "@/components/particle-scroll";
 import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, tagColor } from "@/features/relations/domain/graph-palette";
 import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-annotation-helpers";
 import { AnnotationSidebar } from "@/features/reader/ui/annotation-sidebar";
@@ -236,12 +237,14 @@ function useScrollSteps(count: number) {
     };
 
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(resolve); };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    // Capture phase on the document, not the window: the pitch content now
+    // scrolls inside the particle canvas, so window scroll events never fire.
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
     window.addEventListener("resize", onScroll, { passive: true });
     resolve();
     return () => {
       if (frame) cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("scroll", onScroll, { capture: true });
       window.removeEventListener("resize", onScroll);
     };
   }, [count]);
@@ -1458,6 +1461,23 @@ export default function PitchPage() {
         </div>
       </header>
 
+      {/* Only what sits on the formation line stays solid; everything entering
+          or leaving the reading position is sand. The header and footer stay
+          outside so navigation never dissolves. See particle-scroll.tsx for the
+          browser-support caveat — unsupported browsers get this markup as-is. */}
+      <ParticleScroll
+        className={css.particleScroller}
+        focus="both"
+        point={0.5}
+        keep={260}
+        band={300}
+        density={2}
+        spread={180}
+        gravity={0.28}
+        drift={0.55}
+        settle={0.9}
+        smoothing={0.55}
+      >
       <main id="top">
         <section className={css.hero}>
           <div className={css.wrap}>
@@ -1761,6 +1781,7 @@ $ npm run dev           # → http://localhost:3000`}</pre>
 
         <CompareTable />
       </main>
+      </ParticleScroll>
 
       <footer className={css.foot}>
         <div className={`${css.wrap} ${css.footIn}`}>

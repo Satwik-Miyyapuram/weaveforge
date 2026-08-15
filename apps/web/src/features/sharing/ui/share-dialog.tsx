@@ -9,6 +9,7 @@ import { Modal } from "@/components/modal";
 import { Select } from "@/components/select";
 import { MemberPicker } from "./member-picker";
 import { ShareLinkPanel } from "./share-link-panel";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Manage who an item (or all of a type, when `resourceId` is null) is shared
@@ -56,7 +57,7 @@ export function ShareDialog({
         ]);
         if (alive) setMembers(dir.filter((m) => m.id !== profile?.id));
       } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : String(e));
+        if (alive) setError(formatError(e));
       }
     })();
     return () => {
@@ -88,7 +89,7 @@ export function ShareDialog({
       setToAdd([]);
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }
@@ -111,7 +112,7 @@ export function ShareDialog({
       await getContainer().sharing.manageSharing.revoke(s.id);
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }

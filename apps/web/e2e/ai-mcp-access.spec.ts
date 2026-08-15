@@ -16,7 +16,7 @@ test.describe("AI & MCP access", () => {
   });
 
   test("requires an explicit opt-in and exposes scoped connection controls", async ({ page }) => {
-    await page.goto("/settings");
+    await page.goto("/settings#settings-ai");
     await page.getByRole("button", { name: /AI assistant access/i }).click();
 
     await expect(page.getByRole("heading", { name: "AI & MCP access" })).toBeVisible();
@@ -55,7 +55,7 @@ test.describe("AI & MCP access", () => {
       if (response.url().endsWith("/api/mcp/relay") && response.request().method() === "PATCH") browserRelayPatchStatuses.push(String(response.status()));
     });
     await ensurePaperExists(page, "E2E MCP Privacy Test Paper");
-    await page.goto("/settings");
+    await page.goto("/settings#settings-ai");
     await page.getByRole("button", { name: /AI assistant access/i }).click();
 
     const accessToggle = page.getByRole("switch", { name: "Enable AI assistant access" });
@@ -107,7 +107,7 @@ test.describe("AI & MCP access", () => {
 
   test("stops a live relay when the user signs out", async ({ page, request }) => {
     await ensurePaperExists(page, "E2E MCP Privacy Test Paper");
-    await page.goto("/settings");
+    await page.goto("/settings#settings-ai");
     await page.getByRole("button", { name: /AI assistant access/i }).click();
     const accessToggle = page.getByRole("switch", { name: "Enable AI assistant access" });
     if (await accessToggle.getAttribute("aria-checked") === "false") await accessToggle.click();

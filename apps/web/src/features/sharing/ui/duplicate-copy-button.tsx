@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { DuplicateIcon } from "@/components/view-icons";
+import { formatError } from "@/lib/format-error";
 
 const COPYABLE: ReadonlySet<ShareableType> = new Set(["paper", "vault_page"]);
 
@@ -47,7 +48,7 @@ export function DuplicateCopyButton({
       onCopied?.();
       router.push(`/notes?page=${encodeURIComponent(page.id)}`);
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : String(err));
+      setMsg(formatError(err));
     } finally {
       setBusy(false);
     }

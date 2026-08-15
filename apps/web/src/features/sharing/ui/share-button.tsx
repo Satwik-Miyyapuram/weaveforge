@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShareIcon } from "@/components/view-icons";
 import { ShareDialog } from "./share-dialog";
+import { useShareDialogHost } from "./share-dialog-host";
 
 /** Share trigger → ShareDialog. Icon-only by default; pass `showLabel` for text. */
 export function ShareButton({
@@ -32,9 +33,42 @@ export function ShareButton({
   const controlled = openProp !== undefined;
   const open = controlled ? Boolean(openProp) : uncontrolledOpen;
 
+  // The shell renders the dialog above the screens, so it outlives the button
+  // that asked for it — a list refresh that remounts this card must not close
+  // it. Without a host (link redemption, isolated trees) the dialog is still
+  // rendered here.
+  const host = useShareDialogHost();
+  const tokenRef = useRef<number | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!host) return;
+    if (!open) {
+      if (tokenRef.current != null) {
+        host.close(tokenRef.current);
+        tokenRef.current = null;
+      }
+      return;
+    }
+    if (tokenRef.current != null) return;
+    tokenRef.current = host.open({
+      resourceType,
+      resourceId,
+      title,
+      onClose: () => {
+        tokenRef.current = null;
+        if (!controlled) setUncontrolledOpen(false);
+        onOpenChange?.(false);
+      },
+    });
+  }, [host, open, resourceType, resourceId, title, controlled, onOpenChange]);
+
+  // Closing on unmount would defeat the point: the card this button lives in is
+  // remounted by any list refresh, and the dialog must survive that. It is
+  // closed by its own controls, or replaced by the next request.
 
   function setOpen(next: boolean) {
     if (!controlled) setUncontrolledOpen(next);
@@ -59,7 +93,8 @@ export function ShareButton({
           {showLabel ? <span>{label}</span> : null}
         </button>
       )}
-      {mounted &&
+      {!host &&
+        mounted &&
         open &&
         createPortal(
           <ShareDialog
