@@ -145,9 +145,19 @@ function imageFile(name: string, type = "image/png", bytes = 8): File {
       new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true }),
     );
   },
+  /**
+   * A keydown faithful enough for CodeMirror's keymap.
+   *
+   * `code` matters: the keymap resolves a shifted binding through the physical
+   * key, so an event carrying only `key` matches the unshifted bindings and
+   * silently misses `Shift-` ones.
+   */
   key: (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean } = {}) => {
+    const codes: Record<string, string> = { ",": "Comma", ".": "Period" };
+    const code =
+      codes[key] ?? (/^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : undefined);
     view.contentDOM.dispatchEvent(
-      new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...mods }),
+      new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods }),
     );
   },
   decorations: () =>

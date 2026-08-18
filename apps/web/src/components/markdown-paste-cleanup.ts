@@ -8,6 +8,7 @@ import {
   cleanPdfText,
   cleanWrappedText,
   pasteLandsInVerbatimContext,
+  tabSeparatedToMarkdownTable,
   type CommaPlacement,
   type PasteSettings,
   type PdfTextOptions,
@@ -202,6 +203,16 @@ export function moveCommas(placement: CommaPlacement): StateCommand {
   return transformSelection((text) => applyCommaPlacement(text, placement).text);
 }
 
+/**
+ * Turns a tab-separated selection into a Markdown table.
+ *
+ * The same rule the paste runs, reachable on demand — for the reader who has
+ * the automatic version switched off, and for text that arrived some other way.
+ */
+export const selectionToTable: StateCommand = transformSelection(
+  (text) => tabSeparatedToMarkdownTable(text).text,
+);
+
 /** Pastes the clipboard with no rules applied at all. */
 export const pasteWithoutCleanup: Command = (view) => {
   void navigator.clipboard
@@ -236,6 +247,16 @@ export function pasteCleanupKeymap(options: PasteCleanupOptions): KeyBinding[] {
       run: cleanPdfSelection({ removePageNumbers: false, singleParagraph: false }),
       preventDefault: true,
     },
+    {
+      // The same repair, plus the two guesses only a person can confirm: that a
+      // lone number was a page number, and that the passage was one paragraph.
+      key: "Mod-Alt-Shift-p",
+      run: cleanPdfSelection({ removePageNumbers: true, singleParagraph: true }),
+      preventDefault: true,
+    },
+    { key: "Mod-Alt-Shift-t", run: selectionToTable, preventDefault: true },
+    { key: "Mod-Alt-,", run: moveCommas("inside"), preventDefault: true },
+    { key: "Mod-Alt-.", run: moveCommas("outside"), preventDefault: true },
   ];
 }
 

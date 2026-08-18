@@ -240,8 +240,3 @@ export function imagePaste(config: ImagePasteConfig | undefined) {
     }),
   ];
 }
-
-/** Test seam: the placeholder text a file of this name would get. */
-export function placeholderFor(fileName: string): string {
-  return placeholderText(imageAltFromFilename(fileName));
-}

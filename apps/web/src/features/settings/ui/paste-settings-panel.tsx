@@ -79,6 +79,10 @@ const SHORTCUTS: [string, string][] = [
   ["Clean up selection", "Ctrl/Cmd + Alt + C"],
   ["Clean up terminal output", "Ctrl/Cmd + Alt + T"],
   ["Clean up PDF text", "Ctrl/Cmd + Alt + P"],
+  ["…and drop page numbers, joining it into one paragraph", "Ctrl/Cmd + Alt + Shift + P"],
+  ["Turn a tab-separated selection into a table", "Ctrl/Cmd + Alt + Shift + T"],
+  ["Move commas inside the quotes", "Ctrl/Cmd + Alt + ,"],
+  ["Move commas outside the quotes", "Ctrl/Cmd + Alt + ."],
   ["Paste without cleaning", "Ctrl/Cmd + Shift + V"],
 ];
 

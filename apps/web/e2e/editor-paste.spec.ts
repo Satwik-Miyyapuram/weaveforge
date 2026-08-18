@@ -187,6 +187,36 @@ test.describe("text paste", () => {
     );
   });
 
+  test("every command is reachable from its key", async ({ page }) => {
+    const h = await open(page);
+
+    // Table, from a selection, with the automatic rule switched off so the
+    // command is doing the work.
+    await act(page, `h.settings({ tabsToTable: false })`);
+    await act(page, `h.setDoc(arg); h.focus(); h.key("t", { ctrlKey: true, altKey: true, shiftKey: true })`, "a\tb\nx\ty");
+    await settle(page);
+    expect(await h.doc()).toBe("| a | b |\n| --- | --- |\n| x | y |");
+    await act(page, `h.settings({ tabsToTable: true })`);
+
+    // Commas, both directions.
+    await act(page, `h.setDoc(arg); h.focus(); h.key(".", { ctrlKey: true, altKey: true })`, 'She called it "finished," then left.');
+    await settle(page);
+    expect(await h.doc()).toBe('She called it "finished", then left.');
+
+    await act(page, `h.focus(); h.key(",", { ctrlKey: true, altKey: true })`);
+    await settle(page);
+    expect(await h.doc()).toBe('She called it "finished," then left.');
+
+    // The PDF repair with the two guesses a person has to confirm.
+    await act(
+      page,
+      `h.setDoc(arg); h.focus(); h.key("p", { ctrlKey: true, altKey: true, shiftKey: true })`,
+      "the result was\n\n14\n\nmeasured again",
+    );
+    await settle(page);
+    expect(await h.doc()).toBe("the result was measured again");
+  });
+
   test("typing is never rewritten", async ({ page }) => {
     const h = await open(page);
     await act(page, `h.focus()`);

@@ -144,6 +144,10 @@ selected.
 | Clean up selection | `Ctrl/Cmd + Alt + C` |
 | Clean up terminal output | `Ctrl/Cmd + Alt + T` |
 | Clean up PDF text | `Ctrl/Cmd + Alt + P` |
+| …and drop page numbers, joining it into one paragraph | `Ctrl/Cmd + Alt + Shift + P` |
+| Turn a tab-separated selection into a table | `Ctrl/Cmd + Alt + Shift + T` |
+| Move commas inside the quotes | `Ctrl/Cmd + Alt + ,` |
+| Move commas outside the quotes | `Ctrl/Cmd + Alt + .` |
 | Paste without cleaning | `Ctrl/Cmd + Shift + V` |
 
 ### Terminal output
@@ -165,6 +169,14 @@ lines in front of you came from a terminal rather than from a person who meant
 them. The wrap column itself is worked out from the text — it depends on how
 wide a window happened to be when you pressed copy, which is not a number anyone
 can be asked for.
+
+### Commas and quotes
+
+Journals disagree about whether a comma goes inside or outside a closing
+quotation mark, and a thesis has to pick one. Neither is a default worth
+imposing, so this only runs on a selection when you ask for it — and it moves a
+comma only where the text is really quoted prose. A CSV row, a JSON object and a
+list of quoted words are all left exactly as they are.
 
 ### PDF text
 
@@ -189,6 +201,11 @@ A hyphen is only removed when the word resumes in lower case: `Navier-`/`Stokes`
 stays `Navier-Stokes`, and `10-`/`20` stays `10-20`. Keeping a hyphen that should
 have gone is a smaller error than fusing two words that were never one, and far
 easier to spot.
+
+The plain `Ctrl/Cmd + Alt + P` makes no guesses. The shift version adds the two
+that only a person can confirm: that a line holding nothing but a number was a
+page number rather than data, and that the passage was one paragraph the layout
+broke apart.
 
 **Highlights get this for free.** *Copy quote + cite* in the reader, and
 *Insert excerpt* in a report section, both run the repair — a highlight's text is
