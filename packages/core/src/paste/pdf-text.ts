@@ -13,8 +13,9 @@
  * are options a caller asks for rather than guesses this file makes.
  */
 
-import { cleanWrappedText, endsHyphenated, joinFragments, PDF_MIN_WRAP_WIDTH, SOFT_HYPHEN, type WrappedTextResult } from "./wrapped-text.js";
+import { cleanWrappedText, endsHyphenated, joinPieces, PDF_MIN_WRAP_WIDTH, SOFT_HYPHEN, type WrappedTextResult } from "./wrapped-text.js";
 import { markdownCodeRanges } from "./markdown-ranges.js";
+import { indexRanges } from "./text-range.js";
 
 export interface PdfTextOptions {
   /** Remove page-number lines along with the page break around them. */
@@ -68,17 +69,21 @@ interface ClassifiedLine {
  * workable; only a whole line of code is verbatim.
  */
 function classifyLines(text: string): ClassifiedLine[] {
-  const codeRanges = markdownCodeRanges(text);
+  // Indexed rather than scanned: a long selection carrying many code spans
+  // would otherwise cost lines x ranges.
+  const code = indexRanges(markdownCodeRanges(text));
   const lines: ClassifiedLine[] = [];
   let start = 0;
   let math = false;
   for (const line of text.split("\n")) {
     const end = start + line.length;
     const delimiter = line.trim() === "$$";
-    // The strict lower bound keeps the blank line that merely touches a range's
+    // The line counts as code only when a range covers its whole span; the
+    // strict lower bound keeps the blank line that merely touches a range's
     // endpoint, such as the one after a closing fence, out of the block.
-    const verbatim =
-      math || delimiter || codeRanges.some((range) => range.start <= start && range.end > start && range.end >= end);
+    const range = code.find(start);
+    const covered = range !== undefined && range.end > start && range.end >= end;
+    const verbatim = math || delimiter || covered;
     if (delimiter) math = !math;
     lines.push({ text: line, verbatim });
     start = end + 1;
@@ -157,7 +162,7 @@ function joinIntoOneParagraph(text: string): string {
 
   const flushProse = (): void => {
     if (prose.length === 0) return;
-    parts.push(prose.reduce((joined, piece) => joinFragments(joined, piece)));
+    parts.push(joinPieces(prose));
     prose.length = 0;
   };
   const flushVerbatim = (): void => {

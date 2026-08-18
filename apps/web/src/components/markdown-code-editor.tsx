@@ -8,6 +8,7 @@ import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
 import { markdownEditorExtensions, toCompletions } from "./markdown-editor-extensions";
+import type { ImagePasteConfig } from "./markdown-image-paste";
 
 /**
  * Markdown editor — Lezer at edit time; @uiw/codemirror-themes matched to site theme.
@@ -22,6 +23,7 @@ export function MarkdownCodeEditor({
   wikilinkTitles,
   wikilinkCompletions,
   citationFormat = "wikilink",
+  imagePaste,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -34,6 +36,8 @@ export function MarkdownCodeEditor({
   wikilinkCompletions?: CiteCompletion[];
   /** How `@` completions insert (Phase C2). `[[` always inserts the title. */
   citationFormat?: EditorCitationFormat;
+  /** How a pasted or dropped image is stored. Omitted means images are ignored. */
+  imagePaste?: ImagePasteConfig;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -48,6 +52,11 @@ export function MarkdownCodeEditor({
   const editableCompartment = useRef(new Compartment());
   const themeCompartment = useRef(new Compartment());
   const pasteSettingsRef = usePasteSettingsRef();
+  // Read through a ref for the same reason as the rest: the CodeMirror stack is
+  // built once, and rebuilding it to pick up a new closure would throw away the
+  // undo history mid-edit.
+  const imagePasteRef = useRef(imagePaste);
+  imagePasteRef.current = imagePaste;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -68,6 +77,13 @@ export function MarkdownCodeEditor({
         editableCompartment: editableCompartment.current,
         themeCompartment: themeCompartment.current,
         pasteSettingsRef,
+        imagePaste: imagePaste
+          ? {
+              upload: (file) => imagePasteRef.current!.upload(file),
+              onError: (message) => imagePasteRef.current?.onError?.(message),
+              maxBytes: imagePaste.maxBytes,
+            }
+          : undefined,
       }),
       updateListener,
     ];

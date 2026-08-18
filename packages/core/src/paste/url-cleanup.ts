@@ -9,7 +9,7 @@
  */
 
 import { markdownCodeRanges } from "./markdown-ranges.js";
-import { overlapsRange, type TextRange } from "./text-range.js";
+import { indexRanges, type TextRange } from "./text-range.js";
 import {
   matchesParameterPattern,
   SIGNED_URL_PARAMETER_SETS,
@@ -339,7 +339,7 @@ export function cleanUrlsInText(
   options: UrlCleanupOptions,
   protect: readonly TextRange[] = [],
 ): UrlCleanupResult {
-  const ranges = [...protect, ...markdownCodeRanges(text)];
+  const ranges = indexRanges([...protect, ...markdownCodeRanges(text)]);
   const parts: string[] = [];
   let cursor = 0;
   let count = 0;
@@ -357,7 +357,7 @@ export function cleanUrlsInText(
     }
     URL_PATTERN.lastIndex = match.index + Math.max(url.length, 1);
 
-    if (overlapsRange(ranges, match.index, match.index + url.length)) continue;
+    if (ranges.overlaps(match.index, match.index + url.length)) continue;
 
     const cleaned = cleanUrl(url, options);
     if (cleaned === url) continue;

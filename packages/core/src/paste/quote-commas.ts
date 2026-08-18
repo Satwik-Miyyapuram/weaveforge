@@ -11,7 +11,7 @@
  */
 
 import { markdownCodeRanges, mathRanges, markdownSyntaxRanges, frontmatterRange } from "./markdown-ranges.js";
-import { mergeRanges, overlapsRange } from "./text-range.js";
+import { indexRanges } from "./text-range.js";
 
 export type CommaPlacement = "inside" | "outside";
 
@@ -23,7 +23,7 @@ export interface CommaPlacementResult {
 /** Moves commas to the chosen side of a closing double quote. */
 export function applyCommaPlacement(input: string, placement: CommaPlacement): CommaPlacementResult {
   const frontmatter = frontmatterRange(input);
-  const ranges = mergeRanges([
+  const ranges = indexRanges([
     ...markdownCodeRanges(input),
     ...mathRanges(input),
     ...markdownSyntaxRanges(input),
@@ -32,7 +32,7 @@ export function applyCommaPlacement(input: string, placement: CommaPlacement): C
 
   const pattern = placement === "inside" ? /["”],/g : /,["”]/g;
   const text = input.replace(pattern, (match, offset: number) => {
-    if (overlapsRange(ranges, offset, offset + match.length)) return match;
+    if (ranges.overlaps(offset, offset + match.length)) return match;
 
     // Quoted prose must end right before the match: for `inside` the quote has
     // to close a word, for `outside` the comma has to follow one. A digit does

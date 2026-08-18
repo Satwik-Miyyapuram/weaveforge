@@ -37,6 +37,7 @@ import { removeHashtagFromBody, reconcileTagsFromBody } from "../lib/note-tags";
 import { compressImage } from "@/lib/image-compress";
 import { Select } from "@/components/select";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
+import { editorImageUpload } from "@/lib/editor-image-upload";
 import { MultiSelect } from "@/components/multi-select";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { useScreenData } from "@/lib/use-screen-data";
@@ -949,6 +950,17 @@ function PaperNote({
     }
   }
 
+  /** Accepting a pasted image. Stored against the paper, referenced as `paperimg:`. */
+  const imagePaste = useMemo(
+    () =>
+      editorImageUpload({
+        store: (blob, ext) => getContainer().papers.uploadImage(paper.id, blob, ext),
+        toMarkdown: paperImageMarkdown,
+        onError: setSaveError,
+      }),
+    [paper.id],
+  );
+
   async function onImagePick(file: File | null) {
     if (!file) return;
     try {
@@ -1213,6 +1225,7 @@ function PaperNote({
               wikilinkTitles={wikilinkTitles}
               wikilinkCompletions={wikilinkCompletions}
               citationFormat={citationFormat}
+              imagePaste={imagePaste}
             />
             <div className="summary-editor-foot">
               {saveError && <span className="error">{saveError}</span>}

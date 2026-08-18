@@ -27,6 +27,7 @@
     "lint": "npm run lint --workspace @weaveforge/web",
     "test:integration:web": "npm run test:integration --workspace @weaveforge/web",
     "test:e2e": "npm run test:e2e --workspace @weaveforge/web",
+    "test:e2e:editor": "npm run test:e2e:editor --workspace @weaveforge/web",
     "record:demos": "npm run record:demos --workspace @weaveforge/web",
     "seed:showcase": "node scripts/seed-showcase-data.mjs",
     "setup:local-dev": "node scripts/setup-local-dev.mjs",

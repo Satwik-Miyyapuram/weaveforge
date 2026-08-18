@@ -5,6 +5,7 @@ import { Compartment, type Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
 import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
+import type { ImagePasteConfig } from "@/components/markdown-image-paste";
 import {
   markdownEditorExtensions,
   toCompletions,
@@ -33,6 +34,12 @@ export interface CollabMarkdownEditing {
   /** Rich cite options (Author year · title). Preferred over `wikilinkTitles`. */
   wikilinkCompletions?: CiteCompletion[];
   citationFormat?: EditorCitationFormat;
+  /**
+   * How this surface stores a pasted image. Plain data like the rest of this
+   * interface, so a screen can describe image handling without importing
+   * CodeMirror into its own bundle.
+   */
+  imagePaste?: ImagePasteConfig;
 }
 
 export function CollabBodyHost({
@@ -96,6 +103,8 @@ export function CollabBodyHost({
   const editableCompartment = useRef(new Compartment());
   const themeCompartment = useRef(new Compartment());
   const pasteSettingsRef = usePasteSettingsRef();
+  const imagePasteRef = useRef(markdownEditing?.imagePaste);
+  imagePasteRef.current = markdownEditing?.imagePaste;
   const placeholder = markdownEditing?.placeholder;
 
   const markdownExtensions = useMemo(
@@ -108,6 +117,13 @@ export function CollabBodyHost({
             editableCompartment: editableCompartment.current,
             themeCompartment: themeCompartment.current,
             pasteSettingsRef,
+            imagePaste: markdownEditing.imagePaste
+              ? {
+                  upload: (file) => imagePasteRef.current!.upload(file),
+                  onError: (message) => imagePasteRef.current?.onError?.(message),
+                  maxBytes: markdownEditing.imagePaste.maxBytes,
+                }
+              : undefined,
           })
         : null,
     // `placeholder` is read once, when the stack is built; a later change to it

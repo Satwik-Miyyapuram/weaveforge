@@ -68,6 +68,24 @@ test("trimming keeps the blank lines inside a paste", () => {
   assert.equal(result.text, "one\n\ntwo");
 });
 
+test("trimming settles in one pass when a blank line carries spaces", () => {
+  // Written as "newlines then spaces" the rule needed a second pass here, which
+  // means it disagreed with itself about what it had already done.
+  const once = trimSurroundingWhitespace("a\n\n   \n\n").text;
+  assert.equal(once, "a");
+  assert.equal(trimSurroundingWhitespace(once).text, once);
+});
+
+test("trimming leaves an indented code block at the top of a paste alone", () => {
+  // Four columns is a code block. Stripping it turns code into prose, and the
+  // quote and dash rules then rewrite it on the next pass.
+  const block = "    const a = \u201Cx\u201D \u2014 1;";
+  assert.equal(trimSurroundingWhitespace(block).text, block);
+  assert.equal(trimSurroundingWhitespace(`\n\n${block}\n\n`).text, block);
+  // Under four columns is stray indentation from a chat window, and goes.
+  assert.equal(trimSurroundingWhitespace("   three spaces").text, "three spaces");
+});
+
 test("strips ANSI colour, cursor moves and stray control bytes", () => {
   assert.equal(stripControlSequences("\u001B[31merror\u001B[0m\u0007"), "error");
   assert.equal(stripControlSequences("plain\ttext\n"), "plain\ttext\n");

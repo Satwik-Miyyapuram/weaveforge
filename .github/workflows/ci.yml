@@ -92,6 +92,16 @@ jobs:
       - name: Build Core package
         run: npm run build:core
 
+      # No database and no session: it bundles the editor onto a page of its
+      # own. Kept in the opt-in job all the same, because it is the only step
+      # here that needs a browser downloaded.
+      - name: Install Chromium for the editor tests
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Run editor paste tests
+        run: npm run test:e2e:editor
+
       - name: Run Web Supabase contract tests
         run: npm run test:integration:web
         env:

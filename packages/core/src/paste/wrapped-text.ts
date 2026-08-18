@@ -15,7 +15,7 @@
  */
 
 import { markdownCodeRanges, leadingWidth, frontmatterRange, INDENTED_CODE_WIDTH } from "./markdown-ranges.js";
-import { overlapsRange, type TextRange } from "./text-range.js";
+import { indexRanges, type TextRange } from "./text-range.js";
 import { markdownSyntaxRanges } from "./markdown-ranges.js";
 import { stripControlSequences } from "./control-characters.js";
 
@@ -168,7 +168,7 @@ const UNSPACED_TAIL = new RegExp(`[${UNSPACED}]$`);
 const UNSPACED_HEAD = new RegExp(`^[${UNSPACED}]`);
 
 /**
- * Joins two fragments across a removed break.
+ * How two fragments join across a removed break.
  *
  * The hyphen decision is the interesting one. After a digit it is content — a
  * range or a compound such as `10-20` or `5-fold` — so it stays and only the
@@ -177,18 +177,72 @@ const UNSPACED_HEAD = new RegExp(`^[${UNSPACED}]`);
  * `Navier-Stokes` or `RNA-Seq`, so it stays too. Keeping a hyphen that should
  * have gone is a smaller error than fusing two words that were never one, and
  * far easier to spot.
+ *
+ * Everything here reads the *end* of what came before, which is why the caller
+ * passes the last fragment rather than the paragraph built so far. Passing the
+ * whole accumulation made every one of these patterns rescan it: joining forty
+ * thousand lines took sixteen seconds, all of it spent re-reading text whose
+ * answer could not change.
  */
-export function joinFragments(previous: string, fragment: string): string {
-  if (endsWithUrl(previous)) return `${previous}\n${fragment}`;
-  if (endsHyphenated(previous)) {
-    const afterDigit = HYPHEN_AFTER_DIGIT.test(previous);
+export interface FragmentJoin {
+  /** Inserted between the two fragments. */
+  separator: string;
+  /** True when the previous fragment's last character, a hyphen, must go. */
+  dropHyphen: boolean;
+}
+
+export function fragmentJoin(previousTail: string, fragment: string): FragmentJoin {
+  // A soft hyphen exists only to mark where a word may break, so it goes
+  // whatever follows — unlike a visible hyphen, which may belong to a compound.
+  if (previousTail.endsWith(SOFT_HYPHEN)) return { separator: "", dropHyphen: true };
+  if (endsWithUrl(previousTail)) return { separator: "\n", dropHyphen: false };
+  if (endsHyphenated(previousTail)) {
+    const afterDigit = HYPHEN_AFTER_DIGIT.test(previousTail);
     const brokenWord = !afterDigit && /^\p{Ll}/u.test(fragment);
-    return brokenWord ? previous.slice(0, -1) + fragment : previous + fragment;
+    return { separator: "", dropHyphen: brokenWord };
   }
   // A dash set tight against its word is a style; joining with a space breaks it.
-  if (new RegExp("\\S[\\u2013\\u2014]$").test(previous)) return previous + fragment;
-  if (UNSPACED_TAIL.test(previous) && UNSPACED_HEAD.test(fragment)) return previous + fragment;
-  return `${previous} ${fragment}`;
+  if (TIGHT_DASH.test(previousTail)) return { separator: "", dropHyphen: false };
+  if (UNSPACED_TAIL.test(previousTail) && UNSPACED_HEAD.test(fragment)) {
+    return { separator: "", dropHyphen: false };
+  }
+  return { separator: " ", dropHyphen: false };
+}
+
+const TIGHT_DASH = new RegExp("\\S[\\u2013\\u2014]$");
+
+/**
+ * Joins two fragments. Kept for callers that hold both strings already; the
+ * bulk joins go through `joinPieces`, which never re-reads its own output.
+ */
+export function joinFragments(previous: string, fragment: string): string {
+  const join = fragmentJoin(previous, fragment);
+  const head = join.dropHyphen ? previous.slice(0, -1) : previous;
+  return head + join.separator + fragment;
+}
+
+/**
+ * Joins a run of already-trimmed fragments in one pass.
+ *
+ * Each decision reads only the fragment before it, so the cost is linear in the
+ * text rather than in the square of the number of lines.
+ */
+export function joinPieces(fragments: readonly string[]): string {
+  if (fragments.length === 0) return "";
+  const pieces: string[] = [fragments[0]!];
+  let previous = fragments[0]!;
+  for (let index = 1; index < fragments.length; index++) {
+    const fragment = fragments[index]!;
+    const join = fragmentJoin(previous, fragment);
+    if (join.dropHyphen) {
+      const last = pieces[pieces.length - 1]!;
+      pieces[pieces.length - 1] = last.slice(0, -1);
+    }
+    if (join.separator) pieces.push(join.separator);
+    pieces.push(fragment);
+    previous = fragment;
+  }
+  return pieces.join("");
 }
 
 /** Block maths spans, from a lone `$$` line to its closer. */
@@ -307,18 +361,18 @@ function toMarkdownBullet(line: string): string {
 
 function convertBullets(text: string, protectMath: boolean): string {
   const frontmatter = frontmatterRange(text);
-  const ranges = [
+  const ranges = indexRanges([
     ...markdownCodeRanges(text),
     ...(frontmatter ? [frontmatter] : []),
     ...(protectMath ? blockMathRanges(text) : []),
-  ];
+  ]);
   let offset = 0;
   return text
     .split("\n")
     .map((line) => {
       const start = offset;
       offset += line.length + 1;
-      return overlapsRange(ranges, start, start + 1) ? line : toMarkdownBullet(line);
+      return ranges.overlaps(start, start + 1) ? line : toMarkdownBullet(line);
     })
     .join("\n");
 }
@@ -332,14 +386,14 @@ function convertBullets(text: string, protectMath: boolean): string {
  */
 function collapseSpaceRuns(text: string, protectMath: boolean): string {
   const frontmatter = frontmatterRange(text);
-  const ranges = [
+  const ranges = indexRanges([
     ...markdownCodeRanges(text),
     ...markdownSyntaxRanges(text),
     ...(frontmatter ? [frontmatter] : []),
     ...(protectMath ? blockMathRanges(text) : []),
-  ];
+  ]);
   return text.replace(/(\S) {2,}(?=\S)/g, (match, before: string, offset: number) =>
-    overlapsRange(ranges, offset + 1, offset + match.length) ? match : `${before} `,
+    ranges.overlaps(offset + 1, offset + match.length) ? match : `${before} `,
   );
 }
 
@@ -467,13 +521,20 @@ function renderParagraph(paragraph: Paragraph, options: WrappedTextOptions): str
   if (paragraph.verbatim) return paragraph.lines.join("\n");
 
   const first = paragraph.lines[0]!;
-  let joined = first.trimEnd();
-  for (const line of paragraph.lines.slice(1)) {
-    const fragment = line.trim();
-    if (options.mergeHyphens !== true) joined = `${joined} ${fragment}`;
-    else if (joined.endsWith(SOFT_HYPHEN)) joined = joined.slice(0, -1) + fragment;
-    else joined = joinFragments(joined, fragment);
+  if (paragraph.lines.length === 1) {
+    const only = first.trimEnd();
+    return options.rejoin === "never" ||
+      listMarkerOf(first) !== null ||
+      NUMBERED_LIST.test(first) ||
+      leadingWidth(first) >= INDENTED_CODE_WIDTH
+      ? only
+      : only.replace(/^[ \t]+/, "");
   }
+
+  const fragments = [first.trimEnd()];
+  for (const line of paragraph.lines.slice(1)) fragments.push(line.trim());
+
+  const joined = options.mergeHyphens === true ? joinPieces(fragments) : fragments.join(" ");
 
   // With no rejoin the breaks are the layout, so what is left of the
   // indentation after the shared dedent is content too.

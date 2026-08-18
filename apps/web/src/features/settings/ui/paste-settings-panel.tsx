@@ -185,6 +185,13 @@ export function PasteSettingsPanel() {
         </div>
       ))}
 
+      <h3 className="settings-group">Images</h3>
+      <p className="muted jump-to-meta">
+        Copy an image and paste it into a note: it uploads and the link appears where the
+        caret was. Dragging one in works the same way. Screenshots are downscaled and
+        re-encoded; animated GIFs are stored as they came, so the animation survives.
+      </p>
+
       <h3 className="settings-group">Commands</h3>
       <p className="muted jump-to-meta">
         In any note editor: on the selection, or on the whole note when nothing is selected.

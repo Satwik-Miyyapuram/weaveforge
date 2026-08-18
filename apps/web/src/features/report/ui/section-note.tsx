@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
+import { editorImageUpload } from "@/lib/editor-image-upload";
 import { DeleteIcon, EditIcon, ImageIcon } from "@/components/view-icons";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import { compressImage } from "@/lib/image-compress";
@@ -117,6 +118,17 @@ export function SectionNote({
       setBusy(false);
     }
   }
+
+  /** Accepting a pasted image. Stored against the section, referenced as `reportimg:`. */
+  const imagePaste = useMemo(
+    () =>
+      editorImageUpload({
+        store: (blob, ext) => getContainer().report.uploadImage(section.id, blob, ext),
+        toMarkdown: reportImageMarkdown,
+        onError: setSaveError,
+      }),
+    [section.id],
+  );
 
   async function onImagePick(file: File | null) {
     if (!file) return;
@@ -281,6 +293,7 @@ export function SectionNote({
               wikilinkTitles={wikilinkTitles}
               wikilinkCompletions={wikilinkCompletions}
               citationFormat={citationFormat}
+              imagePaste={imagePaste}
             />
             <div className="summary-editor-foot">
               {saveError && <span className="error">{saveError}</span>}

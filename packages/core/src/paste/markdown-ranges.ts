@@ -9,7 +9,7 @@
  * mapped once here and every rule consults the map.
  */
 
-import { mergeRanges, type TextRange } from "./text-range.js";
+import { indexRanges, mergeRanges, type TextRange } from "./text-range.js";
 
 /** Markdown treats four or more leading spaces as an indented code block. */
 export const INDENTED_CODE_WIDTH = 4;
@@ -181,26 +181,28 @@ export function frontmatterRange(text: string): TextRange | null {
  * and at least one non-digit — so that "$5 to $10" stays prose.
  */
 export function mathRanges(text: string): TextRange[] {
-  const ranges: TextRange[] = [];
-
+  const blocks: TextRange[] = [];
   const block = /\$\$[\s\S]*?\$\$/g;
   for (let match = block.exec(text); match; match = block.exec(text)) {
-    ranges.push({ start: match.index, end: match.index + match[0].length });
+    blocks.push({ start: match.index, end: match.index + match[0].length });
   }
 
-  const inline = /\$(?![\s$])((?:\\.|[^\\$\n])*?)(?<![\s$])\$/g;
-  for (let match = inline.exec(text); match; match = inline.exec(text)) {
-    if (overlapsAny(ranges, match.index, match.index + match[0].length)) continue;
+  // Indexed, not scanned. Inline matches cannot overlap each other — the regex
+  // only moves forward — so the only question is whether one sits inside a
+  // block, and a document can hold tens of thousands of both.
+  const inBlock = indexRanges(blocks);
+  const inline: TextRange[] = [];
+  const pattern = /\$(?![\s$])((?:\\.|[^\\$\n])*?)(?<![\s$])\$/g;
+  for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (inBlock.overlaps(start, end)) continue;
     // Currency runs like "$5" or "$1,200" have nothing else in them.
     if (/^[\d.,\s]*$/.test(match[1]!)) continue;
-    ranges.push({ start: match.index, end: match.index + match[0].length });
+    inline.push({ start, end });
   }
 
-  return mergeRanges(ranges);
-}
-
-function overlapsAny(ranges: readonly TextRange[], start: number, end: number): boolean {
-  return ranges.some((range) => start < range.end && end > range.start);
+  return mergeRanges([...blocks, ...inline]);
 }
 
 /**

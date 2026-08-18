@@ -12,7 +12,7 @@
  */
 
 import { markdownCodeRanges, mathRanges, markdownSyntaxRanges, frontmatterRange } from "./markdown-ranges.js";
-import { mergeRanges, overlapsRange, type TextRange } from "./text-range.js";
+import { indexRanges, type RangeIndex, type TextRange } from "./text-range.js";
 
 /** Em dash and en dash. */
 const DASHES = new RegExp("[\\u2013\\u2014]", "g");
@@ -54,9 +54,9 @@ export interface TypographyResult {
 }
 
 /** The spans a quote or dash rule must not reach into. */
-function protectedForCharacterRules(text: string, extra: readonly TextRange[]): TextRange[] {
+function protectedForCharacterRules(text: string, extra: readonly TextRange[]): RangeIndex {
   const frontmatter = frontmatterRange(text);
-  return mergeRanges([
+  return indexRanges([
     ...extra,
     ...markdownCodeRanges(text),
     ...mathRanges(text),
@@ -84,13 +84,13 @@ export function normalizeInvisibleCharacters(
   const frontmatter = frontmatterRange(text);
   // Link targets and frontmatter values carry the character as part of a name
   // or of data, so a no-break space inside them stays.
-  const ranges = mergeRanges([
+  const ranges = indexRanges([
     ...extra,
     ...markdownSyntaxRanges(text),
     ...(frontmatter ? [frontmatter] : []),
   ]);
   const out = text.replace(INVISIBLE, (match, offset: number) => {
-    if (overlapsRange(ranges, offset, offset + match.length)) return match;
+    if (ranges.overlaps(offset, offset + match.length)) return match;
     return EXOTIC_SPACE.test(match) ? " " : "";
   });
   return { text: out, changed: out !== text };
@@ -103,7 +103,7 @@ export function straightenQuotes(
 ): TypographyResult {
   const ranges = protectedForCharacterRules(text, extra);
   const replace = (match: string, offset: number, replacement: string): string =>
-    overlapsRange(ranges, offset, offset + match.length) ? match : replacement;
+    ranges.overlaps(offset, offset + match.length) ? match : replacement;
 
   const out = text
     .replace(DOUBLE_QUOTES, (match, offset: number) => replace(match, offset, '"'))
@@ -127,7 +127,7 @@ export function straightenDashes(
   const ranges = protectedForCharacterRules(text, extra);
 
   let out = text.replace(DASHES, (match, offset: number) =>
-    overlapsRange(ranges, offset, offset + match.length) ? match : "-",
+    ranges.overlaps(offset, offset + match.length) ? match : "-",
   );
 
   const sourceLines = text.split("\n");
@@ -154,8 +154,32 @@ export function straightenDashes(
 /**
  * Removes blank lines and stray spaces around a paste without touching the
  * blank lines inside it, which are paragraph breaks the writer meant.
+ *
+ * The leading indent is the subtle one. Four columns in front of the first line
+ * is not stray whitespace, it is an indented code block — and stripping it
+ * turns code into prose, which the quote and dash rules then rewrite on the
+ * *next* pass because the protection went with the indent. Anything under four
+ * columns cannot carry that meaning at the start of a paste, so it goes.
  */
 export function trimSurroundingWhitespace(text: string): TypographyResult {
-  const out = text.replace(/^[ \t]*\n+/, "").replace(/\n+[ \t]*$/, "").replace(/^[ \t]+|[ \t]+$/g, "");
+  // A blank line may carry spaces, so the run has to be matched as "lines that
+  // are blank" rather than as "newlines, then spaces". Written the other way it
+  // took two passes to settle on "a\n\n   \n\n", which means the rule
+  // disagreed with itself about what it had already done.
+  let out = text.replace(/^(?:[ \t]*\n)+/, "").replace(/(?:[ \t]*\n)+[ \t]*$/, "");
+
+  const indent = /^[ \t]*/.exec(out)?.[0] ?? "";
+  if (indent && indentColumns(indent) < INDENTED_CODE_COLUMNS) out = out.slice(indent.length);
+
+  out = out.replace(/[ \t]+$/, "");
   return { text: out, changed: out !== text };
+}
+
+/** Markdown reads four or more leading columns as a code block. */
+const INDENTED_CODE_COLUMNS = 4;
+
+function indentColumns(indent: string): number {
+  let columns = 0;
+  for (const char of indent) columns += char === "\t" ? INDENTED_CODE_COLUMNS : 1;
+  return columns;
 }

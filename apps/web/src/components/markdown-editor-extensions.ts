@@ -17,6 +17,7 @@ import {
 } from "@codemirror/view";
 import { createCodeMirrorThemeForSite } from "@/lib/codemirror-theme";
 import { pasteCleanup, pasteCleanupKeymap } from "./markdown-paste-cleanup";
+import { imagePaste, type ImagePasteConfig } from "./markdown-image-paste";
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
@@ -68,6 +69,11 @@ export interface MarkdownEditorExtensionOptions {
    * settings reaches every editor already on screen.
    */
   pasteSettingsRef?: { current: PasteSettings };
+  /**
+   * How this surface stores a pasted image. Absent means the editor leaves
+   * images to the browser, which is right for a screen with nowhere to put one.
+   */
+  imagePaste?: ImagePasteConfig;
 }
 
 /**
@@ -134,6 +140,9 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     // Ahead of the default keymap so the cleanup bindings win, and ahead of
     // CodeMirror's own paste handling so the rules see the clipboard first.
     keymap.of(pasteCleanupKeymap({ settings: () => pasteSettings.current })),
+    // Ahead of the text cleanup: a clipboard carrying a bitmap is an image
+    // paste, and the text rules must not run on whatever filename came with it.
+    imagePaste(opts.imagePaste),
     pasteCleanup({ settings: () => pasteSettings.current }),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     drawSelection(),

@@ -69,6 +69,34 @@ the command is the deliberate way to reach it.
 One `Ctrl+Z` takes a whole paste back out. To get the clipboard in untouched in
 the first place, use `Ctrl/Cmd + Shift + V`.
 
+## Images
+
+Copy an image and paste it into a note. It uploads and the link appears **where
+the caret was** — not appended to the end of the note the way the attach button
+has always worked. Dragging an image in does the same thing, and drops it where
+you dropped it.
+
+Nothing blocks while the upload runs. A dimmed `![Uploading diagram…]()`
+placeholder holds the spot and is swapped for the real link when the upload
+lands, so you can keep typing — including in front of it and behind it. Paste
+several at once and each keeps its own place, whatever order the uploads finish
+in.
+
+If an upload fails, the placeholder disappears and the note says why. If you
+press `Ctrl+Z` before it lands, the image does not reappear a second later.
+
+- Images go wherever that surface already keeps them: a vault note stores them
+  against the note, a report section against the section, a paper note against
+  the paper.
+- Screenshots are downscaled to 1600px and re-encoded as WebP, which turns a
+  multi-megabyte capture into tens of kilobytes. **Animated GIFs are stored as
+  they came** — a canvas re-encode would keep the first frame and silently throw
+  the animation away.
+- The alt text comes from the file name, with the extension dropped and
+  separators turned into spaces, so `loss-curve.png` becomes `![loss curve]`.
+- SVG is not accepted. It is a script carrier, not a picture format.
+- Anything over 25 MB is refused before the upload starts.
+
 ## Commands
 
 In any note editor, on the selection — or on the whole note when nothing is
@@ -145,8 +173,14 @@ A line starting `#` is a comment.
 
 ## Privacy
 
-Nothing here makes a network request. Every rule is a function of the text on
-your clipboard and your settings, computed in your browser as the paste happens.
-Fetching the title behind a pasted link, and downloading a pasted image into the
-workspace, would both need a request out to a third-party site; neither is
+None of the **text** rules make a network request. Every one of them is a
+function of the text on your clipboard and your settings, computed in your
+browser as the paste happens.
+
+Pasting an image does make one: the upload, to wherever your workspace stores
+its files — your own Postgres or blob store when you self-host. Nothing is sent
+anywhere else, and no third-party site is contacted.
+
+Fetching the title behind a pasted link, and downloading an image from a URL you
+pasted, would both mean requesting a third-party site on your behalf. Neither is
 implemented, and if either is added it will say so here.

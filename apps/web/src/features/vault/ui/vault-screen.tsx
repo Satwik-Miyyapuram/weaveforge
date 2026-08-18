@@ -19,6 +19,7 @@ import { AddVaultPageForm } from "./add-vault-page-form";
 import { importNotesFromFiles } from "../application/import-notes";
 import { VaultMarkdown } from "./vault-markdown";
 import { materializeBlobImagesInBody } from "../lib/materialize-blob-images";
+import { editorImageUpload } from "@/lib/editor-image-upload";
 import { compressImage } from "@/lib/image-compress";
 import { useScreenData } from "@/lib/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/use-detail-back";
@@ -654,14 +655,31 @@ function PageEditor({
   // here meant importing CodeMirror into this screen, which put the whole
   // editor in /notes' first-load bundle even for a reader who never edits.
   // `CollabBodyHost` builds it inside its own lazily-loaded chunk.
+  /**
+   * Accepting a pasted image. Stored against the page, referenced as `vault:`.
+   * Kept out of the memo below on purpose: it closes over `page.id`, and the
+   * collaborative editor rebuilds its whole document when its extension array
+   * changes.
+   */
+  const imagePaste = useMemo(
+    () =>
+      editorImageUpload({
+        store: (blob, ext) => getContainer().vault.uploadAsset(page.id, blob, ext),
+        toMarkdown: vaultImageMarkdown,
+        onError: setSaveError,
+      }),
+    [page.id],
+  );
+
   const collabEditing = useMemo(
     () => ({
       placeholder: "Write markdown… #hashtags and [[wikilinks]] link this note in the graph.",
       wikilinkTitles,
       wikilinkCompletions,
       citationFormat,
+      imagePaste,
     }),
-    [wikilinkTitles, wikilinkCompletions, citationFormat],
+    [wikilinkTitles, wikilinkCompletions, citationFormat, imagePaste],
   );
 
   useEffect(() => {
@@ -890,6 +908,7 @@ function PageEditor({
               wikilinkTitles={wikilinkTitles}
               wikilinkCompletions={wikilinkCompletions}
               citationFormat={citationFormat}
+              imagePaste={imagePaste}
             />
           )}
           <div className="summary-editor-foot">
