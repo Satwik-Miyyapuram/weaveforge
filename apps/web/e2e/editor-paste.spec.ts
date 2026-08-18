@@ -61,6 +61,7 @@ async function open(page: Page, mode: "manual" | "instant" = "manual") {
     h.setDoc("");
     h.errors.length = 0;
     h.resetUploads();
+    h.resetRemote();
     h.mode(m);
     h.focus();
   }, mode);
@@ -71,6 +72,8 @@ async function open(page: Page, mode: "manual" | "instant" = "manual") {
     uploads: () => page.evaluate(() => (window as any).editorHarness.pending() as number),
     uploadCount: () => page.evaluate(() => (window as any).editorHarness.uploadCount() as number),
     pending: () => page.evaluate(() => (window as any).editorHarness.decorations() as number),
+    lookups: () => page.evaluate(() => (window as any).editorHarness.remoteCalls() as string[]),
+    hasHandle: () => page.evaluate(() => (window as any).editorHarness.hasHandle() as boolean),
   };
 }
 
@@ -345,5 +348,213 @@ test.describe("image paste", () => {
     await act(page, `h.finish(0, "![undone](vault:u/p/undone.png)")`);
     await settle(page, 100);
     expect(await h.doc()).toBe("note text");
+  });
+});
+
+/**
+ * The two rules that reach the internet.
+ *
+ * Driven through a stand-in desktop bridge rather than a stubbed `fetch`,
+ * because that is the seam the app actually uses: `outboundFetch()` picks the
+ * bridge when there is one and the server route otherwise, and everything above
+ * it is identical either way. So these cases test the editor's half — when a
+ * lookup starts, where its answer lands, and what happens when it does not
+ * arrive — without a server, and they check the bridge contract at the same time.
+ */
+test.describe("url lookups", () => {
+  test("a pasted link is usable immediately and gains its title afterwards", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.paste("https://a.example/paper?utm_source=news")`);
+    await settle(page);
+
+    // The whole point of doing this after the paste: the link is already there.
+    expect(await h.doc()).toBe("https://a.example/paper");
+    expect(await h.lookups()).toEqual(["title https://a.example/paper"]);
+    // Not dimmed — it is a working link, and dimming it would say otherwise.
+    expect(await h.pending()).toBe(0);
+
+    await act(page, `h.finishTitle(0, "Attention Is All You Need")`);
+    await settle(page, 80);
+    expect(await h.doc()).toBe("[Attention Is All You Need](https://a.example/paper)");
+  });
+
+  test("a title arriving late lands where the link has drifted to", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.setDoc("see "); h.setCursor(4); h.paste("https://a.example/p")`);
+    await settle(page);
+    await act(page, `h.insertAt(0, "PRE ")`);
+    await act(page, `h.insertAt(h.doc().length, " POST")`);
+    await settle(page, 40);
+
+    await act(page, `h.finishTitle(0, "A Page")`);
+    await settle(page, 80);
+    expect(await h.doc()).toBe("PRE see [A Page](https://a.example/p) POST");
+  });
+
+  test("a site that does not answer leaves the plain link", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.paste("https://a.example/p")`);
+    await settle(page);
+    await act(page, `h.failRemote(0, "That page could not be read.")`);
+    await settle(page, 80);
+    expect(await h.doc()).toBe("https://a.example/p");
+    // Quiet on purpose: the note has what was pasted, and nothing was lost.
+    expect(await h.errors()).toEqual([]);
+  });
+
+  test("a title that comes back empty changes nothing", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.paste("https://a.example/p")`);
+    await settle(page);
+    await act(page, `h.finishTitle(0, "")`);
+    await settle(page, 80);
+    expect(await h.doc()).toBe("https://a.example/p");
+  });
+
+  test("with the rule off nothing is looked up", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.settings({ fetchLinkTitles: false }); h.paste("https://a.example/p?utm_source=n")`);
+    await settle(page, 80);
+    // The cleanup still runs; only the lookup is gone.
+    expect(await h.doc()).toBe("https://a.example/p");
+    expect(await h.lookups()).toEqual([]);
+  });
+
+  test("a URL pasted over a selection becomes a link and is not looked up", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.setDoc("AlphaFold"); h.pasteOver(0, 9, "https://a.example/p?utm_source=n")`);
+    await settle(page, 80);
+    // The writer supplied the label; asking a site for a different one would
+    // overwrite what they chose.
+    expect(await h.doc()).toBe("[AlphaFold](https://a.example/p)");
+    expect(await h.lookups()).toEqual([]);
+  });
+
+  test("text around a URL is not a URL paste", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.paste("see https://a.example/p for the details")`);
+    await settle(page, 80);
+    expect(await h.lookups()).toEqual([]);
+  });
+
+  test("a pasted image address downloads the picture and stores it", async ({ page }) => {
+    const h = await open(page, "instant");
+    await act(page, `h.paste("https://a.example/figures/loss-curve.png")`);
+    await settle(page);
+
+    // Dimmed here, unlike the title case: what is on screen is not yet the
+    // thing that was asked for.
+    expect(await h.doc()).toBe("![Downloading loss curve…]()");
+    expect(await h.pending()).toBe(1);
+    expect(await h.lookups()).toEqual(["image https://a.example/figures/loss-curve.png"]);
+
+    await act(page, `h.finishImage(0)`);
+    await settle(page, 120);
+    expect(await h.doc()).toBe("![loss-curve](vault:u/p/loss-curve.png)");
+    expect(await h.pending()).toBe(0);
+  });
+
+  test("a download that fails puts the link back and says why", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.paste("https://a.example/fig.png")`);
+    await settle(page);
+    await act(page, `h.failRemote(0, "That image could not be downloaded.")`);
+    await settle(page, 100);
+    // Reported, unlike a failed title: the reader expected a picture.
+    expect(await h.doc()).toBe("https://a.example/fig.png");
+    expect(await h.errors()).toEqual(["That image could not be downloaded."]);
+  });
+
+  test("with image download off an image URL is looked up as a link instead", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.settings({ downloadPastedImages: false }); h.paste("https://a.example/fig.png")`);
+    await settle(page, 80);
+    expect(await h.doc()).toBe("https://a.example/fig.png");
+    expect(await h.lookups()).toEqual(["title https://a.example/fig.png"]);
+  });
+
+  test("undo before the picture arrives leaves the note cleared", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.setDoc("note "); h.setCursor(5); h.focus(); h.paste("https://a.example/fig.png")`);
+    await settle(page);
+    await act(page, `h.undo()`);
+    await settle(page, 40);
+    const afterUndo = await h.doc();
+
+    await act(page, `h.finishImage(0)`);
+    await settle(page, 120);
+    // Whatever undo left, the late download does not add to it.
+    expect(await h.doc()).toBe(afterUndo);
+    expect(afterUndo).not.toContain("vault:");
+  });
+
+  test("the master switch stops the lookups along with everything else", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.settings({ cleanOnPaste: false }); h.paste("https://a.example/p")`);
+    await settle(page, 80);
+    expect(await h.lookups()).toEqual([]);
+  });
+});
+
+/**
+ * The attach-image button, which is the editor's handle rather than the
+ * screen's string.
+ *
+ * It used to build the markdown in the screen and append it to the note, and a
+ * figure chosen halfway through a paragraph landed underneath the whole thing.
+ * The handle is bound here exactly as `MarkdownCodeEditor` and `CollabBodyHost`
+ * bind it, so what runs is the real path.
+ */
+test.describe("attach image", () => {
+  test("the handle exists while the editor is on screen", async ({ page }) => {
+    const h = await open(page);
+    expect(await h.hasHandle()).toBe(true);
+  });
+
+  test("an attached file lands at the caret, not at the end", async ({ page }) => {
+    const h = await open(page, "instant");
+    await act(page, `h.setDoc("before after"); h.setCursor(7); h.attach("figure.png")`);
+    await settle(page, 120);
+    expect(await h.doc()).toBe("before ![figure](vault:u/p/figure.png)after");
+  });
+
+  test("an attached file shows the same placeholder a pasted one does", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.setDoc("note "); h.setCursor(5); h.attach("chart.png")`);
+    await settle(page);
+    expect(await h.doc()).toBe("note ![Uploading chart…]()");
+    expect(await h.pending()).toBe(1);
+
+    await act(page, `h.finish(0, "![chart](vault:u/p/chart.png)")`);
+    await settle(page, 100);
+    expect(await h.doc()).toBe("note ![chart](vault:u/p/chart.png)");
+  });
+
+  test("an attached file that is too large is refused the same way", async ({ page }) => {
+    // The size limit lives with the upload path rather than with the button, so
+    // the file dialog and the clipboard cannot disagree about it.
+    const h = await open(page);
+    await act(page, `h.attach("huge.png", 2 * 1024 * 1024)`);
+    await settle(page, 80);
+    expect(await h.doc()).toBe("");
+    expect(await h.uploadCount()).toBe(0);
+    expect((await h.errors())[0]).toMatch(/over the 1 MB limit/);
+  });
+});
+
+test.describe("several carets", () => {
+  test("a URL pasted at two carets lands at both, and is looked up once", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.setDoc("a\\nb"); h.cursors([1, 3]); h.paste("https://x.example/p?utm_source=n")`);
+    await settle(page);
+    expect(await h.doc()).toBe("ahttps://x.example/p\nbhttps://x.example/p");
+    // One keystroke is one lookup, and it follows the caret the writer is at.
+    expect(await h.lookups()).toEqual(["title https://x.example/p"]);
+
+    await act(page, `h.finishTitle(0, "A Page")`);
+    await settle(page, 80);
+    // The second insertion shifted the first; the title still lands on the
+    // caret it was started for.
+    expect(await h.doc()).toBe("ahttps://x.example/p\nb[A Page](https://x.example/p)");
   });
 });

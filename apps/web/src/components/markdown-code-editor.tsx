@@ -9,6 +9,8 @@ import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
 import { markdownEditorExtensions, toCompletions } from "./markdown-editor-extensions";
 import type { ImagePasteConfig } from "./markdown-image-paste";
+import { bindEditorHandle } from "./markdown-editor-handle";
+import type { EditorHandleRef } from "./editor-handle";
 
 /**
  * Markdown editor — Lezer at edit time; @uiw/codemirror-themes matched to site theme.
@@ -24,6 +26,7 @@ export function MarkdownCodeEditor({
   wikilinkCompletions,
   citationFormat = "wikilink",
   imagePaste,
+  handleRef,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -38,6 +41,8 @@ export function MarkdownCodeEditor({
   citationFormat?: EditorCitationFormat;
   /** How a pasted or dropped image is stored. Omitted means images are ignored. */
   imagePaste?: ImagePasteConfig;
+  /** Filled in while this editor is on screen, so a toolbar can insert at the caret. */
+  handleRef?: EditorHandleRef;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -101,8 +106,10 @@ export function MarkdownCodeEditor({
         effects: themeCompartment.current.reconfigure(createCodeMirrorThemeForSite()),
       });
     });
+    const releaseHandle = bindEditorHandle(handleRef, view, () => imagePasteRef.current);
 
     return () => {
+      releaseHandle();
       stopThemeWatch();
       view.destroy();
       viewRef.current = null;

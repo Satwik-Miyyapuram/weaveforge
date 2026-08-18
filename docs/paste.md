@@ -109,9 +109,10 @@ the first place, use `Ctrl/Cmd + Shift + V`.
 ## Images
 
 Copy an image and paste it into a note. It uploads and the link appears **where
-the caret was** — not appended to the end of the note the way the attach button
-has always worked. Dragging an image in does the same thing, and drops it where
-you dropped it.
+the caret was**. Dragging an image in does the same thing, and drops it where
+you dropped it. The **attach-image button** in the note toolbar takes the same
+path — it used to append to the end of the note, and now inserts at the caret
+like everything else.
 
 Nothing blocks while the upload runs. A dimmed `![Uploading diagram…]()`
 placeholder holds the spot and is swapped for the real link when the upload
@@ -133,6 +134,32 @@ press `Ctrl+Z` before it lands, the image does not reappear a second later.
   separators turned into spaces, so `loss-curve.png` becomes `![loss curve]`.
 - SVG is not accepted. It is a script carrier, not a picture format.
 - Anything over 25 MB is refused before the upload starts.
+
+## Looking things up
+
+Two rules reach the internet, and only ever for an address you pasted yourself.
+Both are on by default, and both are listed apart from the rest in settings
+because that difference is worth seeing.
+
+**Read the title behind a pasted link.** Paste
+`https://www.nature.com/articles/s41586-021-03819-2` and a moment later it reads
+`[Highly accurate protein structure prediction with AlphaFold](https://…)`. The
+link goes in the instant you press the key — the lookup runs beside it and
+rewrites what is already there, so a slow site costs you nothing and a site that
+never answers leaves you with the plain link you pasted. The URL is not dimmed
+while it waits: it is already a working link.
+
+**Download a pasted image address.** Safari's "copy image" puts a URL on the
+clipboard rather than the picture, and a note that keeps that URL is a note
+whose figure vanishes when the site reorganises. With this on, the picture is
+downloaded and stored in your workspace exactly as a pasted bitmap would be. A
+dimmed `![Downloading loss curve…]()` holds the spot; if the download fails, the
+link you pasted goes back and the note says why. This one needs a screen that
+can store images — in a place that cannot, the address stays an address.
+
+Both use the same guard, described under Privacy. Titles are read from at most
+512 KB of a page and capped at 300 characters; images are capped at 12 MB, must
+declare a bitmap content type, and SVG is refused as it is everywhere else.
 
 ## Commands
 
@@ -227,14 +254,33 @@ A line starting `#` is a comment.
 
 ## Privacy
 
-None of the **text** rules make a network request. Every one of them is a
-function of the text on your clipboard and your settings, computed in your
-browser as the paste happens.
+None of the **text rewriting** rules make a network request. Every one of them
+is a function of the text on your clipboard and your settings, computed in your
+browser as the paste happens. That includes the link cleanup and the DOI and
+arXiv linking: both are pure string work against a fixed list of resolvers, and
+neither asks anybody anything.
 
-Pasting an image does make one: the upload, to wherever your workspace stores
-its files — your own Postgres or blob store when you self-host. Nothing is sent
-anywhere else, and no third-party site is contacted.
+Pasting an image makes one request: the upload, to wherever your workspace
+stores its files — your own Postgres or blob store when you self-host.
 
-Fetching the title behind a pasted link, and downloading an image from a URL you
-pasted, would both mean requesting a third-party site on your behalf. Neither is
-implemented, and if either is added it will say so here.
+The two rules under **Looking things up** contact a third-party site, because
+that is what they are for. What is worth knowing about them:
+
+- **Only an address you pasted.** Nothing is looked up speculatively, nothing is
+  read from the note around it, and a paste that is not a single bare `http(s)`
+  URL never triggers either rule.
+- **The request comes from WeaveForge, not from you.** In the browser build it
+  is made by the server — the site sees the server's address, not yours, and no
+  cookie of yours is involved. In the desktop app it is made by the app itself,
+  because there is no server to ask and no CORS barrier to work around; the app
+  runs the same guard, in the same module.
+- **Where it may go is checked, not guessed.** The address is resolved and the
+  resulting IP is tested before the connection is made, so a hostname that
+  points at `127.0.0.1`, a private range, link-local, or cloud metadata is
+  refused. Every redirect hop is re-checked the same way rather than followed
+  blindly. Only `http` and `https` on ordinary ports are allowed.
+- **Both can be switched off**, together with the rest of the rules, in
+  Settings → Paste.
+
+Turning both off restores the older behaviour exactly: no paste rule contacts
+anything outside your own workspace.

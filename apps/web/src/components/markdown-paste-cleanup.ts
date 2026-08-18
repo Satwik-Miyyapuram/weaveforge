@@ -13,6 +13,7 @@ import {
   type PasteSettings,
   type PdfTextOptions,
 } from "@weaveforge/core";
+import { afterUrlPaste, type RemotePasteOptions } from "./markdown-remote-paste";
 
 /**
  * Paste cleanup for the note editor.
@@ -108,7 +109,12 @@ function insertAsLink(view: EditorView, url: string): boolean {
  * a code block or frontmatter, where the pasted text is being *shown* rather
  * than written.
  */
-function handlePaste(view: EditorView, event: ClipboardEvent, settings: () => PasteSettings): boolean {
+function handlePaste(
+  view: EditorView,
+  event: ClipboardEvent,
+  settings: () => PasteSettings,
+  options: Omit<RemotePasteOptions, "settings"> | undefined,
+): boolean {
   const clipboard = event.clipboardData;
   if (!clipboard) return false;
 
@@ -133,10 +139,25 @@ function handlePaste(view: EditorView, event: ClipboardEvent, settings: () => Pa
     }
   }
 
-  if (!result.changed) return false;
+  // A URL that needed no cleaning still gets its title read, so the decision to
+  // handle the paste here cannot be "did anything change".
+  const wantsRemote = options !== undefined && BARE_URL.test(result.text);
+  if (!result.changed && !wantsRemote) return false;
 
   event.preventDefault();
   insertAsOneStep(view, result.text);
+  if (wantsRemote && options) {
+    // Read back from the document rather than remembered from before it: with
+    // several cursors, every earlier insertion has already shifted this one.
+    // The caret is left at the end of what was inserted, so the region is the
+    // text's length behind it. Only the main range is followed up — a lookup
+    // per cursor would be several requests for one keystroke.
+    const to = view.state.selection.main.head;
+    afterUrlPaste(view, result.text, to - result.text.length, to, {
+      settings,
+      ...options,
+    });
+  }
   return true;
 }
 
@@ -234,6 +255,12 @@ export interface PasteCleanupOptions {
    * editors that are already open without rebuilding them.
    */
   settings: () => PasteSettings;
+  /**
+   * What to do about a pasted address once it has landed — read its title, or
+   * download the picture behind it. Absent in a build that cannot reach the
+   * network, in which case a pasted URL is simply a URL.
+   */
+  remote?: Omit<RemotePasteOptions, "settings">;
 }
 
 /** Keys for the on-demand cleanups. */
@@ -263,6 +290,6 @@ export function pasteCleanupKeymap(options: PasteCleanupOptions): KeyBinding[] {
 /** The paste interception itself. */
 export function pasteCleanup(options: PasteCleanupOptions) {
   return EditorView.domEventHandlers({
-    paste: (event, view) => handlePaste(view, event, options.settings),
+    paste: (event, view) => handlePaste(view, event, options.settings, options.remote),
   });
 }

@@ -34,6 +34,38 @@ test("url-meta: 400 rejects non-http(s) protocols (no SSRF to file:/ftp:)", asyn
   assert.match((await res.json()).error, /http\(s\)/);
 });
 
+test("url-meta: refuses a private address without requesting it", async () => {
+  // This route used to `fetch(..., { redirect: "follow" })` with no address
+  // check at all, which made it a way to reach anything the server could.
+  let requested = false;
+  const restore = stubFetch(() => {
+    requested = true;
+    return new Response("should not happen");
+  });
+  try {
+    for (const target of [
+      "http://169.254.169.254/latest/meta-data/",
+      "http://127.0.0.1:8000/admin",
+      "http://10.0.0.5/",
+      "http://[::1]/",
+      "http://localhost/",
+    ]) {
+      const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+      assert.equal(res.status, 400, target);
+    }
+    assert.equal(requested, false, "no request should have left the server");
+  } finally {
+    restore();
+  }
+});
+
+test("url-meta: refuses a URL carrying credentials, and an odd port", async () => {
+  for (const target of ["http://user:pass@example.com/", "http://example.com:6379/"]) {
+    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    assert.equal(res.status, 400, target);
+  }
+});
+
 test("url-meta: resolves a DOI in the URL via Crossref", async () => {
   const restore = stubFetch((url) => {
     assert.match(url, /api\.crossref\.org\/works\//);

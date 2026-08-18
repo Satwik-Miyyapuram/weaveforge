@@ -50,6 +50,22 @@ export interface PasteSettings {
    */
   linkIdentifiers: boolean;
   /**
+   * Fetch the title behind a pasted link and turn it into `[title](url)`.
+   *
+   * Acted on by the editor rather than by `cleanPastedText`, because it needs
+   * the network and the pipeline is a pure function of the clipboard. The URL
+   * is pasted immediately and rewritten when the title arrives, so nothing
+   * waits on it.
+   */
+  fetchLinkTitles: boolean;
+  /**
+   * Download a picture behind a pasted image URL and store it in the workspace.
+   *
+   * Also the editor's job, and for the same reason. This is what makes Safari's
+   * "copy image" paste a picture instead of a link that will rot.
+   */
+  downloadPastedImages: boolean;
+  /**
    * Run the PDF repair automatically on a paste that looks like it came from
    * one. Off by default: it is the most opinionated of the rules, and the
    * on-demand command has a preview.
@@ -68,6 +84,8 @@ export const DEFAULT_PASTE_SETTINGS: PasteSettings = {
   stripEscapeSequences: true,
   tabsToTable: true,
   linkIdentifiers: true,
+  fetchLinkTitles: true,
+  downloadPastedImages: true,
   cleanPdfOnPaste: false,
 };
 
@@ -85,6 +103,8 @@ const BOOLEAN_KEYS = [
   "stripEscapeSequences",
   "tabsToTable",
   "linkIdentifiers",
+  "fetchLinkTitles",
+  "downloadPastedImages",
   "cleanPdfOnPaste",
 ] as const satisfies readonly (keyof PasteSettings)[];
 

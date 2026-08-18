@@ -9,15 +9,64 @@
  *
  * Everything the spec needs is hung off `window.editorHarness`: the document,
  * the caret, synthetic clipboard and drag events, and hand control over the
- * uploads so a test can hold one open, finish them out of order, or fail one.
+ * uploads and the URL lookups, so a test can hold one open, finish them out of
+ * order, or fail one.
  */
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorState, EditorSelection, Compartment } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { bindEditorHandle } from "@/components/markdown-editor-handle";
+import type { EditorHandle } from "@/components/editor-handle";
 import { markdownEditorExtensions } from "@/components/markdown-editor-extensions";
 import { readPasteSettings, writePasteSettings } from "@/lib/paste-cleanup-preference";
 import { normalizePasteSettings } from "@weaveforge/core";
+import type { DesktopBridge, DesktopImage } from "@/lib/desktop-bridge";
 
 const host = document.getElementById("editor")!;
+
+/**
+ * A stand-in desktop bridge, so the two lookups can be driven without a server.
+ *
+ * `outboundFetch()` prefers the bridge when one is present and falls back to
+ * `/api/fetch-url` otherwise, so installing one here is what lets a page with no
+ * origin and no session exercise the title and image fetches at all. It is also
+ * the honest test of the bridge contract: what the Electron preload has to
+ * satisfy is exactly this shape.
+ */
+type RemoteMode = "manual" | "instant" | "fail";
+
+interface RemoteCall {
+  kind: "title" | "image";
+  url: string;
+  resolve: (value: unknown) => void;
+  reject: (reason: Error) => void;
+}
+
+const remoteCalls: RemoteCall[] = [];
+let remoteMode: RemoteMode = "manual";
+let remoteTitle = "A Page Title";
+
+function remote<T>(kind: "title" | "image", url: string, instant: () => T): Promise<T> {
+  if (remoteMode === "instant") return Promise.resolve(instant());
+  if (remoteMode === "fail") return Promise.reject(new Error("That address could not be fetched."));
+  return new Promise<T>((resolve, reject) => {
+    remoteCalls.push({ kind, url, resolve: resolve as (value: unknown) => void, reject });
+  });
+}
+
+const bridge: DesktopBridge = {
+  version: "harness",
+  platform: "linux",
+  fetchTitle: (url) => remote("title", url, () => ({ title: remoteTitle, url })),
+  fetchImage: (url) =>
+    remote<DesktopImage>("image", url, () => ({
+      bytes: new Uint8Array(8).buffer,
+      contentType: "image/png",
+      url,
+    })),
+  openExternal: () => Promise.resolve(),
+};
+(window as unknown as { weaveforge: DesktopBridge }).weaveforge = bridge;
+
 const pasteSettingsRef = { current: readPasteSettings() };
 
 /** Uploads the harness controls, so a test can hold one open or make it fail. */
@@ -31,35 +80,50 @@ const uploads: {
 let mode: "manual" | "instant" | "fail" = "manual";
 let uploadCount = 0;
 
+const imagePasteConfig = {
+  upload: (file: File) => {
+    uploadCount += 1;
+    if (mode === "instant") {
+      return Promise.resolve(`![${file.name.replace(/\.[a-z]+$/, "")}](vault:u/p/${file.name})`);
+    }
+    if (mode === "fail") return Promise.reject(new Error("Storage is full."));
+    return new Promise<string>((resolve, reject) => {
+      uploads.push({ resolve, reject, name: file.name, size: file.size, type: file.type });
+    });
+  },
+  onError: (message: string) => {
+    (window as any).editorHarness.errors.push(message);
+  },
+  maxBytes: 1024 * 1024,
+};
+
 const view = new EditorView({
   state: EditorState.create({
     doc: "",
-    extensions: markdownEditorExtensions({
-      completionsRef: { current: [] },
-      citationFormatRef: { current: "wikilink" },
-      editableCompartment: new Compartment(),
-      themeCompartment: new Compartment(),
-      pasteSettingsRef,
-      imagePaste: {
-        upload: (file) => {
-          uploadCount += 1;
-          if (mode === "instant") {
-            return Promise.resolve(`![${file.name.replace(/\.[a-z]+$/, "")}](vault:u/p/${file.name})`);
-          }
-          if (mode === "fail") return Promise.reject(new Error("Storage is full."));
-          return new Promise<string>((resolve, reject) => {
-            uploads.push({ resolve, reject, name: file.name, size: file.size, type: file.type });
-          });
-        },
-        onError: (message) => {
-          (window as any).editorHarness.errors.push(message);
-        },
-        maxBytes: 1024 * 1024,
-      },
-    }),
+    extensions: [
+      // Not part of the editor's own stack — a second caret arrives from
+      // `Alt`-clicking, which needs `drawSelection` and this. Turned on here so
+      // the multi-caret paste case can be driven at all.
+      EditorState.allowMultipleSelections.of(true),
+      markdownEditorExtensions({
+        completionsRef: { current: [] },
+        citationFormatRef: { current: "wikilink" },
+        editableCompartment: new Compartment(),
+        themeCompartment: new Compartment(),
+        pasteSettingsRef,
+        imagePaste: imagePasteConfig,
+      }),
+    ],
   }),
   parent: host,
 });
+
+/**
+ * The handle a screen's toolbar holds, bound exactly as the real editors bind
+ * it — so the attach-image button's path is tested and not just its intent.
+ */
+const editorHandle: { current: EditorHandle | null } = { current: null };
+bindEditorHandle(editorHandle, view, () => imagePasteConfig);
 
 function imageFile(name: string, type = "image/png", bytes = 8): File {
   return new File([new Uint8Array(bytes)], name, { type });
@@ -73,6 +137,19 @@ function imageFile(name: string, type = "image/png", bytes = 8): File {
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }),
   setCursor: (pos: number) => view.dispatch({ selection: { anchor: pos } }),
   select: (from: number, to: number) => view.dispatch({ selection: { anchor: from, head: to } }),
+  /** Several carets at once, the last of them the main one. */
+  cursors: (positions: number[]) =>
+    view.dispatch({
+      selection: EditorSelection.create(
+        positions.map((at) => EditorSelection.cursor(at)),
+        positions.length - 1,
+      ),
+    }),
+  /** What the attach-image button does: hand a chosen file to the editor. */
+  attach: (name: string, bytes?: number) =>
+    editorHandle.current?.insertFiles([imageFile(name, undefined, bytes)]),
+  /** Whether a screen would have a handle to call at all. */
+  hasHandle: () => editorHandle.current !== null,
   focus: () => view.focus(),
   uploadCount: () => uploadCount,
   pending: () => uploads.length,
@@ -160,6 +237,29 @@ function imageFile(name: string, type = "image/png", bytes = 8): File {
       new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods }),
     );
   },
-  decorations: () =>
-    view.contentDOM.querySelectorAll(".cm-image-uploading").length,
+  decorations: () => view.contentDOM.querySelectorAll(".cm-pending-insert").length,
+
+  /** How a title or image lookup should behave, and what title to hand back. */
+  remote: (next: RemoteMode, title?: string) => {
+    remoteMode = next;
+    if (title !== undefined) remoteTitle = title;
+  },
+  /** The lookups still waiting, as `["title https://…", …]`. */
+  remoteCalls: () => remoteCalls.map((call) => `${call.kind} ${call.url}`),
+  resetRemote: () => {
+    remoteCalls.length = 0;
+    remoteMode = "manual";
+    remoteTitle = "A Page Title";
+  },
+  finishTitle: (index: number, title: string) => {
+    const call = remoteCalls[index];
+    call?.resolve({ title, url: call.url });
+  },
+  finishImage: (index: number) => {
+    const call = remoteCalls[index];
+    call?.resolve({ bytes: new Uint8Array(8).buffer, contentType: "image/png", url: call.url });
+  },
+  failRemote: (index: number, reason: string) => {
+    remoteCalls[index]?.reject(new Error(reason));
+  },
 };

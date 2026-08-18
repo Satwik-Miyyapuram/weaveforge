@@ -35,4 +35,5 @@ export * from "./reader/index.js";
 export * from "./workspace/index.js";
 export * from "./search/index.js";
 export * from "./backend/index.js";
+export * from "./net/index.js";
 export * from "./paste/index.js";

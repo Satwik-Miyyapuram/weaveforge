@@ -10,6 +10,8 @@ import {
   markdownEditorExtensions,
   toCompletions,
 } from "@/components/markdown-editor-extensions";
+import { bindEditorHandle } from "@/components/markdown-editor-handle";
+import type { EditorHandleRef } from "@/components/editor-handle";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
@@ -53,6 +55,7 @@ export function CollabBodyHost({
   readOnly,
   editorClassName,
   onViewCreated,
+  handleRef,
 }: {
   resourceType: string;
   resourceId: string;
@@ -66,6 +69,13 @@ export function CollabBodyHost({
   readOnly?: boolean;
   editorClassName?: string;
   onViewCreated?: (view: EditorView) => (() => void) | void;
+  /**
+   * Filled in while the editor is on screen, so a toolbar button can insert at
+   * the caret. A plain box, not a CodeMirror view: handing the screen the view
+   * would put CodeMirror back in its bundle, which is what this component is
+   * for avoiding.
+   */
+  handleRef?: EditorHandleRef;
 }) {
   const [authorId, setAuthorId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Editor");
@@ -146,11 +156,16 @@ export function CollabBodyHost({
           effects: themeCompartment.current.reconfigure(createCodeMirrorThemeForSite()),
         });
       });
+      const releaseHandle = bindEditorHandle(handleRef, view, () => imagePasteRef.current);
       return () => {
+        releaseHandle();
         stopThemeWatch();
         stopCallerWatch?.();
       };
     },
+    // `handleRef` is a box the caller keeps for the life of the screen; reading
+    // it again would rebuild the editor and take the shared document with it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [markdownExtensions, onViewCreated],
   );
 

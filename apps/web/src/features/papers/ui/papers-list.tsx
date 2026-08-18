@@ -34,7 +34,7 @@ import { AddPaperForm } from "./add-paper-form";
 import { PaperMarkdown } from "./paper-markdown";
 import { paperImageMarkdown, materializePaperBlobImages } from "../lib/paper-images-md";
 import { removeHashtagFromBody, reconcileTagsFromBody } from "../lib/note-tags";
-import { compressImage } from "@/lib/image-compress";
+import type { EditorHandle } from "@/components/editor-handle";
 import { Select } from "@/components/select";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
 import { editorImageUpload } from "@/lib/editor-image-upload";
@@ -899,6 +899,8 @@ function PaperNote({
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [editingIds, setEditingIds] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Filled in while the editor is on screen, so the button can insert at the caret.
+  const editorHandle = useRef<EditorHandle | null>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
@@ -961,16 +963,22 @@ function PaperNote({
     [paper.id],
   );
 
-  async function onImagePick(file: File | null) {
+  /**
+   * The attach-image button, which goes through the editor so the picture lands
+   * at the caret on the same path a pasted one takes. It used to build the
+   * markdown here and append it to the end of the note.
+   */
+  function onImagePick(file: File | null) {
     if (!file) return;
-    try {
-      const { blob, ext } = await compressImage(file);
-      const path = await getContainer().papers.uploadImage(paper.id, blob, ext);
-      setDraft((prev) => `${prev}\n${paperImageMarkdown(path, file.name)}\n`);
-      setSaveError(null);
-    } catch (err) {
-      setSaveError(formatError(err));
+    const editor = editorHandle.current;
+    // Null only in the moment before the lazily-loaded editor has mounted.
+    // Saying so beats a button that appears to do nothing.
+    if (!editor) {
+      setSaveError("The editor is still loading — try that again in a moment.");
+      return;
     }
+    setSaveError(null);
+    editor.insertFiles([file]);
   }
 
   /** Explicit re-render of the source-note template — never silent on load (C1). */
@@ -1134,7 +1142,11 @@ function PaperNote({
                 type="file"
                 accept="image/*"
                 hidden
-                onChange={(e) => void onImagePick(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  onImagePick(e.target.files?.[0] ?? null);
+                  // Cleared so choosing the same file twice fires again.
+                  e.target.value = "";
+                }}
               />
               <CommentsToggle resourceType="paper" resourceId={paper.id} canComment variant="detail" />
             </>
@@ -1226,6 +1238,7 @@ function PaperNote({
               wikilinkCompletions={wikilinkCompletions}
               citationFormat={citationFormat}
               imagePaste={imagePaste}
+              handleRef={editorHandle}
             />
             <div className="summary-editor-foot">
               {saveError && <span className="error">{saveError}</span>}

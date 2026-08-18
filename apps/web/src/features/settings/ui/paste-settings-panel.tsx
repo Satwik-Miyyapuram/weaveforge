@@ -27,7 +27,13 @@ const SAMPLE_LINKS = [
 
 type RuleKey = Exclude<keyof PasteSettings, "linkRemovals" | "cleanOnPaste">;
 
-const RULES: { key: RuleKey; label: string; hint: string }[] = [
+interface Rule {
+  key: RuleKey;
+  label: string;
+  hint: string;
+}
+
+const RULES: Rule[] = [
   {
     key: "cleanLinks",
     label: "Strip tracking from links",
@@ -75,6 +81,24 @@ const RULES: { key: RuleKey; label: string; hint: string }[] = [
   },
 ];
 
+/**
+ * The two rules that reach the internet, kept separate from the rest because
+ * that is the difference a reader needs to see. Everything above is a local
+ * rewrite of the clipboard; these ask a third-party site for something.
+ */
+const NETWORK_RULES: Rule[] = [
+  {
+    key: "fetchLinkTitles",
+    label: "Read the title behind a pasted link",
+    hint: "A pasted address becomes [Title](address) once the page answers. The link goes in immediately and is rewritten a moment later, so nothing waits — and if the site does not answer, the plain link stays.",
+  },
+  {
+    key: "downloadPastedImages",
+    label: "Download a pasted image address",
+    hint: "Pasting a link that points at a picture stores the picture in your workspace instead, so the figure survives the site reorganising. Only on screens that can store images.",
+  },
+];
+
 const SHORTCUTS: [string, string][] = [
   ["Clean up selection", "Ctrl/Cmd + Alt + C"],
   ["Clean up terminal output", "Ctrl/Cmd + Alt + T"],
@@ -118,6 +142,22 @@ export function PasteSettingsPanel() {
       .map((line) => ({ before: line, after: cleanUrlsInText(line, options).text }));
   }, [removalText, sample]);
 
+  const renderRule = (rule: Rule) => (
+    <div className="field" key={rule.key}>
+      <label className="field-inline">
+        <input
+          type="checkbox"
+          className="themed-check"
+          disabled={!settings.cleanOnPaste}
+          checked={settings[rule.key]}
+          onChange={(e) => update({ ...settings, [rule.key]: e.target.checked })}
+        />
+        {rule.label}
+      </label>
+      <p className="muted field-hint">{rule.hint}</p>
+    </div>
+  );
+
   return (
     <div
       id="settings-paste"
@@ -145,21 +185,16 @@ export function PasteSettingsPanel() {
         still work on a selection.
       </p>
 
-      {RULES.map((rule) => (
-        <div className="field" key={rule.key}>
-          <label className="field-inline">
-            <input
-              type="checkbox"
-              className="themed-check"
-              disabled={!settings.cleanOnPaste}
-              checked={settings[rule.key]}
-              onChange={(e) => update({ ...settings, [rule.key]: e.target.checked })}
-            />
-            {rule.label}
-          </label>
-          <p className="muted field-hint">{rule.hint}</p>
-        </div>
-      ))}
+      {RULES.map(renderRule)}
+
+      <h3 className="settings-group">Looking things up</h3>
+      <p className="muted jump-to-meta">
+        These two are the only paste rules that reach the internet, and only ever for an
+        address you pasted yourself. The request is made by WeaveForge rather than by your
+        browser, so the site sees the server and not you; private and local addresses are
+        refused before anything is sent.
+      </p>
+      {NETWORK_RULES.map(renderRule)}
 
       <h3 className="settings-group">Link rules</h3>
       <p className="muted jump-to-meta">
@@ -202,8 +237,9 @@ export function PasteSettingsPanel() {
       <h3 className="settings-group">Images</h3>
       <p className="muted jump-to-meta">
         Copy an image and paste it into a note: it uploads and the link appears where the
-        caret was. Dragging one in works the same way. Screenshots are downscaled and
-        re-encoded; animated GIFs are stored as they came, so the animation survives.
+        caret was. Dragging one in works the same way, and so does the attach-image button
+        in the note toolbar. Screenshots are downscaled and re-encoded; animated GIFs are
+        stored as they came, so the animation survives.
       </p>
 
       <h3 className="settings-group">Commands</h3>

@@ -102,7 +102,13 @@ for (let seed = 200; seed <= 215; seed++) {
   CORPUS.push({ seed, text: `---\ntitle: A \u2014 B\ntags: [x]\n---\n\n${document(seed, 4)}` });
 }
 
-/** Every combination of the switches that change what the pipeline does. */
+/**
+ * Every combination of the switches that change what the pipeline does.
+ *
+ * `fetchLinkTitles` and `downloadPastedImages` are deliberately absent: they
+ * need the network, so the editor acts on them and `cleanPastedText` never
+ * sees them. Including them would double the matrix to test nothing.
+ */
 function settingsMatrix(): PasteSettings[] {
   const flags = [
     "cleanLinks",

@@ -20,7 +20,7 @@ import { importNotesFromFiles } from "../application/import-notes";
 import { VaultMarkdown } from "./vault-markdown";
 import { materializeBlobImagesInBody } from "../lib/materialize-blob-images";
 import { editorImageUpload } from "@/lib/editor-image-upload";
-import { compressImage } from "@/lib/image-compress";
+import type { EditorHandle } from "@/components/editor-handle";
 import { useScreenData } from "@/lib/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -643,6 +643,9 @@ function PageEditor({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Filled in by whichever editor is mounted — plain or collaborative — and
+  // empty while the note is being read rather than written.
+  const editorHandle = useRef<EditorHandle | null>(null);
   const { completions: wikilinkCompletions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
   const wikilinkTitles = useMemo(
@@ -756,21 +759,26 @@ function PageEditor({
     onDeleted();
   }
 
-  async function onImagePick(file: File | null) {
+  /**
+   * The attach-image button.
+   *
+   * It goes through the editor's handle so the picture lands at the caret, on
+   * the same path a pasted one takes — placeholder, upload, swap. It used to
+   * build the markdown here and append it to the end of the note, which is why
+   * a figure chosen halfway through a paragraph appeared underneath the whole
+   * thing.
+   */
+  function onImagePick(file: File | null) {
     if (!file) return;
-    try {
-      const isImage = file.type.startsWith("image/");
-      const compressed = isImage ? await compressImage(file) : null;
-      const blob = compressed?.blob ?? file;
-      const ext = compressed?.ext ?? (file.name.split(".").pop()?.toLowerCase() || "png");
-      const path = await getContainer().vault.uploadAsset(page.id, blob, ext);
-      const snippet = `\n${vaultImageMarkdown(path, file.name)}\n`;
-      setDraft((prev) => prev + snippet);
-      setEditing(true);
-      setSaveError(null);
-    } catch (err) {
-      setSaveError(formatError(err));
+    const editor = editorHandle.current;
+    // Null only in the moment before the lazily-loaded editor has mounted.
+    // Saying so beats a button that appears to do nothing.
+    if (!editor) {
+      setSaveError("The editor is still loading — try that again in a moment.");
+      return;
     }
+    setSaveError(null);
+    editor.insertFiles([file]);
   }
 
   function closeEditor() {
@@ -841,7 +849,11 @@ function PageEditor({
                 type="file"
                 accept="image/*"
                 hidden
-                onChange={(e) => void onImagePick(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  onImagePick(e.target.files?.[0] ?? null);
+                  // Cleared so choosing the same file twice fires again.
+                  e.target.value = "";
+                }}
               />
               {!readOnly && (
                 <CommentsToggle resourceType="vault_page" resourceId={page.id} canComment variant="detail" />
@@ -897,6 +909,7 @@ function PageEditor({
               className="summary-input-collab"
               editorClassName="markdown-code-editor summary-input markdown-code-editor--notes"
               markdownEditing={collabEditing}
+              handleRef={editorHandle}
             />
           ) : (
             <MarkdownCodeEditor
@@ -909,6 +922,7 @@ function PageEditor({
               wikilinkCompletions={wikilinkCompletions}
               citationFormat={citationFormat}
               imagePaste={imagePaste}
+              handleRef={editorHandle}
             />
           )}
           <div className="summary-editor-foot">

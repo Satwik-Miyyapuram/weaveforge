@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { extractDoi, normalizeArxivId } from "@weaveforge/core";
+import { safeFetch } from "@/backend/net/safe-fetch";
 
 /**
  * Extract paper metadata from an arbitrary URL.
@@ -41,6 +42,8 @@ export async function GET(request: Request) {
   // resolve via Crossref instead of scraping — many sites block bots outright.
   const doiInUrl = extractDoi(target);
   if (doiInUrl) {
+    // Crossref is our own fixed host, not one the visitor chose, so no guard is
+    // needed here — only the DOI is theirs, and it is encoded into the path.
     const cr = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doiInUrl)}`, {
       headers: { "User-Agent": "weaveforge (mailto:noreply@example.com)" },
     });
@@ -66,27 +69,22 @@ export async function GET(request: Request) {
     );
   }
 
-  const res = await fetch(parsed.toString(), {
-    headers: {
-      // Real browser UA — many publishers (Cloudflare) 403 bot-like agents.
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-    },
-    redirect: "follow",
+  // Guarded, and every redirect hop guarded with it. This used to be a plain
+  // `fetch(..., { redirect: "follow" })`, which is a request made from inside
+  // the network to an address the visitor chose — including a 302 to the cloud
+  // metadata endpoint, which hands back instance credentials.
+  const res = await safeFetch(parsed.toString(), {
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   });
   if (!res.ok) {
     const hint =
       res.status === 403
-        ? "the site blocked automated access — try the DOI or arXiv id instead"
-        : res.status === 404
-          ? "page not found"
-          : `upstream returned ${res.status}`;
-    return NextResponse.json({ error: `Could not read that URL: ${hint}.` }, { status: res.status });
+        ? `${res.message} Try the DOI or arXiv id instead.`
+        : res.message;
+    return NextResponse.json({ error: hint }, { status: res.status });
   }
-  const html = await res.text();
-  const meta = extractMetadata(html, parsed.toString());
+  const html = new TextDecoder().decode(res.body);
+  const meta = extractMetadata(html, res.url);
 
   // A 200 does not mean we got the paper. Cloudflare/Datadome interstitials
   // ("Client Challenge", "Verifying your browser") answer 200 with a normal
@@ -107,6 +105,7 @@ export async function GET(request: Request) {
 }
 
 async function fetchArxiv(id: string, url: string): Promise<ExtractedMeta | null> {
+  // arXiv's own API, a fixed host: the visitor supplies the id, not the address.
   const res = await fetch(
     `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(id)}`,
   ).catch(() => null);

@@ -8,7 +8,7 @@ import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { DeleteIcon, EditIcon, ImageIcon } from "@/components/view-icons";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
-import { compressImage } from "@/lib/image-compress";
+import type { EditorHandle } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
@@ -62,6 +62,8 @@ export function SectionNote({
   const [draft, setDraft] = useState(section.notes ?? "");
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Filled in while the editor is on screen, so the button can insert at the caret.
+  const editorHandle = useRef<EditorHandle | null>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
@@ -130,16 +132,22 @@ export function SectionNote({
     [section.id],
   );
 
-  async function onImagePick(file: File | null) {
+  /**
+   * The attach-image button, which goes through the editor so the picture lands
+   * at the caret on the same path a pasted one takes. It used to build the
+   * markdown here and append it to the end of the note.
+   */
+  function onImagePick(file: File | null) {
     if (!file) return;
-    try {
-      const { blob, ext } = await compressImage(file);
-      const path = await getContainer().report.uploadImage(section.id, blob, ext);
-      setDraft((prev) => `${prev}\n${reportImageMarkdown(path, file.name)}\n`);
-      setSaveError(null);
-    } catch (err) {
-      setSaveError(formatError(err));
+    const editor = editorHandle.current;
+    // Null only in the moment before the lazily-loaded editor has mounted.
+    // Saying so beats a button that appears to do nothing.
+    if (!editor) {
+      setSaveError("The editor is still loading — try that again in a moment.");
+      return;
     }
+    setSaveError(null);
+    editor.insertFiles([file]);
   }
 
   async function remove() {
@@ -238,7 +246,7 @@ export function SectionNote({
                 accept="image/*"
                 hidden
                 onChange={(e) => {
-                  void onImagePick(e.target.files?.[0] ?? null);
+                  onImagePick(e.target.files?.[0] ?? null);
                   e.target.value = "";
                 }}
               />
@@ -294,6 +302,7 @@ export function SectionNote({
               wikilinkCompletions={wikilinkCompletions}
               citationFormat={citationFormat}
               imagePaste={imagePaste}
+              handleRef={editorHandle}
             />
             <div className="summary-editor-foot">
               {saveError && <span className="error">{saveError}</span>}

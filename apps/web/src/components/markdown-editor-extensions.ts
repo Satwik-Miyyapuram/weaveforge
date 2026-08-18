@@ -18,6 +18,7 @@ import {
 import { createCodeMirrorThemeForSite } from "@/lib/codemirror-theme";
 import { pasteCleanup, pasteCleanupKeymap } from "./markdown-paste-cleanup";
 import { imagePaste, type ImagePasteConfig } from "./markdown-image-paste";
+import { pendingInsertSupport } from "./markdown-pending-insert";
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
@@ -72,8 +73,23 @@ export interface MarkdownEditorExtensionOptions {
   /**
    * How this surface stores a pasted image. Absent means the editor leaves
    * images to the browser, which is right for a screen with nowhere to put one.
+   *
+   * It is also what decides whether a pasted *image URL* can be downloaded: a
+   * picture fetched from the web needs somewhere to be put, exactly like one
+   * off the clipboard, so a screen with no uploader keeps the link.
    */
   imagePaste?: ImagePasteConfig;
+  /**
+   * Whether a pasted address may be looked up — the title read, the picture
+   * behind it downloaded. Defaults to on; which of the two happens is the
+   * reader's setting, not the caller's.
+   *
+   * No surface turns this off today. It is here for one that has no business
+   * reaching the network at all — a demo harness, or a build with no session to
+   * authenticate the request with — so that such a surface has an answer other
+   * than "let the fetch fail".
+   */
+  remotePaste?: boolean;
 }
 
 /**
@@ -135,7 +151,15 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     // dropped on a selection is wrapped in its original spelling and the
     // tracking parameter survives inside the link.
     imagePaste(opts.imagePaste),
-    pasteCleanup({ settings: () => pasteSettings.current }),
+    // Registered here as well as inside `imagePaste`, because a link waiting
+    // for its title needs the same tracking on a screen that accepts no images
+    // at all. CodeMirror deduplicates by identity, so listing it twice costs
+    // nothing.
+    pendingInsertSupport,
+    pasteCleanup({
+      settings: () => pasteSettings.current,
+      remote: opts.remotePaste === false ? undefined : { images: opts.imagePaste },
+    }),
     markdown({
       base: markdownLanguage,
       codeLanguages: languages,
