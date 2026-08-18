@@ -144,6 +144,40 @@ test.describe("text paste", () => {
     expect(await h.doc()).toBe("keep this\nThe long-term exposure was measured.");
   });
 
+  test("a URL pasted over a selection becomes a link, with its tracking gone", async ({ page }) => {
+    // The markdown package offers this too, but it reads the raw clipboard: a
+    // link built by it kept the campaign tag the cleanup had just removed.
+    const h = await open(page);
+    await act(page, `h.setDoc("the paper"); h.focus(); h.pasteOver(4, 9, "https://example.com/p?utm_source=news")`);
+    await settle(page);
+    expect(await h.doc()).toBe("the [paper](https://example.com/p)");
+  });
+
+  test("a bracket in the selected label is escaped", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.setDoc("see [1] here"); h.focus(); h.pasteOver(4, 7, "https://example.com/p")`);
+    await settle(page);
+    expect(await h.doc()).toBe("see [\\[1\\]](https://example.com/p) here");
+  });
+
+  test("a URL pasted with nothing selected stays a plain URL", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.setDoc("x "); h.setCursor(2); h.paste("https://example.com/p?utm_source=n")`);
+    await settle(page);
+    expect(await h.doc()).toBe("x https://example.com/p");
+  });
+
+  test("a spreadsheet paste becomes a Markdown table", async ({ page }) => {
+    const h = await open(page);
+    // Passed as an argument rather than inlined: the tabs and newlines have to
+    // reach the page as data, not as escapes inside a source string.
+    await act(page, `h.paste(arg)`, "model\tval_loss\nbeta-VAE\t0.1826\nResNet-18\t0.340");
+    await settle(page);
+    expect(await h.doc()).toBe(
+      "| model | val_loss |\n| --- | ---: |\n| beta-VAE | 0.1826 |\n| ResNet-18 | 0.340 |",
+    );
+  });
+
   test("typing is never rewritten", async ({ page }) => {
     const h = await open(page);
     await act(page, `h.focus()`);

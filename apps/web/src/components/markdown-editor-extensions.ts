@@ -129,6 +129,13 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     highlightActiveLine(),
     highlightActiveLineGutter(),
     opts.themeCompartment.of(createCodeMirrorThemeForSite()),
+    // Both paste handlers go in front of the markdown package. A clipboard
+    // carrying a bitmap is an image paste, so that one is first; and the text
+    // cleanup has to see the clipboard before `pasteURLAsLink` does, or a URL
+    // dropped on a selection is wrapped in its original spelling and the
+    // tracking parameter survives inside the link.
+    imagePaste(opts.imagePaste),
+    pasteCleanup({ settings: () => pasteSettings.current }),
     markdown({
       base: markdownLanguage,
       codeLanguages: languages,
@@ -137,13 +144,8 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     history(),
     autocompletion({ override: [wikilinkSource, atCiteSource], icons: false }),
     search({ top: true }),
-    // Ahead of the default keymap so the cleanup bindings win, and ahead of
-    // CodeMirror's own paste handling so the rules see the clipboard first.
+    // Ahead of the default keymap so the cleanup bindings win.
     keymap.of(pasteCleanupKeymap({ settings: () => pasteSettings.current })),
-    // Ahead of the text cleanup: a clipboard carrying a bitmap is an image
-    // paste, and the text rules must not run on whatever filename came with it.
-    imagePaste(opts.imagePaste),
-    pasteCleanup({ settings: () => pasteSettings.current }),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     drawSelection(),
     EditorView.lineWrapping,

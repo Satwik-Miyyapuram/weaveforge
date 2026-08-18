@@ -44,6 +44,11 @@ const RULES: { key: RuleKey; label: string; hint: string }[] = [
     hint: "The colour and cursor codes that ride along with copied terminal output.",
   },
   {
+    key: "tabsToTable",
+    label: "Turn a spreadsheet paste into a table",
+    hint: "Tab-separated rows copied from Excel, Numbers, Sheets or an HTML table become a Markdown table, with number columns right-aligned. Tabs only — comma-separated text is indistinguishable from prose.",
+  },
+  {
     key: "trimWhitespace",
     label: "Trim surrounding whitespace",
     hint: "Blank lines and stray spaces around the paste. Blank lines inside it stay.",

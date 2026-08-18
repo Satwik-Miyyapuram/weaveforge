@@ -41,6 +41,28 @@ scripts, are left exactly where they are.
 **Escape sequences are stripped**, so copied terminal output does not arrive
 carrying its colour codes.
 
+**A spreadsheet paste becomes a table.** Copy a block of cells from Excel,
+Numbers, Google Sheets or an HTML table and it arrives as tab-separated rows,
+which Markdown renders as one run-together line:
+
+```
+model     val_loss   accuracy
+beta-VAE  0.1826     0.912
+```
+
+becomes
+
+```
+| model | val_loss | accuracy |
+| --- | ---: | ---: |
+| beta-VAE | 0.1826 | 0.912 |
+```
+
+Columns whose values are all numbers are right-aligned. This is tabs only, never
+commas — a tab-separated block of several lines is unambiguous because prose
+does not contain tabs, while half the sentences in a note would pass for CSV,
+and a rule that turns a paragraph into a table is worse than no rule.
+
 Blank lines and stray spaces around the paste are trimmed. Blank lines *inside*
 it are paragraph breaks you meant, and they stay.
 

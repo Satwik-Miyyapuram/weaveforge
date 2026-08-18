@@ -34,6 +34,14 @@ export interface PasteSettings {
   /** Strip terminal escape sequences from every paste. */
   stripEscapeSequences: boolean;
   /**
+   * Turn a tab-separated paste into a Markdown table.
+   *
+   * On by default, because tab-separated rows pasted into Markdown render as
+   * one run-together line: this is a repair, not a preference. Tabs only —
+   * comma-separated text is indistinguishable from prose.
+   */
+  tabsToTable: boolean;
+  /**
    * Run the PDF repair automatically on a paste that looks like it came from
    * one. Off by default: it is the most opinionated of the rules, and the
    * on-demand command has a preview.
@@ -50,6 +58,7 @@ export const DEFAULT_PASTE_SETTINGS: PasteSettings = {
   straightenQuotes: false,
   straightenDashes: false,
   stripEscapeSequences: true,
+  tabsToTable: true,
   cleanPdfOnPaste: false,
 };
 
@@ -65,6 +74,7 @@ const BOOLEAN_KEYS = [
   "straightenQuotes",
   "straightenDashes",
   "stripEscapeSequences",
+  "tabsToTable",
   "cleanPdfOnPaste",
 ] as const satisfies readonly (keyof PasteSettings)[];
 

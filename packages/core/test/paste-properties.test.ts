@@ -76,6 +76,8 @@ const FRAGMENTS: string[] = [
   '{"name":"Anna", "city":"Berg"}',
   "https://files.example.com/p.pdf?X-Amz-Algorithm=A&X-Amz-Signature=abcd&utm_source=m",
   "\u4E2D\u6587\u6D4B\u8BD5\u7684\u6BB5\u843D",
+  "model\tval_loss\taccuracy\nbeta-VAE\t0.1826\t0.912\nResNet-18\t0.340\t0.887",
+  "| a | b |\n| --- | ---: |\n| x | 1 |",
   "",
   "   ",
 ];
@@ -107,6 +109,7 @@ function settingsMatrix(): PasteSettings[] {
     "straightenQuotes",
     "straightenDashes",
     "stripEscapeSequences",
+    "tabsToTable",
     "cleanPdfOnPaste",
   ] as const;
   const out: PasteSettings[] = [];
@@ -121,7 +124,7 @@ function settingsMatrix(): PasteSettings[] {
 }
 
 const ALL_SETTINGS = settingsMatrix();
-assert.equal(ALL_SETTINGS.length, 128);
+assert.equal(ALL_SETTINGS.length, 256);
 
 /* -------------------------------------------------------------------------- */
 /* Properties                                                                  */

@@ -25,6 +25,7 @@ import {
   trimSurroundingWhitespace,
 } from "./typography.js";
 import { cleanPdfText } from "./pdf-text.js";
+import { tabSeparatedToMarkdownTable } from "./tabular-text.js";
 import { stripControlSequences } from "./control-characters.js";
 import { markdownCodeRanges } from "./markdown-ranges.js";
 import { DEFAULT_PASTE_SETTINGS, type PasteSettings } from "./paste-settings.js";
@@ -69,6 +70,12 @@ export function cleanPastedText(
   if (settings.stripEscapeSequences) text = stripControlSequences(text);
 
   if (settings.normalizeInvisible) text = normalizeInvisibleCharacters(text).text;
+
+  // Before the line-based rules: a spreadsheet's rows are already a structure,
+  // and the wrap repair would try to rejoin them into a paragraph. After the
+  // invisible-character pass, because a cell can carry a no-break space and a
+  // ragged row would then be rejected for the wrong reason.
+  if (settings.tabsToTable) text = tabSeparatedToMarkdownTable(text).text;
 
   if (settings.cleanLinks) {
     const result = cleanUrlsInText(text, buildUrlCleanupOptions(settings.linkRemovals));

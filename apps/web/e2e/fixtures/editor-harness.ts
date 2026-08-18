@@ -112,6 +112,15 @@ function imageFile(name: string, type = "image/png", bytes = 8): File {
       new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
     );
   },
+  /** Paste text with a selection already in place. */
+  pasteOver: (from: number, to: number, text: string) => {
+    view.dispatch({ selection: { anchor: from, head: to } });
+    const data = new DataTransfer();
+    data.setData("text/plain", text);
+    view.contentDOM.dispatchEvent(
+      new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+  },
   dropImages: (names: string[]) => {
     const data = new DataTransfer();
     for (const name of names) data.items.add(imageFile(name));

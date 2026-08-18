@@ -49,6 +49,55 @@ function insertAsOneStep(view: EditorView, text: string): void {
   );
 }
 
+/** One http(s) address and nothing else. */
+const BARE_URL = /^https?:\/\/\S+$/;
+
+/**
+ * Makes a string safe to sit inside a link label. Single-line only; a label
+ * spanning lines is not a label, and such a selection is pasted over normally.
+ */
+function linkLabel(selected: string): string | null {
+  if (!selected || /[\r\n]/.test(selected)) return null;
+  return selected.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+}
+
+/**
+ * Pasting a URL over selected text makes a link of it.
+ *
+ * CodeMirror's markdown package offers this, and it is why this handler is
+ * registered in front of it rather than behind: theirs reads the raw clipboard,
+ * so a link built by it kept the campaign tag the cleanup had just been asked
+ * to remove. Selecting a paper title and pasting the tracked link you copied
+ * from a newsletter is the exact case, and it produced a tracked citation.
+ *
+ * Each selection range gets its own label, so a multiple selection links every
+ * piece rather than the first one.
+ */
+function insertAsLink(view: EditorView, url: string): boolean {
+  // Keyed by start offset because `changeByRange` hands back a range and not
+  // its index, and selection ranges are disjoint so a start is unique.
+  const labels = new Map<number, string>();
+  for (const range of view.state.selection.ranges) {
+    if (range.empty) continue;
+    const label = linkLabel(view.state.sliceDoc(range.from, range.to));
+    if (label !== null) labels.set(range.from, label);
+  }
+  if (labels.size === 0) return false;
+
+  view.dispatch(
+    view.state.changeByRange((range) => {
+      const label = labels.get(range.from);
+      const insert = label === undefined ? url : `[${label}](${url})`;
+      return {
+        changes: { from: range.from, to: range.to, insert },
+        range: EditorSelection.cursor(range.from + insert.length),
+      };
+    }),
+    { userEvent: "input.paste" },
+  );
+  return true;
+}
+
 /**
  * The paste handler.
  *
@@ -72,6 +121,17 @@ function handlePaste(view: EditorView, event: ClipboardEvent, settings: () => Pa
   if (pasteLandsInVerbatimContext(document, view.state.selection.main.from)) return false;
 
   const result = cleanPastedText(raw, current);
+
+  // A cleaned URL dropped onto selected text becomes a link around it. Done
+  // here rather than left to the markdown package, which would wrap the
+  // clipboard's own spelling and put the tracker back.
+  if (BARE_URL.test(result.text)) {
+    if (insertAsLink(view, result.text)) {
+      event.preventDefault();
+      return true;
+    }
+  }
+
   if (!result.changed) return false;
 
   event.preventDefault();
