@@ -41,6 +41,21 @@ scripts, are left exactly where they are.
 **Escape sequences are stripped**, so copied terminal output does not arrive
 carrying its colour codes.
 
+**A pasted DOI or arXiv id becomes a link.** Both have exactly one canonical
+resolver, so this needs no network and makes no guess — and a bare identifier in
+a note is dead text a year later.
+
+```
+See 10.1145/3292500.3330701 and arXiv:1706.03762.
+→ See [10.1145/3292500.3330701](https://doi.org/10.1145/3292500.3330701) and
+  [arXiv:1706.03762](https://arxiv.org/abs/1706.03762).
+```
+
+The label keeps the identifier rather than a title, because that is what
+somebody quoting your note will need to copy back out. An arXiv id is only
+linked with its `arXiv:` prefix — a bare `1706.03762` is a decimal number as
+readily as an identifier. An identifier already inside a link is left alone.
+
 **A spreadsheet paste becomes a table.** Copy a block of cells from Excel,
 Numbers, Google Sheets or an HTML table and it arrives as tab-separated rows,
 which Markdown renders as one run-together line:

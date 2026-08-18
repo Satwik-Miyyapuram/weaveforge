@@ -26,6 +26,7 @@ import {
 } from "./typography.js";
 import { cleanPdfText } from "./pdf-text.js";
 import { tabSeparatedToMarkdownTable } from "./tabular-text.js";
+import { linkScholarlyIdentifiers } from "./scholarly-links.js";
 import { stripControlSequences } from "./control-characters.js";
 import { markdownCodeRanges } from "./markdown-ranges.js";
 import { DEFAULT_PASTE_SETTINGS, type PasteSettings } from "./paste-settings.js";
@@ -90,7 +91,19 @@ export function cleanPastedText(
   // A URL is a name, so neither character rule may reach into one — a curly
   // quote inside a query is part of the value, and an en dash in a slug is part
   // of the path.
-  const urls = httpUrlRanges(text);
+  let urls = httpUrlRanges(text);
+
+  // After the link cleaning and before the character rules: the URL ranges tell
+  // it which identifiers are already inside a link, and the links it writes are
+  // then protected from the dash rule like any other.
+  if (settings.linkIdentifiers) {
+    const linked = linkScholarlyIdentifiers(text, urls);
+    if (linked.count > 0) {
+      text = linked.text;
+      urls = httpUrlRanges(text);
+    }
+  }
+
   if (settings.straightenQuotes) text = straightenQuotes(text, urls).text;
   if (settings.straightenDashes) text = straightenDashes(text, urls).text;
 

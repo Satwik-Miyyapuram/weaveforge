@@ -8,5 +8,6 @@ export * from "./wrapped-text.js";
 export * from "./pdf-text.js";
 export * from "./quote-commas.js";
 export * from "./tabular-text.js";
+export * from "./scholarly-links.js";
 export * from "./paste-settings.js";
 export * from "./clean-pasted-text.js";

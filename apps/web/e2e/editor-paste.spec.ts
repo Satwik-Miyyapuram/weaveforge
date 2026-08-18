@@ -178,6 +178,15 @@ test.describe("text paste", () => {
     );
   });
 
+  test("a pasted DOI becomes a link to its resolver", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.paste(arg)`, "See 10.1145/3292500.3330701 for the method.");
+    await settle(page);
+    expect(await h.doc()).toBe(
+      "See [10.1145/3292500.3330701](https://doi.org/10.1145/3292500.3330701) for the method.",
+    );
+  });
+
   test("typing is never rewritten", async ({ page }) => {
     const h = await open(page);
     await act(page, `h.focus()`);

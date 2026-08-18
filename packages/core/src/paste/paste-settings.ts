@@ -42,6 +42,14 @@ export interface PasteSettings {
    */
   tabsToTable: boolean;
   /**
+   * Turn a bare DOI or arXiv id into a link to its resolver.
+   *
+   * On by default: both have exactly one canonical resolver, so this needs no
+   * network and makes no guess, and a bare identifier in a note is dead text a
+   * year later.
+   */
+  linkIdentifiers: boolean;
+  /**
    * Run the PDF repair automatically on a paste that looks like it came from
    * one. Off by default: it is the most opinionated of the rules, and the
    * on-demand command has a preview.
@@ -59,6 +67,7 @@ export const DEFAULT_PASTE_SETTINGS: PasteSettings = {
   straightenDashes: false,
   stripEscapeSequences: true,
   tabsToTable: true,
+  linkIdentifiers: true,
   cleanPdfOnPaste: false,
 };
 
@@ -75,6 +84,7 @@ const BOOLEAN_KEYS = [
   "straightenDashes",
   "stripEscapeSequences",
   "tabsToTable",
+  "linkIdentifiers",
   "cleanPdfOnPaste",
 ] as const satisfies readonly (keyof PasteSettings)[];
 

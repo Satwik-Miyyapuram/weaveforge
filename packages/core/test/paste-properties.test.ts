@@ -78,6 +78,8 @@ const FRAGMENTS: string[] = [
   "\u4E2D\u6587\u6D4B\u8BD5\u7684\u6BB5\u843D",
   "model\tval_loss\taccuracy\nbeta-VAE\t0.1826\t0.912\nResNet-18\t0.340\t0.887",
   "| a | b |\n| --- | ---: |\n| x | 1 |",
+  "See 10.1145/3292500.3330701 and arXiv:1706.03762 for the method.",
+  "[10.1038/nature12373](https://doi.org/10.1038/nature12373) already linked.",
   "",
   "   ",
 ];
@@ -110,6 +112,7 @@ function settingsMatrix(): PasteSettings[] {
     "straightenDashes",
     "stripEscapeSequences",
     "tabsToTable",
+    "linkIdentifiers",
     "cleanPdfOnPaste",
   ] as const;
   const out: PasteSettings[] = [];
@@ -124,7 +127,7 @@ function settingsMatrix(): PasteSettings[] {
 }
 
 const ALL_SETTINGS = settingsMatrix();
-assert.equal(ALL_SETTINGS.length, 256);
+assert.equal(ALL_SETTINGS.length, 512);
 
 /* -------------------------------------------------------------------------- */
 /* Properties                                                                  */
@@ -232,20 +235,23 @@ test("no word is ever lost", () => {
       // Ligatures are expanded on both sides, so the one rule that turns a
       // single glyph into two letters cannot register as either a gain or a
       // loss whether or not it happened to run under these settings.
-      const before = words(expandLigatures(text));
-      const after = words(expandLigatures(result.text));
-      assert.ok(
-        after.join("").length <= before.join("").length,
-        `seed ${seed}: output grew letters from nowhere under ${JSON.stringify(settings)}`,
-      );
-      if (!settings.cleanLinks) {
-        // With the link rule off nothing may drop a letter at all: every other
-        // rule works on whitespace, punctuation or invisible characters.
-        assert.equal(
-          after.join(""),
-          before.join(""),
-          `seed ${seed}: letters changed with the link rule off`,
+      const before = words(expandLigatures(text)).join("");
+      const after = words(expandLigatures(result.text)).join("");
+
+      // Only one rule writes letters that were not pasted: the resolver host in
+      // a link built around a DOI or an arXiv id. With it off, nothing may.
+      if (!settings.linkIdentifiers) {
+        assert.ok(
+          after.length <= before.length,
+          `seed ${seed}: output grew letters from nowhere under ${JSON.stringify(settings)}`,
         );
+      }
+
+      // And with the link rule off as well, the letters are exactly the ones
+      // that were pasted: every remaining rule works on whitespace, punctuation
+      // or invisible characters, and the table rule only moves cells about.
+      if (!settings.linkIdentifiers && !settings.cleanLinks) {
+        assert.equal(after, before, `seed ${seed}: letters changed with both link rules off`);
       }
     }
   }
@@ -261,6 +267,8 @@ test("with only the link rule on, nothing outside a URL changes", () => {
     straightenQuotes: false,
     straightenDashes: false,
     stripEscapeSequences: false,
+    tabsToTable: false,
+    linkIdentifiers: false,
     cleanPdfOnPaste: false,
   };
   const options = buildUrlCleanupOptions();
@@ -284,9 +292,13 @@ test("the master switch is the identity", () => {
 test("output never grows by more than the escapes it is allowed to add", () => {
   for (const { seed, text } of CORPUS) {
     for (const settings of ALL_SETTINGS) {
+      // Two rules build structure — a table's pipes, a link around an
+      // identifier — and are excluded here rather than modelled, because a
+      // bound loose enough to cover them would not catch anything.
+      if (settings.tabsToTable || settings.linkIdentifiers) continue;
       const result = cleanPastedText(text, settings);
-      // The only rule that lengthens anything is the backslash a converted
-      // leading dash needs so it does not become a list item: one per line.
+      // What is left can only lengthen by the backslash a converted leading
+      // dash needs so it does not become a list item: one per line.
       const lineCount = text.split("\n").length;
       assert.ok(
         result.text.length <= text.length + lineCount,

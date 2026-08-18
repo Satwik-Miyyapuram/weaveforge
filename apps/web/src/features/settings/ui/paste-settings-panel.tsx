@@ -44,6 +44,11 @@ const RULES: { key: RuleKey; label: string; hint: string }[] = [
     hint: "The colour and cursor codes that ride along with copied terminal output.",
   },
   {
+    key: "linkIdentifiers",
+    label: "Link a pasted DOI or arXiv id",
+    hint: "A bare 10.1145/… becomes a link to doi.org, and arXiv:1706.03762 a link to the abstract. No network and no guess — both have one canonical resolver.",
+  },
+  {
     key: "tabsToTable",
     label: "Turn a spreadsheet paste into a table",
     hint: "Tab-separated rows copied from Excel, Numbers, Sheets or an HTML table become a Markdown table, with number columns right-aligned. Tabs only — comma-separated text is indistinguishable from prose.",
