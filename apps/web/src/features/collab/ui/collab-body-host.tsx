@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Compartment, type Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
+import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
 import {
   markdownEditorExtensions,
   toCompletions,
@@ -94,6 +95,7 @@ export function CollabBodyHost({
   citationFormatRef.current = markdownEditing?.citationFormat ?? "wikilink";
   const editableCompartment = useRef(new Compartment());
   const themeCompartment = useRef(new Compartment());
+  const pasteSettingsRef = usePasteSettingsRef();
   const placeholder = markdownEditing?.placeholder;
 
   const markdownExtensions = useMemo(
@@ -105,6 +107,7 @@ export function CollabBodyHost({
             citationFormatRef,
             editableCompartment: editableCompartment.current,
             themeCompartment: themeCompartment.current,
+            pasteSettingsRef,
           })
         : null,
     // `placeholder` is read once, when the stack is built; a later change to it

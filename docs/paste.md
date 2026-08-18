@@ -1,0 +1,152 @@
+# Paste
+
+Text arrives in a note from somewhere else — a PDF column, a terminal window, a
+newsletter, a chat assistant — and each of those sources leaves its own damage
+behind. WeaveForge repairs it on the way in, so the note holds the words and not
+the wrapping.
+
+Every rule has a switch, under **Settings → Paste**. The switches live in your
+browser, next to your theme, so a shared machine and your own laptop can answer
+differently.
+
+## What runs on every paste
+
+Three rules are on by default. Each is a repair with no stylistic opinion in it —
+nothing that changes how *you* set your text.
+
+**Tracking is stripped from links.** Campaign tags and click identifiers go;
+everything that addresses content stays.
+
+```
+https://www.theverge.com/2026/1/9/story?utm_source=newsletter&fbclid=IwAR2x9
+→ https://www.theverge.com/2026/1/9/story
+
+https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLxAbC123&si=8f2a1c&t=42
+→ https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLxAbC123&t=42
+```
+
+A DOI, an arXiv link and a Semantic Scholar query come through untouched, and so
+does a signed download URL — removing a parameter from one of those invalidates
+its signature, and the failure only shows up as a 403 when somebody clicks the
+link months later.
+
+Browsers also append a scroll-to-text fragment when you copy a link to
+highlighted text. `#results:~:text=the%20finding` becomes `#results`.
+
+**Invisible characters are removed.** Zero-width spaces and bidirectional
+overrides go; non-breaking spaces become ordinary ones. The joiners that hold
+emoji together, and that hold letters together in Arabic, Persian and the Indic
+scripts, are left exactly where they are.
+
+**Escape sequences are stripped**, so copied terminal output does not arrive
+carrying its colour codes.
+
+Blank lines and stray spaces around the paste are trimmed. Blank lines *inside*
+it are paragraph breaks you meant, and they stay.
+
+## What you can turn on
+
+**Straighten quotes** turns `“don’t”` into `"don't"`, and **straighten dashes**
+turns en and em dashes into hyphens. Both are off by default: a thesis that uses
+en dashes on purpose should not have them quietly taken away. Turn them on if
+you would rather your notes were plain ASCII all the way to the LaTeX export.
+
+**Repair PDF text automatically** runs the repair below on any paste that looks
+like it came from a PDF. Off by default — it is the most opinionated rule, and
+the command is the deliberate way to reach it.
+
+## What never gets touched
+
+- **Code.** Fenced blocks, indented blocks and inline backtick spans pass
+  through exactly as pasted, and a paste that *lands inside* one is left alone
+  entirely — there, the text is being shown rather than written.
+- **Maths.** `$\alpha - \beta$` is subtraction and `$x'$` is a prime. Both
+  survive the dash and quote rules.
+- **Links and citations.** A `[[wikilink]]` target, a Markdown destination, a
+  `\cite{}` key and a `[@pandoc-key]` are names, not prose.
+- **Frontmatter.** The values are data the app reads back.
+
+One `Ctrl+Z` takes a whole paste back out. To get the clipboard in untouched in
+the first place, use `Ctrl/Cmd + Shift + V`.
+
+## Commands
+
+In any note editor, on the selection — or on the whole note when nothing is
+selected.
+
+| Command | Keys |
+|---|---|
+| Clean up selection | `Ctrl/Cmd + Alt + C` |
+| Clean up terminal output | `Ctrl/Cmd + Alt + T` |
+| Clean up PDF text | `Ctrl/Cmd + Alt + P` |
+| Paste without cleaning | `Ctrl/Cmd + Shift + V` |
+
+### Terminal output
+
+A terminal breaks every long line at its window edge, and nothing in the result
+says which of those breaks you meant. Select the pasted output and the lines go
+back together:
+
+```
+npm warn deprecated inflight@1.0.6: This module is not supported and leaks memory. Do
+  not use it. Check out lru-cache instead.
+```
+
+becomes one line. Bullets such as `•` become Markdown list items, and the shared
+indentation goes with them.
+
+This is a command rather than an automatic rule because only you know the short
+lines in front of you came from a terminal rather than from a person who meant
+them. The wrap column itself is worked out from the text — it depends on how
+wide a window happened to be when you pressed copy, which is not a number anyone
+can be asked for.
+
+### PDF text
+
+The one that matters most here. A quotation lifted from a two-column paper
+arrives wrapped at the typesetter's column, with words split by hyphens the
+typesetter added and `fi` and `ffl` as single glyphs:
+
+```
+The findings suggest that long-term expo-
+sure has a measurable effect on the out-
+come in both groups.
+```
+
+becomes
+
+```
+The findings suggest that long-term exposure has a measurable effect on the outcome in both groups.
+```
+
+Ligatures become real letters, so a search for "financial" finds the word again.
+A hyphen is only removed when the word resumes in lower case: `Navier-`/`Stokes`
+stays `Navier-Stokes`, and `10-`/`20` stays `10-20`. Keeping a hyphen that should
+have gone is a smaller error than fusing two words that were never one, and far
+easier to spot.
+
+**Highlights get this for free.** *Copy quote + cite* in the reader, and
+*Insert excerpt* in a report section, both run the repair — a highlight's text is
+the PDF's text layer, so it has exactly these problems, every time.
+
+## Link rules
+
+Under **Settings → Paste**, on top of the built-in list. One rule per line, with
+a live tester so you can see a real link before and after.
+
+```
+fbclid                      remove that parameter on every site
+site.example | source, ref  remove those two on that site and its subdomains
+google.*                    match the site on every top-level domain
+!youtube.com                switch the built-in rules off for one site
+```
+
+A line starting `#` is a comment.
+
+## Privacy
+
+Nothing here makes a network request. Every rule is a function of the text on
+your clipboard and your settings, computed in your browser as the paste happens.
+Fetching the title behind a pasted link, and downloading a pasted image into the
+workspace, would both need a request out to a third-party site; neither is
+implemented, and if either is added it will say so here.

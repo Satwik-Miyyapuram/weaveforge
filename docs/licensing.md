@@ -50,6 +50,23 @@ AGPL-3.0 can absorb permissively licensed components. Apache-2.0, MIT, and BSD d
 
 Components under licences incompatible with AGPL-3.0 may not be included. When in doubt, do not vendor it.
 
+## Prior art
+
+The paste cleanup in `packages/core/src/paste/` was designed after studying
+[Better Paste](https://github.com/johansan/better-paste) by Johan Sanneblad, an
+Obsidian plugin under GPL-3.0-or-later. The behaviours it defines are good ones
+and several are reproduced here: stripping tracking parameters, mending words a
+PDF hyphenated at a line end, rejoining terminal wrapping, and normalising the
+typography that arrives with assistant text.
+
+No code was copied. The implementation here is written against this codebase's
+own concerns — LaTeX maths, `\cite{}` keys and wikilinks are protected ranges,
+and the PDF repair is wired into reader highlights rather than into a paste
+handler alone — and it carries its own tests. That keeps the question of licence
+compatibility from arising at all; had code been vendored, GPL-3.0 section 13
+does permit combining with an AGPL-3.0 work, but not copying is simpler and
+leaves nothing to argue about.
+
 ## History
 
 The project was licensed Apache-2.0 from its first commit (2026-06-24) until 2026-07-25, during which time the repository was private and was never distributed to anyone. It was relicensed to AGPL-3.0-only before going public, by the sole copyright holder. No third-party contributions required relicensing consent — the one commit carrying another git identity (`c8781a4`) was the maintainer's own work committed on borrowed hardware, as recorded in [`CONTRIBUTORS.md`](../CONTRIBUTORS.md).

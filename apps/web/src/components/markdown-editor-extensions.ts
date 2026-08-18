@@ -16,10 +16,12 @@ import {
   placeholder as cmPlaceholder,
 } from "@codemirror/view";
 import { createCodeMirrorThemeForSite } from "@/lib/codemirror-theme";
+import { pasteCleanup, pasteCleanupKeymap } from "./markdown-paste-cleanup";
+import { readPasteSettings } from "@/lib/paste-cleanup-preference";
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import { formatPaperCitation } from "@/features/overleaf/application/build-overleaf-export";
-import type { Paper } from "@weaveforge/core";
+import type { Paper, PasteSettings } from "@weaveforge/core";
 
 /** Characters that may precede `@` for cite autocomplete (not email local-parts). */
 const AT_BOUNDARY = /[^A-Za-z0-9._%+-]/;
@@ -61,6 +63,11 @@ export interface MarkdownEditorExtensionOptions {
   citationFormatRef: { current: EditorCitationFormat };
   editableCompartment: Compartment;
   themeCompartment: Compartment;
+  /**
+   * Paste rules, read the same way: through a ref, so turning a rule on in
+   * settings reaches every editor already on screen.
+   */
+  pasteSettingsRef?: { current: PasteSettings };
 }
 
 /**
@@ -109,6 +116,8 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     return { from: before.from, options, filter: false };
   };
 
+  const pasteSettings = opts.pasteSettingsRef ?? { current: readPasteSettings() };
+
   const extensions: Extension[] = [
     lineNumbers(),
     highlightActiveLine(),
@@ -122,6 +131,10 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     history(),
     autocompletion({ override: [wikilinkSource, atCiteSource], icons: false }),
     search({ top: true }),
+    // Ahead of the default keymap so the cleanup bindings win, and ahead of
+    // CodeMirror's own paste handling so the rules see the clipboard first.
+    keymap.of(pasteCleanupKeymap({ settings: () => pasteSettings.current })),
+    pasteCleanup({ settings: () => pasteSettings.current }),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     drawSelection(),
     EditorView.lineWrapping,

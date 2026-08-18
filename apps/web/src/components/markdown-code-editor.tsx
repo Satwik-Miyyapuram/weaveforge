@@ -6,6 +6,7 @@ import { EditorView } from "@codemirror/view";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
+import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
 import { markdownEditorExtensions, toCompletions } from "./markdown-editor-extensions";
 
 /**
@@ -46,6 +47,7 @@ export function MarkdownCodeEditor({
   citationFormatRef.current = citationFormat;
   const editableCompartment = useRef(new Compartment());
   const themeCompartment = useRef(new Compartment());
+  const pasteSettingsRef = usePasteSettingsRef();
 
   useEffect(() => {
     const host = hostRef.current;
@@ -65,6 +67,7 @@ export function MarkdownCodeEditor({
         citationFormatRef,
         editableCompartment: editableCompartment.current,
         themeCompartment: themeCompartment.current,
+        pasteSettingsRef,
       }),
       updateListener,
     ];
