@@ -6,17 +6,13 @@ import {
   type PaperStatus,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-import {
-  attachEncryptedRow,
-  encryptedRowFields,
-  encryptedListRowFields,
-} from "@/lib/encrypted-row";
 import type { EntityStamp } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 import {
   type PaperRow,
   emptyToNull,
   toRow,
+  toDomain,
 } from "@/features/papers/infrastructure/paper-rows";
 
 // List cards need small filter/display fields only (plaintext under RLS).
@@ -184,30 +180,4 @@ export class PostgresPaperRepository implements IPaperRepository {
   }
 }
 
-function toDomain(row: PaperRow): Paper {
-  return attachEncryptedRow(
-    {
-      id: row.id,
-      title: row.title,
-      authors: row.authors ?? [],
-      year: row.year ?? undefined,
-      venue: row.venue ?? undefined,
-      doi: row.doi ?? undefined,
-      arxivId: row.arxiv_id ?? undefined,
-      url: row.url ?? undefined,
-      pdfPath: row.pdf_path ?? undefined,
-      abstract: row.abstract ?? undefined,
-      summary: row.summary ?? undefined,
-      status: row.status,
-      rating: row.rating ?? undefined,
-      readAt: row.read_at ?? undefined,
-      bibtex: row.bibtex ?? undefined,
-      tags: row.tags ?? [],
-      metadata: row.metadata ?? {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    },
-    row,
-  );
-}
 

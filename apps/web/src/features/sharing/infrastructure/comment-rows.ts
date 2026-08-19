@@ -6,8 +6,7 @@ import type {
  * How comment rows are stored, and how they map to the domain type.
  *
  * Shared by both backend providers, which talk to the same table through
- * different clients. The Supabase repository layers the encrypted-row columns
- * on top of this; Postgres does not have them.
+ * different clients.
  */
 
 export interface CommentRow {

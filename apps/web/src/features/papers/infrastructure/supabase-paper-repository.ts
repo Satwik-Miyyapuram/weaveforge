@@ -9,14 +9,10 @@ import {
 import type { EntityStamp } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import {
-  attachEncryptedRow,
-  encryptedRowFields,
-  encryptedListRowFields,
-} from "@/lib/encrypted-row";
-import {
   type PaperRow,
   emptyToNull,
   toRow,
+  toDomain,
 } from "./paper-rows";
 
 /**
@@ -168,27 +164,4 @@ export class SupabasePaperRepository implements IPaperRepository {
   }
 }
 
-function toDomain(row: PaperRow): Paper {
-  return {
-      id: row.id,
-      title: row.title,
-      authors: row.authors ?? [],
-      year: row.year ?? undefined,
-      venue: row.venue ?? undefined,
-      doi: row.doi ?? undefined,
-      arxivId: row.arxiv_id ?? undefined,
-      url: row.url ?? undefined,
-      pdfPath: row.pdf_path ?? undefined,
-      abstract: row.abstract ?? undefined,
-      summary: row.summary ?? undefined,
-      status: row.status,
-      rating: row.rating ?? undefined,
-      readAt: row.read_at ?? undefined,
-      bibtex: row.bibtex ?? undefined,
-      tags: row.tags ?? [],
-      metadata: row.metadata ?? {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-  };
-}
 

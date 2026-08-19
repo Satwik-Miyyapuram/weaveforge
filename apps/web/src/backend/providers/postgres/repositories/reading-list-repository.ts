@@ -10,10 +10,6 @@ import {
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
 import {
-  attachEncryptedRow,
-  encryptedRowFields,
-} from "@/lib/encrypted-row";
-import {
   type ReadingListRow,
   type ReadingListItemRow,
   toListDomain,

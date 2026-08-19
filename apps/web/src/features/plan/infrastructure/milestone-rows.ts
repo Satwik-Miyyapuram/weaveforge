@@ -15,8 +15,7 @@ import type {
  * the domain type marks required, the other did not. Nothing behavioural, but
  * the next divergence would not have been.
  *
- * The provider-specific parts stay with their providers: Supabase layers the
- * encrypted-row columns on top of this, and Postgres does not have them.
+ * What stays with a provider is the SQL or the query builder, and nothing else.
  */
 export interface MilestoneRow {
   id: string;

@@ -1,5 +1,4 @@
 import { normalizeDoi, type Paper, type PaperStatus } from "@weaveforge/core";
-import { encryptedRowFields, encryptedListRowFields } from "@/lib/encrypted-row";
 
 /**
  * How paper rows are stored, and how they map to the domain type.
@@ -61,7 +60,29 @@ export function toRow(p: Paper): Record<string, unknown> {
     updated_at: p.updatedAt,
     doi_bidx: null,
     arxiv_bidx: null,
-    ...encryptedRowFields(p),
-    ...encryptedListRowFields(p),
+  };
+}
+
+export function toDomain(row: PaperRow): Paper {
+  return {
+    id: row.id,
+    title: row.title,
+    authors: row.authors ?? [],
+    year: row.year ?? undefined,
+    venue: row.venue ?? undefined,
+    doi: row.doi ?? undefined,
+    arxivId: row.arxiv_id ?? undefined,
+    url: row.url ?? undefined,
+    pdfPath: row.pdf_path ?? undefined,
+    abstract: row.abstract ?? undefined,
+    summary: row.summary ?? undefined,
+    status: row.status,
+    rating: row.rating ?? undefined,
+    readAt: row.read_at ?? undefined,
+    bibtex: row.bibtex ?? undefined,
+    tags: row.tags ?? [],
+    metadata: row.metadata ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }

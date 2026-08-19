@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
 
 interface Option {
   value: string;
@@ -33,13 +34,7 @@ export function MultiSelect({
   const ref = useRef<HTMLDivElement>(null);
   const set = new Set(values);
 
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
+  useDismissOnOutside(open, () => setOpen(false), ref);
 
   function toggle(v: string) {
     const next = new Set(set);

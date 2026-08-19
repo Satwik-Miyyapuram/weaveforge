@@ -20,6 +20,7 @@ import {
   type ThemeMode,
 } from "@/lib/theme";
 import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
+import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
 import css from "./pitch.module.css";
 
 /**
@@ -1251,19 +1252,7 @@ function ThemePalette() {
     setIds(readStoredThemeIds());
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!boxRef.current?.contains(e.target as globalThis.Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismissOnOutside(open, () => setOpen(false), boxRef);
 
   const choose = useCallback((nextMode: ThemeMode, id: string) => {
     setMode(nextMode);

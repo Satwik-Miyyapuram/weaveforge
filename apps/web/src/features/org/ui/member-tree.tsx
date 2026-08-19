@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
 import { ROLE_LABELS, ROLE_RANK, memberRoleLabel, type Member } from "@weaveforge/core";
 
 /** A member plus the people who report (transitively) to them. */
@@ -219,21 +220,7 @@ export function MemberTreeSelect({ members, selectedId, onSelect, meId, placehol
   const forest = useMemo(() => buildMemberForest(members), [members]);
   const selected = members.find((m) => m.id === selectedId) ?? null;
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismissOnOutside(open, () => setOpen(false), ref);
 
   return (
     <div className="member-tree-select" ref={ref}>

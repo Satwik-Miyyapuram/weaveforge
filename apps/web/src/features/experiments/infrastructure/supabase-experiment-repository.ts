@@ -6,17 +6,8 @@ import type {
   IExperimentRepository,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-import {
-  attachEncryptedRow,
-  encryptedRowFields,
-} from "@/lib/encrypted-row";
-import { experimentToDomain, experimentToRow, type ExperimentRow as StoredExperimentRow } from "./experiment-rows";
+import { experimentToDomain, experimentToRow, type ExperimentRow } from "./experiment-rows";
 
-/** The stored row plus the columns only this provider carries. */
-interface ExperimentRow extends StoredExperimentRow {
-  content_enc: string | null;
-  enc_epoch: number | null;
-}
 const TABLE = "experiments";
 
 export class SupabaseExperimentRepository implements IExperimentRepository {
@@ -29,7 +20,7 @@ export class SupabaseExperimentRepository implements IExperimentRepository {
   async getById(id: string): Promise<Experiment | null> {
     const { data, error } = await this.db.from(TABLE).select("*").eq("id", id).maybeSingle();
     if (error) throw error;
-    return data ? toDomain(data as ExperimentRow) : null;
+    return data ? experimentToDomain(data as ExperimentRow) : null;
   }
   async list(filter?: ExperimentFilter): Promise<Experiment[]> {
     let q = this.db.from(TABLE).select("*");
@@ -42,10 +33,10 @@ export class SupabaseExperimentRepository implements IExperimentRepository {
     q = q.order("created_at", { ascending: false });
     const { data, error } = await q;
     if (error) throw error;
-    return (data as ExperimentRow[]).map(toDomain);
+    return (data as ExperimentRow[]).map(experimentToDomain);
   }
   async save(entity: Experiment): Promise<void> {
-    const row = toRow(entity);
+    const row = experimentToRow(entity);
     if (this.pid) row.project_id = this.pid;
     const { error } = await this.db.from(TABLE).upsert(row);
     if (error) throw error;
@@ -56,9 +47,3 @@ export class SupabaseExperimentRepository implements IExperimentRepository {
   }
 }
 
-function toDomain(r: ExperimentRow): Experiment {
-  return attachEncryptedRow(experimentToDomain(r), r);
-}
-function toRow(e: Experiment): Record<string, unknown> {
-  return { ...experimentToRow(e), ...encryptedRowFields(e) };
-}

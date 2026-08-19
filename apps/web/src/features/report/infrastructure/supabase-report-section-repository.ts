@@ -8,11 +8,7 @@ import {
   type ReportStatus,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-import {
-  attachEncryptedRow,
-  encryptedRowFields,
-} from "@/lib/encrypted-row";
-import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow as StoredReportSectionRow } from "./report-section-rows";
+import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow } from "./report-section-rows";
 
 /**
  * Supabase implementation of IReportSectionRepository.
@@ -22,11 +18,6 @@ import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow as Sto
  * identical to the in-memory implementation. Must pass the same contract suite.
  */
 
-/** The stored row plus the columns only this provider carries. */
-interface ReportSectionRow extends StoredReportSectionRow {
-  content_enc: string | null;
-  enc_epoch: number | null;
-}
 
 const TABLE = "report_sections";
 
@@ -46,7 +37,7 @@ export class SupabaseReportSectionRepository
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
-    return data ? toDomain(data as ReportSectionRow) : null;
+    return data ? reportSectionToDomain(data as ReportSectionRow) : null;
   }
 
   async list(filter?: ReportSectionFilter): Promise<ReportSection[]> {
@@ -67,7 +58,7 @@ export class SupabaseReportSectionRepository
       .order("section_no", { ascending: true });
     const { data, error } = await query;
     if (error) throw error;
-    return (data as ReportSectionRow[]).map(toDomain);
+    return (data as ReportSectionRow[]).map(reportSectionToDomain);
   }
 
   async getTree(): Promise<ReportSectionTreeNode[]> {
@@ -75,11 +66,11 @@ export class SupabaseReportSectionRepository
     if (this.pid) q = q.eq("project_id", this.pid);
     const { data, error } = await q;
     if (error) throw error;
-    return buildSectionTree((data as ReportSectionRow[]).map(toDomain));
+    return buildSectionTree((data as ReportSectionRow[]).map(reportSectionToDomain));
   }
 
   async save(entity: ReportSection): Promise<void> {
-    const row = toRow(entity);
+    const row = reportSectionToRow(entity);
     if (this.pid) row.project_id = this.pid;
     const { error } = await this.db.from(TABLE).upsert(row);
     if (error) throw error;
@@ -91,10 +82,3 @@ export class SupabaseReportSectionRepository
   }
 }
 
-function toDomain(row: ReportSectionRow): ReportSection {
-  return attachEncryptedRow(reportSectionToDomain(row), row);
-}
-
-function toRow(s: ReportSection): Record<string, unknown> {
-  return { ...reportSectionToRow(s), ...encryptedRowFields(s) };
-}

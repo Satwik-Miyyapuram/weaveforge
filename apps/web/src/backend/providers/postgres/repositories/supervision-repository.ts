@@ -10,11 +10,13 @@ import type {
 } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
 import {
-  type MilestoneRow,
-  type LogEntryRow,
   milestoneToDomain,
-  logToDomain,
-} from "@/features/org/infrastructure/supervision-rows";
+  type MilestoneRow,
+} from "@/features/plan/infrastructure/milestone-rows";
+import {
+  logEntryToDomain as logToDomain,
+  type LogEntryRow,
+} from "@/features/logbook/infrastructure/log-entry-rows";
 
 export class PostgresSupervisionRepository implements ISupervisionRepository {
   constructor(private readonly pg: PgRunner) {}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useId, useState, useRef, useEffect } from "react";
+import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
 import { createPortal } from "react-dom";
 
 interface MenuRect {
@@ -130,19 +131,16 @@ export function Select({
     });
   }, [searchable]);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      if (containerRef.current?.contains(target)) return;
-      // The menu is portalled out of the container, so a click inside it would
-      // otherwise read as "outside" and close before the option registers.
-      if (listRef.current?.contains(target)) return;
+  // Both refs: the menu is portalled out of the container, so a click inside it
+  // would otherwise read as "outside" and close before the option registers.
+  useDismissOnOutside(
+    open,
+    () => {
       setOpen(false);
       setQuery("");
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    },
+    [containerRef, listRef],
+  );
 
   /**
    * Nudge the menu back on screen after it renders.

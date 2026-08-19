@@ -1,17 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IMilestoneRepository, Milestone, MilestoneFilter } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-import {
-  attachEncryptedRow,
-  encryptedRowFields,
-} from "@/lib/encrypted-row";
-import { milestoneToDomain, milestoneToRow, type MilestoneRow as StoredMilestone } from "./milestone-rows";
+import { milestoneToDomain, milestoneToRow, type MilestoneRow } from "./milestone-rows";
 
-/** The stored row plus the columns only this provider carries. */
-interface MilestoneRow extends StoredMilestone {
-  content_enc: string | null;
-  enc_epoch: number | null;
-}
 const TABLE = "milestones";
 
 export class SupabaseMilestoneRepository implements IMilestoneRepository {
@@ -24,7 +15,7 @@ export class SupabaseMilestoneRepository implements IMilestoneRepository {
   async getById(id: string): Promise<Milestone | null> {
     const { data, error } = await this.db.from(TABLE).select("*").eq("id", id).maybeSingle();
     if (error) throw error;
-    return data ? toDomain(data as MilestoneRow) : null;
+    return data ? milestoneToDomain(data as MilestoneRow) : null;
   }
   async list(filter?: MilestoneFilter): Promise<Milestone[]> {
     if (!this.pid) return [];
@@ -38,10 +29,10 @@ export class SupabaseMilestoneRepository implements IMilestoneRepository {
     q = q.order("target_date", { ascending: true, nullsFirst: false });
     const { data, error } = await q;
     if (error) throw error;
-    return (data as MilestoneRow[]).map(toDomain);
+    return (data as MilestoneRow[]).map(milestoneToDomain);
   }
   async save(entity: Milestone): Promise<void> {
-    const row = toRow(entity);
+    const row = milestoneToRow(entity);
     if (this.pid) row.project_id = this.pid;
     const { error } = await this.db.from(TABLE).upsert(row);
     if (error) throw error;
@@ -52,9 +43,3 @@ export class SupabaseMilestoneRepository implements IMilestoneRepository {
   }
 }
 
-function toDomain(r: MilestoneRow): Milestone {
-  return attachEncryptedRow(milestoneToDomain(r), r);
-}
-function toRow(m: Milestone): Record<string, unknown> {
-  return { ...milestoneToRow(m), ...encryptedRowFields(m) };
-}

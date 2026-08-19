@@ -10,11 +10,13 @@ import type {
   MilestoneStatus,
 } from "@weaveforge/core";
 import {
-  type MilestoneRow,
-  type LogEntryRow,
   milestoneToDomain,
-  logToDomain,
-} from "./supervision-rows";
+  type MilestoneRow,
+} from "@/features/plan/infrastructure/milestone-rows";
+import {
+  logEntryToDomain as logToDomain,
+  type LogEntryRow,
+} from "@/features/logbook/infrastructure/log-entry-rows";
 
 /**
  * Reads a supervisee's milestones and log entries by owner user id, across all

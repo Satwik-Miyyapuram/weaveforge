@@ -1,5 +1,4 @@
 import type { ReadingList, ReadingListItem } from "@weaveforge/core";
-import { attachEncryptedRow, encryptedRowFields } from "@/lib/encrypted-row";
 /**
  * How reading list rows are stored, and how they map to the domain type.
  *
@@ -16,8 +15,6 @@ export interface ReadingListRow {
   sort_order: number;
   color: string | null;
   created_at: string;
-  content_enc: string | null;
-  enc_epoch: number | null;
 }
 
 export interface ReadingListItemRow {
@@ -28,23 +25,18 @@ export interface ReadingListItemRow {
   sort_order: number;
   note: string | null;
   inherited_from_list_id: string | null;
-  content_enc: string | null;
-  enc_epoch: number | null;
 }
 
 export function toListDomain(row: ReadingListRow): ReadingList {
-  return attachEncryptedRow(
-    {
-      id: row.id,
-      name: row.name,
-      description: row.description ?? undefined,
-      parentId: row.parent_id ?? undefined,
-      sortOrder: row.sort_order,
-      color: row.color ?? undefined,
-      createdAt: row.created_at,
-    },
-    row,
-  );
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    parentId: row.parent_id ?? undefined,
+    sortOrder: row.sort_order,
+    color: row.color ?? undefined,
+    createdAt: row.created_at,
+  };
 }
 
 export function toListRow(l: ReadingList): Record<string, unknown> {
@@ -56,23 +48,19 @@ export function toListRow(l: ReadingList): Record<string, unknown> {
     sort_order: l.sortOrder,
     color: l.color ?? null,
     created_at: l.createdAt,
-    ...encryptedRowFields(l),
   };
 }
 
 export function toItemDomain(row: ReadingListItemRow): ReadingListItem {
-  return attachEncryptedRow(
-    {
-      id: row.id,
-      listId: row.list_id,
-      paperId: row.paper_id ?? undefined,
-      vaultPageId: row.vault_page_id ?? undefined,
-      sortOrder: row.sort_order,
-      note: row.note ?? undefined,
-      inheritedFromListId: row.inherited_from_list_id ?? undefined,
-    },
-    row,
-  );
+  return {
+    id: row.id,
+    listId: row.list_id,
+    paperId: row.paper_id ?? undefined,
+    vaultPageId: row.vault_page_id ?? undefined,
+    sortOrder: row.sort_order,
+    note: row.note ?? undefined,
+    inheritedFromListId: row.inherited_from_list_id ?? undefined,
+  };
 }
 
 export function toItemRow(i: ReadingListItem): Record<string, unknown> {
@@ -83,7 +71,6 @@ export function toItemRow(i: ReadingListItem): Record<string, unknown> {
     vault_page_id: i.vaultPageId ?? null,
     sort_order: i.sortOrder,
     note: i.note ?? null,
-    ...encryptedRowFields(i),
   };
   if (i.inheritedFromListId) row.inherited_from_list_id = i.inheritedFromListId;
   return row;
