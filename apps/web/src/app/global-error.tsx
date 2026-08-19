@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  clearThesisWebStorage,
-  resetClientRuntimeCaches,
-} from "@/lib/client-runtime-recovery";
+import { resetAppData } from "@/lib/client-runtime-recovery";
 
 /** Root error boundary — shown when the layout itself crashes (TWA cold start). */
 export default function GlobalError({
@@ -46,13 +43,7 @@ export default function GlobalError({
             </button>
             <button
               type="button"
-              onClick={() => {
-                void (async () => {
-                  await resetClientRuntimeCaches();
-                  clearThesisWebStorage();
-                  window.location.replace("/");
-                })();
-              }}
+              onClick={resetAppData}
             >
               Reset app data
             </button>

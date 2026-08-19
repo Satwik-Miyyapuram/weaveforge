@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  clearThesisWebStorage,
-  resetClientRuntimeCaches,
-} from "@/lib/client-runtime-recovery";
+import { resetAppData } from "@/lib/client-runtime-recovery";
 
 /**
  * Route error UI — replaces Next’s opaque “Application error” page when a
@@ -51,13 +48,7 @@ export default function Error({
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => {
-            void (async () => {
-              await resetClientRuntimeCaches();
-              clearThesisWebStorage();
-              window.location.replace("/");
-            })();
-          }}
+          onClick={resetAppData}
         >
           Reset app data
         </button>
