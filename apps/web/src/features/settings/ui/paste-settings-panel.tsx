@@ -237,9 +237,11 @@ export function PasteSettingsPanel() {
       <h3 className="settings-group">Images</h3>
       <p className="muted jump-to-meta">
         Copy an image and paste it into a note: it uploads and the link appears where the
-        caret was. Dragging one in works the same way, and so does the attach-image button
-        in the note toolbar. Screenshots are downscaled and re-encoded; animated GIFs are
-        stored as they came, so the animation survives.
+        caret was. Dragging one in works the same way — from your files, or straight out
+        of another tab — and so does the attach-image button in the note toolbar.
+        Screenshots are downscaled and re-encoded; animated GIFs are stored as they came,
+        so the animation survives. When a copy carries both text and a picture of it, as
+        Word and Excel do, the text is what gets pasted.
       </p>
 
       <h3 className="settings-group">Commands</h3>

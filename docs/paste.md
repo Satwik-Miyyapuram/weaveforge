@@ -114,6 +114,26 @@ you dropped it. The **attach-image button** in the note toolbar takes the same
 path — it used to append to the end of the note, and now inserts at the caret
 like everything else.
 
+Every way a picture can arrive works:
+
+- **A screenshot on the clipboard.** Print Screen, the Snipping Tool, `Cmd
+  +Shift+4`, a browser's "copy image" — anything that puts a bitmap there.
+- **A file dragged in** from Explorer or Finder, one or several at a time. A
+  file whose type Windows does not recognise is judged by its extension rather
+  than dropped on the floor.
+- **A picture dragged from another tab**, a mail client or a document. What
+  crosses is the address rather than the file, so it is downloaded and stored
+  the same way — see "Looking things up" below.
+
+One case deliberately does *not* insert a picture. Several Windows applications
+— Word, Excel, Outlook — put a **rendered image of the selection** on the
+clipboard next to the text. Taking the picture there would mean pasting a
+screenshot of the spreadsheet instead of the spreadsheet, with no way to ask for
+the rows, so **text wins whenever the clipboard carries any**. Nothing is lost by
+it: a screenshot and a "copy image" carry no text at all, and a site that puts
+the picture's address there has the address pasted, which downloads the same
+picture by the other route.
+
 Nothing blocks while the upload runs. A dimmed `![Uploading diagram…]()`
 placeholder holds the spot and is swapped for the real link when the upload
 lands, so you can keep typing — including in front of it and behind it. Paste
@@ -156,6 +176,12 @@ downloaded and stored in your workspace exactly as a pasted bitmap would be. A
 dimmed `![Downloading loss curve…]()` holds the spot; if the download fails, the
 link you pasted goes back and the note says why. This one needs a screen that
 can store images — in a place that cannot, the address stays an address.
+
+The same rule covers **dragging a picture in from another tab**, a mail client
+or a document, because that hands over an address rather than a file. Only
+`http(s)` addresses that end in an image extension are fetched, and only from a
+drag that carried a real link — dragging a selection *within* the note is still
+CodeMirror moving your text, not a download.
 
 Both use the same guard, described under Privacy. Titles are read from at most
 512 KB of a page and capped at 300 characters; images are capped at 12 MB, must

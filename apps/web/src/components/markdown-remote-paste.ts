@@ -130,7 +130,15 @@ function fetchTitle(view: EditorView, url: string, from: number, to: number): vo
     });
 }
 
-/** Inserts a placeholder and downloads, for a picture that arrived without a paste. */
+/**
+ * Inserts a placeholder and downloads, for a picture that arrived without a
+ * paste — dragged in from another tab, a mail client or a document, where what
+ * crosses is the address rather than the file.
+ *
+ * A failure leaves the address, exactly as the paste path does: it is still
+ * where the picture lives, and a drop that ends in nothing at all looks like
+ * the editor ignored it.
+ */
 export function insertRemoteImage(view: EditorView, url: string, images: ImagePasteConfig): void {
   const name = nameFromUrl(url);
   const id = insertPending(view, `![Downloading ${imageAltFromFilename(name)}…]()`);
@@ -139,7 +147,7 @@ export function insertRemoteImage(view: EditorView, url: string, images: ImagePa
     .then((result) => images.upload(new File([result.blob], name, { type: result.blob.type })))
     .then((markdown) => resolvePending(view, id, markdown))
     .catch((error: unknown) => {
-      resolvePending(view, id, "");
+      resolvePending(view, id, url);
       images.onError?.(describe(error));
     });
 }

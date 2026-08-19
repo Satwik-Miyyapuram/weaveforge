@@ -129,6 +129,17 @@ function imageFile(name: string, type = "image/png", bytes = 8): File {
   return new File([new Uint8Array(bytes)], name, { type });
 }
 
+/** A drag carrying whatever data types the caller names. */
+function dragEvent(kind: string, data: DataTransfer, at: { x: number; y: number }) {
+  return new DragEvent(kind, {
+    dataTransfer: data,
+    bubbles: true,
+    cancelable: true,
+    clientX: at.x,
+    clientY: at.y,
+  });
+}
+
 (window as any).editorHarness = {
   errors: [] as string[],
   doc: () => view.state.doc.toString(),
@@ -198,19 +209,30 @@ function imageFile(name: string, type = "image/png", bytes = 8): File {
       new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
     );
   },
-  dropImages: (names: string[]) => {
+  dropImages: (names: string[], opts: { type?: string } = {}) => {
     const data = new DataTransfer();
-    for (const name of names) data.items.add(imageFile(name));
+    for (const name of names) data.items.add(imageFile(name, opts.type));
     const rect = view.contentDOM.getBoundingClientRect();
-    view.contentDOM.dispatchEvent(
-      new DragEvent("drop", {
-        dataTransfer: data,
-        bubbles: true,
-        cancelable: true,
-        clientX: rect.left + 5,
-        clientY: rect.top + 5,
-      }),
-    );
+    view.contentDOM.dispatchEvent(dragEvent("drop", data, { x: rect.left + 5, y: rect.top + 5 }));
+  },
+  /**
+   * A drag that carries no file, only where the picture lives — what dragging
+   * an image out of another tab or a mail client actually delivers.
+   */
+  dropUrl: (types: Record<string, string>) => {
+    const data = new DataTransfer();
+    for (const [type, value] of Object.entries(types)) data.setData(type, value);
+    const rect = view.contentDOM.getBoundingClientRect();
+    view.contentDOM.dispatchEvent(dragEvent("drop", data, { x: rect.left + 5, y: rect.top + 5 }));
+  },
+  /** Whether the editor would accept a drag of these types, rather than let the browser have it. */
+  dragAccepted: (types: Record<string, string>) => {
+    const data = new DataTransfer();
+    for (const [type, value] of Object.entries(types)) data.setData(type, value);
+    const rect = view.contentDOM.getBoundingClientRect();
+    const event = dragEvent("dragover", data, { x: rect.left + 5, y: rect.top + 5 });
+    view.contentDOM.dispatchEvent(event);
+    return event.defaultPrevented;
   },
   type: (text: string) => {
     const at = view.state.selection.main;

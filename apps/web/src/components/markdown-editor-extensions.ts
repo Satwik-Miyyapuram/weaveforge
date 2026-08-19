@@ -150,7 +150,12 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     // cleanup has to see the clipboard before `pasteURLAsLink` does, or a URL
     // dropped on a selection is wrapped in its original spelling and the
     // tracking parameter survives inside the link.
-    imagePaste(opts.imagePaste),
+    imagePaste(opts.imagePaste, {
+      remoteImages:
+        opts.remotePaste === false
+          ? undefined
+          : () => pasteSettings.current.cleanOnPaste && pasteSettings.current.downloadPastedImages,
+    }),
     // Registered here as well as inside `imagePaste`, because a link waiting
     // for its title needs the same tracking on a screen that accepts no images
     // at all. CodeMirror deduplicates by identity, so listing it twice costs

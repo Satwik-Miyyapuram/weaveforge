@@ -304,11 +304,43 @@ test.describe("image paste", () => {
     expect((await h.errors())[0]).toMatch(/over the 1 MB limit/);
   });
 
-  test("an image on the clipboard wins over the text beside it", async ({ page }) => {
+  test("a screenshot pastes as a picture", async ({ page }) => {
+    // Nothing but a bitmap on the clipboard: Print Screen, the Snipping Tool,
+    // a browser's "copy image".
+    const h = await open(page, "instant");
+    await act(page, `h.pasteImages(["fig.png"])`);
+    await settle(page, 120);
+    expect(await h.doc()).toBe("![fig](vault:u/p/fig.png)");
+  });
+
+  test("text on the clipboard wins over the bitmap beside it", async ({ page }) => {
+    // Windows applications put a rendered picture of the selection on the
+    // clipboard next to the text. Taking the picture means pasting a screenshot
+    // of the spreadsheet instead of the spreadsheet, with no way to ask for the
+    // text — so text wins whenever there is any.
     const h = await open(page, "instant");
     await act(page, `h.pasteImages(["fig.png"], { text: "some text that came along" })`);
     await settle(page, 120);
-    expect(await h.doc()).toBe("![fig](vault:u/p/fig.png)");
+    expect(await h.doc()).toBe("some text that came along");
+    expect(await h.uploadCount()).toBe(0);
+  });
+
+  test("a spreadsheet copied with its picture still becomes a table", async ({ page }) => {
+    // The case the rule above is really for: Excel offers both, and the rows
+    // are what was copied.
+    const h = await open(page, "instant");
+    await act(page, `h.pasteImages(["fig.png"], { text: arg })`, "a\tb\n1\t2");
+    await settle(page, 120);
+    expect(await h.doc()).toBe("| a | b |\n| ---: | ---: |\n| 1 | 2 |");
+  });
+
+  test("a file with no type is judged by its name", async ({ page }) => {
+    // Windows reports no type for an extension nothing on that machine has
+    // claimed. Dropping such a file used to do nothing at all.
+    const h = await open(page, "instant");
+    await act(page, `h.dropImages(["holiday.heic"], { type: "" })`);
+    await settle(page, 120);
+    expect(await h.doc()).toMatch(/^!\[holiday\]\(vault:u\/p\/holiday\.heic\)/);
   });
 
   test("a non-image file and an SVG are both left alone", async ({ page }) => {
@@ -556,5 +588,87 @@ test.describe("several carets", () => {
     // The second insertion shifted the first; the title still lands on the
     // caret it was started for.
     expect(await h.doc()).toBe("ahttps://x.example/p\nb[A Page](https://x.example/p)");
+  });
+});
+
+/**
+ * Dragging a picture in from somewhere that is not the filesystem.
+ *
+ * Another browser tab, a mail client, a document: what crosses is where the
+ * picture lives, not the picture. Without this the drop lands as a bare URL —
+ * the exact link that stops working when the other site is reorganised.
+ */
+test.describe("dragged image addresses", () => {
+  test("a picture dragged from another tab is downloaded and stored", async ({ page }) => {
+    const h = await open(page, "instant");
+    await act(page, `h.dropUrl({ "text/uri-list": "https://a.example/figures/loss-curve.png" })`);
+    await settle(page);
+    expect(await h.doc()).toBe("![Downloading loss curve…]()");
+    expect(await h.lookups()).toEqual(["image https://a.example/figures/loss-curve.png"]);
+
+    await act(page, `h.finishImage(0)`);
+    await settle(page, 120);
+    expect(await h.doc()).toBe("![loss-curve](vault:u/p/loss-curve.png)");
+  });
+
+  test("the address is read out of dragged HTML when there is no uri-list", async ({ page }) => {
+    const h = await open(page);
+    await act(
+      page,
+      `h.dropUrl({ "text/html": '<img src="https://a.example/fig.png" alt="x">' })`,
+    );
+    await settle(page);
+    expect(await h.lookups()).toEqual(["image https://a.example/fig.png"]);
+  });
+
+  test("a failed download leaves the address rather than nothing", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.dropUrl({ "text/uri-list": "https://a.example/fig.png" })`);
+    await settle(page);
+    await act(page, `h.failRemote(0, "That image could not be downloaded.")`);
+    await settle(page, 100);
+    // A drop that ends in nothing looks like the editor ignored it.
+    expect(await h.doc()).toBe("https://a.example/fig.png");
+    expect(await h.errors()).toEqual(["That image could not be downloaded."]);
+  });
+
+  test("a dragged address that is not a picture is left to the editor", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.dropUrl({ "text/uri-list": "https://a.example/article" })`);
+    await settle(page, 80);
+    expect(await h.lookups()).toEqual([]);
+  });
+
+  test("a data: address is never fetched", async ({ page }) => {
+    const h = await open(page);
+    await act(page, `h.dropUrl({ "text/uri-list": "data:image/png;base64,AAAA.png" })`);
+    await settle(page, 80);
+    expect(await h.lookups()).toEqual([]);
+  });
+
+  test("with the rule off a dragged address is left to the editor", async ({ page }) => {
+    const h = await open(page);
+    await act(
+      page,
+      `h.settings({ downloadPastedImages: false }); h.dropUrl({ "text/uri-list": "https://a.example/fig.png" })`,
+    );
+    await settle(page, 80);
+    expect(await h.lookups()).toEqual([]);
+  });
+
+  test("the drag is accepted so the browser does not navigate away", async ({ page }) => {
+    // Without preventDefault on dragover the drop is the browser's, and it
+    // leaves the note for the dropped address.
+    const h = await open(page);
+    expect(await act(page, `return h.dragAccepted({ "text/uri-list": "https://a.example/fig.png" })`)).toBe(true);
+  });
+
+  test("dragging text within the note is still a move, not a download", async ({ page }) => {
+    // CodeMirror's own drag-to-move sets text/plain and nothing else. Reading
+    // that as a drop target would turn moving an image URL into a download.
+    const h = await open(page);
+    await act(page, `h.dropUrl({ "text/plain": "https://a.example/fig.png" })`);
+    await settle(page, 80);
+    expect(await h.lookups()).toEqual([]);
   });
 });
