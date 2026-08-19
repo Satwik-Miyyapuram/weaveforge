@@ -8,17 +8,12 @@ import {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "@/backend/providers/postgres/pg-runner";
-
-interface VaultPageRow {
-  id: string;
-  title: string;
-  body?: string | null;
-  body_preview?: string | null;
-  parent_id: string | null;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
+import {
+  type VaultPageRow,
+  toDomain,
+  toSummaryDomain,
+  toRow,
+} from "@/features/vault/infrastructure/vault-page-rows";
 
 /** Prefer generated column when migrated; otherwise compute left(body) inline. */
 const VAULT_SUMMARY_COLUMNS =
@@ -144,39 +139,3 @@ export class PostgresVaultPageRepository implements IVaultPageRepository {
   }
 }
 
-function toDomain(row: VaultPageRow): VaultPage {
-  return {
-    id: row.id,
-    title: row.title,
-    body: row.body ?? "",
-    parentId: row.parent_id ?? undefined,
-    sortOrder: row.sort_order,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function toSummaryDomain(row: VaultPageRow): VaultPage {
-  return {
-    id: row.id,
-    title: row.title,
-    body: "",
-    bodyPreview: row.body_preview ?? "",
-    parentId: row.parent_id ?? undefined,
-    sortOrder: row.sort_order,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function toRow(p: VaultPage): Record<string, unknown> {
-  return {
-    id: p.id,
-    title: p.title,
-    body: p.body ?? "",
-    parent_id: p.parentId ?? null,
-    sort_order: p.sortOrder,
-    created_at: p.createdAt,
-    updated_at: p.updatedAt,
-  };
-}

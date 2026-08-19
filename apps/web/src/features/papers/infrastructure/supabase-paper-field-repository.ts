@@ -9,21 +9,14 @@ import type {
   SetPaperFieldValueInput,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-
-interface DefRow {
-  id: string;
-  name: string;
-  kind: string;
-  options: unknown;
-  sort_order: number;
-}
-
-interface ValueRow {
-  id: string;
-  paper_id: string;
-  field_id: string;
-  value: unknown;
-}
+import {
+  type DefRow,
+  type ValueRow,
+  toDef,
+  toValue,
+  asStringArray,
+  asValueData,
+} from "./paper-field-rows";
 
 const DEFS = "paper_field_defs";
 const VALUES = "paper_field_values";
@@ -134,32 +127,3 @@ export class SupabasePaperFieldRepository implements IPaperFieldRepository {
   }
 }
 
-function toDef(row: DefRow): PaperFieldDef {
-  return {
-    id: row.id,
-    name: row.name,
-    kind: row.kind as PaperFieldKind,
-    options: asStringArray(row.options),
-    sortOrder: row.sort_order,
-  };
-}
-
-function toValue(row: ValueRow): PaperFieldValue {
-  return {
-    id: row.id,
-    paperId: row.paper_id,
-    fieldId: row.field_id,
-    value: asValueData(row.value),
-  };
-}
-
-function asStringArray(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === "string");
-}
-
-function asValueData(raw: unknown): PaperFieldValueData {
-  if (typeof raw === "string" || typeof raw === "number") return raw;
-  if (Array.isArray(raw) && raw.every((x) => typeof x === "string")) return raw;
-  throw new Error("Invalid paper field value payload.");
-}

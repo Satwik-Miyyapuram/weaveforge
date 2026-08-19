@@ -4,14 +4,9 @@ import {
   type Integration,
   type SyncProvider,
 } from "../domain/integration";
-
-interface IntegrationRow {
-  provider: SyncProvider;
-  enabled: boolean;
-  token: string | null;
-  repo: string | null;
-  branch: string | null;
-}
+import {
+  type IntegrationRow,
+} from "./integrations-rows";
 
 /** Reads/writes `project_integrations` per (project, provider). */
 export class SupabaseIntegrationsStore {

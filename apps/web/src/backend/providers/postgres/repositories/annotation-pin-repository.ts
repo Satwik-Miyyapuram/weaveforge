@@ -6,14 +6,10 @@ import type {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
-
-interface AnnotationPinRow {
-  id: string;
-  paper_id: string;
-  annotation_key: string;
-  report_section_id: string;
-  created_at: string;
-}
+import {
+  type AnnotationPinRow,
+  toDomain,
+} from "@/features/papers/infrastructure/annotation-pin-rows";
 
 export class PostgresAnnotationPinRepository implements IAnnotationPinRepository {
   constructor(
@@ -77,12 +73,3 @@ export class PostgresAnnotationPinRepository implements IAnnotationPinRepository
   }
 }
 
-function toDomain(row: AnnotationPinRow): AnnotationPin {
-  return {
-    id: row.id,
-    paperId: row.paper_id,
-    annotationKey: row.annotation_key,
-    reportSectionId: row.report_section_id,
-    createdAt: row.created_at,
-  };
-}

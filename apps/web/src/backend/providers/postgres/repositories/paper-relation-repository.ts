@@ -6,16 +6,11 @@ import type {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
-
-interface PaperRelationRow {
-  id: string;
-  from_paper: string;
-  to_paper: string;
-  relation: RelationType;
-  note: string | null;
-  source: "manual" | "auto";
-  created_at: string;
-}
+import {
+  type PaperRelationRow,
+  toDomain,
+  toRow,
+} from "@/features/relations/infrastructure/paper-relation-rows";
 
 export class PostgresPaperRelationRepository implements IPaperRelationRepository {
   constructor(
@@ -122,26 +117,3 @@ export class PostgresPaperRelationRepository implements IPaperRelationRepository
   }
 }
 
-function toDomain(row: PaperRelationRow): PaperRelation {
-  return {
-    id: row.id,
-    fromPaper: row.from_paper,
-    toPaper: row.to_paper,
-    relation: row.relation,
-    note: row.note ?? undefined,
-    source: row.source,
-    createdAt: row.created_at,
-  };
-}
-
-function toRow(r: PaperRelation): Record<string, unknown> {
-  return {
-    id: r.id,
-    from_paper: r.fromPaper,
-    to_paper: r.toPaper,
-    relation: r.relation,
-    note: r.note ?? null,
-    source: r.source,
-    created_at: r.createdAt,
-  };
-}

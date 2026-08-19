@@ -1,27 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  ComputeNeed,
-  IMilestoneRepository,
-  Milestone,
-  MilestoneDependency,
-  MilestoneFilter,
-  MilestoneStatus,
-} from "@weaveforge/core";
+import type { IMilestoneRepository, Milestone, MilestoneFilter } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import {
   attachEncryptedRow,
   encryptedRowFields,
 } from "@/lib/encrypted-row";
+import { milestoneToDomain, milestoneToRow, type MilestoneRow as StoredMilestone } from "./milestone-rows";
 
-interface MilestoneRow {
-  id: string;
-  title: string;
-  description: string | null;
-  status: MilestoneStatus;
-  target_date: string | null;
-  dependencies: MilestoneDependency[] | null;
-  compute: ComputeNeed[] | null;
-  created_at: string;
+/** The stored row plus the columns only this provider carries. */
+interface MilestoneRow extends StoredMilestone {
   content_enc: string | null;
   enc_epoch: number | null;
 }
@@ -66,30 +53,8 @@ export class SupabaseMilestoneRepository implements IMilestoneRepository {
 }
 
 function toDomain(r: MilestoneRow): Milestone {
-  return attachEncryptedRow(
-    {
-      id: r.id,
-      title: r.title,
-      description: r.description ?? undefined,
-      status: r.status,
-      targetDate: r.target_date ?? undefined,
-      dependencies: r.dependencies ?? [],
-      compute: r.compute ?? [],
-      createdAt: r.created_at,
-    },
-    r,
-  );
+  return attachEncryptedRow(milestoneToDomain(r), r);
 }
 function toRow(m: Milestone): Record<string, unknown> {
-  return {
-    id: m.id,
-    title: m.title ?? "",
-    description: m.description ?? null,
-    status: m.status,
-    target_date: m.targetDate ?? null,
-    dependencies: m.dependencies ?? [],
-    compute: m.compute ?? [],
-    created_at: m.createdAt,
-    ...encryptedRowFields(m),
-  };
+  return { ...milestoneToRow(m), ...encryptedRowFields(m) };
 }

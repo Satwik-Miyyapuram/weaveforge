@@ -1,24 +1,11 @@
-import type {
-  ComputeNeed,
-  IMilestoneRepository,
-  Milestone,
-  MilestoneDependency,
-  MilestoneFilter,
-  MilestoneStatus,
-} from "@weaveforge/core";
+import type { IMilestoneRepository, Milestone, MilestoneFilter } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
+import {
+  milestoneToDomain as toDomain,
+  milestoneToRow as toRow,
+  type MilestoneRow,
+} from "@/features/plan/infrastructure/milestone-rows";
 import type { PgRunner } from "../pg-runner";
-
-interface MilestoneRow {
-  id: string;
-  title: string;
-  description: string | null;
-  status: MilestoneStatus;
-  target_date: string | null;
-  dependencies: MilestoneDependency[] | null;
-  compute: ComputeNeed[] | null;
-  created_at: string;
-}
 
 export class PostgresMilestoneRepository implements IMilestoneRepository {
   constructor(
@@ -73,30 +60,4 @@ export class PostgresMilestoneRepository implements IMilestoneRepository {
   async delete(id: string): Promise<void> {
     await this.pg.exec("delete from milestones where id = $1", [id]);
   }
-}
-
-function toDomain(r: MilestoneRow): Milestone {
-  return {
-    id: r.id,
-    title: r.title,
-    description: r.description ?? undefined,
-    status: r.status,
-    targetDate: r.target_date ?? undefined,
-    dependencies: r.dependencies ?? [],
-    compute: r.compute ?? [],
-    createdAt: r.created_at,
-  };
-}
-
-function toRow(m: Milestone): Record<string, unknown> {
-  return {
-    id: m.id,
-    title: m.title,
-    description: m.description ?? null,
-    status: m.status,
-    target_date: m.targetDate ?? null,
-    dependencies: m.dependencies,
-    compute: m.compute,
-    created_at: m.createdAt,
-  };
 }

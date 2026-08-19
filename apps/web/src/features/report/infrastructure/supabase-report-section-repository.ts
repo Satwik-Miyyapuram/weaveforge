@@ -12,6 +12,7 @@ import {
   attachEncryptedRow,
   encryptedRowFields,
 } from "@/lib/encrypted-row";
+import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow as StoredReportSectionRow } from "./report-section-rows";
 
 /**
  * Supabase implementation of IReportSectionRepository.
@@ -21,19 +22,8 @@ import {
  * identical to the in-memory implementation. Must pass the same contract suite.
  */
 
-interface ReportSectionRow {
-  id: string;
-  title: string;
-  section_no: string | null;
-  parent_id: string | null;
-  status: ReportStatus;
-  word_count: number;
-  target_words: number | null;
-  deadline: string | null;
-  draft_url: string | null;
-  notes: string | null;
-  sort_order: number;
-  created_at: string;
+/** The stored row plus the columns only this provider carries. */
+interface ReportSectionRow extends StoredReportSectionRow {
   content_enc: string | null;
   enc_epoch: number | null;
 }
@@ -102,39 +92,9 @@ export class SupabaseReportSectionRepository
 }
 
 function toDomain(row: ReportSectionRow): ReportSection {
-  return attachEncryptedRow(
-    {
-      id: row.id,
-      title: row.title,
-      sectionNo: row.section_no ?? undefined,
-      parentId: row.parent_id ?? undefined,
-      status: row.status,
-      wordCount: row.word_count,
-      targetWords: row.target_words ?? undefined,
-      deadline: row.deadline ?? undefined,
-      draftUrl: row.draft_url ?? undefined,
-      notes: row.notes ?? undefined,
-      sortOrder: row.sort_order,
-      createdAt: row.created_at,
-    },
-    row,
-  );
+  return attachEncryptedRow(reportSectionToDomain(row), row);
 }
 
 function toRow(s: ReportSection): Record<string, unknown> {
-  return {
-    id: s.id,
-    title: s.title ?? "",
-    section_no: s.sectionNo ?? null,
-    parent_id: s.parentId ?? null,
-    status: s.status,
-    word_count: s.wordCount,
-    target_words: s.targetWords ?? null,
-    deadline: s.deadline ?? null,
-    draft_url: s.draftUrl ?? null,
-    notes: s.notes ?? null,
-    sort_order: s.sortOrder,
-    created_at: s.createdAt,
-    ...encryptedRowFields(s),
-  };
+  return { ...reportSectionToRow(s), ...encryptedRowFields(s) };
 }

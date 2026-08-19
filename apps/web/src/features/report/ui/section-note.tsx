@@ -6,9 +6,10 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
 import { editorImageUpload } from "@/lib/editor-image-upload";
-import { DeleteIcon, EditIcon, ImageIcon } from "@/components/view-icons";
+import { DeleteIcon, EditIcon } from "@/components/view-icons";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import type { EditorHandle } from "@/components/editor-handle";
+import { AttachImageButton } from "@/components/attach-image-button";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
@@ -61,7 +62,6 @@ export function SectionNote({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(section.notes ?? "");
   const [saveError, setSaveError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   // Filled in while the editor is on screen, so the button can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
@@ -131,24 +131,6 @@ export function SectionNote({
       }),
     [section.id],
   );
-
-  /**
-   * The attach-image button, which goes through the editor so the picture lands
-   * at the caret on the same path a pasted one takes. It used to build the
-   * markdown here and append it to the end of the note.
-   */
-  function onImagePick(file: File | null) {
-    if (!file) return;
-    const editor = editorHandle.current;
-    // Null only in the moment before the lazily-loaded editor has mounted.
-    // Saying so beats a button that appears to do nothing.
-    if (!editor) {
-      setSaveError("The editor is still loading — try that again in a moment.");
-      return;
-    }
-    setSaveError(null);
-    editor.insertFiles([file]);
-  }
 
   async function remove() {
     if (!confirm(`Delete "${section.title}"?`)) return;
@@ -229,27 +211,8 @@ export function SectionNote({
                 </button>
               )}
               {editing && (
-                <button
-                  type="button"
-                  className="entity-icon-btn"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={busy}
-                  aria-label="Add image"
-                  title="Image"
-                >
-                  <ImageIcon />
-                </button>
+                <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
               )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  onImagePick(e.target.files?.[0] ?? null);
-                  e.target.value = "";
-                }}
-              />
               <CommentsToggle resourceType="report_section" resourceId={section.id} canComment variant="detail" />
             </>
           )}

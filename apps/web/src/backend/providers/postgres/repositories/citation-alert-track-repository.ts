@@ -6,14 +6,10 @@ import type {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
-
-interface TrackRow {
-  id: string;
-  paper_id: string;
-  tracked_at: string;
-  last_checked_at: string | null;
-  seen_citing_ids: string[] | null;
-}
+import {
+  type TrackRow,
+  toDomain,
+} from "@/features/relations/infrastructure/citation-alert-track-rows";
 
 export class PostgresCitationAlertTrackRepository implements ICitationAlertTrackRepository {
   constructor(
@@ -99,12 +95,3 @@ export class PostgresCitationAlertTrackRepository implements ICitationAlertTrack
   }
 }
 
-function toDomain(row: TrackRow): CitationAlertTrack {
-  return {
-    id: row.id,
-    paperId: row.paper_id,
-    trackedAt: row.tracked_at,
-    lastCheckedAt: row.last_checked_at ?? undefined,
-    seenCitingIds: row.seen_citing_ids ?? [],
-  };
-}

@@ -7,16 +7,10 @@ import type {
   PublishLabSnapshotInput,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-
-interface LabSnapshotRow {
-  id: string;
-  project_id: string;
-  title: string;
-  note: string | null;
-  content: LabSnapshotContent;
-  published_at: string;
-  created_at: string;
-}
+import {
+  type LabSnapshotRow,
+  toDomain,
+} from "./lab-snapshot-rows";
 
 const TABLE = "lab_snapshots";
 
@@ -85,14 +79,3 @@ export class SupabaseLabSnapshotRepository implements ILabSnapshotRepository {
   }
 }
 
-function toDomain(row: LabSnapshotRow): LabSnapshot {
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    title: row.title,
-    note: row.note ?? undefined,
-    content: row.content ?? { milestones: [], logs: [] },
-    publishedAt: row.published_at,
-    createdAt: row.created_at,
-  };
-}

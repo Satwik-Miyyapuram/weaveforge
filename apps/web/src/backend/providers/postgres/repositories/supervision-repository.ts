@@ -9,26 +9,12 @@ import type {
   MilestoneStatus,
 } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
-
-interface MilestoneRow {
-  id: string;
-  title: string;
-  description: string | null;
-  status: MilestoneStatus;
-  target_date: string | null;
-  dependencies: MilestoneDependency[] | null;
-  compute: ComputeNeed[] | null;
-  created_at: string;
-}
-
-interface LogEntryRow {
-  id: string;
-  entry_date: string;
-  kind: LogKind;
-  body: string;
-  links: LogLink[] | null;
-  created_at: string;
-}
+import {
+  type MilestoneRow,
+  type LogEntryRow,
+  milestoneToDomain,
+  logToDomain,
+} from "@/features/org/infrastructure/supervision-rows";
 
 export class PostgresSupervisionRepository implements ISupervisionRepository {
   constructor(private readonly pg: PgRunner) {}
@@ -81,26 +67,3 @@ function groupByOwner<Row extends { user_id: string }, T>(
   return byOwner;
 }
 
-function milestoneToDomain(r: MilestoneRow): Milestone {
-  return {
-    id: r.id,
-    title: r.title,
-    description: r.description ?? undefined,
-    status: r.status,
-    targetDate: r.target_date ?? undefined,
-    dependencies: r.dependencies ?? [],
-    compute: r.compute ?? [],
-    createdAt: r.created_at,
-  };
-}
-
-function logToDomain(r: LogEntryRow): LogEntry {
-  return {
-    id: r.id,
-    entryDate: r.entry_date,
-    kind: r.kind,
-    body: r.body,
-    links: r.links ?? [],
-    createdAt: r.created_at,
-  };
-}

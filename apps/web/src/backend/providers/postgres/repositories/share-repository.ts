@@ -6,16 +6,10 @@ import type {
   ShareableType,
 } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
-
-interface ShareRow {
-  id: string;
-  owner_id: string;
-  recipient_id: string;
-  resource_type: ShareableType;
-  resource_id: string | null;
-  access: "view" | "comment";
-  created_at: string;
-}
+import {
+  type ShareRow,
+  toDomain,
+} from "@/features/sharing/infrastructure/share-rows";
 
 export class PostgresShareRepository implements IShareRepository {
   constructor(
@@ -84,14 +78,3 @@ export class PostgresShareRepository implements IShareRepository {
   }
 }
 
-function toDomain(r: ShareRow): Share {
-  return {
-    id: r.id,
-    ownerId: r.owner_id,
-    recipientId: r.recipient_id,
-    resourceType: r.resource_type,
-    resourceId: r.resource_id,
-    access: r.access,
-    createdAt: r.created_at,
-  };
-}

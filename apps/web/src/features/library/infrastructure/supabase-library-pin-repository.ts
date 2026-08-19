@@ -7,16 +7,10 @@ import type {
   ShareableType,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-
-interface PinRow {
-  id: string;
-  user_id: string;
-  project_id: string;
-  resource_type: ShareableType;
-  resource_id: string;
-  owner_id: string;
-  created_at: string;
-}
+import {
+  type PinRow,
+  toDomain,
+} from "./library-pin-rows";
 
 const TABLE = "library_pins";
 
@@ -89,14 +83,3 @@ export class SupabaseLibraryPinRepository implements ILibraryPinRepository {
   }
 }
 
-function toDomain(row: PinRow): LibraryPin {
-  return {
-    id: row.id,
-    userId: row.user_id,
-    projectId: row.project_id,
-    resourceType: row.resource_type,
-    resourceId: row.resource_id,
-    ownerId: row.owner_id,
-    createdAt: row.created_at,
-  };
-}

@@ -1,12 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider, IProjectRepository, Project } from "@weaveforge/core";
+import {
+  type ProjectRow,
+  toDomain,
+} from "./project-rows";
 
-interface ProjectRow {
-  id: string;
-  name: string;
-  color: string | null;
-  created_at: string;
-}
 const TABLE = "projects";
 
 export class SupabaseProjectRepository implements IProjectRepository {
@@ -40,7 +38,4 @@ export class SupabaseProjectRepository implements IProjectRepository {
     const { error } = await this.db.from(TABLE).delete().eq("id", id);
     if (error) throw error;
   }
-}
-function toDomain(r: ProjectRow): Project {
-  return { id: r.id, name: r.name, color: r.color ?? undefined, createdAt: r.created_at };
 }

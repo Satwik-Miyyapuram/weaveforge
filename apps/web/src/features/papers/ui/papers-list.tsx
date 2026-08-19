@@ -18,7 +18,6 @@ import {
   DeleteIcon,
   EditIcon,
   FilterIcon,
-  ImageIcon,
   ListViewIcon,
   OpenIcon,
 } from "@/components/view-icons";
@@ -35,6 +34,7 @@ import { PaperMarkdown } from "./paper-markdown";
 import { paperImageMarkdown, materializePaperBlobImages } from "../lib/paper-images-md";
 import { removeHashtagFromBody, reconcileTagsFromBody } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
+import { AttachImageButton } from "@/components/attach-image-button";
 import { Select } from "@/components/select";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
 import { editorImageUpload } from "@/lib/editor-image-upload";
@@ -898,7 +898,6 @@ function PaperNote({
   const [trackingCitations, setTrackingCitations] = useState<boolean | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [editingIds, setEditingIds] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
   // Filled in while the editor is on screen, so the button can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
@@ -962,24 +961,6 @@ function PaperNote({
       }),
     [paper.id],
   );
-
-  /**
-   * The attach-image button, which goes through the editor so the picture lands
-   * at the caret on the same path a pasted one takes. It used to build the
-   * markdown here and append it to the end of the note.
-   */
-  function onImagePick(file: File | null) {
-    if (!file) return;
-    const editor = editorHandle.current;
-    // Null only in the moment before the lazily-loaded editor has mounted.
-    // Saying so beats a button that appears to do nothing.
-    if (!editor) {
-      setSaveError("The editor is still loading — try that again in a moment.");
-      return;
-    }
-    setSaveError(null);
-    editor.insertFiles([file]);
-  }
 
   /** Explicit re-render of the source-note template — never silent on load (C1). */
   function reRenderTemplate() {
@@ -1126,28 +1107,8 @@ function PaperNote({
                 </button>
               )}
               {editing && (
-                <button
-                  type="button"
-                  className="entity-icon-btn"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={busy}
-                  aria-label="Add image"
-                  title="Image"
-                >
-                  <ImageIcon />
-                </button>
+                <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
               )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  onImagePick(e.target.files?.[0] ?? null);
-                  // Cleared so choosing the same file twice fires again.
-                  e.target.value = "";
-                }}
-              />
               <CommentsToggle resourceType="paper" resourceId={paper.id} canComment variant="detail" />
             </>
           )}

@@ -4,19 +4,15 @@ import {
   attachEncryptedRow,
   encryptedRowFields,
 } from "@/lib/encrypted-row";
+import { commentToDomain, type CommentRow as StoredCommentRow } from "./comment-rows";
 
 /**
  * Supabase adapter for comments (migration 0018). `author_id` defaults to
  * auth.uid() server-side; RLS gates who may read (can_view_resource) and add
  * (can_comment_resource).
  */
-interface CommentRow {
-  id: string;
-  author_id: string;
-  resource_type: string;
-  resource_id: string;
-  body: string;
-  created_at: string;
+/** The stored row plus the columns only this provider carries. */
+interface CommentRow extends StoredCommentRow {
   content_enc: string | null;
   enc_epoch: number | null;
 }
@@ -72,18 +68,8 @@ export class SupabaseCommentRepository implements ICommentRepository {
   }
 }
 
-function toDomain(r: CommentRow): Comment {
-  return attachEncryptedRow(
-    {
-      id: r.id,
-      authorId: r.author_id,
-      resourceType: r.resource_type,
-      resourceId: r.resource_id,
-      body: r.body,
-      createdAt: r.created_at,
-    },
-    r,
-  );
+function toDomain(r: CommentRow): Comment  {
+  return attachEncryptedRow(commentToDomain(r), r);
 }
 
 function toRow(c: Comment): Record<string, unknown> {

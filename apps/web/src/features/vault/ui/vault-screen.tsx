@@ -9,7 +9,7 @@ import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
-import { DeleteIcon, EditIcon, FilterIcon, ImageIcon } from "@/components/view-icons";
+import { DeleteIcon, EditIcon, FilterIcon } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
 import { CardColumns } from "@/components/card-columns";
 import { MultiSelect } from "@/components/multi-select";
@@ -21,6 +21,7 @@ import { VaultMarkdown } from "./vault-markdown";
 import { materializeBlobImagesInBody } from "../lib/materialize-blob-images";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import type { EditorHandle } from "@/components/editor-handle";
+import { AttachImageButton } from "@/components/attach-image-button";
 import { useScreenData } from "@/lib/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -642,7 +643,6 @@ function PageEditor({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   // Filled in by whichever editor is mounted — plain or collaborative — and
   // empty while the note is being read rather than written.
   const editorHandle = useRef<EditorHandle | null>(null);
@@ -759,28 +759,6 @@ function PageEditor({
     onDeleted();
   }
 
-  /**
-   * The attach-image button.
-   *
-   * It goes through the editor's handle so the picture lands at the caret, on
-   * the same path a pasted one takes — placeholder, upload, swap. It used to
-   * build the markdown here and append it to the end of the note, which is why
-   * a figure chosen halfway through a paragraph appeared underneath the whole
-   * thing.
-   */
-  function onImagePick(file: File | null) {
-    if (!file) return;
-    const editor = editorHandle.current;
-    // Null only in the moment before the lazily-loaded editor has mounted.
-    // Saying so beats a button that appears to do nothing.
-    if (!editor) {
-      setSaveError("The editor is still loading — try that again in a moment.");
-      return;
-    }
-    setSaveError(null);
-    editor.insertFiles([file]);
-  }
-
   function closeEditor() {
     setTitle(page.title);
     setSaveError(null);
@@ -834,27 +812,8 @@ function PageEditor({
                 </button>
               )}
               {showEditor && canEditBody && (
-                <button
-                  type="button"
-                  className="entity-icon-btn"
-                  onClick={() => fileRef.current?.click()}
-                  aria-label="Add image"
-                  title="Image"
-                >
-                  <ImageIcon />
-                </button>
+                <AttachImageButton editor={editorHandle} onError={setSaveError} />
               )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  onImagePick(e.target.files?.[0] ?? null);
-                  // Cleared so choosing the same file twice fires again.
-                  e.target.value = "";
-                }}
-              />
               {!readOnly && (
                 <CommentsToggle resourceType="vault_page" resourceId={page.id} canComment variant="detail" />
               )}

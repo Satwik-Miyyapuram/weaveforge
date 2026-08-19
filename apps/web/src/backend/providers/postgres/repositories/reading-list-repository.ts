@@ -13,30 +13,14 @@ import {
   attachEncryptedRow,
   encryptedRowFields,
 } from "@/lib/encrypted-row";
-
-interface ReadingListRow {
-  id: string;
-  name: string;
-  description: string | null;
-  parent_id: string | null;
-  sort_order: number;
-  color: string | null;
-  created_at: string;
-  content_enc: string | null;
-  enc_epoch: number | null;
-}
-
-interface ReadingListItemRow {
-  id: string;
-  list_id: string;
-  paper_id: string | null;
-  vault_page_id: string | null;
-  sort_order: number;
-  note: string | null;
-  inherited_from_list_id: string | null;
-  content_enc: string | null;
-  enc_epoch: number | null;
-}
+import {
+  type ReadingListRow,
+  type ReadingListItemRow,
+  toListDomain,
+  toListRow,
+  toItemDomain,
+  toItemRow,
+} from "@/features/reading-lists/infrastructure/reading-list-rows";
 
 export class PostgresReadingListRepository implements IReadingListRepository {
   constructor(
@@ -183,59 +167,3 @@ export class PostgresReadingListItemRepository implements IReadingListItemReposi
   }
 }
 
-function toListDomain(row: ReadingListRow): ReadingList {
-  return attachEncryptedRow(
-    {
-      id: row.id,
-      name: row.name,
-      description: row.description ?? undefined,
-      parentId: row.parent_id ?? undefined,
-      sortOrder: row.sort_order,
-      color: row.color ?? undefined,
-      createdAt: row.created_at,
-    },
-    row,
-  );
-}
-
-function toListRow(l: ReadingList): Record<string, unknown> {
-  return {
-    id: l.id,
-    name: l.name,
-    description: l.description ?? null,
-    parent_id: l.parentId ?? null,
-    sort_order: l.sortOrder,
-    color: l.color ?? null,
-    created_at: l.createdAt,
-    ...encryptedRowFields(l),
-  };
-}
-
-function toItemDomain(row: ReadingListItemRow): ReadingListItem {
-  return attachEncryptedRow(
-    {
-      id: row.id,
-      listId: row.list_id,
-      paperId: row.paper_id ?? undefined,
-      vaultPageId: row.vault_page_id ?? undefined,
-      sortOrder: row.sort_order,
-      note: row.note ?? undefined,
-      inheritedFromListId: row.inherited_from_list_id ?? undefined,
-    },
-    row,
-  );
-}
-
-function toItemRow(i: ReadingListItem): Record<string, unknown> {
-  const row: Record<string, unknown> = {
-    id: i.id,
-    list_id: i.listId,
-    paper_id: i.paperId ?? null,
-    vault_page_id: i.vaultPageId ?? null,
-    sort_order: i.sortOrder,
-    note: i.note ?? null,
-    ...encryptedRowFields(i),
-  };
-  if (i.inheritedFromListId) row.inherited_from_list_id = i.inheritedFromListId;
-  return row;
-}

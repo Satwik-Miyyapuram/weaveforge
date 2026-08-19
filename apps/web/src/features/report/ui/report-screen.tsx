@@ -19,6 +19,7 @@ import { EntityCard } from "@/components/entity-card";
 import { useScreenData } from "@/lib/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
+import { usePinnedSharing } from "@/lib/use-pinned-sharing";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { SectionNote } from "./section-note";
 import { Markdown } from "@/components/markdown";
@@ -172,18 +173,8 @@ export function ReportScreen() {
     [setData],
   );
 
-  const isReadOnlySection = useCallback(
-    (id: string) => (isSharedView || pinnedSharedBy.has(id)) && !reportCanEdit.get(id),
-    [isSharedView, pinnedSharedBy, reportCanEdit],
-  );
+  const { isReadOnly: isReadOnlySection, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames, canEdit: reportCanEdit });
 
-  const sharedOwnerName = useCallback(
-    (id: string) => {
-      const ownerId = pinnedSharedBy.get(id);
-      return ownerId ? ownerNames.get(ownerId) : undefined;
-    },
-    [pinnedSharedBy, ownerNames],
-  );
 
   const done = ownedFlat.filter((s) => s.status === "done").length;
   const pct = ownedFlat.length ? Math.round((done / ownedFlat.length) * 100) : 0;

@@ -19,6 +19,7 @@ import { MultiSelect } from "@/components/multi-select";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { useScreenData } from "@/lib/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
+import { usePinnedSharing } from "@/lib/use-pinned-sharing";
 import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { formatError } from "@/lib/format-error";
@@ -88,18 +89,8 @@ export function ExperimentsScreen() {
     router.replace(`/experiments/${focusFromUrl}`);
   }, [focusFromUrl, router]);
 
-  const isReadOnlyExperiment = useCallback(
-    (id: string) => isSharedView || pinnedSharedBy.has(id),
-    [isSharedView, pinnedSharedBy],
-  );
+  const { isReadOnly: isReadOnlyExperiment, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
-  const sharedOwnerName = useCallback(
-    (id: string) => {
-      const ownerId = pinnedSharedBy.get(id);
-      return ownerId ? ownerNames.get(ownerId) : undefined;
-    },
-    [pinnedSharedBy, ownerNames],
-  );
 
   // Poll every 5s while this screen is open so metrics/status stay fresh.
   const hasLiveRunning = useMemo(

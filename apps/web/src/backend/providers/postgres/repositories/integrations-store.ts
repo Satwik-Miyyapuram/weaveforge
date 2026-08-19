@@ -5,14 +5,9 @@ import {
 } from "@/features/sync/domain/integration";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import type { PgRunner } from "../pg-runner";
-
-interface IntegrationRow {
-  provider: SyncProvider;
-  enabled: boolean;
-  token: string | null;
-  repo: string | null;
-  branch: string | null;
-}
+import {
+  type IntegrationRow,
+} from "@/features/sync/infrastructure/integrations-rows";
 
 export class PostgresIntegrationsStore implements IIntegrationsStore {
   constructor(private readonly pg: PgRunner) {}

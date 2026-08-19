@@ -13,30 +13,11 @@ import {
 } from "@/lib/encrypted-row";
 import type { EntityStamp } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
-
-interface PaperRow {
-  id: string;
-  title: string;
-  authors: string[] | null;
-  year: number | null;
-  venue?: string | null;
-  doi?: string | null;
-  arxiv_id?: string | null;
-  url?: string | null;
-  pdf_path?: string | null;
-  abstract?: string | null;
-  summary?: string | null;
-  status: PaperStatus;
-  rating?: number | null;
-  read_at: string | null;
-  bibtex?: string | null;
-  tags: string[] | null;
-  metadata?: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
-  doi_bidx?: string | null;
-  arxiv_bidx?: string | null;
-}
+import {
+  type PaperRow,
+  emptyToNull,
+  toRow,
+} from "@/features/papers/infrastructure/paper-rows";
 
 // List cards need small filter/display fields only (plaintext under RLS).
 // Detail and Zotero sync keep richer rows via select * / fat list where needed.
@@ -230,35 +211,3 @@ function toDomain(row: PaperRow): Paper {
   );
 }
 
-function emptyToNull(value: string | undefined | null): string | null {
-  if (value == null || value === "") return null;
-  return value;
-}
-
-function toRow(p: Paper): Record<string, unknown> {
-  return {
-    id: p.id,
-    title: p.title ?? "",
-    authors: p.authors ?? [],
-    year: p.year ?? null,
-    venue: emptyToNull(p.venue),
-    doi: p.doi ? emptyToNull(normalizeDoi(p.doi)) : null,
-    arxiv_id: emptyToNull(p.arxivId),
-    url: emptyToNull(p.url),
-    pdf_path: p.pdfPath ?? null,
-    abstract: emptyToNull(p.abstract),
-    summary: emptyToNull(p.summary),
-    status: p.status,
-    rating: p.rating ?? null,
-    read_at: p.readAt ?? null,
-    bibtex: emptyToNull(p.bibtex),
-    tags: p.tags ?? [],
-    metadata: p.metadata ?? {},
-    created_at: p.createdAt,
-    updated_at: p.updatedAt,
-    doi_bidx: null,
-    arxiv_bidx: null,
-    ...encryptedRowFields(p),
-    ...encryptedListRowFields(p),
-  };
-}

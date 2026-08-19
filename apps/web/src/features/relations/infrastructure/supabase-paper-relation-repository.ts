@@ -6,6 +6,11 @@ import type {
   RelationType,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
+import {
+  type PaperRelationRow,
+  toDomain,
+  toRow,
+} from "./paper-relation-rows";
 
 /**
  * Supabase implementation of IPaperRelationRepository.
@@ -13,16 +18,6 @@ import type { ProjectContext } from "@/lib/project-context";
  * Persistence only (snake_case <-> camelCase). Must pass the same contract
  * suite as the in-memory repository.
  */
-
-interface PaperRelationRow {
-  id: string;
-  from_paper: string;
-  to_paper: string;
-  relation: RelationType;
-  note: string | null;
-  source: "manual" | "auto";
-  created_at: string;
-}
 
 const TABLE = "paper_relations";
 
@@ -104,26 +99,3 @@ export class SupabasePaperRelationRepository
   }
 }
 
-function toDomain(row: PaperRelationRow): PaperRelation {
-  return {
-    id: row.id,
-    fromPaper: row.from_paper,
-    toPaper: row.to_paper,
-    relation: row.relation,
-    note: row.note ?? undefined,
-    source: row.source,
-    createdAt: row.created_at,
-  };
-}
-
-function toRow(r: PaperRelation): Record<string, unknown> {
-  return {
-    id: r.id,
-    from_paper: r.fromPaper,
-    to_paper: r.toPaper,
-    relation: r.relation,
-    note: r.note ?? null,
-    source: r.source,
-    created_at: r.createdAt,
-  };
-}

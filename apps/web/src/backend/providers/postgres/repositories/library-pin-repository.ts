@@ -7,16 +7,10 @@ import type {
 import type { ICurrentUserProvider } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
-
-interface PinRow {
-  id: string;
-  user_id: string;
-  project_id: string;
-  resource_type: ShareableType;
-  resource_id: string;
-  owner_id: string;
-  created_at: string;
-}
+import {
+  type PinRow,
+  toDomain,
+} from "@/features/library/infrastructure/library-pin-rows";
 
 export class PostgresLibraryPinRepository implements ILibraryPinRepository {
   constructor(
@@ -82,14 +76,3 @@ export class PostgresLibraryPinRepository implements ILibraryPinRepository {
   }
 }
 
-function toDomain(row: PinRow): LibraryPin {
-  return {
-    id: row.id,
-    userId: row.user_id,
-    projectId: row.project_id,
-    resourceType: row.resource_type,
-    resourceId: row.resource_id,
-    ownerId: row.owner_id,
-    createdAt: row.created_at,
-  };
-}

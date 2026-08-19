@@ -8,19 +8,12 @@ import type {
   TagWithPaperCount,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-
-interface TagRow {
-  id: string;
-  name: string;
-  color: string | null;
-}
-
-interface PaperTagRow {
-  paper_id: string;
-  tag_id: string;
-  source: string;
-  annotation_ref: string | null;
-}
+import {
+  type TagRow,
+  type PaperTagRow,
+  toTagDomain,
+  toPaperTagDomain,
+} from "./tag-rows";
 
 const TAGS = "tags";
 const PAPER_TAGS = "paper_tags";
@@ -133,19 +126,6 @@ export class SupabasePaperTagRepository implements IPaperTagRepository {
     const { error } = await this.db.from(PAPER_TAGS).upsert(links.map(toPaperTagRow));
     if (error) throw error;
   }
-}
-
-function toTagDomain(row: TagRow): Tag {
-  return { id: row.id, name: row.name, color: row.color ?? undefined };
-}
-
-function toPaperTagDomain(row: PaperTagRow): PaperTag {
-  return {
-    paperId: row.paper_id,
-    tagId: row.tag_id,
-    source: row.source as TagSource,
-    annotationRef: row.annotation_ref ?? undefined,
-  };
 }
 
 function toPaperTagRow(l: PaperTag): Record<string, unknown> {

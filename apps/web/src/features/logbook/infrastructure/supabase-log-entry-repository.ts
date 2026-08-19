@@ -11,6 +11,7 @@ import {
   attachEncryptedRow,
   encryptedRowFields,
 } from "@/lib/encrypted-row";
+import { logEntryToDomain, logEntryToRow, type LogEntryRow as StoredLogEntryRow } from "./log-entry-rows";
 
 /**
  * Supabase implementation of ILogEntryRepository.
@@ -21,13 +22,8 @@ import {
  * (run `runLogEntryRepositoryContract` against an instance pointed at a test DB).
  */
 
-interface LogEntryRow {
-  id: string;
-  entry_date: string;
-  kind: LogKind;
-  body: string;
-  links: LogLink[] | null;
-  created_at: string;
+/** The stored row plus the columns only this provider carries. */
+interface LogEntryRow extends StoredLogEntryRow {
   content_enc: string | null;
   enc_epoch: number | null;
 }
@@ -82,27 +78,9 @@ export class SupabaseLogEntryRepository implements ILogEntryRepository {
 }
 
 function toDomain(row: LogEntryRow): LogEntry {
-  return attachEncryptedRow(
-    {
-      id: row.id,
-      entryDate: row.entry_date,
-      kind: row.kind,
-      body: row.body,
-      links: row.links ?? [],
-      createdAt: row.created_at,
-    },
-    row,
-  );
+  return attachEncryptedRow(logEntryToDomain(row), row);
 }
 
 function toRow(e: LogEntry): Record<string, unknown> {
-  return {
-    id: e.id,
-    entry_date: e.entryDate,
-    kind: e.kind,
-    body: e.body ?? "",
-    links: e.links ?? [],
-    created_at: e.createdAt,
-    ...encryptedRowFields(e),
-  };
+  return { ...logEntryToRow(e), ...encryptedRowFields(e) };
 }
