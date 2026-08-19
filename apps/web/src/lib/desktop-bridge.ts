@@ -70,8 +70,3 @@ export function desktop(): DesktopBridge | null {
   if (!bridge || typeof bridge.fetchTitle !== "function") return null;
   return bridge;
 }
-
-/** True in the desktop build. */
-export function isDesktop(): boolean {
-  return desktop() !== null;
-}

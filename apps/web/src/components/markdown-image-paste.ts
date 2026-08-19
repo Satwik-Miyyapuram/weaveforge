@@ -123,7 +123,7 @@ function bitmapIsThePaste(data: DataTransfer | null): boolean {
  * turn CodeMirror's own drag-to-move into a download whenever the moved text
  * happened to be an image URL.
  */
-export function imageUrlFrom(data: DataTransfer | null): string | null {
+function imageUrlFrom(data: DataTransfer | null): string | null {
   if (!data) return null;
 
   for (const line of data.getData("text/uri-list").split(/\r?\n/)) {

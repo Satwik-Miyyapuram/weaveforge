@@ -1,6 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GET } from "../route";
+import { resolveUrlMetadata } from "../_meta";
+
+/**
+ * The route is authentication and one line of shaping; what may be fetched and
+ * what is read out of it is `_meta`, which these drive directly. Splitting them
+ * is what lets the address-guard cases below run without a Supabase session —
+ * before, they could only have run by leaving the route open.
+ */
+
+/** Calls the metadata logic the way the route would, given a query string. */
+function GET_META(url: string) {
+  return resolveUrlMetadata(new URL(url).searchParams.get("url"));
+}
 
 function req(url: string): Request {
   return new Request(url);
@@ -17,19 +30,19 @@ function stubFetch(handler: (url: string, init?: RequestInit) => Response | Prom
 }
 
 test("url-meta: 400 when url param is missing", async () => {
-  const res = await GET(req("http://localhost/api/url-meta"));
+  const res = await GET_META("http://localhost/api/url-meta");
   assert.equal(res.status, 400);
   assert.match((await res.json()).error, /url is required/);
 });
 
 test("url-meta: 400 on an unparseable url", async () => {
-  const res = await GET(req("http://localhost/api/url-meta?url=not a url"));
+  const res = await GET_META("http://localhost/api/url-meta?url=not a url");
   assert.equal(res.status, 400);
   assert.match((await res.json()).error, /invalid url/);
 });
 
 test("url-meta: 400 rejects non-http(s) protocols (no SSRF to file:/ftp:)", async () => {
-  const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent("file:///etc/passwd")}`));
+  const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent("file:///etc/passwd")}`);
   assert.equal(res.status, 400);
   assert.match((await res.json()).error, /http\(s\)/);
 });
@@ -50,7 +63,7 @@ test("url-meta: refuses a private address without requesting it", async () => {
       "http://[::1]/",
       "http://localhost/",
     ]) {
-      const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+      const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
       assert.equal(res.status, 400, target);
     }
     assert.equal(requested, false, "no request should have left the server");
@@ -61,7 +74,7 @@ test("url-meta: refuses a private address without requesting it", async () => {
 
 test("url-meta: refuses a URL carrying credentials, and an odd port", async () => {
   for (const target of ["http://user:pass@example.com/", "http://example.com:6379/"]) {
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 400, target);
   }
 });
@@ -82,7 +95,7 @@ test("url-meta: resolves a DOI in the URL via Crossref", async () => {
   });
   try {
     const target = "https://dl.acm.org/doi/10.1000/xyz123";
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.title, "A Great Paper");
@@ -99,7 +112,7 @@ test("url-meta: 404 when Crossref has no record for the DOI", async () => {
   const restore = stubFetch(() => new Response("nope", { status: 404 }));
   try {
     const target = "https://dl.acm.org/doi/10.5555/unregistered";
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 404);
     assert.match((await res.json()).error, /not found in Crossref/);
   } finally {
@@ -120,7 +133,7 @@ test("url-meta: scrapes citation meta tags from an HTML page", async () => {
   const restore = stubFetch(() => new Response(html, { status: 200 }));
   try {
     const target = "https://arxiv.org/abs/1706.03762";
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.title, "Attention Is All You Need");
@@ -139,7 +152,7 @@ test("url-meta: passes through an upstream non-OK status with a hint", async () 
   const restore = stubFetch(() => new Response("forbidden", { status: 403 }));
   try {
     const target = "https://example.com/paper";
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 403);
     assert.match((await res.json()).error, /blocked automated access/);
   } finally {
@@ -160,7 +173,7 @@ test("url-meta: arXiv URLs resolve through the arXiv API, not the abs page", asy
   });
   try {
     const target = "https://arxiv.org/abs/2306.09643";
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.title, "BISCUIT: Causal Representation Learning");
@@ -181,7 +194,7 @@ test("url-meta: 422 on a bot wall rather than importing its <title>", async () =
   );
   try {
     const target = "https://www.nature.com/articles/s41586-021-03819-2";
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 422);
     assert.match((await res.json()).error, /blocked automated access/);
   } finally {
@@ -197,7 +210,7 @@ test("url-meta: 422 when a page has no citation metadata at all", async () => {
   );
   try {
     const target = "https://example.com/post";
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 422);
     assert.match((await res.json()).error, /No citation metadata/);
   } finally {
@@ -215,7 +228,7 @@ test("url-meta: a scheme-less host is fetched over https", async () => {
     );
   });
   try {
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent("example.com/paper")}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent("example.com/paper")}`);
     assert.equal(res.status, 200);
     assert.equal((await res.json()).title, "Scheme Less");
     assert.equal(seen, "https://example.com/paper");
@@ -234,7 +247,7 @@ test("url-meta: an explicit http target is kept as http, not upgraded", async ()
     );
   });
   try {
-    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent("http://example.com/paper")}`));
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent("http://example.com/paper")}`);
     assert.equal(res.status, 200);
     assert.equal(seen, "http://example.com/paper");
   } finally {
@@ -243,7 +256,48 @@ test("url-meta: an explicit http target is kept as http, not upgraded", async ()
 });
 
 test("url-meta: the scheme-less fallback still cannot smuggle in file:", async () => {
-  const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent("file:///etc/passwd")}`));
+  const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent("file:///etc/passwd")}`);
   assert.equal(res.status, 400);
   assert.match((await res.json()).error, /http\(s\)/);
+});
+
+/**
+ * The gate itself. Everything above proves the fetch is guarded about *where*
+ * it may go; these prove it is guarded about *who* may send it there.
+ */
+test("url-meta: no token is a 401, and nothing is requested", async () => {
+  const original = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = ((input: string | URL | Request) => {
+    calls.push(String(input));
+    return Promise.resolve(new Response("should not happen", { status: 500 }));
+  }) as typeof fetch;
+  try {
+    const res = await GET(req(`http://localhost/api/url-meta?url=${encodeURIComponent("https://example.com/p")}`));
+    assert.equal(res.status, 401);
+    assert.deepEqual(calls, []);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("url-meta: a token that does not check out never reaches the target", async () => {
+  const original = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = ((input: string | URL | Request) => {
+    calls.push(String(input));
+    return Promise.resolve(new Response("{}", { status: 401 }));
+  }) as typeof fetch;
+  try {
+    const res = await GET(
+      new Request(`http://localhost/api/url-meta?url=${encodeURIComponent("https://example.com/p")}`, {
+        headers: { authorization: "Bearer nonsense" },
+      }),
+    );
+    assert.notEqual(res.status, 200);
+    // Whatever the auth check itself did, the visitor's address was never asked for.
+    assert.ok(calls.every((call) => !call.includes("example.com")));
+  } finally {
+    globalThis.fetch = original;
+  }
 });

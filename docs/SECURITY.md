@@ -57,11 +57,14 @@ What it does:
   repeated on each. A redirect is a second URL the visitor never showed you.
 - Responses are capped (512 KB for a title, 12 MB for an image) and read
   incrementally, so a stream with no end is not a way to exhaust memory.
-- The browser-facing route, `/api/fetch-url`, requires a bearer token. An
-  unauthenticated version of it would be a scanning service anybody could point
-  at anything. The Electron handlers are unauthenticated because they are
-  already inside the session, running as the person at the keyboard; the address
-  guard is what limits them, and it is the same guard.
+- **Both browser-facing routes require a token** — `/api/fetch-url` and
+  `/api/url-meta`. An unauthenticated version of either is a scanning and
+  bandwidth service for whoever finds it, however well guarded the destination
+  is: the address guard decides *where* a request may go, and authentication
+  decides *who* may send one. `/api/arxiv` is the deliberate exception, because
+  its host is fixed and only the id list is the caller's. The Electron handlers
+  are unauthenticated because they are already inside the session, running as
+  the person at the keyboard.
 - An image is served back with `Content-Security-Policy: default-src 'none';
   sandbox` and `X-Content-Type-Options: nosniff`, and its type is taken from
   what the server declared rather than sniffed from the bytes. SVG is refused

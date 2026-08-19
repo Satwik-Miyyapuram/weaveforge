@@ -1,6 +1,6 @@
 "use client";
 
-import { getSupabase } from "@/lib/supabase";
+import { authHeaders } from "@/lib/auth-headers";
 import { desktop } from "@/lib/desktop-bridge";
 
 /**
@@ -18,13 +18,6 @@ export interface OutboundFetch {
   title(url: string): Promise<{ title: string; url: string }>;
   /** The picture behind an image URL, ready to store. */
   image(url: string): Promise<{ blob: Blob; url: string }>;
-}
-
-async function authHeaders(): Promise<HeadersInit> {
-  const { data } = await getSupabase().auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("Not signed in.");
-  return { Authorization: `Bearer ${token}` };
 }
 
 /** Reads the error a route reported, falling back to something a person can act on. */
@@ -78,9 +71,4 @@ function viaDesktop(): OutboundFetch | null {
 /** Whichever way this build can reach the internet. */
 export function outboundFetch(): OutboundFetch {
   return viaDesktop() ?? viaServer;
-}
-
-/** True when a fetch needs no server round trip, so a caller can say so. */
-export function fetchesDirectly(): boolean {
-  return desktop() !== null;
 }

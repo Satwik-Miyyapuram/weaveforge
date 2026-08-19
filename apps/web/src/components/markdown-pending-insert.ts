@@ -131,11 +131,5 @@ export function resolvePending(view: EditorView, id: number, replacement: string
   });
 }
 
-/** Stops tracking without changing the document. */
-export function forgetPending(view: EditorView, id: number): void {
-  decorated.delete(id);
-  view.dispatch({ effects: dropPending.of(id) });
-}
-
 /** The extensions the machinery needs. */
 export const pendingInsertSupport = [pendingInserts, pendingTheme];
