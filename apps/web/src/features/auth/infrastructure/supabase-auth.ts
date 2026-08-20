@@ -86,6 +86,23 @@ export class SupabaseAuthService implements IAuthService {
     if (error) throw error;
   }
 
+  /**
+   * Redeems the code a provider sent back.
+   *
+   * A refusal arrives as `error_description` and is raised as it was written:
+   * the provider's own words are what a person can act on, and inventing a
+   * message here would hide which of a dozen reasons it actually was.
+   */
+  async completeOAuth(callbackQuery: string): Promise<void> {
+    const params = new URLSearchParams(callbackQuery);
+    const refusal = params.get("error_description") ?? params.get("error");
+    if (refusal) throw new Error(refusal);
+    const code = params.get("code");
+    if (!code) throw new Error("The sign-in came back without a code.");
+    const { error } = await this.db.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+  }
+
   async signOut(): Promise<void> {
     const { error } = await this.db.auth.signOut();
     if (error) throw error;

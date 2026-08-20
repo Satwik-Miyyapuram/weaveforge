@@ -12,7 +12,8 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../web/src/*"]
+      "@/*": ["../web/src/*"],
+      "@weaveforge/core": ["../../packages/core/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]

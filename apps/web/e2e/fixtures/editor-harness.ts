@@ -63,7 +63,9 @@ const bridge: DesktopBridge = {
       contentType: "image/png",
       url,
     })),
-  openExternal: () => Promise.resolve(),
+  // The harness drives the editor, not sign-in. Present so the stub satisfies
+  // the contract, and returns a no-op unsubscribe.
+  onSignIn: () => () => undefined,
 };
 (window as unknown as { weaveforge: DesktopBridge }).weaveforge = bridge;
 

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { bootstrapSession } from "./helpers/auth.js";
 import { e2eEnabled, e2eUserA } from "./helpers/env.js";
+import { gotoStable } from "./helpers/nav.js";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -22,7 +23,7 @@ test.describe("PDF reader", () => {
   });
 
   test("renders a PDF and fits it to the container width by default", async ({ page }) => {
-    await page.goto(`/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
+    await gotoStable(page, `/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
 
     const canvas = page.locator(".pdf-reader-page canvas").first();
     await expect(canvas).toBeVisible({ timeout: 60_000 });
@@ -40,7 +41,7 @@ test.describe("PDF reader", () => {
   });
 
   test("zoom controls change the rendered page size", async ({ page }) => {
-    await page.goto(`/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
+    await gotoStable(page, `/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
     const canvas = page.locator(".pdf-reader-page canvas").first();
     await expect(canvas).toBeVisible({ timeout: 60_000 });
     await expect.poll(async () => (await canvas.boundingBox())?.width ?? 0).toBeGreaterThan(0);
@@ -62,7 +63,7 @@ test.describe("PDF reader", () => {
   });
 
   test("a text layer is produced so the document is selectable and searchable", async ({ page }) => {
-    await page.goto(`/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
+    await gotoStable(page, `/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
     await expect(page.locator(".pdf-reader-page canvas").first()).toBeVisible({ timeout: 60_000 });
 
     // Spans carry data-item-index; the selection-to-anchor path depends on it.
@@ -77,7 +78,7 @@ test.describe("PDF reader", () => {
   });
 
   test("the page jump control moves through the document", async ({ page }) => {
-    await page.goto(`/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
+    await gotoStable(page, `/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
     await expect(page.locator(".pdf-reader-page canvas").first()).toBeVisible({ timeout: 60_000 });
 
     const pageInput = page.getByRole("spinbutton", { name: "Page number" });
@@ -98,13 +99,13 @@ test.describe("PDF reader", () => {
   });
 
   test("refuses a non-https PDF parameter instead of handing it to pdf.js", async ({ page }) => {
-    await page.goto(`/reader?pdf=${encodeURIComponent("http://example.com/evil.pdf")}`);
+    await gotoStable(page, `/reader?pdf=${encodeURIComponent("http://example.com/evil.pdf")}`);
     await expect(page.getByText(/not allowed|Nothing to show/i)).toBeVisible({ timeout: 30_000 });
     await expect(page.locator(".pdf-reader-page canvas")).toHaveCount(0);
   });
 
   test("refuses a javascript: PDF parameter", async ({ page }) => {
-    await page.goto(`/reader?pdf=${encodeURIComponent("javascript:alert(1)")}`);
+    await gotoStable(page, `/reader?pdf=${encodeURIComponent("javascript:alert(1)")}`);
     await expect(page.getByText(/not allowed|Nothing to show/i)).toBeVisible({ timeout: 30_000 });
     await expect(page.locator(".pdf-reader-page canvas")).toHaveCount(0);
   });

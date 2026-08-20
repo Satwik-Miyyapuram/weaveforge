@@ -62,3 +62,41 @@ export function exactBytes(body: Uint8Array): ArrayBuffer {
 export function mayOpenExternally(url: string): boolean {
   return checkUrlShape(url).ok;
 }
+
+/**
+ * The port the sign-in redirect comes back to.
+ *
+ * Fixed rather than chosen at random, which is the one place this departs from
+ * the usual loopback recipe. RFC 8252 lets a native app take any free port
+ * because the authorization server is required to ignore the port when it
+ * matches a loopback redirect. Supabase does not: it matches the redirect
+ * against a literal allow list, so the port has to be a number somebody can put
+ * on that list. Picked from the IANA dynamic range and unlikely to collide.
+ */
+export const AUTH_LOOPBACK_PORT = 53682;
+
+/** The one path the loopback listener answers on. */
+export const AUTH_LOOPBACK_PATH = "/auth/callback";
+
+/**
+ * The query string a sign-in came back with, or null if this is not that.
+ *
+ * A loopback listener is reachable by anything else running on the machine, so
+ * what arrives here is untrusted and only its shape is trusted: the path has to
+ * match, and there has to be a query to hand on. Nothing is parsed or believed
+ * beyond that — the authorization code inside is worthless without the PKCE
+ * verifier, which never leaves the renderer that started the flow, so a forged
+ * request costs a failed exchange and nothing else.
+ */
+export function signInCallbackQuery(requestUrl: string | undefined): string | null {
+  if (!requestUrl) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(requestUrl, "http://127.0.0.1");
+  } catch {
+    return null;
+  }
+  if (parsed.pathname !== AUTH_LOOPBACK_PATH) return null;
+  if (!parsed.search) return null;
+  return parsed.search;
+}

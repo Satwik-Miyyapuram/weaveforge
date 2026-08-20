@@ -13,7 +13,8 @@ import { CHANNELS, type ImagePayload, type IpcResult, type TitlePayload } from "
  *
  * Nothing else is exposed: no `ipcRenderer`, no `require`, no `process`. A page
  * that finds a way to run somebody else's script finds these three functions
- * and nothing more.
+ * and nothing more — and the listener among them is wrapped, so not even the
+ * Electron event object crosses.
  */
 
 /** Replaced at build time from the package version; see `scripts/build.mjs`. */
@@ -33,8 +34,13 @@ const bridge: DesktopBridge = {
   platform: process.platform as DesktopBridge["platform"],
   fetchTitle: (url) => call<TitlePayload>(CHANNELS.fetchTitle, url),
   fetchImage: (url) => call<ImagePayload>(CHANNELS.fetchImage, url),
-  openExternal: async (url) => {
-    await call<null>(CHANNELS.openExternal, url);
+  onSignIn: (cb) => {
+    // The listener is wrapped rather than passed through, so the renderer never
+    // receives Electron's `IpcRendererEvent` — which carries `sender`, and with
+    // it a way back into this process that the contract does not offer.
+    const listener = (_event: unknown, query: string) => cb(query);
+    ipcRenderer.on(CHANNELS.signIn, listener);
+    return () => ipcRenderer.off(CHANNELS.signIn, listener);
   },
 };
 

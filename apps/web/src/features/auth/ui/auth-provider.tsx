@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { AuthUser } from "../domain/auth";
 import { clearSessionCaches } from "@/lib/clear-session-caches";
+import { desktop } from "@/lib/desktop-bridge";
 
 interface AuthState {
   user: AuthUser | null;
@@ -52,6 +53,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
       unsubscribe?.();
+    };
+  }, []);
+
+  /**
+   * Finishes a sign-in that came back to the desktop shell.
+   *
+   * The window never leaves the app's own origin during a provider sign-in —
+   * the browser does that part — so nothing here reads a URL. The shell hands
+   * over the callback's query string and this redeems it, which works because
+   * the PKCE verifier was made in this renderer and has stayed in it.
+   *
+   * A browser has no bridge, so this subscribes to nothing and costs nothing.
+   */
+  useEffect(() => {
+    const bridge = desktop();
+    if (!bridge) return;
+    let active = true;
+    const stop = bridge.onSignIn((query) => {
+      void import("@/light-bootstrap").then(async ({ getLightContainer }) => {
+        if (!active) return;
+        try {
+          await getLightContainer().auth.completeOAuth(query);
+        } catch (error) {
+          // The auth listener above never fires for a failed exchange, so this
+          // is the only place that knows. Left visible rather than swallowed:
+          // the window otherwise sits on the sign-in screen with no reason.
+          console.error("[weaveforge] sign-in could not be completed:", error);
+        }
+      });
+    });
+    return () => {
+      active = false;
+      stop();
     };
   }, []);
 

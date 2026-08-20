@@ -5,6 +5,7 @@ import { getLightContainer } from "@/light-bootstrap";
 import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { formatError } from "@/lib/format-error";
+import { appOrigin, authRedirectTo } from "@/lib/desktop-auth";
 
 /**
  * Passwordless login. Sends a Supabase magic-link to the entered email. On
@@ -23,8 +24,9 @@ export function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const redirectTo = () =>
-    typeof window !== "undefined" ? window.location.origin : undefined;
+  // The origin in a browser, and the desktop return page in the app — see
+  // `lib/desktop-auth.ts` for why those differ.
+  const redirectTo = authRedirectTo;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,7 +75,9 @@ export function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      const origin = redirectTo();
+      // A path is appended here, so this one wants the plain origin rather
+      // than wherever a provider sign-in is told to come back to.
+      const origin = appOrigin();
       if (!origin) throw new Error("Password reset is only available in a browser.");
       await getLightContainer().auth.sendPasswordReset(email.trim(), `${origin}/reset-password`);
       setResetSent(true);

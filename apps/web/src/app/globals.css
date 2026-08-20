@@ -2441,7 +2441,14 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Markdown body */
 .markdown p { margin: 6px 0; }
 .markdown h3, .markdown h4, .markdown h5 { margin: 10px 0 4px; letter-spacing: -0.01em; }
-.markdown ul { margin: 6px 0; padding-left: 20px; }
+.markdown ul, .markdown ol { margin: 6px 0; padding-left: 20px; }
+.markdown ol { list-style: decimal; }
+/* Wrapped in its own scroller: a wide table must not widen the page. */
+.markdown .md-table { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.95em; }
+.markdown .md-table th, .markdown .md-table td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+.markdown .md-table th { background: var(--neutral); font-weight: 600; }
+.markdown .md-table .md-center { text-align: center; }
+.markdown .md-table .md-right { text-align: right; }
 .markdown code { background: var(--neutral); padding: 1px 5px; border-radius: 5px; font-size: 0.9em; }
 .markdown a { color: var(--accent); }
 /* Obsidian-style wikilinks: resolved = accent, unresolved = muted/dashed (offer to create). */

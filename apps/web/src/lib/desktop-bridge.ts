@@ -45,8 +45,20 @@ export interface DesktopBridge {
   /** Downloads a picture, under the same guard and the same size cap. */
   fetchImage(url: string): Promise<DesktopImage>;
 
-  /** Opens a link in the reader's real browser rather than inside the app. */
-  openExternal(url: string): Promise<void>;
+  /**
+   * Calls back when a provider sign-in returns, with the callback's query
+   * string, and answers with the way to stop listening.
+   *
+   * The sign-in itself happens in the reader's real browser — a provider will
+   * not run inside an embedded window, and this window sends off-origin
+   * navigations out to the browser anyway. The browser is then redirected to a
+   * loopback address the desktop shell is listening on, which is the shape
+   * RFC 8252 asks a native app to use, and the shell forwards what arrived.
+   *
+   * A browser has no equivalent and needs none: there the provider redirects
+   * back to the page itself.
+   */
+  onSignIn(cb: (query: string) => void): () => void;
 }
 
 declare global {

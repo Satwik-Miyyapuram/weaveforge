@@ -9,6 +9,16 @@ export async function ensurePaperExists(page: Page, title = DEFAULT_PAPER_TITLE)
   // card is somebody else's. Matching on "any card at all" also meant that a
   // list which had not finished loading within the timeout counted as empty,
   // so every slow run added one more copy of the fixture to the account.
+  // Decide "absent" only once the list has actually finished loading. Asking
+  // for the fixture card directly meant a run whose list took longer than the
+  // timeout to render read as an empty account and added another copy of the
+  // fixture — every slow run, forever. The account now holds seven copies of
+  // some of them.
+  await page
+    .locator(".paper-card, .empty, .screen-empty")
+    .first()
+    .waitFor({ timeout: 60000 })
+    .catch(() => undefined);
   const card = page.locator(".paper-card").filter({ hasText: title }).first();
   if (await card.isVisible({ timeout: 15000 }).catch(() => false)) return;
 
@@ -35,7 +45,16 @@ export async function firstPaperTitle(page: Page): Promise<string> {
  * Open a paper's note from /papers, in whichever view is active.
  *
  * Grid is the default view and has no `.paper-open-icon` — that class is on the
- * table row only. Activating the card itself works in both views.
+ * table row only.
+ *
+ * It clicks the card's own "Open note" control rather than the card, which
+ * looks like the long way round and is not. Playwright clicks an element's
+ * centre, the card's footer holds its buttons, and that footer stops clicks
+ * from reaching the card — so for a card short enough that its centre falls
+ * inside the footer, clicking "the card" does nothing at all. Nothing reports
+ * an error: the click lands, propagation stops, and the test waits out its
+ * timeout on a page that never changed. It went unnoticed until the account
+ * had enough papers for the cards to be short.
  */
 export async function openPaper(page: Page, title?: string) {
   const cards = page.locator(".paper-card");
@@ -46,5 +65,10 @@ export async function openPaper(page: Page, title?: string) {
     target.waitFor({ timeout: 60_000 }),
     page.locator(".paper-open-icon").first().waitFor({ timeout: 60_000 }),
   ]);
-  await ((await target.count()) > 0 ? target : page.locator(".paper-open-icon").first()).click();
+  if ((await target.count()) === 0) {
+    await page.locator(".paper-open-icon").first().click();
+    return;
+  }
+  const open = target.getByRole("button", { name: "Open note" });
+  await (await open.count() > 0 ? open : target.locator(".entity-card-title").first()).click();
 }
