@@ -30,6 +30,33 @@
   /* The pinned visual's share of it. Stacked, the visual and the prose split
      the screen; side by side, the visual has the column to itself. */
   --pitch-stage: calc(var(--pitch-view) * 0.52);
+
+  /* ---- Brand tone ----
+     The mark has a palette of its own that nothing on this page was using:
+     parchment, deep navy ink, and a slate blue that is a long way from the
+     saturated default blue the accent lands on in most themes. Introducing it
+     raw would be wrong — a visitor arrives in whichever of the twelve themes
+     they last chose, and a hardcoded navy sits on a Latte background like a
+     sticker. So it enters as a *tilt*: the accent is pulled a little toward
+     the mark's slate, and warm ground is the page's own surface pulled a
+     little toward parchment. Every theme keeps its identity and gains the
+     family resemblance. */
+  --brand-slate: #4b6fa5;
+  --brand-parchment: #f1ece1;
+  /* The theme's own accent, kept under a second name so the tilt below has
+     something to read. A custom property whose value mentions itself is a
+     cycle, and a cycle does not fall back — both sides compute to nothing and
+     every accented thing on the page loses its colour. Hence two steps, and
+     hence the tilt landing on the children rather than here. */
+  --accent-src: var(--accent);
+  --accent-soft-src: var(--accent-soft);
+  /* Where a band sits above the ground. Small numbers on purpose: this reads
+     as a change of light, not a change of colour. */
+  --pitch-band: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--surface) 55%, transparent) 97%,
+    var(--brand-parchment)
+  );
 }
 @media (min-width: 800px) {
   .page { --pitch-head: 66px; }
@@ -347,13 +374,17 @@
   height: 2px;
   background: var(--accent);
   transform-origin: 0 50%;
-  transform: scaleX(0);
+  /* Fed by the page's scroll handler, because the thing that scrolls here is
+     the particle canvas's container and not the document. This used to be a
+     `scroll(root block)` timeline, which bound it to a scroller with about a
+     hundred pixels of travel behind a narrative with twenty-three thousand —
+     an inactive timeline, and a bar that sat at zero the whole way down. */
+  transform: scaleX(var(--pitch-progress, 0));
+  will-change: transform;
 }
-@supports (animation-timeline: scroll()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .progress { animation: grow linear both; animation-timeline: scroll(root block); }
-    @keyframes grow { to { transform: scaleX(1); } }
-  }
+@media (prefers-reduced-motion: no-preference) {
+  /* Smoothing only; the value itself is already per-frame. */
+  .progress { transition: transform 0.12s linear; }
 }
 
 /* ---- Hero ---- */
@@ -517,7 +548,7 @@
 }
 
 /* ---- Why ---- */
-.why { padding: clamp(56px, 9vw, 120px) 0; border-top: 1px solid var(--border); scroll-margin-top: calc(var(--pitch-head) + 12px); }
+.why { padding: clamp(56px, 9vw, 120px) 0; scroll-margin-top: calc(var(--pitch-head) + 12px); }
 .whyHeading {
   font-family: var(--font-serif);
   font-weight: 600;
@@ -564,10 +595,76 @@
   color: var(--accent);
 }
 
+/* Redefined a level down rather than swapped in at twenty call sites.
+   Everything inside the page — the nav, the figures, and the app's own cards
+   standing in the pinned stages — resolves `--accent` against this scope and
+   picks the tilt up together. Outside the page nothing changes, which is the
+   point: the app's chrome keeps the accent the reader chose. */
+.page > * {
+  --accent: color-mix(in srgb, var(--accent-src) 82%, var(--brand-slate));
+  --accent-soft: color-mix(in srgb, var(--accent-soft-src) 88%, var(--brand-slate));
+}
+
+/* ---- Sectioning ----
+   Twelve sections, twenty-three thousand pixels, and until now every one of
+   them was transparent on the same continuous ground with a one-pixel rule
+   between. Nothing told the eye it had finished a chapter and started
+   another; the page read as one very long field, and seven structurally
+   identical scenes in a row read as six too many.
+
+   Two devices fix it, and both are deliberately quiet.
+
+   The seam: a hairline that fades out at both ends rather than running wall
+   to wall. A full-width rule is a border between two boxes. A fading one is
+   the horizon of a single page — the same trick as the ground's own mask,
+   which stops the grid dead-flat at the foot of the viewport.
+
+   The band: alternate scenes lift onto a slightly raised ground, and the lift
+   fades in and out over the first and last 120px so the band has no edge to
+   catch on. Consistent margins do the rest — a band changes the light on a
+   section, never its measure or its rhythm. */
+.seam {
+  position: relative;
+}
+.seam::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border) 18%,
+    var(--border) 82%,
+    transparent
+  );
+}
+
+/* The raised ground. `-1` keeps it behind the scene's own contents but still
+   above the page's fixed ground layers, which sit at -2 and -3. */
+.band {
+  position: relative;
+}
+.band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    var(--pitch-band) 120px,
+    var(--pitch-band) calc(100% - 120px),
+    transparent 100%
+  );
+}
+
 /* ---- Scenes ---- */
 .scene {
   padding: clamp(40px, 6vw, 72px) 0 clamp(56px, 8vw, 104px);
-  border-top: 1px solid var(--border);
   /* A whole header, plus a gap. Following an anchor scrolls every scrolling
      ancestor, and the outermost of them is the document — which has the
      footer's worth of travel to spend and spends it, sliding the narrative up
@@ -792,7 +889,7 @@
 
 /* ---- Comparison table ----
    Last section on the page: the answer to "I already have three of these". */
-.compare { padding: clamp(56px, 9vw, 116px) 0; border-top: 1px solid var(--border); scroll-margin-top: calc(var(--pitch-head) + 12px); }
+.compare { padding: clamp(56px, 9vw, 116px) 0; scroll-margin-top: calc(var(--pitch-head) + 12px); }
 
 /* The table never squeezes: below its natural width it scrolls sideways in its
    own container, so the page body still never scrolls horizontally. */
@@ -861,7 +958,7 @@
   white-space: nowrap;
 }
 
-.close { padding: clamp(56px, 9vw, 116px) 0; border-top: 1px solid var(--border); }
+.close { padding: clamp(56px, 9vw, 116px) 0; }
 .close h2 {
   font-family: var(--font-serif);
   font-weight: 600;
@@ -946,3 +1043,34 @@
   overflow-x: hidden !important;
   overscroll-behavior-x: none;
 }
+
+/* ---- Entry motion ----
+   The steps inside a scene already fade as they reach the reading line, but a
+   scene's own heading simply appeared, fully formed, the moment the section
+   scrolled up — the one part of the page where motion was absent was the part
+   that introduces everything else.
+
+   The obvious implementation is `animation-timeline: view()`, and it does not
+   work here: the headings live inside the particle canvas's scroll container,
+   and the timeline resolves inactive from in there. So an observer sets
+   `data-in` and this is a plain transition.
+
+   Nothing is hidden until `data-reveal` is set, which the same effect does a
+   moment before it starts observing. Without that guard a stylesheet that
+   loads while JavaScript fails leaves every scene heading at opacity 0
+   permanently — the failure mode where the page looks empty rather than
+   unanimated. */
+.page[data-reveal="on"] [data-scene-head] > * {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.page[data-reveal="on"] [data-scene-head][data-in="true"] > * {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* The three parts land in sequence rather than together. A heading arriving
+   just before its lede reads as one thought being spoken; both at once reads
+   as a slide. */
+.page[data-reveal="on"] [data-scene-head][data-in="true"] > *:nth-child(2) { transition-delay: 0.06s; }
+.page[data-reveal="on"] [data-scene-head][data-in="true"] > *:nth-child(3) { transition-delay: 0.12s; }
