@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { TagChips } from "@/components/tag-chips";
 import { removeHashtagFromBody, reconcileTagsFromBody } from "../lib/note-tags";
 
 /**
@@ -24,25 +25,5 @@ export function TagEditor({ paper, onReplace }: { paper: Paper; onReplace: (p: P
     }
   }
 
-  if (paper.tags.length === 0) return null;
-  return (
-    <div className="tag-editor">
-      <div className="tag-chips">
-        {paper.tags.map((t) => (
-          <span key={t} className="tag-chip editable">
-            #{t}
-            <button
-              type="button"
-              className="tag-del"
-              aria-label={`Remove #${t}`}
-              disabled={busy}
-              onClick={() => void removeTag(t)}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
+  return <TagChips tags={paper.tags} busy={busy} onRemove={(t) => void removeTag(t)} />;
 }
