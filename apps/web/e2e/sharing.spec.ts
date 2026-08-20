@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { bootstrapSession, drainLoginGates, signIn } from "./helpers/auth.js";
-import { ensurePaperExists, firstPaperTitle } from "./helpers/papers.js";
+import { ensurePaperExists } from "./helpers/papers.js";
 import { e2eEnabled, e2eUserA, e2eUserB } from "./helpers/env.js";
 
 /**
@@ -14,6 +14,9 @@ import { e2eEnabled, e2eUserA, e2eUserB } from "./helpers/env.js";
  * failure read as a timeout waiting for a heading rather than as what it was.
  */
 const CLEAN = { storageState: { cookies: [], origins: [] } };
+
+/** This spec's own fixture, so what it grants does not depend on account history. */
+const MEMBER_SHARE_PAPER = "E2E Member Share Paper";
 
 async function confirmShareFingerprint(page: Page) {
   const fp = page.locator(".share-fingerprint").first();
@@ -91,25 +94,39 @@ test.describe("sharing", () => {
     const recipient = await recipientCtx.newPage();
 
     await bootstrapSession(owner, userA.email, userA.password);
-    await ensurePaperExists(owner);
-    const paperTitle = await firstPaperTitle(owner);
+    // A fixture of this spec's own, rather than whichever card happens to be
+    // first. The first card is a fact about the account's history: it drifted
+    // onto a paper that had already been shared with the recipient by an
+    // earlier run, and a person who already has access is not offered again —
+    // so the row this test waits for could never appear, and the failure named
+    // the directory rather than the share that was already there.
+    const paperTitle = MEMBER_SHARE_PAPER;
+    await ensurePaperExists(owner, paperTitle);
+    const card = owner.locator(".paper-card").filter({ hasText: paperTitle }).first();
 
     const handle = userB.email.split("@")[0]!;
     const memberRow = owner.locator(".mp-row").filter({ hasText: new RegExp(handle, "i") }).first();
 
-    // The lab directory is fetched when the dialog opens. A fetch that loses
-    // the race with the typed query leaves an empty list to filter, which read
-    // as "recipient not in the directory" and skipped the test outright — the
-    // one assertion this spec exists for, silently not run. Retry the open
-    // instead: the directory is a fact about the accounts, not about timing.
+    await card.getByRole("button", { name: "Share", exact: true }).click();
+    // The dialog fetches the directory and the existing shares together, so
+    // decide nothing about either until at least one row has arrived. A query
+    // typed into an empty list filters to nothing, which used to read as
+    // "recipient not in the directory" and skip the test outright — the one
+    // assertion this spec exists for, silently not run.
+    await owner.locator(".mp-row").first().waitFor({ timeout: 30_000 });
+
+    const existing = owner.locator(".share-row").filter({ hasText: new RegExp(handle, "i") }).first();
     await expect(async () => {
-      if (!(await memberRow.isVisible().catch(() => false))) {
-        if (!(await owner.getByPlaceholder("Search people…").isVisible().catch(() => false))) {
-          await owner.getByRole("button", { name: "Share", exact: true }).first().click();
-        }
-        await owner.locator(".mp-row").first().waitFor({ timeout: 15_000 });
-        await owner.getByPlaceholder("Search people…").fill(handle);
+      // Somebody who already has access is not offered again, so a grant left
+      // behind by an earlier run makes the row this test needs *permanently*
+      // absent — and typing the handle then empties the list rather than
+      // filtering it, which is how a stale share showed up as a directory
+      // that never loaded. Revoke first, then look again.
+      if (await existing.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await existing.getByRole("button", { name: "remove" }).click();
+        await expect(existing).toBeHidden({ timeout: 15_000 });
       }
+      await owner.getByPlaceholder("Search people…").fill(handle);
       await expect(memberRow).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 90_000 });
     await memberRow.locator('input[type="checkbox"]').check();
