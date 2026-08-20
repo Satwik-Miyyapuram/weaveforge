@@ -5,6 +5,7 @@ export type {
   GraphPinnedPosition,
   GraphViewSettings,
   GroupBy,
+  LayoutMode,
 } from "@weaveforge/core";
 export {
   DEFAULT_GRAPH_PERSISTED_STATE,
