@@ -9,7 +9,7 @@ Run through this once, before the first public push.
 - [x] `package.json` × 3 → `AGPL-3.0-only`
 - [x] `python/pyproject.toml` → `AGPL-3.0-only` + AGPL trove classifier
 - [x] `plugins/weaveforge-research/.codex-plugin/plugin.json` → `AGPL-3.0-only`
-- [x] `NOTICE`, `CONTRIBUTORS.md`, `CONTRIBUTING.md`, `docs/licensing.md`
+- [x] `NOTICE`, `CONTRIBUTORS.md`, `CONTRIBUTING.md`
 - [x] README badge and licence section
 - [x] No permissive carve-outs anywhere
 
@@ -52,8 +52,8 @@ Archive it, do not delete. It is the dated record of what you wrote and when —
 
 ## 5. After publishing
 
-- [ ] Claim `weaveforge` on npm and PyPI — both free as of 2026-07-25. See
-      `docs/licensing.md` for the name decision; no trademark is being registered
+- [ ] Claim `weaveforge` on npm and PyPI — both free as of 2026-07-25. The name
+      decision stands: no trademark is being registered
 - [ ] Add a CI licence-compatibility check for dependencies
 - [ ] Consider SPDX headers (`SPDX-License-Identifier: AGPL-3.0-only`) on new source files —
       recommended, not required; the repo-wide `LICENSE` governs regardless

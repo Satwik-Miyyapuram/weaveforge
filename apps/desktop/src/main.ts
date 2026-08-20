@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
+import { fetchReleases, findUpdate } from "./update-check";
 
 /**
  * The desktop shell.
@@ -138,6 +139,59 @@ function deliverSignIn(query: string): void {
   if (window.isMinimized()) window.restore();
   window.focus();
   window.webContents.send(CHANNELS.signIn, query);
+  void offerUpdate();
+}
+
+/**
+ * Offer the newer installer.
+ *
+ * Deliberately not awaited by its callers: the window is already open and
+ * usable while this happens, and if GitHub is slow or unreachable the reader
+ * never finds out there was a question. `showMessageBox` is used rather than
+ * something inside the page because the page is the *web app* — it is served
+ * from a server that knows nothing about which shell is asking, and putting
+ * this in it would mean browser readers being told to update an app they do
+ * not have.
+ *
+ * It runs at launch and again whenever a sign-in completes, and it does not
+ * remember having asked. Signing in is the moment the shell's own machinery
+ * has just been exercised — the loopback listener, the preload channel that
+ * carries the result — so it is the moment a reader on a stale one most needs
+ * to hear it, and the moment they are most likely to act.
+ */
+let offering = false;
+
+async function offerUpdate(): Promise<void> {
+  // In development the version is whatever is in package.json and the "update"
+  // would be the release the source is ahead of.
+  if (!app.isPackaged || offering) return;
+
+  offering = true;
+  try {
+    const update = await findUpdate({ currentVersion: app.getVersion(), fetchReleases });
+    if (!update) return;
+
+    const window = mainWindow;
+    if (!window || window.isDestroyed()) return;
+    const { response } = await dialog.showMessageBox(window, {
+      type: "info",
+      title: "Update available",
+      message: `WeaveForge ${update.version} is available.`,
+      detail:
+        `You are running ${app.getVersion()}. The app itself updates from the web, so this ` +
+        "only affects the desktop window — signing in, links, and file handling. " +
+        "Downloading opens the release page in your browser.",
+      buttons: ["Download", "Later"],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (response === 0) await openExternally(update.url);
+  } finally {
+    // The guard is against two dialogs at once — a launch check and the
+    // sign-in that lands seconds later — not against asking again.
+    offering = false;
+  }
 }
 
 // Thin on purpose: what these do lives in `handlers.ts`, which the tests can
@@ -164,6 +218,8 @@ if (!app.requestSingleInstanceLock()) {
     // is not listening yet.
     loopback = startAuthLoopback(deliverSignIn);
     createWindow();
+    // Not awaited: a courtesy that must never hold up a launch.
+    void offerUpdate();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
