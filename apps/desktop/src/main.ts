@@ -153,11 +153,18 @@ function deliverSignIn(query: string): void {
  * this in it would mean browser readers being told to update an app they do
  * not have.
  *
- * It runs at launch and again whenever a sign-in completes, and it does not
- * remember having asked. Signing in is the moment the shell's own machinery
- * has just been exercised — the loopback listener, the preload channel that
- * carries the result — so it is the moment a reader on a stale one most needs
- * to hear it, and the moment they are most likely to act.
+ * It runs on a completed sign-in and nowhere else. Not at launch: an app that
+ * opens a dialog every time it opens is an app people learn to dismiss without
+ * reading, and the notice would be spent on the launches where nothing has
+ * changed. Signing in is the moment the shell's own machinery has just been
+ * exercised — the loopback listener, the preload channel that carries the
+ * result — so it is both the moment a reader on a stale build most needs to
+ * hear it and the moment they are most likely to act. Between sign-ins the
+ * same fact is a dot on the Updates section in settings, which is there to be
+ * noticed rather than answered.
+ *
+ * It does not remember having asked: a dismissed dialog does not make a stale
+ * shell less stale.
  */
 let offering = false;
 
@@ -198,6 +205,13 @@ async function offerUpdate(): Promise<void> {
 // reach without an Electron app running.
 ipcMain.handle(CHANNELS.fetchTitle, (_event, url: unknown) => handleFetchTitle(url));
 ipcMain.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(url));
+// The settings panel asking, rather than the shell announcing. A failure is
+// null and not an error: a settings section that cannot reach GitHub should
+// say it does not know, not turn red.
+ipcMain.handle(CHANNELS.checkUpdate, async () => {
+  if (!app.isPackaged) return null;
+  return findUpdate({ currentVersion: app.getVersion(), fetchReleases });
+});
 
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
@@ -218,8 +232,6 @@ if (!app.requestSingleInstanceLock()) {
     // is not listening yet.
     loopback = startAuthLoopback(deliverSignIn);
     createWindow();
-    // Not awaited: a courtesy that must never hold up a launch.
-    void offerUpdate();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

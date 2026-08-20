@@ -24,6 +24,14 @@ export const CHANNELS = {
    * string exactly as it was received.
    */
   signIn: "weaveforge:sign-in",
+  /**
+   * Whether a newer desktop release exists.
+   *
+   * Answered here rather than fetched by the page, because the page does not
+   * know what it is running inside: the version lives in this process, and the
+   * page is the same web build a browser gets.
+   */
+  checkUpdate: "weaveforge:check-update",
 } as const;
 
 /**

@@ -47,11 +47,15 @@ const page = `<!doctype html><meta charset="utf-8"><title>smoke</title><script>
   catch (error) { out.loopback = "refused"; }
   try { await bridge.fetchImage("http://169.254.169.254/latest/meta-data/"); out.metadata = "ALLOWED"; }
   catch (error) { out.metadata = "refused"; }
+  // Answers null from source — the check is skipped when the app is not
+  // packaged, because then the "update" is the release the source is ahead of.
+  try { out.update = JSON.stringify(await bridge.checkUpdate()); }
+  catch (error) { out.update = "THREW: " + error.message; }
   await fetch("/report", { method: "POST", body: JSON.stringify(out) });
 })();
 </script><h1>smoke</h1>`;
 
-const EXPECTED_MEMBERS = ["fetchImage", "fetchTitle", "onSignIn", "platform", "version"];
+const EXPECTED_MEMBERS = ["checkUpdate", "fetchImage", "fetchTitle", "onSignIn", "platform", "version"];
 
 let reported = null;
 const server = http.createServer((request, response) => {
@@ -123,6 +127,10 @@ function finish(body, log) {
   if (result.leaked.length) failures.push(`the page can reach ${result.leaked.join(", ")}.`);
   if (result.loopback !== "refused") failures.push("a loopback address was fetched.");
   if (result.metadata !== "refused") failures.push("the cloud metadata address was fetched.");
+  // Not "there is no update" — this is running from source, where the check is
+  // skipped outright. What it proves is that the channel is registered and
+  // answers, rather than hanging until the invoke times out.
+  if (result.update !== "null") failures.push(`checkUpdate answered ${result.update}, expected null from source.`);
 
   if (failures.length) {
     for (const failure of failures) console.error("FAIL: " + failure);

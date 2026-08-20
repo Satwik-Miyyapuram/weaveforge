@@ -61,15 +61,19 @@ app to keep in step.
 
 What the installer holds is the window itself: signing in, links opening in your
 browser, and the machinery underneath them. That part changes rarely, and when
-it does the app tells you: when it starts, and again whenever you sign in, it
-asks GitHub whether a newer release exists — and if one does, it offers you the
-release page. Nothing is downloaded until you choose to, and the app does not
-install anything behind your back.
+it does the app tells you **once you sign in** — not every time you open it. A
+box that appears at every launch is a box people learn to close without reading,
+and by the time it matters they have stopped seeing it.
 
-Saying no is not remembered. The offer comes back next time, because a window
-that is out of step with the server stays out of step until it is replaced, and
-signing in is the moment that matters most: it is the part of the app the
-installer actually holds.
+Nothing is downloaded until you choose to. Choosing to opens the release page in
+your browser, where the installer is the same one you first installed from.
+
+Between sign-ins the same fact sits in **Settings → Updates**, with a dot on the
+section when a newer version is out. That section also shows which version this
+window is, and has a **Check now** button if you would rather ask than wait.
+
+The section is not there in a browser, because a browser has no window to
+update — whatever it loads is already current.
 
 If the check cannot reach GitHub it says nothing rather than showing you an
 error, because a shell that cannot reach GitHub is still a working shell.
