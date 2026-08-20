@@ -4,11 +4,25 @@ import { RELATION_TYPES } from "./paper-relation.js";
 export type EdgeMode = "cites" | "tags" | "both";
 export type ColorBy = "status" | "tag" | "list";
 export type GroupBy = "none" | "status" | "list";
+/**
+ * How nodes are arranged, as opposed to how they are coloured.
+ *
+ * `force` is the ordinary physics layout. `timeline` pins each paper's x to
+ * its publication year, so the graph reads left to right as the literature
+ * actually developed, and leaves y to the forces — related work still clumps
+ * vertically, but a citation can no longer point backwards in time on screen.
+ *
+ * `groupBy` sounds like it ought to live here and does not: despite the name
+ * it only picks the colouring, and changing that now would silently rearrange
+ * saved views.
+ */
+export type LayoutMode = "force" | "timeline";
 
 export interface GraphViewSettings {
   edgeMode: EdgeMode;
   colorBy: ColorBy;
   groupBy: GroupBy;
+  layout: LayoutMode;
   showConcepts: boolean;
   minConceptDegree: number;
   hideOrphans: boolean;
@@ -28,6 +42,7 @@ export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
   edgeMode: "cites",
   colorBy: "status",
   groupBy: "none",
+  layout: "force",
   showConcepts: false,
   minConceptDegree: 2,
   hideOrphans: true,
@@ -46,6 +61,7 @@ export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
 const EDGE_MODES = new Set<EdgeMode>(["cites", "tags", "both"]);
 const COLOR_BY = new Set<ColorBy>(["status", "tag", "list"]);
 const GROUP_BY = new Set<GroupBy>(["none", "status", "list"]);
+const LAYOUTS = new Set<LayoutMode>(["force", "timeline"]);
 const RELATION_TYPE_SET = new Set<string>(RELATION_TYPES);
 
 function isNumber(v: unknown): v is number {
@@ -68,6 +84,9 @@ export function normalizeGraphViewSettings(raw: unknown): GraphViewSettings {
     groupBy: GROUP_BY.has(o.groupBy as GroupBy)
       ? (o.groupBy as GroupBy)
       : DEFAULT_GRAPH_SETTINGS.groupBy,
+    layout: LAYOUTS.has(o.layout as LayoutMode)
+      ? (o.layout as LayoutMode)
+      : DEFAULT_GRAPH_SETTINGS.layout,
     showConcepts: typeof o.showConcepts === "boolean" ? o.showConcepts : DEFAULT_GRAPH_SETTINGS.showConcepts,
     minConceptDegree: isNumber(o.minConceptDegree) ? o.minConceptDegree : DEFAULT_GRAPH_SETTINGS.minConceptDegree,
     hideOrphans: typeof o.hideOrphans === "boolean" ? o.hideOrphans : DEFAULT_GRAPH_SETTINGS.hideOrphans,
@@ -122,5 +141,6 @@ export function graphFilterCount(
   if (settings.hideOrphans) n++;
   if (settings.searchQuery.trim()) n++;
   if (settings.groupBy !== "none") n++;
+  if (settings.layout !== "force") n++;
   return n;
 }

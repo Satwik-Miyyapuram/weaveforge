@@ -10,6 +10,7 @@ import {
   type EdgeMode,
   type GraphViewSettings,
   type GroupBy,
+  type LayoutMode,
 } from "../application/graph-view-settings";
 
 function Section({
@@ -185,6 +186,25 @@ export function GraphSettingsDrawer({
           <button type="button" className="btn-secondary" onClick={onResetLocal} disabled={!localSeed}>
             Show all papers
           </button>
+        </Section>
+
+        <Section title="Layout">
+          <div className="seg" role="group" aria-label="Layout">
+            {(["force", "timeline"] as LayoutMode[]).map((l) => (
+              <button
+                key={l}
+                type="button"
+                className={`seg-btn${settings.layout === l ? " on" : ""}`}
+                onClick={() => onChange({ layout: l })}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <p className="muted">
+            Timeline pins each paper to its publication year, left to right. Papers with
+            no year recorded stay where the forces put them.
+          </p>
         </Section>
 
         <Section title="Groups">

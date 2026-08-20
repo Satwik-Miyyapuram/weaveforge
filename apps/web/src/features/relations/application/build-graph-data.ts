@@ -47,6 +47,8 @@ export interface GNode {
   val: number;
   color: string;
   paperId?: string;
+  /** Publication year, when the paper carries one. Drives the timeline layout. */
+  year?: number;
   noteId?: string;
   sectionId?: string;
   tagName?: string;
@@ -310,6 +312,7 @@ export function buildGraphData(
       val: (2 + Math.sqrt(degree.get(p.id) ?? 0) * 2) * settings.nodeSize,
       color: paperColor(p, settings.colorBy, settings.groupBy, membership, lists),
       paperId: p.id,
+      year: typeof p.year === "number" && Number.isFinite(p.year) ? p.year : undefined,
     });
   }
 

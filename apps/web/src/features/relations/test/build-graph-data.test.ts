@@ -185,3 +185,27 @@ describe("buildGraphData wikilinks", () => {
     assert.ok(wl.some((l) => l.source === "s1" && l.target === "p1"), "section→paper");
   });
 });
+
+describe("timeline layout inputs", () => {
+  it("carries a publication year onto paper nodes, and omits one that is missing", () => {
+    const dated: Paper = { ...paper("p1", "Dated"), year: 2017 };
+    const undated = paper("p2", "Undated");
+    const { data } = buildGraphData(
+      [dated, undated],
+      [relation("r1", "p1", "p2")],
+      DEFAULT_GRAPH_SETTINGS,
+    );
+
+    const byId = new Map(data.nodes.map((n) => [n.id, n]));
+    assert.equal(byId.get("p1")?.year, 2017);
+    // Not zero, and not a guessed default: the timeline force skips a node
+    // with no year rather than planting it on a date nobody recorded.
+    assert.equal(byId.get("p2")?.year, undefined);
+  });
+
+  it("ignores a year that is not a finite number", () => {
+    const broken = { ...paper("p1", "Broken"), year: Number.NaN } as Paper;
+    const { data } = buildGraphData([broken], [], DEFAULT_GRAPH_SETTINGS);
+    assert.equal(data.nodes.find((n) => n.id === "p1")?.year, undefined);
+  });
+});

@@ -39,6 +39,8 @@ const FG = ForceGraph2D as unknown as React.ComponentType<
 >;
 
 const DIM = "rgba(140, 133, 124, 0.12)";
+/** Canvas units between one publication year and the next in the timeline layout. */
+const YEAR_SPACING = 90;
 
 function fitPadding(width: number, height: number): number {
   return Math.max(72, Math.round(Math.min(width, height) * 0.1));
@@ -69,6 +71,20 @@ function mergeSimNodes(
   incoming: GNode[],
   cache: Map<string, GNode>,
   pinned: Map<string, { x: number; y: number }>,
+  /**
+   * Where a node belongs on the timeline, or null if it is not on one.
+   *
+   * Pinning x rather than pulling it there with a force, because a force loses.
+   * `forceX` closes a fraction of the remaining gap each tick while the link
+   * and charge forces pull the other way, and the pull from a single citation
+   * across five years is enough to leave a paper the better part of a year out
+   * of its lane — measured at up to 149px on a 90px spacing, which puts two
+   * papers from the same year a full year apart. A timeline that is only
+   * approximately chronological is worse than no timeline, because it still
+   * invites you to read distance as time. Raising the strength does not fix
+   * it; d3 treats strength above 1 as overshoot, and it still drifted 85px.
+   */
+  laneX: ((node: GNode) => number | null) | null,
 ): GNode[] {
   const next = new Map<string, GNode>();
   for (const n of incoming) {
@@ -77,9 +93,17 @@ function mergeSimNodes(
       ? { ...prev, label: n.label, val: n.val, color: n.color, kind: n.kind, paperId: n.paperId, noteId: n.noteId, tagName: n.tagName }
       : { ...n };
     const pin = pinned.get(n.id);
+    const lane = laneX?.(node) ?? null;
     if (pin) {
+      // A node the reader pinned themselves stays exactly where they put it,
+      // timeline or not. They asked for that position out loud.
       node.fx = pin.x;
       node.fy = pin.y;
+    } else if (lane !== null) {
+      node.fx = lane;
+      // y stays free, so related work still finds its own height and the
+      // clusters the forces produce survive.
+      delete node.fy;
     } else {
       delete node.fx;
       delete node.fy;
@@ -204,12 +228,14 @@ export function GraphCanvas({
     if (!fg?.d3Force) return;
     fg.d3Force("charge")?.strength?.(settings.chargeStrength);
     fg.d3Force("link")?.distance?.(settings.linkDistance);
-    fg.d3Force("center")?.strength?.(settings.centerStrength);
+    fg.d3Force("center")?.strength?.(
+      settings.layout === "timeline" ? settings.centerStrength * 0.2 : settings.centerStrength,
+    );
     // Re-energise so the new forces take effect immediately. Reheating only
     // raises alpha — nodes keep their current positions and re-settle from
     // there, rather than snapping back to the centre.
     fg.d3ReheatSimulation?.();
-  }, [settings.chargeStrength, settings.linkDistance, settings.centerStrength, fgReady]);
+  }, [settings.chargeStrength, settings.linkDistance, settings.centerStrength, settings.layout, fgReady]);
 
   // Rebuild graph data only when a field buildGraphData actually reads changes.
   // Depending on the whole `settings` object rebuilt the node array whenever a
@@ -248,12 +274,39 @@ export function GraphCanvas({
     return `${nodeIds}|${linkIds}|${localSeed ?? ""}|${localDepth}`;
   }, [rawData, localSet, localSeed, localDepth]);
 
+  /**
+   * The timeline layout.
+   *
+   * Each paper's x is fixed to its publication year, so the graph reads left
+   * to right as the field actually developed, while y is left to the forces —
+   * related work still clumps vertically. On a citation graph that is a real
+   * gain over a free layout: an arrow pointing left is influence flowing
+   * backwards through time, and it is visible at a glance.
+   *
+   * Anything without a year — a tag, a note, a paper whose year nobody filled
+   * in — is left alone rather than pinned to a guess. Defaulting the year
+   * would stack every one of them in a single stripe and state a publication
+   * date that does not exist.
+   */
+  const laneX = useMemo(() => {
+    if (settings.layout !== "timeline") return null;
+    const years = rawData.nodes
+      .map((n) => n.year)
+      .filter((y): y is number => typeof y === "number");
+    if (years.length === 0) return null;
+    // Centred on the middle of the collection, so a library of 2020s papers
+    // does not start halfway across the canvas.
+    const mid = Math.round(years.reduce((a, b) => a + b, 0) / years.length);
+    return (node: GNode) =>
+      typeof node.year === "number" ? (node.year - mid) * YEAR_SPACING : null;
+  }, [settings.layout, rawData.nodes]);
+
   const data = useMemo(() => {
     const filtered = filterGraphByNodes(rawData.nodes, rawData.links, localSet);
-    const nodes = mergeSimNodes(filtered.nodes, simNodesRef.current, pinned);
+    const nodes = mergeSimNodes(filtered.nodes, simNodesRef.current, pinned, laneX);
     const links = cloneLinks(filtered.links);
     return { nodes, links };
-  }, [rawData, localSet, pinned]);
+  }, [rawData, localSet, pinned, laneX]);
 
   dataRef.current = data;
 
@@ -343,6 +396,40 @@ export function GraphCanvas({
   }, [data.nodes, searchQ]);
 
   const isSearchHit = (id: string) => !searchHits || searchHits.has(id);
+
+  /**
+   * What stays lit while the pointer is on a node.
+   *
+   * The complaint that sends people away from a graph like this one is that a
+   * few hundred papers become an unreadable cloud — every node touching every
+   * other, and no way to answer "what is this one actually connected to?"
+   * without dragging it out of the crowd. Hovering answers it directly: the
+   * node and everything one hop from it keep their colour, and the rest of the
+   * graph drops back far enough to read the shape through.
+   *
+   * `neighbors` is built once alongside the graph data, so this is a map
+   * lookup per hover rather than a walk over every link. That distinction
+   * matters on a dense graph, where the obvious implementation runs the whole
+   * edge list on every mousemove.
+   */
+  const lit = useCallback(
+    (id: string): boolean => {
+      const hovered = hoverRef.current.nodeId;
+      if (!hovered) return true;
+      if (id === hovered) return true;
+      return neighbors.get(hovered)?.has(id) ?? false;
+    },
+    [neighbors],
+  );
+
+  /** A link survives the hover dim only if it is one of the hovered node's own. */
+  const linkLit = useCallback((l: GLink): boolean => {
+    const hovered = hoverRef.current.nodeId;
+    if (!hovered) return true;
+    const src = typeof l.source === "object" ? (l.source as GNode).id : l.source;
+    const tgt = typeof l.target === "object" ? (l.target as GNode).id : l.target;
+    return src === hovered || tgt === hovered;
+  }, []);
 
   const nodeR = (n: GNode) => Math.max(3, n.val);
   // Hit target matches the drawn shape (plus a hair) so neighbouring hit areas
@@ -539,6 +626,7 @@ export function GraphCanvas({
             const tgt = typeof l.target === "object" ? (l.target as GNode).id : l.target;
             if (!searchHits.has(src) || !searchHits.has(tgt)) return DIM;
           }
+          if (!linkLit(l)) return DIM;
           return l.color;
         }}
         linkWidth={(l: GLink) => {
@@ -557,7 +645,10 @@ export function GraphCanvas({
         nodeCanvasObjectMode={() => "replace"}
         nodeCanvasObject={(node: GNode, ctx: CanvasRenderingContext2D, zoom: number) => {
           zoomKRef.current = zoom;
-          const dimmed = !isSearchHit(node.id);
+          // Two independent reasons to fade: the search has excluded it, or a
+          // hover elsewhere has. Kept distinct so a node one hop from the
+          // pointer still dims when the search has ruled it out.
+          const dimmed = !isSearchHit(node.id) || !lit(node.id);
           ctx.globalAlpha = dimmed ? 0.12 : 1;
           paintShape(node, ctx, node.color);
           if (labelVisible(node)) {
@@ -578,7 +669,10 @@ export function GraphCanvas({
               );
             if (!clash) {
               labelBoxesRef.current.push(box);
-              ctx.globalAlpha = 1;
+              // Follows the node. A label at full strength over a node faded
+              // to a tenth reads as the one thing on screen worth looking at,
+              // which is the opposite of what the dim is for.
+              ctx.globalAlpha = dimmed ? 0.12 : 1;
               ctx.fillStyle = inkColor;
               ctx.textAlign = "center";
               ctx.fillText(label, lx, ly);
