@@ -6,6 +6,7 @@ import {
   bodyLinksTo, extractHashtags, normalizeTitleKey, vaultImageMarkdown, type VaultPage, type VaultPageTreeNode } from "@weaveforge/core";
 import { removeHashtagFromBody } from "@/features/papers/lib/note-tags";
 import { getContainer } from "@/bootstrap";
+import { TagChips } from "@/components/tag-chips";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
@@ -925,25 +926,5 @@ function NoteTagEditor({ page, onChanged }: { page: VaultPage; onChanged: () => 
     }
   }
 
-  if (tags.length === 0) return null;
-  return (
-    <div className="tag-editor">
-      <div className="tag-chips">
-        {tags.map((t) => (
-          <span key={t} className="tag-chip editable">
-            #{t}
-            <button
-              type="button"
-              className="tag-del"
-              aria-label={`Remove #${t}`}
-              disabled={busy}
-              onClick={() => void removeTag(t)}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
+  return <TagChips tags={tags} busy={busy} onRemove={(t) => void removeTag(t)} />;
 }
