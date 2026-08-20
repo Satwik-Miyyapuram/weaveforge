@@ -270,7 +270,13 @@ function Step({ i, active, idx, title, children }: {
   i: number; active: number; idx: string; title: string; children: React.ReactNode;
 }) {
   return (
-    <article className={css.step} data-step={i} data-on={i === active}>
+    /* `data-particle` is the opt-in for the sand effect. Only these dissolve:
+       they are the one thing on the page that is *read by scrolling*, where a
+       line arriving and leaving is the point. Everything else — headings,
+       cards, code, the comparison table, the nav — is read by looking, and
+       turning it to sand made most of the screen unreadable at any moment for
+       the sake of these four lines. */
+    <article className={css.step} data-particle data-step={i} data-on={i === active}>
       <span className={css.idx}>{idx}</span>
       <h3>{title}</h3>
       <p>{children}</p>
@@ -1740,6 +1746,7 @@ export default function PitchPage() {
           browser-support caveat — unsupported browsers get this markup as-is. */}
       <ParticleScroll
         className={css.particleScroller}
+        only="[data-particle]"
         focus="both"
         point={0.5}
         keep={260}

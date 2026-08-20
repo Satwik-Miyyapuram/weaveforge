@@ -69,6 +69,21 @@ export interface ParticleScrollOptions {
    * fully solid before either fade begins. Only used when `focus` is `"both"`.
    */
   keep?: number;
+  /**
+   * WEAVEFORGE: a selector for the only elements allowed to dissolve.
+   *
+   * Upstream has no such thing, and the reason it needs one here is what the
+   * effect actually is: the scroll container is rasterised whole and taken
+   * apart by pixel row. It has no idea what an element is, so wrapping a page
+   * in it turns *everything* to sand — headings, cards, code blocks, tables,
+   * the nav — and most of the screen is unreadable at any given moment for the
+   * sake of a few lines that were meant to be.
+   *
+   * With a selector, the rows an element covers are the only rows that ever
+   * leave home. Everything else is pinned assembled and renders exactly as it
+   * would with no effect at all. Left unset, behaviour is upstream's.
+   */
+  only?: string;
 }
 
 export interface ParticleScrollElements {
@@ -90,6 +105,8 @@ export interface ParticleScrollInstance {
 }
 
 const DEFAULTS: Required<ParticleScrollOptions> = {
+  // Empty: no restriction, which is upstream behaviour.
+  only: "",
   point: 0.68,
   band: 420,
   density: 2,
@@ -131,6 +148,31 @@ void main () {
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
+const ZONES = `
+// WEAVEFORGE: the opt-in mask.
+//
+// A rectangle list rather than the row list this started as. Rows alone cannot
+// express "these paragraphs, not the figure beside them" — the steps and the
+// stage share the same rows, so masking by row dissolved the whole band and
+// changed nothing about what was readable. Sixteen is generous: the merge step
+// on the CPU collapses each scene's steps into one rectangle.
+#define MAX_ZONES 16
+uniform int uZoneCount;
+uniform vec4 uZones[MAX_ZONES];
+
+// 1.0 where the effect is allowed, 0.0 where the pixel must stay assembled.
+// No zones at all means no restriction, which is the upstream behaviour.
+float zoneMask (vec2 cpx) {
+  if (uZoneCount == 0) return 1.0;
+  for (int i = 0; i < MAX_ZONES; i++) {
+    if (i >= uZoneCount) break;
+    vec4 z = uZones[i];
+    if (cpx.x >= z.x && cpx.x <= z.z && cpx.y >= z.y && cpx.y <= z.w) return 1.0;
+  }
+  return 0.0;
+}
+`;
+
 const BASE_FRAG = `#version 300 es
 precision highp float;
 in vec2 vUv;
@@ -147,6 +189,7 @@ uniform float uScroll;
 uniform float uWinStart;
 uniform vec3 uBg;
 ${HASH}
+${ZONES}
 void main () {
   vec2 px = vec2(vUv.x, 1.0 - vUv.y) * uRes;
   vec2 cell = floor(vec2(px.x, px.y + uScroll) / uDensity);
@@ -154,6 +197,9 @@ void main () {
   float d = h1 * uStagger;
   int row = int(clamp(cell.y - uWinStart, 0.0, uRowCount - 1.0));
   float p = texelFetch(uRowTex, ivec2(row, 0), 0).r;
+  // Outside every zone the pixel is simply assembled, exactly as it would be
+  // with no effect on the page at all.
+  p = mix(1.0, p, zoneMask((cell + 0.5) * uDensity));
   float t = clamp((p - d) / max(1.0 - d, 1e-3), 0.0, 1.0);
   float vis = step(0.9995, t) * step(px.x, uMaxX * uRes.x);
   vec4 tex = texture(uContent, vec2(vUv.x, 1.0 - vUv.y));
@@ -185,6 +231,7 @@ out float vAlpha;
 out float vLod;
 out float vMerge;
 ${HASH}
+${ZONES}
 void main () {
   float fid = float(gl_VertexID);
   vec2 local = vec2(mod(fid, uGrid.x), floor(fid / uGrid.x));
@@ -200,6 +247,9 @@ void main () {
   );
   int row = int(clamp(local.y, 0.0, uGrid.y - 1.0));
   float p = texelFetch(uRowTex, ivec2(row, 0), 0).r;
+  // A grain outside every zone has nowhere to be but home, so it is culled by
+  // the visibility test below rather than drawn on top of assembled content.
+  p = mix(1.0, p, zoneMask((cell + 0.5) * uDensity));
   float t = clamp((p - d) / max(1.0 - d, 1e-3), 0.0, 1.0);
   float e = 1.0 - pow(1.0 - t, 3.0);
   float vis = (1.0 - step(0.9995, t))
@@ -269,6 +319,110 @@ void main () {
   if (a < 0.01) discard;
   outColor = vec4(tex.rgb, a);
 }`;
+
+/** WEAVEFORGE: a rectangle in the content's own scroll coordinates. */
+export interface Zone {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** The shader's array size. Kept in step with `MAX_ZONES` in the GLSL above. */
+export const MAX_ZONES = 16;
+
+/**
+ * How far apart two rectangles in the same column may be and still merge.
+ *
+ * Sized to close the gap between stacked steps at any width — comfortably more
+ * than the space between them, comfortably less than the space between scenes.
+ * The gap left unmerged is a few rows of pinned-solid text drawn across a
+ * paragraph that is dissolving, which is more noticeable than either the
+ * effect or its absence.
+ */
+export const MERGE_GAP = 64;
+
+/**
+ * WEAVEFORGE: turn element rectangles into the few the shader can hold.
+ *
+ * Two elements merge when they overlap horizontally and are close vertically —
+ * which is what a column of steps is, so each scene's steps collapse into one
+ * rectangle and eight scenes fit in sixteen slots with room to spare. Merging
+ * also removes the seam a gap would leave: without it the few pixels between
+ * two steps stay pinned solid, drawing a hairline of sharp text across a
+ * paragraph that is dissolving.
+ *
+ * Over the cap, the closest pairs are merged regardless of the rules until it
+ * fits. A slightly too generous rectangle dissolves a little more than was
+ * asked; dropping one instead would leave a step that never dissolves at all,
+ * which reads as a bug rather than as a margin.
+ */
+export function packZones(rects: Zone[], max = MAX_ZONES, gap = MERGE_GAP): Zone[] {
+  const zones = rects
+    .filter((r) => r.x1 > r.x0 && r.y1 > r.y0)
+    .map((r) => ({ ...r }))
+    .sort((a, b) => a.y0 - b.y0 || a.x0 - b.x0);
+
+  const merged: Zone[] = [];
+  for (const zone of zones) {
+    const near = merged.find(
+      (m) => m.x0 < zone.x1 && zone.x0 < m.x1 && zone.y0 <= m.y1 + gap && m.y0 <= zone.y1 + gap,
+    );
+    if (near) {
+      near.x0 = Math.min(near.x0, zone.x0);
+      near.y0 = Math.min(near.y0, zone.y0);
+      near.x1 = Math.max(near.x1, zone.x1);
+      near.y1 = Math.max(near.y1, zone.y1);
+    } else {
+      merged.push(zone);
+    }
+  }
+
+  while (merged.length > max) {
+    let best = 0;
+    let bestGap = Infinity;
+    for (let i = 0; i < merged.length - 1; i += 1) {
+      const gap = merged[i + 1]!.y0 - merged[i]!.y1;
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = i;
+      }
+    }
+    const a = merged[best]!;
+    const b = merged[best + 1]!;
+    a.x0 = Math.min(a.x0, b.x0);
+    a.y0 = Math.min(a.y0, b.y0);
+    a.x1 = Math.max(a.x1, b.x1);
+    a.y1 = Math.max(a.y1, b.y1);
+    merged.splice(best + 1, 1);
+  }
+  return merged;
+}
+
+/**
+ * WEAVEFORGE: whether any zone covers this row.
+ *
+ * The rows are the animation's own unit and are pinned assembled where no zone
+ * reaches them, which keeps the idle check honest — rows nothing can dissolve
+ * must not report themselves as animating forever. The shader does the full
+ * rectangle test; this is only the vertical half of it.
+ */
+export function rowInZones(zones: Zone[], y: number): boolean {
+  if (zones.length === 0) return true;
+  return zones.some((z) => y >= z.y0 && y <= z.y1);
+}
+
+/** WEAVEFORGE: the zones as the flat `vec4` array the shader takes. */
+export function zonesToUniform(zones: Zone[], max = MAX_ZONES): Float32Array {
+  const out = new Float32Array(max * 4);
+  zones.slice(0, max).forEach((z, i) => {
+    out[i * 4] = z.x0;
+    out[i * 4 + 1] = z.y0;
+    out[i * 4 + 2] = z.x1;
+    out[i * 4 + 3] = z.y1;
+  });
+  return out;
+}
 
 export function supportsHtmlInCanvas(): boolean {
   if (typeof document === "undefined") return false;
@@ -480,8 +634,51 @@ export function createParticleScroll(
     gl!.generateMipmap(gl!.TEXTURE_2D);
   }
 
+  /**
+   * The y-ranges, in the content's own scroll coordinates, that may dissolve.
+   *
+   * Empty means "no restriction" — either no selector was given or nothing
+   * matched yet — which keeps upstream behaviour rather than silently freezing
+   * the whole effect on a page whose markup has not arrived.
+   */
+  let zones: Zone[] = [];
+  let zoneUniform = zonesToUniform([]);
+
+  /**
+   * A little slack around each element, because the effect works in cells a
+   * couple of pixels across. Without it a descender or an underline on the
+   * boundary is cut mid-glyph: half the letter sand, half of it solid.
+   */
+  const ZONE_PAD = 10;
+
+  function measureZones() {
+    if (!config.only) {
+      zones = [];
+      zoneUniform = zonesToUniform([]);
+      return;
+    }
+    const box = content.getBoundingClientRect();
+    const top = box.top - content.scrollTop;
+    const left = box.left - content.scrollLeft;
+    const found: Zone[] = [];
+    for (const el of content.querySelectorAll(config.only)) {
+      const rect = el.getBoundingClientRect();
+      if (rect.height <= 0 || rect.width <= 0) continue;
+      found.push({
+        x0: rect.left - left - ZONE_PAD,
+        y0: rect.top - top - ZONE_PAD,
+        x1: rect.right - left + ZONE_PAD,
+        y1: rect.bottom - top + ZONE_PAD,
+      });
+    }
+    zones = packZones(found);
+    zoneUniform = zonesToUniform(zones);
+  }
+
   function rowTargetFor(docRowY: number) {
     if (reducedMotion || !introDone) return 1;
+    // Pinned assembled: this row is not part of anything that was opted in.
+    if (!rowInZones(zones, docRowY)) return 1;
     const h = Math.max(output.clientHeight, 1);
     const band = Math.max(config.band, 1);
     const max = content.scrollHeight - content.clientHeight;
@@ -600,6 +797,10 @@ export function createParticleScroll(
     gl!.uniform1f(base.uniforms.uScroll!, scrollTop);
     gl!.uniform1f(base.uniforms.uWinStart!, winStart);
     gl!.uniform3f(base.uniforms.uBg!, bg[0], bg[1], bg[2]);
+    // `getActiveUniform` reports an array as `uZones[0]`, which is the name the
+    // location was collected under.
+    gl!.uniform1i(base.uniforms.uZoneCount!, zones.length);
+    gl!.uniform4fv(base.uniforms["uZones[0]"]!, zoneUniform);
     gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4);
 
     if (!htmlInCanvas || rowsAssembled) return;
@@ -623,6 +824,8 @@ export function createParticleScroll(
       Math.min(Math.max(config.gravity, -1), 1),
     );
     gl!.uniform1f(points.uniforms.uDrift!, Math.max(config.drift, 0));
+    gl!.uniform1i(points.uniforms.uZoneCount!, zones.length);
+    gl!.uniform4fv(points.uniforms["uZones[0]"]!, zoneUniform);
     gl!.uniform1f(points.uniforms.uSwirl!, Math.max(config.swirl, 0));
     gl!.uniform1f(points.uniforms.uTime!, time);
     gl!.uniform1f(points.uniforms.uFade!, Math.min(Math.max(config.fade, 0), 1));
@@ -697,6 +900,9 @@ export function createParticleScroll(
     raf = requestAnimationFrame(frame);
   }
 
+  // First measurement, after every declaration it reads. Called any earlier
+  // and `zones` and `ZONE_PAD` are still in their temporal dead zone.
+  measureZones();
   wake = start;
   start();
 
@@ -714,6 +920,11 @@ export function createParticleScroll(
 
   const observer = new ResizeObserver(() => {
     syncCanvasSize();
+    // Zones are pixel positions, so every reflow invalidates them: a resize, a
+    // font landing, an image arriving, a step growing by one line on a narrow
+    // screen. Cheap enough to redo — a handful of getBoundingClientRect calls
+    // against elements already in the layout.
+    measureZones();
     start();
   });
   observer.observe(output);
@@ -734,11 +945,14 @@ export function createParticleScroll(
         )
       )
         return;
+      const wasOnly = config.only;
       Object.assign(config, next);
+      if (config.only !== wasOnly) measureZones();
       start();
     },
     resize() {
       syncCanvasSize();
+      measureZones();
       start();
     },
     destroy() {
