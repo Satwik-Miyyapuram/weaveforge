@@ -832,12 +832,6 @@ body,
 }
 
 .crypto-gate-screen { max-width: 480px; margin: 6vh auto 0; }
-/* Centre over the content column, not the viewport — but only where a sidebar
- * is actually rendered. Unlock and project-picker screens have no nav, so an
- * unconditional offset would push the banner off-centre there instead. */
-body:has(.layout.has-nav) .device-transfer-banner {
-  left: calc(50% + var(--nav-inset) / 2);
-}
 .auth-screen { max-width: 420px; margin: 6vh auto 0; }
 .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .auth-brand img, .auth-brand svg { width: 44px; height: 44px; border-radius: 13px; }
@@ -861,31 +855,6 @@ body:has(.layout.has-nav) .device-transfer-banner {
 .screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: 1.6rem; margin: 18px 0 2px; letter-spacing: -0.01em; }
 /* Code/monospace surfaces adopt IBM Plex Mono. */
 code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono); }
-
-/* "?" help affordance next to a heading (replaces the muted subtitle line). */
-.heading-help { position: relative; display: inline-flex; vertical-align: middle; margin-left: 8px; }
-.heading-help-btn {
-  width: 20px; height: 20px; border-radius: 999px; cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 0.72rem; font-weight: 700; line-height: 1;
-  color: var(--muted); background: var(--pill); border: 1px solid var(--line);
-  padding: 0; transition: color 0.15s, border-color 0.15s;
-}
-.heading-help-btn:hover, .heading-help-btn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
-.heading-help-bubble {
-  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
-  width: max-content; max-width: min(320px, 78vw);
-  font-size: 0.82rem; font-weight: 400; line-height: 1.45; letter-spacing: 0;
-  color: var(--ink); background: var(--surface); border: 1px solid var(--line);
-  border-radius: 10px; box-shadow: var(--shadow); padding: 9px 12px;
-  opacity: 0; visibility: hidden; transform: translateY(-3px);
-  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s;
-  pointer-events: none;
-}
-.heading-help-bubble.open { opacity: 1; visibility: visible; transform: none; }
-@media (prefers-reduced-motion: reduce) {
-  .heading-help-bubble { transition: none; }
-}
 .head-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .screen-head:empty { display: none; }
 .btn-secondary {
@@ -4731,7 +4700,6 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   .proj-menu,
   .header-menu,
   .jump-to-dialog,
-  .heading-help-bubble,
   .graph-link-tooltip,
   .graph-settings-drawer,
   .pdf-reader-chrome,
@@ -4769,11 +4737,9 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   .shiki-markdown pre.shiki,
   .markdown-code-editor,
   .exp-run-cmd,
-  .device-transfer-code,
   .graph-local-banner,
   .extraction-pending-banner,
   .pdf-reader-banner,
-  .crypto-migration-pill,
   .metric-chip
 ) {
   border-color: transparent;
