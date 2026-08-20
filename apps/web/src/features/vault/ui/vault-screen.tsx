@@ -9,7 +9,7 @@ import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
-import { DeleteIcon, EditIcon, FilterIcon, ImageIcon } from "@/components/view-icons";
+import { DeleteIcon, EditIcon, FilterIcon } from "@/components/view-icons";
 import { EntityCard } from "@/components/entity-card";
 import { CardColumns } from "@/components/card-columns";
 import { MultiSelect } from "@/components/multi-select";
@@ -19,7 +19,9 @@ import { AddVaultPageForm } from "./add-vault-page-form";
 import { importNotesFromFiles } from "../application/import-notes";
 import { VaultMarkdown } from "./vault-markdown";
 import { materializeBlobImagesInBody } from "../lib/materialize-blob-images";
-import { compressImage } from "@/lib/image-compress";
+import { editorImageUpload } from "@/lib/editor-image-upload";
+import type { EditorHandle } from "@/components/editor-handle";
+import { AttachImageButton } from "@/components/attach-image-button";
 import { useScreenData } from "@/lib/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -641,7 +643,9 @@ function PageEditor({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  // Filled in by whichever editor is mounted — plain or collaborative — and
+  // empty while the note is being read rather than written.
+  const editorHandle = useRef<EditorHandle | null>(null);
   const { completions: wikilinkCompletions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
   const wikilinkTitles = useMemo(
@@ -654,14 +658,31 @@ function PageEditor({
   // here meant importing CodeMirror into this screen, which put the whole
   // editor in /notes' first-load bundle even for a reader who never edits.
   // `CollabBodyHost` builds it inside its own lazily-loaded chunk.
+  /**
+   * Accepting a pasted image. Stored against the page, referenced as `vault:`.
+   * Kept out of the memo below on purpose: it closes over `page.id`, and the
+   * collaborative editor rebuilds its whole document when its extension array
+   * changes.
+   */
+  const imagePaste = useMemo(
+    () =>
+      editorImageUpload({
+        store: (blob, ext) => getContainer().vault.uploadAsset(page.id, blob, ext),
+        toMarkdown: vaultImageMarkdown,
+        onError: setSaveError,
+      }),
+    [page.id],
+  );
+
   const collabEditing = useMemo(
     () => ({
       placeholder: "Write markdown… #hashtags and [[wikilinks]] link this note in the graph.",
       wikilinkTitles,
       wikilinkCompletions,
       citationFormat,
+      imagePaste,
     }),
-    [wikilinkTitles, wikilinkCompletions, citationFormat],
+    [wikilinkTitles, wikilinkCompletions, citationFormat, imagePaste],
   );
 
   useEffect(() => {
@@ -738,23 +759,6 @@ function PageEditor({
     onDeleted();
   }
 
-  async function onImagePick(file: File | null) {
-    if (!file) return;
-    try {
-      const isImage = file.type.startsWith("image/");
-      const compressed = isImage ? await compressImage(file) : null;
-      const blob = compressed?.blob ?? file;
-      const ext = compressed?.ext ?? (file.name.split(".").pop()?.toLowerCase() || "png");
-      const path = await getContainer().vault.uploadAsset(page.id, blob, ext);
-      const snippet = `\n${vaultImageMarkdown(path, file.name)}\n`;
-      setDraft((prev) => prev + snippet);
-      setEditing(true);
-      setSaveError(null);
-    } catch (err) {
-      setSaveError(formatError(err));
-    }
-  }
-
   function closeEditor() {
     setTitle(page.title);
     setSaveError(null);
@@ -808,23 +812,8 @@ function PageEditor({
                 </button>
               )}
               {showEditor && canEditBody && (
-                <button
-                  type="button"
-                  className="entity-icon-btn"
-                  onClick={() => fileRef.current?.click()}
-                  aria-label="Add image"
-                  title="Image"
-                >
-                  <ImageIcon />
-                </button>
+                <AttachImageButton editor={editorHandle} onError={setSaveError} />
               )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => void onImagePick(e.target.files?.[0] ?? null)}
-              />
               {!readOnly && (
                 <CommentsToggle resourceType="vault_page" resourceId={page.id} canComment variant="detail" />
               )}
@@ -879,6 +868,7 @@ function PageEditor({
               className="summary-input-collab"
               editorClassName="markdown-code-editor summary-input markdown-code-editor--notes"
               markdownEditing={collabEditing}
+              handleRef={editorHandle}
             />
           ) : (
             <MarkdownCodeEditor
@@ -890,6 +880,8 @@ function PageEditor({
               wikilinkTitles={wikilinkTitles}
               wikilinkCompletions={wikilinkCompletions}
               citationFormat={citationFormat}
+              imagePaste={imagePaste}
+              handleRef={editorHandle}
             />
           )}
           <div className="summary-editor-foot">

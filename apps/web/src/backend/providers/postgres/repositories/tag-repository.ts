@@ -8,19 +8,12 @@ import type {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
-
-interface TagRow {
-  id: string;
-  name: string;
-  color: string | null;
-}
-
-interface PaperTagRow {
-  paper_id: string;
-  tag_id: string;
-  source: string;
-  annotation_ref: string | null;
-}
+import {
+  type TagRow,
+  type PaperTagRow,
+  toTagDomain,
+  toPaperTagDomain,
+} from "@/features/tags/infrastructure/tag-rows";
 
 export class PostgresTagRepository implements ITagRepository {
   constructor(
@@ -176,19 +169,6 @@ export class PostgresPaperTagRepository implements IPaperTagRepository {
       await this.link(link);
     }
   }
-}
-
-function toTagDomain(row: TagRow): Tag {
-  return { id: row.id, name: row.name, color: row.color ?? undefined };
-}
-
-function toPaperTagDomain(row: PaperTagRow): PaperTag {
-  return {
-    paperId: row.paper_id,
-    tagId: row.tag_id,
-    source: row.source as TagSource,
-    annotationRef: row.annotation_ref ?? undefined,
-  };
 }
 
 function toPaperTagRow(l: PaperTag): Record<string, unknown> {

@@ -1,12 +1,9 @@
 import type { ICurrentUserProvider, IProjectRepository, Project } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
-
-interface ProjectRow {
-  id: string;
-  name: string;
-  color: string | null;
-  created_at: string;
-}
+import {
+  type ProjectRow,
+  toDomain,
+} from "@/features/projects/infrastructure/project-rows";
 
 export class PostgresProjectRepository implements IProjectRepository {
   constructor(
@@ -39,6 +36,3 @@ export class PostgresProjectRepository implements IProjectRepository {
   }
 }
 
-function toDomain(r: ProjectRow): Project {
-  return { id: r.id, name: r.name, color: r.color ?? undefined, createdAt: r.created_at };
-}

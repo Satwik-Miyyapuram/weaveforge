@@ -23,6 +23,7 @@ import { ExtractionTable } from "./extraction-table";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { useScreenData } from "@/lib/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
+import { usePinnedSharing } from "@/lib/use-pinned-sharing";
 import type { ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };
@@ -122,18 +123,8 @@ export function ListsScreen() {
     }
   }, [focusFromUrl, flat, isSharedView, pinnedSharedBy, setData]);
 
-  const isReadOnlyList = useCallback(
-    (id: string) => isSharedView || pinnedSharedBy.has(id),
-    [isSharedView, pinnedSharedBy],
-  );
+  const { isReadOnly: isReadOnlyList, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
-  const sharedOwnerName = useCallback(
-    (id: string) => {
-      const ownerId = pinnedSharedBy.get(id);
-      return ownerId ? ownerNames.get(ownerId) : undefined;
-    },
-    [pinnedSharedBy, ownerNames],
-  );
 
   const bump = useCallback(() => setRefresh((n) => n + 1), []);
   const paperTitles = useMemo(() => new Map(papers.map((p) => [p.id, p.title])), [papers]);

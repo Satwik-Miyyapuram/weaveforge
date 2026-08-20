@@ -1,10 +1,15 @@
 import type { IMetadataSource, PaperMetadata, PaperRef } from "@weaveforge/core";
+import { authHeaders } from "@/lib/auth-headers";
 
 /**
  * URL metadata source. Resolves an arbitrary paper URL to metadata by reading
  * the page's citation meta tags (via the `/api/url-meta` proxy, which fetches
  * and parses server-side). Implements IMetadataSource so it registers beside
  * arXiv/Crossref/Zotero (Open/Closed).
+ *
+ * The call carries the reader's token. That route fetches whatever address it
+ * is given, from inside our network, so it asks who is calling — and a source
+ * that did not say would simply stop working with a 401.
  */
 
 interface UrlMetaResponse {
@@ -24,6 +29,8 @@ export class UrlMetadataSource implements IMetadataSource {
   constructor(
     private readonly fetchFn: typeof fetch = (...args) => fetch(...args),
     private readonly baseUrl = "/api/url-meta",
+    /** Injected so a test can drive this without a session. */
+    private readonly headers: () => Promise<HeadersInit> = authHeaders,
   ) {}
 
   supports(ref: PaperRef): boolean {
@@ -31,9 +38,9 @@ export class UrlMetadataSource implements IMetadataSource {
   }
 
   async fetch(ref: PaperRef): Promise<PaperMetadata> {
-    const res = await this.fetchFn(
-      `${this.baseUrl}?url=${encodeURIComponent(ref.value.trim())}`,
-    );
+    const res = await this.fetchFn(`${this.baseUrl}?url=${encodeURIComponent(ref.value.trim())}`, {
+      headers: await this.headers(),
+    });
     if (!res.ok) {
       // The route explains *why* in `error`; show that rather than a status
       // code with a JSON blob glued to it.

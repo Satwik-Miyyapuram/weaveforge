@@ -6,6 +6,10 @@ import type {
   Share,
   ShareableType,
 } from "@weaveforge/core";
+import {
+  type ShareRow,
+  toDomain,
+} from "./share-rows";
 
 /**
  * Supabase adapter for shares (migration 0018). `owner_id` defaults to
@@ -14,15 +18,6 @@ import type {
  * touches the caller's own rows (RLS `shares_owner_all`), which sidesteps the
  * NULL-resource_id unique-index edge case an upsert would hit.
  */
-interface ShareRow {
-  id: string;
-  owner_id: string;
-  recipient_id: string;
-  resource_type: ShareableType;
-  resource_id: string | null;
-  access: "view" | "comment";
-  created_at: string;
-}
 const TABLE = "shares";
 
 export class SupabaseShareRepository implements IShareRepository {
@@ -86,14 +81,3 @@ export class SupabaseShareRepository implements IShareRepository {
   }
 }
 
-function toDomain(r: ShareRow): Share {
-  return {
-    id: r.id,
-    ownerId: r.owner_id,
-    recipientId: r.recipient_id,
-    resourceType: r.resource_type,
-    resourceId: r.resource_id,
-    access: r.access,
-    createdAt: r.created_at,
-  };
-}

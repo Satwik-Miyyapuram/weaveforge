@@ -6,14 +6,10 @@ import type {
   SaveAnnotationPinInput,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-
-interface AnnotationPinRow {
-  id: string;
-  paper_id: string;
-  annotation_key: string;
-  report_section_id: string;
-  created_at: string;
-}
+import {
+  type AnnotationPinRow,
+  toDomain,
+} from "./annotation-pin-rows";
 
 const TABLE = "annotation_pins";
 
@@ -89,12 +85,3 @@ export class SupabaseAnnotationPinRepository implements IAnnotationPinRepository
   }
 }
 
-function toDomain(row: AnnotationPinRow): AnnotationPin {
-  return {
-    id: row.id,
-    paperId: row.paper_id,
-    annotationKey: row.annotation_key,
-    reportSectionId: row.report_section_id,
-    createdAt: row.created_at,
-  };
-}

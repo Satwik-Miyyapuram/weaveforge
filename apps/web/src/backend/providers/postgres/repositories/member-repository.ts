@@ -7,16 +7,11 @@ import {
   type Role,
 } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
-
-interface ProfileRow {
-  user_id: string;
-  email: string | null;
-  full_name: string | null;
-  role: Role;
-  supervisor_id: string | null;
-  org_setup_complete: boolean | null;
-  active_org_id: string | null;
-}
+import {
+  type ProfileRow,
+  byName,
+  toDomain,
+} from "@/features/org/infrastructure/member-rows";
 
 export class PostgresMemberRepository implements IMemberRepository {
   constructor(
@@ -97,18 +92,3 @@ export class PostgresMemberRepository implements IMemberRepository {
   }
 }
 
-function byName(a: Member, b: Member): number {
-  return (a.fullName ?? a.email ?? "").localeCompare(b.fullName ?? b.email ?? "");
-}
-
-function toDomain(r: ProfileRow): Member {
-  return {
-    id: r.user_id,
-    email: r.email ?? undefined,
-    fullName: r.full_name ?? undefined,
-    role: r.role,
-    supervisorId: r.supervisor_id ?? undefined,
-    orgSetupComplete: r.org_setup_complete ?? false,
-    activeOrgId: r.active_org_id ?? undefined,
-  };
-}

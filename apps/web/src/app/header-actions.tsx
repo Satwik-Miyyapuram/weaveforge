@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
+import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
 import { accountLinks, type AccountLinkId } from "./account-links";
 
 
@@ -64,14 +65,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   const [pendingProposals, setPendingProposals] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [open]);
+  useDismissOnOutside(open, () => setOpen(false), ref);
 
   useEffect(() => {
     const read = () =>

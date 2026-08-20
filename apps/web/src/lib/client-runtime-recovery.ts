@@ -57,3 +57,19 @@ export async function recoverClientRuntime(opts?: { clearAppStorage?: boolean })
   if (opts?.clearAppStorage) clearThesisWebStorage();
   window.location.replace("/");
 }
+
+/**
+ * What the "Reset app data" button on both error screens does.
+ *
+ * The two screens cannot share their markup — `global-error` replaces the whole
+ * document, stylesheet included, so it cannot use the app's classes — but the
+ * three steps behind the button are not a styling decision, and they were
+ * written out twice.
+ */
+export function resetAppData(): void {
+  void (async () => {
+    await resetClientRuntimeCaches();
+    clearThesisWebStorage();
+    window.location.replace("/");
+  })();
+}

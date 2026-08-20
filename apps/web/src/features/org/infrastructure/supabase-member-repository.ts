@@ -8,6 +8,11 @@ import {
   type Role,
 } from "@weaveforge/core";
 import { singleFlight } from "@/lib/single-flight";
+import {
+  type ProfileRow,
+  byName,
+  toDomain,
+} from "./member-rows";
 
 /**
  * Supabase implementation of IMemberRepository. Reads the `profiles` table (the
@@ -16,15 +21,6 @@ import { singleFlight } from "@/lib/single-flight";
  * `listTeam()` now re-applies the subtree filter client-side, while
  * `listDirectory()` returns the full lab.
  */
-interface ProfileRow {
-  user_id: string;
-  email: string | null;
-  full_name: string | null;
-  role: Role;
-  supervisor_id: string | null;
-  org_setup_complete: boolean | null;
-  active_org_id: string | null;
-}
 
 const TABLE = "profiles";
 
@@ -133,18 +129,3 @@ export class SupabaseMemberRepository implements IMemberRepository {
   }
 }
 
-function byName(a: Member, b: Member): number {
-  return (a.fullName ?? a.email ?? "").localeCompare(b.fullName ?? b.email ?? "");
-}
-
-function toDomain(r: ProfileRow): Member {
-  return {
-    id: r.user_id,
-    email: r.email ?? undefined,
-    fullName: r.full_name ?? undefined,
-    role: r.role,
-    supervisorId: r.supervisor_id ?? undefined,
-    orgSetupComplete: r.org_setup_complete ?? false,
-    activeOrgId: r.active_org_id ?? undefined,
-  };
-}

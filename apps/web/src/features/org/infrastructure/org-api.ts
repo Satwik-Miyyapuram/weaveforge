@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
+import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/single-flight";
 import type { OrgInviteRole, OrgMembershipView } from "@weaveforge/core";
 
@@ -12,12 +13,7 @@ function orgApiError(message: string | undefined, fallback: string): Error {
   return new Error(text);
 }
 
-async function authHeaders(): Promise<HeadersInit> {
-  const { data } = await getSupabase().auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("Not authenticated.");
-  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-}
+const authHeaders = () => bearerHeaders({ "Content-Type": "application/json" });
 
 function migrationHint(message: string): Error {
   if (

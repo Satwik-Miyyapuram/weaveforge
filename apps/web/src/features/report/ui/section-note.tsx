@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
-import { DeleteIcon, EditIcon, ImageIcon } from "@/components/view-icons";
+import { editorImageUpload } from "@/lib/editor-image-upload";
+import { DeleteIcon, EditIcon } from "@/components/view-icons";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
-import { compressImage } from "@/lib/image-compress";
+import type { EditorHandle } from "@/components/editor-handle";
+import { AttachImageButton } from "@/components/attach-image-button";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
@@ -60,7 +62,8 @@ export function SectionNote({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(section.notes ?? "");
   const [saveError, setSaveError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  // Filled in while the editor is on screen, so the button can insert at the caret.
+  const editorHandle = useRef<EditorHandle | null>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
@@ -118,17 +121,16 @@ export function SectionNote({
     }
   }
 
-  async function onImagePick(file: File | null) {
-    if (!file) return;
-    try {
-      const { blob, ext } = await compressImage(file);
-      const path = await getContainer().report.uploadImage(section.id, blob, ext);
-      setDraft((prev) => `${prev}\n${reportImageMarkdown(path, file.name)}\n`);
-      setSaveError(null);
-    } catch (err) {
-      setSaveError(formatError(err));
-    }
-  }
+  /** Accepting a pasted image. Stored against the section, referenced as `reportimg:`. */
+  const imagePaste = useMemo(
+    () =>
+      editorImageUpload({
+        store: (blob, ext) => getContainer().report.uploadImage(section.id, blob, ext),
+        toMarkdown: reportImageMarkdown,
+        onError: setSaveError,
+      }),
+    [section.id],
+  );
 
   async function remove() {
     if (!confirm(`Delete "${section.title}"?`)) return;
@@ -209,27 +211,8 @@ export function SectionNote({
                 </button>
               )}
               {editing && (
-                <button
-                  type="button"
-                  className="entity-icon-btn"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={busy}
-                  aria-label="Add image"
-                  title="Image"
-                >
-                  <ImageIcon />
-                </button>
+                <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
               )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  void onImagePick(e.target.files?.[0] ?? null);
-                  e.target.value = "";
-                }}
-              />
               <CommentsToggle resourceType="report_section" resourceId={section.id} canComment variant="detail" />
             </>
           )}
@@ -281,6 +264,8 @@ export function SectionNote({
               wikilinkTitles={wikilinkTitles}
               wikilinkCompletions={wikilinkCompletions}
               citationFormat={citationFormat}
+              imagePaste={imagePaste}
+              handleRef={editorHandle}
             />
             <div className="summary-editor-foot">
               {saveError && <span className="error">{saveError}</span>}

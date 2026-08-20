@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { getContainer } from "@/bootstrap";
 import { useAuth } from "@/features/auth";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
+import { authHeaders } from "@/lib/auth-headers";
 
 const CONFIRMATION = "DELETE_USER";
 
@@ -29,22 +29,13 @@ export function DeleteAccountPanel() {
     setError(null);
   }
 
-  async function authHeaders(): Promise<HeadersInit> {
-    const token = await getContainer().auth.auth.getAccessToken();
-    if (!token) throw new Error("Not signed in.");
-    return {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
-  }
-
   async function sendOtp() {
     setSendingOtp(true);
     setError(null);
     try {
       const res = await fetch("/api/account/delete-user/otp", {
         method: "POST",
-        headers: await authHeaders(),
+        headers: await authHeaders({ "Content-Type": "application/json" }),
       });
       const payload = (await res.json()) as { error?: string; emailHint?: string };
       if (!res.ok) throw new Error(payload.error ?? "Could not send confirmation code.");
@@ -64,7 +55,7 @@ export function DeleteAccountPanel() {
     try {
       const res = await fetch("/api/account/delete-user", {
         method: "POST",
-        headers: await authHeaders(),
+        headers: await authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ confirmation: CONFIRMATION, otp: otp.trim() }),
       });
       const payload = (await res.json()) as { error?: string };

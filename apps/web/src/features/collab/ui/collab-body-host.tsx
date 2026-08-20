@@ -4,10 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Compartment, type Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
+import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
+import type { ImagePasteConfig } from "@/components/markdown-image-paste";
 import {
   markdownEditorExtensions,
   toCompletions,
 } from "@/components/markdown-editor-extensions";
+import { bindEditorHandle } from "@/components/markdown-editor-handle";
+import type { EditorHandleRef } from "@/components/editor-handle";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
@@ -32,6 +36,12 @@ export interface CollabMarkdownEditing {
   /** Rich cite options (Author year · title). Preferred over `wikilinkTitles`. */
   wikilinkCompletions?: CiteCompletion[];
   citationFormat?: EditorCitationFormat;
+  /**
+   * How this surface stores a pasted image. Plain data like the rest of this
+   * interface, so a screen can describe image handling without importing
+   * CodeMirror into its own bundle.
+   */
+  imagePaste?: ImagePasteConfig;
 }
 
 export function CollabBodyHost({
@@ -45,6 +55,7 @@ export function CollabBodyHost({
   readOnly,
   editorClassName,
   onViewCreated,
+  handleRef,
 }: {
   resourceType: string;
   resourceId: string;
@@ -58,6 +69,13 @@ export function CollabBodyHost({
   readOnly?: boolean;
   editorClassName?: string;
   onViewCreated?: (view: EditorView) => (() => void) | void;
+  /**
+   * Filled in while the editor is on screen, so a toolbar button can insert at
+   * the caret. A plain box, not a CodeMirror view: handing the screen the view
+   * would put CodeMirror back in its bundle, which is what this component is
+   * for avoiding.
+   */
+  handleRef?: EditorHandleRef;
 }) {
   const [authorId, setAuthorId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Editor");
@@ -94,6 +112,9 @@ export function CollabBodyHost({
   citationFormatRef.current = markdownEditing?.citationFormat ?? "wikilink";
   const editableCompartment = useRef(new Compartment());
   const themeCompartment = useRef(new Compartment());
+  const pasteSettingsRef = usePasteSettingsRef();
+  const imagePasteRef = useRef(markdownEditing?.imagePaste);
+  imagePasteRef.current = markdownEditing?.imagePaste;
   const placeholder = markdownEditing?.placeholder;
 
   const markdownExtensions = useMemo(
@@ -105,6 +126,14 @@ export function CollabBodyHost({
             citationFormatRef,
             editableCompartment: editableCompartment.current,
             themeCompartment: themeCompartment.current,
+            pasteSettingsRef,
+            imagePaste: markdownEditing.imagePaste
+              ? {
+                  upload: (file) => imagePasteRef.current!.upload(file),
+                  onError: (message) => imagePasteRef.current?.onError?.(message),
+                  maxBytes: markdownEditing.imagePaste.maxBytes,
+                }
+              : undefined,
           })
         : null,
     // `placeholder` is read once, when the stack is built; a later change to it
@@ -127,11 +156,16 @@ export function CollabBodyHost({
           effects: themeCompartment.current.reconfigure(createCodeMirrorThemeForSite()),
         });
       });
+      const releaseHandle = bindEditorHandle(handleRef, view, () => imagePasteRef.current);
       return () => {
+        releaseHandle();
         stopThemeWatch();
         stopCallerWatch?.();
       };
     },
+    // `handleRef` is a box the caller keeps for the life of the screen; reading
+    // it again would rebuild the editor and take the shared document with it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [markdownExtensions, onViewCreated],
   );
 

@@ -1,14 +1,9 @@
 import type { Comment, ICommentRepository, NewCommentInput } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
-
-interface CommentRow {
-  id: string;
-  author_id: string;
-  resource_type: string;
-  resource_id: string;
-  body: string;
-  created_at: string;
-}
+import {
+  commentToDomain as toDomain,
+  type CommentRow,
+} from "@/features/sharing/infrastructure/comment-rows";
 
 export class PostgresCommentRepository implements ICommentRepository {
   constructor(private readonly pg: PgRunner) {}
@@ -67,13 +62,3 @@ export class PostgresCommentRepository implements ICommentRepository {
   }
 }
 
-function toDomain(r: CommentRow): Comment {
-  return {
-    id: r.id,
-    authorId: r.author_id,
-    resourceType: r.resource_type,
-    resourceId: r.resource_id,
-    body: r.body,
-    createdAt: r.created_at,
-  };
-}

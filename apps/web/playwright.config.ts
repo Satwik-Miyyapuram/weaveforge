@@ -23,6 +23,12 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
     storageState: e2eEnabled() ? "e2e/.auth/user-a.json" : undefined,
+    // Sandboxes and CI images that ship one Chromium of their own rather than
+    // the exact build this Playwright expects can point at it, instead of every
+    // caller re-downloading a browser they already have.
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
+      : {},
   },
   webServer: !enabled || process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined

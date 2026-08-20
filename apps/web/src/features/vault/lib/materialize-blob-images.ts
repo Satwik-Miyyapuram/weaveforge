@@ -1,12 +1,9 @@
-import { normalizeMarkdownImageSyntax, vaultImageMarkdown } from "@weaveforge/core";
+import {
+  imageExtensionForMime,
+  normalizeMarkdownImageSyntax,
+  vaultImageMarkdown,
+} from "@weaveforge/core";
 
-function extFromMime(mime: string): string {
-  if (mime === "image/jpeg") return "jpeg";
-  if (mime === "image/webp") return "webp";
-  if (mime === "image/gif") return "gif";
-  if (mime === "image/svg+xml") return "svg";
-  return "png";
-}
 
 /** Upload blob: image refs in markdown and replace them with vault: paths before save. */
 export async function materializeBlobImagesInBody(
@@ -25,7 +22,7 @@ export async function materializeBlobImagesInBody(
       const res = await fetch(blobUrl);
       if (!res.ok) continue;
       const blob = await res.blob();
-      const ext = extFromMime(blob.type);
+      const ext = imageExtensionForMime(blob.type);
       const path = await upload(pageId, blob, ext);
       result = result.replace(m[0], vaultImageMarkdown(path, alt));
     } catch {

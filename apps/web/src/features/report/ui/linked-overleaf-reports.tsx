@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { LatexSectionNode } from "@weaveforge/core";
-import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import { useLayoutBreakpoint } from "@/lib/use-layout-breakpoint";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { formatError } from "@/lib/format-error";
+import { authHeaders } from "@/lib/auth-headers";
 
 type LinkedReport = {
   id: string; project_id: string; title: string; connection_id: string; overleaf_project_id: string;
@@ -16,9 +16,10 @@ type LinkedReport = {
 type ReportContent = { files: { path: string; content: string }[]; entryFile: string; sectionTree: { roots: LatexSectionNode[]; files: string[]; warnings: string[] }; overleafUrl: string };
 
 async function api(path: string, init?: RequestInit) {
-  const token = await getContainer().auth.auth.getAccessToken();
-  if (!token) throw new Error("Sign in to access Overleaf-linked reports.");
-  const response = await fetch(path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) } });
+  const response = await fetch(path, {
+    ...init,
+    headers: { ...(await authHeaders({ "Content-Type": "application/json" })), ...(init?.headers ?? {}) },
+  });
   const payload = await response.json().catch(() => ({})) as { error?: string; reports?: LinkedReport[]; report?: LinkedReport; connection?: { id: string } };
   if (!response.ok) throw new Error(payload.error ?? "Overleaf request failed.");
   return payload;
@@ -85,9 +86,7 @@ export function LinkedOverleafReports() {
   async function openReport(report: LinkedReport) {
     setSelected(report); setTargets(report.section_targets ?? {}); setContent(null); setLoading(true); setError(null);
     try {
-      const token = await getContainer().auth.auth.getAccessToken();
-      if (!token) throw new Error("Sign in to access Overleaf-linked reports.");
-      const response = await fetch(`/api/overleaf/reports/${encodeURIComponent(report.id)}/content`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      const response = await fetch(`/api/overleaf/reports/${encodeURIComponent(report.id)}/content`, { headers: await authHeaders(), cache: "no-store" });
       const payload = await response.json() as ReportContent & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Could not fetch the Overleaf report.");
       setContent(payload);

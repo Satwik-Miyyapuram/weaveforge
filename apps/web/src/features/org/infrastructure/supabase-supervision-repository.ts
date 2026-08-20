@@ -9,6 +9,14 @@ import type {
   MilestoneDependency,
   MilestoneStatus,
 } from "@weaveforge/core";
+import {
+  milestoneToDomain,
+  type MilestoneRow,
+} from "@/features/plan/infrastructure/milestone-rows";
+import {
+  logEntryToDomain as logToDomain,
+  type LogEntryRow,
+} from "@/features/logbook/infrastructure/log-entry-rows";
 
 /**
  * Reads a supervisee's milestones and log entries by owner user id, across all
@@ -16,25 +24,6 @@ import type {
  * student's project) — row-level security restricts results to members in the
  * caller's subtree, and the explicit `user_id` filter narrows to one person.
  */
-interface MilestoneRow {
-  id: string;
-  title: string;
-  description: string | null;
-  status: MilestoneStatus;
-  target_date: string | null;
-  dependencies: MilestoneDependency[] | null;
-  compute: ComputeNeed[] | null;
-  created_at: string;
-}
-
-interface LogEntryRow {
-  id: string;
-  entry_date: string;
-  kind: LogKind;
-  body: string;
-  links: LogLink[] | null;
-  created_at: string;
-}
 
 export class SupabaseSupervisionRepository implements ISupervisionRepository {
   constructor(private readonly db: SupabaseClient) {}
@@ -100,26 +89,3 @@ function groupByOwner<Row extends { user_id: string }, T>(
   return byOwner;
 }
 
-function milestoneToDomain(r: MilestoneRow): Milestone {
-  return {
-    id: r.id,
-    title: r.title,
-    description: r.description ?? undefined,
-    status: r.status,
-    targetDate: r.target_date ?? undefined,
-    dependencies: r.dependencies ?? [],
-    compute: r.compute ?? [],
-    createdAt: r.created_at,
-  };
-}
-
-function logToDomain(r: LogEntryRow): LogEntry {
-  return {
-    id: r.id,
-    entryDate: r.entry_date,
-    kind: r.kind,
-    body: r.body,
-    links: r.links ?? [],
-    createdAt: r.created_at,
-  };
-}

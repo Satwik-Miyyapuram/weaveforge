@@ -7,10 +7,7 @@ import {
   type LogLink,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-import {
-  attachEncryptedRow,
-  encryptedRowFields,
-} from "@/lib/encrypted-row";
+import { logEntryToDomain, logEntryToRow, type LogEntryRow } from "./log-entry-rows";
 
 /**
  * Supabase implementation of ILogEntryRepository.
@@ -21,16 +18,6 @@ import {
  * (run `runLogEntryRepositoryContract` against an instance pointed at a test DB).
  */
 
-interface LogEntryRow {
-  id: string;
-  entry_date: string;
-  kind: LogKind;
-  body: string;
-  links: LogLink[] | null;
-  created_at: string;
-  content_enc: string | null;
-  enc_epoch: number | null;
-}
 
 const TABLE = "log_entries";
 
@@ -48,7 +35,7 @@ export class SupabaseLogEntryRepository implements ILogEntryRepository {
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
-    return data ? toDomain(data as LogEntryRow) : null;
+    return data ? logEntryToDomain(data as LogEntryRow) : null;
   }
 
   async list(filter?: LogEntryFilter): Promise<LogEntry[]> {
@@ -65,11 +52,11 @@ export class SupabaseLogEntryRepository implements ILogEntryRepository {
       .order("created_at", { ascending: false });
     const { data, error } = await query;
     if (error) throw error;
-    return (data as LogEntryRow[]).map(toDomain);
+    return (data as LogEntryRow[]).map(logEntryToDomain);
   }
 
   async save(entity: LogEntry): Promise<void> {
-    const row = toRow(entity);
+    const row = logEntryToRow(entity);
     if (this.pid) row.project_id = this.pid;
     const { error } = await this.db.from(TABLE).upsert(row);
     if (error) throw error;
@@ -81,28 +68,3 @@ export class SupabaseLogEntryRepository implements ILogEntryRepository {
   }
 }
 
-function toDomain(row: LogEntryRow): LogEntry {
-  return attachEncryptedRow(
-    {
-      id: row.id,
-      entryDate: row.entry_date,
-      kind: row.kind,
-      body: row.body,
-      links: row.links ?? [],
-      createdAt: row.created_at,
-    },
-    row,
-  );
-}
-
-function toRow(e: LogEntry): Record<string, unknown> {
-  return {
-    id: e.id,
-    entry_date: e.entryDate,
-    kind: e.kind,
-    body: e.body ?? "",
-    links: e.links ?? [],
-    created_at: e.createdAt,
-    ...encryptedRowFields(e),
-  };
-}

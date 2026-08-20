@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
 
 /**
  * A small "?" affordance next to a screen heading. Replaces the old muted
@@ -12,21 +13,7 @@ export function HeadingHelp({ text }: { text: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const id = useId();
 
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismissOnOutside(open, () => setOpen(false), ref);
 
   return (
     <span

@@ -8,15 +8,10 @@ import type {
 import { isQuotationType } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
-
-interface AnnotationQuotationTypeRow {
-  id: string;
-  paper_id: string;
-  annotation_key: string;
-  quotation_type: string;
-  created_at: string;
-  updated_at: string;
-}
+import {
+  type AnnotationQuotationTypeRow,
+  toDomain,
+} from "@/features/papers/infrastructure/annotation-quotation-type-rows";
 
 export class PostgresAnnotationQuotationTypeRepository
   implements IAnnotationQuotationTypeRepository
@@ -72,16 +67,3 @@ export class PostgresAnnotationQuotationTypeRepository
   }
 }
 
-function toDomain(row: AnnotationQuotationTypeRow): AnnotationQuotationType {
-  if (!isQuotationType(row.quotation_type)) {
-    throw new Error(`Invalid quotation type in store: ${row.quotation_type}`);
-  }
-  return {
-    id: row.id,
-    paperId: row.paper_id,
-    annotationKey: row.annotation_key,
-    quotationType: row.quotation_type as QuotationType,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}

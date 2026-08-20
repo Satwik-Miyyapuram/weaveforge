@@ -1,13 +1,9 @@
 import type { IMetricRepository, MetricPoint } from "@weaveforge/core";
 import type { PgRunner } from "../pg-runner";
-
-interface MetricRow {
-  experiment_id: string;
-  metric: string;
-  step: number;
-  value: number;
-  wall_time: string | null;
-}
+import {
+  type MetricRow,
+  toDomain,
+} from "@/features/experiments/infrastructure/metric-rows";
 
 export class PostgresMetricRepository implements IMetricRepository {
   constructor(private readonly pg: PgRunner) {}
@@ -62,12 +58,3 @@ export class PostgresMetricRepository implements IMetricRepository {
   }
 }
 
-function toDomain(r: MetricRow): MetricPoint {
-  return {
-    experimentId: r.experiment_id,
-    metric: r.metric,
-    step: r.step,
-    value: r.value,
-    wallTime: r.wall_time ?? undefined,
-  };
-}

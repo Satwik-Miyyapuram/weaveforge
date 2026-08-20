@@ -3,6 +3,7 @@
  * Pure, no I/O, no SDK imports.
  */
 
+import { markdownImage } from "../../../shared/markdown-image.js";
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 
@@ -214,7 +215,7 @@ export function uniqueTitle(base: string, used: Set<string>): string {
 export const VAULT_IMAGE_PREFIX = "vault:";
 
 export function vaultImageMarkdown(path: string, alt = "image"): string {
-  return `![${alt}](${VAULT_IMAGE_PREFIX}${path})`;
+  return markdownImage(`${VAULT_IMAGE_PREFIX}${path}`, alt);
 }
 
 /** Collapse whitespace inside markdown image syntax so wrapped refs still match. */

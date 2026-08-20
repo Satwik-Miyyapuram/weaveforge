@@ -27,6 +27,7 @@
     "lint": "npm run lint --workspace @weaveforge/web",
     "test:integration:web": "npm run test:integration --workspace @weaveforge/web",
     "test:e2e": "npm run test:e2e --workspace @weaveforge/web",
+    "test:e2e:editor": "npm run test:e2e:editor --workspace @weaveforge/web",
     "record:demos": "npm run record:demos --workspace @weaveforge/web",
     "seed:showcase": "node scripts/seed-showcase-data.mjs",
     "setup:local-dev": "node scripts/setup-local-dev.mjs",
@@ -36,7 +37,7 @@
     "check:api-route-tests": "node scripts/check-api-route-tests.mjs",
     "check:ui": "node scripts/check-ui-consistency.mjs",
     "check:boundaries": "npm run check:solid && npm run check:dry && npm run check:api-route-tests && npm run check:ui",
-    "check:all": "npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run build",
+    "check:all": "npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run test:desktop && npm run build",
     "generate:routes": "node scripts/generate-module-routes.mjs",
     "generate:deployment": "node --import tsx scripts/generate-deployment-registry.mjs",
     "check:deployment-surface": "node --import tsx scripts/check-deployment-surface.mjs",
@@ -51,7 +52,9 @@
     "migrate:data": "node scripts/migrate-supabase-to-postgres.mjs",
     "migrate:blobs": "node scripts/migrate-blobs.mjs",
     "migrate:verify": "node scripts/verify-migration.mjs",
-    "migrate": "node scripts/migrate-to-oracle.mjs"
+    "migrate": "node scripts/migrate-to-oracle.mjs",
+    "test:desktop": "npm run test --workspace @weaveforge/desktop",
+    "build:desktop": "npm run build --workspace @weaveforge/desktop"
   },
   "devDependencies": {
     "supabase": "^2.109.1"

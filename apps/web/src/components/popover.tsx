@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
 import { ChevronIcon } from "./chevron-icon";
 
 const VIEWPORT_PAD = 12;
@@ -83,21 +84,7 @@ export function Popover({
     };
   }, [open, align, children]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismissOnOutside(open, () => setOpen(false), ref);
 
   // Move focus into the panel on open; restore it to the trigger on close.
   useEffect(() => {

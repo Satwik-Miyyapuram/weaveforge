@@ -16,6 +16,32 @@
   color: var(--ink);
   position: relative;
   isolation: isolate;
+
+  /* ---- The one set of numbers the whole page is measured from ----
+     The narrative does not scroll with the document: it scrolls inside the
+     particle canvas, and that canvas is pinned below the sticky header. So
+     "the viewport" for every pinned scene is the space *under* the header,
+     not `100vh` — sizing anything here in raw viewport units pushes exactly
+     one header's worth of every scene below the fold, which is what used to
+     happen. Everything derives from these three. */
+  --pitch-head: 60px;
+  /* The reading viewport: what the reader can actually see at once. */
+  --pitch-view: calc(100dvh - var(--pitch-head));
+  /* The pinned visual's share of it. Stacked, the visual and the prose split
+     the screen; side by side, the visual has the column to itself. */
+  --pitch-stage: calc(var(--pitch-view) * 0.52);
+}
+@media (min-width: 800px) {
+  .page { --pitch-head: 66px; }
+}
+/* A short window stacked: the prose needs the room more than the picture does.
+   At the standard split the longest step ran off the bottom of a 568px phone
+   before its last line. */
+@media (max-width: 899px) and (max-height: 720px) {
+  .page { --pitch-stage: calc(var(--pitch-view) * 0.42); }
+}
+@media (min-width: 900px) {
+  .page { --pitch-stage: calc(var(--pitch-view) - 48px); }
 }
 
 /* ---- Ground ----
@@ -135,9 +161,17 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  height: 60px;
+  height: var(--pitch-head);
 }
-@media (min-width: 800px) { .headIn { height: 66px; } }
+/* Wider than the reading column on purpose. The bar carries a ten-section nav
+   next to the brand and four actions, and at the body's 1180px measure it is
+   140px short of fitting them — so "Self-host" and "Compare" sat outside a
+   scrollport with no scrollbar and could not be reached at any window size.
+   Two classes, because this element also carries `.wrap` and has to outrank
+   the `max-width` there without depending on which rule comes last. */
+.head .headIn {
+  max-width: 1320px;
+}
 
 .brand {
   display: inline-flex;
@@ -157,20 +191,21 @@
 @media (max-width: 430px) { .brandName { display: none; } }
 
 /* Never wraps: a wrapped sticky header eats a second row of the viewport on
-   every scroll. When it does not fit, it scrolls sideways. */
+   every scroll. It does not scroll sideways either — a scrollport with
+   `scrollbar-width: none` on a desktop pointer is a link nobody can find. It
+   is shown only at widths where the set on display fits, and sheds its
+   lowest-priority entries below that. */
 .nav {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   margin-right: auto;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
   min-width: 0;
 }
-.nav::-webkit-scrollbar { display: none; }
 .nav a {
   flex: none;
-  padding: 6px 10px;
+  padding: 6px 9px;
   border-radius: 8px;
   white-space: nowrap;
   font-size: 0.875rem;
@@ -180,8 +215,11 @@
 }
 .nav a:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
 .nav a[aria-current="true"] { color: var(--accent); background: var(--accent-soft); }
-.navSep { flex: none; width: 1px; height: 18px; background: var(--border-strong); margin: 0 6px; }
-@media (max-width: 900px) { .nav { display: none; } }
+.navSep { flex: none; width: 1px; height: 18px; background: var(--border-strong); margin: 0 5px; }
+/* The four the page can spare: each is reachable from the prose above it, and
+   the hero's audience chips link Labs and Self-host directly. */
+@media (max-width: 1359px) { .navLow { display: none; } }
+@media (max-width: 1179px) { .nav { display: none; } }
 
 /* ---- Theme palette ----
    The swatches paint themselves by carrying `data-theme`, so each one shows
@@ -299,7 +337,9 @@
 .headLink:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
 /* Below the nav breakpoint the bar is tight; the icon carries GitHub alone. */
 @media (max-width: 640px) { .headLink:not([aria-label]) { display: none; } }
-@media (min-width: 901px) { .headActions { margin-left: 0; } }
+/* Only while the nav is there to push them: `margin-right: auto` on the nav
+   already does the work, and both margins together centre nothing. */
+@media (min-width: 1180px) { .headActions { margin-left: 0; } }
 
 .progress {
   position: absolute;
@@ -368,7 +408,18 @@
 /* The hero figure assembles itself as the reader scrolls: every part below
    reads a data attribute the scene sets, and transitions between the two
    states. Nothing here is keyframed — the reader is driving. */
-.figure { display: block; width: 100%; height: auto; margin: 0 auto; }
+/* Nearly square, and the widest thing the page pins, so on a short window the
+   column's width alone would make it taller than the stage that holds it —
+   which cropped the last two cards clean off the bottom of the screen. Capping
+   the height lets the SVG scale to fit instead: `viewBox` plus the default
+   `preserveAspectRatio` centres it in whatever box is left. */
+.figure {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: var(--pitch-stage);
+  margin: 0 auto;
+}
 
 /* The scene needs more vertical room than the others (the figure is nearly
    square) and less per step, because it has eight of them. */
@@ -377,10 +428,14 @@
    the cascade to it on equal specificity. */
 .scene.overview { padding-top: clamp(8px, 2vw, 24px); border-top: 0; }
 .overview .step { min-height: 42vh; }
-/* The hero figure is the tallest thing the page pins, so it gets the most
-   room before the cap starts cropping it. */
+/* The hero figure is the tallest thing the page pins, so it gets a little more
+   than the others — but not so much that the step explaining it is pushed off
+   the bottom of the screen, which is what 66vh did on a phone. */
 @media (max-width: 899px) {
-  .overview .stage { max-height: 66vh; }
+  .overview .stage { max-height: calc(var(--pitch-view) * 0.56); }
+}
+@media (max-width: 899px) and (max-height: 720px) {
+  .overview .stage { max-height: calc(var(--pitch-view) * 0.46); }
 }
 @media (min-width: 900px) {
   /* The figure is the hero, so it gets the larger half — the reverse of the
@@ -462,7 +517,7 @@
 }
 
 /* ---- Why ---- */
-.why { padding: clamp(56px, 9vw, 120px) 0; border-top: 1px solid var(--border); scroll-margin-top: 70px; }
+.why { padding: clamp(56px, 9vw, 120px) 0; border-top: 1px solid var(--border); scroll-margin-top: calc(var(--pitch-head) + 12px); }
 .whyHeading {
   font-family: var(--font-serif);
   font-weight: 600;
@@ -513,7 +568,12 @@
 .scene {
   padding: clamp(40px, 6vw, 72px) 0 clamp(56px, 8vw, 104px);
   border-top: 1px solid var(--border);
-  scroll-margin-top: 70px;
+  /* A whole header, plus a gap. Following an anchor scrolls every scrolling
+     ancestor, and the outermost of them is the document — which has the
+     footer's worth of travel to spend and spends it, sliding the narrative up
+     under the sticky header. The margin is what puts the heading back below
+     it. */
+  scroll-margin-top: calc(var(--pitch-head) + 12px);
 }
 .sceneHead { display: grid; gap: 14px; margin-bottom: clamp(28px, 4vw, 48px); }
 .sceneHead h2 {
@@ -536,8 +596,13 @@
 /* Stacked (phones): the visual pins under the header, steps run beneath it.
    Height is capped so the reader still has somewhere to read. */
 .stage {
+  /* Zero, not the header's height: sticky offsets are measured against the
+     scroll container, and the header is not in it — the narrative scrolls
+     inside the particle canvas that starts below the header. Paying for the
+     header twice pinned every visual a header lower than intended and took
+     that much again off the bottom of the reading area. */
   position: sticky;
-  top: 60px;
+  top: 0;
   z-index: 5;
   /* Sized to its content, capped so the reader always has somewhere to read.
      A fixed height here silently sliced the bottom off five of the eight
@@ -547,7 +612,7 @@
      change *within* a scene: the cross-fading views all share one grid cell,
      so the panel is always as tall as the tallest of them. */
   height: auto;
-  max-height: 66vh;
+  max-height: var(--pitch-stage);
   overflow: hidden;
   padding: 12px 0 16px;
   background: none;
@@ -649,8 +714,8 @@
     align-items: start;
   }
   .stage {
-    top: calc(66px + 24px);
-    height: calc(100vh - 66px - 48px);
+    top: 24px;
+    height: var(--pitch-stage);
     overflow: visible;
     display: grid;
     align-content: center;
@@ -696,7 +761,12 @@
 .kv > div {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  /* Wraps rather than overflows. The values are mono strings — a commit hash,
+     a config line, `\cite{higgins2017betavae}` — and in a card the width of a
+     phone the longest of them ran straight out through the right-hand edge
+     and was cut mid-word. Given a second line they simply take one. */
+  flex-wrap: wrap;
+  gap: 2px 12px;
   padding: 5px 0;
   border-top: 1px solid var(--border);
   font-size: 0.875rem;
@@ -704,10 +774,14 @@
 .kv > div:first-child { border-top: 0; }
 .kv dt { color: var(--muted); flex: 1; min-width: 0; }
 .kv dd {
-  margin: 0;
+  margin: 0 0 0 auto;
+  min-width: 0;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
+  /* The last resort, for a value with no break opportunity that is wider than
+     the card on its own line. */
+  overflow-wrap: anywhere;
 }
 
 .fig { display: block; width: 100%; height: auto; }
@@ -718,11 +792,18 @@
 
 /* ---- Comparison table ----
    Last section on the page: the answer to "I already have three of these". */
-.compare { padding: clamp(56px, 9vw, 116px) 0; border-top: 1px solid var(--border); scroll-margin-top: 70px; }
+.compare { padding: clamp(56px, 9vw, 116px) 0; border-top: 1px solid var(--border); scroll-margin-top: calc(var(--pitch-head) + 12px); }
 
 /* The table never squeezes: below its natural width it scrolls sideways in its
    own container, so the page body still never scrolls horizontally. */
 .tableScroll {
+  /* Positioned so it is the containing block for the sr-only spans inside its
+     cells. They are `position: absolute` and were resolving against `.page`,
+     which put them outside this scrollport's clip — ninety of them, sitting at
+     the far end of a 734px table, dragging 330px of horizontal scroll onto the
+     whole narrative on a phone. An overflow clip does not apply to a
+     descendant whose containing block is an ancestor of the clipper. */
+  position: relative;
   overflow-x: auto;
   margin-top: clamp(28px, 4vw, 44px);
   border-radius: 14px;
@@ -841,12 +922,27 @@
  * just without particles.
  */
 .particleScroller {
-  height: 100dvh;
+  /* The space under the header, not the whole window. At `100dvh` the box
+     started below a 60px sticky header and still asked for a full screen, so
+     the last 60px of the narrative sat permanently below the fold and the
+     document itself gained a second scrollbar racing the first. */
+  height: var(--pitch-view);
   overflow: hidden;
 }
 
 /* The sticky header inside the narrative sticks to this scroller, not the
-   document, which is the behaviour the pinned scenes already expect. */
-.particleScroller > div {
+   document, which is the behaviour the pinned scenes already expect.
+   Both selectors: the component moves the scrolling div inside the source
+   canvas when the browser supports painting HTML into one, so the same box
+   sits one level deeper on the machines that actually get the particles. */
+.particleScroller > div,
+.particleScroller > canvas > div {
   scrollbar-width: thin;
+  /* The component sets `overflow: auto` inline, which makes this box scroll on
+     both axes — so anything that escapes a clip inside the narrative becomes a
+     sideways scroll across the whole page rather than a local overflow.
+     `!important` is the only weight that beats an inline style, and the page
+     has nothing to scroll sideways to. */
+  overflow-x: hidden !important;
+  overscroll-behavior-x: none;
 }

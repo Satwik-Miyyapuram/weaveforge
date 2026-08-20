@@ -6,7 +6,11 @@ import { EditorView } from "@codemirror/view";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
 import type { CiteCompletion } from "@/lib/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
+import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
 import { markdownEditorExtensions, toCompletions } from "./markdown-editor-extensions";
+import type { ImagePasteConfig } from "./markdown-image-paste";
+import { bindEditorHandle } from "./markdown-editor-handle";
+import type { EditorHandleRef } from "./editor-handle";
 
 /**
  * Markdown editor — Lezer at edit time; @uiw/codemirror-themes matched to site theme.
@@ -21,6 +25,8 @@ export function MarkdownCodeEditor({
   wikilinkTitles,
   wikilinkCompletions,
   citationFormat = "wikilink",
+  imagePaste,
+  handleRef,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -33,6 +39,10 @@ export function MarkdownCodeEditor({
   wikilinkCompletions?: CiteCompletion[];
   /** How `@` completions insert (Phase C2). `[[` always inserts the title. */
   citationFormat?: EditorCitationFormat;
+  /** How a pasted or dropped image is stored. Omitted means images are ignored. */
+  imagePaste?: ImagePasteConfig;
+  /** Filled in while this editor is on screen, so a toolbar can insert at the caret. */
+  handleRef?: EditorHandleRef;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -46,6 +56,12 @@ export function MarkdownCodeEditor({
   citationFormatRef.current = citationFormat;
   const editableCompartment = useRef(new Compartment());
   const themeCompartment = useRef(new Compartment());
+  const pasteSettingsRef = usePasteSettingsRef();
+  // Read through a ref for the same reason as the rest: the CodeMirror stack is
+  // built once, and rebuilding it to pick up a new closure would throw away the
+  // undo history mid-edit.
+  const imagePasteRef = useRef(imagePaste);
+  imagePasteRef.current = imagePaste;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -65,6 +81,14 @@ export function MarkdownCodeEditor({
         citationFormatRef,
         editableCompartment: editableCompartment.current,
         themeCompartment: themeCompartment.current,
+        pasteSettingsRef,
+        imagePaste: imagePaste
+          ? {
+              upload: (file) => imagePasteRef.current!.upload(file),
+              onError: (message) => imagePasteRef.current?.onError?.(message),
+              maxBytes: imagePaste.maxBytes,
+            }
+          : undefined,
       }),
       updateListener,
     ];
@@ -82,8 +106,10 @@ export function MarkdownCodeEditor({
         effects: themeCompartment.current.reconfigure(createCodeMirrorThemeForSite()),
       });
     });
+    const releaseHandle = bindEditorHandle(handleRef, view, () => imagePasteRef.current);
 
     return () => {
+      releaseHandle();
       stopThemeWatch();
       view.destroy();
       viewRef.current = null;

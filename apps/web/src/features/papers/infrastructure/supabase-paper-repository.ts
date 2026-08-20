@@ -9,10 +9,11 @@ import {
 import type { EntityStamp } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import {
-  attachEncryptedRow,
-  encryptedRowFields,
-  encryptedListRowFields,
-} from "@/lib/encrypted-row";
+  type PaperRow,
+  emptyToNull,
+  toRow,
+  toDomain,
+} from "./paper-rows";
 
 /**
  * Supabase implementation of IPaperRepository.
@@ -22,30 +23,6 @@ import {
  * It must pass the same contract test suite as the in-memory repository
  * (run `runPaperRepositoryContract` against an instance pointed at a test DB).
  */
-
-interface PaperRow {
-  id: string;
-  title: string;
-  authors: string[] | null;
-  year: number | null;
-  venue?: string | null;
-  doi?: string | null;
-  arxiv_id?: string | null;
-  url?: string | null;
-  pdf_path?: string | null;
-  abstract?: string | null;
-  summary?: string | null;
-  status: PaperStatus;
-  rating?: number | null;
-  read_at: string | null;
-  bibtex?: string | null;
-  tags: string[] | null;
-  metadata?: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
-  doi_bidx?: string | null;
-  arxiv_bidx?: string | null;
-}
 
 const TABLE = "papers";
 
@@ -187,59 +164,4 @@ export class SupabasePaperRepository implements IPaperRepository {
   }
 }
 
-function toDomain(row: PaperRow): Paper {
-  return {
-      id: row.id,
-      title: row.title,
-      authors: row.authors ?? [],
-      year: row.year ?? undefined,
-      venue: row.venue ?? undefined,
-      doi: row.doi ?? undefined,
-      arxivId: row.arxiv_id ?? undefined,
-      url: row.url ?? undefined,
-      pdfPath: row.pdf_path ?? undefined,
-      abstract: row.abstract ?? undefined,
-      summary: row.summary ?? undefined,
-      status: row.status,
-      rating: row.rating ?? undefined,
-      readAt: row.read_at ?? undefined,
-      bibtex: row.bibtex ?? undefined,
-      tags: row.tags ?? [],
-      metadata: row.metadata ?? {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-  };
-}
 
-function emptyToNull(value: string | undefined | null): string | null {
-  if (value == null || value === "") return null;
-  return value;
-}
-
-function toRow(p: Paper): Record<string, unknown> {
-  return {
-    id: p.id,
-    title: p.title ?? "",
-    authors: p.authors ?? [],
-    year: p.year ?? null,
-    venue: emptyToNull(p.venue),
-    doi: p.doi ? emptyToNull(normalizeDoi(p.doi)) : null,
-    arxiv_id: emptyToNull(p.arxivId),
-    url: emptyToNull(p.url),
-    pdf_path: p.pdfPath ?? null,
-    abstract: emptyToNull(p.abstract),
-    summary: emptyToNull(p.summary),
-    status: p.status,
-    rating: p.rating ?? null,
-    read_at: p.readAt ?? null,
-    bibtex: emptyToNull(p.bibtex),
-    tags: p.tags ?? [],
-    metadata: p.metadata ?? {},
-    created_at: p.createdAt,
-    updated_at: p.updatedAt,
-    doi_bidx: null,
-    arxiv_bidx: null,
-    ...encryptedRowFields(p),
-    ...encryptedListRowFields(p),
-  };
-}

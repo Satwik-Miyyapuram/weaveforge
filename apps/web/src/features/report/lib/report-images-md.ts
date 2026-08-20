@@ -1,22 +1,14 @@
-import { normalizeMarkdownImageSyntax } from "@weaveforge/core";
+import {
+  imageExtensionForMime,
+  markdownImage,
+  normalizeMarkdownImageSyntax,
+} from "@weaveforge/core";
 
 /** Prefix for report section images: `![](reportimg:userId/sectionId/file.webp)`. */
 export const REPORT_IMAGE_PREFIX = "reportimg:";
 
-function escapeMarkdownAltText(alt: string): string {
-  const s = alt
-    .replace(/[\r\n]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!s) return "image";
-  return s
-    .replace(/\\/g, "\\\\")
-    .replace(/\[/g, "\\[")
-    .replace(/\]/g, "\\]");
-}
-
 export function reportImageMarkdown(path: string, alt = "image"): string {
-  return `![${escapeMarkdownAltText(alt)}](${REPORT_IMAGE_PREFIX}${path})`;
+  return markdownImage(`${REPORT_IMAGE_PREFIX}${path}`, alt);
 }
 
 /** Collect unique report image paths referenced in section notes. */
@@ -31,13 +23,6 @@ export function reportImagePathsInBody(body: string): string[] {
   return [...paths];
 }
 
-function extFromMime(mime: string): string {
-  if (mime === "image/jpeg") return "jpeg";
-  if (mime === "image/webp") return "webp";
-  if (mime === "image/gif") return "gif";
-  if (mime === "image/svg+xml") return "svg";
-  return "png";
-}
 
 /** Upload pasted `blob:` image refs and rewrite them to reportimg: paths before save. */
 export async function materializeReportBlobImages(
@@ -56,7 +41,7 @@ export async function materializeReportBlobImages(
       const blob = await res.blob();
       result = result.replace(
         m[0],
-        reportImageMarkdown(await upload(sectionId, blob, extFromMime(blob.type)), alt),
+        reportImageMarkdown(await upload(sectionId, blob, imageExtensionForMime(blob.type)), alt),
       );
     } catch {
       /* keep original if blob URL is stale */

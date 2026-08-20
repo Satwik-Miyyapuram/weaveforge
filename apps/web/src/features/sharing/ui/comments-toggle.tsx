@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { CommentsIcon } from "@/components/view-icons";
+import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
 import { CommentsPanel } from "./comments-panel";
 
 /**
@@ -25,23 +26,7 @@ export function CommentsToggle({
   const detail = variant === "detail";
   const label = open ? "Hide comments" : "Comments";
 
-  useEffect(() => {
-    if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismissOnOutside(open, () => setOpen(false), wrapRef);
 
   return (
     <div className={`comments-toggle${detail ? " comments-toggle--detail" : ""}`} ref={wrapRef}>

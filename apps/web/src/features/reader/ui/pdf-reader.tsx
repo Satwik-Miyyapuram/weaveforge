@@ -8,7 +8,6 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
 } from "react";
 import {
   isEditableReaderTarget,
@@ -16,8 +15,6 @@ import {
   resolveTextAnchor,
   canJoinInkGroup,
   inkPathsHitTest,
-  pdfPointToScreen,
-  pdfRectToScreenBox,
   inkWidthForPressure,
   meanPressure,
   screenPointToPdf,
@@ -37,16 +34,8 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { savePdfText } from "@/features/search/infrastructure/pdf-text-store";
-import {
-  sanitizePdfUrl,
-  originalUrlFromProxy,
-  isAllowedPdfProxyUrl,
-  isReaderObjectUrl,
-} from "../application/sanitize-reader-url";
-import {
-  pageNumberFromSelection,
-  selectionRangeFromDom,
-} from "../application/dom-selection-range";
+import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../application/sanitize-reader-url";
+import { pageNumberFromSelection, selectionRangeFromDom } from "../application/dom-selection-range";
 import {
   appendInkStroke,
   draftFromTextSelection,
@@ -72,26 +61,15 @@ import { bucketAnnotationsByPage } from "../application/project-annotation-geome
 import { AnnotationSidebar, type ReportSectionOption } from "./annotation-sidebar";
 import { SelectionCreateBar } from "./selection-create-bar";
 import type { QuotationType, ReaderAnnotation } from "@weaveforge/core";
-import {
-  darkPdfCanvasFilter,
-  shouldUseDarkPdfRendering,
-} from "../application/reader-pdf-theme";
-import {
-  backlinksForAnnotation,
-  findAnnotationBacklinks,
-  type AnnotationBacklinkHit,
-} from "../application/annotation-backlinks";
+import { darkPdfCanvasFilter, shouldUseDarkPdfRendering } from "../application/reader-pdf-theme";
+import { backlinksForAnnotation, findAnnotationBacklinks, type AnnotationBacklinkHit } from "../application/annotation-backlinks";
 import { Select } from "@/components/select";
-import { Modal } from "@/components/modal";
-
-/**
- * pdf.js render surface. Dynamically imports pdf.js so no bytes reach first
- * paint on non-reader routes. Viewport defaults to fit-width; anchors stay in
- * PDF user space and are projected through viewport.transform at render time.
- */
+import { DraftShapeOverlay, SafeExternalLink, TextBoxComposer } from "./pdf-reader-overlays";
 
 type PdfLib = typeof import("pdfjs-dist");
+
 type PdfDocument = Awaited<ReturnType<PdfLib["getDocument"]>["promise"]>;
+
 type RenderTask = ReturnType<Awaited<ReturnType<PdfDocument["getPage"]>>["render"]>;
 
 /** Per-page resolve must ignore document-scoped position offsets. */
@@ -103,7 +81,7 @@ function pageScopedLocus(locus: PdfLocus): PdfLocus {
  * A mark being drawn right now, in PDF coordinates — either a freehand path
  * (flat x,y pairs, as `inkPath` holds them) or a dragged region.
  */
-type DraftShape =
+export type DraftShape =
   | { kind: "ink"; pageNumber: number; path: number[]; width: number; highlighter: boolean }
   | { kind: "rect"; pageNumber: number; x0: number; y0: number; x1: number; y1: number };
 
@@ -215,6 +193,7 @@ const INK_MOVE_THRESHOLD = 2;
 /** Stable empty array — a fresh `[]` per page would defeat memoisation. */
 const EMPTY_ANNOTATIONS: ReaderAnnotation[] = [];
 
+/** The pdf.js bundle is a megabyte; it is fetched once, on the first open. */
 let pdfLibPromise: Promise<PdfLib> | null = null;
 
 async function loadPdfLib(): Promise<PdfLib> {
@@ -253,16 +232,6 @@ function textItemsFromContent(content: { items: readonly unknown[] }): TextItemG
       },
     ];
   });
-}
-
-function SafeExternalLink({ href, children }: { href: string; children: ReactNode }) {
-  const safe = sanitizePdfUrl(href);
-  if (!safe) return null;
-  return (
-    <a className="btn-secondary" href={safe} target="_blank" rel="noreferrer">
-      {children}
-    </a>
-  );
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -1933,132 +1902,5 @@ export function PdfReader({
         />
       )}
     </div>
-  );
-}
-
-/**
- * Paints the mark currently under the pointer.
- *
- * Uses the same projection as the persisted overlay — `x * scale` and
- * `(pageHeight - y) * scale` — so the preview sits exactly where the saved
- * annotation lands, with no jump on release.
- */
-function DraftShapeOverlay({
-  shape,
-  color,
-  projection,
-}: {
-  shape: DraftShape;
-  color: string;
-  projection: PageProjection;
-}) {
-  const toScreen = (x: number, y: number) => {
-    const point = pdfPointToScreen(x, y, projection);
-    return `${point.x},${point.y}`;
-  };
-
-  return (
-    <div className="pdf-reader-ann-layer" aria-hidden>
-      <svg className="pdf-reader-ann-svg" width="100%" height="100%">
-        {shape.kind === "ink" ? (
-          <polyline
-            className={
-              shape.highlighter
-                ? "pdf-reader-ink pdf-reader-ink--highlighter"
-                : "pdf-reader-ink"
-            }
-            points={Array.from({ length: Math.floor(shape.path.length / 2) }, (_, i) =>
-              toScreen(shape.path[i * 2]!, shape.path[i * 2 + 1]!),
-            ).join(" ")}
-            fill="none"
-            stroke={color}
-            // Same nib the saved stroke will have, so nothing changes thickness
-            // on release.
-            strokeWidth={Math.max(shape.width * projection.scale, 0.5)}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ) : (
-          (() => {
-            const box = pdfRectToScreenBox(
-              [
-                Math.min(shape.x0, shape.x1),
-                Math.min(shape.y0, shape.y1),
-                Math.max(shape.x0, shape.x1),
-                Math.max(shape.y0, shape.y1),
-              ],
-              projection,
-            );
-            return (
-              <rect
-                x={box.left}
-                y={box.top}
-                width={box.width}
-                height={box.height}
-                fill="none"
-                stroke={color}
-                strokeWidth={1.5}
-                strokeDasharray="4 3"
-              />
-            );
-          })()
-        )}
-      </svg>
-    </div>
-  );
-}
-
-/**
- * In-app composer for a text annotation's contents.
- *
- * Replaces `window.prompt`, which is an unstyled OS dialog that ignores the
- * app's theme and, on a phone, covers the page being annotated.
- */
-function TextBoxComposer({
-  title,
-  label,
-  submitLabel,
-  placeholder,
-  onSubmit,
-  onCancel,
-}: {
-  title: string;
-  label: string;
-  submitLabel: string;
-  placeholder: string;
-  onSubmit: (text: string) => void;
-  onCancel: () => void;
-}) {
-  const [text, setText] = useState("");
-  const trimmed = text.trim();
-
-  return (
-    <Modal title={title} onClose={onCancel}>
-      <div className="form-stack">
-        <label className="field">
-          {label}
-          <textarea
-            rows={4}
-            value={text}
-            autoFocus
-            placeholder={placeholder}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </label>
-        <div className="screen-actions">
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={!trimmed}
-            onClick={() => onSubmit(trimmed)}
-          >
-            {submitLabel}
-          </button>
-          <button type="button" className="btn-secondary" onClick={onCancel}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </Modal>
   );
 }

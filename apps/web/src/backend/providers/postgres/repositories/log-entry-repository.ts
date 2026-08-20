@@ -7,15 +7,11 @@ import {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
-
-interface LogEntryRow {
-  id: string;
-  entry_date: string;
-  kind: LogKind;
-  body: string;
-  links: LogLink[] | null;
-  created_at: string;
-}
+import {
+  logEntryToDomain as toDomain,
+  logEntryToRow as toRow,
+  type LogEntryRow,
+} from "@/features/logbook/infrastructure/log-entry-rows";
 
 export class PostgresLogEntryRepository implements ILogEntryRepository {
   constructor(
@@ -81,24 +77,3 @@ export class PostgresLogEntryRepository implements ILogEntryRepository {
   }
 }
 
-function toDomain(row: LogEntryRow): LogEntry {
-  return {
-    id: row.id,
-    entryDate: row.entry_date,
-    kind: row.kind,
-    body: row.body,
-    links: row.links ?? [],
-    createdAt: row.created_at,
-  };
-}
-
-function toRow(e: LogEntry): Record<string, unknown> {
-  return {
-    id: e.id,
-    entry_date: e.entryDate,
-    kind: e.kind,
-    body: e.body,
-    links: e.links,
-    created_at: e.createdAt,
-  };
-}

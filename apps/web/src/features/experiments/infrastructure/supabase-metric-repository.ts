@@ -1,13 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IMetricRepository, MetricPoint } from "@weaveforge/core";
+import {
+  type MetricRow,
+  toDomain,
+} from "./metric-rows";
 
-interface MetricRow {
-  experiment_id: string;
-  metric: string;
-  step: number;
-  value: number;
-  wall_time: string | null;
-}
 const TABLE = "experiment_metrics";
 
 /**
@@ -60,12 +57,3 @@ export class SupabaseMetricRepository implements IMetricRepository {
   }
 }
 
-function toDomain(r: MetricRow): MetricPoint {
-  return {
-    experimentId: r.experiment_id,
-    metric: r.metric,
-    step: r.step,
-    value: r.value,
-    wallTime: r.wall_time ?? undefined,
-  };
-}

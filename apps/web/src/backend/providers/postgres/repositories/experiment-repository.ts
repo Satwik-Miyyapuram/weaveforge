@@ -6,25 +6,11 @@ import type {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import type { PgRunner } from "../pg-runner";
-
-interface ExperimentRow {
-  id: string;
-  name: string;
-  hypothesis: string | null;
-  status: ExperimentStatus;
-  repo_url: string | null;
-  commit_sha: string | null;
-  branch: string | null;
-  run_command: string | null;
-  config: Record<string, unknown> | null;
-  metrics: Record<string, unknown> | null;
-  artifacts: string[] | null;
-  result_note: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  related_paper: string | null;
-  created_at: string;
-}
+import {
+  experimentToDomain as toDomain,
+  experimentToRow as toRow,
+  type ExperimentRow,
+} from "@/features/experiments/infrastructure/experiment-rows";
 
 export class PostgresExperimentRepository implements IExperimentRepository {
   constructor(
@@ -85,44 +71,3 @@ export class PostgresExperimentRepository implements IExperimentRepository {
   }
 }
 
-function toDomain(r: ExperimentRow): Experiment {
-  return {
-    id: r.id,
-    name: r.name,
-    hypothesis: r.hypothesis ?? undefined,
-    status: r.status,
-    repoUrl: r.repo_url ?? undefined,
-    commitSha: r.commit_sha ?? undefined,
-    branch: r.branch ?? undefined,
-    runCommand: r.run_command ?? undefined,
-    config: r.config ?? {},
-    metrics: r.metrics ?? {},
-    artifacts: r.artifacts ?? [],
-    resultNote: r.result_note ?? undefined,
-    startedAt: r.started_at ?? undefined,
-    finishedAt: r.finished_at ?? undefined,
-    relatedPaper: r.related_paper ?? undefined,
-    createdAt: r.created_at,
-  };
-}
-
-function toRow(e: Experiment): Record<string, unknown> {
-  return {
-    id: e.id,
-    name: e.name,
-    hypothesis: e.hypothesis ?? null,
-    status: e.status,
-    repo_url: e.repoUrl ?? null,
-    commit_sha: e.commitSha ?? null,
-    branch: e.branch ?? null,
-    run_command: e.runCommand ?? null,
-    config: e.config,
-    metrics: e.metrics,
-    artifacts: e.artifacts,
-    result_note: e.resultNote ?? null,
-    started_at: e.startedAt ?? null,
-    finished_at: e.finishedAt ?? null,
-    related_paper: e.relatedPaper ?? null,
-    created_at: e.createdAt,
-  };
-}

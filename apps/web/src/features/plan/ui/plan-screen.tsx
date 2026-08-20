@@ -13,6 +13,7 @@ import { EditIcon } from "@/components/view-icons";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { useScreenData } from "@/lib/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
+import { usePinnedSharing } from "@/lib/use-pinned-sharing";
 import type { PlanScreenData } from "@/features/plan/application/load-plan-screen.use-case";
 import { formatError } from "@/lib/format-error";
 
@@ -87,18 +88,8 @@ export function PlanScreen() {
     }
   }, [focusFromUrl, items, isSharedView, pinnedSharedBy, setData]);
 
-  const isReadOnlyMilestone = useCallback(
-    (id: string) => isSharedView || pinnedSharedBy.has(id),
-    [isSharedView, pinnedSharedBy],
-  );
+  const { isReadOnly: isReadOnlyMilestone, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
-  const sharedOwnerName = useCallback(
-    (id: string) => {
-      const ownerId = pinnedSharedBy.get(id);
-      return ownerId ? ownerNames.get(ownerId) : undefined;
-    },
-    [pinnedSharedBy, ownerNames],
-  );
 
   const replace = useCallback(
     (m: Milestone) => {

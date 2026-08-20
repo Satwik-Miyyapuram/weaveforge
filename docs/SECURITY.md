@@ -36,6 +36,51 @@ Out of scope: issues in your own Supabase project configuration, and anything
 requiring a compromised developer machine or leaked credentials that were not
 mishandled by this codebase.
 
+## Outbound fetches on a user's behalf
+
+Three features ask a third-party site for something on behalf of the person
+using WeaveForge: the paste rules that read a link's title and download an image
+address, and `/api/url-meta`, which resolves a DOI or arXiv id. All three go
+through one module — `apps/web/src/backend/net/safe-fetch.ts` — and the policy
+it enforces lives in `@weaveforge/core`, which holds no I/O so the same rules
+apply on the server, in the Electron main process and in a test.
+
+What it does:
+
+- Only `http` and `https`, only ordinary ports, and never a URL carrying
+  credentials.
+- The hostname is **resolved**, and every address it resolves to is checked
+  against the private, loopback, link-local, and cloud-metadata ranges — for
+  both IPv4 and IPv6, including the `::ffff:` mapped forms. The check is on
+  addresses, not on names, so a hostname that points at `127.0.0.1` is refused.
+- Redirects are followed manually, one hop at a time, with the same check
+  repeated on each. A redirect is a second URL the visitor never showed you.
+- Responses are capped (512 KB for a title, 12 MB for an image) and read
+  incrementally, so a stream with no end is not a way to exhaust memory.
+- **Both browser-facing routes require a token** — `/api/fetch-url` and
+  `/api/url-meta`. An unauthenticated version of either is a scanning and
+  bandwidth service for whoever finds it, however well guarded the destination
+  is: the address guard decides *where* a request may go, and authentication
+  decides *who* may send one. `/api/arxiv` is the deliberate exception, because
+  its host is fixed and only the id list is the caller's. The Electron handlers
+  are unauthenticated because they are already inside the session, running as
+  the person at the keyboard.
+- An image is served back with `Content-Security-Policy: default-src 'none';
+  sandbox` and `X-Content-Type-Options: nosniff`, and its type is taken from
+  what the server declared rather than sniffed from the bytes. SVG is refused
+  outright — it is a script carrier.
+
+**Known residual risk.** There is a window between the check and the connect: a
+name can resolve to a public address when it is checked and to a private one
+when the request is made (DNS rebinding). Closing it needs a custom agent that
+dials the address already validated. The window is small, every hop is
+re-checked, and every response is capped, which together make this a much poorer
+target than an unguarded fetch — but it is not zero, and it is the next thing to
+do here.
+
+Users can turn both paste lookups off in Settings → Paste; with them off, no
+paste rule contacts anything outside the workspace.
+
 ## Good practice for users
 
 - The **anon key** is public by design — RLS is the security boundary. Never

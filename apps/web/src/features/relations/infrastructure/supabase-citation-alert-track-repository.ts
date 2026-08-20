@@ -6,14 +6,10 @@ import type {
   NewCitationAlertTrackInput,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
-
-interface TrackRow {
-  id: string;
-  paper_id: string;
-  tracked_at: string;
-  last_checked_at: string | null;
-  seen_citing_ids: string[] | null;
-}
+import {
+  type TrackRow,
+  toDomain,
+} from "./citation-alert-track-rows";
 
 const TABLE = "citation_alert_tracks";
 
@@ -97,12 +93,3 @@ export class SupabaseCitationAlertTrackRepository implements ICitationAlertTrack
   }
 }
 
-function toDomain(row: TrackRow): CitationAlertTrack {
-  return {
-    id: row.id,
-    paperId: row.paper_id,
-    trackedAt: row.tracked_at,
-    lastCheckedAt: row.last_checked_at ?? undefined,
-    seenCitingIds: row.seen_citing_ids ?? [],
-  };
-}
