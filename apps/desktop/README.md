@@ -90,6 +90,16 @@ bridge of this exact shape.
 
 - The renderer runs with `contextIsolation: true`, `nodeIntegration: false` and
   `sandbox: true`. It gets three functions and nothing else.
+- Sign-in comes back over a loopback listener on `127.0.0.1:53682`, bound to the
+  loopback interface explicitly and answering on one path. What arrives is
+  untrusted — anything on the machine can reach that port — so only its shape is
+  checked and the authorization code inside is never read here. The code is
+  worthless without the PKCE verifier, which is generated in the renderer and
+  never leaves it, so a forged callback costs one failed exchange.
+- The redirect is loopback rather than a `weaveforge://` link because that is
+  what RFC 8252 asks a desktop app to use, and because the custom-scheme version
+  did not work in practice: browsers refuse to launch another program when no
+  click is behind the navigation, and refuse silently.
 - Failures cross as data rather than as thrown errors: an exception raised
   inside `ipcMain.handle` reaches the renderer with Electron's own prefix
   stapled to the message, and that message is shown to a person.
@@ -99,7 +109,9 @@ bridge of this exact shape.
   inherit the preload.
 - `shell.openExternal` is only ever called on a URL that passes `checkUrlShape`,
   so a `file:` path or a registered protocol handler cannot be smuggled through
-  it.
+  it. The page cannot ask for it directly: opening a link is something the
+  window decides when a navigation leaves the origin, not a channel the
+  renderer can call.
 - The fetch handlers are unauthenticated, unlike `/api/fetch-url` — they do not
   need a session because they are already inside it, running as the person at
   the keyboard. The address guard is what stops them being useful for anything

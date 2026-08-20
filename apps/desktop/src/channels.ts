@@ -15,7 +15,15 @@
 export const CHANNELS = {
   fetchTitle: "weaveforge:fetch-title",
   fetchImage: "weaveforge:fetch-image",
-  openExternal: "weaveforge:open-external",
+  /**
+   * The odd one out: main → renderer, and not a request at all.
+   *
+   * A sign-in finishes in the reader's browser, which redirects to a listener
+   * this process runs. The page never asks for that — it arrives — so this is
+   * an event rather than an `invoke`, and it carries the callback's query
+   * string exactly as it was received.
+   */
+  signIn: "weaveforge:sign-in",
 } as const;
 
 /**

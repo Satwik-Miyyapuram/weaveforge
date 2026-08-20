@@ -143,7 +143,27 @@ export function getRealtimeClient(main: SupabaseClient): SupabaseClient {
 
 /** The `global.fetch` override, or nothing when the data API is Supabase's own. */
 function dataApiOptions(url: string, dataUrl: string | undefined): SupabaseClientOptions<"public"> {
-  return dataUrl && dataUrl !== url ? { global: { fetch: dataApiFetch(url, dataUrl) } } : {};
+  const rewrite = dataUrl && dataUrl !== url ? { global: { fetch: dataApiFetch(url, dataUrl) } } : {};
+  return { ...rewrite, ...desktopAuthOptions() };
+}
+
+/**
+ * In the desktop app, finish sign-in with an authorization code rather than a
+ * token in the URL.
+ *
+ * The implicit flow puts the session in the fragment, and a fragment is never
+ * sent to a server — so the loopback listener the desktop shell runs would
+ * receive an empty request and the sign-in would end in the browser. PKCE
+ * returns a `code` in the query string instead, which does reach the listener,
+ * and the verifier that redeems it stays in this renderer where it was made.
+ *
+ * A browser is untouched: it keeps the flow it has always used.
+ */
+function desktopAuthOptions(): SupabaseClientOptions<"public"> {
+  // Read off `window` rather than through `lib/desktop-bridge`, which is a
+  // client module; this file is built for the server too.
+  if (typeof window === "undefined" || !window.weaveforge) return {};
+  return { auth: { flowType: "pkce" } };
 }
 
 /**

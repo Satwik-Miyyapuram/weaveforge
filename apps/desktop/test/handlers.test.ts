@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exactBytes, handleFetchImage, handleFetchTitle, mayOpenExternally } from "../src/handlers";
+import {
+  AUTH_LOOPBACK_PATH,
+  AUTH_LOOPBACK_PORT,
+  exactBytes,
+  handleFetchImage,
+  handleFetchTitle,
+  mayOpenExternally,
+  signInCallbackQuery,
+} from "../src/handlers";
+import { AUTH_LOOPBACK_URL } from "@/lib/desktop-auth";
 
 /**
  * The desktop half of the two lookups.
@@ -103,4 +112,38 @@ test("only a web address may be handed to the operating system", () => {
   ]) {
     assert.equal(mayOpenExternally(hostile), false, hostile);
   }
+});
+
+test("the sign-in callback hands on the query it arrived with", () => {
+  assert.equal(
+    signInCallbackQuery("/auth/callback?code=abc123&sb_flow_id=f1"),
+    "?code=abc123&sb_flow_id=f1",
+  );
+  // A refusal comes back the same way and has to reach the app too, or the
+  // window sits on the sign-in screen looking like nothing happened.
+  assert.equal(
+    signInCallbackQuery("/auth/callback?error=access_denied"),
+    "?error=access_denied",
+  );
+});
+
+test("the loopback listener answers on one path, and only with something to carry", () => {
+  for (const request of [
+    undefined,
+    "/",
+    "/favicon.ico",
+    // Something else on the machine probing the port.
+    "/auth/callback/../admin?code=abc",
+    // The right path with nothing in it: no code, no error, nothing to do.
+    "/auth/callback",
+  ]) {
+    assert.equal(signInCallbackQuery(request), null, String(request));
+  }
+});
+
+test("both halves of the app agree on where a sign-in comes back to", () => {
+  // The port and path are declared twice — once here and once in the web app,
+  // which cannot import from this package — so the flow breaks silently if one
+  // side is changed alone. This is the check that makes that loud.
+  assert.equal(AUTH_LOOPBACK_URL, `http://127.0.0.1:${AUTH_LOOPBACK_PORT}${AUTH_LOOPBACK_PATH}`);
 });

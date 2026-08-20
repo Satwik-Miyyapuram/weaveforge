@@ -1,5 +1,6 @@
 import http from "node:http";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +22,15 @@ import { fileURLToPath } from "node:url";
 
 const PORT = Number(process.env.SMOKE_PORT ?? 3999);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+/**
+ * Electron's executable, taken from the package rather than from `npx`.
+ *
+ * `spawn("npx", …)` is an ENOENT on Windows — `npx` there is `npx.cmd`, and
+ * `spawn` without a shell does not go looking for shims. The `electron` package
+ * exports the path to the binary it downloaded, which is the same answer on
+ * every platform and one process shallower besides.
+ */
+const ELECTRON = createRequire(import.meta.url)("electron");
 
 const page = `<!doctype html><meta charset="utf-8"><title>smoke</title><script>
 (async () => {
@@ -41,7 +51,7 @@ const page = `<!doctype html><meta charset="utf-8"><title>smoke</title><script>
 })();
 </script><h1>smoke</h1>`;
 
-const EXPECTED_MEMBERS = ["fetchImage", "fetchTitle", "openExternal", "platform", "version"];
+const EXPECTED_MEMBERS = ["fetchImage", "fetchTitle", "onSignIn", "platform", "version"];
 
 let reported = null;
 const server = http.createServer((request, response) => {
@@ -59,14 +69,14 @@ const server = http.createServer((request, response) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  // Its own process group, because Electron is four processes behind an npm
-  // shim and killing the shim leaves the app running — holding the
-  // single-instance lock, so the *next* run quits on startup and reports
-  // nothing at all. That is a confusing half-hour; hence the group.
-  const child = spawn("npx", ["electron", root, "--no-sandbox"], {
+  // Its own process group where there are process groups, because Electron is
+  // several processes and killing only the one started here leaves the rest
+  // running — holding the single-instance lock, so the *next* run quits on
+  // startup and reports nothing at all. That is a confusing half-hour.
+  const child = spawn(ELECTRON, [root, "--no-sandbox"], {
     env: { ...process.env, WEAVEFORGE_URL: `http://127.0.0.1:${PORT}` },
     stdio: ["ignore", "pipe", "pipe"],
-    detached: true,
+    detached: process.platform !== "win32",
   });
   let log = "";
   child.stdout.on("data", (chunk) => (log += chunk));
@@ -82,9 +92,16 @@ server.listen(PORT, "127.0.0.1", () => {
   }, 500);
 });
 
-/** Kills the whole group, not just the shim that started it. */
+/** Kills the whole tree, not just the process started here. */
 function stop(child) {
   try {
+    if (process.platform === "win32") {
+      // Windows has no process groups to signal: `kill(-pid)` is an error, and
+      // killing the parent alone orphans Electron's children. `taskkill /t`
+      // is how the tree is taken down there.
+      spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+      return;
+    }
     process.kill(-child.pid, "SIGKILL");
   } catch {
     // Already gone, which is the outcome either way.

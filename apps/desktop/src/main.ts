@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "node:path";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
-import { CHANNELS, type IpcResult } from "./channels";
+import { startAuthLoopback } from "./auth-loopback";
+import { CHANNELS } from "./channels";
 
 /**
  * The desktop shell.
@@ -13,10 +14,17 @@ import { CHANNELS, type IpcResult } from "./channels";
  * it in `apps/web/src/lib/outbound-fetch.ts`, so no feature is desktop-only and
  * no feature is written twice.
  *
- * The three channels registered below are the whole of it, and none of them
- * reimplements anything: `handlers.ts` imports `fetch-for-paste` from the web
- * app and hands back what it returns. Same address guard, same size caps, same
- * refusals as the API route a browser would have used.
+ * The two request channels registered below reimplement nothing: `handlers.ts`
+ * imports `fetch-for-paste` from the web app and hands back what it returns.
+ * Same address guard, same size caps, same refusals as the API route a browser
+ * would have used. The third channel goes the other way — it carries a finished
+ * sign-in in from the loopback listener, which is the one thing a page has no
+ * way to receive on its own.
+ *
+ * Opening a link elsewhere is deliberately *not* among them. The window already
+ * sends off-origin navigations to the real browser below, which covers what a
+ * page can do about it, so a channel for the page to ask directly would be a
+ * third hole in the sandbox that nothing was calling.
  */
 
 /**
@@ -27,9 +35,19 @@ import { CHANNELS, type IpcResult } from "./channels";
  * to anyway — WeaveForge's data lives in Postgres behind an API, so an offline
  * window would be an empty one. Point it at a dev server while developing and
  * at the deployment when packaging.
+ *
+ * `WEAVEFORGE_URL` set at launch wins. Set at *build* time it becomes the
+ * default baked into the bundle, which is the one that matters for an
+ * installed app: a packaged window is started from a shortcut, and a shortcut
+ * has no shell to inherit an environment from.
  */
-const APP_URL = process.env.WEAVEFORGE_URL ?? "http://localhost:3000";
+declare const __DEFAULT_APP_URL__: string;
+
+const APP_URL = process.env.WEAVEFORGE_URL ?? __DEFAULT_APP_URL__;
 const APP_ORIGIN = new URL(APP_URL).origin;
+
+let mainWindow: BrowserWindow | null = null;
+let loopback: import("node:http").Server | null = null;
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -39,6 +57,10 @@ function createWindow(): void {
     minHeight: 600,
     backgroundColor: "#101014",
     title: "WeaveForge",
+    // Beside the bundle in `dist/`; see `scripts/build.mjs`. Set here because
+    // stamping it into the executable needs a toolchain that cannot be
+    // unpacked on Windows without the symlink privilege.
+    icon: path.join(__dirname, "icon.png"),
     webPreferences: {
       // Both files land beside each other in `dist/`; see `scripts/build.mjs`.
       preload: path.join(__dirname, "preload.js"),
@@ -51,6 +73,11 @@ function createWindow(): void {
       sandbox: true,
       webviewTag: false,
     },
+  });
+
+  mainWindow = window;
+  window.on("closed", () => {
+    if (mainWindow === window) mainWindow = null;
   });
 
   void window.loadURL(APP_URL);
@@ -95,35 +122,56 @@ async function openExternally(url: string): Promise<void> {
   await shell.openExternal(url);
 }
 
+/**
+ * Hands a finished sign-in to the page that started it.
+ *
+ * The query string is passed along as it arrived and is not read here. What is
+ * in it is an authorization code, and a code is only worth anything together
+ * with the PKCE verifier that was generated when the flow started — which lives
+ * in the renderer and has never left it. So the renderer is the only part of
+ * this that can finish the exchange, and the only part that needs to.
+ */
+function deliverSignIn(query: string): void {
+  if (!mainWindow) createWindow();
+  const window = mainWindow;
+  if (!window) return;
+  if (window.isMinimized()) window.restore();
+  window.focus();
+  window.webContents.send(CHANNELS.signIn, query);
+}
+
 // Thin on purpose: what these do lives in `handlers.ts`, which the tests can
 // reach without an Electron app running.
 ipcMain.handle(CHANNELS.fetchTitle, (_event, url: unknown) => handleFetchTitle(url));
 ipcMain.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(url));
-
-ipcMain.handle(CHANNELS.openExternal, async (_event, url: unknown): Promise<IpcResult<null>> => {
-  if (typeof url !== "string") return { ok: false, message: "That address could not be read." };
-  await openExternally(url);
-  return { ok: true, value: null };
-});
 
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
+  // A second launch raises the window that is already open rather than
+  // starting another copy of the app.
   app.on("second-instance", () => {
     const [existing] = BrowserWindow.getAllWindows();
-    if (existing) {
-      if (existing.isMinimized()) existing.restore();
-      existing.focus();
-    }
+    if (!existing) return;
+    if (existing.isMinimized()) existing.restore();
+    existing.focus();
   });
 
   void app.whenReady().then(() => {
+    // Started before the window, so a sign-in cannot come back to a port that
+    // is not listening yet.
+    loopback = startAuthLoopback(deliverSignIn);
     createWindow();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
+  });
+
+  app.on("will-quit", () => {
+    loopback?.close();
+    loopback = null;
   });
 
   app.on("window-all-closed", () => {

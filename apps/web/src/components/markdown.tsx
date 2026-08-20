@@ -79,7 +79,14 @@ function formatText(s: string): string {
         const safeHref = href.replace(/"/g, "&quot;");
         return `<a href="${safeHref}" target="_blank" rel="noreferrer">${label}</a>`;
       },
-    );
+    )
+    // A root-relative target stays in the app, so it gets no new tab. Only a
+    // leading slash qualifies: `foo.md` beside the file means nothing once the
+    // text is on a route, and is left as plain text rather than guessed at.
+    .replace(/\[([^\]]+)\]\((\/[^\s)]*)\)/g, (_m, label: string, href: string) => {
+      const safeHref = href.replace(/"/g, "&quot;");
+      return `<a href="${safeHref}">${label}</a>`;
+    });
 }
 
 function renderMath(source: string, displayMode: boolean): string {
@@ -169,15 +176,67 @@ function inline(s: string, resolve?: WikilinkResolver): string {
   return out.join("");
 }
 
+/** Split one table row into cells, honouring `\|` as a literal pipe. */
+function splitRow(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, "|"));
+}
+
+const DIVIDER_CELL = /^:?-+:?$/;
+
+/** The `|---|:--:|` line that turns the row above it into a header. */
+function isTableDivider(line: string | undefined): boolean {
+  if (line === undefined) return false;
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("|")) return false;
+  const cells = splitRow(trimmed);
+  return cells.length > 0 && cells.every((cell) => DIVIDER_CELL.test(cell));
+}
+
+/** Alignment as a class, not an inline style — the page's CSP has no `unsafe-inline`. */
+function alignClass(cell: string): string {
+  const left = cell.startsWith(":");
+  const right = cell.endsWith(":");
+  if (left && right) return ' class="md-center"';
+  if (right) return ' class="md-right"';
+  return "";
+}
+
+function renderTable(rows: readonly string[], resolve?: WikilinkResolver): string {
+  const header = splitRow(rows[0]!);
+  const aligns = splitRow(rows[1]!).map(alignClass);
+  const head = header.map((cell, i) => `<th${aligns[i] ?? ""}>${inline(cell, resolve)}</th>`).join("");
+  const body = rows
+    .slice(2)
+    .map((row) => {
+      // A ragged row is padded rather than dropped: one bad line in a pasted
+      // spreadsheet should not take the rows around it down with it.
+      const cells = splitRow(row);
+      const tds = header
+        .map((_, i) => `<td${aligns[i] ?? ""}>${inline(cells[i] ?? "", resolve)}</td>`)
+        .join("");
+      return `<tr>${tds}</tr>`;
+    })
+    .join("");
+  return `<table class="md-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
 /** Render markdown prose (no fenced code blocks) to HTML. */
 export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): string {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
-  let inList = false;
+  let listTag: "ul" | "ol" | null = null;
   const closeList = () => {
-    if (inList) {
-      out.push("</ul>");
-      inList = false;
+    if (listTag) {
+      out.push(`</${listTag}>`);
+      listTag = null;
+    }
+  };
+  const openList = (tag: "ul" | "ol") => {
+    if (listTag !== tag) {
+      closeList();
+      out.push(`<${tag}>`);
+      listTag = tag;
     }
   };
 
@@ -226,18 +285,29 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
       continue;
     }
 
+    // A table: the header row, its divider, and every row that follows.
+    if (trimmed.startsWith("|") && isTableDivider(lines[index + 1])) {
+      closeList();
+      let end = index + 2;
+      while (end < lines.length && lines[end]!.trim().startsWith("|")) end += 1;
+      out.push(renderTable(lines.slice(index, end), resolve));
+      index = end - 1;
+      continue;
+    }
+
     const h = /^(#{1,3})\s+(.*)$/.exec(line);
     const li = /^\s*[-*]\s+(.*)$/.exec(line);
+    const oli = /^\s*\d+[.)]\s+(.*)$/.exec(line);
     if (h) {
       closeList();
       const level = h[1]!.length;
       out.push(`<h${level + 2} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, resolve)}</h${level + 2}>`);
     } else if (li) {
-      if (!inList) {
-        out.push("<ul>");
-        inList = true;
-      }
+      openList("ul");
       out.push(`<li>${inline(li[1]!, resolve)}</li>`);
+    } else if (oli) {
+      openList("ol");
+      out.push(`<li>${inline(oli[1]!, resolve)}</li>`);
     } else if (line.trim() === "") {
       closeList();
     } else {

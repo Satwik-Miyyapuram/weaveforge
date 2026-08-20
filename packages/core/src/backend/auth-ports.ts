@@ -32,6 +32,14 @@ export interface IAuthService {
   verifyEmailOtp(email: string, token: string): Promise<void>;
   sendMagicLink(email: string, redirectTo?: string): Promise<void>;
   signInWithGoogle(redirectTo?: string): Promise<void>;
+  /**
+   * Finishes a sign-in that came back as an authorization code.
+   *
+   * Takes the callback's whole query string rather than the code alone: which
+   * parameters matter is the provider's business, not the caller's, and the
+   * desktop shell that receives this has no reason to learn them.
+   */
+  completeOAuth(callbackQuery: string): Promise<void>;
   signOut(): Promise<void>;
   onChange(cb: AuthChangeCallback): () => void;
 }
