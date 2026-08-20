@@ -1,60 +1,48 @@
-import type { IBlobStore, ICurrentUserProvider, IEncryptedBlobStore } from "@weaveforge/core";
+import type { IBlobStore, ICurrentUserProvider } from "@weaveforge/core";
+import { BucketAssetStore } from "@/lib/bucket-asset-store";
 import type { IPaperImageStore } from "../domain/zotero";
 
-const BUCKET = "paper-images";
-const SIGNED_TTL_S = 3600;
 const THUMB_MAX_DIM = 640;
-
-function asEncrypted(store: IBlobStore): IEncryptedBlobStore {
-  return store as IEncryptedBlobStore;
-}
 
 /**
  * Paper image storage — private bucket, user-id prefix for RLS.
- * Uses {@link IBlobStore} so the backing host (Supabase, R2, S3) is swappable.
+ *
+ * Unlike the other buckets this one keeps a second, smaller copy beside each
+ * upload, because the library grid shows every image at once and full-size
+ * ones make it crawl.
  */
-export class PaperImageStore implements IPaperImageStore {
-  constructor(
-    private readonly blobs: IBlobStore,
-    private readonly session: ICurrentUserProvider,
-  ) {}
-
-  private get encrypted() {
-    return asEncrypted(this.blobs);
+export class PaperImageStore extends BucketAssetStore implements IPaperImageStore {
+  constructor(blobs: IBlobStore, session: ICurrentUserProvider) {
+    super("paper-images", blobs, session);
   }
 
-  async upload(paperId: string, blob: Blob, ext: string): Promise<string> {
+  override async upload(paperId: string, blob: Blob, ext: string): Promise<string> {
     const userId = await this.session.requireUserId();
     const base = `${userId}/${paperId}/${crypto.randomUUID()}`;
     const fullPath = `${base}.full.${ext}`;
-    await this.blobs.upload(BUCKET, fullPath, blob, blob.type);
+    await this.blobs.upload(this.bucket, fullPath, blob, blob.type);
     const thumbnail = await makeThumbnail(blob);
     if (thumbnail) {
-      await this.blobs.upload(BUCKET, `${base}.thumb.webp`, thumbnail, "image/webp");
+      await this.blobs.upload(this.bucket, `${base}.thumb.webp`, thumbnail, "image/webp");
     }
     return fullPath;
   }
 
-  async remove(path: string): Promise<void> {
-    await this.blobs.remove(BUCKET, path);
+  override async remove(path: string): Promise<void> {
+    await super.remove(path);
     const thumbnail = path.replace(/\.full\.[^.]+$/, ".thumb.webp");
-    if (thumbnail !== path) await this.blobs.remove(BUCKET, thumbnail);
+    if (thumbnail !== path) await super.remove(thumbnail);
   }
 
-  async signedUrls(paths: string[]): Promise<(string | null)[]> {
-    return this.blobs.signedUrls(BUCKET, paths, SIGNED_TTL_S);
-  }
-
-  async fetchDecrypted(path: string): Promise<Blob> {
-    return this.encrypted.fetchDecrypted(BUCKET, path);
-  }
-
-  async fetchDecryptedMany(paths: readonly string[]): Promise<Map<string, Blob>> {
+  /**
+   * No one-at-a-time fallback here, on purpose: a paper's images are fetched
+   * as a set for the grid, and doing that serially is slow enough to look
+   * broken. A store that cannot batch should say so rather than crawl.
+   */
+  override async fetchDecryptedMany(paths: readonly string[]): Promise<Map<string, Blob>> {
     const many = this.encrypted.fetchDecryptedMany;
-    if (!many) {
-      throw new Error("Blob store does not support batch fetch");
-    }
-    return many.call(this.encrypted, BUCKET, paths);
+    if (!many) throw new Error("Blob store does not support batch fetch");
+    return many.call(this.encrypted, this.bucket, paths);
   }
 }
 
