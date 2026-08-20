@@ -5462,3 +5462,17 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   color: var(--ink); font-size: 0.8rem; max-height: 12rem; overflow-y: auto;
 }
 .theme-config-errors li { margin: 2px 0; font-family: var(--font-mono); word-break: break-word; }
+
+/* A tab with something waiting behind it.
+   Deliberately not a count and not a colour that reads as an error: what is
+   waiting is an optional download for the desktop window, and the strongest
+   thing it should ever do is catch the eye on the way past. */
+.settings-tabs button .tab-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 3px;
+}

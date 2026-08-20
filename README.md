@@ -298,4 +298,4 @@ WeaveForge is open source for the researchers who use it, and the copyleft is wh
 
 Using or self-hosting WeaveForge places no obligations on you. Self-hosting has no subscription fee.
 
-[`docs/licensing.md`](docs/licensing.md) · [`NOTICE`](NOTICE) · [`CONTRIBUTORS.md`](CONTRIBUTORS.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
+[`LICENSE`](LICENSE) · [`NOTICE`](NOTICE) · [`CONTRIBUTORS.md`](CONTRIBUTORS.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)

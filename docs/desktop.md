@@ -52,6 +52,32 @@ Email and password work the same as they do in the browser, with no round trip
 through anything. If you use both, they are the same account only if the
 addresses match.
 
+## Updating
+
+Most of WeaveForge does not need updating at all. The window loads the app from
+the web, so a change to the app is there the next time you open it — the same
+way a browser tab gets it. There is nothing to download and no version of the
+app to keep in step.
+
+What the installer holds is the window itself: signing in, links opening in your
+browser, and the machinery underneath them. That part changes rarely, and when
+it does the app tells you **once you sign in** — not every time you open it. A
+box that appears at every launch is a box people learn to close without reading,
+and by the time it matters they have stopped seeing it.
+
+Nothing is downloaded until you choose to. Choosing to opens the release page in
+your browser, where the installer is the same one you first installed from.
+
+Between sign-ins the same fact sits in **Settings → Updates**, with a dot on the
+section when a newer version is out. That section also shows which version this
+window is, and has a **Check now** button if you would rather ask than wait.
+
+The section is not there in a browser, because a browser has no window to
+update — whatever it loads is already current.
+
+If the check cannot reach GitHub it says nothing rather than showing you an
+error, because a shell that cannot reach GitHub is still a working shell.
+
 ## Links
 
 Links to other sites open in your normal browser, not inside the app window.

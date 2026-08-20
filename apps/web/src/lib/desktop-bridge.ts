@@ -59,6 +59,24 @@ export interface DesktopBridge {
    * back to the page itself.
    */
   onSignIn(cb: (query: string) => void): () => void;
+
+  /**
+   * Whether a newer desktop release exists, or null if not — which covers
+   * being up to date, being unable to reach GitHub, and running from source.
+   *
+   * A browser has no equivalent and needs none: a browser is never out of
+   * date, because the app it loads is whatever the server is serving. This
+   * asks about the *window*, whose version lives in the shell and nowhere the
+   * page can read it.
+   */
+  checkUpdate(): Promise<DesktopUpdate | null>;
+}
+
+export interface DesktopUpdate {
+  /** The newer version, as `0.6.0`. */
+  version: string;
+  /** Its release page, to be opened in the reader's real browser. */
+  url: string;
 }
 
 declare global {

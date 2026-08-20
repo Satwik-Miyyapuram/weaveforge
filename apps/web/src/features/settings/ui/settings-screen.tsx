@@ -29,6 +29,8 @@ import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
 import { ThemeConfigPanel } from "./theme-config-panel";
+import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
+import { desktop } from "@/lib/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 
 /**
@@ -50,6 +52,7 @@ const SETTINGS_TABS = [
   { id: "integrations", label: "Integrations" },
   { id: "sync", label: "Sync" },
   { id: "data", label: "Data" },
+  { id: "updates", label: "Updates" },
 ] as const;
 
 type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
@@ -72,6 +75,12 @@ function tabFromHash(hash: string): SettingsTabId | null {
  */
 export function SettingsScreen() {
   const { current } = useProject();
+  // Read after mount, not during render. The preload script runs before this
+  // bundle, but the *server* render has no window at all — deciding there
+  // would ship a tab that vanishes on hydration.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => setIsDesktop(desktop() !== null), []);
+  const { update } = useDesktopUpdate();
   const integrationConfig = getContainer().integrationConfig;
   const userIntegrations = useMemo(
     () => userIntegrationsForConfig(integrationConfig),
@@ -283,9 +292,14 @@ export function SettingsScreen() {
     activeProvider?.providerId === integrationConfig.bibliography &&
     integrationConfig.bibliography !== "none";
 
-  const tabs = SETTINGS_TABS.filter(
-    (t) => t.id !== "integrations" || userIntegrations.length > 0,
-  );
+  const tabs = SETTINGS_TABS.filter((t) => {
+    if (t.id === "integrations") return userIntegrations.length > 0;
+    // A browser has no window to update. The tab is not disabled or empty for
+    // one — it is not there, because a section that can never say anything is
+    // a section a reader opens once and learns to distrust.
+    if (t.id === "updates") return isDesktop;
+    return true;
+  });
 
   return (
     <section className="screen settings-screen">
@@ -302,9 +316,18 @@ export function SettingsScreen() {
             onClick={() => selectTab(t.id)}
           >
             {t.label}
+            {/* The dot is the whole notice between sign-ins: something to
+                notice, with nothing to answer. */}
+            {t.id === "updates" && update && <span className="tab-dot" aria-label="update available" />}
           </button>
         ))}
       </div>
+
+      {tab === "updates" && (
+        <div id="settings-updates" className="settings-anchor" role="tabpanel" aria-labelledby="settings-tab-updates">
+          <DesktopUpdatePanel />
+        </div>
+      )}
 
       {tab === "account" && <AccountInfoPanel />}
 
