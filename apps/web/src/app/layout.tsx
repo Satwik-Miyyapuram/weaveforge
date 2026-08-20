@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
+import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { AppShell } from "./app-shell";
@@ -8,27 +8,6 @@ import { ThemeColorMeta } from "./theme-color-meta";
 import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ClientRuntimeRecovery } from "@/components/client-runtime-recovery";
-
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-plex-sans",
-  display: "swap",
-});
-
-const ibmPlexSerif = IBM_Plex_Serif({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-serif",
-  display: "swap",
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-plex-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "WeaveForge",
@@ -63,7 +42,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${ibmPlexSans.variable} ${ibmPlexSerif.variable} ${ibmPlexMono.variable}`}
+      className={FONT_VARIABLES}
     >
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
