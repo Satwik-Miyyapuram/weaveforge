@@ -278,21 +278,25 @@ function Step({ i, active, idx, title, children }: {
   );
 }
 
-function Scene({ id, eyebrow, heading, lede, views, steps }: {
+function Scene({ id, eyebrow, heading, lede, views, steps, tone = "flat" }: {
   id: string;
   eyebrow: string;
   heading: string;
   lede: string;
   views: React.ReactNode[];
   steps: { idx: string; title: string; body: React.ReactNode }[];
+  /** `band` lifts the scene onto a raised ground. Alternated by the caller so
+   *  seven consecutive scenes read as chapters rather than one long field. */
+  tone?: "flat" | "band";
 }) {
   const { sceneRef, active } = useScrollSteps(steps.length);
   const single = views.length === 1;
+  const ground = tone === "band" ? css.band : css.seam;
 
   return (
-    <section className={css.scene} id={id} ref={sceneRef as React.RefObject<HTMLElement>}>
+    <section className={`${css.scene} ${ground}`} id={id} ref={sceneRef as React.RefObject<HTMLElement>}>
       <div className={css.wrap}>
-        <header className={css.sceneHead}>
+        <header className={css.sceneHead} data-scene-head>
           <span className={css.eyebrow}>{eyebrow}</span>
           <h2>{heading}</h2>
           <p className="muted">{lede}</p>
@@ -472,7 +476,7 @@ const HERO_STEPS = [
 function HeroScene() {
   const { sceneRef, active } = useScrollSteps(HERO_STEPS.length);
   return (
-    <section className={`${css.scene} ${css.overview}`} id="overview"
+    <section className={`${css.scene} ${css.overview} ${css.seam}`} id="overview"
              ref={sceneRef as React.RefObject<HTMLElement>}>
       <div className={css.wrap}>
         <div className={css.sceneInner}>
@@ -520,7 +524,7 @@ const MOMENTS = [
 
 function WhySection() {
   return (
-    <section className={css.why} id="why">
+    <section className={`${css.why} ${css.band}`} id="why">
       <div className={css.wrap}>
         <span className={css.eyebrow}>Why it exists</span>
         <h2 className={css.whyHeading}>
@@ -596,9 +600,9 @@ function LiteratureScene() {
   ];
 
   return (
-    <section className={css.scene} id="literature" ref={sceneRef as React.RefObject<HTMLElement>}>
+    <section className={`${css.scene} ${css.band}`} id="literature" ref={sceneRef as React.RefObject<HTMLElement>}>
       <div className={css.wrap}>
-        <header className={css.sceneHead}>
+        <header className={css.sceneHead} data-scene-head>
           <span className={css.eyebrow}>Literature</span>
           <h2>Every paper you have read, and how they hold together.</h2>
           <p className="muted">One library, one graph, and a reference manager that stays in sync instead of being replaced.</p>
@@ -1179,7 +1183,7 @@ const COVER_LABEL: Record<Cover, string> = { yes: "yes", part: "partly", no: "no
  */
 function CompareTable() {
   return (
-    <section className={css.compare} id="compare">
+    <section className={`${css.compare} ${css.seam}`} id="compare">
       <div className={css.wrap}>
         <span className={css.eyebrow}>Side by side</span>
         <h2 className={css.whyHeading}>Each of these is good at one link of the chain.</h2>
@@ -1386,7 +1390,77 @@ function useCursorGlow() {
 
 export default function PitchPage() {
   const [navOn, setNavOn] = useState<string>("");
+  const pageRef = useRef<HTMLDivElement>(null);
   useCursorGlow();
+
+  /**
+   * Scroll progress, and the reveal that introduces each scene.
+   *
+   * Both of these want to be CSS scroll-driven animations, and both were
+   * written that way. Neither worked. The narrative does not scroll in the
+   * document — it scrolls inside the particle canvas's own container, roughly
+   * 23,000px of it, while the document itself has about a hundred pixels of
+   * travel. `scroll(root block)` therefore bound the progress bar to a
+   * scroller that barely moves and, being an inactive timeline, left it
+   * parked at `scaleX(0)` for the entire page. `view()` failed the same way
+   * from inside that container.
+   *
+   * So both are driven from the real scroller instead. The reveal starts from
+   * a class the effect adds, never from the stylesheet alone: a heading that
+   * is invisible until JavaScript arrives is a heading that stays invisible
+   * when JavaScript does not.
+   */
+  useEffect(() => {
+    const page = pageRef.current;
+    const scroller = document.querySelector<HTMLElement>("[data-particle-content]");
+    if (!page || !scroller) return;
+
+    let frame = 0;
+    const paint = () => {
+      frame = 0;
+      const travel = scroller.scrollHeight - scroller.clientHeight;
+      page.style.setProperty("--pitch-progress", travel > 0 ? String(scroller.scrollTop / travel) : "0");
+    };
+    // Capture phase on the document, for the same reason `useScrollSteps`
+    // does it: a listener bound to the container itself never fires here, and
+    // capture on the document catches the scroll wherever it originates.
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(paint); };
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    paint();
+
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let io: IntersectionObserver | null = null;
+    if (!still) {
+      page.dataset.reveal = "on";
+      io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (!e.isIntersecting) continue;
+            (e.target as HTMLElement).dataset.in = "true";
+            // Once only. A heading that re-animates every time it is scrolled
+            // back past is a heading that never settles.
+            io?.unobserve(e.target);
+          }
+        },
+        // Generous on purpose. A stricter trigger — wait until a fifth of the
+        // heading is past a tenth of the viewport — measured well and read
+        // badly: on a quick scroll the heading was still fading up as it
+        // crossed the middle of the screen, so the reader met every chapter
+        // half-transparent. It now starts the moment any part of it enters,
+        // and is done in less time than a flick of the wheel takes.
+        { rootMargin: "0px 0px 5% 0px", threshold: 0 },
+      );
+      for (const head of document.querySelectorAll("[data-scene-head]")) io.observe(head);
+    }
+
+    return () => {
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+      io?.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const ids = ["overview", "why", "chain", "literature", "annotations", "experiments", "writing", "labs", "selfhost", "compare"];
@@ -1428,7 +1502,7 @@ export default function PitchPage() {
   );
 
   return (
-    <div className={css.page} data-sec={navOn || "top"}>
+    <div className={css.page} data-sec={navOn || "top"} ref={pageRef}>
       {/* Ground layer. Its position tracks the section the scrollspy reports,
           so the light moves with the reader rather than on a timer. */}
       <div className={css.aurora} aria-hidden />
@@ -1605,6 +1679,7 @@ export default function PitchPage() {
         <AnnotationsScene />
 
         <Scene
+          tone="band"
           id="experiments"
           eyebrow="Experiments"
           heading="Runs that know which paper they came from."
@@ -1687,6 +1762,7 @@ def train(run):
         />
 
         <Scene
+          tone="band"
           id="labs"
           eyebrow="Labs & supervision"
           heading="Your group sees objects, not screenshots."
@@ -1782,7 +1858,7 @@ $ npm run dev           # → http://localhost:3000`}</pre>
           ]}
         />
 
-        <section className={css.close}>
+        <section className={`${css.close} ${css.band}`}>
           <div className={css.wrap}>
             <h2>Start with one paper.</h2>
             <p className={css.lede}>
