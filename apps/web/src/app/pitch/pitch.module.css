@@ -152,8 +152,7 @@
 .page[data-sec="overview"] .aurora { translate: -3% 2%; rotate: 4deg; }
 .page[data-sec="why"] .aurora { translate: 4% -3%; rotate: -6deg; scale: 1.08; }
 .page[data-sec="chain"] .aurora { translate: -6% -4%; rotate: 9deg; }
-.page[data-sec="literature"] .aurora { translate: 5% 4%; rotate: -3deg; scale: 1.06; }
-.page[data-sec="annotations"] .aurora { translate: -5% 5%; rotate: 12deg; }
+.page[data-sec="reading"] .aurora { translate: 5% 4%; rotate: -3deg; scale: 1.06; }
 .page[data-sec="experiments"] .aurora { translate: 6% -5%; rotate: -9deg; scale: 1.1; }
 .page[data-sec="writing"] .aurora { translate: -4% -6%; rotate: 5deg; }
 .page[data-sec="labs"] .aurora { translate: 3% 6%; rotate: -11deg; scale: 1.05; }
@@ -1074,3 +1073,293 @@
    as a slide. */
 .page[data-reveal="on"] [data-scene-head][data-in="true"] > *:nth-child(2) { transition-delay: 0.06s; }
 .page[data-reveal="on"] [data-scene-head][data-in="true"] > *:nth-child(3) { transition-delay: 0.12s; }
+
+/* ---- The paper wall ----
+   The page ships no images and this does not change that. A first page is
+   drawn instead: a title block, two columns of ruled text, sometimes a figure
+   box. At the opacity it runs at, the difference between these bars and real
+   typeset text is not available to the eye — and unlike a scan it carries no
+   licence, no bytes over the wire, and no colour that fights the theme.
+
+   It exists to give the type something with grain behind it. The moment you
+   can consciously read it as a background, it is too strong. */
+.wall {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 14px;
+  padding: 14px;
+  /* Faded at every edge, so the field has no border and reads as a surface
+     the page rests on rather than a panel dropped onto it. */
+  mask-image: radial-gradient(95% 85% at 34% 46%, transparent 0 32%, #000 68%, transparent 100%);
+  -webkit-mask-image: radial-gradient(95% 85% at 34% 46%, transparent 0 32%, #000 68%, transparent 100%);
+}
+.sheet {
+  aspect-ratio: 3 / 4;
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  padding: 9px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+  opacity: 0.14;
+  transition: opacity 0.6s ease, background 0.6s ease, border-color 0.6s ease;
+}
+.sheet i {
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+  opacity: 0.4;
+}
+.sheetTitle { height: 4px; opacity: 0.75; margin-bottom: 3px; }
+.sheetFig {
+  border: 1px solid var(--ink);
+  opacity: 0.28;
+  margin: 3px 0;
+  border-radius: 1px;
+  flex: none;
+}
+.sheetCols { display: flex; gap: 6px; flex: 1; min-height: 0; }
+.sheetCols > span { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+
+/* One sheet holds focus: the paper the scene is talking about. A field with
+   no subject is wallpaper; a field with one lit sheet is a library with your
+   paper open in it. Which sheet is lit advances with the steps. */
+.sheet[data-lit="true"] {
+  opacity: 0.85;
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: var(--surface);
+}
+.sheet[data-lit="true"] i { opacity: 0.5; }
+.sheet[data-lit="true"] .sheetTitle { background: var(--accent); opacity: 0.9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet { transition: none; }
+}
+
+/* ---- Act bands ----
+   The hero offers three doors — researchers, labs, self-hosters — and until
+   now the body ignored all three: one undifferentiated run in which a lab
+   lead reached their own content most of the way down the page, behind five
+   scenes written for somebody else.
+
+   These are not scenes. No pinning, no steps, nothing to read for more than a
+   second: a rule, a number, and who the next stretch is addressed to. The
+   raised grounds elsewhere on the page now line up behind the acts, so a
+   change in light means something instead of alternating for its own sake. */
+.act {
+  position: relative;
+  padding: clamp(30px, 5vw, 54px) 0 clamp(16px, 3vw, 26px);
+  scroll-margin-top: calc(var(--pitch-head) + 12px);
+}
+.actIn {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.actNum {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  flex: none;
+}
+.actName {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.1rem, 0.95rem + 0.7vw, 1.45rem);
+  letter-spacing: -0.015em;
+  margin: 0;
+  flex: none;
+}
+/* Runs out to the end of the measure. A rule that stops short reads as an
+   underline for the words; one that runs out reads as a horizon. */
+.actRule {
+  flex: 1;
+  height: 1px;
+  min-width: 24px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), transparent);
+}
+
+/* ---- Spreads ----
+   A pinned scene is a promise: stay here, there are four beats, the picture
+   changes under each. It is the right device three to five times, before the
+   reader learns the pattern and starts scrolling past it — which is what
+   seven in a row cost.
+
+   A spread is the same content without the promise: visual and prose side by
+   side, one screen, taken in at a glance. It is for the sections that are
+   conclusions rather than arguments, and it gives the pinned scenes on either
+   side their weight back. */
+.spread {
+  position: relative;
+  padding: clamp(40px, 6vw, 76px) 0;
+  scroll-margin-top: calc(var(--pitch-head) + 12px);
+}
+.spreadIn {
+  display: grid;
+  gap: clamp(22px, 4vw, 48px);
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .spreadIn { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
+}
+.spreadCopy { display: grid; gap: 14px; align-content: start; }
+.spreadCopy h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 1.2rem + 1.9vw, 2.3rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  margin: 0;
+  max-width: 20ch;
+}
+.spreadCopy > p { max-width: 46ch; margin: 0; }
+.spreadPoints {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.spreadPoints li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: baseline;
+  max-width: 48ch;
+  font-size: 0.97rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.spreadPoints b {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-weight: 500;
+}
+.spreadFig { min-width: 0; display: grid; gap: 10px; }
+
+/* ---- The annotation macro ----
+   The one real picture on the page, and the only one no competitor can copy:
+   it is a photograph of the claim the product makes about itself. Blown well
+   past reading size, so the subject is the highlight's own edge, the note
+   hanging off it, and the anchor line leaving the frame — not the sentence. */
+.macro {
+  position: relative;
+  margin: clamp(18px, 3vw, 30px) 0 clamp(24px, 4vw, 40px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  /* The crop: the text runs off the right edge on purpose. A frame that
+     contains everything is a screenshot; one that cuts is a close-up. */
+  overflow: hidden;
+}
+.macroInner {
+  position: relative;
+  padding: clamp(22px, 4vw, 44px) clamp(20px, 4vw, 48px);
+}
+.macroLine {
+  font-family: var(--font-serif);
+  font-size: clamp(1.05rem, 0.8rem + 1.4vw, 1.85rem);
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  margin: 0;
+  color: var(--ink);
+}
+.macroDim { color: var(--faint); }
+.macroMark {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: 2px;
+}
+.macroNote {
+  position: relative;
+  margin: 26px 0 0 clamp(28px, 7vw, 104px);
+  padding: 12px 16px;
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  border-radius: 0 8px 8px 0;
+  max-width: 40ch;
+}
+.macroNote p { margin: 0; font-size: 0.95rem; line-height: 1.55; }
+.macroMeta {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 8px 0 0;
+}
+/* The anchor: what ties the note to the words, and the reason the highlight
+   survives a different build of the same PDF. Drawn, because it is the part
+   of the product that has no screen of its own. */
+.macroAnchor {
+  position: absolute;
+  left: clamp(16px, 4.5vw, 56px);
+  width: clamp(12px, 4vw, 44px);
+  border-left: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-bottom: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-bottom-left-radius: 10px;
+  pointer-events: none;
+}
+
+/* ---- The reading rail ----
+   The side rail on the reading scene: the same drawn sheets as the hero wall,
+   but narrow and in the margin, so the field the scene is about stays visible
+   while the scene zooms into one page of it. */
+.rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  /* Narrow enough to clear the steps column at the width where the
+     header still fits — a rail that runs under the prose is not a
+     margin, it is a smudge. */
+  width: clamp(120px, 15vw, 220px);
+  z-index: 0;
+  pointer-events: none;
+}
+/* The scene is some 5,600px tall and the rail holds twelve sheets. Laid out
+   straight into the absolute box they stack against its top edge — a few
+   hundred pixels of sheets, thousands of pixels above where the reader is,
+   visible for none of the scene. Sticking a viewport-tall panel inside the
+   absolute box keeps the field beside the reader the whole way down, which is
+   the only reason it is there. */
+.railIn {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: min-content;
+  gap: 10px;
+  padding: 12vh 0;
+  align-content: center;
+  mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent);
+}
+@media (max-width: 900px) {
+  .rail { display: none; }
+}
+
+/* A positioned element paints over static content regardless of source order,
+   so anything sharing a section with a wall has to be lifted explicitly. */
+.above { position: relative; z-index: 1; }
+.hero { position: relative; isolation: isolate; }
+
+/* The reading scene carries a rail, so it needs a stacking context of its own:
+   without one the rail's `z-index: 0` and the band's `z-index: -1` are read
+   against the page, not against the section, and the band overlay lands on
+   top of the sheets it is meant to sit behind. */
+.scene { position: relative; isolation: isolate; }

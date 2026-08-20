@@ -324,6 +324,152 @@ function Scene({ id, eyebrow, heading, lede, views, steps, tone = "flat" }: {
   );
 }
 
+/**
+ * A drawn first page: title block, a figure box on some of them, two columns
+ * of ruled text.
+ *
+ * Deterministic from `seed`, and deliberately so. The obvious version of this
+ * uses Math.random for the line lengths, renders one set of widths on the
+ * server and a different set in the browser, and hydration tears every sheet
+ * on the page. A seed makes the ragged right edge a fact about the sheet's
+ * position rather than about when it was drawn.
+ */
+function Sheet({ seed, lit }: { seed: number; lit: boolean }) {
+  const fig = seed % 3 === 1;
+  const rows = 5 + (seed % 3);
+  const line = (k: number) => ({ width: `${64 + ((seed * 7 + k * 23) % 34)}%` });
+  const col = (c: number) => (
+    <span key={c}>
+      {Array.from({ length: rows }, (_, k) => (
+        <i key={k} style={line(k + c * 11)} />
+      ))}
+    </span>
+  );
+  return (
+    <div className={css.sheet} data-lit={lit || undefined}>
+      <i className={css.sheetTitle} style={{ width: `${70 + (seed % 25)}%` }} />
+      <i style={{ width: `${40 + (seed % 20)}%`, opacity: 0.3 }} />
+      {fig && <i className={css.sheetFig} style={{ height: "22%" }} />}
+      <span className={css.sheetCols}>{col(0)}{col(1)}</span>
+    </div>
+  );
+}
+
+/**
+ * The paper wall.
+ *
+ * The page still ships no images. This is a field of drawn first pages, run
+ * at an opacity where the difference between a ruled bar and real typeset
+ * text is not available to the eye — it is there to put grain behind the type
+ * and to say, without a caption, what the thing on screen is made of.
+ *
+ * `lit` is the one sheet in focus: the paper the scene is currently talking
+ * about. A field with no subject is wallpaper; a field with one sheet lit is
+ * a library with your paper open in it.
+ */
+function PaperWall({ count, lit = -1, className }: { count: number; lit?: number; className?: string }) {
+  return (
+    <div className={className} aria-hidden>
+      {Array.from({ length: count }, (_, i) => (
+        <Sheet key={i} seed={i * 13 + 5} lit={i === lit} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The annotation macro.
+ *
+ * The one picture on the page that no competitor can screenshot, because it
+ * is a picture of the claim rather than of a screen: a highlight, the note
+ * hanging off it, and the anchor line that leaves the frame. Blown past
+ * reading size on purpose — the subject is the highlight's edge and where it
+ * is attached, not the sentence, and the crop at the right edge is what tells
+ * you that you are close in rather than looking at a whole page.
+ */
+function AnnotationMacro() {
+  return (
+    <figure className={css.macro} aria-hidden>
+      <div className={css.macroInner}>
+        <p className={`${css.macroLine} ${css.macroDim}`}>…imposes a constraint on the latent channel capacity, so that the model in turn</p>
+        <p className={css.macroLine}>
+          <span className={css.macroMark}>balances latent channel capacity against reconstruction accuracy</span>, and the relative
+        </p>
+        <p className={`${css.macroLine} ${css.macroDim}`}>strength of that trade-off is governed by a single coefficient β, tuned per dataset…</p>
+        <span className={css.macroAnchor} style={{ top: "46%", height: "22%" }} />
+        <div className={css.macroNote}>
+          <p>Use for 2.1.2 — this is the sentence the whole capacity argument rests on.</p>
+          <p className={css.macroMeta}>direct quote · p. 4 · pinned to 2.1.2</p>
+        </div>
+      </div>
+    </figure>
+  );
+}
+
+/**
+ * An act marker.
+ *
+ * The hero offers three doors — researchers, labs, self-hosters — and the
+ * body used to ignore all three, running as one undifferentiated stretch in
+ * which a lab lead reached their own content most of the way down the page,
+ * behind five scenes written for somebody else. These say who the next
+ * stretch is addressed to, in about a second of reading, and the ground
+ * changes with them so the light means something.
+ */
+function Act({ id, n, name }: { id: string; n: string; name: string }) {
+  return (
+    <section className={css.act} id={id}>
+      <div className={css.wrap}>
+        <div className={css.actIn}>
+          <span className={css.actNum}>{n}</span>
+          <h2 className={css.actName}>{name}</h2>
+          <span className={css.actRule} aria-hidden />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * A scene without the pinning.
+ *
+ * A pinned scene is a promise: stay here, there are four beats, the picture
+ * changes under each. It is the right device three to five times, and the
+ * page had seven in a row — long enough for the reader to learn the pattern
+ * and start scrolling past it. A spread is for the sections that are
+ * conclusions rather than arguments: the same content, side by side, taken in
+ * at a glance, and the pinned scenes on either side get their weight back.
+ */
+function Spread({ id, eyebrow, heading, lede, points, figure, tone = "flat" }: {
+  id: string;
+  eyebrow: string;
+  heading: string;
+  lede: string;
+  points: { k: string; body: React.ReactNode }[];
+  figure: React.ReactNode;
+  tone?: "flat" | "band";
+}) {
+  return (
+    <section className={`${css.spread} ${tone === "band" ? css.band : css.seam}`} id={id}>
+      <div className={css.wrap}>
+        <div className={css.spreadIn} data-scene-head>
+          <div className={css.spreadCopy}>
+            <span className={css.eyebrow}>{eyebrow}</span>
+            <h2>{heading}</h2>
+            <p className="muted">{lede}</p>
+            <ul className={css.spreadPoints}>
+              {points.map((p) => (
+                <li key={p.k}><b>{p.k}</b><span>{p.body}</span></li>
+              ))}
+            </ul>
+          </div>
+          <div className={css.spreadFig}>{figure}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function StatusPill({ value, label }: { value: string; label?: string }) {
   return <span className={`status status-${value}`}>{label ?? value.replace(/_/g, " ")}</span>;
 }
@@ -587,50 +733,6 @@ function Graph({ upto }: { upto: number }) {
         );
       })}
     </svg>
-  );
-}
-
-function LiteratureScene() {
-  const { sceneRef, active } = useScrollSteps(4);
-  const steps = [
-    { idx: "01", title: "Import from anywhere, once.", body: "A URL, an arXiv ID, a DOI, or your whole Zotero library. Metadata, abstract and annotations arrive together, tagged and dropped into nested reading lists." },
-    { idx: "02", title: "Concepts bridge the clusters.", body: "Tags are nodes in their own right, so the graph shows how a method you borrowed from one literature reaches the one you are writing in." },
-    { idx: "03", title: "Relations are typed, not vibes.", body: "cites, extends, contradicts, builds on, uses method. A contradiction you recorded once is still visible the week you write the related work." },
-    { idx: "04", title: "And it tells you when the field moves.", body: "Semantic Scholar watches what you track and flags new work citing it — including work that cites you." },
-  ];
-
-  return (
-    <section className={`${css.scene} ${css.band}`} id="literature" ref={sceneRef as React.RefObject<HTMLElement>}>
-      <div className={css.wrap}>
-        <header className={css.sceneHead} data-scene-head>
-          <span className={css.eyebrow}>Literature</span>
-          <h2>Every paper you have read, and how they hold together.</h2>
-          <p className="muted">One library, one graph, and a reference manager that stays in sync instead of being replaced.</p>
-        </header>
-        <div className={css.sceneInner}>
-          <div className={css.stage} data-stage>
-            <p className={css.stageCap}>graph</p>
-            <div className="graph-wrap"><Graph upto={active} /></div>
-            <div className="graph-legend card">
-              <div className="graph-legend-group">
-                <span className="muted graph-legend-heading">Relations</span>
-                {(Object.keys(RELATION_COLORS) as (keyof typeof RELATION_COLORS)[]).map((t) => (
-                  <span key={t} className="legend-item">
-                    <span className="legend-swatch" style={{ background: RELATION_COLORS[t] }} />
-                    {t.replace("_", " ")}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className={css.steps}>
-            {steps.map((s, i) => (
-              <Step key={i} i={i} active={active} idx={s.idx} title={s.title}>{s.body}</Step>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -1095,60 +1197,140 @@ function ReaderPanel() {
   );
 }
 
-function AnnotationsScene() {
+/**
+ * Reading: the field, then one paper, then one sentence in it.
+ *
+ * This was two scenes — Literature and Reading & annotations — sitting back
+ * to back, one about the graph over everything you have read and the next
+ * about a single highlight. Nine steps of the same subject at two different
+ * magnifications, introduced twice, with two headings arguing for the same
+ * thing.
+ *
+ * As one scene it becomes a zoom: the whole field, then the cluster, then the
+ * paper, then the sentence, then where that sentence ends up. Nothing is cut
+ * — every step survives — and the reader is asked to stop once instead of
+ * twice. The stage follows the zoom, which is why this cannot be the generic
+ * `Scene`: the first four steps hold the graph, and only the last five swap
+ * a view per step.
+ */
+const READING_STEPS = [
+  { idx: "01", title: "Import from anywhere, once.", body: "A URL, an arXiv ID, a DOI, or your whole Zotero library. Metadata, abstract and annotations arrive together, tagged and dropped into nested reading lists." },
+  { idx: "02", title: "Concepts bridge the clusters.", body: "Tags are nodes in their own right, so the graph shows how a method you borrowed from one literature reaches the one you are writing in." },
+  { idx: "03", title: "Relations are typed, not vibes.", body: "cites, extends, contradicts, builds on, uses method. A contradiction you recorded once is still visible the week you write the related work." },
+  { idx: "04", title: "And it tells you when the field moves.", body: "Semantic Scholar watches what you track and flags new work citing it — including work that cites you." },
+  { idx: "05", title: "Read the paper where you keep it.", body: "The PDF opens in the workspace, beside the library and the graph. Your Zotero annotations are already there, and anything you highlight here is a first-class row rather than a scribble in a viewer’s private store." },
+  { idx: "06", title: "Anchored so it survives the file.", body: "Every annotation stores both the rectangles and a text locus. Re-download the PDF, get a different build of it, and the highlight still lands on the sentence it was about." },
+  { idx: "07", title: "Say how you will use it, while you still know.", body: "Direct quote, paraphrase, or summary — the Citavi taxonomy, chosen at reading time. At writing time that one field is the difference between citing it correctly and re-reading the paper." },
+  { idx: "08", title: "Pin it to the section it belongs to.", body: "An excerpt can be placed in a report section the moment you meet it, and it syncs to a vault note as well. When you write that section, the evidence is already sitting in it, with the citation resolved." },
+  { idx: "09", title: "And it goes back to Zotero.", body: "Write-back is tracked per annotation — local, synced, pending, conflict. Zotero stays the reference manager it already is for you; nothing is trapped here." },
+];
+
+/** The step at which the stage stops being the field and becomes one paper. */
+const READING_ZOOM = 4;
+
+function ReadingScene() {
+  const { sceneRef, active } = useScrollSteps(READING_STEPS.length);
+  const close = active - READING_ZOOM;
+  /* The lit sheet stays in the rail's outer column, furthest from the
+     steps. The faint sheets read as texture wherever they fall; a sheet
+     at full strength behind a line of body copy does not. */
+  const litSheet = 2 + 3 * (active % 4);
+
+  const views = [
+    <PaperPage key="paper" />,
+    <ReaderPanel key="reader" />,
+    <div key="t">
+      <p className={css.stageCap}>annotation types</p>
+      <ul className={css.stack}>
+        <EntityCard as="li" title="highlight · underline · note" meta="text annotations, with colour and comment" />
+        <EntityCard as="li" title="image · ink · text" meta="figures, margin scrawl and typed boxes — Zotero’s full set" />
+        <EntityCard as="li" nested title="direct · paraphrase · summary" meta="how you intend to use it, decided while reading" />
+      </ul>
+    </div>,
+    <div key="p">
+      <p className={css.stageCap}>report · pinned excerpts</p>
+      <EntityCard
+        className="section-item"
+        title={<><span className="muted">2.1.2 </span>Disentanglement literature</>}
+        meta="3 excerpts pinned · 0 / 700 words"
+        status={<StatusPill value="not_started" />}
+      >
+        <div className="callout">
+          <p className="summary">
+            &ldquo;…balances latent channel capacity against reconstruction accuracy.&rdquo;
+          </p>
+        </div>
+        <dl className={css.kv}>
+          <div><dt>from</dt><dd>Higgins et al. · p. 4</dd></div>
+          <div><dt>exports as</dt><dd>{"\cite{higgins2017betavae}"}</dd></div>
+        </dl>
+      </EntityCard>
+    </div>,
+    <div key="s">
+      <p className={css.stageCap}>zotero · write-back</p>
+      <ul className={css.stack}>
+        <EntityCard as="li" title="Higgins et al. · 14 annotations" meta="imported from Zotero" status={<StatusPill value="done" label="synced" />} />
+        <EntityCard as="li" title="Your highlight, p. 4" meta="made here · queued for Zotero" status={<StatusPill value="running" label="pending" />} />
+        <EntityCard as="li" title="Edited on both sides" meta="surfaced, never silently overwritten" status={<StatusPill value="not_started" label="conflict" />} />
+      </ul>
+    </div>,
+  ];
+
   return (
-    <Scene
-      id="annotations"
-      eyebrow="Reading & annotations"
-      heading="The highlight is the object, not a stripe on a page."
-      lede="A PDF reader inside the workspace, where every highlight carries its page locus, its use in your argument, and the section it is destined for."
-      views={[
-        <PaperPage key="paper" />,
-        <ReaderPanel key="reader" />,
-        <div key="t">
-          <p className={css.stageCap}>annotation types</p>
-          <ul className={css.stack}>
-            <EntityCard as="li" title="highlight · underline · note" meta="text annotations, with colour and comment" />
-            <EntityCard as="li" title="image · ink · text" meta="figures, margin scrawl and typed boxes — Zotero’s full set" />
-            <EntityCard as="li" nested title="direct · paraphrase · summary" meta="how you intend to use it, decided while reading" />
-          </ul>
-        </div>,
-        <div key="p">
-          <p className={css.stageCap}>report · pinned excerpts</p>
-          <EntityCard
-            className="section-item"
-            title={<><span className="muted">2.1.2 </span>Disentanglement literature</>}
-            meta="3 excerpts pinned · 0 / 700 words"
-            status={<StatusPill value="not_started" />}
-          >
-            <div className="callout">
-              <p className="summary">
-                &ldquo;…balances latent channel capacity against reconstruction accuracy.&rdquo;
-              </p>
-            </div>
-            <dl className={css.kv}>
-              <div><dt>from</dt><dd>Higgins et al. · p. 4</dd></div>
-              <div><dt>exports as</dt><dd>{"\\cite{higgins2017betavae}"}</dd></div>
-            </dl>
-          </EntityCard>
-        </div>,
-        <div key="s">
-          <p className={css.stageCap}>zotero · write-back</p>
-          <ul className={css.stack}>
-            <EntityCard as="li" title="Higgins et al. · 14 annotations" meta="imported from Zotero" status={<StatusPill value="done" label="synced" />} />
-            <EntityCard as="li" title="Your highlight, p. 4" meta="made here · queued for Zotero" status={<StatusPill value="running" label="pending" />} />
-            <EntityCard as="li" title="Edited on both sides" meta="surfaced, never silently overwritten" status={<StatusPill value="not_started" label="conflict" />} />
-          </ul>
-        </div>,
-      ]}
-      steps={[
-        { idx: "01", title: "Read the paper where you keep it.", body: "The PDF opens in the workspace, beside the library and the graph. Your Zotero annotations are already there, and anything you highlight here is a first-class row rather than a scribble in a viewer’s private store." },
-        { idx: "02", title: "Anchored so it survives the file.", body: "Every annotation stores both the rectangles and a text locus. Re-download the PDF, get a different build of it, and the highlight still lands on the sentence it was about." },
-        { idx: "03", title: "Say how you will use it, while you still know.", body: "Direct quote, paraphrase, or summary — the Citavi taxonomy, chosen at reading time. At writing time that one field is the difference between citing it correctly and re-reading the paper." },
-        { idx: "04", title: "Pin it to the section it belongs to.", body: "An excerpt can be placed in a report section the moment you meet it, and it syncs to a vault note as well. When you write that section, the evidence is already sitting in it, with the citation resolved." },
-        { idx: "05", title: "And it goes back to Zotero.", body: "Write-back is tracked per annotation — local, synced, pending, conflict. Zotero stays the reference manager it already is for you; nothing is trapped here." },
-      ]}
-    />
+    <section className={`${css.scene} ${css.band}`} id="reading" ref={sceneRef as React.RefObject<HTMLElement>}>
+      {/* The field the scene is zooming into, kept in the margin so it does
+          not disappear the moment the stage is down to one page. The lit
+          sheet advances with the steps: it is the paper being talked about. */}
+      <div className={css.rail} aria-hidden>
+        <PaperWall count={12} lit={litSheet} className={css.railIn} />
+      </div>
+      <div className={`${css.wrap} ${css.above}`}>
+        <header className={css.sceneHead} data-scene-head>
+          <span className={css.eyebrow}>Literature &amp; reading</span>
+          <h2>From the whole field down to one sentence in one paper.</h2>
+          <p className="muted">
+            One library, one graph, and a PDF reader in the same window — where a highlight
+            carries its page locus, its use in your argument, and the section it is destined for.
+          </p>
+        </header>
+
+        <AnnotationMacro />
+
+        <div className={css.sceneInner}>
+          <div className={css.stage} data-stage>
+            {close < 0 ? (
+              <>
+                <p className={css.stageCap}>graph</p>
+                <div className="graph-wrap"><Graph upto={active} /></div>
+                <div className="graph-legend card">
+                  <div className="graph-legend-group">
+                    <span className="muted graph-legend-heading">Relations</span>
+                    {(Object.keys(RELATION_COLORS) as (keyof typeof RELATION_COLORS)[]).map((t) => (
+                      <span key={t} className="legend-item">
+                        <span className="legend-swatch" style={{ background: RELATION_COLORS[t] }} />
+                        {t.replace("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className={css.views}>
+                {views.map((v, i) => (
+                  <div className={css.view} key={i} data-on={i === close}>{v}</div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className={css.steps}>
+            {READING_STEPS.map((s, i) => (
+              <Step key={i} i={i} active={active} idx={s.idx} title={s.title}>{s.body}</Step>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -1463,7 +1645,7 @@ export default function PitchPage() {
   }, []);
 
   useEffect(() => {
-    const ids = ["overview", "why", "chain", "literature", "annotations", "experiments", "writing", "labs", "selfhost", "compare"];
+    const ids = ["overview", "why", "chain", "reading", "experiments", "writing", "labs", "selfhost", "compare"];
     const targets = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
     const seen = new Set<string>();
     const io = new IntersectionObserver((entries) => {
@@ -1522,8 +1704,7 @@ export default function PitchPage() {
             {navLink("why", "Why", true)}
             <span className={`${css.navSep} ${css.navLow}`} aria-hidden />
             {navLink("chain", "The chain")}
-            {navLink("literature", "Literature")}
-            {navLink("annotations", "Reading")}
+            {navLink("reading", "Reading")}
             {navLink("experiments", "Experiments")}
             {navLink("writing", "Writing", true)}
             <span className={`${css.navSep} ${css.navLow}`} aria-hidden />
@@ -1572,7 +1753,10 @@ export default function PitchPage() {
       >
       <main id="top">
         <section className={css.hero}>
-          <div className={css.wrap}>
+          {/* The ground the rest of the page is made of, stated before a
+              single word about it. Drawn, not photographed — see PaperWall. */}
+          <PaperWall count={24} className={css.wall} />
+          <div className={`${css.wrap} ${css.above}`}>
             <span className={css.eyebrow}>Open source · AGPL-3.0 · self-hostable</span>
             <h1>By the time you write it, you won&rsquo;t remember why.</h1>
             <p className={css.lede}>
@@ -1598,6 +1782,8 @@ export default function PitchPage() {
         <HeroScene />
 
         <WhySection />
+
+        <Act id="act-you" n="Act I" name="You, and one paper" />
 
         <Scene
           id="chain"
@@ -1674,12 +1860,9 @@ export default function PitchPage() {
           ]}
         />
 
-        <LiteratureScene />
-
-        <AnnotationsScene />
+        <ReadingScene />
 
         <Scene
-          tone="band"
           id="experiments"
           eyebrow="Experiments"
           heading="Runs that know which paper they came from."
@@ -1737,13 +1920,18 @@ def train(run):
           ]}
         />
 
-        <Scene
+        <Spread
           id="writing"
           eyebrow="Plan & writing"
           heading="The outline is the project, not a document about it."
-          lede="Sections carry status and word targets. When it is time to submit, the whole thing exports as LaTeX with the bibliography already resolved."
-          views={[
-            <div key="o">
+          lede="Sections carry status and word targets, milestones carry what blocks them, and the whole thing exports as LaTeX with the bibliography already resolved."
+          points={[
+            { k: "cite", body: <>Type <code>[[</code> or <code>@</code> and pick the paper. It resolves to a real citation on export, not a string you go back and fix.</> },
+            { k: "export", body: <>A LaTeX project with {"\cite{}"} keys, the .bib and your figures — or a linked Overleaf document kept in sync.</> },
+            { k: "logbook", body: "Dated entries with hours and mood, for when you write the methods up months after the fact." },
+          ]}
+          figure={
+            <div>
               <p className={css.stageCap}>report · outline</p>
               <ul className={css.stack}>
                 <EntityCard as="li" className="section-item" title={<><span className="muted">2.1.1 </span>VAE variants</>} meta="520 / 900 words" status={<StatusPill value="drafting" />} />
@@ -1751,15 +1939,11 @@ def train(run):
                 <EntityCard as="li" className="section-item" title={<><span className="muted">3.1 </span>Encoder architecture</>} meta="0 / 2,200 words" status={<StatusPill value="not_started" />} />
                 <EntityCard as="li" className="section-item" title={<><span className="muted">3.2 </span>Graph-prior module</>} meta="0 / 2,400 words · 3 runs attached" status={<StatusPill value="not_started" />} />
               </ul>
-            </div>,
-          ]}
-          steps={[
-            { idx: "01", title: "Milestones that know what blocks them.", body: "Dependencies and compute estimates live on the milestone, so the plan understands that the graph-prior module cannot start until the baseline lands." },
-            { idx: "02", title: "Cite while you write.", body: "Type [[ or @ and pick the paper. It resolves to a real citation on export, not a string you have to go back and fix." },
-            { idx: "03", title: "Overleaf when you need it.", body: "Export the outline as a LaTeX project with \\cite{} keys, the .bib and your figures — or keep a linked Overleaf document in sync." },
-            { idx: "04", title: "A logbook that is not a chore.", body: "Dated markdown entries with hours and mood. It is the thing you will be grateful for when you write the methods up months after the fact." },
-          ]}
+            </div>
+          }
         />
+
+        <Act id="act-group" n="Act II" name="Your group" />
 
         <Scene
           tone="band"
@@ -1829,13 +2013,20 @@ create policy paper_read on papers
           ]}
         />
 
-        <Scene
+        <Act id="act-server" n="Act III" name="Your server" />
+
+        <Spread
           id="selfhost"
           eyebrow="Run it yourself"
           heading="Clone it, run it, keep it."
-          lede="Six commands from a fresh checkout to a running workspace on your own machine."
-          views={[
-            <div key="t">
+          lede="Six commands from a fresh checkout to a running workspace on your own machine, with no capability held back for the hosted one."
+          points={[
+            { k: "licence", body: "AGPL-3.0-only, and it stays that way. Host a better version and you publish your source, so the work flows back rather than away." },
+            { k: "parity", body: "Self-hosting is not a stripped tier. It is the same product with your name on the database — Supabase or plain Postgres, migrations in the repo." },
+            { k: "core", body: "A framework-agnostic core with repository contracts and shared test suites, so the domain logic is testable without a browser, a network or a database." },
+          ]}
+          figure={
+            <div>
               <p className={css.stageCap}>~/weaveforge</p>
               <pre className="code-block">{`$ git clone https://github.com/Satwik-Miyyapuram/weaveforge.git
 $ cd weaveforge
@@ -1848,14 +2039,8 @@ $ npm run dev           # → http://localhost:3000`}</pre>
                   <span className="tag-chip" key={t}>{t}</span>
                 ))}
               </div>
-            </div>,
-          ]}
-          steps={[
-            { idx: "01", title: "The copyleft is the point.", body: "AGPL-3.0-only, and it stays that way. Anyone who takes it and hosts a better version has to publish their source, so the work flows back rather than away." },
-            { idx: "02", title: "One hundred percent of the software.", body: "No capability is ever hosted-only. Self-hosting is not a stripped tier — it is the same product with your name on the database." },
-            { idx: "03", title: "Your Postgres, your data.", body: "Supabase or a plain self-hosted Postgres. The schema lives in the repo as migrations, and both the web app and the Python SDK talk to it." },
-            { idx: "04", title: "Built to be handed over.", body: "A framework-agnostic core with repository contracts and shared test suites, so the domain logic is testable without a browser, a network or a database." },
-          ]}
+            </div>
+          }
         />
 
         <section className={`${css.close} ${css.band}`}>
