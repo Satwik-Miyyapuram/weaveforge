@@ -828,6 +828,11 @@ export function ParticleScroll({
         {native ? (
           <div
             ref={contentRef}
+            /* The scroll container for everything inside. It is not the
+               document, which is why anything scroll-driven on the page has to
+               be able to find it: CSS `scroll()` and `view()` timelines bind to
+               the wrong scroller here and sit inert. */
+            data-particle-content=""
             style={{
               position: "relative",
               width: "100%",
@@ -842,6 +847,7 @@ export function ParticleScroll({
       {!native ? (
         <div
           ref={contentRef}
+          data-particle-content=""
           style={{
             position: "relative",
             width: "100%",
