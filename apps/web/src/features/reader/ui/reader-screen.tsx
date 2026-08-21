@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { decodeLocus, type PdfLocus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { PdfReader } from "./pdf-reader-lazy";
+import { PdfReader } from "./pdf-reader";
 import {
   sanitizePdfUrl,
   proxiedPdfUrl,
