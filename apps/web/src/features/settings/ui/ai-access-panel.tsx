@@ -109,20 +109,38 @@ export function AiAccessPanel({ settings, onChange }: {
     onChange({ ...settings, aiAccess: { ...access, autoIncludeNewSourceCategories } });
   }
 
+  /*
+   * Guarded because the gate can close while the read is in flight. Locking
+   * encryption or switching AI access off clears the list synchronously, and
+   * without this the resolving promise puts it straight back — the panel then
+   * shows the user's sources behind a gate that is shut.
+   */
   useEffect(() => {
     if (!access.enabled || !encryptionUnlocked) {
       setSources([]);
       return;
     }
-    void getContainer().aiAssistant.listSourceOptions().then(setSources).catch(() => setSources([]));
+    let current = true;
+    void getContainer()
+      .aiAssistant.listSourceOptions()
+      .then((s) => {
+        if (current) setSources(s);
+      })
+      .catch(() => {
+        if (current) setSources([]);
+      });
+    return () => {
+      current = false;
+    };
   }, [access.enabled, encryptionUnlocked]);
 
-  const loadMcpTokens = useCallback(async () => {
+  /** `isCurrent` lets the caller drop a response that arrived after the gate closed. */
+  const loadMcpTokens = useCallback(async (isCurrent: () => boolean = () => true) => {
     const accessToken = await getContainer().auth.auth.getAccessToken();
     if (!accessToken) return;
     const response = await fetch("/api/settings/mcp-tokens", { headers: { Authorization: `Bearer ${accessToken}` } });
     const payload = await response.json() as { tokens?: McpTokenRecord[] };
-    if (response.ok) setMcpTokens(payload.tokens ?? []);
+    if (response.ok && isCurrent()) setMcpTokens(payload.tokens ?? []);
   }, []);
 
   useEffect(() => {
@@ -130,7 +148,11 @@ export function AiAccessPanel({ settings, onChange }: {
       setMcpTokens([]);
       return;
     }
-    void loadMcpTokens();
+    let current = true;
+    void loadMcpTokens(() => current);
+    return () => {
+      current = false;
+    };
   }, [access.enabled, encryptionUnlocked, loadMcpTokens]);
 
   // Snapshot the currently running sessions (grant + secret + settings) to

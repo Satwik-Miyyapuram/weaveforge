@@ -413,10 +413,26 @@ function MergeDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /*
+   * The pair can change while a preview is being computed, and two previews
+   * do not necessarily settle in the order they were asked for. Showing a
+   * stale one here is not a cosmetic glitch: the modal is the only place the
+   * user reads which page survives and which statements conflict before
+   * confirming an irreversible merge.
+   */
   useEffect(() => {
+    let current = true;
+    setPreview(null);
     void previewMerge(primaryId, secondaryId)
-      .then(setPreview)
-      .catch((err) => setError(formatError(err)));
+      .then((p) => {
+        if (current) setPreview(p);
+      })
+      .catch((err) => {
+        if (current) setError(formatError(err));
+      });
+    return () => {
+      current = false;
+    };
   }, [primaryId, secondaryId]);
 
   return (

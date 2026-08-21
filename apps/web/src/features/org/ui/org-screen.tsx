@@ -56,9 +56,18 @@ export function OrgPanel() {
       setOwnedOrgs([]);
       return;
     }
+    let current = true;
     void fetchOwnedOrgs()
-      .then(setOwnedOrgs)
-      .catch(() => setOwnedOrgs([]));
+      .then((orgs) => {
+        if (current) setOwnedOrgs(orgs);
+      })
+      .catch(() => {
+        if (current) setOwnedOrgs([]);
+      });
+    // Keyed on the profile, so a response for the previous one must not land.
+    return () => {
+      current = false;
+    };
   }, [profile?.id, profile?.role]);
 
   const allowedRoles = profile ? creatableRoles(profile.role) : [];
