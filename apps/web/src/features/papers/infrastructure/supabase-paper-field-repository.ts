@@ -9,6 +9,7 @@ import type {
   SetPaperFieldValueInput,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
+import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type DefRow,
   type ValueRow,
@@ -21,18 +22,8 @@ import {
 const DEFS = "paper_field_defs";
 const VALUES = "paper_field_values";
 
-export class SupabasePaperFieldRepository implements IPaperFieldRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-    private readonly session: ICurrentUserProvider,
-  ) {}
-
-  private get projectId() {
-    const id = this.ctx.projectId;
-    if (!id) throw new Error("Select a project before managing paper fields.");
-    return id;
-  }
+export class SupabasePaperFieldRepository extends ProjectScopedSupabaseRepository implements IPaperFieldRepository {
+  protected readonly action = "managing paper fields";
 
   async listDefs(): Promise<PaperFieldDef[]> {
     const projectId = this.ctx.projectId;

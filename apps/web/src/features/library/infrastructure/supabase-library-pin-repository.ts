@@ -7,6 +7,7 @@ import type {
   ShareableType,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
+import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type PinRow,
   toDomain,
@@ -14,18 +15,8 @@ import {
 
 const TABLE = "library_pins";
 
-export class SupabaseLibraryPinRepository implements ILibraryPinRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-    private readonly session: ICurrentUserProvider,
-  ) {}
-
-  private get projectId() {
-    const id = this.ctx.projectId;
-    if (!id) throw new Error("Select a project before pinning items.");
-    return id;
-  }
+export class SupabaseLibraryPinRepository extends ProjectScopedSupabaseRepository implements ILibraryPinRepository {
+  protected readonly action = "pinning items";
 
   async pin(input: NewLibraryPinInput): Promise<LibraryPin> {
     const userId = await this.session.requireUserId();

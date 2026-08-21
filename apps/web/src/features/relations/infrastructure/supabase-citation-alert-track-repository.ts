@@ -6,6 +6,7 @@ import type {
   NewCitationAlertTrackInput,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
+import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type TrackRow,
   toDomain,
@@ -13,18 +14,8 @@ import {
 
 const TABLE = "citation_alert_tracks";
 
-export class SupabaseCitationAlertTrackRepository implements ICitationAlertTrackRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-    private readonly session: ICurrentUserProvider,
-  ) {}
-
-  private get projectId() {
-    const id = this.ctx.projectId;
-    if (!id) throw new Error("Select a project before managing citation alerts.");
-    return id;
-  }
+export class SupabaseCitationAlertTrackRepository extends ProjectScopedSupabaseRepository implements ICitationAlertTrackRepository {
+  protected readonly action = "managing citation alerts";
 
   async track(input: NewCitationAlertTrackInput): Promise<CitationAlertTrack> {
     const userId = await this.session.requireUserId();
