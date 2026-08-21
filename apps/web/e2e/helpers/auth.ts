@@ -135,24 +135,6 @@ export async function drainLoginGates(
   }
 }
 
-export async function acceptDisclaimerIfShown(page: Page) {
-  const btn = page.getByRole("button", { name: "I understand — continue" });
-  if (await btn.isVisible({ timeout: 8000 }).catch(() => false)) {
-    await btn.click();
-  }
-}
-
-export async function passOrgSetupIfShown(page: Page) {
-  const standalone = page.getByRole("button", { name: /Continue without an org/i });
-  if (await standalone.isVisible({ timeout: 15000 }).catch(() => false)) {
-    await standalone.click();
-    await page
-      .locator(".project-card, .project-list, .layout.has-nav")
-      .first()
-      .waitFor({ timeout: 20000 });
-  }
-}
-
 export async function ensureProjectSelected(page: Page) {
   const shell = page.locator(".layout.has-nav");
   if (await shell.isVisible({ timeout: 2000 }).catch(() => false)) return;

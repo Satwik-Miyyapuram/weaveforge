@@ -35,12 +35,6 @@ export async function ensurePaperExists(page: Page, title = DEFAULT_PAPER_TITLE)
   await page.locator(".paper-card").filter({ hasText: title }).first().waitFor({ timeout: 30000 });
 }
 
-export async function firstPaperTitle(page: Page): Promise<string> {
-  // Cards render through EntityCard, so the title is `.entity-card-title`.
-  // `.paper-card-title` survives only in the shared-item renderer.
-  return page.locator(".paper-card .entity-card-title").first().innerText();
-}
-
 /**
  * Open a paper's note from /papers, in whichever view is active.
  *
