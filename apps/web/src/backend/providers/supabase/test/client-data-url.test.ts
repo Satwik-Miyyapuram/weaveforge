@@ -192,3 +192,37 @@ test("a trailing slash on either URL does not produce a doubled one", async () =
     assert.ok(seen[0]!.startsWith(`${DATA}/papers`));
   });
 });
+
+test("a network failure names the host it could not reach", async () => {
+  // "TypeError: Failed to fetch" carries no URL, so a user reporting it cannot
+  // say whether auth or the data API is the unreachable half. That is the only
+  // fact worth having, so the client attaches it.
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new TypeError("Failed to fetch");
+  }) as typeof fetch;
+  try {
+    const db = createSupabaseClient(SUPABASE, ANON, DATA);
+    const { error } = await db.from("papers").select("id");
+    assert.match(String(error?.message), /oci\.example\.com:3000/);
+  } finally {
+    globalThis.fetch = original;
+    resetSupabaseClientForTests();
+  }
+});
+
+test("an error that is not a network failure keeps its own words", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new Error("aborted by the caller");
+  }) as typeof fetch;
+  try {
+    const db = createSupabaseClient(SUPABASE, ANON, DATA);
+    const { error } = await db.from("papers").select("id");
+    assert.match(String(error?.message), /aborted by the caller/);
+    assert.doesNotMatch(String(error?.message), /could not reach/);
+  } finally {
+    globalThis.fetch = original;
+    resetSupabaseClientForTests();
+  }
+});

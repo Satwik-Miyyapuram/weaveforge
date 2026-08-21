@@ -78,3 +78,17 @@ test("a chunk that went missing under a running tab says to reload", () => {
 test("a server error keeps its own words", () => {
   assert.equal(formatError(new Error("permission denied for table user_settings")), "permission denied for table user_settings");
 });
+
+test("the host the client named survives into the reader's wording", () => {
+  assert.match(
+    formatError(new TypeError("Failed to fetch (could not reach api.weaveforge.org)")),
+    /Could not reach api\.weaveforge\.org\./,
+  );
+});
+
+test("a failed fetch handed back as a plain object still gets the network wording", () => {
+  assert.match(
+    formatError({ message: "TypeError: Failed to fetch (could not reach api.weaveforge.org)" }),
+    /check your connection/,
+  );
+});
