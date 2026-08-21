@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAdminProvisioner } from "@/backend/wire-backend";
 import { verifyDeleteAccountOtp } from "@/backend/account/delete-account-otp";
+import { resolveDeleteAccountCaller } from "./_shared";
 
 const CONFIRMATION = "DELETE_USER";
 
@@ -12,16 +12,8 @@ const CONFIRMATION = "DELETE_USER";
  *   { "confirmation": "DELETE_USER", "otp": "<email code>" }
  */
 export async function POST(request: Request) {
-  const provisioner = getAdminProvisioner();
-  if (!provisioner) {
-    return NextResponse.json(
-      { error: "Server is missing SUPABASE_SERVICE_ROLE_KEY for account deletion." },
-      { status: 500 },
-    );
-  }
-
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  const caller = await resolveDeleteAccountCaller(request);
+  if (!caller.ok) return caller.response;
 
   let body: { confirmation?: string; otp?: string };
   try {
@@ -46,22 +38,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const caller = await provisioner.resolveCaller(token);
-    if (!caller) return NextResponse.json({ error: "Invalid session." }, { status: 401 });
-    const email = caller.email?.trim();
-    if (!email) {
+    const otpUserId = await verifyDeleteAccountOtp(caller.email, otp);
+    if (otpUserId !== caller.callerId) {
       return NextResponse.json(
-        { error: "Your account has no email address; contact an administrator to delete it." },
-        { status: 400 },
+        { error: "Confirmation code does not match this account." },
+        { status: 403 },
       );
     }
 
-    const otpUserId = await verifyDeleteAccountOtp(email, otp);
-    if (otpUserId !== caller.id) {
-      return NextResponse.json({ error: "Confirmation code does not match this account." }, { status: 403 });
-    }
-
-    await provisioner.deleteOwnAccount(token);
+    await caller.provisioner.deleteOwnAccount(caller.token);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to delete account.";
