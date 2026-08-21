@@ -14,7 +14,7 @@ That layering is the extension model. You extend the app by implementing a **por
 ┌─────────────────────────────────────────────────────────────────┐
 │  UI (Next.js)          features/*/ui  →  getContainer().papers  │
 ├─────────────────────────────────────────────────────────────────┤
-│  Facades               apps/web/src/container/facades.ts        │
+│  Facades               apps/web/src/container/facades/          │
 ├─────────────────────────────────────────────────────────────────┤
 │  Application           packages/core  use-cases                 │
 ├─────────────────────────────────────────────────────────────────┤
@@ -50,7 +50,6 @@ That layering is the extension model. You extend the app by implementing a **por
 | New top-level screen (e.g. Timer) | **Feature module** | Medium | Below + [`dev.md`](dev.md) |
 | Self-host on plain Postgres | **Backend provider** | High | [`backend.md`](backend.md) |
 | S3/R2/MinIO blobs | **Storage provider** | Medium | [`storage/README.md`](storage/README.md) |
-| Encrypt a new entity type | **Repository decorator** | Medium | `wire-encrypted-repo.ts` pattern |
 
 ---
 
@@ -70,7 +69,7 @@ The closest thing to a “plugin” today. Env vars select the implementation at
 
 1. Implement the port in `@weaveforge/core` (or reuse an existing one).
 2. Add a manifest under `apps/web/src/integrations/manifests/<name>.ts` (see `zotero.ts`).
-3. Register the manifest in `manifests/builtin.ts` **or** ship it from an npm plugin via `integrationManifests` in `weaveforge.config.ts`.
+3. Add the manifest under `apps/web/src/integrations/manifests/`. It reaches the app through `apps/web/src/deployment/generated-registry.ts`, which `npm run generate:deployment` writes — edit the generator's inputs, never the generated file.
 4. Set `NEXT_PUBLIC_*_PROVIDER` env var to the manifest `id`.
 5. Optional: `apps/web/src/app/api/<name>/route.ts` for CORS-safe browser calls.
 6. Run `npm run check:solid`.
@@ -165,7 +164,7 @@ Adding a feature today requires edits in **several** places (by design — expli
 | 9. Next.js route | `app/<path>/page.tsx` — hand-written for built-ins; `npm run generate:routes` for plugins |
 | 10. Nav icon | `apps/web/src/app/nav-icon.tsx` if using a new icon key |
 | 11. Use-cases + wiring | `apps/web/src/bootstrap.ts` |
-| 12. Facade | `apps/web/src/container/facades.ts` → `AppContainer` |
+| 12. Facade | `apps/web/src/container/facades/` → `AppContainer` |
 
 **Routing note:** `FeatureModule.routes` drives documentation and future auto-wiring; **today** Next.js App Router pages are created manually under `app/`. The registry builds **nav only**.
 
@@ -186,17 +185,19 @@ Postgres self-hosting: [`backend/postgres-provider.md`](backend/postgres-provide
 
 ---
 
-## 6. Repository decorators (E2EE, caching)
+## 6. Repository decorators
 
-Cross-cutting persistence behavior wraps repos without changing use-cases:
+Cross-cutting persistence behaviour can wrap a repository without changing any
+use-case: the decorator implements the same port and delegates.
 
-| Decorator | Purpose | Pattern |
-|-----------|---------|---------|
-| `encryptRepo()` | Field-level E2EE on read/write | `wire-encrypted-repo.ts` |
-| `wireEncryptedPapers()` | Papers + blind indexes | `wire-encrypted-papers.ts` |
-| `wireEncryptedReadingListItems()` | Child DEK under parent list | `wire-encrypted-reading-list-items.ts` |
+There are no encryption decorators any more. `encryptRepo()`,
+`wireEncryptedPapers()`, and `wireEncryptedReadingListItems()` were removed with
+client-side E2EE — storage is plaintext through `PassthroughBlobStore` and
+Row-Level Security is the access boundary. See [`SECURITY.md`](SECURITY.md).
 
-New encrypted entity: add `*_ENCRYPTION_SPEC` in `field-map.ts`, migration for `content_enc` / `enc_epoch`, wrap repo in `bootstrap.ts`.
+The seam itself is still there and still the right place for caching, retries,
+or instrumentation: implement the port, take the real repository as a
+constructor argument, and swap it in at `bootstrap.ts`.
 
 ---
 

@@ -46,7 +46,7 @@ git clone https://github.com/Satwik-Miyyapuram/weaveforge.git
 cd weaveforge
 npm install
 npm run build:core
-npm run test:core          # 460+ domain tests, no network
+npm run test:core          # 900+ domain tests, no network
 ```
 
 1. Copy `apps/web/.env.local.example` → `apps/web/.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
@@ -68,7 +68,7 @@ Full setup (Auth providers, integrations, deploy): sections below and [`docs/dev
 | **Logbook** | Dated entries, hours, mood, markdown |
 | **Report** | Nested outline, per-section status and word targets |
 | **Experiments** | Runs, metrics, curves, git pins, compare table + overlaid charts |
-| **Vault / Notes** | Wiki-style encrypted pages with asset attachments; collaborative editing |
+| **Vault / Notes** | Wiki-style pages with asset attachments; collaborative editing |
 | **Shared** | Inbox with native card UI; deep links; **Add to library** pins into Papers / etc. |
 | **People** | Create/join lab with invite codes; org chart; role-scoped account creation; standalone mode |
 | **Git** | Live branch/commit browser; track commit as experiment |
@@ -119,7 +119,7 @@ Details: [`python/README.md`](python/README.md).
 ```
 packages/core/     Domain entities, repository interfaces, use-cases (no React/Supabase)
 apps/web/          Next.js PWA — features/{domain,application,infrastructure,ui}
-                   bootstrap.ts = composition root; facades.ts = UI API (ISP)
+                   bootstrap.ts = composition root; facades/ = UI API (ISP)
 python/            Same contracts for experiment push + sync sources
 supabase/          SQL migrations — single schema source of truth
 ```
@@ -162,7 +162,7 @@ apps/web/         Next.js PWA
 apps/pitch/       Static export of the pitch site (GitHub Pages)
 apps/desktop/     Electron shell around the web app (see apps/desktop/README.md)
 packages/core/    @weaveforge/core — shared domain + use-cases
-supabase/         Migrations 0001…0088 (see supabase/migrations/README.md)
+supabase/         Migrations 0001…0117 (see supabase/migrations/README.md)
 python/           weaveforge SDK
 docs/             Design, dev guide, integrations
 ```
@@ -192,7 +192,7 @@ supabase link --project-ref <your-ref>
 supabase db push
 ```
 
-Apply the full chain with `supabase db push`. Notable groups: sharing (`0018`), org hierarchy (`0015`), vault (`0027`), invite codes (`0028`), library pins (`0029`), E2EE crypto (`0037`–`0041`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), epoch consolidation (`0066`), Overleaf linked reports (`0075`–`0077`), and database hardening (`0078`–`0088`). Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
+Apply the full chain with `supabase db push`. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped and nothing reads them, but no migration removes them. Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
 
 ### Collaboration
 
@@ -268,7 +268,7 @@ marketing page is the product's own `<EntityCard>`, painted by the same
 and the published page changes with it.
 
 It exists as a separate app because the product cannot be statically exported:
-it has 34 API routes and a runtime that expects a server. The pitch has neither.
+it has 35 API routes and a runtime that expects a server. The pitch has neither.
 
 ```bash
 npm run dev --workspace @weaveforge/pitch      # :3100

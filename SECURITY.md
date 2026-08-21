@@ -1,9 +1,14 @@
 # Security Policy
 
-WeaveForge talks directly to your own Supabase project. The web app and the
-Python SDK hold Supabase credentials (a public anon key + your email/password, or
-a project id), and the SDK can upload files and write rows on your behalf. Please
-treat credential handling and access-control (RLS) issues as security-sensitive.
+WeaveForge talks directly to your own Supabase project. The web app holds
+Supabase credentials (a public anon key plus your session). The Python SDK holds
+neither: it authenticates to the web app over HTTP with a dashboard-issued
+bearer token (`WEAVEFORGE_TOKEN`) that acts on your behalf under Row-Level
+Security, and it can upload files and write rows with that scope. Please treat
+credential handling and access-control (RLS) issues as security-sensitive.
+
+Operational detail — the outbound-fetch policy, the full scope list, and
+self-hosting guidance — is in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Data protection model
 

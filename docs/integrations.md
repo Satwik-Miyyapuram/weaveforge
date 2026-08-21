@@ -4,7 +4,7 @@ WeaveForge wires third-party services through a **plugin-style integration layer
 
 Swapping a provider (e.g. Zotero → Mendeley) means: implement the port, add a manifest under `integrations/manifests/`, wire via `wire-integrations.ts`, set an env var. No edits to papers/plan/logbook screens.
 
-> **Manifests:** built-in providers register via `integrations/manifests/` + `builtin.ts`. `descriptors.ts` aggregates Settings UI metadata from manifests.
+> **Manifests:** built-in providers declare themselves under `integrations/manifests/` and reach the app through the generated `deployment/generated-registry.ts` (`npm run generate:deployment`). `descriptors.ts` aggregates Settings UI metadata from those manifests.
 
 > **Not the Python SDK.** `python/weaveforge/integrations/` is a separate extension system for experiment-tracking callbacks (TensorBoard, wandb, Keras). See [CONTRIBUTING.md § Python SDK](CONTRIBUTING.md#adding-a-sync-source-the-extension-point).
 >
@@ -24,7 +24,7 @@ packages/core/                         apps/web/src/
 ├── metadata-source.ts (IMetadataSource)│   credentials.ts
 └── user-integration-credentials.ts  │   providers/<name>/   ← concrete adapters
                                      ├── bootstrap.ts        ← composition root
-                                     └── container/facades.ts ← UI entry points
+                                     └── container/facades/   ← UI entry points
 ```
 
 ### Two credential scopes

@@ -1,5 +1,11 @@
 # E2EE implementation progress
 
+> **Historical — completed and superseded.** Client-side E2EE was removed from
+> WeaveForge; this file records how that went, not work that is pending. The
+> source files and tests it names were deleted with the feature, so its paths
+> will not resolve. Current state: [`../SECURITY.md`](../SECURITY.md) and
+> [`../CRYPTO_RECOVERY.md`](../CRYPTO_RECOVERY.md).
+
 Branch: `main` (E2EE merged via PR #15)  
 Plan reference: the original E2EE plan document, which is no longer in the repository.
 

@@ -38,24 +38,19 @@ See `docs/DESIGN.md` §4 for the full SOLID rubric.
 
 ## Development prerequisites
 
-Apply pending Supabase migrations before testing dashboard or tag features locally:
+Apply **every** migration in [`supabase/migrations/`](supabase/migrations/)
+before running the app or the integration suite; `0117` is the current head.
+They are ordered and cumulative, so `supabase db push` is the whole step:
 
-- `0019_reading_list_inherited.sql`
-- `0020_tags_normalized.sql`
-- `0021_project_dashboard_layout.sql`
-- `0022_user_settings_integrations.sql`
-- `0023_blob_registry.sql` (when using `BLOB_PROVIDER=tiered`)
-- `0024_blob_objects_sharing.sql` (shared paper images for tiered blobs)
-- `0026_user_privacy_account_delete.sql` (privacy disclaimer + account deletion RPC)
-- `0027_vault_pages.sql` (vault pages + assets bucket)
-- `0028_org_invite_codes.sql` (organizations, invite codes, org memberships)
-- `0029_library_pins.sql` (shared library pin index)
-- `0030_profiles_self_select.sql` (profile self-select RLS + legacy backfill)
-- `0031_profiles_complete_org_setup.sql` (`complete_org_setup()` RPC for standalone onboarding)
-- `0032_org_rls_recursion_fix.sql` (org RLS helper functions)
-- `0033_org_rls_helper_grants.sql` (REVOKE/GRANT on org RLS helpers)
-- `0034_org_switcher.sql` (org switcher RPC + `lab_root` alignment)
-- `0035_vault_sharing.sql` (vault page sharing + shared vault-assets access)
+```bash
+supabase link --project-ref <your-ref>
+supabase db push
+```
+
+An earlier revision of this section listed individual files (`0019`–`0035`).
+That list stopped being maintained long before the schema stopped growing, and
+a partial list is worse than none — it reads as "these are the ones that
+matter" when the truth is that they all are.
 
 Supabase Cloud stops at the latest file in [`supabase/migrations/`](supabase/migrations/). Self-hosted-only SQL is in [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) — see [`supabase/README.md`](supabase/README.md).
 
@@ -88,7 +83,7 @@ Object/blob storage (paper images, experiment artifacts, vault assets) is a **se
 
 **Full guide:** [`docs/storage/README.md`](docs/storage/README.md)
 
-Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Phase 1 adds tiered R2 + OCI MinIO (`BLOB_PROVIDER=tiered`). See [`docs/plans/completed/migration-plan.md`](docs/plans/completed/migration-plan.md).
+Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Tiered hot/cold storage (R2 hot, MinIO cold, with a `blob_objects` registry row as the only index of an object's bucket and path) has shipped: set `BLOB_PROVIDER=tiered`. See [`docs/plans/completed/migration-plan.md`](docs/plans/completed/migration-plan.md).
 
 ## Web integrations (`apps/web/src/integrations/`)
 
@@ -110,8 +105,11 @@ Run `npm run check:solid` — UI must not import repositories or Supabase direct
 ## Python SDK (`python/`)
 
 The SDK mirrors the same modular shape (`features/<name>/{domain,application,infrastructure}`
-+ `container.py` composition root). Domain/application must not import `supabase`;
-only `infrastructure/` and `container.py` do.
++ `container.py` composition root). Nothing in the SDK imports `supabase` — it
+authenticates with a bearer token and talks to the web app's `/api/sdk/*`
+endpoints, which is what keeps database URLs and keys out of training
+environments. HTTP access stays in `infrastructure/`; domain and application
+code must not reach for it.
 
 ```bash
 cd python

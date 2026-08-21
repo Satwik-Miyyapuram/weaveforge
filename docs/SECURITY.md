@@ -110,5 +110,7 @@ set them private by default).
 
 > History: earlier releases shipped client-side E2EE (migrations `0037`–`0041`,
 > key/recovery tables `0089`–`0095`). It was dropped in favour of the at-rest +
-> RLS model; the key tables remain until the Phase-5 cleanup
-> (`docs/future-work/phase5-drop-e2ee.sql`).
+> RLS model. No code reads those tables any more, and no migration drops them,
+> so they are still in the schema of every deployment that ran those migrations.
+> They are empty of anything the app depends on; dropping them is a schema
+> cleanup nobody has needed enough to write.
