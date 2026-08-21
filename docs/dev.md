@@ -137,6 +137,16 @@ Two more rules the checker cannot see, so they are on you:
   [`api/account/delete-user/_shared.ts`](../apps/web/src/app/api/account/delete-user/_shared.ts)
   and [`api/sdk/_shared.ts`](../apps/web/src/app/api/sdk/_shared.ts).
 
+## Dependencies that look unused
+
+`@babel/runtime` is declared in `apps/web/package.json` and imported by no file
+in this repository, so dead-code tools report it as unused. It is not: the
+`@uiw/codemirror-theme-*` packages `require("@babel/runtime/helpers/extends")`
+without declaring it themselves, and removing it fails `next build` on a clean
+install with `Module not found: Can't resolve '@babel/runtime/helpers/extends'`.
+A local build can still pass with it removed, because the package is left behind
+in `node_modules` until the next install — trust CI here, not the local run.
+
 ## Testing hooks and providers
 
 The web unit suite is `node:test` with no DOM. Hooks and context providers are
