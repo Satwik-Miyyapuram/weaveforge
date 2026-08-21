@@ -19,7 +19,7 @@ const JWT_SUB_KEY = "request.jwt.claim.sub";
 const APP_ROLE = "authenticated";
 
 /** Run queries with RLS context (auth.uid()) from the signed-in user. */
-export async function withPgUser<T>(
+async function withPgUser<T>(
   pool: Pool,
   userId: string | null,
   fn: (client: PoolClient) => Promise<T>,

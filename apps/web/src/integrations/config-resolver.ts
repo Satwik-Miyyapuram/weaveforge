@@ -36,7 +36,7 @@ function parseGitReadList(
   return picked.length ? picked : safeFallback;
 }
 
-export function integrationConfigFromEnv(
+function integrationConfigFromEnv(
   env: EnvReader,
   registry: IntegrationManifestRegistry = getAppConfig().integrationManifests,
 ): IntegrationConfig {

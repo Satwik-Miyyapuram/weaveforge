@@ -1,62 +1,45 @@
 # Postgres backend provider
 
-**Status:** Kept for migration, not on any live path. Table data is served from
-self-hosted Postgres on Oracle Cloud, but through PostgREST — see
-[`oracle-shift-guide.md`](oracle-shift-guide.md) — not through this adapter.
-Supabase remains the identity provider.
+**Status:** `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` selects the server-side
+**blob registry** and nothing else. It is not the self-hosting switch, and it
+gives the browser no data layer.
 
-What that means concretely, because the distinction matters when reading the
-code:
+Table data already runs on self-hosted Postgres — through PostgREST, which the
+browser repositories speak natively, so the cutover is one address:
+`NEXT_PUBLIC_DATA_URL`. See [`oracle-shift-guide.md`](oracle-shift-guide.md).
+Supabase remains the identity provider either way.
 
-- `wire-postgres-backend.ts` is a complete server-side composition root and is
-  **not imported by anything that ships**. `wire-backend.ts` imports the
-  browser stub `wire-postgres-backend.client.ts`, which throws if reached — the
-  `pg` driver cannot run in a browser bundle, so this is deliberate.
-- The one genuinely live piece is the Postgres **blob registry**
-  (`storage/providers/postgres/blob-registry.ts`), selected by
-  `storage/server/blob-api.ts` when the blob provider is tiered.
-- The repositories under `backend/providers/postgres/repositories/` are kept
-  because they are the migration path off PostgREST if we ever want the app to
-  speak to Postgres directly. They are maintained, typechecked and covered by
-  the contract tests; they are not exercised by a running deployment.
+A second, direct-`pg` set of repositories used to live under
+`backend/providers/postgres/repositories/`. It was never imported by anything
+that shipped: `wire-backend.ts` reached a stub that threw, because the `pg`
+driver cannot run in a browser bundle. It was deleted rather than maintained as
+a duplicate of the live path; `git log` has it if the app ever needs to talk to
+Postgres without PostgREST in front.
 
-## Goal
-
-`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` + `DATABASE_URL` → app tables on self-hosted Postgres; **Supabase Auth unchanged** (Option A).
-
-## Done
+## What is live
 
 | Item | Location |
 |------|----------|
 | `pg` pool + RLS session (`request.jwt.claim.sub`) | `backend/providers/postgres/pool.ts`, `pg-runner.ts` |
-| Self-host auth stubs | `supabase/migrations-self-hosted-postgres/0025_self_host_auth.sql` |
-| All Postgres repositories | `backend/providers/postgres/repositories/` |
 | Blob registry | `storage/providers/postgres/blob-registry.ts` |
-| Full wire (kept, unimported — see Status) | `wire-postgres-backend.ts` (mirrors Supabase composition root) |
-| Tiered blob API | `storage/server/blob-api.ts` picks Postgres registry when backend = postgres |
+| Tiered blob API | `storage/server/blob-api.ts` picks the Postgres registry when backend = postgres |
+| Self-host auth stubs | `supabase/migrations-self-hosted-postgres/0025_self_host_auth.sql` |
 
-## Local dev (OCI / self-hosted Postgres)
+## Server-side blob registry
 
-Postgres wiring uses the Node `pg` driver — **server-only** (API routes). The browser bundle must keep `NEXT_PUBLIC_BACKEND_PROVIDER=supabase` until Phase 5 adds a client-facing API layer.
-
-Phase 5 arrived as PostgREST rather than a Next API layer: the browser keeps speaking the protocol it already speaks, and the cutover is `NEXT_PUBLIC_DATA_URL` — [`oracle-shift-guide.md`](oracle-shift-guide.md). `NEXT_PUBLIC_BACKEND_PROVIDER` stays `supabase` in any deployed app.
-
-Server-side only, and only for local dev or a script that wires the provider up by hand:
+Server-only, since it uses the Node `pg` driver:
 
 ```ini
 NEXT_PUBLIC_BACKEND_PROVIDER=postgres
 DATABASE_URL=postgres://user:pass@localhost:5432/thesis
 NEXT_PUBLIC_BLOB_PROVIDER=tiered
-# Auth still Supabase:
+# Auth and table data still Supabase-shaped:
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 # R2 for hot tier (see docs/storage/r2-setup.md)
 ```
 
-Apply every file in [`supabase/migrations/`](../../supabase/migrations/) on your Postgres (through latest — E2EE needs `0037+`), then [`supabase/migrations-self-hosted-postgres/`](../../supabase/migrations-self-hosted-postgres/). See [`plans/completed/migration-plan.md`](../plans/completed/migration-plan.md).
-
-`0025` creates a minimal `auth.users` stub with **RLS enabled** and **no policies**. Sync user ids from Supabase via service role or direct postgres.
-
-## Testing
-
-Contract tests in `packages/core` against in-memory repos. Add live `DATABASE_URL` integration tests mirroring Supabase integration tests before production cutover.
+Apply every file in [`supabase/migrations/`](../../supabase/migrations/), then
+[`supabase/migrations-self-hosted-postgres/`](../../supabase/migrations-self-hosted-postgres/).
+`0025` creates a minimal `auth.users` stub with **RLS enabled** and **no
+policies**; sync user ids from Supabase via service role or direct postgres.

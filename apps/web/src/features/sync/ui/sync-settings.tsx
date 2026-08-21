@@ -6,11 +6,8 @@ import { Modal } from "@/components/modal";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { emptyIntegration, type Integration } from "../domain/integration";
-import {
-  projectSyncDescriptorsForConfig,
-  sharedProviderHint,
-  type ProjectSyncDescriptor,
-} from "@/integrations/descriptors";
+import { projectSyncDescriptorsForConfig, sharedProviderHint } from "@/integrations/descriptors-resolve";
+import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
 import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
 import { formatError } from "@/lib/format-error";
 

@@ -1391,7 +1391,7 @@ sudo resize2fs /dev/sdX
 
 | Doc | What it covers |
 |---|---|
-| [`postgres-provider.md`](postgres-provider.md) | How the Postgres backend works in code |
+| [`postgres-provider.md`](postgres-provider.md) | What the `postgres` backend provider selects (the blob registry, not a data layer) |
 | [`../self-host-roadmap.md`](../self-host-roadmap.md) | Phase index — where each phase stands |
 | [`../storage/r2-setup.md`](../storage/r2-setup.md) | Cloudflare R2 hot tier |
 | [`../../supabase/README.md`](../../supabase/README.md) | What each migrations folder means |

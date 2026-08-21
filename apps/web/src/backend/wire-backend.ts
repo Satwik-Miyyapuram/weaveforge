@@ -2,16 +2,9 @@ import type { BackendConfig } from "./config";
 import { readBackendConfig } from "./config";
 import type { IAdminUserProvisioner } from "@weaveforge/core";
 import { SupabaseAdminUserProvisioner } from "./providers/supabase/admin-provisioner";
-// The real postgres wiring pulls in `pg` (Node-only; its deps need `fs`), which
-// breaks the SSR compilation of every client component that reaches this module
-// through @/bootstrap ("Element type is invalid ... got: undefined" on all
-// routes). wireBackend() only runs in the browser container, so always use the
-// browser stub here; server code (e.g. storage/server/blob-api.ts) imports the
-// real postgres modules directly.
-import { wirePostgresBackend, type WiredPostgresBackend } from "./providers/postgres/wire-postgres-backend.client";
 import { wireSupabaseBackend, type WiredSupabaseBackend } from "./providers/supabase/wire-supabase-backend";
 
-export type WiredBackend = WiredSupabaseBackend | WiredPostgresBackend;
+export type WiredBackend = WiredSupabaseBackend;
 
 export function wireBackend(
   config: BackendConfig = readBackendConfig(),
@@ -21,11 +14,14 @@ export function wireBackend(
   switch (config.provider) {
     case "supabase":
       return wireSupabaseBackend(config, projectContext, pid);
-    case "postgres":
-      return wirePostgresBackend(config, projectContext, pid);
+    // `postgres` selects the server-side blob registry (storage/server/blob-api.ts),
+    // never a browser data layer: these repositories reach the database over
+    // PostgREST, which a connection string cannot replace. Point them at your own
+    // database with NEXT_PUBLIC_DATA_URL instead — see docs/backend.md.
     default:
       throw new Error(
-        `Unknown backend provider "${config.provider}". Set NEXT_PUBLIC_BACKEND_PROVIDER=supabase.`,
+        `Backend provider "${config.provider}" has no browser data layer. Set NEXT_PUBLIC_BACKEND_PROVIDER=supabase, ` +
+          "and NEXT_PUBLIC_DATA_URL to move the data off Supabase.",
       );
   }
 }

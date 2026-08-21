@@ -154,7 +154,7 @@ Ordered the way you meet the project: use it, host it, then build on it.
 | Doc | Contents |
 |-----|----------|
 | [`docs/backend.md`](docs/backend.md) | Choosing a backend: Supabase or self-hosted Postgres |
-| [`docs/backend/postgres-provider.md`](docs/backend/postgres-provider.md) | Running the self-hosted Postgres provider |
+| [`docs/backend/postgres-provider.md`](docs/backend/postgres-provider.md) | What the `postgres` backend provider actually selects |
 | [`docs/backend/oracle-shift-guide.md`](docs/backend/oracle-shift-guide.md) | Start-to-finish move onto Oracle Cloud free tier |
 | [`docs/storage/README.md`](docs/storage/README.md) | Blob storage as its own composition layer (R2, tiering, growth) |
 | [`docs/self-host-roadmap.md`](docs/self-host-roadmap.md) | What is delivered vs still to provision for self-hosting |

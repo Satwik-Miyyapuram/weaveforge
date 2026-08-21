@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { projectSyncDescriptorsForConfig } from "../descriptors";
+import { projectSyncDescriptorsForConfig } from "../descriptors-resolve";
 import { readIntegrationConfig } from "../config";
 
 describe("projectSyncDescriptorsForConfig", () => {

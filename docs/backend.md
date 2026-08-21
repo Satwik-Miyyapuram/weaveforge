@@ -62,11 +62,11 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...               # server only — /api/admin/create-user
 
-# Postgres (when provider = postgres — future)
+# Postgres (when provider = postgres — server-side blob registry)
 DATABASE_URL=postgres://user:pass@host:5432/thesis
 ```
 
-`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side** adapter — see [`docs/backend/postgres-provider.md`](backend/postgres-provider.md). Default remains `supabase`.
+`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/backend/postgres-provider.md`](backend/postgres-provider.md). Default remains `supabase`.
 
 It is **not** the self-hosting switch, and setting it in a deployed app breaks the browser bundle: the client repositories reach the database over HTTP through PostgREST, which a Postgres connection string cannot replace. To move a deployed app onto your own database, set `NEXT_PUBLIC_DATA_URL` — [`docs/backend/oracle-shift-guide.md`](backend/oracle-shift-guide.md).
 

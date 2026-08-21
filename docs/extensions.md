@@ -203,7 +203,9 @@ constructor argument, and swap it in at `bootstrap.ts`.
 
 ## 7. Settings & deployment descriptors
 
-Integration Settings UI is **data-driven** from `apps/web/src/integrations/descriptors.ts`:
+Integration Settings UI is **data-driven**: each manifest under
+`apps/web/src/integrations/manifests/` carries its own descriptor, and
+`descriptors-resolve.ts` collects them.
 
 - `UserIntegrationDescriptor` — per-user API keys (Zotero, Semantic Scholar)
 - `ProjectSyncDescriptor` — per-project connectors (GitHub, Mattermost)
