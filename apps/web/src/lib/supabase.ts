@@ -17,5 +17,3 @@ export function getSupabase() {
   }
   return createSupabaseClient(url, key, config.dataUrl);
 }
-
-export type { SupabaseClient } from "@supabase/supabase-js";
