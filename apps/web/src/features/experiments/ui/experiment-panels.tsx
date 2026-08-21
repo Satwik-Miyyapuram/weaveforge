@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
+import { figureLabel } from "./figure-label";
 import { getContainer } from "@/bootstrap";
 import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
@@ -102,17 +103,6 @@ export function ExpConfigPanel({ config }: { config: Record<string, unknown> }) 
   );
 }
 
-function figureLabel(url: string, index: number): string {
-  try {
-    const path = new URL(url).pathname.split("/").pop() ?? "";
-    const base = path.split("?")[0] ?? path;
-    if (base) return decodeURIComponent(base);
-  } catch {
-    const part = url.split("/").pop()?.split("?")[0];
-    if (part) return decodeURIComponent(part);
-  }
-  return `figure ${index + 1}`;
-}
 
 /**
  * Resolve stored artifact entries to URLs that can be rendered now.
