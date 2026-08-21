@@ -1052,7 +1052,8 @@ textarea:focus {
   z-index: 10050;
   max-width: min(92vw, 26rem);
 }
-.custom-select-menu.up { transform-origin: bottom center; }
+/* Flip above the trigger when there isn't room below. */
+.custom-select-menu.up { transform-origin: bottom center; top: auto; bottom: calc(100% + 4px); }
 @media (prefers-reduced-motion: reduce) { .custom-select-menu { animation: none; } }
 /* Card holding an open dropdown stacks above following cards so the menu isn't
    painted over by the next list item. Skip popover panels — they must stay
@@ -1064,8 +1065,6 @@ textarea:focus {
    open dropdown's ancestors above their siblings. The menu is portalled to
    <body> now, so it has no ancestors to lift and those selectors can never
    match — removed rather than left as dead weight that reads like it matters. */
-/* Flip above the trigger when there isn't room below. */
-.custom-select-menu.up { top: auto; bottom: calc(100% + 4px); }
 .custom-select-item {
   display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left;
   cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--ink);
@@ -1361,8 +1360,7 @@ label.mp-row input[type="checkbox"]:disabled,
   gap: 6px;
 }
 .entity-card-meta,
-.paper-card-authors,
-.section-meta {
+.paper-card-authors {
   margin: 0;
   font-size: 0.78rem;
   line-height: 1.35;
@@ -1599,10 +1597,6 @@ a.entity-icon-btn:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.papers-col-authors {
-  text-overflow: ellipsis;
-}
-
 .papers-table td.papers-col-status .status-select,
 .papers-table td.papers-col-status .custom-select-container {
   width: auto;
@@ -1851,11 +1845,10 @@ a.entity-icon-btn:hover {
 .section-excerpts-title { margin: 0 0 8px; font-size: 0.95rem; }
 .section-excerpts-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .section-excerpt-row { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-.section-excerpt-quote { margin: 0; font-size: 0.85rem; line-height: 1.4; }
+.section-excerpt-quote { margin: 0; font-size: 0.85rem; line-height: 1.4; overflow-wrap: anywhere; }
 .section-excerpt-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; min-width: 0; }
 .section-excerpt-actions select,
 .section-excerpt-actions .custom-select-container { max-width: 100%; min-width: 0; flex: 1 1 140px; }
-.section-excerpt-quote { overflow-wrap: anywhere; }
 .papers-board {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -2843,13 +2836,6 @@ a.related-paper-url:hover { text-decoration: underline; }
   white-space: nowrap;
   min-height: 38px;
   padding: 8px 16px;
-}
-.share-fingerprint {
-  font-family: var(--font-mono, monospace); font-size: 0.82rem; letter-spacing: 0.06em;
-}
-.share-fingerprint-input {
-  font: inherit; font-family: var(--font-mono, monospace); font-size: 0.82rem;
-  padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface);
 }
 
 .comments-toggle { position: relative; flex: none; }
