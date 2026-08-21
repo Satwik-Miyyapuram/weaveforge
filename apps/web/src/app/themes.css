@@ -15,7 +15,7 @@
  * the `data-theme` attribute on <html> (no-flash script + ThemeToggle); `:root`
  * (no attribute) is the default light theme, "Paper". The default dark theme,
  * "Slate", is `[data-theme="dark"]`. Also: honey, vivid-light, pastel-light,
- * vivid-dark, pastel-dark, contrast (HC dark).
+ * confetti-light, vivid-dark, pastel-dark, confetti-dark, contrast (HC dark).
  */
 
 /* ============================================================= *
@@ -238,6 +238,80 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+
+/* Confetti — a pastel base whose cards each take a different hue from the
+ * six-colour rotation in globals.css. The base itself stays quiet on purpose:
+ * the cards are doing the talking, and a loud page behind them turns cheerful
+ * into noisy. */
+[data-theme="confetti-light"] {
+  --bg: #fbf9ff;
+  --surface: #ffffff;
+  --surface2: #f4f0fe;
+  --elev: #fffdff;
+  --border: #e6dcfa;
+  --border-strong: #c9b6f0;
+  --text: #2f2545;
+  --muted: #6b5f8c;
+  --faint: #8d80ad;
+  --accent: #7c5cd6;
+  --accent-fg: #ffffff;
+  --accent-soft: #ece4fd;
+  --s-neutral: #8b7fd4;  --s-neutral-bg: #eeebfd;
+  --s-info: #4aa8e0;     --s-info-bg: #e2f2fc;
+  --s-good: #43b98a;     --s-good-bg: #ddf6ec;
+  --s-warn: #e0a53c;     --s-warn-bg: #fdf0d8;
+  --s-danger: #e2718b;   --s-danger-bg: #fce4ea;
+  --s-mute: #b3a8cf;     --s-mute-bg: #f1eefa;
+  --sel-ring: rgba(124, 92, 214, 0.18);
+  --shadow:
+    0 2px 10px rgba(124, 92, 214, 0.08),
+    0 16px 32px rgba(124, 92, 214, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  /* The rotation. Each card takes one pair: a tint for the fill and a stronger
+   * edge of the same hue, so the border reads as part of the colour rather
+   * than a grey line drawn over it. */
+  --confetti-1-bg: #ffe8ef;  --confetti-1-edge: #f7b9cd;
+  --confetti-2-bg: #ffeedd;  --confetti-2-edge: #f6c79a;
+  --confetti-3-bg: #fdf6d3;  --confetti-3-edge: #e8d484;
+  --confetti-4-bg: #ddf7ea;  --confetti-4-edge: #96ddbf;
+  --confetti-5-bg: #dcf1fd;  --confetti-5-edge: #9bd0f0;
+  --confetti-6-bg: #ece5fd;  --confetti-6-edge: #c0aaf0;
+}
+
+/* Confetti Dark — the same six hues pulled down to card-weight surfaces. A
+ * pastel at full lightness on a dark page glares, so each fill is the hue at
+ * low lightness and the edge carries the recognisable colour. */
+[data-theme="confetti-dark"] {
+  --bg: #14111c;
+  --surface: #1d1929;
+  --surface2: #251f34;
+  --elev: #221d30;
+  --border: #362e4a;
+  --border-strong: #4b3f66;
+  --text: #ece7f7;
+  --muted: #b3a8cc;
+  --faint: #8a7fa6;
+  --accent: #b79bf5;
+  --accent-fg: #1a1526;
+  --accent-soft: #2e2742;
+  --s-neutral: #a596e0;  --s-neutral-bg: #2a2440;
+  --s-info: #6fbdec;     --s-info-bg: #1d2b3a;
+  --s-good: #63cfa2;     --s-good-bg: #172f28;
+  --s-warn: #edbc63;     --s-warn-bg: #33291a;
+  --s-danger: #ef8ba3;   --s-danger-bg: #351f28;
+  --s-mute: #8d82ac;     --s-mute-bg: #262133;
+  --sel-ring: rgba(183, 155, 245, 0.22);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.55);
+
+  --confetti-1-bg: #35222c;  --confetti-1-edge: #a35d76;
+  --confetti-2-bg: #362718;  --confetti-2-edge: #ab7a45;
+  --confetti-3-bg: #332e18;  --confetti-3-edge: #9d8f45;
+  --confetti-4-bg: #17302a;  --confetti-4-edge: #4d9a7a;
+  --confetti-5-bg: #1a2b3a;  --confetti-5-edge: #5189b5;
+  --confetti-6-bg: #2a2440;  --confetti-6-edge: #8672c4;
+}
+
 /* ============================================================= *
  *  DARK THEMES
  * ============================================================= */
@@ -264,7 +338,8 @@
 [data-theme="amoled"],
 [data-theme="contrast"],
 [data-theme="vivid-dark"],
-[data-theme="pastel-dark"] {
+[data-theme="pastel-dark"],
+[data-theme="confetti-dark"] {
   --e1:
     0 1px 2px rgba(0, 0, 0, 0.34),
     0 4px 12px rgba(0, 0, 0, 0.28);

@@ -882,11 +882,62 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 .error { color: var(--danger); }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  /* --card-tint/--card-edge are unset in every theme but confetti, so this
+     resolves to the plain surface and border everywhere else. */
+  background: var(--card-tint, var(--surface));
+  border: 1px solid var(--card-edge, var(--border));
   border-radius: 12px;
   box-shadow: none;
   padding: 16px;
+}
+
+/* Confetti: each card takes the next hue in a six-colour rotation.
+ *
+ * The cycle is nth-child rather than a per-card class or an inline style
+ * because the colour is decoration, not data — nothing in the domain says a
+ * paper is pink. Position does the choosing, so a list re-orders or filters
+ * without any component knowing this exists.
+ *
+ * nth-child counts every sibling, not only cards, so a list whose items are
+ * cards cycles cleanly while a lone card in a wrapper simply lands on hue 1.
+ * That is the intended fallback: one card has nothing to be distinguished
+ * from. */
+[data-theme="confetti-light"] .card:nth-child(6n + 1),
+[data-theme="confetti-dark"] .card:nth-child(6n + 1) {
+  --card-tint: var(--confetti-1-bg);
+  --card-edge: var(--confetti-1-edge);
+}
+[data-theme="confetti-light"] .card:nth-child(6n + 2),
+[data-theme="confetti-dark"] .card:nth-child(6n + 2) {
+  --card-tint: var(--confetti-2-bg);
+  --card-edge: var(--confetti-2-edge);
+}
+[data-theme="confetti-light"] .card:nth-child(6n + 3),
+[data-theme="confetti-dark"] .card:nth-child(6n + 3) {
+  --card-tint: var(--confetti-3-bg);
+  --card-edge: var(--confetti-3-edge);
+}
+[data-theme="confetti-light"] .card:nth-child(6n + 4),
+[data-theme="confetti-dark"] .card:nth-child(6n + 4) {
+  --card-tint: var(--confetti-4-bg);
+  --card-edge: var(--confetti-4-edge);
+}
+[data-theme="confetti-light"] .card:nth-child(6n + 5),
+[data-theme="confetti-dark"] .card:nth-child(6n + 5) {
+  --card-tint: var(--confetti-5-bg);
+  --card-edge: var(--confetti-5-edge);
+}
+[data-theme="confetti-light"] .card:nth-child(6n),
+[data-theme="confetti-dark"] .card:nth-child(6n) {
+  --card-tint: var(--confetti-6-bg);
+  --card-edge: var(--confetti-6-edge);
+}
+
+/* Inputs sit on the tinted card, so they keep their own surface to stay
+   legible rather than inheriting the hue behind them. */
+[data-theme="confetti-light"] .card :where(input, textarea, select),
+[data-theme="confetti-dark"] .card :where(input, textarea, select) {
+  background: var(--input-bg, var(--surface));
 }
 
 .add-form { display: grid; gap: 12px; margin: 16px 0 24px; }
@@ -4600,6 +4651,14 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 ) {
   border-color: transparent;
   box-shadow: var(--e1), var(--rim);
+}
+
+/* Confetti gives a card its colour partly through the edge, so the borderless
+ * layer above would erase half the effect. Both attributes sit on <html>, so
+ * chaining them here is (0,4,0) and outranks the (0,3,0) rule above — the two
+ * are otherwise equal, and that one wins only by coming later in the file. */
+:root[data-surfaces="borderless"]:is([data-theme="confetti-light"], [data-theme="confetti-dark"]) .card {
+  border-color: var(--card-edge, transparent);
 }
 
 /* Kept out of the list above on purpose. `:is()` takes the specificity of its
