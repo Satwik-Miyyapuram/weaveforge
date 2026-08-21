@@ -11,7 +11,7 @@ const store = new Map<string, unknown>();
 const loadedAt = new Map<string, number>();
 
 /** Skip background revalidation when screen cache is newer than this. */
-export const SCREEN_CACHE_FRESH_MS = 120_000;
+const SCREEN_CACHE_FRESH_MS = 120_000;
 
 export function getScreenCache<T>(key: string): T | undefined {
   return store.get(key) as T | undefined;

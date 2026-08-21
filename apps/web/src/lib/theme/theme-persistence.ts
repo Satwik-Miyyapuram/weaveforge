@@ -42,7 +42,7 @@ export function readLocalAppearance(): UserAppearance {
   };
 }
 
-export function writeLocalAppearance(appearance: UserAppearance): void {
+function writeLocalAppearance(appearance: UserAppearance): void {
   try {
     if (appearance.mode === "light" || appearance.mode === "dark") {
       localStorage.setItem("thesis.mode", appearance.mode);
@@ -83,7 +83,7 @@ export function writeLocalAppearance(appearance: UserAppearance): void {
   }
 }
 
-export function applyThemeFromLocalStorage(): void {
+function applyThemeFromLocalStorage(): void {
   const mode = readStoredMode();
   const { light, dark } = readStoredThemeIds();
   applyTheme(mode, mode === "dark" ? dark : light);

@@ -1,9 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import type { Paper, PaperRelation } from "@weaveforge/core";
+import { DEFAULT_GRAPH_SETTINGS, type Paper, type PaperRelation } from "@weaveforge/core";
 import { buildGraphData, tagColor } from "../application/build-graph-data";
-import { DEFAULT_GRAPH_SETTINGS } from "../application/graph-view-settings";
 
 function paper(id: string, title: string, tags: string[] = []): Paper {
   return {

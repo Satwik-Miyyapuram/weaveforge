@@ -12,7 +12,7 @@ import { proxiedPdfUrl } from "./sanitize-reader-url";
 const CACHE_CAP = 32;
 let sharedCache: IPdfByteCache | null = null;
 
-export function getReaderPdfByteCache(): IPdfByteCache | undefined {
+function getReaderPdfByteCache(): IPdfByteCache | undefined {
   if (typeof indexedDB === "undefined") return undefined;
   if (!sharedCache) sharedCache = new IndexedDbPdfByteCache(CACHE_CAP);
   return sharedCache;
@@ -22,7 +22,7 @@ export function isCachePdfUrl(url: string): boolean {
   return url.startsWith("cache://");
 }
 
-export async function materializeCachePdfUrl(
+async function materializeCachePdfUrl(
   url: string,
   cache: IPdfByteCache,
 ): Promise<string | null> {

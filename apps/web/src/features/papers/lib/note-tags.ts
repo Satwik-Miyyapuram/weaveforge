@@ -12,7 +12,7 @@ import {
  */
 
 /** Slugify an arbitrary tag name into a single `#hashtag` token (or "" if empty). */
-export function tagToHashtag(name: string): string {
+function tagToHashtag(name: string): string {
   const slug = name
     .trim()
     .toLowerCase()

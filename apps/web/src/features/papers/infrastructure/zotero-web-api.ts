@@ -1,5 +1,5 @@
 /** Browser-only Zotero Web API helpers. Keep decrypted credentials out of app routes. */
-export const ZOTERO_API_ORIGIN = "https://api.zotero.org";
+const ZOTERO_API_ORIGIN = "https://api.zotero.org";
 
 export function zoteroLibraryUrl(library: string, apiOrigin = ZOTERO_API_ORIGIN): string {
   return `${apiOrigin.replace(/\/$/, "")}/${library.replace(/^\//, "")}`;
@@ -10,7 +10,7 @@ export function zoteroHeaders(apiKey: string): Record<string, string> {
 }
 
 /** Zotero's maximum page size for item reads. */
-export const ZOTERO_PAGE = 100;
+const ZOTERO_PAGE = 100;
 
 /**
  * How many page requests are allowed in flight at once.

@@ -82,7 +82,7 @@ function sourceDocuments(
 }
 
 /** Pages already in the wiki, for dedupe and lint. */
-export async function existingWikiPages(): Promise<WikiPageRef[]> {
+async function existingWikiPages(): Promise<WikiPageRef[]> {
   return wikiPageRefs(await notes());
 }
 
@@ -111,7 +111,7 @@ export interface WikiBuildPreview {
  * a workspace full of hashtags and wikilinks it is often the better answer. A
  * configured model makes the scan better, not possible.
  */
-export function defaultExtractor(): IConceptExtractor {
+function defaultExtractor(): IConceptExtractor {
   return modelExtractor() ?? new LexicalConceptExtractor();
 }
 

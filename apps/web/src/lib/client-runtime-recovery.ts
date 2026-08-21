@@ -5,7 +5,7 @@
  * service-worker precaches / build-id mismatches (common on Android TWA after
  * deploys). One automatic reload per tab session after wiping SW + caches.
  */
-export async function resetClientRuntimeCaches(): Promise<void> {
+async function resetClientRuntimeCaches(): Promise<void> {
   try {
     if ("serviceWorker" in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
@@ -25,7 +25,7 @@ export async function resetClientRuntimeCaches(): Promise<void> {
 }
 
 /** Clear WeaveForge local/session keys that can poison cold start after a crash. */
-export function clearThesisWebStorage(): void {
+function clearThesisWebStorage(): void {
   try {
     const drop: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {

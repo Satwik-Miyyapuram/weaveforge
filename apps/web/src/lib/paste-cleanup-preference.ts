@@ -16,7 +16,7 @@ import { normalizePasteSettings, type PasteSettings } from "@weaveforge/core";
 const STORAGE_KEY = "thesis.paste";
 
 /** Fired on the window when the rules change, so open editors pick them up. */
-export const PASTE_SETTINGS_CHANGE_EVENT = "weaveforge:paste-settings";
+const PASTE_SETTINGS_CHANGE_EVENT = "weaveforge:paste-settings";
 
 export function readPasteSettings(): PasteSettings {
   if (typeof localStorage === "undefined") return normalizePasteSettings(undefined);
@@ -39,7 +39,7 @@ export function writePasteSettings(settings: PasteSettings): void {
 }
 
 /** Calls `onChange` whenever the rules change, in this tab or another one. */
-export function watchPasteSettings(onChange: (settings: PasteSettings) => void): () => void {
+function watchPasteSettings(onChange: (settings: PasteSettings) => void): () => void {
   const notify = () => onChange(readPasteSettings());
   window.addEventListener(PASTE_SETTINGS_CHANGE_EVENT, notify);
   window.addEventListener("storage", notify);

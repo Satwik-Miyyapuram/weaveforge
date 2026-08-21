@@ -83,7 +83,7 @@ export const READER_ANNOTATION_COLORS = [
  */
 export type ReaderCreateTool = "select" | "ink" | "highlighter" | "erase" | "image" | "text";
 
-export const READER_INK_TOOLS = new Set<ReaderCreateTool>(["ink", "highlighter"]);
+const READER_INK_TOOLS = new Set<ReaderCreateTool>(["ink", "highlighter"]);
 
 export function isInkTool(tool: ReaderCreateTool): boolean {
   return READER_INK_TOOLS.has(tool);

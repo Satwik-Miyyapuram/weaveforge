@@ -1,6 +1,5 @@
 export { PdfReader } from "./ui/pdf-reader";
-export type { PdfReaderProps } from "./ui/pdf-reader";
-export { buildLocusLink, locusLinkIsResolvable } from "./application/build-locus-link";
+export { buildLocusLink } from "./application/build-locus-link";
 export {
   resolvePaperPdfSource,
   paperToPdfSourcePaper,

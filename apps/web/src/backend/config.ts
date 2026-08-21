@@ -82,7 +82,7 @@ const ENV_VAR_NAMES = {
 export type ConfigField = keyof typeof ENV_VAR_NAMES;
 
 /** Names of the required fields that are absent, in the order given. */
-export function missingConfig(cfg: BackendConfig, required: readonly ConfigField[]): string[] {
+function missingConfig(cfg: BackendConfig, required: readonly ConfigField[]): string[] {
   return required.filter((field) => !cfg[field]).map((field) => ENV_VAR_NAMES[field]);
 }
 

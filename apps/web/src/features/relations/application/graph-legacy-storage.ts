@@ -43,7 +43,7 @@ export function clearLegacyGraphStorage(): void {
   }
 }
 
-export function graphStateCacheKey(projectId: string): string {
+function graphStateCacheKey(projectId: string): string {
   return `thesis.graph.v2.${projectId}`;
 }
 

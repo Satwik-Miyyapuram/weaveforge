@@ -21,7 +21,7 @@ export interface S3BlobStoreConfig {
 }
 
 /** Build an S3 client for Cloudflare R2 or OCI MinIO. */
-export function createS3Client(config: Omit<S3BlobStoreConfig, "physicalBucket">): S3Client {
+function createS3Client(config: Omit<S3BlobStoreConfig, "physicalBucket">): S3Client {
   const clientConfig: S3ClientConfig = {
     region: config.region,
     credentials: {

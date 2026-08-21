@@ -22,7 +22,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
  * allow list; it is repeated rather than imported because `apps/desktop` is not
  * a dependency of `apps/web`, and the desktop test asserts the two agree.
  */
-export const AUTH_LOOPBACK_PORT = 53682;
+const AUTH_LOOPBACK_PORT = 53682;
 
 export const AUTH_LOOPBACK_URL = `http://127.0.0.1:${AUTH_LOOPBACK_PORT}/auth/callback`;
 

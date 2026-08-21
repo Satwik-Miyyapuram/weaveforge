@@ -86,7 +86,7 @@ export async function streamBlobObject(
 }
 
 /** Supabase client scoped to the caller's JWT (registry RLS). */
-export function supabaseClientForToken(accessToken: string): SupabaseClient {
+function supabaseClientForToken(accessToken: string): SupabaseClient {
   const backend = readBackendConfig();
   const url = backend.supabaseUrl;
   const anonKey = backend.supabaseAnonKey;
