@@ -180,6 +180,49 @@ const OVERSIZED_ALLOWED = new Map([
 }
 
 // ---------------------------------------------------------------------------
+// 5. A path a doc names is a path that exists.
+//
+// Renames and deletions do not touch prose, so docs quietly accumulate paths
+// into files that were removed many commits ago. Two plans had drifted far
+// enough that a reader following them landed on nothing at all.
+//
+// Only backticked repo-rooted paths count, and only in docs describing the code
+// as it stands: a doc may propose a file that does not exist yet, so a line that
+// introduces one is left alone.
+// ---------------------------------------------------------------------------
+{
+  const REPO_PATH = /`((?:apps|packages|plugins|python|supabase|scripts)\/[A-Za-z0-9_.\/-]+)`/g;
+  const PROPOSES = /\b(?:new|creates?|adds?|proposed?|would|will|when scheduled)\b/i;
+  const missing = [];
+  for (const doc of tracked("docs/**/*.md", "*.md")) {
+    // Completed plans, and files that say outright they are records of what
+    // was, are expected to name paths that are gone. Their banner is what stops
+    // a reader believing them; a second warning here would say nothing new.
+    if (doc.includes("/completed/") || /^>\s+\*\*(?:Historical|Predates)/m.test(read(doc))) continue;
+    read(doc).split("\n").forEach((line, index) => {
+      // A doc may elide the middle of a long path for readability.
+      if (line.includes("/...")) return;
+      if (PROPOSES.test(line)) return;
+      for (const [, found] of line.matchAll(REPO_PATH)) {
+        const target = found.replace(/\/$/, "");
+        // Prose quotes import specifiers as often as file names, and those
+        // carry no extension.
+        const candidates = [target, target + ".ts", target + ".tsx", target + ".mjs"];
+        if (candidates.some((candidate) => fs.existsSync(path.join(root, candidate)))) continue;
+        missing.push(doc + ":" + (index + 1) + " " + target);
+      }
+    });
+  }
+  if (missing.length) {
+    fail(
+      "docs naming a path that does not exist",
+      missing,
+      "point the doc at what is there now, or mark the file historical if it is a record rather than a guide",
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 if (failures.length) {
   for (const { rule, lines, fix } of failures) {

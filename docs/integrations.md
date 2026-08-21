@@ -194,7 +194,7 @@ If migrating from flat `user_settings` columns, extend `LEGACY_FIELD_MAP` in `pa
 
 ### 7. API proxy (if needed)
 
-Browser CORS usually requires a server route: `apps/web/src/app/api/mendeley/route.ts` (mirror `api/zotero/route.ts`).
+Browser CORS usually requires a server route, so create `apps/web/src/app/api/mendeley/route.ts` (mirror `api/zotero/route.ts`).
 
 ### 8. Project collection store
 
