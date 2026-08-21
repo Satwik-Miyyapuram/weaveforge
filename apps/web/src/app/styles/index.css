@@ -1,0 +1,38 @@
+/*
+ * Every base style, in cascade order.
+ *
+ * This was one 5,000-line file. The split is purely positional: each file
+ * below is a contiguous slice of the original, and the import order here is
+ * the order those slices appeared. Nothing was reordered, because plenty of
+ * these rules rely on being overridden by a later one.
+ *
+ * So: put a new rule in the file its feature belongs to, and if you need it to
+ * beat something, check where that something lives before assuming it does.
+ */
+@import "./base.css"; /* Root constants, density, html/body, scrolling, focus, page transitions. */
+@import "./shell.css"; /* App shell, screens, top bar, brand, project and org switchers. */
+@import "./settings.css"; /* Settings screen: account, integrations, AI sessions, API tokens. */
+@import "./loading.css"; /* Branded loader, route-pending states, auth screen. */
+@import "./buttons.css"; /* Buttons, chips, inline type helpers. */
+@import "./cards.css"; /* The card surface itself, including the confetti hue rotation. */
+@import "./forms.css"; /* Inputs, selects, checkboxes, ranges. */
+@import "./entity-cards.css"; /* Shared entity/paper cards and the masonry column layout. */
+@import "./papers.css"; /* Papers table and paper detail fields. */
+@import "./annotations.css"; /* Annotations, section notes and excerpts, jump-to. */
+@import "./entity-detail.css"; /* Related panels, images, builders, status and log rows. */
+@import "./sections.css"; /* Section tree and the status select. */
+@import "./markdown.css"; /* Rendered markdown, callouts, Overleaf cards, the code editor. */
+@import "./org.css"; /* Org setup. */
+@import "./git.css"; /* Git bar, commits, metric chips, comparison table. */
+@import "./overlays.css"; /* Modals, popovers, member picker, sharing, comments. */
+@import "./experiments.css"; /* Artifacts, metric charts, experiment detail. */
+@import "./lists.css"; /* Reading lists and the extraction table. */
+@import "./graph.css"; /* Graph stage, focus bar, legend. */
+@import "./nav.css"; /* Sidebar and mobile tab bar. */
+@import "./org-chart.css"; /* Supervision panels, member tree, org chart. */
+@import "./dashboard.css"; /* Dashboard grid and card chrome. */
+@import "./privacy.css"; /* Privacy notice, delete-account panel, settings tabs. */
+@import "./ai-review.css"; /* AI review screen. */
+@import "./reader.css"; /* PDF reader. */
+@import "./surfaces.css"; /* The borderless surfaces variant. */
+@import "./motion.css"; /* The reactive motion variant. */

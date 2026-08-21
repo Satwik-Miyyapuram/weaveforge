@@ -1,5 +1,5 @@
 /* Confetti — a pastel base whose cards each take a different hue from the
- * six-colour rotation in globals.css. The base itself stays quiet on purpose:
+ * six-colour rotation in styles/cards.css. The base itself stays quiet on purpose:
  * the cards are doing the talking, and a loud page behind them turns cheerful
  * into noisy. */
 [data-theme="confetti-light"] {

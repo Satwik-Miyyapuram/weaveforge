@@ -1,0 +1,65 @@
+.ai-review-screen { max-width: 920px; }
+.ai-review-screen .screen-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.ai-review-screen h1 { margin: 4px 0 8px; font-family: var(--font-serif); }
+.ai-review-toolbar, .ai-review-card-head, .ai-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ai-review-toolbar { margin: 12px 0; }
+.ai-review-list { display: grid; gap: 12px; }
+.ai-review-card { padding: 20px; }
+.ai-review-card h2 { font-size: 1rem; margin: 4px 0 0; }
+.ai-review-card time, .ai-kind { color: var(--muted); font-size: 0.82rem; }
+.ai-kind { color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.ai-proposal-content { overflow-wrap: anywhere; margin: 16px 0; padding: 12px; border-radius: 8px; background: var(--surface-alt); font: inherit; line-height: 1.55; }
+.ai-review-actions { padding-top: 14px; border-top: 1px solid var(--line); justify-content: flex-end; }
+/* Reject sits left of Approve but both belong to one decision, so they share a
+   row end rather than being pushed to opposite edges of the card. */
+.ai-review-actions > * { flex: none; }
+
+/* "AI settings" is a two-word control, not a paragraph — it wrapped mid-label
+   at narrow widths and read as a broken box next to the heading. */
+.ai-review-screen .screen-header .btn-secondary {
+  white-space: nowrap; align-self: start; text-decoration: none;
+}
+
+/* Sources read as named chips, not a comma-run of ids. */
+.ai-review-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; }
+.ai-review-sources-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); margin-right: 2px;
+}
+.ai-review-source {
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 3px 9px; border-radius: 999px; font-size: 0.78rem;
+  color: var(--text); background: var(--surface-alt); border: 1px solid var(--line);
+  text-decoration: none;
+}
+a.ai-review-source:hover { border-color: var(--border-strong); background: var(--surface2); }
+
+/* Provenance split pane (Phase D): proposed write | source evidence. */
+.ai-review-body { display: grid; gap: 16px; margin: 12px 0; }
+.ai-review-card--split .ai-review-body { grid-template-columns: 1fr 1fr; align-items: start; }
+.ai-review-colhead {
+  margin: 0 0 6px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.ai-review-proposed .ai-proposal-content { margin: 0; }
+.ai-evidence { display: grid; gap: 8px; padding: 12px; border-radius: 8px; background: var(--surface-alt); }
+.ai-evidence + .ai-evidence { margin-top: 10px; }
+.ai-evidence-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ai-evidence-source { font-weight: 600; font-size: 0.82rem; }
+.ai-evidence-warn {
+  font-size: 0.72rem; padding: 1px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
+  color: var(--danger);
+}
+.ai-evidence-excerpt {
+  margin: 0; padding: 8px 10px; border-left: 3px solid var(--line);
+  font-size: 0.9rem; line-height: 1.6; overflow-wrap: anywhere;
+}
+.ai-evidence-dim { color: var(--muted); }
+.ai-evidence-mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--ink); padding: 0 2px; border-radius: 3px; }
+.ai-evidence-open { align-self: start; font-size: 0.85rem; font-weight: 600; }
+@media (max-width: 900px) { .ai-review-card--split .ai-review-body { grid-template-columns: 1fr; } }
+
+/* PDF reader (R0+). */
+.reader-screen { display: flex; flex-direction: column; min-height: 0; }

@@ -16,7 +16,7 @@ function readBreakpoint(): LayoutBreakpoint {
   return window.matchMedia(MQ).matches ? "desktop" : "mobile";
 }
 
-/** Match --layout-duration in globals.css */
+/** Match --layout-duration in styles/base.css */
 const LAYOUT_TRANSITION_MS = 320;
 
 /**

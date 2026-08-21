@@ -8,11 +8,17 @@ WeaveForge uses a pure CSS-variable theming system to maintain high performance 
    per theme, plus `common.css` for what every theme shares (the aliases and
    the dark elevation scale) and `index.css`, which imports the rest and is
    the file `globals.css` pulls in. No hardcoded hex values exist in
-   `globals.css` or component files.
-2. **Dual Mode**: The app tracks two distinct states:
+   `app/styles/` or component files.
+2. **Base styles**: The rules that read those tokens live in
+   `apps/web/src/app/styles/` — one file per area of the app, imported in
+   cascade order by its own `index.css`. That order is load-bearing: the split
+   was positional, and plenty of rules still rely on being overridden by a
+   later file. `globals.css` is now just the three imports that pull katex,
+   `themes/` and `styles/` together.
+3. **Dual Mode**: The app tracks two distinct states:
    - `data-mode`: `"light"` or `"dark"`.
    - `data-theme`: The specific palette applied to that mode (e.g., `"mocha"`, `"amoled"`, `"latte"`).
-3. **No-Flash Boot**: `layout.tsx` contains an inline `<script>` that reads `localStorage` before the DOM parses, instantly applying the correct `data-mode` and `data-theme` to the `<html>` root. This prevents any white-flash on load.
+4. **No-Flash Boot**: `layout.tsx` contains an inline `<script>` that reads `localStorage` before the DOM parses, instantly applying the correct `data-mode` and `data-theme` to the `<html>` root. This prevents any white-flash on load.
 
 ## Adding a New Theme
 
@@ -74,7 +80,7 @@ theme that looks right in some components and unstyled in others.
 card takes the next hue from a six-colour pastel rotation instead of the shared
 `--surface`.
 
-The rotation lives in `globals.css`. Position picks the colour — not the
+The rotation lives in `app/styles/cards.css`. Position picks the colour — not the
 component, and not the data. Nothing in the domain says a paper is pink, so a
 list can filter or re-order and the colours simply re-flow.
 
@@ -153,7 +159,7 @@ first paint by the boot script in `apps/web/src/lib/theme/theme.ts`.
   elevation scale plus the `--rim` top highlight. Buttons, inputs and other
   controls keep their borders — a borderless input has no affordance telling
   you where to click.
-- `bordered`: the entire depth layer in `globals.css` is scoped to
+- `bordered`: the entire depth layer in `app/styles/surfaces.css` is scoped to
   `[data-surfaces="borderless"]`, so this restores every hairline at once.
   Pair it with the High Contrast theme: a drop shadow carries almost no
   contrast ratio, so the answer for a high-contrast user is the line back, not

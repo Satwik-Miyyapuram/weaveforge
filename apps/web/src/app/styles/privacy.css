@@ -1,0 +1,56 @@
+.privacy-notice__p { margin: 0.5rem 0; line-height: 1.5; }
+.delete-account-panel { margin-top: 16px; }
+
+/* Settings section tabs. Inherits the shared `.seg` control (see the
+   experiments/papers layout switch) so there is one tab look in the app; only
+   the layout differs — eight text labels wrap, three icon buttons never do. */
+/* `width: max-content` keeps the strip the size of its tabs. Stretching it to
+   the column width made it read as a full-bleed bar with the tabs shoved into
+   the left third, rather than as one control — the papers layout switch it is
+   meant to match is content-width too.
+
+   It never wraps: a wrapped sticky strip silently steals a second and third
+   row from the viewport, and the row heights disagree once one row is full and
+   the next holds two items. When it does not fit it scrolls, at every width —
+   not only on phones, since the settings column is narrow on a split-screen
+   desktop as well. */
+.settings-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 18px;
+  position: sticky;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  z-index: 15;
+  /* The scrollbar would sit inside the pill's rounded border and clip against
+     it; the overflowing edge is affordance enough, and the tabs are reachable
+     by keyboard regardless. */
+  scrollbar-width: none;
+}
+.settings-tabs::-webkit-scrollbar { display: none; }
+
+/* Uniform tabs: same box for every label regardless of word length, and a
+   shared min-height so the selected pill does not sit taller than its
+   neighbours. `flex: none` stops long labels from being squeezed thinner than
+   short ones once the strip starts scrolling. */
+.settings-tabs button {
+  flex: none;
+  white-space: nowrap;
+  min-height: var(--control-sm);
+  padding: 6px 14px;
+}
+.settings-anchor {
+  scroll-margin-top: calc(64px + env(safe-area-inset-top, 0px));
+}
+.privacy-disclaimer-modal .btn-primary { margin-top: 12px; }
+.privacy-disclaimer-summary {
+  display: grid; gap: 10px; margin: 0 0 4px; padding-left: 1.1rem;
+  line-height: 1.5;
+}
+.privacy-disclaimer-summary li { color: var(--ink); }
+.privacy-disclaimer-full { margin-top: 4px; }
+.privacy-disclaimer-full summary { color: var(--muted); cursor: pointer; font-size: 0.9rem; }
+.privacy-disclaimer-full p { margin: 0.6rem 0; line-height: 1.5; font-size: 0.88rem; }

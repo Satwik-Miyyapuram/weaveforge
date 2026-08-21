@@ -6,7 +6,7 @@ import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 /**
  * Pointer plumbing for the reactive animation layer.
  *
- * The layer itself is CSS (see the REACTIVE MOTION block in globals.css); all
+ * The layer itself is CSS (see app/styles/motion.css); all
  * this does is publish where the pointer is inside the surface under it, as
  * `--rx` / `--ry` in the 0–1 range, so the CSS can tilt a card toward the
  * cursor and put the sheen where the cursor is.
@@ -23,7 +23,7 @@ import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
  */
 /**
  * Surfaces that tilt and take a cursor sheen. Kept in lockstep with the
- * `[data-motion="reactive"]` block in globals.css — a selector here without a
+ * `[data-motion="reactive"]` rules in app/styles/motion.css — a selector here without a
  * rule there just writes two custom properties nobody reads, and a rule there
  * without a selector here silently never animates. `[data-reactive]` is the
  * opt-in escape hatch for anything not covered by a class.

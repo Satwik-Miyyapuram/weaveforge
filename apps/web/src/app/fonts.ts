@@ -29,5 +29,5 @@ const mono = IBM_Plex_Mono({
   display: "swap",
 });
 
-/** Put on <html>: the CSS variables globals.css reads for its type stack. */
+/** Put on <html>: the CSS variables styles/base.css reads for its type stack. */
 export const FONT_VARIABLES = `${sans.variable} ${serif.variable} ${mono.variable}`;

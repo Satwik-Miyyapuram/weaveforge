@@ -1,0 +1,169 @@
+.modal {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 16px;
+  background: var(--elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  /* Do not use .card here — card stacking/overflow rules must not apply. */
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modal-head h3 { margin: 0; font-family: var(--font-serif); font-weight: 600; }
+/* Add-forms are self-contained cards; flatten them inside a modal so we don't
+   nest a card in a card. */
+.modal .add-form,
+.modal .list-add {
+  border: none; background: none; box-shadow: none; padding: 0; margin: 0; gap: 16px;
+}
+.modal .form-foot { margin-top: 6px; padding-top: 2px; }
+.modal .add-form > .settings-group:first-child { display: none; }
+
+/* ---- Header action cluster (Sync / Add / Filters live here) ---- */
+.screen-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---- Popover (per-page filters) ---- */
+.popover { position: relative; display: inline-flex; }
+.popover-trigger { display: inline-flex; align-items: center; gap: 6px; }
+.popover-trigger.on { border-color: var(--accent); }
+.popover-trigger--icon {
+  padding: 10px;
+  min-width: var(--control-lg);
+  min-height: var(--control-lg);
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+.popover-trigger--icon svg { display: block; }
+.popover-badge {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-fg); font-size: 0.72rem; line-height: 18px;
+  text-align: center; font-weight: 600;
+}
+.popover-caret { opacity: 0.55; }
+.popover-panel {
+  position: fixed;
+  visibility: hidden;
+  top: 0;
+  left: 0;
+  min-width: min(260px, calc(100vw - 24px)); max-width: min(360px, calc(100vw - 24px));
+  padding: 12px;
+  display: grid; gap: 12px; overflow: visible;
+  background: var(--elev); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  /* Inline style sets position:fixed — never participate in flex layout while opening. */
+  margin: 0;
+}
+.popover-panel .filters { margin: 0; gap: 10px; }
+/* Was: `.popover-panel .custom-select-menu` constraining the menu to the
+   panel's width. A portalled menu is no longer inside the panel, and its width
+   comes from the measured trigger instead. */
+
+.member-picker { display: grid; gap: 10px; }
+.mp-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.mp-filters .search-input { margin: 0; flex: 1 1 160px; }
+.mp-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 10px; }
+.mp-list li { border-bottom: 1px solid var(--line); }
+.mp-list li:last-child { border-bottom: none; }
+.mp-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; }
+.mp-name { flex: 1; }
+.mp-role { font-size: 0.74rem; color: var(--muted); }
+.mp-empty { padding: 10px 12px; }
+
+.share-current, .share-add { display: grid; gap: 8px; }
+.share-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.share-row { display: flex; align-items: center; gap: 10px; }
+.share-name { flex: 1; }
+.share-access {
+  flex: none;
+  width: auto;
+  min-width: 9.5rem;
+  max-width: none;
+}
+.share-access.custom-select-container { width: auto; }
+.share-access .custom-select-button {
+  min-height: 38px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+.share-add-foot {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.share-add-submit {
+  flex: none;
+  align-self: center;
+  white-space: nowrap;
+  min-height: 38px;
+  padding: 8px 16px;
+}
+
+.comments-toggle { position: relative; flex: none; }
+.comments-toggle--detail { align-self: center; }
+.comments-trigger-detail {
+  min-height: 36px;
+  padding: 8px 14px;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: 10px;
+}
+.comments-trigger-detail > svg { flex: none; }
+.comments-trigger-detail[aria-expanded="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--pill);
+}
+.comments-toggle--detail .comments-sheet {
+  width: min(calc(100vw - 28px), 420px);
+  max-height: min(55vh, 420px);
+  padding: 14px;
+}
+.comments-sheet {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  width: min(calc(100vw - 28px), 360px);
+  max-height: min(50vh, 360px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.comments { display: grid; gap: 10px; margin: 0; border: none; padding: 0; }
+.comments-empty { margin: 0; font-size: 0.85rem; }
+.comment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.comment-head { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; min-width: 0; }
+.comment-del {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+.comment-author { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comment-time { font-size: 0.74rem; margin-left: auto; flex: none; }
+.comment-body { margin: 2px 0 0; padding-left: 36px; white-space: pre-wrap; font-size: 0.9rem; }
+.comment-add { display: grid; gap: 6px; justify-items: end; }
+.comment-add textarea { min-height: 64px; }
+.comment-add .btn-primary { width: auto; }
+.shared-group { display: grid; gap: 8px; margin-bottom: 16px; }
+.shared-item { display: grid; gap: 8px; }
+.shared-item-link { display: grid; gap: 8px; color: inherit; text-decoration: none; }
+.shared-item-link:hover .card-title,
+.shared-item-link:hover .paper-card-title { text-decoration: underline; }
+.shared-item-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.shared-by-chip { font-size: 0.74rem; opacity: 0.85; }
+.shared-library-actions { display: inline-flex; align-items: center; gap: 8px; }
+.shared-library-msg { font-size: 0.74rem; }
+.org-setup-hint { font-size: 0.85rem; margin: 0; }
+
+/* Experiment artifacts (figures uploaded to the experiment-artifacts bucket) */
+.artifacts { display: grid; gap: 12px; }

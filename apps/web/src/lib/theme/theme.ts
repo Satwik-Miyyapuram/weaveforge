@@ -100,7 +100,7 @@ export function sanitizeSurfaceStyle(id: string | null | undefined): SurfaceStyl
 }
 
 /**
- * Apply the surface treatment. The whole depth layer in globals.css hangs off
+ * Apply the surface treatment. The whole depth layer in styles/surfaces.css hangs off
  * `[data-surfaces="borderless"]`, so flipping this attribute restores every
  * hairline at once — which is the point: shadows have almost no contrast
  * ratio, so a high-contrast user needs the borders back, not a dimmer shadow.

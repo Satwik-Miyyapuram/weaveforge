@@ -22,7 +22,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "reac
  *
  * `dealColumns` below owns which card goes where.
  */
-/** How many hues Confetti rotates through. Mirrors the `6n` in globals.css. */
+/** How many hues Confetti rotates through. Mirrors the `6n` in styles/cards.css. */
 export const CARD_HUE_COUNT = 6;
 
 /** One card, dealt into a column, with what the CSS needs to colour it. */

@@ -1,0 +1,74 @@
+.card {
+  /* --card-tint/--card-edge are unset in every theme but confetti, so this
+     resolves to the plain surface and border everywhere else. */
+  background: var(--card-tint, var(--surface));
+  border: 1px solid var(--card-edge, var(--border));
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 16px;
+}
+
+/* Confetti: each card takes the next hue in a six-colour rotation.
+ *
+ * The hue is decoration, not data — nothing in the domain says a paper is
+ * pink — so position chooses it and a list re-orders or filters without any
+ * component knowing this exists.
+ *
+ * Two ways in, because there are two kinds of card list:
+ *
+ *  - `nth-child` for cards that are siblings, which is most of them.
+ *  - `data-card-hue` for the masonry grids, where `CardColumns` deals cards
+ *    round-robin into one wrapper each. Every card there is its own wrapper's
+ *    only child, so `nth-child` sees position 1 for all of them and the whole
+ *    list came out one colour. Only the component knows a card's index in the
+ *    flat list, so it is the component that writes the hue down.
+ *
+ * The wrapper rule sets the tokens on the *card*, not on the wrapper. These
+ * are inherited properties, so the wrapper would look like enough — but the
+ * `nth-child` rule above declares them on the card itself, and a declaration
+ * on the element always beats an inherited value no matter how specific the
+ * ancestor's selector was. Hence also the leading `:root`, which puts this at
+ * (0,4,0) against the other rule's (0,3,0) rather than leaving the two tied
+ * and settled by which one comes later in this file.
+ *
+ * A lone card in a wrapper still lands on hue 1, which is the intended
+ * fallback: one card has nothing to be distinguished from.
+ *
+ * `^="confetti-"` matches both the light and the dark palette, which set the
+ * same six token names to their own values. */
+[data-theme^="confetti-"] .card:nth-child(6n + 1),
+:root[data-theme^="confetti-"] [data-card-hue="1"] .card {
+  --card-tint: var(--confetti-1-bg);
+  --card-edge: var(--confetti-1-edge);
+}
+[data-theme^="confetti-"] .card:nth-child(6n + 2),
+:root[data-theme^="confetti-"] [data-card-hue="2"] .card {
+  --card-tint: var(--confetti-2-bg);
+  --card-edge: var(--confetti-2-edge);
+}
+[data-theme^="confetti-"] .card:nth-child(6n + 3),
+:root[data-theme^="confetti-"] [data-card-hue="3"] .card {
+  --card-tint: var(--confetti-3-bg);
+  --card-edge: var(--confetti-3-edge);
+}
+[data-theme^="confetti-"] .card:nth-child(6n + 4),
+:root[data-theme^="confetti-"] [data-card-hue="4"] .card {
+  --card-tint: var(--confetti-4-bg);
+  --card-edge: var(--confetti-4-edge);
+}
+[data-theme^="confetti-"] .card:nth-child(6n + 5),
+:root[data-theme^="confetti-"] [data-card-hue="5"] .card {
+  --card-tint: var(--confetti-5-bg);
+  --card-edge: var(--confetti-5-edge);
+}
+[data-theme^="confetti-"] .card:nth-child(6n),
+:root[data-theme^="confetti-"] [data-card-hue="6"] .card {
+  --card-tint: var(--confetti-6-bg);
+  --card-edge: var(--confetti-6-edge);
+}
+
+/* Inputs sit on the tinted card, so they keep their own surface to stay
+   legible rather than inheriting the hue behind them. */
+[data-theme^="confetti-"] .card :where(input, textarea, select) {
+  background: var(--input-bg, var(--surface));
+}

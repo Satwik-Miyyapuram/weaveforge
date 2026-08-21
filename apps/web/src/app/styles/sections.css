@@ -1,0 +1,125 @@
+.section-tree { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; width: 100%; }
+.section-tree.nested {
+  position: relative;
+  margin: 4px 0 0;
+  padding: 0 0 0 9px;
+  gap: 5px;
+}
+.section-tree.nested::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line);
+  pointer-events: none;
+}
+.section-tree.nested > .section-node {
+  position: relative;
+}
+.section-tree.nested > .section-node::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 24px;
+  width: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--line);
+  pointer-events: none;
+}
+.section-item { display: grid; gap: 4px; min-width: 0; padding: 10px 12px; }
+.section-tree:not(.nested) > .section-node > .section-item,
+.section-tree:not(.nested) > .section-node > .entity-card { width: 100%; }
+/* Nested sections shed chrome with depth so the outline stays legible even a
+   few levels in: lighter fill, tighter padding, no heavy card shadow. */
+.section-item--nested,
+.entity-card.entity-card--nested.section-item {
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--surface2) 40%, transparent);
+  box-shadow: none;
+}
+.section-head-toggle { flex: none; margin-top: 0; align-self: flex-start; }
+/* Tree chevrons share --control-sm with .list-toggle (no 44px override). */
+.section-head-toggle.list-toggle {
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border-radius: var(--control-radius-sm);
+  box-shadow: none;
+}
+.section-item .summary,
+.entity-card .summary { margin-top: 2px; font-size: 0.8rem; line-height: 1.4; }
+.section-item .summary-empty,
+.entity-card .summary-empty { margin-top: 0; font-size: 0.78rem; }
+.section-item .summary-editor,
+.entity-card .summary-editor { margin-top: 4px; }
+/* Outline cards: render markdown, clamp to a few lines like paper snippets. */
+.section-note-md-preview {
+  margin-top: 4px;
+  max-height: 4.6em;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+.section-note-md-preview .markdown {
+  max-width: none;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.section-note-md-preview .markdown p,
+.section-note-md-preview .markdown ul { margin: 2px 0; }
+.section-note-md-preview .markdown h3,
+.section-note-md-preview .markdown h4,
+.section-note-md-preview .markdown h5 {
+  margin: 4px 0 2px;
+  font-size: 0.85rem;
+}
+.section-note-md-preview .md-image { display: none; }
+.report-screen .entity-card-foot .card-foot-right {
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.status-select {
+  /* Floor wide enough for "skimmed" + chevron; don't resize per value. */
+  flex: none;
+  width: auto;
+  min-width: 8.25rem;
+  font-size: 0.78rem;
+  text-transform: capitalize;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.status-select.custom-select-container { width: auto; }
+.status-select .custom-select-button {
+  padding: 6px 12px;
+  min-height: var(--control-md);
+  border-radius: 999px;
+  gap: 6px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+.status-select .custom-select-button .chev svg {
+  width: 14px;
+  height: 14px;
+}
+/* Menu must outgrow a narrow trigger — otherwise "Skimmed" letter-ladders. */
+/* The menu carries its instance class (see Select), so these target it
+   directly — as a descendant of `.status-select` they stopped matching when the
+   menu was portalled to <body>, and a narrow status trigger clipped its own
+   option labels. */
+.custom-select-menu.status-select {
+  max-width: none;
+  min-width: max(100%, 8.5rem);
+  width: max-content;
+}
+.custom-select-menu.status-select .custom-select-item,
+.status-select .custom-select-item {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* Markdown body */
+.markdown p { margin: 6px 0; }

@@ -1,0 +1,58 @@
+.org-setup-card { max-width: 480px; width: 100%; padding: 20px; display: grid; gap: 12px; }
+.org-setup-choose { display: grid; gap: 12px; }
+.org-modal-body { display: grid; gap: 4px; }
+.org-modal-intro { margin: 0 0 8px; font-size: 0.9rem; }
+.org-modal-choices { display: grid; gap: 10px; }
+.org-choice-card {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--neutral);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.org-choice-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: var(--surface, var(--neutral));
+}
+.org-choice-title { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+.org-choice-desc { font-size: 0.85rem; color: var(--muted); margin: 0; line-height: 1.4; }
+.org-modal-skip { justify-self: center; margin-top: 4px; font-size: 0.85rem; }
+.org-empty-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.org-empty-text { margin: 0; flex: 1; min-width: 0; }
+.org-panel-actions {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin: 12px 0 4px;
+}
+.org-code-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
+.org-code-row {
+  display: grid;
+  grid-template-columns: 5.75rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 10px 12px; border-radius: 8px; background: var(--neutral);
+}
+.org-code-role { font-size: 0.82rem; font-weight: 500; color: var(--ink); }
+.org-code-value {
+  font-family: var(--font-mono, monospace); letter-spacing: 0.04em;
+  font-size: 0.82rem; color: var(--muted);
+}
+.org-code-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.org-codes-panel { margin: 12px 0; padding-top: 8px; border-top: 1px solid var(--line); }
+.org-code-row--static { grid-template-columns: 5.75rem minmax(0, 1fr); }
+
+/* Git tab */
+.git-branch-bar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px;
+  margin-bottom: 12px; padding: 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--surface);
+}

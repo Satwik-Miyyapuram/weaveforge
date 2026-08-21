@@ -1,0 +1,31 @@
+.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: 1.6rem; margin: 18px 0 2px; letter-spacing: -0.01em; }
+/* Code/monospace surfaces adopt IBM Plex Mono. */
+code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono); }
+.head-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.screen-head:empty { display: none; }
+.btn-secondary {
+  cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
+  color: var(--text); background: transparent; border: 1px solid var(--border-strong);
+  padding: 8px 14px; border-radius: 9px; transition: background 0.15s, border-color 0.15s;
+  /* Links wear this class too (reader, AI review) — a button that underlines
+     itself does not read as a button. */
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+}
+.btn-secondary:hover { background: var(--surface2); }
+.btn-secondary:disabled { opacity: 0.6; cursor: default; }
+/* Destructive secondary — pairs with .btn-primary so a decision reads as one
+   control group, while still colouring the side that discards something. */
+.btn-secondary.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border-strong)); }
+.btn-secondary.danger:hover { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+/* Ghost: borderless secondary for low-emphasis chrome (e.g. org setup Back). */
+.btn-ghost {
+  cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
+  color: var(--muted); background: transparent; border: none; padding: 8px 10px;
+  border-radius: 9px; transition: color 0.15s, background 0.15s;
+}
+.btn-ghost:hover { color: var(--ink); background: var(--surface2); }
+.btn-ghost:disabled { opacity: 0.6; cursor: default; }
+/* Size modifier — compose with .btn-secondary (or .btn-primary) for denser actions. */
+.btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; }
+.muted { color: var(--muted); margin: 2px 0; }
+.error { color: var(--danger); }

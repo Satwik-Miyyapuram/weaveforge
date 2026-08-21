@@ -1,0 +1,257 @@
+:root {
+  /* Geometry and type read through the `--radius-*` / `--font-sans` slots an
+     uploaded config.json may set on <html>. An inline custom property on the
+     root element beats this declaration, and the fallback after the comma is
+     what applies when no theme file is loaded — so the defaults below are
+     still the single source of truth for the built-in look. */
+  --radius: var(--radius-card, 14px);
+  --radius-sm: var(--radius-control, 10px);
+  --radius-pill: var(--radius-chip, 999px);
+  /* Duration multiplier for the reactive layer; config.json may scale it. */
+  --motion-scale: 1;
+  /* Icon / toggle control scale — overridden by data-control-size + viewport. */
+  --control-sm: 28px;
+  --control-md: 32px;
+  --control-lg: 36px;
+  --control-radius-sm: 8px;
+  --control-radius: 9px;
+  --touch-min: 44px;
+  /* Single source for stroke-icon dimensions (.vicon). */
+  --icon-size: 16px;
+  /* Primary nav glyphs track --icon-size (slightly larger for legibility). */
+  --nav-icon-size: calc(var(--icon-size) + 5px);
+  /* Comfortable line length for long-form reading (report, rendered notes). */
+  --content-measure: 72ch;
+  /* App shell max width — everything else (grids, dashboards) is centered and
+     capped here so wide/ultrawide screens don't sprawl edge-to-edge. */
+  --app-max: 1200px;
+  /* IBM Plex — self-hosted via next/font in layout.tsx. */
+  --font: var(--font-sans, var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
+  --font-serif: var(--font-plex-serif), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+/* Each density also moves --icon-size. Without that only the button *box*
+   resized: the glyph inside stayed 16px at every setting, so the three options
+   differed by padding alone and read as the same control. The visible thing
+   has to change for the setting to be legible as a setting. */
+:root[data-control-size="compact"] {
+  --control-sm: 24px;
+  --control-md: 28px;
+  --control-lg: 32px;
+  --control-radius-sm: 7px;
+  --control-radius: 8px;
+  --icon-size: 14px;
+}
+
+:root[data-control-size="comfortable"] {
+  --control-sm: 36px;
+  --control-md: 40px;
+  --control-lg: 44px;
+  --control-radius-sm: 9px;
+  --control-radius: 10px;
+  --icon-size: 19px;
+}
+
+/* Default density: slightly larger targets on phone. */
+@media (max-width: 899px) {
+  :root:not([data-control-size="compact"]):not([data-control-size="comfortable"]) {
+    --control-sm: 32px;
+    --control-md: 36px;
+    --control-lg: 40px;
+    --icon-size: 17px;
+  }
+}
+
+/* Short phones: pull default density back down. */
+@media (max-width: 899px) and (max-height: 740px) {
+  :root:not([data-control-size="compact"]):not([data-control-size="comfortable"]) {
+    --control-sm: 28px;
+    --control-md: 32px;
+    --control-lg: 36px;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+/* Chrome on Android draws the tap highlight from an element's border-box rects,
+   before the border-radius clip applies — so every rounded card, chip and icon
+   button flashed a hard grey rectangle. Drop the UA overlay and supply our own
+   press feedback below, which does respect the radius. */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Press feedback for anything tappable. `background-color` on the element
+   itself is clipped by its own border-radius, so the shape is always right. */
+@media (hover: none) {
+  .card[role="button"]:active,
+  .entity-card[role="button"]:active,
+  .nav-link:active,
+  .sub-nav a:active,
+  .entity-icon-btn:active,
+  .git-chip.link:active,
+  button:not(:disabled):active {
+    background-color: var(--press);
+  }
+}
+/* Single scroll container with a permanently reserved scrollbar gutter, so
+   switching tabs (short → tall content) doesn't shift the layout sideways. */
+html { overflow-x: hidden; overflow-y: scroll; scrollbar-gutter: stable; }
+body {
+  /* Fill the viewport even when a screen is short.
+
+     `body` carries the theme background, and it is only as tall as its content —
+     on a screen taller than the page (a login form, a loading state, a project
+     list with one row) it stopped partway down and the rest of the window was
+     left to whatever the browser paints behind the document. On the AMOLED
+     theme that read as the page ending in a hard horizontal edge.
+
+     `dvh` rather than `vh` so a mobile browser's collapsing address bar does not
+     leave a matching strip at the bottom. */
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* Smooth cross-fade when switching themes. */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Theme-coherent scrollbars (Firefox + WebKit). Sub-nav hides its own below. */
+html,
+body,
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+/* Visible keyboard focus for all interactive controls (mouse clicks unaffected). */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* Flowy page entrance, replayed on every route change (keyed by pathname). */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.page-transition { animation: page-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1); }
+/* Dashboard: fade only — avoids translateY + grid height fighting the page scrollbar. */
+.page-transition--dashboard { animation: none; }
+
+/* Content loads async (after the page frame), and the list container is always
+   mounted — so animate the *items*, which mount when data arrives. Runs once
+   per mount, so status edits (same key → no remount) don't replay it; adding a
+   row animates just that row. A small per-row delay gives a gentle stagger. */
+.log-item, .exp-item, .section-node, .list-item,
+.commit-item, .graph-wrap, .progress-card, .empty {
+  animation: content-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.log-item:nth-child(n+2),
+.exp-item:nth-child(n+2),
+.section-node:nth-child(n+2),
+.commit-item:nth-child(n+2) { animation-delay: 0.04s; }
+.log-item:nth-child(n+4),
+.exp-item:nth-child(n+4),
+.section-node:nth-child(n+4),
+.commit-item:nth-child(n+4) { animation-delay: 0.08s; }
+@keyframes content-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .log-item, .exp-item, .section-node, .list-item,
+  .commit-item, .graph-wrap, .progress-card, .empty { animation: none; }
+}
+
+/* Shared easing when crossing the mobile ↔ desktop breakpoint (900px). */
+:root {
+  --layout-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --layout-duration: 0.32s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --layout-duration: 0.01ms; }
+}
+
+/* Shared frosted-glass surfaces (mobile bottom nav, section sub-navs). */
+:root {
+  --glass-blur: 18px;
+  --glass-saturate: 1.15;
+  --glass-fill: color-mix(in srgb, var(--nav-bg) 72%, transparent);
+  --glass-border: color-mix(in srgb, var(--line) 68%, transparent);
+  --glass-shadow: 0 8px 28px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+/* Segmented sub-nav for grouped sections (Library, Experiments, Plan). */
+.sub-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex; gap: 2px; margin: 18px 0 4px; padding: 3px;
+  background: color-mix(in srgb, var(--surface2) 72%, transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  box-shadow: var(--glass-shadow);
+  width: 100%; overflow-x: auto; scrollbar-width: none;
+}
+.sub-nav::-webkit-scrollbar { display: none; }
+/* Sliding tile behind the active tab. */
+.sub-tab-indicator {
+  position: absolute; top: 3px; bottom: 3px; left: 0; z-index: 0;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1), width 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.sub-tab {
+  position: relative; z-index: 1; flex: 1; text-align: center;
+  text-decoration: none; color: var(--muted);
+  font-size: 0.82rem; font-weight: 500; white-space: nowrap;
+  padding: 6px 15px; border-radius: 7px; transition: color 0.2s ease;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sub-tab.active { color: var(--ink); }
+/* Baseline hover. A navigation tab that does not acknowledge the pointer reads
+   as disabled, so this is not part of the optional motion layer — it is the
+   affordance. The sliding indicator marks the *active* tab; this marks the one
+   you are about to pick. */
+.sub-tab:hover { color: var(--ink); }
+.sub-tab:not(.active):hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.sub-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .page-transition { animation: none; }
+  .page-transition--dashboard { animation: none; }
+  .sub-tab-indicator { transition: none; }
+}

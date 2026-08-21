@@ -3,7 +3,7 @@
  *
  * Deliberately narrow in scope: this file holds the scrollytelling scaffold
  * and nothing that the product already styles. Cards, status pills, tag
- * chips, the graph frame and the type scale all come from globals.css via the
+ * chips, the graph frame and the type scale all come from app/styles/ via the
  * real components, so changing the app changes this page too.
  */
 
@@ -992,7 +992,7 @@
 .paperSlide { position: absolute; top: 0; left: 0; translate: 0 0; }
 .paperCanvas { display: block; }
 /* The highlight itself is the reader's own .pdf-reader-ann overlay, styled by
-   globals.css. Only the frame it sits in belongs to this page. */
+   app/styles/cards.css. Only the frame it sits in belongs to this page. */
 .paperNote {
   position: absolute;
   inset: auto 0 0 0;

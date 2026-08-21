@@ -1,0 +1,304 @@
+.pdf-reader { display: flex; flex-direction: column; min-height: 0; gap: 8px; outline: none; }
+/* One control surface. The rows inside are separated by a hairline rather than
+   floating apart, so the reader reads as a single panel at every width. */
+.pdf-reader-chrome {
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  overflow: hidden;
+}
+.pdf-reader-toolbar,
+.pdf-reader-tools {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  /* Controls stay on one line and the strip scrolls. Wrapping produced four
+     ragged rows on a phone and ate a third of the screen. */
+  flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin;
+}
+.pdf-reader-tools { border-top: 1px solid var(--line); }
+/* Related controls sit in a bordered cluster so grouping is visible, not implied. */
+.pdf-reader-group {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  padding: 2px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-alt);
+}
+.pdf-reader-group .btn-secondary { white-space: nowrap; }
+.pdf-reader-group .btn-secondary.is-active {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  border-color: var(--accent);
+}
+.pdf-reader-icon-btn { min-width: 2rem; font-variant-numeric: tabular-nums; }
+.pdf-reader-toolbar-label {
+  font-size: 0.85rem; min-width: 3.25rem; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.pdf-reader-page-jump {
+  font-size: 0.85rem;
+  /* Sits at the end of the row on wide screens, inline on narrow ones —
+     `margin-left:auto` left a canyon between it and the fit controls. */
+  margin-left: auto;
+}
+.pdf-reader-page-jump input {
+  width: 3.5rem; padding: 4px 6px; text-align: center;
+}
+/* The toolbar is a nowrap flex strip, so the trigger must size to its content
+   rather than take the container default of width:100%. */
+.pdf-reader-tool-select { width: auto; flex: none; }
+.pdf-reader-tool-select .custom-select-button {
+  width: auto; padding: 4px 6px; font-size: 0.85rem; gap: 4px;
+}
+.pdf-reader-color-input {
+  width: 2rem; height: 1.85rem; padding: 0; border: none; background: none; cursor: pointer;
+}
+@media (max-width: 720px) {
+  /* "Page 3 / 15" is orientation, not a command. Pushing it to the end of a
+     scrolling strip hides it; lead with it instead. (Pinning it with sticky
+     just parks it on top of whatever scrolls underneath.) */
+  .pdf-reader-page-jump { margin-left: 0; order: -1; }
+  .pdf-reader-toolbar, .pdf-reader-tools { gap: 6px; padding: 5px 6px; }
+  /* Keep a usable field and let the strip scroll rather than crushing the
+     input to a few characters. Scoped through .pdf-reader-chrome so it beats
+     the base rule, which is defined later in this file. */
+  .pdf-reader-chrome .pdf-reader-search { flex: 0 0 auto; }
+  .pdf-reader-chrome .pdf-reader-search input { min-width: 9rem; }
+}
+.pdf-reader-banner {
+  padding: 8px 12px; border-radius: 8px; font-size: 0.86rem;
+  border: 1px solid var(--line); background: var(--surface-alt);
+}
+.pdf-reader-banner--low { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
+.pdf-reader-scroll {
+  /* dvh, not vh: on mobile the browser's collapsing address bar makes vh taller
+     than the visible area, pushing the last of the page under the chrome. */
+  overflow: auto; max-height: calc(100dvh - 260px); display: flex; flex-direction: column;
+  align-items: center;
+  /* `safe` keeps a zoomed page reachable: with plain centring, a page wider
+     than the viewport overflows equally on both sides and the left edge cannot
+     be scrolled to. Declared after the plain value as a progressive upgrade. */
+  align-items: safe center;
+  gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: 10px;
+}
+@media (max-width: 720px) {
+  /* Less page chrome above the document, and room for the bottom tab bar. */
+  .pdf-reader-scroll { max-height: calc(100dvh - 210px); padding: 8px; gap: 10px; }
+}
+.pdf-reader-page {
+  position: relative;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+  min-height: 320px; /* keep IntersectionObserver from painting every page at once before layout */
+  /* The scroller is a column flex container with a bounded height, so pages
+     inherited flex-shrink: 1. Once zoomed, their combined height exceeded that
+     bound and every page box was compressed while its canvas kept the pixel
+     height set at render time — so pages overlapped and the foot of each was
+     hidden under the next. Pages must keep their rendered size and let the
+     container scroll. */
+  flex: none;
+}
+.pdf-reader-search {
+  display: inline-flex; gap: 4px; align-items: center; flex: 1 1 12rem; min-width: 0;
+  padding: 2px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-alt);
+}
+.pdf-reader-search input {
+  flex: 1; min-width: 6rem; padding: 4px 8px;
+}
+.pdf-reader-search .btn-secondary { white-space: nowrap; }
+.pdf-reader-search-count { font-size: 0.8rem; min-width: 3rem; }
+.pdf-reader-body { display: grid; gap: 8px; min-height: 0; }
+.pdf-reader-body--outline {
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+}
+@media (max-width: 860px) {
+  /* A 180px side column beside a PDF leaves neither usable; stack instead. */
+  .pdf-reader-body--outline { grid-template-columns: minmax(0, 1fr); }
+  .pdf-reader-side { order: 2; }
+  .pdf-reader-outline, .pdf-reader-sidebar { max-height: 40dvh; }
+}
+.pdf-reader-outline {
+  overflow: auto; max-height: calc(100vh - 300px);
+  padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); font-size: 0.85rem;
+}
+.pdf-reader-outline ul { list-style: none; margin: 0; padding-left: 0.75rem; }
+.pdf-reader-outline > ul { padding-left: 0; }
+.pdf-reader-outline-empty { font-size: 0.85rem; padding: 8px; }
+.pdf-reader-scroll--spread {
+  flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start;
+}
+.pdf-reader-textlayer {
+  position: absolute; inset: 0; overflow: hidden; line-height: 1;
+  opacity: 0.25; mix-blend-mode: multiply; pointer-events: auto;
+  /* The text layer is appended to the page after React renders the annotation
+     overlay, so without this it painted on top and ate every tap aimed at a
+     highlight. It must stay below the marks it sits behind. */
+  z-index: 1;
+}
+.pdf-reader-textlayer > span {
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0% 0%;
+  color: transparent;
+  cursor: text;
+}
+/* Dragging across text is the highlight's live preview, so paint the selection
+   in the colour the highlight will be rather than the browser's default. The
+   layer already multiplies over the page, so the swatch colour reads true. */
+.pdf-reader-textlayer > span::selection {
+  background: var(--reader-select-color, Highlight);
+}
+.pdf-reader-side { display: grid; gap: 8px; align-content: start; }
+.pdf-reader-ann-layer {
+  position: absolute; inset: 0; pointer-events: none;
+  /* Above the text layer so a tap lands on the annotation. The layer itself is
+     transparent to pointer events, so anywhere without a mark still falls
+     through to the text layer and text selection keeps working. */
+  z-index: 2;
+}
+.pdf-reader-ann {
+  position: absolute; pointer-events: auto; border: none; padding: 0;
+  opacity: 0.35; cursor: pointer;
+}
+/* Selection has to answer "what does Delete remove?" at a glance, so it reads
+   as a marquee around the mark rather than a subtle tint on it. */
+.pdf-reader-ann.is-selected {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+  opacity: 0.6;
+}
+.pdf-reader-ann-marquee {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+.pdf-reader-ann.is-underline { opacity: 1; }
+.pdf-reader--dark .pdf-reader-textlayer {
+  opacity: 0.45; mix-blend-mode: difference;
+}
+.pdf-reader-ann-svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+/* A pen sits on top of the page; a highlighter sits under the words. Multiply
+   is what makes a broad stroke tint the text instead of painting it out. */
+.pdf-reader-ink--highlighter {
+  mix-blend-mode: multiply;
+  opacity: 0.45;
+}
+.pdf-reader--dark .pdf-reader-ink--highlighter {
+  /* The page canvas is inverted in dark mode, so multiply would darken to mud. */
+  mix-blend-mode: screen;
+  opacity: 0.35;
+}
+.pdf-reader-create-bar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.pdf-reader-create-quote { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-reader-create-colors { display: flex; gap: 4px; }
+.pdf-reader-create-swatch {
+  width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--border); padding: 0; cursor: pointer;
+}
+.pdf-reader-create-swatch.is-active { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pdf-reader-sidebar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pdf-reader-sidebar-edit { display: grid; gap: 6px; margin-top: 4px; }
+.pdf-reader-sidebar-edit textarea,
+.pdf-reader-sidebar-edit input,
+.pdf-reader-sidebar-pin select {
+  width: 100%; font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: inherit;
+}
+.pdf-reader-sidebar-pin { display: grid; gap: 2px; font-size: 0.85rem; }
+.pdf-reader-page--draw { touch-action: none; cursor: crosshair; }
+.pdf-reader-page--draw .pdf-reader-textlayer { pointer-events: none; }
+/* Once a stylus is in use, touch is not drawing (palm rejection), so give
+   finger scrolling back instead of freezing the document under a drawing tool. */
+.pdf-reader-page--draw.pdf-reader-page--pen { touch-action: pan-x pan-y; }
+.pdf-reader-page--erase { cursor: cell; }
+/* While erasing, a click must reach the page, not the ink it is rubbing out. */
+.pdf-reader-page--erase .pdf-reader-ann-layer * { pointer-events: none; }
+.pdf-reader--dark .pdf-reader-page canvas {
+  filter: var(--pdf-dark-filter, invert(1) hue-rotate(180deg));
+}
+.pdf-reader--dark .pdf-reader-ann { mix-blend-mode: screen; }
+.reader-screen-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.reader-main--split {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr); gap: 12px; min-height: 0;
+}
+.reader-split-panel, .reader-activity {
+  border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface);
+  display: grid; gap: 8px; align-content: start;
+}
+.reader-split-head, .reader-activity-head {
+  display: flex; justify-content: space-between; gap: 8px; align-items: start;
+}
+.reader-split-body {
+  margin: 0; max-height: 50vh; overflow: auto; white-space: pre-wrap; font: inherit;
+  font-size: 0.9rem; background: var(--surface-alt, transparent); padding: 8px; border-radius: 6px;
+}
+.reader-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.85rem; }
+.reader-activity-kind { font-weight: 600; margin: 0 6px; }
+.pdf-reader-backlinks { margin-top: 12px; font-size: 0.85rem; display: grid; gap: 4px; }
+.pdf-reader-backlinks ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.shared-paper-annotations { display: grid; gap: 4px; margin-top: 6px; }
+@media (max-width: 900px) {
+  .reader-main--split { grid-template-columns: 1fr; }
+}
+.pdf-reader-sidebar {
+  overflow: auto; max-height: calc(100vh - 300px);
+  padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); font-size: 0.85rem;
+}
+.pdf-reader-sidebar-filters {
+  display: grid; gap: 4px; margin-bottom: 8px;
+}
+.pdf-reader-sidebar-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pdf-reader-sidebar-item {
+  display: flex; gap: 8px; width: 100%; text-align: left;
+  background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px;
+  cursor: pointer;
+}
+.pdf-reader-sidebar-item.is-selected { border-color: var(--accent); background: var(--surface-alt); }
+.pdf-reader-sidebar-swatch { width: 4px; border-radius: 2px; flex: none; }
+.pdf-reader-sidebar-meta { display: grid; gap: 2px; min-width: 0; }
+.pdf-reader-sidebar-text { overflow-wrap: anywhere; }
+.pdf-reader-hl {
+  position: absolute; pointer-events: none; border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  mix-blend-mode: multiply;
+}
+.pdf-reader-loading, .pdf-reader-error { padding: 24px; color: var(--muted); }
+.pdf-reader-error { display: grid; gap: 12px; justify-items: start; }
+.ai-review-nav-link b { min-width: 1.25rem; text-align: center; border-radius: 999px; padding: 1px 5px; background: var(--accent); color: var(--on-accent); font-size: 0.72rem; }
+@media (max-width: 640px) { .ai-review-screen .screen-header, .ai-review-card-head, .ai-review-actions { align-items: flex-start; flex-direction: column; } .ai-review-toolbar { align-items: stretch; flex-direction: column; } }
+
+/* One-line statement of what the armed annotation tool will do. */
+.pdf-reader-tool-hint { margin: 6px 0 0; font-size: 0.8rem; }
+
+/* =====================================================================
+ * DEPTH — borderless elevation
+ * =====================================================================
+ * Surfaces are separated by *light*, not by hairlines. Every panel that used
+ * `1px solid var(--border)` keeps its 1px box (border-color goes transparent,
+ * so nothing reflows) and earns its edge from the elevation tokens in
+ * a theme file under themes/ instead.
+ *
+ * Rules of the layer:
+ *   - Every raised surface = ambient+contact shadow (--e1…--e4) + --rim.
+ *   - Hover lifts one level and translates 1px up; active drops back down.
+ *     Movement is what sells the depth — the shadow alone reads as static.
+ *   - Sticky/floating chrome (L3) stays frosted and gets the rim light so it
+ *     visibly occludes content scrolling beneath it.
+ *   - Buttons and form controls KEEP their borders. A borderless input has no
+ *     affordance telling you where to click, and a borderless button stops
+ *     looking pressable. Depth is for surfaces; outlines are for controls.
+ *   - Divider rules (`border-top` between rows inside one panel) also stay:
+ *     they separate content within a surface, not one surface from another.
+ *
+ * The whole layer is scoped to `[data-surfaces="borderless"]`, which is the
+ * default. Settings → Appearance → Surfaces flips it to "bordered", which
+ * restores every hairline: a shadow carries almost no contrast ratio, so
+ * high-contrast users need the lines back, not a heavier shadow.
+ * ------------------------------------------------------------------- */
+
+/* Chip geometry reads the uploadable slot. Outside the borderless gate —
+   it is a theme dimension, not a border treatment. */
+.metric-chip,
+.proj-chip { border-radius: var(--radius-pill); }
