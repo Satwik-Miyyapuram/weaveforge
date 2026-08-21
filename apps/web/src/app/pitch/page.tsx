@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EntityCard } from "@/components/entity-card";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ReactiveMotion } from "@/app/reactive-motion";
-import { ParticleScroll } from "@/components/particle-scroll";
 import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, tagColor } from "@/features/relations/domain/graph-palette";
 import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-annotation-helpers";
 import { AnnotationSidebar } from "@/features/reader/ui/annotation-sidebar";
@@ -251,8 +250,8 @@ function useScrollSteps(count: number) {
     };
 
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(resolve); };
-    // Capture phase on the document, not the window: the pitch content now
-    // scrolls inside the particle canvas, so window scroll events never fire.
+    // Capture phase on the document rather than the window, so this keeps
+    // working if any ancestor ever becomes the scroller again.
     document.addEventListener("scroll", onScroll, { passive: true, capture: true });
     window.addEventListener("resize", onScroll, { passive: true });
     resolve();
@@ -270,13 +269,7 @@ function Step({ i, active, idx, title, children }: {
   i: number; active: number; idx: string; title: string; children: React.ReactNode;
 }) {
   return (
-    /* `data-particle` is the opt-in for the sand effect. Only these dissolve:
-       they are the one thing on the page that is *read by scrolling*, where a
-       line arriving and leaving is the point. Everything else — headings,
-       cards, code, the comparison table, the nav — is read by looking, and
-       turning it to sand made most of the screen unreadable at any moment for
-       the sake of these four lines. */
-    <article className={css.step} data-particle data-step={i} data-on={i === active}>
+    <article className={css.step} data-step={i} data-on={i === active}>
       <span className={css.idx}>{idx}</span>
       <h3>{title}</h3>
       <p>{children}</p>
@@ -341,37 +334,44 @@ function Scene({ id, eyebrow, heading, lede, views, steps, tone = "flat" }: {
  * position rather than about when it was drawn.
  */
 function Sheet({ seed, lit }: { seed: number; lit: boolean }) {
-  const fig = seed % 3 === 1;
-  const rows = 5 + (seed % 3);
-  const line = (k: number) => ({ width: `${64 + ((seed * 7 + k * 23) % 34)}%` });
+  // A first page has a shape before it has words: a title that runs two lines,
+  // a thin author line under it, a rule, then two columns with a figure box in
+  // one of them. Drawing that shape is what makes these read as papers at a
+  // glance; the earlier version drew undifferentiated bars and read as smudge.
+  const fig = seed % 3 !== 2;
+  const line = (k: number) => `${58 + ((seed * 7 + k * 23) % 38)}%`;
   const col = (c: number) => (
     <span key={c}>
-      {Array.from({ length: rows }, (_, k) => (
-        <i key={k} style={line(k + c * 11)} />
+      {Array.from({ length: 7 }, (_, k) => (
+        <i key={k} style={{ width: line(k + c * 11) }} />
       ))}
     </span>
   );
   return (
     <div className={css.sheet} data-lit={lit || undefined}>
-      <i className={css.sheetTitle} style={{ width: `${70 + (seed % 25)}%` }} />
-      <i style={{ width: `${40 + (seed % 20)}%`, opacity: 0.3 }} />
-      {fig && <i className={css.sheetFig} style={{ height: "22%" }} />}
-      <span className={css.sheetCols}>{col(0)}{col(1)}</span>
+      <i className={css.sheetTitle} style={{ width: `${72 + (seed % 22)}%` }} />
+      <i className={css.sheetTitle} style={{ width: `${38 + (seed % 26)}%` }} />
+      <i className={css.sheetAuthors} style={{ width: `${44 + (seed % 18)}%` }} />
+      <span className={css.sheetRule} />
+      <span className={css.sheetCols}>
+        {col(0)}
+        <span>
+          {fig && <i className={css.sheetFig} />}
+          {Array.from({ length: fig ? 4 : 7 }, (_, k) => (
+            <i key={k} style={{ width: line(k + 21) }} />
+          ))}
+        </span>
+      </span>
     </div>
   );
 }
 
 /**
- * The paper wall.
- *
- * The page still ships no images. This is a field of drawn first pages, run
- * at an opacity where the difference between a ruled bar and real typeset
- * text is not available to the eye — it is there to put grain behind the type
- * and to say, without a caption, what the thing on screen is made of.
+ * The paper wall — a column of first pages beside the reader.
  *
  * `lit` is the one sheet in focus: the paper the scene is currently talking
- * about. A field with no subject is wallpaper; a field with one sheet lit is
- * a library with your paper open in it.
+ * about. A field with no subject is wallpaper; a field with one sheet lit is a
+ * shelf with your paper open on it.
  */
 function PaperWall({ count, lit = -1, className }: { count: number; lit?: number; className?: string }) {
   return (
@@ -379,6 +379,29 @@ function PaperWall({ count, lit = -1, className }: { count: number; lit?: number
       {Array.from({ length: count }, (_, i) => (
         <Sheet key={i} seed={i * 13 + 5} lit={i === lit} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * The hero's papers.
+ *
+ * Not a tiled field. A field of mid-sized sheets behind a headline is the one
+ * thing this could not be: at the size where a sheet reads as a sheet it
+ * competes with the type, and at the size where it does not, it reads as
+ * smudge — which is what the tiled version did.
+ *
+ * So: three sheets, large enough to be unmistakably paper, stacked the way
+ * they land on a desk, and placed in the margin the headline does not use.
+ * The texture behind the words is grain instead, which is a surface rather
+ * than an object and does not compete for the same attention.
+ */
+function PaperStack() {
+  return (
+    <div className={css.heroStack} aria-hidden>
+      <Sheet seed={31} lit={false} />
+      <Sheet seed={7} lit={false} />
+      <Sheet seed={18} lit />
     </div>
   );
 }
@@ -1239,8 +1262,9 @@ function ReadingScene() {
   const close = active - READING_ZOOM;
   /* The lit sheet stays in the rail's outer column, furthest from the
      steps. The faint sheets read as texture wherever they fall; a sheet
-     at full strength behind a line of body copy does not. */
-  const litSheet = 2 + 3 * (active % 4);
+     at full strength behind a line of body copy does not. Two columns of
+     four, so the odd indices are the outer ones. */
+  const litSheet = 1 + 2 * (active % 4);
 
   const views = [
     <PaperPage key="paper" />,
@@ -1288,7 +1312,7 @@ function ReadingScene() {
           not disappear the moment the stage is down to one page. The lit
           sheet advances with the steps: it is the paper being talked about. */}
       <div className={css.rail} aria-hidden>
-        <PaperWall count={12} lit={litSheet} className={css.railIn} />
+        <PaperWall count={8} lit={litSheet} className={css.railIn} />
       </div>
       <div className={`${css.wrap} ${css.above}`}>
         <header className={css.sceneHead} data-scene-head>
@@ -1584,23 +1608,13 @@ export default function PitchPage() {
   /**
    * Scroll progress, and the reveal that introduces each scene.
    *
-   * Both of these want to be CSS scroll-driven animations, and both were
-   * written that way. Neither worked. The narrative does not scroll in the
-   * document — it scrolls inside the particle canvas's own container, roughly
-   * 23,000px of it, while the document itself has about a hundred pixels of
-   * travel. `scroll(root block)` therefore bound the progress bar to a
-   * scroller that barely moves and, being an inactive timeline, left it
-   * parked at `scaleX(0)` for the entire page. `view()` failed the same way
-   * from inside that container.
-   *
-   * So both are driven from the real scroller instead. The reveal starts from
-   * a class the effect adds, never from the stylesheet alone: a heading that
-   * is invisible until JavaScript arrives is a heading that stays invisible
-   * when JavaScript does not.
+   * The reveal starts from a class this effect adds, never from the
+   * stylesheet alone: a heading that is invisible until JavaScript arrives is
+   * a heading that stays invisible when JavaScript does not.
    */
   useEffect(() => {
     const page = pageRef.current;
-    const scroller = document.querySelector<HTMLElement>("[data-particle-content]");
+    const scroller = document.scrollingElement as HTMLElement | null;
     if (!page || !scroller) return;
 
     let frame = 0;
@@ -1740,29 +1754,15 @@ export default function PitchPage() {
         </div>
       </header>
 
-      {/* Only what sits on the formation line stays solid; everything entering
-          or leaving the reading position is sand. The header and footer stay
-          outside so navigation never dissolves. See particle-scroll.tsx for the
-          browser-support caveat — unsupported browsers get this markup as-is. */}
-      <ParticleScroll
-        className={css.particleScroller}
-        only="[data-particle]"
-        focus="both"
-        point={0.5}
-        keep={260}
-        band={300}
-        density={2}
-        spread={180}
-        gravity={0.28}
-        drift={0.55}
-        settle={0.9}
-        smoothing={0.55}
-      >
       <main id="top">
         <section className={css.hero}>
           {/* The ground the rest of the page is made of, stated before a
-              single word about it. Drawn, not photographed — see PaperWall. */}
-          <PaperWall count={24} className={css.wall} />
+              single word about it. Two layers, because a tiled field of paper
+              behind the headline reads as dirt at every size that fits: grain
+              carries the texture under the words, and one small stack off to
+              the side is the only thing asked to read as paper. */}
+          <div className={css.heroGrain} aria-hidden />
+          <PaperStack />
           <div className={`${css.wrap} ${css.above}`}>
             <span className={css.eyebrow}>Open source · AGPL-3.0 · self-hostable</span>
             <h1>By the time you write it, you won&rsquo;t remember why.</h1>
@@ -2067,7 +2067,6 @@ $ npm run dev           # → http://localhost:3000`}</pre>
 
         <CompareTable />
       </main>
-      </ParticleScroll>
 
       <footer className={css.foot}>
         <div className={`${css.wrap} ${css.footIn}`}>

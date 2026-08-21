@@ -505,7 +505,6 @@
    element marks absence, so it is on while its object is still elsewhere. */
 .slot[data-on="true"] { opacity: 0.9; }
 
-
 /* Individual `translate` and `rotate` rather than one `transform`: they
    interpolate independently, and nothing later can clobber the position the
    story put a card in by setting an unrelated transform. `fill-box` makes the
@@ -692,13 +691,11 @@
 /* Stacked (phones): the visual pins under the header, steps run beneath it.
    Height is capped so the reader still has somewhere to read. */
 .stage {
-  /* Zero, not the header's height: sticky offsets are measured against the
-     scroll container, and the header is not in it — the narrative scrolls
-     inside the particle canvas that starts below the header. Paying for the
-     header twice pinned every visual a header lower than intended and took
-     that much again off the bottom of the reading area. */
+  /* The header's height, because the header is sticky in this same scroller.
+     Pinning at zero puts the top of every visual behind it — the card that
+     opens a scene arrives already clipped. */
   position: sticky;
-  top: 0;
+  top: var(--pitch-head);
   z-index: 5;
   /* Sized to its content, capped so the reader always has somewhere to read.
      A fixed height here silently sliced the bottom off five of the eight
@@ -767,13 +764,15 @@
 
 .steps {
   display: grid;
-  /* Room after the last step. Without it the final step's midpoint sits
-     behind the pinned stage, so the step that closes a scene becomes the
-     active one while it is still hidden — and the sticky stage releases
-     while it is being read. Padding here rather than on the section: sticky
-     is bounded by its own parent's content box, and the section's padding
-     is outside the grid. */
-  padding-bottom: 26vh;
+  /* Room after the last step, so its midpoint can reach the reading line
+     rather than sitting behind the pinned stage — otherwise the step that
+     closes a scene becomes the active one while it is still hidden, and the
+     stage releases while it is being read.
+     Half the reading area, not a quarter of the viewport: the line sits at
+     the middle of the space below the stage, so that is exactly the travel
+     the last step needs, and anything more is a blank screen before the next
+     scene. */
+  padding-bottom: calc(var(--pitch-view) * 0.28);
 }
 .step {
   /* Tall enough that only one step sits near the reading line at a time.
@@ -1005,44 +1004,6 @@
   background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
-/* Particle scroll host.
- *
- * `ParticleScroll` captures a scrollable subtree and repaints it through WebGL,
- * so the narrative has to scroll *inside* it rather than with the document.
- * Pinning it to the viewport is what gives the effect a fixed formation line to
- * assemble content against; the header above and footer below keep scrolling
- * normally and stay solid.
- *
- * On browsers without the HTML-in-Canvas API the component renders its children
- * directly, and this box is still the scroller — so the page reads identically,
- * just without particles.
- */
-.particleScroller {
-  /* The space under the header, not the whole window. At `100dvh` the box
-     started below a 60px sticky header and still asked for a full screen, so
-     the last 60px of the narrative sat permanently below the fold and the
-     document itself gained a second scrollbar racing the first. */
-  height: var(--pitch-view);
-  overflow: hidden;
-}
-
-/* The sticky header inside the narrative sticks to this scroller, not the
-   document, which is the behaviour the pinned scenes already expect.
-   Both selectors: the component moves the scrolling div inside the source
-   canvas when the browser supports painting HTML into one, so the same box
-   sits one level deeper on the machines that actually get the particles. */
-.particleScroller > div,
-.particleScroller > canvas > div {
-  scrollbar-width: thin;
-  /* The component sets `overflow: auto` inline, which makes this box scroll on
-     both axes — so anything that escapes a clip inside the narrative becomes a
-     sideways scroll across the whole page rather than a local overflow.
-     `!important` is the only weight that beats an inline style, and the page
-     has nothing to scroll sideways to. */
-  overflow-x: hidden !important;
-  overscroll-behavior-x: none;
-}
-
 /* ---- Entry motion ----
    The steps inside a scene already fade as they reach the reading line, but a
    scene's own heading simply appeared, fully formed, the moment the section
@@ -1074,70 +1035,138 @@
 .page[data-reveal="on"] [data-scene-head][data-in="true"] > *:nth-child(2) { transition-delay: 0.06s; }
 .page[data-reveal="on"] [data-scene-head][data-in="true"] > *:nth-child(3) { transition-delay: 0.12s; }
 
-/* ---- The paper wall ----
-   The page ships no images and this does not change that. A first page is
-   drawn instead: a title block, two columns of ruled text, sometimes a figure
-   box. At the opacity it runs at, the difference between these bars and real
-   typeset text is not available to the eye — and unlike a scan it carries no
-   licence, no bytes over the wire, and no colour that fights the theme.
+/* ---- Drawn first pages ----
 
-   It exists to give the type something with grain behind it. The moment you
-   can consciously read it as a background, it is too strong. */
-.wall {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 14px;
-  padding: 14px;
-  /* Faded at every edge, so the field has no border and reads as a surface
-     the page rests on rather than a panel dropped onto it. */
-  mask-image: radial-gradient(95% 85% at 34% 46%, transparent 0 32%, #000 68%, transparent 100%);
-  -webkit-mask-image: radial-gradient(95% 85% at 34% 46%, transparent 0 32%, #000 68%, transparent 100%);
-}
+   The page ships no images: no scan, no licence, no bytes over the wire, and
+   no colour that fights the theme. A first page is drawn instead, and drawn as
+   a *shape* — two title lines, an author line, a rule, two columns, a figure
+   box — because that silhouette is what the eye recognises. Undifferentiated
+   ruled bars do not read as a paper at any size; they read as dirt. */
 .sheet {
   aspect-ratio: 3 / 4;
-  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
   background: color-mix(in srgb, var(--ink) 3%, transparent);
-  padding: 9px 8px;
+  padding: 9% 8%;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0.6cqw;
   overflow: hidden;
-  opacity: 0.14;
+  /* Every bar is sized in cqw — a share of this sheet's own width — so one
+     sheet scales as a drawing rather than as a box with fixed furniture: the
+     rail's sheets and the hero's are the same component at very different
+     sizes. Not em: the element cannot query itself, so a font-size in cqw
+     resolves against the viewport and the anatomy collapses. */
+  container-type: inline-size;
+  opacity: 0.5;
   transition: opacity 0.6s ease, background 0.6s ease, border-color 0.6s ease;
 }
 .sheet i {
   display: block;
-  height: 2px;
+  height: 1.5cqw;
   border-radius: 1px;
   background: var(--ink);
-  opacity: 0.4;
-}
-.sheetTitle { height: 4px; opacity: 0.75; margin-bottom: 3px; }
-.sheetFig {
-  border: 1px solid var(--ink);
-  opacity: 0.28;
-  margin: 3px 0;
-  border-radius: 1px;
+  opacity: 0.42;
   flex: none;
 }
-.sheetCols { display: flex; gap: 6px; flex: 1; min-height: 0; }
-.sheetCols > span { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.sheetTitle { height: 3cqw; opacity: 0.7; }
+.sheetAuthors { height: 1.4cqw; opacity: 0.4; margin-top: 1.6cqw; }
+.sheetRule {
+  display: block;
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.25;
+  margin: 2.4cqw 0 2.6cqw;
+  flex: none;
+}
+.sheetFig {
+  border: 1px solid var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  height: 17cqw !important;
+  opacity: 0.32;
+  margin-bottom: 2.4cqw;
+  border-radius: 1px;
+}
+.sheetCols { display: flex; gap: 5cqw; flex: 1; min-height: 0; }
+.sheetCols > span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2.2cqw;
+  min-height: 0;
+  overflow: hidden;
+}
 
 /* One sheet holds focus: the paper the scene is talking about. A field with
-   no subject is wallpaper; a field with one lit sheet is a library with your
-   paper open in it. Which sheet is lit advances with the steps. */
+   no subject is wallpaper; a field with one lit sheet is a shelf with your
+   paper open on it. Which sheet is lit advances with the steps. */
 .sheet[data-lit="true"] {
-  opacity: 0.85;
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: var(--surface);
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.5);
 }
 .sheet[data-lit="true"] i { opacity: 0.5; }
-.sheet[data-lit="true"] .sheetTitle { background: var(--accent); opacity: 0.9; }
+.sheet[data-lit="true"] .sheetTitle { background: var(--accent); opacity: 0.85; }
+
+/* ---- The hero's stack ----
+
+   Three sheets in the margin the headline does not use, overlapped the way
+   paper lands on a desk. Not tiled across the hero: at the size where a sheet
+   reads as a sheet it competes with the type, and at the size where it stops
+   competing it stops reading as a sheet. Grain does the work behind the words
+   instead — see .heroGrain. */
+.heroStack {
+  position: absolute;
+  top: 50%;
+  right: clamp(12px, 3vw, 56px);
+  transform: translateY(-50%);
+  width: min(34vw, 460px);
+  height: min(40vw, 500px);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  /* Fades where it meets the column of text, so the stack never reads as a
+     second element competing with the paragraph beside it. */
+  mask-image: linear-gradient(to left, #000 72%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to left, #000 72%, transparent 100%);
+}
+/* Each sheet keeps its own paper: the unlit ones are still sheets, not bars
+   floating on the ground, so they hold a visible edge and fill. */
+.heroStack > * {
+  position: absolute;
+  width: 58%;
+  opacity: 0.4;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+  box-shadow: 0 10px 26px -20px rgba(0, 0, 0, 0.45);
+  transform-origin: 50% 60%;
+}
+.heroStack > *:nth-child(1) { top: 0;   left: 40%; rotate: -8deg; }
+.heroStack > *:nth-child(2) { top: 12%; left: 20%; rotate: 6deg; }
+.heroStack > *:nth-child(3) { top: 28%; left: 30%; rotate: -2deg; opacity: 1; }
+
+/* Paper grain: a surface, not an object. One texture, kept below the
+   threshold where it can be consciously read — the moment you notice it as a
+   pattern it is fighting the headline it exists to support. */
+.heroGrain {
+  position: absolute;
+  /* Bleeds past the section: grain that stops on a straight edge stops being
+     a surface and becomes a rectangle. */
+  inset: -10% -50vw;
+  z-index: 0;
+  pointer-events: none;
+  /* Low enough not to be readable as a pattern. The moment grain is noticed
+     as a texture it is competing with the headline it exists to support. */
+  opacity: 0.22;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.42'/%3E%3C/svg%3E");
+  mask-image: radial-gradient(120% 100% at 50% 40%, #000 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(120% 100% at 50% 40%, #000 40%, transparent 100%);
+}
+
+@media (max-width: 900px) {
+  /* The stack needs a margin to sit in, and a phone has none. */
+  .heroStack { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .sheet { transition: none; }
@@ -1341,13 +1370,23 @@
   top: 0;
   height: 100vh;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Two columns, not three: a first page needs enough width for its title
+     lines and its two text columns to be legible as those things. At a third
+     of the rail a sheet is 60px across and its anatomy collapses into bars. */
+  grid-template-columns: repeat(2, 1fr);
   grid-auto-rows: min-content;
-  gap: 10px;
+  gap: 12px;
   padding: 12vh 0;
   align-content: center;
-  mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent);
+  /* Fades top and bottom (the field continues past the scene) and on the left
+     (where the prose column ends), so a step's last word never lands on a
+     sheet at the widths where the two nearly touch. */
+  mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent),
+    linear-gradient(to right, transparent, #000 22%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent),
+    linear-gradient(to right, transparent, #000 22%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
 }
 @media (max-width: 900px) {
   .rail { display: none; }
@@ -1357,6 +1396,9 @@
    so anything sharing a section with a wall has to be lifted explicitly. */
 .above { position: relative; z-index: 1; }
 .hero { position: relative; isolation: isolate; }
+/* The grain and the stack are positioned, so unpositioned hero content would
+   paint underneath them. */
+.hero > *:not(.heroGrain):not(.heroStack) { position: relative; z-index: 1; }
 
 /* The reading scene carries a rail, so it needs a stacking context of its own:
    without one the rail's `z-index: 0` and the band's `z-index: -1` are read
