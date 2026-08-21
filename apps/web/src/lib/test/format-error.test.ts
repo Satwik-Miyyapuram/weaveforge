@@ -58,3 +58,23 @@ test("readJsonBody: invalid JSON -> error field", async () => {
   const out = await readJsonBody(new Response("not json", { status: 500 }));
   assert.match(String(out.error), /not json/);
 });
+
+test("a network failure is explained instead of shown as \"Failed to fetch\"", () => {
+  // Every browser words it differently and none of them words it usefully.
+  for (const raw of ["Failed to fetch", "NetworkError when attempting to fetch resource.", "Load failed"]) {
+    const message = formatError(new TypeError(raw));
+    assert.match(message, /Could not reach the server/);
+    assert.doesNotMatch(message, /Failed to fetch|NetworkError|Load failed/);
+  }
+});
+
+test("a chunk that went missing under a running tab says to reload", () => {
+  const message = formatError(
+    new TypeError("Failed to fetch dynamically imported module: https://example.test/_next/static/chunks/x.js"),
+  );
+  assert.match(message, /reload the page/);
+});
+
+test("a server error keeps its own words", () => {
+  assert.equal(formatError(new Error("permission denied for table user_settings")), "permission denied for table user_settings");
+});

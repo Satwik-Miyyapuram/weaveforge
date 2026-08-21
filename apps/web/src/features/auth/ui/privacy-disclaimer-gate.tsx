@@ -28,7 +28,7 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
   // is known from cache (returning users) or after the settings read (cold),
   // long before profile/org data lands — and the screens do not need that data
   // to render, so holding them for it is pure waiting.
-  const { gateReady, needsPrivacyAccept, refreshProfile } = useStartup();
+  const { gateReady, needsPrivacyAccept, settingsError, refreshProfile } = useStartup();
   const [needsAccept, setNeedsAccept] = useState(() => needsPrivacyAccept);
   const [containerReady, setContainerReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -83,7 +83,11 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
         });
         await light.settings.acceptDisclaimer();
       }
-      await refreshProfile();
+      // The acceptance is written and durable at this point. Refreshing the
+      // startup bundle is how the rest of the app learns about it, but if that
+      // refresh fails the user must still come out from behind a modal they
+      // cannot dismiss — the screens below have their own loaders and retries.
+      await refreshProfile().catch(() => undefined);
       setNeedsAccept(false);
     } catch (err) {
       setError(formatError(err));
@@ -104,22 +108,12 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
     return <ThesisLoaderScreen status="Preparing your workspace…" />;
   }
 
-  if (!needsAccept && !containerReady && error) {
-    return (
-      <main className="app-shell" style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}>
-        <h1 style={{ fontSize: "1.25rem", marginBottom: 8 }}>Couldn’t start the app</h1>
-        <FormError>{error}</FormError>
-        <button
-          type="button"
-          className="btn-primary"
-          style={{ marginTop: 16 }}
-          onClick={() => window.location.reload()}
-        >
-          Reload
-        </button>
-      </main>
-    );
-  }
+  // The settings read failed, so whether this user has accepted is unknown.
+  // Showing the modal here would offer an accept button that writes through
+  // the same unreachable API and reports the same failure, with no way out.
+  if (settingsError) return <StartupFailure message={settingsError} />;
+
+  if (!needsAccept && !containerReady && error) return <StartupFailure message={error} />;
 
   return (
     <>
@@ -154,5 +148,23 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
         ? children
         : null}
     </>
+  );
+}
+
+/** A dead end the user can act on: what went wrong, and a way to try again. */
+function StartupFailure({ message }: { message: string }) {
+  return (
+    <main className="app-shell" style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}>
+      <h1 style={{ fontSize: "1.25rem", marginBottom: 8 }}>Couldn’t start the app</h1>
+      <FormError>{message}</FormError>
+      <button
+        type="button"
+        className="btn-primary"
+        style={{ marginTop: 16 }}
+        onClick={() => window.location.reload()}
+      >
+        Reload
+      </button>
+    </main>
   );
 }

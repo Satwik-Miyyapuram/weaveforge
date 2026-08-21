@@ -43,6 +43,7 @@ function snapshot(needsPrivacyAccept: boolean): StartupSnapshot {
     labMembers: [],
     memberships: [],
     needsPrivacyAccept,
+    settingsError: null,
   };
 }
 
@@ -56,7 +57,7 @@ function fakeLoader(needsPrivacyAccept: boolean) {
   const load: StartupBundleLoader = async (_userId, opts) => {
     calls += 1;
     await Promise.resolve();
-    opts?.onDecision?.(needsPrivacyAccept, null);
+    opts?.onDecision?.(needsPrivacyAccept, null, null);
     return snapshot(needsPrivacyAccept);
   };
   return { load, get calls() { return calls; } };
@@ -106,7 +107,7 @@ test("startup: a mount that joins an in-flight bundle still opens the gate", asy
   let decisionsDelivered = 0;
   const load: StartupBundleLoader = async (_userId, opts) => {
     await gate;                       // held open across both mounts
-    opts?.onDecision?.(false, null);
+    opts?.onDecision?.(false, null, null);
     decisionsDelivered += 1;
     return snapshot(false);
   };
@@ -152,7 +153,7 @@ test("startup: the work is still shared, not run twice", async () => {
   const load: StartupBundleLoader = async (_userId, opts) => {
     calls += 1;
     await gate;
-    opts?.onDecision?.(false, null);
+    opts?.onDecision?.(false, null, null);
     return snapshot(false);
   };
 
@@ -234,5 +235,27 @@ test("startup: a loader that never reports a decision still opens the gate", asy
 
   assert.equal(harness.current.gateReady, true);
   assert.equal(harness.current.needsPrivacyAccept, false);
+  await harness.unmount();
+});
+
+test("startup: a settings read that failed is reported, not answered", async () => {
+  // A failed read used to collapse into "no settings", which reads as "never
+  // accepted" — so an unreachable data API put the user in front of the
+  // disclaimer modal, whose accept button wrote through that same API and
+  // failed with the raw fetch error. There was no way past that screen.
+  const user = userId();
+  const failed: StartupBundleLoader = async (_userId, opts) => {
+    await Promise.resolve();
+    opts?.onDecision?.(false, null, "Failed to fetch");
+    return { ...snapshot(false), settings: null, settingsError: "Failed to fetch" };
+  };
+
+  const harness = await renderHook(() => useStartup(), undefined, {
+    wrapper: withProvider(user, failed, true),
+  });
+  await harness.flush();
+
+  assert.equal(harness.current.settingsError, "Failed to fetch");
+  assert.equal(harness.current.needsPrivacyAccept, false, "an unknown verdict must not gate");
   await harness.unmount();
 });

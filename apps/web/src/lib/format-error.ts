@@ -1,3 +1,22 @@
+/**
+ * Browser network failures, which arrive as a bare TypeError.
+ *
+ * "Failed to fetch" (Chrome), "NetworkError when attempting to fetch
+ * resource." (Firefox) and "Load failed" (Safari) all mean the same thing:
+ * the request never reached a server, so there is no status and no body to
+ * report. Shown raw it reads like a bug in the app rather than something the
+ * reader can act on.
+ */
+const NETWORK_FAILURES = ["failed to fetch", "networkerror", "load failed"];
+
+function networkFailureMessage(message: string): string | null {
+  const lower = message.toLowerCase();
+  if (lower.includes("dynamically imported module")) {
+    return "Could not load part of the app. This usually means a new version was deployed while this tab was open — reload the page.";
+  }
+  if (!NETWORK_FAILURES.some((phrase) => lower.includes(phrase))) return null;
+  return "Could not reach the server. The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.";
+}
 /** Extract a human-readable message from unknown thrown values (incl. Supabase/PostgREST). */
 export function formatError(err: unknown): string {
   if (err == null) return "Something went wrong.";
@@ -9,7 +28,7 @@ export function formatError(err: unknown): string {
 
   if (err instanceof Error) {
     const trimmed = err.message?.trim();
-    if (trimmed && trimmed !== "[object Object]") return trimmed;
+    if (trimmed && trimmed !== "[object Object]") return networkFailureMessage(trimmed) ?? trimmed;
   }
 
   if (typeof err === "object") {
