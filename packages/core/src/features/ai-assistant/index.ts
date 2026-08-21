@@ -13,7 +13,6 @@ export * from "./application/confirm-ai-proposal.use-case.js";
 export * from "./application/execute-ai-proposal.use-case.js";
 export * from "./application/create-ai-proposal-draft.use-case.js";
 export * from "./domain/ai-model-router.js";
-export * from "./domain/ai-tool-registry.js";
 export * from "./domain/ai-mcp-gateway.js";
 export * from "./domain/ai-extraction.js";
 export * from "./domain/lexical-concept-extractor.js";

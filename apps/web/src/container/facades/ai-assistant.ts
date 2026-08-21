@@ -175,7 +175,7 @@ export class AiAssistantFacade {
     limit?: number;
   }): Promise<readonly AiRetrievedExcerpt[]> {
     const session = this.requireActiveSession(input.sessionId);
-    const docs = await this.readGrantedDocuments(session, input.settings);
+    const docs = await this.readGrantedDocuments(session, input.settings, "search_workspace");
     return retrieveAiExcerpts(docs, input.query, { limit: input.limit });
   }
 
@@ -185,7 +185,7 @@ export class AiAssistantFacade {
     settings: AiAccessSettings;
   }): Promise<AiRetrievalDocument | null> {
     const session = this.requireActiveSession(input.sessionId);
-    const docs = await this.readGrantedDocuments(session, input.settings);
+    const docs = await this.readGrantedDocuments(session, input.settings, "get_source_excerpt");
     const document = docs.find((candidate) => candidate.source.sourceId === input.sourceId);
     return document ? { ...document, text: boundedMcpExcerpt(document.text) } : null;
   }
@@ -195,7 +195,7 @@ export class AiAssistantFacade {
     const readable = await this.readableSources(session, input.settings);
     const effectiveSession: AiActiveSession = { ...session, grant: { ...session.grant, readable } };
     for (const source of readable) {
-      this.assertReadable(effectiveSession, input.settings, source);
+      this.assertReadable(effectiveSession, input.settings, source, "get_workspace_outline");
     }
     return readable;
   }
@@ -242,20 +242,20 @@ export class AiAssistantFacade {
     return session;
   }
 
-  private assertReadable(session: AiActiveSession, settings: AiAccessSettings, source: AiWorkspaceSource): void {
+  private assertReadable(session: AiActiveSession, settings: AiAccessSettings, source: AiWorkspaceSource, tool: AiToolName): void {
     const decision = this.policy.evaluate({
       settings,
       grant: session.grant,
       encryptionUnlocked: this.deps.isEncryptionUnlocked(),
       now: this.deps.now(),
-      tool: "get_source_excerpt",
+      tool,
       resourceType: source.resourceType,
       resourceId: source.resourceId,
     });
     if (!decision.allowed) throw new Error(`AI source access denied: ${decision.reason}`);
   }
 
-  private async readGrantedDocuments(session: AiActiveSession, settings: AiAccessSettings): Promise<readonly AiRetrievalDocument[]> {
+  private async readGrantedDocuments(session: AiActiveSession, settings: AiAccessSettings, tool: AiToolName): Promise<readonly AiRetrievalDocument[]> {
     const [papers, vaultPages, readingLists, logEntries, experiments, milestones] = await Promise.all([
       this.deps.papers.list(), this.deps.vaultPages.list(), this.deps.readingLists.list(),
       this.deps.logEntries.list(), this.deps.experiments.list(), this.deps.milestones.list(),
@@ -270,7 +270,7 @@ export class AiAssistantFacade {
     const readable = await this.readableSources(session, settings);
     const effectiveSession: AiActiveSession = { ...session, grant: { ...session.grant, readable } };
     return readable.flatMap((source) => {
-      this.assertReadable(effectiveSession, settings, source);
+      this.assertReadable(effectiveSession, settings, source, tool);
       const text = this.sourceText(source, indexes);
       if (!text) return [];
       return [{ source: { ...source, label: source.label ?? source.sourceId }, text }];
