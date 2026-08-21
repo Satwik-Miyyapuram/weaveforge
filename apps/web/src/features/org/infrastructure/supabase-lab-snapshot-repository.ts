@@ -7,6 +7,7 @@ import type {
   PublishLabSnapshotInput,
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
+import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type LabSnapshotRow,
   toDomain,
@@ -14,18 +15,8 @@ import {
 
 const TABLE = "lab_snapshots";
 
-export class SupabaseLabSnapshotRepository implements ILabSnapshotRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-    private readonly session: ICurrentUserProvider,
-  ) {}
-
-  private get projectId() {
-    const id = this.ctx.projectId;
-    if (!id) throw new Error("Select a project before publishing a lab snapshot.");
-    return id;
-  }
+export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseRepository implements ILabSnapshotRepository {
+  protected readonly action = "publishing a lab snapshot";
 
   async publish(input: PublishLabSnapshotInput): Promise<LabSnapshot> {
     const title = input.title.trim();

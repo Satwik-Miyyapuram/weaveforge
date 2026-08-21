@@ -12,6 +12,7 @@ import type {
 } from "@weaveforge/core";
 import { buildAnnotationSortIndex, isAnnotationSyncState, isReaderAnnotationType } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
+import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type ReaderAnnotationRow,
   toDomain,
@@ -19,20 +20,9 @@ import {
 
 const TABLE = "reader_annotations";
 
-export class SupabaseReaderAnnotationRepository
-  implements IReaderAnnotationSource, IReaderAnnotationSink
-{
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-    private readonly session: ICurrentUserProvider,
-  ) {}
-
-  private get projectId() {
-    const id = this.ctx.projectId;
-    if (!id) throw new Error("Select a project before managing reader annotations.");
-    return id;
-  }
+export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRepository
+  implements IReaderAnnotationSource, IReaderAnnotationSink {
+  protected readonly action = "managing reader annotations";
 
   async list(paperId: string): Promise<ReaderAnnotation[]> {
     const projectId = this.ctx.projectId;

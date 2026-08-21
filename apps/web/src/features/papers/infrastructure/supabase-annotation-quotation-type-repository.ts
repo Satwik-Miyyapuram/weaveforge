@@ -8,6 +8,7 @@ import type {
 } from "@weaveforge/core";
 import { isQuotationType } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
+import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type AnnotationQuotationTypeRow,
   toDomain,
@@ -15,20 +16,9 @@ import {
 
 const TABLE = "annotation_quotation_types";
 
-export class SupabaseAnnotationQuotationTypeRepository
-  implements IAnnotationQuotationTypeRepository
-{
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-    private readonly session: ICurrentUserProvider,
-  ) {}
-
-  private get projectId() {
-    const id = this.ctx.projectId;
-    if (!id) throw new Error("Select a project before managing quotation types.");
-    return id;
-  }
+export class SupabaseAnnotationQuotationTypeRepository extends ProjectScopedSupabaseRepository
+  implements IAnnotationQuotationTypeRepository {
+  protected readonly action = "managing quotation types";
 
   async save(input: SaveAnnotationQuotationTypeInput): Promise<AnnotationQuotationType> {
     if (!isQuotationType(input.quotationType)) {
