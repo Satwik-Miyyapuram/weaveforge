@@ -139,13 +139,12 @@ Two more rules the checker cannot see, so they are on you:
 
 ## Dependencies that look unused
 
-`@babel/runtime` is declared in `apps/web/package.json` and imported by no file
-in this repository, so dead-code tools report it as unused. It is not: the
+`@babel/runtime` used to be declared here with no importer, because the
 `@uiw/codemirror-theme-*` packages `require("@babel/runtime/helpers/extends")`
-without declaring it themselves, and removing it fails `next build` on a clean
-install with `Module not found: Can't resolve '@babel/runtime/helpers/extends'`.
-A local build can still pass with it removed, because the package is left behind
-in `node_modules` until the next install — trust CI here, not the local run.
+without declaring it. Both are gone now — the editor themes fenced code from
+the site's own CSS variables instead. The lesson outlived them: a dependency
+removal cannot be trusted against a local build, because the package stays in
+`node_modules` until the next install. Reinstall first, or let CI tell you.
 
 ## Testing hooks and providers
 
