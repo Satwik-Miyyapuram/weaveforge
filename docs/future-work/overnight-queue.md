@@ -137,7 +137,7 @@ Task 2 shipped without the normalisation the spec required. `findQuoteMatches` u
 - **Offsets must map back to the original string.** Callers need spans into the real text to highlight or scroll. Build an index map during normalisation and translate the match span back before returning. A span that only makes sense in normalised space is not useful.
 - Keep the existing exported function signatures working.
 
-**Tests** — extend `packages/core/test/anchor-resolution.test.ts`. Cover: quote stored with single spaces matching text containing a newline mid-phrase; text with doubled spaces; leading/trailing whitespace differences; a returned span that indexes correctly into the **original** (non-normalised) text; and confirmation that all existing tests still pass unchanged.
+**Tests** — extend `packages/core/test/reader/anchor-resolution.test.ts`. Cover: quote stored with single spaces matching text containing a newline mid-phrase; text with doubled spaces; leading/trailing whitespace differences; a returned span that indexes correctly into the **original** (non-normalised) text; and confirmation that all existing tests still pass unchanged.
 
 ---
 
@@ -162,7 +162,7 @@ The Semantic Scholar API exposes three fields on citation edges that we do not c
 - Do not change alert *delivery* (logbook entries, Mattermost). This task ends at the data being available on the candidate.
 - Do not change the polling budget (≤ 1 check per paper per day).
 
-**Tests** — extend `apps/web/src/features/relations/test/semantic-scholar-citation-alerts.test.ts` and, if the use-case surface changes, `packages/core/test/check-citation-alerts.usecase.test.ts`. Cover: all three fields present; all absent; `intents` present but `contexts` absent; malformed payload.
+**Tests** — extend `apps/web/src/features/relations/test/semantic-scholar-citation-alerts.test.ts` and, if the use-case surface changes, `packages/core/test/features/relations/check-citation-alerts.usecase.test.ts`. Cover: all three fields present; all absent; `intents` present but `contexts` absent; malformed payload.
 
 ---
 
