@@ -6,13 +6,6 @@ import {
   type AiReadCategory,
 } from "./ai-types.js";
 
-export const DEFAULT_AI_ACCESS_SETTINGS: AiAccessSettings = {
-  enabled: false,
-  readCategories: [],
-  proposalKinds: [],
-  autoIncludeNewSourceCategories: [],
-};
-
 function uniqueValid<T extends string>(values: readonly string[] | undefined, allowed: readonly T[]): T[] {
   const allowedSet = new Set<string>(allowed);
   return [...new Set((values ?? []).filter((value): value is T => allowedSet.has(value)))];

@@ -3,7 +3,5 @@
  * import from here only — never from internal paths.
  */
 export { AuthProvider, useAuth } from "./ui/auth-provider";
-export { AuthGate } from "./ui/auth-gate";
-export { SignOutButton } from "./ui/sign-out-button";
 export { SupabaseAuthService } from "./infrastructure/supabase-auth";
 export type { AuthUser, IAuthService } from "./domain/auth";
