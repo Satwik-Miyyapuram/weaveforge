@@ -10,7 +10,6 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
-  isEditableReaderTarget,
   readerKeyboardCommand,
   resolveTextAnchor,
   canJoinInkGroup,
@@ -22,10 +21,8 @@ import {
   translateInkPaths,
   HIGHLIGHTER_WIDTH,
   INK_DEFAULT_WIDTH,
-  type InkGroupCandidate,
   type PageProjection,
   type PageTextGeometry,
-  type PdfLocus,
   type AnchorConfidence,
   type ReaderContainerSize,
   type ReaderPageSize,
@@ -34,15 +31,15 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { savePdfText } from "@/features/search/infrastructure/pdf-text-store";
-import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../application/sanitize-reader-url";
-import { pageNumberFromSelection, selectionRangeFromDom } from "../application/dom-selection-range";
+import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
+import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
 import {
   appendInkStroke,
   draftFromTextSelection,
   draftImageRegion,
   draftInkAnnotation,
   draftTextBox,
-} from "../application/draft-local-annotation";
+} from "../../application/draft-local-annotation";
 import {
   annotationPinKey,
   applyAnnotationPatch,
@@ -51,224 +48,47 @@ import {
   PENDING_ANNOTATION_PREFIX,
   READER_ANNOTATION_COLORS,
   type ReaderCreateTool,
-} from "../application/reader-annotation-helpers";
-import { useReaderViewport } from "./use-reader-viewport";
-import { ReaderToolbar } from "./reader-toolbar";
-import { ReaderSearchBar } from "./reader-search-bar";
-import { ReaderOutline, type ReaderOutlineItem } from "./reader-outline";
-import { AnnotationOverlay } from "./annotation-overlay";
-import { bucketAnnotationsByPage } from "../application/project-annotation-geometry";
-import { AnnotationSidebar, type ReportSectionOption } from "./annotation-sidebar";
-import { SelectionCreateBar } from "./selection-create-bar";
-import type { QuotationType, ReaderAnnotation } from "@weaveforge/core";
-import { darkPdfCanvasFilter, shouldUseDarkPdfRendering } from "../application/reader-pdf-theme";
-import { backlinksForAnnotation, findAnnotationBacklinks, type AnnotationBacklinkHit } from "../application/annotation-backlinks";
+} from "../../application/reader-annotation-helpers";
+import { useReaderViewport } from "../use-reader-viewport";
+import { ReaderToolbar } from "../reader-toolbar";
+import { ReaderSearchBar } from "../reader-search-bar";
+import { ReaderOutline, type ReaderOutlineItem } from "../reader-outline";
+import { AnnotationOverlay } from "../annotation-overlay";
+import { bucketAnnotationsByPage } from "../../application/project-annotation-geometry";
+import { AnnotationSidebar, type ReportSectionOption } from "../annotation-sidebar";
+import { SelectionCreateBar } from "../selection-create-bar";
+import type { ReaderAnnotation } from "@weaveforge/core";
+import { darkPdfCanvasFilter, shouldUseDarkPdfRendering } from "../../application/reader-pdf-theme";
+import { backlinksForAnnotation, findAnnotationBacklinks, type AnnotationBacklinkHit } from "../../application/annotation-backlinks";
 import { Select } from "@/components/select";
-import { DraftShapeOverlay, SafeExternalLink, TextBoxComposer } from "./pdf-reader-overlays";
+import { DraftShapeOverlay, SafeExternalLink, TextBoxComposer } from "./overlays";
 
-type PdfLib = typeof import("pdfjs-dist");
-
-type PdfDocument = Awaited<ReturnType<PdfLib["getDocument"]>["promise"]>;
-
-type RenderTask = ReturnType<Awaited<ReturnType<PdfDocument["getPage"]>>["render"]>;
-
-/** Per-page resolve must ignore document-scoped position offsets. */
-function pageScopedLocus(locus: PdfLocus): PdfLocus {
-  return { quote: locus.quote };
-}
-
-/**
- * A mark being drawn right now, in PDF coordinates — either a freehand path
- * (flat x,y pairs, as `inkPath` holds them) or a dragged region.
- */
-export type DraftShape =
-  | { kind: "ink"; pageNumber: number; path: number[]; width: number; highlighter: boolean }
-  | { kind: "rect"; pageNumber: number; x0: number; y0: number; x1: number; y1: number };
-
-/** An ink annotation being extended stroke by stroke, so one mark is one row. */
-interface InkGroup extends InkGroupCandidate {
-  annotationId: string;
-}
-
-/** A selected ink annotation being dragged to a new place on its page. */
-interface InkMove {
-  annotationId: string;
-  pointerId: number;
-  pageNumber: number;
-  /** Where the drag started, in PDF user space. */
-  fromX: number;
-  fromY: number;
-  dx: number;
-  dy: number;
-}
-
-/** A drawn text-annotation region waiting for the user to type its contents. */
-interface PendingTextBox {
-  pageIndex: number;
-  pageHeight: number;
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-}
-
-interface TextItemGeometry {
-  str: string;
-  hasEOL?: boolean;
-  transform: number[];
-  width: number;
-  height: number;
-}
-
-interface PageText {
-  text: string;
-  items: { start: number; end: number; index: number }[];
-}
-
-export interface PdfReaderProps {
-  url: string;
-  originalUrl?: string;
-  locus?: PdfLocus;
-  /** 0-based page hint; when present the jump resolves there first. */
-  page?: number;
-  /** Projected reader annotations (Zotero and/or local). */
-  annotations?: import("@weaveforge/core").ReaderAnnotation[];
-  /**
-   * Hash of the PDF being rendered, when the source ladder knows it. Stored
-   * annotation rects are only trusted against a matching hash; empty on both
-   * sides means "unnamed local file", which is trusted.
-   */
-  contentHash?: string;
-  paperTitle?: string;
-  quotationTypes?: Map<string, QuotationType>;
-  /** When set, selection can create local annotations (R3 sink). */
-  paperId?: string;
-  onAnnotationsChange?: (
-    next: ReaderAnnotation[] | ((prev: ReaderAnnotation[]) => ReaderAnnotation[]),
-  ) => void;
-  onActivity?: (kind: string, message: string) => void;
-  /**
-   * Called instead of showing an error when a locally cached copy fails to
-   * open, so the owner can evict it and retry from the network.
-   */
-  onSourceFailure?: (failedUrl: string) => void;
-}
-
-interface JumpState {
-  status: "idle" | "searching" | "found" | "low" | "missed";
-  pageNumber?: number;
-  confidence?: AnchorConfidence;
-}
-
-/**
- * Below this (PDF user-space units, ≈ points) a text-box drag is treated as a
- * tap and the default box size is used instead — dragging a few pixels by
- * accident should not produce an invisible annotation.
- */
-const MIN_TEXT_BOX_PDF_SIZE = 8;
-
-/**
- * What the armed tool will do on release. "Clip a region" and "Write a note"
- * are both a dragged rectangle and look the same mid-drag, so the difference
- * has to be stated rather than inferred.
- */
-const CREATE_TOOL_HINTS: Record<ReaderCreateTool, string> = {
-  select: "Drag across text to highlight it. Drag a selected ink mark to move it.",
-  ink: "Draw freehand. Strokes drawn together stay one annotation.",
-  highlighter: "Sweep over the page with a broad translucent nib.",
-  erase: "Drag over ink to delete it.",
-  image: "Drag a box to clip that part of the page as a picture.",
-  text: "Drag a box, then type a note to sit there.",
-};
-
-/** How close, in PDF units, the eraser must pass to a stroke to remove it. */
-const ERASER_RADIUS = 6;
-
-/**
- * How far a drag must travel before it counts as moving an ink mark rather than
- * a click that selects it.
- */
-const INK_MOVE_THRESHOLD = 2;
-
-/** Stable empty array — a fresh `[]` per page would defeat memoisation. */
-const EMPTY_ANNOTATIONS: ReaderAnnotation[] = [];
-
-/** The pdf.js bundle is a megabyte; it is fetched once, on the first open. */
-let pdfLibPromise: Promise<PdfLib> | null = null;
-
-async function loadPdfLib(): Promise<PdfLib> {
-  if (!pdfLibPromise) {
-    pdfLibPromise = import("pdfjs-dist").then((lib) => {
-      lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-      return lib;
-    });
-  }
-  return pdfLibPromise;
-}
-
-function buildPageText(items: readonly { str: string; hasEOL?: boolean }[]): PageText {
-  let text = "";
-  const ranges: PageText["items"] = [];
-  items.forEach((item, index) => {
-    const start = text.length;
-    text += item.str;
-    ranges.push({ start, end: text.length, index });
-    if (item.hasEOL) text += "\n";
-  });
-  return { text, items: ranges };
-}
-
-function textItemsFromContent(content: { items: readonly unknown[] }): TextItemGeometry[] {
-  return content.items.flatMap((raw): TextItemGeometry[] => {
-    const it = raw as Partial<TextItemGeometry>;
-    if (typeof it.str !== "string" || !Array.isArray(it.transform)) return [];
-    return [
-      {
-        str: it.str,
-        hasEOL: Boolean((raw as { hasEOL?: boolean }).hasEOL),
-        transform: it.transform,
-        width: typeof it.width === "number" ? it.width : 0,
-        height: typeof it.height === "number" ? it.height : 0,
-      },
-    ];
-  });
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return isEditableReaderTarget(target);
-}
-
-async function mapOutline(
-  doc: PdfDocument,
-  nodes: readonly { title?: string; dest?: unknown; items?: unknown[] }[],
-): Promise<ReaderOutlineItem[]> {
-  const out: ReaderOutlineItem[] = [];
-  for (const node of nodes) {
-    let pageNumber: number | null = null;
-    try {
-      if (node.dest) {
-        const dest =
-          typeof node.dest === "string" ? await doc.getDestination(node.dest) : node.dest;
-        if (Array.isArray(dest) && dest[0]) {
-          const idx = await doc.getPageIndex(dest[0] as Parameters<PdfDocument["getPageIndex"]>[0]);
-          pageNumber = idx + 1;
-        }
-      }
-    } catch {
-      pageNumber = null;
-    }
-    const children = Array.isArray(node.items)
-      ? await mapOutline(doc, node.items as { title?: string; dest?: unknown; items?: unknown[] }[])
-      : undefined;
-    out.push({
-      title: node.title?.trim() || "Untitled",
-      pageNumber,
-      ...(children?.length ? { items: children } : {}),
-    });
-  }
-  return out;
-}
+import type {
+  DraftShape,
+  InkGroup,
+  InkMove,
+  JumpState,
+  PdfDocument,
+  PdfLib,
+  PdfReaderProps,
+  RenderTask,
+  PendingTextBox,
+} from "./types";
+import {
+  CREATE_TOOL_HINTS,
+  EMPTY_ANNOTATIONS,
+  ERASER_RADIUS,
+  INK_MOVE_THRESHOLD,
+  MIN_TEXT_BOX_PDF_SIZE,
+} from "./constants";
+import {
+  buildPageText,
+  isEditableTarget,
+  loadPdfLib,
+  mapOutline,
+  pageScopedLocus,
+  textItemsFromContent,
+} from "./pdf-document";
 
 export function PdfReader({
   url,

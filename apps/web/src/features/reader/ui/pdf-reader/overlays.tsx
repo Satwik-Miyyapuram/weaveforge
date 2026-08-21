@@ -2,9 +2,9 @@
 
 import { useState, type ReactNode } from "react";
 import { pdfPointToScreen, pdfRectToScreenBox, type PageProjection } from "@weaveforge/core";
-import { sanitizePdfUrl } from "../application/sanitize-reader-url";
+import { sanitizePdfUrl } from "../../application/sanitize-reader-url";
 import { Modal } from "@/components/modal";
-import { DraftShape } from "./pdf-reader";
+import type { DraftShape } from "./types";
 
 export function SafeExternalLink({ href, children }: { href: string; children: ReactNode }) {
   const safe = sanitizePdfUrl(href);

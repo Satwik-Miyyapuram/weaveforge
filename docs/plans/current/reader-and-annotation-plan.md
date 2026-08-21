@@ -35,7 +35,7 @@ Build on this; do not rediscover it.
 
 | Asset | Location | State |
 |---|---|---|
-| pdf.js render pane | `features/reader/ui/pdf-reader.tsx` | Canvas only, `IntersectionObserver` virtualisation, worker from `public/` |
+| pdf.js render pane | `features/reader/ui/pdf-reader/` | Canvas only, `IntersectionObserver` virtualisation, worker from `public/` |
 | Jump-to-locus | same | Quote-first, position fallback, low-confidence surfaced |
 | Anchor resolution | `packages/core/src/reader/anchor-resolution.ts` | Whitespace-normalised, maps spans back to original offsets |
 | **Dual anchor model** | `packages/core/src/reader/anchor-strategy.ts` | `CombinedPdfAnchor` = Zotero rects + W3C locus + `contentHash`. **Already write-back shaped** |
@@ -56,7 +56,7 @@ This needs stating plainly because the table above makes it look better than it 
 |---|---|
 | `chooseAnchorStrategy` / `CombinedPdfAnchor` | **No.** Only docs reference it |
 | `resolvePdfSource` (the ladder) | **No** |
-| The `position` half of `PdfLocus` | **No** — `pageScopedLocus()` in `pdf-reader.tsx` strips it before every resolve |
+| The `position` half of `PdfLocus` | **No** — `pageScopedLocus()` in `pdf-reader/pdf-document.ts` strips it before every resolve |
 
 What the reader actually does is call `resolveTextAnchor(pageText.text, pageScopedLocus(locus))` — **quote matching only**. The highlight boxes it draws are recomputed at render time from pdf.js text-item geometry (`Util.transform(viewport.transform, item.transform)`), not from any stored rect.
 
