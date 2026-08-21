@@ -53,10 +53,14 @@ jobs:
           # set behind a custom domain prefixes every asset with a path that
           # does not exist there.
           BASE_PATH: ""
-          # Where "Open the app" points. Set the APP_URL repository variable to
-          # the deployed app; without one, send visitors to the source instead
-          # of looping them back to this page.
-          NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL || format('https://github.com/{0}', github.repository) }}
+          # Where "Open the app" points. This page is a different origin from
+          # the product, so the link has to be absolute or it loops the visitor
+          # back to the marketing site. The default is the production app; set
+          # the APP_URL repository variable to send this build somewhere else.
+          # It must stay a URL that opens the app — a button labelled "Open the
+          # app" that lands on a source repository is a broken promise, which
+          # is exactly what the previous fallback did.
+          NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL || 'https://www.weaveforge.org' }}
         run: npm run build --workspace @weaveforge/pitch
 
       - uses: actions/upload-pages-artifact@v3
