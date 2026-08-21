@@ -3,6 +3,7 @@ import { bearerToken, blobRegistryForToken, userIdFromToken } from "@/storage/se
 import { blobContentUrl } from "@/storage/server/blob-view-token";
 import { readStorageConfig } from "@/storage/config";
 import { formatError } from "@/lib/format-error";
+import { clampTtlSeconds, MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
 
 export async function POST(request: Request) {
   if (readStorageConfig().provider !== "tiered") {
@@ -20,8 +21,14 @@ export async function POST(request: Request) {
   if (!body.bucket || !Array.isArray(body.paths)) {
     return NextResponse.json({ error: "bucket and paths are required." }, { status: 400 });
   }
+  if (body.paths.length > MAX_SIGNED_URL_PATHS) {
+    return NextResponse.json(
+      { error: `At most ${MAX_SIGNED_URL_PATHS} paths per request.` },
+      { status: 400 },
+    );
+  }
 
-  const ttlSeconds = body.ttlSeconds ?? 3600;
+  const ttlSeconds = clampTtlSeconds(body.ttlSeconds);
   const origin = new URL(request.url).origin;
 
   try {
