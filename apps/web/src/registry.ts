@@ -88,30 +88,6 @@ function buildNavGroupsFromModules(modules: readonly FeatureModule[]): NavGroup[
     .filter((g) => g.items.length > 0);
 }
 
-/** @deprecated Use {@link buildModuleRegistry} for env-aware nav. */
-export const modules: readonly FeatureModule[] = BUILTIN_MODULES;
-
-/** @deprecated Use {@link buildModuleRegistry} for env-aware nav. */
-export const shellModules: readonly FeatureModule[] = BUILTIN_SHELL_MODULES;
-
-/** @deprecated Use {@link buildModuleRegistry} for env-aware nav. */
-export const allModules: readonly FeatureModule[] = [...BUILTIN_MODULES, ...BUILTIN_SHELL_MODULES];
-
-/** @deprecated Use {@link buildModuleRegistry} for env-aware nav. */
-export const navItems = BUILTIN_MODULES.flatMap((m) => m.navItems);
-
-/** @deprecated Use {@link buildModuleRegistry} for env-aware nav. */
-export const homeNavItem: NavItem =
-  BUILTIN_MODULES.find((module) => module.id === "dashboard")?.navItems[0] ?? {
-    key: "dashboard",
-    label: "Home",
-    path: "/dashboard",
-    icon: "home",
-  };
-
-/** @deprecated Use {@link buildModuleRegistry} for env-aware nav. */
-export const navGroups: NavGroup[] = buildNavGroupsFromModules(BUILTIN_MODULES);
-
 /** The group whose members include the given path (longest-prefix match). */
 export function groupForPath(
   pathname: string | null | undefined,

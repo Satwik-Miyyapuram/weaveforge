@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { strFromU8 } from "fflate";
 import type { WorkspaceSnapshot } from "@weaveforge/core";
+import { emptyWorkspaceSnapshot } from "@weaveforge/core/testing";
 import { buildExportFiles } from "../application/export-user-data";
 
 /**
@@ -15,7 +16,7 @@ const PAGE_ID = "n1";
 const PAPER_ID = "p1";
 
 function snapshot(): WorkspaceSnapshot {
-  return {
+  return emptyWorkspaceSnapshot({
     papers: [
       {
         id: PAPER_ID,
@@ -31,17 +32,7 @@ function snapshot(): WorkspaceSnapshot {
         body: `Body text.\n\n![](vault:user-1/${PAGE_ID}/diagram.png)`,
       } as never,
     ],
-    readingLists: [],
-    readingListItems: [],
-    reportSections: [],
-    experiments: [],
-    milestones: [],
-    logEntries: [],
-    relations: [],
-    tags: [],
-    readerAnnotations: [],
-    collectedAt: "2026-08-05T00:00:00.000Z",
-  };
+  });
 }
 
 function assetReaders() {
