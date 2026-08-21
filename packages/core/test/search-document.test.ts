@@ -1,3 +1,4 @@
+import { emptyWorkspaceSnapshot as snapshot } from "../src/testing/index.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -10,24 +11,6 @@ import {
   toSearchDocs,
   type WorkspaceSnapshot,
 } from "../src/index.js";
-
-function snapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
-  return {
-    papers: [],
-    vaultPages: [],
-    readingLists: [],
-    readingListItems: [],
-    reportSections: [],
-    experiments: [],
-    milestones: [],
-    logEntries: [],
-    relations: [],
-    tags: [],
-    readerAnnotations: [],
-    collectedAt: "2026-08-05T00:00:00.000Z",
-    ...overrides,
-  };
-}
 
 const note = (over: Record<string, unknown> = {}) =>
   ({

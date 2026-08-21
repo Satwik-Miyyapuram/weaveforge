@@ -1,25 +1,8 @@
+import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { searchRevision, toPdfSearchDocs, toSearchDocs, type SearchDoc, type WorkspaceSnapshot } from "@weaveforge/core";
 import { SEARCH_SCHEMA_VERSION, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
-
-function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
-  return {
-    papers: [],
-    vaultPages: [],
-    readingLists: [],
-    readingListItems: [],
-    reportSections: [],
-    experiments: [],
-    milestones: [],
-    logEntries: [],
-    relations: [],
-    tags: [],
-    readerAnnotations: [],
-    collectedAt: "2026-08-05T00:00:00.000Z",
-    ...over,
-  };
-}
 
 const note = (id: string, title: string, body = "") =>
   ({

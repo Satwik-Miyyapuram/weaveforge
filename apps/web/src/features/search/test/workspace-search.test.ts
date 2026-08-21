@@ -1,3 +1,4 @@
+import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
@@ -9,24 +10,6 @@ import { WorkspaceSearch } from "@/features/search/application/workspace-search"
  * behaves as it would on a device with storage disabled — which is exactly the
  * surface these tests are about.
  */
-
-function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
-  return {
-    papers: [],
-    vaultPages: [],
-    readingLists: [],
-    readingListItems: [],
-    reportSections: [],
-    experiments: [],
-    milestones: [],
-    logEntries: [],
-    relations: [],
-    tags: [],
-    readerAnnotations: [],
-    collectedAt: "2026-08-05T00:00:00.000Z",
-    ...over,
-  };
-}
 
 const paper = (id: string, title: string) =>
   ({
