@@ -5,18 +5,7 @@ import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "./project-provider";
-
-/** Pull a readable message out of Error or a Supabase/PostgREST error object. */
-function errMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object") {
-    const e = err as { message?: string; hint?: string; details?: string; code?: string };
-    return [e.message, e.details, e.hint, e.code ? `(${e.code})` : ""]
-      .filter(Boolean)
-      .join(" — ") || JSON.stringify(err);
-  }
-  return String(err);
-}
+import { formatError } from "@/lib/format-error";
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
@@ -40,7 +29,7 @@ export function ProjectsScreen() {
       setAddOpen(false);
       setProject(p.id);
     } catch (err) {
-      setError(errMessage(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }

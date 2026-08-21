@@ -18,12 +18,6 @@ import { OrgSwitcher } from "./org-switcher";
 import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/org-api";
 import { formatError } from "@/lib/format-error";
 
-/** Pull a readable message out of Error or a Supabase/PostgREST error object. */
-function errMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
-
 /**
  * People / Organization panel. Embedded in Settings (not its own screen). Shows
  * your role and the full lab org chart, and — if your role permits — lets you
@@ -229,7 +223,7 @@ function CreateAccountForm({
       setPassword("");
       await onCreated();
     } catch (err) {
-      setError(errMessage(err));
+      setError(formatError(err));
     } finally {
       setBusy(false);
     }
