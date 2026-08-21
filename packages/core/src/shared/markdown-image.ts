@@ -53,3 +53,53 @@ export function imageExtensionForMime(mime: string): string {
   if (mime === "image/avif") return "avif";
   return "png";
 }
+
+/**
+ * Reading the refs back out.
+ *
+ * Finding the refs a surface owns, and turning a pasted `blob:` URL into a
+ * stored one, were written once per surface — vault, papers, report — and
+ * differed only in the prefix, exactly as `markdownImage` once did. `normalize`
+ * is passed in because the prefix list it knows about is vault-side, and this
+ * file is not the place to grow a second copy of it.
+ */
+export function imagePathsInBody(body: string, prefix: string, normalize: (b: string) => string): string[] {
+  const paths = new Set<string>();
+  const normalized = normalize(body);
+  /* Skeleton literal, prefix escaped: a pattern assembled entirely as a string
+     loses a backslash to one careless edit and then matches nothing, and a
+     regex that matches nothing reads as a note with no images. */
+  const re = new RegExp(
+    String.raw`!\[[^\]]*\]\(` + prefix.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`) + String.raw`([^)\s]+)\)`,
+    "g",
+  );
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(normalized)) !== null) paths.add(m[1]!);
+  return [...paths];
+}
+
+/** Upload every pasted `blob:` ref and rewrite it to a stored path. A stale
+    blob URL keeps its original ref: a broken image the user can see beats a
+    silent deletion from their own text. */
+export async function materializeBlobImages(
+  body: string,
+  ownerId: string,
+  upload: (ownerId: string, blob: Blob, ext: string) => Promise<string>,
+  prefix: string,
+  normalize: (b: string) => string,
+): Promise<string> {
+  const normalized = normalize(body);
+  let result = normalized;
+  for (const m of [...normalized.matchAll(/!\[([^\]]*)\]\((blob:[^)]+)\)/g)]) {
+    try {
+      const res = await fetch(m[2]!);
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      const path = await upload(ownerId, blob, imageExtensionForMime(blob.type));
+      result = result.replace(m[0], markdownImage(`${prefix}${path}`, m[1] ?? "image"));
+    } catch {
+      /* stale blob URL — keep the original ref */
+    }
+  }
+  return result;
+}

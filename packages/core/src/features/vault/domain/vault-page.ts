@@ -3,7 +3,7 @@
  * Pure, no I/O, no SDK imports.
  */
 
-import { markdownImage } from "../../../shared/markdown-image.js";
+import { imagePathsInBody, markdownImage } from "../../../shared/markdown-image.js";
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 
@@ -237,12 +237,5 @@ export function vaultBodyPreview(body: string, max = VAULT_BODY_PREVIEW_CHARS): 
 
 /** Collect unique vault asset paths referenced in markdown bodies. */
 export function vaultAssetPathsInBody(body: string): string[] {
-  const paths = new Set<string>();
-  const normalized = normalizeMarkdownImageSyntax(body);
-  const re = /!\[[^\]]*\]\(vault:([^)\s]+)\)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(normalized)) !== null) {
-    paths.add(m[1]!);
-  }
-  return [...paths];
+  return imagePathsInBody(body, VAULT_IMAGE_PREFIX, normalizeMarkdownImageSyntax);
 }
