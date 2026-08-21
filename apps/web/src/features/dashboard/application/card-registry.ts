@@ -52,6 +52,30 @@ export interface CardDef {
   maxSize: GridSize;
 }
 
+/* The three layouts every card is one of. Spelled out per card they read as
+   fourteen independent decisions when they are really three, which hides the
+   odd one out and makes "how big is a stat tile" a fourteen-line change. */
+const STAT_TILE = {
+  defaultSize: { w: 3, h: 2 },
+  defaultSizeSm: { w: 2, h: 2 },
+  minSize: { w: 2, h: 2 },
+  maxSize: { w: 6, h: 3 },
+} as const;
+
+const PANEL = {
+  defaultSize: { w: 6, h: 3 },
+  defaultSizeSm: { w: 4, h: 3 },
+  minSize: { w: 4, h: 3 },
+  maxSize: { w: 12, h: 6 },
+} as const;
+
+const TALL_PANEL = {
+  defaultSize: { w: 6, h: 4 },
+  defaultSizeSm: { w: 4, h: 5 },
+  minSize: { w: 4, h: 3 },
+  maxSize: { w: 12, h: 6 },
+} as const;
+
 export const CARD_REGISTRY: readonly CardDef[] = [
   {
     type: "reading-progress",
@@ -59,10 +83,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     group: "Progress",
     deps: ["papers"],
     isStat: true,
-    defaultSize: { w: 3, h: 2 },
-    defaultSizeSm: { w: 2, h: 2 },
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 6, h: 3 },
+    ...STAT_TILE,
   },
   {
     type: "report-progress",
@@ -70,10 +91,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     group: "Progress",
     deps: ["sections"],
     isStat: true,
-    defaultSize: { w: 3, h: 2 },
-    defaultSizeSm: { w: 2, h: 2 },
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 6, h: 3 },
+    ...STAT_TILE,
   },
   {
     type: "plan-progress",
@@ -81,10 +99,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     group: "Progress",
     deps: ["milestones"],
     isStat: true,
-    defaultSize: { w: 3, h: 2 },
-    defaultSizeSm: { w: 2, h: 2 },
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 6, h: 3 },
+    ...STAT_TILE,
   },
   {
     type: "experiments-summary",
@@ -92,20 +107,14 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     group: "Progress",
     deps: ["experiments"],
     isStat: true,
-    defaultSize: { w: 3, h: 2 },
-    defaultSizeSm: { w: 2, h: 2 },
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 6, h: 3 },
+    ...STAT_TILE,
   },
   {
     type: "needs-attention",
     label: "Needs attention",
     group: "Activity",
     deps: ["papers", "milestones", "experiments"],
-    defaultSize: { w: 6, h: 3 },
-    defaultSizeSm: { w: 4, h: 3 },
-    minSize: { w: 4, h: 3 },
-    maxSize: { w: 12, h: 6 },
+    ...PANEL,
   },
   {
     type: "recent-log",
@@ -123,10 +132,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     group: "Library",
     deps: ["papers", "relations", "lists"],
     isStat: true,
-    defaultSize: { w: 3, h: 2 },
-    defaultSizeSm: { w: 2, h: 2 },
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 6, h: 3 },
+    ...STAT_TILE,
   },
   {
     type: "top-tags",
@@ -144,10 +150,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     group: "Team",
     deps: ["supervision"],
     minRole: "phd",
-    defaultSize: { w: 6, h: 4 },
-    defaultSizeSm: { w: 4, h: 5 },
-    minSize: { w: 4, h: 3 },
-    maxSize: { w: 12, h: 6 },
+    ...TALL_PANEL,
   },
   {
     type: "team-attention",
@@ -155,10 +158,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     group: "Team",
     deps: ["supervision"],
     minRole: "phd",
-    defaultSize: { w: 6, h: 3 },
-    defaultSizeSm: { w: 4, h: 3 },
-    minSize: { w: 4, h: 3 },
-    maxSize: { w: 12, h: 6 },
+    ...PANEL,
   },
   {
     type: "supervisee-snapshot",
@@ -166,10 +166,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     group: "Team",
     deps: ["supervision"],
     minRole: "phd",
-    defaultSize: { w: 6, h: 4 },
-    defaultSizeSm: { w: 4, h: 5 },
-    minSize: { w: 4, h: 3 },
-    maxSize: { w: 12, h: 6 },
+    ...TALL_PANEL,
   },
 ];
 
