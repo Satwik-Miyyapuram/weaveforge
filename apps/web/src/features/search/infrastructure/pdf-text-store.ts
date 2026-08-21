@@ -11,7 +11,7 @@
  */
 
 import type { PdfIndexSource } from "@weaveforge/core";
-import { PDF_TEXT_STORE, openAppDb } from "@/lib/app-idb";
+import { PDF_TEXT_STORE, openAppDb } from "@/lib/cache/app-idb";
 
 /** Guard against one pathological document filling the user's quota. */
 const MAX_STORED_CHARS = 2_000_000;

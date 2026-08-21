@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { desktop, type DesktopUpdate } from "@/lib/desktop-bridge";
+import { desktop, type DesktopUpdate } from "@/lib/desktop/desktop-bridge";
 
 /**
  * Updates, for the desktop window only.

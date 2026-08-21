@@ -1,6 +1,6 @@
 "use client";
 
-import { useTheme } from "@/lib/use-theme";
+import { useTheme } from "@/lib/hooks/use-theme";
 
 /**
  * Light/dark theme toggle. Persists the choice in localStorage and flips

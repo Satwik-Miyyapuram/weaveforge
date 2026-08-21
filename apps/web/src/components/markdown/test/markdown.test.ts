@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderProseMarkdown } from "../markdown";
+import { renderProseMarkdown } from "@/components/markdown/markdown";
 
 test("renders inline and display equations locally", () => {
   const inline = renderProseMarkdown("The latent is $z = \\mu + \\sigma\\epsilon$.");

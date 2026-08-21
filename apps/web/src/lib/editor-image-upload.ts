@@ -3,7 +3,7 @@
 import { imageAltFromFilename, imageExtensionForMime } from "@weaveforge/core";
 import { compressImage } from "@/lib/image-compress";
 import { formatError } from "@/lib/format-error";
-import type { ImagePasteConfig } from "@/components/markdown-image-paste";
+import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 
 /**
  * The store-then-reference step every editing surface shares.

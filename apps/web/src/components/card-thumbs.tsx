@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import type { Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
+import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
 
 const MAX_THUMBS = 3;
 

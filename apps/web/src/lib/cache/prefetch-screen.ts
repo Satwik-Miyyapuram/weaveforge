@@ -1,4 +1,4 @@
-import { screenForPath } from "./screen-for-path";
+import { screenForPath } from "@/lib/screen-for-path";
 
 /** Warm screen data on tab hover (Phase 3). */
 export function prefetchScreenForPath(pathname: string): void {

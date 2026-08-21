@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { singleFlight } from "../single-flight";
+import { singleFlight } from "@/lib/cache/single-flight";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 

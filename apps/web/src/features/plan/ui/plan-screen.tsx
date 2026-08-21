@@ -11,9 +11,9 @@ import { Select } from "@/components/select";
 import { EntityCard } from "@/components/entity-card";
 import { EditIcon } from "@/components/view-icons";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
-import { useScreenData } from "@/lib/use-screen-data";
+import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
-import { usePinnedSharing } from "@/lib/use-pinned-sharing";
+import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { PlanScreenData } from "@/features/plan/application/load-plan-screen.use-case";
 import { formatError } from "@/lib/format-error";
 

@@ -16,7 +16,7 @@ import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
 import { graphFilterCount } from "../application/graph-view-settings";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
-import { useScreenData } from "@/lib/use-screen-data";
+import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";

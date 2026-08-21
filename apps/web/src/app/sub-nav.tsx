@@ -5,7 +5,7 @@ import { useNavPending } from "@/lib/nav-pending";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { buildModuleRegistry, groupForPath } from "@/registry";
 import { getContainer } from "@/bootstrap";
-import { prefetchScreenForPath } from "@/lib/prefetch-screen";
+import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 
 /**
  * Segmented sub-navigation for grouped sections (Library → Papers/Lists/Graph,

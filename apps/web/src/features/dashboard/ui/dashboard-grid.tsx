@@ -8,7 +8,7 @@ import "react-resizable/css/styles.css";
 
 import { getCardDef, isStatCard } from "../application/card-registry";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
-import { getRglBreakpoint } from "@/lib/use-layout-breakpoint";
+import { getRglBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import type { DashboardLayout, DashboardLayoutItem } from "@weaveforge/core";
 import {
   mergeRglPositions,

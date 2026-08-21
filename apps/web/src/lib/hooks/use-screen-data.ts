@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useProject } from "@/features/projects";
 import {
-  getScreenCache, isScreenCacheFresh, screenCacheKey, setScreenCache, } from "./screen-cache";
-import { idbGetScreenCache, idbSetScreenCache } from "./screen-cache-idb";
-import { perfNow, recordPerf, recordPerfSince } from "./perf";
+  getScreenCache, isScreenCacheFresh, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
+import { idbGetScreenCache, idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
+import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
 import { formatError } from "@/lib/format-error";
 
 /**

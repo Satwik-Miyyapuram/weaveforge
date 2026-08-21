@@ -7,8 +7,8 @@ import {
   insertPending,
   pendingInsertSupport,
   resolvePending,
-} from "./markdown-pending-insert";
-import { insertRemoteImage } from "./markdown-remote-paste";
+} from "@/components/markdown/markdown-pending-insert";
+import { insertRemoteImage } from "@/components/markdown/markdown-remote-paste";
 
 /**
  * Pasting and dropping images into a note.

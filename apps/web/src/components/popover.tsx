@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
+import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ChevronIcon } from "./chevron-icon";
 
 const VIEWPORT_PAD = 12;

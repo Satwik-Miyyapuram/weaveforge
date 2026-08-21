@@ -77,7 +77,7 @@ Our Catppuccin themes (Latte, Frappé, Mocha) are mapped exactly to the official
 
 Three appearance controls sit alongside the theme pickers in
 **Settings → Appearance**. All three are attributes on `<html>`, applied before
-first paint by the boot script in `apps/web/src/lib/theme.ts`.
+first paint by the boot script in `apps/web/src/lib/theme/theme.ts`.
 
 ### Surfaces — `data-surfaces`
 

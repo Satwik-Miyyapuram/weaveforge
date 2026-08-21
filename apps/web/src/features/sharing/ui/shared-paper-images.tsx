@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { getContainer } from "@/bootstrap";
-import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
+import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
 
 function imagePaths(metadata: Record<string, unknown> | undefined): string[] {
   const raw = metadata?.images;

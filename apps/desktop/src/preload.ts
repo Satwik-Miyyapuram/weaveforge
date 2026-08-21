@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { DesktopBridge, DesktopUpdate } from "@/lib/desktop-bridge";
+import type { DesktopBridge, DesktopUpdate } from "@/lib/desktop/desktop-bridge";
 import { CHANNELS, type ImagePayload, type IpcResult, type TitlePayload } from "./channels";
 
 /**

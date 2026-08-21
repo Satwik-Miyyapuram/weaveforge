@@ -1,4 +1,4 @@
-import { hasScreenCacheData, isScreenCacheFresh, screenCacheKey } from "./screen-cache";
+import { hasScreenCacheData, isScreenCacheFresh, screenCacheKey } from "@/lib/cache/screen-cache";
 
 /** Top-level list screens keyed for {@link useScreenData} cache lookups. */
 const ROUTE_SCREENS: readonly { prefix: string; screen: string }[] = [

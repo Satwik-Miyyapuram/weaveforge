@@ -7,7 +7,7 @@ import {
   THEME_CONFIG_MAX_BYTES,
   type ThemeConfig,
 } from "@weaveforge/core";
-import { persistThemeChange } from "@/lib/theme-persistence";
+import { persistThemeChange } from "@/lib/theme/theme-persistence";
 
 /**
  * Upload / remove a `config.json` theme file.

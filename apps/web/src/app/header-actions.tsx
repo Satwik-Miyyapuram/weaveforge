@@ -7,7 +7,7 @@ import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
-import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
+import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { accountLinks, type AccountLinkId } from "./account-links";
 
 

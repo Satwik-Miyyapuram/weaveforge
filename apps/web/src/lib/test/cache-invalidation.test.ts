@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cacheRepo } from "../cache-repo.js";
+import { cacheRepo } from "@/lib/cache/cache-repo";
 import {
   invalidateAllRepoCaches,
   invalidateForWrite,
   registerRepoCacheEntry,
   setActiveProjectIdForCache,
-} from "../project-lww-invalidator.js";
-import { getScreenCache, screenCacheKey, setScreenCache } from "../screen-cache.js";
+} from "@/lib/cache/project-lww-invalidator";
+import { getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/screen-cache";
 
 function makeRepo(name: string, resourceType?: string) {
   const cache = new Map<string, Promise<unknown>>();

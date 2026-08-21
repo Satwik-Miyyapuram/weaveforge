@@ -5,15 +5,15 @@ import { Compartment, type Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
 import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
-import type { ImagePasteConfig } from "@/components/markdown-image-paste";
+import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 import {
   markdownEditorExtensions,
   toCompletions,
-} from "@/components/markdown-editor-extensions";
-import { bindEditorHandle } from "@/components/markdown-editor-handle";
+} from "@/components/markdown/markdown-editor-extensions";
+import { bindEditorHandle } from "@/components/markdown/markdown-editor-handle";
 import type { EditorHandleRef } from "@/components/editor-handle";
-import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
-import type { CiteCompletion } from "@/lib/use-cite-links";
+import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemirror-theme";
+import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import { CollaborativeMarkdownEditor } from "./collaborative-markdown-editor.js";
 

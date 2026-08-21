@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/features/auth";
-import { hydrateThemeFromServer } from "@/lib/theme-persistence";
+import { hydrateThemeFromServer } from "@/lib/theme/theme-persistence";
 
 /** Sync theme preferences from the user settings row after sign-in. */
 export function ThemeSyncProvider({ children }: { children: React.ReactNode }) {

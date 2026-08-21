@@ -3,14 +3,14 @@
 import { useEffect, useRef } from "react";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/codemirror-theme";
-import type { CiteCompletion } from "@/lib/use-cite-links";
+import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemirror-theme";
+import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
-import { markdownEditorExtensions, toCompletions } from "./markdown-editor-extensions";
-import type { ImagePasteConfig } from "./markdown-image-paste";
-import { bindEditorHandle } from "./markdown-editor-handle";
-import type { EditorHandleRef } from "./editor-handle";
+import { markdownEditorExtensions, toCompletions } from "@/components/markdown/markdown-editor-extensions";
+import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
+import { bindEditorHandle } from "@/components/markdown/markdown-editor-handle";
+import type { EditorHandleRef } from "@/components/editor-handle";
 
 /**
  * Markdown editor — Lezer at edit time; @uiw/codemirror-themes matched to site theme.

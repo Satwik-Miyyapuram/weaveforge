@@ -3,7 +3,7 @@ import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { AppShell } from "./app-shell";
-import { THEME_BOOT_SCRIPT } from "@/lib/theme";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
 import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";

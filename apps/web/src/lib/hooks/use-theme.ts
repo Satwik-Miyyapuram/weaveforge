@@ -4,13 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import {
   readStoredThemeIds,
   type ThemeMode,
-} from "@/lib/theme";
-import { persistThemeChange } from "@/lib/theme-persistence";
+} from "@/lib/theme/theme";
+import { persistThemeChange } from "@/lib/theme/theme-persistence";
 
 // Defined in a leaf module so listeners need not pull the persistence
 // layer (and the app container behind it) along with them. Re-exported
 // because callers have always reached for it through this module.
-import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
+import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 
 export { THEME_CHANGE_EVENT };
 

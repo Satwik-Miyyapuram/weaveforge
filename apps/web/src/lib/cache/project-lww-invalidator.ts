@@ -10,11 +10,11 @@ import {
   isScopedCacheInvalidationEnabled,
   WRITE_INVALIDATION_MAP,
   type ResourceType,
-} from "./cache-invalidation-map.js";
+} from "@/lib/cache/cache-invalidation-map";
 import {
   clearAllScreenCaches,
   clearScreenCachesForScreens,
-} from "./screen-cache.js";
+} from "@/lib/cache/screen-cache";
 
 type RepoCache = Map<string, Promise<unknown>>;
 type RepoSettled = Map<string, unknown>;

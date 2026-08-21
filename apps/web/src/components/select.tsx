@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useId, useState, useRef, useEffect } from "react";
-import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
+import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { createPortal } from "react-dom";
 
 interface MenuRect {

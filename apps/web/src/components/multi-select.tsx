@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
+import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 
 interface Option {
   value: string;

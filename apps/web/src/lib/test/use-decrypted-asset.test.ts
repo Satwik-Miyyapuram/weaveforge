@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderHook } from "./react-harness.js";
-import { useDecryptedObjectUrls } from "../use-decrypted-asset.js";
+import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
 
 /** Records every path the hook asks for, so re-fetches show up as duplicates. */
 function trackingFetcher() {

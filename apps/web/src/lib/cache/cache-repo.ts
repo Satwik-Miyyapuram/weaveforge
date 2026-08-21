@@ -12,8 +12,8 @@
  * in-flight promise (deduped). Settled reads are returned without re-fetching.
  * A failed read is not cached.
  */
-import type { ResourceType } from "./cache-invalidation-map.js";
-import { cacheWriteNotify, registerRepoCacheEntry } from "./project-lww-invalidator.js";
+import type { ResourceType } from "@/lib/cache/cache-invalidation-map";
+import { cacheWriteNotify, registerRepoCacheEntry } from "@/lib/cache/project-lww-invalidator";
 
 export type CacheRepoOpts = {
   resourceType?: ResourceType;

@@ -15,12 +15,12 @@ import {
   lineNumbers,
   placeholder as cmPlaceholder,
 } from "@codemirror/view";
-import { createCodeMirrorThemeForSite } from "@/lib/codemirror-theme";
-import { pasteCleanup, pasteCleanupKeymap } from "./markdown-paste-cleanup";
-import { imagePaste, type ImagePasteConfig } from "./markdown-image-paste";
-import { pendingInsertSupport } from "./markdown-pending-insert";
+import { createCodeMirrorThemeForSite } from "@/lib/theme/codemirror-theme";
+import { pasteCleanup, pasteCleanupKeymap } from "@/components/markdown/markdown-paste-cleanup";
+import { imagePaste, type ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
+import { pendingInsertSupport } from "@/components/markdown/markdown-pending-insert";
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
-import type { CiteCompletion } from "@/lib/use-cite-links";
+import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import { formatPaperCitation } from "@/features/overleaf/application/build-overleaf-export";
 import type { Paper, PasteSettings } from "@weaveforge/core";

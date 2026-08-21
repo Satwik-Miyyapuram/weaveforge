@@ -13,7 +13,7 @@ import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
 import { hasActiveLab, needsDisclaimerAcceptance, needsStandaloneRoleSync } from "@weaveforge/core";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
-import { singleFlight } from "@/lib/single-flight";
+import { singleFlight } from "@/lib/cache/single-flight";
 
 export interface StartupSnapshot {
   settings: UserSettings | null;

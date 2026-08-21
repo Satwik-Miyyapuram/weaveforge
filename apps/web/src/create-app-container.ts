@@ -82,8 +82,8 @@ import {
   configureProjectCacheHooks,
   ProjectLwwInvalidator,
   setActiveProjectIdForCache,
-} from "@/lib/project-lww-invalidator";
-import { registerSessionReset } from "@/lib/clear-session-caches";
+} from "@/lib/cache/project-lww-invalidator";
+import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 import { PassthroughBlobStore } from "@/storage/passthrough-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
