@@ -14,6 +14,7 @@ import type { AppContainer } from "@/bootstrap";
 import { hasActiveLab, needsDisclaimerAcceptance, needsStandaloneRoleSync } from "@weaveforge/core";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
 import { singleFlight } from "@/lib/cache/single-flight";
+import { formatError } from "@/lib/format-error";
 
 export interface StartupSnapshot {
   settings: UserSettings | null;
@@ -22,6 +23,15 @@ export interface StartupSnapshot {
   labMembers: Member[];
   memberships: OrgMembershipView[];
   needsPrivacyAccept: boolean;
+  /**
+   * Why the settings read failed, when it did.
+   *
+   * A failed read is not the same fact as "no disclaimer row yet", and
+   * collapsing the two put a user whose data API was unreachable in front of
+   * the disclaimer modal — whose accept button then wrote through that same
+   * unreachable API and reported the raw fetch failure, with no way forward.
+   */
+  settingsError: string | null;
 }
 
 interface StartupState {
@@ -36,6 +46,12 @@ interface StartupState {
   gateReady: boolean;
   /** The current disclaimer verdict; only meaningful once `gateReady`. */
   needsPrivacyAccept: boolean;
+  /**
+   * Set when the settings read failed, so the disclaimer state is unknown.
+   * The shell shows this instead of a modal whose accept would fail the same
+   * way.
+   */
+  settingsError: string | null;
   snapshot: StartupSnapshot | null;
   refreshProfile: () => Promise<void>;
 }
@@ -92,7 +108,11 @@ async function loadStartupBundleUncached(
      * data stream in behind them, instead of holding everything for the whole
      * bundle.
      */
-    onDecision?: (needsPrivacyAccept: boolean, settings: UserSettings | null) => void;
+    onDecision?: (
+      needsPrivacyAccept: boolean,
+      settings: UserSettings | null,
+      settingsError: string | null,
+    ) => void;
   },
 ): Promise<StartupSnapshot> {
   void userId;
@@ -116,7 +136,11 @@ async function loadStartupBundleUncached(
   // whole app for a failure that is deliberately not fatal.
   const provisionedPromise = light.selfProvisioner.ensureProvisioned().catch(() => undefined);
 
-  const settingsPromise = light.settings.getMetadata().catch(() => null);
+  let settingsError: string | null = null;
+  const settingsPromise = light.settings.getMetadata().catch((err: unknown) => {
+    settingsError = formatError(err);
+    return null;
+  });
 
   // Only three things were ever serial on the critical path: auth, then
   // settings, then the org batch — settings gating the batch by the
@@ -139,9 +163,13 @@ async function loadStartupBundleUncached(
   // disclaimer rather than a blank screen — the accept below reports the real
   // failure if there is one.
   await provisionedPromise;
-  const needsPrivacyAccept = settings ? needsDisclaimerAcceptance(settings) : true;
+  // A read that failed proves nothing, so it must not answer this question:
+  // only a read that came back empty means "never accepted". The caller
+  // renders the failure instead of a modal it cannot get past.
+  const needsPrivacyAccept =
+    settingsError !== null ? false : settings ? needsDisclaimerAcceptance(settings) : true;
   // The gate can decide now; the org batch below no longer blocks the shell.
-  opts?.onDecision?.(needsPrivacyAccept, settings);
+  opts?.onDecision?.(needsPrivacyAccept, settings, settingsError);
 
   if (needsPrivacyAccept) {
     void containerPromise.catch(() => undefined);
@@ -154,6 +182,7 @@ async function loadStartupBundleUncached(
       labMembers: [],
       memberships: [],
       needsPrivacyAccept: true,
+      settingsError,
     };
   }
 
@@ -167,6 +196,7 @@ async function loadStartupBundleUncached(
     labMembers,
     memberships,
     needsPrivacyAccept: false,
+    settingsError,
   };
 }
 
@@ -250,8 +280,11 @@ export function StartupProvider({
     return cached?.settings ? needsDisclaimerAcceptance(cached.settings) : true;
   });
 
-  const applyDecision = useCallback((needs: boolean) => {
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  const applyDecision = useCallback((needs: boolean, error: string | null = null) => {
     setNeedsPrivacyAccept(needs);
+    setSettingsError(error);
     setGateReady(true);
   }, []);
 
@@ -262,12 +295,12 @@ export function StartupProvider({
       userId,
       {
         assumeAccepted: cacheProvesAccepted(readCachedSnapshot(userId)),
-        onDecision: applyDecision,
+        onDecision: (needs, _settings, error) => applyDecision(needs, error),
       },
       loadBundle,
     );
     setSnapshot(next);
-    writeCachedSnapshot(userId, next);
+    if (!next.settingsError) writeCachedSnapshot(userId, next);
   }, [userId, applyDecision, loadBundle]);
 
   useEffect(() => {
@@ -283,8 +316,8 @@ export function StartupProvider({
       userId,
       {
         assumeAccepted: cacheProvesAccepted(cached),
-        onDecision: (needs) => {
-          if (active) applyDecision(needs);
+        onDecision: (needs, _settings, error) => {
+          if (active) applyDecision(needs, error);
         },
       },
       loadBundle,
@@ -298,9 +331,10 @@ export function StartupProvider({
         // this the gate never becomes ready and the shell sits on its loader
         // forever. Resolving the decision from the settled bundle costs the
         // second caller only the early-decision head start.
-        applyDecision(data.needsPrivacyAccept);
+        applyDecision(data.needsPrivacyAccept, data.settingsError);
         setSnapshot(data);
-        writeCachedSnapshot(userId, data);
+        // A snapshot built on a failed read is not an answer worth remembering.
+        if (!data.settingsError) writeCachedSnapshot(userId, data);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -311,8 +345,8 @@ export function StartupProvider({
   }, [userId, applyDecision, loadBundle]);
 
   const value = useMemo(
-    () => ({ loading, gateReady, needsPrivacyAccept, snapshot, refreshProfile }),
-    [loading, gateReady, needsPrivacyAccept, snapshot, refreshProfile],
+    () => ({ loading, gateReady, needsPrivacyAccept, settingsError, snapshot, refreshProfile }),
+    [loading, gateReady, needsPrivacyAccept, settingsError, snapshot, refreshProfile],
   );
 
   return <StartupContext.Provider value={value}>{children}</StartupContext.Provider>;
