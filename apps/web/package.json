@@ -34,9 +34,9 @@
     "migrate": "./scripts/migrate-to-oracle.sh"
   },
   "dependencies": {
-    "@babel/runtime": "^8.0.0",
     "@aws-sdk/client-s3": "^3.1085.0",
     "@aws-sdk/s3-request-presigner": "^3.1085.0",
+    "@babel/runtime": "^8.0.0",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-markdown": "^6.5.0",
@@ -76,6 +76,7 @@
     "yjs": "^13.6.31"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.5",
     "@next/bundle-analyzer": "^16.2.11",
     "@types/d3-force": "^3.0.10",
     "@types/node": "^20.0.0",
@@ -91,7 +92,6 @@
     "react-test-renderer": "^18.3.1",
     "serwist": "^9.5.12",
     "tsx": "^4.23.0",
-    "typescript": "^5.5.0",
-    "ws": "^8.18.0"
+    "typescript": "^5.5.0"
   }
 }

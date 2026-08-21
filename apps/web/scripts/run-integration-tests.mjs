@@ -21,7 +21,7 @@ if (files.length === 0) {
 
 const result = spawnSync(
   process.execPath,
-  ["--import", "tsx", "--import", "./scripts/load-test-env.ts", "--test", ...files],
+  ["--import", "tsx", "--test", ...files],
   { stdio: "inherit" },
 );
 process.exit(result.status ?? 1);

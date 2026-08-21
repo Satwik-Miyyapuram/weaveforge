@@ -101,11 +101,19 @@ test("the relay never sees plaintext, even for a call it cannot open", async () 
   assert.deepEqual(h.patches, [{ id: "r-1", status: "cancelled" }]);
 });
 
-test("a refused tool call is cancelled, not left to expire", async () => {
+test("a refused tool call is answered with the refusal, not cancelled", async () => {
+  // Cancelling told the caller only that the call went nowhere. The reason is
+  // the user's own policy, not a secret, and without it the model cannot tell
+  // "not allowed" from "the browser went away" and retries the same call.
   const h = await harness();
   const request = await seal(h.key, { tool: "rm_minus_rf", arguments: {} });
   await handleRelayBatch(h.deps, [row("r-1", request)]);
-  assert.deepEqual(h.patches, [{ id: "r-1", status: "cancelled" }]);
+
+  assert.equal(h.patches.length, 1);
+  assert.equal(h.patches[0]!.status, undefined, "a refusal is delivered, not cancelled");
+  assert.deepEqual(await open(h.key, h.patches[0]!.envelope as { iv: string; ciphertext: string }), {
+    weaveforgeError: "This MCP tool is not enabled for this deployment.",
+  });
 });
 
 test("delivery is retried with backoff, and a dispatched call is never cancelled", async () => {
@@ -154,7 +162,8 @@ test("one bad row does not stop the rest of the batch", async () => {
   const bad = await seal(h.key, { tool: "not_a_tool", arguments: {} });
   await handleRelayBatch(h.deps, [row("r-1", bad), row("r-2", good)]);
 
-  assert.deepEqual(h.patches[0], { id: "r-1", status: "cancelled" });
+  assert.equal(h.patches[0]!.id, "r-1");
+  assert.ok(h.patches[0]!.envelope, "the bad row gets its refusal");
   assert.equal(h.patches[1]!.id, "r-2");
   assert.ok(h.patches[1]!.envelope, "the healthy row still gets its answer");
 });
@@ -187,7 +196,7 @@ test("an envelope sealed exactly as the local MCP server seals it opens here, an
 
 test("a cancel that itself fails does not take the batch down with it", async () => {
   const h = await harness({ patchOk: (body) => (body.status === "cancelled" ? "throw" : true) });
-  const bad = await seal(h.key, { tool: "not_a_tool", arguments: {} });
+  const bad = await seal(await sessionKeyFor("a-different-secret"), { tool: "not_a_tool", arguments: {} });
   const good = await seal(h.key, { tool: "search_workspace", arguments: { query: "attention" } });
   await assert.doesNotReject(() => handleRelayBatch(h.deps, [row("r-1", bad), row("r-2", good)]));
   assert.ok(h.patches[1]!.envelope);

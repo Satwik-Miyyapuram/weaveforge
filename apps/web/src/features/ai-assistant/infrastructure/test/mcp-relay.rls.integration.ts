@@ -1,94 +1,73 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { createClient } from "@supabase/supabase-js";
-import { WebSocket as NodeWebSocket } from "ws";
+import { testDb } from "@/backend/test/pg-test-db";
 
-function env(...names: string[]): string | undefined {
-  return names.map((name) => process.env[name]).find(Boolean);
-}
+/**
+ * The relay's own policies, against the real migrations.
+ *
+ * This used to need a live Supabase project and two disposable accounts, so
+ * without secrets it skipped and proved nothing. It now runs on an in-process
+ * Postgres with the shipped SQL applied — see backend/test/pg-test-db.ts for
+ * what that does and does not stand in for.
+ */
 
-test("MCP relay and proposal RLS isolate private AI records between authenticated users", async (t) => {
-  const url = env("WEAVEFORGE_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
-  const key = env("WEAVEFORGE_SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  const emailA = env("WEAVEFORGE_EMAIL", "TT_A_EMAIL", "TEST_ACCOUNT_EMAIL_PRIMARY");
-  const emailB = env("WEAVEFORGE_B_EMAIL", "TT_B_EMAIL", "TEST_ACCOUNT_EMAIL_SECONDARY");
-  const passwordA = env("WEAVEFORGE_PASSWORD", "TT_A_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD");
-  const passwordB = env("WEAVEFORGE_B_PASSWORD", "TT_B_PASSWORD", "E2E_TEST_PASSWORD", "TEST_ACCOUNT_PASSWORD");
-  if (!url || !key || !emailA || !emailB || !passwordA || !passwordB) {
-    t.diagnostic("Skipping — configure Supabase URL/key and two disposable test users");
-    return;
-  }
+test("MCP relay and proposal RLS isolate private AI records between authenticated users", async () => {
+  const db = await testDb();
+  const owner = await db.createUser();
+  const other = await db.createUser();
+  const sessionId = crypto.randomUUID();
 
-  const makeClient = () => createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    realtime: { transport: NodeWebSocket as unknown as typeof WebSocket },
-  });
-  const owner = makeClient();
-  const other = makeClient();
-  assert.ifError((await owner.auth.signInWithPassword({ email: emailA, password: passwordA })).error);
-  assert.ifError((await other.auth.signInWithPassword({ email: emailB, password: passwordB })).error);
-  const { data: { session: ownerSession } } = await owner.auth.getSession();
-  assert.ok(ownerSession?.access_token);
-  const headerAuthenticatedOwner = createClient(url, key, {
-    global: { headers: { Authorization: `Bearer ${ownerSession.access_token}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const [inserted] = await db.as(owner).sql<{ id: string; user_id: string }>(
+    `insert into ai_mcp_relay_requests (session_id, request_enc, expires_at)
+     values ($1, $2, now() + interval '60 seconds') returning id, user_id`,
+    [sessionId, JSON.stringify({ iv: "opaque-test", ciphertext: "opaque-test" })],
+  );
+  assert.equal(inserted!.user_id, owner, "user_id must come from auth.uid(), not the client");
 
-  const relaySessionId = randomUUID();
-  const { data: inserted, error: insertError } = await owner.from("ai_mcp_relay_requests").insert({
-    session_id: relaySessionId,
-    request_enc: { iv: "opaque-test", ciphertext: "opaque-test" },
-    expires_at: new Date(Date.now() + 60_000).toISOString(),
-  }).select("id").single();
-  assert.ifError(insertError);
-  assert.ok(inserted?.id);
-  const proposalId = randomUUID();
-  const { error: proposalError } = await owner.from("ai_proposals").insert({
-    id: proposalId, kind: "append_paper_note", status: "pending", resource_type: "paper_note",
-    resource_id: randomUUID(), content: { body: "opaque-test", sourceLinks: [] },
-  });
-  assert.ifError(proposalError);
+  const proposalId = crypto.randomUUID();
+  await db.as(owner).sql(
+    `insert into ai_proposals (id, kind, status, resource_type, resource_id, content)
+     values ($1, 'append_paper_note', 'pending', 'paper_note', $2, $3)`,
+    [proposalId, crypto.randomUUID(), JSON.stringify({ body: "opaque-test", sourceLinks: [] })],
+  );
 
-  try {
-    const { data: claimed, error: claimError } = await owner.rpc("claim_ai_mcp_relay_requests", { p_session_id: relaySessionId, p_limit: 1 });
-    assert.ifError(claimError);
-    assert.equal(claimed?.[0]?.id, inserted.id, "owners can atomically claim only their pending relay request");
+  const claimed = await db.as(owner).sql<{ id: string }>(
+    "select id from claim_ai_mcp_relay_requests($1, 1)", [sessionId],
+  );
+  assert.deepEqual(claimed.map((row) => row.id), [inserted!.id], "an owner atomically claims their own pending request");
+  assert.deepEqual(
+    await db.as(owner).sql("select id from claim_ai_mcp_relay_requests($1, 1)", [sessionId]),
+    [], "a claimed request is never handed out twice",
+  );
 
-    const headerSessionId = randomUUID();
-    const { data: headerInserted, error: headerInsertError } = await headerAuthenticatedOwner.from("ai_mcp_relay_requests").insert({
-      session_id: headerSessionId, request_enc: { iv: "opaque-test", ciphertext: "opaque-test" },
-      expires_at: new Date(Date.now() + 60_000).toISOString(),
-    }).select("id").single();
-    assert.ifError(headerInsertError);
-    const { data: headerClaimed, error: headerClaimError } = await headerAuthenticatedOwner.rpc("claim_ai_mcp_relay_requests", { p_session_id: headerSessionId, p_limit: 1 });
-    assert.ifError(headerClaimError);
-    assert.equal(headerClaimed?.[0]?.id, headerInserted?.id, "header-authenticated clients can atomically claim their relay request");
-    await owner.from("ai_mcp_relay_requests").delete().eq("id", headerInserted?.id ?? "");
+  // Everything below is the other user, who owns none of it.
+  assert.deepEqual(
+    await db.as(other).sql("select id from ai_mcp_relay_requests where id = $1", [inserted!.id]),
+    [], "relay envelopes must not be readable across users",
+  );
+  assert.deepEqual(
+    await db.as(other).sql("update ai_mcp_relay_requests set status = 'cancelled' where id = $1 returning id", [inserted!.id]),
+    [], "a foreign user must not cancel someone's relay request",
+  );
+  assert.deepEqual(
+    await db.as(other).sql("select id from ai_proposals where id = $1", [proposalId]),
+    [], "pending proposals must not be readable across users",
+  );
+  assert.deepEqual(
+    await db.as(other).sql("select id from claim_ai_mcp_relay_requests($1, 5)", [sessionId]),
+    [], "the claim function is security invoker, so it claims nothing for a stranger",
+  );
+  await assert.rejects(
+    () => db.as(other).sql(
+      `insert into ai_audit_records (id, proposal_id, action, content) values ($1, $2, 'rejected', $3)`,
+      [crypto.randomUUID(), proposalId, JSON.stringify({ reason: "opaque-test" })],
+    ),
+    "a foreign user must not attach audit records to another user's proposal",
+  );
 
-    const { data: foreignRead, error: foreignReadError } = await other
-      .from("ai_mcp_relay_requests").select("id").eq("id", inserted.id);
-    assert.ifError(foreignReadError);
-    assert.deepEqual(foreignRead, []);
-
-    const { data: foreignUpdate, error: foreignUpdateError } = await other
-      .from("ai_mcp_relay_requests").update({ status: "cancelled" }).eq("id", inserted.id).select("id");
-    assert.ifError(foreignUpdateError);
-    assert.deepEqual(foreignUpdate, []);
-
-    const { data: foreignProposal, error: foreignProposalError } = await other
-      .from("ai_proposals").select("id, content").eq("id", proposalId);
-    assert.ifError(foreignProposalError);
-    assert.deepEqual(foreignProposal, []);
-
-    const { error: crossOwnerAuditError } = await other.from("ai_audit_records").insert({
-      id: randomUUID(), proposal_id: proposalId, action: "rejected", content: { reason: "opaque-test" },
-    });
-    assert.ok(crossOwnerAuditError, "foreign users must not attach audit records to another user's proposal");
-  } finally {
-    await owner.from("ai_mcp_relay_requests").delete().eq("id", inserted.id);
-    await owner.from("ai_proposals").delete().eq("id", proposalId);
-    await owner.auth.signOut();
-    await other.auth.signOut();
-  }
+  // Untouched by all of that.
+  const [survivor] = await db.as(owner).sql<{ status: string }>(
+    "select status from ai_mcp_relay_requests where id = $1", [inserted!.id],
+  );
+  assert.equal(survivor!.status, "claimed");
 });

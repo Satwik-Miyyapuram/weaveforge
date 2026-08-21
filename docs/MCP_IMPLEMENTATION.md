@@ -52,6 +52,10 @@ write after approval, and an encrypted audit entry records the outcome.
 - Requests are owner-scoped, short-lived, size-limited, and atomically claimed
   with a conditional `pending → claimed` update,
   and stop on expiry, revocation, encryption lock, or sign-out.
+- A refused call is answered with its reason, sealed under the same key, so a
+  client learns it was denied rather than watching the request expire. The
+  relay still sees only ciphertext; a call the browser cannot even decrypt is
+  cancelled, because there is nothing to answer with.
 - MCP tokens are revocable and grant no direct database, storage, account, or
   credential access.
 - Third-party credentials remain client-encrypted and are sent directly to
@@ -67,6 +71,10 @@ write after approval, and an encrypted audit entry records the outcome.
   `AI_TOOL_NAMES` without being declared in the plugin server.
 - Unit tests: policy gates, grants, bounded retrieval, proposals, executors,
   and relay lifecycle.
+- Live loop: `mcp-live-loop.test.ts` runs the shipped stdio server against the
+  real browser-side claim, decrypt, and dispatch path, with the relay standing
+  on an in-memory store and encryption forced unlocked. It needs no credentials,
+  so it runs in CI, and it covers the one seam the unit tests sit either side of.
 - Supabase RLS integration: owner isolation and atomic relay claims.
 - Browser E2E: opt-in, encrypted browser-approved read, revocation, and
   sign-out stopping a live relay.

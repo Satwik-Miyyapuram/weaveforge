@@ -171,13 +171,40 @@ Two things worth knowing before writing one:
 Prefer moving a rule into a pure module and testing that; render only when the
 thing under test *is* the React wiring.
 
+## Schema and RLS tests
+
+`npm run test:integration:web` runs the `*.integration.ts` files under
+`apps/web/src/features`. They need no Supabase project, no accounts and no
+secrets: [`backend/test/pg-test-db.ts`](../apps/web/src/backend/test/pg-test-db.ts)
+starts an in-process Postgres (PGlite), applies every file in
+`supabase/migrations` in order, and lets a test act as a user id:
+
+```ts
+const db = await testDb();
+const owner = await db.createUser();
+await db.as(owner).sql("insert into projects (name) values ('x')");
+```
+
+`db.as(uid)` runs as the `authenticated` role with `auth.uid()` answering that
+id, which is what every policy is written against. It does **not** stand in for
+Supabase auth itself — issuing and validating a JWT is GoTrue's job, and nothing
+here tests it. Two consequences worth knowing:
+
+- A migration that cannot apply to a clean database now fails a test rather than
+  a deploy.
+- Table privileges are granted to `anon`/`authenticated`/`service_role` up front,
+  the way Supabase does, so a failing query means a policy refused it and not
+  that a grant was missing.
+
+These tests run in `check:all` and on every PR.
+
 ## Merging to `main`
 
 `main` is **protected**. Before a PR can merge:
 
 | Required check | What it runs |
 |----------------|--------------|
-| **build-and-test** | `npm run build:core`, core + web tests, Supabase contract tests, typecheck, `check:boundaries` (`check:solid`, `check:dry`, `check:api-route-tests`, `check:ui`, `check:hygiene`, `check:mcp-plugin`), lint, Next.js build, `check:deployment-surface` |
+| **build-and-test** | `npm run build:core`, core + web tests, schema and RLS tests, typecheck, `check:boundaries` (`check:solid`, `check:dry`, `check:api-route-tests`, `check:ui`, `check:hygiene`, `check:mcp-plugin`), lint, Next.js build, `check:deployment-surface` |
 | **python-sdk** | ruff, mypy, pytest |
 | **dco** | [`scripts/check-dco.sh`](../scripts/check-dco.sh) — every commit the PR adds carries a `Signed-off-by:` line naming its own author. Commit with `git commit -s`; sign off a branch already written with `git rebase --signoff origin/main`. Reads only what the PR adds, so the unsigned history before the check is not its business. |
 

@@ -15,12 +15,12 @@ change must extend the relevant row or add a new one before it ships.
 | Share links are single-purpose, revocable, and expire | Core unit | `share-link.test.ts` |
 | MCP access is default-off and source-scoped | Core + Playwright | AI access policy/grant tests, `ai-mcp-access.spec.ts` |
 | Pairing secrets are masked in the UI | Playwright | `ai-mcp-access.spec.ts` |
-| MCP relay records cannot cross user boundaries | Supabase integration | `mcp-relay.rls.integration.ts` |
-| Another user cannot attach an audit record to a foreign proposal | Supabase integration | `mcp-relay.rls.integration.ts` |
+| MCP relay records cannot cross user boundaries | Schema + RLS | `mcp-relay.rls.integration.ts` |
+| Another user cannot attach an audit record to a foreign proposal | Schema + RLS | `mcp-relay.rls.integration.ts` |
 | Revocation, sign-out, and session cleanup stop a live relay | Playwright + unit | relay manager unit test and `ai-mcp-access.spec.ts` |
 | MCP writes are proposals, never direct mutations | Core + web unit | proposal draft, executor, and review facade tests |
 | A share recipient only reaches resources the share actually covers | Core unit + Playwright | sharing use-case tests, `sharing.spec.ts` |
-| Reader annotations cannot cross user boundaries | Supabase integration | `reader-annotations.rls.integration.ts` |
+| Reader annotations cannot cross user boundaries | Schema + RLS | `reader-annotations.rls.integration.ts` |
 | Paper-note AI changes—including suggested concept hashtags such as `#VAE`—are append-only, review-gated, and conflict-aware | Core unit + Playwright | `ai-write-proposal.test.ts`, proposal executor tests, and the MCP review flow; tag suggestions must reuse the `append_paper_note` capability rather than a direct tag write |
 | Overleaf-linked report credentials are encrypted at rest, metadata-only in browser responses, and owner/project scoped | Web unit + Supabase RLS + Playwright | `overleaf-token-crypto.test.ts`, `overleaf-error.test.ts`, `overleaf-isolation.spec.ts` |
 | Overleaf source reads are explicit, read-only, bounded, and disclose server fetch (content stays in Overleaf) | Web unit + Playwright | `overleaf-git-reader.ts`, `overleaf-isolation.spec.ts`, linked-report UI disclosure |
@@ -63,10 +63,13 @@ the user accepts the proposal and the normal paper-note write succeeds.
 
 ## Current operational requirement
 
-Apply every migration in `supabase/migrations/` before running the Supabase
-integration suite; `0117` is the latest. The RLS policies there are the database
-enforcement behind the integration rows above, so the suite fails closed against
-a database that is behind.
+The schema and RLS suite (`npm run test:integration:web`) applies every
+migration in `supabase/migrations/` to an in-process Postgres before it runs, so
+it needs no project and no credentials, and a migration that cannot apply to a
+clean database fails a test rather than a deploy. The RLS policies there are the
+database enforcement behind the "Schema + RLS" rows above. What it does not
+cover is Supabase's own auth service — JWT issuance and validation are GoTrue's
+job, not this schema's.
 
 The server requires the server-only `OVERLEAF_CREDENTIAL_KEY`; never prefix it
 with `NEXT_PUBLIC_`.

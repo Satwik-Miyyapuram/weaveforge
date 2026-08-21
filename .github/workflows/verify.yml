@@ -80,20 +80,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:core
-      - name: TypeScript live Supabase integration tests
+      - name: TypeScript schema and RLS tests
         run: npm run test:integration:web
-        env:
-          WEAVEFORGE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          WEAVEFORGE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          WEAVEFORGE_EMAIL: ${{ secrets.TT_A_EMAIL }}
-          WEAVEFORGE_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
-          WEAVEFORGE_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
-          WEAVEFORGE_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
-          TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
-          TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
-          TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
-          TT_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
-          TEST_ACCOUNT_EMAIL_PRIMARY: ${{ secrets.TEST_ACCOUNT_EMAIL_PRIMARY }}
-          TEST_ACCOUNT_EMAIL_SECONDARY: ${{ secrets.TEST_ACCOUNT_EMAIL_SECONDARY }}
-          TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
-          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
