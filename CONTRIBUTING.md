@@ -29,7 +29,9 @@ Before opening or merging a PR, confirm:
 - [ ] **New repo has contract test** — every new repository interface gets a shared
       contract suite in `packages/core/src/testing/` and a test file under
       `packages/core/test/` run against the in-memory implementation (and Supabase
-      when integration creds are available).
+      when integration creds are available). `packages/core/test/` mirrors
+      `packages/core/src/`: a test for `src/features/papers/...` lives in
+      `test/features/papers/`, one for `src/reader/...` in `test/reader/`.
 - [ ] **Business logic not in bootstrap/components** — orchestration and rules live
       in use-cases / application services. `bootstrap.ts` wires dependencies only;
       React components handle presentation and local UI state.

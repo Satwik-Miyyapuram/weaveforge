@@ -436,7 +436,7 @@ To add a new import resolver:
 ## Testing
 
 - **Config parsing:** `apps/web/src/integrations/test/read-integration-config.test.ts`
-- **Credential helpers:** `packages/core/test/user-integration-credentials.test.ts`
+- **Credential helpers:** `packages/core/test/features/settings/user-integration-credentials.test.ts`
 - **Contract tests:** implement in-memory fakes for new ports if logic is non-trivial
 - **Manual:** configure provider in Settings, exercise the feature (sync, link citations, post milestone, push log, Git tab)
 
