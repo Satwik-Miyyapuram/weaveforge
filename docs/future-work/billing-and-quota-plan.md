@@ -10,7 +10,7 @@
 
 Adding billing to a **new** feature must cost one registry entry and one wrap line in the composition root. No feature code changes. No `if (plan === "free")` anywhere in `features/*`.
 
-This is achievable because the codebase already uses decorators over ports. `apps/web/src/storage/passthrough-blob-store.ts` implements `IEncryptedBlobStore` by wrapping an inner `IBlobStore`; `apps/web/src/storage/providers/tiered/tiered-blob-store.ts` does the same for tiering. Quota enforcement is the same shape, applied to repository ports.
+This is achievable because the codebase already uses decorators over ports. `apps/web/src/storage/fetching-blob-store.ts` implements `IBlobFetcher` by wrapping an inner `IBlobStore`; `apps/web/src/storage/providers/tiered/tiered-blob-store.ts` does the same for tiering. Quota enforcement is the same shape, applied to repository ports.
 
 **Non-negotiable:** the domain layer (`packages/core`) must not know that pricing exists. Entitlements enter as a port, exactly like storage or citations.
 
@@ -452,4 +452,4 @@ Nothing in `features/experiments/` changes. The Settings usage screen picks it u
 - `docs/plans/completed/COMMERCIALIZATION_AND_COST_PLAN.md` — cost drivers and pre-launch cost controls
 - `docs/plans/completed/modular-deployment-plan.md` — feature stripping
 - `docs/plans/completed/pdf-viewer-plan.md` — `pdfBytes` as a separately metered, opt-in resource
-- `apps/web/src/storage/passthrough-blob-store.ts`, `apps/web/src/storage/providers/tiered/tiered-blob-store.ts` — existing decorator precedent
+- `apps/web/src/storage/fetching-blob-store.ts`, `apps/web/src/storage/providers/tiered/tiered-blob-store.ts` — existing decorator precedent

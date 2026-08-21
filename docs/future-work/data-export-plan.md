@@ -1,9 +1,15 @@
 # Full data export plan
 
 **Status:** Future work — not a current priority (target: coming months)  
-**Priority:** Low — revisit after E2EE soak, external link sharing, and other near-term items  
+**Priority:** Low — revisit after external link sharing and other near-term items  
 **Branch target:** `feat/data-export` (when scheduled)  
-**Related:** [`e2ee-progress.md`](e2ee-progress.md)
+**Related:** [`../SECURITY.md`](../SECURITY.md)
+
+> **Predates the removal of client-side E2EE.** Storage is plaintext now, so
+> every "decrypt" step below is a plain read and the keyring prerequisites no
+> longer apply; the shape of the plan — loop projects, read through wired
+> repositories, fetch blobs, write a feature-aligned tree — still holds. See
+> [`../SECURITY.md`](../SECURITY.md) for what protects the data today.
 
 > This document is a design reference only. No implementation is planned in the immediate roadmap.
 
@@ -15,9 +21,8 @@
 |------|--------|
 | **Complete** | Everything `delete_user_account_data` would remove, plus blobs and optional metadata |
 | **Same shape as the app** | One folder per feature module / project, domain JSON (not raw SQL) |
-| **E2EE-safe** | Server returns ciphertext; export use-case decrypts via existing `EntityEncryptor` + blob stores |
 | **Portable** | Stable `manifest.json` + version for future import |
-| **User-controlled** | Settings → “Download my data”, requires sign-in + unlocked keyring |
+| **User-controlled** | Settings → “Download my data”, requires sign-in |
 
 ---
 
@@ -34,15 +39,12 @@
 
 ```
 Settings UI  →  ExportUserDataUseCase  →  Collect (repos + blob registry)
-                                       →  Decrypt (EntityEncryptor + EncryptedBlobStore)
                                        →  Assemble archive tree
                                        →  ZipWriter (fflate / JSZip)
                                        →  Browser saveAs .zip
 ```
 
-**All work runs in the browser.** Pattern: extend `MigrateProjectEntitiesToE2eeUseCase` + `PrefetchProjectUseCase` — iterate projects, call wired repos, decrypt, write files.
-
-**Prerequisite:** `CryptoProvider` phase = `ready` (keyring unlocked).
+**All work runs in the browser.** Pattern: extend `PrefetchProjectUseCase` — iterate projects, call wired repos, write files.
 
 Key references:
 
@@ -50,8 +52,7 @@ Key references:
 |------|------|
 | Composition root | `apps/web/src/bootstrap.ts` |
 | Prefetch (single project) | `apps/web/src/application/prefetch-project.use-case.ts` |
-| Entity migration loop | `packages/core/src/features/crypto/application/migrate-project-entities.use-case.ts` |
-| Blob decrypt | `apps/web/src/storage/encrypted-blob-store.ts` |
+| Blob fetch | `apps/web/src/storage/fetching-blob-store.ts` |
 | Account deletion (inverse scope) | `apps/web/src/features/settings/ui/delete-account-panel.tsx` |
 | Delete RPC tables | `supabase/migrations/0028_org_invite_codes.sql` (`delete_user_account_data`) |
 
@@ -192,7 +193,7 @@ Set `projectContext.projectId`, then (same as `PrefetchProjectUseCase` + extras)
 
 For each `blob_objects` row where `user_id = me`:
 
-1. Resolve resource ref (`packages/core/src/features/crypto/domain/blob-resource.ts`)
+1. Resolve the resource the row belongs to, from its `bucket` and `path`
 2. `IBlobFetcher.fetchBlob(bucket, path)`
 3. Write under the feature folder above (paper images, vault assets, experiment artifacts)
 4. Strip `pdfPath` / internal storage paths from JSON or replace with **relative archive paths** in export copies
@@ -343,4 +344,4 @@ Use **streaming ZIP** (`fflate` zip stream) so the whole archive isn’t held in
 
 ## Bottom line
 
-One client-side `ExportUserDataUseCase` that loops projects like migration, reads through **wired decrypted repos**, fetches blobs through **EncryptedBlobStore**, writes a **feature-aligned folder tree**, and streams a ZIP from Settings. No new server decrypt path; structure matches how users think about the app (papers, vault, logbook, etc.), not database tables.
+One client-side `ExportUserDataUseCase` that loops projects, reads through the **wired repositories**, fetches blobs through **`IBlobFetcher`**, writes a **feature-aligned folder tree**, and streams a ZIP from Settings. No new server-side export path; structure matches how users think about the app (papers, vault, logbook, etc.), not database tables.
