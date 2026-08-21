@@ -1,15 +1,7 @@
 import type { ShareableType } from "@weaveforge/core";
 import type { SharedItem, ISharedReader } from "@/features/sharing/domain/shared-reader";
 import type { PgRunner } from "../pg-runner";
-
-const SOURCES: Record<ShareableType, { table: string; title: string; status: string | null }> = {
-  milestone: { table: "milestones", title: "title", status: "status" },
-  experiment: { table: "experiments", title: "name", status: "status" },
-  report_section: { table: "report_sections", title: "title", status: "status" },
-  reading_list: { table: "reading_lists", title: "name", status: null },
-  paper: { table: "papers", title: "title", status: "status" },
-  vault_page: { table: "vault_pages", title: "title", status: null },
-};
+import { SHARED_SOURCES, toSharedItem } from "@/features/sharing/infrastructure/shared-reader-sources";
 
 export class PostgresSharedReader implements ISharedReader {
   constructor(private readonly pg: PgRunner) {}
@@ -17,7 +9,7 @@ export class PostgresSharedReader implements ISharedReader {
   async read(kind: ShareableType, ids: string[], owners: string[]): Promise<SharedItem[]> {
     if (ids.length === 0 && owners.length === 0) return [];
 
-    const cfg = SOURCES[kind];
+    const cfg = SHARED_SOURCES[kind];
     const clauses: string[] = [];
     const params: unknown[] = [];
     if (ids.length) {
@@ -38,16 +30,6 @@ export class PostgresSharedReader implements ISharedReader {
       params,
     );
 
-    return rows.map((r) => ({
-      id: String(r.id ?? ""),
-      kind,
-      title: String(r[cfg.title] ?? "(untitled)"),
-      status: cfg.status ? String(r[cfg.status] ?? "") : "",
-      ownerId: String(r.user_id ?? ""),
-      metadata:
-        kind === "paper" && r.metadata && typeof r.metadata === "object"
-          ? (r.metadata as Record<string, unknown>)
-          : undefined,
-    }));
+    return rows.map((r) => toSharedItem(kind, r));
   }
 }
