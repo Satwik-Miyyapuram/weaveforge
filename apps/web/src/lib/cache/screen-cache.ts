@@ -42,7 +42,7 @@ export function clearScreenCachesForScreens(
     store.delete(key);
     loadedAt.delete(key);
   }
-  void import("./screen-cache-idb").then((m) =>
+  void import("@/lib/cache/screen-cache-idb").then((m) =>
     m.idbClearScreenCachesForScreens(projectId, screens),
   );
 }
@@ -50,5 +50,5 @@ export function clearScreenCachesForScreens(
 export function clearAllScreenCaches(): void {
   store.clear();
   loadedAt.clear();
-  void import("./screen-cache-idb").then((m) => m.idbClearScreenCaches());
+  void import("@/lib/cache/screen-cache-idb").then((m) => m.idbClearScreenCaches());
 }

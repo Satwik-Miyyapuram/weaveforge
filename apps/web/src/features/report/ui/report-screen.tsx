@@ -16,13 +16,13 @@ import { AddSectionForm, type ReportParentOption } from "./add-section-form";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { EntityCard } from "@/components/entity-card";
-import { useScreenData } from "@/lib/use-screen-data";
-import { useDetailBack, useDetailPushFlag } from "@/lib/use-detail-back";
+import { useScreenData } from "@/lib/hooks/use-screen-data";
+import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
-import { usePinnedSharing } from "@/lib/use-pinned-sharing";
+import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { SectionNote } from "./section-note";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@/components/markdown/markdown";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 
 type ReportViewData = ReportScreenData & {

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { LatexSectionNode } from "@weaveforge/core";
 import { useProject } from "@/features/projects";
-import { useLayoutBreakpoint } from "@/lib/use-layout-breakpoint";
+import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { formatError } from "@/lib/format-error";
 import { authHeaders } from "@/lib/auth-headers";

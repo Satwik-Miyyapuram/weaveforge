@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { normalizeMarkdownImageSyntax, VAULT_IMAGE_PREFIX, vaultAssetPathsInBody } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ShikiMarkdown } from "@/components/shiki-markdown";
-import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
-import { makeWikilinkResolver, type CiteLinkEntry } from "@/lib/use-cite-links";
+import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
+import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
+import { makeWikilinkResolver, type CiteLinkEntry } from "@/lib/hooks/use-cite-links";
 import { stripRegionMarkers } from "../application/note-template-engine";
 
 /** Minimal title/id pair for wikilink resolution. */

@@ -11,7 +11,7 @@
  */
 
 import type { AiAccessSettings, AiActiveSession } from "@weaveforge/core";
-import { singleFlight } from "@/lib/single-flight";
+import { singleFlight } from "@/lib/cache/single-flight";
 
 export interface PersistedMcpSession {
   session: AiActiveSession;

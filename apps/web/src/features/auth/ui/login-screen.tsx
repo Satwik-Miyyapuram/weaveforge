@@ -5,7 +5,7 @@ import { getLightContainer } from "@/light-bootstrap";
 import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { formatError } from "@/lib/format-error";
-import { appOrigin, authRedirectTo } from "@/lib/desktop-auth";
+import { appOrigin, authRedirectTo } from "@/lib/desktop/desktop-auth";
 
 /**
  * Passwordless login. Sends a Supabase magic-link to the entered email. On

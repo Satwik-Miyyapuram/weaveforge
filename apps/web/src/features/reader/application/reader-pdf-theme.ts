@@ -1,4 +1,4 @@
-import { DARK_THEMES } from "../../../lib/theme.js";
+import { DARK_THEMES } from "@/lib/theme/theme";
 
 const DARK_SET = new Set<string>(DARK_THEMES);
 

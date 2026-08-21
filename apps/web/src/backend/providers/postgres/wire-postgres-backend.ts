@@ -43,7 +43,7 @@ import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-aut
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import type { ProjectContext } from "@/lib/project-context";
-import { cacheRepo } from "@/lib/cache-repo";
+import { cacheRepo } from "@/lib/cache/cache-repo";
 import type { BackendConfig } from "@/backend/config";
 
 const USER_SCOPE = () => "user";

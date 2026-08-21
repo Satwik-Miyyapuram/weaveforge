@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { normalizeMarkdownImageSyntax, type Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ShikiMarkdown } from "@/components/shiki-markdown";
-import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
-import { useWikilinkNavigation } from "@/lib/use-cite-links";
+import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
+import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
+import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { REPORT_IMAGE_PREFIX, reportImagePathsInBody } from "../lib/report-images-md";
 import {
   parseArtifactRefs,

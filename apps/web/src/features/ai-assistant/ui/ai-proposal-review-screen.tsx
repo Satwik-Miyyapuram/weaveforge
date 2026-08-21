@@ -5,10 +5,10 @@ import Link from "next/link";
 import {
   highlightWithinExcerpt, type AiEvidence, type AiWriteProposal } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@/components/markdown/markdown";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
-import { loadCiteLinkCatalog } from "@/lib/use-cite-links";
+import { loadCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 
 /** What a source id points at, once resolved to something a person can read. */

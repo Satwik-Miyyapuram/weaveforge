@@ -3,8 +3,8 @@
 import type { EditorView } from "@codemirror/view";
 import { imageAltFromFilename, looksLikeImageUrl, type PasteSettings } from "@weaveforge/core";
 import { outboundFetch } from "@/lib/outbound-fetch";
-import { insertPending, resolvePending, trackPending } from "./markdown-pending-insert";
-import type { ImagePasteConfig } from "./markdown-image-paste";
+import { insertPending, resolvePending, trackPending } from "@/components/markdown/markdown-pending-insert";
+import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 
 /**
  * What happens after a URL has been pasted.

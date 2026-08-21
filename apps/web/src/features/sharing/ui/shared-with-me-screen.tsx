@@ -6,7 +6,7 @@ import { ScreenLoading } from "@/components/screen-loading";
 import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
 import { buildMemberNameMap } from "@/features/sharing/application/member-labels";
 import { SharedItemRenderer } from "@/features/sharing/ui/shared-item-renderer";
-import { useScreenData } from "@/lib/use-screen-data";
+import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
 

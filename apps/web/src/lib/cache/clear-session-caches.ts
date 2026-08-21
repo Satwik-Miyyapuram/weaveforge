@@ -1,6 +1,6 @@
-import { invalidateAllRepoCaches } from "./project-lww-invalidator";
-import { clearAllScreenCaches } from "./screen-cache";
-import { clearLocalDeviceData } from "./clear-local-device-data";
+import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { clearLocalDeviceData } from "@/lib/desktop/clear-local-device-data";
 
 let clearDashboardUiCaches: () => void = () => {};
 const sessionResetHooks: Array<() => void> = [];

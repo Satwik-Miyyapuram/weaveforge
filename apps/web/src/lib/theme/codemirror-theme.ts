@@ -11,7 +11,7 @@ import {
   type DarkThemeId,
   type LightThemeId,
   type ThemeMode,
-} from "@/lib/theme";
+} from "@/lib/theme/theme";
 import { markdownSyntaxOverlay } from "@/lib/markdown-cm-syntax";
 
 /** Editor chrome aligned with site design tokens (updates when `data-theme` changes). */

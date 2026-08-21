@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { Project } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { clearAllScreenCaches } from "@/lib/screen-cache";
+import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 
 const STORAGE_KEY = "thesis.projectId";
 

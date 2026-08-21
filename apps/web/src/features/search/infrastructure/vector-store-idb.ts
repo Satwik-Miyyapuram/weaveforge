@@ -1,4 +1,4 @@
-import { VECTOR_STORE, openAppDb } from "@/lib/app-idb";
+import { VECTOR_STORE, openAppDb } from "@/lib/cache/app-idb";
 
 /**
  * Persisted passage vectors.

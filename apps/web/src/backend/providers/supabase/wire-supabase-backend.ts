@@ -72,7 +72,7 @@ import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import { SupabaseTagRepository, SupabasePaperTagRepository } from "@/features/tags";
 import { SupabaseLibraryPinRepository } from "@/features/library";
 import type { ProjectContext } from "@/lib/project-context";
-import { cacheRepo } from "@/lib/cache-repo";
+import { cacheRepo } from "@/lib/cache/cache-repo";
 import type { BackendConfig } from "@/backend/config";
 import { createSupabaseClient } from "./client";
 import { SupabaseSessionProvider } from "./session";

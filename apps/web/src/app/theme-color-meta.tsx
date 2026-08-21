@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
+import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 
 /** Sync PWA theme-color meta with the active --bg token. */
 export function ThemeColorMeta() {

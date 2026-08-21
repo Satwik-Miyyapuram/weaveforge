@@ -9,7 +9,7 @@ import {
   mayOpenExternally,
   signInCallbackQuery,
 } from "../src/handlers";
-import { AUTH_LOOPBACK_URL } from "@/lib/desktop-auth";
+import { AUTH_LOOPBACK_URL } from "@/lib/desktop/desktop-auth";
 
 /**
  * The desktop half of the two lookups.

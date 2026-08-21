@@ -3,10 +3,10 @@
 import { useCallback, useMemo } from "react";
 import { normalizeMarkdownImageSyntax } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ShikiMarkdown } from "@/components/shiki-markdown";
+import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { stripRegionMarkers } from "@/features/vault/application/note-template-engine";
-import { useDecryptedObjectUrls } from "@/lib/use-decrypted-asset";
-import { useWikilinkNavigation } from "@/lib/use-cite-links";
+import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
+import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "../lib/paper-images-md";
 import { paperImageThumbnailPath } from "../lib/image-variants";
 

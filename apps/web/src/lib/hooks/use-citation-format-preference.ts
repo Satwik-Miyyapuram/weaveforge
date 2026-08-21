@@ -6,7 +6,7 @@ import {
   citationFormatStorageKey,
   parseEditorCitationFormat,
   type EditorCitationFormat,
-} from "./citation-format-preference";
+} from "@/lib/citation-format-preference";
 
 /**
  * Per-project cite-format memory (Phase C2). Follows the active project from

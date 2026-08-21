@@ -21,9 +21,9 @@ import {
   sanitizeThemeId,
   type ControlSizeId,
   type ThemeMode,
-} from "@/lib/theme";
-import { THEME_CHANGE_EVENT } from "@/lib/use-theme";
-import { singleFlight } from "@/lib/single-flight";
+} from "@/lib/theme/theme";
+import { THEME_CHANGE_EVENT } from "@/lib/hooks/use-theme";
+import { singleFlight } from "@/lib/cache/single-flight";
 
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;

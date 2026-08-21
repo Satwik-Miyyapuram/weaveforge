@@ -2,8 +2,8 @@
 
 import { EditorSelection } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { acceptImageFiles, type ImagePasteConfig } from "./markdown-image-paste";
-import type { EditorHandle, EditorHandleRef } from "./editor-handle";
+import { acceptImageFiles, type ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
+import type { EditorHandle, EditorHandleRef } from "@/components/editor-handle";
 
 /**
  * Fills in a screen's handle for as long as the view is alive.

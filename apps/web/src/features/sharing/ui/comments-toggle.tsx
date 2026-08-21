@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { CommentsIcon } from "@/components/view-icons";
-import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
+import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { CommentsPanel } from "./comments-panel";
 
 /**

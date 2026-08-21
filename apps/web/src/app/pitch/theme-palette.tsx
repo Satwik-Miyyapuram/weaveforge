@@ -8,9 +8,9 @@ import {
   readStoredMode,
   readStoredThemeIds,
   type ThemeMode,
-} from "@/lib/theme";
-import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
-import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
+} from "@/lib/theme/theme";
+import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
+import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import css from "./pitch.module.css";
 
 export function ThemePalette() {

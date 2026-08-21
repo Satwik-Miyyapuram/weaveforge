@@ -9,7 +9,7 @@
 import type { AppContainer } from "@/container/facades";
 import { readBackendConfig } from "@/backend/config";
 import { readStorageConfig } from "@/storage/config";
-import type { ProjectLwwInvalidator } from "@/lib/project-lww-invalidator";
+import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
 
 export type { AppContainer };
 export type Container = AppContainer;

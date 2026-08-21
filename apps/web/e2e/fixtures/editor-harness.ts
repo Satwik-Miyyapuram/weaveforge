@@ -14,12 +14,12 @@
  */
 import { EditorState, EditorSelection, Compartment } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { bindEditorHandle } from "@/components/markdown-editor-handle";
+import { bindEditorHandle } from "@/components/markdown/markdown-editor-handle";
 import type { EditorHandle } from "@/components/editor-handle";
-import { markdownEditorExtensions } from "@/components/markdown-editor-extensions";
+import { markdownEditorExtensions } from "@/components/markdown/markdown-editor-extensions";
 import { readPasteSettings, writePasteSettings } from "@/lib/paste-cleanup-preference";
 import { normalizePasteSettings } from "@weaveforge/core";
-import type { DesktopBridge, DesktopImage } from "@/lib/desktop-bridge";
+import type { DesktopBridge, DesktopImage } from "@/lib/desktop/desktop-bridge";
 
 const host = document.getElementById("editor")!;
 

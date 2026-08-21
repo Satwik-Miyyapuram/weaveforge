@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { FONT_VARIABLES } from "@/app/fonts";
 import "@/app/globals.css";
-import { THEME_BOOT_SCRIPT } from "@/lib/theme";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 
 /**
  * Root document for the exported pitch site.

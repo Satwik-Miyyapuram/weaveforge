@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDismissOnOutside } from "@/lib/use-dismiss-on-outside";
+import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ROLE_LABELS, ROLE_RANK, memberRoleLabel, type Member } from "@weaveforge/core";
 
 /** A member plus the people who report (transitively) to them. */

@@ -7,7 +7,7 @@ import { useProject } from "@/features/projects";
 import { formatError } from "@/lib/format-error";
 import { isSupervisorRole } from "@weaveforge/core";
 import type { DashboardLayout, DashboardCardType } from "@weaveforge/core";
-import { registerDashboardUiCacheClear } from "@/lib/clear-session-caches";
+import { registerDashboardUiCacheClear } from "@/lib/cache/clear-session-caches";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 
 import {

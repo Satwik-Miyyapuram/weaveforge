@@ -20,7 +20,7 @@ import {
   type IAiAuditStore,
   type IAiProposalStore,
 } from "@weaveforge/core";
-import { singleFlight } from "@/lib/single-flight";
+import { singleFlight } from "@/lib/cache/single-flight";
 
 /** How long the pending-proposal count is reused across the shell's badges. */
 const PENDING_PROPOSALS_MEMO_MS = 15_000;

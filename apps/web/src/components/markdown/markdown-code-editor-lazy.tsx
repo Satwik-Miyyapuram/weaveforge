@@ -2,7 +2,7 @@
 
 import type { ComponentProps } from "react";
 import dynamic from "next/dynamic";
-import type { MarkdownCodeEditor as MarkdownCodeEditorType } from "./markdown-code-editor";
+import type { MarkdownCodeEditor as MarkdownCodeEditorType } from "@/components/markdown/markdown-code-editor";
 
 type Props = ComponentProps<typeof MarkdownCodeEditorType>;
 
@@ -13,7 +13,7 @@ type Props = ComponentProps<typeof MarkdownCodeEditorType>;
  * use Shiki instead and never pull this chunk.
  */
 const LazyEditor = dynamic(
-  () => import("./markdown-code-editor").then((m) => m.MarkdownCodeEditor),
+  () => import("@/components/markdown/markdown-code-editor").then((m) => m.MarkdownCodeEditor),
   {
     ssr: false,
     loading: () => (

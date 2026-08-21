@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
-import { singleFlight } from "@/lib/single-flight";
+import { singleFlight } from "@/lib/cache/single-flight";
 import type { OrgInviteRole, OrgMembershipView } from "@weaveforge/core";
 
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";

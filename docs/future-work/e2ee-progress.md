@@ -156,7 +156,7 @@ Reset: `node scripts/delete-test-users.mjs && node scripts/seed-test-users.mjs`
 | Entity encryptor | `packages/core/src/features/crypto/application/entity-encryptor.ts` |
 | Blanket share | `packages/core/src/features/crypto/application/grant-blanket-key-access.use-case.ts` |
 | CRDT provider | `apps/web/src/features/collab/infrastructure/encrypted-yjs-provider.ts` |
-| LWW invalidation | `apps/web/src/lib/project-lww-invalidator.ts` |
+| LWW invalidation | `apps/web/src/lib/cache/project-lww-invalidator.ts` |
 | Share dialog | `apps/web/src/features/sharing/ui/share-dialog.tsx` |
 | Link share plan | removed from the repository |
 

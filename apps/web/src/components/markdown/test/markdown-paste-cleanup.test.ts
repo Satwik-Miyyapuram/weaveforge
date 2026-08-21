@@ -7,7 +7,7 @@ import {
   cleanSelection,
   cleanTerminalSelection,
   moveCommas,
-} from "../markdown-paste-cleanup";
+} from "@/components/markdown/markdown-paste-cleanup";
 
 /**
  * The editor commands are `StateCommand`s, so they need a document and a

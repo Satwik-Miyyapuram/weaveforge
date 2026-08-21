@@ -1,5 +1,5 @@
 import type { SearchKind } from "@weaveforge/core";
-import type { WorkspaceSearchFn } from "@/lib/use-search-index";
+import type { WorkspaceSearchFn } from "@/lib/hooks/use-search-index";
 
 /**
  * Apply the ranked index to a screen's list while keeping entities the index

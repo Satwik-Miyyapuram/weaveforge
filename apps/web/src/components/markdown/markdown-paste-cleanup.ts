@@ -13,7 +13,7 @@ import {
   type PasteSettings,
   type PdfTextOptions,
 } from "@weaveforge/core";
-import { afterUrlPaste, type RemotePasteOptions } from "./markdown-remote-paste";
+import { afterUrlPaste, type RemotePasteOptions } from "@/components/markdown/markdown-remote-paste";
 
 /**
  * Paste cleanup for the note editor.

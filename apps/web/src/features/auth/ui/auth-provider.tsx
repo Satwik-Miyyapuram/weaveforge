@@ -8,8 +8,8 @@ import {
   useState,
 } from "react";
 import type { AuthUser } from "../domain/auth";
-import { clearSessionCaches } from "@/lib/clear-session-caches";
-import { desktop } from "@/lib/desktop-bridge";
+import { clearSessionCaches } from "@/lib/cache/clear-session-caches";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 
 interface AuthState {
   user: AuthUser | null;

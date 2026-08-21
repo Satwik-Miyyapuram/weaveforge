@@ -1,6 +1,6 @@
 "use client";
 
-import { desktop } from "@/lib/desktop-bridge";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 
 /**
  * Where a sign-in that started in the desktop app has to come back to.

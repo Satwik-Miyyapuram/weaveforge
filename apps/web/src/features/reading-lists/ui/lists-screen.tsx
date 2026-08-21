@@ -20,10 +20,10 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { DeleteIcon, UnlinkIcon } from "@/components/view-icons";
 import { collectListIds, listDisplayColor } from "./list-ui";
 import { ExtractionTable } from "./extraction-table";
-import { usePersistedState } from "@/lib/use-persisted-state";
-import { useScreenData } from "@/lib/use-screen-data";
+import { usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
-import { usePinnedSharing } from "@/lib/use-pinned-sharing";
+import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };

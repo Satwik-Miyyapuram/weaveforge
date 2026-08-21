@@ -9,9 +9,9 @@ import {
   type SearchExcerpt,
 } from "@weaveforge/core";
 import { useRouter } from "next/navigation";
-import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/use-cite-links";
+import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { getContainer } from "@/bootstrap";
-import { useSearchIndex } from "@/lib/use-search-index";
+import { useSearchIndex } from "@/lib/hooks/use-search-index";
 import {
   readRecentTargets,
   rememberRecentTarget,

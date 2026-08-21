@@ -1,4 +1,4 @@
-import { SCREEN_STORE as STORE, openAppDb as openDb } from "./app-idb";
+import { SCREEN_STORE as STORE, openAppDb as openDb } from "@/lib/cache/app-idb";
 
 /** Cached screen payloads — cleared on logout so no data persists after sign-out. */
 

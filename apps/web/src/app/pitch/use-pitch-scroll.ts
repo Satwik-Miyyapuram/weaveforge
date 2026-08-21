@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { THEME_CHANGE_EVENT } from "@/lib/theme-events";
+import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 
 export function useScrollSteps(count: number) {
   const sceneRef = useRef<HTMLElement | null>(null);

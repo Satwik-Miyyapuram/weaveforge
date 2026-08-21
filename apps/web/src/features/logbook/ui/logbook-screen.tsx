@@ -7,10 +7,10 @@ import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
 import { Select } from "@/components/select";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@/components/markdown/markdown";
 import { DeleteIcon, EditIcon } from "@/components/view-icons";
 import { CollabBodyHost } from "@/features/collab";
-import { useScreenData } from "@/lib/use-screen-data";
+import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray } from "@/lib/empty";
 import { formatError } from "@/lib/format-error";
 

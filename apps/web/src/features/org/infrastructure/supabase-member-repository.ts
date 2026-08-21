@@ -7,7 +7,7 @@ import {
   type Member,
   type Role,
 } from "@weaveforge/core";
-import { singleFlight } from "@/lib/single-flight";
+import { singleFlight } from "@/lib/cache/single-flight";
 import {
   type ProfileRow,
   byName,

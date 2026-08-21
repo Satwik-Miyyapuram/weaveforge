@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
-import { useScreenData } from "@/lib/use-screen-data";
+import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray } from "@/lib/empty";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { LinkedOverleafReports } from "./linked-overleaf-reports";

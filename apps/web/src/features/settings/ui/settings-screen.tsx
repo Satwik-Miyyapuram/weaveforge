@@ -25,12 +25,12 @@ import { ApiTokensPanel } from "./api-tokens-panel";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors";
-import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme";
-import { persistThemeChange, readLocalAppearance } from "@/lib/theme-persistence";
+import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
+import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
 import { ThemeConfigPanel } from "./theme-config-panel";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
-import { desktop } from "@/lib/desktop-bridge";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 
 /**

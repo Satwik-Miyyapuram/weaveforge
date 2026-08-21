@@ -1,7 +1,7 @@
 "use client";
 
 import { authHeaders } from "@/lib/auth-headers";
-import { desktop } from "@/lib/desktop-bridge";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 
 /**
  * Fetching something from a third-party site on the reader's behalf.

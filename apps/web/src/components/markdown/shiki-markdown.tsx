@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { highlightCodeBlock, type ColorMode } from "@/lib/shiki-render";
-import { renderMarkdownWithShiki, renderProseMarkdown, type WikilinkResolver } from "./markdown";
+import { renderMarkdownWithShiki, renderProseMarkdown, type WikilinkResolver } from "@/components/markdown/markdown";
 
 function readColorMode(): ColorMode {
   if (typeof document === "undefined") return "light";

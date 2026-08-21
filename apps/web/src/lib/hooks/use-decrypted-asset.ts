@@ -48,7 +48,7 @@ export function useDecryptedObjectUrls(
       if (fetchMany && paths.length > 1) {
         blobs = await fetchMany(paths);
       } else if (cacheBucket) {
-        const { fetchDecryptedManyCached } = await import("@/lib/blob-fetch-cache");
+        const { fetchDecryptedManyCached } = await import("@/lib/cache/blob-fetch-cache");
         blobs = await fetchDecryptedManyCached(
           cacheBucket,
           paths,

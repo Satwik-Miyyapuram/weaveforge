@@ -4,16 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { MarkdownCodeEditor } from "@/components/markdown-code-editor-lazy";
+import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { DeleteIcon, EditIcon } from "@/components/view-icons";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import type { EditorHandle } from "@/components/editor-handle";
 import { AttachImageButton } from "@/components/attach-image-button";
 import { formatError } from "@/lib/format-error";
-import { useCiteLinkCatalog } from "@/lib/use-cite-links";
+import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
-import { useCitationFormatPreference } from "@/lib/use-citation-format-preference";
+import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 import {
   materializeReportBlobImages,
   reportImageMarkdown,
