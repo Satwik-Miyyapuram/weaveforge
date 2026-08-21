@@ -58,6 +58,17 @@ jobs:
       - name: Run schema and RLS tests
         run: npm run test:integration:web
 
+      # Paste, drag and image handling in a real browser, against a page the
+      # spec bundles itself: no server and no account, so nothing here needs a
+      # secret. It sat in the opt-in job only because it downloads a browser,
+      # which meant the one suite covering the editor never ran on a PR.
+      - name: Install Chromium for the editor tests
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Run editor paste tests
+        run: npm run test:e2e:editor
+
       - name: Run Typechecks
         run: npm run typecheck
 
@@ -99,16 +110,6 @@ jobs:
 
       - name: Build Core package
         run: npm run build:core
-
-      # No database and no session: it bundles the editor onto a page of its
-      # own. Kept in the opt-in job all the same, because it is the only step
-      # here that needs a browser downloaded.
-      - name: Install Chromium for the editor tests
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/web
-
-      - name: Run editor paste tests
-        run: npm run test:e2e:editor
 
       - name: Build Web App
         run: npm run build --workspace @weaveforge/web

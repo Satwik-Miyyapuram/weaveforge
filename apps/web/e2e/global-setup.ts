@@ -10,7 +10,7 @@ const AUTH_DIR = path.join(process.cwd(), "e2e", ".auth");
 const USER_A_STATE = path.join(AUTH_DIR, "user-a.json");
 
 export default async function globalSetup(_config: FullConfig) {
-  if (!e2eEnabled()) return;
+  if (!e2eEnabled() || process.env.PLAYWRIGHT_NO_SESSION === "1") return;
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
   const browser = await chromium.launch();
