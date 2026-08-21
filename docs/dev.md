@@ -178,6 +178,7 @@ thing under test *is* the React wiring.
 |----------------|--------------|
 | **build-and-test** | `npm run build:core`, core + web tests, Supabase contract tests, typecheck, `check:boundaries` (`check:solid`, `check:dry`, `check:api-route-tests`, `check:ui`, `check:hygiene`), lint, Next.js build |
 | **python-sdk** | ruff, mypy, pytest |
+| **dco** | [`scripts/check-dco.sh`](../scripts/check-dco.sh) — every commit the PR adds carries a `Signed-off-by:` line naming its own author. Commit with `git commit -s`; sign off a branch already written with `git rebase --signoff origin/main`. Reads only what the PR adds, so the unsigned history before the check is not its business. |
 
 Rules: **pull request required** — direct pushes to `main` are blocked, **including for repo admins**. Branch must be up to date with `main`; required checks must pass; no force-push or branch deletion. Approving review count is **0** (solo maintainer can merge their own PR after CI).
 

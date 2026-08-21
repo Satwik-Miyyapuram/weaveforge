@@ -144,6 +144,24 @@ jobs:
           TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
+  dco:
+    # Only on pull requests: the rule is enforced on what a PR adds, and the
+    # history before this job existed has no sign-offs to find.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The default shallow clone cannot walk base..head.
+          fetch-depth: 0
+
+      - name: Check sign-offs
+        run: >
+          scripts/check-dco.sh
+          "${{ github.event.pull_request.base.sha }}"
+          "${{ github.event.pull_request.head.sha }}"
+
   python-sdk:
     runs-on: ubuntu-latest
     steps:
