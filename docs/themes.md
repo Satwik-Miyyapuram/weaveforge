@@ -12,58 +12,105 @@ WeaveForge uses a pure CSS-variable theming system to maintain high performance 
 
 ## Adding a New Theme
 
-To add a completely new theme (e.g., "Nord"):
+A theme sets **source tokens**. It must not set the aliases at the top of
+`themes.css` (`--ink`, `--line`, `--pill`, `--chip`, `--panel`, `--accent-ink`,
+…) — those are defined once on `:root` as `var()` indirections onto the source
+tokens and are theme-agnostic by design. Overriding an alias in a theme block
+sets the derived value while leaving its source unset, which is how you get a
+theme that looks right in some components and unstyled in others.
 
-1. **Define the CSS Variables**
-   Open `apps/web/src/app/themes.css` and add your block:
+1. **Define the source tokens.** Every one of these, or the theme inherits a
+   value from the default palette and mismatches itself:
+
    ```css
    [data-theme="nord"] {
-     --bg: #2e3440;
-     --surface: #3b4252;
-     --ink: #eceff4;
-     --muted: #d8dee9;
-     --line: #4c566a;
+     --bg: #2e3440;          /* page root */
+     --surface: #3b4252;     /* cards, modals */
+     --surface2: #434c5e;    /* recessed rows, chips, pills */
+     --elev: #434c5e;        /* raised panels, inputs */
+     --border: #4c566a;
+     --border-strong: #5b6982;
+     --text: #eceff4;
+     --muted: #d8dee9;       /* secondary text */
+     --faint: #a9b3c4;       /* tertiary text */
      --accent: #88c0d0;
-     --accent-ink: #8fbcbb;
-     --clay: #ebcb8b;
-     --input-bg: #2e3440;
-     --pill: #434c5e;
-     --hover: #4c566a;
-     --chip: #3b4252;
-     --neutral: #434c5e;
-     --status-neutral: #4c566a;
-     --active-bg: #4c566a;
-     --nav-bg: rgba(46, 52, 64, 0.92);
+     --accent-fg: #2e3440;   /* text ON an accent fill */
+     --accent-soft: #434c5e; /* hover / active wash */
+
+     /* Status pairs — foreground colour and its background wash. */
+     --s-neutral: #81a1c1;  --s-neutral-bg: #3b4252;
+     --s-info: #88c0d0;     --s-info-bg: #3b4252;
+     --s-good: #a3be8c;     --s-good-bg: #3b4252;
+     --s-warn: #ebcb8b;     --s-warn-bg: #3b4252;
+     --s-danger: #bf616a;   --s-danger-bg: #3b4252;
+     --s-mute: #6c7a94;     --s-mute-bg: #3b4252;
+
      --sel-ring: rgba(236, 239, 244, 0.16);
-
-     /* Status colors - foreground text on colored pills should have high contrast */
-     --st-positive-bg: #a3be8c; --st-positive-fg: #2e3440;
-     --st-info-bg: #81a1c1;     --st-info-fg: #2e3440;
-     --st-warn-bg: #ebcb8b;     --st-warn-fg: #2e3440;
-     --st-danger-bg: #bf616a;   --st-danger-fg: #2e3440;
-
-     /* Standard dark mode shadow */
-     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.45);
+     --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(0, 0, 0, 0.5);
    }
    ```
 
-2. **Add it to the Settings UI**
-   Open `apps/web/src/features/settings/ui/settings-screen.tsx`. Add your new theme as an `<option>` in either the Light Theme or Dark Theme dropdown:
-   ```tsx
-   <option value="nord">Nord</option>
-   ```
+2. **Join the dark elevation scale**, if the theme is dark. Add its selector to
+   the shared `--e1`…`--e4` / `--rim` block in `themes.css`; a dark theme
+   outside it gets the light elevation scale and its cards lose their edges.
+
+3. **Register the id.** `apps/web/src/lib/theme/theme.ts` — add to
+   `LIGHT_THEMES` or `DARK_THEMES` and to the matching `*_THEME_OPTIONS` list
+   with the label users see. The Settings dropdown renders from those lists, so
+   there is no per-theme edit in the UI.
+
+4. **Map the editor theme.** `apps/web/src/lib/theme/codemirror-theme.ts` keys a
+   `Record` by the theme id union, so the build fails until the new id has a
+   CodeMirror factory. Pick the closest existing one.
+
+## Confetti — per-card colour
+
+`confetti-light` and `confetti-dark` do something the other themes do not: each
+card takes the next hue from a six-colour pastel rotation instead of the shared
+`--surface`.
+
+The rotation lives in `globals.css` and is driven by `:nth-child(6n + k)`, which
+means position picks the colour — not the component, and not the data. Nothing
+in the domain says a paper is pink, so no component knows this feature exists; a
+list can filter or re-order and the colours simply re-flow. A card with no card
+siblings lands on hue 1, which is the intended fallback: one card has nothing to
+be distinguished from.
+
+Each hue is a pair — `--confetti-N-bg` for the fill and `--confetti-N-edge` for
+the border, defined in the theme block. The border is a stronger tone of the
+same hue so it reads as part of the colour rather than a grey line drawn on top.
+In the dark variant the fill is the hue at low lightness and the edge carries
+the recognisable colour, because a true pastel at full lightness glares against
+a dark page.
+
+`.card` itself reads `var(--card-tint, var(--surface))` and
+`var(--card-edge, var(--border))`. Both custom properties are unset in every
+other theme, so the fallback applies and nothing outside Confetti changes.
 
 ## Design Token Definitions
 
-- `--bg`: The lowest background layer (page root).
-- `--surface`: Elevated cards and modal backgrounds.
-- `--input-bg`: Background for text inputs and dropdowns.
-- `--ink`: Primary text color.
-- `--muted`: Secondary/tertiary text color.
-- `--line`: Borders and dividers.
-- `--accent`: Primary action color (buttons, active tabs).
-- `--accent-ink`: Hover state for accents or text on accent backgrounds.
-- `--btn-text`: (Optional) specifically overrides the text color inside primary buttons if `--accent` contrast is too low.
+Source tokens — set these in a theme block:
+
+- `--bg`: the lowest background layer (page root).
+- `--surface`: elevated cards and modal backgrounds.
+- `--surface2`: recessed surfaces — rows, code blocks, chips, pills.
+- `--elev`: raised surfaces (banners, tips) and input backgrounds.
+- `--border` / `--border-strong`: hairlines and dividers; the strong variant for
+  emphasis and focus.
+- `--text`: primary text colour.
+- `--muted`: secondary text.
+- `--faint`: tertiary text.
+- `--accent`: primary action colour (buttons, active tabs).
+- `--accent-fg`: text drawn on top of an accent fill.
+- `--accent-soft`: hover and active wash.
+- `--s-*` / `--s-*-bg`: status foreground and background pairs.
+- `--sel-ring`, `--shadow`: selection ring and the theme's drop shadow.
+
+Aliases — defined once on `:root`, **never** in a theme block:
+`--ink` (→ `--text`), `--line` (→ `--border`), `--panel` (→ `--elev`),
+`--surface-alt` (→ `--surface2`), `--input-bg`, `--pill`, `--chip`,
+`--neutral`, `--status-neutral`, `--hover`, `--active-bg`, `--active-fg`,
+`--accent-ink`, `--clay`, `--danger`, `--nav-bg`.
 
 ## The Catppuccin Implementation
 

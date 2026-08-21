@@ -9,8 +9,24 @@ import {
 
 export type { SurfaceStyle, ThemeConfig };
 
-export const LIGHT_THEMES = ["light", "latte", "honey", "vivid-light", "pastel-light"] as const;
-export const DARK_THEMES = ["dark", "mocha", "dracula", "amoled", "contrast", "vivid-dark", "pastel-dark"] as const;
+export const LIGHT_THEMES = [
+  "light",
+  "latte",
+  "honey",
+  "vivid-light",
+  "pastel-light",
+  "confetti-light",
+] as const;
+export const DARK_THEMES = [
+  "dark",
+  "mocha",
+  "dracula",
+  "amoled",
+  "contrast",
+  "vivid-dark",
+  "pastel-dark",
+  "confetti-dark",
+] as const;
 export const CONTROL_SIZES = ["compact", "default", "comfortable"] as const;
 
 export type LightThemeId = (typeof LIGHT_THEMES)[number];
@@ -34,6 +50,7 @@ export const LIGHT_THEME_OPTIONS: ReadonlyArray<{ id: LightThemeId; label: strin
   { id: "honey", label: "Honey" },
   { id: "vivid-light", label: "Vivid Light" },
   { id: "pastel-light", label: "Pastel Light" },
+  { id: "confetti-light", label: "Confetti" },
 ];
 
 export const DARK_THEME_OPTIONS: ReadonlyArray<{ id: DarkThemeId; label: string }> = [
@@ -44,6 +61,7 @@ export const DARK_THEME_OPTIONS: ReadonlyArray<{ id: DarkThemeId; label: string 
   { id: "contrast", label: "High Contrast" },
   { id: "vivid-dark", label: "Vivid Dark" },
   { id: "pastel-dark", label: "Pastel Dark" },
+  { id: "confetti-dark", label: "Confetti Dark" },
 ];
 
 const LIGHT_SET = new Set<string>(LIGHT_THEMES);

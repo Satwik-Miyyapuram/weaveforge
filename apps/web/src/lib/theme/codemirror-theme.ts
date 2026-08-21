@@ -37,6 +37,7 @@ const LIGHT_CM_THEMES: Record<LightThemeId, ThemeFactory> = {
   honey: (settings, styles) => githubLightInit({ settings, styles }),
   "vivid-light": (settings, styles) => vscodeLightInit({ settings, styles }),
   "pastel-light": (settings, styles) => githubLightInit({ settings, styles }),
+  "confetti-light": (settings, styles) => githubLightInit({ settings, styles }),
 };
 
 const DARK_CM_THEMES: Record<DarkThemeId, ThemeFactory> = {
@@ -47,6 +48,7 @@ const DARK_CM_THEMES: Record<DarkThemeId, ThemeFactory> = {
   contrast: (settings, styles) => vscodeDarkInit({ settings, styles }),
   "vivid-dark": (settings, styles) => tokyoNightInit({ settings, styles }),
   "pastel-dark": (settings, styles) => tokyoNightInit({ settings, styles }),
+  "confetti-dark": (settings, styles) => tokyoNightInit({ settings, styles }),
 };
 
 export function readActiveThemeId(mode?: ThemeMode): LightThemeId | DarkThemeId {
