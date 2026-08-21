@@ -4,7 +4,7 @@ WeaveForge wires third-party services through a **plugin-style integration layer
 
 Swapping a provider (e.g. Zotero → Mendeley) means: implement the port, add a manifest under `integrations/manifests/`, wire via `wire-integrations.ts`, set an env var. No edits to papers/plan/logbook screens.
 
-> **Manifests:** built-in providers declare themselves under `integrations/manifests/` and reach the app through the generated `deployment/generated-registry.ts` (`npm run generate:deployment`). `descriptors.ts` aggregates Settings UI metadata from those manifests.
+> **Manifests:** built-in providers declare themselves under `integrations/manifests/` and reach the app through the generated `deployment/generated-registry.ts` (`npm run generate:deployment`). `descriptors-resolve.ts` aggregates Settings UI metadata from those manifests.
 
 > **Not the Python SDK.** `python/weaveforge/integrations/` is a separate extension system for experiment-tracking callbacks (TensorBoard, wandb, Keras). See [CONTRIBUTING.md § Python SDK](CONTRIBUTING.md#adding-a-sync-source-the-extension-point).
 >
@@ -20,7 +20,7 @@ packages/core/                         apps/web/src/
 │   IBibliographyIntegration           │   config.ts          ← env provider selection
 │   INotificationIntegration         │   wire-integrations.ts
 │   ILogSyncIntegration              │   wire-citations.ts
-├── citation-source.ts (ICitationSource)│   descriptors.ts     ← Settings UI metadata
+├── citation-source.ts (ICitationSource)│   descriptors-resolve.ts ← Settings UI metadata
 ├── metadata-source.ts (IMetadataSource)│   credentials.ts
 └── user-integration-credentials.ts  │   providers/<name>/   ← concrete adapters
                                      ├── bootstrap.ts        ← composition root
@@ -72,7 +72,7 @@ one that carried the header.
 1. **`readIntegrationConfig()`** reads `NEXT_PUBLIC_*` env vars (deployment-time plugin selection).
 2. **`wireIntegrations()`** / **`wireCitationSources()`** construct concrete adapters (or noops).
 3. **`bootstrap.ts`** injects ports into use-cases and exposes them via **facades** (`getContainer().papers.syncBibliography()`, etc.).
-4. **`descriptors.ts`** drives Settings UI; entries are **gated** so disabled providers never appear.
+4. **`descriptors-resolve.ts`** drives Settings UI; entries are **gated** so disabled providers never appear.
 
 UI components must use facades only — `npm run check:solid` blocks `getContainer().*Repository` in `features/**/ui/**`.
 
@@ -169,7 +169,8 @@ case "mendeley": {
 
 ### 5. Descriptor (Settings UI)
 
-In `integrations/descriptors.ts`, add to `USER_INTEGRATION_DESCRIPTORS`:
+Descriptors live on the manifest itself, not in a central list. In
+`integrations/manifests/mendeley.ts`, set `userDescriptor`:
 
 ```ts
 {
@@ -414,7 +415,7 @@ To add a new import resolver:
 
 1. Implement `IMetadataSource` (`id`, `supports`, `fetch`).
 2. Register in `bootstrap.ts` (or return from a bibliography wire helper).
-3. No Settings descriptor needed unless the source requires a user API key — then add a `USER_INTEGRATION_DESCRIPTORS` entry gated on a new `runtimeGate` kind (extend `descriptors.ts` if needed).
+3. No Settings descriptor needed unless the source requires a user API key — then give the manifest a `userDescriptor` gated on a new `runtimeGate` kind (extend `descriptors-resolve.ts` if needed).
 
 ---
 

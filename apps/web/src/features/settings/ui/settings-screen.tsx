@@ -24,7 +24,7 @@ import { ExportDataPanel } from "./export-data-panel";
 import { ApiTokensPanel } from "./api-tokens-panel";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
-import { userIntegrationsForConfig } from "@/integrations/descriptors";
+import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
 import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";

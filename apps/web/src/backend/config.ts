@@ -42,7 +42,8 @@ export interface BackendConfig {
   readonly overleafCredentialKey?: string;
   /**
    * Postgres connection string for self-hosted / Hyperdrive / Oracle Cloud.
-   * Required when provider = postgres (not yet implemented in adapters).
+   * Required when provider = postgres, which selects the server-side blob
+   * registry; table data reaches Postgres over PostgREST via `dataUrl`.
    */
   readonly databaseUrl?: string;
 }

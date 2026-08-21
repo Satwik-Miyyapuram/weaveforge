@@ -10,7 +10,3 @@ export function getPgPool(databaseUrl: string): pg.Pool {
   return pool;
 }
 
-/** Test helper — reset pool between runs. */
-export function resetPgPoolForTests(): void {
-  pool = null;
-}

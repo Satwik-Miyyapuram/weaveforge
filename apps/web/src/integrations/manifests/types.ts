@@ -10,7 +10,7 @@ import type {
 import type { IGitClient } from "@/features/sync/domain/sync-ports";
 import type { WireIntegrationsDeps } from "../wire-integrations";
 import type { WireCitationsDeps } from "../wire-citations";
-import type { ProjectSyncDescriptor } from "../descriptors";
+import type { ProjectSyncDescriptor } from "../descriptors-types";
 
 export type IntegrationManifestKind =
   | "bibliography"
