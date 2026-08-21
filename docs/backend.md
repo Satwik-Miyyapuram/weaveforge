@@ -156,7 +156,11 @@ Do **not** abstract PostgREST per-table — one adapter class per repository is 
 
 ## Python SDK
 
-`python/weaveforge/container.py` still uses Supabase directly. When the web `postgres` provider lands, mirror the same ports in Python (`IExperimentRepository`, etc.) and add a `DATABASE_URL` code path.
+The SDK does not touch the database, so a backend swap costs it nothing.
+`python/weaveforge/container.py` wires everything against the web app's
+`/api/sdk/*` endpoints using a single bearer token, which is what keeps Supabase
+URLs and keys out of training environments. Whatever the web app runs on behind
+those endpoints, the SDK is unchanged.
 
 ---
 

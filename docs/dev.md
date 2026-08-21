@@ -8,7 +8,7 @@ We use a feature-sliced modular pattern:
 - **`apps/web/src/features/`**: The home for all UI features. Each folder represents an isolated domain (e.g., `papers`, `graph`, `logbook`).
 - **`apps/web/src/registry.ts`**: Feature module registry. Call `buildModuleRegistry(integrationConfig)` for env-aware nav (e.g. hide Git when no git-read providers are enabled).
 - **`apps/web/src/bootstrap.ts`**: Composition root — wires use-cases, integrations, and facades from `wireBackend()`.
-- **`apps/web/src/container/facades.ts`**: UI entry points (`getContainer().papers`, `.plan`, …). UI must not reach into repositories directly.
+- **`apps/web/src/container/facades/`**: UI entry points (`getContainer().papers`, `.plan`, …). UI must not reach into repositories directly.
 - **`packages/core/`**: Shared interfaces, entities, and use cases.
 - **`apps/web/src/backend/`**: Env-driven persistence + auth wiring (`wireBackend()`). Default: Supabase; see [`docs/backend.md`](backend.md).
 - **`docs/integrations.md`**: Third-party providers (Zotero, GitLab, …).
@@ -69,7 +69,7 @@ To add a new feature (e.g., a "Timer" module):
    Create `apps/web/src/app/<path>/page.tsx` manually (Next.js App Router — not auto-wired from `FeatureModule.routes` yet).
 
 5. **Wire domain logic**
-   Add use-cases in `packages/core`, wire in `bootstrap.ts`, expose via a facade in `facades.ts`. See [`extensions.md`](extensions.md) §4.
+   Add use-cases in `packages/core`, wire in `bootstrap.ts`, expose via a facade in `container/facades/`. See [`extensions.md`](extensions.md) §4.
 
 ## Adding or swapping an integration
 
@@ -158,6 +158,8 @@ Rules: **pull request required** — direct pushes to `main` are blocked, **incl
 **Releases:** Git tags / PyPI = Python SDK only. See [`docs/release.md`](release.md).
 
 Repo admins can re-apply protection: `.github/scripts/apply-main-branch-protection.sh` (needs `gh` with admin scope).
+
+## State and data flow
 
 Because data is heavily scoped to "Projects", we centralize project context but isolate feature data:
 

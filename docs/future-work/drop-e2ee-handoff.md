@@ -1,5 +1,11 @@
 # Drop-E2EE — handoff / blocked items
 
+> **Historical — completed and superseded.** Client-side E2EE was removed from
+> WeaveForge; this file records how that went, not work that is pending. The
+> source files and tests it names were deleted with the feature, so its paths
+> will not resolve. Current state: [`../SECURITY.md`](../SECURITY.md) and
+> [`../CRYPTO_RECOVERY.md`](../CRYPTO_RECOVERY.md).
+
 Branch: `drop-e2ee`. Phase B (server-side at-rest + RLS, `CRYPTO_ENABLED=false`) is live on the
 dummy DB. This file = the items that **need you** (Satwik). Everything else is being worked
 autonomously overnight; see "Autonomous scope" at the bottom.

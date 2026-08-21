@@ -98,7 +98,7 @@ Connectiveness is the product idea: a paper can sit in a list, appear on the gra
 
 ```
 UI (features/*/ui)
-  → Facades (container/facades.ts)   // ISP UI API
+  → Facades (container/facades/)   // ISP UI API
   → Use-cases (@weaveforge/core)
   → Repository ports
   → Supabase / Postgres adapters (infrastructure)
