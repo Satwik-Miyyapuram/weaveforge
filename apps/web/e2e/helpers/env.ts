@@ -62,12 +62,3 @@ export function e2eUserB() {
 
 /** Loaded from local-dev/test-accounts.env or env vars — never hardcoded in repo. */
 export const DEFAULT_TEST_PASSWORD = resolveTestPassword();
-
-export function e2eRecoveryPassphrase(): string {
-  return env("E2E_RECOVERY_PASSPHRASE", "TEST_RECOVERY_PASSPHRASE") ?? "";
-}
-
-/** Optional one-time recovery URL for a manually prepared email-recovery E2E run. */
-export function e2eRecoveryLink(): string {
-  return env("E2E_RECOVERY_LINK", "TEST_RECOVERY_LINK") ?? "";
-}
