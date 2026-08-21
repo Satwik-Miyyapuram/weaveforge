@@ -4,7 +4,3 @@
  */
 export { ListsScreen } from "./ui/lists-screen";
 export { listDisplayColor } from "./ui/list-ui";
-export {
-  SupabaseReadingListRepository,
-  SupabaseReadingListItemRepository,
-} from "./infrastructure/supabase-reading-list-repository";

@@ -77,7 +77,7 @@ function writeHistory(history: readonly string[]): void {
  * trees, and threading a "please open" callback between them would put plumbing
  * in every component along the way for one interaction.
  */
-export const OPEN_SEARCH_EVENT = "weaveforge:open-search";
+const OPEN_SEARCH_EVENT = "weaveforge:open-search";
 
 /** Ask the palette to open, from anywhere. */
 export function openSearchPalette(): void {
