@@ -1,15 +1,16 @@
-import type { IBlobStore, IEncryptedBlobStore } from "@weaveforge/core";
+import type { IBlobStore, IBlobFetcher } from "@weaveforge/core";
 import { guessBlobContentType } from "@weaveforge/core";
 
 const FETCH_TTL_S = 300;
 
 /**
- * Plaintext blob store that satisfies {@link IEncryptedBlobStore} without any
- * encryption — assets are stored unencrypted; "decrypt" is just a fetch that
- * wraps the bytes in a Blob with a content type guessed from the path.
- * Upload passes through unchanged.
+ * Reads blobs back out of any {@link IBlobStore}, through a signed URL.
+ *
+ * Writes pass straight through to the inner store; the additions are the read
+ * side, which fetches the bytes and wraps them in a Blob whose content type is
+ * guessed from the path when the caller does not know it.
  */
-export class PassthroughBlobStore implements IEncryptedBlobStore {
+export class FetchingBlobStore implements IBlobFetcher {
   constructor(private readonly inner: IBlobStore) {}
 
   upload(bucket: string, path: string, blob: Blob, contentType?: string): Promise<void> {
@@ -32,13 +33,13 @@ export class PassthroughBlobStore implements IEncryptedBlobStore {
     return new Uint8Array(await res.arrayBuffer());
   }
 
-  async fetchDecrypted(bucket: string, path: string, fallbackContentType?: string): Promise<Blob> {
+  async fetchBlob(bucket: string, path: string, fallbackContentType?: string): Promise<Blob> {
     const bytes = await this.fetchBytes(bucket, path);
     const type = fallbackContentType ?? guessBlobContentType(path);
     return new Blob([bytes.slice()], { type });
   }
 
-  async fetchDecryptedMany(
+  async fetchBlobs(
     bucket: string,
     paths: readonly string[],
     fallbackContentType?: string,

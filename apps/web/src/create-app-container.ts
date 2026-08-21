@@ -84,7 +84,7 @@ import {
   setActiveProjectIdForCache,
 } from "@/lib/cache/project-lww-invalidator";
 import { registerSessionReset } from "@/lib/cache/clear-session-caches";
-import { PassthroughBlobStore } from "@/storage/passthrough-blob-store";
+import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
@@ -159,7 +159,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const readingListRepository = backend.readingListRepository;
   const readingListItemRepository = backend.readingListItemRepository;
   const commentRepository = backend.commentRepository;
-  const encryptedBlobStore = new PassthroughBlobStore(backend.rawBlobStore);
+  const encryptedBlobStore = new FetchingBlobStore(backend.rawBlobStore);
 
   const aiProposalStore = new SupabaseAiProposalStore(backend.db, backend.session, pid);
   const aiAuditStore = new SupabaseAiAuditStore(backend.db, backend.session, pid);

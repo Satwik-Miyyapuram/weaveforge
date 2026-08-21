@@ -47,7 +47,7 @@ export class DuplicateSharedVaultPageUseCase {
     const copied = await Promise.all(
       paths.map(async (oldPath) => {
         try {
-          const blob = await this.deps.assets.fetchDecrypted(oldPath);
+          const blob = await this.deps.assets.fetchBlob(oldPath);
           const ext = oldPath.split(".").pop() ?? "bin";
           return { oldPath, newPath: await this.deps.assets.upload(page.id, blob, ext) };
         } catch {

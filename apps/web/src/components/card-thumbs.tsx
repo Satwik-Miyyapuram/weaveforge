@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import type { Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
+import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 
 const MAX_THUMBS = 3;
 
@@ -52,7 +52,7 @@ export function PaperCardThumbs({ paper }: { paper: Paper }) {
         .catch(() => null),
     [],
   );
-  const urls = useDecryptedObjectUrls(paths, fetchBlob);
+  const urls = useBlobObjectUrls(paths, fetchBlob);
   if (paths.length === 0) return null;
   return <CardThumbs urls={paths.map((p) => urls.get(p) ?? null)} total={all.length} />;
 }

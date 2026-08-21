@@ -1,4 +1,4 @@
-import type { IBlobStore, ICurrentUserProvider, IEncryptedBlobStore } from "@weaveforge/core";
+import type { ICurrentUserProvider, IBlobFetcher } from "@weaveforge/core";
 
 const SIGNED_TTL_S = 3600;
 
@@ -13,14 +13,9 @@ const SIGNED_TTL_S = 3600;
 export class BucketAssetStore {
   constructor(
     protected readonly bucket: string,
-    protected readonly blobs: IBlobStore,
+    protected readonly blobs: IBlobFetcher,
     protected readonly session: ICurrentUserProvider,
   ) {}
-
-  /** The store as its encrypted flavour. Blob stores are encrypted in practice. */
-  protected get encrypted(): IEncryptedBlobStore {
-    return this.blobs as IEncryptedBlobStore;
-  }
 
   async upload(ownerId: string, blob: Blob, ext: string): Promise<string> {
     const userId = await this.session.requireUserId();
@@ -37,30 +32,16 @@ export class BucketAssetStore {
     return this.blobs.signedUrls(this.bucket, paths, SIGNED_TTL_S);
   }
 
-  async fetchDecrypted(path: string): Promise<Blob> {
-    return this.encrypted.fetchDecrypted(this.bucket, path);
+  async fetchBlob(path: string): Promise<Blob> {
+    return this.blobs.fetchBlob(this.bucket, path);
   }
 
   /**
-   * Decrypt many at once where the store can, one at a time where it cannot.
-   *
    * A blob that fails is left out rather than failing the batch: these are
-   * images in a note, and one that cannot be decrypted should leave a gap,
-   * not blank the page.
+   * images in a note, and one that cannot be read should leave a gap, not
+   * blank the page.
    */
-  async fetchDecryptedMany(paths: readonly string[]): Promise<Map<string, Blob>> {
-    const fetchMany = this.encrypted.fetchDecryptedMany;
-    if (fetchMany) return fetchMany.call(this.encrypted, this.bucket, paths);
-    const out = new Map<string, Blob>();
-    await Promise.all(
-      paths.map(async (path) => {
-        try {
-          out.set(path, await this.fetchDecrypted(path));
-        } catch {
-          /* skip broken */
-        }
-      }),
-    );
-    return out;
+  async fetchBlobs(paths: readonly string[]): Promise<Map<string, Blob>> {
+    return this.blobs.fetchBlobs(this.bucket, paths);
   }
 }

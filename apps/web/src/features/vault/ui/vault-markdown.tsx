@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { normalizeMarkdownImageSyntax, VAULT_IMAGE_PREFIX, vaultAssetPathsInBody } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
-import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
+import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { makeWikilinkResolver, type CiteLinkEntry } from "@/lib/hooks/use-cite-links";
 import { stripRegionMarkers } from "../application/note-template-engine";
 
@@ -105,7 +105,7 @@ export function VaultMarkdown({
     [],
   );
 
-  const urls = useDecryptedObjectUrls(paths, fetchers);
+  const urls = useBlobObjectUrls(paths, fetchers);
 
   const resolved = useMemo(() => {
     let next = stripUnresolvedVaultImages(source, paths, urls);

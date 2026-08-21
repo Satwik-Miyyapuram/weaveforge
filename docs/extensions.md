@@ -192,7 +192,7 @@ use-case: the decorator implements the same port and delegates.
 
 There are no encryption decorators any more. `encryptRepo()`,
 `wireEncryptedPapers()`, and `wireEncryptedReadingListItems()` were removed with
-client-side E2EE — storage is plaintext through `PassthroughBlobStore` and
+client-side E2EE — storage is plaintext through `FetchingBlobStore` and
 Row-Level Security is the access boundary. See [`SECURITY.md`](SECURITY.md).
 
 The seam itself is still there and still the right place for caching, retries,

@@ -1,4 +1,4 @@
-export type { IBlobStore, IEncryptedBlobStore } from "./blob-ports.js";
+export type { IBlobStore, IBlobFetcher } from "./blob-ports.js";
 export { guessBlobContentType } from "./blob-content-type.js";
 export type {
   BlobTier,

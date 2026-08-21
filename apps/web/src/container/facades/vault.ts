@@ -37,11 +37,11 @@ export class VaultFacade {
   }
 
   fetchAssetBlob(path: string) {
-    return this.deps.assets.fetchDecrypted(path);
+    return this.deps.assets.fetchBlob(path);
   }
 
   fetchAssetBlobs(paths: readonly string[]) {
-    return this.deps.assets.fetchDecryptedMany(paths);
+    return this.deps.assets.fetchBlobs(paths);
   }
 
   duplicateSharedPage(input: { resourceId: string; ownerId: string }) {

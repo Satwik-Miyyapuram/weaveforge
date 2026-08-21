@@ -193,7 +193,7 @@ Set `projectContext.projectId`, then (same as `PrefetchProjectUseCase` + extras)
 For each `blob_objects` row where `user_id = me`:
 
 1. Resolve resource ref (`packages/core/src/features/crypto/domain/blob-resource.ts`)
-2. `EncryptedBlobStore.fetchDecrypted(bucket, path)`
+2. `IBlobFetcher.fetchBlob(bucket, path)`
 3. Write under the feature folder above (paper images, vault assets, experiment artifacts)
 4. Strip `pdfPath` / internal storage paths from JSON or replace with **relative archive paths** in export copies
 

@@ -5,7 +5,7 @@ import { normalizeMarkdownImageSyntax } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { stripRegionMarkers } from "@/features/vault/application/note-template-engine";
-import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
+import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "../lib/paper-images-md";
 import { paperImageThumbnailPath } from "../lib/image-variants";
@@ -56,7 +56,7 @@ export function PaperMarkdown({ body, className }: { body: string; className?: s
     },
     [],
   );
-  const urls = useDecryptedObjectUrls(
+  const urls = useBlobObjectUrls(
     paths,
     useMemo(() => ({ cacheBucket: PAPER_IMAGES_BUCKET, fetchOne, fetchMany }), [fetchOne, fetchMany]),
   );
