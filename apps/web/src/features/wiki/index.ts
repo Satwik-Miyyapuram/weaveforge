@@ -3,9 +3,3 @@
  * Generated pages are ordinary vault notes, so there is no wiki storage here.
  */
 export { WikiScreen } from "./ui/wiki-screen";
-export {
-  previewWikiBuild,
-  proposeWikiPages,
-  runWikiLint,
-  WIKI_ROOT_TITLE,
-} from "./application/build-wiki";

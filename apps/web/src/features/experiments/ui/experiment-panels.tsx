@@ -47,7 +47,7 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
   );
 }
 
-export function RelatedPaper({ paperId }: { paperId: string }) {
+function RelatedPaper({ paperId }: { paperId: string }) {
   const [title, setTitle] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;

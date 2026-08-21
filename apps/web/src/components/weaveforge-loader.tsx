@@ -68,7 +68,7 @@ function ThesisLoaderMark({ compact }: { compact?: boolean }) {
   );
 }
 
-export function ThesisLoader({
+function ThesisLoader({
   status = "Loading…",
   variant = "gate",
   markAuthLoading = true,

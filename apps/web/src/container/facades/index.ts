@@ -48,7 +48,6 @@ import type { ReadingListsFacade } from "./reading-lists";
 import type { WorkspaceFacade } from "./workspace";
 
 /** Swappable third-party integrations wired at the composition root. */
-export type { IntegrationsRegistry } from "@/integrations/registry";
 
 export interface AppContainer {
   integrations: IntegrationsRegistry;

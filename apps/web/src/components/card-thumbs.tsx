@@ -12,7 +12,7 @@ const MAX_THUMBS = 3;
  * — the caller resolves the URLs. A null entry renders a placeholder tile so the
  * row does not reflow as images decrypt in.
  */
-export function CardThumbs({ urls, total }: { urls: (string | null)[]; total?: number }) {
+function CardThumbs({ urls, total }: { urls: (string | null)[]; total?: number }) {
   if (urls.length === 0) return null;
   const extra = (total ?? urls.length) - urls.length;
   return (
