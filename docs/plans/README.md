@@ -4,12 +4,17 @@ Implementation and strategy plans, sorted by lifecycle.
 
 | Folder | Meaning |
 |--------|---------|
-| `working/` | In progress / partially delivered — **currently empty** |
-| `future/` | Proposed, not started — **currently empty** |
 | [`completed/`](completed/) | Delivered or archived (kept for history and cross-links) |
 
-Recreate `working/` or `future/` when a new plan needs one; nothing is in flight
-on this board today.
+`completed/` is the only folder that exists, because nothing is in flight on
+this board today. A new plan creates the folder it needs — `working/` for one
+being built, `future/` for one only proposed — and moves to `completed/` when it
+lands. Proposals that are not yet plans live in
+[`../future-work/`](../future-work/).
+
+An earlier `current/` folder held copies of two plans that had already been
+finished and archived under `completed/`; the copies were older than the
+archived versions and nothing linked to them, so they are gone.
 
 ## Completed
 
