@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import userConfig from "../weaveforge.config.ts";
+import { readAiToolNames } from "./lib/ai-tool-names.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUTPUT = join(ROOT, "apps/web/src/deployment/generated-registry.ts");
@@ -37,21 +38,7 @@ const integrations = [
   ["gitlab", "@/integrations/manifests/git-read", "gitlabGitReadManifest"],
 ];
 
-const mcpTools = [
-  "search_workspace",
-  "get_source_excerpt",
-  "get_workspace_outline",
-  "propose_append_paper_note",
-  "propose_create_vault_note",
-  "propose_create_log_entry",
-  "propose_paper_update",
-  "propose_paper_field_value",
-  "propose_reading_list_change",
-  "propose_relation",
-  "propose_zotero_import",
-  "propose_milestone_follow_up",
-  "propose_experiment_follow_up",
-];
+const mcpTools = readAiToolNames(ROOT);
 
 const routeComponents = {
   dashboard: ["/dashboard", "@/features/dashboard", "DashboardScreen", "DashboardScreen"],

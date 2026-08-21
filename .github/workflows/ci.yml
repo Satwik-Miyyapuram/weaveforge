@@ -58,20 +58,22 @@ jobs:
       - name: Install ripgrep (for check:solid)
         run: sudo apt-get update && sudo apt-get install -y ripgrep
 
-      - name: SOLID boundary checks
-        run: npm run check:solid
-
-      - name: DRY checks
-        run: npm run check:dry
-
-      - name: API route test coverage
-        run: npm run check:api-route-tests
+      # The whole boundary suite, not three of the five it contains: docs/dev.md
+      # has always said build-and-test runs check:boundaries, while check:ui and
+      # check:hygiene only ever ran on a developer's machine.
+      - name: Boundary checks
+        run: npm run check:boundaries
 
       - name: Lint Web App
         run: npm run lint --workspace @weaveforge/web
 
       - name: Build Web App
         run: npm run build --workspace @weaveforge/web
+
+      # After the build, because the build is what regenerates the registry this
+      # compares against the deploy config.
+      - name: Deployment surface
+        run: npm run check:deployment-surface
 
   full-validation:
     if: github.event_name == 'workflow_dispatch'

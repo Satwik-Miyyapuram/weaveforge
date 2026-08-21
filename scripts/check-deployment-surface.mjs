@@ -9,6 +9,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import config from "../weaveforge.config.ts";
+import { readAiToolNames } from "./lib/ai-tool-names.mjs";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const generatedPath = join(root, "apps/web/src/deployment/generated-registry.ts");
@@ -61,14 +62,7 @@ for (const page of walk(appRoot)) {
 // array by hand. Nothing else cross-validates it, so a tool added to
 // AI_TOOL_NAMES without updating that file leaves the client unable to call it
 // — with no build or test failure to say so.
-const toolNamesSource = readFileSync(
-  join(root, "packages/core/src/features/ai-assistant/domain/ai-types.ts"),
-  "utf8",
-);
-const declaredTools = [
-  ...(/export const AI_TOOL_NAMES = \[([\s\S]*?)\] as const;/.exec(toolNamesSource)?.[1] ?? "")
-    .matchAll(/"([a-z_]+)"/g),
-].map((match) => match[1]);
+const declaredTools = readAiToolNames(root);
 
 const pluginServerPath = join(root, "plugins/weaveforge-research/mcp-server/index.mjs");
 let pluginSource = "";
@@ -78,7 +72,7 @@ try {
   pluginSource = "";
 }
 
-if (pluginSource && declaredTools.length > 0) {
+if (pluginSource) {
   const missing = declaredTools.filter((tool) => !pluginSource.includes(`"${tool}"`));
   if (missing.length > 0) {
     throw new Error(

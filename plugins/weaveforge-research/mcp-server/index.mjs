@@ -29,5 +29,39 @@ async function relay(command) { const post = await fetch(`${baseUrl}/api/mcp/rel
 function write(message) { process.stdout.write(`${JSON.stringify(message)}\n`); }
 let input = "";
 process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => { input += chunk; let line; while ((line = input.indexOf("\n")) >= 0) { const raw = input.slice(0, line); input = input.slice(line + 1); if (raw.trim()) void handle(JSON.parse(raw)); } });
-async function handle(message) { try { let result; if (message.method === "initialize") result = { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "weaveforge-research", version: "0.1.0" } }; else if (message.method === "tools/list") result = { tools }; else if (message.method === "tools/call") result = { content: [{ type: "text", text: JSON.stringify(await relay({ tool: message.params.name, arguments: message.params.arguments ?? {} })) }] }; else return; write({ jsonrpc: "2.0", id: message.id, result }); } catch (error) { write({ jsonrpc: "2.0", id: message.id, error: { code: -32000, message: error instanceof Error ? error.message : String(error) } }); } }
+// One JSON-RPC message per line. A line that does not parse is answered with
+// a parse error and skipped: it used to be parsed outside the try below, so a
+// single malformed byte on stdin threw out of the "data" handler and killed
+// the whole server, taking a working session with it.
+process.stdin.on("data", (chunk) => {
+  input += chunk;
+  let line;
+  while ((line = input.indexOf("\n")) >= 0) {
+    const raw = input.slice(0, line);
+    input = input.slice(line + 1);
+    if (!raw.trim()) continue;
+    let message;
+    try { message = JSON.parse(raw); } catch { write({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }); continue; }
+    void handle(message);
+  }
+});
+async function handle(message) {
+  // A notification carries no id and takes no reply — including the
+  // `notifications/initialized` every client sends right after the handshake.
+  const isRequest = message.id !== undefined && message.id !== null;
+  try {
+    let result;
+    if (message.method === "initialize") result = { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "weaveforge-research", version: "0.1.0" } };
+    else if (message.method === "ping") result = {};
+    else if (message.method === "tools/list") result = { tools };
+    else if (message.method === "tools/call") result = { content: [{ type: "text", text: JSON.stringify(await relay({ tool: message.params.name, arguments: message.params.arguments ?? {} })) }] };
+    // Anything else gets a real "method not found". Staying silent here left a
+    // client that asked for, say, resources/list waiting on a reply that was
+    // never coming, which reads as a hung connection rather than a decline.
+    else if (isRequest) return write({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: `Method not found: ${message.method}` } });
+    else return;
+    if (isRequest) write({ jsonrpc: "2.0", id: message.id, result });
+  } catch (error) {
+    if (isRequest) write({ jsonrpc: "2.0", id: message.id, error: { code: -32000, message: error instanceof Error ? error.message : String(error) } });
+  }
+}

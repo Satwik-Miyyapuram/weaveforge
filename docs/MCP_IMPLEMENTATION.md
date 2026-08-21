@@ -59,8 +59,12 @@ write after approval, and an encrypted audit entry records the outcome.
 - No direct AI writes, silent autonomous actions, deletes, PDF access, report
   access, or server-side model proxy exist.
 
-## Verification completed
+## Verification
 
+- `npm run check:mcp-plugin` drives the stdio server the way a client does and
+  fails on protocol misbehaviour. It is part of `check:boundaries`, so it runs
+  in CI. `npm run check:deployment-surface` fails when a tool is added to
+  `AI_TOOL_NAMES` without being declared in the plugin server.
 - Unit tests: policy gates, grants, bounded retrieval, proposals, executors,
   and relay lifecycle.
 - Supabase RLS integration: owner isolation and atomic relay claims.
@@ -71,5 +75,5 @@ write after approval, and an encrypted audit entry records the outcome.
 
 ## Remaining work
 
-Run GitHub CI and open the pull request. Annotation provenance in an answer UI
-is deferred product work; there is no in-app answer UI in this release.
+Annotation provenance in an answer UI is deferred product work; there is no
+in-app answer UI in this release.

@@ -123,6 +123,7 @@ and a rule change belongs in both places.
 | **No source file over 800 lines** | Past that size a file is no longer one thing, and every reader pays to find the part they came for. | Fails on any `src/**` `.ts`/`.tsx` over the cap. A file that genuinely cannot be split goes in `OVERSIZED_ALLOWED` **with its reason**; the check also fails when an allowlisted file drops back under the cap, so the list cannot rot. |
 | **Core tests mirror `src/`** | `packages/core/test/` was 132 flat files — finding an area's tests meant already knowing their names. | Fails on a test sitting directly in `test/`, and on a test folder with no matching folder under `packages/core/src/`. |
 | **App tests live in a `test/` folder** | A test beside its subject is easy to find; a test loose in a feature folder is one more thing to skim past. | Fails on any `apps/*/src/**/*.test.ts(x)` not inside a `test/` directory. |
+| **The MCP plugin server answers like a server** | It lives outside every workspace, so no unit test imports it and no typecheck sees it. Two protocol bugs shipped that way: an unimplemented method got no reply at all, and one unparseable stdin line killed the process mid-session. | [`check:mcp-plugin`](../scripts/check-mcp-plugin.mjs) spawns it, runs a real handshake, and asserts every `AI_TOOL_NAMES` tool is offered. |
 | **Bounded arrays from request bodies** | Two routes took an array straight from the body and awaited a database round trip per element, so one request could buy unbounded work. | Fails on any `app/api/**/route.ts` that uses `Array.isArray` without comparing a `.length` against a cap. Name the cap as a constant and answer 400 above it — [`storage/signed-url-limits.ts`](../apps/web/src/storage/signed-url-limits.ts) is the pattern. |
 
 Two more rules the checker cannot see, so they are on you:
@@ -176,7 +177,7 @@ thing under test *is* the React wiring.
 
 | Required check | What it runs |
 |----------------|--------------|
-| **build-and-test** | `npm run build:core`, core + web tests, Supabase contract tests, typecheck, `check:boundaries` (`check:solid`, `check:dry`, `check:api-route-tests`, `check:ui`, `check:hygiene`), lint, Next.js build |
+| **build-and-test** | `npm run build:core`, core + web tests, Supabase contract tests, typecheck, `check:boundaries` (`check:solid`, `check:dry`, `check:api-route-tests`, `check:ui`, `check:hygiene`, `check:mcp-plugin`), lint, Next.js build, `check:deployment-surface` |
 | **python-sdk** | ruff, mypy, pytest |
 | **dco** | [`scripts/check-dco.sh`](../scripts/check-dco.sh) — every commit the PR adds carries a `Signed-off-by:` line naming its own author. Commit with `git commit -s`; sign off a branch already written with `git rebase --signoff origin/main`. Reads only what the PR adds, so the unsigned history before the check is not its business. |
 
