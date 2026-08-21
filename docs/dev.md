@@ -110,6 +110,32 @@ When landing sharing, library, or org onboarding work, confirm:
 
 UI talks to **`getContainer().<feature>`** facades only; repositories stay behind use-cases in `bootstrap.ts`.
 
+## Source hygiene (enforced)
+
+`npm run check:hygiene` (part of `check:boundaries`, so it runs in **build-and-test**)
+enforces the rules below. Every one of them is here because the repo was bitten
+by it once — the script is [`scripts/check-hygiene.mjs`](../scripts/check-hygiene.mjs),
+and a rule change belongs in both places.
+
+| Rule | Why | What the check does |
+|------|-----|---------------------|
+| **No literal control characters in source** | One literal control byte makes git classify the whole file as binary: it vanishes from `git grep` and its diffs stop rendering. Two files had gone invisible this way, both from a control-character range typed straight into a regex. | Scans every tracked text file for bytes below space (other than tab, newline, carriage return) and for DEL. Write them as escapes: `"\u0000"`, `/[\u0000-\u001f]/`. |
+| **No source file over 800 lines** | Past that size a file is no longer one thing, and every reader pays to find the part they came for. | Fails on any `src/**` `.ts`/`.tsx` over the cap. A file that genuinely cannot be split goes in `OVERSIZED_ALLOWED` **with its reason**; the check also fails when an allowlisted file drops back under the cap, so the list cannot rot. |
+| **Core tests mirror `src/`** | `packages/core/test/` was 132 flat files — finding an area's tests meant already knowing their names. | Fails on a test sitting directly in `test/`, and on a test folder with no matching folder under `packages/core/src/`. |
+| **App tests live in a `test/` folder** | A test beside its subject is easy to find; a test loose in a feature folder is one more thing to skim past. | Fails on any `apps/*/src/**/*.test.ts(x)` not inside a `test/` directory. |
+| **Bounded arrays from request bodies** | Two routes took an array straight from the body and awaited a database round trip per element, so one request could buy unbounded work. | Fails on any `app/api/**/route.ts` that uses `Array.isArray` without comparing a `.length` against a cap. Name the cap as a constant and answer 400 above it — [`storage/signed-url-limits.ts`](../apps/web/src/storage/signed-url-limits.ts) is the pattern. |
+
+Two more rules the checker cannot see, so they are on you:
+
+- **A file that outgrows itself becomes a folder**, named for the pieces it
+  splits into, with an `index.ts` re-exporting the entry point so importers do
+  not change. `features/reader/ui/pdf-reader/` and `app/pitch/` are worked
+  examples; see [`docs/DESIGN.md`](DESIGN.md) § 3.2.2.
+- **A precondition shared by two routes lives in one `_shared.ts`.** Two copies
+  of an auth check is a way for them to drift apart —
+  [`api/account/delete-user/_shared.ts`](../apps/web/src/app/api/account/delete-user/_shared.ts)
+  and [`api/sdk/_shared.ts`](../apps/web/src/app/api/sdk/_shared.ts).
+
 ## Testing hooks and providers
 
 The web unit suite is `node:test` with no DOM. Hooks and context providers are
@@ -150,7 +176,7 @@ thing under test *is* the React wiring.
 
 | Required check | What it runs |
 |----------------|--------------|
-| **build-and-test** | `npm run build:core`, core + web tests, Supabase contract tests, typecheck, `check:solid`, `check:dry`, lint, Next.js build |
+| **build-and-test** | `npm run build:core`, core + web tests, Supabase contract tests, typecheck, `check:boundaries` (`check:solid`, `check:dry`, `check:api-route-tests`, `check:ui`, `check:hygiene`), lint, Next.js build |
 | **python-sdk** | ruff, mypy, pytest |
 
 Rules: **pull request required** — direct pushes to `main` are blocked, **including for repo admins**. Branch must be up to date with `main`; required checks must pass; no force-push or branch deletion. Approving review count is **0** (solo maintainer can merge their own PR after CI).
