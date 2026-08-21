@@ -7,6 +7,11 @@ loadLocalDevEnv();
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3210";
 const ci = Boolean(process.env.CI);
 const enabled = e2eEnabled();
+// The editor spec drives a file:// page it bundles itself: no server to talk to
+// and no user to be. Set by scripts/run-editor-e2e.mjs. Without it, a run of
+// that spec alone still paid for a dev server and a sign-in — and a sign-in
+// that failed took the spec down with it, though it needs no account at all.
+const standalone = process.env.PLAYWRIGHT_NO_SESSION === "1";
 const port = new URL(baseURL).port || (ci ? "3000" : "3100");
 
 export default defineConfig({
@@ -22,7 +27,7 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
     baseURL,
     trace: "on-first-retry",
-    storageState: e2eEnabled() ? "e2e/.auth/user-a.json" : undefined,
+    storageState: enabled && !standalone ? "e2e/.auth/user-a.json" : undefined,
     // Sandboxes and CI images that ship one Chromium of their own rather than
     // the exact build this Playwright expects can point at it, instead of every
     // caller re-downloading a browser they already have.
@@ -30,7 +35,7 @@ export default defineConfig({
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
       : {},
   },
-  webServer: !enabled || process.env.PLAYWRIGHT_SKIP_WEBSERVER
+  webServer: !enabled || standalone || process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
     : {
         // CI: serve pre-built app (fast). Local: dev server with HMR.

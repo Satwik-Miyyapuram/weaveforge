@@ -28,7 +28,7 @@
     "test": "node ./scripts/run-tests.mjs",
     "test:integration": "node ./scripts/run-integration-tests.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:editor": "playwright test e2e/editor-paste.spec.ts",
+    "test:e2e:editor": "node ./scripts/run-editor-e2e.mjs",
     "test:e2e:install": "playwright install chromium",
     "record:demos": "tsx e2e/demo-clips/record.ts",
     "migrate": "./scripts/migrate-to-oracle.sh"
