@@ -1,5 +1,6 @@
 import type { IBlobStore } from "@weaveforge/core";
 import { getSupabase } from "@/lib/supabase";
+import { MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
 
 /**
  * Browser-safe blob adapter when `BLOB_PROVIDER=tiered`.
@@ -48,6 +49,21 @@ export class HttpBlobStore implements IBlobStore {
     ttlSeconds: number,
   ): Promise<(string | null)[]> {
     if (paths.length === 0) return [];
+    // The route caps one request, so a long list is sent in batches rather
+    // than rejected — a gallery with 300 images should render, not blank.
+    const out: (string | null)[] = [];
+    for (let i = 0; i < paths.length; i += MAX_SIGNED_URL_PATHS) {
+      const batch = paths.slice(i, i + MAX_SIGNED_URL_PATHS);
+      out.push(...(await this.signedUrlBatch(bucket, batch, ttlSeconds)));
+    }
+    return out;
+  }
+
+  private async signedUrlBatch(
+    bucket: string,
+    paths: string[],
+    ttlSeconds: number,
+  ): Promise<(string | null)[]> {
     const res = await fetch("/api/blobs/signed-urls", {
       method: "POST",
       headers: { ...(await this.authHeaders()), "Content-Type": "application/json" },
