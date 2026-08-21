@@ -1,34 +1,6 @@
-import type {
-  BlobObjectRecord,
-  BlobTier,
-  IBlobRegistry,
-  RegisterBlobInput,
-} from "@weaveforge/core";
+import type { BlobObjectRecord, BlobTier, IBlobRegistry, RegisterBlobInput } from "@weaveforge/core";
+import { rowToRecord, type BlobRow } from "@/storage/providers/blob-row";
 import type { PgRunner } from "@/backend/providers/postgres/pg-runner";
-
-interface BlobRow {
-  bucket: string;
-  path: string;
-  tier: BlobTier;
-  size_bytes: number;
-  access_count: number;
-  last_accessed_at: string | null;
-  priority: number;
-  created_at: string;
-}
-
-function rowToRecord(row: BlobRow): BlobObjectRecord {
-  return {
-    bucket: row.bucket,
-    path: row.path,
-    tier: row.tier,
-    sizeBytes: Number(row.size_bytes),
-    accessCount: row.access_count,
-    lastAccessedAt: row.last_accessed_at ? new Date(row.last_accessed_at) : null,
-    priority: row.priority,
-    createdAt: new Date(row.created_at),
-  };
-}
 
 /** Postgres `blob_objects` registry via pg pool + RLS session. */
 export class PostgresBlobRegistry implements IBlobRegistry {
