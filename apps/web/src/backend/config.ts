@@ -1,5 +1,5 @@
 /** Active persistence + auth backend — swap by env without touching features. */
-export type BackendProviderId = "supabase" | "postgres";
+type BackendProviderId = "supabase" | "postgres";
 
 /** Env bag for tests and composition-root overrides (avoids full ProcessEnv in unit tests). */
 export type EnvReader = Record<string, string | undefined>;

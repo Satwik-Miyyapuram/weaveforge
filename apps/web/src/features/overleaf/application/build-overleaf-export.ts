@@ -20,13 +20,13 @@ export interface OverleafExportOptions {
   bibliographyScope?: "cited" | "all";
 }
 
-export interface OverleafExportFile {
+interface OverleafExportFile {
   path: string;
   contents: string;
 }
 
 /** Binary figure to fetch from report-images and place under `figures/`. */
-export interface OverleafExportImage {
+interface OverleafExportImage {
   /** Storage path after `reportimg:` (ownerId/sectionId/file). */
   storagePath: string;
   /** Relative ZIP path, e.g. `figures/uuid.webp`. */

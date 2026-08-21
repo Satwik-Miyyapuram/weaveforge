@@ -50,7 +50,7 @@ const webDavResolver = new WebDavPdfResolver({
 });
 
 /** Resolvers in priority order — cache first when provided, then open-access, then WebDAV. */
-export function defaultPdfSourceResolvers(
+function defaultPdfSourceResolvers(
   cache?: IPdfByteCache,
 ): readonly IPdfSourceResolver[] {
   const resolvers: IPdfSourceResolver[] = [];

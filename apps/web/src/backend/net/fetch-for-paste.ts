@@ -20,7 +20,7 @@ const IMAGE_BYTES = 12 * 1024 * 1024;
 
 const IMAGE_TYPES = /^image\/(png|jpeg|gif|webp|avif|bmp|tiff)$/i;
 
-export type FetchFailure = { ok: false; status: number; message: string };
+type FetchFailure = { ok: false; status: number; message: string };
 
 export type TitleResult = { ok: true; title: string; url: string } | FetchFailure;
 

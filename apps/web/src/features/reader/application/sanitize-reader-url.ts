@@ -4,7 +4,7 @@
  */
 
 /** Hosts the same-origin PDF proxy will fetch (must stay in sync with the route). */
-export const PDF_PROXY_ALLOWED_HOSTS = new Set([
+const PDF_PROXY_ALLOWED_HOSTS = new Set([
   "arxiv.org",
   "www.arxiv.org",
   "export.arxiv.org",

@@ -25,7 +25,7 @@ function headingSlug(text: string): string {
 }
 
 /** Resolve a `[[wikilink]]` target to a destination; unresolved = offer-to-create. */
-export interface WikilinkResolution {
+interface WikilinkResolution {
   href: string;
   unresolved: boolean;
 }

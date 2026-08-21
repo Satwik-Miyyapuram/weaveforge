@@ -31,7 +31,7 @@ export const ALL_DASHBOARD_DATA_SOURCES: readonly DashboardDataSource[] = [
   "supervision",
 ];
 
-export interface GridSize {
+interface GridSize {
   w: number;
   h: number;
 }

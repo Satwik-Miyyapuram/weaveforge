@@ -11,7 +11,7 @@ import { ASSET_DIR, relativeAssetPaths, toRelativeBlobLinks } from "@weaveforge/
  * re-anchored under the importing user, and which are left alone.
  */
 
-export interface AssetRef {
+interface AssetRef {
   /** Folder path, e.g. `assets/notes/{userId}/{pageId}/x.png`. */
   folderPath: string;
   /** The part after the scope directory — the claimed storage path. */

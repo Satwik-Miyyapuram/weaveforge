@@ -33,7 +33,7 @@ export type SafeFetchFailure =
   | { ok: false; kind: "upstream"; status: number; message: string }
   | { ok: false; kind: "too-large"; status: 413; message: string };
 
-export interface SafeFetchSuccess {
+interface SafeFetchSuccess {
   ok: true;
   /** Where the redirects actually ended up. */
   url: string;

@@ -27,7 +27,7 @@ import { modelExtractor } from "@/features/ai-assistant/application/ai-provider-
  */
 
 /** Notes and papers are the source material; generated pages are excluded. */
-export const WIKI_ROOT_TITLE = "Wiki";
+const WIKI_ROOT_TITLE = "Wiki";
 
 /**
  * Notes, with bodies.

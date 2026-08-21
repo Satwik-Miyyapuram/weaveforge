@@ -34,7 +34,7 @@ export function OrgSetupGate({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
+function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
   const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

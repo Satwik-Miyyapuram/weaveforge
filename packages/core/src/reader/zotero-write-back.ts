@@ -35,7 +35,7 @@ export interface ZoteroAnnotationRemote {
   updatedAt: string;
 }
 
-export type AnnotationConflictField =
+type AnnotationConflictField =
   | "color"
   | "text"
   | "comment"
