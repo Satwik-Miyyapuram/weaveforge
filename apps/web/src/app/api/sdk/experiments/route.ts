@@ -1,17 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "../_shared";
 
-/** Plaintext columns the SDK may update on E2EE rows (curves use experiment_metrics). */
-const SDK_PLAINTEXT_PATCH = [
-  "status",
-  "artifacts",
-  "started_at",
-  "finished_at",
-  "repo_url",
-  "commit_sha",
-  "branch",
-] as const;
-
 export async function GET(request: Request) {
   const user = await requireSdkUser(request);
   if (!user.ok) return user.response;
@@ -50,26 +39,6 @@ export async function POST(request: Request) {
     .eq("id", id)
     .maybeSingle();
   if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
-
-  // Dashboard E2EE clears plaintext name/metrics sentinels — patch status/timestamps only.
-  if (existing?.content_enc) {
-    const patch: Record<string, unknown> = {};
-    for (const key of SDK_PLAINTEXT_PATCH) {
-      if (row[key] !== undefined) patch[key] = row[key];
-    }
-    if (Object.keys(patch).length === 0) {
-      return NextResponse.json({ experiment: existing });
-    }
-    const { data, error } = await user.db
-      .from("experiments")
-      .update(patch)
-      .eq("id", id)
-      .select("*")
-      .limit(1);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    const saved = (data ?? [])[0] ?? existing;
-    return NextResponse.json({ experiment: saved });
-  }
 
   let name = typeof row.name === "string" ? row.name.trim() : "";
   if (!name && existing?.name) name = String(existing.name);
