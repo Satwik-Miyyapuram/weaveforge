@@ -57,19 +57,19 @@ export function readingProgress(papers: readonly Paper[]): ProgressStat {
   return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
-export function reportProgress(sections: readonly ReportSection[]): ProgressStat {
+function reportProgress(sections: readonly ReportSection[]): ProgressStat {
   const total = sections.length;
   const done = sections.filter((s) => s.status === "done").length;
   return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
-export function planProgress(milestones: readonly Milestone[]): ProgressStat {
+function planProgress(milestones: readonly Milestone[]): ProgressStat {
   const total = milestones.length;
   const done = milestones.filter((m) => m.status === "done").length;
   return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
-export function experimentsSummary(experiments: readonly Experiment[]): ExperimentsStat {
+function experimentsSummary(experiments: readonly Experiment[]): ExperimentsStat {
   const running = experiments.filter((e) => e.status === "running").length;
   const done = experiments.filter((e) => e.status === "done").length;
   return { total: experiments.length, running, done };
@@ -114,7 +114,7 @@ export function needsAttention(
   return items;
 }
 
-export function recentLogEntries(
+function recentLogEntries(
   entries: readonly LogEntry[],
   limit = 5,
 ): RecentLogItem[] {

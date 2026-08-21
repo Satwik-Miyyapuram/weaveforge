@@ -9,7 +9,7 @@ export interface BlobViewPayload {
   exp: number;
 }
 
-export function blobViewSecret(): string {
+function blobViewSecret(): string {
   const explicit = process.env.BLOB_VIEW_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (explicit) return explicit;
   const r2Secret = process.env.R2_SECRET_ACCESS_KEY;

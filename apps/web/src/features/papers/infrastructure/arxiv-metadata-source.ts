@@ -35,7 +35,7 @@ export class ArxivMetadataSource implements IMetadataSource {
 }
 
 /** Minimal, dependency-free parse of the first <entry> in an arXiv Atom feed. */
-export function parseArxivEntry(xml: string, arxivId: string): PaperMetadata {
+function parseArxivEntry(xml: string, arxivId: string): PaperMetadata {
   const entry = /<entry>([\s\S]*?)<\/entry>/.exec(xml)?.[1] ?? "";
   const pick = (tag: string) =>
     decode(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(entry)?.[1]?.trim());

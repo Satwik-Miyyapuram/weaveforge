@@ -29,7 +29,7 @@ import {
   type ColorBy,
   type GraphViewSettings,
   type GroupBy,
-} from "./graph-view-settings";
+} from "@weaveforge/core";
 
 export {
   RELATION_COLORS,

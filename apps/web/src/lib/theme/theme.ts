@@ -9,7 +9,7 @@ import {
 
 export type { SurfaceStyle, ThemeConfig };
 
-export const LIGHT_THEMES = [
+const LIGHT_THEMES = [
   "light",
   "latte",
   "honey",
@@ -27,7 +27,7 @@ export const DARK_THEMES = [
   "pastel-dark",
   "confetti-dark",
 ] as const;
-export const CONTROL_SIZES = ["compact", "default", "comfortable"] as const;
+const CONTROL_SIZES = ["compact", "default", "comfortable"] as const;
 
 export type LightThemeId = (typeof LIGHT_THEMES)[number];
 export type DarkThemeId = (typeof DARK_THEMES)[number];

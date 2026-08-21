@@ -30,7 +30,7 @@ function ensureWorker(): Worker {
 }
 
 /** Free the worker's memory once a session is done with it. */
-export function disposeIndexWorker(): void {
+function disposeIndexWorker(): void {
   worker?.terminate();
   worker = null;
 }

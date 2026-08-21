@@ -11,7 +11,7 @@ export interface MemberNode {
 }
 
 /** Display name for a member, with sensible fallbacks. */
-export function memberLabel(m: Member): string {
+function memberLabel(m: Member): string {
   return m.fullName || m.email || m.id;
 }
 
@@ -21,7 +21,7 @@ export function memberLabel(m: Member): string {
  * whether or not the caller includes the top of the tree. Nodes are ordered by
  * role rank (senior first) then name, recursively.
  */
-export function buildMemberForest(members: Member[]): MemberNode[] {
+function buildMemberForest(members: Member[]): MemberNode[] {
   const byId = new Map<string, MemberNode>();
   for (const m of members) byId.set(m.id, { member: m, children: [] });
 
@@ -69,7 +69,7 @@ interface TreeProps {
  * A file-tree-style rendering of a member forest: indented, with collapsible
  * parents. Used both as a static org chart and inside the supervisor picker.
  */
-export function MemberTree({ forest, selectedId, onSelect, meId, inLab = true }: TreeProps) {
+function MemberTree({ forest, selectedId, onSelect, meId, inLab = true }: TreeProps) {
   const allIds = useMemo(() => collectIds(forest), [forest]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 

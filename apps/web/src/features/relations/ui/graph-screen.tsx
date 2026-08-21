@@ -14,7 +14,7 @@ import { SettingsIcon } from "@/components/view-icons";
 import { GraphLegend } from "./graph-legend";
 import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
-import { graphFilterCount } from "../application/graph-view-settings";
+import { graphFilterCount } from "@weaveforge/core";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";

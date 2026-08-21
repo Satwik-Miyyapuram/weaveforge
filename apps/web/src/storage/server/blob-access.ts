@@ -5,7 +5,7 @@ import { readBackendConfig } from "@/backend/config";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export const BLOB_STORAGE_BUCKETS = [
+const BLOB_STORAGE_BUCKETS = [
   "paper-images",
   "experiment-artifacts",
   "vault-assets",
@@ -37,7 +37,7 @@ export function paperIdFromImagePath(path: string): string | null {
 }
 
 /** Vault asset path: `{ownerId}/{pageId}/{file}`. */
-export function vaultPageIdFromPath(path: string): string | null {
+function vaultPageIdFromPath(path: string): string | null {
   const seg = path.split("/")[1];
   if (!seg || !UUID_RE.test(seg)) return null;
   return seg;

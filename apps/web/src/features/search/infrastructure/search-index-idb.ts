@@ -11,7 +11,7 @@
 
 import { SEARCH_STORE, openAppDb as openDb } from "@/lib/cache/app-idb";
 
-export function searchCacheKey(projectId: string | null): string {
+function searchCacheKey(projectId: string | null): string {
   return `${projectId ?? "-"}|index`;
 }
 

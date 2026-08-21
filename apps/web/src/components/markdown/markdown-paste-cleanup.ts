@@ -230,12 +230,12 @@ export function moveCommas(placement: CommaPlacement): StateCommand {
  * The same rule the paste runs, reachable on demand — for the reader who has
  * the automatic version switched off, and for text that arrived some other way.
  */
-export const selectionToTable: StateCommand = transformSelection(
+const selectionToTable: StateCommand = transformSelection(
   (text) => tabSeparatedToMarkdownTable(text).text,
 );
 
 /** Pastes the clipboard with no rules applied at all. */
-export const pasteWithoutCleanup: Command = (view) => {
+const pasteWithoutCleanup: Command = (view) => {
   void navigator.clipboard
     ?.readText()
     .then((text) => {

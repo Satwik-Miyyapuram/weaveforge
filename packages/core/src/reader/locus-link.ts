@@ -9,8 +9,8 @@ import type { PdfLocus, TextPositionSelector, TextQuoteSelector } from "./pdf-lo
  * let `URLSearchParams` / the URL API percent-encode once — do not pre-encode.
  */
 
-export const MAX_LOCUS_PARAM_CHARS = 8_000;
-export const MAX_QUOTE_FIELD_CHARS = 2_000;
+const MAX_LOCUS_PARAM_CHARS = 8_000;
+const MAX_QUOTE_FIELD_CHARS = 2_000;
 
 function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";

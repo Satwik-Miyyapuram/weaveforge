@@ -7,14 +7,14 @@
  * asks for the lower one fail with a VersionError, taking its cache with it.
  */
 
-export const APP_DB_NAME = "thesis-screen-cache";
+const APP_DB_NAME = "thesis-screen-cache";
 export const SCREEN_STORE = "screens";
 export const SEARCH_STORE = "search";
 export const PDF_TEXT_STORE = "pdftext";
 export const VECTOR_STORE = "vectors";
 
 /** v1: screens. v2: search index. v3: PDF page text. v4: passage vectors. */
-export const APP_DB_VERSION = 4;
+const APP_DB_VERSION = 4;
 
 export function openAppDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

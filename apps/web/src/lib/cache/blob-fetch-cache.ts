@@ -7,7 +7,7 @@ function cacheKey(bucket: string, path: string): string {
   return `${bucket}\0${path}`;
 }
 
-export function fetchDecryptedCached(
+function fetchDecryptedCached(
   bucket: string,
   path: string,
   fetcher: (path: string) => Promise<Blob>,

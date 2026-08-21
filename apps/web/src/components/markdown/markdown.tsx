@@ -16,7 +16,7 @@ function escapeAttr(s: string): string {
 }
 
 /** Slug for heading anchor ids (so `[[Note#Heading]]` can target them). */
-export function headingSlug(text: string): string {
+function headingSlug(text: string): string {
   return text
     .trim()
     .toLowerCase()

@@ -1,6 +1,6 @@
 import type { Member } from "@weaveforge/core";
 
-export function memberDisplayName(member: Member): string {
+function memberDisplayName(member: Member): string {
   return member.fullName ?? member.email ?? "Member";
 }
 

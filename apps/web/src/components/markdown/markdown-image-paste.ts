@@ -77,7 +77,7 @@ function placeholderText(alt: string): string {
  * `getAsFile` has to be called while the event is still being dispatched, which
  * is why this is a plain synchronous function and not a promise.
  */
-export function imageFilesFrom(data: DataTransfer | null): File[] {
+function imageFilesFrom(data: DataTransfer | null): File[] {
   if (!data) return [];
 
   const fromItems = [...(data.items ?? [])]

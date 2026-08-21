@@ -17,7 +17,7 @@ export function layoutCacheKey(projectId: string, supervisorLayout: boolean): st
   return `${projectId}:${supervisorLayout ? "supervisor" : "student"}`;
 }
 
-export function layoutStorageKey(projectId: string): string {
+function layoutStorageKey(projectId: string): string {
   return `thesis.dashboard.layout.${projectId}`;
 }
 
@@ -30,7 +30,7 @@ export function clearLegacyLayoutStorage(projectId: string): void {
   }
 }
 
-export function newCardId(): string {
+function newCardId(): string {
   return `card-${crypto.randomUUID().slice(0, 8)}`;
 }
 
@@ -73,7 +73,7 @@ export function studentDefaultSm(): DashboardLayoutItem[] {
 }
 
 /** Supervisor default — desktop. */
-export function supervisorDefaultLg(): DashboardLayoutItem[] {
+function supervisorDefaultLg(): DashboardLayoutItem[] {
   return [
     item("team", "team-roster", 0, 0, 12, 4),
     item("team-attn", "team-attention", 0, 4, 12, 3),
@@ -86,7 +86,7 @@ export function supervisorDefaultLg(): DashboardLayoutItem[] {
 }
 
 /** Supervisor default — mobile. */
-export function supervisorDefaultSm(): DashboardLayoutItem[] {
+function supervisorDefaultSm(): DashboardLayoutItem[] {
   return [
     item("team", "team-roster", 0, 0, 4, 5),
     item("team-attn", "team-attention", 0, 5, 4, 4),
@@ -122,7 +122,7 @@ export function mergeSupervisorCardsIfMissing(layout: DashboardLayout): Dashboar
 }
 
 /** Append a new card at the bottom of the grid. */
-export function appendCard(
+function appendCard(
   items: DashboardLayoutItem[],
   type: DashboardCardType,
   w: number,
@@ -209,7 +209,7 @@ export function normalizeLayoutItem(
   };
 }
 
-export function normalizeLayout(layout: DashboardLayout): DashboardLayout {
+function normalizeLayout(layout: DashboardLayout): DashboardLayout {
   return {
     lg: layout.lg.map((it) => normalizeLayoutItem(it, 12)),
     sm: layout.sm.map((it) => normalizeLayoutItem(it, 4)),
@@ -286,7 +286,7 @@ function fitsAt(
 }
 
 /** Pack mobile cards into a tight 2- or 4-column grid (row-major, no gaps). */
-export function packSmLayout(items: readonly DashboardLayoutItem[]): DashboardLayoutItem[] {
+function packSmLayout(items: readonly DashboardLayoutItem[]): DashboardLayoutItem[] {
   const adjusted = items.map((it) => {
     const normalized = normalizeLayoutItem(it, 4);
     const w = snapSmWidth(normalized.w);

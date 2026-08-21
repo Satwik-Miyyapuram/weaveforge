@@ -51,7 +51,7 @@ const DARK_CM_THEMES: Record<DarkThemeId, ThemeFactory> = {
   "confetti-dark": (settings, styles) => tokyoNightInit({ settings, styles }),
 };
 
-export function readActiveThemeId(mode?: ThemeMode): LightThemeId | DarkThemeId {
+function readActiveThemeId(mode?: ThemeMode): LightThemeId | DarkThemeId {
   const resolvedMode =
     mode ?? (typeof document !== "undefined" ? readStoredMode() : "light");
   const raw =

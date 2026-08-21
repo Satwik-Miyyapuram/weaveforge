@@ -74,7 +74,7 @@ export function resolveCiteKey(paper: Paper): string {
 }
 
 /** Deduping wrapper around {@link resolveCiteKey} for bibliography export. */
-export function bibKey(paper: Paper, used: Set<string>): string {
+function bibKey(paper: Paper, used: Set<string>): string {
   const base = resolveCiteKey(paper);
   let key = base;
   let n = 2;
@@ -111,7 +111,7 @@ export function formatPaperCitation(paper: Paper, format: CitationFormat): strin
 }
 
 /** Build title→cite-key map used by markdown→LaTeX wikilink conversion. */
-export function buildCiteByTitle(
+function buildCiteByTitle(
   papers: readonly Paper[],
 ): { citeByTitle: Map<string, string>; keyByPaperId: Map<string, string> } {
   const used = new Set<string>();
@@ -138,7 +138,7 @@ export function buildCiteByTitle(
  * rendered entry. Unbalanced braces cannot be parsed by biber, so those are
  * escaped instead.
  */
-export function escapeBibField(value: string): string {
+function escapeBibField(value: string): string {
   let depth = 0;
   let balanced = true;
   for (const ch of value) {

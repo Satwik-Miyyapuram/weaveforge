@@ -64,7 +64,7 @@ const BROWSER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 /** Every address the name resolves to, so one bad answer is enough to refuse. */
-export async function resolveHost(hostname: string): Promise<string[]> {
+async function resolveHost(hostname: string): Promise<string[]> {
   const host = hostname.replace(/^\[|\]$/g, "");
   const results = await lookup(host, { all: true, verbatim: true });
   return results.map((entry) => entry.address);

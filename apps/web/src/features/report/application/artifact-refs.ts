@@ -15,7 +15,7 @@ import {
   STALE_RUNNING_MS,
 } from "@weaveforge/core";
 
-export const EXPERIMENT_ARTIFACT_PREFIX = "expartifact:";
+const EXPERIMENT_ARTIFACT_PREFIX = "expartifact:";
 
 export interface ArtifactRef {
   experimentId: string;
@@ -95,7 +95,7 @@ export function artifactBasename(name: string): string {
  * Prefers exact match, then basename match (so `loss.png` resolves against a
  * signed `https://…/loss.png?token=…`).
  */
-export function matchExperimentArtifact(
+function matchExperimentArtifact(
   artifacts: readonly string[],
   refName: string,
 ): string | null {

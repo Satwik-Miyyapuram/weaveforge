@@ -36,7 +36,7 @@ const PENDING_MARK = Decoration.mark({ class: "cm-pending-insert" });
 
 const decorated = new Set<number>();
 
-export const pendingInserts = StateField.define<PendingRegion[]>({
+const pendingInserts = StateField.define<PendingRegion[]>({
   create: () => [],
   update(current, tr) {
     let next = current;
@@ -65,7 +65,7 @@ export const pendingInserts = StateField.define<PendingRegion[]>({
     }),
 });
 
-export const pendingTheme = EditorView.baseTheme({
+const pendingTheme = EditorView.baseTheme({
   ".cm-pending-insert": { opacity: "0.55", fontStyle: "italic" },
 });
 

@@ -1,17 +1,19 @@
 "use client";
 
-import { RELATION_TYPES, type ReadingList, type RelationType } from "@weaveforge/core";
-import { MultiSelect } from "@/components/multi-select";
-import { ChevronIcon } from "@/components/chevron-icon";
-import { useState } from "react";
 import {
   DEFAULT_GRAPH_SETTINGS,
+  RELATION_TYPES,
   type ColorBy,
   type EdgeMode,
   type GraphViewSettings,
   type GroupBy,
   type LayoutMode,
-} from "../application/graph-view-settings";
+  type ReadingList,
+  type RelationType,
+} from "@weaveforge/core";
+import { MultiSelect } from "@/components/multi-select";
+import { ChevronIcon } from "@/components/chevron-icon";
+import { useState } from "react";
 
 function Section({
   title,

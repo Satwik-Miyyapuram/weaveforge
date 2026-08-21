@@ -87,7 +87,7 @@ export function emptyCellPaperIds(
     .map((row) => row.paper.id);
 }
 
-export function valueMapForPaper(
+function valueMapForPaper(
   paperId: string,
   allValues: readonly PaperFieldValue[],
   defs: readonly PaperFieldDef[] = [],
@@ -124,7 +124,7 @@ export function flattenPaperRows(
   return rows;
 }
 
-export function formatCell(value: PaperFieldValueData | undefined): string {
+function formatCell(value: PaperFieldValueData | undefined): string {
   if (value == null) return "";
   return Array.isArray(value) ? value.join("; ") : String(value);
 }
@@ -158,7 +158,7 @@ export function extractionCsv(
   return [headers.map(csvEscape).join(","), ...body].join("\n");
 }
 
-export function columnLabel(column: ExtractionColumnId, defs: readonly PaperFieldDef[]): string {
+function columnLabel(column: ExtractionColumnId, defs: readonly PaperFieldDef[]): string {
   if (column === "title") return "Title";
   if (column === "year") return "Year";
   if (column === "status") return "Status";

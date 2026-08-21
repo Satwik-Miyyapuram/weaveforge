@@ -123,7 +123,7 @@ export async function buildExportFiles(
  * Opens directly in Obsidian or VS Code — every file carries its `weaveforge-id`
  * in frontmatter, so a re-import matches entities back up regardless of renames.
  */
-export async function buildWorkspaceFolderFiles(
+async function buildWorkspaceFolderFiles(
   snapshot: WorkspaceSnapshot,
   assets: ExportAssetReaders,
 ): Promise<Record<string, Uint8Array>> {
@@ -179,7 +179,7 @@ export async function downloadWorkspaceFolder(): Promise<void> {
  * Full account export as a ZIP: domain JSON per feature plus vault/paper blobs.
  * Runs client-side; content is plaintext (RLS + at-rest).
  */
-export async function exportUserData(): Promise<Blob> {
+async function exportUserData(): Promise<Blob> {
   const c = getContainer();
   // Read through the workspace snapshot, never the screen facades: those return
   // card projections with `body: ""` on notes and no abstract/bibtex/metadata on
