@@ -203,5 +203,6 @@ change underneath it. A → C → B is the cheap path; A and C together is fine.
 | Measurement | [`measure-metrics-storage.mjs`](../../scripts/measure-metrics-storage.mjs), [`measure-metrics-layouts.mjs`](../../scripts/measure-metrics-layouts.mjs) |
 | Operations | [`rollup-metric-chunks.mjs`](../../scripts/rollup-metric-chunks.mjs), [`prune-metric-series.mjs`](../../scripts/prune-metric-series.mjs) |
 | Ingest path | [`sdk/metrics/route.ts`](../../apps/web/src/app/api/sdk/metrics/route.ts) |
+| Ingest bounds (5000 points, 200 series per request) | [`metrics/limits.ts`](../../apps/web/src/app/api/sdk/metrics/limits.ts) |
 | SDK batching (`_FLUSH_EVERY = 1000`) | [`run.py`](../../python/weaveforge/features/experiments/application/run.py) |
 | Disk headroom and alerting | [`oracle-shift-guide.md`](../backend/oracle-shift-guide.md) |

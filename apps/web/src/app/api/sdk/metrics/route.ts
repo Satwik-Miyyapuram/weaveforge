@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { planSeriesIngest } from "@weaveforge/core";
 import { requireSdkUser } from "../_shared";
+import { MAX_POINTS_PER_REQUEST, MAX_SERIES_PER_REQUEST } from "./limits";
 
 type SdkDb = Extract<Awaited<ReturnType<typeof requireSdkUser>>, { ok: true }>["db"];
 
@@ -35,6 +36,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Body must be { points: [...] }." }, { status: 400 });
   }
   if (points.length === 0) return NextResponse.json({ ok: true });
+  if (points.length > MAX_POINTS_PER_REQUEST) {
+    return NextResponse.json(
+      { error: `At most ${MAX_POINTS_PER_REQUEST} points per request.` },
+      { status: 400 },
+    );
+  }
 
   // Downsample before writing (Fix C of the metrics storage plan).
   //
@@ -49,6 +56,12 @@ export async function POST(request: Request) {
     const bucket = grouped.get(key);
     if (bucket) bucket.push(raw);
     else grouped.set(key, [raw]);
+  }
+  if (grouped.size > MAX_SERIES_PER_REQUEST) {
+    return NextResponse.json(
+      { error: `At most ${MAX_SERIES_PER_REQUEST} distinct series per request.` },
+      { status: 400 },
+    );
   }
 
   const toInsert: IncomingPoint[] = [];
@@ -67,7 +80,21 @@ export async function POST(request: Request) {
       continue;
     }
 
-    const normalised = bucket.map((p) => ({ ...p, step: Number(p.step ?? 0) }));
+    // An omitted step means the first one; anything else that is not a number
+    // has to be refused rather than coerced. `Number("x")` is NaN, and NaN
+    // compares false against every grid test, so such a point would be dropped
+    // by the downsampler without the caller ever being told.
+    const normalised: (IncomingPoint & { step: number })[] = [];
+    for (const p of bucket) {
+      const step = Number(p.step ?? 0);
+      if (!Number.isFinite(step)) {
+        return NextResponse.json(
+          { error: `Point step must be a finite number, got ${JSON.stringify(p.step)}.` },
+          { status: 400 },
+        );
+      }
+      normalised.push({ ...p, step });
+    }
     const previousMaxStep = await highestStoredStep(user.db, experimentId, metric);
     const { keep, supersededTipStep } = planSeriesIngest(normalised, previousMaxStep);
 
