@@ -15,7 +15,12 @@ function networkFailureMessage(message: string): string | null {
     return "Could not load part of the app. This usually means a new version was deployed while this tab was open — reload the page.";
   }
   if (!NETWORK_FAILURES.some((phrase) => lower.includes(phrase))) return null;
-  return "Could not reach the server. The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.";
+  // The client names the host it was going to (see providers/supabase/client),
+  // and this app talks to two of them — keep it, because "which one" is the
+  // whole of what a reader can pass on to whoever can fix it.
+  const host = /\(could not reach ([^)]+)\)/.exec(message)?.[1];
+  const what = host ? `Could not reach ${host}.` : "Could not reach the server.";
+  return `${what} The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.`;
 }
 /** Extract a human-readable message from unknown thrown values (incl. Supabase/PostgREST). */
 export function formatError(err: unknown): string {
@@ -34,7 +39,12 @@ export function formatError(err: unknown): string {
   if (typeof err === "object") {
     const record = err as Record<string, unknown>;
     const message = record.message;
-    if (typeof message === "string" && message.trim()) return message.trim();
+    if (typeof message === "string" && message.trim()) {
+      const trimmed = message.trim();
+      // supabase-js hands a failed fetch back as a plain object, so the network
+      // wording has to be reachable from here too, not only from Error.
+      return networkFailureMessage(trimmed) ?? trimmed;
+    }
     if (message != null && typeof message === "object") return formatError(message);
 
     const code = typeof record.code === "string" ? record.code : null;

@@ -141,10 +141,10 @@ export function getRealtimeClient(main: SupabaseClient): SupabaseClient {
   return realtimeClient;
 }
 
-/** The `global.fetch` override, or nothing when the data API is Supabase's own. */
+/** The `global.fetch` override: the data-API rewrite, and a failure that names its target. */
 function dataApiOptions(url: string, dataUrl: string | undefined): SupabaseClientOptions<"public"> {
-  const rewrite = dataUrl && dataUrl !== url ? { global: { fetch: dataApiFetch(url, dataUrl) } } : {};
-  return { ...rewrite, ...desktopAuthOptions() };
+  const rewrite = dataUrl && dataUrl !== url ? dataApiRewriter(url, dataUrl) : (href: string) => href;
+  return { global: { fetch: routedFetch(rewrite) }, ...desktopAuthOptions() };
 }
 
 /**
@@ -173,34 +173,65 @@ function desktopAuthOptions(): SupabaseClientOptions<"public"> {
  * `/storage/v1` and so on. Rewriting at the fetch layer is what lets one client
  * serve both without maintaining a second client and a second session.
  */
-function dataApiFetch(supabaseUrl: string, dataUrl: string): typeof fetch {
+function dataApiRewriter(supabaseUrl: string, dataUrl: string): (href: string) => string {
   const restPrefix = `${supabaseUrl.replace(/\/$/, "")}/rest/v1`;
   const dataBase = dataUrl.replace(/\/$/, "");
+  // PostgREST serves the tables at its root, so `/rest/v1` is dropped.
+  return (href) => (href.startsWith(restPrefix) ? `${dataBase}${href.slice(restPrefix.length)}` : href);
+}
 
-  return (input, init) => {
+/**
+ * One fetch for every request the client makes: it moves the ones that belong
+ * to the data API, and makes a failure say where it was going.
+ */
+function routedFetch(rewrite: (href: string) => string): typeof fetch {
+  return async (input, init) => {
     const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    if (!href.startsWith(restPrefix)) return fetch(input, init);
-
-    // PostgREST serves the tables at its root, so `/rest/v1` is dropped.
-    const rewritten = `${dataBase}${href.slice(restPrefix.length)}`;
-    // Never let a framework cache stand in front of the database.
-    //
-    // Next.js patches the global `fetch`, and a route handler's fetches are
-    // cached unless they opt out. Every database read through this rewrite was
-    // therefore eligible, and the MCP relay showed what that costs: the browser
-    // starts polling for work *before* any work exists, the first claim caches
-    // an empty batch for that session, and every later poll is served that same
-    // empty answer — so a live relay never sees a single request, while a
-    // one-off claim on a fresh session succeeds because it misses the cache.
-    // These are database calls; none of them are cacheable, ever.
-    const uncached: RequestInit = { cache: "no-store" };
-    if (typeof input === "string" || input instanceof URL) {
-      return fetch(rewritten, { ...init, ...uncached });
+    const target = rewrite(href);
+    try {
+      if (target === href) return await fetch(input, init);
+      // Never let a framework cache stand in front of the database.
+      //
+      // Next.js patches the global `fetch`, and a route handler's fetches are
+      // cached unless they opt out. Every database read through this rewrite was
+      // therefore eligible, and the MCP relay showed what that costs: the browser
+      // starts polling for work *before* any work exists, the first claim caches
+      // an empty batch for that session, and every later poll is served that same
+      // empty answer — so a live relay never sees a single request, while a
+      // one-off claim on a fresh session succeeds because it misses the cache.
+      // These are database calls; none of them are cacheable, ever.
+      const uncached: RequestInit = { cache: "no-store" };
+      if (typeof input === "string" || input instanceof URL) {
+        return await fetch(target, { ...init, ...uncached });
+      }
+      // A Request carries its own body and headers; rebuild it around the new URL
+      // rather than passing it as `init`, so the opt-out actually applies.
+      return await fetch(new Request(target, input), uncached);
+    } catch (error) {
+      throw namedNetworkFailure(error, target);
     }
-    // A Request carries its own body and headers; rebuild it around the new URL
-    // rather than passing it as `init`, so the opt-out actually applies.
-    return fetch(new Request(rewritten, input), uncached);
   };
+}
+
+/**
+ * Re-throw a network failure with the host it could not reach.
+ *
+ * A browser reports a request that never left it as a bare
+ * `TypeError: Failed to fetch`, carrying no URL. This app talks to two origins
+ * — Supabase for auth, a self-hosted PostgREST for data — so that message
+ * alone cannot say which half is unreachable, and that is the one fact needed
+ * to act on a report of it. Anything that is not a network failure is passed
+ * through untouched: a server that answered has its own words.
+ */
+function namedNetworkFailure(error: unknown, target: string): unknown {
+  if (!(error instanceof TypeError)) return error;
+  let host = target;
+  try {
+    host = new URL(target).host;
+  } catch {
+    // Not a URL that parses — report it as given rather than losing it.
+  }
+  return Object.assign(new TypeError(`${error.message} (could not reach ${host})`), { cause: error });
 }
 
 export function resetSupabaseClientForTests(): void {
