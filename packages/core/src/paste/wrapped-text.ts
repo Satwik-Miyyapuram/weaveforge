@@ -212,16 +212,6 @@ export function fragmentJoin(previousTail: string, fragment: string): FragmentJo
 const TIGHT_DASH = new RegExp("\\S[\\u2013\\u2014]$");
 
 /**
- * Joins two fragments. Kept for callers that hold both strings already; the
- * bulk joins go through `joinPieces`, which never re-reads its own output.
- */
-export function joinFragments(previous: string, fragment: string): string {
-  const join = fragmentJoin(previous, fragment);
-  const head = join.dropHyphen ? previous.slice(0, -1) : previous;
-  return head + join.separator + fragment;
-}
-
-/**
  * Joins a run of already-trimmed fragments in one pass.
  *
  * Each decision reads only the fragment before it, so the cost is linear in the

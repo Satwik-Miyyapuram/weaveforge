@@ -39,12 +39,6 @@ export interface ModuleRegistry {
   webModules: readonly WebFeatureModule[];
 }
 
-export function allBuiltinModules(): readonly FeatureModule[] {
-  const allowlist = getAppConfig().enabledBuiltinFeatureIds;
-  if (!allowlist) return [...BUILTIN_MODULES, ...BUILTIN_SHELL_MODULES];
-  return [...BUILTIN_MODULES, ...BUILTIN_SHELL_MODULES].filter((m) => allowlist.includes(m.id));
-}
-
 /**
  * Build the feature module registry from deployment config (env + weaveforge.config.ts).
  */

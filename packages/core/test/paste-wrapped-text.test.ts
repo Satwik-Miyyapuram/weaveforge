@@ -5,7 +5,6 @@ import {
   dedentLines,
   endsHyphenated,
   inferWrapWidth,
-  joinFragments,
   MIN_WRAP_WIDTH,
 } from "../src/paste/wrapped-text.js";
 import { cleanPdfText } from "../src/paste/pdf-text.js";
@@ -63,10 +62,6 @@ test("the wrap column is inferred from the text, with a floor", () => {
 test("a hyphen at a line end is repaired only when the word resumes lowercase", () => {
   assert.equal(endsHyphenated("expo-"), true);
   assert.equal(endsHyphenated("---"), false);
-  assert.equal(joinFragments("expo-", "sure has"), "exposure has");
-  assert.equal(joinFragments("Navier-", "Stokes flow"), "Navier-Stokes flow");
-  assert.equal(joinFragments("10-", "20 items"), "10-20 items");
-  assert.equal(joinFragments("see https://a.example/x", "next"), "see https://a.example/x\nnext");
 });
 
 test("repairs a paragraph copied out of a two-column PDF", () => {

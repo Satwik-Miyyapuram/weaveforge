@@ -24,11 +24,6 @@ function containerKey(): string {
   return `${readBackendConfig().provider}:${readStorageConfig().provider}`;
 }
 
-export function getProjectLwwInvalidator(): ProjectLwwInvalidator {
-  if (!projectLww) throw new Error("Container not initialized");
-  return projectLww;
-}
-
 /**
  * Loads and caches the full AppContainer (dynamic import of create-app-container).
  * Call after privacy disclaimer acceptance (and from auth only if light path is insufficient).

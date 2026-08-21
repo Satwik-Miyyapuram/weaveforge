@@ -15,13 +15,6 @@ export type TemplateContext = Record<string, unknown>;
 
 export type RegionKind = "generated" | "editable";
 
-export interface TemplateRegion {
-  kind: RegionKind;
-  name: string;
-  /** Body between the open and close markers, verbatim. */
-  body: string;
-}
-
 type Segment =
   | { type: "text"; text: string }
   | { type: "region"; kind: RegionKind; name: string; body: string; open: string; close: string };

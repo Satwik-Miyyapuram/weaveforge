@@ -84,21 +84,6 @@ export function buildManifestRegistry(manifests: readonly IntegrationManifest[])
   return { bibliography, citation, notification, logSync, gitRead, all: manifests };
 }
 
-export function manifestIds(registry: IntegrationManifestRegistry, kind: IntegrationManifestKind): string[] {
-  switch (kind) {
-    case "bibliography":
-      return registry.bibliography.map((m) => m.id);
-    case "citation":
-      return registry.citation.map((m) => m.id);
-    case "notification":
-      return registry.notification.map((m) => m.id);
-    case "logSync":
-      return registry.logSync.map((m) => m.id);
-    case "gitRead":
-      return registry.gitRead.map((m) => m.id);
-  }
-}
-
 export function findBibliographyManifest(
   registry: IntegrationManifestRegistry,
   id: string,

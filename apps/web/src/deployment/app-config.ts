@@ -46,8 +46,3 @@ export function getAppConfig(): ResolvedAppConfig {
   if (!cached) cached = resolveAppConfig();
   return cached;
 }
-
-/** @internal test helper */
-export function resetAppConfigCache(): void {
-  cached = null;
-}

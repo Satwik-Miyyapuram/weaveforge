@@ -236,19 +236,4 @@ export function markdownSyntaxRanges(text: string): TextRange[] {
   return mergeRanges(ranges);
 }
 
-/**
- * Everything a prose rule must leave alone: code, maths, frontmatter and link
- * or citation syntax. Rules that need a different set build their own from the
- * parts above.
- */
-export function protectedProseRanges(text: string): TextRange[] {
-  const frontmatter = frontmatterRange(text);
-  return mergeRanges([
-    ...markdownCodeRanges(text),
-    ...mathRanges(text),
-    ...markdownSyntaxRanges(text),
-    ...(frontmatter ? [frontmatter] : []),
-  ]);
-}
-
 export type { TextRange };

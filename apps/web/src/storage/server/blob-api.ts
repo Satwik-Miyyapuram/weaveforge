@@ -10,11 +10,6 @@ import { coldBlobConfig, r2BlobConfig, S3BlobStore } from "../providers/s3/s3-bl
 import { PostgresBlobRegistry } from "@/storage/providers/postgres/blob-registry";
 import { SupabaseBlobRegistry } from "../providers/supabase/blob-registry";
 
-/** Server-side tiered store (API routes, tier job). */
-export function buildTieredBlobStore(db: SupabaseClient, config: StorageConfig = readStorageConfig()): IBlobStore {
-  return buildTieredBlobStoreFromConfig(db, config);
-}
-
 class FixedUserSession implements ICurrentUserProvider {
   constructor(private readonly uid: string) {}
 
