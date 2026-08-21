@@ -263,8 +263,10 @@ export function normalizeLengthValue(raw: unknown, maxPx = 64): string | null {
 /** Strip control characters from a display string; length-capped by caller. */
 function normalizeName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
+  // Control characters, written as escapes: literal ones in the source make
+  // git treat this whole file as binary and hide it from grep.
   // eslint-disable-next-line no-control-regex
-  const cleaned = raw.replace(/[ -]/g, "").trim();
+  const cleaned = raw.replace(/[\u0000-\u001f\u007f]/g, "").trim();
   if (!cleaned) return null;
   return cleaned.slice(0, MAX_NAME_LENGTH);
 }
