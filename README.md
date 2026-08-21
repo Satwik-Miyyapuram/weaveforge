@@ -134,22 +134,47 @@ Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/ext
 
 ## Documentation
 
+Ordered the way you meet the project: use it, host it, then build on it.
+
+### 1 — Using WeaveForge
+
 | Doc | Contents |
 |-----|----------|
-| [`docs/DESIGN.md`](docs/DESIGN.md) | Architecture, SOLID, module pattern |
-| [`docs/extensions.md`](docs/extensions.md) | **How to extend** — integrations, modules, Python sync |
-| [`docs/dev.md`](docs/dev.md) | Adding features, integrations, caching |
-| [`docs/release.md`](docs/release.md) | **Python SDK releases** (PyPI); web ships on `main` |
-| [`docs/integrations.md`](docs/integrations.md) | Zotero, Git, Mattermost, providers |
-| [`docs/backend.md`](docs/backend.md) | Supabase vs self-hosted Postgres |
-| [`docs/themes.md`](docs/themes.md) | Light/dark themes |
-| [`docs/SECURITY.md`](docs/SECURITY.md) | Vulnerability reporting, RLS scope, data protection model |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | PR checklist, dev workflow |
+| [`docs/usage-cite-and-excerpts.md`](docs/usage-cite-and-excerpts.md) | Reading → notes → report → LaTeX: citations, excerpts, Overleaf export |
+| [`docs/search.md`](docs/search.md) | One search box over papers, notes, experiments, PDF text and annotations |
+| [`docs/paste.md`](docs/paste.md) | What happens to text pasted from a PDF, terminal, spreadsheet, or chat |
+| [`docs/collaborative-editing.md`](docs/collaborative-editing.md) | Two people in one note, live cursors, no overwrite prompt |
+| [`docs/desktop.md`](docs/desktop.md) | The desktop app — same account, own window |
+| [`python/README.md`](python/README.md) | Python SDK — push ML runs into the same dashboard |
+| [`docs/MCP_IMPLEMENTATION.md`](docs/MCP_IMPLEMENTATION.md) | MCP relay for driving WeaveForge from an AI assistant |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history (whole project) |
-| [`docs/self-host-roadmap.md`](docs/self-host-roadmap.md) | Self-hosted Postgres + tiered blobs |
-| [`docs/plans/README.md`](docs/plans/README.md) | Plan index — current / working / future / completed |
-| [`docs/plans/completed/hosting-and-cost-plan.md`](docs/plans/completed/hosting-and-cost-plan.md) | Hosted access, usage limits, pricing planning, and self-hosting |
-| [`docs/plans/completed/modular-deployment-plan.md`](docs/plans/completed/modular-deployment-plan.md) | Configurable feature, integration, MCP, backend, and storage boundaries |
+
+### 2 — Hosting WeaveForge
+
+| Doc | Contents |
+|-----|----------|
+| [`docs/backend.md`](docs/backend.md) | Choosing a backend: Supabase or self-hosted Postgres |
+| [`docs/backend/postgres-provider.md`](docs/backend/postgres-provider.md) | Running the self-hosted Postgres provider |
+| [`docs/backend/oracle-shift-guide.md`](docs/backend/oracle-shift-guide.md) | Start-to-finish move onto Oracle Cloud free tier |
+| [`docs/storage/README.md`](docs/storage/README.md) | Blob storage as its own composition layer (R2, tiering, growth) |
+| [`docs/self-host-roadmap.md`](docs/self-host-roadmap.md) | What is delivered vs still to provision for self-hosting |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Vulnerability reporting, RLS scope, data protection model |
+| [`docs/integrations.md`](docs/integrations.md) | Zotero, Git, Mattermost — provider setup and env vars |
+| [`docs/release.md`](docs/release.md) | The two release tracks: Python SDK (PyPI) and Android TWA |
+
+### 3 — Developing WeaveForge
+
+| Doc | Contents |
+|-----|----------|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Start here — PR checklist, dev workflow, sign-off |
+| [`docs/dev.md`](docs/dev.md) | Adding features and integrations, testing hooks, **enforced source hygiene** |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | Architecture, SOLID boundaries, module pattern |
+| [`docs/extensions.md`](docs/extensions.md) | Extension seams — integrations, modules, backend, Python sync |
+| [`docs/themes.md`](docs/themes.md) | CSS-variable theming, light/dark, card accent palette |
+| [`docs/UI-SPEC.md`](docs/UI-SPEC.md) | Inventory of every screen, control, and state in the web app |
+| [`docs/PRIVACY_TEST_MATRIX.md`](docs/PRIVACY_TEST_MATRIX.md) | Privacy guarantees mapped to the tests that prove them |
+| [`docs/plans/README.md`](docs/plans/README.md) | Plan index — completed plans and where in-flight work would go |
+| [`docs/future-work/BACKLOG.md`](docs/future-work/BACKLOG.md) | Proposed work not started |
 
 ---
 
@@ -207,14 +232,28 @@ On first sign-in, complete org setup in **Settings → People** (create/join a l
 
 ## Scripts
 
+**Before opening a PR, run one command:**
+
+```bash
+npm run check:all
+```
+
+That is the same gate CI runs — typecheck across every workspace, lint,
+`check:boundaries`, the core / web / desktop suites, and a production Next.js
+build. Everything below is a piece of it, useful when you want a faster loop.
+
 ```bash
 npm run dev              # web app @ :3000
 npm run build:core       # compile @weaveforge/core
 npm run test:core        # domain + contract tests
+npm run test:web         # web unit suite
 npm run test:integration:web
 npm run typecheck        # all workspaces
+npm run lint
+npm run check:boundaries # every architectural check below, in one go
 npm run check:solid      # boundary lint (UI ↔ facades, no cross-feature /ui imports)
 npm run check:dry        # DRY lint (pin/share/owner-label patterns centralised in core)
+npm run check:hygiene    # source hygiene — see docs/dev.md
 npm run dev --workspace @weaveforge/pitch     # pitch site @ :3100
 npm run build --workspace @weaveforge/pitch   # static export -> apps/pitch/out
 ```
