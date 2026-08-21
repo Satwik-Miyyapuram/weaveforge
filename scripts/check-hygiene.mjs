@@ -26,6 +26,23 @@ function tracked(...globs) {
 }
 
 const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
+
+/** Of these paths, the ones git is told to ignore. Exits 1 when none match. */
+function checkIgnore(paths) {
+  if (!paths.length) return [];
+  try {
+    return execSync("git check-ignore --stdin", {
+      cwd: root,
+      encoding: "utf8",
+      input: paths.join("\n"),
+    })
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
 const failures = [];
 
 function fail(rule, lines, fix) {
@@ -213,10 +230,15 @@ const OVERSIZED_ALLOWED = new Map([
       }
     });
   }
-  if (missing.length) {
+  // A path git is told to ignore is one the reader is meant to create — a doc
+  // naming `.env.local` is right, and the file is absent on a clean checkout by
+  // design. Asked once for the whole set rather than once per path.
+  const ignored = new Set(checkIgnore(missing.map((line) => line.split(" ")[1])));
+  const unexplained = missing.filter((line) => !ignored.has(line.split(" ")[1]));
+  if (unexplained.length) {
     fail(
       "docs naming a path that does not exist",
-      missing,
+      unexplained,
       "point the doc at what is there now, or mark the file historical if it is a record rather than a guide",
     );
   }
