@@ -20,5 +20,6 @@ gh api \
 echo "Done. Required checks before merge to ${BRANCH}:"
 echo "  - build-and-test (core + web tests, typecheck, check:solid, lint, build)"
 echo "  - python-sdk (ruff, mypy, pytest)"
+echo "  - dco (every commit signed off by its author)"
 echo "Pull requests required — direct pushes blocked (including admins)."
 echo "Approving reviews: 0 (solo maintainer can merge own PR after CI passes)."

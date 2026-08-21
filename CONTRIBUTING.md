@@ -176,8 +176,18 @@ git commit -s -m "feat: add thing"
 
 This appends a `Signed-off-by:` line certifying that you wrote the contribution
 or otherwise have the right to submit it under the licence above — see
-[developercertificate.org](https://developercertificate.org/). Commits without a
-sign-off will be asked to amend.
+[developercertificate.org](https://developercertificate.org/).
+
+The **dco** check enforces it: it fails a pull request if any commit the pull
+request adds has no `Signed-off-by:` line naming that commit's own author. To
+sign off a branch you have already written:
+
+```bash
+git rebase --signoff origin/main
+```
+
+Commits made before this check existed are not signed off, and the check does
+not look at them — it reads only what a pull request adds.
 
 Set your git identity correctly before committing. Contributions recorded under
 the wrong identity are painful to untangle later, particularly if the project's

@@ -3,7 +3,8 @@
     "strict": true,
     "contexts": [
       "build-and-test",
-      "python-sdk"
+      "python-sdk",
+      "dco"
     ]
   },
   "enforce_admins": true,
