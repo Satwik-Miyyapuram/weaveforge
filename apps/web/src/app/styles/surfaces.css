@@ -1,0 +1,200 @@
+/* ---- L1: resting surfaces ---------------------------------------------- */
+:root[data-surfaces="borderless"] :is(
+  .card,
+  .graph-wrap,
+  .github-link-card,
+  .api-token-env-hint,
+  .weaveforge-loader-tip,
+  .ai-connection-details,
+  .ai-source-group,
+  .ai-active-session,
+  .section-excerpts,
+  .papers-board-col,
+  .paper-note-body,
+  .paper-ids-editor,
+  .paper-fields-manager,
+  .experiment-artifact-picker,
+  .artifact-card,
+  .artifact-thumbs a,
+  .image-thumb,
+  .card-thumb,
+  .extraction-propose-panel,
+  .metric-chart-plot,
+  .linked-overleaf-section,
+  .linked-overleaf-row,
+  .mp-list,
+  .org-node,
+  .reader-split-panel,
+  .reader-activity,
+  .pdf-reader-outline,
+  .dashboard-card
+) {
+  border-color: transparent;
+  box-shadow: var(--e1), var(--rim);
+}
+
+/* Confetti gives a card its colour partly through the edge, so the borderless
+ * layer above would erase half the effect. Both attributes sit on <html>, so
+ * chaining them here is (0,4,0) and outranks the (0,3,0) rule above — the two
+ * are otherwise equal, and that one wins only by coming later in the file. */
+:root[data-surfaces="borderless"][data-theme^="confetti-"] .card {
+  border-color: var(--card-edge, transparent);
+}
+
+/* Kept out of the list above on purpose. `:is()` takes the specificity of its
+   *most* specific argument, so a two-class descendant in there raised the whole
+   list to (0,3,0) and quietly outranked every later override written against a
+   single class — which is how a form nested in a modal kept its rim ("double
+   wall"). Anything needing a compound selector gets its own rule. */
+:root[data-surfaces="borderless"] .graph-focus-legend .graph-legend.card {
+  border-color: transparent;
+  box-shadow: var(--e1), var(--rim);
+}
+
+/* Interactive cards animate between levels. Declared separately from the
+   resting set so the transition is not paid for by static panels. */
+:root[data-surfaces="borderless"] :is(
+  .entity-card,
+  .paper-card,
+  .org-choice-card
+) {
+  border-color: transparent;
+  box-shadow: var(--e1), var(--rim);
+  transition:
+    box-shadow 0.18s var(--layout-ease),
+    transform 0.18s var(--layout-ease),
+    background 0.12s;
+}
+
+/* Nested cards stay flat and recessed — a card inside a card that also lifts
+   destroys the hierarchy the outer card just established. */
+:root[data-surfaces="borderless"] .entity-card--nested {
+  border-color: transparent;
+  box-shadow: var(--e-inset);
+}
+
+/* A form flattened into a modal keeps its own `.card` class (see the
+   `.modal .add-form` rule above), so L1 hands back the depth that flattening
+   just took away and the dialog ends up with a second box drawn inside it.
+   The modal is the surface here; the form is only its contents.
+   `.card` is carried in the compound on purpose: L1's `:is()` weighs as much
+   as its most specific argument (`.graph-focus-legend .graph-legend.card`),
+   so this needs the same weight and must stay *after* L1 to win the cascade. */
+:root[data-surfaces="borderless"] .modal :is(.add-form, .list-add).card {
+  box-shadow: none;
+}
+
+/* ---- L2: interactive lift ---------------------------------------------- */
+:root[data-surfaces="borderless"] :is(
+  .entity-card[role="button"],
+  .paper-card[role="button"],
+  .org-choice-card,
+  .artifact-thumbs a
+):hover {
+  border-color: transparent;
+  background: var(--surface);
+  box-shadow: var(--e2), var(--rim-strong);
+  transform: translateY(-1px);
+}
+
+:root[data-surfaces="borderless"] :is(
+  .entity-card[role="button"],
+  .paper-card[role="button"],
+  .org-choice-card,
+  .artifact-thumbs a
+):active {
+  box-shadow: var(--e1), var(--rim);
+  transform: translateY(0);
+}
+
+:root[data-surfaces="borderless"] .entity-card--nested[role="button"]:hover {
+  box-shadow: var(--e1), var(--rim);
+  transform: none;
+}
+
+/* ---- L3: floating & sticky chrome --------------------------------------- */
+:root[data-surfaces="borderless"] :is(
+  .sub-nav,
+  .custom-select-menu,
+  .popover-panel,
+  .proj-menu,
+  .header-menu,
+  .jump-to-dialog,
+  .graph-link-tooltip,
+  .graph-settings-drawer,
+  .pdf-reader-chrome,
+  .pdf-reader-group,
+  .pdf-reader-search,
+  .pdf-reader-sidebar
+) {
+  border-color: transparent;
+  box-shadow: var(--e3), var(--rim);
+}
+/* The settings tab strip is deliberately absent from the lists above: it is a
+   `.seg` control, and controls keep their outline. */
+
+/* ---- L4: interrupts ----------------------------------------------------- */
+:root[data-surfaces="borderless"] :is(.modal, .comments-sheet) {
+  border-color: transparent;
+  box-shadow: var(--e4), var(--rim);
+}
+
+/* A modal is already a surface. Its own content panel must not draw a second
+   one — in bordered mode the L0 reset at `.modal .add-form` handles it, but
+   the borderless L1 rule above is more specific and put the rim back, so the
+   form read as a card inside a card ("double wall"). Direct children only:
+   deliberately nested surfaces (choice cards, thumbs) keep their depth. */
+:root[data-surfaces="borderless"] :is(.modal, .comments-sheet) > :is(.card, .add-form, .list-add) {
+  border-color: transparent;
+  box-shadow: none;
+  background: none;
+}
+
+/* ---- Recessed wells: depth *into* the page, not out of it --------------- */
+:root[data-surfaces="borderless"] :is(
+  .ai-proposal-content,
+  .ai-source-picker,
+  .shiki-markdown pre.shiki,
+  .markdown-code-editor,
+  .exp-run-cmd,
+  .graph-local-banner,
+  .extraction-pending-banner,
+  .pdf-reader-banner,
+  .metric-chip
+) {
+  border-color: transparent;
+  box-shadow: var(--e-inset);
+}
+
+/* ---- L3: primary nav ----
+   Mobile: the floating pill already frosts; give it the real elevation pair
+   plus a rim so it reads as hovering over the scrolling list, not printed on
+   it. Desktop: the sidebar drops its hairline and casts a directional shadow
+   to the right — occlusion is the strongest depth cue available on a flat
+   viewport, and a shadow falling *onto* the content says "in front" in a way
+   a 1px line never does. */
+:root[data-surfaces="borderless"] .nav {
+  border-color: transparent;
+  box-shadow: var(--e3), var(--rim);
+}
+
+@media (min-width: 900px) {
+  :root[data-surfaces="borderless"] .nav {
+    border-right-color: transparent;
+    box-shadow: 10px 0 26px -14px color-mix(in srgb, var(--ink) 34%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-surfaces="borderless"] :is(.entity-card, .paper-card, .org-choice-card) {
+    transition: box-shadow 0.18s var(--layout-ease);
+  }
+  :root[data-surfaces="borderless"] :is(
+    .entity-card[role="button"],
+    .paper-card[role="button"],
+    .org-choice-card,
+    .artifact-thumbs a
+  ):hover {
+    transform: none;
+  }
+}

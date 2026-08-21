@@ -1,0 +1,94 @@
+.git-branch-bar .field { max-width: 260px; }
+.track-branch-btn { flex: none; }
+.commit-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 10px; }
+.commit-item { display: grid; gap: 6px; min-width: 0; }
+.commit-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; min-width: 0; }
+.commit-sha { font-family: ui-monospace, monospace; font-size: 0.82rem; color: #46594d; font-weight: 600; text-decoration: none; flex: none; }
+.commit-msg { font-size: 0.95rem; min-width: 0; overflow-wrap: anywhere; }
+.commit-meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; font-size: 0.8rem; }
+.commit-meta .muted { min-width: 0; overflow-wrap: anywhere; }
+
+/* Experiments */
+.exp-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
+.exp-item { display: grid; gap: 8px; cursor: pointer; }
+.git-chips, .metric-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.git-chip, .metric-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem;
+  padding: 3px 8px; border-radius: 8px; background: var(--chip); color: var(--ink); text-decoration: none;
+}
+.metric-chip { background: var(--chip); border: 1px solid var(--line); }
+.git-chip em, .metric-chip em { font-style: normal; color: var(--muted); font-size: 0.72rem; }
+.git-chip.link { color: var(--s-info); }
+
+/* Experiments: live indicator + view switch + compare table */
+.live-dot {
+  font-size: 0.6rem; vertical-align: middle; color: var(--s-good);
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.seg button {
+  padding: 5px 13px; background: transparent; border: 0; border-radius: 6px; color: var(--muted);
+  cursor: pointer; font-size: 0.82rem; font-weight: 500; transition: background 0.15s, color 0.15s;
+}
+.seg button.seg-on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.seg button svg { display: block; }
+.seg button[aria-label] {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 10px;
+  line-height: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.compare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.table-scroll,
+.papers-table-scroll {
+  /* width:0 + min-width:100% forces the scrollport to the parent, not the table. */
+  display: block;
+  box-sizing: border-box;
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+.cmp-table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.85rem;
+}
+.cmp-table th, .cmp-table td {
+  text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.cmp-table th .link-btn { font: inherit; }
+.cmp-table tr.leader td { background: color-mix(in srgb, var(--accent, #3e5a78) 12%, transparent); }
+
+/* Sharing + comments — viewport overlay (Modal portals to document.body). */
+.modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  background: rgba(20, 24, 30, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  isolation: isolate;
+}

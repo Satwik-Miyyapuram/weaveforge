@@ -18,7 +18,7 @@ import { useCursorGlow } from "./use-pitch-scroll";
  * Public product pitch.
  *
  * Every object on this page is rendered by the app's own <EntityCard>, painted
- * by globals.css and themed by the tokens in app/themes/ — so changing a card in the product
+ * by app/styles/ and themed by the tokens in app/themes/ — so changing a card in the product
  * changes it here, with no copy to keep in step. The graph borrows the real
  * relation and tag colours from the graph module for the same reason.
  *
@@ -138,7 +138,7 @@ export default function PitchPage() {
       {/* Follows the pointer. Painted above the ground layers, below content. */}
       <div className={css.cursorGlow} aria-hidden />
       {/* The product's own pointer plumbing, which publishes --rx/--ry on the
-          card under the cursor so the sheen in globals.css has somewhere to go. */}
+          card under the cursor so the sheen in app/styles/motion.css has somewhere to go. */}
       <ReactiveMotion />
       <header className={css.head}>
         <div className={`${css.wrap} ${css.headIn}`}>

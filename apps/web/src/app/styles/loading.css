@@ -1,0 +1,208 @@
+/* Branded gate loader — orbit motif + rotating feature tips */
+.weaveforge-loader-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(72vh, 640px);
+  padding: 24px 20px 48px;
+}
+.weaveforge-loader {
+  width: min(420px, 100%);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.weaveforge-loader-mark {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 20px;
+}
+.weaveforge-loader-core {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.weaveforge-loader-core .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
+  animation: weaveforge-loader-pulse 2.4s ease-in-out infinite;
+}
+.weaveforge-loader-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 999px;
+  background: var(--ink);
+  opacity: 0.55;
+  transform-origin: 0 0;
+  animation: weaveforge-loader-spin 9s linear infinite;
+}
+.weaveforge-loader-orbit--a { animation-duration: 7s; background: var(--accent); opacity: 0.9; }
+.weaveforge-loader-orbit--b { animation-duration: 9s; animation-delay: -2s; }
+.weaveforge-loader-orbit--c { animation-duration: 11s; animation-delay: -4.5s; width: 6px; height: 6px; margin: -3px 0 0 -3px; }
+.weaveforge-loader-orbit--d { animation-duration: 13s; animation-delay: -1s; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; opacity: 0.35; }
+@keyframes weaveforge-loader-spin {
+  from { transform: rotate(0deg) translateX(38px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
+}
+@keyframes weaveforge-loader-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.88; }
+}
+.weaveforge-loader-brand {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+.weaveforge-loader-status {
+  margin: 0 0 18px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.weaveforge-loader-tip {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 88%, var(--accent-soft));
+  text-align: left;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.weaveforge-loader-tip--in {
+  opacity: 1;
+  transform: none;
+}
+.weaveforge-loader-tip strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.weaveforge-loader-tip span {
+  display: block;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Inline — inside feature screens */
+.weaveforge-loader-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(52vh, 420px);
+  padding: 28px 16px 40px;
+}
+.weaveforge-loader--inline {
+  width: min(400px, 100%);
+}
+.weaveforge-loader--inline .weaveforge-loader-mark {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 14px;
+}
+.weaveforge-loader-mark--compact .weaveforge-loader-orbit--a,
+.weaveforge-loader-mark--compact .weaveforge-loader-orbit--b,
+.weaveforge-loader-mark--compact .weaveforge-loader-orbit--c,
+.weaveforge-loader-mark--compact .weaveforge-loader-orbit--d {
+  animation-name: weaveforge-loader-spin-compact;
+}
+.weaveforge-loader-mark--compact .weaveforge-loader-core .dot {
+  width: 11px;
+  height: 11px;
+}
+@keyframes weaveforge-loader-spin-compact {
+  from { transform: rotate(0deg) translateX(26px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(26px) rotate(-360deg); }
+}
+.weaveforge-loader--inline .weaveforge-loader-status {
+  margin-bottom: 14px;
+  font-size: 0.78rem;
+}
+.weaveforge-loader--inline .weaveforge-loader-tip {
+  width: 100%;
+}
+.weaveforge-loader-wrap--compact {
+  min-height: 200px;
+  padding: 12px 0 20px;
+}
+.weaveforge-loader-wrap--compact .weaveforge-loader--inline .weaveforge-loader-tip {
+  font-size: 0.9em;
+}
+
+/* Immediate feedback while Next.js swaps routes (see route-pending.tsx). */
+.route-pending-content--hidden {
+  visibility: hidden;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  pointer-events: none;
+}
+.route-skeleton {
+  padding: 12px 0 8px;
+  pointer-events: none;
+}
+
+.screen-loading {
+  display: grid;
+  align-content: center;
+  min-height: min(52vh, 420px);
+}
+
+/* Avoid laying out expensive markdown/card subtrees until they approach the viewport.
+ *
+ * `contain-intrinsic-size` is the *placeholder* the browser uses for an element
+ * whose contents it has skipped. A fixed 140px was well under the real card
+ * height (~162-220px), so every card that scrolled into view resized the flow
+ * and dragged everything after it back through layout. The `auto` keyword makes
+ * the browser remember each element's real size once measured, and the length is
+ * only the first guess — measured at 1500 cards, correcting this alone cut
+ * scroll-blocking time roughly in half on top of the grid change below. */
+.long-list > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 170px;
+}
+.route-pending .weaveforge-loader-wrap--compact {
+  min-height: min(40vh, 320px);
+}
+
+.auth-screen { max-width: 420px; margin: 6vh auto 0; }
+.auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.auth-brand img, .auth-brand svg { width: 44px; height: 44px; border-radius: 13px; }
+.auth-brand div { display: grid; gap: 3px; }
+.auth-brand span { color: var(--accent); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.auth-brand strong { font-family: var(--font-serif); font-size: 1.35rem; }
+.auth-hero { color: var(--muted); line-height: 1.55; margin: 0; }
+.auth-email { display: grid; gap: 12px; }
+.btn-google {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 11px 16px; cursor: pointer; font: inherit; font-weight: 600;
+  color: var(--ink); background: var(--input-bg); border: 1px solid var(--line);
+  border-radius: 999px; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.btn-google:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.btn-google:disabled { opacity: 0.6; cursor: default; }
+.auth-divider { display: flex; align-items: center; text-align: center; color: var(--muted); font-size: 0.78rem; }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.auth-divider span { padding: 0 12px; }

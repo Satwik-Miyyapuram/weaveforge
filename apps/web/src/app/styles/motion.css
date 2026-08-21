@@ -1,0 +1,455 @@
+/* =====================================================================
+ * REACTIVE MOTION — opt-in animation layer
+ * =====================================================================
+ * Everything the app animated before this section existed still animates
+ * unconditionally. This block is *additive*: it applies only under
+ * `[data-motion="reactive"]`, which Settings → Appearance sets and which is
+ * off by default. Turning it off must never remove baseline motion, so no
+ * rule here may be the only definition of an existing transition.
+ *
+ * `--rx` / `--ry` are the pointer position inside the hovered surface, 0–1,
+ * published by ReactiveMotion (app/reactive-motion.tsx).
+ *
+ * Only `translate`, `rotate`, `scale`, `transform`, `opacity` and registered
+ * custom properties are animated — all of which composite without layout,
+ * which is what keeps a 200-card list scrolling while a card is tilting.
+ * `--motion-scale` (settable from config.json) stretches every duration here
+ * at once.
+ * ------------------------------------------------------------------- */
+
+/* Registering the pointer and glow properties gives them a *type*, which is
+ * what lets the browser interpolate them. An unregistered custom property is
+ * just a string, so a gradient stop built from one snaps between values
+ * instead of animating — that is why the sheen previously had to fade with
+ * `opacity`, and why it jumped back to the card's centre on the way out.
+ *
+ * `--rx` / `--ry` are registered but deliberately NOT transitioned: the light
+ * has to sit exactly under the pointer, and a transition there would make it
+ * lag behind the cursor. Nothing about the gradient animates now — only the
+ * opacity that reveals it. */
+/* `inherits: true` on the pointer pair is required, not cosmetic. The script
+   writes --rx/--ry on the *card*, while the gradient that reads them lives on
+   the card's ::after. A pseudo-element inherits from its originating element,
+   so with `inherits: false` the pseudo never saw the pointer at all — it just
+   resolved the 0.5/0.5 initial value and pinned the light to dead centre.
+   Unregistered custom properties inherit by default, which is why this only
+   broke when they were registered.
+   --rm-glow inherits for the same reason: the ::after reads it, and a card or
+   theme that wants a larger pool sets it on the card. */
+@property --rx {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.5;
+}
+@property --ry {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.5;
+}
+/* The size of the pool of light under the cursor. Constant: it is not
+   animated any more, because a glow whose radius grows on hover reads as
+   coming *out of* the card rather than being revealed by it. */
+@property --rm-glow {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 260px;
+}
+
+:root[data-motion="reactive"] {
+  --rm-fast: calc(0.14s * var(--motion-scale));
+  --rm-base: calc(0.26s * var(--motion-scale));
+  --rm-slow: calc(0.52s * var(--motion-scale));
+  /* Tilt is deliberately small. Past ~4deg a card stops reading as a surface
+     catching the light and starts reading as a toy. */
+  --rm-tilt: 3.2deg;
+  /* Glow colour. Deliberately a *luminance* shift of the surface rather than
+     the accent hue: a card catching light does not change colour, it gets
+     lighter or darker. Mixing toward --ink keeps the sheen inside the theme's
+     own colour family — on a light palette it is a slightly deeper shade of
+     the card, on a dark one a slightly lifted one. Tinting with --accent read
+     as a foreign blue wash sitting on top of a warm cream card.
+     Named as one token so a theme that does want a coloured sheen can override
+     it without touching the gradient. */
+  --rm-glow-tint: color-mix(in srgb, var(--ink) 8%, transparent);
+  /* Overshoot-and-settle curve. A single cubic-bezier can overshoot once,
+     which is most of the effect and is the baseline here. */
+  --rm-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Where linear() is available, upgrade the same variable to a real spring —
+   several decaying oscillations rather than one overshoot, which is what
+   makes a lift read as weight moving instead of a value being interpolated.
+   Done through @supports rather than by declaring both values back to back:
+   a custom property accepts nearly any token sequence, so a browser that
+   cannot use linear() would still take it and then fail at substitution
+   time, dropping the timing function to `ease`. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root[data-motion="reactive"] {
+    --rm-spring: linear(
+      0, 0.006 1.1%, 0.048 3.2%, 0.19 6.7%, 0.428 10.8%, 0.681 14.7%, 0.898 18.5%,
+      1.05 22.1%, 1.132 25.5%, 1.155 28.4%, 1.132 32%, 1.086 36.1%, 1.03 41.4%,
+      0.98 48.2%, 0.973 53.1%, 0.981 60.3%, 1.004 72.6%, 1
+    );
+  }
+}
+
+/* ---- Reactive surfaces: tilt toward the pointer, bloom a sheen under it ----
+   The identity `translate` / `rotate` / `scale` on the base state are load
+   bearing. Without them the first hover *introduces* a transform, which
+   creates a stacking context and a containing block mid-interaction and can
+   visibly reorder overlapping cards. */
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  [data-reactive]
+) {
+  position: relative;
+  translate: 0;
+  rotate: 0deg;
+  scale: 1;
+  transition:
+    transform var(--rm-base) var(--layout-ease),
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-fast) var(--layout-ease),
+    box-shadow var(--rm-base) var(--layout-ease);
+}
+
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  [data-reactive]
+):hover {
+  /* Tilt stays on `transform` because two-axis rotation cannot be expressed
+     with the individual `rotate` property, which takes one axis. Keeping the
+     lift on `translate` and the press on `scale` means the three compose
+     instead of overwriting one another — pressing a tilted card used to snap
+     it flat, because `:active` replaced the entire transform chain. */
+  transform:
+    perspective(760px)
+    rotateX(calc((0.5 - var(--ry)) * var(--rm-tilt) * -1))
+    rotateY(calc((var(--rx) - 0.5) * var(--rm-tilt)));
+  translate: 0 -3px;
+}
+
+:root[data-motion="reactive"] :is(
+  .entity-card[role="button"],
+  .paper-card[role="button"],
+  .org-choice-card,
+  [data-reactive]
+):active {
+  scale: 0.985;
+}
+
+/* A light under the cursor, and the card is the mask.
+   
+   The glow does not belong to the card and does not come out of it: it is a
+   fixed-size pool of light sitting wherever the pointer is, and the card simply
+   shows the part of it that falls inside its own bounds. The pseudo-element is
+   `inset: 0` with an inherited radius, so that clipping is the whole effect —
+   move the cursor to a corner and you get a corner's worth of light, not a
+   glow that has repositioned itself.
+
+   Earlier this animated the gradient's *radius*, which made the light look like
+   it was blooming out of the card on enter and being sucked back in on exit.
+   The size is constant now; only opacity moves, and quickly, so the light reads
+   as already there and merely uncovered. */
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  [data-reactive]
+)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--rm-fast) var(--layout-ease);
+  background: radial-gradient(
+    var(--rm-glow) circle at calc(var(--rx, 0.5) * 100%) calc(var(--ry, 0.5) * 100%),
+    var(--rm-glow-tint),
+    transparent 70%
+  );
+}
+
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  [data-reactive]
+):hover::after {
+  opacity: 1;
+}
+
+/* ---- Controls ---- */
+:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .seg button) {
+  translate: 0;
+  scale: 1;
+  transition:
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-fast) var(--layout-ease),
+    box-shadow var(--rm-base) var(--layout-ease),
+    background var(--rm-fast) var(--layout-ease);
+}
+:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary):hover {
+  translate: 0 -1px;
+  box-shadow: var(--e2);
+}
+:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .seg button):active {
+  translate: 0;
+  scale: 0.97;
+}
+
+/* Sub-nav tabs. The baseline hover tint above is the affordance; this adds the
+   physical part. The label itself lifts here rather than an icon, because a
+   sub-tab is text — and the strip is not a touch target that a finger is
+   mid-travel toward, so 1px of movement costs nothing. */
+:root[data-motion="reactive"] .sub-tab {
+  translate: 0;
+  scale: 1;
+  transition:
+    color 0.2s ease,
+    background var(--rm-fast) var(--layout-ease),
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-fast) var(--layout-ease);
+}
+:root[data-motion="reactive"] .sub-tab:hover { translate: 0 -1px; }
+:root[data-motion="reactive"] .sub-tab:active { translate: 0; scale: 0.97; }
+
+/* Nav glyphs pop on hover. Icon only — the label stays put, so the hit target
+   does not move under a finger already travelling toward it.
+
+   Matched on `.nav-link`, not on the element type. Every entry in the nav is a
+   link except Search, which opens the palette and so is a `<button>` — an
+   `a`-scoped selector animated the whole bar apart from that one item. */
+:root[data-motion="reactive"] :is(.nav, .tabbar) .nav-link :is(.vicon, .nav-icon) {
+  translate: 0;
+  scale: 1;
+  transition:
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-base) var(--rm-spring);
+}
+:root[data-motion="reactive"] :is(.nav, .tabbar) .nav-link:hover :is(.vicon, .nav-icon) {
+  translate: 0 -2px;
+  scale: 1.09;
+}
+
+/* ---- Top bar ----
+   The brand row (org chip, project chip, theme toggle, overflow menu) is the
+   one piece of chrome that is on screen on every route, and it was the only
+   interactive surface the reactive layer never covered. Same vocabulary as
+   everything else here: spring lift on hover, scale on press, glyph responds
+   a little more than its container. */
+:root[data-motion="reactive"] :is(
+  .proj-chip,
+  .header-link,
+  .header-overflow-btn,
+  .signout
+) {
+  translate: 0;
+  scale: 1;
+  transition:
+    translate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-fast) var(--layout-ease),
+    background var(--rm-fast) var(--layout-ease),
+    color var(--rm-fast) var(--layout-ease);
+}
+
+:root[data-motion="reactive"] :is(
+  .proj-chip,
+  .header-link,
+  .header-overflow-btn,
+  .signout
+):hover {
+  translate: 0 -1px;
+}
+
+:root[data-motion="reactive"] :is(
+  .proj-chip,
+  .header-link,
+  .header-overflow-btn,
+  .signout
+):active {
+  translate: 0;
+  scale: 0.95;
+}
+
+/* Glyphs lead the container slightly — the icon is what the eye tracks. */
+:root[data-motion="reactive"] :is(.header-link, .signout) svg {
+  scale: 1;
+  transition: scale var(--rm-base) var(--rm-spring);
+}
+:root[data-motion="reactive"] :is(.header-link, .signout):hover svg {
+  scale: 1.12;
+}
+
+/* The theme toggle turns its sun/moon rather than just growing it: the control
+   swaps between two glyphs on click, and a rotation on hover telegraphs that
+   it is a switch instead of a link. */
+:root[data-motion="reactive"] .theme-toggle svg {
+  rotate: 0deg;
+  transition:
+    rotate var(--rm-slow) var(--rm-spring),
+    scale var(--rm-base) var(--rm-spring);
+}
+:root[data-motion="reactive"] .theme-toggle:hover svg {
+  rotate: 35deg;
+  scale: 1.12;
+}
+
+/* Chevrons point at the menu they opened. Driven by aria-expanded, so the
+   animation cannot disagree with what assistive tech is told. */
+:root[data-motion="reactive"] .proj-chip .chev,
+:root[data-motion="reactive"] .header-overflow-btn {
+  transition: rotate var(--rm-base) var(--layout-ease);
+}
+:root[data-motion="reactive"] .proj-chip .chev { rotate: 0deg; }
+:root[data-motion="reactive"] .proj-chip[aria-expanded="true"] .chev { rotate: 180deg; }
+:root[data-motion="reactive"] .header-overflow-btn { rotate: 0deg; }
+:root[data-motion="reactive"] .header-overflow-btn[aria-expanded="true"] { rotate: 90deg; }
+
+/* Dropdowns fall in from under their trigger instead of appearing whole.
+   `@starting-style` gives the entry a from-state without a mount class; there
+   is no matching exit because React unmounts these immediately on close, and
+   animating that would mean holding the node open past its own state. */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-motion="reactive"] :is(.header-menu, .proj-menu, .popover-panel) {
+    opacity: 1;
+    translate: 0;
+    transition:
+      opacity var(--rm-base) var(--layout-ease),
+      translate var(--rm-base) var(--layout-ease);
+  }
+
+  @starting-style {
+    :root[data-motion="reactive"] :is(.header-menu, .proj-menu, .popover-panel) {
+      opacity: 0;
+      translate: 0 -6px;
+    }
+  }
+}
+
+/* ---- Entrance ----
+   Driven by the card's own position in the scrollport rather than by mount.
+   A mount animation runs for every card in a 200-row list at once, including
+   the 190 nobody can see, and re-runs the whole list on every filter change.
+   A view timeline animates each card exactly as it scrolls in, runs off the
+   main thread, and needs no per-item index to stagger. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) and (animation-range: entry) {
+    @keyframes reactive-rise {
+      from { opacity: 0; translate: 0 10px; }
+    }
+
+    :root[data-motion="reactive"] :is(
+      .entity-card,
+      .paper-card,
+      .dashboard-card,
+      .artifact-card
+    ) {
+      animation: reactive-rise var(--rm-slow) var(--layout-ease) backwards;
+      animation-timeline: view();
+      /* `cover 0%`–`cover 22%` rather than the whole `entry` range: a card
+         should be settled well before it reaches the middle of the screen,
+         or the list looks like it is still loading while you are reading it. */
+      animation-range: cover 0% cover 22%;
+    }
+  }
+
+  /* Firefox has no view timelines yet. One short rise on mount is the honest
+     fallback — it is worse on long lists, which is exactly why it is not the
+     primary path. */
+  @supports not ((animation-timeline: view()) and (animation-range: entry)) {
+    @keyframes reactive-rise-mount {
+      from { opacity: 0; translate: 0 8px; }
+    }
+
+    :root[data-motion="reactive"] :is(
+      .entity-card,
+      .paper-card,
+      .dashboard-card,
+      .artifact-card
+    ) {
+      animation: reactive-rise-mount var(--rm-slow) var(--layout-ease) backwards;
+    }
+  }
+}
+
+/* The OS preference wins over the app toggle, always. A user who asked the
+   system for less motion did not ask twice. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="reactive"] * {
+    animation: none !important;
+  }
+  :root[data-motion="reactive"] :is(
+    .entity-card,
+    .paper-card,
+    .dashboard-card,
+    .artifact-card,
+    .org-choice-card,
+    [data-reactive]
+  ):hover {
+    transform: none;
+    translate: 0;
+  }
+  :root[data-motion="reactive"] :is(
+    .entity-card,
+    .paper-card,
+    .dashboard-card,
+    .artifact-card,
+    .org-choice-card,
+    [data-reactive]
+  )::after {
+    display: none;
+  }
+}
+
+/* ---- Appearance settings: motion toggle + theme file controls ---- */
+.toggle-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.toggle-row span { font-weight: 500; }
+
+.theme-config-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.theme-config-actions input[type="file"] {
+  flex: 1 1 14rem; min-width: 0; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--input-bg); color: var(--ink); font: inherit; font-size: 0.85rem;
+}
+.theme-config-actions input[type="file"]::file-selector-button {
+  margin-right: 10px; padding: 5px 10px;
+  border: 1px solid var(--line); border-radius: var(--control-radius-sm);
+  background: var(--surface2); color: var(--ink); font: inherit; font-size: 0.8rem; cursor: pointer;
+}
+
+/* Errors are a list because the parser reports every bad key at once — one
+   round trip per typo is a miserable way to author a theme. */
+.theme-config-errors ul {
+  margin: 0; padding: 8px 10px 8px 26px;
+  border-radius: var(--radius-sm); background: var(--s-danger-bg);
+  color: var(--ink); font-size: 0.8rem; max-height: 12rem; overflow-y: auto;
+}
+.theme-config-errors li { margin: 2px 0; font-family: var(--font-mono); word-break: break-word; }
+
+/* A tab with something waiting behind it.
+   Deliberately not a count and not a colour that reads as an error: what is
+   waiting is an optional download for the desktop window, and the strongest
+   thing it should ever do is catch the eye on the way past. */
+.settings-tabs button .tab-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 3px;
+}

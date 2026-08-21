@@ -1,0 +1,231 @@
+.empty { text-align: center; color: var(--muted); padding: 32px; }
+.summary { margin: 8px 0 0; font-size: 0.92rem; overflow-wrap: anywhere; }
+
+/* Shared entity cards (papers / report / notes / experiments / milestones). */
+/* Masonry card layout — see `CardColumns`, which owns the column split.
+ *
+ * Was CSS multi-column, which packs tightly but balances the whole flow: the
+ * browser must lay out every card to place any column break, so offscreen cards
+ * could never be skipped and 1500 of them blocked a scroll for ~4.3s. These are
+ * real columns, each an ordinary block flow, so cards still stack with no gaps
+ * but the browser can skip the ones out of view. */
+.card-columns {
+  display: flex;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+.card-columns-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.card-columns-item {
+  min-width: 0;
+}
+.card-columns-item > * {
+  width: 100%;
+}
+/* Long lists only: for a handful of cards the containment bookkeeping costs
+   more than it saves. `auto` lets the browser replace the 170px guess with each
+   card's real height once measured — a fixed guess made every card that scrolled
+   into view resize the flow and drag the rest back through layout.
+ *
+ * `content-visibility` also applies *paint containment*, which clips anything
+ * drawn outside this box — including the card's own drop shadow, which sheared
+ * off along a hard rectangle. The padding gives the resting shadow (`--e1`,
+ * reaching ~16px below and ~12px to the sides) somewhere to land inside the
+ * contained box, and the matching negative margin puts the margin box back onto
+ * the card's edges so column widths and the 12px gaps are exactly as before. */
+.card-columns-item.is-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 170px;
+  padding: 6px 14px 18px;
+  margin: -6px -14px -18px;
+  /* Those padded halos overlap the neighbouring column, so the wrapper must not
+     swallow clicks meant for the card underneath it. */
+  pointer-events: none;
+}
+.card-columns-item.is-deferred > * {
+  pointer-events: auto;
+}
+/* Hover raises the card to `--e2` (~34px below), which is deeper than the
+   padding above. Dropping containment for the one card under the pointer lets
+   that larger shadow paint in full; every other card stays deferred. */
+.card-columns-item.is-deferred:has(:hover) {
+  content-visibility: visible;
+}
+.entity-card,
+.paper-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  transition: border-color 0.12s, background 0.12s;
+}
+.entity-card[role="button"],
+.paper-card[role="button"] { cursor: pointer; }
+.entity-card[role="button"]:hover,
+.paper-card[role="button"]:hover {
+  border-color: var(--border-strong);
+  background: var(--surface2);
+}
+.entity-card--nested {
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--surface2) 40%, transparent);
+  box-shadow: none;
+}
+.entity-card-head,
+.paper-card-head,
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.entity-card-title,
+.paper-card-title,
+.card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 0.98rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+/* Status lives in the foot with actions so the title can use full width. */
+.entity-card-status {
+  flex: none;
+  max-width: none;
+}
+.entity-card-foot .entity-card-status {
+  display: flex;
+  align-items: center;
+}
+.entity-card-status .status-select,
+.entity-card-status .custom-select-container {
+  width: auto;
+  min-width: 6.5rem;
+  max-width: none;
+}
+.entity-card-status .status-select .custom-select-button {
+  padding: 4px 10px;
+  min-height: var(--control-sm);
+}
+.entity-card-foot .card-foot-right {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.entity-card-meta,
+.paper-card-authors {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+  overflow-wrap: break-word;
+}
+.paper-external-link { margin: 0; font-size: 0.8rem; min-width: 0; overflow-wrap: anywhere; }
+.paper-external-link a { color: var(--accent); text-decoration: none; }
+.paper-external-link a:hover { text-decoration: underline; }
+.entity-card-snippet,
+.paper-card-snippet {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+.entity-card-foot,
+.paper-card-foot {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  gap: 6px;
+  min-height: 0;
+}
+.entity-card .entity-icon-btn,
+.entity-card .entity-open-icon,
+.paper-card .entity-icon-btn,
+.paper-card .entity-open-icon,
+.section-item .entity-icon-btn {
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--control-radius-sm);
+}
+.entity-card .tag-chips,
+.paper-card .tag-chips {
+  margin: 2px 0 0;
+  gap: 4px;
+}
+.entity-card .tag-chip,
+.paper-card .tag-chip {
+  font-size: 0.7rem;
+  padding: 2px 7px;
+}
+/* Icon-only card/list actions (open, share, comments, edit, delete, …). */
+.entity-icon-btn,
+.entity-open-icon,
+.paper-open-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-lg);
+  height: var(--control-lg);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex: none;
+}
+.entity-icon-btn:hover,
+.entity-open-icon:hover,
+.paper-open-icon:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--pill);
+}
+.entity-icon-btn:disabled,
+.entity-open-icon:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+a.entity-icon-btn {
+  text-decoration: none;
+  color: var(--muted);
+}
+a.entity-icon-btn:hover {
+  text-decoration: none;
+}
+.entity-icon-btn.danger,
+.entity-icon-btn.danger:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+}
+.entity-icon-btn.danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+}
+.entity-icon-btn[aria-expanded="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--pill);
+}
+/* Icon + label (Make a copy, Image, library). */
+.entity-icon-text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.entity-icon-text-btn > svg { flex: none; }

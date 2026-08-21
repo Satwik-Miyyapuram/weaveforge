@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 type IconProps = { size?: number; className?: string; title?: string };
 
 /**
- * Icon dimensions come from the `--icon-size` CSS token (see globals.css) via
+ * Icon dimensions come from the `--icon-size` CSS token (see styles/base.css) via
  * the `.vicon` class — one place controls every icon. Pass `size` only to
  * deliberately override a single icon.
  */

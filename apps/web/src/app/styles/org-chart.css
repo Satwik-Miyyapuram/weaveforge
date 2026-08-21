@@ -1,0 +1,126 @@
+.superv-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.superv-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.superv-item { padding: 10px 12px; border-radius: 10px; background: var(--pill); }
+.superv-item-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.superv-item-title { font-weight: 600; }
+.superv-body { margin: 6px 0 0; white-space: pre-wrap; font-size: 0.88rem; color: var(--muted); }
+.superv-status {
+  font-size: 0.72rem; text-transform: capitalize;
+  padding: 2px 8px; border-radius: 999px; background: var(--active-bg); color: var(--active-fg);
+}
+.superv-status.s-done { background: #2f855a; color: #fff; }
+.superv-status.s-blocked { background: #c53030; color: #fff; }
+
+/* ---- Member tree (org chart + supervisor picker) ---- */
+.member-tree { font-size: 0.9rem; }
+.member-tree-list { list-style: none; margin: 0; padding: 0; }
+/* Nested levels indent and grow a guide line, like a file tree. */
+.member-tree-list .member-tree-list {
+  margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--border);
+}
+.member-tree-row {
+  display: flex; align-items: center; gap: 4px;
+  border-radius: 8px; padding: 1px 4px;
+  transition: background 0.12s;
+}
+.member-tree-row:hover,
+.member-tree-row.sel {
+  background: var(--surface2);
+}
+.member-tree-row.sel .member-tree-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+.member-tree-toggle,
+.member-tree-toggle-spacer {
+  flex: none; width: 18px; height: 18px; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 0.7rem;
+}
+.member-tree-toggle {
+  border: none; background: none; color: var(--muted); cursor: pointer;
+  border-radius: 4px; line-height: 1;
+}
+.member-tree-toggle:hover { color: var(--ink); background: var(--pill); }
+.member-tree-name {
+  display: flex; align-items: baseline; gap: 8px; min-width: 0;
+  padding: 4px 6px; border-radius: 8px; text-align: left;
+}
+.member-tree-name.as-button {
+  border: none; background: none; cursor: pointer; color: inherit;
+  font: inherit; width: 100%;
+}
+.member-tree-name.as-button:hover { background: none; }
+.member-tree-title { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.member-tree-role { font-size: 0.76rem; }
+
+.superv-picker { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.member-tree-select { position: relative; }
+.member-tree-trigger {
+  display: inline-flex; align-items: center; gap: 10px; justify-content: space-between;
+  min-width: 240px; padding: 8px 12px; border-radius: 10px;
+  background: var(--pill); color: var(--ink); border: 1px solid var(--border);
+  cursor: pointer; font-size: 0.9rem;
+}
+.member-tree-trigger:hover { border-color: var(--accent); }
+.member-tree-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-tree-caret { color: var(--muted); font-size: 0.7rem; }
+.member-tree-menu {
+  position: absolute; z-index: 50; top: calc(100% + 6px); left: 0;
+  min-width: 260px; max-height: 320px; overflow: auto; padding: 8px;
+}
+
+/* ---- Org chart (top-down tree graph) ---- */
+.org-chart {
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
+  overflow-y: visible;
+  padding: 14px 0 4px;
+}
+.org-chart--scroll {
+  overflow-x: auto;
+}
+.org-tree { display: block; width: max-content; flex: none; text-align: center; }
+.org-tree ul {
+  display: flex; justify-content: center; padding-top: 20px;
+  position: relative; margin: 0; list-style: none;
+}
+.org-tree li {
+  list-style: none; position: relative; padding: 20px 6px 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+/* connector: each node draws two half-bars up to a shared horizontal line */
+.org-tree li::before, .org-tree li::after {
+  content: ''; position: absolute; top: 0; right: 50%;
+  border-top: 1px solid var(--border); width: 50%; height: 20px;
+}
+.org-tree li::after { right: auto; left: 50%; border-left: 1px solid var(--border); }
+.org-tree li:only-child::before, .org-tree li:only-child::after { display: none; }
+.org-tree li:first-child::before, .org-tree li:last-child::after { border: 0 none; }
+.org-tree li:last-child::before { border-right: 1px solid var(--border); border-radius: 0 6px 0 0; }
+.org-tree li:first-child::after { border-radius: 6px 0 0 0; }
+/* vertical stub dropping from a parent to its children row */
+.org-tree ul ul::before {
+  content: ''; position: absolute; top: 0; left: 50%;
+  border-left: 1px solid var(--border); width: 0; height: 20px;
+}
+/* roots: no connectors above the top level */
+.org-tree > ul { padding-top: 0; }
+.org-tree > ul > li { padding-top: 0; }
+.org-tree > ul > li::before, .org-tree > ul > li::after { display: none; }
+.org-node {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 14px; border-radius: 10px; white-space: nowrap;
+  background: var(--pill); border: 1px solid var(--border); color: var(--ink);
+}
+.org-node.me { border-color: var(--accent); }
+.org-node-name { font-weight: 600; font-size: 0.9rem; }
+.org-node-role { font-size: 0.74rem; }
+
+/* ---- Dashboard ---- */
+.dashboard-head-row {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}

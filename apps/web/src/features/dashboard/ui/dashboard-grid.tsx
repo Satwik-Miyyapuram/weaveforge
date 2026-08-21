@@ -30,7 +30,7 @@ const COLS = { lg: 12, sm: 4 };
 const ROW_HEIGHT = { lg: 48, sm: 48 };
 const GRID_MARGIN = { lg: 8, sm: 8 };
 
-/** Match --layout-duration in globals.css */
+/** Match --layout-duration in styles/base.css */
 const LAYOUT_TRANSITION_MS = 320;
 const CARD_ENTER_MS = 200;
 

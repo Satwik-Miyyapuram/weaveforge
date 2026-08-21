@@ -14,6 +14,7 @@ on:
       - "docs/**"
       - "apps/web/src/app/pitch/**"
       - "apps/web/src/app/globals.css"
+      - "apps/web/src/app/styles/**"
       - "apps/web/src/app/themes/**"
       - "apps/web/src/components/**"
       - "apps/web/src/features/relations/domain/**"

@@ -1,0 +1,406 @@
+.dashboard-head-row > .screen-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dashboard-customize-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-lg);
+  height: var(--control-lg);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dashboard-customize-btn:hover {
+  background: var(--pill);
+  color: var(--ink);
+  border-color: var(--border);
+}
+.dashboard-screen .screen-title { font-size: 1.1rem; margin: 0; }
+.report-screen .screen-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dashboard-edit-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.dashboard-head-row:has(.dashboard-edit-bar--editing) {
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+.dashboard-head-row:has(.dashboard-edit-bar--editing) > .screen-title {
+  flex: 1 1 100%;
+}
+.dashboard-edit-bar--editing {
+  width: 100%;
+}
+.dashboard-inline-error {
+  font-size: 0.82rem; margin: 0 0 10px; padding: 8px 12px;
+  border-radius: 8px; background: color-mix(in srgb, var(--error, #c44) 12%, transparent);
+}
+.dashboard-screen { overflow-x: clip; }
+.dashboard-grid-wrap { margin-top: 4px; max-width: 100%; }
+.dashboard-grid--measuring {
+  visibility: hidden;
+  pointer-events: none;
+}
+.dashboard-grid-wrap--ready .dashboard-grid:not(.dashboard-grid--measuring) {
+  visibility: visible;
+}
+
+@keyframes dashboard-card-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dashboard-content-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dashboard-grid--enter .react-grid-layout {
+  transition: none !important;
+}
+.dashboard-grid--enter .react-grid-item {
+  overflow: visible;
+  transition: none !important;
+}
+.dashboard-grid--enter .dashboard-card {
+  animation: dashboard-card-fade-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: calc(var(--card-i, 0) * 12ms);
+}
+.dashboard-card-content--shell {
+  flex: 1;
+  min-height: 1.5rem;
+}
+.dashboard-card-content--ready {
+  animation: dashboard-content-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.dashboard-card-skeleton {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+.dashboard-stat-bar.progress-bar > span {
+  transition: width 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.dashboard-grid-wrap--editing .react-grid-layout {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px);
+  background-size: var(--dash-step-x, 0) var(--dash-step-y, 0);
+  border-radius: 8px;
+}
+.dashboard-grid-wrap:not(.dashboard-grid-wrap--editing) .react-resizable-handle {
+  display: none !important;
+}
+.dashboard-grid-wrap--editing .react-resizable-handle {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none !important;
+  background-image: none !important;
+  opacity: 1;
+  z-index: 2;
+}
+.dashboard-grid-wrap--editing .react-resizable-handle-se {
+  right: 2px;
+  bottom: 2px;
+  cursor: se-resize;
+}
+.dashboard-grid-wrap--editing .react-resizable-handle-se::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 0 0 4px 0;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--muted) 90%, transparent) 1.25px, transparent 1.6px) 100% 100% / 4px 4px no-repeat,
+    radial-gradient(circle, color-mix(in srgb, var(--muted) 90%, transparent) 1.25px, transparent 1.6px) calc(100% - 4px) calc(100% - 4px) / 4px 4px no-repeat,
+    radial-gradient(circle, color-mix(in srgb, var(--muted) 90%, transparent) 1.25px, transparent 1.6px) calc(100% - 8px) calc(100% - 8px) / 4px 4px no-repeat;
+}
+.dashboard-grid-wrap--editing .react-resizable-handle-se:hover::after,
+.dashboard-grid-wrap--editing .react-resizable-handle-se:active::after {
+  opacity: 1;
+  background:
+    radial-gradient(circle, var(--accent) 1.25px, transparent 1.6px) 100% 100% / 4px 4px no-repeat,
+    radial-gradient(circle, var(--accent) 1.25px, transparent 1.6px) calc(100% - 4px) calc(100% - 4px) / 4px 4px no-repeat,
+    radial-gradient(circle, var(--accent) 1.25px, transparent 1.6px) calc(100% - 8px) calc(100% - 8px) / 4px 4px no-repeat;
+}
+.dashboard-grid { min-height: 120px; }
+.dashboard-grid .react-grid-layout {
+  transition: height var(--layout-duration) var(--layout-ease);
+}
+.dashboard-grid--measuring .react-grid-layout,
+.dashboard-grid--enter .react-grid-layout {
+  transition: none !important;
+}
+.dashboard-grid-wrap--ready .dashboard-grid:not(.dashboard-grid--measuring):not(.dashboard-grid--enter) .react-grid-item,
+.dashboard-grid-wrap--ready .dashboard-grid:not(.dashboard-grid--measuring):not(.dashboard-grid--enter) .react-grid-item.cssTransforms {
+  transition:
+    transform var(--layout-duration) var(--layout-ease),
+    width var(--layout-duration) var(--layout-ease),
+    height var(--layout-duration) var(--layout-ease) !important;
+}
+.dashboard-grid--measuring .react-grid-item,
+.dashboard-grid--enter .react-grid-item,
+.dashboard-grid--measuring .react-grid-item.cssTransforms,
+.dashboard-grid--enter .react-grid-item.cssTransforms {
+  transition: none !important;
+}
+.dashboard-grid .react-grid-item.resizing,
+.dashboard-grid .react-grid-item.react-draggable-dragging {
+  transition: none;
+}
+.dashboard-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 0 !important;
+  padding: 12px 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: none;
+}
+.dashboard-card--stat { padding: 10px 12px 12px; }
+.dashboard-card--editing {
+  border-style: dashed;
+  cursor: grab;
+}
+.dashboard-card--editing:active,
+.react-draggable-dragging .dashboard-card--editing {
+  cursor: grabbing;
+}
+.dashboard-card-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  padding: 0;
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-height: 1em;
+}
+.dashboard-drag-handle { cursor: grab; user-select: none; padding: 0 2px; line-height: 1; }
+.dashboard-card-label {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dashboard-card-remove {
+  border: none; background: none; color: var(--muted); cursor: pointer; padding: 0 2px;
+  line-height: 1; flex: none;
+}
+.dashboard-card-remove:hover { color: var(--ink); }
+.dashboard-card-heading {
+  font-size: 0.68rem; font-weight: 600; margin: 0 0 6px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+.dashboard-card--stat .dashboard-card-heading { margin-bottom: 4px; }
+.dashboard-card-content {
+  flex: 1; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-start;
+}
+.dashboard-card--stat .dashboard-card-content { flex: 1; }
+.dashboard-stat-link {
+  display: flex; flex-direction: column; flex: 1; min-height: 0;
+  justify-content: flex-start; text-decoration: none; color: inherit;
+}
+.dashboard-card--editing .dashboard-stat-link,
+.dashboard-card--editing .dashboard-list-row {
+  pointer-events: none;
+}
+.dashboard-stat-link:hover .dashboard-stat-pct { color: var(--accent-ink, var(--accent)); }
+.dashboard-stat-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  flex-shrink: 0;
+}
+.dashboard-stat-count { font-size: 0.82rem; color: var(--muted); }
+.dashboard-stat-pct {
+  font-size: 1.5rem; font-weight: 600; line-height: 1;
+  letter-spacing: -0.03em; color: var(--ink);
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.dashboard-stat-pct--solo { font-size: 1.65rem; flex-shrink: 0; }
+.dashboard-stat-caption { font-size: 0.78rem; color: var(--muted); line-height: 1.25; }
+.dashboard-stat-bar,
+.dashboard-stat-footer { margin-top: auto; flex-shrink: 0; }
+.dashboard-stat-bar { width: 100%; }
+.dashboard-card-meta { font-size: 0.88rem; color: var(--muted); }
+.dashboard-card-empty { margin: 0; font-size: 0.88rem; }
+.dashboard-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.dashboard-list-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-width: 0;
+  text-decoration: none; color: var(--ink); font-size: 0.88rem; padding: 4px 0;
+}
+.dashboard-list-row > span:first-child {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dashboard-list-row:hover { color: var(--accent-ink, var(--accent)); }
+.dashboard-list-arrow { color: var(--muted); flex: none; }
+.dashboard-list-more { font-size: 0.82rem; padding: 2px 0; }
+.dashboard-log-row { flex-direction: column; align-items: flex-start; gap: 2px; }
+.dashboard-log-row > span:first-child { flex: none; white-space: nowrap; }
+.dashboard-log-date { color: var(--muted); font-size: 0.78rem; }
+.dashboard-log-preview {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.dashboard-roster-name { font-weight: 500; }
+.dashboard-supervisee { display: grid; gap: 10px; align-content: start; }
+.dashboard-supervisee-name {
+  margin: 0; font-weight: 600; font-size: 0.95rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dashboard-supervisee-select { width: 100%; }
+.dashboard-supervisee-select .custom-select-button {
+  padding: 8px 10px; font-size: 0.88rem; background: var(--pill); border-color: var(--border);
+}
+.dashboard-supervisee-meta { margin: 0; font-size: 0.82rem; }
+.dashboard-view-full {
+  justify-self: start; margin-top: 2px; font-size: 0.85rem;
+}
+.dashboard-picker { display: grid; gap: 16px; }
+.dashboard-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dashboard-picker-btn {
+  width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--card); cursor: pointer; color: var(--ink);
+}
+.dashboard-picker-btn:hover { background: var(--pill); }
+.react-grid-placeholder { background: var(--active-bg) !important; opacity: 0.35 !important; border-radius: 8px; }
+
+/* ---- Mobile layout (≤899px — matches nav + dashboard breakpoint) ---- */
+@media (max-width: 899px) {
+  .app-shell { padding: 16px 14px calc(88px + env(safe-area-inset-bottom)); }
+
+  /* Let the swipe surface fill the viewport so horizontal swipes register on
+     the empty background too, not just on top of content cards. */
+  .app-shell { display: flex; flex-direction: column; min-height: 100dvh; }
+  .view-scope { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+  .view-scope > .swipe-views { flex: 1 1 auto; min-width: 0; width: 100%; }
+
+  .mobile-only { margin-bottom: 8px; }
+  .sub-nav { margin: 10px 0 4px; }
+  .sub-tab { min-height: 44px; }
+
+  /* Header: title on its own row when present; actions may wrap on narrow phones. */
+  .head-row { flex-wrap: wrap; row-gap: 10px; }
+  .head-row > h1 { flex: 1 1 100%; }
+  .screen-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .screen-actions .btn-primary,
+  .screen-actions .btn-secondary { padding: 9px 14px; }
+
+  /* Progress lives on Home; hide on phone list screens to free chrome. */
+  .progress-card { display: none; }
+
+  /* Sticky SubNav must clear the notch once the brand row scrolls away. */
+  .sub-nav { top: env(safe-area-inset-top, 0px); }
+
+  /* Thumb-friendly text actions (edit / delete / share links). */
+  .link-btn {
+    min-height: var(--touch-min);
+    min-width: var(--touch-min);
+    padding: 10px 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .graph-focus-bar {
+    left: 10px;
+    right: 10px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+  .graph-focus .graph-side-panel {
+    top: calc(56px + env(safe-area-inset-top, 0px));
+  }
+  .graph-focus:has(.graph-focus-bar .graph-local-banner) .graph-side-panel {
+    top: calc(98px + env(safe-area-inset-top, 0px));
+  }
+  
+  /* Login: centered with comfortable top gap */
+  .auth-screen { margin: 4vh auto 0; }
+
+  .dashboard-head-row > .screen-title { flex: 1 1 auto; }
+  .dashboard-screen .screen-actions { flex-wrap: wrap; row-gap: 8px; }
+  .dashboard-card { padding: 8px 10px; border-radius: 14px; }
+  .dashboard-card--stat { padding: 8px 10px 10px; }
+  .dashboard-card-heading { margin-bottom: 2px; font-size: 0.62rem; }
+  .dashboard-stat-pct { font-size: 1.25rem; }
+  .dashboard-stat-pct--solo { font-size: 1.35rem; }
+  .dashboard-stat-count { font-size: 0.75rem; }
+  .dashboard-stat-caption { font-size: 0.7rem; }
+  .dashboard-card-chrome { margin-bottom: 4px; }
+  .progress-bar { height: 6px; }
+
+  /* Stacked form rows so inputs (e.g. the import URL) get full width */
+  .field-row, .field-row-equal, .import-row { grid-template-columns: minmax(0, 1fr); }
+
+  .superv-panels { grid-template-columns: minmax(0, 1fr); }
+
+  .report-screen .section-item .status-select,
+  .report-screen .section-item .custom-select-container {
+    min-width: 7.5rem;
+    max-width: none;
+    width: auto;
+  }
+  .report-screen .section-item .card-foot-right {
+    gap: 10px;
+  }
+  .paper-card-head,
+  .entity-card-head { flex-direction: row; align-items: flex-start; gap: 8px; }
+
+  /* Tighter indent on phones so deep nesting keeps a usable content width. */
+  .section-tree.nested { padding-left: 7px; }
+  .section-item--nested { padding: 9px 10px; }
+  .lists-screen .list-children { margin-left: 8px; padding-left: 6px; }
+  .lists-screen .list-body > .list-papers,
+  .lists-screen .list-body > .list-empty,
+  .lists-screen .list-body > .list-add,
+  .lists-screen .list-body > .list-add-trigger {
+    margin-left: 8px; padding-left: 9px;
+  }
+
+}
+
+/* Tall-phone / short-height density (21:9 and similar). */
+@media (max-width: 899px) and (max-height: 740px) {
+  .mobile-only { margin-bottom: 6px; }
+  .sub-nav { margin: 6px 0 2px; }
+  .app-shell { padding-top: 12px; }
+  .controls-row,
+  .papers-controls { margin-top: 8px; }
+  .vault-editor {
+    min-height: 240px !important;
+  }
+  .markdown-code-editor--notes .cm-editor {
+    min-height: 200px !important;
+  }
+}

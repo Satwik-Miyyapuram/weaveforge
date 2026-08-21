@@ -1,0 +1,199 @@
+.list-tree-toolbar {
+  display: flex; gap: 12px; justify-content: flex-end;
+  padding: 0 4px 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px;
+}
+.list-tree-root,
+.list-children { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; min-width: 0; }
+.list-node { min-width: 0; }
+.list-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; border-radius: 9px;
+  min-width: 0;
+}
+.list-row:hover { background: var(--chip); }
+.list-color-dot {
+  flex: none; width: 10px; height: 10px; border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.list-row-title {
+  flex: 1 1 140px; min-width: 0; margin: 0;
+  font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.list-count {
+  flex: none; font-size: 0.74rem; color: var(--muted);
+  padding: 2px 8px; border-radius: 999px; background: var(--surface2);
+}
+.list-view-toggle {
+  display: inline-flex; gap: 6px; align-items: center; flex: none;
+}
+.list-view-toggle .link-btn.is-active { font-weight: 700; text-decoration: underline; }
+.extraction-table { margin: 6px 0 10px; display: grid; gap: 8px; min-width: 0; }
+.extraction-table-toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-width: 0;
+}
+.extraction-table-toolbar .custom-select-container {
+  flex: 1 1 160px; min-width: 0; max-width: 100%;
+}
+.extraction-table-scroll {
+  overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%;
+}
+.extraction-table table {
+  width: 100%; border-collapse: collapse; font-size: 0.88rem;
+  min-width: 280px;
+}
+.extraction-table th,
+.extraction-table td {
+  border: 1px solid var(--border); padding: 6px 8px; vertical-align: top;
+  text-align: left; min-width: 0; overflow-wrap: anywhere;
+}
+.extraction-table th {
+  background: var(--surface2); font-weight: 600; white-space: nowrap;
+}
+.extraction-table .paper-field-input,
+.extraction-table .custom-select-container {
+  width: 100%; min-width: 0; max-width: 220px;
+}
+.extraction-table .paper-field-multi { max-width: 280px; }
+.extraction-th { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.extraction-propose-btn { font-size: 0.78rem; }
+.extraction-propose-panel {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2, var(--bg));
+  display: grid;
+  gap: 8px;
+  font-weight: 400;
+}
+.extraction-pending-banner {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-size: 0.9rem;
+}
+.extraction-cell-pending {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 4px,
+      color-mix(in srgb, var(--accent) 8%, transparent) 4px,
+      color-mix(in srgb, var(--accent) 8%, transparent) 8px
+    );
+}
+.extraction-pending-cell { display: grid; gap: 2px; min-width: 0; }
+.extraction-pending-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.extraction-pending-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.list-del { flex: none; }
+.list-body {
+  padding: 2px 0 6px;
+  display: grid; gap: 4px; min-width: 0;
+}
+/* A list's own items sit indented under its title, behind a light rail. */
+.lists-screen .list-body > .list-papers,
+.lists-screen .list-body > .list-empty,
+.lists-screen .list-body > .list-add,
+.lists-screen .list-body > .list-add-trigger,
+.lists-screen .list-body > .extraction-table {
+  margin-left: 14px;
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+/* Each nested level carries its own rail + fixed indent, so the hierarchy
+   stays readable at any depth instead of drifting off the right edge. */
+.lists-screen .list-children {
+  margin: 6px 0 0 14px;
+  padding-left: 8px;
+  border-left: 2px solid var(--line);
+  display: grid; gap: 2px;
+}
+.lists-screen .list-children .list-row {
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  background: color-mix(in srgb, var(--surface2) 42%, transparent);
+}
+/* Weight fades one step per level so deep trees read as subordinate, not louder. */
+.lists-screen .list-children .list-children { border-left-color: color-mix(in srgb, var(--line) 65%, transparent); }
+.list-empty { margin: 4px 0 2px; font-size: 0.82rem; }
+.list-papers { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; min-width: 0; }
+.list-paper-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.88rem; padding: 6px 10px; border-radius: 8px;
+  min-width: 0; cursor: grab;
+}
+.list-paper-row:active { cursor: grabbing; }
+.list-paper-row:hover { background: var(--chip); }
+.list-paper-row.drag-over { background: color-mix(in srgb, var(--accent) 14%, var(--chip)); }
+.list-drag-handle {
+  flex: none; font-size: 0.72rem; color: var(--muted); letter-spacing: -2px;
+  user-select: none; line-height: 1;
+}
+.list-paper-title { flex: 1; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+.list-item-kind {
+  flex: none; font-size: 0.68rem; letter-spacing: 0.02em;
+  padding: 1px 5px; border-radius: 999px; background: var(--chip); color: var(--muted);
+}
+.list-item-kind--note { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 12%, var(--chip)); }
+.list-item-remove {
+  margin-left: auto;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+}
+.list-item-remove:hover { color: var(--danger); }
+.list-paper-row:hover .list-item-remove,
+.list-paper-row:focus-within .list-item-remove { opacity: 1; }
+@media (hover: none) {
+  .list-item-remove { opacity: 1; }
+}
+.list-via-badge {
+  flex: none; font-size: 0.7rem; color: var(--muted);
+  padding: 2px 7px; border-radius: 999px; background: var(--surface2);
+  white-space: nowrap;
+}
+.list-papers li > .link-btn { flex: none; }
+.list-add-trigger { margin: 2px 0 4px; font-size: 0.78rem; }
+.list-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; margin: 4px 0; }
+.list-add .custom-select-container { flex: 1 1 180px; min-width: 0; width: auto; }
+.list-add .btn-primary { flex: none; padding: 8px 14px; }
+.list-add-error { flex: 1 1 100%; margin: 0; font-size: 0.82rem; }
+.list-color-label { font-size: 0.8rem; color: var(--muted); }
+.list-color-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.list-color-pick {
+  width: 26px; height: 26px; border-radius: 999px; border: 2px solid transparent;
+  cursor: pointer; padding: 0;
+}
+.list-color-pick.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
+.list-toggle {
+  position: relative; z-index: 2;
+  flex: none;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); background: var(--surface); cursor: pointer; color: var(--muted);
+  border-radius: var(--control-radius-sm); padding: 0; line-height: 1;
+}
+.list-toggle:hover { color: var(--ink); background: var(--pill); }
+.list-toggle:focus { outline: none; }
+.list-toggle:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.link-btn {
+  border: none; background: none; cursor: pointer; font: inherit;
+  font-size: 0.78rem; color: var(--muted); padding: 2px 4px;
+}
+.link-btn:hover { color: var(--ink); text-decoration: underline; }
+
+/* Graph */
+.graph-stage { position: relative; margin: 8px 0 12px; }

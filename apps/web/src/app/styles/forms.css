@@ -1,0 +1,279 @@
+.add-form { display: grid; gap: 12px; margin: 16px 0 24px; }
+/* min-width:0 lets a field shrink inside its grid track instead of being forced
+   wide by a long select value (would otherwise overflow the card on the edge/
+   add forms). Pairs with min-width:0 on .custom-select-container below. */
+.field { display: grid; gap: 6px; min-width: 0; }
+/* Sub-label under an input (e.g. what a pasted reference was recognized as). */
+.field-hint { margin: 0; font-size: 0.76rem; overflow-wrap: anywhere; }
+.auth-secondary-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 20px; margin-top: 14px; }
+.field-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 12px; }
+.field-row-equal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+label { font-size: 0.8rem; color: var(--muted); }
+/* `input` was styled here but `textarea` was not, so a textarea only looked
+   right where some ancestor happened to style it (.add-form, the reader
+   sidebar). Everywhere else — the comments box among them — fell back to the
+   browser default. Both are styled together now, so a new textarea is correct
+   wherever it is placed. */
+input,
+textarea {
+  width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
+  background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+textarea { resize: vertical; }
+
+/* Number fields drop the native spinner. It is a UA widget: it ignores the
+   theme completely, so a themed field ends up with two grey OS arrows welded
+   to its right edge — the same drift the <Select> component exists to prevent.
+   Nothing is lost functionally: arrow keys, scroll-to-increment and the
+   min/max/step constraints all still work, and every number field in the app
+   now matches every text field. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* min-width:0 so the select shrinks within its parent grid/flex item and its
+   value truncates with an ellipsis rather than overflowing the screen. */
+.custom-select-container { position: relative; width: 100%; min-width: 0; }
+.custom-select-button {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
+  background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer; text-align: left;
+}
+.custom-select-button:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.custom-select-button:disabled { opacity: 0.6; cursor: default; }
+/* min-width:0 lets the flex child shrink so text-overflow: ellipsis actually
+   triggers — without it a long selected value forces the control past the screen
+   width on mobile. */
+.custom-select-value { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.custom-select-button .chev { opacity: 0.5; flex: none; display: flex; }
+
+/* Shared chevron: flip = popover/select, expand = tree rows. */
+.chev { display: inline-flex; align-items: center; justify-content: center; flex: none; opacity: 0.55; }
+.chev svg { display: block; transition: transform 0.15s ease; }
+
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.custom-select-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;
+  min-width: 100%; max-width: 100%;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 6px; display: grid; gap: 2px;
+  max-height: 250px; overflow-y: auto;
+  transform-origin: top center;
+  animation: menu-in 0.16s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+/* Portalled to <body> and pinned to the trigger in viewport coordinates, so no
+   scrolling or overflow-hidden ancestor can clip it. Position comes from the
+   inline style; `max-width` keeps a long option list on screen. */
+.custom-select-menu--fixed {
+  position: fixed; top: auto; left: auto;
+  /* Above .modal-backdrop (10000). Modal portals to <body> and so does this
+     menu, so the two are siblings in the same stacking context and compared
+     directly — at any lower value every dropdown inside a dialog paints behind
+     it. The menu exists only while open, so outranking the backdrop is safe. */
+  z-index: 10050;
+  max-width: min(92vw, 26rem);
+}
+/* Flip above the trigger when there isn't room below. */
+.custom-select-menu.up { transform-origin: bottom center; top: auto; bottom: calc(100% + 4px); }
+@media (prefers-reduced-motion: reduce) { .custom-select-menu { animation: none; } }
+/* Card holding an open dropdown stacks above following cards so the menu isn't
+   painted over by the next list item. Skip popover panels — they must stay
+   position:absolute or the filter panel jumps beside its trigger. */
+/* Exclude the graph settings drawer: it's a `.card` but must keep its own
+   position: fixed. Letting this rule flip it to relative drops it out of the
+   viewport anchor and it jumps into flow when a dropdown opens. */
+/* The three `:has(.custom-select-menu)` rules that used to live here lifted an
+   open dropdown's ancestors above their siblings. The menu is portalled to
+   <body> now, so it has no ancestors to lift and those selectors can never
+   match — removed rather than left as dead weight that reads like it matters. */
+.custom-select-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left;
+  cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--ink);
+  background: none; border: none; padding: 8px 10px; border-radius: 8px;
+  white-space: normal; overflow-wrap: anywhere;
+}
+.custom-select-item:hover,
+.custom-select-item.active { background: var(--status-neutral, #efece4); }
+/* Selected option: bold + a colored box. For status selects the box color comes
+   from the status-<value> class on the item; otherwise a neutral box. The inset
+   ring deepens it past the trigger pill. */
+.custom-select-item.sel { font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--sel-ring); }
+.custom-select-item.sel-plain { background: var(--status-neutral, #efece4); }
+.custom-select-group {
+  padding: 6px 12px 4px; font-size: 0.68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+}
+.custom-select-item.disabled { opacity: 0.55; cursor: default; }
+.custom-select-menu.searchable { max-height: 320px; }
+.custom-select-search {
+  position: sticky; top: 0; z-index: 1;
+  padding: 6px 8px; border-bottom: 1px solid var(--border);
+  background: var(--elev);
+}
+.custom-select-search input {
+  width: 100%; font: inherit; font-size: 0.85rem;
+  padding: 6px 10px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface);
+}
+.custom-select-empty { padding: 10px 12px; font-size: 0.82rem; }
+/* Multi-select checkbox items. */
+.ms-item.sel { box-shadow: none; }
+.ms-check {
+  flex: none; width: 16px; height: 16px; border-radius: 5px;
+  border: 1.5px solid var(--line); position: relative; display: inline-block;
+}
+.ms-check.on { background: var(--accent); border-color: var(--accent); }
+.ms-check.on::after {
+  content: "✓"; position: absolute; inset: 0;
+  color: var(--accent-fg, #fff); font-size: 11px; line-height: 15px; text-align: center;
+}
+
+/* A checkbox and its label on one line. Alignment is flex-start rather than
+   centre so a label that wraps to two lines keeps its box beside the first
+   line instead of floating to the middle of the block. */
+.field-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.field-inline input[type="checkbox"] { margin-top: 2px; }
+
+/* Range inputs, themed. Unscoped because the browser default is a blue
+   the palette does not contain, and every place this app shows a slider
+   should look like the rest of it. */
+input[type="range"] {
+  width: 100%;
+  padding: 0;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 55%, transparent);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 55%, transparent);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+/* Native checkboxes restyled to match ms-check / theme tokens. */
+input[type="checkbox"].themed-check,
+label.graph-check input[type="checkbox"],
+label.mp-row input[type="checkbox"],
+.cmp-table input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  border-radius: 5px;
+  border: 1.5px solid var(--line);
+  background: var(--surface2);
+  cursor: pointer;
+  position: relative;
+  vertical-align: middle;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
+input[type="checkbox"].themed-check:hover:not(:checked),
+label.graph-check input[type="checkbox"]:hover:not(:checked),
+label.mp-row input[type="checkbox"]:hover:not(:checked),
+.cmp-table input[type="checkbox"]:hover:not(:checked) {
+  border-color: var(--border-strong);
+  background: var(--chip);
+}
+input[type="checkbox"].themed-check:checked,
+label.graph-check input[type="checkbox"]:checked,
+label.mp-row input[type="checkbox"]:checked,
+.cmp-table input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+input[type="checkbox"].themed-check:checked::after,
+label.graph-check input[type="checkbox"]:checked::after,
+label.mp-row input[type="checkbox"]:checked::after,
+.cmp-table input[type="checkbox"]:checked::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  color: var(--accent-fg, #fff);
+  font-size: 11px;
+  line-height: 14px;
+  text-align: center;
+}
+input[type="checkbox"].themed-check:focus-visible,
+label.graph-check input[type="checkbox"]:focus-visible,
+label.mp-row input[type="checkbox"]:focus-visible,
+.cmp-table input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input[type="checkbox"].themed-check:disabled,
+label.graph-check input[type="checkbox"]:disabled,
+label.mp-row input[type="checkbox"]:disabled,
+.cmp-table input[type="checkbox"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  justify-self: end; border: none; cursor: pointer;
+  padding: 9px 16px; border-radius: 9px; font: inherit; font-weight: 600;
+  color: var(--accent-fg, #fff); background: var(--accent);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform 0.06s ease, filter 0.15s, box-shadow 0.15s;
+}
+.btn-primary:hover { filter: brightness(0.94); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+.btn-primary:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+.btn-primary:disabled { opacity: 0.6; cursor: default; }

@@ -1,0 +1,212 @@
+.app-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  overflow-x: clip;
+  /* Fluid gutters: scale with the viewport instead of a fixed column. */
+  padding: 24px clamp(14px, 4vw, 28px) calc(92px + env(safe-area-inset-bottom));
+  transition:
+    max-width var(--layout-duration) var(--layout-ease),
+    margin var(--layout-duration) var(--layout-ease),
+    padding var(--layout-duration) var(--layout-ease);
+}
+
+/* Flex/swipe ancestors must be allowed to shrink or wide tables/charts blow the page. */
+.layout,
+.view-scope,
+.swipe-views,
+.page-transition {
+  min-width: 0;
+  max-width: 100%;
+}
+.screen {
+  min-width: 0;
+  /* Default: capped app width, centered — grids/dashboards fill it, wide
+     screens don't sprawl. Reading screens narrow further (below). */
+  max-width: min(var(--app-max), 100%);
+  margin-inline: auto;
+  width: 100%;
+}
+.screen--wide { max-width: 100%; }
+/* Long-form reading screens: comfortable line length, article-style. */
+.report-screen { max-width: min(var(--content-measure), 100%); }
+/* Rendered prose is capped to the reading measure wherever it appears (opened
+   notes, paper details) so text lines stay comfortable inside wider shells. */
+.markdown { max-width: var(--content-measure); }
+.view-scope,
+.swipe-views,
+.page-transition {
+  width: 100%;
+}
+
+.layout.has-nav {
+  padding-left: var(--nav-inset);
+}
+
+.layout.has-nav.anim {
+  transition: padding-left var(--layout-duration) var(--layout-ease);
+}
+
+.mobile-only {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 14px;
+  /* Notch / Dynamic Island — needs viewport-fit=cover on <meta viewport>. */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.desktop-only { display: none; }
+/* Mobile top bar: theme toggle sits between the project chip and the actions,
+   and Settings/Sign out/theme show as icons only (no labels). */
+/* margin-left: auto, not the row's space-between: the org and project switchers
+   that anchor the left both render nothing when no project is selected, and
+   space-between then drops this — the row's only child — at the start. */
+.brand-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.mobile-only .header-link span,
+.mobile-only .signout span,
+.mobile-only .theme-toggle span { display: none; }
+.mobile-only .header-link,
+.mobile-only .signout,
+.mobile-only .theme-toggle {
+  gap: 0; padding: 0;
+  min-width: var(--touch-min); min-height: var(--touch-min);       /* WCAG touch target */
+  justify-content: center; align-items: center;
+}
+/* Mobile brand row: project chip is the left anchor — no sidebar offset. */
+.brand.mobile-only {
+  gap: 6px;
+  min-width: 0;
+}
+.brand.mobile-only .org-switcher {
+  flex: 0 1 auto;
+  max-width: 38%;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.brand.mobile-only .org-switcher .proj-chip {
+  max-width: 100%;
+}
+.brand.mobile-only .proj-switcher {
+  margin-left: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.brand.mobile-only .proj-chip {
+  max-width: 100%;
+}
+.brand.mobile-only .proj-chip > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-picker-bar {
+  display: none;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 12px;
+}
+
+.app-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.app-logo { width: 24px; height: 24px; border-radius: 8px; flex: none; }
+.menu-toggle {
+  display: none;
+  background: none; border: none; cursor: pointer; color: var(--ink);
+  padding: 8px; border-radius: 999px;
+  align-items: center; justify-content: center;
+  transition: background 0.15s;
+  align-self: flex-start;
+  margin-bottom: 8px;
+}
+.menu-toggle:hover { background: var(--hover); }
+.app-brand .dot, .dot {
+  width: 22px; height: 22px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--clay));
+}
+.app-brand .app-name { font-size: 1.05rem; margin: 0; letter-spacing: -0.01em; font-weight: 600; }
+/* Project switcher + projects screen */
+.proj-switcher { position: relative; margin-left: 12px; }
+.proj-chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font: inherit;
+  font-size: 0.8rem; font-weight: 500; color: var(--ink);
+  background: var(--pill); border: 1px solid var(--line); padding: 5px 10px; border-radius: 999px;
+}
+.proj-chip .chev { opacity: 0.5; display: flex; align-items: center; }
+.proj-menu {
+  /* Matches .header-menu, its sibling in the same row. At 20 it tied with the
+     sticky .sub-nav and lost on DOM order, so the tabs painted through it. */
+  position: absolute; top: 110%; left: 0; z-index: 60; min-width: 220px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 6px; display: grid; gap: 2px;
+}
+.proj-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--ink);
+  background: none; border: none; padding: 8px 10px; border-radius: 8px;
+}
+.proj-menu-item:hover { background: var(--status-neutral, #efece4); }
+.proj-menu-item.sel { color: var(--accent-ink); }
+.proj-menu-item .check { margin-left: auto; color: var(--accent); }
+.proj-menu-sep { height: 1px; background: var(--line); margin: 4px 0; }
+.org-switcher { margin-bottom: 8px; }
+.org-switcher .proj-chip { width: 100%; justify-content: flex-start; }
+.org-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--clay), var(--accent));
+}
+.org-menu-label { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.org-menu-role { font-size: 0.72rem; }
+.desktop-only .org-switcher { margin-left: 0; margin-bottom: 10px; width: 100%; }
+.vault-pinned-label { margin: 18px 0 10px; font-size: 0.75rem; }
+.vault-title-readonly { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; }
+.vault-title-readonly h2 { margin: 0; font-size: 1.25rem; }
+.project-dot { width: 11px; height: 11px; border-radius: 999px; flex: none; display: inline-block; }
+.project-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 10px; }
+.project-card { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.project-card:hover { border-color: var(--accent); }
+.project-name { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+
+.header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* Compact top-bar overflow (⋯) menu — the design's consolidated account menu. */
+.header-overflow { position: relative; display: inline-flex; }
+.header-overflow-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  cursor: pointer; font-size: calc(var(--icon-size) + 4px); line-height: 1;
+}
+.header-overflow-btn:hover { background: var(--surface2); }
+.header-menu {
+  position: absolute; z-index: 60; top: calc(100% + 8px); right: 0; min-width: 210px;
+  background: var(--elev); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22); padding: 6px; display: grid; gap: 2px;
+}
+.header-menu .header-link,
+.header-menu .signout {
+  width: 100%; justify-content: flex-start; gap: 11px;
+  padding: 9px 10px; border-radius: 8px; font-size: 0.86rem; color: var(--text);
+}
+.header-menu .header-link svg,
+.header-menu .signout svg { color: var(--muted); }
+.header-menu .header-link:hover,
+.header-menu .signout:hover { background: var(--surface2); color: var(--text); }
+/* Show labels inside the menu even though the compact bar hides header labels. */
+.header-menu .header-link span,
+.header-menu .signout span { display: inline; }
+.header-menu .header-link,
+.header-menu .signout { min-width: 0; min-height: 0; }
+.header-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  text-decoration: none; color: var(--muted); font-size: 0.78rem; font-weight: 500;
+  padding: 5px 10px; border-radius: 999px; transition: color 0.15s, background 0.15s;
+  /* Reset UA button chrome (theme-toggle uses this class on a <button>). */
+  background: none; border: none; cursor: pointer; font-family: inherit;
+}
+/* Tracks the density setting like every other glyph. These were pinned at
+   15px, so the top bar — the most permanently visible chrome in the app —
+   looked identical at all three control sizes. */
+.header-link svg, .signout svg { width: var(--icon-size); height: var(--icon-size); flex: none; }
+.header-link:hover { color: var(--accent-ink); background: var(--hover); }

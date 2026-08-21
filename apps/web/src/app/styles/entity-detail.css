@@ -1,0 +1,242 @@
+.related-panel-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.related-panel-list a { color: var(--ink); text-decoration: none; }
+.related-panel-list a:hover { color: var(--accent); text-decoration: underline; }
+
+/* ---- Wiki screen ---- */
+.wiki-plan-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+/* A workspace can hold hundreds of sources; the list scrolls rather than
+   pushing the button that acts on it off the screen. */
+.wiki-source-list { max-height: 260px; overflow-y: auto; padding-right: 4px; }
+.wiki-lint-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 6px; }
+.wiki-lint-list li {
+  font-size: 0.85rem;
+  padding-left: 10px;
+  /* Severity is carried by a left rule rather than by text colour alone, so it
+     survives the themes that flatten colour contrast. */
+  border-left: 3px solid var(--line);
+}
+.wiki-lint-list li[data-severity="error"] { border-left-color: var(--danger); }
+.wiki-lint-list li[data-severity="warning"] { border-left-color: var(--s-warn, var(--accent)); }
+.wiki-lint-list .link-btn { margin-left: 8px; font-size: 0.78rem; }
+
+/* Merge preview: monospace so the merged markdown reads as the file it becomes. */
+.wiki-merge-preview {
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  margin: 8px 0;
+}
+
+.related-papers { min-width: 0; }
+.related-papers-panel { margin-top: 8px; min-width: 0; }
+.related-papers-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.related-papers-list li {
+  border-bottom: 1px solid var(--line); padding-bottom: 8px;
+  display: grid; gap: 4px; min-width: 0;
+}
+.related-paper-title {
+  display: block; overflow-wrap: anywhere; word-break: break-word;
+}
+.related-paper-meta { margin: 0; overflow-wrap: anywhere; }
+.related-paper-url {
+  display: block; margin: 0; font-size: 0.78rem; color: var(--accent-ink);
+  overflow-wrap: anywhere; word-break: break-all;
+}
+a.related-paper-url:hover { text-decoration: underline; }
+.related-paper-actions {
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; min-width: 0;
+}
+
+/* Paper image attachments (expanded card view). */
+.paper-images { display: grid; gap: 8px; margin-top: 10px; justify-items: start; }
+.image-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px; width: 100%;
+}
+.image-thumb {
+  position: relative; margin: 0; aspect-ratio: 4 / 3; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--neutral);
+}
+.image-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Card body: preview text and thumbnails share one row so the images cost no
+   extra vertical band. Below ~360px of card interior the thumbs wrap under. */
+.card-body-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  flex-wrap: wrap; margin-top: 6px;
+}
+.card-body-row:empty { display: none; }
+.card-body-row > .entity-card-snippet,
+.card-body-row > .summary { flex: 1 1 160px; min-width: 0; margin: 0; }
+.card-body-row > .card-thumbs { flex: 0 0 auto; margin-top: 0; }
+
+/* First-few image thumbnails on an entity card (papers, experiments). */
+.card-thumbs { display: flex; gap: 6px; margin-top: 8px; }
+.card-thumb {
+  position: relative; flex: 0 0 auto;
+  width: 52px; height: 40px; border-radius: 6px; overflow: hidden;
+  border: 1px solid var(--line); background: var(--neutral);
+}
+.card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); }
+.card-thumb-more {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.78rem; color: var(--muted); background: var(--chip);
+}
+/* Capped chip rows (tags, metrics, git) stay on a single line on a card; the
+   overflow is reported as a "+N" chip rather than wrapping. */
+.chip-row--capped { flex-wrap: nowrap; overflow: hidden; }
+.chip-row--capped > * { min-width: 0; }
+.chip-more { color: var(--muted); font-style: italic; flex: 0 0 auto; }
+.image-thumb .image-loading { position: absolute; inset: 0; }
+
+/* Plan form: dependency / compute builder rows. */
+.builder-row {
+  display: grid; grid-template-columns: 130px minmax(0, 1fr) auto;
+  gap: 8px; align-items: center; margin-bottom: 8px;
+}
+.builder-row.compute-row {
+  grid-template-columns: minmax(0, 1.4fr) 76px 76px minmax(0, 1fr) auto;
+}
+.builder-add { justify-self: start; }
+@media (max-width: 899px) {
+  .builder-row, .builder-row.compute-row { grid-template-columns: 1fr 1fr; }
+  .builder-row > :first-child { grid-column: 1 / -1; }
+}
+.summary-empty { margin: 0; font-style: italic; }
+
+/* Expandable summary editor, revealed by "Show more". */
+.summary-editor { display: grid; gap: 6px; margin-top: 8px; min-width: 0; max-width: 100%; }
+.summary-input {
+  width: 100%; max-width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
+  background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  outline: none; resize: vertical; min-height: 56px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.summary-input:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.summary-editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.summary-editor-foot .error { margin-right: auto; }
+
+/* Co-editing chrome: who else is in the document, and whether live sync is up.
+   Both sit above the editor and must not push it around, so they are compact
+   single lines rather than banners. */
+.summary-input-collab { display: grid; gap: 6px; min-width: 0; max-width: 100%; }
+.collab-presence, .collab-offline {
+  margin: 0; font-size: 0.82rem; line-height: 1.4;
+}
+.collab-presence::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+  border-radius: 50%; background: var(--accent); vertical-align: middle;
+}
+.collab-offline { color: var(--warn, var(--ink)); }
+/* Remote carets and name tags drawn by y-codemirror. */
+.cm-ySelectionCaret { position: relative; border-left: 1px solid; border-right: 1px solid; margin: 0 -1px; box-sizing: border-box; }
+.cm-ySelectionInfo {
+  position: absolute; top: -1.05em; left: -1px; font-size: 0.68rem; line-height: 1.1;
+  padding: 1px 4px; border-radius: 3px 3px 3px 0; white-space: nowrap;
+  color: #fff; opacity: 0.9; user-select: none; pointer-events: none;
+}
+
+/* Editor toolbar row: cite-format picker, template re-render, artifact picker (Phase C). */
+.summary-editor-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding-bottom: 2px;
+}
+.citation-format-select { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+.citation-format-select .select { min-width: 0; }
+.experiment-artifact-picker {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.experiment-artifact-picker .error { color: var(--danger); font-size: 0.8rem; }
+
+.brave-graph-warning {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 8px 12px; margin: 0 0 8px; border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  font-size: 0.82rem; line-height: 1.4;
+}
+.brave-graph-warning .link-btn { flex: none; white-space: nowrap; }
+.graph-focus-bar .brave-graph-warning { pointer-events: auto; }
+.import-row { grid-template-columns: 130px minmax(0, 1fr) 130px; }
+.link-btn.danger { color: var(--danger); }
+
+/*
+ * Shared card chrome: a header row with the title on the left and the delete
+ * action pinned top-right, and a footer row for the status control. Used by
+ * papers, report sections, and experiments so delete sits in the same place on
+ * every card.
+ */
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-width: 0; }
+/* Prefer word wraps; avoid letter-ladder when status sits beside the title. */
+.card-title {
+  flex: 1 1 auto; min-width: 0; margin: 0;
+  font-family: var(--font-serif); font-weight: 500;
+  font-size: 1.02rem; letter-spacing: -0.01em;
+  overflow-wrap: break-word; word-break: normal;
+}
+/* Pull back the link-btn's left padding so the delete text lines up with the
+   card title/body left edge above it. */
+.card-del { flex: none; margin-left: -4px; }
+.card-foot { display: flex; align-items: center; gap: 10px; }
+
+/* Status pills — shared semantic ramp from themes/common.css (--st-* → --s-*).
+   Domains: papers (to_read/reading/read/skimmed), experiments
+   (planned/running/done/failed/abandoned), milestones (planned/in_progress/
+   done/blocked), report (not_started/drafting/review/done), log (daily/weekly).
+   Do not invent one-off status hex; map new statuses onto --st-*. */
+.status {
+  flex: none; font-size: 0.72rem; text-transform: capitalize;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--st-neutral-bg); color: var(--st-neutral-fg);
+  white-space: nowrap;
+}
+/* Status pills, mapped to the design's semantic ramp (see themes/common.css). */
+.status-reading, .status-daily { background: var(--st-info-bg); color: var(--st-info-fg); }
+.status-read { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+.status-skimmed { background: var(--st-warn-bg); color: var(--st-warn-fg); }
+.status-weekly { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+
+/* Logbook */
+.log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
+.log-item { display: grid; gap: 8px; }
+.log-head { display: flex; align-items: flex-start; gap: 10px; font-size: 0.8rem; }
+.log-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.log-edit { flex: none; }
+.edit-actions { justify-content: flex-end; gap: 14px; }
+.log-date { font-weight: 600; }
+.log-body { margin: 0; white-space: pre-wrap; font-size: 0.95rem; }
+
+/* Report statuses */
+.status-not_started { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+.status-drafting { background: var(--st-info-bg); color: var(--st-info-fg); }
+.status-review { background: var(--st-warn-bg); color: var(--st-warn-fg); }
+.status-done { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+
+/* Experiment statuses */
+.status-planned { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+.status-running { background: var(--st-info-bg); color: var(--st-info-fg); }
+.status-failed { background: var(--st-danger-bg); color: var(--st-danger-fg); }
+.status-abandoned { background: var(--st-mute-bg); color: var(--st-mute-fg); }
+
+/* Milestone statuses (plan) */
+.status-in_progress { background: var(--st-info-bg); color: var(--st-info-fg); }
+.status-blocked { background: var(--st-danger-bg); color: var(--st-danger-fg); }
+
+/* Report outline */
+.progress-card { margin: 16px 0; display: grid; gap: 10px; }
+.progress-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.88rem; }
+.progress-bar { height: 8px; background: var(--neutral); border-radius: 999px; overflow: hidden; }
+.progress-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }

@@ -1,0 +1,153 @@
+.annotations-head { font-size: 0.78rem; font-weight: 600; overflow-wrap: anywhere; }
+.annotation-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; min-width: 0; }
+.annotation { display: flex; gap: 8px; min-width: 0; max-width: 100%; }
+.annotation-swatch { flex: none; width: 4px; border-radius: 2px; align-self: stretch; }
+.annotation-body { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.annotation-text { margin: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
+.annotation-comment { margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
+.annotation-actions {
+  margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap;
+  align-items: center; min-width: 0; max-width: 100%;
+}
+.annotation-actions .annotation-pin-select,
+.annotation-actions .annotation-quote-select,
+.annotation-actions .custom-select-container {
+  flex: 1 1 160px; min-width: 0; max-width: 100%;
+}
+.annotation-quote-type {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+/* Report section: writing column + excerpts pane */
+.section-note-layout {
+  display: grid;
+  gap: 16px;
+  margin-top: 8px;
+}
+@media (min-width: 960px) {
+  .section-note-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+    align-items: start;
+  }
+}
+.section-excerpts {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--bg-elevated, var(--bg));
+  max-height: min(70vh, 640px);
+  overflow: auto;
+}
+.section-excerpts-title { margin: 0 0 8px; font-size: 0.95rem; }
+.section-excerpts-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.section-excerpt-row { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.section-excerpt-quote { margin: 0; font-size: 0.85rem; line-height: 1.4; overflow-wrap: anywhere; }
+.section-excerpt-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; min-width: 0; }
+.section-excerpt-actions select,
+.section-excerpt-actions .custom-select-container { max-width: 100%; min-width: 0; flex: 1 1 140px; }
+.papers-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.papers-board-col {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 120px;
+  background: var(--bg-elevated, var(--bg));
+}
+.papers-board-col h3 { margin: 0 0 8px; font-size: 0.85rem; }
+.papers-board-col .entity-card { margin-bottom: 8px; }
+
+.jump-to-backdrop {
+  position: fixed; inset: 0; z-index: 80;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 12vh 16px 16px;
+}
+.jump-to-dialog {
+  width: min(520px, 100%);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+.jump-to-dialog input { width: 100%; margin-bottom: 8px; }
+.jump-to-list { list-style: none; padding: 0; margin: 0; max-height: 50vh; overflow: auto; }
+.jump-to-list button {
+  width: 100%; text-align: left; border: none; background: none;
+  padding: 8px 6px; cursor: pointer; color: var(--ink); border-radius: 6px;
+}
+.jump-to-list button:hover, .jump-to-list [aria-selected="true"] button {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.jump-to-meta { font-size: 0.75rem; color: var(--muted); }
+
+/* Result snippet. Clamped to two lines so a long note cannot push the rest of
+   the results below the fold. */
+.jump-to-excerpt {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* `mark` defaults to a yellow the themes never use; tint the accent instead. */
+.jump-to-excerpt mark {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  color: var(--ink);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.jump-to-history {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0 0 8px;
+}
+.jump-to-history li {
+  display: inline-flex;
+  align-items: stretch;
+}
+.jump-to-chip {
+  border: 1px solid var(--line);
+  background: var(--surface2);
+  color: var(--muted);
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+  border-right: 0;
+  padding: 3px 4px 3px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.jump-to-chip-remove {
+  border: 1px solid var(--line);
+  background: var(--surface2);
+  color: var(--muted);
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  padding: 3px 8px 3px 4px;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.jump-to-chip:hover, .jump-to-chip-remove:hover { color: var(--ink); border-color: var(--border-strong); }
+.jump-to-chip-remove:hover { background: var(--surface3, var(--surface2)); }
+
+.jump-to-create {
+  color: var(--accent) !important;
+  font-size: 0.85rem;
+}
+
+/* ---- Related panel (graph / lexical suggestions) ---- */
+.related-panel { margin-top: 16px; }
