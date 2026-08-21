@@ -26,21 +26,26 @@ export class TieredBlobStore implements IBlobStore {
     });
   }
 
+  /**
+   * Delete the object, then forget it.
+   *
+   * In that order, and only in that order. This used to swallow a failure from
+   * the underlying store and drop the registry row anyway, which is the one
+   * arrangement that loses data silently: the bytes stay in R2 or MinIO, the
+   * only row that knew their bucket and path is gone, and nothing can find them
+   * again — they keep costing money and keep holding the user's content, with
+   * no record that they exist. A delete that fails is recoverable; a delete
+   * that fails and forgets is not.
+   *
+   * Callers that want a failed object delete not to block the rest of their
+   * work already wrap this — see `DeletePaperUseCase` and `removeSection`,
+   * which are best-effort per image. They keep that behaviour, and now keep a
+   * findable row too.
+   */
   async remove(bucket: string, path: string): Promise<void> {
     const rec = await this.opts.registry.get(bucket, path);
-    if (rec?.tier === "cold") {
-      try {
-        await this.opts.cold.remove(bucket, path);
-      } catch {
-        /* best-effort */
-      }
-    } else {
-      try {
-        await this.opts.hot.remove(bucket, path);
-      } catch {
-        /* best-effort */
-      }
-    }
+    const target = rec?.tier === "cold" ? this.opts.cold : this.opts.hot;
+    await target.remove(bucket, path);
     await this.opts.registry.remove(bucket, path);
   }
 
