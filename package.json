@@ -39,7 +39,7 @@
     "check:hygiene": "node scripts/check-hygiene.mjs",
     "check:mcp-plugin": "node scripts/check-mcp-plugin.mjs",
     "check:boundaries": "npm run check:solid && npm run check:dry && npm run check:api-route-tests && npm run check:ui && npm run check:hygiene && npm run check:mcp-plugin",
-    "check:all": "npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run test:desktop && npm run build",
+    "check:all": "npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run test:integration:web && npm run test:desktop && npm run build",
     "generate:routes": "node scripts/generate-module-routes.mjs",
     "generate:deployment": "node --import tsx scripts/generate-deployment-registry.mjs",
     "check:deployment-surface": "node --import tsx scripts/check-deployment-surface.mjs",

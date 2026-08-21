@@ -123,9 +123,25 @@ export async function handleRelayBatch(deps: RelayBatchDeps, batch: readonly Rel
       for (const leftover of batch.slice(i)) await cancel(leftover.id);
       return;
     }
+    let command: { tool?: string; arguments?: Record<string, unknown> };
     try {
-      const command = await decrypt(deps.sessionKey, request.request_enc);
-      const result = await dispatchMcpTool(deps.host(), deps.sessionId, deps.getSettings(), command);
+      command = await decrypt(deps.sessionKey, request.request_enc);
+    } catch {
+      // Nothing openable here, so nothing to answer with. Another tab would
+      // fail the same way, and cancelling reveals no plaintext to the relay.
+      await cancel(request.id);
+      continue;
+    }
+    // A refusal is sealed back rather than cancelled: the caller can only see
+    // that a cancelled call went nowhere, so a policy denial used to reach the
+    // model as a bare "Relay cancelled" with no way to correct itself.
+    let result: unknown;
+    try {
+      result = await dispatchMcpTool(deps.host(), deps.sessionId, deps.getSettings(), command);
+    } catch (error) {
+      result = { weaveforgeError: error instanceof Error ? error.message : String(error) };
+    }
+    try {
       const envelope = await encrypt(deps.sessionKey, result);
       for (let attempt = 0; attempt < DELIVERY_ATTEMPTS; attempt++) {
         try {
@@ -134,8 +150,6 @@ export async function handleRelayBatch(deps: RelayBatchDeps, batch: readonly Rel
         if (attempt < DELIVERY_ATTEMPTS - 1) await deps.sleep(250 * (attempt + 1));
       }
     } catch {
-      // A malformed or no-longer-permitted request must not be retried by
-      // another browser tab. Cancellation reveals no plaintext to the relay.
       await cancel(request.id);
     }
   }

@@ -52,6 +52,12 @@ jobs:
       - name: Run Web unit tests
         run: npm test --workspace @weaveforge/web
 
+      # Schema and RLS, against the shipped migrations on an in-process
+      # Postgres. It used to live in the opt-in job because it needed a live
+      # project and two accounts; it needs neither now, so it runs on every PR.
+      - name: Run schema and RLS tests
+        run: npm run test:integration:web
+
       - name: Run Typechecks
         run: npm run typecheck
 
@@ -103,24 +109,6 @@ jobs:
 
       - name: Run editor paste tests
         run: npm run test:e2e:editor
-
-      - name: Run Web Supabase contract tests
-        run: npm run test:integration:web
-        env:
-          WEAVEFORGE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          WEAVEFORGE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          WEAVEFORGE_EMAIL: ${{ secrets.TT_A_EMAIL }}
-          WEAVEFORGE_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
-          WEAVEFORGE_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
-          WEAVEFORGE_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
-          TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
-          TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
-          TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
-          TT_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
-          TEST_ACCOUNT_EMAIL_PRIMARY: ${{ secrets.TEST_ACCOUNT_EMAIL_PRIMARY }}
-          TEST_ACCOUNT_EMAIL_SECONDARY: ${{ secrets.TEST_ACCOUNT_EMAIL_SECONDARY }}
-          TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
-          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
       - name: Build Web App
         run: npm run build --workspace @weaveforge/web

@@ -28,8 +28,8 @@ Before opening or merging a PR, confirm:
       `packages/core`) instead.
 - [ ] **New repo has contract test** — every new repository interface gets a shared
       contract suite in `packages/core/src/testing/` and a test file under
-      `packages/core/test/` run against the in-memory implementation (and Supabase
-      when integration creds are available). `packages/core/test/` mirrors
+      `packages/core/test/` run against the in-memory implementation (and against
+      the schema and RLS suite when the repository is Supabase-backed). `packages/core/test/` mirrors
       `packages/core/src/`: a test for `src/features/papers/...` lives in
       `test/features/papers/`, one for `src/reader/...` in `test/reader/`.
 - [ ] **Business logic not in bootstrap/components** — orchestration and rules live
