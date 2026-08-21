@@ -26,4 +26,16 @@ export const markdownSyntaxOverlay: TagStyle[] = [
   { tag: t.monospace, color: "var(--accent)", fontFamily: "var(--font-mono)" },
   { tag: t.quote, color: "var(--muted)", fontStyle: "italic" },
   { tag: t.contentSeparator, color: "var(--muted)" },
+
+  // Fenced code inside a note. These used to come from the vendor themes,
+  // which hardcoded one palette's hexes whatever the site theme was; taking
+  // them from the same tokens as the rest of the editor keeps a fenced block
+  // legible on Amoled and on Honey alike.
+  { tag: [t.keyword, t.moduleKeyword, t.controlKeyword], color: "var(--st-danger-fg)" },
+  { tag: [t.typeName, t.className, t.namespace], color: "var(--st-info-fg)" },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: "var(--accent)" },
+  { tag: [t.number, t.bool, t.atom], color: "var(--st-positive-fg)" },
+  { tag: [t.propertyName, t.attributeName], color: "var(--ink)" },
+  { tag: [t.operator, t.derefOperator, t.bracket], color: "var(--muted)" },
+  { tag: t.invalid, color: "var(--st-danger-fg)" },
 ];
