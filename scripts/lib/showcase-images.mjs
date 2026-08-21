@@ -19,7 +19,7 @@ function escapeAlt(alt) {
   return s.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
 }
 
-export function paperImageMarkdown(path, alt = "image") {
+function paperImageMarkdown(path, alt = "image") {
   return `![${escapeAlt(alt)}](${PAPER_IMAGE_PREFIX}${path})`;
 }
 

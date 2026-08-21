@@ -275,5 +275,3 @@ export class PapersFacade {
     return this.deps.images.remove(path);
   }
 }
-
-export type { PapersScreenData };

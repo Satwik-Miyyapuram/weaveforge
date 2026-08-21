@@ -142,7 +142,7 @@ export function librarySnapshot(
   };
 }
 
-export function topTags(tags: readonly TagWithPaperCount[], limit = 3) {
+function topTags(tags: readonly TagWithPaperCount[], limit = 3) {
   return [...tags]
     .sort((a, b) => b.paperCount - a.paperCount || a.name.localeCompare(b.name))
     .slice(0, limit)
