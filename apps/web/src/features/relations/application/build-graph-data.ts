@@ -12,8 +12,7 @@ import {
 } from "@weaveforge/core";
 import { listDisplayColor } from "@/features/reading-lists";
 // The palette lives in a leaf module so that consumers wanting only a colour
-// do not pull this file's feature imports along with it. Re-exported below,
-// because every existing caller reaches for it through this module.
+// do not pull this file's feature imports along with it.
 import {
   RELATION_COLORS,
   STATUS_COLORS,
@@ -30,15 +29,6 @@ import {
   type GraphViewSettings,
   type GroupBy,
 } from "@weaveforge/core";
-
-export {
-  RELATION_COLORS,
-  STATUS_COLORS,
-  tagColor,
-  NOTE_COLOR,
-  WIKILINK_COLOR,
-  REPORT_COLOR,
-};
 
 export interface GNode {
   id: string;
@@ -375,5 +365,3 @@ export function buildGraphData(
 
   return { data: { nodes: nodes, links: filteredLinks }, neighbors, tagToPapers, tagToNotes };
 }
-
-export { RELATION_TYPES };

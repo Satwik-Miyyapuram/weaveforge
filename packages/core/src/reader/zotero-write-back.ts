@@ -6,9 +6,6 @@
 import type { ReaderAnnotation, ReaderAnnotationType, AnnotationSyncState } from "./reader-annotation.js";
 import type { CombinedPdfAnchor } from "./anchor-strategy.js";
 
-export type { AnnotationSyncState };
-export { isAnnotationSyncState, ANNOTATION_SYNC_STATES } from "./reader-annotation.js";
-
 /** Per-library write-back mode. */
 export type ZoteroLibrarySyncMode = "bidirectional" | "read_only" | "ignored";
 

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   type Paper, type PaperRelation, type RelationType, type ReportSection, type VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { RELATION_COLORS, tagColor } from "../application/build-graph-data";
+import { RELATION_COLORS, tagColor } from "../domain/graph-palette";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 
