@@ -146,8 +146,18 @@ class Client {
   private buffer = "";
   private next = 1;
   private readonly waiting = new Map<number, (message: Record<string, unknown>) => void>();
+  private dead: string | null = null;
 
   constructor(private readonly child: ChildProcessWithoutNullStreams) {
+    // A child that dies leaves every pending call waiting forever, and a test
+    // that hangs says less than one that fails. Fail them with the reason.
+    child.on("exit", (code, signal) => {
+      this.dead = `the MCP server exited (code ${code}, signal ${signal})`;
+      for (const [id, resolve] of this.waiting) {
+        resolve({ id, error: { message: this.dead } } as Record<string, unknown>);
+      }
+      this.waiting.clear();
+    });
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
       this.buffer += chunk;
@@ -164,6 +174,7 @@ class Client {
 
   call(method: string, params?: unknown): Promise<Record<string, unknown>> {
     const id = this.next++;
+    if (this.dead) return Promise.resolve({ id, error: { message: this.dead } });
     return new Promise((resolve) => {
       this.waiting.set(id, resolve);
       this.child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
@@ -234,7 +245,16 @@ test("a real MCP client drives the real browser loop through the relay", async (
       WEAVEFORGE_MCP_PAIRING_SECRET: SECRET,
     },
   }) as ChildProcessWithoutNullStreams;
+  // Without this, a spawn that fails under a loaded runner raises an unhandled
+  // 'error' event, which kills the whole file before a single test reports.
+  await new Promise<void>((resolve, reject) => {
+    child.once("spawn", resolve);
+    child.once("error", reject);
+  });
   const stderr: string[] = [];
+  // Reported through the same channel as anything else the server says, so a
+  // later process error fails the test rather than escaping as uncaught.
+  child.on("error", (error) => stderr.push(`process error: ${error.message}`));
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk: string) => stderr.push(chunk));
 
