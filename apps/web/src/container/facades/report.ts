@@ -29,11 +29,11 @@ export class ReportFacade {
   }
 
   fetchImageBlob(path: string) {
-    return this.deps.images.fetchDecrypted(path);
+    return this.deps.images.fetchBlob(path);
   }
 
   fetchImageBlobs(paths: readonly string[]) {
-    return this.deps.images.fetchDecryptedMany(paths);
+    return this.deps.images.fetchBlobs(paths);
   }
 
   /**

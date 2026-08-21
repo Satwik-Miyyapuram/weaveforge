@@ -252,13 +252,13 @@ export class PapersFacade {
   }
 
   fetchImageBlob(path: string) {
-    return this.deps.images.fetchDecrypted(path);
+    return this.deps.images.fetchBlob(path);
   }
 
   fetchImageBlobs(paths: readonly string[]) {
-    const many = this.deps.images.fetchDecryptedMany;
+    const many = this.deps.images.fetchBlobs;
     if (many) return many(paths);
-    return Promise.all(paths.map((p) => this.deps.images.fetchDecrypted(p))).then((blobs) => {
+    return Promise.all(paths.map((p) => this.deps.images.fetchBlob(p))).then((blobs) => {
       const out = new Map<string, Blob>();
       paths.forEach((p, i) => {
         if (blobs[i]) out.set(p, blobs[i]!);

@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { getContainer } from "@/bootstrap";
-import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
+import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 
 function imagePaths(metadata: Record<string, unknown> | undefined): string[] {
   const raw = metadata?.images;
@@ -20,7 +20,7 @@ export function SharedPaperImages({ metadata }: { metadata?: Record<string, unkn
         .catch(() => null),
     [],
   );
-  const urls = useDecryptedObjectUrls(paths, fetchBlob);
+  const urls = useBlobObjectUrls(paths, fetchBlob);
 
   if (paths.length === 0) return null;
 

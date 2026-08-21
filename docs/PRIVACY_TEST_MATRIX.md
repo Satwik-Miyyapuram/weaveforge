@@ -30,8 +30,8 @@ change must extend the relevant row or add a new one before it ships.
 
 End-to-end encryption of entities and blobs was removed. There is no keyring,
 no per-resource or per-project key wrapping, and no client-side decrypt:
-`PassthroughBlobStore` stores plaintext and `useDecryptedObjectUrls` keeps its
-name only for history. Earlier revisions of this table cited
+`FetchingBlobStore` stores plaintext, and the blob layer's names say so.
+Earlier revisions of this table cited
 `entity-encryptor.test.ts` and `field-map.test.ts`, which no longer exist —
 a privacy document naming tests that were deleted is worse than one that says
 less, so the rows went with the tests.

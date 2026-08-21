@@ -34,8 +34,10 @@ user holds, so none of it can be lost, and none of it needs recovery.
 - Migrations `0037`–`0041` and `0089`–`0095` created the key, device-wrap,
   transfer, and recovery tables. No migration drops them, so they are still in
   the schema of any deployment that ran them. Nothing reads them.
-- `useDecryptedObjectUrls` keeps its name for history; storage is plaintext
-  through `PassthroughBlobStore` and the browser does not decrypt anything.
+- Storage is plaintext through `FetchingBlobStore`, and the browser does not
+  decrypt anything. The blob layer used to say otherwise in its own names;
+  `fetchDecrypted` is now `fetchBlob` and `useDecryptedObjectUrls` is
+  `useBlobObjectUrls`, so nothing in the code claims encryption that is gone.
 
 ## Account passwords
 

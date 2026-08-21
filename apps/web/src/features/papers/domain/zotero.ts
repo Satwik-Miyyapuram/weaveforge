@@ -72,8 +72,8 @@ export interface IPaperImageStore {
   upload(paperId: string, blob: Blob, ext: string): Promise<string>;
   remove(path: string): Promise<void>;
   signedUrls(paths: string[]): Promise<(string | null)[]>;
-  fetchDecrypted(path: string): Promise<Blob>;
-  fetchDecryptedMany?(paths: readonly string[]): Promise<Map<string, Blob>>;
+  fetchBlob(path: string): Promise<Blob>;
+  fetchBlobs(paths: readonly string[]): Promise<Map<string, Blob>>;
 }
 
 export interface IZoteroAnnotationPull {

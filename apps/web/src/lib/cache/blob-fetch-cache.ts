@@ -1,4 +1,4 @@
-/** Cross-hook in-flight + settled cache for decrypted blob fetches. */
+/** Cross-hook in-flight + settled cache for blob fetches. */
 
 const settled = new Map<string, Blob>();
 const inflight = new Map<string, Promise<Blob | null>>();
@@ -7,7 +7,7 @@ function cacheKey(bucket: string, path: string): string {
   return `${bucket}\0${path}`;
 }
 
-function fetchDecryptedCached(
+function fetchBlobCached(
   bucket: string,
   path: string,
   fetcher: (path: string) => Promise<Blob>,
@@ -33,7 +33,7 @@ function fetchDecryptedCached(
   return promise;
 }
 
-export async function fetchDecryptedManyCached(
+export async function fetchBlobsCached(
   bucket: string,
   paths: readonly string[],
   fetchOne: (path: string) => Promise<Blob>,
@@ -61,7 +61,7 @@ export async function fetchDecryptedManyCached(
 
   await Promise.all(
     missing.map(async (path) => {
-      const blob = await fetchDecryptedCached(bucket, path, fetchOne);
+      const blob = await fetchBlobCached(bucket, path, fetchOne);
       if (blob) out.set(path, blob);
     }),
   );

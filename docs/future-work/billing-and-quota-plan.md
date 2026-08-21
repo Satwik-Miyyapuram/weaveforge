@@ -125,7 +125,7 @@ For repositories needing more than `create` guarded, write an explicit class dec
 
 ### 4.2 Byte-quota decorator over `IBlobStore`
 
-Explicit class, mirroring `PassthroughBlobStore`:
+Explicit class, mirroring `FetchingBlobStore`:
 
 ```ts
 // apps/web/src/billing/metered-blob-store.ts
@@ -162,7 +162,7 @@ export class MeteredBlobStore implements IBlobStore {
 ### 4.3 Composition order
 
 ```
-MeteredBlobStore → TieredBlobStore → PassthroughBlobStore → SupabaseBlobStore
+MeteredBlobStore → TieredBlobStore → FetchingBlobStore → SupabaseBlobStore
 ```
 
 Quota outermost, so a rejected upload never reaches tiering or the network.

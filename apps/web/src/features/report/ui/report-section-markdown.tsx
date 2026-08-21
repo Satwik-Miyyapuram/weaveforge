@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { normalizeMarkdownImageSyntax, type Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
-import { useDecryptedObjectUrls } from "@/lib/hooks/use-decrypted-asset";
+import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { REPORT_IMAGE_PREFIX, reportImagePathsInBody } from "../lib/report-images-md";
 import {
@@ -92,7 +92,7 @@ export function ReportSectionMarkdown({
     (ps: readonly string[]) => getContainer().report.fetchImageBlobs(ps),
     [],
   );
-  const urls = useDecryptedObjectUrls(
+  const urls = useBlobObjectUrls(
     paths,
     useMemo(() => ({ cacheBucket: REPORT_IMAGES_BUCKET, fetchOne, fetchMany }), [fetchOne, fetchMany]),
   );

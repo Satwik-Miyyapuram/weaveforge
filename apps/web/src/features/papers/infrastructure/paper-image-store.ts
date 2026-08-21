@@ -1,4 +1,4 @@
-import type { IBlobStore, ICurrentUserProvider } from "@weaveforge/core";
+import type { IBlobFetcher, ICurrentUserProvider } from "@weaveforge/core";
 import { BucketAssetStore } from "@/lib/bucket-asset-store";
 import type { IPaperImageStore } from "../domain/zotero";
 
@@ -12,7 +12,7 @@ const THUMB_MAX_DIM = 640;
  * ones make it crawl.
  */
 export class PaperImageStore extends BucketAssetStore implements IPaperImageStore {
-  constructor(blobs: IBlobStore, session: ICurrentUserProvider) {
+  constructor(blobs: IBlobFetcher, session: ICurrentUserProvider) {
     super("paper-images", blobs, session);
   }
 
@@ -32,17 +32,6 @@ export class PaperImageStore extends BucketAssetStore implements IPaperImageStor
     await super.remove(path);
     const thumbnail = path.replace(/\.full\.[^.]+$/, ".thumb.webp");
     if (thumbnail !== path) await super.remove(thumbnail);
-  }
-
-  /**
-   * No one-at-a-time fallback here, on purpose: a paper's images are fetched
-   * as a set for the grid, and doing that serially is slow enough to look
-   * broken. A store that cannot batch should say so rather than crawl.
-   */
-  override async fetchDecryptedMany(paths: readonly string[]): Promise<Map<string, Blob>> {
-    const many = this.encrypted.fetchDecryptedMany;
-    if (!many) throw new Error("Blob store does not support batch fetch");
-    return many.call(this.encrypted, this.bucket, paths);
   }
 }
 

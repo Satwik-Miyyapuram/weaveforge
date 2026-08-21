@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export interface DecryptedBlobFetchers {
+export interface BlobFetchers {
   fetchOne: (path: string) => Promise<Blob | null>;
   fetchMany?: (paths: readonly string[]) => Promise<Map<string, Blob>>;
   cacheBucket?: string;
@@ -10,12 +10,11 @@ export interface DecryptedBlobFetchers {
 
 /**
  * Fetch blobs and expose short-lived object URLs for markdown/image preview.
- * (Name is legacy — storage is plaintext via PassthroughBlobStore; no client decrypt.)
  * Revokes URLs on unmount or when paths change.
  */
-export function useDecryptedObjectUrls(
+export function useBlobObjectUrls(
   paths: readonly string[],
-  fetchers: DecryptedBlobFetchers | ((path: string) => Promise<Blob | null>),
+  fetchers: BlobFetchers | ((path: string) => Promise<Blob | null>),
 ): Map<string, string> {
   const [urls, setUrls] = useState<Map<string, string>>(new Map());
   // `key` is the identity that matters: the effect depends on the *contents* of
@@ -48,8 +47,8 @@ export function useDecryptedObjectUrls(
       if (fetchMany && paths.length > 1) {
         blobs = await fetchMany(paths);
       } else if (cacheBucket) {
-        const { fetchDecryptedManyCached } = await import("@/lib/cache/blob-fetch-cache");
-        blobs = await fetchDecryptedManyCached(
+        const { fetchBlobsCached } = await import("@/lib/cache/blob-fetch-cache");
+        blobs = await fetchBlobsCached(
           cacheBucket,
           paths,
           async (path) => {
