@@ -20,12 +20,44 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "reac
  * stack tightly with no gaps. Measured on the same 1500 cards: 4.3s → 2.3s
  * blocked, better than both alternatives.
  *
- * Cards are dealt round-robin (0,1,2 / 0,1,2 …) rather than filled column-first.
+ * `dealColumns` below owns which card goes where.
+ */
+/** How many hues Confetti rotates through. Mirrors the `6n` in globals.css. */
+export const CARD_HUE_COUNT = 6;
+
+/** One card, dealt into a column, with what the CSS needs to colour it. */
+export type DealtCard<T> = { item: T; key: string; hue: number };
+
+/**
+ * Deal cards round-robin (0,1,2 / 0,1,2 …) rather than filling column-first.
+ *
  * Multi-column filled column 1 top-to-bottom before column 2, so a sorted list
  * read *downwards* — the first three cards were vertical, not horizontal.
  * Round-robin puts the first row across the top, matching the sort order, and
  * keeps columns close in length whenever card heights are similar.
+ *
+ * `hue` is the card's position in the flat list, which nothing can recover once
+ * the cards are dealt: themes that colour by position (Confetti) need exactly
+ * that number. 1-based to match `nth-child`, which does the same job for cards
+ * that are siblings.
  */
+export function dealColumns<T>(
+  items: readonly T[],
+  columnCount: number,
+  getKey: (item: T) => string,
+): DealtCard<T>[][] {
+  if (columnCount < 1) return [];
+  const buckets: DealtCard<T>[][] = Array.from({ length: columnCount }, () => []);
+  items.forEach((item, index) => {
+    buckets[index % columnCount]!.push({
+      item,
+      key: getKey(item),
+      hue: (index % CARD_HUE_COUNT) + 1,
+    });
+  });
+  return buckets;
+}
+
 export function CardColumns<T>({
   items,
   getKey,
@@ -80,17 +112,10 @@ export function CardColumns<T>({
     return () => observer.disconnect();
   }, [gap, minColumnWidth]);
 
-  const columns = useMemo(() => {
-    if (columnCount < 1) return [];
-    const buckets: { item: T; key: string }[][] = Array.from(
-      { length: columnCount },
-      () => [],
-    );
-    items.forEach((item, index) => {
-      buckets[index % columnCount]!.push({ item, key: getKey(item) });
-    });
-    return buckets;
-  }, [items, columnCount, getKey]);
+  const columns = useMemo(
+    () => dealColumns(items, columnCount, getKey),
+    [items, columnCount, getKey],
+  );
 
   return (
     <div
@@ -107,8 +132,12 @@ export function CardColumns<T>({
           key={index}
           style={{ gap }}
         >
-          {column.map(({ item, key }) => (
-            <div className={deferOffscreen ? "card-columns-item is-deferred" : "card-columns-item"} key={key}>
+          {column.map(({ item, key, hue }) => (
+            <div
+              className={deferOffscreen ? "card-columns-item is-deferred" : "card-columns-item"}
+              data-card-hue={hue}
+              key={key}
+            >
               {renderItem(item)}
             </div>
           ))}

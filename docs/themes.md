@@ -69,19 +69,34 @@ theme that looks right in some components and unstyled in others.
 card takes the next hue from a six-colour pastel rotation instead of the shared
 `--surface`.
 
-The rotation lives in `globals.css` and is driven by `:nth-child(6n + k)`, which
-means position picks the colour — not the component, and not the data. Nothing
-in the domain says a paper is pink, so no component knows this feature exists; a
-list can filter or re-order and the colours simply re-flow. A card with no card
-siblings lands on hue 1, which is the intended fallback: one card has nothing to
-be distinguished from.
+The rotation lives in `globals.css`. Position picks the colour — not the
+component, and not the data. Nothing in the domain says a paper is pink, so a
+list can filter or re-order and the colours simply re-flow.
+
+Position reaches the CSS two ways, because there are two kinds of card list:
+
+- **`:nth-child(6n + k)`** for cards that are siblings, which is most of them.
+- **`[data-card-hue]`** for the masonry grids. `CardColumns` deals cards
+  round-robin into one wrapper each, so every card is its own wrapper's only
+  child and `nth-child` sees position 1 for all of them — the first version of
+  this theme shipped a papers list that was entirely one colour. Only the
+  component knows a card's index in the flat list, so it writes the number onto
+  the wrapper; `--card-tint` and `--card-edge` are custom properties, so they
+  inherit down to the card.
+
+A card with no card siblings and no wrapper index lands on hue 1, which is the
+intended fallback: one card has nothing to be distinguished from.
 
 Each hue is a pair — `--confetti-N-bg` for the fill and `--confetti-N-edge` for
-the border, defined in the theme block. The border is a stronger tone of the
-same hue so it reads as part of the colour rather than a grey line drawn on top.
-In the dark variant the fill is the hue at low lightness and the edge carries
-the recognisable colour, because a true pastel at full lightness glares against
-a dark page.
+the border, defined in the theme block as `oklch()`. All six share one lightness
+and one chroma and differ only in hue, which is what keeps them reading as a set:
+perceived contrast against the surface is mostly lightness, so six colours at
+equal lightness sit at equal weight. The first pass picked each colour by eye in
+hex and the yellows and pinks shouted over the blues. The border is a stronger
+tone of the same hue so it reads as part of the colour rather than a grey line
+drawn on top. In the dark variant the fill sits a hair above the dark surface
+and the edge carries the recognisable colour, because a pastel at full lightness
+glares against a dark page.
 
 `.card` itself reads `var(--card-tint, var(--surface))` and
 `var(--card-edge, var(--border))`. Both custom properties are unset in every
