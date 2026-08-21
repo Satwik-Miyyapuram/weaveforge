@@ -27,7 +27,11 @@ async function isPastLoginGates(page: Page): Promise<boolean> {
 }
 
 async function isCryptoGateBusy(page: Page): Promise<boolean> {
-  const busy = page.locator(".crypto-gate-screen .auth-loading");
+  /* `.auth-loading` is set by WeaveForgeLoader (markAuthLoading) and is the
+     only class the gate still renders — this used to be scoped to a
+     `.crypto-gate-screen` ancestor that no component emits any more, so the
+     wait below returned on its first iteration every time. */
+  const busy = page.locator(".auth-loading");
   if (!(await busy.isVisible({ timeout: 200 }).catch(() => false))) return false;
   const text = (await busy.innerText().catch(() => "")) ?? "";
   return /unlocking|loading/i.test(text);
@@ -82,12 +86,6 @@ export async function completeUnlockGate(page: Page, password = DEFAULT_TEST_PAS
         : null;
 
     if (!target) {
-      const tryAgain = page
-        .locator(".crypto-gate-screen")
-        .getByRole("button", { name: /Try again/i });
-      if (await tryAgain.isVisible({ timeout: 300 }).catch(() => false)) {
-        await tryAgain.click();
-      }
       await page.waitForTimeout(300);
       continue;
     }

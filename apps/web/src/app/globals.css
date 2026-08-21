@@ -177,16 +177,14 @@ body,
    mounted — so animate the *items*, which mount when data arrives. Runs once
    per mount, so status edits (same key → no remount) don't replay it; adding a
    row animates just that row. A small per-row delay gives a gentle stagger. */
-.paper-item, .log-item, .exp-item, .section-node, .list-item,
+.log-item, .exp-item, .section-node, .list-item,
 .commit-item, .graph-wrap, .progress-card, .empty {
   animation: content-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
-.paper-item:nth-child(n+2),
 .log-item:nth-child(n+2),
 .exp-item:nth-child(n+2),
 .section-node:nth-child(n+2),
 .commit-item:nth-child(n+2) { animation-delay: 0.04s; }
-.paper-item:nth-child(n+4),
 .log-item:nth-child(n+4),
 .exp-item:nth-child(n+4),
 .section-node:nth-child(n+4),
@@ -196,7 +194,7 @@ body,
   to   { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .paper-item, .log-item, .exp-item, .section-node, .list-item,
+  .log-item, .exp-item, .section-node, .list-item,
   .commit-item, .graph-wrap, .progress-card, .empty { animation: none; }
 }
 
@@ -512,7 +510,7 @@ body,
 .ai-access-hero h3 { margin-top: 5px; font-size: 1.18rem; }
 .ai-access-hero p { margin: 8px 0 0; max-width: 42rem; color: var(--muted); line-height: 1.55; font-size: .88rem; }
 .ai-eyebrow { margin: 0; font: 700 0.66rem var(--font-sans); letter-spacing: .1em; text-transform: uppercase; color: var(--accent-ink); }
-.ai-access-hero > .status { align-self: center; }.ai-enable-row small, .ai-permission-row small, .ai-section-heading p { color: var(--muted); font-size: .8rem; }
+.ai-access-hero > .status { align-self: center; }.ai-permission-row small, .ai-section-heading p { color: var(--muted); font-size: .8rem; }
 .ai-permission-row input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); flex: none; }
 .ai-permission-row input[type="checkbox"].themed-check { background: var(--surface); border-color: var(--border-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 60%, var(--line)); }
 
@@ -831,7 +829,6 @@ body,
   min-height: min(40vh, 320px);
 }
 
-.crypto-gate-screen { max-width: 480px; margin: 6vh auto 0; }
 .auth-screen { max-width: 420px; margin: 6vh auto 0; }
 .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .auth-brand img, .auth-brand svg { width: 44px; height: 44px; border-radius: 13px; }
@@ -1273,26 +1270,21 @@ label.mp-row input[type="checkbox"]:disabled,
   word-break: normal;
 }
 /* Status lives in the foot with actions so the title can use full width. */
-.entity-card-status,
-.paper-card-status {
+.entity-card-status {
   flex: none;
   max-width: none;
 }
-.entity-card-foot .entity-card-status,
-.paper-card-foot .paper-card-status {
+.entity-card-foot .entity-card-status {
   display: flex;
   align-items: center;
 }
 .entity-card-status .status-select,
-.entity-card-status .custom-select-container,
-.paper-card-status .status-select,
-.paper-card-status .custom-select-container {
+.entity-card-status .custom-select-container {
   width: auto;
   min-width: 6.5rem;
   max-width: none;
 }
-.entity-card-status .status-select .custom-select-button,
-.paper-card-status .status-select .custom-select-button {
+.entity-card-status .status-select .custom-select-button {
   padding: 4px 10px;
   min-height: var(--control-sm);
 }
@@ -1302,7 +1294,6 @@ label.mp-row input[type="checkbox"]:disabled,
   gap: 6px;
 }
 .entity-card-meta,
-.paper-card-meta,
 .paper-card-authors,
 .section-meta {
   margin: 0;
@@ -1495,8 +1486,7 @@ a.entity-icon-btn:hover {
   min-width: 8.5rem;
   width: 1%;
 }
-.papers-col-link,
-.papers-col-note {
+.papers-col-link {
   width: 1%;
 }
 
@@ -1554,7 +1544,6 @@ a.entity-icon-btn:hover {
 }
 
 .papers-link-short,
-.papers-note-short { display: none; }
 
 /* Paper / vault / experiment detail chrome — one tight toolbar row, title below. */
 .paper-note {
@@ -2526,8 +2515,6 @@ a.related-paper-url:hover { text-decoration: underline; }
 .vault-screen .empty { padding: 40px 24px; }
 
 @media (max-width: 720px) {
-  .vault-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .vault-sidebar { max-height: none; padding: 14px 12px; }
   .vault-editor { padding: 20px 18px; gap: 16px; }
 }
 
@@ -3337,7 +3324,6 @@ a.related-paper-url:hover { text-decoration: underline; }
 .controls-row .search-input { margin: 0; flex: 1 1 auto; min-width: 0; }
 .controls-row .popover { flex: none; }
 .controls-spacer { flex: 1 1 auto; }
-@media (max-width: 899px) { .filter-selects { grid-template-columns: 1fr; } }
 /* Canvas force-graph (react-force-graph renders a <canvas> inside). */
 .graph-wrap {
   margin: 12px 0; width: 100%; overflow: hidden;
@@ -4110,7 +4096,7 @@ button.nav-link {
   .progress-bar { height: 6px; }
 
   /* Stacked form rows so inputs (e.g. the import URL) get full width */
-  .field-row, .field-row-equal, .import-row, .edge-row { grid-template-columns: minmax(0, 1fr); }
+  .field-row, .field-row-equal, .import-row { grid-template-columns: minmax(0, 1fr); }
 
   .superv-panels { grid-template-columns: minmax(0, 1fr); }
 
@@ -4449,7 +4435,6 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   stroke-dasharray: 5 4;
   pointer-events: none;
 }
-.pdf-reader-ann.is-approximate { outline: 1px dashed var(--danger); }
 .pdf-reader-ann.is-underline { opacity: 1; }
 .pdf-reader--dark .pdf-reader-textlayer {
   opacity: 0.45; mix-blend-mode: difference;
@@ -4579,10 +4564,8 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 
 /* Chip geometry reads the uploadable slot. Outside the borderless gate —
    it is a theme dimension, not a border treatment. */
-.filter-chip,
 .metric-chip,
-.proj-chip,
-.superv-chip { border-radius: var(--radius-pill); }
+.proj-chip { border-radius: var(--radius-pill); }
 
 /* ---- L1: resting surfaces ---------------------------------------------- */
 :root[data-surfaces="borderless"] :is(
@@ -4646,8 +4629,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 
 /* Nested cards stay flat and recessed — a card inside a card that also lifts
    destroys the hierarchy the outer card just established. */
-:root[data-surfaces="borderless"] .entity-card--nested,
-:root[data-surfaces="borderless"] .paper-card--nested {
+:root[data-surfaces="borderless"] .entity-card--nested {
   border-color: transparent;
   box-shadow: var(--e-inset);
 }
@@ -4686,8 +4668,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   transform: translateY(0);
 }
 
-:root[data-surfaces="borderless"] .entity-card--nested[role="button"]:hover,
-:root[data-surfaces="borderless"] .paper-card--nested[role="button"]:hover {
+:root[data-surfaces="borderless"] .entity-card--nested[role="button"]:hover {
   box-shadow: var(--e1), var(--rim);
   transform: none;
 }
@@ -4974,7 +4955,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 }
 
 /* ---- Controls ---- */
-:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .filter-chip, .seg button) {
+:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .seg button) {
   translate: 0;
   scale: 1;
   transition:
@@ -4987,7 +4968,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   translate: 0 -1px;
   box-shadow: var(--e2);
 }
-:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .filter-chip, .seg button):active {
+:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .seg button):active {
   translate: 0;
   scale: 0.97;
 }
