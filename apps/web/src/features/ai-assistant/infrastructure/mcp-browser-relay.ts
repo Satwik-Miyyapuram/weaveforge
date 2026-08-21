@@ -2,6 +2,19 @@ import type { AiAccessSettings } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
 
+/**
+ * The slice of the assistant facade the tools need.
+ *
+ * Named as an interface rather than reached for through the container so the
+ * dispatch below can be exercised against a stub: everything a tool call does
+ * after decryption happens here, and none of it was reachable from a test while
+ * this was a container lookup.
+ */
+export type McpToolHost = Pick<
+  ReturnType<typeof getContainer>["aiAssistant"],
+  "searchWorkspace" | "getSourceExcerpt" | "getWorkspaceOutline" | "proposeDraft" | "proposeZoteroImport"
+>;
+
 type Envelope = { iv: string; ciphertext: string };
 type RelayRequest = { id: string; request_enc: Envelope; expires_at: string };
 
@@ -39,55 +52,19 @@ export function startMcpBrowserRelay(input: {
       const res = await fetch(`/api/mcp/relay/browser?sessionId=${encodeURIComponent(input.sessionId)}`, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) return;
       const payload = await res.json() as { requests?: RelayRequest[] };
-      const batch = payload.requests ?? [];
-      for (let i = 0; i < batch.length; i++) {
-        const request = batch[i]!;
-        if (stopped || !getContainer().aiAssistant.listActiveSessions().some((s) => s.grant.id === input.sessionId)) {
-          // Claimed rows are never requeued — cancel the rest of this batch.
-          for (const leftover of batch.slice(i)) {
-            try {
-              await fetch("/api/mcp/relay", {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ id: leftover.id, status: "cancelled" }),
-              });
-            } catch {
-              /* ignore */
-            }
-          }
-          break;
-        }
-        try {
-          const command = await decrypt(sessionKey, request.request_enc);
-          const result = await dispatch(input.sessionId, input.getSettings(), command);
-          const envelope = await encrypt(sessionKey, result);
-          let delivered = false;
-          for (let attempt = 0; attempt < 3 && !delivered; attempt++) {
-            try {
-              const patch = await fetch("/api/mcp/relay", {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ id: request.id, envelope }),
-              });
-              delivered = patch.ok;
-              if (!delivered && attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
-            } catch {
-              if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
-            }
-          }
-          // After a successful dispatch, never cancel — cancelling lets the MCP
-          // client retry and duplicate side effects. Leave claimed until TTL if
-          // delivery fails; another tab may still land the envelope.
-        } catch {
-          // A malformed or no-longer-permitted request must not be retried by
-          // another browser tab. Cancellation reveals no plaintext to the relay.
-          try {
-            await fetch("/api/mcp/relay", { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, status: "cancelled" }) });
-          } catch {
-            /* ignore */
-          }
-        }
-      }
+      await handleRelayBatch({
+        sessionId: input.sessionId,
+        getSettings: input.getSettings,
+        sessionKey,
+        host: () => getContainer().aiAssistant,
+        live: () => !stopped && getContainer().aiAssistant.listActiveSessions().some((s) => s.grant.id === input.sessionId),
+        patch: (body) => fetch("/api/mcp/relay", {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }).then((res) => res.ok),
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      }, payload.requests ?? []);
     } catch { /* Requests are retried while the approved session remains active. */ }
     finally { running = false; }
   };
@@ -111,11 +88,64 @@ export function startMcpBrowserRelay(input: {
   };
 }
 
-async function dispatch(sessionId: string, settings: AiAccessSettings, command: { tool?: string; arguments?: Record<string, unknown> }): Promise<unknown> {
+/** What one pass over a claimed batch needs. Injected so the rules below are testable. */
+export interface RelayBatchDeps {
+  sessionId: string;
+  getSettings: () => AiAccessSettings;
+  sessionKey: Promise<CryptoKey>;
+  host: () => McpToolHost;
+  /** False once the tab stopped relaying or the grant went away. */
+  live: () => boolean;
+  /** PATCH one status back to the relay; resolves true when it landed. */
+  patch: (body: Record<string, unknown>) => Promise<boolean>;
+  sleep: (ms: number) => Promise<void>;
+}
+
+/** How many times a finished result is offered to the relay before giving up. */
+const DELIVERY_ATTEMPTS = 3;
+
+/**
+ * Execute a claimed batch, in order, and account for every row in it.
+ *
+ * Two rules carry the weight here. A row that was never dispatched is
+ * cancelled, because claimed rows are never requeued and the MCP client would
+ * otherwise wait out the TTL. A row that *was* dispatched is never cancelled
+ * even when delivery fails, because cancelling invites the client to retry a
+ * call whose side effects already happened.
+ */
+export async function handleRelayBatch(deps: RelayBatchDeps, batch: readonly RelayRequest[]): Promise<void> {
+  const cancel = async (id: string) => {
+    try { await deps.patch({ id, status: "cancelled" }); } catch { /* the TTL is the backstop */ }
+  };
+  for (let i = 0; i < batch.length; i++) {
+    const request = batch[i]!;
+    if (!deps.live()) {
+      for (const leftover of batch.slice(i)) await cancel(leftover.id);
+      return;
+    }
+    try {
+      const command = await decrypt(deps.sessionKey, request.request_enc);
+      const result = await dispatchMcpTool(deps.host(), deps.sessionId, deps.getSettings(), command);
+      const envelope = await encrypt(deps.sessionKey, result);
+      for (let attempt = 0; attempt < DELIVERY_ATTEMPTS; attempt++) {
+        try {
+          if (await deps.patch({ id: request.id, envelope })) break;
+        } catch { /* fall through to the backoff */ }
+        if (attempt < DELIVERY_ATTEMPTS - 1) await deps.sleep(250 * (attempt + 1));
+      }
+    } catch {
+      // A malformed or no-longer-permitted request must not be retried by
+      // another browser tab. Cancellation reveals no plaintext to the relay.
+      await cancel(request.id);
+    }
+  }
+}
+
+/** Run one decrypted tool call. Every argument is untrusted until checked here. */
+export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settings: AiAccessSettings, command: { tool?: string; arguments?: Record<string, unknown> }): Promise<unknown> {
   if (!GENERATED_MCP_ENABLED || !command.tool || !GENERATED_MCP_TOOL_NAMES.includes(command.tool as (typeof GENERATED_MCP_TOOL_NAMES)[number])) {
     throw new Error("This MCP tool is not enabled for this deployment.");
   }
-  const ai = getContainer().aiAssistant;
   const args = command.arguments ?? {};
   switch (command.tool) {
     case "search_workspace": return ai.searchWorkspace({ sessionId, settings, query: String(args.query ?? ""), limit: Number(args.limit) || undefined });
@@ -131,54 +161,15 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
       const addition = required(args, "addition");
       const paperId = required(args, "paperId");
       const sourceId = optional(args, "sourceId");
-      let evidence: import("@weaveforge/core").AiEvidence[] | undefined;
-      if (sourceId) {
-        const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId });
-        if (!doc?.text) {
-          throw new Error("sourceId was provided but no excerpt could be resolved for evidence.");
-        }
-        const quoteExact = optionalRaw(args, "quoteExact");
-        if (quoteExact && !doc.text.includes(quoteExact)) {
-          throw new Error("quoteExact was not found in the source excerpt.");
-        }
-        const page = optionalPage(args.page);
-        const paperFromSource =
-          doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
-            ? doc.source.resourceId
-            : doc.source.resourceType === "zotero_annotation" || doc.source.resourceType === "zotero_note"
-              ? doc.source.resourceId.split(":")[0] || undefined
-              : undefined;
-        if (!paperFromSource) {
-          throw new Error("Evidence sourceId must resolve to a paper-scoped source.");
-        }
-        if (paperFromSource !== paperId) {
-          throw new Error("Evidence source belongs to a different paper than paperId.");
-        }
-        evidence = [{
-          sourceId,
-          excerpt: doc.text,
-          label: doc.source.label,
-          paperId: paperFromSource,
-          href: doc.source.href,
-          ...(quoteExact
-            ? {
-                locus: {
-                  quote: {
-                    type: "TextQuoteSelector" as const,
-                    exact: quoteExact,
-                    ...(optionalRaw(args, "quotePrefix")
-                      ? { prefix: optionalRaw(args, "quotePrefix") }
-                      : {}),
-                    ...(optionalRaw(args, "quoteSuffix")
-                      ? { suffix: optionalRaw(args, "quoteSuffix") }
-                      : {}),
-                  },
-                },
-              }
-            : {}),
-          ...(page != null ? { page } : {}),
-        }];
-      }
+      const evidence = sourceId
+        ? await buildPaperEvidence(ai, sessionId, settings, {
+            paperId, sourceId,
+            quoteExact: optionalRaw(args, "quoteExact"),
+            quotePrefix: optionalRaw(args, "quotePrefix"),
+            quoteSuffix: optionalRaw(args, "quoteSuffix"),
+            page: optionalPage(args.page),
+          })
+        : undefined;
       return ai.proposeDraft({
         sessionId, settings, kind: "append_paper_note", tool: "propose_append_paper_note",
         resourceId: paperId, resourceType: "paper_note",
@@ -197,7 +188,7 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
       const value = parseFieldValue(args.value);
       const sourceId = required(args, "sourceId");
       const quoteExact = requiredRaw(args, "quoteExact");
-      const evidenceBundle = await buildPaperEvidence(ai, sessionId, settings, {
+      const evidence = await buildPaperEvidence(ai, sessionId, settings, {
         paperId, sourceId, quoteExact,
         quotePrefix: optionalRaw(args, "quotePrefix"),
         quoteSuffix: optionalRaw(args, "quoteSuffix"),
@@ -219,7 +210,7 @@ async function dispatch(sessionId: string, settings: AiAccessSettings, command: 
           ...(optional(args, "listId") ? { listId: optional(args, "listId") } : {}),
           ...(optional(args, "fieldName") ? { fieldName: optional(args, "fieldName") } : {}),
         },
-        evidence: evidenceBundle.evidence,
+        evidence,
       });
     }
     case "propose_reading_list_change": return ai.proposeDraft({ sessionId, settings, kind: "reading_list_change", tool: "propose_reading_list_change", resourceId: required(args, "listId"), resourceType: "reading_list", content: "Add an item to a reading list", payload: { listId: required(args, "listId"), paperId: optional(args, "paperId"), vaultPageId: optional(args, "vaultPageId"), note: optional(args, "note") } });
@@ -271,26 +262,31 @@ function parseFieldValue(value: unknown): string | number | string[] {
   throw new Error("value must be a string, number, or non-empty string array.");
 }
 
+/**
+ * Resolve one paper-scoped evidence item, or refuse.
+ *
+ * `quoteExact` is optional because `propose_append_paper_note` accepts evidence
+ * without one; where a tool requires the quote it is `requiredRaw` at the call
+ * site, so an absent quote here means the tool allowed it.
+ */
 async function buildPaperEvidence(
-  ai: ReturnType<typeof getContainer>["aiAssistant"],
+  ai: McpToolHost,
   sessionId: string,
   settings: AiAccessSettings,
   input: {
     paperId: string;
     sourceId: string;
-    quoteExact: string;
+    quoteExact?: string;
     quotePrefix?: string;
     quoteSuffix?: string;
     page?: number;
   },
-): Promise<{
-  evidence: import("@weaveforge/core").AiEvidence[];
-}> {
+): Promise<import("@weaveforge/core").AiEvidence[]> {
   const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId: input.sourceId });
   if (!doc?.text) {
     throw new Error("sourceId was provided but no excerpt could be resolved for evidence.");
   }
-  if (!doc.text.includes(input.quoteExact)) {
+  if (input.quoteExact && !doc.text.includes(input.quoteExact)) {
     throw new Error("quoteExact was not found in the source excerpt.");
   }
   const paperFromSource =
@@ -305,24 +301,26 @@ async function buildPaperEvidence(
   if (paperFromSource !== input.paperId) {
     throw new Error("Evidence source belongs to a different paper than paperId.");
   }
-  return {
-    evidence: [{
-      sourceId: input.sourceId,
-      excerpt: doc.text,
-      label: doc.source.label,
-      paperId: paperFromSource,
-      href: doc.source.href,
-      locus: {
-        quote: {
-          type: "TextQuoteSelector" as const,
-          exact: input.quoteExact,
-          ...(input.quotePrefix ? { prefix: input.quotePrefix } : {}),
-          ...(input.quoteSuffix ? { suffix: input.quoteSuffix } : {}),
-        },
-      },
-      ...(input.page != null ? { page: input.page } : {}),
-    }],
-  };
+  return [{
+    sourceId: input.sourceId,
+    excerpt: doc.text,
+    label: doc.source.label,
+    paperId: paperFromSource,
+    href: doc.source.href,
+    ...(input.quoteExact
+      ? {
+          locus: {
+            quote: {
+              type: "TextQuoteSelector" as const,
+              exact: input.quoteExact,
+              ...(input.quotePrefix ? { prefix: input.quotePrefix } : {}),
+              ...(input.quoteSuffix ? { suffix: input.quoteSuffix } : {}),
+            },
+          },
+        }
+      : {}),
+    ...(input.page != null ? { page: input.page } : {}),
+  }];
 }
 
 async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("weaveforge-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }
