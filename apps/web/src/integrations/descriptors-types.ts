@@ -1,7 +1,7 @@
 import type { Integration, SyncProvider } from "@/features/sync/domain/integration";
 
 /** Maps UI labels to {@link Integration} storage keys (`token` / `repo` / `branch`). */
-export interface ProjectSyncFieldDescriptor {
+interface ProjectSyncFieldDescriptor {
   readonly key: keyof Pick<Integration, "token" | "repo" | "branch">;
   readonly label: string;
   readonly type: "text" | "password";

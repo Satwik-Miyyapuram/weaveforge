@@ -12,7 +12,7 @@ import type { WireIntegrationsDeps } from "../wire-integrations";
 import type { WireCitationsDeps } from "../wire-citations";
 import type { ProjectSyncDescriptor } from "../descriptors-types";
 
-export type IntegrationManifestKind =
+type IntegrationManifestKind =
   | "bibliography"
   | "citation"
   | "notification"

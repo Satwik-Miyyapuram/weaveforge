@@ -15,7 +15,7 @@ export interface ProgressStat {
   pct: number;
 }
 
-export interface ExperimentsStat {
+interface ExperimentsStat {
   total: number;
   running: number;
   done: number;
@@ -26,7 +26,7 @@ export interface AttentionItem {
   href: string;
 }
 
-export interface RecentLogItem {
+interface RecentLogItem {
   id: string;
   date: string;
   preview: string;

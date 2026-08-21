@@ -11,7 +11,7 @@ import { zoteroHeaders, zoteroLibraryUrl } from "./zotero-web-api";
  * The WeaveForge server never receives the API key.
  */
 
-export interface ZoteroCredentials {
+interface ZoteroCredentials {
   apiKey?: string;
   library?: string;
   /** Per-project collection key — scopes sync push/pull to one collection. */

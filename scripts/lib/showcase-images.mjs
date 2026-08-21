@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-export const SHOWCASE_ASSETS = resolve(__dir, "../assets/showcase");
+const SHOWCASE_ASSETS = resolve(__dir, "../assets/showcase");
 const PAPER_IMAGE_PREFIX = "paperimg:";
 const ARTIFACT_EXPIRES_S = 10 * 365 * 24 * 3600;
 /** R2/S3 SigV4 presigned URLs are capped at 7 days. */

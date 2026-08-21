@@ -3,7 +3,7 @@
 import type { ReaderAnnotationType } from "@weaveforge/core";
 import { READER_ANNOTATION_COLORS } from "../application/reader-annotation-helpers";
 
-export interface PendingSelectionCreate {
+interface PendingSelectionCreate {
   pageNumber: number;
   quote: string;
 }

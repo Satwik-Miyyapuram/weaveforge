@@ -17,7 +17,7 @@ import {
   type ReaderAnnotation,
 } from "@weaveforge/core";
 
-export interface AnnotationBox {
+interface AnnotationBox {
   id: string;
   left: number;
   top: number;
@@ -27,7 +27,7 @@ export interface AnnotationBox {
   underline: boolean;
 }
 
-export interface AnnotationStroke {
+interface AnnotationStroke {
   id: string;
   color: string;
   /** SVG `points` attribute value, already in CSS pixels. */

@@ -1,5 +1,5 @@
 /** Hot/cold blob provider ids — env-selected at the composition root. */
-export type BlobProviderId = "supabase" | "tiered";
+type BlobProviderId = "supabase" | "tiered";
 
 /** Env bag for tests and composition-root overrides (avoids full ProcessEnv in unit tests). */
 export type EnvReader = Record<string, string | undefined>;

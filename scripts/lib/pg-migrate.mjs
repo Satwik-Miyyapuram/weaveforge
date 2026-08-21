@@ -12,7 +12,7 @@
  */
 
 /** Rows per insert. Large enough to amortize round trips, small enough to not blow the parameter limit. */
-export const BATCH_ROWS = 500;
+const BATCH_ROWS = 500;
 
 /** Postgres refuses a statement with more than this many bound parameters. */
 const MAX_PARAMS = 60_000;
@@ -71,7 +71,7 @@ export async function tableLoadOrder(client, schema = "public") {
  * that names it fails outright. Identity columns declared ALWAYS are the same:
  * the sequence owns them, and they are re-derived on the target.
  */
-export async function columnsOf(client, table, schema = "public") {
+async function columnsOf(client, table, schema = "public") {
   const { rows } = await client.query(
     `select column_name from information_schema.columns
      where table_schema = $1 and table_name = $2
@@ -84,7 +84,7 @@ export async function columnsOf(client, table, schema = "public") {
 }
 
 /** Primary key columns, for the conflict target that makes a re-run a no-op. */
-export async function primaryKeyOf(client, table, schema = "public") {
+async function primaryKeyOf(client, table, schema = "public") {
   const { rows } = await client.query(
     `select a.attname
      from pg_index i
