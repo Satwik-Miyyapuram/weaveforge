@@ -4,12 +4,12 @@ import {
   decideAnnotationSync,
   diffAnnotationFields,
   DryRunZoteroAnnotationWriteBack,
-  isAnnotationSyncState,
   isZoteroLibrarySyncMode,
   resolveAnnotationConflict,
   toZoteroWritePayload,
   type AnnotationSyncRow,
 } from "../../src/reader/zotero-write-back.js";
+import { isAnnotationSyncState } from "../../src/reader/reader-annotation.js";
 import type { ReaderAnnotation } from "../../src/reader/reader-annotation.js";
 
 function baseLocal(over: Partial<ReaderAnnotation> = {}): ReaderAnnotation {
