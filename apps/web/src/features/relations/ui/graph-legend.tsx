@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { RELATION_TYPES, type RelationType } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
-import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, WIKILINK_COLOR } from "../application/build-graph-data";
+import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, WIKILINK_COLOR } from "../domain/graph-palette";
 
 /** Collapsible relation-type + concept legend for the graph view. */
 export function GraphLegend({ showConcepts = false }: { showConcepts?: boolean }) {
