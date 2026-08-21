@@ -141,6 +141,19 @@ export function ListsScreen() {
     });
   }, []);
 
+  const treeContext: ListTreeContext = {
+    papers,
+    notes,
+    paperTitles,
+    noteTitles,
+    listNames,
+    refresh,
+    collapsedSet: collapsed,
+    onToggleCollapse: toggleCollapsed,
+    onChanged: bump,
+    onReload: load,
+  };
+
   if (loading) {
     return <ScreenLoading status="Loading reading lists…" />;
   }
@@ -187,20 +200,11 @@ export function ListsScreen() {
           <ul className="list-tree-root">
             {tree.map((node) => (
               <ListNode
+                {...treeContext}
                 key={node.list.id}
                 node={node}
                 depth={0}
-                papers={papers}
-                notes={notes}
-                paperTitles={paperTitles}
-                noteTitles={noteTitles}
-                listNames={listNames}
-                refresh={refresh}
-                collapsedSet={collapsed}
                 isCollapsed={collapsed.has(node.list.id)}
-                onToggleCollapse={toggleCollapsed}
-                onChanged={bump}
-                onReload={load}
                 readOnly={isReadOnlyList(node.list.id)}
                 sharedByName={sharedOwnerName(node.list.id)}
                 canComment={listCanComment.get(node.list.id) ?? false}
@@ -215,20 +219,11 @@ export function ListsScreen() {
               <ul className="list-tree-root">
                 {pinnedLists.map((list) => (
                   <ListNode
+                    {...treeContext}
                     key={list.id}
                     node={{ list, children: [] }}
                     depth={0}
-                    papers={papers}
-                    notes={notes}
-                    paperTitles={paperTitles}
-                    noteTitles={noteTitles}
-                    listNames={listNames}
-                    refresh={refresh}
-                    collapsedSet={collapsed}
                     isCollapsed={collapsed.has(list.id)}
-                    onToggleCollapse={toggleCollapsed}
-                    onChanged={bump}
-                    onReload={load}
                     readOnly
                     sharedByName={sharedOwnerName(list.id)}
                     canComment={listCanComment.get(list.id) ?? false}
@@ -272,26 +267,14 @@ function listCountLabel(items: ReadingListItem[]): string {
   return parts.join(", ") || "0 items";
 }
 
-function ListNode({
-  node,
-  depth,
-  papers,
-  notes,
-  paperTitles,
-  noteTitles,
-  listNames,
-  refresh,
-  collapsedSet,
-  isCollapsed,
-  onToggleCollapse,
-  onChanged,
-  onReload,
-  readOnly = false,
-  sharedByName,
-  canComment = false,
-}: {
-  node: ReadingListTreeNode;
-  depth: number;
+/**
+ * Everything a node needs that is the same for every node in one tree.
+ *
+ * Named and passed as a unit because it was spelled out at three call sites —
+ * the root tree, the shared-with-you list and the recursive child — and adding
+ * a prop meant remembering all three.
+ */
+interface ListTreeContext {
   papers: Paper[];
   notes: VaultPage[];
   paperTitles: Map<string, string>;
@@ -299,14 +282,39 @@ function ListNode({
   listNames: Map<string, string>;
   refresh: number;
   collapsedSet: Set<string>;
-  isCollapsed: boolean;
   onToggleCollapse: (listId: string) => void;
   onChanged: () => void;
   onReload: () => void;
+}
+
+interface ListNodeProps extends ListTreeContext {
+  node: ReadingListTreeNode;
+  depth: number;
+  isCollapsed: boolean;
   readOnly?: boolean;
   sharedByName?: string;
   canComment?: boolean;
-}) {
+}
+
+function ListNode(props: ListNodeProps) {
+  const {
+    node,
+    depth,
+    papers,
+    notes,
+    paperTitles,
+    noteTitles,
+    listNames,
+    refresh,
+    collapsedSet,
+    isCollapsed,
+    onToggleCollapse,
+    onChanged,
+    onReload,
+    readOnly = false,
+    sharedByName,
+    canComment = false,
+  } = props;
   const list = node.list;
   const [items, setItems] = useState<ReadingListItem[]>([]);
   const [picker, setPicker] = useState("");
@@ -579,23 +587,11 @@ function ListNode({
             <ul className="list-children">
               {node.children.map((child) => (
                 <ListNode
+                  {...props}
                   key={child.list.id}
                   node={child}
                   depth={depth + 1}
-                  papers={papers}
-                  notes={notes}
-                  paperTitles={paperTitles}
-                  noteTitles={noteTitles}
-                  listNames={listNames}
-                  refresh={refresh}
-                  collapsedSet={collapsedSet}
                   isCollapsed={collapsedSet.has(child.list.id)}
-                  onToggleCollapse={onToggleCollapse}
-                  onChanged={onChanged}
-                  onReload={onReload}
-                  readOnly={readOnly}
-                  sharedByName={sharedByName}
-                  canComment={canComment}
                 />
               ))}
             </ul>
