@@ -69,9 +69,12 @@ features/<feature>/
 weaveforge/
 ├── apps/
 │   └── web/                      # Next.js PWA
-│       └── src/features/<feature>/{domain,application,infrastructure,ui}
+│       ├── src/features/<feature>/{domain,application,infrastructure,ui}
+│       ├── src/lib/{hooks,cache,theme,desktop}/   # shared, grouped by purpose
+│       └── src/components/       # shared UI, markdown editor in components/markdown/
 ├── packages/
 │   ├── core/                     # shared domain contracts + types (TS)
+│   │   └── test/                 # mirrors core/src, area for area
 │   └── config/                   # shared lint/tsconfig
 ├── python/
 │   └── weaveforge/           # CLI/SDK, same module shape
@@ -86,6 +89,53 @@ weaveforge/
 ├── NOTICE
 └── README.md
 ```
+
+### 3.2.1 Where shared code lives
+
+Code used by more than one feature does not go in a feature. It goes in one of
+four places, and each is grouped rather than flat:
+
+```
+apps/web/src/
+├── lib/
+│   ├── hooks/       # the shared use-* React hooks
+│   ├── cache/       # screen and blob caches, IndexedDB backing, invalidation
+│   ├── theme/       # theme state, persistence, the change event
+│   ├── desktop/     # the Electron bridge, its auth, device teardown
+│   └── *.ts         # anything belonging to no group
+├── components/
+│   ├── markdown/    # the markdown editor, its extensions, paste, renderers
+│   └── *.tsx        # single-file shared components
+packages/core/src/
+└── shared/          # pure helpers with no feature of their own
+```
+
+### 3.2.2 A file that outgrows itself becomes a folder
+
+A component with a folder's worth of vocabulary around it — types, tuning
+constants, helpers other files need — is split into sibling modules under a
+folder named for it, with the component keeping the folder's name:
+
+```
+features/reader/ui/pdf-reader/
+├── types.ts         # the vocabulary the modules share
+├── constants.ts     # tuning constants
+├── pdf-document.ts  # loading pdf.js, page text, outline
+├── overlays.tsx     # the draft-shape preview and text-box composer
+├── lazy.tsx         # the dynamic() boundary
+├── pdf-reader.tsx   # the component
+└── index.ts
+```
+
+The same applies to a page assembled from independent parts: `app/pitch/` has
+one module per scene and a `page.tsx` that puts them in order.
+
+### 3.2.3 Tests sit where their subject sits
+
+`packages/core/test/` mirrors `packages/core/src/`: a test for
+`src/features/papers/...` is in `test/features/papers/`, one for `src/reader/...`
+in `test/reader/`. In `apps/web`, tests live in a `test/` folder beside the code
+they cover — `features/<feature>/test/`, `lib/test/`, `components/markdown/test/`.
 
 ### 3.3 The module registry (extensibility mechanism)
 Modules register via an explicit descriptor array (auto-discovery is backlog). A module exports:
