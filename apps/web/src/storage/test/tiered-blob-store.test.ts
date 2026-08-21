@@ -66,4 +66,53 @@ describe("TieredBlobStore", () => {
     const [url] = await store.signedUrls("paper-images", ["u/p/a.webp"], 60);
     assert.equal(url, null);
   });
+  it("removes the object before forgetting it, and forgets it only once", async () => {
+    const hot = new MapBlobStore();
+    const registry = new InMemoryBlobRegistry();
+    const store = new TieredBlobStore({ hot, cold: new MapBlobStore(), registry });
+    await store.upload("paper-images", "u/p/a.webp", new Blob(["x"]));
+
+    await store.remove("paper-images", "u/p/a.webp");
+
+    assert.equal(hot.files.has("paper-images/u/p/a.webp"), false);
+    assert.equal(await registry.get("paper-images", "u/p/a.webp"), null);
+  });
+
+  it("keeps the registry row when the object store refuses the delete", async () => {
+    /* The row is the only thing that knows the bucket and path. Dropping it
+       after a failed delete leaves the bytes in the bucket with nothing able
+       to find them again. */
+    const hot = new MapBlobStore();
+    const registry = new InMemoryBlobRegistry();
+    const store = new TieredBlobStore({ hot, cold: new MapBlobStore(), registry });
+    await store.upload("paper-images", "u/p/a.webp", new Blob(["x"]));
+    hot.remove = async () => {
+      throw new Error("network");
+    };
+
+    await assert.rejects(() => store.remove("paper-images", "u/p/a.webp"), /network/);
+
+    const rec = await registry.get("paper-images", "u/p/a.webp");
+    assert.ok(rec, "the registry row was dropped despite the failed delete");
+  });
+
+  it("removes a cold object from the cold store, not the hot one", async () => {
+    const hot = new MapBlobStore();
+    const cold = new MapBlobStore();
+    const registry = new InMemoryBlobRegistry();
+    await cold.upload("paper-images", "u/p/old.webp", new Blob(["x"]));
+    await registry.register({
+      bucket: "paper-images",
+      path: "u/p/old.webp",
+      tier: "cold",
+      sizeBytes: 1,
+      priority: 50,
+    });
+    const store = new TieredBlobStore({ hot, cold, registry });
+
+    await store.remove("paper-images", "u/p/old.webp");
+
+    assert.equal(cold.files.has("paper-images/u/p/old.webp"), false);
+    assert.equal(await registry.get("paper-images", "u/p/old.webp"), null);
+  });
 });

@@ -15,8 +15,26 @@ interface BlobRow {
   path: string;
 }
 
-/** Best-effort purge of a user's blobs from object storage + registry (service role). */
-export async function purgeUserBlobs(admin: SupabaseClient, userId: string): Promise<void> {
+/**
+ * Purge a user's blobs from object storage and the registry (service role).
+ *
+ * Called from `deleteOwnAccount` before the account row and the auth user go.
+ * That ordering is why this must not paper over a failure: the registry is the
+ * only index of which objects a user owns, and the auth user is the only thing
+ * tying them to a person. Delete both while an object is still in the bucket
+ * and that object is unreachable and unattributable for good — after the user
+ * asked for their data to be deleted.
+ *
+ * So a failure stops the purge and is reported. The rows for objects that
+ * could not be removed are kept, because they are the record of what is still
+ * out there, and the caller can retry.
+ */
+export async function purgeUserBlobs(
+  admin: SupabaseClient,
+  userId: string,
+  /* Injected so the failure paths can be tested without object storage. */
+  buildStore: typeof buildTieredBlobStoreFromRegistry = buildTieredBlobStoreFromRegistry,
+): Promise<void> {
   const { data: rows, error } = await admin
     .from("blob_objects")
     .select("bucket, path")
@@ -24,19 +42,27 @@ export async function purgeUserBlobs(admin: SupabaseClient, userId: string): Pro
   if (error) throw error;
 
   const config = readStorageConfig();
+  const failed: BlobRow[] = [];
   if (config.provider === "tiered" && rows?.length) {
-    const store = buildTieredBlobStoreFromRegistry(config, new SupabaseBlobRegistry(admin));
+    const store = buildStore(config, new SupabaseBlobRegistry(admin));
     for (const row of rows as BlobRow[]) {
       try {
         await store.remove(row.bucket, row.path);
       } catch {
-        /* object may already be gone */
+        failed.push(row);
       }
     }
   }
 
   for (const bucket of STORAGE_BUCKETS) {
     await removeStoragePrefix(admin, bucket, userId);
+  }
+
+  if (failed.length) {
+    /* Their rows stay: they are what a retry needs to find the objects. */
+    throw new Error(
+      `Could not delete ${failed.length} of ${rows?.length ?? 0} stored objects — account not deleted. Retry once object storage is reachable.`,
+    );
   }
 
   await admin.from("blob_objects").delete().eq("user_id", userId);
@@ -53,7 +79,9 @@ async function removeStoragePrefix(
   while (queue.length) {
     const current = queue.pop()!;
     const { data, error } = await admin.storage.from(bucket).list(current, { limit: 200 });
-    if (error) return;
+    /* Returning here skipped the rest of the bucket and reported success, so a
+       listing failure looked exactly like an empty bucket. */
+    if (error) throw error;
 
     for (const entry of data ?? []) {
       const full = current ? `${current}/${entry.name}` : entry.name;
