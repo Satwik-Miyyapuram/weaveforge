@@ -43,7 +43,7 @@ is never a version behind, and a fix ships to it the moment it ships at all.
 This is the part worth copying. Every desktop-only ability follows the same
 three steps, and the app never branches on "are we in Electron" outside them:
 
-1. **Declare it** in `apps/web/src/lib/desktop-bridge.ts`. That interface is the
+1. **Declare it** in `apps/web/src/lib/desktop/desktop-bridge.ts`. That interface is the
    whole contract. `src/preload.ts` is typed against it, so adding a method
    there breaks this package's build until it is implemented — the two cannot
    drift.

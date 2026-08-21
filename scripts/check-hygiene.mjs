@@ -26,6 +26,23 @@ function tracked(...globs) {
 }
 
 const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
+
+/** Of these paths, the ones git is told to ignore. Exits 1 when none match. */
+function checkIgnore(paths) {
+  if (!paths.length) return [];
+  try {
+    return execSync("git check-ignore --stdin", {
+      cwd: root,
+      encoding: "utf8",
+      input: paths.join("\n"),
+    })
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
 const failures = [];
 
 function fail(rule, lines, fix) {
@@ -175,6 +192,54 @@ const OVERSIZED_ALLOWED = new Map([
       "API routes that accept an array from the body without capping its length",
       unbounded,
       "compare .length against a named constant and answer 400 over the cap (see apps/web/src/storage/signed-url-limits.ts)",
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5. A path a doc names is a path that exists.
+//
+// Renames and deletions do not touch prose, so docs quietly accumulate paths
+// into files that were removed many commits ago. Two plans had drifted far
+// enough that a reader following them landed on nothing at all.
+//
+// Only backticked repo-rooted paths count, and only in docs describing the code
+// as it stands: a doc may propose a file that does not exist yet, so a line that
+// introduces one is left alone.
+// ---------------------------------------------------------------------------
+{
+  const REPO_PATH = /`((?:apps|packages|plugins|python|supabase|scripts)\/[A-Za-z0-9_.\/-]+)`/g;
+  const PROPOSES = /\b(?:new|creates?|adds?|proposed?|would|will|when scheduled)\b/i;
+  const missing = [];
+  for (const doc of tracked("docs/**/*.md", "*.md")) {
+    // Completed plans, and files that say outright they are records of what
+    // was, are expected to name paths that are gone. Their banner is what stops
+    // a reader believing them; a second warning here would say nothing new.
+    if (doc.includes("/completed/") || /^>\s+\*\*(?:Historical|Predates)/m.test(read(doc))) continue;
+    read(doc).split("\n").forEach((line, index) => {
+      // A doc may elide the middle of a long path for readability.
+      if (line.includes("/...")) return;
+      if (PROPOSES.test(line)) return;
+      for (const [, found] of line.matchAll(REPO_PATH)) {
+        const target = found.replace(/\/$/, "");
+        // Prose quotes import specifiers as often as file names, and those
+        // carry no extension.
+        const candidates = [target, target + ".ts", target + ".tsx", target + ".mjs"];
+        if (candidates.some((candidate) => fs.existsSync(path.join(root, candidate)))) continue;
+        missing.push(doc + ":" + (index + 1) + " " + target);
+      }
+    });
+  }
+  // A path git is told to ignore is one the reader is meant to create — a doc
+  // naming `.env.local` is right, and the file is absent on a clean checkout by
+  // design. Asked once for the whole set rather than once per path.
+  const ignored = new Set(checkIgnore(missing.map((line) => line.split(" ")[1])));
+  const unexplained = missing.filter((line) => !ignored.has(line.split(" ")[1]));
+  if (unexplained.length) {
+    fail(
+      "docs naming a path that does not exist",
+      unexplained,
+      "point the doc at what is there now, or mark the file historical if it is a record rather than a guide",
     );
   }
 }
