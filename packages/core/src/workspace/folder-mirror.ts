@@ -14,15 +14,6 @@ import { serializeWorkspace } from "./serialize-workspace.js";
 
 export type MirrorMode = "off" | "on";
 
-export interface MirrorStatus {
-  mode: MirrorMode;
-  lastSyncedAt?: string;
-  /** Set when the last attempt failed; the UI surfaces it rather than throwing. */
-  lastError?: string;
-  filesWritten: number;
-  filesRemoved: number;
-}
-
 export interface MirrorResult {
   written: string[];
   removed: string[];

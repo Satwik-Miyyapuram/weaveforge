@@ -11,15 +11,6 @@ export interface Organization {
   createdAt: string;
 }
 
-export interface OrgMembership {
-  id: string;
-  orgId: string;
-  userId: string;
-  role: OrgInviteRole;
-  supervisorId?: string;
-  joinedAt: string;
-}
-
 export type OrgJoinSource = "legacy" | "invite" | "create";
 
 export interface OrgMembershipView {
@@ -45,22 +36,10 @@ export function hasActiveLab(
   return memberships.some((m) => m.orgId === activeOrgId && isExplicitLabMembership(m));
 }
 
-export interface OrgInviteCodeRecord {
-  id: string;
-  orgId: string;
-  targetRole: OrgInviteRole;
-  createdAt: string;
-  useCount: number;
-}
-
 /** Codes returned in plaintext only at create/regenerate time. */
 export interface OrgInviteCodePlaintext {
   targetRole: OrgInviteRole;
   code: string;
-}
-
-export interface CreateOrgInput {
-  name: string;
 }
 
 export class OrgValidationError extends Error {

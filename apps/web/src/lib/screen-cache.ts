@@ -17,10 +17,6 @@ export function getScreenCache<T>(key: string): T | undefined {
   return store.get(key) as T | undefined;
 }
 
-export function getScreenCacheAge(key: string): number | null {
-  return loadedAt.get(key) ?? null;
-}
-
 export function isScreenCacheFresh(key: string, maxAgeMs = SCREEN_CACHE_FRESH_MS): boolean {
   const at = loadedAt.get(key);
   return at != null && Date.now() - at < maxAgeMs;
@@ -34,23 +30,6 @@ export function hasScreenCacheData(key: string): boolean {
 export function setScreenCache<T>(key: string, value: T): void {
   store.set(key, value);
   loadedAt.set(key, Date.now());
-}
-
-export function clearScreenCaches(projectId?: string | null): void {
-  if (projectId === undefined) {
-    store.clear();
-    loadedAt.clear();
-    void import("./screen-cache-idb").then((m) => m.idbClearScreenCaches());
-    return;
-  }
-  const prefix = `${projectId ?? "-"}|`;
-  for (const key of store.keys()) {
-    if (key.startsWith(prefix)) {
-      store.delete(key);
-      loadedAt.delete(key);
-    }
-  }
-  void import("./screen-cache-idb").then((m) => m.idbClearScreenCaches(projectId));
 }
 
 export function clearScreenCachesForScreens(

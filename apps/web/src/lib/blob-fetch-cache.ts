@@ -7,10 +7,6 @@ function cacheKey(bucket: string, path: string): string {
   return `${bucket}\0${path}`;
 }
 
-export function getCachedDecryptedBlob(bucket: string, path: string): Blob | undefined {
-  return settled.get(cacheKey(bucket, path));
-}
-
 export function fetchDecryptedCached(
   bucket: string,
   path: string,
@@ -70,9 +66,4 @@ export async function fetchDecryptedManyCached(
     }),
   );
   return out;
-}
-
-export function clearBlobFetchCache(): void {
-  settled.clear();
-  inflight.clear();
 }

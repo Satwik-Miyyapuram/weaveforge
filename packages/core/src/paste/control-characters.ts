@@ -38,11 +38,6 @@ const SIMPLE_SEQUENCE = new RegExp(`${ESC}[ -/]*[0-~]?`, "g");
  */
 const CONTROL_CHARACTER = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]", "g");
 
-/** True when the text carries anything only a terminal would have written. */
-export function hasControlSequences(text: string): boolean {
-  return stripControlSequences(text) !== text;
-}
-
 /** Removes ANSI escape sequences and stray control characters. */
 export function stripControlSequences(text: string): string {
   return text

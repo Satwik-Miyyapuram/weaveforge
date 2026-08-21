@@ -97,10 +97,3 @@ export function indexRanges(ranges: readonly TextRange[]): RangeIndex {
     },
   };
 }
-
-/** An index over nothing, for the common case of no protected ranges at all. */
-export const EMPTY_RANGE_INDEX: RangeIndex = {
-  ranges: [],
-  overlaps: () => false,
-  find: () => undefined,
-};

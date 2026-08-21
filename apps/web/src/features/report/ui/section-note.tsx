@@ -22,18 +22,6 @@ import { ReportSectionMarkdown } from "./report-section-markdown";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";
 import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
 
-/** Plain-text card preview — keeps outline cards compact like papers. */
-export function sectionNoteSnippet(body: string, max = 140): string {
-  const text = body
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[#>*_`~]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return "Note attached";
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
 /**
  * Full-page section writing view — same chrome as PaperNote: back, status,
  * share/comments, then read or edit the draft.

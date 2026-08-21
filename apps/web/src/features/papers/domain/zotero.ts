@@ -59,11 +59,6 @@ export interface ZoteroSyncResult {
   deletedLocal: number;
 }
 
-export interface ZoteroCollection {
-  key: string;
-  name: string;
-}
-
 export interface IZoteroLibrarySync {
   sync(): Promise<ZoteroSyncResult>;
 }

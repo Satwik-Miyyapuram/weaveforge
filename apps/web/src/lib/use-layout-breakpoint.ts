@@ -58,10 +58,6 @@ export function useLayoutBreakpoint() {
   return { breakpoint, navEnter };
 }
 
-export function isDesktopBreakpoint(bp: LayoutBreakpoint): boolean {
-  return bp === "desktop";
-}
-
 export type RglBreakpoint = "lg" | "sm";
 
 export function getRglBreakpoint(): RglBreakpoint {

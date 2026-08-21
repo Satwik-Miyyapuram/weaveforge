@@ -24,8 +24,3 @@ export interface IWritableRepository<T extends Identifiable> {
   save(entity: T): Promise<void>;
   delete(id: string): Promise<void>;
 }
-
-/** Convenience union for the common read+write case. */
-export interface IRepository<T extends Identifiable, F = unknown>
-  extends IReadableRepository<T, F>,
-    IWritableRepository<T> {}

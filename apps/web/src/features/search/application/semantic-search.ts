@@ -117,30 +117,3 @@ export async function disableSemanticSearch(): Promise<void> {
 export function semanticSize(): number {
   return semantic?.size ?? 0;
 }
-
-/**
- * Restore the arm on a fresh load when the preference says it was on.
- *
- * Deliberately quiet: it reuses stored vectors when they still match and
- * otherwise does nothing, rather than starting a multi-minute embed nobody
- * asked for on this visit.
- */
-export async function restoreSemanticSearch(): Promise<boolean> {
-  if (!semanticEnabled() || !semanticSupported()) return false;
-
-  const container = getContainer();
-  const stored = await idbGetVectors(container.projects.context.projectId);
-  if (!stored) return false;
-
-  await container.search.ensure();
-  if (stored.revision !== searchRevision(container.search.indexedDocuments())) return false;
-
-  embedder ??= new WorkerEmbedder();
-  await embedder.load();
-  const index = new SemanticIndex(embedder);
-  if (!index.load(stored)) return false;
-
-  semantic = index;
-  container.search.setSemanticIndex(index);
-  return true;
-}

@@ -26,12 +26,6 @@ export function screenForPath(pathname: string): string | null {
   return null;
 }
 
-export function hasFreshScreenCache(pathname: string, projectId: string | null): boolean {
-  const screen = screenForPath(pathname);
-  if (!screen) return false;
-  return isScreenCacheFresh(screenCacheKey(projectId, screen));
-}
-
 /** Skip nav overlay when cached data exists (show stale content while revalidating). */
 export function hasScreenCacheForPath(pathname: string, projectId: string | null): boolean {
   const screen = screenForPath(pathname);

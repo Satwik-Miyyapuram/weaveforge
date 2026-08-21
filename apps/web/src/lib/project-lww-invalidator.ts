@@ -87,10 +87,6 @@ export function cacheWriteNotify(resourceType?: ResourceType): void {
   onWriteHook?.(resourceType);
 }
 
-export function cacheRegister(cache: RepoCache) {
-  registerHook?.(cache);
-}
-
 export class ProjectLwwInvalidator {
   private readonly caches = new Set<RepoCache>();
   private channel: RealtimeChannel | null = null;
