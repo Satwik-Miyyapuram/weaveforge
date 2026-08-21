@@ -1,0 +1,55 @@
+/* Confetti — a pastel base whose cards each take a different hue from the
+ * six-colour rotation in globals.css. The base itself stays quiet on purpose:
+ * the cards are doing the talking, and a loud page behind them turns cheerful
+ * into noisy. */
+[data-theme="confetti-light"] {
+  --bg: #fbf9ff;
+  --surface: #ffffff;
+  --surface2: #f4f0fe;
+  --elev: #fffdff;
+  --border: #e6dcfa;
+  --border-strong: #c9b6f0;
+  --text: #2f2545;
+  --muted: #6b5f8c;
+  --faint: #8d80ad;
+  --accent: #7c5cd6;
+  --accent-fg: #ffffff;
+  --accent-soft: #ece4fd;
+  --s-neutral: #8b7fd4;  --s-neutral-bg: #eeebfd;
+  --s-info: #4aa8e0;     --s-info-bg: #e2f2fc;
+  --s-good: #43b98a;     --s-good-bg: #ddf6ec;
+  --s-warn: #e0a53c;     --s-warn-bg: #fdf0d8;
+  --s-danger: #e2718b;   --s-danger-bg: #fce4ea;
+  --s-mute: #b3a8cf;     --s-mute-bg: #f1eefa;
+  --sel-ring: rgba(124, 92, 214, 0.18);
+  --shadow:
+    0 2px 10px rgba(124, 92, 214, 0.08),
+    0 16px 32px rgba(124, 92, 214, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  /* The rotation: each card takes one pair, a tint for the fill and a stronger
+     edge of the same hue, so the border reads as part of the colour rather
+     than a grey line drawn over it.
+
+     Even hue spacing at one fixed lightness and one fixed chroma is the
+     whole trick: perceived contrast against the
+     surface is a function of lightness, so holding it equal makes six colours
+     that read as one set rather than six cards competing for attention. The
+     first pass picked each colour by eye, and the yellows and pinks came out
+     shouting over the blues. Chroma stays low for the same reason — these are
+     a tint on a surface, not a fill. oklch, because equal numbers only mean
+     equal appearance in a perceptual space; the same job in hex is guesswork.
+     Light: a hair off white, with an edge dark enough to draw the card. */
+  --confetti-1-bg: oklch(0.966 0.030 350);
+  --confetti-1-edge: oklch(0.882 0.055 350);
+  --confetti-2-bg: oklch(0.966 0.030 45);
+  --confetti-2-edge: oklch(0.882 0.055 45);
+  --confetti-3-bg: oklch(0.966 0.030 120);
+  --confetti-3-edge: oklch(0.882 0.055 120);
+  --confetti-4-bg: oklch(0.966 0.030 190);
+  --confetti-4-edge: oklch(0.882 0.055 190);
+  --confetti-5-bg: oklch(0.966 0.030 255);
+  --confetti-5-edge: oklch(0.882 0.055 255);
+  --confetti-6-bg: oklch(0.966 0.030 305);
+  --confetti-6-edge: oklch(0.882 0.055 305);
+}

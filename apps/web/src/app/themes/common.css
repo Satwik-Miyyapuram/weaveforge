@@ -1,0 +1,147 @@
+/*
+ * Common theme layer — everything that is not one theme's palette.
+ *
+ * Two layers make the theming work:
+ *
+ *  1. RAW design tokens (--bg, --surface, --surface2, --elev, --border,
+ *     --border-strong, --text, --muted, --faint, --accent, --accent-fg,
+ *     --accent-soft, and the semantic status ramp --s-*), defined once per
+ *     theme in its own file beside this one.
+ *  2. ALIASES (below) mapping the app's historical variable names onto those
+ *     raw tokens. Custom properties resolve at use time, so the aliases pick
+ *     up whichever theme is active — a new theme only redefines raw tokens,
+ *     and must never redefine an alias.
+ *
+ * The active theme is the `data-theme` attribute on <html> (no-flash script +
+ * ThemeToggle); no attribute means the default light theme, Paper. Each theme
+ * lives in ./<name>.css and is pulled in by ./index.css, which is the file
+ * globals.css imports.
+ */
+:root {
+  --ink: var(--text);
+  --line: var(--border);
+  /* Raised surfaces (banners, tips). Was used in three places but never
+   * defined, so `background: var(--panel)` silently resolved to nothing and
+   * those elements rendered transparent. */
+  --panel: var(--elev);
+  /* Recessed surfaces (rows, code blocks). Same story as --panel: referenced in
+   * four places, defined in none. An undefined custom property is not an error —
+   * the declaration is just dropped — so these went unnoticed. */
+  --surface-alt: var(--surface2);
+  /* Width the desktop sidebar steals from the left. Zero until the sidebar
+   * exists; overlays centre over the content column by offsetting half of it,
+   * otherwise viewport-centring leaves them visibly left of the content. */
+  --nav-inset: 0px;
+  --input-bg: var(--elev);
+  --pill: var(--surface2);
+  --chip: var(--surface2);
+  --neutral: var(--surface2);
+  --status-neutral: var(--surface2);
+  --hover: var(--accent-soft);
+  --active-bg: var(--accent-soft);
+  --active-fg: var(--accent);
+  --accent-ink: var(--accent);
+  --clay: var(--s-warn);
+  --danger: var(--s-danger);
+  --nav-bg: var(--surface);
+  /* Touch press tint. Replaces the UA tap highlight, which ignores
+   * border-radius; as a background on the element it follows the radius. */
+  --press: color-mix(in srgb, var(--ink) 9%, transparent);
+
+  /* Scrollbars — thumb/track follow active theme. */
+  --scrollbar-thumb: color-mix(in srgb, var(--muted) 42%, var(--border-strong));
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--muted) 72%, var(--border-strong));
+  --scrollbar-track: color-mix(in srgb, var(--surface2) 55%, transparent);
+
+  /* Status pill families → semantic ramp */
+  --st-neutral-bg: var(--s-neutral-bg);   --st-neutral-fg: var(--s-neutral);
+  --st-positive-bg: var(--s-good-bg);     --st-positive-fg: var(--s-good);
+  --st-info-bg: var(--s-info-bg);         --st-info-fg: var(--s-info);
+  --st-warn-bg: var(--s-warn-bg);         --st-warn-fg: var(--s-warn);
+  --st-danger-bg: var(--s-danger-bg);     --st-danger-fg: var(--s-danger);
+  --st-mute-bg: var(--s-mute-bg);         --st-mute-fg: var(--s-mute);
+
+  /* Graph node fills (by paper status) */
+  --node-default: var(--s-neutral);
+  --node-reading: var(--s-info);
+  --node-read: var(--s-good);
+  --node-skimmed: var(--s-warn);
+
+  /* Light-mode elevation + selection ring (dark themes override below). */
+  --sel-ring: rgba(20, 20, 30, 0.10);
+  --shadow:
+    0 2px 8px rgba(30, 30, 40, 0.06),
+    0 16px 32px rgba(30, 30, 40, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  /* ---- Elevation scale (L0–L4) ----------------------------------------
+   * One token per layer, each stacking a sharp *contact* shadow over a soft
+   * *ambient* one — that pairing is what reads as physical depth; a single
+   * big blur reads as a smudge. Shadows replace hairline borders on
+   * surfaces, so levels must stay visibly distinct from each other.
+   *   --e0  canvas / recessed  (no lift, optional inset hairline)
+   *   --e1  resting cards, panels, text areas
+   *   --e2  hovered / pressed-out interactive surfaces
+   *   --e3  sticky & floating chrome (pairs with --rim)
+   *   --e4  modals, sheets — wide diffused ambient
+   * --rim is the top highlight that keeps a shadowed surface from looking
+   * like a hole; it is what carries the edge once the border is gone.
+   * Dark themes override the whole block below. */
+  --e0: none;
+  --e1:
+    0 1px 2px rgba(30, 30, 40, 0.05),
+    0 4px 12px rgba(30, 30, 40, 0.04);
+  --e2:
+    0 2px 4px rgba(30, 30, 40, 0.07),
+    0 10px 24px rgba(30, 30, 40, 0.07);
+  --e3:
+    0 1px 2px rgba(30, 30, 40, 0.06),
+    0 14px 32px rgba(30, 30, 40, 0.10);
+  --e4:
+    0 4px 10px rgba(30, 30, 40, 0.10),
+    0 30px 64px rgba(30, 30, 40, 0.18);
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --rim-strong: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  /* Recessed wells (inputs, code blocks) — depth *into* the page. */
+  --e-inset: inset 0 1px 2px rgba(30, 30, 40, 0.06);
+}
+
+/* Shared dark-mode elevation + selection ring. */
+[data-theme="dark"],
+[data-theme="mocha"],
+[data-theme="dracula"],
+[data-theme="amoled"],
+[data-theme="contrast"],
+[data-theme="vivid-dark"] {
+  /* pastel-dark omitted here — its full block below sets its own sel-ring/shadow. */
+  --sel-ring: rgba(255, 255, 255, 0.14);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark elevation scale. Shadow alone barely separates two dark surfaces, so
+ * dark themes lean on the rim highlight (a light top edge) to define the
+ * boundary and use the shadow for the drop underneath. pastel-dark is
+ * included here even though it sets its own --shadow/--sel-ring. */
+[data-theme="dark"],
+[data-theme="mocha"],
+[data-theme="dracula"],
+[data-theme="amoled"],
+[data-theme="contrast"],
+[data-theme="vivid-dark"],
+[data-theme="pastel-dark"],
+[data-theme="confetti-dark"] {
+  --e1:
+    0 1px 2px rgba(0, 0, 0, 0.34),
+    0 4px 12px rgba(0, 0, 0, 0.28);
+  --e2:
+    0 2px 4px rgba(0, 0, 0, 0.42),
+    0 10px 24px rgba(0, 0, 0, 0.38);
+  --e3:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 14px 32px rgba(0, 0, 0, 0.46);
+  --e4:
+    0 4px 10px rgba(0, 0, 0, 0.46),
+    0 30px 64px rgba(0, 0, 0, 0.6);
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --rim-strong: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --e-inset: inset 0 1px 2px rgba(0, 0, 0, 0.34);
+}

@@ -1,0 +1,30 @@
+/*
+ * Every theme, in cascade order.
+ *
+ * common.css first: it holds the aliases and the shared dark elevation scale,
+ * which the per-theme files below are allowed to override. Palettes carry no
+ * ordering constraint between themselves — each one is scoped to its own
+ * `data-theme` value — so they are listed light-side then dark-side purely so
+ * the file reads like the theme picker.
+ *
+ * Adding a theme is a file here and a line below; see docs/themes.md.
+ */
+@import "./common.css";
+
+/* Light */
+@import "./light.css";
+@import "./latte.css";
+@import "./honey.css";
+@import "./vivid-light.css";
+@import "./pastel-light.css";
+@import "./confetti-light.css";
+
+/* Dark */
+@import "./confetti-dark.css";
+@import "./dark.css";
+@import "./mocha.css";
+@import "./dracula.css";
+@import "./amoled.css";
+@import "./contrast.css";
+@import "./vivid-dark.css";
+@import "./pastel-dark.css";

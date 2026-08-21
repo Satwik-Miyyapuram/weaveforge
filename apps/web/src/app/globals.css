@@ -1,11 +1,11 @@
 /*
  * WeaveForge — base styles.
  * Aesthetic: modern, flowy, cozy, semi-minimalistic. All colors come from theme
- * tokens in themes.css (imported below); this file references only var(--…).
+ * tokens in themes/ (imported below); this file references only var(--…).
  * Constants that never vary by theme (radius, font) live in :root here.
  */
 @import "katex/dist/katex.min.css";
-@import "./themes.css";
+@import "./themes/index.css";
 
 :root {
   /* Geometry and type read through the `--radius-*` / `--font-sans` slots an
@@ -2151,7 +2151,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .card-del { flex: none; margin-left: -4px; }
 .card-foot { display: flex; align-items: center; gap: 10px; }
 
-/* Status pills — shared semantic ramp from themes.css (--st-* → --s-*).
+/* Status pills — shared semantic ramp from themes/common.css (--st-* → --s-*).
    Domains: papers (to_read/reading/read/skimmed), experiments
    (planned/running/done/failed/abandoned), milestones (planned/in_progress/
    done/blocked), report (not_started/drafting/review/done), log (daily/weekly).
@@ -2162,7 +2162,7 @@ a.related-paper-url:hover { text-decoration: underline; }
   background: var(--st-neutral-bg); color: var(--st-neutral-fg);
   white-space: nowrap;
 }
-/* Status pills, mapped to the design's semantic ramp (see themes.css). */
+/* Status pills, mapped to the design's semantic ramp (see themes/common.css). */
 .status-reading, .status-daily { background: var(--st-info-bg); color: var(--st-info-fg); }
 .status-read { background: var(--st-positive-bg); color: var(--st-positive-fg); }
 .status-skimmed { background: var(--st-warn-bg); color: var(--st-warn-fg); }
@@ -4609,7 +4609,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
  * Surfaces are separated by *light*, not by hairlines. Every panel that used
  * `1px solid var(--border)` keeps its 1px box (border-color goes transparent,
  * so nothing reflows) and earns its edge from the elevation tokens in
- * themes.css instead.
+ * a theme file under themes/ instead.
  *
  * Rules of the layer:
  *   - Every raised surface = ambient+contact shadow (--e1…--e4) + --rim.

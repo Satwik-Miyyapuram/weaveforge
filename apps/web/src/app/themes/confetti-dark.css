@@ -1,0 +1,41 @@
+/* Confetti Dark — the same six hues pulled down to card-weight surfaces. A
+ * pastel at full lightness on a dark page glares, so each fill is the hue at
+ * low lightness and the edge carries the recognisable colour. */
+[data-theme="confetti-dark"] {
+  --bg: #14111c;
+  --surface: #1d1929;
+  --surface2: #251f34;
+  --elev: #221d30;
+  --border: #362e4a;
+  --border-strong: #4b3f66;
+  --text: #ece7f7;
+  --muted: #b3a8cc;
+  --faint: #8a7fa6;
+  --accent: #b79bf5;
+  --accent-fg: #1a1526;
+  --accent-soft: #2e2742;
+  --s-neutral: #a596e0;  --s-neutral-bg: #2a2440;
+  --s-info: #6fbdec;     --s-info-bg: #1d2b3a;
+  --s-good: #63cfa2;     --s-good-bg: #172f28;
+  --s-warn: #edbc63;     --s-warn-bg: #33291a;
+  --s-danger: #ef8ba3;   --s-danger-bg: #351f28;
+  --s-mute: #8d82ac;     --s-mute-bg: #262133;
+  --sel-ring: rgba(183, 155, 245, 0.22);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.55);
+
+  /* The same six hues and the same fixed lightness/chroma reasoning as the
+     light palette above, moved to a hair above the dark surface, with the edge
+     carrying most of the colour. */
+  --confetti-1-bg: oklch(0.288 0.028 350);
+  --confetti-1-edge: oklch(0.442 0.052 350);
+  --confetti-2-bg: oklch(0.288 0.028 45);
+  --confetti-2-edge: oklch(0.442 0.052 45);
+  --confetti-3-bg: oklch(0.288 0.028 120);
+  --confetti-3-edge: oklch(0.442 0.052 120);
+  --confetti-4-bg: oklch(0.288 0.028 190);
+  --confetti-4-edge: oklch(0.442 0.052 190);
+  --confetti-5-bg: oklch(0.288 0.028 255);
+  --confetti-5-edge: oklch(0.442 0.052 255);
+  --confetti-6-bg: oklch(0.288 0.028 305);
+  --confetti-6-edge: oklch(0.442 0.052 305);
+}

@@ -1,0 +1,23 @@
+/* Pastel Dark — dusty lavender & blush on twilight */
+[data-theme="pastel-dark"] {
+  --bg: #1a1625;
+  --surface: #231f30;
+  --surface2: #2d2840;
+  --elev: #282338;
+  --border: #6b5b7a;
+  --border-strong: #9d8bb5;
+  --text: #f3e8ff;
+  --muted: #d8b4fe;
+  --faint: #a78bfa;
+  --accent: #f9a8d4;
+  --accent-fg: #1a1625;
+  --accent-soft: #3b2f4a;
+  --s-neutral: #c4b5fd;  --s-neutral-bg: #2e2640;
+  --s-info: #7dd3fc;     --s-info-bg: #1e3a4f;
+  --s-good: #86efac;     --s-good-bg: #1a3d2e;
+  --s-warn: #fcd34d;     --s-warn-bg: #3d3018;
+  --s-danger: #fda4af;   --s-danger-bg: #3d1f28;
+  --s-mute: #9d8bb5;     --s-mute-bg: #2a2438;
+  --sel-ring: rgba(249, 168, 212, 0.22);
+  --shadow: 0 1px 3px rgba(167, 139, 250, 0.25), 0 12px 28px rgba(249, 168, 212, 0.08);
+}

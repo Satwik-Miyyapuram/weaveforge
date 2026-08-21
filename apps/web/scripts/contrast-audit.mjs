@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * WCAG 2.1 contrast audit for every theme in src/app/themes.css.
+ * WCAG 2.1 contrast audit for every theme in src/app/themes/.
  *
  * Parses each theme selector block, resolves the raw color tokens it defines
  * (hex only — color-mix()/var() aliases are skipped), and checks the key
@@ -11,12 +11,19 @@
  * Usage:  node scripts/contrast-audit.mjs
  * Exit code 1 if any normal-text pair falls below AA (4.5:1).
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const css = readFileSync(join(here, "../src/app/themes.css"), "utf8");
+const dir = join(here, "../src/app/themes");
+// Every palette file at once: the audit compares tokens within one theme, and
+// a theme is one file, so concatenating them keeps each block intact while
+// letting the parser below stay exactly as it was when this was one file.
+const css = readdirSync(dir)
+  .filter((f) => f.endsWith(".css") && f !== "index.css")
+  .map((f) => readFileSync(join(dir, f), "utf8"))
+  .join("\n");
 
 // --- color math ---------------------------------------------------------
 function hexToRgb(hex) {

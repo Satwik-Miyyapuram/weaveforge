@@ -1,0 +1,26 @@
+/* Vivid Light — saturated tints, electric accents */
+[data-theme="vivid-light"] {
+  --bg: #eef2ff;
+  --surface: #ffffff;
+  --surface2: #e0e7ff;
+  --elev: #f5f3ff;
+  --border: #a5b4fc;
+  --border-strong: #818cf8;
+  --text: #1e1b4b;
+  --muted: #4338ca;
+  --faint: #6366f1;
+  --accent: #7c3aed;
+  --accent-fg: #ffffff;
+  --accent-soft: #ede9fe;
+  --s-neutral: #64748b;  --s-neutral-bg: #e2e8f0;
+  --s-info: #0284c7;     --s-info-bg: #bae6fd;
+  --s-good: #059669;     --s-good-bg: #a7f3d0;
+  --s-warn: #d97706;     --s-warn-bg: #fde68a;
+  --s-danger: #dc2626;   --s-danger-bg: #fecaca;
+  --s-mute: #7c3aed;     --s-mute-bg: #ede9fe;
+  --sel-ring: rgba(124, 58, 237, 0.22);
+  --shadow:
+    0 2px 10px rgba(99, 102, 241, 0.12),
+    0 16px 36px rgba(124, 58, 237, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}

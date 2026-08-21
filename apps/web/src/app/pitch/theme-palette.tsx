@@ -85,7 +85,7 @@ export function ThemePalette() {
                 className={css.paletteItem}
                 onClick={() => choose(mode, o.id)}
               >
-                {/* The real attribute: themes.css keys off `[data-theme=…]`
+                {/* The real attribute: the theme files key off `[data-theme=…]`
                     with a bare selector, so this span is painted in that
                     palette and the swatch shows its actual accent. */}
                 <span className={css.swatch} data-theme={o.id} aria-hidden />

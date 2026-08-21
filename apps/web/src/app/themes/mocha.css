@@ -1,0 +1,21 @@
+/* Mocha */
+[data-theme="mocha"] {
+  --bg: #1e1e2e;
+  --surface: #181825;
+  --surface2: #313244;
+  --elev: #252537;
+  --border: #313244;
+  --border-strong: #45475a;
+  --text: #cdd6f4;
+  --muted: #a6adc8;
+  --faint: #7f849c;
+  --accent: #89b4fa;
+  --accent-fg: #1e1e2e;
+  --accent-soft: #2a2b40;
+  --s-neutral: #a6adc8;  --s-neutral-bg: #292a3a;
+  --s-info: #89dceb;     --s-info-bg: #1f2c33;
+  --s-good: #a6e3a1;     --s-good-bg: #1f2b1e;
+  --s-warn: #f9e2af;     --s-warn-bg: #31301f;
+  --s-danger: #f38ba8;   --s-danger-bg: #33212a;
+  --s-mute: #7f849c;     --s-mute-bg: #26273a;
+}

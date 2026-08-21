@@ -249,7 +249,7 @@
 
 /* ---- Theme palette ----
    The swatches paint themselves by carrying `data-theme`, so each one shows
-   that palette's real accent and page colour straight out of themes.css.
+   that palette's real accent and page colour straight out of app/themes/.
    Nothing here restates a colour, and a palette edited in the product shows
    up here on the next build. */
 .palette { position: relative; flex: none; }

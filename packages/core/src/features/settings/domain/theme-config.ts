@@ -32,7 +32,7 @@ export const THEME_CONFIG_VERSION = 1;
 
 /**
  * Raw palette tokens a config may override. Mirrors the per-theme token block
- * in `themes.css`. Aliases (`--ink`, `--line`, …) are deliberately absent:
+ * in `app/themes/`. Aliases (`--ink`, `--line`, …) are deliberately absent:
  * they derive from these, so letting a config set both invites a palette that
  * contradicts itself.
  */

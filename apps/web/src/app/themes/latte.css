@@ -1,0 +1,21 @@
+/* Latte */
+[data-theme="latte"] {
+  --bg: #eff1f5;
+  --surface: #ffffff;
+  --surface2: #e6e9ef;
+  --elev: #ffffff;
+  --border: #ccd0da;
+  --border-strong: #bcc0cc;
+  --text: #4c4f69;
+  --muted: #64677c;
+  --faint: #8c8fa1;
+  --accent: #1d63ee;
+  --accent-fg: #ffffff;
+  --accent-soft: #dce4fb;
+  --s-neutral: #6c6f85;  --s-neutral-bg: #e6e9ef;
+  --s-info: #1e88a8;     --s-info-bg: #d9eef2;
+  --s-good: #40a02b;     --s-good-bg: #e0f0dc;
+  --s-warn: #df8e1d;     --s-warn-bg: #f6ead0;
+  --s-danger: #d20f39;   --s-danger-bg: #f6dbe1;
+  --s-mute: #8c8fa1;     --s-mute-bg: #e6e9ef;
+}

@@ -1,0 +1,21 @@
+/* Contrast — high-contrast dark (accessibility) */
+[data-theme="contrast"] {
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface2: #141414;
+  --elev: #111111;
+  --border: #6b6b6b;
+  --border-strong: #ffffff;
+  --text: #ffffff;
+  --muted: #e8e8e8;
+  --faint: #c8c8c8;
+  --accent: #ffeb3b;
+  --accent-fg: #000000;
+  --accent-soft: #2a2600;
+  --s-neutral: #ffffff;  --s-neutral-bg: #1a1a1a;
+  --s-info: #4dd0ff;     --s-info-bg: #0a1f28;
+  --s-good: #69f0ae;     --s-good-bg: #0a2418;
+  --s-warn: #ffeb3b;     --s-warn-bg: #2a2400;
+  --s-danger: #ff6e6e;   --s-danger-bg: #2a1010;
+  --s-mute: #c8c8c8;     --s-mute-bg: #1a1a1a;
+}
