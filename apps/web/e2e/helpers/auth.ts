@@ -1,11 +1,5 @@
 import type { Page } from "@playwright/test";
-import { DEFAULT_TEST_PASSWORD, e2eRecoveryLink } from "./env.js";
-
-function unlockForm(page: Page) {
-  return page.locator("form.crypto-setup-card").filter({
-    has: page.getByRole("heading", { name: "Unlock encryption" }),
-  });
-}
+import { DEFAULT_TEST_PASSWORD } from "./env.js";
 
 async function isPastLoginGates(page: Page): Promise<boolean> {
   if (await page.locator(".layout.has-nav").isVisible({ timeout: 250 }).catch(() => false)) {
@@ -13,10 +7,7 @@ async function isPastLoginGates(page: Page): Promise<boolean> {
   }
   if (/shared=1/.test(page.url())) return true;
   const linkRedeem = page.getByTestId("link-redeem");
-  if (await linkRedeem.isVisible({ timeout: 250 }).catch(() => false)) {
-    const unlock = page.getByRole("heading", { name: "Unlock encryption" });
-    return !(await unlock.isVisible({ timeout: 250 }).catch(() => false));
-  }
+  if (await linkRedeem.isVisible({ timeout: 250 }).catch(() => false)) return true;
   return (
     await page
       .locator(".project-card, .project-list, .empty")
@@ -46,81 +37,6 @@ async function waitForCryptoGateIdle(page: Page, ms = 15_000): Promise<void> {
   }
 }
 
-/** Submit the unlock gate once; waits for crypto setup to finish. */
-export async function completeUnlockGate(page: Page, password = DEFAULT_TEST_PASSWORD) {
-  if (await isPastLoginGates(page)) return;
-
-  const recoverySetup = page.getByRole("heading", { name: "Set up email recovery" });
-  if (await recoverySetup.isVisible({ timeout: 500 }).catch(() => false)) {
-    const recoveryLink = e2eRecoveryLink();
-    if (!recoveryLink) {
-      throw new Error("E2E email recovery setup is required. Set E2E_RECOVERY_LINK to a manually prepared one-time recovery URL.");
-    }
-    await page.goto(recoveryLink);
-    await page.locator(".layout.has-nav, .project-list, .project-card, .empty").first().waitFor({ state: "visible", timeout: 30_000 }).catch(() => {});
-    return;
-  }
-
-  const heading = page.getByRole("heading", { name: "Unlock encryption" });
-  if (!(await heading.isVisible({ timeout: 5000 }).catch(() => false))) return;
-  if (await isPastLoginGates(page)) return;
-
-  const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    if (await isPastLoginGates(page)) return;
-
-    await waitForCryptoGateIdle(page);
-
-    if (!(await heading.isVisible({ timeout: 300 }).catch(() => false))) {
-      if (await isPastLoginGates(page)) return;
-      await page.waitForTimeout(200);
-      continue;
-    }
-
-    const passwordInput = page.locator("form.crypto-setup-card input[name='password']");
-    const legacyInput = page.locator("form.crypto-setup-card input[name='passphrase']");
-    const target = (await passwordInput.isVisible({ timeout: 500 }).catch(() => false))
-      ? passwordInput
-      : (await legacyInput.isVisible({ timeout: 300 }).catch(() => false))
-        ? legacyInput
-        : null;
-
-    if (!target) {
-      await page.waitForTimeout(300);
-      continue;
-    }
-
-    try {
-      await target.fill(password, { timeout: 5000 });
-    } catch {
-      // Form often unmounts when auto-unlock wins the race — treat as success if gates cleared.
-      if (await isPastLoginGates(page)) return;
-      await page.waitForTimeout(300);
-      continue;
-    }
-
-    const form = unlockForm(page);
-    const unlockBtn = form.getByRole("button", { name: /^Unlock/i });
-    if (await unlockBtn.isVisible({ timeout: 500 }).catch(() => false)) {
-      await unlockBtn.click({ timeout: 5000 }).catch(async () => {
-        if (await isPastLoginGates(page)) return;
-        await target.press("Enter").catch(() => {});
-      });
-    } else {
-      await target.press("Enter").catch(() => {});
-    }
-
-    await page
-      .locator(".layout.has-nav, .project-list, .project-card, .empty")
-      .first()
-      .waitFor({ state: "visible", timeout: 30_000 })
-      .catch(() => {});
-
-    if (await isPastLoginGates(page)) return;
-    await page.waitForTimeout(300);
-  }
-}
-
 async function waitForAuthIdle(page: Page): Promise<void> {
   await page.locator(".auth-loading").waitFor({ state: "hidden", timeout: 30_000 }).catch(() => {});
 }
@@ -140,7 +56,7 @@ async function submitLoginForm(page: Page, email: string, password: string) {
   await signInHeading.waitFor({ state: "hidden", timeout: 45_000 });
 }
 
-/** Leave an authenticated crypto gate and open the login form. */
+/** Leave an authenticated session and open the login form. */
 async function openLoginForm(page: Page): Promise<void> {
   const signInAgainHeading = page.getByRole("heading", { name: "Sign in again" });
   if (await signInAgainHeading.isVisible({ timeout: 500 }).catch(() => false)) {
@@ -168,10 +84,9 @@ export async function signIn(page: Page, email: string, password = DEFAULT_TEST_
   }
 
   await submitLoginForm(page, email, password);
-  await completeUnlockGate(page, password);
 }
 
-/** Drain privacy, crypto, and org gates until the project picker or main shell is reachable. */
+/** Drain privacy and org gates until the project picker or main shell is reachable. */
 export async function drainLoginGates(
   page: Page,
   password = DEFAULT_TEST_PASSWORD,
@@ -196,7 +111,6 @@ export async function drainLoginGates(
     if (await signInHeading.isVisible({ timeout: 500 }).catch(() => false)) {
       if (email) {
         await submitLoginForm(page, email, password);
-        await completeUnlockGate(page, password);
       }
       continue;
     }
@@ -207,15 +121,6 @@ export async function drainLoginGates(
         await page.getByRole("button", { name: "Sign in again", exact: true }).click();
         await signInAgainHeading.waitFor({ state: "hidden", timeout: 30_000 });
         await submitLoginForm(page, email, password);
-        await completeUnlockGate(page, password);
-      }
-      continue;
-    }
-
-    const unlockHeading = page.getByRole("heading", { name: "Unlock encryption" });
-    if (await unlockHeading.isVisible({ timeout: 500 }).catch(() => false)) {
-      if (!(await isPastLoginGates(page))) {
-        await completeUnlockGate(page, password);
       }
       continue;
     }
@@ -235,10 +140,6 @@ export async function acceptDisclaimerIfShown(page: Page) {
   if (await btn.isVisible({ timeout: 8000 }).catch(() => false)) {
     await btn.click();
   }
-}
-
-export async function unlockIfNeeded(page: Page, password = DEFAULT_TEST_PASSWORD) {
-  await completeUnlockGate(page, password);
 }
 
 export async function passOrgSetupIfShown(page: Page) {
