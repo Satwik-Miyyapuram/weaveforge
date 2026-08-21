@@ -893,50 +893,66 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 
 /* Confetti: each card takes the next hue in a six-colour rotation.
  *
- * The cycle is nth-child rather than a per-card class or an inline style
- * because the colour is decoration, not data — nothing in the domain says a
- * paper is pink. Position does the choosing, so a list re-orders or filters
- * without any component knowing this exists.
+ * The hue is decoration, not data — nothing in the domain says a paper is
+ * pink — so position chooses it and a list re-orders or filters without any
+ * component knowing this exists.
  *
- * nth-child counts every sibling, not only cards, so a list whose items are
- * cards cycles cleanly while a lone card in a wrapper simply lands on hue 1.
- * That is the intended fallback: one card has nothing to be distinguished
- * from. */
-[data-theme="confetti-light"] .card:nth-child(6n + 1),
-[data-theme="confetti-dark"] .card:nth-child(6n + 1) {
+ * Two ways in, because there are two kinds of card list:
+ *
+ *  - `nth-child` for cards that are siblings, which is most of them.
+ *  - `data-card-hue` for the masonry grids, where `CardColumns` deals cards
+ *    round-robin into one wrapper each. Every card there is its own wrapper's
+ *    only child, so `nth-child` sees position 1 for all of them and the whole
+ *    list came out one colour. Only the component knows a card's index in the
+ *    flat list, so it is the component that writes the hue down.
+ *
+ * The wrapper rule sets the tokens on the *card*, not on the wrapper. These
+ * are inherited properties, so the wrapper would look like enough — but the
+ * `nth-child` rule above declares them on the card itself, and a declaration
+ * on the element always beats an inherited value no matter how specific the
+ * ancestor's selector was. Hence also the leading `:root`, which puts this at
+ * (0,4,0) against the other rule's (0,3,0) rather than leaving the two tied
+ * and settled by which one comes later in this file.
+ *
+ * A lone card in a wrapper still lands on hue 1, which is the intended
+ * fallback: one card has nothing to be distinguished from.
+ *
+ * `^="confetti-"` matches both the light and the dark palette, which set the
+ * same six token names to their own values. */
+[data-theme^="confetti-"] .card:nth-child(6n + 1),
+:root[data-theme^="confetti-"] [data-card-hue="1"] .card {
   --card-tint: var(--confetti-1-bg);
   --card-edge: var(--confetti-1-edge);
 }
-[data-theme="confetti-light"] .card:nth-child(6n + 2),
-[data-theme="confetti-dark"] .card:nth-child(6n + 2) {
+[data-theme^="confetti-"] .card:nth-child(6n + 2),
+:root[data-theme^="confetti-"] [data-card-hue="2"] .card {
   --card-tint: var(--confetti-2-bg);
   --card-edge: var(--confetti-2-edge);
 }
-[data-theme="confetti-light"] .card:nth-child(6n + 3),
-[data-theme="confetti-dark"] .card:nth-child(6n + 3) {
+[data-theme^="confetti-"] .card:nth-child(6n + 3),
+:root[data-theme^="confetti-"] [data-card-hue="3"] .card {
   --card-tint: var(--confetti-3-bg);
   --card-edge: var(--confetti-3-edge);
 }
-[data-theme="confetti-light"] .card:nth-child(6n + 4),
-[data-theme="confetti-dark"] .card:nth-child(6n + 4) {
+[data-theme^="confetti-"] .card:nth-child(6n + 4),
+:root[data-theme^="confetti-"] [data-card-hue="4"] .card {
   --card-tint: var(--confetti-4-bg);
   --card-edge: var(--confetti-4-edge);
 }
-[data-theme="confetti-light"] .card:nth-child(6n + 5),
-[data-theme="confetti-dark"] .card:nth-child(6n + 5) {
+[data-theme^="confetti-"] .card:nth-child(6n + 5),
+:root[data-theme^="confetti-"] [data-card-hue="5"] .card {
   --card-tint: var(--confetti-5-bg);
   --card-edge: var(--confetti-5-edge);
 }
-[data-theme="confetti-light"] .card:nth-child(6n),
-[data-theme="confetti-dark"] .card:nth-child(6n) {
+[data-theme^="confetti-"] .card:nth-child(6n),
+:root[data-theme^="confetti-"] [data-card-hue="6"] .card {
   --card-tint: var(--confetti-6-bg);
   --card-edge: var(--confetti-6-edge);
 }
 
 /* Inputs sit on the tinted card, so they keep their own surface to stay
    legible rather than inheriting the hue behind them. */
-[data-theme="confetti-light"] .card :where(input, textarea, select),
-[data-theme="confetti-dark"] .card :where(input, textarea, select) {
+[data-theme^="confetti-"] .card :where(input, textarea, select) {
   background: var(--input-bg, var(--surface));
 }
 
@@ -4657,7 +4673,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
  * layer above would erase half the effect. Both attributes sit on <html>, so
  * chaining them here is (0,4,0) and outranks the (0,3,0) rule above — the two
  * are otherwise equal, and that one wins only by coming later in the file. */
-:root[data-surfaces="borderless"]:is([data-theme="confetti-light"], [data-theme="confetti-dark"]) .card {
+:root[data-surfaces="borderless"][data-theme^="confetti-"] .card {
   border-color: var(--card-edge, transparent);
 }
 
