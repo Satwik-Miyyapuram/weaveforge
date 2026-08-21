@@ -1,0 +1,21 @@
+/* Honey — warm cream & amber */
+[data-theme="honey"] {
+  --bg: #faf4eb;
+  --surface: #fffdfa;
+  --surface2: #f5ebe0;
+  --elev: #fffdf9;
+  --border: #e8d9c8;
+  --border-strong: #d4c0a8;
+  --text: #2c2318;
+  --muted: #756556;
+  --faint: #a89582;
+  --accent: #b45309;
+  --accent-fg: #fffdfa;
+  --accent-soft: #fde8d0;
+  --s-neutral: #756556;  --s-neutral-bg: #eee4d8;
+  --s-info: #0d6e82;     --s-info-bg: #dceef2;
+  --s-good: #3d7a47;     --s-good-bg: #dcebe0;
+  --s-warn: #b45309;     --s-warn-bg: #faebd0;
+  --s-danger: #b83c32;   --s-danger-bg: #f5ddd9;
+  --s-mute: #9a8774;     --s-mute-bg: #ebe4da;
+}

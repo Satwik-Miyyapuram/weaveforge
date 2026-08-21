@@ -18,7 +18,7 @@ import { useCursorGlow } from "./use-pitch-scroll";
  * Public product pitch.
  *
  * Every object on this page is rendered by the app's own <EntityCard>, painted
- * by globals.css and themed by themes.css — so changing a card in the product
+ * by globals.css and themed by the tokens in app/themes/ — so changing a card in the product
  * changes it here, with no copy to keep in step. The graph borrows the real
  * relation and tag colours from the graph module for the same reason.
  *

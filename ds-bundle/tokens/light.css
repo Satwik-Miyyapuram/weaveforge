@@ -2,7 +2,7 @@
  * WeaveForge — foundations (default light theme).
  * The single source of truth for the palette. Every color the product uses is
  * one of these variables; components reference var(--*), never literals.
- * Mirrors :root in apps/web/src/app/themes.css.
+ * Mirrors :root in apps/web/src/app/themes/light.css.
  */
 :root {
   /* Core palette */

@@ -64,7 +64,7 @@ moves between sub-tabs.
   an "All …" default) — used for statuses, lists, tags, etc.
 - **Status pill / chips:** small rounded labels for statuses, tags (`#tag`),
   git info, metrics, dependencies, etc. Colors come from the shared `--st-*`
-  semantic ramp in `themes.css` (do not invent one-off status hex).
+  semantic ramp in `app/themes/common.css` (do not invent one-off status hex).
 - **Markdown**: summaries, log bodies, etc. render markdown.
 - **Empty / Loading / Error** states: most screens show `Loading…`, an inline
   error string, and a friendly empty state with a hint pointing at the add button.

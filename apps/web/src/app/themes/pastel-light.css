@@ -1,0 +1,26 @@
+/* Pastel Light — soft candy-shop washes */
+[data-theme="pastel-light"] {
+  --bg: #fdf2f8;
+  --surface: #fffbfe;
+  --surface2: #fce7f3;
+  --elev: #fff7fb;
+  --border: #f9a8d4;
+  --border-strong: #f472b6;
+  --text: #4a044e;
+  --muted: #9d174d;
+  --faint: #be185d;
+  --accent: #c23b7d;
+  --accent-fg: #ffffff;
+  --accent-soft: #fbcfe8;
+  --s-neutral: #a78bfa;  --s-neutral-bg: #ede9fe;
+  --s-info: #38bdf8;     --s-info-bg: #e0f2fe;
+  --s-good: #4ade80;     --s-good-bg: #dcfce7;
+  --s-warn: #fbbf24;     --s-warn-bg: #fef3c7;
+  --s-danger: #fb7185;   --s-danger-bg: #ffe4e6;
+  --s-mute: #c4b5fd;     --s-mute-bg: #f3e8ff;
+  --sel-ring: rgba(236, 72, 153, 0.18);
+  --shadow:
+    0 2px 10px rgba(244, 114, 182, 0.10),
+    0 16px 32px rgba(167, 139, 250, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}

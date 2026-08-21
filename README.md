@@ -303,7 +303,7 @@ Pages as a static site.
 It is **not a copy**. `apps/pitch` is a second Next app with exactly one route,
 which re-exports the same page component the app serves — so every card on the
 marketing page is the product's own `<EntityCard>`, painted by the same
-`globals.css` and themed by the same `themes.css`. Change a card in the product
+`globals.css` and themed by the same tokens in `apps/web/src/app/themes/`. Change a card in the product
 and the published page changes with it.
 
 It exists as a separate app because the product cannot be statically exported:

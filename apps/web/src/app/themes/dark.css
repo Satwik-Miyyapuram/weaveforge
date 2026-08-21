@@ -1,0 +1,21 @@
+/* Slate */
+[data-theme="dark"] {
+  --bg: #14171c;
+  --surface: #1b1f26;
+  --surface2: #232833;
+  --elev: #232833;
+  --border: #2c333f;
+  --border-strong: #3a424f;
+  --text: #e7ebf1;
+  --muted: #98a1b0;
+  --faint: #6b7382;
+  --accent: #7aa2e3;
+  --accent-fg: #0e1116;
+  --accent-soft: #24303f;
+  --s-neutral: #a4adba;  --s-neutral-bg: #262b34;
+  --s-info: #7cc4de;     --s-info-bg: #1e2e37;
+  --s-good: #7fc79a;     --s-good-bg: #1c2a22;
+  --s-warn: #d6a860;     --s-warn-bg: #332a1c;
+  --s-danger: #e08a80;   --s-danger-bg: #331f1d;
+  --s-mute: #8a92a0;     --s-mute-bg: #242830;
+}

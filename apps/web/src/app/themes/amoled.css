@@ -1,0 +1,21 @@
+/* Amoled — default dark */
+[data-theme="amoled"] {
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface2: #141414;
+  --elev: #101010;
+  --border: #1f1f1f;
+  --border-strong: #2e2e2e;
+  --text: #eaeaea;
+  --muted: #8a8a8a;
+  --faint: #5a5a5a;
+  --accent: #4c8dff;
+  --accent-fg: #000000;
+  --accent-soft: #10161f;
+  --s-neutral: #9a9a9a;  --s-neutral-bg: #161616;
+  --s-info: #5ab0d0;     --s-info-bg: #0d1c22;
+  --s-good: #5cc98a;     --s-good-bg: #0c1f14;
+  --s-warn: #c99a4a;     --s-warn-bg: #1f1808;
+  --s-danger: #d86a62;   --s-danger-bg: #20100e;
+  --s-mute: #6a6a6a;     --s-mute-bg: #141414;
+}

@@ -4,7 +4,11 @@ WeaveForge uses a pure CSS-variable theming system to maintain high performance 
 
 ## How it works
 
-1. **Tokens**: All colors are defined in `apps/web/src/app/themes.css`. No hardcoded hex values exist in `globals.css` or component files.
+1. **Tokens**: All colors are defined in `apps/web/src/app/themes/` — one file
+   per theme, plus `common.css` for what every theme shares (the aliases and
+   the dark elevation scale) and `index.css`, which imports the rest and is
+   the file `globals.css` pulls in. No hardcoded hex values exist in
+   `globals.css` or component files.
 2. **Dual Mode**: The app tracks two distinct states:
    - `data-mode`: `"light"` or `"dark"`.
    - `data-theme`: The specific palette applied to that mode (e.g., `"mocha"`, `"amoled"`, `"latte"`).
@@ -12,15 +16,16 @@ WeaveForge uses a pure CSS-variable theming system to maintain high performance 
 
 ## Adding a New Theme
 
-A theme sets **source tokens**. It must not set the aliases at the top of
-`themes.css` (`--ink`, `--line`, `--pill`, `--chip`, `--panel`, `--accent-ink`,
+A theme is one file in `apps/web/src/app/themes/`, named for the theme, and it
+sets **source tokens** only. It must not set the aliases in `common.css` (`--ink`, `--line`, `--pill`, `--chip`, `--panel`, `--accent-ink`,
 …) — those are defined once on `:root` as `var()` indirections onto the source
 tokens and are theme-agnostic by design. Overriding an alias in a theme block
 sets the derived value while leaving its source unset, which is how you get a
 theme that looks right in some components and unstyled in others.
 
-1. **Define the source tokens.** Every one of these, or the theme inherits a
-   value from the default palette and mismatches itself:
+1. **Define the source tokens** in `apps/web/src/app/themes/nord.css`, and add
+   an `@import` for it to `themes/index.css`. Every token below, or the theme
+   inherits a value from the default palette and mismatches itself:
 
    ```css
    [data-theme="nord"] {
@@ -51,7 +56,7 @@ theme that looks right in some components and unstyled in others.
    ```
 
 2. **Join the dark elevation scale**, if the theme is dark. Add its selector to
-   the shared `--e1`…`--e4` / `--rim` block in `themes.css`; a dark theme
+   the shared `--e1`…`--e4` / `--rim` block in `themes/common.css`; a dark theme
    outside it gets the light elevation scale and its cards lose their edges.
 
 3. **Register the id.** `apps/web/src/lib/theme/theme.ts` — add to
@@ -198,7 +203,7 @@ then fail at substitution time, silently dropping the timing function to `ease`.
 
 ### Uploaded themes — `config.json`
 
-A user can load a theme file instead of hand-editing `themes.css`. Download the
+A user can load a theme file instead of editing the stylesheets. Download the
 starter file from Settings → Appearance. Shape:
 
 ```json
