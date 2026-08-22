@@ -15,6 +15,7 @@ import {
   toSummaryDomain,
   toRow,
 } from "./vault-page-rows";
+import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
 
 /** Ids per `in (...)` request; the list travels in the URL. */
 const ID_CHUNK = 200;
@@ -36,13 +37,8 @@ export class SupabaseVaultPageRepository implements IVaultPageRepository {
   }
 
   async getById(id: string): Promise<VaultPage | null> {
-    const { data, error } = await this.db
-      .from(TABLE)
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as VaultPageRow) : null;
+    const row = await rowById<VaultPageRow>(this.db, TABLE, id);
+    return row ? toDomain(row) : null;
   }
 
   /** Ids and versions only — the cheap first half of a delta read. */
@@ -149,8 +145,7 @@ export class SupabaseVaultPageRepository implements IVaultPageRepository {
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await deleteRowById(this.db, TABLE, id);
   }
 }
 

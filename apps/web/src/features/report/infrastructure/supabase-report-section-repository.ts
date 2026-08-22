@@ -9,6 +9,7 @@ import {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow } from "./report-section-rows";
+import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IReportSectionRepository.
@@ -31,13 +32,8 @@ export class SupabaseReportSectionRepository
   private get pid() { return this.ctx.projectId; }
 
   async getById(id: string): Promise<ReportSection | null> {
-    const { data, error } = await this.db
-      .from(TABLE)
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? reportSectionToDomain(data as ReportSectionRow) : null;
+    const row = await rowById<ReportSectionRow>(this.db, TABLE, id);
+    return row ? reportSectionToDomain(row) : null;
   }
 
   async list(filter?: ReportSectionFilter): Promise<ReportSection[]> {
@@ -77,8 +73,7 @@ export class SupabaseReportSectionRepository
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await deleteRowById(this.db, TABLE, id);
   }
 }
 

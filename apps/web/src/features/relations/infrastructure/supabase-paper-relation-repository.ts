@@ -11,6 +11,7 @@ import {
   toDomain,
   toRow,
 } from "./paper-relation-rows";
+import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IPaperRelationRepository.
@@ -31,13 +32,8 @@ export class SupabasePaperRelationRepository
   private get pid() { return this.ctx.projectId; }
 
   async getById(id: string): Promise<PaperRelation | null> {
-    const { data, error } = await this.db
-      .from(TABLE)
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as PaperRelationRow) : null;
+    const row = await rowById<PaperRelationRow>(this.db, TABLE, id);
+    return row ? toDomain(row) : null;
   }
 
   async list(filter?: PaperRelationFilter): Promise<PaperRelation[]> {
@@ -94,8 +90,7 @@ export class SupabasePaperRelationRepository
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await deleteRowById(this.db, TABLE, id);
   }
 }
 
