@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
+import { run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Per-project Zotero collection mapping. Reads/writes `projects.zotero_collection`.
@@ -20,10 +21,9 @@ export class ProjectZoteroStore implements IProjectBibliographyCollectionStore {
   }
 
   async setCollection(projectId: string, collection: string | null): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from("projects")
       .update({ zotero_collection: collection || null })
-      .eq("id", projectId);
-    if (error) throw error;
+      .eq("id", projectId));
   }
 }

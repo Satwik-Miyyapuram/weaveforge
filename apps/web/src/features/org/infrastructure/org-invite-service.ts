@@ -17,6 +17,7 @@ import {
   hashOrgInviteCodeInput,
 } from "@weaveforge/core/org-crypto";
 import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 interface CodeRow {
   id: string;
@@ -66,7 +67,7 @@ export class OrgInviteService {
       throw new OrgValidationError(authErr?.message ?? "User not found.");
     }
     const u = authUser.user;
-    const { error } = await admin.from("profiles").upsert(
+    await run(admin.from("profiles").upsert(
       {
         user_id: userId,
         email: u.email ?? null,
@@ -75,8 +76,7 @@ export class OrgInviteService {
         org_setup_complete: false,
       },
       { onConflict: "user_id", ignoreDuplicates: true },
-    );
-    if (error) throw error;
+    ));
   }
 
   async createOrganization(userId: string, nameInput: string): Promise<{
@@ -244,13 +244,11 @@ export class OrgInviteService {
   }
 
   async listOwnedOrganizations(userId: string): Promise<Organization[]> {
-    const { data, error } = await this.admin()
+    return (await rows<OrgRow>(this.admin()
       .from("organizations")
       .select("*")
       .eq("owner_id", userId)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data as OrgRow[]).map(toOrg);
+      .order("created_at", { ascending: true }))).map(toOrg);
   }
 
   async listMemberships(userId: string): Promise<
@@ -277,7 +275,7 @@ export class OrgInviteService {
     if (memErr) throw memErr;
     if (!membership) throw new OrgValidationError("Not a member of this lab.");
 
-    const { error } = await admin
+    await run(admin
       .from("profiles")
       .update({
         active_org_id: orgId,
@@ -285,8 +283,7 @@ export class OrgInviteService {
         supervisor_id: membership.supervisor_id,
         org_setup_complete: true,
       })
-      .eq("user_id", userId);
-    if (error) throw error;
+      .eq("user_id", userId));
   }
 
   async regenerateCode(
@@ -343,7 +340,7 @@ export class OrgInviteService {
       joinedVia: "create" | "invite";
     },
   ) {
-    const { error } = await admin.from("org_memberships").upsert(
+    await run(admin.from("org_memberships").upsert(
       {
         org_id: input.orgId,
         user_id: input.userId,
@@ -352,8 +349,7 @@ export class OrgInviteService {
         joined_via: input.joinedVia,
       },
       { onConflict: "org_id,user_id" },
-    );
-    if (error) throw error;
+    ));
   }
 
   private async memberIdsForRole(

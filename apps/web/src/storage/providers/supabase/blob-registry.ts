@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BlobObjectRecord, BlobTier, IBlobRegistry, RegisterBlobInput } from "@weaveforge/core";
 import { rowToRecord, type BlobRow } from "@/storage/providers/blob-row";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 /** Postgres `blob_objects` registry via Supabase PostgREST. */
 export class SupabaseBlobRegistry implements IBlobRegistry {
@@ -19,46 +20,40 @@ export class SupabaseBlobRegistry implements IBlobRegistry {
   }
 
   async register(input: RegisterBlobInput): Promise<void> {
-    const { error } = await this.db.from("blob_objects").upsert({
+    await run(this.db.from("blob_objects").upsert({
       bucket: input.bucket,
       path: input.path,
       tier: input.tier ?? "hot",
       size_bytes: input.sizeBytes,
       priority: input.priority ?? 50,
-    });
-    if (error) throw error;
+    }));
   }
 
   async recordAccess(bucket: string, path: string): Promise<void> {
     const existing = await this.get(bucket, path);
     if (!existing) return;
-    const { error } = await this.db
+    await run(this.db
       .from("blob_objects")
       .update({
         access_count: existing.accessCount + 1,
         last_accessed_at: new Date().toISOString(),
       })
       .eq("bucket", bucket)
-      .eq("path", path);
-    if (error) throw error;
+      .eq("path", path));
   }
 
   async setTier(bucket: string, path: string, tier: BlobTier, sizeBytes?: number): Promise<void> {
     const patch: Record<string, unknown> = { tier };
     if (sizeBytes !== undefined) patch.size_bytes = sizeBytes;
-    const { error } = await this.db.from("blob_objects").update(patch).eq("bucket", bucket).eq("path", path);
-    if (error) throw error;
+    await run(this.db.from("blob_objects").update(patch).eq("bucket", bucket).eq("path", path));
   }
 
   async remove(bucket: string, path: string): Promise<void> {
-    const { error } = await this.db.from("blob_objects").delete().eq("bucket", bucket).eq("path", path);
-    if (error) throw error;
+    await run(this.db.from("blob_objects").delete().eq("bucket", bucket).eq("path", path));
   }
 
   async listHot(): Promise<BlobObjectRecord[]> {
-    const { data, error } = await this.db.from("blob_objects").select("*").eq("tier", "hot");
-    if (error) throw error;
-    return (data as BlobRow[]).map(rowToRecord);
+    return (await rows<BlobRow>(this.db.from("blob_objects").select("*").eq("tier", "hot"))).map(rowToRecord);
   }
 
   async hotBytesTotal(): Promise<number> {
