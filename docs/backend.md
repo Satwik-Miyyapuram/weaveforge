@@ -60,11 +60,17 @@ NEXT_PUBLIC_BACKEND_PROVIDER=supabase          # supabase | postgres
 # Supabase (when provider = supabase)
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...               # server only — /api/admin/create-user
+SUPABASE_SERVICE_ROLE_KEY=eyJ...               # server only — account creation, API and MCP tokens
+SUPABASE_JWT_SECRET=<jwt secret>               # server only — mints sessions for API and MCP tokens
 
 # Postgres (when provider = postgres — server-side blob registry)
 DATABASE_URL=postgres://user:pass@host:5432/thesis
 ```
+
+Without those two server-only values the app still signs people in, but the
+settings panels that issue SDK API tokens and MCP relay tokens answer 503:
+the token service has nothing to sign with. The JWT secret is the same one
+PostgREST is given in [the shift guide](backend/oracle-shift-guide.md).
 
 `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/backend/postgres-provider.md`](backend/postgres-provider.md). Default remains `supabase`.
 
