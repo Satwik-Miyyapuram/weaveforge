@@ -121,9 +121,6 @@ a.related-paper-url:hover { text-decoration: underline; }
   outline: none; resize: vertical; min-height: 56px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.summary-input:focus {
-  border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
-}
 .summary-editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .summary-editor-foot .error { margin-right: auto; }
 

@@ -216,7 +216,11 @@ a.entity-icon-btn:hover {
 .entity-icon-btn.danger:hover {
   background: color-mix(in srgb, var(--danger) 12%, var(--surface));
 }
-.entity-icon-btn[aria-expanded="true"] {
+/* The accented pill an icon button wears while its panel is open or its mode
+   is on. Three files carried a copy, keyed off three different attributes. */
+.entity-icon-btn[aria-expanded="true"],
+.entity-icon-btn.is-active,
+.comments-trigger-detail[aria-expanded="true"] {
   color: var(--accent);
   border-color: var(--accent);
   background: var(--pill);

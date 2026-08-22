@@ -191,10 +191,6 @@
   overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.markdown-code-editor:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
-}
 .markdown-code-editor .cm-editor {
   height: 100%;
   min-height: 220px;
