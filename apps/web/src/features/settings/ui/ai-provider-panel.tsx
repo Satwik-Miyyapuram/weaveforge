@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import {
   activeProviderLabel,
+  canRemember,
   clearActiveProvider,
+  forgetStoredProvider,
+  rememberActiveProvider,
+  restoreActiveProvider,
   setActiveProvider,
 } from "@/features/ai-assistant/application/ai-provider-session";
 import {
@@ -18,9 +22,13 @@ import {
  * Settings → AI provider.
  *
  * Bring your own key. The key is held in memory for the session and sent only
- * to the endpoint you name — never to WeaveForge's servers, and never stored.
- * That is why it has to be re-entered after a reload: persisting it would mean
- * writing a credential you control into storage we manage.
+ * to the endpoint you name — never to WeaveForge's servers.
+ *
+ * In a browser that is the end of it, and it has to be re-entered after a
+ * reload: persisting it would mean writing a credential you control into
+ * storage we manage. The desktop build offers one more option, unticked, which
+ * puts it in the operating system's keychain instead — storage the machine
+ * manages, not us. The checkbox only appears where that exists.
  *
  * No provider is preferred or preselected. Which model runs is your choice.
  */
@@ -34,6 +42,28 @@ export function AiProviderPanel() {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(activeProviderLabel);
+  const [remember, setRemember] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const storable = canRemember();
+
+  /**
+   * Pick up a key the keychain is already holding.
+   *
+   * Runs once, and only says anything when it finds one — a browser, or a
+   * desktop launch with nothing stored, should look exactly as it did before
+   * this existed.
+   */
+  useEffect(() => {
+    let live = true;
+    void restoreActiveProvider().then((found) => {
+      if (!live || !found) return;
+      setActive(activeProviderLabel());
+      setRemember(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   function applyPreset(id: string) {
     setPresetId(id);
@@ -81,6 +111,21 @@ export function AiProviderPanel() {
       setResult(response.text.trim().slice(0, 200) || "(empty reply)");
       setActiveProvider(chosen, apiKey);
       setActive(activeProviderLabel());
+      // Storing is attempted only after the provider has answered, so a key
+      // that does not work is never written anywhere. A machine with no
+      // keychain refuses, and says so without undoing the activation — the
+      // provider still works for this session, which is the browser behaviour.
+      if (remember) {
+        try {
+          await rememberActiveProvider();
+          setNote("Kept in this machine's keychain.");
+        } catch (err) {
+          setNote(formatError(err));
+          setRemember(false);
+        }
+      } else {
+        await forgetStoredProvider();
+      }
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -160,11 +205,27 @@ export function AiProviderPanel() {
             Kept in memory for this session only. Re-enter it after a reload — storing it would
             mean putting a credential you control into storage we manage.
           </p>
+          {storable && (
+            <label className="field-inline" htmlFor="provider-remember">
+              <input
+                id="provider-remember"
+                className="themed-check"
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              <span>
+                Remember it on this machine. Encrypted by the operating system under your own
+                account — WeaveForge never sees it, and it stays here.
+              </span>
+            </label>
+          )}
         </div>
       )}
 
       {error && <p className="error">{error}</p>}
       {result && <p className="muted">Provider replied: “{result}”</p>}
+      {note && <p className="muted">{note}</p>}
 
       {active && (
         <p className="muted">
@@ -189,9 +250,14 @@ export function AiProviderPanel() {
             disabled={testing}
             onClick={() => {
               clearActiveProvider();
+              // The stored copy goes with it. Leaving it would mean "stop using
+              // it" lasting until the next launch, which is not what it says.
+              void forgetStoredProvider();
               setActive(null);
               setApiKey("");
               setResult(null);
+              setNote(null);
+              setRemember(false);
             }}
           >
             Stop using it
