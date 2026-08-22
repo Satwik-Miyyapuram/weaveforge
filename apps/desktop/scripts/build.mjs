@@ -79,6 +79,13 @@ fs.mkdirSync(path.join(root, "dist/migrations"), { recursive: true });
 for (const file of fs.readdirSync(migrations).filter((name) => name.endsWith(".sql"))) {
   fs.copyFileSync(path.join(migrations, file), path.join(root, "dist/migrations", file));
 }
+
+/** The tables that exist only on a device: the outbox and the watermark. */
+const localMigrations = path.resolve(root, "../../supabase/migrations-local");
+fs.mkdirSync(path.join(root, "dist/migrations-local"), { recursive: true });
+for (const file of fs.readdirSync(localMigrations).filter((name) => name.endsWith(".sql"))) {
+  fs.copyFileSync(path.join(localMigrations, file), path.join(root, "dist/migrations-local", file));
+}
 fs.writeFileSync(path.join(root, "build/icon.ico"), ico(fs.readFileSync(iconPng)));
 
 /**

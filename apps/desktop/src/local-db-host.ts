@@ -39,8 +39,15 @@ export function readMigrations(dir: string): Migration[] {
 export interface LocalDbHostOptions {
   /** Opens the engine. Injected so this file never imports PGlite itself. */
   open: () => Promise<LocalClient>;
-  /** Where the shipped `.sql` files are. */
-  migrations: string;
+  /**
+   * Where the shipped `.sql` files are, in the order they apply.
+   *
+   * Two directories, not one: the shared migrations are the server's own, and
+   * the device-only ones (the outbox, the watermark) come after them. Names are
+   * unique per directory but not across them, so what the ledger records is
+   * the directory's name and the file's name together.
+   */
+  migrations: readonly string[];
 }
 
 export class LocalDbHost {
@@ -51,7 +58,10 @@ export class LocalDbHost {
   private database(): Promise<LocalDatabase> {
     this.opening ??= (async () => {
       const db = new LocalDatabase(await this.options.open());
-      await db.migrate(LOCAL_BOOTSTRAP_SQL, readMigrations(this.options.migrations));
+      const migrations = this.options.migrations.flatMap((dir) =>
+        readMigrations(dir).map((m) => ({ ...m, name: `${path.basename(dir)}/${m.name}` })),
+      );
+      await db.migrate(LOCAL_BOOTSTRAP_SQL, migrations);
       await db.ensureLocalUser();
       return db;
     })().catch((error) => {
