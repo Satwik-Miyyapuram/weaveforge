@@ -7,6 +7,11 @@ import { MultiSelect } from "@/components/multi-select";
 /**
  * Pick people to share with: multi-select over the lab directory, with a text
  * search and a role (hierarchy) filter — the picker the user asked for.
+ *
+ * An account in no shared lab sees an empty directory, because a profile is
+ * only visible to people it shares a lab root with. That is not the same as a
+ * search that matched nothing, and saying "No people match" to someone who has
+ * typed nothing reads as a broken screen — so the two are worded apart.
  */
 export function MemberPicker({
   members,
@@ -50,7 +55,13 @@ export function MemberPicker({
         />
       </div>
       <ul className="mp-list">
-        {filtered.length === 0 && <li className="muted mp-empty">No people match.</li>}
+        {filtered.length === 0 && (
+          <li className="muted mp-empty">
+            {members.length === 0
+              ? "Nobody else is in your lab yet. People appear here once they join it."
+              : "No people match."}
+          </li>
+        )}
         {filtered.map((m) => (
           <li key={m.id}>
             <label className="mp-row">
