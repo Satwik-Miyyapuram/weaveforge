@@ -331,7 +331,7 @@ requires the next phase to be worth having.
 | **1. Reads survive a reload** | Persist the existing screen caches to IndexedDB with an explicit staleness contract. Tier 2, web and desktop, no schema change. | ~300 |
 | **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local`, synthetic local user for the RLS role switch (**D2**). The app is fully usable with no account. | ~450 |
 | **3. Schema for sync** | `server_seq`, tombstones, base version, change-feed RPC, RLS over the feed. Server-side only, no client change. | ~350 SQL |
-| **4. Outbox and puller** | Sign-in, opt-in sync toggle, adoption of local-only rows into the account, op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. Personal projects only (**D3**). | ~700 |
+| **4. Outbox and puller** | The opt-in flow (sign-in → quota and price check → adoption → pump, **D2**), op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. Personal projects only (**D3**). | ~700 |
 | **5. Conflicts** | Three-way merge for kind (b), conflicts table, the banner UI, dead-letter list. | ~450 |
 | **6. Blobs and scope** | Per-project offline toggle, PDF LRU with quota UI. | ~250 |
 
@@ -363,7 +363,10 @@ estimate did not grow more than it did.
   | MCP servers running locally | **Fully works** — and desktop is the only platform that can host them directly. |
   | Hosted models (Anthropic, OpenAI, …) | Works whenever the machine has internet. Unreachable only with no internet at all — and the honest state then is "provider unreachable", not a degraded imitation. |
 
-  **No account, and no WeaveForge server, is involved in any of this.** Pasting
+  **No account, and no WeaveForge server, is involved in any of this** — which
+  is **D2** holding: the AI surface is a feature that works fully before sync
+  has ever been turned on, and it does not work *better* once it has.
+  Restating: Pasting
   a key into settings is the whole setup, and it stays that way offline-first:
 
   - The key lives in memory for the life of the tab and is never persisted
@@ -375,11 +378,13 @@ estimate did not grow more than it did.
     hosted model works while signed out, while sync is off, and on a build that
     has never talked to our servers. The key is authentication to the
     *provider*, not to us.
-  - The one thing D1 changes: with no persistence, a desktop user re-enters the
-    key on every launch. On a machine that is the user's own and already the
-    source of truth for their data, that trade is worth revisiting — an
-    OS-keychain store (`safeStorage` in Electron) keeps the "we never hold it"
-    property while removing the retyping. Phase 2 decision.
+  - The one thing D1 changed: with no persistence, a desktop user re-entered the
+    key on every launch. **Done** — `apps/desktop/src/secret-store.ts` keeps it
+    in the OS keychain through Electron's `safeStorage`, behind an unticked
+    checkbox in settings, and refuses to store anything at all on a machine
+    with no keychain backend rather than falling back to something weaker. The
+    "we never hold it" property survives: the operating system holds it, under
+    the reader's own account, and the browser build is unchanged.
 
   What this needs: the provider list must render reachability per provider
   rather than one global online flag, proposals must queue locally when the
@@ -407,11 +412,44 @@ a cache that degrades. The local database is the source of truth, the same
 stance Obsidian takes. Cost: a larger installer, and version skew between a
 client and the server becomes real (handled by the schema floor in §6).
 
-**D2 — Sync is opt-in, and opting in requires sign-in.** No account is needed to
-use the app; turning sync on is what asks for one. Sign-in is not mandatory at
-first run. This keeps the "just let me write" path free of an account wall while
-making the security model of sync unambiguous: everything that leaves the device
-belongs to an authenticated user.
+**D2 — Sync is opt-in, and the opt-in is the only thing that asks for an
+account.** Stated as a rule the code has to obey, because it is easy to erode
+one dialog at a time:
+
+> **Nothing before "turn on sync" may require, prompt for, or benefit from
+> signing in.** There is no account wall at first run, no "sign in to continue"
+> anywhere in the offline app, and no feature that quietly works better once
+> you have. Sign-in appears exactly once — inside the sync opt-in flow — and it
+> is the first network call the app has ever made.
+
+What that means concretely:
+
+- **First run opens straight into the app.** No welcome screen with a sign-in
+  button, no skippable account step. The installer is the whole onboarding.
+- **The settings surface has no session section** until sync is on. Nothing
+  renders a signed-out state, because signed-out is not a state — it is the
+  normal condition of an app that has never needed an account.
+- **The opt-in is one flow with four steps, in this order**, and it is the only
+  place any of them appear:
+  1. sign in (or create an account),
+  2. **count what would be uploaded and check it against the plan** — papers,
+     notes, projects, asset bytes — and show the number and the price *before*
+     anything is sent (`docs/future-work/billing-and-quota-plan.md` §3.1: the
+     check happens before adoption runs, never during),
+  3. adopt the local rows into the account (resumable — see below),
+  4. start the outbox.
+
+  Step 2 is where payment is settled, and it is the first moment the question
+  has ever been relevant: until sync is on, the user is storing nothing on our
+  hardware and there is nothing to meter. A user who declines the price at step
+  2 is returned to a working offline app with nothing changed — the opt-in must
+  be abandonable at every step before step 3 commits.
+- **Turning sync off returns the app to the offline state**, and signing out is
+  a separate act from turning sync off (see the keep-or-wipe choice below).
+
+This keeps the "just let me write" path free of an account wall while making
+the security model of sync unambiguous: everything that leaves the device
+belongs to an authenticated user, and nothing that stays has ever needed one.
 
 **D3 — Shared projects require sign-in and a live connection.** They are not
 available offline, at all. Revocation-while-offline, RLS over the change feed,
@@ -435,7 +473,8 @@ storage-cost decision, not a redesign.)
   enables sync has rows owned by the synthetic local user. Those rows must be
   re-owned to the real account in one transaction, and it must be resumable —
   it is a bulk update over every synced table and it will be interrupted at
-  least once in the field. Adoption is a phase 4 deliverable, not an afterthought.
+  least once in the field. Adoption is a phase 4 deliverable, not an
+  afterthought, and it runs *after* the quota check in step 2, never before.
 - **Sign-out must offer a choice**, and must not assume: keep the local data
   (device stays usable offline) or wipe it. Silently doing either is wrong —
   wiping destroys work, keeping it leaves data on a shared machine. Ties into
