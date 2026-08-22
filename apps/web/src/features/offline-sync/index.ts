@@ -6,3 +6,5 @@ export * from "./domain/puller";
 export * from "./infra/postgrest-transport";
 export * from "./domain/adoption";
 export * from "./domain/sync-engine";
+export * from "./application/sync-offer";
+export { SyncSettingsPanel } from "./ui/sync-settings-panel";
