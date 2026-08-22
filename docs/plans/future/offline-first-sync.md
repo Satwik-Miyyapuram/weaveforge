@@ -361,7 +361,25 @@ estimate did not grow more than it did.
   |----------|---------|
   | Local model (Ollama, LM Studio, llama.cpp) over `localhost` | **Fully works.** Nothing leaves the device. |
   | MCP servers running locally | **Fully works** — and desktop is the only platform that can host them directly. |
-  | Hosted models (Anthropic, OpenAI, …) | Unavailable, and the honest state is "no connection", not a degraded imitation. |
+  | Hosted models (Anthropic, OpenAI, …) | Works whenever the machine has internet. Unreachable only with no internet at all — and the honest state then is "provider unreachable", not a degraded imitation. |
+
+  **No account, and no WeaveForge server, is involved in any of this.** Pasting
+  a key into settings is the whole setup, and it stays that way offline-first:
+
+  - The key lives in memory for the life of the tab and is never persisted
+    (`ai-provider-session.ts`) — deliberately, so we never become a party that
+    stores it. It is not sealed through `/api/settings/credentials`; that route
+    handles *integration* credentials (Zotero, GitLab, Semantic Scholar) only.
+  - The call goes straight from the app to the provider's `baseUrl`
+    (`byok-model-conversation.ts`). Our backend is not in the request path, so a
+    hosted model works while signed out, while sync is off, and on a build that
+    has never talked to our servers. The key is authentication to the
+    *provider*, not to us.
+  - The one thing D1 changes: with no persistence, a desktop user re-enters the
+    key on every launch. On a machine that is the user's own and already the
+    source of truth for their data, that trade is worth revisiting — an
+    OS-keychain store (`safeStorage` in Electron) keeps the "we never hold it"
+    property while removing the retyping. Phase 2 decision.
 
   What this needs: the provider list must render reachability per provider
   rather than one global online flag, proposals must queue locally when the
