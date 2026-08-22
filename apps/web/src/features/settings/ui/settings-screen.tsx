@@ -29,7 +29,7 @@ import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
 import { ThemeConfigPanel } from "./theme-config-panel";
-import { SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
+import { OfflineStoragePanel, SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
@@ -549,6 +549,7 @@ export function SettingsScreen() {
           <div id="settings-sync" className="settings-anchor" role="tabpanel" aria-labelledby="settings-tab-sync">
             <SyncSettingsPanel />
           <SyncIssuesPanel />
+          <OfflineStoragePanel />
             <SyncSettings />
           </div>
         ))}
