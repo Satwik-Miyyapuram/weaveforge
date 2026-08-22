@@ -28,8 +28,10 @@ export function useScreenData<T>(screen: string, load: () => Promise<T>) {
     void idbGetScreenCache<T>(cacheKey).then((cached) => {
       recordPerfSince(`screen.${screen}.idb_ms`, startedAt);
       if (!active || cached == null) return;
-      setScreenCache(cacheKey, cached);
-      setData(cached);
+      // Stamped with when it was fetched, not now: a payload restored after a
+      // reload must not count as fresh, or the revalidation below is skipped.
+      setScreenCache(cacheKey, cached.value, cached.fetchedAt);
+      setData(cached.value);
       setLoading(false);
     });
     return () => {
