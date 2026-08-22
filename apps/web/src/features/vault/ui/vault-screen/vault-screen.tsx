@@ -7,10 +7,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { Popover } from "@/components/popover";
-import { FilterIcon } from "@/components/view-icons";
 import { CardColumns } from "@/components/card-columns";
-import { MultiSelect } from "@/components/multi-select";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
 import { AddVaultPageForm } from "../add-vault-page-form";
 import { importNotesFromFiles } from "../../application/import-notes";
@@ -27,6 +24,7 @@ import { BacklinksPanel } from "./backlinks-panel";
 import { NoteCard, noteBodyText } from "./note-card";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
+import { ListTagFilters } from "@/components/list-tag-filters";
 
 export function VaultScreen() {
   const router = useRouter();
@@ -398,45 +396,17 @@ export function VaultScreen() {
             placeholder="Search title or content…"
             aria-label="Search notes"
           />
-          <Popover
-            label={<FilterIcon />}
-            ariaLabel="Filters"
-            iconOnly
-            count={activeFilters}
-            align="right"
-          >
-            <div className="filters">
-              {lists.length > 0 && (
-                <MultiSelect
-                  id="fnlist"
-                  values={listFilter}
-                  onChange={setListFilter}
-                  allLabel="All lists"
-                  ariaLabel="Filter by list"
-                  options={lists.map((l) => ({ value: l.id, label: l.name }))}
-                />
-              )}
-              {allTags.length > 0 && (
-                <MultiSelect
-                  id="fntags"
-                  values={tagFilter}
-                  onChange={setTagFilter}
-                  allLabel="All tags"
-                  ariaLabel="Filter by tags"
-                  options={allTags.map((t) => ({ value: t, label: `#${t}` }))}
-                />
-              )}
-              {activeFilters > 0 && (
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => { setListFilter([]); setTagFilter([]); }}
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          </Popover>
+          <ListTagFilters
+            idPrefix="fn"
+            lists={lists}
+            listFilter={listFilter}
+            onListFilter={setListFilter}
+            allTags={allTags}
+            tagFilter={tagFilter}
+            onTagFilter={setTagFilter}
+            activeFilters={activeFilters}
+            onClear={() => { setListFilter([]); setTagFilter([]); }}
+          />
         </div>
       )}
 
