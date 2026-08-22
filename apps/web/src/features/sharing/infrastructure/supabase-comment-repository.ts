@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Comment, ICommentRepository, NewCommentInput } from "@weaveforge/core";
 import { commentToDomain, type CommentRow } from "./comment-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase adapter for comments (migration 0018). `author_id` defaults to
@@ -30,7 +30,7 @@ export class SupabaseCommentRepository implements ICommentRepository {
   }
 
   async add(input: NewCommentInput): Promise<Comment> {
-    const { data, error } = await this.db
+    const dbRow = await oneRow<CommentRow>(this.db
       .from(TABLE)
       .insert({
         resource_type: input.resourceType,
@@ -38,16 +38,14 @@ export class SupabaseCommentRepository implements ICommentRepository {
         body: input.body,
       })
       .select("*")
-      .single();
-    if (error) throw error;
-    return commentToDomain(data as CommentRow);
+      .single());
+    return commentToDomain(dbRow);
   }
 
   async save(comment: Comment): Promise<Comment> {
     const row = toRow(comment);
-    const { data, error } = await this.db.from(TABLE).upsert(row, { onConflict: "id" }).select("*").single();
-    if (error) throw error;
-    return commentToDomain(data as CommentRow);
+    const dbRow = await oneRow<CommentRow>(this.db.from(TABLE).upsert(row, { onConflict: "id" }).select("*").single());
+    return commentToDomain(dbRow);
   }
 
   async remove(id: string): Promise<void> {

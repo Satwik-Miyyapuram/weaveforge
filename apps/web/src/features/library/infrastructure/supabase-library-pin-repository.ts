@@ -12,7 +12,7 @@ import {
   type PinRow,
   toDomain,
 } from "./library-pin-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "library_pins";
 
@@ -21,7 +21,7 @@ export class SupabaseLibraryPinRepository extends ProjectScopedSupabaseRepositor
 
   async pin(input: NewLibraryPinInput): Promise<LibraryPin> {
     const userId = await this.session.requireUserId();
-    const { data, error } = await this.db
+    const dbRow = await oneRow<PinRow>(this.db
       .from(TABLE)
       .upsert(
         {
@@ -34,9 +34,8 @@ export class SupabaseLibraryPinRepository extends ProjectScopedSupabaseRepositor
         { onConflict: "user_id,project_id,resource_type,resource_id" },
       )
       .select("*")
-      .single();
-    if (error) throw error;
-    return toDomain(data as PinRow);
+      .single());
+    return toDomain(dbRow);
   }
 
   async unpin(resourceType: ShareableType, resourceId: string): Promise<void> {

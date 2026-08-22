@@ -13,7 +13,7 @@ import {
   type AnnotationQuotationTypeRow,
   toDomain,
 } from "./annotation-quotation-type-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "annotation_quotation_types";
 
@@ -27,7 +27,7 @@ export class SupabaseAnnotationQuotationTypeRepository extends ProjectScopedSupa
     }
     const userId = await this.session.requireUserId();
     const now = new Date().toISOString();
-    const { data, error } = await this.db
+    const dbRow = await oneRow<AnnotationQuotationTypeRow>(this.db
       .from(TABLE)
       .upsert(
         {
@@ -41,9 +41,8 @@ export class SupabaseAnnotationQuotationTypeRepository extends ProjectScopedSupa
         { onConflict: "project_id,paper_id,annotation_key" },
       )
       .select("*")
-      .single();
-    if (error) throw error;
-    return toDomain(data as AnnotationQuotationTypeRow);
+      .single());
+    return toDomain(dbRow);
   }
 
   async remove(paperId: string, annotationKey: string): Promise<void> {

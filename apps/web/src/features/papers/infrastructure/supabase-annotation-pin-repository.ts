@@ -11,7 +11,7 @@ import {
   type AnnotationPinRow,
   toDomain,
 } from "./annotation-pin-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "annotation_pins";
 
@@ -20,7 +20,7 @@ export class SupabaseAnnotationPinRepository extends ProjectScopedSupabaseReposi
 
   async save(input: SaveAnnotationPinInput): Promise<AnnotationPin> {
     const userId = await this.session.requireUserId();
-    const { data, error } = await this.db
+    const dbRow = await oneRow<AnnotationPinRow>(this.db
       .from(TABLE)
       .upsert(
         {
@@ -33,9 +33,8 @@ export class SupabaseAnnotationPinRepository extends ProjectScopedSupabaseReposi
         { onConflict: "project_id,paper_id,annotation_key" },
       )
       .select("*")
-      .single();
-    if (error) throw error;
-    return toDomain(data as AnnotationPinRow);
+      .single());
+    return toDomain(dbRow);
   }
 
   async remove(paperId: string, annotationKey: string): Promise<void> {

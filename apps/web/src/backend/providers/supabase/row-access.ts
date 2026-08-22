@@ -55,3 +55,15 @@ export async function one<R>(query: PromiseLike<Resolved<unknown>>): Promise<R |
   if (error) throw error;
   return (data as R | null) ?? null;
 }
+
+/**
+ * The row an insert or upsert with `.select().single()` is guaranteed to return.
+ *
+ * PostgREST types `data` as nullable there even though a successful single-row
+ * write always has one, so every caller repeated the same cast. Cast it once.
+ */
+export async function oneRow<R>(query: PromiseLike<Resolved<unknown>>): Promise<R> {
+  const { data, error } = await query;
+  if (error) throw error;
+  return data as R;
+}
