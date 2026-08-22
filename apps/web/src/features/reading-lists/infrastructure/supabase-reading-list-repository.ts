@@ -17,7 +17,7 @@ import {
   toItemDomain,
   toItemRow,
 } from "./reading-list-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { one, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementations of the reading-list repositories.
@@ -38,13 +38,12 @@ export class SupabaseReadingListRepository implements IReadingListRepository {
   private get pid() { return this.ctx.projectId; }
 
   async getById(id: string): Promise<ReadingList | null> {
-    const { data, error } = await this.db
+    const row = await one<ReadingListRow>(this.db
       .from(LISTS)
       .select("*")
       .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? toListDomain(data as ReadingListRow) : null;
+      .maybeSingle());
+    return row ? toListDomain(row) : null;
   }
 
   async list(filter?: ReadingListFilter): Promise<ReadingList[]> {
@@ -119,25 +118,23 @@ export class SupabaseReadingListItemRepository
   }
 
   async find(listId: string, paperId: string): Promise<ReadingListItem | null> {
-    const { data, error } = await this.db
+    const row = await one<ReadingListItemRow>(this.db
       .from(ITEMS)
       .select("*")
       .eq("list_id", listId)
       .eq("paper_id", paperId)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? toItemDomain(data as ReadingListItemRow) : null;
+      .maybeSingle());
+    return row ? toItemDomain(row) : null;
   }
 
   async findNote(listId: string, vaultPageId: string): Promise<ReadingListItem | null> {
-    const { data, error } = await this.db
+    const row = await one<ReadingListItemRow>(this.db
       .from(ITEMS)
       .select("*")
       .eq("list_id", listId)
       .eq("vault_page_id", vaultPageId)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? toItemDomain(data as ReadingListItemRow) : null;
+      .maybeSingle());
+    return row ? toItemDomain(row) : null;
   }
 
   async add(item: ReadingListItem): Promise<void> {

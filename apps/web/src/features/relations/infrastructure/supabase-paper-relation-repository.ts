@@ -11,7 +11,7 @@ import {
   toDomain,
   toRow,
 } from "./paper-relation-rows";
-import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, one, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IPaperRelationRepository.
@@ -63,15 +63,14 @@ export class SupabasePaperRelationRepository
     toPaper: string,
     relation: RelationType,
   ): Promise<PaperRelation | null> {
-    const { data, error } = await this.db
+    const row = await one<PaperRelationRow>(this.db
       .from(TABLE)
       .select("*")
       .eq("from_paper", fromPaper)
       .eq("to_paper", toPaper)
       .eq("relation", relation)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as PaperRelationRow) : null;
+      .maybeSingle());
+    return row ? toDomain(row) : null;
   }
 
   async save(entity: PaperRelation): Promise<void> {

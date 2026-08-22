@@ -13,6 +13,7 @@ import {
   byName,
   toDomain,
 } from "./member-rows";
+import { one } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IMemberRepository. Reads the `profiles` table (the
@@ -34,13 +35,12 @@ export class SupabaseMemberRepository implements IMemberRepository {
     const uid = await this.session.getCurrentUserId();
     if (!uid) return null;
     return singleFlight(`members:mine:${uid}`, async () => {
-      const { data, error } = await this.db
+      const row = await one<ProfileRow>(this.db
         .from(TABLE)
         .select("user_id, email, full_name, role, supervisor_id, org_setup_complete, active_org_id")
         .eq("user_id", uid)
-        .maybeSingle();
-      if (error) throw error;
-      return data ? toDomain(data as ProfileRow) : null;
+        .maybeSingle());
+      return row ? toDomain(row) : null;
     });
   }
 

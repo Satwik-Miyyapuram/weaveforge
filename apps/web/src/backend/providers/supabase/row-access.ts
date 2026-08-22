@@ -49,3 +49,9 @@ export async function run(query: PromiseLike<{ error: unknown }>): Promise<void>
   const { error } = await query;
   if (error) throw error;
 }
+
+export async function one<R>(query: PromiseLike<Resolved<unknown>>): Promise<R | null> {
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data as R | null) ?? null;
+}

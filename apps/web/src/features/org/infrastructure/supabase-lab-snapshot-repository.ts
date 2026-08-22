@@ -12,7 +12,7 @@ import {
   type LabSnapshotRow,
   toDomain,
 } from "./lab-snapshot-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { one, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "lab_snapshots";
 
@@ -60,9 +60,8 @@ export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseReposito
   }
 
   async getById(id: string): Promise<LabSnapshot | null> {
-    const { data, error } = await this.db.from(TABLE).select("*").eq("id", id).maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as LabSnapshotRow) : null;
+    const row = await one<LabSnapshotRow>(this.db.from(TABLE).select("*").eq("id", id).maybeSingle());
+    return row ? toDomain(row) : null;
   }
 }
 

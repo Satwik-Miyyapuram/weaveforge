@@ -59,12 +59,10 @@ export class SupabaseVaultPageRepository implements IVaultPageRepository {
     const out: VaultPage[] = [];
     // Chunked: an `in` list travels in the URL, and a large one is rejected.
     for (let start = 0; start < ids.length; start += ID_CHUNK) {
-      const { data, error } = await this.db
+            out.push(...(await rows<VaultPageRow>(this.db
         .from(TABLE)
         .select("*")
-        .in("id", ids.slice(start, start + ID_CHUNK) as string[]);
-      if (error) throw error;
-      out.push(...(data as VaultPageRow[]).map(toDomain));
+        .in("id", ids.slice(start, start + ID_CHUNK) as string[]))).map(toDomain));
     }
     return out;
   }
