@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { bootstrapSession, drainLoginGates, signIn } from "./helpers/auth.js";
 import { ensurePaperExists } from "./helpers/papers.js";
 import { e2eTwoUsersEnabled, e2eUserA, e2eUserB } from "./helpers/env.js";
+import { appeared } from "./helpers/visible.js";
 
 /**
  * A context that is *not* already signed in.
@@ -20,7 +21,7 @@ const MEMBER_SHARE_PAPER = "E2E Member Share Paper";
 
 async function confirmShareFingerprint(page: Page) {
   const fp = page.locator(".share-fingerprint").first();
-  if (!(await fp.isVisible({ timeout: 5000 }).catch(() => false))) return;
+  if (!(await appeared(fp, 5000))) return;
   const raw = await fp.innerText();
   const hex = raw.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
   const formatted = hex.match(/.{1,4}/g)?.join(" ") ?? raw.trim();
@@ -122,7 +123,7 @@ test.describe("sharing", () => {
       // absent — and typing the handle then empties the list rather than
       // filtering it, which is how a stale share showed up as a directory
       // that never loaded. Revoke first, then look again.
-      if (await existing.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      if (await appeared(existing, 2_000)) {
         await existing.getByRole("button", { name: "remove" }).click();
         await expect(existing).toBeHidden({ timeout: 15_000 });
       }

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { bootstrapSession } from "./helpers/auth.js";
 import { e2eEnabled, e2eUserA } from "./helpers/env.js";
+import { appeared } from "./helpers/visible.js";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -46,7 +47,7 @@ test.describe("core domain CRUD (PostgREST + RLS)", () => {
     // "+ Paper" opens a chooser (add manually / import / sync) before the form.
     await page.getByRole("button", { name: "+ Paper" }).click();
     const chooser = page.getByRole("button", { name: "Add paper" }).first();
-    if (await chooser.isVisible({ timeout: 5000 }).catch(() => false)) await chooser.click();
+    if (await appeared(chooser, 5000)) await chooser.click();
     await page.locator("#title").fill(title);
     await page.getByRole("button", { name: "Add paper", exact: true }).click();
 

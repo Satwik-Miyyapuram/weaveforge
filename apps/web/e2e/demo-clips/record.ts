@@ -26,6 +26,7 @@ import { chromium, type Browser, type BrowserContextOptions } from "playwright";
 import { DEFAULT_TEST_PASSWORD } from "../helpers/env.js";
 import { DEMO_SCENARIOS, type DemoScenario } from "./scenarios.js";
 import { loadLocalDevEnv } from "../helpers/load-local-dev-env.js";
+import { appeared } from "../helpers/visible.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..", "..");
 const CLIPS_DIR = resolve(ROOT, "docs/demo/clips");
@@ -98,10 +99,7 @@ function projectSwitcher(page: import("@playwright/test").Page) {
 }
 
 async function ensureNavExpanded(page: import("@playwright/test").Page) {
-  const collapsed = await page
-    .locator(".layout.nav-collapsed")
-    .isVisible({ timeout: 500 })
-    .catch(() => false);
+  const collapsed = await appeared(page.locator(".layout.nav-collapsed"), 500);
   if (!collapsed) return;
   await page.locator(".menu-toggle").click();
   await projectSwitcher(page).waitFor({ state: "visible", timeout: 5000 });
@@ -112,22 +110,22 @@ async function selectShowcaseProject(page: import("@playwright/test").Page) {
 
   async function onShowcaseProject(): Promise<boolean> {
     const chip = projectSwitcher(page).locator(".proj-chip");
-    if (!(await chip.isVisible({ timeout: 1500 }).catch(() => false))) return false;
+    if (!(await appeared(chip, 1500))) return false;
     const text = await chip.innerText();
     return text.includes(SHOWCASE_PROJECT);
   }
 
-  if (await shell.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await appeared(shell, 2000)) {
     await ensureNavExpanded(page);
     if (await onShowcaseProject()) return;
 
     const switcher = projectSwitcher(page);
     await switcher.locator(".proj-chip").click();
     const item = switcher.locator(".proj-menu-item").filter({ hasText: SHOWCASE_PROJECT }).first();
-    if (await item.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await appeared(item, 5000)) {
       await item.click();
       await page.waitForTimeout(800);
-      if (await switcher.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await appeared(switcher, 1000)) {
         const name = await switcher.locator(".proj-chip").innerText();
         if (!name.includes(SHOWCASE_PROJECT)) {
           throw new Error(`Failed to switch to "${SHOWCASE_PROJECT}"`);
@@ -137,10 +135,10 @@ async function selectShowcaseProject(page: import("@playwright/test").Page) {
     }
 
     const allProjects = switcher.getByRole("button", { name: /New \/ all projects/i });
-    if (await allProjects.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await appeared(allProjects, 2000)) {
       await allProjects.click();
       const showcase = page.locator(".project-card").filter({ hasText: SHOWCASE_PROJECT });
-      if (await showcase.isVisible({ timeout: 8000 }).catch(() => false)) {
+      if (await appeared(showcase, 8000)) {
         await showcase.click();
         await shell.waitFor({ state: "visible", timeout: 30_000 });
         return;
@@ -153,7 +151,7 @@ async function selectShowcaseProject(page: import("@playwright/test").Page) {
   }
 
   const showcase = page.locator(".project-card").filter({ hasText: SHOWCASE_PROJECT });
-  if (await showcase.isVisible({ timeout: 5000 }).catch(() => false)) {
+  if (await appeared(showcase, 5000)) {
     await showcase.click();
     await shell.waitFor({ state: "visible", timeout: 30_000 });
     return;
