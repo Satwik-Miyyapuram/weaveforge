@@ -327,7 +327,7 @@ requires the next phase to be worth having.
 
 | Phase | Scope | Est. |
 |-------|-------|------|
-| **0. The app opens offline** | Static export loaded from `file://` (**D8**), the handful of API routes the offline app needs moved to IPC, online-only screens absent (**D10**); an offline route state for the PWA; the shell's preference file, for the shown-once bit and the sync target (**D7**). Tier 1. No data sync. | ~450 |
+| **0. The app opens offline** | Static export served over `app://` (**D8**), the handful of API routes the offline app needs moved to IPC, online-only screens absent (**D10**); an offline route state for the PWA; the shell's preference file, for the shown-once bit and the sync target (**D7**). Tier 1. No data sync. | ~450 |
 | **1. Reads survive a reload** | Persist the existing screen caches to IndexedDB with an explicit staleness contract. Tier 2, web and desktop, no schema change. | ~300 |
 | **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local` on PGlite (**D9**), synthetic local user for the RLS role switch (**D2**). The app is fully usable with no account. | ~450 |
 | **3. Schema for sync** | `server_seq`, tombstones, base version, change-feed RPC, RLS over the feed. Server-side only, no client change. | ~350 SQL |
@@ -561,7 +561,13 @@ pointed at only one server at a time — switching is a sign-out, with the same
 keep-or-wipe choice.
 
 **D8 — The desktop build is a static export, with no server of any kind
-inside it.** `next build` with `output: "export"`, loaded from `file://`. The
+inside it.** `next build` with `output: "export"`, served to the window over a
+custom `app://` scheme rather than `file://` — a `file://` document has an
+opaque origin, so IndexedDB, `localStorage` and service workers are all refused
+and the local database of **D9** could not exist. A scheme registered
+`standard` and `secure` is a real origin without those holes, and the shell
+sends the same headers the server used to send
+(`apps/desktop/src/app-protocol.ts`). The
 alternative — running `next start` as a child process on localhost — was
 rejected for one reason: it would leave the app talking to a server, and an
 app that talks to a server is one where an online-only assumption can be
