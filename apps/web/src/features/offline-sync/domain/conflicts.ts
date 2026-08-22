@@ -1,5 +1,5 @@
 import { mergeRows, type FieldConflict, type Row } from "./merge";
-import type { OutboxEntry, SqlRunner } from "./outbox";
+import { Outbox, type OutboxEntry, type SqlRunner } from "./outbox";
 
 /**
  * The disagreements the device could not settle, and how they get settled.
@@ -109,6 +109,44 @@ export class ConflictStore {
       serverVersion: row.server_version,
       createdAt: row.created_at,
     }));
+  }
+
+  /**
+   * Settled the way the reader chose, field by field.
+   *
+   * A field they kept is a new edit on top of the server's row, not a rewind:
+   * it is written locally and queued as an op based on the server's version,
+   * so the other device sees a decision rather than a silent revert. Fields
+   * they left alone keep the server's value, which is already what is stored.
+   */
+  async resolveWith(id: string, picks: Record<string, "local" | "remote">): Promise<void> {
+    const row = await this.sql.queryOne<ConflictRow>(
+      `select ${COLUMNS} from sync_conflicts where id = $1 and resolved_at is null`,
+      [id],
+    );
+    if (!row) return;
+    const remote = row.remote;
+    // Nothing to decide against until the server's row has arrived.
+    if (!remote) return;
+
+    const chosen: Row = { ...remote };
+    for (const [field, side] of Object.entries(picks)) {
+      if (side === "local") chosen[field] = row.local[field];
+    }
+
+    await this.sql.exec("select sync_apply($1, $2::jsonb)", [
+      row.table_name,
+      JSON.stringify(chosen),
+    ]);
+    await new Outbox(this.sql).append({
+      table: row.table_name,
+      rowId: row.row_id,
+      op: "update",
+      payload: chosen,
+      basePayload: remote,
+      baseVersion: row.server_version,
+    });
+    await this.resolve(id);
   }
 
   /** Settled, whichever way the reader went. Kept, so the record is auditable. */
