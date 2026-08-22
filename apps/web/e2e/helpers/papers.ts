@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { appeared } from "./visible.js";
 
 const DEFAULT_PAPER_TITLE = "E2E Sharing Test Paper";
 
@@ -20,7 +21,7 @@ export async function ensurePaperExists(page: Page, title = DEFAULT_PAPER_TITLE)
     .waitFor({ timeout: 60000 })
     .catch(() => undefined);
   const card = page.locator(".paper-card").filter({ hasText: title }).first();
-  if (await card.isVisible({ timeout: 15000 }).catch(() => false)) return;
+  if (await appeared(card, 15000)) return;
 
   // The primary action is "+ Paper" and opens a chooser (add manually / import
   // / sync) before the form. This helper used to click "+ Add paper" and go
@@ -29,7 +30,7 @@ export async function ensurePaperExists(page: Page, title = DEFAULT_PAPER_TITLE)
   // it meant to test.
   await page.getByRole("button", { name: "+ Paper" }).click();
   const chooser = page.getByRole("button", { name: "Add paper" }).first();
-  if (await chooser.isVisible({ timeout: 5000 }).catch(() => false)) await chooser.click();
+  if (await appeared(chooser, 5000)) await chooser.click();
   await page.locator("#title").fill(title);
   await page.getByRole("button", { name: "Add paper", exact: true }).click();
   await page.locator(".paper-card").filter({ hasText: title }).first().waitFor({ timeout: 30000 });

@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { appeared } from "../helpers/visible.js";
 
 export interface DemoScenario {
   /** Filename stem, e.g. `papers` → docs/demo/clips/papers.webm */
@@ -30,11 +31,11 @@ async function waitForPath(page: Page, path: string) {
 /** In-app navigation when possible — avoids Next.js SPA aborting full document loads. */
 async function goToPath(page: Page, path: string) {
   const shell = page.locator(".layout.has-nav");
-  const inShell = await shell.isVisible({ timeout: 1500 }).catch(() => false);
+  const inShell = await appeared(shell, 1500);
 
   if (inShell) {
     const subTab = page.locator(`.sub-nav a.sub-tab[href="${path}"]`);
-    if (await subTab.isVisible({ timeout: 1500 }).catch(() => false)) {
+    if (await appeared(subTab, 1500)) {
       await subTab.click();
       await waitForPath(page, path);
       await waitForShell(page);
@@ -67,7 +68,7 @@ async function goToPath(page: Page, path: string) {
     }
 
     const navLink = page.locator(`.nav a.nav-link[href="${path}"]`).first();
-    if (await navLink.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await appeared(navLink, 2000)) {
       await navLink.click();
       await waitForPath(page, path);
       await waitForShell(page);
@@ -112,7 +113,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       await goToPath(page, "/papers");
       await page.waitForTimeout(800);
       const card = page.locator(".paper-card").first();
-      if (await card.isVisible({ timeout: 4000 }).catch(() => false)) {
+      if (await appeared(card, 4000)) {
         await card.click();
         await page.locator(".paper-note, .paper-article").first().waitFor({ timeout: 8000 });
       }
@@ -165,12 +166,12 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       await goToPath(page, "/experiments");
       await page.waitForTimeout(700);
       const compare = page.getByRole("button", { name: "Compare", exact: true });
-      if (await compare.isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await appeared(compare, 2000)) {
         await compare.click();
         await page.waitForTimeout(900);
       }
       const detail = page.locator('a[href^="/experiments/"]').first();
-      if (await detail.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (await appeared(detail, 3000)) {
         await detail.click();
         await page.locator(".exp-detail, .metric-curves").first().waitFor({ timeout: 12_000 });
       }
@@ -205,11 +206,11 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       await expandAllReportSections(page);
       await page.locator(".section-tree.nested .section-node").first().waitFor({ timeout: 10_000 });
       const deepNested = page.locator(".section-tree.nested .section-tree.nested").first();
-      if (await deepNested.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (await appeared(deepNested, 3000)) {
         await deepNested.scrollIntoViewIfNeeded();
       } else {
         const bg = page.locator(".section-node").filter({ hasText: /Generative models|2\.1/ }).first();
-        if (await bg.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await appeared(bg, 3000)) {
           await bg.scrollIntoViewIfNeeded();
         }
       }
