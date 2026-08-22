@@ -1,6 +1,7 @@
 import type { SqlRunner } from "./outbox";
 import type { SyncStateStore } from "./sync-state";
 import type { RemoteChange, SyncTransport } from "./sync-ports";
+import type { ConflictStore } from "./conflicts";
 
 /**
  * Reads the server's change feed and writes what it says into the local
@@ -29,6 +30,7 @@ export class Puller {
     private readonly sql: SqlRunner,
     private readonly state: SyncStateStore,
     private readonly transport: SyncTransport,
+    private readonly conflicts?: ConflictStore,
   ) {}
 
   async pull(pageSize = 500): Promise<PullResult> {
@@ -58,5 +60,16 @@ export class Puller {
       change.table,
       JSON.stringify(change.row),
     ]);
+    // If this row was the subject of a stale op, the merge can be tried now:
+    // the side that was missing has arrived. A merge that comes out clean is
+    // written straight back — two devices that edited different fields
+    // disagreed about a version, not about the work.
+    const merged = await this.conflicts?.settle(change.table, change.rowId, change.row);
+    if (merged) {
+      await this.sql.exec("select sync_apply($1, $2::jsonb)", [
+        change.table,
+        JSON.stringify(merged),
+      ]);
+    }
   }
 }

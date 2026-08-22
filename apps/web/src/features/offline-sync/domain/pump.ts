@@ -1,4 +1,5 @@
 import { Outbox, type OutboxEntry } from "./outbox";
+import type { ConflictStore } from "./conflicts";
 import type { SendOutcome, SyncTransport } from "./sync-ports";
 
 /**
@@ -25,6 +26,12 @@ export class OutboxPump {
   constructor(
     private readonly outbox: Outbox,
     private readonly transport: SyncTransport,
+    /**
+     * Where an op refused as stale is written down. Optional, because the pump
+     * is useful before there is anything to merge: a device that has never
+     * conflicted needs no conflict store to run.
+     */
+    private readonly conflicts?: ConflictStore,
   ) {}
 
   async run(limit = 100): Promise<PumpResult> {
@@ -42,6 +49,8 @@ export class OutboxPump {
       }
       if (outcome.status === "conflict") {
         result.conflicts.push({ entry, serverVersion: outcome.serverVersion });
+        // Opened with two of the three sides. The puller carries the third.
+        await this.conflicts?.open(entry, outcome.serverVersion);
         // Held, not dropped: the merge decides what happens to it, and until
         // then it is still work this device has not delivered.
         await this.outbox.fail(entry.opId, `Newer version ${outcome.serverVersion} on the server.`);

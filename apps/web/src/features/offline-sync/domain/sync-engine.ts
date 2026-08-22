@@ -1,4 +1,5 @@
 import { Adoption, type AdoptionRequest, type AdoptionResult } from "./adoption";
+import { ConflictStore } from "./conflicts";
 import { Outbox, type SqlRunner } from "./outbox";
 import { OutboxPump, type PumpResult } from "./pump";
 import { Puller, type PullResult } from "./puller";
@@ -45,6 +46,7 @@ export class SyncEngine {
   private readonly pump: OutboxPump;
   private readonly puller: Puller;
   private readonly adoption: Adoption;
+  readonly conflicts: ConflictStore;
 
   constructor(
     sql: SqlRunner,
@@ -53,8 +55,9 @@ export class SyncEngine {
     private readonly quota: SyncQuota = unlimitedSync,
   ) {
     this.state = new SyncStateStore(sql);
-    this.pump = new OutboxPump(new Outbox(sql), transport);
-    this.puller = new Puller(sql, this.state, transport);
+    this.conflicts = new ConflictStore(sql);
+    this.pump = new OutboxPump(new Outbox(sql), transport, this.conflicts);
+    this.puller = new Puller(sql, this.state, transport, this.conflicts);
     this.adoption = new Adoption(sql, localUserId);
   }
 

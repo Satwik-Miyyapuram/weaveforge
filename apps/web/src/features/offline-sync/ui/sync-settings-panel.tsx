@@ -23,7 +23,7 @@ export function SyncSettingsPanel() {
 
   if (status.enabled) {
     return (
-      <div className="panel">
+      <div className="settings-group">
         <h3>Sync</h3>
         <p className="muted">
           This device syncs with your account. Everything still works with the network off; changes
@@ -39,17 +39,17 @@ export function SyncSettingsPanel() {
   }
 
   return (
-    <div className="panel">
+    <div className="settings-group">
       <h3>Sync</h3>
       <p className="muted">
         Your work lives on this machine and needs no account. Turning sync on copies it to an
         account so another machine can see it too. Nothing leaves this device until you do.
       </p>
       {!user && <p className="muted">Sign in first, and this becomes one button.</p>}
-      {error && <p className="error-text">{error}</p>}
+      {error && <p className="error">{error}</p>}
       <button
         type="button"
-        className="btn"
+        className="btn-secondary"
         disabled={!user || busy}
         onClick={() => {
           setBusy(true);

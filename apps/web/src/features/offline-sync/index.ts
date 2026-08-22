@@ -8,3 +8,6 @@ export * from "./domain/adoption";
 export * from "./domain/sync-engine";
 export * from "./application/sync-offer";
 export { SyncSettingsPanel } from "./ui/sync-settings-panel";
+export * from "./domain/merge";
+export * from "./domain/conflicts";
+export { SyncIssuesPanel } from "./ui/sync-issues-panel";
