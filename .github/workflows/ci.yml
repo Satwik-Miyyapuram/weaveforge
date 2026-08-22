@@ -117,6 +117,14 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_BACKEND_PROVIDER: supabase
+          # Auth is still Supabase's; the tables are not. Without these the
+          # suite reads the pre-cutover copy of the database, where
+          # `ensure_user_provisioned` does not exist (404) and `profiles` is
+          # frozen — which is why the sharing spec saw an empty directory and
+          # the relay spec never had its request claimed, while both passed
+          # locally against the same code.
+          NEXT_PUBLIC_DATA_URL: https://api.weaveforge.org
+          NEXT_PUBLIC_REALTIME_URL: https://api.weaveforge.org
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
@@ -127,6 +135,9 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          # Same reason as the build step above: the data lives here now.
+          NEXT_PUBLIC_DATA_URL: https://api.weaveforge.org
+          NEXT_PUBLIC_REALTIME_URL: https://api.weaveforge.org
           WEAVEFORGE_EMAIL: ${{ secrets.TT_A_EMAIL }}
           WEAVEFORGE_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
           TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
