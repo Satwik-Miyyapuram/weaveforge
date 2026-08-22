@@ -2,6 +2,7 @@ import { getSupabase } from "@/lib/supabase";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/single-flight";
 import type { OrgInviteRole, OrgMembershipView } from "@weaveforge/core";
+import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
 
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
 
@@ -123,22 +124,10 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
 
   const { data, error } = await supabase
     .from("org_memberships")
-    .select("org_id, role, joined_via, organizations(name)")
+    .select(MEMBERSHIP_ROW_COLUMNS)
     .eq("user_id", userId)
     .order("joined_at", { ascending: true });
-  if (!error && data) {
-    return data.map((row) => {
-      const org = row.organizations as { name: string } | { name: string }[] | null;
-      const name = Array.isArray(org) ? org[0]?.name : org?.name;
-      const joinedVia = (row as { joined_via?: string }).joined_via;
-      return {
-        orgId: row.org_id as string,
-        orgName: name ?? "Lab",
-        role: row.role as OrgInviteRole,
-        joinSource: joinedVia === "invite" || joinedVia === "create" ? joinedVia : "legacy",
-      };
-    });
-  }
+  if (!error && data) return data.map(membershipViewFromRow);
 
   const res = await fetch("/api/org/memberships", { headers: await authHeaders() });
   const body = (await res.json()) as {
