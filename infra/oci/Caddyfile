@@ -37,11 +37,11 @@
 	# `Max-Age` matters more than it looks: without it a preflight is cached for
 	# seconds, and each distinct query URL pays a second round trip. A day is the
 	# most Chrome honours.
-	@allowed_origin header_regexp Origin ^https://(www\.)?weaveforge\.org$|^http://localhost:(3000|3100)$
+	@allowed_origin header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^http://localhost:(3000|3100)$
 
 	@preflight_allowed {
 		method OPTIONS
-		header_regexp Origin ^https://(www\.)?weaveforge\.org$|^http://localhost:(3000|3100)$
+		header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^http://localhost:(3000|3100)$
 	}
 	handle @preflight_allowed {
 		header {
