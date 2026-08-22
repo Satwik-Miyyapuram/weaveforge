@@ -33,6 +33,14 @@ export const CHANNELS = {
    */
   checkUpdate: "weaveforge:check-update",
   /**
+   * The keychain: read one named secret, keep one, forget one. What may be
+   * named and what happens when the machine has no keychain is
+   * `secret-store.ts`; these are only the strings.
+   */
+  secretRead: "weaveforge:secret-read",
+  secretWrite: "weaveforge:secret-write",
+  secretClear: "weaveforge:secret-clear",
+  /**
    * The shell's own settings: read one, keep one. What may be named and why
    * these live outside the renderer is `preference-store.ts`; these are only
    * the strings.

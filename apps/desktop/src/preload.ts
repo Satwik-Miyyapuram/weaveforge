@@ -43,6 +43,13 @@ const bridge: DesktopBridge = {
   writePreference: async (name, value) => {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },
+  readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
+  writeSecret: async (name, value) => {
+    await call<null>(CHANNELS.secretWrite, name, value);
+  },
+  clearSecret: async (name) => {
+    await call<null>(CHANNELS.secretClear, name);
+  },
   onSignIn: (cb) => {
     // The listener is wrapped rather than passed through, so the renderer never
     // receives Electron's `IpcRendererEvent` — which carries `sender`, and with
