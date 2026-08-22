@@ -32,7 +32,7 @@ export function isReaderAnnotationType(value: string): value is ReaderAnnotation
 /** R5 write-back bookkeeping for a reader annotation row. */
 export type AnnotationSyncState = "local" | "synced" | "pending" | "conflict";
 
-export const ANNOTATION_SYNC_STATES: readonly AnnotationSyncState[] = [
+const ANNOTATION_SYNC_STATES: readonly AnnotationSyncState[] = [
   "local",
   "synced",
   "pending",

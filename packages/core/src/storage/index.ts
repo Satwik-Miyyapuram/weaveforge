@@ -9,6 +9,5 @@ export type {
 export {
   computeBlobEvictionScore,
   rankForEviction,
-  DEFAULT_BLOB_TIERING_WEIGHTS,
   type BlobTieringWeights,
 } from "./blob-tiering.js";
