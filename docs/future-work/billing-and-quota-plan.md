@@ -87,6 +87,45 @@ export interface QuotaStatus {
 
 ---
 
+## 3.1 The local tier has no ceiling, and that is structural
+
+`docs/plans/future/offline-first-sync.md` makes the desktop app independent: a
+local Postgres, no account required. §2's two-layer argument is worth re-reading
+with that in mind, because it resolves cleanly rather than breaking.
+
+**The Postgres layer — the real ceiling — only exists on the server.** A local
+database is the user's own machine; there is nothing to enforce and nothing that
+would be legitimate to enforce. Trying to meter it would mean shipping quota
+triggers in the local migrations, where the user can drop them, and where they
+would be wrong anyway: local rows cost the operator nothing.
+
+So the rule is one line, and it should be stated in the code that implements it:
+
+> **Quota applies to rows the server holds. Local-only rows are unmetered and
+> uncounted.**
+
+What follows from it:
+
+- **`IEntitlements` gains no local variant.** The local provider simply has no
+  quota decorator in its composition root — the same mechanism §5's registry
+  already uses to strip quota for self-host builds (§9). No new abstraction.
+- **Usage is counted server-side**, from the synced rows, not client-side from
+  the local database. A client count would drift the moment anything is local-only.
+- **Over quota degrades sync, never the app.** The outbox pump stops draining
+  and surfaces "sync paused — over quota"; local writes keep working and keep
+  queueing. This is the offline-first form of the "no new writes, never no
+  access" rule, and it is strictly kinder than the online version, because
+  nothing is lost while paused.
+- **Adoption on first sign-in must be quota-checked before it runs, not during.**
+  A user with 4,000 local papers signing into a 1,000-paper tier must be told
+  what will happen *before* a partial adoption leaves their library split across
+  two owners. Check the count, offer the upgrade, then adopt in one pass.
+- **A lapsed subscription reverts a device to local-only.** It does not lock,
+  wipe, or read-only the local data. Anything else is unconscionable in this
+  market — see `docs/pricing-strategy.md` §3.1.
+
+---
+
 ## 4. The decorator layer
 
 ### 4.1 Generic count-quota decorator

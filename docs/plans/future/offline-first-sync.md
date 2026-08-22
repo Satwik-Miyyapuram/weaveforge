@@ -352,12 +352,32 @@ estimate did not grow more than it did.
 - **End-to-end encrypting row bodies as part of this work.** It would remove the
   server's ability to compute a change feed and force a redesign. Separate
   decision, separate plan.
-- **Offline AI features.** They call remote models; the honest offline state is
-  "unavailable", not a degraded imitation.
+- **Blanket "AI is unavailable offline".** Wrong, and worth stating precisely:
+  the *app's* AI surface is local — the proposal flow, the approval gate at
+  `/ai-review`, the audit records, the MCP tool dispatch — and only the model
+  call itself leaves the machine. So the rule is per-provider, not global:
+
+  | Provider | Offline |
+  |----------|---------|
+  | Local model (Ollama, LM Studio, llama.cpp) over `localhost` | **Fully works.** Nothing leaves the device. |
+  | MCP servers running locally | **Fully works** — and desktop is the only platform that can host them directly. |
+  | Hosted models (Anthropic, OpenAI, …) | Unavailable, and the honest state is "no connection", not a degraded imitation. |
+
+  What this needs: the provider list must render reachability per provider
+  rather than one global online flag, proposals must queue locally when the
+  model is unreachable, and the relay's retention policy (migration `0116`)
+  must tolerate a request that sits pending for days. The desktop app being
+  independent (**D1**) is what makes a genuinely offline AI workflow possible
+  at all — a local model plus local MCP servers is a complete loop with no
+  network.
 - **Automatic resolution of semantic conflicts** (`status: done` vs
   `status: blocked`). No rule is right; ask.
 
 ## 9. Decisions
+
+Pricing follows from these — sync and hosted storage are what the hosted service
+sells once the app itself is free and complete offline. See
+[`../../pricing-strategy.md`](../../pricing-strategy.md) §3.1.
 
 Settled. These are product calls and they simplify the engineering
 substantially — each one removes a whole class of edge case rather than
