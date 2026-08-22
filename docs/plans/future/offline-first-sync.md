@@ -52,6 +52,10 @@ later. This is the one that needs a real conflict story.
 
 The tiers are strictly ordered. Tier 3 without tier 1 is meaningless.
 
+**Target: tier 3 on desktop, for personal projects, with no account required**
+(§9, D1–D3). The web app stays online-first and gets tier 2 as a side effect of
+phase 1. Shared projects stay online-only on every platform.
+
 ---
 
 ## 3. Prior art, and what to take from each
@@ -256,19 +260,20 @@ deliberate and explicit), **but** the edit is preserved in the conflicts table
 with an undelete affordance for the retention window. Never silent.
 
 **Access revoked while offline.** A device holds a full local copy of a project
-it may no longer read. → The change feed must emit explicit *revocation* events,
-and the puller must delete the local rows on receipt. Until a device
-reconnects, it retains data it should not have — this is inherent to any offline
-system and must be stated in the privacy docs rather than glossed over. Ties into
-`docs/PRIVACY_TEST_MATRIX.md` and needs a row there.
+it may no longer read. → **Resolved by D3**: shared projects are never stored
+offline, so there is nothing to revoke. Personal projects have exactly one
+member, who cannot be revoked from their own data. This is the single largest
+simplification the decisions buy — it removes revocation events from the change
+feed and a whole row from the privacy matrix.
 
 **Offline authentication.** The session JWT expires; the app cannot refresh it
 offline; the user is logged out mid-flight with their data locally present but
-unreadable. → Local session validity must be decoupled from the API token: the
-local database unlocks on a locally-verifiable credential, and API tokens are
-refreshed only for sync. Getting this wrong produces the worst possible bug —
-"my work disappeared on the plane" — and it is not detectable in any test that
-runs online.
+unreadable. → **D1 and D2 make this structural rather than a mitigation**: the
+app does not require an account at all, so an expired token can never gate access
+to local data. It gates *sync* and nothing else. An expired token shows "sync
+paused, sign in again", never a locked app. This is the worst bug in this whole
+design — "my work disappeared on the plane" — and the decision removes it by
+construction rather than by care.
 
 **Outbox poisoning.** One op the server permanently rejects (validation change,
 deleted parent, revoked access) blocks the queue behind it forever, and every
@@ -322,19 +327,21 @@ requires the next phase to be worth having.
 
 | Phase | Scope | Est. |
 |-------|-------|------|
-| **0. The app opens offline** | Bundle the built app inside Electron instead of `loadURL` to a remote origin; an offline route state for the PWA. Tier 1. No data sync. | ~250 |
+| **0. The app opens offline** | Bundle the built app inside Electron instead of `loadURL` to a remote origin (**D1**); an offline route state for the PWA. Tier 1. No data sync. | ~250 |
 | **1. Reads survive a reload** | Persist the existing screen caches to IndexedDB with an explicit staleness contract. Tier 2, web and desktop, no schema change. | ~300 |
-| **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local`. Reads local, writes still online-only. | ~400 |
+| **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local`, synthetic local user for the RLS role switch (**D2**). The app is fully usable with no account. | ~450 |
 | **3. Schema for sync** | `server_seq`, tombstones, base version, change-feed RPC, RLS over the feed. Server-side only, no client change. | ~350 SQL |
-| **4. Outbox and puller** | Local-first writes, op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. | ~600 |
+| **4. Outbox and puller** | Sign-in, opt-in sync toggle, adoption of local-only rows into the account, op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. Personal projects only (**D3**). | ~700 |
 | **5. Conflicts** | Three-way merge for kind (b), conflicts table, the banner UI, dead-letter list. | ~450 |
 | **6. Blobs and scope** | Per-project offline toggle, PDF LRU with quota UI. | ~250 |
 
-Roughly 2,600 lines across six phases. Against a ~100k-line codebase that is
+Roughly 2,700 lines across six phases. Against a ~100k-line codebase that is
 about 2.5% — but it is 2,600 lines of the hardest-to-test kind, so the ratio
 understates it. Phases 3–5 need a test harness that simulates two clients with
 independent clocks and a partitioned network; budget that as part of phase 3, not
-as an afterthought.
+as an afterthought. **D3** takes multi-user offline conflict out of that harness
+entirely — it only ever has to model one user's two devices, which is why the
+estimate did not grow more than it did.
 
 ## 8. Explicitly not doing
 
@@ -350,15 +357,62 @@ as an afterthought.
 - **Automatic resolution of semantic conflicts** (`status: done` vs
   `status: blocked`). No rule is right; ask.
 
-## 9. Open questions
+## 9. Decisions
 
-1. Does the desktop app ship its own copy of the web build (larger installer,
-   true offline, version skew between shell and server) or keep loading remotely
-   with a service worker (smaller, always current, but a cold start with no
-   network still fails)? Phase 0 cannot start until this is decided, and it is a
-   product call as much as a technical one.
-2. Retention window for tombstones and conflict records. 30 days is the usual
-   answer; it caps how long a device may stay offline and still delete correctly.
-3. Do we support offline for *shared* projects in phase 4, or single-user
-   projects only? Shared projects are where revocation, RLS-over-feed, and
-   concurrent editing all get hard at once. Deferring them halves phases 4 and 5.
+Settled. These are product calls and they simplify the engineering
+substantially — each one removes a whole class of edge case rather than
+deferring it.
+
+**D1 — The desktop app is independent.** It ships its own copy of the web build
+and runs with no network and no account. Not a shell over a remote origin, not
+a cache that degrades. The local database is the source of truth, the same
+stance Obsidian takes. Cost: a larger installer, and version skew between a
+client and the server becomes real (handled by the schema floor in §6).
+
+**D2 — Sync is opt-in, and opting in requires sign-in.** No account is needed to
+use the app; turning sync on is what asks for one. Sign-in is not mandatory at
+first run. This keeps the "just let me write" path free of an account wall while
+making the security model of sync unambiguous: everything that leaves the device
+belongs to an authenticated user.
+
+**D3 — Shared projects require sign-in and a live connection.** They are not
+available offline, at all. Revocation-while-offline, RLS over the change feed,
+and offline multi-writer conflict all disappear as problems. A shared project
+shown offline is a read-through cache at most, and phase 1 already covers that.
+
+**D4 — Retention is 30 days**, matching Obsidian Sync's standard version
+history. Tombstones, conflict records, and superseded versions are kept 30 days
+and then purged. Consequence to state plainly in the UI: **a device that has
+been offline longer than 30 days cannot be reconciled incrementally** — it
+re-syncs from scratch, and local-only changes made in that window are surfaced
+as conflicts rather than merged. (If a longer window is ever wanted, it is a
+storage-cost decision, not a redesign.)
+
+### What D1–D3 change
+
+- The local database has a **local-only user identity** when nobody is signed
+  in — a synthetic uuid the RLS role switch (`pg-runner.ts`) binds to, so
+  policies behave identically whether or not an account exists.
+- **Adoption on first sign-in.** A user who worked locally for a month and then
+  enables sync has rows owned by the synthetic local user. Those rows must be
+  re-owned to the real account in one transaction, and it must be resumable —
+  it is a bulk update over every synced table and it will be interrupted at
+  least once in the field. Adoption is a phase 4 deliverable, not an afterthought.
+- **Sign-out must offer a choice**, and must not assume: keep the local data
+  (device stays usable offline) or wipe it. Silently doing either is wrong —
+  wiping destroys work, keeping it leaves data on a shared machine. Ties into
+  `docs/PRIVACY_TEST_MATRIX.md`.
+- Sync is **single-user multi-device** only, which is a materially easier
+  problem than multi-user: conflicts are one person's own edits from two of
+  their own devices, so "keep both and tell me" is an answer they can act on.
+
+### Still open
+
+1. Does an offline-only user get a **local project** with no server counterpart,
+   or does the app create a project id that would be valid server-side if they
+   later sign in? The second is slightly more work now and avoids an id
+   remapping pass during adoption. Leaning toward the second.
+2. What happens to a **local-only install on a second machine**? Two independent
+   local vaults, both later adopted into one account, will duplicate every
+   project. Either adoption is limited to the first device, or the second device
+   is offered "merge into account" versus "replace local" at sign-in.
