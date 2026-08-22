@@ -24,70 +24,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { LOCAL_BOOTSTRAP_SQL, applyMigrations, sessionClaims } from "@weaveforge/core";
 
 const MIGRATIONS = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../../../supabase/migrations",
 );
-
-/**
- * The Supabase-managed objects the migrations reference but do not create.
- *
- * Deliberately minimal: enough shape for the migrations to apply and for
- * `auth.uid()` to answer, and nothing that would let a stub stand in for a
- * policy under test.
- */
-const BOOTSTRAP = `
-create extension if not exists pgcrypto;
-do $$ begin
-  if not exists (select from pg_roles where rolname = 'anon') then create role anon nologin; end if;
-  if not exists (select from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
-  if not exists (select from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
-end $$;
-create schema if not exists auth;
-create schema if not exists storage;
-create schema if not exists realtime;
-create schema if not exists extensions;
-grant usage on schema public, auth, storage, realtime to anon, authenticated, service_role;
--- Supabase grants table privileges to these roles by default, so RLS — not the
--- grant — is what a policy test is actually exercising. Without this every
--- query fails with "permission denied" long before a policy is consulted.
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
-
-create table if not exists auth.users (
-  id uuid primary key default gen_random_uuid(),
-  email text,
-  raw_user_meta_data jsonb not null default '{}'::jsonb,
-  raw_app_meta_data jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  last_sign_in_at timestamptz
-);
-
--- What PostgREST does per request, and what every policy reads.
-create or replace function auth.jwt() returns jsonb language sql stable as $$
-  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
-create or replace function auth.uid() returns uuid language sql stable as $$
-  select nullif(auth.jwt() ->> 'sub', '')::uuid $$;
-
-create table if not exists storage.buckets (id text primary key, name text, public boolean default false);
-create table if not exists storage.objects (
-  id uuid primary key default gen_random_uuid(),
-  bucket_id text references storage.buckets(id),
-  name text, owner uuid, metadata jsonb, created_at timestamptz default now()
-);
-create or replace function storage.foldername(name text) returns text[] language sql immutable as $$
-  select string_to_array(name, '/') $$;
-
-create table if not exists realtime.messages (
-  id uuid primary key default gen_random_uuid(),
-  topic text, extension text, payload jsonb, inserted_at timestamptz default now()
-);
-alter table realtime.messages enable row level security;
-create or replace function realtime.topic() returns text language sql stable as $$
-  select current_setting('realtime.topic', true) $$;
-`;
 
 export interface TestDb {
   /** Run SQL as the database owner, with RLS bypassed. */
@@ -112,14 +54,11 @@ export function testDb(): Promise<TestDb> {
 
 async function build(): Promise<TestDb> {
   const db = await PGlite.create({ extensions: { pgcrypto } });
-  await db.exec(BOOTSTRAP);
-  for (const file of readdirSync(MIGRATIONS).filter((name) => name.endsWith(".sql")).sort()) {
-    try {
-      await db.exec(readFileSync(path.join(MIGRATIONS, file), "utf8"));
-    } catch (error) {
-      throw new Error(`Migration ${file} failed on a clean database: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+  await db.exec(LOCAL_BOOTSTRAP_SQL);
+  const migrations = readdirSync(MIGRATIONS)
+    .filter((name) => name.endsWith(".sql"))
+    .map((name) => ({ name, sql: readFileSync(path.join(MIGRATIONS, name), "utf8") }));
+  await applyMigrations(migrations, (sql) => db.exec(sql));
 
   const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> =>
     (await db.query<T>(query, params)).rows;
@@ -131,7 +70,7 @@ async function build(): Promise<TestDb> {
       return row!.id;
     },
     as(userId: string) {
-      const claims = JSON.stringify({ sub: userId, role: "authenticated" });
+      const claims = sessionClaims(userId);
       return {
         async sql<T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> {
           // Both settings are transaction-local, so the claim, the role and the
