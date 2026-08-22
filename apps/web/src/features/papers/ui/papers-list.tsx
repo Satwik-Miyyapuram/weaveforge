@@ -7,8 +7,7 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { Popover } from "@/components/popover";
-import { BoardViewIcon, CardsViewIcon, FilterIcon, ListViewIcon } from "@/components/view-icons";
+import { BoardViewIcon, CardsViewIcon, ListViewIcon } from "@/components/view-icons";
 import { CardColumns } from "@/components/card-columns";
 import { rankedFilter } from "@/features/search/application/rank-filter";
 import { useSearchIndex } from "@/lib/hooks/use-search-index";
@@ -24,6 +23,7 @@ import { rememberRecentTarget } from "@/lib/recent-targets";
 import { PaperCard } from "./paper-card";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
+import { ListTagFilters } from "@/components/list-tag-filters";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -399,53 +399,26 @@ export function PapersScreen() {
               placeholder="Search title or author…"
               aria-label="Search papers"
             />
-            <Popover
-              label={<FilterIcon />}
-              ariaLabel="Filters"
-              iconOnly
-              count={activeFilters}
-              align="right"
+            <ListTagFilters
+              idPrefix="f"
+              lists={lists}
+              listFilter={listFilter}
+              onListFilter={setListFilter}
+              allTags={allTags}
+              tagFilter={tagFilter}
+              onTagFilter={setTagFilter}
+              activeFilters={activeFilters}
+              onClear={() => { setStatusFilter([]); setListFilter([]); setTagFilter([]); }}
             >
-              <div className="filters">
-                <MultiSelect
-                  id="fstatus"
-                  values={statusFilter}
-                  onChange={setStatusFilter}
-                  allLabel="All statuses"
-                  ariaLabel="Filter by status"
-                  options={PAPER_STATUSES.map((s) => ({ value: s, label: s.replace("_", " ") }))}
-                />
-                {lists.length > 0 && (
-                  <MultiSelect
-                    id="flist"
-                    values={listFilter}
-                    onChange={setListFilter}
-                    allLabel="All lists"
-                    ariaLabel="Filter by list"
-                    options={lists.map((l) => ({ value: l.id, label: l.name }))}
-                  />
-                )}
-                {allTags.length > 0 && (
-                  <MultiSelect
-                    id="ftags"
-                    values={tagFilter}
-                    onChange={setTagFilter}
-                    allLabel="All tags"
-                    ariaLabel="Filter by tags"
-                    options={allTags.map((t) => ({ value: t, label: `#${t}` }))}
-                  />
-                )}
-                {activeFilters > 0 && (
-                  <button
-                    type="button"
-                    className="link-btn"
-                    onClick={() => { setStatusFilter([]); setListFilter([]); setTagFilter([]); }}
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
-            </Popover>
+              <MultiSelect
+                id="fstatus"
+                values={statusFilter}
+                onChange={setStatusFilter}
+                allLabel="All statuses"
+                ariaLabel="Filter by status"
+                options={PAPER_STATUSES.map((s) => ({ value: s, label: s.replace("_", " ") }))}
+              />
+            </ListTagFilters>
             <div className="seg" role="tablist" aria-label="Papers layout">
               <button
                 type="button"
