@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { safeFetch, checkUrlReachable } from "../safe-fetch";
+import { stubFetch } from "@/lib/test/stub-fetch";
 
 /**
  * What the guard has to stop.
@@ -28,20 +29,6 @@ const publicResolver = resolver({
 });
 
 /** Replaces global fetch for one test and records what it was asked for. */
-function stubFetch(handler: (url: string) => Response) {
-  const calls: string[] = [];
-  const original = globalThis.fetch;
-  globalThis.fetch = ((input: string | URL | Request) => {
-    calls.push(String(input));
-    return Promise.resolve(handler(String(input)));
-  }) as typeof fetch;
-  return {
-    calls,
-    restore: () => {
-      globalThis.fetch = original;
-    },
-  };
-}
 
 test("a name that resolves to loopback is refused, and never requested", async () => {
   // The whole attack: the URL is a perfectly ordinary public-looking name.

@@ -2,19 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GET } from "../route";
 import { isAllowedPdfProxyUrl, proxyAllowlistedPdf } from "../_proxy";
+import { stubFetch } from "@/lib/test/stub-fetch";
 
-function stubFetch(handler: (url: string) => Response) {
-  const original = globalThis.fetch;
-  globalThis.fetch = ((input: string | URL | Request) => {
-    const reqUrl = String(input);
-    const res = handler(reqUrl);
-    Object.defineProperty(res, "url", { value: reqUrl });
-    return Promise.resolve(res);
-  }) as typeof fetch;
-  return () => {
-    globalThis.fetch = original;
-  };
-}
 
 test("pdf-proxy: allowlist accepts arxiv/openreview https only", () => {
   assert.equal(isAllowedPdfProxyUrl("https://arxiv.org/pdf/1706.03762"), true);
@@ -40,7 +29,7 @@ test("pdf-proxy: 400 when url is not allowlisted", async () => {
 });
 
 test("pdf-proxy: streams an allowlisted PDF", async () => {
-  const restore = stubFetch((url) => {
+  const { restore } = stubFetch((url) => {
     assert.match(url, /arxiv\.org\/pdf\/1706\.03762/);
     return new Response("%PDF-1.4 hello", {
       status: 200,
@@ -60,7 +49,7 @@ test("pdf-proxy: streams an allowlisted PDF", async () => {
 });
 
 test("pdf-proxy: rejects HTML on an allowlisted host", async () => {
-  const restore = stubFetch(() =>
+  const { restore } = stubFetch(() =>
     new Response("<script>alert(1)</script>", {
       status: 200,
       headers: { "content-type": "text/html" },
@@ -75,7 +64,7 @@ test("pdf-proxy: rejects HTML on an allowlisted host", async () => {
 });
 
 test("pdf-proxy: rejects bodies that fail the %PDF magic sniff", async () => {
-  const restore = stubFetch(() =>
+  const { restore } = stubFetch(() =>
     new Response("<html>not a pdf</html>", {
       status: 200,
       headers: { "content-type": "application/pdf" },
@@ -90,7 +79,7 @@ test("pdf-proxy: rejects bodies that fail the %PDF magic sniff", async () => {
 });
 
 test("pdf-proxy: accepts magic within the first 1KiB (not only byte 0)", async () => {
-  const restore = stubFetch(() => {
+  const { restore } = stubFetch(() => {
     const prefix = new Uint8Array(8).fill(0);
     const body = new Uint8Array(prefix.length + 8);
     body.set(prefix);
@@ -110,7 +99,7 @@ test("pdf-proxy: accepts magic within the first 1KiB (not only byte 0)", async (
 
 test("pdf-proxy: refuses off-allowlist redirects before following", async () => {
   const seen: string[] = [];
-  const restore = stubFetch((url) => {
+  const { restore } = stubFetch((url) => {
     seen.push(url);
     return new Response(null, {
       status: 302,
