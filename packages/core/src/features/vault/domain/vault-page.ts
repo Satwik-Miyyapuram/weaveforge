@@ -6,6 +6,7 @@
 import { imagePathsInBody, markdownImage } from "../../../shared/markdown-image.js";
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { buildTree } from "../../../shared/tree.js";
 
 export interface VaultPage extends Identifiable {
   id: string;
@@ -72,30 +73,14 @@ export function createVaultPage(
 
 /** Build a nested page tree from a flat list (pure). */
 export function buildPageTree(pages: readonly VaultPage[]): VaultPageTreeNode[] {
-  const nodes = new Map<string, VaultPageTreeNode>();
-  for (const page of pages) {
-    nodes.set(page.id, { page, children: [] });
-  }
-  const roots: VaultPageTreeNode[] = [];
-  for (const node of nodes.values()) {
-    const parentId = node.page.parentId;
-    const parent = parentId ? nodes.get(parentId) : undefined;
-    if (parent) {
-      parent.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  const sortNodes = (list: VaultPageTreeNode[]) => {
-    list.sort(
-      (a, b) =>
-        a.page.sortOrder - b.page.sortOrder ||
-        a.page.title.localeCompare(b.page.title),
-    );
-    for (const n of list) sortNodes(n.children);
-  };
-  sortNodes(roots);
-  return roots;
+  return buildTree(pages, {
+    id: (page) => page.id,
+    parentId: (page) => page.parentId,
+    node: (page) => ({ page, children: [] }),
+    compare: (a, b) =>
+      a.page.sortOrder - b.page.sortOrder ||
+      a.page.title.localeCompare(b.page.title),
+  });
 }
 
 /** A parsed `[[wikilink]]`. `target` is the linked note/paper title (may be

@@ -8,6 +8,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { buildTree } from "../../../shared/tree.js";
 
 export type ReportStatus = "not_started" | "drafting" | "review" | "done";
 
@@ -109,29 +110,13 @@ export function createReportSection(
 export function buildSectionTree(
   sections: readonly ReportSection[],
 ): ReportSectionTreeNode[] {
-  const nodes = new Map<string, ReportSectionTreeNode>();
-  for (const section of sections) {
-    nodes.set(section.id, { section, children: [] });
-  }
-  const roots: ReportSectionTreeNode[] = [];
-  for (const node of nodes.values()) {
-    const parentId = node.section.parentId;
-    const parent = parentId ? nodes.get(parentId) : undefined;
-    if (parent) {
-      parent.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  const sortNodes = (list: ReportSectionTreeNode[]) => {
-    list.sort(
-      (a, b) =>
-        a.section.sortOrder - b.section.sortOrder ||
-        (a.section.sectionNo ?? "").localeCompare(b.section.sectionNo ?? "") ||
-        a.section.title.localeCompare(b.section.title),
-    );
-    for (const n of list) sortNodes(n.children);
-  };
-  sortNodes(roots);
-  return roots;
+  return buildTree(sections, {
+    id: (section) => section.id,
+    parentId: (section) => section.parentId,
+    node: (section) => ({ section, children: [] }),
+    compare: (a, b) =>
+      a.section.sortOrder - b.section.sortOrder ||
+      (a.section.sectionNo ?? "").localeCompare(b.section.sectionNo ?? "") ||
+      a.section.title.localeCompare(b.section.title),
+  });
 }
