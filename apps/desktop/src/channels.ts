@@ -32,6 +32,13 @@ export const CHANNELS = {
    * page is the same web build a browser gets.
    */
   checkUpdate: "weaveforge:check-update",
+  /**
+   * The shell's own settings: read one, keep one. What may be named and why
+   * these live outside the renderer is `preference-store.ts`; these are only
+   * the strings.
+   */
+  preferenceRead: "weaveforge:preference-read",
+  preferenceWrite: "weaveforge:preference-write",
 } as const;
 
 /**

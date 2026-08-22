@@ -70,7 +70,24 @@ export interface DesktopBridge {
    * page can read it.
    */
   checkUpdate(): Promise<DesktopUpdate | null>;
+
+  /**
+   * Reads one of the shell's own settings, or null if it has never been set.
+   *
+   * These are the few things the *window* remembers rather than the app: they
+   * have to survive a reinstall, or be answerable before there is a session to
+   * answer them from. A browser has no equivalent and needs none — it is
+   * already online, and its settings live with its account.
+   */
+  readPreference(name: DesktopPreferenceName): Promise<DesktopPreferenceValue>;
+
+  /** Keeps one. Writing null forgets it. */
+  writePreference(name: DesktopPreferenceName, value: DesktopPreferenceValue): Promise<void>;
 }
+
+/** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
+export type DesktopPreferenceName = "sync-offer-shown" | "sync-target";
+export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {
   /** The newer version, as `0.6.0`. */

@@ -13,6 +13,7 @@ import {
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
+import { PreferenceStore } from "./preference-store";
 import { fetchReleases, findUpdate } from "./update-check";
 
 /**
@@ -224,6 +225,27 @@ async function offerUpdate(): Promise<void> {
 
 // Thin on purpose: what these do lives in `handlers.ts`, which the tests can
 // reach without an Electron app running.
+/**
+ * The shell's settings file, opened on each call.
+ *
+ * A factory rather than a value because `getPath` needs an app that is ready,
+ * and this module is evaluated before that. Reading the file per call also
+ * means a second window — or a second instance that lost the lock race — never
+ * writes back a copy it read minutes ago.
+ */
+function preferenceStore(): PreferenceStore {
+  const file = path.join(app.getPath("userData"), "preferences.json");
+  return new PreferenceStore({
+    read: () => fs.promises.readFile(file, "utf8").catch(() => null),
+    write: (contents) => fs.promises.writeFile(file, contents, "utf8"),
+  });
+}
+
+ipcMain.handle(CHANNELS.preferenceRead, (_event, name: unknown) => preferenceStore().read(name));
+ipcMain.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
+  preferenceStore().write(name, value),
+);
+
 ipcMain.handle(CHANNELS.fetchTitle, (_event, url: unknown) => handleFetchTitle(url));
 ipcMain.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(url));
 // The settings panel asking, rather than the shell announcing. A failure is
