@@ -4,7 +4,11 @@ import { e2eEnabled } from "./e2e/helpers/env.js";
 
 loadLocalDevEnv();
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3210";
+// 3100, not a port of our choosing: the data backend answers CORS from an
+// allowlist (infra/oci/Caddyfile), and an origin outside it gets a 403 on the
+// preflight — so every signed-in spec failed on the first query, whatever the
+// spec was testing. 3100 is on that list and 3000 is left to `npm run dev`.
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3100";
 const ci = Boolean(process.env.CI);
 const enabled = e2eEnabled();
 // The editor spec drives a file:// page it bundles itself: no server to talk to

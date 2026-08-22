@@ -14,7 +14,7 @@ export default async function globalSetup(_config: FullConfig) {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
   const browser = await chromium.launch();
-  const context = await browser.newContext({ baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3210" });
+  const context = await browser.newContext({ baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3100" });
   const page = await context.newPage();
   const user = e2eUserA();
 
