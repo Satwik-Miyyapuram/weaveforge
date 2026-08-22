@@ -70,7 +70,32 @@ export interface DesktopBridge {
    * page can read it.
    */
   checkUpdate(): Promise<DesktopUpdate | null>;
+
+  /**
+   * The operating system's keychain, for the few credentials worth keeping.
+   *
+   * A browser has no equivalent, and this is the one place that distinction
+   * changes a policy rather than a mechanism. The AI provider key is held in
+   * memory and nowhere else in a browser, deliberately — storage the origin can
+   * read is storage this app manages, and a credential the reader controls
+   * should not become one we hold. On a machine with a keychain the operating
+   * system holds it instead, and what reaches the disk is a blob no other user
+   * account can decrypt, so the reasoning that forbids it in a browser is the
+   * reasoning that permits it here.
+   *
+   * `name` is checked in the main process against a short list; an unknown name
+   * is refused rather than stored. `write` rejects when the machine has no
+   * keychain backend, and it never falls back to something weaker — a refusal
+   * means the credential stays in memory for the session, which is the browser
+   * behaviour and is correct.
+   */
+  readSecret(name: DesktopSecretName): Promise<string | null>;
+  writeSecret(name: DesktopSecretName, value: string): Promise<void>;
+  clearSecret(name: DesktopSecretName): Promise<void>;
 }
+
+/** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */
+export type DesktopSecretName = "ai-provider";
 
 export interface DesktopUpdate {
   /** The newer version, as `0.6.0`. */
