@@ -30,11 +30,6 @@
   line-height: 16px;
   text-align: center;
 }
-.entity-icon-btn.is-active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--pill);
-}
 .graph-focus-btn {
   flex: none;
   margin-left: auto;
