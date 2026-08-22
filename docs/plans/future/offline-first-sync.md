@@ -327,7 +327,7 @@ requires the next phase to be worth having.
 
 | Phase | Scope | Est. |
 |-------|-------|------|
-| **0. The app opens offline** | Bundle the built app inside Electron instead of `loadURL` to a remote origin (**D1**); an offline route state for the PWA. Tier 1. No data sync. | ~250 |
+| **0. The app opens offline** | Bundle the built app inside Electron instead of `loadURL` to a remote origin (**D1**); an offline route state for the PWA; the shell's preference file, for the shown-once bit and what follows it. Tier 1. No data sync. | ~300 |
 | **1. Reads survive a reload** | Persist the existing screen caches to IndexedDB with an explicit staleness contract. Tier 2, web and desktop, no schema change. | ~300 |
 | **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local`, synthetic local user for the RLS role switch (**D2**). The app is fully usable with no account. | ~450 |
 | **3. Schema for sync** | `server_seq`, tombstones, base version, change-feed RPC, RLS over the feed. Server-side only, no client change. | ~350 SQL |
@@ -335,7 +335,7 @@ requires the next phase to be worth having.
 | **5. Conflicts** | Three-way merge for kind (b), conflicts table, the banner UI, dead-letter list. | ~450 |
 | **6. Blobs and scope** | Per-project offline toggle, PDF LRU with quota UI. | ~250 |
 
-Roughly 2,700 lines across six phases. Against a ~100k-line codebase that is
+Roughly 2,750 lines across six phases. Against a ~100k-line codebase that is
 about 2.5% — but it is 2,600 lines of the hardest-to-test kind, so the ratio
 understates it. Phases 3–5 need a test harness that simulates two clients with
 independent clocks and a partitioned network; budget that as part of phase 3, not
@@ -429,6 +429,25 @@ What that means concretely:
 - **The settings surface has no session section** until sync is on. Nothing
   renders a signed-out state, because signed-out is not a state — it is the
   normal condition of an app that has never needed an account.
+- **The offer is made once, and then it lives in settings.** On first open the
+  app shows the sync opt-in a single time — one card, dismissible, not a modal
+  that blocks the app behind it. Whatever the answer, it is never shown
+  unprompted again: after that it is a row in Settings → Sync and nothing else.
+  No second prompt on the third launch, no banner that returns after an update,
+  no nag when a project grows past some size. An app that asks twice has
+  learned that asking works, and the reader learns to dismiss without reading.
+
+  This needs one bit persisted — *has the offer been made* — and it has to
+  survive both a reload and a reinstall-over-upgrade, so it cannot live in the
+  renderer. It goes in the shell's own data directory, beside the keychain
+  file, through the same preload channel shape (`apps/desktop/src/main.ts`
+  resolves `app.getPath("userData")` for both). It is **not** encrypted:
+  `safeStorage` exists to keep a credential from being readable, and a boolean
+  about a dismissed card is not a credential — sealing it would buy nothing and
+  would imply the file holds something it does not. Secrets go through
+  `secret-store.ts`; preferences go in a plain file beside it. The web build
+  has neither and shows nothing, which is correct: a browser is already online
+  and already signed in by the time it renders.
 - **The opt-in is one flow with four steps, in this order**, and it is the only
   place any of them appear:
   1. sign in (or create an account),
