@@ -9,21 +9,13 @@ import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "../lib/paper-images-md";
 import { paperImageThumbnailPath } from "../lib/image-variants";
+import { stripUnresolvedImageRefs } from "@/lib/markdown-image-refs";
 
 const PAPER_IMAGES_BUCKET = "paper-images";
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function stripUnresolved(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  let next = stripRegionMarkers(normalizeMarkdownImageSyntax(body));
-  for (const path of paths) {
-    if (urls.has(path)) continue;
-    const ref = `${PAPER_IMAGE_PREFIX}${path}`;
-    next = next.replace(new RegExp(`!\\[[^\\]]*\\]\\(${escapeRegExp(ref)}\\)`, "g"), "");
-  }
-  return next;
+  const normalized = stripRegionMarkers(normalizeMarkdownImageSyntax(body));
+  return stripUnresolvedImageRefs(normalized, PAPER_IMAGE_PREFIX, paths, urls);
 }
 
 /** Renders a paper note's markdown with inline images resolved to decrypted blob URLs. */

@@ -11,21 +11,12 @@ import {
   parseArtifactRefs,
 } from "../application/artifact-refs";
 import { resolveArtifactRefsMarkdown } from "../application/resolve-artifact-markdown";
+import { stripUnresolvedImageRefs } from "@/lib/markdown-image-refs";
 
 const REPORT_IMAGES_BUCKET = "report-images";
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function stripUnresolved(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  let next = normalizeMarkdownImageSyntax(body);
-  for (const path of paths) {
-    if (urls.has(path)) continue;
-    const ref = `${REPORT_IMAGE_PREFIX}${path}`;
-    next = next.replace(new RegExp(`!\\[[^\\]]*\\]\\(${escapeRegExp(ref)}\\)`, "g"), "");
-  }
-  return next;
+  return stripUnresolvedImageRefs(normalizeMarkdownImageSyntax(body), REPORT_IMAGE_PREFIX, paths, urls);
 }
 
 /** Renders section notes markdown with `reportimg:` and `expartifact:` resolved. */
