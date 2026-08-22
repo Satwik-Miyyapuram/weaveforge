@@ -160,7 +160,7 @@ export function makeWikilinkResolver(
 }
 
 /** Click handler for `a[data-wikilink]` anchors rendered by ShikiMarkdown. */
-function useWikilinkClick(
+export function useWikilinkClick(
   onCreateNote?: (title: string) => void,
 ): (event: React.MouseEvent<HTMLElement>) => void {
   const router = useRouter();
