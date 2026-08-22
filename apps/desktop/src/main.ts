@@ -1,8 +1,23 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from "electron";
+import fs from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  APP_HOST,
+  APP_ORIGIN as BUNDLE_ORIGIN,
+  APP_SCHEME,
+  appHeaders,
+  contentTypeFor,
+  resolveAppFile,
+} from "./app-protocol";
+import type { LocalClient } from "./local-db";
+import { LocalDbHost } from "./local-db-host";
+import { SecretStore } from "./secret-store";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
+import { PreferenceStore } from "./preference-store";
 import { fetchReleases, findUpdate } from "./update-check";
 
 /**
@@ -44,7 +59,18 @@ import { fetchReleases, findUpdate } from "./update-check";
  */
 declare const __DEFAULT_APP_URL__: string;
 
-const APP_URL = process.env.WEAVEFORGE_URL ?? __DEFAULT_APP_URL__;
+/** The static build, if this shell was packaged with one. See `app-protocol.ts`. */
+const BUNDLE = path.join(__dirname, "web");
+const bundled = fs.existsSync(path.join(BUNDLE, "index.html"));
+
+/**
+ * A bundled app is served from `app://`; without one the window falls back to
+ * the deployment, which is what a shell built before the offline work did. The
+ * environment variable still wins over both, because pointing the window at a
+ * dev server is how this is developed.
+ */
+const APP_URL =
+  process.env.WEAVEFORGE_URL ?? (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
 const APP_ORIGIN = new URL(APP_URL).origin;
 
 let mainWindow: BrowserWindow | null = null;
@@ -203,6 +229,27 @@ async function offerUpdate(): Promise<void> {
 
 // Thin on purpose: what these do lives in `handlers.ts`, which the tests can
 // reach without an Electron app running.
+/**
+ * The shell's settings file, opened on each call.
+ *
+ * A factory rather than a value because `getPath` needs an app that is ready,
+ * and this module is evaluated before that. Reading the file per call also
+ * means a second window — or a second instance that lost the lock race — never
+ * writes back a copy it read minutes ago.
+ */
+function preferenceStore(): PreferenceStore {
+  const file = path.join(app.getPath("userData"), "preferences.json");
+  return new PreferenceStore({
+    read: () => fs.promises.readFile(file, "utf8").catch(() => null),
+    write: (contents) => fs.promises.writeFile(file, contents, "utf8"),
+  });
+}
+
+ipcMain.handle(CHANNELS.preferenceRead, (_event, name: unknown) => preferenceStore().read(name));
+ipcMain.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
+  preferenceStore().write(name, value),
+);
+
 ipcMain.handle(CHANNELS.fetchTitle, (_event, url: unknown) => handleFetchTitle(url));
 ipcMain.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(url));
 // The settings panel asking, rather than the shell announcing. A failure is
@@ -211,6 +258,94 @@ ipcMain.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(u
 ipcMain.handle(CHANNELS.checkUpdate, async () => {
   if (!app.isPackaged) return null;
   return findUpdate({ currentVersion: app.getVersion(), fetchReleases });
+});
+
+/**
+ * Declares `app://` a real origin.
+ *
+ * Must happen before the app is ready — the flags are read when the renderer
+ * process starts, not when the handler is registered. `standard` is what gives
+ * the scheme an origin at all, and `secure` is what puts that origin in the
+ * same bucket as `https` for the storage APIs and the service worker.
+ */
+if (bundled) {
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: APP_SCHEME,
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+    },
+  ]);
+}
+
+/**
+ * Answers `app://` requests out of the bundle.
+ *
+ * A request for something the bundle does not have is a 404 rather than a
+ * thrown error: the renderer asks for plenty of things optionally, and a
+ * protocol handler that throws turns each of those into a console error with
+ * no useful text in it.
+ */
+function serveBundle(): void {
+  protocol.handle(APP_SCHEME, async (request) => {
+    if (new URL(request.url).hostname !== APP_HOST) return new Response(null, { status: 404 });
+
+    const file = resolveAppFile(BUNDLE, request.url, (candidate) => fs.existsSync(candidate));
+    if (!file) return new Response(null, { status: 404 });
+
+    const response = await net.fetch(pathToFileURL(file).toString());
+    return new Response(response.body, {
+      status: response.status,
+      headers: appHeaders(contentTypeFor(file)),
+    });
+  });
+}
+
+/**
+ * The keychain, wired to `safeStorage` and one file in the app's own data
+ * directory.
+ *
+ * The path is resolved lazily rather than at module load: `getPath` needs a
+ * ready app, and this module is evaluated before `whenReady`. Nothing readable
+ * is written — see `secret-store.ts` for what the file contains and what
+ * happens on a machine with no keychain backend.
+ */
+function secretStore(): SecretStore {
+  const file = path.join(app.getPath("userData"), "secrets.json");
+  return new SecretStore(safeStorage, {
+    read: () => readFile(file, "utf8").catch(() => null),
+    write: (contents) => writeFile(file, contents, { encoding: "utf8", mode: 0o600 }),
+  });
+}
+
+ipcMain.handle(CHANNELS.secretRead, (_event, name: unknown) => secretStore().read(name));
+ipcMain.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
+  secretStore().write(name, value),
+);
+ipcMain.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().clear(name));
+
+/**
+ * The local database, opened on first use under the app's own directory.
+ *
+ * PGlite is imported here and nowhere else, and lazily: it is a WASM Postgres,
+ * and an app that stays online for its whole life should never pay to load it.
+ */
+const localDb = new LocalDbHost({
+  migrations: [path.join(__dirname, "migrations"), path.join(__dirname, "migrations-local")],
+  open: async () => {
+    const { PGlite } = await import("@electric-sql/pglite");
+    const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
+    const dataDir = path.join(app.getPath("userData"), "local-db");
+    return (await PGlite.create({ dataDir, extensions: { pgcrypto } })) as unknown as LocalClient;
+  },
+});
+
+ipcMain.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
+  localDb.query(sql, params),
+);
+
+app.on("will-quit", (event) => {
+  event.preventDefault();
+  void localDb.close().finally(() => app.exit(0));
 });
 
 // One window per app, and on macOS the dock icon brings it back rather than
@@ -228,6 +363,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    if (bundled) serveBundle();
     // Started before the window, so a sign-in cannot come back to a port that
     // is not listening yet.
     loopback = startAuthLoopback(deliverSignIn);

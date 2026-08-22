@@ -10,7 +10,8 @@
     "prestart": "npm run build",
     "start": "electron .",
     "typecheck": "tsc --noEmit",
-    "package": "node scripts/build.mjs && electron-builder",
+    "build:web": "node scripts/build-web.mjs",
+    "package": "node scripts/build.mjs && node scripts/build-web.mjs && electron-builder",
     "test": "node --import tsx --test test/*.test.ts",
     "smoke": "node scripts/build.mjs && node scripts/smoke.mjs"
   },
@@ -65,5 +66,8 @@
     },
     "npmRebuild": false
   },
-  "author": "WeaveForge"
+  "author": "WeaveForge",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.5"
+  }
 }

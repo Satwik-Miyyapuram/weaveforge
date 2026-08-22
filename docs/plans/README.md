@@ -4,12 +4,12 @@ Implementation and strategy plans, sorted by lifecycle.
 
 | Folder | Meaning |
 |--------|---------|
+| [`future/`](future/) | Proposed, not started |
 | [`completed/`](completed/) | Delivered or archived (kept for history and cross-links) |
 
-`completed/` is the only folder that exists, because nothing is in flight on
-this board today. A new plan creates the folder it needs — `working/` for one
-being built, `future/` for one only proposed — and moves to `completed/` when it
-lands. Proposals that are not yet plans live in
+Nothing is in flight on this board today: `future/` holds proposals and
+`completed/` holds what landed. A plan that starts being built creates
+`working/`, and moves to `completed/` when it lands. Proposals that are not yet plans live in
 [`../future-work/`](../future-work/).
 
 An earlier `current/` folder held copies of two plans that had already been
@@ -38,3 +38,9 @@ archived versions and nothing linked to them, so they are gone.
   (entitlements and metering, status: proposed). Strategy lives in
   [`../pricing-strategy.md`](../pricing-strategy.md).
 - Other non-plan notes — [`../future-work/`](../future-work/) (backlog, overnight queue, handoffs).
+
+## Future
+
+| Plan | Notes |
+|------|-------|
+| [`offline-first-sync.md`](future/offline-first-sync.md) | Offline-first desktop and sync — data-kind classification, three-way merge, conflict policy. Proposal only |

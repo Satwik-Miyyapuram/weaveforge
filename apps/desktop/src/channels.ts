@@ -32,6 +32,30 @@ export const CHANNELS = {
    * page is the same web build a browser gets.
    */
   checkUpdate: "weaveforge:check-update",
+  /**
+   * The keychain: read one named secret, keep one, forget one. What may be
+   * named and what happens when the machine has no keychain is
+   * `secret-store.ts`; these are only the strings.
+   */
+  secretRead: "weaveforge:secret-read",
+  secretWrite: "weaveforge:secret-write",
+  secretClear: "weaveforge:secret-clear",
+  /**
+   * The shell's own settings: read one, keep one. What may be named and why
+   * these live outside the renderer is `preference-store.ts`; these are only
+   * the strings.
+   */
+  preferenceRead: "weaveforge:preference-read",
+  preferenceWrite: "weaveforge:preference-write",
+  /**
+   * One statement against the local database, answered with its rows.
+   *
+   * No transaction crosses: PGlite is a single connection, and a renderer that
+   * could open one could hold the only connection the app has while a tab sits
+   * behind a breakpoint. Each call is its own transaction on the far side, with
+   * the role and the claim set inside it — see `local-db.ts`.
+   */
+  dbQuery: "weaveforge:db-query",
 } as const;
 
 /**

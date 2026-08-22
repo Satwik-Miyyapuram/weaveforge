@@ -41,6 +41,13 @@ export interface FeatureModule {
   readonly navItems: readonly NavItem[];
   /** Routes this module contributes. */
   readonly routes: readonly RouteDef[];
+  /**
+   * The module has nothing to show without a server, so a build that has no
+   * server leaves it out entirely rather than shipping a screen that explains
+   * itself. Sharing, supervision and anything that reads another account's
+   * data is in this category; see the offline-first plan, D3 and D10.
+   */
+  readonly requiresNetwork?: boolean;
   /** Migration file names this module owns (documentation/ordering aid). */
   readonly migrations?: readonly string[];
 }
