@@ -327,15 +327,15 @@ requires the next phase to be worth having.
 
 | Phase | Scope | Est. |
 |-------|-------|------|
-| **0. The app opens offline** | Bundle the built app inside Electron instead of `loadURL` to a remote origin (**D1**); an offline route state for the PWA; the shell's preference file, for the shown-once bit and the sync target (**D7**). Tier 1. No data sync. | ~300 |
+| **0. The app opens offline** | Static export loaded from `file://` (**D8**), the handful of API routes the offline app needs moved to IPC, online-only screens absent (**D10**); an offline route state for the PWA; the shell's preference file, for the shown-once bit and the sync target (**D7**). Tier 1. No data sync. | ~450 |
 | **1. Reads survive a reload** | Persist the existing screen caches to IndexedDB with an explicit staleness contract. Tier 2, web and desktop, no schema change. | ~300 |
-| **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local`, synthetic local user for the RLS role switch (**D2**). The app is fully usable with no account. | ~450 |
+| **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local` on PGlite (**D9**), synthetic local user for the RLS role switch (**D2**). The app is fully usable with no account. | ~450 |
 | **3. Schema for sync** | `server_seq`, tombstones, base version, change-feed RPC, RLS over the feed. Server-side only, no client change. | ~350 SQL |
 | **4. Outbox and puller** | The opt-in flow (sign-in → quota and price check → adoption → pump, **D2**), suffix-renaming on a first adoption that collides (**D6**), op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. Personal projects only (**D3**). | ~750 |
 | **5. Conflicts** | Three-way merge for kind (b), conflicts table, the banner UI, dead-letter list. | ~450 |
 | **6. Blobs and scope** | Per-project offline toggle, PDF LRU with quota UI. | ~250 |
 
-Roughly 2,800 lines across six phases. Against a ~100k-line codebase that is
+Roughly 2,950 lines across six phases. Against a ~100k-line codebase that is
 about 2.5% — but it is 2,600 lines of the hardest-to-test kind, so the ratio
 understates it. Phases 3–5 need a test harness that simulates two clients with
 independent clocks and a partitioned network; budget that as part of phase 3, not
@@ -549,6 +549,38 @@ decorator in its composition root (`docs/future-work/billing-and-quota-plan.md`
 §9, the same mechanism already used for self-host builds); and a device may be
 pointed at only one server at a time — switching is a sign-out, with the same
 keep-or-wipe choice.
+
+**D8 — The desktop build is a static export, with no server of any kind
+inside it.** `next build` with `output: "export"`, loaded from `file://`. The
+alternative — running `next start` as a child process on localhost — was
+rejected for one reason: it would leave the app talking to a server, and an
+app that talks to a server is one where an online-only assumption can be
+introduced without anyone noticing for months. A static bundle makes "there is
+no network" a fact the build enforces rather than a property we maintain.
+
+The repository is unusually well suited to it, which is why this is cheap: no
+middleware, no server components, no `"use server"`, and one dynamic page
+(`/experiments/[id]`). Of the 34 API routes, 28 are org, sharing, SDK, account
+and hosted-integration endpoints, which are online-only under **D3** and
+**D10** and are simply absent. The remaining handful — `fetch-url`,
+`url-meta`, `pdf-proxy`, `arxiv`, local blob reads, `mcp` — become IPC
+handlers in the main process, and two of them (`fetchTitle`, `fetchImage`)
+already are, importing the same guard module the API route uses.
+
+**D9 — The local database is PGlite.** Already a dependency
+(`backend/test/pg-test-db.ts`), real Postgres compiled to WASM, in-process,
+nothing to install or supervise. It matters that it is *Postgres* rather than
+SQLite with a translation layer: RLS works, so `pg-runner.ts`'s role switch
+runs unchanged, and the migrations are the same files the server runs. The only
+extension the migrations name is `pgcrypto`, and it is there for
+`gen_random_uuid`, which has been built in since PG 13.
+
+**D10 — Screens that need the network are absent, not disabled.** Org,
+sharing, collaborators and the SDK surface do not render in an app that has not
+opted into sync. Nothing shows a "sign in to use this" state, because that is
+the account wall **D2** forbids wearing a different hat, and because a screen
+full of controls that do nothing is worse than a screen that is not there. They
+appear when sync is turned on, which is the same moment they start working.
 
 ### What these change
 
