@@ -9,6 +9,7 @@ import { emptyArray } from "@/lib/empty";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { LinkedOverleafReports } from "./linked-overleaf-reports";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
+import { ScreenHead } from "@/components/screen-head";
 
 /**
  * Overleaf tab — linked Overleaf projects + browser ZIP export.
@@ -35,20 +36,15 @@ export function ReportOverleafScreen() {
 
   return (
     <section className="screen report-overleaf-screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <h1 className="screen-title">Overleaf</h1>
-          <div className="screen-actions">
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={() => setExportOpen(true)}
-            >
-              Export LaTeX
-            </button>
-          </div>
-        </div>
-      </header>
+      <ScreenHead title="Overleaf">
+        <button
+          className="btn-primary"
+          type="button"
+          onClick={() => setExportOpen(true)}
+        >
+          Export LaTeX
+        </button>
+      </ScreenHead>
 
       {error && <p className="error">{error}</p>}
 

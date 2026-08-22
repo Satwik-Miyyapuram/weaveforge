@@ -24,6 +24,7 @@ import { PaperCard } from "./paper-card";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
 import { ListTagFilters } from "@/components/list-tag-filters";
+import { ScreenHead } from "@/components/screen-head";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -304,29 +305,24 @@ export function PapersScreen() {
 
   return (
     <section className="screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <div className="screen-actions">
-            <button
-              className="btn-primary"
-              type="button"
-              disabled={syncing}
-              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
-            >
-              {syncing ? "Syncing…" : "+ Paper"}
-            </button>
-            <button
-              className="btn-secondary"
-              type="button"
-              disabled={checkingAlerts}
-              onClick={() => void checkCitationAlerts()}
-            >
-              {checkingAlerts ? "Checking…" : "Check citations"}
-            </button>
-          </div>
-        </div>
-        {syncMsg && <p className="muted">{syncMsg}</p>}
-      </header>
+      <ScreenHead note={syncMsg && <p className="muted">{syncMsg}</p>}>
+        <button
+          className="btn-primary"
+          type="button"
+          disabled={syncing}
+          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+        >
+          {syncing ? "Syncing…" : "+ Paper"}
+        </button>
+        <button
+          className="btn-secondary"
+          type="button"
+          disabled={checkingAlerts}
+          onClick={() => void checkCitationAlerts()}
+        >
+          {checkingAlerts ? "Checking…" : "Check citations"}
+        </button>
+      </ScreenHead>
 
       {composeOpen && (
         <Modal

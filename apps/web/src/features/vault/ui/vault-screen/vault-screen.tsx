@@ -25,6 +25,7 @@ import { NoteCard, noteBodyText } from "./note-card";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
 import { ListTagFilters } from "@/components/list-tag-filters";
+import { ScreenHead } from "@/components/screen-head";
 
 export function VaultScreen() {
   const router = useRouter();
@@ -293,46 +294,42 @@ export function VaultScreen() {
 
   return (
     <section className="screen vault-screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <div className="screen-actions">
-            <button
-              className="btn-primary"
-              type="button"
-              disabled={importing}
-              onClick={openCompose}
-            >
-              {importing ? "Importing…" : "+ Note"}
-            </button>
-            <input
-              ref={importZipRef}
-              type="file"
-              hidden
-              accept=".zip,application/zip"
-              onChange={(e) => {
-                void onImportFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <input
-              ref={(el) => {
-                importFolderRef.current = el;
-                if (el) {
-                  el.setAttribute("webkitdirectory", "");
-                  el.setAttribute("directory", "");
-                }
-              }}
-              type="file"
-              hidden
-              multiple
-              onChange={(e) => {
-                void onImportFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-          </div>
-        </div>
-      </header>
+      <ScreenHead>
+        <button
+          className="btn-primary"
+          type="button"
+          disabled={importing}
+          onClick={openCompose}
+        >
+          {importing ? "Importing…" : "+ Note"}
+        </button>
+        <input
+          ref={importZipRef}
+          type="file"
+          hidden
+          accept=".zip,application/zip"
+          onChange={(e) => {
+            void onImportFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={(el) => {
+            importFolderRef.current = el;
+            if (el) {
+              el.setAttribute("webkitdirectory", "");
+              el.setAttribute("directory", "");
+            }
+          }}
+          type="file"
+          hidden
+          multiple
+          onChange={(e) => {
+            void onImportFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </ScreenHead>
 
       {composeOpen && (
         <Modal
