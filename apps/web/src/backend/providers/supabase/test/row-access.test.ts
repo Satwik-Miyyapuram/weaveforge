@@ -55,7 +55,7 @@ test("the row comes back as-is, selecting every column by default", async () => 
 test("an explicit column list is passed through", async () => {
   const { db, calls } = fakeDb({ data: null });
   await rowById(db, "share_links", "s1", "id, access");
-  assert.equal(calls[0].columns, "id, access");
+  assert.equal(calls[0]?.columns, "id, access");
 });
 
 test("a PostgREST error is thrown rather than swallowed", async () => {
