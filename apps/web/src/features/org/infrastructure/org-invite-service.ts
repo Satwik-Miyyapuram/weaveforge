@@ -16,6 +16,7 @@ import {
   generateOrgInviteCode,
   hashOrgInviteCodeInput,
 } from "@weaveforge/core/org-crypto";
+import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
 
 interface CodeRow {
   id: string;
@@ -257,21 +258,11 @@ export class OrgInviteService {
   > {
     const { data, error } = await this.admin()
       .from("org_memberships")
-      .select("org_id, role, joined_via, organizations(name)")
+      .select(MEMBERSHIP_ROW_COLUMNS)
       .eq("user_id", userId)
       .order("joined_at", { ascending: true });
     if (error) throw error;
-    return (data ?? []).map((row) => {
-      const org = row.organizations as { name: string } | { name: string }[] | null;
-      const name = Array.isArray(org) ? org[0]?.name : org?.name;
-      const joinedVia = (row as { joined_via?: string }).joined_via;
-      return {
-        orgId: row.org_id as string,
-        orgName: name ?? "Lab",
-        role: row.role as OrgInviteRole,
-        joinSource: joinedVia === "invite" || joinedVia === "create" ? joinedVia : "legacy",
-      };
-    });
+    return (data ?? []).map(membershipViewFromRow);
   }
 
   async switchActiveOrganization(userId: string, orgId: string): Promise<void> {
