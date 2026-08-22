@@ -1,17 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { OrgInviteValidationError, OrgValidationError } from "@weaveforge/core";
-import { bearerToken, orgApiErrorResponse, requireOrgApiUser } from "../_shared";
-
-test("bearerToken: strips a case-insensitive Bearer prefix", () => {
-  assert.equal(bearerToken(new Request("http://x", { headers: { authorization: "Bearer abc123" } })), "abc123");
-  assert.equal(bearerToken(new Request("http://x", { headers: { authorization: "bearer abc123" } })), "abc123");
-});
-
-test("bearerToken: null when no Authorization header", () => {
-  assert.equal(bearerToken(new Request("http://x")), null);
-});
-
+import { orgApiErrorResponse, requireOrgApiUser } from "../_shared";
 test("orgApiErrorResponse: maps validation errors to 400", async () => {
   for (const err of [new OrgInviteValidationError("bad code"), new OrgValidationError("bad name")]) {
     const res = orgApiErrorResponse(err);

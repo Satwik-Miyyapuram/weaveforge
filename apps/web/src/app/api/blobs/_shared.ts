@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { bearerToken } from "@/storage/server/blob-api";
+import { bearerToken } from "@/lib/bearer-token";
 import { readStorageConfig } from "@/storage/config";
 import { formatError } from "@/lib/format-error";
 
