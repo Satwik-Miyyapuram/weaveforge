@@ -120,6 +120,11 @@ What follows from it:
   A user with 4,000 local papers signing into a 1,000-paper tier must be told
   what will happen *before* a partial adoption leaves their library split across
   two owners. Check the count, offer the upgrade, then adopt in one pass.
+- **Entitlements come from whichever server the device syncs with.** A
+  self-hosted target has no quota decorator in its composition root — the same
+  mechanism as §9 — so a reader running their own server is unmetered without a
+  single conditional anywhere in the feature code. Ours is the default target
+  (`docs/pricing-strategy.md` §3.1).
 - **A lapsed subscription reverts a device to local-only.** It does not lock,
   wipe, or read-only the local data. Anything else is unconscionable in this
   market — see `docs/pricing-strategy.md` §3.1.

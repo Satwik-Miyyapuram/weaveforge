@@ -90,6 +90,15 @@ makes the boundary visible: everything on this side of the network is free.
   running that server themselves, which is the promise intact.
 - **A per-device charge is tempting and should be refused.** Metering devices
   punishes the exact behaviour sync exists to serve. Meter bytes and cadence.
+- **Self-hosted sync is supported and unpaid.** The sync target is an address,
+  and pointing it at a server the reader runs is a configuration rather than a
+  workaround (`offline-first-sync.md` **D7**). They get multi-device sync and
+  collaboration and pay us nothing, because in that arrangement nobody is
+  holding their bytes but them. Ours is the default and what the installer
+  ships with; that is the whole of the advantage we take. This is §1 applied
+  literally — anything the hosted service can do that a self-hosted one cannot
+  is a capability we have started selling, which is the thing we said we would
+  not do.
 
 **What must never happen:** local-only data being held hostage to a lapsed
 subscription. If someone stops paying, sync stops; the local app keeps working

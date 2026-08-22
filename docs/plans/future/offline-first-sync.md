@@ -327,15 +327,15 @@ requires the next phase to be worth having.
 
 | Phase | Scope | Est. |
 |-------|-------|------|
-| **0. The app opens offline** | Bundle the built app inside Electron instead of `loadURL` to a remote origin (**D1**); an offline route state for the PWA; the shell's preference file, for the shown-once bit and what follows it. Tier 1. No data sync. | ~300 |
+| **0. The app opens offline** | Bundle the built app inside Electron instead of `loadURL` to a remote origin (**D1**); an offline route state for the PWA; the shell's preference file, for the shown-once bit and the sync target (**D7**). Tier 1. No data sync. | ~300 |
 | **1. Reads survive a reload** | Persist the existing screen caches to IndexedDB with an explicit staleness contract. Tier 2, web and desktop, no schema change. | ~300 |
 | **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local`, synthetic local user for the RLS role switch (**D2**). The app is fully usable with no account. | ~450 |
 | **3. Schema for sync** | `server_seq`, tombstones, base version, change-feed RPC, RLS over the feed. Server-side only, no client change. | ~350 SQL |
-| **4. Outbox and puller** | The opt-in flow (sign-in → quota and price check → adoption → pump, **D2**), op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. Personal projects only (**D3**). | ~700 |
+| **4. Outbox and puller** | The opt-in flow (sign-in → quota and price check → adoption → pump, **D2**), suffix-renaming on a first adoption that collides (**D6**), op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. Personal projects only (**D3**). | ~750 |
 | **5. Conflicts** | Three-way merge for kind (b), conflicts table, the banner UI, dead-letter list. | ~450 |
 | **6. Blobs and scope** | Per-project offline toggle, PDF LRU with quota UI. | ~250 |
 
-Roughly 2,750 lines across six phases. Against a ~100k-line codebase that is
+Roughly 2,800 lines across six phases. Against a ~100k-line codebase that is
 about 2.5% — but it is 2,600 lines of the hardest-to-test kind, so the ratio
 understates it. Phases 3–5 need a test harness that simulates two clients with
 independent clocks and a partitioned network; budget that as part of phase 3, not
@@ -483,7 +483,74 @@ re-syncs from scratch, and local-only changes made in that window are surfaced
 as conflicts rather than merged. (If a longer window is ever wanted, it is a
 storage-cost decision, not a redesign.)
 
-### What D1–D3 change
+**D5 — A local row has no server counterpart until sign-in, and its id is
+already the one it will keep.** Nothing on the server corresponds to a local
+project, paper or note before the account exists; there is no shadow record, no
+reserved id, no pre-registration. But the id itself is minted locally as a
+UUID, so it is *valid* server-side the moment it is uploaded. Those two things
+are not in tension and both matter:
+
+- Creating anything is a local write and never needs a network round trip, which
+  is what D1 requires.
+- Adoption is an ownership change, not an id remapping pass. Nothing that
+  references a row — a citation, a link, an edge in the graph, an exported
+  file — has to be rewritten when the row becomes ours to hold. A remapping
+  pass over a research library is exactly the kind of migration that fails
+  halfway and leaves dangling references, and this avoids needing one at all.
+- Two machines minting ids independently do not collide, which is what makes
+  D6 possible.
+
+**D6 — Two local installs adopted into one account are joined, never fused.**
+This is the case where someone has been working offline on a laptop and a
+desktop and then signs both into the same account. The rule:
+
+> **The first adoption keeps both sides. A collision is renamed with a suffix,
+> not merged.** Two projects with the same name become `Thesis` and
+> `Thesis (desktop-2)`. Nothing is combined, nothing is overwritten, nothing is
+> deleted.
+
+Why renaming rather than merging: at this moment we have no shared history
+between the two libraries — no common ancestor, no base version, nothing that
+makes a three-way merge meaningful. Two projects that happen to share a name may
+be the same work in two states or two entirely different things, and the app
+cannot tell. Fusing them would silently interleave two unrelated sets of notes
+into one, which is unrecoverable; two projects side by side is a five-minute
+tidy-up the reader can do knowingly, or ignore.
+
+This applies to **the first adoption only**. After it, both devices share a
+server history and every subsequent write goes through the normal machinery in
+§4 — per-field three-way merge, add-wins sets, CRDT bodies. There is exactly one
+suffix-renaming event in a device's life, and it happens at the moment there is
+no better answer available.
+
+The suffix names the device rather than counting (`(desktop-2)`, not `(2)`),
+because the reader knows which machine they were working on and that is the
+information that lets them decide what to keep.
+
+**D7 — Sync can point at a server the reader runs, and then we are not paid.**
+The hosted service is the default and what the installer is configured for. It
+is not the only option: the sync target is an address, and pointing it at a
+self-hosted WeaveForge server is a supported configuration, not a workaround.
+Someone who runs their own gets multi-device sync, shared projects and
+collaboration with no subscription, because in that arrangement nobody is
+holding their bytes but them.
+
+This costs nothing to allow and is the same promise the codebase already makes
+(`docs/pricing-strategy.md` §1: we sell the operator's job, not a capability).
+It also constrains the design in a useful direction — anything the hosted
+service does that a self-hosted one cannot is a feature that has quietly become
+a lock-in, and the change feed, adoption and merge machinery all have to work
+against a plain Postgres and PostgREST or the claim is false.
+
+What it needs: the sync target is a setting, validated on entry, stored in the
+shell's preference file beside the shown-once bit; entitlements come from
+whichever server is configured, and a self-hosted one simply has no quota
+decorator in its composition root (`docs/future-work/billing-and-quota-plan.md`
+§9, the same mechanism already used for self-host builds); and a device may be
+pointed at only one server at a time — switching is a sign-out, with the same
+keep-or-wipe choice.
+
+### What these change
 
 - The local database has a **local-only user identity** when nobody is signed
   in — a synthetic uuid the RLS role switch (`pg-runner.ts`) binds to, so
@@ -501,14 +568,3 @@ storage-cost decision, not a redesign.)
 - Sync is **single-user multi-device** only, which is a materially easier
   problem than multi-user: conflicts are one person's own edits from two of
   their own devices, so "keep both and tell me" is an answer they can act on.
-
-### Still open
-
-1. Does an offline-only user get a **local project** with no server counterpart,
-   or does the app create a project id that would be valid server-side if they
-   later sign in? The second is slightly more work now and avoids an id
-   remapping pass during adoption. Leaning toward the second.
-2. What happens to a **local-only install on a second machine**? Two independent
-   local vaults, both later adopted into one account, will duplicate every
-   project. Either adoption is limited to the first device, or the second device
-   is offered "merge into account" versus "replace local" at sign-in.
