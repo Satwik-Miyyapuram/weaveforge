@@ -47,6 +47,15 @@ export const CHANNELS = {
    */
   preferenceRead: "weaveforge:preference-read",
   preferenceWrite: "weaveforge:preference-write",
+  /**
+   * One statement against the local database, answered with its rows.
+   *
+   * No transaction crosses: PGlite is a single connection, and a renderer that
+   * could open one could hold the only connection the app has while a tab sits
+   * behind a breakpoint. Each call is its own transaction on the far side, with
+   * the role and the claim set inside it — see `local-db.ts`.
+   */
+  dbQuery: "weaveforge:db-query",
 } as const;
 
 /**

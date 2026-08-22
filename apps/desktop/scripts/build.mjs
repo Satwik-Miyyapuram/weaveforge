@@ -41,7 +41,9 @@ const shared = {
   sourcemap: true,
   // Electron supplies these; bundling them would mean two copies of Electron's
   // own module registry and a `node:` builtin resolved at the wrong layer.
-  external: ["electron"],
+  // PGlite ships WASM and its own filesystem shims; bundling it would inline
+  // megabytes of base64 and still not resolve the assets it loads at runtime.
+  external: ["electron", "@electric-sql/pglite"],
   alias: { "@": webSrc, "@weaveforge/core": coreSrc },
   define: {
     __APP_VERSION__: JSON.stringify(version),
@@ -64,6 +66,19 @@ fs.mkdirSync(path.join(root, "build"), { recursive: true });
  * takes nothing else.
  */
 fs.copyFileSync(iconPng, path.join(root, "dist/icon.png"));
+
+/**
+ * The migrations, shipped beside the bundle.
+ *
+ * The same files the server runs — copied rather than re-authored, because a
+ * local database whose schema is a hand-kept second version of the real one is
+ * a sync bug waiting for a release to happen in.
+ */
+const migrations = path.resolve(root, "../../supabase/migrations");
+fs.mkdirSync(path.join(root, "dist/migrations"), { recursive: true });
+for (const file of fs.readdirSync(migrations).filter((name) => name.endsWith(".sql"))) {
+  fs.copyFileSync(path.join(migrations, file), path.join(root, "dist/migrations", file));
+}
 fs.writeFileSync(path.join(root, "build/icon.ico"), ico(fs.readFileSync(iconPng)));
 
 /**

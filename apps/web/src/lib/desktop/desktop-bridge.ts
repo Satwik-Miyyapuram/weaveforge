@@ -105,6 +105,15 @@ export interface DesktopBridge {
   readSecret(name: DesktopSecretName): Promise<string | null>;
   writeSecret(name: DesktopSecretName, value: string): Promise<void>;
   clearSecret(name: DesktopSecretName): Promise<void>;
+
+  /**
+   * Run one statement against the local database and get its rows.
+   *
+   * Present only on the desktop, and only meaningful there: the local database
+   * is a process the browser does not have. Each call is its own transaction on
+   * the far side, so nothing here can hold a connection open.
+   */
+  queryLocalDb(sql: string, params?: readonly (string | number | boolean | null)[]): Promise<unknown[]>;
 }
 
 /** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */
