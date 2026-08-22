@@ -115,11 +115,6 @@
   border-radius: 10px;
 }
 .comments-trigger-detail > svg { flex: none; }
-.comments-trigger-detail[aria-expanded="true"] {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--pill);
-}
 .comments-toggle--detail .comments-sheet {
   width: min(calc(100vw - 28px), 420px);
   max-height: min(55vh, 420px);

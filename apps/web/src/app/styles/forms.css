@@ -39,8 +39,13 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
+/* One focus ring for every text control, wherever it lives. Four files each
+   spelled out the same accent border and halo, so they had drifted apart. */
 input:focus,
-textarea:focus {
+textarea:focus,
+.custom-select-button:focus,
+.summary-input:focus,
+.markdown-code-editor:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
@@ -54,9 +59,6 @@ textarea:focus {
   background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
   outline: none; transition: border-color 0.15s, box-shadow 0.15s;
   cursor: pointer; text-align: left;
-}
-.custom-select-button:focus {
-  border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .custom-select-button:disabled { opacity: 0.6; cursor: default; }
 /* min-width:0 lets the flex child shrink so text-overflow: ellipsis actually
