@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
-import { bearerToken, blobRegistryForToken, userIdFromToken } from "@/storage/server/blob-api";
+import { blobRegistryForToken, userIdFromToken } from "@/storage/server/blob-api";
 import { blobContentUrl } from "@/storage/server/blob-view-token";
-import { readStorageConfig } from "@/storage/config";
-import { formatError } from "@/lib/format-error";
 import { clampTtlSeconds, MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
+import { blobFailure, tieredBlobToken } from "../_shared";
 
 export async function POST(request: Request) {
-  if (readStorageConfig().provider !== "tiered") {
-    return NextResponse.json({ error: "BLOB_PROVIDER is not tiered." }, { status: 503 });
-  }
-  const token = bearerToken(request);
-  if (!token) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  const gate = tieredBlobToken(request);
+  if ("refusal" in gate) return gate.refusal;
+  const token = gate.token;
 
   let body: { bucket?: string; paths?: string[]; ttlSeconds?: number };
   try {
@@ -62,7 +59,6 @@ export async function POST(request: Request) {
     );
     return NextResponse.json({ urls });
   } catch (err) {
-    const message = formatError(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return blobFailure(err);
   }
 }

@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
 import {
   assertAllowedBlobBucket, assertBlobPathOwned, } from "@/storage/server/blob-access";
-import { bearerToken, buildTieredBlobStoreForToken, userIdFromToken } from "@/storage/server/blob-api";
-import { readStorageConfig } from "@/storage/config";
-import { formatError } from "@/lib/format-error";
+import { buildTieredBlobStoreForToken, userIdFromToken } from "@/storage/server/blob-api";
+import { blobFailure, tieredBlobToken } from "../_shared";
 
 export async function POST(request: Request) {
-  if (readStorageConfig().provider !== "tiered") {
-    return NextResponse.json({ error: "BLOB_PROVIDER is not tiered." }, { status: 503 });
-  }
-  const token = bearerToken(request);
-  if (!token) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  const gate = tieredBlobToken(request);
+  if ("refusal" in gate) return gate.refusal;
+  const token = gate.token;
 
   let body: { bucket?: string; path?: string };
   try {
@@ -30,8 +27,6 @@ export async function POST(request: Request) {
     await store.remove(body.bucket, body.path);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = formatError(err);
-    const status = message.startsWith("Forbidden") ? 403 : message === "Not authenticated." ? 401 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return blobFailure(err);
   }
 }
