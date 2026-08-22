@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PAPER_STATUSES, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { confirmRemovePaper } from "./remove-paper";
 import { EntityCard } from "@/components/entity-card";
 import { PaperCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
@@ -36,16 +37,7 @@ export function PaperCard({
     }
   }
 
-  async function remove() {
-    if (!confirm(`Remove "${paper.title}"? This also deletes its list memberships and graph edges.`)) return;
-    setBusy(true);
-    try {
-      await getContainer().papers.deletePaper(paper);
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
-  }
+  const remove = () => confirmRemovePaper(paper, setBusy, onChanged);
 
   const authorsLine =
     paper.authors.length > 0

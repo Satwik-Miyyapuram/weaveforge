@@ -1,23 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
 import { resetAppData } from "@/lib/client-runtime-recovery";
+import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
 
 /**
  * Route error UI — replaces Next’s opaque “Application error” page when a
  * route boundary catches. Reset clears SW + local data (needed on Android TWA;
  * Clear cache alone is often not enough).
  */
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
+export default function Error({ error, reset }: ErrorBoundaryProps) {
+  useLoggedError(error);
 
   return (
     <main className="app-shell" style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}>
@@ -26,7 +18,7 @@ export default function Error({
         On Android, Clear cache is often not enough — use Reset app data below, or
         Settings → Apps → WeaveForge → Storage → Clear storage.
       </p>
-      {error?.message ? (
+      {errorDetail(error) ? (
         <pre
           className="muted"
           style={{
@@ -37,8 +29,7 @@ export default function Error({
             overflow: "auto",
           }}
         >
-          {error.message}
-          {error.digest ? `\ndigest: ${error.digest}` : ""}
+          {errorDetail(error)}
         </pre>
       ) : null}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

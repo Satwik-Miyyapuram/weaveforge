@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { PAPER_STATUSES, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { confirmRemovePaper } from "./remove-paper";
 import { formatError } from "@/lib/format-error";
 import { BellIcon, BellOffIcon, DeleteIcon, EditIcon } from "@/components/view-icons";
 import { RelatedPanel } from "@/components/related-panel";
@@ -157,16 +158,7 @@ export function PaperNote({
     setSaveError(null);
   }
 
-  async function remove() {
-    if (!confirm(`Remove "${paper.title}"? This also deletes its list memberships and graph edges.`)) return;
-    setBusy(true);
-    try {
-      await getContainer().papers.deletePaper(paper);
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
-  }
+  const remove = () => confirmRemovePaper(paper, setBusy, onChanged);
 
   async function toggleCitationTracking() {
     if (!canTrackCitations || trackingCitations == null) return;
