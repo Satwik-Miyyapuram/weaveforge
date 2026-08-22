@@ -4,6 +4,7 @@ import {
   type ProjectRow,
   toDomain,
 } from "./project-rows";
+import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "projects";
 
@@ -14,9 +15,8 @@ export class SupabaseProjectRepository implements IProjectRepository {
   ) {}
 
   async getById(id: string): Promise<Project | null> {
-    const { data, error } = await this.db.from(TABLE).select("*").eq("id", id).maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as ProjectRow) : null;
+    const row = await rowById<ProjectRow>(this.db, TABLE, id);
+    return row ? toDomain(row) : null;
   }
   async list(): Promise<Project[]> {
     const { data, error } = await this.db.from(TABLE).select("*").order("created_at");
@@ -35,7 +35,6 @@ export class SupabaseProjectRepository implements IProjectRepository {
     if (error) throw error;
   }
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await deleteRowById(this.db, TABLE, id);
   }
 }

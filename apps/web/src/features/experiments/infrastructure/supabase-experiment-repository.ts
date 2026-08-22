@@ -7,6 +7,7 @@ import type {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import { experimentToDomain, experimentToRow, type ExperimentRow } from "./experiment-rows";
+import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "experiments";
 
@@ -18,9 +19,8 @@ export class SupabaseExperimentRepository implements IExperimentRepository {
   private get pid() { return this.ctx.projectId; }
 
   async getById(id: string): Promise<Experiment | null> {
-    const { data, error } = await this.db.from(TABLE).select("*").eq("id", id).maybeSingle();
-    if (error) throw error;
-    return data ? experimentToDomain(data as ExperimentRow) : null;
+    const row = await rowById<ExperimentRow>(this.db, TABLE, id);
+    return row ? experimentToDomain(row) : null;
   }
   async list(filter?: ExperimentFilter): Promise<Experiment[]> {
     let q = this.db.from(TABLE).select("*");
@@ -42,8 +42,7 @@ export class SupabaseExperimentRepository implements IExperimentRepository {
     if (error) throw error;
   }
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await deleteRowById(this.db, TABLE, id);
   }
 }
 

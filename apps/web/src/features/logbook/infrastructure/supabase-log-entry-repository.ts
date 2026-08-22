@@ -8,6 +8,7 @@ import {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import { logEntryToDomain, logEntryToRow, type LogEntryRow } from "./log-entry-rows";
+import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of ILogEntryRepository.
@@ -29,13 +30,8 @@ export class SupabaseLogEntryRepository implements ILogEntryRepository {
   private get pid() { return this.ctx.projectId; }
 
   async getById(id: string): Promise<LogEntry | null> {
-    const { data, error } = await this.db
-      .from(TABLE)
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? logEntryToDomain(data as LogEntryRow) : null;
+    const row = await rowById<LogEntryRow>(this.db, TABLE, id);
+    return row ? logEntryToDomain(row) : null;
   }
 
   async list(filter?: LogEntryFilter): Promise<LogEntry[]> {
@@ -63,8 +59,7 @@ export class SupabaseLogEntryRepository implements ILogEntryRepository {
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await deleteRowById(this.db, TABLE, id);
   }
 }
 
