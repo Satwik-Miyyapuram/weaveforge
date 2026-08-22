@@ -10,13 +10,9 @@ import {
   type IMetadataSource,
   type PaperRef,
 } from "../../../src/features/papers/application/metadata-source.js";
-import type { Clock, IdGenerator } from "../../../src/shared/clock.js";
+import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
 
-const clock: Clock = { nowIso: () => "2026-06-24T12:00:00.000Z" };
-function seqIds(): IdGenerator {
-  let n = 0;
-  return { newId: () => `id-${++n}` };
-}
+const clock = fixedClock("2026-06-24T12:00:00.000Z");
 
 test("addManual persists a new paper", async () => {
   const repo = new InMemoryPaperRepository();

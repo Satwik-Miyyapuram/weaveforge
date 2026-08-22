@@ -9,13 +9,9 @@ import {
 import type { ICitationSource } from "../../../src/features/relations/application/citation-source.js";
 import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
 import { createPaper } from "../../../src/features/papers/domain/paper.js";
-import type { Clock, IdGenerator } from "../../../src/shared/clock.js";
+import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
 
-const clock: Clock = { nowIso: () => "2026-06-24T12:00:00.000Z" };
-function seqIds(): IdGenerator {
-  let n = 0;
-  return { newId: () => `id-${++n}` };
-}
+const clock = fixedClock("2026-06-24T12:00:00.000Z");
 
 test("AddRelationUseCase rejects self-edges", async () => {
   const repo = new InMemoryPaperRelationRepository();

@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { InMemoryExperimentRepository } from "../../../src/testing/in-memory-experiment-repository.js";
 import { ManageExperimentUseCase } from "../../../src/features/experiments/application/manage-experiment.use-case.js";
 import { shortSha } from "../../../src/features/experiments/domain/experiment.js";
-import type { Clock, IdGenerator } from "../../../src/shared/clock.js";
+import type {IdGenerator} from "../../../src/shared/clock.js";
+import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
 
-const clock: Clock = { nowIso: () => "2026-06-24T12:00:00.000Z" };
+const clock = fixedClock("2026-06-24T12:00:00.000Z");
 function seqIds(): IdGenerator { let n = 0; return { newId: () => `id-${++n}` }; }
 function uc() {
   const repo = new InMemoryExperimentRepository();
