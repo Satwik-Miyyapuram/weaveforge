@@ -14,7 +14,7 @@ import {
   toTagDomain,
   toPaperTagDomain,
 } from "./tag-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { one, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TAGS = "tags";
 const PAPER_TAGS = "paper_tags";
@@ -30,17 +30,15 @@ export class SupabaseTagRepository implements ITagRepository {
   }
 
   async getById(id: string): Promise<Tag | null> {
-    const { data, error } = await this.db.from(TAGS).select("*").eq("id", id).maybeSingle();
-    if (error) throw error;
-    return data ? toTagDomain(data as TagRow) : null;
+    const row = await one<TagRow>(this.db.from(TAGS).select("*").eq("id", id).maybeSingle());
+    return row ? toTagDomain(row) : null;
   }
 
   async findByName(name: string): Promise<Tag | null> {
     let q = this.db.from(TAGS).select("*").eq("name", name);
     if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q.maybeSingle();
-    if (error) throw error;
-    return data ? toTagDomain(data as TagRow) : null;
+    const row = await one<TagRow>(q.maybeSingle());
+    return row ? toTagDomain(row) : null;
   }
 
   async list(): Promise<Tag[]> {

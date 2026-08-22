@@ -14,7 +14,7 @@ import {
   toRow,
   toDomain,
 } from "./paper-rows";
-import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, one, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IPaperRepository.
@@ -76,12 +76,10 @@ export class SupabasePaperRepository implements IPaperRepository {
     // Chunked: an `in` list is part of the URL, and a few thousand ids past
     // the server's line-length limit fails the request outright.
     for (let start = 0; start < ids.length; start += ID_CHUNK) {
-      const { data, error } = await this.db
+            out.push(...(await rows<PaperRow>(this.db
         .from(TABLE)
         .select(PAPER_LIST_COLUMNS)
-        .in("id", ids.slice(start, start + ID_CHUNK) as string[]);
-      if (error) throw error;
-      out.push(...(data as PaperRow[]).map(toDomain));
+        .in("id", ids.slice(start, start + ID_CHUNK) as string[]))).map(toDomain));
     }
     return out;
   }
@@ -124,33 +122,29 @@ export class SupabasePaperRepository implements IPaperRepository {
   async findByArxivId(arxivId: string): Promise<Paper | null> {
     let q = this.db.from(TABLE).select("*").eq("arxiv_id", arxivId);
     if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q.maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as PaperRow) : null;
+    const row = await one<PaperRow>(q.maybeSingle());
+    return row ? toDomain(row) : null;
   }
 
   async findByArxivBidx(bidx: string): Promise<Paper | null> {
     let q = this.db.from(TABLE).select("*").eq("arxiv_bidx", bidx);
     if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q.maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as PaperRow) : null;
+    const row = await one<PaperRow>(q.maybeSingle());
+    return row ? toDomain(row) : null;
   }
 
   async findByDoi(doi: string): Promise<Paper | null> {
     let q = this.db.from(TABLE).select("*").eq("doi", normalizeDoi(doi)!);
     if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q.maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as PaperRow) : null;
+    const row = await one<PaperRow>(q.maybeSingle());
+    return row ? toDomain(row) : null;
   }
 
   async findByDoiBidx(bidx: string): Promise<Paper | null> {
     let q = this.db.from(TABLE).select("*").eq("doi_bidx", bidx);
     if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q.maybeSingle();
-    if (error) throw error;
-    return data ? toDomain(data as PaperRow) : null;
+    const row = await one<PaperRow>(q.maybeSingle());
+    return row ? toDomain(row) : null;
   }
 }
 
