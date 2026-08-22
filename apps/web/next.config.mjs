@@ -164,6 +164,10 @@ const servedOnly = {
  * exist side by side without invalidating each other's cache.
  */
 const exportOnly = {
+  // Read by `src/deployment/build-target.ts`, and only there. Declared here
+  // rather than left to the shell environment so the flag is part of the build
+  // rather than part of how someone happened to invoke it.
+  env: { NEXT_PUBLIC_WEAVEFORGE_DESKTOP: "1" },
   output: "export",
   distDir: ".next-desktop",
   trailingSlash: true,

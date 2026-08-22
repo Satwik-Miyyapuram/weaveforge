@@ -5,6 +5,8 @@ export const orgModule: FeatureModule = {
   id: "org",
   title: "Supervision",
   shell: true,
+  // Other people's accounts, over the network, always (plan D3).
+  requiresNetwork: true,
   navItems: [],
   routes: [
     { path: "/supervision", component: "org/SupervisionPage" },

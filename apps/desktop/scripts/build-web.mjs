@@ -26,6 +26,11 @@ import { fileURLToPath } from "node:url";
  *     exists only to 404 differently. Experiments are the SDK surface, which
  *     talks to a server the offline app does not have (D10), so the route being
  *     absent is the correct outcome rather than a limitation.
+ *   - **`app/org`, `app/shared`, `app/supervision`.** Other people's accounts,
+ *     read over the network, always (D3). Their modules are marked
+ *     `requiresNetwork`, so the offline build already has no nav entry and no
+ *     link to them; holding the directories aside is what makes the pages
+ *     absent rather than merely unreachable (D10).
  *
  * Moving directories in the working tree is a blunt instrument, so it is done
  * carefully: they are restored in a `finally`, restored on a signal, and the
@@ -43,7 +48,7 @@ const exported = path.join(web, ".next-desktop");
 const destination = path.join(root, "dist/web");
 
 /** Route directories held aside for the build, as `[real, holding]` pairs. */
-const heldAside = ["api", "experiments"].map((name) => [
+const heldAside = ["api", "experiments", "org", "shared", "supervision"].map((name) => [
   path.join(web, "src/app", name),
   path.join(web, `src/.${name}-held-for-desktop-build`),
 ]);

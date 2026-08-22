@@ -4,6 +4,7 @@ import {
   GENERATED_BUILTIN_SHELL_MODULES,
 } from "@/deployment/generated-registry";
 import { getAppConfig } from "@/deployment/app-config";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { readIntegrationConfig, type IntegrationConfig } from "@/integrations/config";
 import type { WebFeatureModule } from "@/plugins/web-feature-module";
 
@@ -23,6 +24,7 @@ const NAV_GROUP_ORDER = ["library", "experiments", "plan", "report"] as const;
 function moduleEnabled(mod: FeatureModule, config: IntegrationConfig): boolean {
   const featureAllowlist = getAppConfig().enabledBuiltinFeatureIds;
   if (featureAllowlist && !featureAllowlist.includes(mod.id)) return false;
+  if (mod.requiresNetwork && isOfflineBuild()) return false;
   if (mod.id === "git") {
     return config.gitRead.length > 0;
   }
@@ -48,6 +50,7 @@ export function buildModuleRegistry(config: IntegrationConfig = readIntegrationC
   const pluginShell = pluginModules.filter((m) => m.shell);
   const modules = [...BUILTIN_MODULES, ...pluginMain].filter((m) => moduleEnabled(m, config));
   const shellModules = [...BUILTIN_SHELL_MODULES, ...pluginShell].filter((m) => {
+    if (m.requiresNetwork && isOfflineBuild()) return false;
     const allowlist = getAppConfig().enabledBuiltinFeatureIds;
     return !allowlist || pluginShell.includes(m) || allowlist.includes(m.id);
   });
