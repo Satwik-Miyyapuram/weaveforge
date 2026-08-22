@@ -765,7 +765,11 @@ have meaning inside a connection URL and would need percent-encoding — a
 tedious and easily-botched extra step. Letters and digits, 32+ characters.
 
 `CORS_ALLOWED_ORIGINS=*` is fine while you are the only user. Change it to your
-real origin before anyone else touches the box.
+real origin before anyone else touches the box — for this project that is
+`https://app.weaveforge.org`, the host the app is served from. A browser cannot
+tell a refused origin from an unreachable server: both arrive as
+`TypeError: Failed to fetch`, so an origin missing from this list looks exactly
+like the API being down.
 
 *In `nano`: type, then `Ctrl+O`, `Enter` to save, `Ctrl+X` to exit.*
 

@@ -68,7 +68,7 @@ Manual rebuild without a tag: **Actions → Build Android TWA → Run workflow**
 
 Deployed file must serve the signing cert fingerprint:
 
-`https://my-weaveforge-web.vercel.app/.well-known/assetlinks.json`
+`https://app.weaveforge.org/.well-known/assetlinks.json`
 
 - Sideload / self-signed builds → fingerprint of `android-keystore.jks` (alias `weaveforge`).
 - Play App Signing → **also** add Google Play’s app-signing cert SHA-256 from Play Console.

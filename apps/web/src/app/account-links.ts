@@ -6,7 +6,7 @@
  * as deliberate as what it does. Two of these rules were bugs.
  */
 
-export const DOCS_URL = "https://docs.weaveforge.org/docs/";
+export const DOCS_URL = "https://www.weaveforge.org/docs/";
 
 export type AccountLinkId =
   | "projects"
