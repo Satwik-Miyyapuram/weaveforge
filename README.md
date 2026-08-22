@@ -254,7 +254,7 @@ npm run check:boundaries # every architectural check below, in one go
 npm run check:solid      # boundary lint (UI ↔ facades, no cross-feature /ui imports)
 npm run check:dry        # DRY lint (pin/share/owner-label patterns centralised in core)
 npm run check:hygiene    # source hygiene — see docs/dev.md
-npm run dev --workspace @weaveforge/pitch     # pitch site @ :3100
+npm run dev --workspace @weaveforge/pitch     # pitch site @ :3300
 npm run build --workspace @weaveforge/pitch   # static export -> apps/pitch/out
 ```
 
@@ -310,7 +310,7 @@ It exists as a separate app because the product cannot be statically exported:
 it has 35 API routes and a runtime that expects a server. The pitch has neither.
 
 ```bash
-npm run dev --workspace @weaveforge/pitch      # :3100
+npm run dev --workspace @weaveforge/pitch      # :3300
 npm run build --workspace @weaveforge/pitch    # -> apps/pitch/out
 ```
 
