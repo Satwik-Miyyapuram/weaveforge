@@ -11,6 +11,27 @@ Repository interfaces in `@weaveforge/core` are the swap boundary — not PostgR
 
 ---
 
+## Production hostnames
+
+Four names, one job each. Anything that talks to the data API has to be on the
+list the API allows, so the split is not cosmetic — a page served from the wrong
+host gets a CORS rejection, which the browser reports as `TypeError: Failed to
+fetch`, indistinguishable from a dead network.
+
+| Host | Serves | Deployed from |
+|---|---|---|
+| `app.weaveforge.org` | the web app (and the Android TWA wraps this host) | `apps/web` on Vercel |
+| `www.weaveforge.org` | the pitch site and the docs (`/docs/*`) | `apps/pitch` on GitHub Pages (`apps/pitch/public/CNAME`) |
+| `docs.weaveforge.org` | legacy docs address — redirects to `www.weaveforge.org/docs/` | DNS only |
+| `api.weaveforge.org` | PostgREST data + realtime | the self-hosted box — [oracle-shift-guide](backend/oracle-shift-guide.md) |
+
+`CORS_ALLOWED_ORIGINS` on the API box must list `https://app.weaveforge.org`.
+Preview deployments (`*.vercel.app`) are deliberately not on it: they would be
+new origins on every deploy. Test previews against a local API, or add the one
+preview host you need for as long as you need it.
+
+---
+
 ## Architecture
 
 ```

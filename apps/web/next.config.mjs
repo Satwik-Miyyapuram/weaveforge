@@ -96,10 +96,10 @@ const nextConfig = {
   // ever move back under this domain that cache is not ours to clear.
   async redirects() {
     return [
-      { source: "/docs", destination: "https://docs.weaveforge.org/docs/", permanent: false },
+      { source: "/docs", destination: "https://www.weaveforge.org/docs/", permanent: false },
       {
         source: "/docs/:path*",
-        destination: "https://docs.weaveforge.org/docs/:path*",
+        destination: "https://www.weaveforge.org/docs/:path*",
         permanent: false,
       },
     ];

@@ -48,7 +48,8 @@ jobs:
 
       - name: Build the static export
         env:
-          # Served from docs.weaveforge.org (apps/pitch/public/CNAME), so the
+          # Served from www.weaveforge.org (the CNAME apps/pitch/scripts/
+          # copy-assets.mjs writes into the export), so the
           # site is at the root of its own host and needs no prefix. It was
           # /<repo> while this served from user.github.io/<repo>; leaving that
           # set behind a custom domain prefixes every asset with a path that
@@ -61,7 +62,7 @@ jobs:
           # It must stay a URL that opens the app — a button labelled "Open the
           # app" that lands on a source repository is a broken promise, which
           # is exactly what the previous fallback did.
-          NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL || 'https://www.weaveforge.org' }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL || 'https://app.weaveforge.org' }}
         run: npm run build --workspace @weaveforge/pitch
 
       - uses: actions/upload-pages-artifact@v3

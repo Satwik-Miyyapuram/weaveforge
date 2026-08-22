@@ -4,7 +4,7 @@
  * Copied at build time rather than committed twice: a duplicated brand asset
  * is a duplicate that silently goes stale the first time the real one changes.
  */
-import { cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,3 +32,16 @@ await cp(
   path.resolve(here, "../public", worker),
 );
 console.log(`copied ${worker}`);
+
+/**
+ * The custom domain GitHub Pages serves this export from.
+ *
+ * `apps/pitch/public/` is gitignored — everything in it is copied in at build
+ * time — so a hand-placed CNAME there is invisible to the repo and to review,
+ * and it disappears on a clean checkout. Written here instead, where the host
+ * the site answers on is a line of code like any other.
+ */
+const domain = process.env.PAGES_DOMAIN || "www.weaveforge.org";
+await writeFile(path.resolve(here, "../public/CNAME"), `${domain}
+`);
+console.log(`wrote CNAME -> ${domain}`);

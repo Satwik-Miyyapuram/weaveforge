@@ -1,6 +1,6 @@
 # WeaveForge — Android TWA (Trusted Web Activity)
 
-Wraps the deployed PWA (`https://my-weaveforge-web.vercel.app`) into an
+Wraps the deployed PWA (`https://app.weaveforge.org`) into an
 installable Android APK/AAB. Same web code — the APK is a thin Chrome wrapper.
 Once the domain is verified via Digital Asset Links, the URL bar is hidden.
 
@@ -44,7 +44,7 @@ bubblewrap build         # → app-release-signed.apk + app-release-bundle.aab
 2. Put it in `../public/.well-known/assetlinks.json` under
    `sha256_cert_fingerprints` (package `app.weaveforge.twa`).
 3. Deploy the web app so  
-   `https://my-weaveforge-web.vercel.app/.well-known/assetlinks.json`  
+   `https://app.weaveforge.org/.well-known/assetlinks.json`  
    serves the new value.
 4. If you use **Play App Signing**, add Play’s app-signing cert SHA-256 too.
 
