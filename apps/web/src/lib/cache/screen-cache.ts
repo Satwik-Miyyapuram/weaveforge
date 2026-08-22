@@ -1,6 +1,12 @@
 /**
  * In-memory cache for fully-loaded screen payloads (keyed by project + screen).
  * Survives client-side tab navigation; cleared on project switch or LWW invalidation.
+ *
+ * A payload carries the moment it was *fetched*, not the moment this process
+ * learned about it. The difference matters when a payload comes back from
+ * IndexedDB after a reload: stamping it with the time it was read would make a
+ * week-old screen look freshly loaded and suppress the revalidation that would
+ * have corrected it. See `screen-cache-idb.ts` for what the age is used for.
  */
 
 export function screenCacheKey(projectId: string | null, screen: string): string {
@@ -27,9 +33,14 @@ export function hasScreenCacheData(key: string): boolean {
   return store.has(key);
 }
 
-export function setScreenCache<T>(key: string, value: T): void {
+export function setScreenCache<T>(key: string, value: T, fetchedAt = Date.now()): void {
   store.set(key, value);
-  loadedAt.set(key, Date.now());
+  loadedAt.set(key, fetchedAt);
+}
+
+/** When the payload behind a key was fetched, or undefined if there is none. */
+export function screenCacheFetchedAt(key: string): number | undefined {
+  return loadedAt.get(key);
 }
 
 export function clearScreenCachesForScreens(
