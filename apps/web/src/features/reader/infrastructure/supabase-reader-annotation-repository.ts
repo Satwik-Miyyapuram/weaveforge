@@ -17,6 +17,7 @@ import {
   type ReaderAnnotationRow,
   toDomain,
 } from "./reader-annotation-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "reader_annotations";
 
@@ -27,14 +28,12 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
   async list(paperId: string): Promise<ReaderAnnotation[]> {
     const projectId = this.ctx.projectId;
     if (!projectId) return [];
-    const { data, error } = await this.db
+    return (await rows<ReaderAnnotationRow>(this.db
       .from(TABLE)
       .select("*")
       .eq("project_id", projectId)
       .eq("paper_id", paperId)
-      .order("sort_index", { ascending: true });
-    if (error) throw error;
-    return (data as ReaderAnnotationRow[]).map(toDomain);
+      .order("sort_index", { ascending: true }))).map(toDomain);
   }
 
   /**
@@ -127,12 +126,11 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
   }
 
   async remove(id: string): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(TABLE)
       .delete()
       .eq("id", id)
-      .eq("project_id", this.projectId);
-    if (error) throw error;
+      .eq("project_id", this.projectId));
   }
 }
 

@@ -12,6 +12,7 @@ import {
   type PinRow,
   toDomain,
 } from "./library-pin-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "library_pins";
 
@@ -39,25 +40,22 @@ export class SupabaseLibraryPinRepository extends ProjectScopedSupabaseRepositor
   }
 
   async unpin(resourceType: ShareableType, resourceId: string): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(TABLE)
       .delete()
       .eq("project_id", this.projectId)
       .eq("resource_type", resourceType)
-      .eq("resource_id", resourceId);
-    if (error) throw error;
+      .eq("resource_id", resourceId));
   }
 
   async listForProject(): Promise<LibraryPin[]> {
     const projectId = this.ctx.projectId;
     if (!projectId) return [];
-    const { data, error } = await this.db
+    return (await rows<PinRow>(this.db
       .from(TABLE)
       .select("*")
       .eq("project_id", projectId)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data as PinRow[]).map(toDomain);
+      .order("created_at", { ascending: false }))).map(toDomain);
   }
 
   async isPinned(resourceType: ShareableType, resourceId: string): Promise<boolean> {

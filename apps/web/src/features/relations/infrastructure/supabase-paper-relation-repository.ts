@@ -11,7 +11,7 @@ import {
   toDomain,
   toRow,
 } from "./paper-relation-rows";
-import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IPaperRelationRepository.
@@ -43,25 +43,19 @@ export class SupabasePaperRelationRepository
     if (filter?.fromPaper) query = query.eq("from_paper", filter.fromPaper);
     if (filter?.toPaper) query = query.eq("to_paper", filter.toPaper);
     query = query.order("created_at", { ascending: true });
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as PaperRelationRow[]).map(toDomain);
+    return (await rows<PaperRelationRow>(query)).map(toDomain);
   }
 
   async getGraph(): Promise<PaperRelation[]> {
     let q = this.db.from(TABLE).select("*");
     if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data as PaperRelationRow[]).map(toDomain);
+    return (await rows<PaperRelationRow>(q)).map(toDomain);
   }
 
   async relationsFor(paperId: string): Promise<PaperRelation[]> {
     let q = this.db.from(TABLE).select("*").or(`from_paper.eq.${paperId},to_paper.eq.${paperId}`);
     if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data as PaperRelationRow[]).map(toDomain);
+    return (await rows<PaperRelationRow>(q)).map(toDomain);
   }
 
   async findEdge(
@@ -83,10 +77,9 @@ export class SupabasePaperRelationRepository
   async save(entity: PaperRelation): Promise<void> {
     const row = toRow(entity);
     if (this.pid) row.project_id = this.pid;
-    const { error } = await this.db.from(TABLE).upsert(row, {
+    await run(this.db.from(TABLE).upsert(row, {
       onConflict: "from_paper,to_paper,relation",
-    });
-    if (error) throw error;
+    }));
   }
 
   async delete(id: string): Promise<void> {

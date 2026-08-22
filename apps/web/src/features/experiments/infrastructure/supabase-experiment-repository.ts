@@ -7,7 +7,7 @@ import type {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import { experimentToDomain, experimentToRow, type ExperimentRow } from "./experiment-rows";
-import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "experiments";
 
@@ -31,15 +31,12 @@ export class SupabaseExperimentRepository implements IExperimentRepository {
       // Server ilike removed under E2EE — encryptRepo filters client-side post-decrypt.
     }
     q = q.order("created_at", { ascending: false });
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data as ExperimentRow[]).map(experimentToDomain);
+    return (await rows<ExperimentRow>(q)).map(experimentToDomain);
   }
   async save(entity: Experiment): Promise<void> {
     const row = experimentToRow(entity);
     if (this.pid) row.project_id = this.pid;
-    const { error } = await this.db.from(TABLE).upsert(row);
-    if (error) throw error;
+    await run(this.db.from(TABLE).upsert(row));
   }
   async delete(id: string): Promise<void> {
     await deleteRowById(this.db, TABLE, id);

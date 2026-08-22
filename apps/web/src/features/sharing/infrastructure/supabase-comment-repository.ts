@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Comment, ICommentRepository, NewCommentInput } from "@weaveforge/core";
 import { commentToDomain, type CommentRow } from "./comment-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase adapter for comments (migration 0018). `author_id` defaults to
@@ -13,23 +14,19 @@ export class SupabaseCommentRepository implements ICommentRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async list(resourceType: string, resourceId: string): Promise<Comment[]> {
-    const { data, error } = await this.db
+    return (await rows<CommentRow>(this.db
       .from(TABLE)
       .select("*")
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data as CommentRow[]).map(commentToDomain);
+      .order("created_at", { ascending: true }))).map(commentToDomain);
   }
 
   async listAll(): Promise<Comment[]> {
-    const { data, error } = await this.db
+    return (await rows<CommentRow>(this.db
       .from(TABLE)
       .select("*")
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data as CommentRow[]).map(commentToDomain);
+      .order("created_at", { ascending: true }))).map(commentToDomain);
   }
 
   async add(input: NewCommentInput): Promise<Comment> {
@@ -54,8 +51,7 @@ export class SupabaseCommentRepository implements ICommentRepository {
   }
 
   async remove(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await run(this.db.from(TABLE).delete().eq("id", id));
   }
 }
 

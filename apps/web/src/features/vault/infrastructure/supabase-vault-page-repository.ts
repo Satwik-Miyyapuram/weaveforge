@@ -15,7 +15,7 @@ import {
   toSummaryDomain,
   toRow,
 } from "./vault-page-rows";
-import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 /** Ids per `in (...)` request; the list travels in the URL. */
 const ID_CHUNK = 200;
@@ -83,9 +83,7 @@ export class SupabaseVaultPageRepository implements IVaultPageRepository {
       query = query.or(`title.ilike."${pattern}",body.ilike."${pattern}"`);
     }
     query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as VaultPageRow[]).map(toDomain);
+    return (await rows<VaultPageRow>(query)).map(toDomain);
   }
 
   async listSummaries(): Promise<VaultPage[]> {
@@ -140,8 +138,7 @@ export class SupabaseVaultPageRepository implements IVaultPageRepository {
   async save(entity: VaultPage): Promise<void> {
     const row = toRow(entity);
     if (this.pid) row.project_id = this.pid;
-    const { error } = await this.db.from(TABLE).upsert(row);
-    if (error) throw error;
+    await run(this.db.from(TABLE).upsert(row));
   }
 
   async delete(id: string): Promise<void> {

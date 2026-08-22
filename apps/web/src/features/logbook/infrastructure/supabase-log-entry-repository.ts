@@ -8,7 +8,7 @@ import {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import { logEntryToDomain, logEntryToRow, type LogEntryRow } from "./log-entry-rows";
-import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of ILogEntryRepository.
@@ -46,16 +46,13 @@ export class SupabaseLogEntryRepository implements ILogEntryRepository {
     query = query
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false });
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as LogEntryRow[]).map(logEntryToDomain);
+    return (await rows<LogEntryRow>(query)).map(logEntryToDomain);
   }
 
   async save(entity: LogEntry): Promise<void> {
     const row = logEntryToRow(entity);
     if (this.pid) row.project_id = this.pid;
-    const { error } = await this.db.from(TABLE).upsert(row);
-    if (error) throw error;
+    await run(this.db.from(TABLE).upsert(row));
   }
 
   async delete(id: string): Promise<void> {

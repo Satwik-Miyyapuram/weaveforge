@@ -10,6 +10,7 @@ import {
   type ShareRow,
   toDomain,
 } from "./share-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase adapter for shares (migration 0018). `owner_id` defaults to
@@ -55,8 +56,7 @@ export class SupabaseShareRepository implements IShareRepository {
   }
 
   async revoke(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await run(this.db.from(TABLE).delete().eq("id", id));
   }
 
   async listForResource(
@@ -65,9 +65,7 @@ export class SupabaseShareRepository implements IShareRepository {
   ): Promise<Share[]> {
     let q = this.db.from(TABLE).select("*").eq("resource_type", resourceType);
     q = resourceId === null ? q.is("resource_id", null) : q.eq("resource_id", resourceId);
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data as ShareRow[]).map(toDomain);
+    return (await rows<ShareRow>(q)).map(toDomain);
   }
 
   async listSharedWithMe(resourceType?: ShareableType): Promise<Share[]> {
@@ -75,9 +73,7 @@ export class SupabaseShareRepository implements IShareRepository {
     if (!uid) return [];
     let q = this.db.from(TABLE).select("*").eq("recipient_id", uid);
     if (resourceType) q = q.eq("resource_type", resourceType);
-    const { data, error } = await q.order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data as ShareRow[]).map(toDomain);
+    return (await rows<ShareRow>(q.order("created_at", { ascending: false }))).map(toDomain);
   }
 }
 

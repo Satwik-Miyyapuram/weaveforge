@@ -14,6 +14,7 @@ import {
   toTagDomain,
   toPaperTagDomain,
 } from "./tag-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 const TAGS = "tags";
 const PAPER_TAGS = "paper_tags";
@@ -45,9 +46,7 @@ export class SupabaseTagRepository implements ITagRepository {
   async list(): Promise<Tag[]> {
     let q = this.db.from(TAGS).select("*").order("name");
     if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data as TagRow[]).map(toTagDomain);
+    return (await rows<TagRow>(q)).map(toTagDomain);
   }
 
   async listWithCounts(): Promise<TagWithPaperCount[]> {
@@ -69,13 +68,11 @@ export class SupabaseTagRepository implements ITagRepository {
       color: entity.color ?? null,
     };
     if (this.pid) row.project_id = this.pid;
-    const { error } = await this.db.from(TAGS).upsert(row);
-    if (error) throw error;
+    await run(this.db.from(TAGS).upsert(row));
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from(TAGS).delete().eq("id", id);
-    if (error) throw error;
+    await run(this.db.from(TAGS).delete().eq("id", id));
   }
 }
 
@@ -83,48 +80,37 @@ export class SupabasePaperTagRepository implements IPaperTagRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async listForPaper(paperId: string): Promise<PaperTag[]> {
-    const { data, error } = await this.db.from(PAPER_TAGS).select("*").eq("paper_id", paperId);
-    if (error) throw error;
-    return (data as PaperTagRow[]).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select("*").eq("paper_id", paperId))).map(toPaperTagDomain);
   }
 
   async listForTag(tagId: string): Promise<PaperTag[]> {
-    const { data, error } = await this.db.from(PAPER_TAGS).select("*").eq("tag_id", tagId);
-    if (error) throw error;
-    return (data as PaperTagRow[]).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select("*").eq("tag_id", tagId))).map(toPaperTagDomain);
   }
 
   async listAll(): Promise<PaperTag[]> {
-    const { data, error } = await this.db.from(PAPER_TAGS).select("*");
-    if (error) throw error;
-    return (data as PaperTagRow[]).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select("*"))).map(toPaperTagDomain);
   }
 
   async link(link: PaperTag): Promise<void> {
-    const { error } = await this.db.from(PAPER_TAGS).upsert(toPaperTagRow(link));
-    if (error) throw error;
+    await run(this.db.from(PAPER_TAGS).upsert(toPaperTagRow(link)));
   }
 
   async unlink(paperId: string, tagId: string, source?: TagSource): Promise<void> {
     let q = this.db.from(PAPER_TAGS).delete().eq("paper_id", paperId).eq("tag_id", tagId);
     if (source) q = q.eq("source", source);
-    const { error } = await q;
-    if (error) throw error;
+    await run(q);
   }
 
   async unlinkBySource(paperId: string, source: TagSource): Promise<void> {
-    const { error } = await this.db.from(PAPER_TAGS).delete().eq("paper_id", paperId).eq("source", source);
-    if (error) throw error;
+    await run(this.db.from(PAPER_TAGS).delete().eq("paper_id", paperId).eq("source", source));
   }
 
   async reconcile(paperId: string, links: PaperTag[], sources: readonly TagSource[]): Promise<void> {
     if (sources.length > 0) {
-      const { error } = await this.db.from(PAPER_TAGS).delete().eq("paper_id", paperId).in("source", sources as string[]);
-      if (error) throw error;
+      await run(this.db.from(PAPER_TAGS).delete().eq("paper_id", paperId).in("source", sources as string[]));
     }
     if (links.length === 0) return;
-    const { error } = await this.db.from(PAPER_TAGS).upsert(links.map(toPaperTagRow));
-    if (error) throw error;
+    await run(this.db.from(PAPER_TAGS).upsert(links.map(toPaperTagRow)));
   }
 }
 

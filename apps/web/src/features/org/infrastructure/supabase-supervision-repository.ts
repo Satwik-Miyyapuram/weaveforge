@@ -17,6 +17,7 @@ import {
   logEntryToDomain as logToDomain,
   type LogEntryRow,
 } from "@/features/logbook/infrastructure/log-entry-rows";
+import { rows } from "@/backend/providers/supabase/row-access";
 
 /**
  * Reads a supervisee's milestones and log entries by owner user id, across all
@@ -29,24 +30,20 @@ export class SupabaseSupervisionRepository implements ISupervisionRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async listMilestones(memberId: string): Promise<Milestone[]> {
-    const { data, error } = await this.db
+    return (await rows<MilestoneRow>(this.db
       .from("milestones")
       .select("*")
       .eq("user_id", memberId)
-      .order("target_date", { ascending: true, nullsFirst: false });
-    if (error) throw error;
-    return (data as MilestoneRow[]).map(milestoneToDomain);
+      .order("target_date", { ascending: true, nullsFirst: false }))).map(milestoneToDomain);
   }
 
   async listLogs(memberId: string): Promise<LogEntry[]> {
-    const { data, error } = await this.db
+    return (await rows<LogEntryRow>(this.db
       .from("log_entries")
       .select("*")
       .eq("user_id", memberId)
       .order("entry_date", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data as LogEntryRow[]).map(logToDomain);
+      .order("created_at", { ascending: false }))).map(logToDomain);
   }
 
   async listMilestonesFor(memberIds: readonly string[]): Promise<Map<string, Milestone[]>> {

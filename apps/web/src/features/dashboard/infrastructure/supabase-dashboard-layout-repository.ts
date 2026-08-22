@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DashboardLayout, IDashboardLayoutRepository } from "@weaveforge/core";
 import { parseDashboardLayout } from "@weaveforge/core";
+import { run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "projects";
 
@@ -19,10 +20,9 @@ export class SupabaseDashboardLayoutRepository implements IDashboardLayoutReposi
   }
 
   async save(projectId: string, layout: DashboardLayout): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(TABLE)
       .update({ dashboard_layout: layout })
-      .eq("id", projectId);
-    if (error) throw error;
+      .eq("id", projectId));
   }
 }

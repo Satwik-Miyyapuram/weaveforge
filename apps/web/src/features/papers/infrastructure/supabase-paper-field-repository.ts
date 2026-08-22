@@ -18,6 +18,7 @@ import {
   asStringArray,
   asValueData,
 } from "./paper-field-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 const DEFS = "paper_field_defs";
 const VALUES = "paper_field_values";
@@ -28,19 +29,17 @@ export class SupabasePaperFieldRepository extends ProjectScopedSupabaseRepositor
   async listDefs(): Promise<PaperFieldDef[]> {
     const projectId = this.ctx.projectId;
     if (!projectId) return [];
-    const { data, error } = await this.db
+    return (await rows<DefRow>(this.db
       .from(DEFS)
       .select("id, name, kind, options, sort_order")
       .eq("project_id", projectId)
       .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
-    if (error) throw error;
-    return (data as DefRow[]).map(toDef);
+      .order("name", { ascending: true }))).map(toDef);
   }
 
   async saveDef(def: PaperFieldDef): Promise<void> {
     const userId = await this.session.requireUserId();
-    const { error } = await this.db.from(DEFS).upsert(
+    await run(this.db.from(DEFS).upsert(
       {
         id: def.id,
         user_id: userId,
@@ -51,17 +50,15 @@ export class SupabasePaperFieldRepository extends ProjectScopedSupabaseRepositor
         sort_order: def.sortOrder,
       },
       { onConflict: "id" },
-    );
-    if (error) throw error;
+    ));
   }
 
   async deleteDef(id: string): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(DEFS)
       .delete()
       .eq("project_id", this.projectId)
-      .eq("id", id);
-    if (error) throw error;
+      .eq("id", id));
   }
 
   listValuesForPaper(paperId: string): Promise<PaperFieldValue[]> {
@@ -93,13 +90,12 @@ export class SupabasePaperFieldRepository extends ProjectScopedSupabaseRepositor
   }
 
   async removeValue(paperId: string, fieldId: string): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(VALUES)
       .delete()
       .eq("project_id", this.projectId)
       .eq("paper_id", paperId)
-      .eq("field_id", fieldId);
-    if (error) throw error;
+      .eq("field_id", fieldId));
   }
 
   private async listValues(paperId?: string): Promise<PaperFieldValue[]> {
@@ -110,11 +106,9 @@ export class SupabasePaperFieldRepository extends ProjectScopedSupabaseRepositor
       .select("id, paper_id, field_id, value")
       .eq("project_id", projectId);
     if (paperId) query = query.eq("paper_id", paperId);
-    const { data, error } = await query
+    return (await rows<ValueRow>(query
       .order("paper_id", { ascending: true })
-      .order("field_id", { ascending: true });
-    if (error) throw error;
-    return (data as ValueRow[]).map(toValue);
+      .order("field_id", { ascending: true }))).map(toValue);
   }
 }
 
