@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { DesktopBridge, DesktopUpdate } from "@/lib/desktop/desktop-bridge";
+import type {
+  DesktopBridge,
+  DesktopPreferenceValue,
+  DesktopUpdate,
+} from "@/lib/desktop/desktop-bridge";
 import { CHANNELS, type ImagePayload, type IpcResult, type TitlePayload } from "./channels";
 
 /**
@@ -35,6 +39,10 @@ const bridge: DesktopBridge = {
   fetchTitle: (url) => call<TitlePayload>(CHANNELS.fetchTitle, url),
   fetchImage: (url) => call<ImagePayload>(CHANNELS.fetchImage, url),
   checkUpdate: () => ipcRenderer.invoke(CHANNELS.checkUpdate) as Promise<DesktopUpdate | null>,
+  readPreference: (name) => call<DesktopPreferenceValue>(CHANNELS.preferenceRead, name),
+  writePreference: async (name, value) => {
+    await call<null>(CHANNELS.preferenceWrite, name, value);
+  },
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);
