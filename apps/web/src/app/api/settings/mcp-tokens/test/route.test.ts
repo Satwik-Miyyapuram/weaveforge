@@ -27,3 +27,17 @@ test("DELETE /api/settings/mcp-tokens: 400 when id is missing (token present)", 
   assert.equal(res.status, 400);
   assert.match((await res.json()).error, /Token id required/);
 });
+
+test("GET /api/settings/mcp-tokens: 503, not 401, when the server has no service-role key", async () => {
+  const saved = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  try {
+    const res = await GET(
+      new Request("http://localhost/api/settings/mcp-tokens", { headers: { authorization: "Bearer tt_dummy" } }),
+    );
+    assert.equal(res.status, 503);
+    assert.match((await res.json()).error, /SUPABASE_SERVICE_ROLE_KEY/);
+  } finally {
+    if (saved !== undefined) process.env.SUPABASE_SERVICE_ROLE_KEY = saved;
+  }
+});
