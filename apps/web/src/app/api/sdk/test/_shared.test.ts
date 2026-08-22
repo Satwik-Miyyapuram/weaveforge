@@ -1,13 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bearerToken, requireSdkUser, requireMcpRelayUser } from "../_shared";
-
-test("bearerToken: extracts the token, case-insensitive prefix", () => {
-  assert.equal(bearerToken(new Request("http://x", { headers: { authorization: "Bearer tt_abc" } })), "tt_abc");
-  assert.equal(bearerToken(new Request("http://x", { headers: { authorization: "BEARER tt_abc" } })), "tt_abc");
-  assert.equal(bearerToken(new Request("http://x")), null);
-});
-
+import { requireSdkUser, requireMcpRelayUser } from "../_shared";
 test("requireSdkUser: 401 with no Authorization header (no Supabase touched)", async () => {
   const auth = await requireSdkUser(new Request("http://localhost/api/sdk/whoami"));
   assert.equal(auth.ok, false);

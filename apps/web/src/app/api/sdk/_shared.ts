@@ -4,10 +4,7 @@ import { readBackendConfig } from "@/backend/config";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { isApiTokenFormat } from "@/features/settings/infrastructure/api-token-crypto";
 import { formatError } from "@/lib/format-error";
-
-export function bearerToken(request: Request): string | null {
-  return request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
-}
+import { bearerToken } from "@/lib/bearer-token";
 
 export function sdkDbForUserToken(token: string) {
   const cfg = readBackendConfig();

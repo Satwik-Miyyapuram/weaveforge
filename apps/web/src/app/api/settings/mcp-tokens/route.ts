@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
-import { bearerToken } from "@/app/api/sdk/_shared";
+import { bearerToken } from "@/lib/bearer-token";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { formatError } from "@/lib/format-error";
 

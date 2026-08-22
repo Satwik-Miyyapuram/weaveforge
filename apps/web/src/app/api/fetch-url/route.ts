@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchPageTitle, fetchRemoteImage } from "@/backend/net/fetch-for-paste";
-import { bearerToken, userIdFromToken } from "@/storage/server/blob-api";
+import { userIdFromToken } from "@/storage/server/blob-api";
+import { bearerToken } from "@/lib/bearer-token";
 
 /**
  * Fetching a page a visitor pasted, on their behalf.

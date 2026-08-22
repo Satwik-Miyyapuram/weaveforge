@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { createRestClient } from "@/backend/providers/supabase/client";
 import { readBackendConfig } from "@/backend/config";
-
-function bearerToken(request: Request): string | null {
-  return request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
-}
+import { bearerToken } from "@/lib/bearer-token";
 
 /** Standalone onboarding — anon key + user JWT, no service role. */
 export async function POST(request: Request) {
