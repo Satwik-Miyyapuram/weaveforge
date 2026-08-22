@@ -140,6 +140,20 @@ jobs:
           TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
+      # Two specs fail here and pass on a developer's machine against the same
+      # backend, production build included. Nothing in the job's own output says
+      # why, so keep what Playwright already recorded: the trace it captures on
+      # the retry has the failing page's console and every request it made.
+      - name: Keep the failure trace
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-trace
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7
+
   dco:
     # Only on pull requests: the rule is enforced on what a PR adds, and the
     # history before this job existed has no sign-offs to find.
