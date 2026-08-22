@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { extractDoi, normalizeArxivId } from "@weaveforge/core";
 import { safeFetch } from "@/backend/net/safe-fetch";
 
+/** The slice of a Crossref `works` record this route reads. */
+type CrossrefWork = {
+  author?: { name?: string; given?: string; family?: string }[];
+  title?: string[];
+  issued?: { "date-parts"?: number[][] };
+  "container-title"?: string[];
+  DOI?: string;
+  abstract?: string;
+  URL?: string;
+};
+
+
 /**
  * Reading paper metadata off an arbitrary URL.
  *
@@ -71,10 +83,10 @@ export async function resolveUrlMetadata(target: string | null) {
       headers: { "User-Agent": "weaveforge (mailto:noreply@example.com)" },
     });
     if (cr?.ok) {
-      const m = ((await cr.json()) as { message?: any }).message ?? {};
+      const m = ((await cr.json()) as { message?: CrossrefWork }).message ?? {};
       const authors = (m.author ?? [])
-        .map((a: any) => a.name ?? [a.given, a.family].filter(Boolean).join(" "))
-        .filter((x: string) => x.length > 0);
+        .map((a) => a.name ?? [a.given, a.family].filter(Boolean).join(" "))
+        .filter((x) => x.length > 0);
       return NextResponse.json({
         title: (m.title?.[0] ?? doiInUrl).replace(/\s+/g, " "),
         authors,
