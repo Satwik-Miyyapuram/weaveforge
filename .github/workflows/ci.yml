@@ -131,7 +131,12 @@ jobs:
           WEAVEFORGE_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
           TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
           TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
+          # The sharing spec needs a second account. Without these it skipped,
+          # and a skip is indistinguishable from a pass in the job summary.
+          TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}
+          TT_B_PASSWORD: ${{ secrets.TT_B_PASSWORD }}
           TEST_ACCOUNT_EMAIL_PRIMARY: ${{ secrets.TEST_ACCOUNT_EMAIL_PRIMARY }}
+          TEST_ACCOUNT_EMAIL_SECONDARY: ${{ secrets.TEST_ACCOUNT_EMAIL_SECONDARY }}
           TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
