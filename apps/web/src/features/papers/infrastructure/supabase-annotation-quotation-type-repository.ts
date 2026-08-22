@@ -13,6 +13,7 @@ import {
   type AnnotationQuotationTypeRow,
   toDomain,
 } from "./annotation-quotation-type-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "annotation_quotation_types";
 
@@ -46,26 +47,23 @@ export class SupabaseAnnotationQuotationTypeRepository extends ProjectScopedSupa
   }
 
   async remove(paperId: string, annotationKey: string): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(TABLE)
       .delete()
       .eq("project_id", this.projectId)
       .eq("paper_id", paperId)
-      .eq("annotation_key", annotationKey);
-    if (error) throw error;
+      .eq("annotation_key", annotationKey));
   }
 
   async listForPaper(paperId: string): Promise<AnnotationQuotationType[]> {
     const projectId = this.ctx.projectId;
     if (!projectId) return [];
-    const { data, error } = await this.db
+    return (await rows<AnnotationQuotationTypeRow>(this.db
       .from(TABLE)
       .select("*")
       .eq("project_id", projectId)
       .eq("paper_id", paperId)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data as AnnotationQuotationTypeRow[]).map(toDomain);
+      .order("created_at", { ascending: true }))).map(toDomain);
   }
 }
 

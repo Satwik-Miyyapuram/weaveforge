@@ -7,6 +7,7 @@ import {
 import {
   type IntegrationRow,
 } from "./integrations-rows";
+import { run } from "@/backend/providers/supabase/row-access";
 
 /** Reads/writes `project_integrations` per (project, provider). */
 export class SupabaseIntegrationsStore {
@@ -32,7 +33,7 @@ export class SupabaseIntegrationsStore {
   }
 
   async save(projectId: string, integration: Integration): Promise<void> {
-    const { error } = await this.db.from("project_integrations").upsert(
+    await run(this.db.from("project_integrations").upsert(
       {
         project_id: projectId,
         provider: integration.provider,
@@ -43,7 +44,6 @@ export class SupabaseIntegrationsStore {
         updated_at: new Date().toISOString(),
       },
       { onConflict: "project_id,provider" },
-    );
-    if (error) throw error;
+    ));
   }
 }

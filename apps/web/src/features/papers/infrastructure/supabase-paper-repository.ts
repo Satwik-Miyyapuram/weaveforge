@@ -14,7 +14,7 @@ import {
   toRow,
   toDomain,
 } from "./paper-rows";
-import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IPaperRepository.
@@ -101,25 +101,20 @@ export class SupabasePaperRepository implements IPaperRepository {
     // tie moves cards between columns — remounting them, and closing whatever
     // dialog one of them had open. `id` makes the order total.
     query = query.order("created_at", { ascending: false }).order("id", { ascending: true });
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as PaperRow[]).map(toDomain);
+    return (await rows<PaperRow>(query)).map(toDomain);
   }
 
   async listSummaries(): Promise<Paper[]> {
     let query = this.db.from(TABLE).select(PAPER_SUMMARY_COLUMNS);
     if (this.pid) query = query.eq("project_id", this.pid);
     query = query.order("created_at", { ascending: false }).order("id", { ascending: true });
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as PaperRow[]).map(toDomain);
+    return (await rows<PaperRow>(query)).map(toDomain);
   }
 
   async save(entity: Paper): Promise<void> {
     const row = toRow(entity);
     if (this.pid) row.project_id = this.pid;
-    const { error } = await this.db.from(TABLE).upsert(row, { onConflict: "id" });
-    if (error) throw error;
+    await run(this.db.from(TABLE).upsert(row, { onConflict: "id" }));
   }
 
   async delete(id: string): Promise<void> {

@@ -9,7 +9,7 @@ import {
 } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow } from "./report-section-rows";
-import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IReportSectionRepository.
@@ -52,9 +52,7 @@ export class SupabaseReportSectionRepository
     query = query
       .order("sort_order", { ascending: true })
       .order("section_no", { ascending: true });
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as ReportSectionRow[]).map(reportSectionToDomain);
+    return (await rows<ReportSectionRow>(query)).map(reportSectionToDomain);
   }
 
   async getTree(): Promise<ReportSectionTreeNode[]> {
@@ -68,8 +66,7 @@ export class SupabaseReportSectionRepository
   async save(entity: ReportSection): Promise<void> {
     const row = reportSectionToRow(entity);
     if (this.pid) row.project_id = this.pid;
-    const { error } = await this.db.from(TABLE).upsert(row);
-    if (error) throw error;
+    await run(this.db.from(TABLE).upsert(row));
   }
 
   async delete(id: string): Promise<void> {

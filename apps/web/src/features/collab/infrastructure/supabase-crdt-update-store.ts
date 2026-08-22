@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CrdtUpdateRecord, ICrdtUpdateStore } from "@weaveforge/core";
 import { decodeBytea, encodeBytea } from "@/lib/bytea.js";
+import { run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "crdt_updates";
 
@@ -72,22 +73,20 @@ export class SupabaseCrdtUpdateStore implements ICrdtUpdateStore {
   }
 
   async deleteUpTo(resourceType: string, resourceId: string, uptoId: number): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(TABLE)
       .delete()
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
-      .lte("id", uptoId);
-    if (error) throw error;
+      .lte("id", uptoId));
   }
 
   async deleteAll(resourceType: string, resourceId: string): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(TABLE)
       .delete()
       .eq("resource_type", resourceType)
-      .eq("resource_id", resourceId);
-    if (error) throw error;
+      .eq("resource_id", resourceId));
   }
 
   async countAfter(

@@ -11,6 +11,7 @@ import {
   type AnnotationPinRow,
   toDomain,
 } from "./annotation-pin-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "annotation_pins";
 
@@ -38,13 +39,12 @@ export class SupabaseAnnotationPinRepository extends ProjectScopedSupabaseReposi
   }
 
   async remove(paperId: string, annotationKey: string): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(TABLE)
       .delete()
       .eq("project_id", this.projectId)
       .eq("paper_id", paperId)
-      .eq("annotation_key", annotationKey);
-    if (error) throw error;
+      .eq("annotation_key", annotationKey));
   }
 
   listForProject(): Promise<AnnotationPin[]> {
@@ -70,9 +70,7 @@ export class SupabaseAnnotationPinRepository extends ProjectScopedSupabaseReposi
     if (filter?.reportSectionId) {
       query = query.eq("report_section_id", filter.reportSectionId);
     }
-    const { data, error } = await query.order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data as AnnotationPinRow[]).map(toDomain);
+    return (await rows<AnnotationPinRow>(query.order("created_at", { ascending: true }))).map(toDomain);
   }
 }
 

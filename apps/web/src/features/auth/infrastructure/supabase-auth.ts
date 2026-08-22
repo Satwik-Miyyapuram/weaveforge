@@ -4,6 +4,7 @@ import type {
   AuthUser,
   IAuthService,
 } from "@weaveforge/core";
+import { run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of IAuthService.
@@ -33,57 +34,49 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async signInWithPassword(email: string, password: string): Promise<void> {
-    const { error } = await this.db.auth.signInWithPassword({
+    await run(this.db.auth.signInWithPassword({
       email,
       password,
-    });
-    if (error) throw error;
+    }));
   }
 
   async signUpWithPassword(email: string, password: string): Promise<void> {
-    const { error } = await this.db.auth.signUp({
+    await run(this.db.auth.signUp({
       email,
       password,
-    });
-    if (error) throw error;
+    }));
   }
 
   async updatePassword(password: string): Promise<void> {
-    const { error } = await this.db.auth.updateUser({ password });
-    if (error) throw error;
+    await run(this.db.auth.updateUser({ password }));
   }
 
   async sendPasswordReset(email: string, redirectTo?: string): Promise<void> {
-    const { error } = await this.db.auth.resetPasswordForEmail(email, {
+    await run(this.db.auth.resetPasswordForEmail(email, {
       redirectTo,
-    });
-    if (error) throw error;
+    }));
   }
 
   async sendEmailOtp(email: string): Promise<void> {
-    const { error } = await this.db.auth.signInWithOtp({ email });
-    if (error) throw error;
+    await run(this.db.auth.signInWithOtp({ email }));
   }
 
   async verifyEmailOtp(email: string, token: string): Promise<void> {
-    const { error } = await this.db.auth.verifyOtp({ email, token, type: "email" });
-    if (error) throw error;
+    await run(this.db.auth.verifyOtp({ email, token, type: "email" }));
   }
 
   async sendMagicLink(email: string, redirectTo?: string): Promise<void> {
-    const { error } = await this.db.auth.signInWithOtp({
+    await run(this.db.auth.signInWithOtp({
       email,
       options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
-    });
-    if (error) throw error;
+    }));
   }
 
   async signInWithGoogle(redirectTo?: string): Promise<void> {
-    const { error } = await this.db.auth.signInWithOAuth({
+    await run(this.db.auth.signInWithOAuth({
       provider: "google",
       options: redirectTo ? { redirectTo } : undefined,
-    });
-    if (error) throw error;
+    }));
   }
 
   /**
@@ -99,13 +92,11 @@ export class SupabaseAuthService implements IAuthService {
     if (refusal) throw new Error(refusal);
     const code = params.get("code");
     if (!code) throw new Error("The sign-in came back without a code.");
-    const { error } = await this.db.auth.exchangeCodeForSession(code);
-    if (error) throw error;
+    await run(this.db.auth.exchangeCodeForSession(code));
   }
 
   async signOut(): Promise<void> {
-    const { error } = await this.db.auth.signOut();
-    if (error) throw error;
+    await run(this.db.auth.signOut());
   }
 
   onChange(cb: AuthChangeCallback): () => void {

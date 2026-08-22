@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GraphPersistedState, IGraphSettingsRepository } from "@weaveforge/core";
 import { parseGraphPersistedState } from "@weaveforge/core";
+import { run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "projects";
 
@@ -19,10 +20,9 @@ export class SupabaseGraphSettingsRepository implements IGraphSettingsRepository
   }
 
   async save(projectId: string, state: GraphPersistedState): Promise<void> {
-    const { error } = await this.db
+    await run(this.db
       .from(TABLE)
       .update({ graph_settings: state })
-      .eq("id", projectId);
-    if (error) throw error;
+      .eq("id", projectId));
   }
 }

@@ -9,6 +9,7 @@ import {
   type ISettingsRepository,
   type UserSettings,
 } from "@weaveforge/core";
+import { run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase implementation of ISettingsRepository. One row per user; user_id is
@@ -160,7 +161,7 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
       integrations: settings.integrations,
     });
     // Non-secret fields (credentials_enc is left untouched by this upsert).
-    const { error } = await this.db.from(TABLE).upsert(
+    await run(this.db.from(TABLE).upsert(
       {
         user_id: userId,
         zotero_library: settings.zoteroLibrary ?? null,
@@ -171,14 +172,13 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
-    );
-    if (error) throw error;
+    ));
     forgetSettingsMetadata();
   }
 
   async saveDisclaimer(acceptedAt: string, version: number): Promise<void> {
     const userId = await this.session.requireUserId();
-    const { error } = await this.db.from(TABLE).upsert(
+    await run(this.db.from(TABLE).upsert(
       {
         user_id: userId,
         disclaimer_accepted_at: acceptedAt,
@@ -186,8 +186,7 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
-    );
-    if (error) throw error;
+    ));
     forgetSettingsMetadata();
   }
 }

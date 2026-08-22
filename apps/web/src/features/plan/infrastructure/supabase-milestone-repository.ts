@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IMilestoneRepository, Milestone, MilestoneFilter } from "@weaveforge/core";
 import type { ProjectContext } from "@/lib/project-context";
 import { milestoneToDomain, milestoneToRow, type MilestoneRow } from "./milestone-rows";
-import { deleteRowById, rowById } from "@/backend/providers/supabase/row-access";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "milestones";
 
@@ -27,15 +27,12 @@ export class SupabaseMilestoneRepository implements IMilestoneRepository {
     }
     // Soonest target first; undated milestones sink to the end.
     q = q.order("target_date", { ascending: true, nullsFirst: false });
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data as MilestoneRow[]).map(milestoneToDomain);
+    return (await rows<MilestoneRow>(q)).map(milestoneToDomain);
   }
   async save(entity: Milestone): Promise<void> {
     const row = milestoneToRow(entity);
     if (this.pid) row.project_id = this.pid;
-    const { error } = await this.db.from(TABLE).upsert(row);
-    if (error) throw error;
+    await run(this.db.from(TABLE).upsert(row));
   }
   async delete(id: string): Promise<void> {
     await deleteRowById(this.db, TABLE, id);

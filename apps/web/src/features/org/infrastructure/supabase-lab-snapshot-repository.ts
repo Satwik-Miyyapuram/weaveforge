@@ -12,6 +12,7 @@ import {
   type LabSnapshotRow,
   toDomain,
 } from "./lab-snapshot-rows";
+import { rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "lab_snapshots";
 
@@ -38,29 +39,24 @@ export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseReposito
   }
 
   async remove(id: string): Promise<void> {
-    const { error } = await this.db.from(TABLE).delete().eq("id", id);
-    if (error) throw error;
+    await run(this.db.from(TABLE).delete().eq("id", id));
   }
 
   async listMine(): Promise<LabSnapshot[]> {
     const userId = await this.session.requireUserId();
-    const { data, error } = await this.db
+    return (await rows<LabSnapshotRow>(this.db
       .from(TABLE)
       .select("*")
       .eq("user_id", userId)
-      .order("published_at", { ascending: false });
-    if (error) throw error;
-    return (data as LabSnapshotRow[]).map(toDomain);
+      .order("published_at", { ascending: false }))).map(toDomain);
   }
 
   async listForMember(memberId: string): Promise<LabSnapshot[]> {
-    const { data, error } = await this.db
+    return (await rows<LabSnapshotRow>(this.db
       .from(TABLE)
       .select("*")
       .eq("user_id", memberId)
-      .order("published_at", { ascending: false });
-    if (error) throw error;
-    return (data as LabSnapshotRow[]).map(toDomain);
+      .order("published_at", { ascending: false }))).map(toDomain);
   }
 
   async getById(id: string): Promise<LabSnapshot | null> {

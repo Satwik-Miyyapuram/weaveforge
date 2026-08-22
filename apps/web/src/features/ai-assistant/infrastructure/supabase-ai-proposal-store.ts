@@ -6,6 +6,7 @@ import type {
   IAiProposalStore,
   ICurrentUserProvider,
 } from "@weaveforge/core";
+import { run } from "@/backend/providers/supabase/row-access";
 
 type ProposalRow = {
   id: string;
@@ -32,7 +33,7 @@ export class SupabaseAiProposalStore implements IAiProposalStore {
 
   async save(proposal: AiWriteProposal): Promise<void> {
     const userId = await this.session.requireUserId();
-    const { error } = await this.db.from("ai_proposals").upsert({
+    await run(this.db.from("ai_proposals").upsert({
       id: proposal.id,
       user_id: userId,
       project_id: this.projectId(),
@@ -44,8 +45,7 @@ export class SupabaseAiProposalStore implements IAiProposalStore {
       content: proposal,
       created_at: proposal.createdAt,
       updated_at: new Date().toISOString(),
-    });
-    if (error) throw error;
+    }));
   }
 
   async getById(id: string): Promise<AiWriteProposal | null> {
@@ -88,7 +88,7 @@ export class SupabaseAiAuditStore implements IAiAuditStore {
 
   async save(record: AiAuditRecord): Promise<void> {
     const userId = await this.session.requireUserId();
-    const { error } = await this.db.from("ai_audit_records").insert({
+    await run(this.db.from("ai_audit_records").insert({
       id: record.id,
       user_id: userId,
       project_id: this.projectId(),
@@ -96,7 +96,6 @@ export class SupabaseAiAuditStore implements IAiAuditStore {
       action: record.action,
       content: record,
       created_at: record.createdAt,
-    });
-    if (error) throw error;
+    }));
   }
 }
