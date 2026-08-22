@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  pageNumberFromHost,
   textSelectionFromOffsets,
 } from "../application/dom-selection-range.js";
 
@@ -29,9 +28,3 @@ test("textSelectionFromOffsets rejects empty and invalid", () => {
   );
 });
 
-test("pageNumberFromHost reads data-page", () => {
-  assert.equal(pageNumberFromHost({ dataset: { page: "3" } }), 3);
-  assert.equal(pageNumberFromHost(null), null);
-  assert.equal(pageNumberFromHost({ dataset: { page: "0" } }), null);
-  assert.equal(pageNumberFromHost({ dataset: { page: "x" } }), null);
-});

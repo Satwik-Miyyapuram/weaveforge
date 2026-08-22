@@ -29,30 +29,6 @@ export function collectAnnotationImageRegions(
   return out;
 }
 
-export interface SourceNoteBatchItem {
-  paperId: string;
-  title: string;
-  action: "create" | "rerender";
-}
-
-/** Plan source-note generation / re-render for a paper list. */
-export function planSourceNoteBatch(
-  papers: readonly {
-    id: string;
-    title: string;
-    hasSourceNote: boolean;
-  }[],
-  mode: "missing" | "all",
-): SourceNoteBatchItem[] {
-  return papers
-    .filter((p) => (mode === "missing" ? !p.hasSourceNote : true))
-    .map((p) => ({
-      paperId: p.id,
-      title: p.title,
-      action: p.hasSourceNote ? "rerender" : "create",
-    }));
-}
-
 export interface ActivityLogEntry {
   id: string;
   at: string;

@@ -26,8 +26,3 @@ export function buildLocusLink(input: {
   const query = params.toString();
   return query ? `/reader?${query}` : "/reader";
 }
-
-/** True when a link has enough to render something in the reader. */
-export function locusLinkIsResolvable(input: { paperId?: string; pdfUrl?: string }): boolean {
-  return Boolean(input.paperId || sanitizePdfUrl(input.pdfUrl));
-}

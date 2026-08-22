@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { decodeLocus, type PdfLocus } from "@weaveforge/core";
-import { buildLocusLink, locusLinkIsResolvable } from "../application/build-locus-link.js";
+import { buildLocusLink } from "../application/build-locus-link.js";
 
 const locus: PdfLocus = {
   quote: { type: "TextQuoteSelector", exact: "the used sentence" },
@@ -40,6 +40,3 @@ test("buildLocusLink drops javascript and other unsafe pdf URLs", () => {
   assert.equal(url.searchParams.get("pdf"), null);
 });
 
-test("locusLinkIsResolvable rejects unsafe pdf urls without a paper id", () => {
-  assert.equal(locusLinkIsResolvable({ pdfUrl: "javascript:alert(1)" }), false);
-});

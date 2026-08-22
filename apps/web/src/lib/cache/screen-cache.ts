@@ -38,11 +38,6 @@ export function setScreenCache<T>(key: string, value: T, fetchedAt = Date.now())
   loadedAt.set(key, fetchedAt);
 }
 
-/** When the payload behind a key was fetched, or undefined if there is none. */
-export function screenCacheFetchedAt(key: string): number | undefined {
-  return loadedAt.get(key);
-}
-
 export function clearScreenCachesForScreens(
   projectId: string | null,
   screens: readonly string[],
