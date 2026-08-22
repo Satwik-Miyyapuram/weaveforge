@@ -203,11 +203,25 @@ a.related-paper-url:hover { text-decoration: underline; }
   background: var(--st-neutral-bg); color: var(--st-neutral-fg);
   white-space: nowrap;
 }
-/* Status pills, mapped to the design's semantic ramp (see themes/common.css). */
-.status-reading, .status-daily { background: var(--st-info-bg); color: var(--st-info-fg); }
-.status-read { background: var(--st-positive-bg); color: var(--st-positive-fg); }
-.status-skimmed { background: var(--st-warn-bg); color: var(--st-warn-fg); }
-.status-weekly { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+/*
+ * Status pills, mapped to the design's semantic ramp (see themes/common.css).
+ *
+ * Grouped by ramp step rather than by feature: a paper, a report, an
+ * experiment and a milestone each name their states differently, but a state
+ * that means "in flight" has to look the same wherever it is shown. The
+ * neutral rules are not redundant with `.status` — `custom-select-button`
+ * takes a `status-*` class without it.
+ */
+.status-reading, .status-daily, .status-drafting, .status-running, .status-in_progress {
+  background: var(--st-info-bg); color: var(--st-info-fg);
+}
+.status-read, .status-done { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+.status-skimmed, .status-review { background: var(--st-warn-bg); color: var(--st-warn-fg); }
+.status-weekly, .status-not_started, .status-planned {
+  background: var(--st-neutral-bg); color: var(--st-neutral-fg);
+}
+.status-failed, .status-blocked { background: var(--st-danger-bg); color: var(--st-danger-fg); }
+.status-abandoned { background: var(--st-mute-bg); color: var(--st-mute-fg); }
 
 /* Logbook */
 .log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
@@ -218,22 +232,6 @@ a.related-paper-url:hover { text-decoration: underline; }
 .edit-actions { justify-content: flex-end; gap: 14px; }
 .log-date { font-weight: 600; }
 .log-body { margin: 0; white-space: pre-wrap; font-size: 0.95rem; }
-
-/* Report statuses */
-.status-not_started { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
-.status-drafting { background: var(--st-info-bg); color: var(--st-info-fg); }
-.status-review { background: var(--st-warn-bg); color: var(--st-warn-fg); }
-.status-done { background: var(--st-positive-bg); color: var(--st-positive-fg); }
-
-/* Experiment statuses */
-.status-planned { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
-.status-running { background: var(--st-info-bg); color: var(--st-info-fg); }
-.status-failed { background: var(--st-danger-bg); color: var(--st-danger-fg); }
-.status-abandoned { background: var(--st-mute-bg); color: var(--st-mute-fg); }
-
-/* Milestone statuses (plan) */
-.status-in_progress { background: var(--st-info-bg); color: var(--st-info-fg); }
-.status-blocked { background: var(--st-danger-bg); color: var(--st-danger-fg); }
 
 /* Report outline */
 .progress-card { margin: 16px 0; display: grid; gap: 10px; }
