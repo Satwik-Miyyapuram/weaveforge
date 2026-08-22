@@ -10,7 +10,14 @@ const AUTH_DIR = path.join(process.cwd(), "e2e", ".auth");
 const USER_A_STATE = path.join(AUTH_DIR, "user-a.json");
 
 export default async function globalSetup(_config: FullConfig) {
-  if (!e2eEnabled() || process.env.PLAYWRIGHT_NO_SESSION === "1") return;
+  if (process.env.PLAYWRIGHT_NO_SESSION === "1") return;
+  if (!e2eEnabled()) {
+    // A checkout without credentials is expected to skip. A CI job that went to
+    // the trouble of configuring this suite is not: it once passed A's secrets
+    // and not B's, every spec skipped, and the job reported success for months.
+    if (process.env.CI) throw new Error("E2E credentials are missing: the suite would skip every spec and report success.");
+    return;
+  }
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
   const browser = await chromium.launch();

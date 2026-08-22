@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { bootstrapSession, drainLoginGates, signIn } from "./helpers/auth.js";
 import { ensurePaperExists } from "./helpers/papers.js";
-import { e2eEnabled, e2eUserA, e2eUserB } from "./helpers/env.js";
+import { e2eTwoUsersEnabled, e2eUserA, e2eUserB } from "./helpers/env.js";
 
 /**
  * A context that is *not* already signed in.
@@ -31,7 +31,7 @@ test.describe("sharing", () => {
   test.describe.configure({ timeout: 180_000 });
 
   test.beforeEach(({ }, testInfo) => {
-    if (!e2eEnabled()) {
+    if (!e2eTwoUsersEnabled()) {
       testInfo.skip(true, "Set WEAVEFORGE_* env vars for both users");
     }
   });
