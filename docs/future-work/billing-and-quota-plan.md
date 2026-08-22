@@ -16,6 +16,32 @@ This is achievable because the codebase already uses decorators over ports. `app
 
 ---
 
+### 1.1 Built, but not shown
+
+**The framework ships; the storefront does not.** Everything below — the
+entitlements port, the decorators, the Postgres ceiling, the counting — is
+worth building now, because retrofitting metering onto a sync protocol and a
+repository layer that never had it is the expensive version of this work.
+
+What is deliberately **absent from the UI** until the app is popular enough to
+be worth monetizing: plan pickers, prices, upgrade prompts, payment forms,
+"you are on the free plan" notices, and any copy that implies a paid tier
+exists. Limits are enforced and explained; they are never an offer. Concretely:
+
+- an entitlement lookup answers with a limit, never with a price,
+- a refusal at the ceiling says what the limit is and what to delete, and does
+  not link anywhere that sells anything,
+- usage displays show usage, not a fraction of a plan the user could buy up
+  from,
+- no route, panel or dialog exists whose purpose is to take money.
+
+Turning this on later is adding surfaces, not rewiring the enforcement — which
+is the point of separating the two now. See
+`docs/plans/future/offline-first-sync.md` **D2**, whose sync opt-in flow counts
+what would be uploaded and shows the number without ever showing a price.
+
+---
+
 ## 2. The problem that shapes the architecture
 
 The brief's §2 splits the API surface deliberately:

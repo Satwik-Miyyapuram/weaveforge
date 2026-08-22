@@ -331,7 +331,7 @@ requires the next phase to be worth having.
 | **1. Reads survive a reload** | Persist the existing screen caches to IndexedDB with an explicit staleness contract. Tier 2, web and desktop, no schema change. | ~300 |
 | **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local` on PGlite (**D9**), synthetic local user for the RLS role switch (**D2**). The app is fully usable with no account. | ~450 |
 | **3. Schema for sync** | `server_seq`, tombstones, base version, change-feed RPC, RLS over the feed. Server-side only, no client change. | ~350 SQL |
-| **4. Outbox and puller** | The opt-in flow (sign-in → quota and price check → adoption → pump, **D2**), suffix-renaming on a first adoption that collides (**D6**), op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. Personal projects only (**D3**). | ~750 |
+| **4. Outbox and puller** | The opt-in flow (sign-in → quota check → adoption → pump, **D2**), suffix-renaming on a first adoption that collides (**D6**), op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. Personal projects only (**D3**). | ~750 |
 | **5. Conflicts** | Three-way merge for kind (b), conflicts table, the banner UI, dead-letter list. | ~450 |
 | **6. Blobs and scope** | Per-project offline toggle, PDF LRU with quota UI. | ~250 |
 
@@ -451,18 +451,28 @@ What that means concretely:
 - **The opt-in is one flow with four steps, in this order**, and it is the only
   place any of them appear:
   1. sign in (or create an account),
-  2. **count what would be uploaded and check it against the plan** — papers,
-     notes, projects, asset bytes — and show the number and the price *before*
-     anything is sent (`docs/future-work/billing-and-quota-plan.md` §3.1: the
-     check happens before adoption runs, never during),
+  2. **count what would be uploaded and check it against the limit** — papers,
+     notes, projects, asset bytes — and show the number *before* anything is
+     sent (`docs/future-work/billing-and-quota-plan.md` §3.1: the check happens
+     before adoption runs, never during),
   3. adopt the local rows into the account (resumable — see below),
   4. start the outbox.
 
-  Step 2 is where payment is settled, and it is the first moment the question
-  has ever been relevant: until sync is on, the user is storing nothing on our
-  hardware and there is nothing to meter. A user who declines the price at step
-  2 is returned to a working offline app with nothing changed — the opt-in must
-  be abandonable at every step before step 3 commits.
+  Step 2 is the first moment the size of what is stored has ever been relevant:
+  until sync is on, the user is storing nothing on our hardware and there is
+  nothing to meter. A user who declines at step 2 is returned to a working
+  offline app with nothing changed — the opt-in must be abandonable at every
+  step before step 3 commits.
+
+  > **No price appears anywhere in this flow, or anywhere else in the app.**
+  > The quota framework is built — the counting, the limit, the refusal at the
+  > boundary — because retrofitting metering onto a sync protocol that never
+  > had it is the expensive version of this work. What is *not* built is any
+  > surface that asks for money: no plan picker, no price, no upgrade prompt,
+  > no card. Sync is free until the app is popular enough to be worth
+  > monetizing, and that is a decision taken later, deliberately, not a switch
+  > left half-flipped in the UI. Step 2 therefore reads as "this is how much
+  > there is" and, past the limit, as a plain refusal — never as an offer.
 - **Turning sync off returns the app to the offline state**, and signing out is
   a separate act from turning sync off (see the keep-or-wipe choice below).
 
