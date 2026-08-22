@@ -8,6 +8,9 @@ loadLocalDevEnv();
 // allowlist (infra/oci/Caddyfile), and an origin outside it gets a 403 on the
 // preflight — so every signed-in spec failed on the first query, whatever the
 // spec was testing. 3100 is on that list and 3000 is left to `npm run dev`.
+// Nothing else may listen here: `reuseExistingServer` would hand the suite
+// whatever is already on the port and every spec would fail as a missing
+// element rather than as the wrong site.
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3100";
 const ci = Boolean(process.env.CI);
 const enabled = e2eEnabled();
