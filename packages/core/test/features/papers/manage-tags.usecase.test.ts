@@ -4,13 +4,9 @@ import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-re
 import { InMemoryTagRepository, InMemoryPaperTagRepository } from "../../../src/testing/in-memory-tag-repository.js";
 import { AddPaperUseCase } from "../../../src/features/papers/application/add-paper.use-case.js";
 import { ManageTagsUseCase } from "../../../src/features/tags/application/manage-tags.use-case.js";
-import type { Clock, IdGenerator } from "../../../src/shared/clock.js";
+import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
 
-const clock: Clock = { nowIso: () => "2026-06-24T12:00:00.000Z" };
-function seqIds(): IdGenerator {
-  let n = 0;
-  return { newId: () => `id-${++n}` };
-}
+const clock = fixedClock("2026-06-24T12:00:00.000Z");
 
 function setup() {
   const papers = new InMemoryPaperRepository();

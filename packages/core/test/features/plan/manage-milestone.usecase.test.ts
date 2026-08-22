@@ -2,9 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { InMemoryMilestoneRepository } from "../../../src/testing/in-memory-milestone-repository.js";
 import { ManageMilestoneUseCase } from "../../../src/features/plan/application/manage-milestone.use-case.js";
-import type { Clock, IdGenerator } from "../../../src/shared/clock.js";
+import type {IdGenerator} from "../../../src/shared/clock.js";
+import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
 
-const clock: Clock = { nowIso: () => "2026-06-30T12:00:00.000Z" };
+const clock = fixedClock("2026-06-30T12:00:00.000Z");
 function seqIds(): IdGenerator { let n = 0; return { newId: () => `id-${++n}` }; }
 function uc() {
   const repo = new InMemoryMilestoneRepository();
