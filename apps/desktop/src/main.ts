@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from "electron";
 import fs from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -10,6 +11,7 @@ import {
   contentTypeFor,
   resolveAppFile,
 } from "./app-protocol";
+import { SecretStore } from "./secret-store";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
@@ -295,6 +297,29 @@ function serveBundle(): void {
     });
   });
 }
+
+/**
+ * The keychain, wired to `safeStorage` and one file in the app's own data
+ * directory.
+ *
+ * The path is resolved lazily rather than at module load: `getPath` needs a
+ * ready app, and this module is evaluated before `whenReady`. Nothing readable
+ * is written — see `secret-store.ts` for what the file contains and what
+ * happens on a machine with no keychain backend.
+ */
+function secretStore(): SecretStore {
+  const file = path.join(app.getPath("userData"), "secrets.json");
+  return new SecretStore(safeStorage, {
+    read: () => readFile(file, "utf8").catch(() => null),
+    write: (contents) => writeFile(file, contents, { encoding: "utf8", mode: 0o600 }),
+  });
+}
+
+ipcMain.handle(CHANNELS.secretRead, (_event, name: unknown) => secretStore().read(name));
+ipcMain.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
+  secretStore().write(name, value),
+);
+ipcMain.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().clear(name));
 
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
