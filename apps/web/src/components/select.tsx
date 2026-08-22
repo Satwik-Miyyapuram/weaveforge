@@ -3,6 +3,7 @@
 import React, { useCallback, useId, useState, useRef, useEffect } from "react";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { createPortal } from "react-dom";
+import { ChevronIcon } from "@/components/chevron-icon";
 
 interface MenuRect {
   left: number;
@@ -292,11 +293,7 @@ export function Select({
         onKeyDown={onKeyDown}
       >
         <span className="custom-select-value">{selectedOption ? selectedOption.label : ""}</span>
-        <span className="chev">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </span>
+        <ChevronIcon />
       </button>
       {open && menuRect && createPortal(
         <div

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useProject } from "./project-provider";
+import { ChevronIcon } from "@/components/chevron-icon";
 
 /** Header chip showing the current project; dropdown to switch or open the picker. */
 export function ProjectSwitcher() {
@@ -20,11 +21,7 @@ export function ProjectSwitcher() {
       >
         <span className="project-dot" style={{ background: current.color ?? "#7c9885" }} />
         <span>{current.name}</span>
-        <span className="chev">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </span>
+        <ChevronIcon />
       </button>
       {open && (
         <div className="proj-menu" onMouseLeave={() => setOpen(false)}>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { isExplicitLabMembership, ROLE_LABELS } from "@weaveforge/core";
 import { useProfile } from "./profile-provider";
+import { ChevronIcon } from "@/components/chevron-icon";
 
 /** Header chip for switching between labs when the user has multiple memberships. */
 export function OrgSwitcher() {
@@ -40,11 +41,7 @@ export function OrgSwitcher() {
       >
         <span className="org-dot" aria-hidden />
         <span>{active.orgName}</span>
-        <span className="chev">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </span>
+        <ChevronIcon />
       </button>
       {open && (
         <div className="proj-menu" onMouseLeave={() => setOpen(false)}>

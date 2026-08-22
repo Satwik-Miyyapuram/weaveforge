@@ -14,6 +14,7 @@ import {
   loadPersistedMcpSessions,
   savePersistedMcpSessions,
 } from "@/features/ai-assistant/infrastructure/mcp-session-store";
+import { ChevronIcon } from "@/components/chevron-icon";
 
 const READ_LABELS: Record<AiReadCategory, string> = {
   paper_metadata: "Paper metadata and links",
@@ -357,7 +358,7 @@ export function AiAccessPanel({ settings, onChange }: {
             <summary>
               <div className="ai-section-heading">
                 <div><h4>Include new sources automatically</h4><p>Off by default. New sources join only the categories you choose here.</p></div>
-                <span className="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg></span>
+                <ChevronIcon />
               </div>
             </summary>
             <div className="ai-permission-list ai-list-2col">{AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="themed-check" type="checkbox" disabled={!access.readCategories.includes(category)} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
@@ -409,7 +410,7 @@ export function AiAccessPanel({ settings, onChange }: {
                       {Object.entries(sourcesByCategory).map(([category, categorySources]) => {
                         const allSelected = categorySources.every((source) => selectedSourceIds.includes(source.sourceId));
                         return <details className="ai-source-group" key={category}>
-                          <summary><span><strong>{category}</strong><small>{categorySources.filter((source) => selectedSourceIds.includes(source.sourceId)).length} of {categorySources.length} selected</small></span><span className="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg></span></summary>
+                          <summary><span><strong>{category}</strong><small>{categorySources.filter((source) => selectedSourceIds.includes(source.sourceId)).length} of {categorySources.length} selected</small></span><ChevronIcon /></summary>
                           <div className="ai-source-group-actions"><button type="button" className="link-btn" onClick={() => setSelectedSourceIds((current) => allSelected ? current.filter((id) => !categorySources.some((source) => source.sourceId === id)) : [...new Set([...current, ...categorySources.map((source) => source.sourceId)])])}>{allSelected ? "Clear category" : "Select category"}</button></div>
                           {categorySources.map((source) => <label className="ai-permission-row" key={source.sourceId}>
                             <span>{source.label}</span><input className="themed-check" type="checkbox" checked={selectedSourceIds.includes(source.sourceId)} onChange={() => toggleSource(source.sourceId)} />
