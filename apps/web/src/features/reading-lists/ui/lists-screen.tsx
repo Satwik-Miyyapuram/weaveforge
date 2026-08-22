@@ -25,6 +25,7 @@ import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
+import { ScreenHead } from "@/components/screen-head";
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };
 
@@ -160,13 +161,9 @@ export function ListsScreen() {
 
   return (
     <section className="screen lists-screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <div className="screen-actions">
-            <button className="btn-primary" onClick={() => setAddOpen(true)}>+ List</button>
-          </div>
-        </div>
-      </header>
+      <ScreenHead>
+        <button className="btn-primary" onClick={() => setAddOpen(true)}>+ List</button>
+      </ScreenHead>
 
       {addOpen && (
         <Modal title="New reading list" onClose={() => setAddOpen(false)}>

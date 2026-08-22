@@ -28,6 +28,7 @@ import {
   ExpMetricChips,
   ExperimentTitleLink,
 } from "./experiment-panels";
+import { ScreenHead } from "@/components/screen-head";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };
 
@@ -113,22 +114,18 @@ export function ExperimentsScreen() {
 
   return (
     <section className="screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <div className="screen-actions">
-            {hasLiveRunning && (
-              <span className="live-dot" title="A run is in progress — auto-refreshing every 5s">● live</span>
-            )}
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
-            >
-              + Experiment
-            </button>
-          </div>
-        </div>
-      </header>
+      <ScreenHead>
+        {hasLiveRunning && (
+          <span className="live-dot" title="A run is in progress — auto-refreshing every 5s">● live</span>
+        )}
+        <button
+          className="btn-primary"
+          type="button"
+          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+        >
+          + Experiment
+        </button>
+      </ScreenHead>
 
       {composeOpen && (
         <Modal

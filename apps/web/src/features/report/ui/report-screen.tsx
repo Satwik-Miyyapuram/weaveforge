@@ -24,6 +24,7 @@ import type { ReportScreenData } from "@/features/report/application/load-report
 import { SectionNote } from "./section-note";
 import { Markdown } from "@/components/markdown/markdown";
 import { rememberRecentTarget } from "@/lib/recent-targets";
+import { ScreenHead } from "@/components/screen-head";
 
 type ReportViewData = ReportScreenData & {
   ownerNames: Map<string, string>;
@@ -221,20 +222,15 @@ export function ReportScreen() {
 
   return (
     <section className="screen report-screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <h1 className="screen-title">Sections</h1>
-          <div className="screen-actions">
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={() => setComposeOpen(true)}
-            >
-              + Section
-            </button>
-          </div>
-        </div>
-      </header>
+      <ScreenHead title="Sections">
+        <button
+          className="btn-primary"
+          type="button"
+          onClick={() => setComposeOpen(true)}
+        >
+          + Section
+        </button>
+      </ScreenHead>
 
       {composeOpen && (
         <Modal

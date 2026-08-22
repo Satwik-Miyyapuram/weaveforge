@@ -13,6 +13,7 @@ import { CollabBodyHost } from "@/features/collab";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray } from "@/lib/empty";
 import { formatError } from "@/lib/format-error";
+import { ScreenHead } from "@/components/screen-head";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -32,16 +33,12 @@ export function LogbookScreen() {
 
   return (
     <section className="screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <div className="screen-actions">
-            <button className="btn-primary" onClick={() => setAddOpen(true)}>+ Entry</button>
-            <button type="button" className="btn-secondary" onClick={() => setPublishOpen(true)}>
-              Publish snapshot
-            </button>
-          </div>
-        </div>
-      </header>
+      <ScreenHead>
+        <button className="btn-primary" onClick={() => setAddOpen(true)}>+ Entry</button>
+        <button type="button" className="btn-secondary" onClick={() => setPublishOpen(true)}>
+          Publish snapshot
+        </button>
+      </ScreenHead>
 
       {addOpen && (
         <Modal title="Add a log entry" onClose={() => setAddOpen(false)}>

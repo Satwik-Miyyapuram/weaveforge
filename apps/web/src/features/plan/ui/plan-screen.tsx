@@ -16,6 +16,7 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { PlanScreenData } from "@/features/plan/application/load-plan-screen.use-case";
 import { formatError } from "@/lib/format-error";
+import { ScreenHead } from "@/components/screen-head";
 
 type PlanViewData = PlanScreenData & { ownerNames: Map<string, string> };
 
@@ -124,19 +125,15 @@ export function PlanScreen() {
 
   return (
     <section className="screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <div className="screen-actions">
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
-            >
-              + Milestone
-            </button>
-          </div>
-        </div>
-      </header>
+      <ScreenHead>
+        <button
+          className="btn-primary"
+          type="button"
+          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+        >
+          + Milestone
+        </button>
+      </ScreenHead>
 
       {composeOpen && (
         <Modal
