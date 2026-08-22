@@ -114,7 +114,14 @@ test.describe("sharing", () => {
     // typed into an empty list filters to nothing, which used to read as
     // "recipient not in the directory" and skip the test outright — the one
     // assertion this spec exists for, silently not run.
-    await owner.locator(".mp-row").first().waitFor({ timeout: 30_000 });
+    // An empty directory is not a slow one: `profiles_select_lab` shows an
+    // account only the people it shares a lab with, so two e2e accounts in no
+    // common lab see a picker that will never fill. Say so, rather than timing
+    // out on a locator and leaving the reader to guess at the app.
+    await expect(
+      owner.locator(".mp-row").first(),
+      "member directory stayed empty — the two e2e accounts must belong to the same lab",
+    ).toBeVisible({ timeout: 30_000 });
 
     const existing = owner.locator(".share-row").filter({ hasText: new RegExp(handle, "i") }).first();
     await expect(async () => {
