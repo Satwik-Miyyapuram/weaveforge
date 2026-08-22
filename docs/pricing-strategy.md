@@ -50,12 +50,72 @@ Net effect: we can raise the free tier's paper limit well above ten without mate
 
 ---
 
+## 3.1 What offline-first changes
+
+`docs/plans/future/offline-first-sync.md` settles that **the desktop app is
+independent**: it ships its own build, works with no network and no account, and
+holds its data in a local Postgres. Sync is opt-in and requires sign-in; shared
+projects require sign-in and a connection.
+
+That is a pricing decision as much as an engineering one, and it makes the model
+*more* honest rather than less:
+
+**The product is free and complete on one device. What is sold is every device
+after the first, plus us holding the bytes.** A researcher writing a thesis on
+one laptop pays nothing, forever, with no quota and no account — because there
+is no operator cost to recover. The moment they want the same library on a
+second machine, or on the web, or shared with a supervisor, they are asking us
+to run and back up a database, and that is what a subscription buys.
+
+This sharpens §1 rather than contradicting it. We still never sell a capability;
+the local app has every feature. We sell **the operator's job**, and offline-first
+makes the boundary visible: everything on this side of the network is free.
+
+**Consequences for the tiers:**
+
+- **Quotas meter synced data, not local data.** A paper that exists only on your
+  laptop costs us nothing and counts for nothing. The 50-paper free ceiling
+  applies to what is on our servers. This must be worded carefully on the
+  pricing page or it reads as a bait-and-switch in the other direction.
+- **The free tier stops being a wall and becomes a floor.** "Free" is no longer
+  "a demo with limits" but "the whole application, on one device". That is a
+  much stronger story against Obsidian, whose app is free but closed-source, and
+  against Elicit, whose product does not exist without a server.
+- **Sync frequency stays the honest meter.** It already is (§4). It scales with
+  our cost and it degrades gracefully — a slower tier is still correct, just
+  later, which is the only kind of limit that does not risk data.
+- **Shared and collaborative work is inherently hosted**, and therefore
+  inherently paid on the hosted service. Not a paywall we erected: a project
+  with two members needs a server both can reach. Self-hosters get it free by
+  running that server themselves, which is the promise intact.
+- **A per-device charge is tempting and should be refused.** Metering devices
+  punishes the exact behaviour sync exists to serve. Meter bytes and cadence.
+- **Self-hosted sync is supported and unpaid.** The sync target is an address,
+  and pointing it at a server the reader runs is a configuration rather than a
+  workaround (`offline-first-sync.md` **D7**). They get multi-device sync and
+  collaboration and pay us nothing, because in that arrangement nobody is
+  holding their bytes but them. Ours is the default and what the installer
+  ships with; that is the whole of the advantage we take. This is §1 applied
+  literally — anything the hosted service can do that a self-hosted one cannot
+  is a capability we have started selling, which is the thing we said we would
+  not do.
+
+**What must never happen:** local-only data being held hostage to a lapsed
+subscription. If someone stops paying, sync stops; the local app keeps working
+with everything already on the device, forever. This is the offline-first
+equivalent of §4's "reading your own data" rule, and it is the single line that
+would destroy trust in this market if crossed.
+
+---
+
 ## 4. What we charge for, and what we never charge for
 
 **Charge for** — things that cost the operator money or scale with usage:
 
 - Storage bytes (images, artifacts, opt-in PDFs) and egress
+- **Sync itself** — multi-device and web access to one library (§3.1)
 - Sync frequency and background job cadence
+- **Hosting shared and collaborative projects**, which cannot exist without a server
 - MCP relay active hours
 - Seats in a lab
 - Backups, retention windows, support response times, invoicing and procurement
@@ -67,6 +127,9 @@ Net effect: we can raise the free tier's paper limit well above ten without mate
 - **The proposal-only MCP safety model.** Approval gating at `/ai-review` is not a premium control. Metering relay *hours* is fine; metering *safety* is not.
 - **Self-hosting.** No licence fee, no feature stripping, no "open core" holdbacks.
 - **Reading your own data.** Over quota means no new writes, never no access.
+- **The local application.** The desktop app is complete, unmetered, and needs
+  no account (§3.1). A lapsed subscription stops sync; it never touches data
+  already on the device.
 
 ---
 
@@ -78,12 +141,18 @@ Five tiers. The shape matters more than the exact numbers, which should move onc
 
 Indefinite, not a trial. Thesis timelines run years; a 14-day trial is a category error here.
 
-- 50 papers · 50 notes · 1 project · 250 MB assets
+- **Desktop, offline, one device: unlimited and account-free** (§3.1)
+- Hosted: 50 papers · 50 notes · 1 project · 250 MB assets
 - Manual sync only
-- MCP: trial guardrail (short session cap, low monthly tool-call ceiling)
+- MCP: trial guardrail (short session cap, low monthly tool-call ceiling) — a
+  **local** model over `localhost` is unmetered, since it costs the operator
+  nothing
 - Full export, full privacy posture, all features present
 
 Raised from the previous 10-paper proposal because §3 makes papers cheap. Fifty papers is a real pilot literature review, which is what converts.
+
+Every number above meters **hosted** data. The same library held only on a
+laptop has no ceiling.
 
 ### Student — **€4.99/mo, €49/yr** (headline price)
 
