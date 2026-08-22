@@ -3,6 +3,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { run } from "@/backend/providers/supabase/row-access";
 
 const TABLE_BY_TYPE: Record<string, string> = {
   vault_page: "vault_pages",
@@ -32,10 +33,9 @@ export class CrdtSnapshotStore {
   ): Promise<void> {
     const table = TABLE_BY_TYPE[resourceType];
     if (!table) return;
-    const { error } = await this.db
+    await run(this.db
       .from(table)
       .update({ snapshot_upto: uptoId })
-      .eq("id", resourceId);
-    if (error) throw error;
+      .eq("id", resourceId));
   }
 }

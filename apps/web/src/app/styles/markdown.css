@@ -46,9 +46,6 @@
   margin-top: 2px;
   box-shadow: none;
 }
-/* Drive expand chevron from <details open>, same glyph as section trees. */
-.linked-overleaf-card > .linked-overleaf-summary .chev-expand svg { transform: rotate(-90deg); }
-.linked-overleaf-card[open] > .linked-overleaf-summary .chev-expand svg { transform: rotate(0deg); }
 .linked-overleaf-summary-main { flex: 1; min-width: 0; }
 .linked-overleaf-body { margin-top: 12px; }
 @media (min-width: 900px) {
@@ -88,8 +85,6 @@
   list-style: none;
 }
 .linked-overleaf-section > summary::-webkit-details-marker { display: none; }
-.linked-overleaf-section > summary .chev-expand svg { transform: rotate(-90deg); }
-.linked-overleaf-section[open] > summary .chev-expand svg { transform: rotate(0deg); }
 .linked-overleaf-section__title { font-weight: 600; overflow-wrap: anywhere; }
 .linked-overleaf-section > summary small { color: var(--muted); font-size: .74rem; overflow-wrap: anywhere; }
 .linked-overleaf-sections-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
