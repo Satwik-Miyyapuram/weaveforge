@@ -2,29 +2,16 @@ import { normalizeDoi, type NewPaperInput, type Paper } from "@weaveforge/core";
 import type { ZoteroSyncResult } from "../domain/zotero";
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
 import { toZoteroItem } from "./zotero-exporter";
-import { fetchAllZoteroItems, zoteroHeaders, zoteroLibraryUrl, zoteroTopLevelPath } from "./zotero-web-api";
+import {
+  fetchAllZoteroItems,
+  isChildItem,
+  zoteroHeaders,
+  zoteroLibraryUrl,
+  zoteroTopLevelPath,
+  type ZoteroItemData,
+} from "./zotero-web-api";
 
 export type { ZoteroSyncResult } from "../domain/zotero";
-
-/** Zotero item types that are children of a paper, never papers themselves. */
-const CHILD_ITEM_TYPES = new Set(["attachment", "note", "annotation"]);
-
-interface ZoteroCreator { firstName?: string; lastName?: string; name?: string }
-interface ZoteroData {
-  key?: string;
-  /** Set when the item hangs off a parent — an attachment, note or annotation. */
-  parentItem?: string;
-  title?: string;
-  creators?: ZoteroCreator[];
-  publicationTitle?: string;
-  date?: string;
-  DOI?: string;
-  url?: string;
-  abstractNote?: string;
-  extra?: string;
-  itemType?: string;
-  tags?: { tag?: string }[];
-}
 
 export interface ZoteroSyncDeps {
   credentials: ZoteroCredentialsProvider;
@@ -35,7 +22,7 @@ export interface ZoteroSyncDeps {
   /** Delete a local paper (used when its Zotero item was deleted remotely). */
   deletePaper?: (id: string) => Promise<void>;
   /** After pull, sync Zotero item-level tags onto the local paper. */
-  onItemTags?: (paper: Paper, remote: ZoteroData) => Promise<void>;
+  onItemTags?: (paper: Paper, remote: ZoteroItemData) => Promise<void>;
   fetchFn?: typeof fetch;
   baseUrl?: string;
 }
@@ -61,7 +48,7 @@ export class ZoteroSync {
     // collection). Reading only the first page would make items past the page
     // size look "missing" and get re-pushed every sync → duplicates. Pages
     // after the first go out together — see `fetchAllZoteroItems`. ---
-    const remoteRaw = await fetchAllZoteroItems<{ data?: ZoteroData }>({
+    const remoteRaw = await fetchAllZoteroItems<{ data?: ZoteroItemData }>({
       baseUrl: libraryUrl,
       // Top-level items only. `/items` also returns attachments, notes and
       // annotations, and a Zotero PDF attachment is titled "Preprint PDF" or
@@ -76,12 +63,12 @@ export class ZoteroSync {
     });
     const remote = remoteRaw
       .map((r) => r.data)
-      .filter((d): d is ZoteroData => !!d && !!d.title)
+      .filter((d): d is ZoteroItemData => !!d && !!d.title)
       // Belt and braces: the endpoint should not return these, but importing a
       // child item as a paper is bad enough to be worth refusing twice. A
       // `parentItem` is the same statement from the other side — an item that
       // hangs off a paper is not one, whatever its `itemType` says.
-      .filter((d) => !CHILD_ITEM_TYPES.has(d.itemType ?? "") && !d.parentItem);
+      .filter((d) => !isChildItem(d));
 
     const local = await this.deps.listPapers();
     // Match if any content key overlaps. Each side emits its DOI + arXiv keys
@@ -104,7 +91,7 @@ export class ZoteroSync {
     // 200 papers meant 200 full reads of a table that was growing as it went.
     // One read afterwards finds all of them.
     let pulled = 0;
-    const pulledItems: ZoteroData[] = [];
+    const pulledItems: ZoteroItemData[] = [];
     for (const d of remote) {
       const ks = keysOfRemote(d);
       if (ks.length === 0 || ks.some((k) => localKeys.has(k))) continue;
@@ -224,7 +211,7 @@ function keysOfLocal(p: Paper): string[] {
  * arXiv id from a Zotero item: the `arXiv:<id>` tag in `extra`, else the id in
  * an arxiv.org/abs|pdf/<id> URL.
  */
-function arxivOfRemote(d: ZoteroData): string | undefined {
+function arxivOfRemote(d: ZoteroItemData): string | undefined {
   const url = d.url ?? "";
   return (
     /arXiv:\s*([\w.\/-]+)/i.exec(d.extra ?? "")?.[1]?.trim() ??
@@ -232,10 +219,10 @@ function arxivOfRemote(d: ZoteroData): string | undefined {
     /arxiv\.org\/(?:abs|pdf)\/([\w.\/-]+?)(?:\.pdf)?(?:[?#].*)?$/i.exec(url)?.[1]?.trim()
   );
 }
-function keysOfRemote(d: ZoteroData): string[] {
+function keysOfRemote(d: ZoteroItemData): string[] {
   return contentKeys(d.DOI, arxivOfRemote(d), d.title);
 }
-function remoteToInput(d: ZoteroData): NewPaperInput {
+function remoteToInput(d: ZoteroItemData): NewPaperInput {
   const authors = (d.creators ?? [])
     .map((c) => c.name ?? [c.firstName, c.lastName].filter(Boolean).join(" "))
     .filter((x) => x.length > 0);

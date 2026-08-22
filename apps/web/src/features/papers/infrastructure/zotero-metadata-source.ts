@@ -1,5 +1,5 @@
 import type { IMetadataSource, PaperMetadata, PaperRef } from "@weaveforge/core";
-import { zoteroHeaders, zoteroLibraryUrl } from "./zotero-web-api";
+import { isChildItem, zoteroHeaders, zoteroLibraryUrl, type ZoteroItemData } from "./zotero-web-api";
 
 /**
  * Zotero metadata source. Resolves a Zotero item key to paper metadata via the
@@ -19,29 +19,6 @@ interface ZoteroCredentials {
 }
 
 export type ZoteroCredentialsProvider = () => Promise<ZoteroCredentials>;
-
-interface ZoteroCreator {
-  firstName?: string;
-  lastName?: string;
-  name?: string;
-}
-
-/** Item types that describe a file or a comment about a paper, not a paper. */
-const CHILD_ITEM_TYPES = new Set(["attachment", "note", "annotation"]);
-
-interface ZoteroItemData {
-  itemType?: string;
-  /** Present on child items; the key of the bibliography entry they belong to. */
-  parentItem?: string;
-  title?: string;
-  creators?: ZoteroCreator[];
-  publicationTitle?: string;
-  date?: string;
-  DOI?: string;
-  url?: string;
-  abstractNote?: string;
-  extra?: string;
-}
 
 export class ZoteroMetadataSource implements IMetadataSource {
   readonly id = "zotero";
@@ -73,7 +50,7 @@ export class ZoteroMetadataSource implements IMetadataSource {
     // Text", it carries no DOI and no creators, and imported as-is it becomes a
     // nameless row in the library. Follow the parent instead — one extra
     // request, and the entry that results is the bibliography entry.
-    if (CHILD_ITEM_TYPES.has(data.itemType ?? "") || data.parentItem) {
+    if (isChildItem(data)) {
       if (!data.parentItem) {
         throw new Error(
           `Zotero item ${key} is a ${data.itemType ?? "child item"} with no parent entry, so it has no paper metadata to import.`,

@@ -1,6 +1,37 @@
 /** Browser-only Zotero Web API helpers. Keep decrypted credentials out of app routes. */
 const ZOTERO_API_ORIGIN = "https://api.zotero.org";
 
+export interface ZoteroCreator {
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+}
+
+/** The item fields WeaveForge reads. Zotero returns many more; these are ours. */
+export interface ZoteroItemData {
+  key?: string;
+  itemType?: string;
+  /** Present on child items; the key of the bibliography entry they belong to. */
+  parentItem?: string;
+  title?: string;
+  creators?: ZoteroCreator[];
+  publicationTitle?: string;
+  date?: string;
+  DOI?: string;
+  url?: string;
+  abstractNote?: string;
+  extra?: string;
+  tags?: { tag?: string }[];
+}
+
+/** Item types that describe a file or a comment about a paper, not a paper. */
+const CHILD_ITEM_TYPES = new Set(["attachment", "note", "annotation"]);
+
+/** True when the item hangs off a paper — an attachment, note or annotation. */
+export function isChildItem(d: ZoteroItemData): boolean {
+  return CHILD_ITEM_TYPES.has(d.itemType ?? "") || !!d.parentItem;
+}
+
 export function zoteroLibraryUrl(library: string, apiOrigin = ZOTERO_API_ORIGIN): string {
   return `${apiOrigin.replace(/\/$/, "")}/${library.replace(/^\//, "")}`;
 }
