@@ -28,17 +28,17 @@
  * A stylus reports at 120–240 Hz; at reading speed most of those samples land
  * inside the width of the nib. Anything below this is noise being paid for.
  */
-export const INK_MIN_POINT_DISTANCE = 0.75;
+const INK_MIN_POINT_DISTANCE = 0.75;
 
 /**
  * Ramer–Douglas–Peucker tolerance in PDF units: the furthest a dropped point
  * may sit from the line that replaces it. A third of a point is below what the
  * eye resolves at normal zoom, and typically removes 80–90% of a stroke.
  */
-export const INK_SIMPLIFY_TOLERANCE = 0.35;
+const INK_SIMPLIFY_TOLERANCE = 0.35;
 
 /** Coordinate decimals kept. A PDF point is ~0.35 mm; 1/100 of one is plenty. */
-export const INK_COORD_DECIMALS = 2;
+const INK_COORD_DECIMALS = 2;
 
 /**
  * Hardest cap on one stroke. Reached only by a stroke that is genuinely long
@@ -55,11 +55,11 @@ export const INK_MAX_POINTS = 400;
 export const INK_MAX_PATHS_PER_ANNOTATION = 64;
 
 /** Idle gap after which a stroke is treated as starting a new annotation. */
-export const INK_GROUP_WINDOW_MS = 2_000;
+const INK_GROUP_WINDOW_MS = 2_000;
 
 export const INK_DEFAULT_WIDTH = 2;
-export const INK_MIN_WIDTH = 0.75;
-export const INK_MAX_WIDTH = 24;
+const INK_MIN_WIDTH = 0.75;
+const INK_MAX_WIDTH = 24;
 
 /** Nib width of the highlighter tool, in PDF units. */
 export const HIGHLIGHTER_WIDTH = 14;

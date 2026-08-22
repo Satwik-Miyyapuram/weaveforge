@@ -10,7 +10,7 @@ export interface BlobTieringWeights {
   gamma: number;
 }
 
-export const DEFAULT_BLOB_TIERING_WEIGHTS: BlobTieringWeights = {
+const DEFAULT_BLOB_TIERING_WEIGHTS: BlobTieringWeights = {
   alpha: 1,
   beta: 30,
   gamma: 0.5,

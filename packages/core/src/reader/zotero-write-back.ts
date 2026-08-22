@@ -9,7 +9,7 @@ import type { CombinedPdfAnchor } from "./anchor-strategy.js";
 /** Per-library write-back mode. */
 export type ZoteroLibrarySyncMode = "bidirectional" | "read_only" | "ignored";
 
-export const ZOTERO_LIBRARY_SYNC_MODES: readonly ZoteroLibrarySyncMode[] = [
+const ZOTERO_LIBRARY_SYNC_MODES: readonly ZoteroLibrarySyncMode[] = [
   "bidirectional",
   "read_only",
   "ignored",

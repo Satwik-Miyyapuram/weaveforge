@@ -31,11 +31,11 @@ export interface ReaderViewportState {
 }
 
 /** Default zoom when the container size is unknown. */
-export const READER_DEFAULT_SCALE = 1;
+const READER_DEFAULT_SCALE = 1;
 
 export const READER_MIN_SCALE = 0.25;
 export const READER_MAX_SCALE = 4;
-export const READER_ZOOM_STEP = 1.25;
+const READER_ZOOM_STEP = 1.25;
 
 export function clampScale(scale: number): number {
   if (!Number.isFinite(scale) || scale <= 0) return READER_DEFAULT_SCALE;
