@@ -4,7 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # `feat/offline-first` is a long-lived integration branch that main is
+    # protected from until it is finished, so the pull requests into it need
+    # the same checks main's do — otherwise the branch merges to main in one
+    # untested lump.
+    branches: [main, feat/offline-first]
   # Nightly paused: burns private-repo Actions minutes and was red on Playwright.
   # Re-enable after billing/minutes are healthy:
   # schedule:
