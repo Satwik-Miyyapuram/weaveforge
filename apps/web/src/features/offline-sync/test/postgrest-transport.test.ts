@@ -39,7 +39,7 @@ function entry(overrides: Partial<OutboxEntry> = {}): OutboxEntry {
   return {
     seq: 1,
     opId: "op-1",
-    tableName: "projects",
+    table: "projects",
     rowId: "11111111-1111-4111-8111-111111111111",
     op: "update",
     payload: { name: "Renamed" },
@@ -54,9 +54,9 @@ test("an update is guarded by the version it was based on", async () => {
   const { transport, calls } = harness([{ status: 200, body: [{ id: "x" }] }]);
   const outcome = await transport.send(entry());
   assert.deepEqual(outcome, { status: "accepted" });
-  assert.equal(calls[0].method, "PATCH");
-  assert.match(calls[0].url, /row_version=eq\.3/);
-  assert.equal(calls[0].headers.authorization, "Bearer jwt");
+  assert.equal(calls[0]!.method, "PATCH");
+  assert.match(calls[0]!.url, /row_version=eq\.3/);
+  assert.equal(calls[0]!.headers.authorization, "Bearer jwt");
 });
 
 test("a guarded write that matched no row is a conflict, with the server's version", async () => {
@@ -65,14 +65,14 @@ test("a guarded write that matched no row is a conflict, with the server's versi
     { status: 200, body: [{ row_version: 7 }] },
   ]);
   assert.deepEqual(await transport.send(entry()), { status: "conflict", serverVersion: 7 });
-  assert.equal(calls[1].method, "GET");
+  assert.equal(calls[1]!.method, "GET");
 });
 
 test("a delete travels as a tombstone, not as a DELETE", async () => {
   const { transport, calls } = harness([{ status: 200, body: [{ id: "x" }] }]);
   await transport.send(entry({ op: "delete" }));
-  assert.equal(calls[0].method, "PATCH");
-  assert.equal(typeof (calls[0].body as { deleted_at: string }).deleted_at, "string");
+  assert.equal(calls[0]!.method, "PATCH");
+  assert.equal(typeof (calls[0]!.body as { deleted_at: string }).deleted_at, "string");
 });
 
 test("a server error leaves the op owed rather than refused", async () => {
@@ -120,11 +120,11 @@ test("the feed is read through the RPC and mapped to changes", async () => {
     },
   ]);
   const changes = await transport.changesSince(4, 100);
-  assert.equal(calls[0].url, "https://api.test/rest/v1/rpc/sync_changes");
-  assert.deepEqual(calls[0].body, { p_since: 4, p_limit: 100 });
+  assert.equal(calls[0]!.url, "https://api.test/rest/v1/rpc/sync_changes");
+  assert.deepEqual(calls[0]!.body, { p_since: 4, p_limit: 100 });
   assert.equal(changes.length, 1);
-  assert.equal(changes[0].serverSeq, 12);
-  assert.deepEqual(changes[0].row, {
+  assert.equal(changes[0]!.serverSeq, 12);
+  assert.deepEqual(changes[0]!.row, {
     id: "11111111-1111-4111-8111-111111111111",
     name: "P",
   });

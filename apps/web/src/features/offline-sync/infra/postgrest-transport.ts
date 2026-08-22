@@ -61,7 +61,7 @@ export class PostgrestTransport implements SyncTransport {
 
   /** The write itself. Each op shape guards on the version it was based on. */
   private dispatch(entry: OutboxEntry): Promise<Attempt> {
-    const table = encodeURIComponent(entry.tableName);
+    const table = encodeURIComponent(entry.table);
     if (entry.op === "insert") {
       return this.request("POST", `/${table}`, entry.payload ?? {}, "return=representation");
     }
@@ -79,7 +79,7 @@ export class PostgrestTransport implements SyncTransport {
    */
   private async conflict(entry: OutboxEntry): Promise<SendOutcome> {
     try {
-      const table = encodeURIComponent(entry.tableName);
+      const table = encodeURIComponent(entry.table);
       const found = await this.request(
         "GET",
         `/${table}?id=eq.${encodeURIComponent(entry.rowId)}&select=row_version`,
