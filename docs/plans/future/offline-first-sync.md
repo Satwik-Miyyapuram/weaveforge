@@ -1,0 +1,364 @@
+# Offline-first and sync
+
+**Status:** proposal, nothing built.
+**Question it answers:** can WeaveForge keep working with no network — on the
+desktop app especially — and reconcile cleanly when the network comes back,
+including when the same thing was edited in two places at once?
+
+**Answer:** yes, but not by one mechanism. The data splits into four kinds and
+each needs a different merge rule. The dangerous version of this feature is the
+one that picks a single rule (usually "last write wins on the whole row") and
+applies it everywhere; that silently eats edits, and it eats them at exactly
+the moment the user trusted the app most — after a flight, after a conference,
+after a week on a bad connection.
+
+---
+
+## 1. Where we actually stand
+
+Facts, not plans. Each is load-bearing for what follows.
+
+| Fact | Where | Consequence |
+|------|-------|-------------|
+| The desktop app is a shell that loads a remote URL | [`apps/desktop/src/main.ts:84`](../../../apps/desktop/src/main.ts) — `window.loadURL(APP_URL)` | **There is no offline desktop app today, at any level.** No network, no window contents. Data sync is moot until this is fixed. |
+| The service worker deliberately never caches HTML or navigations | [`apps/web/src/sw.ts:7`](../../../apps/web/src/sw.ts) | The PWA does not boot offline either. The reason is sound (Next embeds build-id-specific chunk and RSC URLs, so a cached shell breaks after a deploy), so the fix is not "cache the HTML too". |
+| Repositories are ports in `@weaveforge/core`, wired per provider | `apps/web/src/backend/providers/{supabase,postgres}` | A third provider can be added without touching a single feature. This is the main reason the work is tractable. |
+| `@electric-sql/pglite` is already a dependency | `apps/web/package.json`, used by `apps/web/src/backend/test/pg-test-db.ts` | Real Postgres in-process, running **the shipped migrations**. One schema, one set of RLS policies, local and remote. |
+| The postgres provider already switches role for RLS | [`apps/web/src/backend/providers/postgres/pg-runner.ts`](../../../apps/web/src/backend/providers/postgres/pg-runner.ts) | Local reads enforce the same policies as the server. Without this a local mirror of a shared project would leak other members' rows. |
+| Document bodies are already CRDTs | `crdt_updates` table (migration `0042`), `features/collab/infrastructure/encrypted-yjs-provider.ts` | The hardest merge problem — concurrent prose editing — is already solved for vault pages and log entries. Sync must extend it offline, not replace it. |
+| Row content is plaintext at rest; only credentials are encrypted | `encrypted-yjs-provider.ts` header comment; `settings-credential-crypto.ts`, `overleaf-token-crypto.ts` | The server can compute a change feed over rows. If bodies were end-to-end encrypted this whole design would need a different server contract. |
+| Caching is in-memory and LWW-flavoured already | `lib/cache/cache-repo.ts`, `lib/cache/project-lww-invalidator.ts` | Precedent for the invalidation vocabulary, but it is a *cache*: dropped on reload, never authoritative, no writes. |
+| Blobs already have a tiered store | `storage/providers/tiered` | Local-over-remote for binaries is a solved shape. |
+
+The honest summary: the pieces for offline exist, but nothing is wired to
+survive a reload, and the desktop shell has no local copy of the app at all.
+
+---
+
+## 2. What "offline" has to mean
+
+Three tiers, and we should be explicit about which one we are shipping, because
+users hear "offline" and assume tier 3.
+
+**Tier 1 — the app opens.** Window renders, shell and routes load, you see a
+clear "offline" state instead of a blank page or a network error. Today: fails.
+
+**Tier 2 — you can read.** Everything previously synced is browsable: papers,
+notes, experiments, PDFs you have opened. Today: fails on reload (caches are
+in-memory).
+
+**Tier 3 — you can write.** Create, edit, delete; it lands locally and syncs
+later. This is the one that needs a real conflict story.
+
+The tiers are strictly ordered. Tier 3 without tier 1 is meaningless.
+
+---
+
+## 3. Prior art, and what to take from each
+
+### Obsidian
+
+Obsidian's model is worth studying because it is the one our users compare us to,
+and because its guarantees come from a constraint we do not share.
+
+- **The local files are the source of truth.** Sync is an accessory; the vault
+  works fully with sync turned off, forever. Nothing is "not yet downloaded".
+- **The unit of sync is a file**, and the vault keeps a revision history per
+  file. A device uploads a new version tagged with its own device id.
+- **Conflicts are not merged automatically in the general case.** When two
+  devices changed the same file since their last common version, Obsidian keeps
+  both — you get a conflict copy, and a human decides. For markdown edits it can
+  do a line-level three-way merge, but the fallback is always "keep both, tell
+  the user".
+- **Deletes are tombstones with a retention window**, not disappearances, so a
+  delete on one device does not race an edit on another into data loss.
+
+What to take: local-first is a *stance*, not a cache tier; and **"keep both and
+tell the user" beats any clever automatic resolution you are not certain of.**
+
+What we cannot copy: Obsidian's unit is a file with one obvious owner. Ours is a
+relational graph — a paper row, its tags, its field values, its relations to
+other papers, its annotations. "Keep both copies of the paper" is not a
+coherent user-facing outcome when six tables reference it.
+
+### Git
+
+The user's instinct here is right and worth taking seriously, but it lands on a
+specific part of the problem.
+
+Git's genuinely valuable idea for us is **the three-way merge**: to merge safely
+you need the common ancestor, not just the two current versions. Two-way LWW
+cannot tell "A changed this field" from "B changed it and A didn't", so it
+overwrites. With a base version you can distinguish them, and only escalate the
+fields where both sides actually moved. **We should keep a base version per
+synced row.** That is the git idea, and it is cheap.
+
+What we should not copy:
+
+- **Manual conflict resolution as the default path.** Git's merge conflicts are
+  tolerable because its users are programmers who opted into a version control
+  tool. A researcher who edited a paper's notes on a phone will not resolve a
+  three-way diff, and an app that asks them to has failed.
+- **Branches and an explicit sync command.** Sync must be invisible when it
+  works. Anything requiring a deliberate "push" will be forgotten precisely on
+  the device that had the important edit.
+- **Whole-repo commits.** Git's atom is a tree snapshot. Ours needs to be a row,
+  or two devices editing unrelated papers will conflict for no reason.
+
+So: **three-way merge, per row, automatic, with escalation to the user only when
+two sides genuinely changed the same field.**
+
+### CRDTs (Yjs) — already in the codebase
+
+For prose, a CRDT beats a three-way merge outright: two people typing in
+different paragraphs merge with no conflict and no prompt, which is the correct
+outcome and the one a line-based merge only approximates. We already run Yjs for
+vault pages and log entries.
+
+Its cost is that it only works where a CRDT is defined. It solves text bodies. It
+does not solve "device A set status to `done` while device B set it to
+`blocked`" — that is a genuine semantic conflict and no CRDT invents the right
+answer.
+
+---
+
+## 4. The model: four data kinds, four rules
+
+This classification is the core of the design. Every synced table gets exactly
+one label.
+
+### (a) Document bodies → CRDT (Yjs)
+
+`vault_pages.body`, `log_entries.body`, `report_sections.body`.
+
+Already CRDTs online. Offline changes accumulate as Yjs updates in a local
+`crdt_updates` mirror and are pushed as ordinary updates on reconnect. Yjs
+merges by construction — concurrent edits from three offline devices converge
+with no prompt.
+
+Two things must be handled that today's online-only path does not:
+
+- **The log grows unboundedly while offline.** Compaction (`COMPACT_THRESHOLD`
+  in `encrypted-yjs-provider.ts`) currently runs against the server. It needs a
+  local equivalent, or a month offline produces a very slow first open.
+- **Seeding must not double text.** The existing seed-after-replay ordering bug
+  (documented in that file's header) gets a new way to happen when the replay
+  source is local. The existing `shouldPersistBody` guard and its regression
+  test must be extended to the offline path rather than reimplemented.
+
+### (b) Records → three-way merge, per field
+
+`papers`, `experiments`, `milestones`, `reading_lists`, `projects`,
+`paper_field_values`, and most other row-shaped data.
+
+Each synced row carries the version it was based on. On sync:
+
+- Only one side changed a field → take it. No conflict.
+- Both sides changed a field to the **same** value → take it. No conflict.
+- Both sides changed a field to different values → **conflict**. See §6.
+
+Per-field, not per-row: device A renaming a paper while device B tags it as read
+is not a conflict, and any design that reports it as one will be ignored by users
+within a week — which is how a conflict UI becomes worse than none.
+
+### (c) Sets and junctions → add/remove log (OR-Set)
+
+`paper_tags`, `reading_list_items`, `library_pins`, `shares`, `org_memberships`.
+
+Never LWW the set. Model membership as add and remove operations with ids and
+merge the operations. Concurrent "A adds tag X" and "B adds tag Y" yields both,
+which is obviously right and which row-level LWW gets wrong half the time.
+
+Standard rule for a concurrent add and remove of the *same* element: **add wins**
+(remove only cancels adds it has observed). Recovering from a spurious tag is one
+click; recovering from a silently dropped one requires noticing it is gone.
+
+### (d) Append-only logs and immutables → append, never merge
+
+`ai_audit_records`, `lab_snapshots` (already immutable per migration `0112`),
+`experiment_metric_points`, `crdt_updates` itself.
+
+Insert-only, idempotent by primary key. No conflict is possible. Cheapest tier —
+classify aggressively into it.
+
+---
+
+## 5. Architecture
+
+```
+Electron main process
+├── PGlite (userData/weaveforge.db)   ← local Postgres, shipped migrations
+├── sync engine
+│   ├── outbox pump   local ops → PostgREST
+│   └── puller        server change feed → local, by watermark
+└── IPC ── renderer (existing `postgres` provider, unchanged)
+```
+
+**Writes go local first, always.** The local database is authoritative for the UI
+— reads never wait on the network, so there is no "is it online?" branch in any
+feature. Every write also appends to a local `outbox`.
+
+**The outbox is ordered and idempotent.** Each entry carries a client-generated
+op id. Replaying it is safe, which matters because "did that request land before
+the connection dropped?" is unanswerable in general.
+
+**The puller is the only thing that trusts the server**, and it pulls by
+watermark, not by timestamp (see §6, clock skew).
+
+**Realtime is an optimization, never the source of truth.** It shortens the
+window between a change and its arrival. The puller must be independently
+correct, because a socket that silently stopped delivering is indistinguishable
+from a quiet system — and that failure mode is common enough that any design
+depending on the socket for correctness will lose data occasionally and
+unreproducibly.
+
+### Server-side prerequisites
+
+These are schema changes and they are not optional:
+
+1. **A monotonic `server_seq`** per synced row, from a database sequence, set by
+   trigger on insert and update. This is the watermark. Not `updated_at`.
+2. **Tombstones.** `deleted_at` on every synced table plus a purge policy. Hard
+   deletes are invisible to a pull-based sync — the row simply is not in the
+   response, which is indistinguishable from "you have not synced it yet". This
+   is the single most common way sync implementations resurrect deleted data.
+3. **A base-version column** so a client can send "I am changing field X, based
+   on version N" and the server can detect the concurrent case rather than
+   blindly accepting.
+4. **RLS policies extended to the change feed.** The feed must return exactly
+   what the caller may read, including *removals* when access is revoked. See
+   §6.
+
+---
+
+## 6. Edge cases
+
+The section that decides whether this ships without regret. Each entry: the
+situation, what breaks naively, what we do.
+
+**Same field edited on two devices, both offline.** Naive LWW picks by clock and
+discards the other silently. → Three-way merge detects it (both differ from
+base). Resolution: keep both, apply the more recent by `server_seq`, and record
+the loser in a `conflicts` table surfaced as a dismissible banner on the affected
+record — "Two versions of this. [Keep this] [Keep other] [View both]". Never a
+modal, never blocking, never auto-dismissed. Obsidian's "keep both" instinct,
+scoped to a field instead of a file.
+
+**Clock skew.** A device with a wrong clock wins or loses everything. Phones and
+VMs after suspend are routinely minutes out. → **No wall-clock ordering, ever.**
+Ordering is by server-assigned `server_seq`. Client timestamps are display
+metadata only. This must be enforced in review; it is the easiest rule to
+violate by accident because `updated_at` is right there.
+
+**Delete on A, edit on B.** Naive: either the edit resurrects the row or the
+delete destroys unseen work. → Tombstone wins over edit (deletion is usually
+deliberate and explicit), **but** the edit is preserved in the conflicts table
+with an undelete affordance for the retention window. Never silent.
+
+**Access revoked while offline.** A device holds a full local copy of a project
+it may no longer read. → The change feed must emit explicit *revocation* events,
+and the puller must delete the local rows on receipt. Until a device
+reconnects, it retains data it should not have — this is inherent to any offline
+system and must be stated in the privacy docs rather than glossed over. Ties into
+`docs/PRIVACY_TEST_MATRIX.md` and needs a row there.
+
+**Offline authentication.** The session JWT expires; the app cannot refresh it
+offline; the user is logged out mid-flight with their data locally present but
+unreadable. → Local session validity must be decoupled from the API token: the
+local database unlocks on a locally-verifiable credential, and API tokens are
+refreshed only for sync. Getting this wrong produces the worst possible bug —
+"my work disappeared on the plane" — and it is not detectable in any test that
+runs online.
+
+**Outbox poisoning.** One op the server permanently rejects (validation change,
+deleted parent, revoked access) blocks the queue behind it forever, and every
+later edit silently stops syncing. → Ops fail independently. After N attempts an
+op moves to a dead-letter list surfaced in settings. The queue never blocks on a
+single entry. Retries use exponential backoff with jitter.
+
+**Schema skew.** An old desktop build holds a local database at migration 0117
+while the server has moved to 0125, and its writes no longer fit. → The sync
+protocol carries a schema version; the server refuses ops from a client below a
+declared floor with a distinguishable error, and the app shows "update required"
+instead of failing writes one at a time. Local migrations run on boot, same
+files as the server.
+
+**Partial sync.** A user in a large lab cannot hold every project locally. →
+Sync scope is per project, opt-in, with an explicit "available offline" toggle.
+Prevents the first-run download from being unbounded, and matches how people
+actually work — one active project at a time.
+
+**Blobs.** PDFs are the bulk of the bytes and cannot all be local. →
+`storage/providers/tiered` already layers local over remote. Rule: PDFs you have
+opened are kept, with an LRU cap and a visible quota setting. Content-addressed,
+so blobs never conflict.
+
+**Two Electron windows on one machine.** Two processes, one PGlite file, mutual
+corruption. → PGlite lives in the main process only; renderers reach it over
+IPC. Single writer by construction. Cross-window invalidation reuses the existing
+`project-lww-invalidator` vocabulary.
+
+**Concurrent identical inserts.** Same paper added on two devices while offline
+becomes two rows. → Client-generated UUIDs for primary keys (so the row has an
+identity before it reaches the server) plus a natural-key dedupe on DOI/arXiv id
+that offers a merge rather than silently deduping.
+
+**First sync of an existing account.** A user enabling offline on a project with
+years of history downloads everything at once on a hotel connection. → Paged
+backfill by `server_seq` ascending, resumable, progress-reported, cancellable.
+Newest first so the app is useful before the backfill finishes.
+
+**Time in the CRDT log.** Yjs updates that arrive weeks late must still apply. →
+They do, by construction. But compaction must not discard updates a known-offline
+device has not seen; compaction watermarks track the oldest active device rather
+than the newest.
+
+---
+
+## 7. Phasing
+
+Each phase is independently shippable and independently useful. Nothing here
+requires the next phase to be worth having.
+
+| Phase | Scope | Est. |
+|-------|-------|------|
+| **0. The app opens offline** | Bundle the built app inside Electron instead of `loadURL` to a remote origin; an offline route state for the PWA. Tier 1. No data sync. | ~250 |
+| **1. Reads survive a reload** | Persist the existing screen caches to IndexedDB with an explicit staleness contract. Tier 2, web and desktop, no schema change. | ~300 |
+| **2. Local database** | PGlite in Electron main, migrations on boot, IPC adapter matching `pg.Pool`'s surface, provider `local`. Reads local, writes still online-only. | ~400 |
+| **3. Schema for sync** | `server_seq`, tombstones, base version, change-feed RPC, RLS over the feed. Server-side only, no client change. | ~350 SQL |
+| **4. Outbox and puller** | Local-first writes, op log, backfill, watermark pull. Kinds (a), (c), (d) merge automatically. | ~600 |
+| **5. Conflicts** | Three-way merge for kind (b), conflicts table, the banner UI, dead-letter list. | ~450 |
+| **6. Blobs and scope** | Per-project offline toggle, PDF LRU with quota UI. | ~250 |
+
+Roughly 2,600 lines across six phases. Against a ~100k-line codebase that is
+about 2.5% — but it is 2,600 lines of the hardest-to-test kind, so the ratio
+understates it. Phases 3–5 need a test harness that simulates two clients with
+independent clocks and a partitioned network; budget that as part of phase 3, not
+as an afterthought.
+
+## 8. Explicitly not doing
+
+- **A user-facing merge UI in the git sense.** Diff-and-resolve for a
+  non-programmer audience. Conflicts get "keep this / keep other / view both".
+- **Sync as a filesystem of markdown files.** It would make us Obsidian-shaped
+  and lose the relational graph that is the actual product.
+- **End-to-end encrypting row bodies as part of this work.** It would remove the
+  server's ability to compute a change feed and force a redesign. Separate
+  decision, separate plan.
+- **Offline AI features.** They call remote models; the honest offline state is
+  "unavailable", not a degraded imitation.
+- **Automatic resolution of semantic conflicts** (`status: done` vs
+  `status: blocked`). No rule is right; ask.
+
+## 9. Open questions
+
+1. Does the desktop app ship its own copy of the web build (larger installer,
+   true offline, version skew between shell and server) or keep loading remotely
+   with a service worker (smaller, always current, but a cold start with no
+   network still fails)? Phase 0 cannot start until this is decided, and it is a
+   product call as much as a technical one.
+2. Retention window for tombstones and conflict records. 30 days is the usual
+   answer; it caps how long a device may stay offline and still delete correctly.
+3. Do we support offline for *shared* projects in phase 4, or single-user
+   projects only? Shared projects are where revocation, RLS-over-feed, and
+   concurrent editing all get hard at once. Deferring them halves phases 4 and 5.
