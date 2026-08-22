@@ -330,7 +330,7 @@ ipcMain.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().cl
  * and an app that stays online for its whole life should never pay to load it.
  */
 const localDb = new LocalDbHost({
-  migrations: path.join(__dirname, "migrations"),
+  migrations: [path.join(__dirname, "migrations"), path.join(__dirname, "migrations-local")],
   open: async () => {
     const { PGlite } = await import("@electric-sql/pglite");
     const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");

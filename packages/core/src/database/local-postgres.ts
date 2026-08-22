@@ -95,7 +95,12 @@ export interface Migration {
 }
 
 /**
- * Apply migrations in name order, skipping any this database already ran.
+ * Apply migrations in the given order, skipping any this database already ran.
+ *
+ * The order is the caller's, and it is applied as given. Sorting here would be
+ * a second opinion about it, and it would be wrong for a caller that draws from
+ * more than one directory — where the order between directories is a decision,
+ * not something a name comparison can recover.
  *
  * `applied` is asked once and answered from whatever bookkeeping the caller
  * keeps — a table on disk for the desktop app, an empty set for a database
@@ -110,7 +115,7 @@ export async function applyMigrations(
 ): Promise<string[]> {
   const applied = options.applied ?? new Set<string>();
   const ran: string[] = [];
-  for (const migration of [...migrations].sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const migration of migrations) {
     if (applied.has(migration.name)) continue;
     try {
       await exec(migration.sql);

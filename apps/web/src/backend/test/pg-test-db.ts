@@ -57,6 +57,7 @@ async function build(): Promise<TestDb> {
   await db.exec(LOCAL_BOOTSTRAP_SQL);
   const migrations = readdirSync(MIGRATIONS)
     .filter((name) => name.endsWith(".sql"))
+    .sort()
     .map((name) => ({ name, sql: readFileSync(path.join(MIGRATIONS, name), "utf8") }));
   await applyMigrations(migrations, (sql) => db.exec(sql));
 
