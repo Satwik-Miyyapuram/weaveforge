@@ -209,6 +209,7 @@ export function AiProviderPanel() {
             <label className="field-inline" htmlFor="provider-remember">
               <input
                 id="provider-remember"
+                className="themed-check"
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
