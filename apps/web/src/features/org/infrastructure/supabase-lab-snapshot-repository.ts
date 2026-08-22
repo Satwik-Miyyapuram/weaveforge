@@ -12,7 +12,7 @@ import {
   type LabSnapshotRow,
   toDomain,
 } from "./lab-snapshot-rows";
-import { one, rows, run } from "@/backend/providers/supabase/row-access";
+import { one, oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "lab_snapshots";
 
@@ -23,7 +23,7 @@ export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseReposito
     const title = input.title.trim();
     if (!title) throw new Error("Snapshot title is required.");
     const userId = await this.session.requireUserId();
-    const { data, error } = await this.db
+    const dbRow = await oneRow<LabSnapshotRow>(this.db
       .from(TABLE)
       .insert({
         user_id: userId,
@@ -33,9 +33,8 @@ export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseReposito
         content: input.content,
       })
       .select("*")
-      .single();
-    if (error) throw error;
-    return toDomain(data as LabSnapshotRow);
+      .single());
+    return toDomain(dbRow);
   }
 
   async remove(id: string): Promise<void> {

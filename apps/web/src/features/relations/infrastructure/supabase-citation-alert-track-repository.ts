@@ -11,7 +11,7 @@ import {
   type TrackRow,
   toDomain,
 } from "./citation-alert-track-rows";
-import { one, rows, run } from "@/backend/providers/supabase/row-access";
+import { one, oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "citation_alert_tracks";
 
@@ -20,7 +20,7 @@ export class SupabaseCitationAlertTrackRepository extends ProjectScopedSupabaseR
 
   async track(input: NewCitationAlertTrackInput): Promise<CitationAlertTrack> {
     const userId = await this.session.requireUserId();
-    const { data, error } = await this.db
+    const dbRow = await oneRow<TrackRow>(this.db
       .from(TABLE)
       .upsert(
         {
@@ -33,9 +33,8 @@ export class SupabaseCitationAlertTrackRepository extends ProjectScopedSupabaseR
         { onConflict: "project_id,paper_id" },
       )
       .select("*")
-      .single();
-    if (error) throw error;
-    return toDomain(data as TrackRow);
+      .single());
+    return toDomain(dbRow);
   }
 
   async untrack(paperId: string): Promise<void> {

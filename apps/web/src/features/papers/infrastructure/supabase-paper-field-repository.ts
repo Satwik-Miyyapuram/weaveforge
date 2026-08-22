@@ -18,7 +18,7 @@ import {
   asStringArray,
   asValueData,
 } from "./paper-field-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 const DEFS = "paper_field_defs";
 const VALUES = "paper_field_values";
@@ -71,7 +71,7 @@ export class SupabasePaperFieldRepository extends ProjectScopedSupabaseRepositor
 
   async setValue(input: SetPaperFieldValueInput): Promise<PaperFieldValue> {
     const userId = await this.session.requireUserId();
-    const { data, error } = await this.db
+    const dbRow = await oneRow<ValueRow>(this.db
       .from(VALUES)
       .upsert(
         {
@@ -84,9 +84,8 @@ export class SupabasePaperFieldRepository extends ProjectScopedSupabaseRepositor
         { onConflict: "project_id,paper_id,field_id" },
       )
       .select("id, paper_id, field_id, value")
-      .single();
-    if (error) throw error;
-    return toValue(data as ValueRow);
+      .single());
+    return toValue(dbRow);
   }
 
   async removeValue(paperId: string, fieldId: string): Promise<void> {

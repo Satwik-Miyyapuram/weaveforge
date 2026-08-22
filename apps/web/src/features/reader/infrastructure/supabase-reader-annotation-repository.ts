@@ -17,7 +17,7 @@ import {
   type ReaderAnnotationRow,
   toDomain,
 } from "./reader-annotation-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "reader_annotations";
 
@@ -66,7 +66,7 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
     const userId = await this.session.requireUserId();
     const sortIndex =
       draft.sortIndex?.trim() || buildAnnotationSortIndex(draft.pageIndex, 0, 0);
-    const { data, error } = await this.db
+    const dbRow = await oneRow<ReaderAnnotationRow>(this.db
       .from(TABLE)
       .insert({
         user_id: userId,
@@ -84,9 +84,8 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
         sync_state: "local",
       })
       .select("*")
-      .single();
-    if (error) throw error;
-    return toDomain(data as ReaderAnnotationRow);
+      .single());
+    return toDomain(dbRow);
   }
 
   async update(id: string, patch: ReaderAnnotationPatch): Promise<ReaderAnnotation> {

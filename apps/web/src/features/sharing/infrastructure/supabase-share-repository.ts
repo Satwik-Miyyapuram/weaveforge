@@ -10,7 +10,7 @@ import {
   type ShareRow,
   toDomain,
 } from "./share-rows";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
 /**
  * Supabase adapter for shares (migration 0018). `owner_id` defaults to
@@ -41,7 +41,7 @@ export class SupabaseShareRepository implements IShareRepository {
     const { error: delErr } = await del;
     if (delErr) throw delErr;
 
-    const { data, error } = await this.db
+    const dbRow = await oneRow<ShareRow>(this.db
       .from(TABLE)
       .insert({
         recipient_id: input.recipientId,
@@ -50,9 +50,8 @@ export class SupabaseShareRepository implements IShareRepository {
         access: input.access ?? "comment",
       })
       .select("*")
-      .single();
-    if (error) throw error;
-    return toDomain(data as ShareRow);
+      .single());
+    return toDomain(dbRow);
   }
 
   async revoke(id: string): Promise<void> {

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CrdtUpdateRecord, ICrdtUpdateStore } from "@weaveforge/core";
 import { decodeBytea, encodeBytea } from "@/lib/bytea.js";
-import { run } from "@/backend/providers/supabase/row-access";
+import { oneRow, run } from "@/backend/providers/supabase/row-access";
 
 const TABLE = "crdt_updates";
 
@@ -40,7 +40,7 @@ export class SupabaseCrdtUpdateStore implements ICrdtUpdateStore {
     payload: Uint8Array;
     authorId: string;
   }): Promise<CrdtUpdateRecord> {
-    const { data, error } = await this.db
+    const dbRow = await oneRow<CrdtRow>(this.db
       .from(TABLE)
       .insert({
         resource_type: input.resourceType,
@@ -51,9 +51,8 @@ export class SupabaseCrdtUpdateStore implements ICrdtUpdateStore {
         author_id: input.authorId,
       })
       .select("*")
-      .single();
-    if (error) throw error;
-    return mapRow(data as CrdtRow);
+      .single());
+    return mapRow(dbRow);
   }
 
   async listAfter(
