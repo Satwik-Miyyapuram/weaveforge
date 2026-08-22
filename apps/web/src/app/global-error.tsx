@@ -1,19 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
 import { resetAppData } from "@/lib/client-runtime-recovery";
+import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
 
 /** Root error boundary — shown when the layout itself crashes (TWA cold start). */
-export default function GlobalError({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
+export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
+  useLoggedError(error);
 
   return (
     <html lang="en">
@@ -31,10 +23,9 @@ export default function GlobalError({
             Stale offline data on the Android app is a common cause. Tap Reset app
             data, then sign in again.
           </p>
-          {error?.message ? (
+          {errorDetail(error) ? (
             <pre style={{ whiteSpace: "pre-wrap", fontSize: 12, opacity: 0.7 }}>
-              {error.message}
-              {error.digest ? `\ndigest: ${error.digest}` : ""}
+              {errorDetail(error)}
             </pre>
           ) : null}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
