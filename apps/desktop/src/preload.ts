@@ -43,6 +43,7 @@ const bridge: DesktopBridge = {
   writePreference: async (name, value) => {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },
+  queryLocalDb: (sql, params) => call<unknown[]>(CHANNELS.dbQuery, sql, params),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);

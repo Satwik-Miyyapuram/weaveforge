@@ -11,6 +11,8 @@ import {
   contentTypeFor,
   resolveAppFile,
 } from "./app-protocol";
+import type { LocalClient } from "./local-db";
+import { LocalDbHost } from "./local-db-host";
 import { SecretStore } from "./secret-store";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
@@ -320,6 +322,31 @@ ipcMain.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
   secretStore().write(name, value),
 );
 ipcMain.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().clear(name));
+
+/**
+ * The local database, opened on first use under the app's own directory.
+ *
+ * PGlite is imported here and nowhere else, and lazily: it is a WASM Postgres,
+ * and an app that stays online for its whole life should never pay to load it.
+ */
+const localDb = new LocalDbHost({
+  migrations: path.join(__dirname, "migrations"),
+  open: async () => {
+    const { PGlite } = await import("@electric-sql/pglite");
+    const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
+    const dataDir = path.join(app.getPath("userData"), "local-db");
+    return (await PGlite.create({ dataDir, extensions: { pgcrypto } })) as unknown as LocalClient;
+  },
+});
+
+ipcMain.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
+  localDb.query(sql, params),
+);
+
+app.on("will-quit", (event) => {
+  event.preventDefault();
+  void localDb.close().finally(() => app.exit(0));
+});
 
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
