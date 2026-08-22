@@ -26,10 +26,17 @@ import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { LOCAL_BOOTSTRAP_SQL, applyMigrations, sessionClaims } from "@weaveforge/core";
 
-const MIGRATIONS = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../../../../supabase/migrations",
-);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS = path.resolve(HERE, "../../../../../supabase/migrations");
+/**
+ * The device-only tables, applied after the shared ones.
+ *
+ * The desktop app runs both sets against the same database, so a test database
+ * that had only half of them could not exercise anything that spans the two —
+ * `sync_apply`, which is a local function writing a shared table, being exactly
+ * that case.
+ */
+const LOCAL_MIGRATIONS = path.resolve(HERE, "../../../../../supabase/migrations-local");
 
 export interface TestDb {
   /** Run SQL as the database owner, with RLS bypassed. */
@@ -55,10 +62,12 @@ export function testDb(): Promise<TestDb> {
 async function build(): Promise<TestDb> {
   const db = await PGlite.create({ extensions: { pgcrypto } });
   await db.exec(LOCAL_BOOTSTRAP_SQL);
-  const migrations = readdirSync(MIGRATIONS)
-    .filter((name) => name.endsWith(".sql"))
-    .sort()
-    .map((name) => ({ name, sql: readFileSync(path.join(MIGRATIONS, name), "utf8") }));
+  const migrations = [MIGRATIONS, LOCAL_MIGRATIONS].flatMap((dir) =>
+    readdirSync(dir)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((name) => ({ name: `${path.basename(dir)}/${name}`, sql: readFileSync(path.join(dir, name), "utf8") })),
+  );
   await applyMigrations(migrations, (sql) => db.exec(sql));
 
   const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> =>
