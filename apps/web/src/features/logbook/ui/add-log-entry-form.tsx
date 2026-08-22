@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useSubmit } from "@/lib/hooks/use-submit";
 import { LOG_KINDS, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { formatError } from "@/lib/format-error";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -14,25 +14,14 @@ import { formatError } from "@/lib/format-error";
 export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
   const [body, setBody] = useState("");
   const [kind, setKind] = useState<LogKind>("daily");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const logbook = getContainer().logbook;
-      const entry = await logbook.addLogEntry.add({ body, kind });
-      try { await logbook.pushLog(entry); } catch { /* git sync best-effort */ }
-      setBody("");
-      onAdded?.();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { busy, error, submit } = useSubmit(async () => {
+    const logbook = getContainer().logbook;
+    const entry = await logbook.addLogEntry.add({ body, kind });
+    try { await logbook.pushLog(entry); } catch { /* git sync best-effort */ }
+    setBody("");
+    onAdded?.();
+  });
 
   return (
     <form className="card add-form" onSubmit={submit}>

@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildSectionTree,
   type IReportSectionRepository,
@@ -7,9 +6,9 @@ import {
   type ReportSectionTreeNode,
   type ReportStatus,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow } from "./report-section-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 /**
  * Supabase implementation of IReportSectionRepository.
@@ -22,14 +21,9 @@ import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/
 
 const TABLE = "report_sections";
 
-export class SupabaseReportSectionRepository
+export class SupabaseReportSectionRepository extends ProjectRepository
   implements IReportSectionRepository
 {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-  private get pid() { return this.ctx.projectId; }
 
   async getById(id: string): Promise<ReportSection | null> {
     const row = await rowById<ReportSectionRow>(this.db, TABLE, id);

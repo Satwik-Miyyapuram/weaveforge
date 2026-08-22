@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type ILogEntryRepository,
   type LogEntry,
@@ -6,9 +5,9 @@ import {
   type LogKind,
   type LogLink,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import { logEntryToDomain, logEntryToRow, type LogEntryRow } from "./log-entry-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 /**
  * Supabase implementation of ILogEntryRepository.
@@ -22,12 +21,7 @@ import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/
 
 const TABLE = "log_entries";
 
-export class SupabaseLogEntryRepository implements ILogEntryRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-  private get pid() { return this.ctx.projectId; }
+export class SupabaseLogEntryRepository extends ProjectRepository implements ILogEntryRepository {
 
   async getById(id: string): Promise<LogEntry | null> {
     const row = await rowById<LogEntryRow>(this.db, TABLE, id);

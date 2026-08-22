@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useSubmit } from "@/lib/hooks/use-submit";
 import { getContainer } from "@/bootstrap";
-import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 
 export function AddVaultPageForm({
@@ -16,27 +16,16 @@ export function AddVaultPageForm({
 }) {
   const [title, setTitle] = useState("");
   const [parentId, setParentId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const page = await getContainer().vault.manageVaultPage.add({
-        title,
-        parentId: parentId || undefined,
-      });
-      onAdded(page.id);
-      setTitle("");
-      setParentId("");
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { busy, error, submit } = useSubmit(async () => {
+    const page = await getContainer().vault.manageVaultPage.add({
+      title,
+      parentId: parentId || undefined,
+    });
+    onAdded(page.id);
+    setTitle("");
+    setParentId("");
+  });
 
   return (
     <form className="add-form" onSubmit={(e) => void submit(e)}>

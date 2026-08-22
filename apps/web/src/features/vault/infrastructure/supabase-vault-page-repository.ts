@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildPageTree,
   vaultBodyPreview,
@@ -8,7 +7,6 @@ import {
   type VaultPageTreeNode,
 } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import {
   type VaultPageRow,
   toDomain,
@@ -16,6 +14,7 @@ import {
   toRow,
 } from "./vault-page-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 /** Ids per `in (...)` request; the list travels in the URL. */
 const ID_CHUNK = 200;
@@ -26,15 +25,7 @@ const TABLE = "vault_pages";
 const VAULT_SUMMARY_COLUMNS =
   "id,title,parent_id,sort_order,created_at,updated_at,project_id,body_preview";
 
-export class SupabaseVaultPageRepository implements IVaultPageRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-
-  private get pid() {
-    return this.ctx.projectId;
-  }
+export class SupabaseVaultPageRepository extends ProjectRepository implements IVaultPageRepository {
 
   async getById(id: string): Promise<VaultPage | null> {
     const row = await rowById<VaultPageRow>(this.db, TABLE, id);

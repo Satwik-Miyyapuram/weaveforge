@@ -7,7 +7,6 @@ import type {
   TagSource,
   TagWithPaperCount,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import {
   type TagRow,
   type PaperTagRow,
@@ -15,19 +14,12 @@ import {
   toPaperTagDomain,
 } from "./tag-rows";
 import { one, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 const TAGS = "tags";
 const PAPER_TAGS = "paper_tags";
 
-export class SupabaseTagRepository implements ITagRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-
-  private get pid() {
-    return this.ctx.projectId;
-  }
+export class SupabaseTagRepository extends ProjectRepository implements ITagRepository {
 
   async getById(id: string): Promise<Tag | null> {
     const row = await one<TagRow>(this.db.from(TAGS).select("*").eq("id", id).maybeSingle());

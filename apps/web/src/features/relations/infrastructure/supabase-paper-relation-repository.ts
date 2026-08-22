@@ -1,17 +1,16 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   IPaperRelationRepository,
   PaperRelation,
   PaperRelationFilter,
   RelationType,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import {
   type PaperRelationRow,
   toDomain,
   toRow,
 } from "./paper-relation-rows";
 import { deleteRowById, one, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 /**
  * Supabase implementation of IPaperRelationRepository.
@@ -22,14 +21,9 @@ import { deleteRowById, one, rowById, rows, run } from "@/backend/providers/supa
 
 const TABLE = "paper_relations";
 
-export class SupabasePaperRelationRepository
+export class SupabasePaperRelationRepository extends ProjectRepository
   implements IPaperRelationRepository
 {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-  private get pid() { return this.ctx.projectId; }
 
   async getById(id: string): Promise<PaperRelation | null> {
     const row = await rowById<PaperRelationRow>(this.db, TABLE, id);

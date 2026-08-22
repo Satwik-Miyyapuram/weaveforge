@@ -1,22 +1,16 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Experiment,
   ExperimentFilter,
   ExperimentStatus,
   IExperimentRepository,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import { experimentToDomain, experimentToRow, type ExperimentRow } from "./experiment-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 const TABLE = "experiments";
 
-export class SupabaseExperimentRepository implements IExperimentRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-  private get pid() { return this.ctx.projectId; }
+export class SupabaseExperimentRepository extends ProjectRepository implements IExperimentRepository {
 
   async getById(id: string): Promise<Experiment | null> {
     const row = await rowById<ExperimentRow>(this.db, TABLE, id);

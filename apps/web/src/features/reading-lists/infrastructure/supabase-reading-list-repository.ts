@@ -8,7 +8,6 @@ import {
   type ReadingListItem,
   type ReadingListTreeNode,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import {
   type ReadingListRow,
   type ReadingListItemRow,
@@ -18,6 +17,7 @@ import {
   toItemRow,
 } from "./reading-list-rows";
 import { one, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 /**
  * Supabase implementations of the reading-list repositories.
@@ -30,12 +30,7 @@ import { one, rows, run } from "@/backend/providers/supabase/row-access";
 const LISTS = "reading_lists";
 const ITEMS = "reading_list_items";
 
-export class SupabaseReadingListRepository implements IReadingListRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-  private get pid() { return this.ctx.projectId; }
+export class SupabaseReadingListRepository extends ProjectRepository implements IReadingListRepository {
 
   async getById(id: string): Promise<ReadingList | null> {
     const row = await one<ReadingListRow>(this.db

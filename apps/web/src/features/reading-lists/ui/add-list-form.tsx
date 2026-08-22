@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useSubmit } from "@/lib/hooks/use-submit";
 import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { LIST_COLOR_PRESETS } from "./list-ui";
-import { formatError } from "@/lib/format-error";
 
 /**
  * Add-list form. UI only: collects input and delegates to the manage use-case.
@@ -21,27 +21,16 @@ export function AddListForm({
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState("");
   const [color, setColor] = useState<string>(LIST_COLOR_PRESETS[0]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await getContainer().readingLists.manageReadingList.createList({
-        name,
-        parentId: parentId || undefined,
-        color,
-      });
-      setName("");
-      onAdded?.();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { busy, error, submit } = useSubmit(async () => {
+    await getContainer().readingLists.manageReadingList.createList({
+      name,
+      parentId: parentId || undefined,
+      color,
+    });
+    setName("");
+    onAdded?.();
+  });
 
   return (
     <form className="card add-form" onSubmit={submit}>

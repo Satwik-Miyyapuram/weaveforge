@@ -6,6 +6,7 @@ import { Modal } from "@/components/modal";
 import { Select } from "@/components/select";
 import { useAuth } from "@/features/auth";
 import { formatError, readJsonBody } from "@/lib/format-error";
+import { useSubmit } from "@/lib/hooks/use-submit";
 
 interface ApiTokenRecord {
   id: string;
@@ -37,11 +38,9 @@ export function ApiTokensPanel() {
   const { user } = useAuth();
   const [tokens, setTokens] = useState<ApiTokenRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [expiry, setExpiry] = useState("90");
-  const [busy, setBusy] = useState(false);
   const [revealed, setRevealed] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -68,46 +67,37 @@ export function ApiTokensPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setError]);
 
   useEffect(() => {
     void load();
   }, [load, user?.id]);
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const accessToken = await getContainer().auth.auth.getAccessToken();
-      if (!accessToken) throw new Error("Sign in to create tokens.");
+  const { busy, error, setError, submit: handleCreate } = useSubmit(async () => {
+    const accessToken = await getContainer().auth.auth.getAccessToken();
+    if (!accessToken) throw new Error("Sign in to create tokens.");
 
-      const opt = EXPIRY_OPTIONS.find((o) => o.value === expiry) ?? EXPIRY_OPTIONS[2];
-      const res = await fetch("/api/settings/api-tokens", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, expiresInDays: opt.days }),
-      });
-      const payload = await readJsonBody(res);
-      if (!res.ok) {
-        setError(formatError(payload.error ?? payload));
-        return;
-      }
-      const record = payload.record as ApiTokenRecord | undefined;
-      if (record) setTokens((prev) => [record, ...prev]);
-      setRevealed(typeof payload.plaintext === "string" ? payload.plaintext : null);
-      setCreateOpen(false);
-      setName("");
-      setExpiry("90");
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
+    const opt = EXPIRY_OPTIONS.find((o) => o.value === expiry) ?? EXPIRY_OPTIONS[2];
+    const res = await fetch("/api/settings/api-tokens", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, expiresInDays: opt.days }),
+    });
+    const payload = await readJsonBody(res);
+    if (!res.ok) {
+      setError(formatError(payload.error ?? payload));
+      return;
     }
-  }
+    const record = payload.record as ApiTokenRecord | undefined;
+    if (record) setTokens((prev) => [record, ...prev]);
+    setRevealed(typeof payload.plaintext === "string" ? payload.plaintext : null);
+    setCreateOpen(false);
+    setName("");
+    setExpiry("90");
+  });
 
   async function handleRevoke(id: string) {
     if (!window.confirm("Revoke this token? Scripts using it will stop working immediately.")) return;

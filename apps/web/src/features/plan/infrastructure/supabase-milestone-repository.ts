@@ -1,17 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IMilestoneRepository, Milestone, MilestoneFilter } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import { milestoneToDomain, milestoneToRow, type MilestoneRow } from "./milestone-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 const TABLE = "milestones";
 
-export class SupabaseMilestoneRepository implements IMilestoneRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-  private get pid() { return this.ctx.projectId; }
+export class SupabaseMilestoneRepository extends ProjectRepository implements IMilestoneRepository {
 
   async getById(id: string): Promise<Milestone | null> {
     const row = await rowById<MilestoneRow>(this.db, TABLE, id);

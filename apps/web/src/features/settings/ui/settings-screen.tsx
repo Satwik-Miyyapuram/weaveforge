@@ -32,6 +32,7 @@ import { ThemeConfigPanel } from "./theme-config-panel";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
+import { useSubmit } from "@/lib/hooks/use-submit";
 
 /**
  * Settings sections, as tabs. This screen used to render all eight stacked
@@ -89,8 +90,6 @@ export function SettingsScreen() {
 
   const [settings, setSettings] = useState<UserSettings>({});
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [, setSaved] = useState(false);
   const [collections, setCollections] = useState<{ key: string; name: string }[]>([]);
   /** State of the live credential probe shown inside the connection dialog. */
@@ -130,7 +129,7 @@ export function SettingsScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setError]);
 
   useEffect(() => {
     void load();
@@ -272,21 +271,12 @@ export function SettingsScreen() {
     setSaved(false);
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await getContainer().settings.manageSettings.save(settings);
-      // Ranking is read per query, so this lands without a reindex.
-      getContainer().search.setSettings(settings.search);
-      setSaved(true);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { busy, error, setError, submit: submit } = useSubmit(async () => {
+    await getContainer().settings.manageSettings.save(settings);
+    // Ranking is read per query, so this lands without a reindex.
+    getContainer().search.setSettings(settings.search);
+    setSaved(true);
+  });
 
   const showBibliographyCollection =
     activeProvider?.providerId === integrationConfig.bibliography &&
