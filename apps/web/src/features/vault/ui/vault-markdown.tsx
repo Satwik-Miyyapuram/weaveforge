@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo } from "react";
 import { normalizeMarkdownImageSyntax, VAULT_IMAGE_PREFIX, vaultAssetPathsInBody } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
-import { makeWikilinkResolver, type CiteLinkEntry } from "@/lib/hooks/use-cite-links";
+import { makeWikilinkResolver, useWikilinkClick, type CiteLinkEntry } from "@/lib/hooks/use-cite-links";
 import { stripRegionMarkers } from "../application/note-template-engine";
 
 /** Minimal title/id pair for wikilink resolution. */
@@ -63,8 +62,6 @@ export function VaultMarkdown({
   onCreateNote?: (title: string) => void;
   resolveEmbed?: (title: string) => string | null;
 }) {
-  const router = useRouter();
-
   const source = useMemo(
     () => (resolveEmbed ? expandEmbeds(body, resolveEmbed) : body),
     [body, resolveEmbed],
@@ -75,21 +72,7 @@ export function VaultMarkdown({
     [notes, papers, sections],
   );
 
-  const onClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      const anchor = (event.target as HTMLElement).closest("a[data-wikilink]");
-      if (!anchor) return;
-      event.preventDefault();
-      const create = anchor.getAttribute("data-create");
-      if (create != null) {
-        onCreateNote?.(create);
-        return;
-      }
-      const href = anchor.getAttribute("href");
-      if (href && href !== "#") router.push(href);
-    },
-    [router, onCreateNote],
-  );
+  const onClick = useWikilinkClick(onCreateNote);
 
   const paths = useMemo(() => vaultAssetPathsInBody(source), [source]);
 
