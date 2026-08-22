@@ -119,6 +119,13 @@ export function SettingsScreen() {
     history.replaceState(null, "", `#settings-${next}`);
   }
 
+  const { busy, error, setError, submit } = useSubmit(async () => {
+    await getContainer().settings.manageSettings.save(settings);
+    // Ranking is read per query, so this lands without a reindex.
+    getContainer().search.setSettings(settings.search);
+    setSaved(true);
+  });
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -271,12 +278,6 @@ export function SettingsScreen() {
     setSaved(false);
   }
 
-  const { busy, error, setError, submit: submit } = useSubmit(async () => {
-    await getContainer().settings.manageSettings.save(settings);
-    // Ranking is read per query, so this lands without a reindex.
-    getContainer().search.setSettings(settings.search);
-    setSaved(true);
-  });
 
   const showBibliographyCollection =
     activeProvider?.providerId === integrationConfig.bibliography &&

@@ -44,6 +44,32 @@ export function ApiTokensPanel() {
   const [revealed, setRevealed] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const { busy, error, setError, submit: handleCreate } = useSubmit(async () => {
+    const accessToken = await getContainer().auth.auth.getAccessToken();
+    if (!accessToken) throw new Error("Sign in to create tokens.");
+
+    const opt = EXPIRY_OPTIONS.find((o) => o.value === expiry) ?? EXPIRY_OPTIONS[2];
+    const res = await fetch("/api/settings/api-tokens", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, expiresInDays: opt.days }),
+    });
+    const payload = await readJsonBody(res);
+    if (!res.ok) {
+      setError(formatError(payload.error ?? payload));
+      return;
+    }
+    const record = payload.record as ApiTokenRecord | undefined;
+    if (record) setTokens((prev) => [record, ...prev]);
+    setRevealed(typeof payload.plaintext === "string" ? payload.plaintext : null);
+    setCreateOpen(false);
+    setName("");
+    setExpiry("90");
+  });
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -73,31 +99,6 @@ export function ApiTokensPanel() {
     void load();
   }, [load, user?.id]);
 
-  const { busy, error, setError, submit: handleCreate } = useSubmit(async () => {
-    const accessToken = await getContainer().auth.auth.getAccessToken();
-    if (!accessToken) throw new Error("Sign in to create tokens.");
-
-    const opt = EXPIRY_OPTIONS.find((o) => o.value === expiry) ?? EXPIRY_OPTIONS[2];
-    const res = await fetch("/api/settings/api-tokens", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, expiresInDays: opt.days }),
-    });
-    const payload = await readJsonBody(res);
-    if (!res.ok) {
-      setError(formatError(payload.error ?? payload));
-      return;
-    }
-    const record = payload.record as ApiTokenRecord | undefined;
-    if (record) setTokens((prev) => [record, ...prev]);
-    setRevealed(typeof payload.plaintext === "string" ? payload.plaintext : null);
-    setCreateOpen(false);
-    setName("");
-    setExpiry("90");
-  });
 
   async function handleRevoke(id: string) {
     if (!window.confirm("Revoke this token? Scripts using it will stop working immediately.")) return;
