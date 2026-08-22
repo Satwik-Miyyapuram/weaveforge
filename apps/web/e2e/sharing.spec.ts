@@ -3,6 +3,7 @@ import { bootstrapSession, drainLoginGates, signIn } from "./helpers/auth.js";
 import { ensurePaperExists } from "./helpers/papers.js";
 import { e2eTwoUsersEnabled, e2eUserA, e2eUserB } from "./helpers/env.js";
 import { appeared } from "./helpers/visible.js";
+import { ensureSharedLab } from "./helpers/lab.js";
 
 /**
  * A context that is *not* already signed in.
@@ -95,6 +96,10 @@ test.describe("sharing", () => {
     const recipient = await recipientCtx.newPage();
 
     await bootstrapSession(owner, userA.email, userA.password);
+    await bootstrapSession(recipient, userB.email, userB.password);
+    // The picker can only ever show someone this account shares a lab with, so
+    // the spec builds that rather than inheriting it from account history.
+    await ensureSharedLab(owner, recipient);
     // A fixture of this spec's own, rather than whichever card happens to be
     // first. The first card is a fact about the account's history: it drifted
     // onto a paper that had already been shared with the recipient by an
@@ -147,7 +152,6 @@ test.describe("sharing", () => {
     await grant.click();
     await expect(owner.getByText(/Shared with|view-only link/i).first()).toBeVisible({ timeout: 20000 });
 
-    await bootstrapSession(recipient, userB.email, userB.password);
     await recipient.goto("/shared");
     await expect(recipient.getByText(paperTitle, { exact: false }).first()).toBeVisible({ timeout: 30000 });
 

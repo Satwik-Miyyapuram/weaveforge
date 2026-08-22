@@ -73,7 +73,13 @@ export async function continueStandalone() {
 }
 
 export async function previewOrgCode(code: string) {
-  const res = await fetch(`/api/org/codes?code=${encodeURIComponent(code)}`);
+  // The route reads the code as the signed-in user, so this needs the same
+  // bearer every other org call sends. Without it the lookup came back "Not
+  // authenticated", the supervisor pickers never rendered, and the join was
+  // refused for a missing supervisor the form had no way to ask for.
+  const res = await fetch(`/api/org/codes?code=${encodeURIComponent(code)}`, {
+    headers: await authHeaders(),
+  });
   const body = (await res.json()) as {
     error?: string;
     orgName?: string;
