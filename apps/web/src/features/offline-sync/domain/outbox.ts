@@ -23,6 +23,14 @@ export interface OutboxEntry {
   payload: Record<string, unknown>;
   /** What the local row was based on. Null for an insert, which is based on nothing. */
   baseVersion: number | null;
+  /**
+   * The row as it stood when the edit was made.
+   *
+   * Kept because a three-way merge needs it: without a base, an untouched field
+   * cannot be told from an edited one and every collision is a whole-row
+   * collision. Null for an insert, which was based on nothing.
+   */
+  basePayload: Record<string, unknown> | null;
   attempts: number;
   lastError: string | null;
 }
@@ -33,6 +41,7 @@ export interface OutboxAppend {
   op: OutboxOp;
   payload?: Record<string, unknown>;
   baseVersion?: number | null;
+  basePayload?: Record<string, unknown> | null;
   /** Supplied only by a caller replaying a known op; otherwise the database picks. */
   opId?: string;
 }
@@ -62,6 +71,7 @@ interface OutboxRow {
   row_id: string;
   op: OutboxOp;
   payload: Record<string, unknown>;
+  base_payload: Record<string, unknown> | null;
   base_version: number | null;
   attempts: number;
   last_error: string | null;
@@ -76,12 +86,14 @@ function toEntry(row: OutboxRow): OutboxEntry {
     op: row.op,
     payload: row.payload,
     baseVersion: row.base_version,
+    basePayload: row.base_payload ?? null,
     attempts: row.attempts,
     lastError: row.last_error,
   };
 }
 
-const COLUMNS = "seq, op_id, table_name, row_id, op, payload, base_version, attempts, last_error";
+const COLUMNS =
+  "seq, op_id, table_name, row_id, op, payload, base_version, base_payload, attempts, last_error";
 
 export class Outbox {
   constructor(private readonly sql: SqlRunner) {}
@@ -89,8 +101,8 @@ export class Outbox {
   /** Append an op and return it as it was stored, id included. */
   async append(entry: OutboxAppend): Promise<OutboxEntry> {
     const row = await this.sql.queryOne<OutboxRow>(
-      `insert into sync_outbox (op_id, table_name, row_id, op, payload, base_version)
-       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5::jsonb, $6)
+      `insert into sync_outbox (op_id, table_name, row_id, op, payload, base_version, base_payload)
+       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5::jsonb, $6, $7::jsonb)
        returning ${COLUMNS}`,
       [
         entry.opId ?? null,
@@ -99,6 +111,7 @@ export class Outbox {
         entry.op,
         JSON.stringify(entry.payload ?? {}),
         entry.baseVersion ?? null,
+        entry.basePayload ? JSON.stringify(entry.basePayload) : null,
       ],
     );
     if (!row) throw new Error("The op could not be recorded locally.");
