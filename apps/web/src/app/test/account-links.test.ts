@@ -32,7 +32,7 @@ test("sidebar: documentation is always reachable", () => {
   // usually already stuck.
   const docs = accountLinks(base).find((l) => l.id === "docs");
   assert.ok(docs, "the docs link must be present");
-  assert.match(docs.href ?? "", /^https:\/\/docs\.weaveforge\.org/);
+  assert.match(docs.href ?? "", /^https:\/\/www\.weaveforge\.org\/docs\//);
   assert.equal(docs.external, true, "external links open in a new tab");
 });
 
