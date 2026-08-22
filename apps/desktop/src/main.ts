@@ -1,5 +1,15 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from "electron";
+import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  APP_HOST,
+  APP_ORIGIN as BUNDLE_ORIGIN,
+  APP_SCHEME,
+  appHeaders,
+  contentTypeFor,
+  resolveAppFile,
+} from "./app-protocol";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
@@ -44,7 +54,18 @@ import { fetchReleases, findUpdate } from "./update-check";
  */
 declare const __DEFAULT_APP_URL__: string;
 
-const APP_URL = process.env.WEAVEFORGE_URL ?? __DEFAULT_APP_URL__;
+/** The static build, if this shell was packaged with one. See `app-protocol.ts`. */
+const BUNDLE = path.join(__dirname, "web");
+const bundled = fs.existsSync(path.join(BUNDLE, "index.html"));
+
+/**
+ * A bundled app is served from `app://`; without one the window falls back to
+ * the deployment, which is what a shell built before the offline work did. The
+ * environment variable still wins over both, because pointing the window at a
+ * dev server is how this is developed.
+ */
+const APP_URL =
+  process.env.WEAVEFORGE_URL ?? (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
 const APP_ORIGIN = new URL(APP_URL).origin;
 
 let mainWindow: BrowserWindow | null = null;
@@ -213,6 +234,46 @@ ipcMain.handle(CHANNELS.checkUpdate, async () => {
   return findUpdate({ currentVersion: app.getVersion(), fetchReleases });
 });
 
+/**
+ * Declares `app://` a real origin.
+ *
+ * Must happen before the app is ready — the flags are read when the renderer
+ * process starts, not when the handler is registered. `standard` is what gives
+ * the scheme an origin at all, and `secure` is what puts that origin in the
+ * same bucket as `https` for the storage APIs and the service worker.
+ */
+if (bundled) {
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: APP_SCHEME,
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+    },
+  ]);
+}
+
+/**
+ * Answers `app://` requests out of the bundle.
+ *
+ * A request for something the bundle does not have is a 404 rather than a
+ * thrown error: the renderer asks for plenty of things optionally, and a
+ * protocol handler that throws turns each of those into a console error with
+ * no useful text in it.
+ */
+function serveBundle(): void {
+  protocol.handle(APP_SCHEME, async (request) => {
+    if (new URL(request.url).hostname !== APP_HOST) return new Response(null, { status: 404 });
+
+    const file = resolveAppFile(BUNDLE, request.url, (candidate) => fs.existsSync(candidate));
+    if (!file) return new Response(null, { status: 404 });
+
+    const response = await net.fetch(pathToFileURL(file).toString());
+    return new Response(response.body, {
+      status: response.status,
+      headers: appHeaders(contentTypeFor(file)),
+    });
+  });
+}
+
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
 if (!app.requestSingleInstanceLock()) {
@@ -228,6 +289,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    if (bundled) serveBundle();
     // Started before the window, so a sign-in cannot come back to a port that
     // is not listening yet.
     loopback = startAuthLoopback(deliverSignIn);

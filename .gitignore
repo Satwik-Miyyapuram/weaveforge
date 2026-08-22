@@ -6,6 +6,8 @@ node_modules/
 # builds
 dist/
 .next/
+# The desktop build's own output directory, so it cannot collide with a dev server.
+.next-desktop/
 out/
 build/
 *.tsbuildinfo
