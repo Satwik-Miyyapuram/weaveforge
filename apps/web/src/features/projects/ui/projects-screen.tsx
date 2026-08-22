@@ -6,6 +6,7 @@ import { Modal } from "@/components/modal";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "./project-provider";
 import { formatError } from "@/lib/format-error";
+import { ScreenHead } from "@/components/screen-head";
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
@@ -37,13 +38,9 @@ export function ProjectsScreen() {
 
   return (
     <section className="screen">
-      <header className="screen-head">
-        <div className="head-row">
-          <div className="screen-actions">
-            <button className="btn-primary" onClick={() => setAddOpen(true)}>+ New project</button>
-          </div>
-        </div>
-      </header>
+      <ScreenHead>
+        <button className="btn-primary" onClick={() => setAddOpen(true)}>+ New project</button>
+      </ScreenHead>
 
       {addOpen && (
         <Modal title="New project" onClose={() => setAddOpen(false)}>
