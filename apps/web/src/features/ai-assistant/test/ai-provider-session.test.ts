@@ -5,7 +5,6 @@ import {
   canRemember,
   clearActiveProvider,
   forgetStoredProvider,
-  hasActiveProvider,
   modelExtractor,
   onProviderChange,
   rememberActiveProvider,
@@ -27,14 +26,14 @@ const SECRET = "sk-do-not-store-me";
 test.afterEach(() => clearActiveProvider());
 
 test("nothing is configured until a provider is set", () => {
-  assert.equal(hasActiveProvider(), false);
+  assert.equal(activeProviderLabel() !== null, false);
   assert.equal(activeProviderLabel(), null);
   assert.equal(modelExtractor(), null, "callers can fall back to the lexical extractor");
 });
 
 test("a configured provider yields a model-backed extractor", () => {
   setActiveProvider(DESCRIPTOR, SECRET);
-  assert.equal(hasActiveProvider(), true);
+  assert.equal(activeProviderLabel() !== null, true);
   assert.deepEqual(activeProviderLabel(), { label: "Example", model: "example-model" });
   assert.equal(modelExtractor()?.id, "model");
 });
@@ -78,7 +77,7 @@ test("the key is not written to any browser storage", () => {
 test("clearing it takes effect immediately", () => {
   setActiveProvider(DESCRIPTOR, SECRET);
   clearActiveProvider();
-  assert.equal(hasActiveProvider(), false);
+  assert.equal(activeProviderLabel() !== null, false);
   assert.equal(modelExtractor(), null);
 });
 
@@ -165,7 +164,7 @@ test("a remembered provider comes back on the next load", async () => {
     await rememberActiveProvider();
 
     clearActiveProvider();
-    assert.equal(hasActiveProvider(), false);
+    assert.equal(activeProviderLabel() !== null, false);
 
     assert.equal(await restoreActiveProvider(), true);
     assert.deepEqual(activeProviderLabel(), { label: "Example", model: "example-model" });
@@ -204,7 +203,7 @@ test("a blob that is not what this module writes is ignored", async () => {
   ]) {
     await withBridge({ value: blob }, async () => {
       assert.equal(await restoreActiveProvider(), false, blob);
-      assert.equal(hasActiveProvider(), false, blob);
+      assert.equal(activeProviderLabel() !== null, false, blob);
     });
   }
 });

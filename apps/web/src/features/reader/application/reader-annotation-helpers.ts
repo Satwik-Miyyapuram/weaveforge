@@ -28,10 +28,6 @@ export function applyAnnotationPatch(
 /** Marks an annotation that exists only on screen, awaiting its server row. */
 export const PENDING_ANNOTATION_PREFIX = "pending:";
 
-export function isPendingAnnotationId(id: string): boolean {
-  return id.startsWith(PENDING_ANNOTATION_PREFIX);
-}
-
 /**
  * Build the annotation to paint immediately, before the write returns.
  *

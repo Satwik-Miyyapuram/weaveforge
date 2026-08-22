@@ -63,10 +63,6 @@ export function activeProviderLabel(): { label: string; model: string } | null {
   return active ? { label: active.descriptor.label, model: active.descriptor.model } : null;
 }
 
-export function hasActiveProvider(): boolean {
-  return active !== null;
-}
-
 /** The name the shell files this under. */
 const SECRET = "ai-provider" as const;
 

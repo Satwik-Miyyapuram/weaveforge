@@ -76,16 +76,3 @@ export function projectZoteroAnnotations(
 
   return out.sort((a, b) => a.sortIndex.localeCompare(b.sortIndex));
 }
-
-export function partitionZoteroItems(annotations: readonly ZoteroAnnotation[]): {
-  annotations: ZoteroAnnotation[];
-  notes: ZoteroAnnotation[];
-} {
-  const anns: ZoteroAnnotation[] = [];
-  const notes: ZoteroAnnotation[] = [];
-  for (const item of annotations) {
-    if (item.kind === "note") notes.push(item);
-    else anns.push(item);
-  }
-  return { annotations: anns, notes };
-}
