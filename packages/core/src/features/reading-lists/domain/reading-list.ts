@@ -9,6 +9,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { buildTree } from "../../../shared/tree.js";
 
 export interface ReadingList extends Identifiable {
   id: string;
@@ -88,25 +89,12 @@ export function createReadingList(
 export function buildListTree(
   lists: readonly ReadingList[],
 ): ReadingListTreeNode[] {
-  const nodes = new Map<string, ReadingListTreeNode>();
-  for (const list of lists) {
-    nodes.set(list.id, { list, children: [] });
-  }
-  const roots: ReadingListTreeNode[] = [];
-  for (const node of nodes.values()) {
-    const parentId = node.list.parentId;
-    const parent = parentId ? nodes.get(parentId) : undefined;
-    if (parent) parent.children.push(node);
-    else roots.push(node);
-  }
-  const sortNodes = (list: ReadingListTreeNode[]) => {
-    list.sort(
-      (a, b) =>
-        a.list.sortOrder - b.list.sortOrder ||
-        a.list.name.localeCompare(b.list.name),
-    );
-    for (const n of list) sortNodes(n.children);
-  };
-  sortNodes(roots);
-  return roots;
+  return buildTree(lists, {
+    id: (list) => list.id,
+    parentId: (list) => list.parentId,
+    node: (list) => ({ list, children: [] }),
+    compare: (a, b) =>
+      a.list.sortOrder - b.list.sortOrder ||
+      a.list.name.localeCompare(b.list.name),
+  });
 }
