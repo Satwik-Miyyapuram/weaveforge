@@ -40,3 +40,24 @@ export async function localSqlDb(): Promise<LocalSqlDb> {
     close: () => db.close(),
   };
 }
+
+/**
+ * The shared `pg-test-db` harness, seen as a `SqlRunner`.
+ *
+ * Tests that need the app's own schema use that database rather than the
+ * device-only one above; this is the one adapter between the two shapes.
+ */
+export function sqlRunner(
+  sql: (query: string, params?: unknown[]) => Promise<Record<string, unknown>[]>,
+): SqlRunner {
+  const query = async <T>(q: string, p: (string | number | boolean | null)[] = []) =>
+    (await sql(q, p)) as T[];
+  return {
+    query,
+    queryOne: async <T>(q: string, p: (string | number | boolean | null)[] = []) =>
+      (await query<T>(q, p))[0] ?? null,
+    exec: async (q, p = []) => {
+      await query(q, p);
+    },
+  };
+}
