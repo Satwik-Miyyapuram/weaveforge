@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   normalizeDoi,
   type IPaperRepository,
@@ -7,7 +6,6 @@ import {
   type PaperStatus,
 } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import {
   type PaperRow,
   emptyToNull,
@@ -15,6 +13,7 @@ import {
   toDomain,
 } from "./paper-rows";
 import { deleteRowById, one, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 /**
  * Supabase implementation of IPaperRepository.
@@ -38,13 +37,7 @@ const PAPER_LIST_COLUMNS =
 const PAPER_SUMMARY_COLUMNS =
   "id,title,authors,status,year,read_at,pdf_path,tags,created_at,updated_at,project_id,summary,doi,arxiv_id,url";
 
-export class SupabasePaperRepository implements IPaperRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly ctx: ProjectContext,
-  ) {}
-
-  private get pid() { return this.ctx.projectId; }
+export class SupabasePaperRepository extends ProjectRepository implements IPaperRepository {
 
   async getById(id: string): Promise<Paper | null> {
     const row = await rowById<PaperRow>(this.db, TABLE, id);

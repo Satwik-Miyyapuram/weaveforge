@@ -5,7 +5,7 @@ import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperSta
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { paperSourceNoteScaffold } from "../application/paper-source-note-scaffold";
-import { formatError } from "@/lib/format-error";
+import { useSubmit } from "@/lib/hooks/use-submit";
 
 
 type RefKind = PaperRef["kind"]; // "arxiv" | "doi" | "zotero"
@@ -44,8 +44,6 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
   const [refKind, setRefKind] = useState<RefKind>("url");
   const [refValue, setRefValue] = useState("");
   const [status, setStatus] = useState<PaperStatus>("to_read");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // The picker states intent; the parser decides what was actually pasted, so
   // an abs link in the arXiv box resolves as arXiv. Shown so the researcher
@@ -55,40 +53,31 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
     [refKind, refValue],
   );
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const papers = getContainer().papers;
-      const paper = refValue.trim()
-        ? await papers.importPaper.fromRef({ kind: refKind, value: refValue.trim() }, status)
-        : await papers.addPaper.addManual({ title, status });
-      if (!paper.summary || paper.summary === "No summary yet.") {
-        const citeKey =
-          typeof paper.metadata?.["citeKey"] === "string"
-            ? paper.metadata["citeKey"]
-            : undefined;
-        const scaffold = paperSourceNoteScaffold({
-          title: paper.title,
-          authors: paper.authors,
-          year: paper.year,
-          venue: paper.venue,
-          doi: paper.doi,
-          citeKey,
-        });
-        await papers.updatePaper.setSummary(paper.id, scaffold);
-      }
-      await papers.autoPush(paper);
-      setTitle("");
-      setRefValue("");
-      onAdded?.();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
+  const { busy, error, submit } = useSubmit(async () => {
+    const papers = getContainer().papers;
+    const paper = refValue.trim()
+      ? await papers.importPaper.fromRef({ kind: refKind, value: refValue.trim() }, status)
+      : await papers.addPaper.addManual({ title, status });
+    if (!paper.summary || paper.summary === "No summary yet.") {
+      const citeKey =
+        typeof paper.metadata?.["citeKey"] === "string"
+          ? paper.metadata["citeKey"]
+          : undefined;
+      const scaffold = paperSourceNoteScaffold({
+        title: paper.title,
+        authors: paper.authors,
+        year: paper.year,
+        venue: paper.venue,
+        doi: paper.doi,
+        citeKey,
+      });
+      await papers.updatePaper.setSummary(paper.id, scaffold);
     }
-  }
+    await papers.autoPush(paper);
+    setTitle("");
+    setRefValue("");
+    onAdded?.();
+  });
 
   return (
     <form className="card add-form" onSubmit={submit}>

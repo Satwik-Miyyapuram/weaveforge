@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { formatError } from "@/lib/format-error";
+import { useSubmit } from "@/lib/hooks/use-submit";
 
 /**
  * Inline editor for a paper's DOI / arXiv ID.
@@ -22,23 +22,13 @@ export function PaperIdentifiersEditor({
 }) {
   const [doi, setDoi] = useState(paper.doi ?? "");
   const [arxivId, setArxivId] = useState(paper.arxivId ?? "");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function save() {
-    setBusy(true);
-    setError(null);
-    try {
-      onReplace(
-        await getContainer().papers.updatePaper.setIdentifiers(paper.id, { doi, arxivId }),
-      );
-      onClose();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { busy, error, setError, submit: save } = useSubmit(async () => {
+    onReplace(
+      await getContainer().papers.updatePaper.setIdentifiers(paper.id, { doi, arxivId }),
+    );
+    onClose();
+  });
 
   return (
     <div className="paper-ids-editor">

@@ -5,7 +5,7 @@ import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "./project-provider";
-import { formatError } from "@/lib/format-error";
+import { useSubmit } from "@/lib/hooks/use-submit";
 import { ScreenHead } from "@/components/screen-head";
 
 /**
@@ -15,26 +15,15 @@ import { ScreenHead } from "@/components/screen-head";
 export function ProjectsScreen() {
   const { projects, loading, setProject, refresh } = useProject();
   const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const p = await getContainer().projects.manageProject.create({ name });
-      await refresh();
-      setName("");
-      setAddOpen(false);
-      setProject(p.id);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { busy, error, setError, submit: create } = useSubmit(async () => {
+    const p = await getContainer().projects.manageProject.create({ name });
+    await refresh();
+    setName("");
+    setAddOpen(false);
+    setProject(p.id);
+  });
 
   return (
     <section className="screen">

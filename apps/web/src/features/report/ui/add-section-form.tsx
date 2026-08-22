@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useSubmit } from "@/lib/hooks/use-submit";
 import type { ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { formatError } from "@/lib/format-error";
 
 export type ReportParentOption = { section: ReportSection; depth: number };
 
@@ -31,32 +31,21 @@ export function AddSectionForm({
   const [parentId, setParentId] = useState("");
   const [targetWords, setTargetWords] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await getContainer().report.manageReportSection.add({
-        title,
-        sectionNo: sectionNo.trim() || undefined,
-        parentId: parentId || undefined,
-        targetWords: targetWords.trim() ? Number(targetWords) : undefined,
-        deadline: deadline || undefined,
-      });
-      setTitle("");
-      setSectionNo("");
-      setTargetWords("");
-      setDeadline("");
-      onAdded?.();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { busy, error, submit } = useSubmit(async () => {
+    await getContainer().report.manageReportSection.add({
+      title,
+      sectionNo: sectionNo.trim() || undefined,
+      parentId: parentId || undefined,
+      targetWords: targetWords.trim() ? Number(targetWords) : undefined,
+      deadline: deadline || undefined,
+    });
+    setTitle("");
+    setSectionNo("");
+    setTargetWords("");
+    setDeadline("");
+    onAdded?.();
+  });
 
   return (
     <form className="card add-form" onSubmit={submit}>
