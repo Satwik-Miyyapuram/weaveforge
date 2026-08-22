@@ -2,19 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { testDb } from "../../../backend/test/pg-test-db";
+import { sqlRunner } from "./local-sql";
 import { Adoption, AlreadyAdoptedError } from "../domain/adoption";
 import { SyncStateStore } from "../domain/sync-state";
-import type { SqlRunner } from "../domain/outbox";
-
-function runner(sql: (q: string, p?: unknown[]) => Promise<Record<string, unknown>[]>): SqlRunner {
-  return {
-    query: async <T,>(q: string, p: unknown[] = []) => (await sql(q, p)) as T[],
-    queryOne: async <T,>(q: string, p: unknown[] = []) => ((await sql(q, p))[0] ?? null) as T | null,
-    exec: async (q: string, p: unknown[] = []) => {
-      await sql(q, p);
-    },
-  } as SqlRunner;
-}
 
 // The harness hands back one database, so ids have to be unique across tests.
 let nextId = 0;
@@ -44,7 +34,7 @@ async function deviceWith(names: readonly string[]) {
     ]);
     ids.push(id);
   }
-  return { db, ids, sql: runner((q, p) => db.sql(q, p as unknown[])) };
+  return { db, ids, sql: sqlRunner((q, p) => db.sql(q, p as unknown[])) };
 }
 
 describe("adoption", () => {

@@ -2,19 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { testDb } from "../../../backend/test/pg-test-db";
+import { sqlRunner } from "./local-sql";
 import { SyncEngine, SyncRefusedError, type SyncQuota } from "../domain/sync-engine";
-import type { SqlRunner } from "../domain/outbox";
 import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/sync-ports";
-
-function runner(sql: (q: string, p?: unknown[]) => Promise<Record<string, unknown>[]>): SqlRunner {
-  return {
-    query: async <T,>(q: string, p: unknown[] = []) => (await sql(q, p)) as T[],
-    queryOne: async <T,>(q: string, p: unknown[] = []) => ((await sql(q, p))[0] ?? null) as T | null,
-    exec: async (q: string, p: unknown[] = []) => {
-      await sql(q, p);
-    },
-  } as SqlRunner;
-}
 
 function transport(
   outcome: SendOutcome = { status: "accepted" },
@@ -56,7 +46,7 @@ async function device(projects: readonly string[]) {
       name,
     ]);
   }
-  return { db, sql: runner((q, p) => db.sql(q, p as unknown[])) };
+  return { db, sql: sqlRunner((q, p) => db.sql(q, p as unknown[])) };
 }
 
 describe("the sync engine", () => {
