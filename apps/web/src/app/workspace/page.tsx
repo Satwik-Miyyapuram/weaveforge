@@ -1,10 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { WorkspaceScreen } from "@/features/editor-workspace";
+/**
+ * Loaded on demand, and only after the desktop check passes. A static import
+ * would put the whole editor shell — panes, palette, the collaborative editor
+ * stack — into the web bundle for a screen the web build never renders.
+ */
+const WorkspaceScreen = dynamic(
+  () => import("@/features/editor-workspace").then((m) => m.WorkspaceScreen),
+  { ssr: false, loading: () => <ScreenLoader status="Loading workspace…" /> },
+);
 
 /**
  * The editor workspace is desktop-only.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getContainer } from "@/bootstrap";
 import { CollabBodyHost } from "@/features/collab";
@@ -57,6 +57,10 @@ export function WorkspaceScreen() {
   const [layout, setLayout] = useState<PaneLayout>(() => emptyLayout());
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Saves are debounced inside the editor, so a window closed a keystroke after
+  // typing can have a write still in flight. Counted rather than a boolean:
+  // several panes can be saving at once.
+  const pending = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +149,7 @@ export function WorkspaceScreen() {
 
   const save = useCallback(async (tab: TabRef, body: string) => {
     const container = getContainer();
+    pending.current += 1;
     try {
       if (tab.kind === "vault_page") await container.vault.manageVaultPage.update(tab.id, { body });
       else if (tab.kind === "paper") await container.papers.updatePaper.setSummary(tab.id, body);
@@ -157,7 +162,22 @@ export function WorkspaceScreen() {
       );
     } catch (err) {
       setError(formatError(err));
+    } finally {
+      pending.current -= 1;
     }
+  }, []);
+
+  // The browser only honours the guard if the handler is registered before the
+  // close is attempted, so it lives here rather than being added when a save
+  // starts.
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (pending.current <= 0) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
   const renderDocument = useCallback(

@@ -24,7 +24,14 @@ export function QuickOpenDialog({
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => inputRef.current?.focus(), []);
+  // Focus goes into the palette on open and back where it came from on close,
+  // so dismissing with Escape leaves the caret in the editor the user was in
+  // rather than on the document body.
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    inputRef.current?.focus();
+    return () => previous?.focus?.();
+  }, []);
 
   const results = useMemo(() => quickOpenResults(documents, query), [documents, query]);
   const active = Math.min(cursor, Math.max(results.length - 1, 0));

@@ -179,11 +179,16 @@ leaving the app working.
       `.report`
 
 ### Phase 6 — Desktop gate and polish
-- [ ] Route registered only when `isDesktop()`; the web build must not ship the
-      bundle
-- [ ] Empty state, unsaved-changes guard on close, focus restoration
-- [ ] `check:solid` boundary review — the editor imports each feature through
-      its `index.ts` and nothing imports back into it
+- [x] Route registered only when `isDesktop()`; the web build must not ship the
+      bundle — `/workspace` renders an explanation on web, and the shell itself
+      is a `dynamic()` import behind that check, so the editor chunk is only
+      fetched once the desktop bridge answers
+- [x] Empty state, unsaved-changes guard on close, focus restoration — a pane
+      with no tabs says so, `beforeunload` holds the window while a debounced
+      save is still in flight, and quick open returns focus to whatever had it
+- [x] `check:solid` boundary review — the editor reaches outward through
+      `@/bootstrap`, `@/features/collab` and `@/lib/format-error` only, and the
+      single import of it anywhere else is the route that renders it
 
 ---
 
