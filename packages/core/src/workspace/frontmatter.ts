@@ -54,6 +54,12 @@ function unquote(raw: string): string {
   if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
     return trimmed.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   }
+  // Single quotes are never written here, but they are ordinary YAML and an
+  // outside editor may have written them. In single-quoted YAML the only
+  // escape is a doubled quote.
+  if (trimmed.length >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    return trimmed.slice(1, -1).replace(/''/g, "'");
+  }
   return trimmed;
 }
 
@@ -88,16 +94,68 @@ function parseValue(raw: string): FrontmatterValue {
  * Split a file into frontmatter and body. A file without frontmatter is all
  * body — hand-created files must not be rejected, only treated as new.
  */
+const KEY_LINE = /^([A-Za-z0-9_-]+):\s*(.*)$/;
+const BLOCK_ITEM = /^\s+-\s*(.*)$/;
+
+/** How far a line is indented, for deciding what belongs to the key above it. */
+function indentOf(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
 export function readFrontmatter(content: string): ParsedDocument {
-  const match = /^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(content);
+  const match = /^\ufeff?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(content);
   if (!match) return { frontmatter: {}, body: content };
 
   const frontmatter: Record<string, FrontmatterValue> = {};
-  for (const line of match[1]!.split(/\r?\n/)) {
-    const entry = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
+  const lines = match[1]!.split(/\r?\n/);
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    // Only a top-level key starts an entry. Anything indented is either
+    // consumed below as a block list or belongs to a nested map we skip.
+    if (indentOf(line) > 0) continue;
+    const entry = KEY_LINE.exec(line);
     if (!entry) continue;
-    frontmatter[entry[1]!] = parseValue(entry[2] ?? "");
+    const key = entry[1]!;
+    const inline = entry[2] ?? "";
+
+    if (inline.trim()) {
+      frontmatter[key] = parseValue(inline);
+      continue;
+    }
+
+    // An empty value means the value is on the lines below: a block list,
+    // which every outside editor writes by default and which we understand,
+    // or a nested map, which we do not model. Both are consumed either way —
+    // the difference is that a map leaves no key behind rather than a
+    // misleading empty string.
+    const items: string[] = [];
+    let cursor = i;
+    let nested = false;
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const next = lines[j]!;
+      if (!next.trim()) continue;
+      if (indentOf(next) === 0) break;
+      cursor = j;
+      const item = BLOCK_ITEM.exec(next);
+      if (!item) {
+        nested = true;
+        continue;
+      }
+      const value = unquote(item[1] ?? "");
+      if (value) items.push(value);
+    }
+
+    if (nested) {
+      // Skip it entirely: a half-read map is worse than an absent key.
+    } else if (cursor > i) {
+      frontmatter[key] = items;
+    } else {
+      frontmatter[key] = "";
+    }
+    i = cursor;
   }
+
   return { frontmatter, body: content.slice(match[0].length) };
 }
 

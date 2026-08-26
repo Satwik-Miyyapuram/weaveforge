@@ -5,6 +5,7 @@ import {
   parseWorkspaceFolder,
   readFrontmatter,
   serializeWorkspace,
+  writeFrontmatter,
   type WorkspaceSnapshot,
 } from "../../src/index.js";
 
@@ -78,4 +79,55 @@ test("a paper's tags reach the file in their safe form", () => {
   );
   const [path] = Object.keys(files);
   assert.deepEqual(readFrontmatter(files[path!]!).frontmatter.tags, ["machine-learning"]);
+});
+
+// ------------------------------------------------------- reading foreign YAML
+
+test("a block list is read, because that is how other editors write lists", () => {
+  const { frontmatter, body } = readFrontmatter(
+    ["---", "title: Method", "tags:", "  - alpha", "  - beta", "---", "Body."].join("\n"),
+  );
+  assert.deepEqual(frontmatter.tags, ["alpha", "beta"]);
+  assert.equal(frontmatter.title, "Method");
+  assert.equal(body, "Body.");
+});
+
+test("quoted block items keep their punctuation", () => {
+  const { frontmatter } = readFrontmatter(
+    ["---", "aliases:", '  - "Method, revised"', "  - 'Method v2'", "---", ""].join("\n"),
+  );
+  assert.deepEqual(frontmatter.aliases, ["Method, revised", "Method v2"]);
+});
+
+test("a single-quoted scalar unquotes, doubled quote and all", () => {
+  const { frontmatter } = readFrontmatter(["---", "title: 'It''s here'", "---", ""].join("\n"));
+  assert.equal(frontmatter.title, "It's here");
+});
+
+test("a nested map leaves no key rather than an empty one", () => {
+  const { frontmatter } = readFrontmatter(
+    ["---", "title: Method", "cssclasses:", "  wide: true", "---", ""].join("\n"),
+  );
+  assert.equal("cssclasses" in frontmatter, false);
+  assert.equal(frontmatter.title, "Method");
+});
+
+test("a key after a block list is still read", () => {
+  const { frontmatter } = readFrontmatter(
+    ["---", "tags:", "  - alpha", "weaveforge-id: n1", "---", ""].join("\n"),
+  );
+  assert.equal(frontmatter["weaveforge-id"], "n1");
+  assert.deepEqual(frontmatter.tags, ["alpha"]);
+});
+
+test("an inline list still wins over the block scan", () => {
+  const { frontmatter } = readFrontmatter(["---", "tags: [alpha, beta]", "---", ""].join("\n"));
+  assert.deepEqual(frontmatter.tags, ["alpha", "beta"]);
+});
+
+test("what we write still reads back byte-identically", () => {
+  const source = writeFrontmatter({ "weaveforge-id": "n1", aliases: ["Method"] }, "Body.");
+  const parsed = readFrontmatter(source);
+  assert.deepEqual(parsed.frontmatter.aliases, ["Method"]);
+  assert.equal(writeFrontmatter(parsed.frontmatter, parsed.body), source);
 });

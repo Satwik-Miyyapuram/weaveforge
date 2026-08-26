@@ -48,3 +48,27 @@ gaps were found; two are closed by this round.
   `folderMirror` have none. The folder is a download with no way back; the
   half of the design that made it *the* representation was built and never
   wired.
+
+## Round 2 — reading YAML we did not write
+
+The frontmatter parser was deliberately narrow: scalars and flow lists, no
+YAML library, no deserialization surface to attack. Right for a format we
+emit; wrong the moment the folder is two-way, because every other editor
+writes lists as indented blocks, not `[a, b]`. A file round-tripped through
+Obsidian would have come back with its tags silently gone.
+
+**Done** — the *reader* widened, the writer untouched, so output stays
+byte-identical and git diffs stay meaningful:
+- block lists (`tags:` then `  - alpha`) parse as lists
+- single-quoted scalars unquote, including YAML's doubled-quote escape
+- a nested map under a key is consumed and leaves *no* key, rather than a
+  misleading empty string — a half-read map is worse than an absent one
+- indentation now decides what belongs to which key, so a key following a
+  block list is still read
+
+7 more tests (core 950 → 957), including one asserting that what we write
+still reads back and re-serializes byte-identically.
+
+Still deliberately absent: anchors, multi-line scalars (`|`, `>`), comments.
+Comments were skipped on purpose — stripping an unquoted `#` would eat the
+`#tag` values people actually write.
