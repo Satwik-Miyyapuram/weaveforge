@@ -37,7 +37,7 @@ exists. Limits are enforced and explained; they are never an offer. Concretely:
 
 Turning this on later is adding surfaces, not rewiring the enforcement — which
 is the point of separating the two now. See
-`docs/plans/future/offline-first-sync.md` **D2**, whose sync opt-in flow counts
+`docs/plans/completed/offline-first-sync.md` **D2**, whose sync opt-in flow counts
 what would be uploaded and shows the number without ever showing a price.
 
 ---
@@ -115,7 +115,7 @@ export interface QuotaStatus {
 
 ## 3.1 The local tier has no ceiling, and that is structural
 
-`docs/plans/future/offline-first-sync.md` makes the desktop app independent: a
+`docs/plans/completed/offline-first-sync.md` makes the desktop app independent: a
 local Postgres, no account required. §2's two-layer argument is worth re-reading
 with that in mind, because it resolves cleanly rather than breaking.
 

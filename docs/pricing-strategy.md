@@ -52,7 +52,7 @@ Net effect: we can raise the free tier's paper limit well above ten without mate
 
 ## 3.1 What offline-first changes
 
-`docs/plans/future/offline-first-sync.md` settles that **the desktop app is
+`docs/plans/completed/offline-first-sync.md` settles that **the desktop app is
 independent**: it ships its own build, works with no network and no account, and
 holds its data in a local Postgres. Sync is opt-in and requires sign-in; shared
 projects require sign-in and a connection.

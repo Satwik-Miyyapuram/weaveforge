@@ -49,10 +49,35 @@ function markdown(
   for (const asset of rewritten.assets) {
     assets.push({ storagePath: asset.storagePath, folderPath: asset.folderPath });
   }
+  const title = typeof fields.title === "string" ? fields.title : undefined;
   return writeFrontmatter(
-    { "weaveforge-id": id, "weaveforge-type": type, ...fields },
+    {
+      "weaveforge-id": id,
+      "weaveforge-type": type,
+      ...fields,
+      // Filenames carry a kind suffix (`methods.note.md`), so an editor that
+      // resolves `[[Methods]]` against basenames finds `methods.note` and
+      // gives up. `aliases` is the key Obsidian and its imitators consult
+      // before failing, so declaring the title there makes every wikilink we
+      // emit resolve outside the app without giving up the suffix.
+      ...(title ? { aliases: [title] } : {}),
+    },
     rewritten.body,
   );
+}
+
+/**
+ * Tags, as an outside editor will accept them.
+ *
+ * Ours are free text and may contain spaces; a tag with a space is not a tag
+ * in Obsidian's grammar and is dropped silently on the way in. Hyphenating is
+ * lossless enough to survive the round trip, and only the mirror is affected —
+ * the stored tag keeps its spaces.
+ */
+export function obsidianTags(tags: readonly string[] | undefined): string[] | undefined {
+  if (!tags || tags.length === 0) return undefined;
+  const out = tags.map((tag) => tag.trim().replace(/\s+/g, "-")).filter(Boolean);
+  return out.length > 0 ? [...new Set(out)] : undefined;
 }
 
 export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorkspace {
@@ -126,7 +151,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
         url: paper.url,
         status: paper.status,
         rating: paper.rating,
-        tags: paper.tags,
+        tags: obsidianTags(paper.tags),
         "updated-at": paper.updatedAt,
       },
       // Abstract then notes: the file reads as the paper, with your notes under it.
