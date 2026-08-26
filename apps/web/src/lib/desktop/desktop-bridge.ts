@@ -114,6 +114,44 @@ export interface DesktopBridge {
    * the far side, so nothing here can hold a connection open.
    */
   queryLocalDb(sql: string, params?: readonly (string | number | boolean | null)[]): Promise<unknown[]>;
+
+  /**
+   * The workspace folder on disk: the same markdown the export produces, but
+   * live, so an outside editor can open it while the app is running.
+   *
+   * A browser has no equivalent worth having. The File System Access API can
+   * hold a directory handle, but not across a reinstall and not while the tab
+   * is closed, which is exactly when an outside editor would be used.
+   *
+   * `chooseVaultRoot` is the only way a folder is picked, and it opens a
+   * dialog every time: the page names no path, so a page that is talked into
+   * calling this gets a folder picker in front of a person rather than a
+   * silent write somewhere. It answers with the folder unchanged when the
+   * dialog is dismissed.
+   */
+  chooseVaultRoot(): Promise<DesktopVaultRoot | null>;
+  /** The folder currently in use, or null when none has been chosen. */
+  vaultRoot(): Promise<DesktopVaultRoot | null>;
+  /** Stop using the folder. The files stay; the app stops writing to them. */
+  forgetVaultRoot(): Promise<void>;
+  /** Read one file, or null when it is not there yet. */
+  readVaultFile(path: string): Promise<string | null>;
+  writeVaultFile(path: string, contents: string): Promise<void>;
+  /** One level of a directory, `""` for the root. */
+  listVaultFiles(path?: string): Promise<DesktopVaultEntry[]>;
+}
+
+export interface DesktopVaultRoot {
+  path: string;
+  /** Whether the folder already held a workspace when it was chosen. */
+  state: "empty" | "existing";
+}
+
+export interface DesktopVaultEntry {
+  path: string;
+  kind: "file" | "dir";
+  size: number;
+  modifiedAt: string;
 }
 
 /** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */

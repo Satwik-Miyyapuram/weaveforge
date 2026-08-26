@@ -55,7 +55,21 @@ export const CHANNELS = {
    * behind a breakpoint. Each call is its own transaction on the far side, with
    * the role and the claim set inside it — see `local-db.ts`.
    */
-  dbQuery: "weaveforge:db-query",
+  dbQuery: "weaveforge:db-query",
+  /**
+   * The workspace folder: choose one, ask which one is chosen, read and write
+   * inside it. What may be chosen and how a path is kept inside the root is
+   * `vault-folder.ts`; these are only the strings.
+   *
+   * Only `vaultChoose` opens a dialog, and only in response to the renderer
+   * asking — a folder is never picked on the app's own initiative.
+   */
+  vaultChoose: "weaveforge:vault-choose",
+  vaultRoot: "weaveforge:vault-root",
+  vaultForget: "weaveforge:vault-forget",
+  vaultRead: "weaveforge:vault-read",
+  vaultWrite: "weaveforge:vault-write",
+  vaultList: "weaveforge:vault-list",
 } as const;
 
 /**
@@ -78,4 +92,19 @@ export interface ImagePayload {
   bytes: ArrayBuffer;
   contentType: string;
   url: string;
+}
+
+/** The chosen workspace folder, or `null` when none is chosen yet. */
+export interface VaultRootPayload {
+  path: string;
+  /** Whether the folder already held a workspace when it was chosen. */
+  state: "empty" | "existing";
+}
+
+/** One entry of a folder listing, flattened for the wire. */
+export interface VaultEntryPayload {
+  path: string;
+  kind: "file" | "dir";
+  size: number;
+  modifiedAt: string;
 }

@@ -35,14 +35,23 @@ exist, are already tested, and currently justify none of their weight.
 
 ## Phases
 
-### Phase 1 — Filesystem IPC
-- [ ] `dialog:showOpenDialog` channel so the user picks a folder; the path is
-      stored in the existing `preference-store`
-- [ ] `fs:read` / `fs:write` / `fs:list` channels implementing `FsPort`
-      against the chosen root, with every path validated by the existing
-      `safeWorkspacePath` before it touches disk
-- [ ] Refuse a root that is not empty and not already a WeaveForge folder, so
-      pointing at `Documents/` cannot scatter a thousand files
+### Phase 1 — Filesystem IPC ✅
+- [x] A folder picker behind `vaultChoose`. The renderer never names a path:
+      it asks for a dialog, and the chosen root stays in the main process, so
+      every later read and write is relative to something a person selected
+- [x] `NodeWorkspaceFs` implements `IWorkspaceFs` against that root. Every
+      path goes through `safeWorkspacePath` and then through a `realpath`
+      containment check, so a symlink planted inside the folder cannot lead
+      out of it either
+- [x] `verifyRoot` refuses a folder that is neither empty nor already ours —
+      `.weaveforge/` is the mark. Pointing this at `Documents/` would bury a
+      person's files among a thousand of ours with no way to tell them apart
+- [x] 18 tests in `apps/desktop/test/vault-folder.test.ts`
+
+Not yet done in this phase: persisting the chosen root across restarts. The
+`preference-store` allow list would need a `vault-root` name, and the question
+of whether a remembered path is re-verified on launch (it should be) belongs
+with Phase 2, where something actually writes.
 
 ### Phase 2 — Write-out
 - [ ] On change, `serializeWorkspace` + `diffWorkspace` against the previous

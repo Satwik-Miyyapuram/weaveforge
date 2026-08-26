@@ -13,6 +13,15 @@ import {
 } from "./app-protocol";
 import type { LocalClient } from "./local-db";
 import { LocalDbHost } from "./local-db-host";
+import {
+  adoptRoot,
+  currentRoot,
+  forgetRoot,
+  listVaultFiles,
+  newVaultSession,
+  readVaultFile,
+  writeVaultFile,
+} from "./vault-handlers";
 import { SecretStore } from "./secret-store";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
@@ -342,6 +351,36 @@ const localDb = new LocalDbHost({
 ipcMain.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
   localDb.query(sql, params),
 );
+
+/**
+ * The workspace folder.
+ *
+ * The renderer never names a directory: `vaultChoose` opens a picker and the
+ * chosen path stays in this process, so every later read and write is relative
+ * to something a person selected in a dialog. That is the whole reason the
+ * session lives here rather than being passed in on each call.
+ */
+const vault = newVaultSession();
+
+ipcMain.handle(CHANNELS.vaultChoose, async () => {
+  const window = mainWindow;
+  const result = window
+    ? await dialog.showOpenDialog(window, {
+        title: "Choose a folder for your workspace",
+        properties: ["openDirectory", "createDirectory"],
+      })
+    : await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
+  // A dismissed dialog is the user declining, not a failure.
+  return adoptRoot(vault, result.canceled ? null : (result.filePaths[0] ?? null));
+});
+
+ipcMain.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
+ipcMain.handle(CHANNELS.vaultForget, () => forgetRoot(vault));
+ipcMain.handle(CHANNELS.vaultRead, (_event, at: unknown) => readVaultFile(vault, at));
+ipcMain.handle(CHANNELS.vaultWrite, (_event, at: unknown, contents: unknown) =>
+  writeVaultFile(vault, at, contents),
+);
+ipcMain.handle(CHANNELS.vaultList, (_event, at: unknown) => listVaultFiles(vault, at));
 
 app.on("will-quit", (event) => {
   event.preventDefault();

@@ -72,3 +72,38 @@ still reads back and re-serializes byte-identically.
 Still deliberately absent: anchors, multi-line scalars (`|`, `>`), comments.
 Comments were skipped on purpose — stripping an unquoted `#` would eat the
 `#tag` values people actually write.
+
+## Round 3 — code reduction, then Phase 1 of the vault folder
+
+**Reduction first, and it is exhausted.** Wrote a scanner over every tracked
+`.ts`/`.tsx` looking for exports referenced exactly once — the declaration and
+nothing else. Result: **zero**. The commit before this branch (`0dac0e4`,
+"drop eight exports nothing calls") already took what there was. A looser scan
+finds 499 exports with no consumer outside their own file, but those are
+mostly `export const` on things used one line below; dropping the keyword
+tightens the surface without removing a line, and churns a lot of files to do
+it. Not worth it unattended.
+
+Current size: 91,254 lines of source, 117,291 including tests. The one real
+outlier is `apps/web/src/features/reader/ui/pdf-reader/pdf-reader.tsx` at
+1,726 lines — 2.4× the next largest file. That is the reduction target worth
+having, and it is a careful extraction rather than a sweep, so it is queued
+rather than done at 3am.
+
+**Phase 1 of `live-vault-folder.md` instead**, which activates dead code
+rather than adding to the pile:
+- `NodeWorkspaceFs` implements the existing `IWorkspaceFs` against a real
+  directory. Every path is checked twice — `safeWorkspacePath` for `..` and
+  absolutes, then a `realpath` containment check, because the one way out that
+  string checking cannot see is a symlink planted inside the folder
+- `verifyRoot` decides which directories may be handed to us at all: empty, or
+  already carrying `.weaveforge/`. Anything else is refused, because writing a
+  workspace scatters a file per entity and pointing it at `Documents/` would
+  bury a person's own files among a thousand of ours
+- Six IPC channels, and the renderer names no path on any of them. It asks for
+  a dialog; the chosen root stays in the main process
+- 18 tests (desktop 54 → 72), including the symlink escape and the "forgetting
+  the folder is the app looking away, not a delete" case
+
+The `DesktopBridge` contract in the web app is the single definition both
+sides compile against, so the preload could not be written wrong here.

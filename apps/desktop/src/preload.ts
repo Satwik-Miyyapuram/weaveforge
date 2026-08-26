@@ -3,6 +3,8 @@ import type {
   DesktopBridge,
   DesktopPreferenceValue,
   DesktopUpdate,
+  DesktopVaultEntry,
+  DesktopVaultRoot,
 } from "@/lib/desktop/desktop-bridge";
 import { CHANNELS, type ImagePayload, type IpcResult, type TitlePayload } from "./channels";
 
@@ -44,6 +46,16 @@ const bridge: DesktopBridge = {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },
   queryLocalDb: (sql, params) => call<unknown[]>(CHANNELS.dbQuery, sql, params),
+  chooseVaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultChoose),
+  vaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultRoot),
+  forgetVaultRoot: async () => {
+    await call<null>(CHANNELS.vaultForget);
+  },
+  readVaultFile: (path) => call<string | null>(CHANNELS.vaultRead, path),
+  writeVaultFile: async (path, contents) => {
+    await call<null>(CHANNELS.vaultWrite, path, contents);
+  },
+  listVaultFiles: (path) => call<DesktopVaultEntry[]>(CHANNELS.vaultList, path ?? ""),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);
