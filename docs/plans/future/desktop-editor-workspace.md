@@ -145,10 +145,12 @@ leaving the app working.
       directory; the title never keeps the suffix
 
 ### Phase 2 — The document registry
-- [ ] `open-documents.ts`: `acquire(ref)` / `release(ref)`, reference-counted,
+- [x] `open-documents.ts`: `acquire(ref)` / `release(ref)`, reference-counted,
       one instance per `{kind, id}`
-- [ ] Dirty tracking and the existing save path per kind
-- [ ] Tests: two acquires return the same instance; release only on the last;
+- [x] Dirty tracking (`markReady` / `shouldSave` / `markSaved`, one baseline
+      shared by every holder). Wiring the editor onto it lands in Phase 4,
+      where a second pane exists to make it observable
+- [x] Tests: two acquires return the same instance; release only on the last;
       a save from one holder is visible to the other
 
 ### Phase 3 — Explorer tree
