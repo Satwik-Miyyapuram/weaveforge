@@ -154,11 +154,11 @@ leaving the app working.
       a save from one holder is visible to the other
 
 ### Phase 3 — Explorer tree
-- [ ] `workspace-tree.ts`: builds the three roots from the loaded entities,
+- [x] `workspace-tree.ts`: builds the three roots from the loaded entities,
       reusing `treePaths` for nesting
-- [ ] `explorer-panel.tsx`: expand/collapse, keyboard nav, per-kind icon,
+- [x] `explorer-panel.tsx`: expand/collapse, keyboard nav, per-kind icon,
       "Start note" affordance on a paper with none
-- [ ] Tests: tree shape for nested notes; a paper with no note is offered, not
+- [x] Tests: tree shape for nested notes; a paper with no note is offered, not
       listed; collapse state survives a reload
 
 ### Phase 4 — Panes and tabs

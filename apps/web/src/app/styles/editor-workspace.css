@@ -1,0 +1,83 @@
+/*
+ * The desktop editor workspace: the explorer tree on the left, panes on the
+ * right. Sized in rem against the density scale so it tracks the rest of the
+ * app, and coloured only through theme tokens — no hex values live here.
+ */
+
+.explorer-panel {
+  overflow: auto;
+  padding-block: 0.4rem;
+  background: var(--surface);
+  border-inline-end: 1px solid var(--border);
+}
+
+.explorer-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.explorer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-block: 0.18rem;
+  padding-inline-end: 0.4rem;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  cursor: default;
+  user-select: none;
+}
+
+.explorer-row:hover {
+  background: var(--surface2);
+}
+
+.explorer-row.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.explorer-twisty,
+.explorer-icon {
+  flex: none;
+  width: 0.9rem;
+  text-align: center;
+  color: var(--faint);
+}
+
+.explorer-row.is-active .explorer-icon {
+  color: inherit;
+}
+
+.explorer-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Offered rather than shown as a state: a paper with no note is normal. */
+.explorer-start-note {
+  flex: none;
+  margin-inline-start: auto;
+  padding: 0 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.explorer-row:hover .explorer-start-note,
+.explorer-row:focus-within .explorer-start-note {
+  opacity: 1;
+}
+
+.explorer-start-note:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
