@@ -23,7 +23,7 @@ test("a first mirror writes the whole folder", async () => {
   const fs = new MemoryWorkspaceFs();
   const result = await mirrorWorkspace(snapshot({ vaultPages: [note("n1", "Method")] }), fs);
 
-  assert.ok(result.written.includes("notes/method.md"));
+  assert.ok(result.written.includes("notes/method.note.md"));
   assert.equal(result.unchanged, 0);
 });
 
@@ -52,7 +52,7 @@ test("an edit rewrites only the file that changed", async () => {
     fs,
   );
 
-  assert.deepEqual(result.written, ["notes/method.md"]);
+  assert.deepEqual(result.written, ["notes/method.note.md"]);
 });
 
 test("a deleted entity's file is removed", async () => {
@@ -66,8 +66,8 @@ test("a deleted entity's file is removed", async () => {
     previousPaths: first.written,
   });
 
-  assert.ok(result.removed.includes("notes/gone.md"));
-  assert.equal(await fs.stat("notes/gone.md"), null);
+  assert.ok(result.removed.includes("notes/gone.note.md"));
+  assert.equal(await fs.stat("notes/gone.note.md"), null);
 });
 
 test("files the mirror does not own are left alone", async () => {
@@ -110,7 +110,7 @@ test("a missing asset does not abort the mirror", async () => {
     { fetchAsset: async () => null },
   );
 
-  assert.ok(result.written.includes("notes/method.md"), "the note is still written");
+  assert.ok(result.written.includes("notes/method.note.md"), "the note is still written");
 });
 
 test("git is off by default and answers without throwing", async () => {

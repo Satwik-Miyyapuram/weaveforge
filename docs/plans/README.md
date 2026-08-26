@@ -44,3 +44,4 @@ archived versions and nothing linked to them, so they are gone.
 | Plan | Notes |
 |------|-------|
 | [`offline-first-sync.md`](future/offline-first-sync.md) | Offline-first desktop and sync — data-kind classification, three-way merge, conflict policy. Proposal only |
+| [`desktop-editor-workspace.md`](future/desktop-editor-workspace.md) | Desktop editor shell — kind suffixes (`.note.md`, `.paper.md`), explorer tree, split panes and tabs, quick open. Phase 1 in progress |

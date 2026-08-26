@@ -65,17 +65,17 @@ test("a note with children becomes a folder note", () => {
       { id: "root", title: "Method" },
       { id: "child", title: "Baselines", parentId: "root" },
     ],
-    "notes",
+    "vault_page",
   );
 
-  assert.equal(paths.get("root"), "notes/method/method.md");
-  assert.equal(paths.get("child"), "notes/method/baselines.md");
+  assert.equal(paths.get("root"), "notes/method/method.note.md");
+  assert.equal(paths.get("child"), "notes/method/baselines.note.md");
 });
 
 test("slug collisions inside one directory are broken by id", () => {
   const paths = treePaths(
     [{ id: "a1", title: "Notes" }, { id: "b2", title: "Notes" }],
-    "notes",
+    "vault_page",
   );
 
   assert.notEqual(paths.get("a1"), paths.get("b2"));
@@ -84,7 +84,7 @@ test("slug collisions inside one directory are broken by id", () => {
 test("a cyclic parent chain does not hang the layout", () => {
   const paths = treePaths(
     [{ id: "a", title: "A", parentId: "b" }, { id: "b", title: "B", parentId: "a" }],
-    "notes",
+    "vault_page",
   );
 
   assert.equal(paths.size, 2);
@@ -131,7 +131,7 @@ test("empty lists and undefined fields are omitted rather than emitted empty", (
 test("blob refs become folder-relative so the folder renders in Obsidian", () => {
   const { body, assets } = toRelativeBlobLinks(
     "![](vault:user-1/n1/diagram.png)",
-    "notes/method/baselines.md",
+    "notes/method/baselines.note.md",
   );
 
   assert.match(body, /!\[\]\(\.\.\/\.\.\/assets\/notes\/user-1\/n1\/diagram\.png\)/);
@@ -204,8 +204,8 @@ test("the folder can be written to a filesystem and read back", async () => {
   const seen: string[] = [];
   for await (const entry of fs.walk("notes")) seen.push(entry.path);
 
-  assert.deepEqual(seen, ["notes/method.md"]);
-  assert.match(await fs.readText("notes/method.md"), /weaveforge-id: n1/);
+  assert.deepEqual(seen, ["notes/method.note.md"]);
+  assert.match(await fs.readText("notes/method.note.md"), /weaveforge-id: n1/);
 });
 
 // -------------------------------------------------------------------- diff
