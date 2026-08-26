@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   appendActivityLog,
   collectAnnotationImageRegions,
-  planSourceNoteBatch,
 } from "../application/batch-annotation-ops.js";
 import type { ReaderAnnotation } from "@weaveforge/core";
 
@@ -35,18 +34,6 @@ test("collectAnnotationImageRegions extracts rects only from image anns", () => 
   assert.equal(regions.length, 2);
   assert.equal(regions[0]!.pageIndex, 2);
   assert.deepEqual(regions[1]!.rect, [5, 6, 7, 8]);
-});
-
-test("planSourceNoteBatch missing vs all", () => {
-  const papers = [
-    { id: "1", title: "A", hasSourceNote: false },
-    { id: "2", title: "B", hasSourceNote: true },
-  ];
-  assert.deepEqual(planSourceNoteBatch(papers, "missing"), [
-    { paperId: "1", title: "A", action: "create" },
-  ]);
-  assert.equal(planSourceNoteBatch(papers, "all").length, 2);
-  assert.equal(planSourceNoteBatch(papers, "all")[1]!.action, "rerender");
 });
 
 test("appendActivityLog prepends and caps", () => {

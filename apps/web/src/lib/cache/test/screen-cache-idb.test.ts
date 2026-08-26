@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { __test } from "../screen-cache-idb";
-import { screenCacheFetchedAt, setScreenCache } from "../screen-cache";
+import { isScreenCacheFresh, setScreenCache } from "../screen-cache";
 
 const { unwrap, ENVELOPE_VERSION, MAX_AGE_MS } = __test;
 const NOW = 1_700_000_000_000;
@@ -34,7 +34,8 @@ describe("persisted screen cache staleness", () => {
   });
 
   it("keeps the fetch time when a restored payload enters the memory cache", () => {
-    setScreenCache("p:screen", { rows: 3 }, NOW - 5000);
-    assert.equal(screenCacheFetchedAt("p:screen"), NOW - 5000);
+    setScreenCache("p:screen", { rows: 3 }, Date.now() - 5000);
+    assert.equal(isScreenCacheFresh("p:screen", 10_000), true);
+    assert.equal(isScreenCacheFresh("p:screen", 1_000), false);
   });
 });

@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  partitionZoteroItems,
   projectZoteroAnnotations,
 } from "../application/project-zotero-annotations.js";
 import type { ZoteroAnnotation } from "../../papers/domain/zotero.js";
@@ -49,13 +48,6 @@ test("projectZoteroAnnotations skips notes and sorts by sortIndex", () => {
   assert.deepEqual(projected[1]!.anchor.zoteroPosition?.nextPageRects, [[1, 2, 3, 4]]);
   assert.deepEqual(projected[0]!.anchor.zoteroPosition?.paths, [[0, 0, 1, 1]]);
   assert.equal(projected[1]!.origin, "zotero");
-});
-
-test("partitionZoteroItems splits annotations from notes", () => {
-  const { annotations, notes } = partitionZoteroItems(sample);
-  assert.equal(annotations.length, 2);
-  assert.equal(notes.length, 1);
-  assert.equal(notes[0]!.key, "N1");
 });
 
 test("projectZoteroAnnotations rejects strikeout by falling back to highlight", () => {

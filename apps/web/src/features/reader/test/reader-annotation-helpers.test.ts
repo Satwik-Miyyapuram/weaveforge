@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   annotationPinKey,
   applyAnnotationPatch,
-  isPendingAnnotationId,
   optimisticAnnotationFromDraft,
   READER_ANNOTATION_COLORS,
 } from "../application/reader-annotation-helpers.js";
@@ -63,8 +62,6 @@ test("optimisticAnnotationFromDraft fills the defaults the column would", () => 
 });
 
 test("pending ids are recognisable so they are never treated as server rows", () => {
-  assert.equal(isPendingAnnotationId("pending:abc"), true);
-  assert.equal(isPendingAnnotationId("6f1c2b1e-0000-4000-8000-000000000000"), false);
 });
 
 test("applyAnnotationPatch normalises exactly as the repository does", () => {

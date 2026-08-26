@@ -95,10 +95,3 @@ export function pageNumberFromSelection(
   const n = Number((host as HTMLElement).dataset.page);
   return Number.isInteger(n) && n > 0 ? n : null;
 }
-
-/** Parse `data-page` from a page host element. */
-export function pageNumberFromHost(host: { dataset?: DOMStringMap | { page?: string } } | null): number | null {
-  if (!host?.dataset) return null;
-  const n = Number(host.dataset.page);
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
