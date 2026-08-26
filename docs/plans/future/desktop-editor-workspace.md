@@ -172,10 +172,10 @@ leaving the app working.
       split; the ratio survives a round-trip
 
 ### Phase 5 — Quick open and commands
-- [ ] Fuzzy matcher over `slug.kind.md`, scored on subsequence + prefix
-- [ ] Ctrl/Cmd-P palette; Enter opens, Ctrl-Enter splits
-- [ ] Shortcuts: `Ctrl+\` split, `Ctrl+W` close, `Ctrl+Tab` cycle
-- [ ] Tests: ranking (prefix beats scattered match), kind filtering by typing
+- [x] Fuzzy matcher over `slug.kind.md`, scored on subsequence + prefix
+- [x] Ctrl/Cmd-P palette; Enter opens, Ctrl-Enter splits
+- [x] Shortcuts: `Ctrl+\` split, `Ctrl+W` close, `Ctrl+Tab` cycle
+- [x] Tests: ranking (prefix beats scattered match), kind filtering by typing
       `.report`
 
 ### Phase 6 — Desktop gate and polish

@@ -224,3 +224,72 @@
   grid-column: 1 / -1;
   padding: 0.4rem 0.75rem;
 }
+
+/* Quick open sits high rather than centred: the results grow downward, and a
+   list that grows from the middle of the screen moves under the reader's eye. */
+.quick-open-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  padding-block-start: 12vh;
+  background: var(--sel-ring);
+  backdrop-filter: blur(2px);
+}
+
+.quick-open {
+  display: flex;
+  flex-direction: column;
+  width: min(38rem, 92vw);
+  max-height: 60vh;
+  overflow: hidden;
+  background: var(--elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.quick-open-input {
+  border: none;
+  border-block-end: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.quick-open-results {
+  margin: 0;
+  padding: 0.25rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.quick-open-result {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: start;
+  cursor: default;
+}
+
+.quick-open-result.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.quick-open-path {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.quick-open-empty {
+  padding: 0.75rem;
+}

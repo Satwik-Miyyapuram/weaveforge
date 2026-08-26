@@ -5,12 +5,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { CollabBodyHost } from "@/features/collab";
 import { formatError } from "@/lib/format-error";
+import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
 import {
   activateTab,
   closeTab,
   emptyLayout,
   focusPane,
+  leaves,
   moveTab,
   openTab,
   pruneLayout,
@@ -21,9 +23,14 @@ import {
   type PaneSplit,
   type TabRef,
 } from "../application/pane-tree";
-import { buildWorkspaceTree, type WorkspaceTreeNode } from "../application/workspace-tree";
+import {
+  buildWorkspaceTree,
+  flattenTree,
+  type WorkspaceTreeNode,
+} from "../application/workspace-tree";
 import { ExplorerPanel } from "./explorer-panel";
 import { PaneView, openTabs } from "./pane-view";
+import { QuickOpenDialog } from "./quick-open-dialog";
 
 interface Document {
   kind: string;
@@ -49,6 +56,7 @@ export function WorkspaceScreen() {
   const [tree, setTree] = useState<WorkspaceTreeNode[]>([]);
   const [layout, setLayout] = useState<PaneLayout>(() => emptyLayout());
   const [error, setError] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +181,47 @@ export function WorkspaceScreen() {
   // One mount per open document, not per visible tab, so the same note in two
   // panes is the same editor twice rather than two documents.
   const mounted = useMemo(() => openTabs(layout), [layout]);
+  const documentNodes = useMemo(() => flattenTree(tree), [tree]);
+
+  const openNode = useCallback(
+    (node: WorkspaceTreeNode, options: { split: boolean }) => {
+      if (!node.id || node.kind === "folder") return;
+      const tab = { kind: node.kind, id: node.id };
+      apply(openTab(options.split ? splitPane(layout, layout.focusedPaneId, "row") : layout, tab));
+      setPaletteOpen(false);
+    },
+    [apply, layout],
+  );
+
+  // Bound on the window rather than on the shell so a shortcut still works
+  // while focus is inside a CodeMirror instance, which stops propagation of
+  // plenty of keys on its way to handling them.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const command = commandForChord(event);
+      if (!command) return;
+      if (isTypingTarget(event.target as HTMLElement | null)) return;
+      event.preventDefault();
+
+      if (command === "quick-open") return setPaletteOpen(true);
+
+      setLayout((current) => {
+        const pane = current.focusedPaneId;
+        if (command === "split-right") return apply(splitPane(current, pane, "row"));
+        const leaf = leaves(current.root).find((candidate) => candidate.id === pane);
+        if (!leaf || leaf.tabs.length === 0) return current;
+        if (command === "close-tab") return apply(closeTab(current, pane, leaf.activeIndex));
+        const step = command === "next-tab" ? 1 : -1;
+        // Cycling wraps: Ctrl-Tab on the last tab lands on the first, which is
+        // what makes it a cycle rather than a walk that stops at the end.
+        const next = (leaf.activeIndex + step + leaf.tabs.length) % leaf.tabs.length;
+        return apply(activateTab(current, pane, next));
+      });
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [apply]);
 
   if (error && !documents) return <p className="error">{error}</p>;
   if (!documents) return <p className="muted">Loading workspace…</p>;
@@ -198,6 +247,13 @@ export function WorkspaceScreen() {
         onRatio={(split: PaneSplit, ratio) => apply(setRatio(layout, split, ratio))}
       />
       {error ? <p className="error workspace-error">{error}</p> : null}
+      {paletteOpen ? (
+        <QuickOpenDialog
+          documents={documentNodes}
+          onPick={openNode}
+          onClose={() => setPaletteOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
