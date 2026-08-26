@@ -162,13 +162,13 @@ leaving the app working.
       listed; collapse state survives a reload
 
 ### Phase 4 — Panes and tabs
-- [ ] `pane-tree.ts`: the leaf/split model, plus `split`, `close`,
+- [x] `pane-tree.ts`: the leaf/split model, plus `split`, `close`,
       `moveTab`, `focus` — pure, fully tested
-- [ ] `editor-workspace.tsx` renders the tree; each leaf is a tab bar over the
+- [x] `editor-workspace.tsx` renders the tree; each leaf is a tab bar over the
       existing markdown editor
-- [ ] Layout persisted through the desktop preference store; tabs whose entity
+- [x] Layout persisted through the desktop preference store; tabs whose entity
       has since been deleted are dropped on restore, not rendered broken
-- [ ] Tests: split/close/collapse invariants; a closed last tab collapses its
+- [x] Tests: split/close/collapse invariants; a closed last tab collapses its
       split; the ratio survives a round-trip
 
 ### Phase 5 — Quick open and commands

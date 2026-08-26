@@ -81,3 +81,146 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* The shell: explorer on the left, panes filling what is left of the viewport. */
+.workspace-shell {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  height: calc(100dvh - var(--nav-inset, 0px));
+  min-height: 0;
+}
+
+.pane-root,
+.pane-split,
+.pane-half {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-root {
+  flex: 1;
+}
+
+.pane-split-row {
+  flex: 1;
+  flex-direction: row;
+}
+
+.pane-split-column {
+  flex: 1;
+  flex-direction: column;
+}
+
+.pane-half {
+  overflow: hidden;
+}
+
+/* Wide enough to grab with a pointer, and a tab stop so it is keyboard-sizable. */
+.pane-divider {
+  flex: none;
+  background: var(--border);
+  border: none;
+}
+
+.pane-split-row > .pane-divider {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.pane-split-column > .pane-divider {
+  height: 4px;
+  cursor: row-resize;
+}
+
+.pane-divider:hover,
+.pane-divider:focus-visible {
+  background: var(--accent);
+}
+
+.pane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.pane.is-focused .pane-tabs {
+  border-block-end-color: var(--accent);
+}
+
+.pane-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  overflow-x: auto;
+  background: var(--surface);
+  border-block-end: 1px solid var(--border);
+}
+
+.pane-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 14rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.pane-tab.is-active {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.pane-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pane-tab-close,
+.pane-action {
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pane-tab-close:hover,
+.pane-action:hover {
+  color: var(--text);
+}
+
+.pane-tab-actions {
+  display: flex;
+  gap: 0.15rem;
+  margin-inline-start: auto;
+  padding-inline: 0.35rem;
+}
+
+.pane-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.pane-document {
+  height: 100%;
+}
+
+.pane-empty {
+  padding: 1.25rem;
+}
+
+.workspace-error {
+  grid-column: 1 / -1;
+  padding: 0.4rem 0.75rem;
+}
