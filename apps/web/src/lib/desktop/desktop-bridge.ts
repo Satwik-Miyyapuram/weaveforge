@@ -139,6 +139,10 @@ export interface DesktopBridge {
   writeVaultFile(path: string, contents: string): Promise<void>;
   /** One level of a directory, `""` for the root. */
   listVaultFiles(path?: string): Promise<DesktopVaultEntry[]>;
+  /** One entry, or null when it is not there. */
+  statVaultFile(path: string): Promise<DesktopVaultEntry | null>;
+  /** Remove one file the mirror owns. Never used on anything else. */
+  removeVaultFile(path: string): Promise<void>;
 }
 
 export interface DesktopVaultRoot {
@@ -158,7 +162,7 @@ export interface DesktopVaultEntry {
 export type DesktopSecretName = "ai-provider";
 
 /** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
-export type DesktopPreferenceName = "sync-offer-shown" | "sync-target";
+export type DesktopPreferenceName = "sync-offer-shown" | "sync-target" | "vault-root";
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {
