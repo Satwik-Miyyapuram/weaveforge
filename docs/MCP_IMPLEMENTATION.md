@@ -63,6 +63,13 @@ write after approval, and an encrypted audit entry records the outcome.
 - No direct AI writes, silent autonomous actions, deletes, PDF access, report
   access, or server-side model proxy exist.
 
+- Every read tool declares `resultsAreUntrusted`, and results go out through
+  `mcpReadResult`: a nonce-carrying fence, a notice saying the block is quoted
+  material rather than instructions, and a counted truncation. The content is
+  somebody else's writing, and the agent receiving it may hold shell and write
+  tools of its own. See `docs/SECURITY.md` for what this does and does not
+  guarantee.
+
 ## Verification
 
 - `npm run check:mcp-plugin` drives the stdio server the way a client does and
