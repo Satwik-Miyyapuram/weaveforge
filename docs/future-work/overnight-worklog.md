@@ -550,3 +550,33 @@ in a `finally` so a failed import does not leave the mirror switched off.
 
 Net −25 lines. Verified: core 1004, web 939, three tsc projects clean, lint
 clean, solid/dry/hygiene clean.
+
+## Round 16 — the six items left after the vault-folder branch
+
+Planned in `docs/plans/future/interop-tiers.md`, all six done, on branch
+`feat/interop-tiers`.
+
+1. **Frontmatter reader** — already shipped in `ae70b92` (block lists, nested
+   maps skipped, single quotes tolerated) without widening the *writer* or
+   adding a YAML dependency. Only the risk note was stale; fixed.
+2. **Gated git** — the real risk was structural: the renderer's
+   `IsomorphicWorkspaceGit` cannot see *above* the chosen folder, so it would
+   happily init a nested repo inside somebody else's repository. Moved to the
+   shell, which can probe upward, and made the refusal a decision
+   (`decideVaultCommit`) rather than a UI nicety.
+3. **Tier 2 HTTP** — loopback only, off by default, a fresh token each time it
+   is switched on and shown exactly once.
+4. **Tier 3 MCP** — built *on* Tier 2's handlers rather than beside them, so
+   the agent-facing search and the human-facing search cannot drift. Results go
+   through `mcpReadResult`, fenced and nonced like every other untrusted read.
+5. **Zotero annotations** — not the SQLite read the plan assumed. Electron 33
+   is Node 20.18 (no `node:sqlite`), and the database is locked while Zotero
+   runs. Zotero 7's local API on `127.0.0.1:23119` makes the whole existing
+   Web API path work at a different origin; the only new code is a proxy in the
+   shell that refuses every URL but that one.
+6. **`experiment_metrics` storage** — already delivered (migrations 0114/0115,
+   ingest downsampling, 448.7 → 22.5 B/point). The backlog still said "after the
+   OCI cutover"; corrected.
+
+Verified after each commit: core 1004, web 942, desktop 116, three tsc projects
+clean, lint clean, solid/dry/hygiene clean.
