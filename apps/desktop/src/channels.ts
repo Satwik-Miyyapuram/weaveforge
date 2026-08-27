@@ -72,6 +72,7 @@ export const CHANNELS = {
   vaultList: "weaveforge:vault-list",
   vaultStat: "weaveforge:vault-stat",
   vaultRemove: "weaveforge:vault-remove",
+  vaultCommit: "weaveforge:vault-commit",
   /**
    * Main -> renderer, like `signIn`: somebody else changed the folder.
    *

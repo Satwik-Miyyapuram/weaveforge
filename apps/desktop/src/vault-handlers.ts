@@ -1,5 +1,8 @@
+import type { WorkspaceCommit } from "@weaveforge/core";
+
 import type { IpcResult, VaultEntryPayload, VaultRootPayload } from "./channels";
 import { NodeWorkspaceFs, verifyRoot } from "./vault-folder";
+import { commitVault } from "./vault-git";
 
 /**
  * What the workspace-folder channels do, with no Electron in sight.
@@ -168,6 +171,26 @@ export async function removeVaultFile(
   } catch (error) {
     return { ok: false, message: messageOf(error) };
   }
+}
+
+/**
+ * Commit the chosen folder, if the setting says so.
+ *
+ * Reading the setting is the caller's job -- it lives in the preference store,
+ * which this module deliberately knows nothing about -- so what arrives here is
+ * an answer, not a lookup. Everything past that point is `commitVault`'s
+ * decision, including the refusal to write into a repository we did not make.
+ */
+export async function commitVaultFolder(
+  session: VaultSession,
+  enabled: unknown,
+): Promise<IpcResult<{ commit: WorkspaceCommit | null; reason?: string }>> {
+  if (!session.root) return { ok: false, message: NO_ROOT };
+  const result = await commitVault(session.root.path, enabled === true);
+  return {
+    ok: true,
+    value: { commit: result.committed, ...(result.reason ? { reason: result.reason } : {}) },
+  };
 }
 
 function messageOf(error: unknown): string {

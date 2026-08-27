@@ -120,9 +120,18 @@ export async function chooseDesktopFolder(options: {
   if (!bridge) return false;
   const root = options.reuse ? await bridge.vaultRoot() : await bridge.chooseVaultRoot();
   if (!root) return false;
-  const fs = new DesktopWorkspaceFs(bridge);
-  activeFs = fs;
-  activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
+  activeFs = new DesktopWorkspaceFs(bridge);
+  // No git in here for a desktop folder. The shell has the machine's own git
+  // and, more to the point, can see what is *above* the folder -- which is the
+  // only way to notice that it sits inside somebody else's repository and
+  // decline to commit into it. A git driven from the renderer sees the folder
+  // and nothing around it.
+  activeGit = new NoOpWorkspaceGit();
+  // Remembered by the shell rather than by this module, so a folder taken back
+  // up on the next launch keeps the history it was connected with. Only a
+  // fresh choice says anything about it: reconnecting is not an answer to the
+  // question, and must not be read as switching it off.
+  if (!options.reuse) await bridge.writePreference("vault-git", options.git);
   watchForChanges();
   return true;
 }
@@ -177,7 +186,13 @@ export async function syncToFolder(): Promise<SyncOutcome> {
   await writeMirrorManifest(fs, nextManifest(previousPaths, mirror), mirror.mirrored, mirror.bases);
 
   let commit: WorkspaceCommit | null = null;
-  if (activeGit.kind !== "none") {
+  const shell = folderSession()?.kind === "desktop" ? desktop() : null;
+  if (shell) {
+    // The shell reads the setting itself and answers with a reason when it
+    // declined, so a folder history that is off -- or refused -- costs the
+    // commit and not the mirror run that had already succeeded.
+    commit = (await shell.commitVault().catch(() => null))?.commit ?? null;
+  } else if (activeGit.kind !== "none") {
     if (!(await activeGit.isRepo())) await activeGit.init();
     const status = await activeGit.status();
     commit = await activeGit.commitAll(describeChanges(status), {

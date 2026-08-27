@@ -172,9 +172,9 @@ and it keeps itself up to date from then on.
       without an app container -- 6 tests
 
 ### Phase 5 — Git (optional, gated)
-- [ ] `GitPort` already exists. Commit the folder after each settled write, so
+- [x] `GitPort` already exists. Commit the folder after each settled write, so
       the vault has file-level history without the app owning a history model
-- [ ] Off by default; a folder inside someone else's repository must not start
+- [x] Off by default; a folder inside someone else's repository must not start
       committing on its own
 
 ## Interop details already settled

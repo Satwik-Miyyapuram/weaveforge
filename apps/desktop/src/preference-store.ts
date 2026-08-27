@@ -5,7 +5,9 @@ import type { IpcResult } from "./channels";
  *
  * Two of them, and both are here for the same reason: the renderer cannot keep
  * them. `sync-offer-shown` has to survive a reinstall-over-upgrade, or the
- * one-time offer stops being one-time; `sync-target` decides which server the
+ * one-time offer stops being one-time; `vault-git` decides whether the folder is
+ * committed to, and a setting that decides that has to be answered before the
+ * first mirror run rather than after it; `sync-target` decides which server the
  * app talks to, which is a question that has to be answered before there is a
  * session to answer it from (`docs/plans/future/offline-first-sync.md` D2, D7).
  *
@@ -16,7 +18,12 @@ import type { IpcResult } from "./channels";
  * Secrets go through the keychain; preferences go in a plain file beside it.
  */
 
-export const PREFERENCE_NAMES = ["sync-offer-shown", "sync-target", "vault-root"] as const;
+export const PREFERENCE_NAMES = [
+  "sync-offer-shown",
+  "sync-target",
+  "vault-root",
+  "vault-git",
+] as const;
 export type PreferenceName = (typeof PREFERENCE_NAMES)[number];
 
 /** What a preference may be. Anything else is a bug on the calling side. */

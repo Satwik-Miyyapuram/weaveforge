@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
   DesktopBridge,
+  DesktopCommitResult,
   DesktopPreferenceValue,
   DesktopUpdate,
   DesktopVaultEntry,
@@ -60,6 +61,7 @@ const bridge: DesktopBridge = {
   removeVaultFile: async (path) => {
     await call<null>(CHANNELS.vaultRemove, path);
   },
+  commitVault: () => call<DesktopCommitResult>(CHANNELS.vaultCommit),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);

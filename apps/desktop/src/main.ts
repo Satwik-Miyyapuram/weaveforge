@@ -20,6 +20,7 @@ import {
   listVaultFiles,
   newVaultSession,
   readVaultFile,
+  commitVaultFolder,
   removeVaultFile,
   restoreRoot,
   statVaultFile,
@@ -420,6 +421,13 @@ ipcMain.handle(CHANNELS.vaultStat, (_event, at: unknown) => statVaultFile(vault,
 ipcMain.handle(CHANNELS.vaultRemove, async (_event, at: unknown) => {
   if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
   return removeVaultFile(vault, at);
+});
+ipcMain.handle(CHANNELS.vaultCommit, async () => {
+  // The setting is read here rather than sent by the renderer: a window that
+  // could pass its own `true` would be switching folder history on without
+  // anybody having chosen it.
+  const enabled = await preferenceStore().read("vault-git");
+  return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
 
 /**

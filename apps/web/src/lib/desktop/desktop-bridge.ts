@@ -155,6 +155,28 @@ export interface DesktopBridge {
   statVaultFile(path: string): Promise<DesktopVaultEntry | null>;
   /** Remove one file the mirror owns. Never used on anything else. */
   removeVaultFile(path: string): Promise<void>;
+  /**
+   * Commit what the mirror wrote, if folder history is switched on.
+   *
+   * Answers with a reason rather than throwing when it declined -- switched
+   * off, or a folder sitting inside somebody else's repository -- because both
+   * are ordinary and neither should cost the caller its write.
+   */
+  commitVault(): Promise<DesktopCommitResult>;
+}
+
+export interface DesktopCommitResult {
+  /** The commit made, or null when there was nothing to commit or it declined. */
+  commit: DesktopCommit | null;
+  /** Why nothing was committed, when that was a decision rather than a no-op. */
+  reason?: string;
+}
+
+export interface DesktopCommit {
+  oid: string;
+  message: string;
+  authoredAt: string;
+  author: string;
 }
 
 export interface DesktopVaultRoot {
@@ -174,7 +196,11 @@ export interface DesktopVaultEntry {
 export type DesktopSecretName = "ai-provider";
 
 /** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
-export type DesktopPreferenceName = "sync-offer-shown" | "sync-target" | "vault-root";
+export type DesktopPreferenceName =
+  | "sync-offer-shown"
+  | "sync-target"
+  | "vault-root"
+  | "vault-git";
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {
