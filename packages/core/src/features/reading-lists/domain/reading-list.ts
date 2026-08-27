@@ -33,6 +33,8 @@ export interface ReadingListItem extends Identifiable {
   note?: string;
   /** Set when membership was propagated from a descendant list. */
   inheritedFromListId?: string;
+  /** Marked during screening as a duplicate of another record in this list. */
+  duplicateOfItemId?: string;
 }
 
 export interface NewReadingListInput {

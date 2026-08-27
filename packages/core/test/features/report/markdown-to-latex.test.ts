@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { prismaFigureTex } from "../../../src/features/report/domain/prisma-figure.js";
 import { markdownToLatex } from "../../../src/features/report/domain/markdown-to-latex.js";
 
 test("markdownToLatex converts headings, emphasis, and lists", () => {
@@ -49,4 +50,33 @@ test("markdownToLatex leaves unresolved wikilinks as text with a warning", () =>
   assert.match(latex, /See Unknown Note\./);
   assert.doesNotMatch(latex, /\\cite/);
   assert.ok(warnings.some((w) => w.includes("[[Unknown Note]]")));
+});
+
+test("markdownToLatex passes a whole figure block through untouched", () => {
+  // A PRISMA figure is TikZ, not prose: every line between the delimiters has
+  // to survive verbatim or the diagram compiles as escaped text.
+  const tex = prismaFigureTex(
+    {
+      identified: 10,
+      duplicates: 1,
+      screened: 9,
+      excludedAtScreening: 4,
+      eligible: 5,
+      excludedAtFullText: 2,
+      included: 3,
+      undecided: 0,
+      conflicts: 0,
+    },
+    { label: "fig:prisma" },
+  );
+  const { latex } = markdownToLatex(`Before.
+
+${tex}
+
+After.`);
+  assert.match(latex, /\\begin\{tikzpicture\}/);
+  assert.match(latex, /\\label\{fig:prisma\}/);
+  assert.doesNotMatch(latex, /\\textbackslash/);
+  assert.match(latex, /Before\./);
+  assert.match(latex, /After\./);
 });
