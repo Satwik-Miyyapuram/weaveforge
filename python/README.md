@@ -78,6 +78,29 @@ train(beta=4.0)
 - **`with track(...) as run:`** — same without a decorator.
 - **Callbacks** — `weaveforge.integrations.lightning.WeaveForgeCallback`, `.keras.WeaveForgeCallback`.
 
+## Keep W&B too
+
+A run can be carried into Weights & Biases while it happens, so a lab that
+already watches W&B dashboards keeps watching them:
+
+```python
+with weaveforge.track("beta-vae", config={"beta": 4.0}, mirror="wandb") as run:
+    run.log_metrics({"loss": 0.4}, step=step)
+```
+
+Every number logged here is logged there, and the mirrored run is closed with
+this one (`done` → exit code 0, `failed` → 1). Two deliberate choices:
+
+- **W&B never breaks training.** The first failure to reach it logs a warning,
+  switches mirroring off, and the run carries on writing where it always was.
+- **No login prompt.** With no `WANDB_API_KEY`, the mirror starts in W&B's
+  `offline` mode — the run lands in a local directory to `wandb sync` later.
+  Set `WANDB_MODE` yourself to override, and `WANDB_PROJECT` to name the
+  project.
+
+The other direction still exists: `run.sync_wandb("entity/project/run_id")`
+imports a run somebody else already finished.
+
 ## CLI
 
 ```bash

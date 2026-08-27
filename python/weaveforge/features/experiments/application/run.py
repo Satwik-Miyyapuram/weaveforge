@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ....sync.registry import SyncRegistry, default_registry
-from ....sync.source import ArtifactSource, MetricSource
+from ....sync.source import ArtifactSource, MetricSource, Mirror
 from ...experiments.domain.experiment import Experiment, ExperimentStatus
 from ...experiments.domain.metric_point import MetricPoint
 from .manage_experiment import ManageExperimentUseCase
@@ -41,11 +41,13 @@ class Run:
         *,
         uploader: Uploader | None = None,
         registry: SyncRegistry = default_registry,
+        mirror: Mirror | None = None,
     ) -> None:
         self._manage = manage
         self.experiment = experiment
         self._uploader = uploader
         self._registry = registry
+        self._mirror = mirror
         self._buffer: list[MetricPoint] = []
         self._last: dict[str, float] = {}
         self._fig_seq = 0
@@ -64,6 +66,8 @@ class Run:
         wall = datetime.now(timezone.utc).isoformat()
         self._buffer.append(MetricPoint(self.id, name, int(step), float(value), wall))
         self._last[name] = float(value)
+        if self._mirror is not None:
+            self._mirror.log({name: float(value)}, int(step))
         if len(self._buffer) >= _FLUSH_EVERY:
             self.flush()
 
@@ -116,6 +120,12 @@ class Run:
     # --- status ----------------------------------------------------------
     def set_status(self, status: ExperimentStatus) -> None:
         self.experiment = self._manage.set_status(self.id, status, existing=self.experiment)
+        # A run has one ending, and this is where every path reaches it: the
+        # mirror is told once and then forgotten, so a later status change
+        # cannot reopen a run somebody else has already closed.
+        if self._mirror is not None:
+            self._mirror.finish(status)
+            self._mirror = None
 
     # --- sync sources ----------------------------------------------------
     def sync(self, source_id: str, ref: Any) -> None:

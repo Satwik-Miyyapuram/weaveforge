@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -62,4 +62,32 @@ class ArtifactSource(Protocol):
 
     def collect(self, ref: Any) -> Iterable[Artifact]:
         """Produce artifacts (figure bytes, run links, …) from ``ref``."""
+        ...
+
+
+@runtime_checkable
+class Mirror(Protocol):
+    """A live second home for a run's numbers, written to as they arrive.
+
+    The counterpart of :class:`MetricSource`: a source imports a run somebody
+    else already finished, a mirror carries this one along while it happens.
+    Every method has to be survivable — a mirror that cannot reach its service
+    must not take the training run down with it.
+    """
+
+    def log(self, metrics: Mapping[str, float], step: int | None) -> None: ...
+
+    def finish(self, status: str) -> None:
+        """The run is over. Called once, whatever the outcome."""
+        ...
+
+
+@runtime_checkable
+class MirrorSource(Protocol):
+    id: str
+
+    def available(self) -> bool: ...
+
+    def open(self, *, name: str, config: Mapping[str, Any]) -> Mirror:
+        """Start a mirrored run alongside this one."""
         ...
