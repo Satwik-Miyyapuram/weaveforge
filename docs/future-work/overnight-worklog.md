@@ -449,3 +449,43 @@ Also fixed: Round 10's `settleConflict` fixture was missing `fields`, which
 Verification: core 974 (was 965, +9 new), web 938, desktop 88 (+1), 0 fail.
 `tsc` clean for core, web and desktop, `next lint` clean, solid/dry/hygiene
 pass. Registry untouched.
+
+## Round 12 -- the app's own MCP surface, before it has clients
+
+Round 11 covered content flowing *into* our prompts. This is the other
+direction, and the more dangerous one: when WeaveForge is the MCP server, our
+tool results land in somebody else's agent -- one that may hold a shell, a
+mailbox, and write access to a repository. Our output arrives there with the
+server's credibility behind it, and the output is not ours: `search_workspace`
+returns a note that may have come from a shared folder, `get_source_excerpt`
+returns a PDF somebody else published. A workspace is a place to keep other
+people's writing, so a result is quoted material by definition.
+
+`ai-mcp-result.ts` gives every read result three properties it did not have:
+
+- It says what it is. The calling agent is told, outside the fence, that the
+  block is quoted material and that directives inside it are the document
+  speaking. A hostile agent ignores this; a well-built one honours it, and
+  across a protocol boundary that is the most a server can offer.
+- It cannot be escaped. Same nonce fence as Round 11, so a note cannot close
+  the block and address the reader in its own voice.
+- It is bounded, and honest about it. A tool call that returns the whole library
+  on request is an exfiltration primitive, and silent truncation teaches an
+  agent it has seen everything. Items are taken whole in caller order until the
+  budget runs out, with a count of what was left out.
+
+The manifest now carries `resultsAreUntrusted`, true for exactly the read
+tools. It is there so that a transport shipping raw content contradicts the
+manifest rather than merely omitting a step -- a test asserts the flag tracks
+`readOnly` for every tool, so a tool added later cannot quietly arrive without
+one.
+
+None of that is what makes this safe. What makes it safe is the shape already
+built: the read tools read, the propose tools queue a draft, no executor is
+reachable from a tool call, and a draft reaches the workspace only when a person
+accepts it. `AiAccessPolicy` fails closed on all seven of its checks, including
+a resource type named without an id. The result shaping is a courtesy to the
+reader; the containment is the guarantee.
+
+Verification: core 983 (was 974, +9), web 938, desktop 88, 0 fail. `tsc` clean
+for core and web, solid/dry/hygiene pass. Registry untouched.
