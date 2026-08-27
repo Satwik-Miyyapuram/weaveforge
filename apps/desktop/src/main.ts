@@ -31,6 +31,7 @@ import { safeWorkspacePath } from "@weaveforge/core";
 import { LOCAL_API_HOST, LOCAL_API_PORT, newLocalApiToken, startLocalApi, type LocalApi } from "./local-api-server";
 import { fetchZoteroLocal } from "./zotero-local";
 import { SecretStore } from "./secret-store";
+import { handleOverleafRead } from "./overleaf-source";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
@@ -359,6 +360,10 @@ ipcMain.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
   secretStore().write(name, value),
 );
 ipcMain.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().clear(name));
+
+ipcMain.handle(CHANNELS.overleafRead, (_event, projectId: unknown, entryFile: unknown) =>
+  handleOverleafRead(projectId, entryFile, () => secretStore().read("overleaf-token")),
+);
 
 /**
  * The local database, opened on first use under the app's own directory.

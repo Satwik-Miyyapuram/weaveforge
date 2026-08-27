@@ -7,6 +7,8 @@ import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { formatError } from "@/lib/format-error";
 import { authHeaders } from "@/lib/auth-headers";
+import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { LocalOverleafGateway } from "@/features/overleaf/infrastructure/local-overleaf-gateway";
 
 type LinkedReport = {
   id: string; project_id: string; title: string; connection_id: string; overleaf_project_id: string;
@@ -14,6 +16,20 @@ type LinkedReport = {
   section_targets: Record<string, number>;
 };
 type ReportContent = { files: { path: string; content: string }[]; entryFile: string; sectionTree: { roots: LatexSectionNode[]; files: string[]; warnings: string[] }; overleafUrl: string };
+
+/**
+ * The rows, from wherever this copy keeps them.
+ *
+ * A copy working with no account has no API routes to call -- the desktop
+ * build ships no server -- so the same six operations go straight to the local
+ * database and the shell. Resolved once and remembered: the answer cannot
+ * change without a reload, because the whole backend is wired at startup.
+ */
+let localGateway: LocalOverleafGateway | null | undefined;
+function local(): LocalOverleafGateway | null {
+  if (localGateway === undefined) localGateway = isLocalMode() ? new LocalOverleafGateway() : null;
+  return localGateway;
+}
 
 async function api(path: string, init?: RequestInit) {
   const response = await fetch(path, {
@@ -49,7 +65,9 @@ export function LinkedOverleafReports() {
     const prev = targets;
     setTargets(next); // optimistic
     try {
-      await api("/api/overleaf/reports", { method: "PATCH", body: JSON.stringify({ id: selected.id, sectionTargets: next }) });
+      const gateway = local();
+      if (gateway) await gateway.patchReport({ id: selected.id, sectionTargets: next });
+      else await api("/api/overleaf/reports", { method: "PATCH", body: JSON.stringify({ id: selected.id, sectionTargets: next }) });
       setReports((rs) => rs.map((r) => (r.id === selected.id ? { ...r, section_targets: next } : r)));
       setSelected((s) => (s && s.id === selected.id ? { ...s, section_targets: next } : s));
     } catch (err) {
@@ -65,7 +83,9 @@ export function LinkedOverleafReports() {
   async function unlink(report: LinkedReport) {
     setError(null);
     try {
-      await api(`/api/overleaf/reports?id=${encodeURIComponent(report.id)}`, { method: "DELETE" });
+      const gateway = local();
+      if (gateway) await gateway.deleteReport(report.id);
+      else await api(`/api/overleaf/reports?id=${encodeURIComponent(report.id)}`, { method: "DELETE" });
       if (selected?.id === report.id) { setSelected(null); setContent(null); }
       setConfirmId(null);
       await reload();
@@ -75,8 +95,11 @@ export function LinkedOverleafReports() {
   const reload = useCallback(async () => {
     if (!current?.id) return;
     try {
-      const response = await api(`/api/overleaf/reports?projectId=${encodeURIComponent(current.id)}`);
-      setReports((response.reports ?? []).filter((report) => report.project_id === current.id));
+      const gateway = local();
+      const rows = gateway
+        ? await gateway.listReports(current.id)
+        : ((await api(`/api/overleaf/reports?projectId=${encodeURIComponent(current.id)}`)).reports ?? []);
+      setReports((rows as LinkedReport[]).filter((report) => report.project_id === current.id));
       setError(null);
     }
     catch (err) { setError(formatError(err)); }
@@ -86,10 +109,15 @@ export function LinkedOverleafReports() {
   async function openReport(report: LinkedReport) {
     setSelected(report); setTargets(report.section_targets ?? {}); setContent(null); setLoading(true); setError(null);
     try {
-      const response = await fetch(`/api/overleaf/reports/${encodeURIComponent(report.id)}/content`, { headers: await authHeaders(), cache: "no-store" });
-      const payload = await response.json() as ReportContent & { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "Could not fetch the Overleaf report.");
-      setContent(payload);
+      const gateway = local();
+      if (gateway) {
+        setContent(await gateway.readContent(report) as ReportContent);
+      } else {
+        const response = await fetch(`/api/overleaf/reports/${encodeURIComponent(report.id)}/content`, { headers: await authHeaders(), cache: "no-store" });
+        const payload = await response.json() as ReportContent & { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "Could not fetch the Overleaf report.");
+        setContent(payload);
+      }
     } catch (err) { setError(formatError(err)); }
     finally { setLoading(false); }
   }
@@ -120,9 +148,11 @@ export function LinkedOverleafReports() {
           </button>
         </div>
         <p className="linked-overleaf-disclosure">
-          When you view a linked report, WeaveForge&apos;s server fetches LaTeX source from Overleaf with
-          your linked credentials. That content stays in Overleaf (read-only here) and is not stored as
-          WeaveForge project data — Overleaf&apos;s access controls apply to the source of truth.
+          {local()
+            ? "When you view a linked report, this app fetches LaTeX source from Overleaf with the token kept in your computer's keychain. Nothing goes through a server of ours."
+            : "When you view a linked report, WeaveForge's server fetches LaTeX source from Overleaf with your linked credentials."}
+          {" "}That content stays in Overleaf (read-only here) and is not stored as WeaveForge project
+          data — Overleaf&apos;s access controls apply to the source of truth.
         </p>
         {formOpen && <LinkOverleafForm projectId={current.id} onLinked={() => { setFormOpen(false); void reload(); }} onError={setError} />}
         {error && <p className="error" role="alert">{error}</p>}
@@ -308,15 +338,15 @@ function EditOverleafReportForm({ report, onSaved, onCancel, onError }: {
     event.preventDefault(); setBusy(true); onError("");
     const form = new FormData(event.currentTarget);
     try {
-      await api("/api/overleaf/reports", {
-        method: "PATCH",
-        body: JSON.stringify({
-          id: report.id,
-          title: form.get("title"),
-          overleafProjectId: form.get("overleafProjectId"),
-          entryFile: form.get("entryFile"),
-        }),
-      });
+      const patch = {
+        id: report.id,
+        title: String(form.get("title") ?? ""),
+        overleafProjectId: String(form.get("overleafProjectId") ?? ""),
+        entryFile: String(form.get("entryFile") ?? ""),
+      };
+      const gateway = local();
+      if (gateway) await gateway.patchReport(patch);
+      else await api("/api/overleaf/reports", { method: "PATCH", body: JSON.stringify(patch) });
       onSaved();
     } catch (err) { onError(formatError(err)); }
     finally { setBusy(false); }
@@ -340,8 +370,23 @@ function LinkOverleafForm({ projectId, onLinked, onError }: { projectId: string;
     event.preventDefault(); setBusy(true); onError("");
     const form = new FormData(event.currentTarget);
     try {
-      const connection = await api("/api/overleaf/connections", { method: "POST", body: JSON.stringify({ name: form.get("connectionName"), token: form.get("token") }) });
-      await api("/api/overleaf/reports", { method: "POST", body: JSON.stringify({ projectId, connectionId: connection.connection?.id, title: form.get("title"), overleafProjectId: form.get("overleafProjectId"), entryFile: form.get("entryFile") }) });
+      const gateway = local();
+      const link = {
+        projectId,
+        title: String(form.get("title") ?? ""),
+        overleafProjectId: String(form.get("overleafProjectId") ?? ""),
+        entryFile: String(form.get("entryFile") ?? "main.tex"),
+      };
+      if (gateway) {
+        const connectionId = await gateway.saveConnection(
+          String(form.get("connectionName") ?? ""),
+          String(form.get("token") ?? ""),
+        );
+        await gateway.createReport({ ...link, connectionId });
+      } else {
+        const connection = await api("/api/overleaf/connections", { method: "POST", body: JSON.stringify({ name: form.get("connectionName"), token: form.get("token") }) });
+        await api("/api/overleaf/reports", { method: "POST", body: JSON.stringify({ ...link, connectionId: connection.connection?.id }) });
+      }
       onLinked();
     } catch (err) { onError(formatError(err)); }
     finally { setBusy(false); }

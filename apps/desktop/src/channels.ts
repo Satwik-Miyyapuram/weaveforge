@@ -93,6 +93,16 @@ export const CHANNELS = {
    * looking at the folder -- which it has to do anyway to say what changed.
    */
   vaultChanged: "weaveforge:vault-changed",
+  /**
+   * One read of a linked Overleaf project, cloned here rather than by a server.
+   *
+   * The page names the project and the entry file; it never names the token,
+   * which is read from the keychain on this side and never crosses. That is
+   * the same division the hosted build makes -- there the token is sealed with
+   * a server key and the clone happens on the server -- so a copy with no
+   * account gets the feature without the page ever holding the credential.
+   */
+  overleafRead: "weaveforge:overleaf-read",
 } as const;
 
 /**

@@ -1,43 +1,16 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
+import {
+  entryFileError,
+  externalUrl,
+  OVERLEAF_PROJECT_ID,
+  sanitizeSectionTargets,
+} from "@/features/overleaf/domain/link-rules";
 
 export const dynamic = "force-dynamic";
 
 const ROW_FIELDS =
   "id,project_id,connection_id,title,overleaf_project_id,entry_file,external_url,enabled,last_fetched_at,last_error,section_targets,created_at,updated_at";
-
-/**
- * Validates the { sectionKey -> targetWords } map the client sends. Keys are
- * lowercased title paths; values are positive whole-word targets, or null to
- * clear one. Anything malformed is rejected rather than silently stored.
- */
-function sanitizeSectionTargets(input: unknown): Record<string, number> | null {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
-  const out: Record<string, number> = {};
-  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-    if (!key || key.length > 500) return null;
-    if (value === null) continue; // cleared target — drop the key
-    if (typeof value !== "number" || !Number.isInteger(value) || value <= 0 || value > 10_000_000) return null;
-    out[key] = value;
-  }
-  return out;
-}
-
-/** Overleaf project ids appear in a clone URL, so keep them to safe path atoms. */
-const OVERLEAF_PROJECT_ID = /^[A-Za-z0-9_-]+$/;
-const ENTRY_FILE = /^[A-Za-z0-9._/-]+$/;
-
-function entryFileError(entryFile: string): string | null {
-  if (!ENTRY_FILE.test(entryFile) || entryFile.startsWith("/") || entryFile.includes("..")) {
-    return "Entry file path is invalid.";
-  }
-  return null;
-}
-
-/** Canonical, never user-supplied: this link sits beside a stored credential. */
-function externalUrl(overleafProjectId: string): string {
-  return `https://www.overleaf.com/project/${overleafProjectId}`;
-}
 
 export async function GET(request: Request) {
   const auth = await requireSdkUser(request);

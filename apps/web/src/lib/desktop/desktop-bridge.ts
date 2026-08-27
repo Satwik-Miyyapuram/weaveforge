@@ -182,6 +182,28 @@ export interface DesktopBridge {
    * request from this document is blocked as mixed content.
    */
   zoteroLocal(url: string): Promise<DesktopZoteroReply>;
+
+  /**
+   * The LaTeX source of one linked Overleaf project, cloned on this machine.
+   *
+   * On a server this is an API route: the route holds the sealed token, clones
+   * into a directory it then throws away, and hands back the text. A copy with
+   * no account has no route and no sealing key, so the shell does the same
+   * work with the token from the keychain. The page names the project and the
+   * entry file and never sees the credential either way.
+   *
+   * Requires a token to have been kept under `overleaf-token`; without one
+   * this rejects, and the caller's recourse is to ask for it again.
+   */
+  readOverleafProject(projectId: string, entryFile: string): Promise<DesktopOverleafSource>;
+}
+
+/** One Overleaf checkout, flattened for the wire. */
+export interface DesktopOverleafSource {
+  projectId: string;
+  entryFile: string;
+  files: { path: string; content: string }[];
+  overleafUrl: string;
 }
 
 /** A local Zotero response, flattened for the wire. */
@@ -230,7 +252,7 @@ export interface DesktopVaultEntry {
 }
 
 /** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */
-export type DesktopSecretName = "ai-provider" | "local-api-token";
+export type DesktopSecretName = "ai-provider" | "local-api-token" | "overleaf-token";
 
 /** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
 export type DesktopPreferenceName =

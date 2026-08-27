@@ -3,6 +3,7 @@ import type {
   DesktopBridge,
   DesktopCommitResult,
   DesktopLocalApi,
+  DesktopOverleafSource,
   DesktopPreferenceValue,
   DesktopUpdate,
   DesktopVaultEntry,
@@ -66,6 +67,8 @@ const bridge: DesktopBridge = {
   commitVault: () => call<DesktopCommitResult>(CHANNELS.vaultCommit),
   localApiState: () => call<DesktopLocalApi>(CHANNELS.localApiState),
   zoteroLocal: (url) => call<DesktopZoteroReply>(CHANNELS.zoteroLocal, url),
+  readOverleafProject: (projectId, entryFile) =>
+    call<DesktopOverleafSource>(CHANNELS.overleafRead, projectId, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
