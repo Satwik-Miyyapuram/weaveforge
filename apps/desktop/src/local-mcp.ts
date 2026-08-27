@@ -1,5 +1,6 @@
 import {
   ENTITY_DIRS,
+  WORKSPACE_META_DIR,
   mcpReadResult,
   type UntrustedItem,
   type WorkspaceEntityType,
@@ -7,7 +8,7 @@ import {
 
 import { searchVault, walkVault } from "./local-api";
 import type { VaultSession } from "./vault-handlers";
-import { readVaultFile } from "./vault-handlers";
+import { readVaultFile, writeVaultFile } from "./vault-handlers";
 
 /**
  * The folder as an MCP server, on the same loopback port.
@@ -16,8 +17,12 @@ import { readVaultFile } from "./vault-handlers";
  * is deliberately the smaller of the two: that one reaches the whole workspace
  * through a paired browser and can queue proposals; this one reads the folder
  * that is already on the disk, for an agent already running on the machine.
- * Nothing here writes. An agent that wants to change the workspace uses the
- * HTTP surface's `PUT`, where the user has at least chosen to open the door.
+ * Nothing here writes to anything the reader owns. The one tool that writes at
+ * all leaves a proposal in `.weaveforge/proposals/`, which nothing reads back
+ * automatically -- an agent can suggest a change to a report section, and a
+ * person still has to open it and decide. An agent that wants to change the
+ * workspace itself uses the HTTP surface's `PUT`, where the user has at least
+ * chosen to open the door.
  *
  * What makes it worth having over a vault-backed server: papers, reading lists,
  * experiments and the logbook are separate kinds here, not folders that happen
@@ -91,6 +96,53 @@ const TOOLS = [
     },
   },
   {
+    name: "get_report_section",
+    description: "Read one report section, by its id or a word from its title.",
+    inputSchema: {
+      type: "object",
+      properties: { section: { type: "string", description: "The section's id, or part of its title." } },
+      required: ["section"],
+    },
+  },
+  {
+    name: "list_experiments",
+    description: "List the experiments in the workspace folder.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_experiment",
+    description: "Read one experiment, by its id or a word from its title.",
+    inputSchema: {
+      type: "object",
+      properties: { experiment: { type: "string" } },
+      required: ["experiment"],
+    },
+  },
+  {
+    name: "get_paper",
+    description: "Read one paper's entry, by its id or a word from its title.",
+    inputSchema: {
+      type: "object",
+      properties: { paper: { type: "string" } },
+      required: ["paper"],
+    },
+  },
+  {
+    name: "propose_report_edit",
+    description:
+      "Leave a suggested rewrite of a report section in .weaveforge/proposals/. " +
+      "This never changes the section itself; a person opens the proposal and decides.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        section: { type: "string", description: "The section's id, or part of its title." },
+        proposal: { type: "string", description: "The suggested text." },
+        rationale: { type: "string", description: "Why, in a sentence or two." },
+      },
+      required: ["section", "proposal"],
+    },
+  },
+  {
     name: "read_entry",
     description: "Read one file from the workspace folder, by its path.",
     inputSchema: {
@@ -118,6 +170,53 @@ function content(items: readonly UntrustedItem[]): unknown {
     // can show the same boundary the fence draws inside it.
     _meta: { nonce: result.nonce, omitted: result.omitted, truncated: result.truncated },
   };
+}
+
+/** Where a suggestion waits for a person, never mixed in with their own files. */
+const PROPOSALS_DIR = `${WORKSPACE_META_DIR}/proposals`;
+
+/** Sortable, filename-safe, and second-resolution, which is enough here. */
+function stamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+}
+
+/**
+ * The one file a name refers to.
+ *
+ * Ids are exact and titles are not, so an id wins outright and a title has to
+ * be unambiguous: two sections that both match "methods" is a question to ask
+ * back, not a coin to flip.
+ */
+async function findEntry(
+  session: VaultSession,
+  kind: WorkspaceEntityType,
+  needle: unknown,
+): Promise<{ filename: string; text: string }> {
+  const wanted = typeof needle === "string" ? needle.trim().toLowerCase() : "";
+  if (!wanted) throw new Error("That needs an id or a title to look for.");
+
+  const files: string[] = [];
+  await walkVault(session, ENTITY_DIRS[kind], files);
+  const candidates = files.filter((file) => file.toLowerCase().includes(wanted));
+  if (!candidates.length) throw new Error(`Nothing in ${ENTITY_DIRS[kind]} matches '${wanted}'.`);
+  if (candidates.length > 1) {
+    throw new Error(`'${wanted}' matches ${candidates.length} of them: ${candidates.join(", ")}`);
+  }
+
+  const filename = candidates[0] as string;
+  const read = await readVaultFile(session, filename);
+  if (!read.ok) throw new Error(read.message);
+  if (read.value === null) throw new Error(`${filename} is gone.`);
+  return { filename, text: read.value };
+}
+
+async function oneEntry(
+  session: VaultSession,
+  kind: WorkspaceEntityType,
+  needle: unknown,
+): Promise<UntrustedItem> {
+  const found = await findEntry(session, kind, needle);
+  return { label: found.filename, text: found.text };
 }
 
 function kindOf(params: Record<string, unknown>): WorkspaceEntityType | null {
@@ -155,6 +254,41 @@ async function callTool(
       const files: string[] = [];
       await walkVault(session, ENTITY_DIRS[kind], files);
       return content([{ label: ENTITY_DIRS[kind], text: files.join("\n") || "(nothing yet)" }]);
+    }
+    case "get_report_section":
+      return content([await oneEntry(session, "report_section", params.section)]);
+    case "get_experiment":
+      return content([await oneEntry(session, "experiment", params.experiment)]);
+    case "get_paper":
+      return content([await oneEntry(session, "paper", params.paper)]);
+    case "list_experiments": {
+      const files: string[] = [];
+      await walkVault(session, ENTITY_DIRS.experiment, files);
+      return content([{ label: ENTITY_DIRS.experiment, text: files.join("\n") || "(nothing yet)" }]);
+    }
+    case "propose_report_edit": {
+      const proposal = typeof params.proposal === "string" ? params.proposal.trim() : "";
+      if (!proposal) throw new Error("A proposal needs some text to propose.");
+      const target = await findEntry(session, "report_section", params.section);
+      const at = `${PROPOSALS_DIR}/${stamp()}--${target.filename.split("/").pop()}`;
+      const rationale = typeof params.rationale === "string" ? params.rationale.trim() : "";
+      const written = await writeVaultFile(
+        session,
+        at,
+        [
+          `# Proposed edit to ${target.filename}`,
+          "",
+          rationale ? `${rationale}\n` : "",
+          "---",
+          "",
+          proposal,
+          "",
+        ].join("\n"),
+      );
+      if (!written.ok) throw new Error(written.message);
+      // The path, and nothing of the proposal read back: the agent wrote it and
+      // does not need to be told what it said.
+      return content([{ label: "proposal", text: `Left at ${at}. Nothing else changed.` }]);
     }
     case "read_entry": {
       const at = typeof params.path === "string" ? params.path : "";

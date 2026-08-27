@@ -37,7 +37,7 @@ unselected sources are excluded.
 **Proposal-only** (10) — each saves an encrypted pending proposal, and
 `/ai-review` is the only approval path: `propose_zotero_import`, `propose_append_paper_note`, `propose_create_vault_note`, `propose_create_log_entry`, `propose_paper_update`, `propose_paper_field_value`, `propose_reading_list_change`, `propose_relation`, `propose_milestone_follow_up`, `propose_experiment_follow_up`
 
-**The desktop workspace server** (3): `search_workspace`, `list_workspace`, `read_entry`
+**The desktop workspace server** (8): `search_workspace`, `list_workspace`, `get_report_section`, `list_experiments`, `get_experiment`, `get_paper`, `propose_report_edit`, `read_entry`
 
 <!-- /generated:mcp-tools -->
 
@@ -71,12 +71,23 @@ and an encrypted audit entry records the outcome.
 
 Separate from the relay above, and much smaller. The desktop app can serve the
 workspace folder as an MCP server on loopback, behind the same token as the
-local HTTP surface and off until the user switches that on. Three tools, all
-read-only: `search_workspace`, `list_workspace`, `read_entry`. `kind` is a real
-filter -- papers, reading lists, experiments and the logbook are separate kinds
-in the folder layout, not directories that happen to hold markdown.
+local HTTP surface and off until the user switches that on. The tool list is
+generated above from the source, so it stays true as tools are added. Seven of
+the eight only read: `search_workspace` and `list_workspace` sweep, and
+`get_report_section`, `get_experiment`, `get_paper`, `list_experiments` and
+`read_entry` fetch one thing. `kind` is a real filter -- papers, reading lists,
+experiments and the logbook are separate kinds in the folder layout, not
+directories that happen to hold markdown.
 
-Nothing there writes. An agent that wants to change the workspace uses the HTTP
+`search_workspace` is re-ranked by meaning when the window has an encoder
+loaded, and left in the order the word search found them when it does not: the
+server asks the renderer, waits briefly, and takes silence as "keep this order"
+rather than failing the call.
+
+The eighth, `propose_report_edit`, is the only one that writes, and it writes
+only into `.weaveforge/proposals/` -- never into a file the reader owns.
+Nothing reads those back automatically; a person opens the proposal and
+decides. An agent that wants to change the workspace itself uses the HTTP
 surface's `PUT`, where the user has at least chosen to open the door. Every
 result goes through `mcpReadResult`, the same wrapper the relay uses.
 
