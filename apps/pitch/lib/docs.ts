@@ -171,6 +171,22 @@ function rewriteHref(href: string, fromRel: string): string {
   return `${REPO_BLOB}/docs/${resolved}${suffix}`;
 }
 
+/**
+ * A heading's anchor, spelled the way GitHub spells it.
+ *
+ * Docs are read in two places — here and in the repository — and a `#section`
+ * link written for one has to land in the other. GitHub's rule is: lowercase,
+ * drop anything that is not a word character, a space or a hyphen, then spaces
+ * become hyphens.
+ */
+function headingId(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+}
+
 export function renderDoc(page: DocPage): string {
   const source = readFileSync(path.join(DOCS_ROOT, page.relPath), "utf8");
 
@@ -178,6 +194,13 @@ export function renderDoc(page: DocPage): string {
   // link rewrite depends on which file we are rendering.
   const marked = new Marked({ gfm: true, breaks: false });
   marked.use({
+    renderer: {
+      heading({ tokens, depth }) {
+        const text = this.parser.parseInline(tokens);
+        const id = headingId(this.parser.parseInline(tokens, this.parser.textRenderer));
+        return `<h${depth} id="${id}">${text}</h${depth}>`;
+      },
+    },
     walkTokens(token) {
       if (token.type === "link" || token.type === "image") {
         token.href = rewriteHref(token.href, page.relPath);

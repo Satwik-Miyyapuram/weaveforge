@@ -115,6 +115,18 @@ that was behind.
 passes a threshold the log is replaced by a snapshot
 (`compactCrdtLog`), so the table tracks document *size*, not edit count.
 
+## Editing alone
+
+A desktop copy with no account has no peers and no socket to reach them on. It
+opened the channel anyway, which meant a failing broadcast on every keystroke
+and a "live sync unavailable" notice under a document nobody else can open.
+
+The provider now takes `live`, and the editor passes `live: !isLocalMode()`.
+With it false nothing is subscribed, nothing is sent, and no awareness is
+bound — but the CRDT log is written exactly as before. **Solo means no
+transport, not no history**: the document is still rebuilt from its log, and
+signing in later leaves it where it is.
+
 ## Limits
 
 - **Not end-to-end encrypted.** Updates are stored and broadcast as plaintext

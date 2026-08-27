@@ -110,6 +110,14 @@ What this covers and what it costs:
   mirror, the local HTTP API and the MCP server all work with no network at all.
   Launching needs no connection: a packaged copy in offline mode makes no
   outbound request at boot.
+- The editor works, including in a document you are the only reader of. Typing
+  is recorded the way it always is — the change log a document is rebuilt from
+  is still written — but no sync channel is opened, because there is nobody on
+  the other end of it to reach. A copy with an account and a copy without both
+  end up with the same document; only one of them has anybody to send it to.
+- Overleaf reports can be linked, renamed, re-pointed and unlinked with no
+  account. See [Overleaf, with no account](integrations.md#overleaf-with-no-account)
+  for what the token does and where it is kept.
 - Attachments are kept in a local table (`local_blobs`) rather than object
   storage, base64-encoded, because the bridge to the shell carries text.
 - Integration credentials are kept in `local_secrets` in the same local
@@ -118,6 +126,9 @@ What this covers and what it costs:
   permissions on the app's directory and nothing else.
 - Sharing, supervision and anything else that needs a second person are
   account features and stay unavailable.
+
+There is a fuller table of what does and does not survive the network being
+unplugged in [How WeaveForge is put together](architecture-map.md#offline-precisely).
 
 ### Training scripts write into it too
 
