@@ -5,14 +5,17 @@ import {
   describeChanges,
   diffWorkspace,
   fromRelativeBlobLinks,
+  mergeVaultPage,
   mirrorWorkspace,
   parseWorkspaceFolder,
   serializeWorkspace,
+  vaultPageSide,
   type ImportDiff,
   type ImportDiffEntry,
   type IWorkspaceFs,
   type IWorkspaceGit,
   type MirrorResult,
+  type VaultPageBase,
   type WorkspaceCommit,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
@@ -34,6 +37,7 @@ import {
   createCoalescer,
   nextManifest,
   readMirrorBase,
+  readMirrorBases,
   writeMirrorManifest,
   type Coalescer,
 } from "./mirror-manifest";
@@ -169,7 +173,7 @@ export async function syncToFolder(): Promise<SyncOutcome> {
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     },
   });
-  await writeMirrorManifest(fs, nextManifest(previousPaths, mirror), mirror.mirrored);
+  await writeMirrorManifest(fs, nextManifest(previousPaths, mirror), mirror.mirrored, mirror.bases);
 
   let commit: WorkspaceCommit | null = null;
   if (activeGit.kind !== "none") {
@@ -316,6 +320,7 @@ export async function previewFolderImport(): Promise<ImportDiff> {
   const assets = new Map<string, Uint8Array>();
   let assetBytes = 0;
   const base = await readMirrorBase(activeFs);
+  const bases = await readMirrorBases(activeFs);
 
   for await (const entry of activeFs.walk("")) {
     if (entry.path.endsWith(".md")) {
@@ -334,7 +339,7 @@ export async function previewFolderImport(): Promise<ImportDiff> {
     assets.set(entry.path, bytes);
   }
 
-  return diffAgainstWorkspace(files, assets, base);
+  return diffAgainstWorkspace(files, assets, base, bases);
 }
 
 /** Diff a ZIP the user picked, without connecting a folder. */
@@ -364,6 +369,8 @@ async function diffAgainstWorkspace(
    * workspace, so every difference is the user's to judge.
    */
   base: Readonly<Record<string, string>> = {},
+  /** Frontmatter and body digests from the same manifest, for the merge. */
+  bases: Readonly<Record<string, VaultPageBase>> = {},
 ): Promise<ImportDiff> {
   const snapshot = await getContainer().workspace.snapshot();
   const existing = [
@@ -399,7 +406,7 @@ async function diffAgainstWorkspace(
   // difference came from out there or in here.
   const current = serializeWorkspace(snapshot).files;
 
-  return diffWorkspace(parsed, existing, {
+  const diff = diffWorkspace(parsed, existing, {
     origin: (path) =>
       changedSide({
         // A version 1 manifest recorded the path and no digest, which reads
@@ -410,6 +417,78 @@ async function diffAgainstWorkspace(
         workspace: current[path] === undefined ? undefined : baseDigest(current[path]),
       }),
   });
+
+  // A file both sides changed is only a conflict if the changes collide. Most
+  // do not: a tag added in Obsidian and a paragraph rewritten here are two
+  // edits to one note, not two answers to one question.
+  const entries = diff.entries.map((entry) =>
+    mergeBothChanged(entry, bases[entry.entity.path], current[entry.entity.path]),
+  );
+  return { entries, counts: countActions(entries) };
+}
+
+function countActions(entries: readonly ImportDiffEntry[]): ImportDiff["counts"] {
+  const counts: ImportDiff["counts"] = { created: 0, updated: 0, unchanged: 0, conflict: 0 };
+  for (const entry of entries) counts[entry.action] += 1;
+  return counts;
+}
+
+/**
+ * Settle a both-changed file per field, or say what is actually in dispute.
+ *
+ * The folder's side is taken from the entry rather than re-read from the file,
+ * because the entry's body has already had this account's asset links restored
+ * -- comparing the raw file would report every note holding an image as
+ * rewritten.
+ *
+ * Anything the merge cannot settle stays a conflict, and a folder with no
+ * recorded base -- a manifest older than version 3, or a ZIP -- keeps the
+ * behaviour it had: report, and let the user decide.
+ */
+export function mergeBothChanged(
+  entry: ImportDiffEntry,
+  base: VaultPageBase | undefined,
+  workspaceContent: string | undefined,
+): ImportDiffEntry {
+  if (entry.action !== "conflict" || entry.kind !== "both-changed") return entry;
+  if (!base || workspaceContent === undefined) return entry;
+
+  const workspace = vaultPageSide(entry.entity.path, workspaceContent);
+  if (!workspace) return entry;
+
+  const merged = mergeVaultPage(
+    base,
+    { fields: { ...entry.entity.fields, title: entry.entity.title }, body: entry.entity.body },
+    workspace,
+  );
+
+  if (merged.conflicts.length > 0) {
+    const fields = merged.conflicts.map((conflict) => conflict.field);
+    return {
+      ...entry,
+      conflictFields: fields,
+      reason: `${entry.entity.path}: both sides changed ${listFields(fields)}.`,
+    };
+  }
+
+  const { title, ...fields } = merged.fields;
+  return {
+    ...entry,
+    action: "updated",
+    kind: undefined,
+    reason: undefined,
+    entity: {
+      ...entry.entity,
+      title: typeof title === "string" ? title : entry.entity.title,
+      fields: fields as ImportDiffEntry["entity"]["fields"],
+      body: merged.body,
+    },
+  };
+}
+
+function listFields(fields: readonly string[]): string {
+  if (fields.length === 1) return fields[0]!;
+  return `${fields.slice(0, -1).join(", ")} and ${fields[fields.length - 1]}`;
 }
 
 /**

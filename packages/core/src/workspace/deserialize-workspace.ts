@@ -126,6 +126,14 @@ export interface ImportDiffEntry {
   /** Why an entry is a conflict, shown to the user before any write. */
   reason?: string;
   kind?: ConflictKind;
+  /**
+   * The fields a per-field merge could not settle, when one was attempted.
+   *
+   * Present only on a `both-changed` conflict that survived the merge, and it
+   * names what is actually in dispute -- `body`, or a frontmatter key -- so the
+   * user is asked about the disagreement rather than about the file.
+   */
+  conflictFields?: readonly string[];
 }
 
 export interface ImportDiff {

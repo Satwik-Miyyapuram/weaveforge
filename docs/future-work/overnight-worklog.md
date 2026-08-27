@@ -489,3 +489,27 @@ reader; the containment is the guarantee.
 
 Verification: core 983 (was 974, +9), web 938, desktop 88, 0 fail. `tsc` clean
 for core and web, solid/dry/hygiene pass. Registry untouched.
+
+## Round 13 — one conflict policy, not two
+
+The last unchecked Phase 4 item in `live-vault-folder.md`: a note edited on disk
+while the app also holds it is the same question `offline-first-sync.md` already
+answered for database rows. So the answer moved rather than being reinvented —
+`mergeRows` now lives in `packages/core/src/shared/three-way-merge.ts` (its
+`MergeResult` renamed `FieldMergeResult`, since core already had a wiki merge),
+with the offline-sync module left as a re-export so nothing there changed.
+
+On top of it, `merge-vault-page.ts` merges a note: frontmatter per field, body by
+digest. Keeping base *body text* would buy a line-level merge at the price of
+doubling the user's folder, for a case the fields already cover — so the mirror
+manifest went to version 3 carrying frontmatter plus a body digest per note, and
+a body both sides rewrote is the one thing still left for a person.
+
+`diffAgainstWorkspace` now runs every `both-changed` entry through
+`mergeBothChanged`. A tag added in Obsidian and a paragraph rewritten here stops
+being a prompt and becomes an update; a real collision keeps the prompt and now
+names the fields that collided (`conflictFields`). A conflict UI nobody can
+dismiss unread is the point.
+
+Verified: core 998, web all green, desktop 88, three tsc projects clean, lint
+clean, solid/dry/hygiene clean.

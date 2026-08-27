@@ -1,4 +1,9 @@
-import { WORKSPACE_META_DIR, digestText, type IWorkspaceFs } from "@weaveforge/core";
+import {
+  WORKSPACE_META_DIR,
+  digestText,
+  type IWorkspaceFs,
+  type VaultPageBase,
+} from "@weaveforge/core";
 
 /**
  * What the last sync wrote, and how the next one is paced.
@@ -60,6 +65,31 @@ export async function readMirrorBase(fs: IWorkspaceFs): Promise<Record<string, s
   }
 }
 
+/**
+ * What each mirrored note's frontmatter and body said when the sides agreed.
+ *
+ * Read apart from the digests because most callers only need to know *whether*
+ * a file moved, and only the conflict path needs enough to merge it per field.
+ * A manifest older than version 3 yields nothing here, and those folders keep
+ * behaving as they did: a conflict is reported rather than merged.
+ */
+export async function readMirrorBases(fs: IWorkspaceFs): Promise<Record<string, VaultPageBase>> {
+  try {
+    const parsed = JSON.parse(await fs.readText(MIRROR_MANIFEST_PATH)) as { bases?: unknown };
+    if (typeof parsed.bases !== "object" || parsed.bases === null) return {};
+    const bases: Record<string, VaultPageBase> = {};
+    for (const [path, value] of Object.entries(parsed.bases as Record<string, unknown>)) {
+      const entry = value as { fields?: unknown; bodyDigest?: unknown };
+      if (typeof entry?.bodyDigest !== "string") continue;
+      if (typeof entry.fields !== "object" || entry.fields === null) continue;
+      bases[path] = { fields: entry.fields as VaultPageBase["fields"], bodyDigest: entry.bodyDigest };
+    }
+    return bases;
+  } catch {
+    return {};
+  }
+}
+
 /** The digest a file's text is recorded under. Change detection only. */
 export function baseDigest(text: string): string {
   return digestText(text);
@@ -69,16 +99,23 @@ export async function writeMirrorManifest(
   fs: IWorkspaceFs,
   paths: readonly string[],
   digests: Readonly<Record<string, string>> = {},
+  bases: Readonly<Record<string, VaultPageBase>> = {},
 ): Promise<void> {
   await fs.mkdirp(WORKSPACE_META_DIR);
   const kept = [...new Set(paths)].sort();
   const body = {
-    version: 2,
+    version: 3,
     paths: kept,
     // Only for paths still claimed, so a manifest cannot grow forever with
     // digests of files that left the folder years ago.
     digests: Object.fromEntries(
       kept.filter((path) => digests[path] !== undefined).map((path) => [path, digests[path]]),
+    ),
+    // Frontmatter and a body digest, never a body. This file sits in the
+    // user's own folder, and a mirror that quietly kept a second copy of every
+    // note would double it for a case the fields already settle.
+    bases: Object.fromEntries(
+      kept.filter((path) => bases[path] !== undefined).map((path) => [path, bases[path]]),
     ),
     writtenAt: new Date().toISOString(),
   };

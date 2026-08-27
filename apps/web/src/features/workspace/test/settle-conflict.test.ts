@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { ImportDiffEntry } from "@weaveforge/core";
+import { digestText, type ImportDiffEntry } from "@weaveforge/core";
 
 import {
   keepBothTitle,
+  mergeBothChanged,
   settleConflict,
 } from "../application/workspace-folder";
 
@@ -61,4 +62,69 @@ test("a type mismatch left alone is still left alone", () => {
 test("entries that are not conflicts pass through untouched", () => {
   const update: ImportDiffEntry = { action: "updated", entity: conflict.entity };
   assert.equal(settleConflict(update, { "notes/n1.note.md": "both" }), update);
+});
+
+const noteContent = (fields: string, body: string, title = "Shared note") =>
+  `---\nweaveforge-id: n1\nweaveforge-type: vault_page\ntitle: ${title}\n${fields}---\n\n${body}\n`;
+
+const bothChanged: ImportDiffEntry = {
+  action: "conflict",
+  kind: "both-changed",
+  reason: "notes/n1.note.md changed both in the folder and in the workspace.",
+  entity: {
+    id: "n1",
+    type: "vault_page",
+    title: "Shared note",
+    body: "the original body",
+    path: "notes/n1.note.md",
+    fields: { tags: ["a", "b"] },
+  },
+};
+
+const base = { fields: { title: "Shared note", tags: ["a"] }, bodyDigest: digestText("the original body") };
+
+test("edits that do not collide are merged instead of asked about", () => {
+  const merged = mergeBothChanged(
+    bothChanged,
+    base,
+    noteContent("tags:\n  - a\n", "a body rewritten in the app"),
+  );
+
+  assert.equal(merged.action, "updated");
+  assert.equal(merged.kind, undefined);
+  assert.equal(merged.entity.body.trim(), "a body rewritten in the app");
+  assert.deepEqual(merged.entity.fields.tags, ["a", "b"]);
+});
+
+test("a body both sides rewrote stays a conflict, and says so", () => {
+  const merged = mergeBothChanged(
+    bothChanged,
+    { ...base, bodyDigest: digestText("something else entirely") },
+    noteContent("tags:\n  - a\n  - b\n", "a body rewritten in the app"),
+  );
+
+  assert.equal(merged.action, "conflict");
+  assert.deepEqual(merged.conflictFields, ["body"]);
+  assert.match(merged.reason ?? "", /both sides changed body/);
+});
+
+test("several colliding fields are all named", () => {
+  const merged = mergeBothChanged(
+    { ...bothChanged, entity: { ...bothChanged.entity, title: "Their title" } },
+    { ...base, bodyDigest: digestText("something else entirely") },
+    noteContent("tags:\n  - a\n", "our rewrite", "Our title"),
+  );
+
+  assert.deepEqual(merged.conflictFields, ["title", "body"]);
+  assert.match(merged.reason ?? "", /title and body/);
+});
+
+test("a folder with no recorded base is left exactly as it was", () => {
+  assert.equal(mergeBothChanged(bothChanged, undefined, noteContent("", "x")), bothChanged);
+  assert.equal(mergeBothChanged(bothChanged, base, undefined), bothChanged);
+});
+
+test("a type mismatch is not something a field merge can settle", () => {
+  const mismatch: ImportDiffEntry = { ...bothChanged, kind: "type-mismatch" };
+  assert.equal(mergeBothChanged(mismatch, base, noteContent("", "x")), mismatch);
 });

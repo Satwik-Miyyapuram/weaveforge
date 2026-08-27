@@ -10,6 +10,7 @@ export * from "./snapshot-delta.js";
 export * from "./blob-links.js";
 export * from "./serialize-workspace.js";
 export * from "./change-origin.js";
+export * from "./merge-vault-page.js";
 export * from "./deserialize-workspace.js";
 export * from "./git-port.js";
 export * from "./folder-mirror.js";

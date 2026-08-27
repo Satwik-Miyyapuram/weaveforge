@@ -401,8 +401,9 @@ function ImportPreview({
       </div>
       <p className="muted jump-to-meta">
         Only notes are imported. Papers and experiments carry structured fields a markdown body
-        cannot round-trip, and a half-imported paper is worse than an unimported one. A file
-        both sides changed is never written over until you say which copy wins.
+        cannot round-trip, and a half-imported paper is worse than an unimported one. Edits made
+        on both sides are merged field by field where they do not collide; where they do, nothing
+        is written over until you say which copy wins.
       </p>
     </div>
   );
