@@ -15,6 +15,7 @@ import type {
   IProjectBibliographyCollectionStore,
   IProjectRepository,
   IReadingListItemRepository,
+  IScreeningRepository,
   IReadingListRepository,
   IReportSectionRepository,
   ISettingsRepository,
@@ -55,6 +56,7 @@ import {
   SupabaseReadingListRepository,
   SupabaseReadingListItemRepository,
 } from "@/features/reading-lists/infrastructure/supabase-reading-list-repository";
+import { SupabaseScreeningRepository } from "@/features/reading-lists/infrastructure/supabase-screening-repository";
 import { SupabasePaperRelationRepository } from "@/features/relations/infrastructure/supabase-paper-relation-repository";
 import { SupabaseCitationAlertTrackRepository } from "@/features/relations/infrastructure/supabase-citation-alert-track-repository";
 import { SupabaseAnnotationPinRepository } from "@/features/papers/infrastructure/supabase-annotation-pin-repository";
@@ -101,6 +103,7 @@ export interface WiredSupabaseBackend {
   readonly reportSectionRepository: IReportSectionRepository;
   readonly readingListRepository: IReadingListRepository;
   readonly readingListItemRepository: IReadingListItemRepository;
+  readonly screeningRepository: IScreeningRepository;
   readonly paperRelationRepository: IPaperRelationRepository;
   readonly experimentRepository: IExperimentRepository;
   readonly metricRepository: IMetricRepository;
@@ -255,6 +258,10 @@ export function wireSupabaseBackend(
     pid,
     { resourceType: "reading_list_item" },
   );
+  // Not cached: a decision another reviewer records is the point of the screen,
+  // and a cache would show you your own half of it until something evicted.
+  const screeningRepository = new SupabaseScreeningRepository(db);
+
   const paperRelationRepository = cacheRepo(
     new SupabasePaperRelationRepository(db, projectContext),
     ["getById", "list", "getGraph", "relationsFor", "findEdge"],
@@ -375,6 +382,7 @@ export function wireSupabaseBackend(
     reportSectionRepository,
     readingListRepository,
     readingListItemRepository,
+    screeningRepository,
     paperRelationRepository,
     experimentRepository,
     metricRepository,

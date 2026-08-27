@@ -10,5 +10,5 @@ export const readingListsModule: FeatureModule = {
   navGroup: "library",
   navItems: [{ key: "reading-lists", label: "Lists", path: "/lists", icon: "list" }],
   routes: [{ path: "/lists", component: "reading-lists/ListsPage" }],
-  migrations: ["0004_reading_lists.sql", "0057_reading_lists_e2ee.sql"],
+  migrations: ["0004_reading_lists.sql", "0057_reading_lists_e2ee.sql", "0120_screening_decisions.sql"],
 };
