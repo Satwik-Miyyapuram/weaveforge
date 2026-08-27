@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   DesktopBridge,
   DesktopCommitResult,
+  DesktopLocalApi,
   DesktopPreferenceValue,
   DesktopUpdate,
   DesktopVaultEntry,
@@ -62,6 +63,8 @@ const bridge: DesktopBridge = {
     await call<null>(CHANNELS.vaultRemove, path);
   },
   commitVault: () => call<DesktopCommitResult>(CHANNELS.vaultCommit),
+  localApiState: () => call<DesktopLocalApi>(CHANNELS.localApiState),
+  setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);

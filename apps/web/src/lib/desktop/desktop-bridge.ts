@@ -163,12 +163,32 @@ export interface DesktopBridge {
    * are ordinary and neither should cost the caller its write.
    */
   commitVault(): Promise<DesktopCommitResult>;
+  /** Whether the local HTTP surface is listening, and on what. */
+  localApiState(): Promise<DesktopLocalApi>;
+  /**
+   * Switch the local HTTP surface on or off.
+   *
+   * Switching it on generates a token and answers with it once. Nothing shows
+   * it again: a token that can be re-read from a settings panel is a token
+   * that can be re-read by anything that can reach the panel.
+   */
+  setLocalApi(enabled: boolean): Promise<DesktopLocalApi>;
 }
 
 export interface DesktopCommitResult {
   /** The commit made, or null when there was nothing to commit or it declined. */
   commit: DesktopCommit | null;
   /** Why nothing was committed, when that was a decision rather than a no-op. */
+  reason?: string;
+}
+
+export interface DesktopLocalApi {
+  enabled: boolean;
+  /** Loopback only. Present whether or not it is currently listening. */
+  url: string;
+  /** The token, once, on the call that generated it. Never afterwards. */
+  token?: string;
+  /** Why it is not listening, when that was not the user's choice. */
   reason?: string;
 }
 
@@ -193,14 +213,15 @@ export interface DesktopVaultEntry {
 }
 
 /** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */
-export type DesktopSecretName = "ai-provider";
+export type DesktopSecretName = "ai-provider" | "local-api-token";
 
 /** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
 export type DesktopPreferenceName =
   | "sync-offer-shown"
   | "sync-target"
   | "vault-root"
-  | "vault-git";
+  | "vault-git"
+  | "local-api";
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {

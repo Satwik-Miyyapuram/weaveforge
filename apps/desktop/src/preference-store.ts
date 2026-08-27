@@ -23,6 +23,7 @@ export const PREFERENCE_NAMES = [
   "sync-target",
   "vault-root",
   "vault-git",
+  "local-api",
 ] as const;
 export type PreferenceName = (typeof PREFERENCE_NAMES)[number];
 

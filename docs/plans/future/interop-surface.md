@@ -37,7 +37,7 @@ Obsidian plugin that works by reading and writing vault files — which is most 
 the useful ones — already works, because the user runs it inside Obsidian,
 against our folder. We do not host the plugin. We host the data it expects.
 
-### Tier 2 — The local HTTP surface
+### Tier 2 — The local HTTP surface (shipped)
 
 Serve the same routes `obsidian-local-rest-api` serves, from the desktop shell,
 on loopback with a token. File CRUD, the active note, tag queries, command

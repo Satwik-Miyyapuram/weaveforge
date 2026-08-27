@@ -40,10 +40,10 @@ export interface SecretFile {
 /**
  * The secrets a page may name.
  *
- * One entry today. Adding one is a deliberate act with a review attached,
+ * Two today. Adding one is a deliberate act with a review attached,
  * which is the entire point of the list being short and here.
  */
-export const SECRET_NAMES = ["ai-provider"] as const;
+export const SECRET_NAMES = ["ai-provider", "local-api-token"] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 const UNKNOWN_NAME = "That is not something this app stores.";
