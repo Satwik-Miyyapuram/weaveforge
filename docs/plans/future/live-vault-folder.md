@@ -150,9 +150,9 @@ and it keeps itself up to date from then on.
 - [x] A body edited on disk while the in-app editor holds a Yjs document is
       the same conflict `offline-first-sync.md` already settled for the
       database. Reuse its three-way merge per field rather than inventing a
-      second policy. Done:  moved to ,
-       applies it to frontmatter, the manifest is version 3
-      and carries a body digest per note, and  turns a
+      second policy. Done: `mergeRows` moved to `packages/core/src/shared/`,
+      `merge-vault-page.ts` applies it to frontmatter, the manifest is version 3
+      and carries a body digest per note, and `mergeBothChanged` turns a
       non-colliding pair of edits into an update instead of a prompt
 - [x] Anything that does not merge lands as a conflict the user resolves, never
       a silent overwrite. Three ways out, per file: keep this app's copy (the
