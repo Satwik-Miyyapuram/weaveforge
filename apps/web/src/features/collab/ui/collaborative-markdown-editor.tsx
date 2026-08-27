@@ -9,6 +9,7 @@ import { yCollab } from "y-codemirror.next";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import type { CollabSession } from "../application/collab-session.js";
+import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { EncryptedYjsProvider } from "../infrastructure/encrypted-yjs-provider.js";
 import { seedIfEmpty } from "../domain/seed-document.js";
 import { shouldPersistBody } from "../domain/save-policy.js";
@@ -129,6 +130,10 @@ export function CollaborativeMarkdownEditor({
       projectId: session.projectId(),
       authorId,
       awareness,
+      // A copy with no account has nobody to sync with, so it does not try:
+      // no socket, no failing broadcast per keystroke, and no notice about a
+      // live connection that was never part of the offer.
+      live: !isLocalMode(),
       getSnapshotUpto: session.getSnapshotUpto,
       setSnapshotUpto: session.setSnapshotUpto,
       compactCrdtLog: session.compactCrdtLog,
