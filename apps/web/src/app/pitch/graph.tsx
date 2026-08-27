@@ -72,7 +72,7 @@ export type Placed = Omit<Node, "x" | "y" | "vx" | "vy"> & { x: number; y: numbe
  * reader is reading is battery spent on nothing, so this happens at mount and
  * the result is drawn as static SVG that re-tints with the theme.
  */
-export function layoutGraph(width: number, height: number) {
+function layoutGraph(width: number, height: number) {
   const nodes: Placed[] = NODES.map((n, i) => ({
     ...n,
     x: width / 2 + Math.cos((i / NODES.length) * Math.PI * 2) * 130,

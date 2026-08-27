@@ -13,7 +13,6 @@
  */
 
 import { net } from "electron";
-import fs from "node:fs";
 import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -67,11 +66,6 @@ export async function serveModelFile(root: string, url: string): Promise<Respons
   await rename(temporary, file).catch(() => {});
 
   return new Response(bytes, { status: 200, headers: headersFor(file) });
-}
-
-/** Whether anything has been cached yet, for the settings panel to say so. */
-export function modelsCached(root: string): boolean {
-  return fs.existsSync(root) && fs.readdirSync(root).length > 0;
 }
 
 function headersFor(file: string): Record<string, string> {

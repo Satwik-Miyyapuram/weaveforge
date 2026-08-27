@@ -352,11 +352,6 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   }
 }
 
-/** The builder, exported for the tests that read the SQL it produces. */
-export function localBuilder(table: string, run: LocalQuery): Builder<unknown> {
-  return new Builder<unknown>(table, run);
-}
-
 /**
  * The client the backend wiring hands to every repository.
  *
