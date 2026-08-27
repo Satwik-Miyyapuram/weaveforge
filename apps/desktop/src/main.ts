@@ -29,6 +29,7 @@ import {
 } from "./vault-handlers";
 import { safeWorkspacePath } from "@weaveforge/core";
 import { LOCAL_API_HOST, LOCAL_API_PORT, newLocalApiToken, startLocalApi, type LocalApi } from "./local-api-server";
+import { fetchZoteroLocal } from "./zotero-local";
 import { SecretStore } from "./secret-store";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
@@ -493,6 +494,20 @@ ipcMain.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
     ok: true,
     value: { enabled: localApi !== null, url: LOCAL_API_URL, token, ...(reason ? { reason } : {}) },
   };
+});
+
+ipcMain.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
+  try {
+    return { ok: true, value: await fetchZoteroLocal(url) };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Zotero on this computer did not answer. Is it running?",
+    };
+  }
 });
 
 ipcMain.handle(CHANNELS.vaultCommit, async () => {

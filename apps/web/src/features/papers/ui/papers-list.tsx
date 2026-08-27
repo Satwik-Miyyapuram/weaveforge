@@ -20,6 +20,7 @@ import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
 import { rememberRecentTarget } from "@/lib/recent-targets";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { PaperCard } from "./paper-card";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
@@ -39,6 +40,9 @@ export function PapersScreen() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  // Resolved after mount: the server has no shell, and disagreeing with it on
+  // the first render would be a hydration mismatch.
+  const [hasShell, setHasShell] = useState(false);
   const [checkingAlerts, setCheckingAlerts] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
@@ -82,6 +86,8 @@ export function PapersScreen() {
     setError(loadError);
   }, [loadError]);
 
+  useEffect(() => setHasShell(typeof desktop()?.zoteroLocal === "function"), []);
+
   const papers = data?.papers ?? emptyArray<Paper>();
   const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
@@ -99,6 +105,28 @@ export function PapersScreen() {
       setSyncMsg(
         `Synced — pushed ${pushed}, pulled ${pulled}, removed ${deletedLocal} · ${annotations} annotations.`,
       );
+      await load();
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setSyncing(false);
+    }
+  }, [load]);
+
+  /**
+   * The Zotero on this machine, rather than the one in the cloud.
+   *
+   * Only offered in the desktop app, because only the shell can reach a
+   * plain-HTTP loopback server. Papers already carrying a `zoteroKey` gain
+   * their annotations; nothing is created and nothing is sent back.
+   */
+  const importLocalZotero = useCallback(async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    setError(null);
+    try {
+      const { annotations, items } = await getContainer().papers.importLocalZoteroAnnotations();
+      setSyncMsg(`Read ${items} annotated item${items === 1 ? "" : "s"} from Zotero on this computer — ${annotations} paper${annotations === 1 ? "" : "s"} updated.`);
       await load();
     } catch (err) {
       setError(formatError(err));
@@ -352,6 +380,24 @@ export function PapersScreen() {
                 <span className="org-choice-title">Sync Zotero</span>
                 <p className="org-choice-desc">Pull papers from your linked Zotero library.</p>
               </button>
+              {hasShell && (
+                <button
+                  type="button"
+                  className="org-choice-card"
+                  disabled={syncing}
+                  onClick={() => {
+                    setComposeOpen(false);
+                    setComposeMode("menu");
+                    void importLocalZotero();
+                  }}
+                >
+                  <span className="org-choice-title">Read Zotero on this computer</span>
+                  <p className="org-choice-desc">
+                    Import annotations from the running Zotero. No API key, and nothing is written
+                    back.
+                  </p>
+                </button>
+              )}
             </div>
           ) : (
             <AddPaperForm

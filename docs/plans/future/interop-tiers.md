@@ -14,8 +14,8 @@ listed in.
 4. **Tier 3, MCP over the workspace** — Tier 2 makes Tier 3 small. The reverse
    order does not: an MCP server written first ends up carrying its own file
    access, and then Tier 2 is a second copy of it.
-5. **Zotero annotations** — desktop-only, needs a SQLite dependency, and is the
-   only item that touches somebody else's database.
+5. **Zotero annotations** — desktop-only, and the only item that reaches into
+   another application's data.
 6. **`experiment_metrics` storage** — gated on the OCI cutover, so it is checked
    before it is started and skipped if the cutover has not happened.
 
@@ -65,16 +65,31 @@ happen to be about papers.
 
 ## 5. Zotero annotations
 
-Two halves, in order:
+Shipped, and not the way this plan first assumed.
 
-- Read-only import from a local Zotero SQLite library. Lowest risk, and it
-  proves our anchors round-trip — we already store them in Zotero's
-  `zoteroPosition` shape (`pageIndex`, rects, ink paths).
-- Write-back behind an explicit action with a diff, exactly as folder import
-  behaves. Zotero's database is not ours to write to without being asked.
+The plan was to read `zotero.sqlite` directly. That needs a SQLite dependency —
+Electron 33 is Node 20.18, which has no `node:sqlite` — and it would be reading
+a database Zotero holds a lock on while it runs, which is the worst of both:
+a compiled dependency in the installer, and a read that fails precisely when
+the user has Zotero open in front of them.
 
-Desktop only: it needs a native or wasm SQLite, and the browser has no library
-to read.
+Zotero 7 makes it unnecessary. It serves a read-only copy of the Web API on
+`http://127.0.0.1:23119/api`, with no key and no account, so the existing
+pager, annotation parser and attachment-to-paper join work unchanged against a
+different origin. What is new is one guarded proxy in the shell
+(`apps/desktop/src/zotero-local.ts`), because a plain-HTTP loopback request
+from an `app://` document is blocked as mixed content. The proxy takes a URL
+and refuses every one that is not Zotero's own local API — a general fetch
+channel reachable from the renderer would be a request-forwarder for anything
+the machine can reach.
+
+Papers are matched by the `zoteroKey` they already carry, so the import adds
+annotations and never creates entries.
+
+Write-back is not shipped, and not because it was skipped. Zotero's local API
+answers reads only; the cloud path (`ZoteroApiAnnotationWriteBack`) remains the
+way annotations go back, and it needs an API key because it goes via
+`api.zotero.org`.
 
 ## 6. `experiment_metrics` storage
 

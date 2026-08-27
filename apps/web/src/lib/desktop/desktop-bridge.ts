@@ -173,6 +173,23 @@ export interface DesktopBridge {
    * that can be re-read by anything that can reach the panel.
    */
   setLocalApi(enabled: boolean): Promise<DesktopLocalApi>;
+  /**
+   * One read of the Zotero API running on this computer.
+   *
+   * Not a fetch: the shell refuses every URL that is not
+   * `http://127.0.0.1:23119/api/...`, so this cannot be used to reach anything
+   * else the machine can reach. It exists because a plain-HTTP loopback
+   * request from this document is blocked as mixed content.
+   */
+  zoteroLocal(url: string): Promise<DesktopZoteroReply>;
+}
+
+/** A local Zotero response, flattened for the wire. */
+export interface DesktopZoteroReply {
+  status: number;
+  body: string;
+  /** Only the headers the pager reads: total-results, backoff, retry-after. */
+  headers: Record<string, string>;
 }
 
 export interface DesktopCommitResult {
