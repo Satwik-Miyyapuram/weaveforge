@@ -34,6 +34,7 @@ import {
 import {
   MIRROR_MANIFEST_PATH,
   baseDigest,
+  claimImportedFile,
   createCoalescer,
   nextManifest,
   readMirrorBase,
@@ -576,6 +577,11 @@ export async function applyFolderImport(
       const body = await reanchorAssets(entry.entity.body, page.id, owned);
       if (body !== entry.entity.body) {
         await container.vault.manageVaultPage.update(page.id, { title: page.title, body });
+      }
+      // The file it came from now belongs to that page, so say so in the file.
+      // Skipped for an archive import, which has no folder to write back to.
+      if (activeFs && entry.entity.path) {
+        await claimImportedFile(activeFs, entry.entity.path, page.id).catch(() => false);
       }
       created += 1;
       continue;

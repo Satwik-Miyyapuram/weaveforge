@@ -513,3 +513,21 @@ dismiss unread is the point.
 
 Verified: core 998, web all green, desktop 88, three tsc projects clean, lint
 clean, solid/dry/hygiene clean.
+
+## Round 14 — a hand-written note stops multiplying
+
+Phase 3 had one hole left. Drop `notes/My idea.md` into the folder and import
+it: an entity is created, and nothing connects it to the file it came from. The
+next mirror writes that entity out under its canonical name, the hand-written
+file stays exactly where it was, and the import after that reads it as another
+new note. One file becomes two, then four.
+
+`stampWorkspaceId` in core adds a `weaveforge-id` line and touches nothing else
+— rewriting somebody's frontmatter for them is how you stop being trusted with
+their folder. `claimImportedFile` in the web app writes it back and adds the
+path to the mirror manifest, so the copy is removed by the same mechanism that
+removes any file the mirror has replaced. Both halves are needed: the stamp
+alone leaves the folder holding two files with one id.
+
+Phase 3 is now complete. Verified: core 1004, web 939, desktop 88, three tsc
+projects clean, lint clean, solid/dry/hygiene clean.

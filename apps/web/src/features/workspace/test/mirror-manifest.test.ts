@@ -5,6 +5,8 @@ import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import {
   MIRROR_MANIFEST_PATH,
+  baseDigest,
+  claimImportedFile,
   createCoalescer,
   nextManifest,
   readMirrorBase,
@@ -183,4 +185,36 @@ test("a failing run is reported, not thrown", async () => {
   fire();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(seen.length, 2);
+});
+
+test("a hand-written file is stamped with the id it was imported as", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("notes/My idea.md", "---\ntitle: My idea\n---\n\nthe body\n");
+  await writeMirrorManifest(fs, ["notes/old.note.md"], { "notes/old.note.md": "d0" });
+
+  assert.equal(await claimImportedFile(fs, "notes/My idea.md", "n1"), true);
+
+  const stamped = await fs.readText("notes/My idea.md");
+  assert.match(stamped, /^---\nweaveforge-id: n1\n/);
+  // Claimed, so the next mirror removes it once the entity is written out
+  // under its own name — instead of leaving the folder holding both copies.
+  const base = await readMirrorBase(fs);
+  assert.deepEqual(Object.keys(base).sort(), ["notes/My idea.md", "notes/old.note.md"]);
+  assert.equal(base["notes/My idea.md"], baseDigest(stamped));
+  assert.equal(base["notes/old.note.md"], "d0");
+});
+
+test("a file that already carries an id is neither rewritten nor claimed", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const content = "---\nweaveforge-id: n9\n---\n\nbody\n";
+  await fs.writeFile("notes/theirs.md", content);
+
+  assert.equal(await claimImportedFile(fs, "notes/theirs.md", "n1"), false);
+  assert.equal(await fs.readText("notes/theirs.md"), content);
+  assert.deepEqual(await readMirrorBase(fs), {});
+});
+
+test("a file that has gone since the preview is not an error", async () => {
+  const fs = new MemoryWorkspaceFs();
+  assert.equal(await claimImportedFile(fs, "notes/gone.md", "n1"), false);
 });

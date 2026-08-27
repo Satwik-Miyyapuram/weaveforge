@@ -1,6 +1,7 @@
 import {
   WORKSPACE_META_DIR,
   digestText,
+  stampWorkspaceId,
   type IWorkspaceFs,
   type VaultPageBase,
 } from "@weaveforge/core";
@@ -211,4 +212,41 @@ export function createCoalescer(options: CoalescerOptions): Coalescer {
   };
 
   return coalescer;
+}
+
+/**
+ * Claim a file the user wrote by hand, now that it has an entity.
+ *
+ * Two things happen, and both are needed. The id goes into the file, so the
+ * folder and the workspace agree about what that file is from now on. The path
+ * joins the manifest, so the next mirror — which writes the entity out under
+ * its canonical name — removes this copy the same way it removes any file it
+ * has replaced. Without the second step the folder keeps both, and the user is
+ * left to work out which of two identical notes is the live one.
+ *
+ * Nothing is written when the file already carries an id, or has gone since the
+ * preview was taken. Both are ordinary, and neither is worth failing an import
+ * that has already succeeded.
+ */
+export async function claimImportedFile(
+  fs: IWorkspaceFs,
+  path: string,
+  id: string,
+): Promise<boolean> {
+  let content: string;
+  try {
+    content = await fs.readText(path);
+  } catch {
+    return false;
+  }
+
+  const stamped = stampWorkspaceId(content, id);
+  if (stamped === null) return false;
+
+  await fs.writeFile(path, stamped);
+  const base = await readMirrorBase(fs);
+  const bases = await readMirrorBases(fs);
+  base[path] = digestText(stamped);
+  await writeMirrorManifest(fs, Object.keys(base), base, bases);
+  return true;
 }

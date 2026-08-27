@@ -124,12 +124,17 @@ and it keeps itself up to date from then on.
       is Phase 4. The panel's contract already says pulling changes back is an
       explicit action with a diff shown first
 - [x] 14 tests (9 desktop, 5 web)
-- [ ] Apply the affected file through the same use cases the UI calls, once
-      Phase 4 exists to settle what happens when both sides changed
-- [ ] Identity comes from `weaveforge-id`, so a file renamed in Finder renames
+- [x] Apply the affected file through the same use cases the UI calls, once
+      Phase 4 exists to settle what happens when both sides changed:
+      `applyFolderImport` goes through `manageVaultPage`, never the store
+- [x] Identity comes from `weaveforge-id`, so a file renamed in Finder renames
       the entity instead of forking it — this already works and is tested
-- [ ] A file with no `weaveforge-id` is an import: create the entity, then
-      write the id back into the file
+- [x] A file with no `weaveforge-id` is an import: create the entity, then
+      write the id back into the file. `claimImportedFile` stamps the id and
+      adds the path to the manifest, so the next mirror removes the hand-made
+      copy once the entity is written out under its own name. Without both
+      halves the same file imports again on every pass, and one note becomes
+      two, then four
 
 ### Phase 4 — Conflicts
 - [x] The mirror manifest is version 2 and records a digest of every file it
