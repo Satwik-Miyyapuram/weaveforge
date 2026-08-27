@@ -14,7 +14,9 @@ import {
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
+import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
 import {
   assetExtension,
@@ -22,6 +24,14 @@ import {
   ownedAssetFolderPaths,
   planAssetReanchor,
 } from "./asset-reanchor";
+import {
+  MIRROR_MANIFEST_PATH,
+  createCoalescer,
+  nextManifest,
+  readMirrorManifest,
+  writeMirrorManifest,
+  type Coalescer,
+} from "./mirror-manifest";
 import {
   IMPORT_LIMITS,
   ImportLimitError,
@@ -40,7 +50,8 @@ import {
 
 let activeFs: IWorkspaceFs | null = null;
 let activeGit: IWorkspaceGit = new NoOpWorkspaceGit();
-let lastWrittenPaths: string[] = [];
+
+
 
 /**
  * Asset bytes from the most recent preview, keyed by folder path.
@@ -52,14 +63,19 @@ let lastWrittenPaths: string[] = [];
 let pendingAssets = new Map<string, Uint8Array>();
 
 export interface FolderSession {
-  kind: "picked" | "opfs";
+  kind: "picked" | "opfs" | "desktop";
   git: "none" | "isomorphic";
 }
 
 export function folderSession(): FolderSession | null {
   if (!activeFs) return null;
   return {
-    kind: activeFs instanceof BrowserWorkspaceFs ? "picked" : "opfs",
+    kind:
+      activeFs instanceof DesktopWorkspaceFs
+        ? "desktop"
+        : activeFs instanceof BrowserWorkspaceFs
+          ? "picked"
+          : "opfs",
     git: activeGit.kind === "isomorphic" ? "isomorphic" : "none",
   };
 }
@@ -74,7 +90,28 @@ export async function chooseFolder(options: { git: boolean }): Promise<boolean> 
   if (!fs) return false;
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
-  lastWrittenPaths = [];
+  return true;
+}
+
+/**
+ * Adopt the desktop shell's folder, choosing one if none is remembered.
+ *
+ * The renderer never names a path: it asks for a dialog, and the main process
+ * keeps the answer. `false` means there is no desktop shell, or the user
+ * dismissed the dialog.
+ */
+export async function chooseDesktopFolder(options: {
+  git: boolean;
+  /** Take up the remembered folder instead of opening a dialog. */
+  reuse?: boolean;
+}): Promise<boolean> {
+  const bridge = desktop();
+  if (!bridge) return false;
+  const root = options.reuse ? await bridge.vaultRoot() : await bridge.chooseVaultRoot();
+  if (!root) return false;
+  const fs = new DesktopWorkspaceFs(bridge);
+  activeFs = fs;
+  activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
   return true;
 }
 
@@ -83,13 +120,12 @@ export async function openBrowserStorageFolder(options: { git: boolean }): Promi
   const fs = await BrowserWorkspaceFs.openOpfs();
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
-  lastWrittenPaths = [];
 }
 
 export function closeFolder(): void {
   activeFs = null;
   activeGit = new NoOpWorkspaceGit();
-  lastWrittenPaths = [];
+  syncs.cancel();
   pendingAssets = new Map();
 }
 
@@ -106,18 +142,20 @@ export interface SyncOutcome {
  */
 export async function syncToFolder(): Promise<SyncOutcome> {
   if (!activeFs) throw new Error("No folder is connected.");
+  const fs = activeFs;
   const container = getContainer();
   const snapshot = await container.workspace.snapshot();
+  const previousPaths = await readMirrorManifest(fs);
 
-  const mirror = await mirrorWorkspace(snapshot, activeFs, {
-    previousPaths: lastWrittenPaths,
+  const mirror = await mirrorWorkspace(snapshot, fs, {
+    previousPaths,
     fetchAsset: async (storagePath) => {
       const blobs = await container.vault.fetchAssetBlobs([storagePath]);
       const blob = blobs.get(storagePath);
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     },
   });
-  lastWrittenPaths = [...mirror.written, ...lastWrittenPaths.filter((p) => !mirror.removed.includes(p))];
+  await writeMirrorManifest(fs, nextManifest(previousPaths, mirror));
 
   let commit: WorkspaceCommit | null = null;
   if (activeGit.kind !== "none") {
@@ -130,6 +168,44 @@ export async function syncToFolder(): Promise<SyncOutcome> {
   }
 
   return { mirror, commit };
+}
+
+export const SYNC_DEBOUNCE_MS = 1_500;
+
+/**
+ * The pacing for `requestSync`, built once and reused for every folder.
+ *
+ * A mirror failure reaches `syncErrors` rather than the caller: `requestSync`
+ * is called from save paths, and a folder that cannot be written must not take
+ * the save down with it.
+ */
+const syncErrors: unknown[] = [];
+
+const syncs: Coalescer = createCoalescer({
+  debounceMs: SYNC_DEBOUNCE_MS,
+  run: async () => {
+    if (!activeFs) return;
+    await syncToFolder();
+  },
+  onError: (error) => {
+    syncErrors.push(error);
+  },
+});
+
+/** Ask for a sync. Cheap enough to call on every save. */
+export function requestSync(): void {
+  if (!activeFs) return;
+  syncs.request();
+}
+
+/** Stand the mirror down while a read-back is being applied. */
+export function suspendSync(suspended: boolean): void {
+  syncs.suspended = suspended;
+}
+
+/** The most recent mirror failure, for a panel that wants to say so. */
+export function lastSyncError(): unknown {
+  return syncErrors.at(-1) ?? null;
 }
 
 export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommit[]> {

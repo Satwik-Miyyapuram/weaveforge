@@ -54,20 +54,24 @@ of whether a remembered path is re-verified on launch (it should be) belongs
 with Phase 2, where something actually writes.
 
 ### Phase 2 — Write-out ✅
-- [x] `createMirrorRunner` collects a snapshot and hands it to
-      `mirrorWorkspace`, which content-compares before every write, so an
-      unchanged workspace produces no filesystem churn
-- [x] Debounced and coalesced, with a `suspended` flag Phase 3 raises while a
-      read-back is being applied, so the two directions cannot chase each
-      other. A request landing mid-run is re-run afterwards rather than folded
-      into a snapshot taken before the save happened
-- [x] `previousPaths` — the list that tells the mirror which files have
-      departed — persists in `.weaveforge/mirror.json` inside the folder, so
-      it travels with the files it describes
-- [x] `DesktopVaultFs` puts the desktop bridge behind `IWorkspaceFs`; 12 tests
-      in `apps/web/src/features/vault-mirror/test/`
+`syncToFolder` in `apps/web/src/features/workspace/application/workspace-folder.ts`
+already drove `mirrorWorkspace` against a browser-picked folder. This phase
+gave it a third backing and the two things it was missing.
 
-Not yet wired into the save path: choosing a folder still needs a UI
+- [x] `DesktopWorkspaceFs` puts the desktop bridge behind `IWorkspaceFs`, beside
+      the existing `BrowserWorkspaceFs`. Everything above the port — mirror,
+      importer, git adapter — works against it unchanged
+- [x] `previousPaths` — the list that tells the mirror which files have
+      departed — was in-memory and died with the tab. It now persists in
+      `.weaveforge/mirror.json` inside the folder, so it travels with the files
+      it describes rather than with the browser that wrote them
+- [x] `requestSync` debounces and coalesces, with `suspendSync` for Phase 3 to
+      raise while a read-back is being applied, so the two directions cannot
+      chase each other. A request landing mid-run is re-run afterwards rather
+      than folded into a snapshot taken before the save happened
+- [x] 25 tests in `apps/web/src/features/workspace/test/`
+
+Not yet wired into the save path: choosing the desktop folder still needs a UI
 affordance, which is where this picks up next.
 
 ### Phase 3 — Read-back

@@ -159,3 +159,32 @@ Two pieces in a new `apps/web/src/features/vault-mirror/` give it one:
 12 tests (web 897 → 909). Phase 2 of `live-vault-folder.md` is done bar the
 wiring into the save path, which needs a UI affordance for choosing the folder
 and is the next round's work.
+
+
+### Correction to Round 5
+
+Round 5 above says `mirrorWorkspace` had zero callers. That is wrong, and the
+commit message repeats it. `syncToFolder` in
+`apps/web/src/features/workspace/application/workspace-folder.ts` has driven it
+against a browser-picked folder or OPFS all along; the "zero callers" line came
+from a Round 3 measurement of `packages/core` alone and I carried it forward
+without re-checking.
+
+The consequence was worse than a wrong sentence: the new `vault-mirror` feature
+was a second copy of machinery that already existed — `activeFs`,
+`lastWrittenPaths`, the mirror call itself. It has been deleted and folded into
+the `workspace` feature instead, which is a net reduction rather than an
+addition:
+
+- `DesktopWorkspaceFs` joins `BrowserWorkspaceFs` in
+  `features/workspace/infrastructure/`, so the desktop folder is a third
+  backing for a port the app already targets, not a parallel path
+- `mirror-manifest.ts` holds the persisted `previousPaths` and the coalescer.
+  They live apart from `workspace-folder.ts` because that module reaches for
+  the app container on its first line, and neither of these needs one — which
+  is what makes them testable against an in-memory filesystem alone
+- The manifest fixes a real defect in the existing code, not just a gap in the
+  new: `lastWrittenPaths` was in-memory, so a reload lost the record and every
+  file the workspace had since dropped stayed in the folder for good
+
+25 tests across the two files (web 897 → 915). Registry untouched.

@@ -6,11 +6,13 @@ import {
 } from "@weaveforge/core";
 
 /**
- * The bridge's six folder calls, wearing the workspace port's face.
+ * The desktop bridge's folder calls, wearing the workspace port's face.
  *
- * `mirrorWorkspace` was written against `IWorkspaceFs` and has never had a real
- * filesystem under it. This is the adapter that gives it one, so nothing about
- * the mirror needs to know it is talking to another process.
+ * `BrowserWorkspaceFs` beside this one covers File System Access and OPFS, and
+ * everything above the port -- the mirror, the importer, the git adapter --
+ * already works against either. This adds the third backing: a real directory
+ * on disk, reached through the desktop shell, which is the only one of the
+ * three another editor can also open.
  *
  * Two methods have no channel behind them and are satisfied here instead.
  * `mkdirp` is a no-op because a write creates its parents on the far side, and
@@ -34,7 +36,7 @@ export interface VaultFileBridge {
   removeVaultFile(path: string): Promise<void>;
 }
 
-export class DesktopVaultFs implements IWorkspaceFs {
+export class DesktopWorkspaceFs implements IWorkspaceFs {
   constructor(private readonly bridge: VaultFileBridge) {}
 
   async readText(path: string): Promise<string> {
@@ -58,7 +60,7 @@ export class DesktopVaultFs implements IWorkspaceFs {
     await this.bridge.removeVaultFile(safeWorkspacePath(path));
   }
 
-  async mkdirp(): Promise<void> {
+  async mkdirp(_path: string): Promise<void> {
     // Writes create their parents; nothing else needs a directory to exist.
   }
 
