@@ -70,6 +70,19 @@ write after approval, and an encrypted audit entry records the outcome.
   tools of its own. See `docs/SECURITY.md` for what this does and does not
   guarantee.
 
+## The local workspace server
+
+Separate from the relay above, and much smaller. The desktop app can serve the
+workspace folder as an MCP server on loopback, behind the same token as the
+local HTTP surface and off until the user switches that on. Three tools, all
+read-only: `search_workspace`, `list_workspace`, `read_entry`. `kind` is a real
+filter -- papers, reading lists, experiments and the logbook are separate kinds
+in the folder layout, not directories that happen to hold markdown.
+
+Nothing there writes. An agent that wants to change the workspace uses the HTTP
+surface's `PUT`, where the user has at least chosen to open the door. Every
+result goes through `mcpReadResult`, the same wrapper the relay uses.
+
 ## Verification
 
 - `npm run check:mcp-plugin` drives the stdio server the way a client does and

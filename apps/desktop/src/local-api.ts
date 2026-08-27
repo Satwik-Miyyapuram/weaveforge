@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
+import { routeMcpRequest, type JsonRpcRequest } from "./local-mcp";
 import type { VaultSession } from "./vault-handlers";
 import { listVaultFiles, readVaultFile, removeVaultFile, writeVaultFile } from "./vault-handlers";
 
@@ -68,24 +69,39 @@ export function tokenMatches(header: string | undefined, expected: string): bool
 }
 
 /** Every file under `dir`, depth-first, up to a cap. */
-async function walk(session: VaultSession, dir: string, out: string[]): Promise<void> {
+export async function walkVault(session: VaultSession, dir: string, out: string[]): Promise<void> {
   if (out.length >= SEARCH_LIMIT) return;
   const listed = await listVaultFiles(session, dir);
   if (!listed.ok) return;
   for (const entry of listed.value) {
     if (out.length >= SEARCH_LIMIT) return;
-    if (entry.kind === "dir") await walk(session, entry.path, out);
+    if (entry.kind === "dir") await walkVault(session, entry.path, out);
     else out.push(entry.path);
   }
 }
 
-async function simpleSearch(session: VaultSession, query: string): Promise<LocalApiResponse> {
-  if (!query) return fail(400, "A search needs a query.");
+export interface VaultSearchHit {
+  filename: string;
+  matches: { context: string }[];
+}
+
+/**
+ * Which markdown files under `dir` mention `query`, and the lines that did.
+ *
+ * Shared with the MCP surface rather than reimplemented there: two searches
+ * over one folder would eventually disagree about what counts as a match, and
+ * the one an agent uses is not the one a person would notice was wrong.
+ */
+export async function searchVault(
+  session: VaultSession,
+  query: string,
+  dir = "",
+): Promise<VaultSearchHit[]> {
   const files: string[] = [];
-  await walk(session, "", files);
+  await walkVault(session, dir, files);
 
   const needle = query.toLowerCase();
-  const results: { filename: string; matches: { context: string }[] }[] = [];
+  const results: VaultSearchHit[] = [];
   for (const filename of files) {
     if (!filename.endsWith(".md")) continue;
     const read = await readVaultFile(session, filename);
@@ -100,7 +116,12 @@ async function simpleSearch(session: VaultSession, query: string): Promise<Local
     }
     if (matches.length) results.push({ filename, matches });
   }
-  return json(200, results);
+  return results;
+}
+
+async function simpleSearch(session: VaultSession, query: string): Promise<LocalApiResponse> {
+  if (!query) return fail(400, "A search needs a query.");
+  return json(200, await searchVault(session, query));
 }
 
 /**
@@ -119,6 +140,22 @@ export async function routeLocalRequest(
 
   const url = new URL(request.url, "http://127.0.0.1");
   const path = decodeURIComponent(url.pathname);
+
+  if (path === "/mcp") {
+    if (request.method !== "POST") return fail(405, "MCP is spoken over POST.");
+    let parsed: JsonRpcRequest;
+    try {
+      parsed = JSON.parse(request.body ?? "") as JsonRpcRequest;
+    } catch {
+      return json(400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Not JSON." } });
+    }
+    const answer = await routeMcpRequest(session, parsed);
+    // A notification is answered with no body at all, which is what a client
+    // sending `notifications/initialized` waits for.
+    return answer === null
+      ? { status: 202, contentType: "application/json", body: "" }
+      : json(200, answer);
+  }
 
   if (path === "/search/simple/" && request.method === "POST") {
     return simpleSearch(session, url.searchParams.get("query") ?? "");

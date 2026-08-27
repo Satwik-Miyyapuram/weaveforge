@@ -78,7 +78,12 @@ Switching the surface off throws the token away, so turning it back on issues a
 new one and the old one stops working.
 
 What is served: reading, writing, deleting and listing files under `/vault/`,
-and `POST /search/simple/?query=...`. What is not: the active note and the
+`POST /search/simple/?query=...`, and an MCP server at `/mcp` for agents
+running on this machine -- three read tools, `search_workspace`,
+`list_workspace` and `read_entry`, each of which knows that a paper is not a
+note. Its results arrive fenced and labelled as quoted material, because a
+workspace is a place to keep other people's writing and an agent should be told
+which parts of its context are not the user speaking. What is not: the active note and the
 command list. Both belong to the running app rather than to the folder, and a
 shell answering for them would be guessing about a window it does not own.
 

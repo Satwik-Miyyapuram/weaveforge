@@ -112,3 +112,83 @@ test("an unserved route says so rather than guessing", async () => {
   const answer = await routeLocalRequest(await vault(), ask({ url: "/active/" }), TOKEN);
   assert.equal(answer.status, 404);
 });
+
+// ------------------------------------------------------------------------ MCP
+
+async function mcp(session: VaultSession, method: string, params?: unknown) {
+  const answer = await routeLocalRequest(
+    session,
+    ask({ method: "POST", url: "/mcp", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }),
+    TOKEN,
+  );
+  return { status: answer.status, body: answer.body ? JSON.parse(answer.body) : null };
+}
+
+test("MCP is behind the same token as everything else", async () => {
+  const answer = await routeLocalRequest(
+    await vault(),
+    ask({ method: "POST", url: "/mcp", authorization: undefined, body: "{}" }),
+    TOKEN,
+  );
+  assert.equal(answer.status, 401);
+});
+
+test("initialize answers with the workspace server", async () => {
+  const { body } = await mcp(await vault(), "initialize");
+  assert.equal(body.result.serverInfo.name, "weaveforge-workspace");
+});
+
+test("the tool list names what the folder can be asked", async () => {
+  const { body } = await mcp(await vault(), "tools/list");
+  assert.deepEqual(
+    (body.result.tools as { name: string }[]).map((tool) => tool.name),
+    ["search_workspace", "list_workspace", "read_entry"],
+  );
+});
+
+test("a search comes back fenced and told to be treated as data", async () => {
+  const { body } = await mcp(await vault(), "tools/call", {
+    name: "search_workspace",
+    arguments: { query: "kettle" },
+  });
+  const text = body.result.content[0].text as string;
+  assert.match(text, /quoted material/);
+  assert.match(text, /# Kettle/);
+  assert.equal(typeof body.result._meta.nonce, "string");
+});
+
+test("a kind that keeps nothing yet searches nothing, rather than everything", async () => {
+  const { body } = await mcp(await vault(), "tools/call", {
+    name: "search_workspace",
+    arguments: { query: "kettle", kind: "paper" },
+  });
+  assert.doesNotMatch(body.result.content[0].text as string, /# Kettle/);
+});
+
+test("reading a path that leaves the folder is a tool error, not a file", async () => {
+  const { body } = await mcp(await vault(), "tools/call", {
+    name: "read_entry",
+    arguments: { path: "../../secrets.txt" },
+  });
+  assert.equal(body.result.isError, true);
+});
+
+test("an unknown tool is refused by name", async () => {
+  const { body } = await mcp(await vault(), "tools/call", { name: "delete_everything" });
+  assert.equal(body.result.isError, true);
+  assert.match(body.result.content[0].text as string, /delete_everything/);
+});
+
+test("a notification is answered with nothing to answer", async () => {
+  const answer = await routeLocalRequest(
+    await vault(),
+    ask({
+      method: "POST",
+      url: "/mcp",
+      body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+    }),
+    TOKEN,
+  );
+  assert.equal(answer.status, 202);
+  assert.equal(answer.body, "");
+});

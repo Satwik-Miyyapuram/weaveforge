@@ -55,7 +55,7 @@ Constraints this must ship with, not after:
 - The same `safeWorkspacePath` guard the workspace port already uses. The
   network surface must not be the one path into the folder that skips it.
 
-### Tier 3 — MCP
+### Tier 3 — MCP (shipped, locally)
 
 Expose the workspace as an MCP server. "Knowledge & Memory" is the largest
 category in the MCP ecosystem and reportedly its largest unmet demand, and the
