@@ -10,7 +10,13 @@ import type {
   ScreeningStage,
   ScreeningState,
 } from "@weaveforge/core";
-import { SCREENING_STAGES, prismaCaveat, prismaFigureTex, verdictFor } from "@weaveforge/core";
+import {
+  SCREENING_STAGES,
+  agreementBetween,
+  prismaCaveat,
+  prismaFigureTex,
+  verdictFor,
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { collectListIds } from "./list-ui";
@@ -58,9 +64,6 @@ export function ScreeningPanel({
   const [stage, setStage] = useState<ScreeningStage>("title_abstract");
   const [items, setItems] = useState<ReadingListItem[]>([]);
   const [summary, setSummary] = useState<ScreenSummary | null>(null);
-  const [agreement, setAgreement] = useState<Awaited<
-    ReturnType<ReturnType<typeof getContainer>["readingLists"]["screenItems"]["agreement"]>
-  > | null>(null);
   const [me, setMe] = useState<string | null>(null);
   const [reason, setReason] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -80,15 +83,10 @@ export function ScreeningPanel({
       container.auth.auth.getUser(),
     ]);
     const screened = rows.filter((row) => !row.inheritedFromListId);
-    const [next, agreed] = await Promise.all([
-      container.readingLists.screenItems.summarize(screened),
-      container.readingLists.screenItems.agreement(screened, stage),
-    ]);
     setItems(screened);
-    setSummary(next);
-    setAgreement(agreed);
+    setSummary(await container.readingLists.screenItems.summarize(screened));
     setMe(user?.id ?? null);
-  }, [node, stage]);
+  }, [node]);
 
   useEffect(() => {
     reload().catch((e) => setError(formatError(e)));
@@ -136,6 +134,16 @@ export function ScreeningPanel({
     (summary?.decisions ?? []).filter((d) => d.itemId === itemId && d.stage === stage);
 
   const caveat = summary ? prismaCaveat(summary.counts) : null;
+
+  // Computed here rather than asked for: the decisions are already loaded, and
+  // a second read of the same rows to answer a question about them would be a
+  // round trip spent on arithmetic.
+  const agreement = useMemo(() => {
+    const pair = (summary?.reviewers ?? []).slice(0, 2);
+    const [first, second] = pair;
+    if (!first || !second || !summary) return null;
+    return agreementBetween(summary.decisions, [first, second], stage);
+  }, [summary, stage]);
 
   return (
     <div className="screening-panel">

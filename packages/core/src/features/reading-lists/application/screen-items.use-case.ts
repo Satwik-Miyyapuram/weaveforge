@@ -9,12 +9,10 @@
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import type { IScreeningRepository } from "../domain/screening-repository.js";
 import {
-  agreementBetween,
   checkDecision,
   exclusionReasons,
   prismaCounts,
   verdictFor,
-  type Agreement,
   type ItemVerdict,
   type PrismaCounts,
   type ScreeningDecision,
@@ -89,19 +87,5 @@ export class ScreenItemsUseCase {
       reasons: exclusionReasons(decisions),
       reviewers: [...new Set(decisions.map((decision) => decision.reviewerId))].sort(),
     };
-  }
-
-  /** How two reviewers compare at one stage. Null when there are not two of them. */
-  async agreement(
-    items: readonly ScreeningItem[],
-    stage: ScreeningStage,
-    reviewers?: [string, string],
-  ): Promise<Agreement | null> {
-    const decisions = await this.deps.screening.listForItems(items.map((item) => item.id));
-    const pair =
-      reviewers ?? ([...new Set(decisions.map((d) => d.reviewerId))].sort().slice(0, 2) as string[]);
-    const [first, second] = pair;
-    if (!first || !second) return null;
-    return agreementBetween(decisions, [first, second], stage);
   }
 }
