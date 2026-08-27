@@ -9,6 +9,8 @@ import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { accountLinks, type AccountLinkId } from "./account-links";
+import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
+import { isLocalMode, setLocalMode } from "@/backend/providers/local/local-identity";
 
 
 const GridIcon = () => (
@@ -63,6 +65,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pendingProposals, setPendingProposals] = useState(0);
+  const [local, setLocal] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useDismissOnOutside(open, () => setOpen(false), ref);
@@ -78,6 +81,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
       read();
     };
     read();
+    setLocal(isLocalMode());
     window.addEventListener("ai-proposals-changed", refresh);
     return () => window.removeEventListener("ai-proposals-changed", refresh);
   }, []);
@@ -102,6 +106,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
     settings: GearIcon,
     docs: HelpIcon,
     signout: LogoutIcon,
+    signin: LogoutIcon,
   };
   const TITLES: Partial<Record<AccountLinkId, string>> = {
     projects: "Projects",
@@ -116,9 +121,26 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   // deliberately do not — is decided in one tested place rather than in JSX.
   const links = (
     <>
-      {accountLinks({ canSupervise, hasProject: !!current, pendingProposals }).map((link) => {
+      {accountLinks({ canSupervise, hasProject: !!current, pendingProposals, local }).map((link) => {
         const Icon = ICONS[link.id];
 
+        // Leaving offline mode is not signing out — there is no session to end.
+        // It puts the sign-in screen back, and the local data stays where it is.
+        if (link.id === "signin") {
+          return (
+            <button
+              key={link.id}
+              className="signout"
+              onClick={() => {
+                setLocalMode(false);
+                window.location.reload();
+              }}
+              title="Sign in to sync this work with an account. What is on this computer stays here."
+            >
+              <Icon /><span>{link.label}</span>
+            </button>
+          );
+        }
         if (link.id === "signout") {
           return (
             <button key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
@@ -159,7 +181,12 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   );
 
   if (variant === "list") {
-    return <div className="header-actions">{links}</div>;
+    return (
+      <div className="header-actions">
+        <LocalModeBadge />
+        {links}
+      </div>
+    );
   }
 
   return (

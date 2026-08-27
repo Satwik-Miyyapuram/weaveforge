@@ -124,14 +124,32 @@ export interface WiredSupabaseBackend {
   readonly paperFieldRepository: IPaperFieldRepository;
 }
 
+/**
+ * What a copy working on this computer supplies instead of Supabase.
+ *
+ * Everything below this line is the same for both: the repositories only ever
+ * see `db`, `session` and `auth`, so swapping those three swaps the backend
+ * without a second copy of the wiring. See
+ * `backend/providers/local/wire-local-backend.ts`.
+ */
+export interface BackendParts {
+  db: SupabaseClient;
+  session: ICurrentUserProvider;
+  auth: IAuthService;
+  blobStore: IBlobStore;
+  /** Settings differ only in where the integration credentials are kept. */
+  settingsRepository: ISettingsRepository;
+}
+
 export function wireSupabaseBackend(
   config: BackendConfig,
   projectContext: ProjectContext,
   pid: () => string | null,
+  parts?: BackendParts,
 ): WiredSupabaseBackend {
   const url = config.supabaseUrl;
   const anonKey = config.supabaseAnonKey;
-  if (!url || !anonKey) {
+  if (!parts && (!url || !anonKey)) {
     throw new Error(
       "Supabase backend requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     );
@@ -139,15 +157,17 @@ export function wireSupabaseBackend(
 
   // Wrapped once, here, so that every repository below reports its writes
   // without any of them having to know that something is listening.
-  const db = watchWrites(createSupabaseClient(url, anonKey, config.dataUrl), notifyWorkspaceChange);
-  const session = new SupabaseSessionProvider(db);
-  const auth = new SupabaseAuthService(db);
+  const db =
+    parts?.db ??
+    watchWrites(createSupabaseClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
+  const session = parts?.session ?? new SupabaseSessionProvider(db);
+  const auth = parts?.auth ?? new SupabaseAuthService(db);
   const adminProvisioner =
-    url && config.supabaseServiceRoleKey
+    !parts && url && config.supabaseServiceRoleKey
       ? new SupabaseAdminUserProvisioner(url, config.supabaseServiceRoleKey)
       : null;
 
-  const settingsRepository = new SupabaseSettingsRepository(db, session);
+  const settingsRepository = parts?.settingsRepository ?? new SupabaseSettingsRepository(db, session);
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
   const projectRepository = cacheRepo(
     new SupabaseProjectRepository(db, session),
@@ -284,7 +304,7 @@ export function wireSupabaseBackend(
   );
   const supervisionRepository = new SupabaseSupervisionRepository(db);
   const projectBibliographyCollection = new ProjectZoteroStore(db);
-  const rawBlobStore = wireStorage({ supabaseDb: db });
+  const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: db });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
     new SupabaseLibraryPinRepository(db, projectContext, session),
     ["listForProject", "isPinned"],

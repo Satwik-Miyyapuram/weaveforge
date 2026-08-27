@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getLightContainer } from "@/light-bootstrap";
 import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { formatError } from "@/lib/format-error";
 import { appOrigin, authRedirectTo } from "@/lib/desktop/desktop-auth";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { setLocalMode } from "@/backend/providers/local/local-identity";
 
 /**
  * Passwordless login. Sends a Supabase magic-link to the entered email. On
@@ -23,6 +25,12 @@ export function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only the desktop app has a database of its own to work in, and only it can
+  // answer this before there is a session. A browser never sees the offer.
+  const [onThisComputer, setOnThisComputer] = useState(false);
+  useEffect(() => {
+    setOnThisComputer(typeof desktop()?.queryLocalDb === "function");
+  }, []);
 
   // The origin in a browser, and the desktop return page in the app — see
   // `lib/desktop-auth.ts` for why those differ.
@@ -237,6 +245,23 @@ export function LoginScreen() {
               {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
             </button>
           </div>
+
+          {onThisComputer && (
+            <div className="auth-secondary-actions" style={{ marginTop: "1rem" }}>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  // The wiring is built once, at startup, from this choice —
+                  // so the choice is remembered and the window reopened.
+                  setLocalMode(true);
+                  window.location.reload();
+                }}
+              >
+                Work on this computer, without an account
+              </button>
+            </div>
+          )}
 
           {error && <FormError>{error}</FormError>}
         </div>

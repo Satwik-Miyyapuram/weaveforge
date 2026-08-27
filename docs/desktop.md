@@ -91,3 +91,53 @@ watched. See [`workspace-folder.md`](workspace-folder.md).
 Links to other sites open in your normal browser, not inside the app window.
 That is deliberate: the app window is for WeaveForge, and a page that arrived
 from somewhere else does not get to run in it.
+
+## Working without an account
+
+The desktop window offers **"Work on this computer, without an account"** on the
+sign-in screen. Choosing it swaps four things — the database client, the
+identity, the auth service and the blob store — for local ones, and leaves every
+repository, screen and use case above them untouched. The data lives in PGlite
+under the app's own directory, with the same schema the server has (all the
+server migrations run locally), and the sidebar carries an **Offline · on this
+computer** badge for as long as that is true. Where a signed-in copy offers
+"Sign out", an account-less one offers **Sign in**: there is no session to end,
+and signing in later leaves what is on this computer where it is.
+
+What this covers and what it costs:
+
+- Projects, notes, papers, lists, reports, experiments, the workspace folder
+  mirror, the local HTTP API and the MCP server all work with no network at all.
+  Launching needs no connection: a packaged copy in offline mode makes no
+  outbound request at boot.
+- Attachments are kept in a local table (`local_blobs`) rather than object
+  storage, base64-encoded, because the bridge to the shell carries text.
+- Integration credentials are kept in `local_secrets` in the same local
+  database, not behind `/api/settings/credentials` — there is no server to hold
+  them and no other user to hold them from. They are protected by the file
+  permissions on the app's directory and nothing else.
+- Sharing, supervision and anything else that needs a second person are
+  account features and stay unavailable.
+
+## Updates
+
+Packaged copies update themselves: `electron-updater` checks the GitHub releases
+feed on launch and every six hours, downloads in the background, and asks once —
+after the bytes are already local — whether to restart now or install on quit.
+Every failure is silent, because "cannot reach GitHub" is the ordinary state of
+a copy on a train. **Help → Check for updates…** forces a check and says so
+either way.
+
+SECURITY: the Windows build is not code-signed. The only integrity check on a
+downloaded update is the SHA-512 in `latest.yml`, fetched over HTTPS from the
+same release. That is weaker than a signature, and signing is the fix.
+
+## The window's menu
+
+The window carries its own menu rather than Electron's default (whose Help
+entries point at electronjs.org): File has the workspace-folder chooser and
+Settings, Edit has the usual editing roles, View has Home / Library / Notes plus
+reload and zoom, and Help has Documentation, Check for updates… and the version.
+Menu navigation happens inside the page, not with `loadURL` — a load driven from
+the main process starts a fresh document, which would log an account-less copy
+straight back out.

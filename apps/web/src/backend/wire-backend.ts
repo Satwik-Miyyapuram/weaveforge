@@ -3,6 +3,8 @@ import { readBackendConfig } from "./config";
 import type { IAdminUserProvisioner } from "@weaveforge/core";
 import { SupabaseAdminUserProvisioner } from "./providers/supabase/admin-provisioner";
 import { wireSupabaseBackend, type WiredSupabaseBackend } from "./providers/supabase/wire-supabase-backend";
+import { isLocalMode } from "./providers/local/local-identity";
+import { localBackendParts } from "./providers/local/wire-local-backend";
 
 export type WiredBackend = WiredSupabaseBackend;
 
@@ -11,6 +13,10 @@ export function wireBackend(
   projectContext = { projectId: null as string | null },
   pid: () => string | null = () => projectContext.projectId,
 ): WiredBackend {
+  // Working on this computer is not a different set of repositories, only a
+  // different database, identity and blob store handed to the same ones.
+  if (isLocalMode()) return wireSupabaseBackend(config, projectContext, pid, localBackendParts());
+
   switch (config.provider) {
     case "supabase":
       return wireSupabaseBackend(config, projectContext, pid);

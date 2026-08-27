@@ -15,7 +15,8 @@ export type AccountLinkId =
   | "ai-review"
   | "settings"
   | "docs"
-  | "signout";
+  | "signout"
+  | "signin";
 
 export interface AccountLink {
   id: AccountLinkId;
@@ -36,6 +37,11 @@ export interface AccountLinksInput {
    */
   hasProject: boolean;
   pendingProposals: number;
+  /**
+   * Whether this copy is working on this computer with no account. There is no
+   * session to end, so "Sign out" would be a lie: the offer is the opposite one.
+   */
+  local?: boolean;
 }
 
 /**
@@ -78,8 +84,9 @@ export function accountLinks(input: AccountLinksInput): AccountLink[] {
   links.push({ id: "settings", label: "Settings", href: "/settings" });
   links.push({ id: "docs", label: "Help & docs", href: DOCS_URL, external: true });
   // Always last, and always present: it is the one control a signed-in user
-  // must be able to find.
-  links.push({ id: "signout", label: "Sign out" });
+  // must be able to find. Without an account there is nothing to sign out of,
+  // so the same slot offers the way in rather than a way out.
+  links.push(input.local ? { id: "signin", label: "Sign in" } : { id: "signout", label: "Sign out" });
 
   return links;
 }

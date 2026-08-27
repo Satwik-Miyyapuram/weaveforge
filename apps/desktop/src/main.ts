@@ -37,6 +37,8 @@ import { CHANNELS } from "./channels";
 import { createVaultWatch, type VaultWatch } from "./vault-watch";
 import { PreferenceStore } from "./preference-store";
 import { fetchReleases, findUpdate } from "./update-check";
+import { installMenu, routeTo } from "./app-menu";
+import { realUpdater, startAutoUpdate } from "./auto-update";
 
 /**
  * The desktop shell.
@@ -90,6 +92,9 @@ const bundled = fs.existsSync(path.join(BUNDLE, "index.html"));
 const APP_URL =
   process.env.WEAVEFORGE_URL ?? (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
 const APP_ORIGIN = new URL(APP_URL).origin;
+
+/** Where the Help menu sends a reader. Matches the app's own docs link. */
+const DOCS_URL = "https://www.weaveforge.org/docs/";
 
 let mainWindow: BrowserWindow | null = null;
 let loopback: import("node:http").Server | null = null;
@@ -212,15 +217,29 @@ function deliverSignIn(query: string): void {
  */
 let offering = false;
 
-async function offerUpdate(): Promise<void> {
+async function offerUpdate({ tellWhenCurrent = false } = {}): Promise<void> {
   // In development the version is whatever is in package.json and the "update"
   // would be the release the source is ahead of.
-  if (!app.isPackaged || offering) return;
+  if ((!app.isPackaged && !tellWhenCurrent) || offering) return;
 
   offering = true;
   try {
-    const update = await findUpdate({ currentVersion: app.getVersion(), fetchReleases });
-    if (!update) return;
+    const update = await findUpdate({ currentVersion: app.getVersion(), fetchReleases }).catch(() => null);
+    // Silence is right for the check on launch and wrong for one the reader
+    // asked for: a menu entry that does nothing visible reads as broken.
+    if (!update) {
+      if (tellWhenCurrent && mainWindow && !mainWindow.isDestroyed()) {
+        await dialog.showMessageBox(mainWindow, {
+          type: "info",
+          title: "Up to date",
+          message: `WeaveForge ${app.getVersion()} is the newest version.`,
+          detail: "If you are offline, this only means no newer version could be reached.",
+          buttons: ["OK"],
+          noLink: true,
+        });
+      }
+      return;
+    }
 
     const window = mainWindow;
     if (!window || window.isDestroyed()) return;
@@ -387,7 +406,14 @@ void preferenceStore()
   .then((root) => (root ? startWatchingVault(root.path) : null))
   .catch(() => null);
 
-ipcMain.handle(CHANNELS.vaultChoose, async () => {
+/**
+ * Ask for a workspace folder and adopt what comes back.
+ *
+ * Its own function because two things ask: the renderer, through the bridge,
+ * and the File menu. A menu entry that reimplemented the adoption would be a
+ * second answer to "what happens to a folder that already has notes in it".
+ */
+async function chooseWorkspaceFolder() {
   const window = mainWindow;
   const result = window
     ? await dialog.showOpenDialog(window, {
@@ -403,7 +429,9 @@ ipcMain.handle(CHANNELS.vaultChoose, async () => {
   );
   if (adopted.ok && adopted.value) startWatchingVault(adopted.value.path);
   return adopted;
-});
+}
+
+ipcMain.handle(CHANNELS.vaultChoose, () => chooseWorkspaceFolder());
 
 ipcMain.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
 ipcMain.handle(CHANNELS.vaultForget, () => {
@@ -595,6 +623,19 @@ if (!app.requestSingleInstanceLock()) {
     // stays shut.
     void resumeLocalApi();
     createWindow();
+    // Updates install themselves when they can; the older check-and-tell path
+    // stays for the menu entry and for builds with no feed behind them.
+    void realUpdater().then((updater) => {
+      if (updater) startAutoUpdate({ updater, window: () => mainWindow, enabled: true });
+    });
+    installMenu({
+      chooseFolder: async () => {
+        await chooseWorkspaceFolder();
+      },
+      checkForUpdates: () => offerUpdate({ tellWhenCurrent: true }),
+      docsUrl: DOCS_URL,
+      goTo: (route) => routeTo(mainWindow, APP_URL, route),
+    });
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

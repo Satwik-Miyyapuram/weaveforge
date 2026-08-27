@@ -7,6 +7,8 @@ import { SupabaseSessionProvider } from "./providers/supabase/session";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/supabase-settings-repository";
 import { SupabaseSelfProvisioner } from "@/features/org/infrastructure/supabase-self-provisioner";
+import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
+import { localBackendParts } from "./providers/local/wire-local-backend";
 
 /**
  * Pre-disclaimer backend: auth + settings only.
@@ -20,6 +22,10 @@ export interface LightBackend {
 }
 
 export function wireLightBackend(config: BackendConfig = readBackendConfig()): LightBackend {
+  // The same choice the full container makes, made earlier: this runs first,
+  // and a window working on this computer must not be asked to sign in.
+  if (isLocalMode()) return wireLocalLightBackend();
+
   if (config.provider !== "supabase") {
     throw new Error(
       "Light bootstrap requires NEXT_PUBLIC_BACKEND_PROVIDER=supabase in the browser.",
@@ -41,4 +47,20 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   const settingsRepository = new SupabaseSettingsRepository(db, session);
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
   return { auth, manageSettings, selfProvisioner: new SupabaseSelfProvisioner(db) };
+}
+
+/**
+ * Auth and settings for a copy with no account.
+ *
+ * Provisioning is a no-op rather than an error: the local user's rows are
+ * created by the shell when it opens the database, so there is nothing left
+ * for the app to ask for.
+ */
+function wireLocalLightBackend(): LightBackend {
+  const { settingsRepository } = localBackendParts();
+  return {
+    auth: new LocalAuthService(),
+    manageSettings: new ManageSettingsUseCaseClass({ repository: settingsRepository }),
+    selfProvisioner: { ensureProvisioned: async () => {} },
+  };
 }
