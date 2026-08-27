@@ -72,6 +72,18 @@ export const CHANNELS = {
   vaultList: "weaveforge:vault-list",
   vaultStat: "weaveforge:vault-stat",
   vaultRemove: "weaveforge:vault-remove",
+  vaultCommit: "weaveforge:vault-commit",
+  localApiState: "weaveforge:local-api-state",
+  /**
+   * One read of the Zotero running on this machine, proxied.
+   *
+   * The page cannot make the request itself -- plain-HTTP loopback from an
+   * `app://` or `https://` document is mixed content -- and this channel is
+   * deliberately not a general fetch: `zotero-local.ts` refuses every URL that
+   * is not Zotero's own local API.
+   */
+  zoteroLocal: "weaveforge:zotero-local",
+  localApiSet: "weaveforge:local-api-set",
   /**
    * Main -> renderer, like `signIn`: somebody else changed the folder.
    *

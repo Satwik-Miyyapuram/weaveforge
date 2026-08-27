@@ -43,7 +43,7 @@ already reworked to **server-key** (done). Affected tables (`ai_proposals`, `ai_
 
 | # | Item | Where | Notes |
 |---|------|-------|-------|
-| 0 | **`experiment_metrics` storage — fixes A + B + C** | [`metrics-storage-plan.md`](metrics-storage-plan.md) | ⏳ **after the OCI cutover** (changing schema first breaks the migration's byte-identical verify). Measured 439 B/row: half is a surrogate UUID nothing queries plus a 10-value string repeated per row. A: composite PK + `metric_id` lookup → ~110 B (migration `0112`). C: downsample on write at the ingest route → bounded growth. B: chunked `float8[]` → ~10–15 B/point. Order matters — B reuses A's `metric_id` and supersedes its row layout |
+| 0 | **`experiment_metrics` storage — fixes A + B + C** | [`metrics-storage-plan.md`](metrics-storage-plan.md) | ✅ all three shipped. A: `0114` narrow rows + `metric_id` lookup. C: downsampling at the ingest route, which caps a series at ~40k points however long the run is. B: `0115` chunked arrays. Measured 448.7 B/point before, 130.9 after A, 22.5 after B — 9.7× on a 200k-point workload against the live server |
 | 6 | **Merge `drop-e2ee` → `main`** | — | ✅ merged (ff) + pushed |
 | 7 | **Perf roadmap** | plan doc removed | ✅ rewritten for post-E2EE (plaintext + RLS; no decrypt workers) |
 | 8 | **Restore server-side title search** | paper repos | ✅ `ilike` re-enabled (postgres + supabase) |

@@ -55,6 +55,34 @@ export class PapersFacade {
     return { library, annotations };
   }
 
+  /**
+   * Annotations from the Zotero running on this computer.
+   *
+   * Separate from `syncBibliography`, which reads the cloud library with an
+   * API key. This one needs no key and no account: Zotero 7 serves a read-only
+   * copy of the same API on loopback, and the desktop shell is what reaches
+   * it. Papers are matched by the `zoteroKey` they already carry, so an item
+   * that has never been imported is left alone rather than created — an
+   * annotation import should not silently grow the library.
+   */
+  async importLocalZoteroAnnotations() {
+    const { desktop } = await import("@/lib/desktop/desktop-bridge");
+    const bridge = desktop();
+    if (!bridge || typeof bridge.zoteroLocal !== "function") {
+      throw new Error("Reading the local Zotero needs the WeaveForge desktop app.");
+    }
+    const { localZoteroAnnotations } = await import(
+      "@/features/papers/infrastructure/zotero-local"
+    );
+    const byPaper = await localZoteroAnnotations(bridge).pullAll();
+    const annotations = await applyBibliographyAnnotations(
+      byPaper,
+      this.deps.papers,
+      this.deps.manageTags,
+    );
+    return { annotations, items: byPaper.size };
+  }
+
   deletePaper(paper: Paper) {
     return this.deps.deletePaper.execute(paper);
   }

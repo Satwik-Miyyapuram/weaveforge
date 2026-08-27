@@ -67,6 +67,31 @@ read stops after one page and silently loses everything past the first hundred;
 and `Backoff`/`Retry-After` must pause **every** in-flight request, not just the
 one that carried the header.
 
+#### The Zotero on this computer (desktop only)
+
+Zotero 7 serves a read-only copy of the Web API on `http://127.0.0.1:23119/api`
+as library `users/0`, with no key and no account. "Read Zotero on this
+computer", in the papers screen's add menu, imports annotations through it.
+
+Everything below the origin is the cloud path reused: `zoteroLibraryUrl` already
+took an `apiOrigin`, so `fetchAllZoteroItems`, the attachment-to-paper join and
+the annotation parser are unchanged (`zotero-local.ts`).
+
+Two things are specific to it:
+
+- **The shell makes the request.** A plain-HTTP loopback request from an
+  `app://` or `https://` document is blocked as mixed content, so it goes over
+  the `weaveforge:zotero-local` channel. That channel is a proxy with one
+  destination, not a fetch: `apps/desktop/src/zotero-local.ts` refuses any URL
+  that is not Zotero's own local API, refuses redirects, sends no credentials
+  and returns only the headers the pager reads. A general fetch channel
+  reachable from the renderer would forward requests to anything the machine
+  can reach.
+- **Nothing is created and nothing is written back.** Papers are matched on the
+  `zoteroKey` they already carry, and Zotero's local API answers reads only.
+  Annotations still go *out* via `ZoteroApiAnnotationWriteBack`, which needs an
+  API key because it goes through `api.zotero.org`.
+
 ### Runtime flow
 
 1. **`readIntegrationConfig()`** reads `NEXT_PUBLIC_*` env vars (deployment-time plugin selection).

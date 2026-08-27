@@ -1,10 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
   DesktopBridge,
+  DesktopCommitResult,
+  DesktopLocalApi,
   DesktopPreferenceValue,
   DesktopUpdate,
   DesktopVaultEntry,
   DesktopVaultRoot,
+  DesktopZoteroReply,
 } from "@/lib/desktop/desktop-bridge";
 import { CHANNELS, type ImagePayload, type IpcResult, type TitlePayload } from "./channels";
 
@@ -60,6 +63,10 @@ const bridge: DesktopBridge = {
   removeVaultFile: async (path) => {
     await call<null>(CHANNELS.vaultRemove, path);
   },
+  commitVault: () => call<DesktopCommitResult>(CHANNELS.vaultCommit),
+  localApiState: () => call<DesktopLocalApi>(CHANNELS.localApiState),
+  zoteroLocal: (url) => call<DesktopZoteroReply>(CHANNELS.zoteroLocal, url),
+  setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);

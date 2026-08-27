@@ -14,4 +14,5 @@ export * from "./merge-vault-page.js";
 export * from "./stamp-workspace-id.js";
 export * from "./deserialize-workspace.js";
 export * from "./git-port.js";
+export * from "./git-gate.js";
 export * from "./folder-mirror.js";

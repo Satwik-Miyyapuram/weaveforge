@@ -20,6 +20,7 @@ import {
   listVaultFiles,
   newVaultSession,
   readVaultFile,
+  commitVaultFolder,
   removeVaultFile,
   restoreRoot,
   statVaultFile,
@@ -27,6 +28,8 @@ import {
   writeVaultFile,
 } from "./vault-handlers";
 import { safeWorkspacePath } from "@weaveforge/core";
+import { LOCAL_API_HOST, LOCAL_API_PORT, newLocalApiToken, startLocalApi, type LocalApi } from "./local-api-server";
+import { fetchZoteroLocal } from "./zotero-local";
 import { SecretStore } from "./secret-store";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
@@ -421,6 +424,99 @@ ipcMain.handle(CHANNELS.vaultRemove, async (_event, at: unknown) => {
   if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
   return removeVaultFile(vault, at);
 });
+/**
+ * The local HTTP surface, off until somebody switches it on.
+ *
+ * The token is read from the keychain per request rather than held here, so
+ * revoking it takes effect immediately, and a token that was never generated
+ * reads as an empty string -- which `routeLocalRequest` refuses outright.
+ */
+let localApi: LocalApi | null = null;
+
+async function localApiToken(): Promise<string> {
+  const stored = await secretStore().read("local-api-token");
+  return stored.ok && stored.value ? stored.value : "";
+}
+
+const LOCAL_API_URL = `http://${LOCAL_API_HOST}:${LOCAL_API_PORT}`;
+
+async function startLocalApiIfEnabled(): Promise<string | undefined> {
+  if (localApi) return undefined;
+  try {
+    localApi = await startLocalApi(vault, () => cachedToken);
+    return undefined;
+  } catch (error) {
+    // The usual reason is another program on the port -- Obsidian's own REST
+    // plugin, most likely. Reported rather than retried: two things answering
+    // on one port is not something to resolve behind the user's back.
+    return error instanceof Error ? error.message : "The port is not available.";
+  }
+}
+
+/** Read once per start and per token change, because a socket cannot await. */
+let cachedToken = "";
+
+async function resumeLocalApi(): Promise<void> {
+  const enabled = await preferenceStore().read("local-api");
+  if (!enabled.ok || enabled.value !== true) return;
+  cachedToken = await localApiToken();
+  if (!cachedToken) return;
+  await startLocalApiIfEnabled();
+}
+
+ipcMain.handle(CHANNELS.localApiState, async () => {
+  const enabled = await preferenceStore().read("local-api");
+  return {
+    ok: true,
+    value: { enabled: localApi !== null && enabled.ok && enabled.value === true, url: LOCAL_API_URL },
+  };
+});
+
+ipcMain.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
+  if (enabled !== true) {
+    await preferenceStore().write("local-api", false);
+    await secretStore().clear("local-api-token");
+    cachedToken = "";
+    await localApi?.close();
+    localApi = null;
+    return { ok: true, value: { enabled: false, url: LOCAL_API_URL } };
+  }
+
+  // A new token every time it is switched on. Reusing the old one would mean
+  // that switching the door off and on again leaves the same keys working.
+  const token = newLocalApiToken();
+  const kept = await secretStore().write("local-api-token", token);
+  if (!kept.ok) return { ok: false, message: kept.message };
+  cachedToken = token;
+  await preferenceStore().write("local-api", true);
+  const reason = await startLocalApiIfEnabled();
+  return {
+    ok: true,
+    value: { enabled: localApi !== null, url: LOCAL_API_URL, token, ...(reason ? { reason } : {}) },
+  };
+});
+
+ipcMain.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
+  try {
+    return { ok: true, value: await fetchZoteroLocal(url) };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Zotero on this computer did not answer. Is it running?",
+    };
+  }
+});
+
+ipcMain.handle(CHANNELS.vaultCommit, async () => {
+  // The setting is read here rather than sent by the renderer: a window that
+  // could pass its own `true` would be switching folder history on without
+  // anybody having chosen it.
+  const enabled = await preferenceStore().read("vault-git");
+  return commitVaultFolder(vault, enabled.ok && enabled.value === true);
+});
 
 /**
  * Watch the chosen folder, and tell the window when somebody else touches it.
@@ -494,6 +590,10 @@ if (!app.requestSingleInstanceLock()) {
     // Started before the window, so a sign-in cannot come back to a port that
     // is not listening yet.
     loopback = startAuthLoopback(deliverSignIn);
+    // Taken back up only if it was switched on and there is still a token to
+    // present. A door left open in the settings with its key thrown away
+    // stays shut.
+    void resumeLocalApi();
     createWindow();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -503,6 +603,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on("will-quit", () => {
     loopback?.close();
     loopback = null;
+    void localApi?.close();
+    localApi = null;
   });
 
   app.on("window-all-closed", () => {

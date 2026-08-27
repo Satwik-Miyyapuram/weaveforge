@@ -155,6 +155,65 @@ export interface DesktopBridge {
   statVaultFile(path: string): Promise<DesktopVaultEntry | null>;
   /** Remove one file the mirror owns. Never used on anything else. */
   removeVaultFile(path: string): Promise<void>;
+  /**
+   * Commit what the mirror wrote, if folder history is switched on.
+   *
+   * Answers with a reason rather than throwing when it declined -- switched
+   * off, or a folder sitting inside somebody else's repository -- because both
+   * are ordinary and neither should cost the caller its write.
+   */
+  commitVault(): Promise<DesktopCommitResult>;
+  /** Whether the local HTTP surface is listening, and on what. */
+  localApiState(): Promise<DesktopLocalApi>;
+  /**
+   * Switch the local HTTP surface on or off.
+   *
+   * Switching it on generates a token and answers with it once. Nothing shows
+   * it again: a token that can be re-read from a settings panel is a token
+   * that can be re-read by anything that can reach the panel.
+   */
+  setLocalApi(enabled: boolean): Promise<DesktopLocalApi>;
+  /**
+   * One read of the Zotero API running on this computer.
+   *
+   * Not a fetch: the shell refuses every URL that is not
+   * `http://127.0.0.1:23119/api/...`, so this cannot be used to reach anything
+   * else the machine can reach. It exists because a plain-HTTP loopback
+   * request from this document is blocked as mixed content.
+   */
+  zoteroLocal(url: string): Promise<DesktopZoteroReply>;
+}
+
+/** A local Zotero response, flattened for the wire. */
+export interface DesktopZoteroReply {
+  status: number;
+  body: string;
+  /** Only the headers the pager reads: total-results, backoff, retry-after. */
+  headers: Record<string, string>;
+}
+
+export interface DesktopCommitResult {
+  /** The commit made, or null when there was nothing to commit or it declined. */
+  commit: DesktopCommit | null;
+  /** Why nothing was committed, when that was a decision rather than a no-op. */
+  reason?: string;
+}
+
+export interface DesktopLocalApi {
+  enabled: boolean;
+  /** Loopback only. Present whether or not it is currently listening. */
+  url: string;
+  /** The token, once, on the call that generated it. Never afterwards. */
+  token?: string;
+  /** Why it is not listening, when that was not the user's choice. */
+  reason?: string;
+}
+
+export interface DesktopCommit {
+  oid: string;
+  message: string;
+  authoredAt: string;
+  author: string;
 }
 
 export interface DesktopVaultRoot {
@@ -171,10 +230,15 @@ export interface DesktopVaultEntry {
 }
 
 /** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */
-export type DesktopSecretName = "ai-provider";
+export type DesktopSecretName = "ai-provider" | "local-api-token";
 
 /** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
-export type DesktopPreferenceName = "sync-offer-shown" | "sync-target" | "vault-root";
+export type DesktopPreferenceName =
+  | "sync-offer-shown"
+  | "sync-target"
+  | "vault-root"
+  | "vault-git"
+  | "local-api";
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {

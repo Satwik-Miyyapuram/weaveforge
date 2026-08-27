@@ -172,9 +172,9 @@ and it keeps itself up to date from then on.
       without an app container -- 6 tests
 
 ### Phase 5 — Git (optional, gated)
-- [ ] `GitPort` already exists. Commit the folder after each settled write, so
+- [x] `GitPort` already exists. Commit the folder after each settled write, so
       the vault has file-level history without the app owning a history model
-- [ ] Off by default; a folder inside someone else's repository must not start
+- [x] Off by default; a folder inside someone else's repository must not start
       committing on its own
 
 ## Interop details already settled
@@ -189,9 +189,11 @@ and it keeps itself up to date from then on.
 
 ## Known risk
 
-The frontmatter parser is deliberately narrow: scalars and flow lists, no YAML
-library, no deserialization surface. That is right for a format we emit and
-wrong for one an outside editor writes back. Phase 3 needs a reader that
-tolerates nested maps and block lists without widening what we *write*, and
-without acquiring a YAML dependency that can be talked into constructing
-objects.
+The frontmatter parser is deliberately narrow: no YAML library, no
+deserialization surface. That is right for a format we emit and was wrong for
+one an outside editor writes back, so the reader was widened and the writer was
+not. `readFrontmatter` now reads block lists -- which is how every outside
+editor writes a list -- tolerates single-quoted scalars, and skips a nested map
+entirely rather than leaving a half-read key behind. `writeFrontmatter` still
+emits scalars and flow lists only, and no dependency was added, so there is
+still nothing here that can be talked into constructing objects.
