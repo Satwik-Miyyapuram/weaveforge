@@ -20,6 +20,10 @@ import {
   listVaultFiles,
   newVaultSession,
   readVaultFile,
+  removeVaultFile,
+  restoreRoot,
+  statVaultFile,
+  type RememberRoot,
   writeVaultFile,
 } from "./vault-handlers";
 import { SecretStore } from "./secret-store";
@@ -362,6 +366,21 @@ ipcMain.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
  */
 const vault = newVaultSession();
 
+/** The chosen folder outlives the process, so the app comes back to it. */
+const rememberRoot: RememberRoot = (root) => {
+  void preferenceStore().write("vault-root", root);
+};
+
+/**
+ * Take up last run's folder, re-verified. Deliberately not awaited at startup:
+ * the window should not wait on a disk that may be a disconnected network
+ * share, and the renderer asks for the root when it needs it anyway.
+ */
+void preferenceStore()
+  .read("vault-root")
+  .then((result) => (result.ok ? restoreRoot(vault, result.value, rememberRoot) : null))
+  .catch(() => null);
+
 ipcMain.handle(CHANNELS.vaultChoose, async () => {
   const window = mainWindow;
   const result = window
@@ -371,16 +390,18 @@ ipcMain.handle(CHANNELS.vaultChoose, async () => {
       })
     : await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
   // A dismissed dialog is the user declining, not a failure.
-  return adoptRoot(vault, result.canceled ? null : (result.filePaths[0] ?? null));
+  return adoptRoot(vault, result.canceled ? null : (result.filePaths[0] ?? null), rememberRoot);
 });
 
 ipcMain.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
-ipcMain.handle(CHANNELS.vaultForget, () => forgetRoot(vault));
+ipcMain.handle(CHANNELS.vaultForget, () => forgetRoot(vault, rememberRoot));
 ipcMain.handle(CHANNELS.vaultRead, (_event, at: unknown) => readVaultFile(vault, at));
 ipcMain.handle(CHANNELS.vaultWrite, (_event, at: unknown, contents: unknown) =>
   writeVaultFile(vault, at, contents),
 );
 ipcMain.handle(CHANNELS.vaultList, (_event, at: unknown) => listVaultFiles(vault, at));
+ipcMain.handle(CHANNELS.vaultStat, (_event, at: unknown) => statVaultFile(vault, at));
+ipcMain.handle(CHANNELS.vaultRemove, (_event, at: unknown) => removeVaultFile(vault, at));
 
 app.on("will-quit", (event) => {
   event.preventDefault();

@@ -56,6 +56,10 @@ const bridge: DesktopBridge = {
     await call<null>(CHANNELS.vaultWrite, path, contents);
   },
   listVaultFiles: (path) => call<DesktopVaultEntry[]>(CHANNELS.vaultList, path ?? ""),
+  statVaultFile: (path) => call<DesktopVaultEntry | null>(CHANNELS.vaultStat, path),
+  removeVaultFile: async (path) => {
+    await call<null>(CHANNELS.vaultRemove, path);
+  },
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);

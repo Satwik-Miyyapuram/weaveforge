@@ -12,6 +12,9 @@ import {
   listVaultFiles,
   newVaultSession,
   readVaultFile,
+  removeVaultFile,
+  restoreRoot,
+  statVaultFile,
   writeVaultFile,
 } from "../src/vault-handlers";
 
@@ -175,4 +178,63 @@ test("listing answers entries the renderer can use", async () => {
     listed.ok ? listed.value.map((entry) => entry.path) : [],
     ["notes/a.note.md"],
   );
+});
+
+// ------------------------------------------------------------- remembering it
+
+test("choosing a folder remembers it; forgetting clears it", async () => {
+  const session = newVaultSession();
+  const root = await tempDir();
+  const seen: (string | null)[] = [];
+  await adoptRoot(session, root, (value) => seen.push(value));
+  forgetRoot(session, (value) => seen.push(value));
+  assert.deepEqual(seen, [root, null]);
+});
+
+test("a remembered folder is re-verified, not trusted", async () => {
+  const session = newVaultSession();
+  const root = await tempDir();
+  const restored = await restoreRoot(session, root);
+  assert.deepEqual(restored, { path: root, state: "empty" });
+});
+
+test("a remembered folder that is now somebody else's is dropped", async () => {
+  const session = newVaultSession();
+  const root = await tempDir();
+  await writeFile(path.join(root, "taxes.pdf"), "mine");
+  const seen: (string | null)[] = [];
+  assert.equal(await restoreRoot(session, root, (value) => seen.push(value)), null);
+  assert.deepEqual(currentRoot(session), { ok: true, value: null });
+  // And it stops being remembered, so the next launch does not retry it.
+  assert.deepEqual(seen, [null]);
+});
+
+test("nothing remembered means nothing restored", async () => {
+  const session = newVaultSession();
+  assert.equal(await restoreRoot(session, null), null);
+  assert.equal(await restoreRoot(session, ""), null);
+  assert.equal(await restoreRoot(session, 42), null);
+});
+
+// ------------------------------------------------------------ stat and remove
+
+test("stat crosses as an entry, or null", async () => {
+  const session = newVaultSession();
+  await adoptRoot(session, await tempDir());
+  await writeVaultFile(session, "notes/a.note.md", "Body.");
+  const found = await statVaultFile(session, "notes/a.note.md");
+  assert.equal(found.ok && found.value?.kind, "file");
+  const missing = await statVaultFile(session, "notes/gone.md");
+  assert.deepEqual(missing, { ok: true, value: null });
+});
+
+test("remove takes one file and is never recursive", async () => {
+  const session = newVaultSession();
+  await adoptRoot(session, await tempDir());
+  await writeVaultFile(session, "notes/a.note.md", "Body.");
+  assert.deepEqual(await removeVaultFile(session, "notes/a.note.md"), { ok: true, value: null });
+  assert.deepEqual(await readVaultFile(session, "notes/a.note.md"), { ok: true, value: null });
+  // A directory with something in it cannot be taken out from here.
+  await writeVaultFile(session, "notes/b.note.md", "Body.");
+  assert.equal((await removeVaultFile(session, "notes")).ok, false);
 });

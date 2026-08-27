@@ -26,10 +26,14 @@ export function newVaultSession(): VaultSession {
   return { root: null, fs: null };
 }
 
+/** Told when the chosen folder changes, so it can outlive the process. */
+export type RememberRoot = (root: string | null) => void;
+
 /** Adopt a directory the user picked. Refuses anything `verifyRoot` refuses. */
 export async function adoptRoot(
   session: VaultSession,
   chosen: string | null,
+  remember?: RememberRoot,
 ): Promise<IpcResult<VaultRootPayload | null>> {
   // A cancelled dialog is not a failure: it is the user declining, and the
   // renderer should see the folder unchanged rather than an error.
@@ -40,12 +44,35 @@ export async function adoptRoot(
 
   session.root = { path: chosen, state: verdict.state };
   session.fs = new NodeWorkspaceFs(chosen);
+  remember?.(chosen);
   return { ok: true, value: session.root };
 }
 
-export function forgetRoot(session: VaultSession): IpcResult<null> {
+/**
+ * Take up a folder remembered from a previous run.
+ *
+ * Re-verified rather than trusted: between two launches the folder can have
+ * been deleted, moved, or replaced by an unrelated directory at the same path.
+ * A folder that no longer passes is forgotten rather than written to, and the
+ * user is back to having chosen nothing — which is recoverable, where writing
+ * a workspace into a stranger's directory is not.
+ */
+export async function restoreRoot(
+  session: VaultSession,
+  remembered: unknown,
+  remember?: RememberRoot,
+): Promise<VaultRootPayload | null> {
+  if (typeof remembered !== "string" || !remembered) return null;
+  const adopted = await adoptRoot(session, remembered, remember);
+  if (adopted.ok) return adopted.value;
+  remember?.(null);
+  return null;
+}
+
+export function forgetRoot(session: VaultSession, remember?: RememberRoot): IpcResult<null> {
   session.root = null;
   session.fs = null;
+  remember?.(null);
   return { ok: true, value: null };
 }
 
@@ -103,6 +130,41 @@ export async function listVaultFiles(
         modifiedAt: entry.modifiedAt,
       })),
     };
+  } catch (error) {
+    return { ok: false, message: messageOf(error) };
+  }
+}
+
+export async function statVaultFile(
+  session: VaultSession,
+  relative: unknown,
+): Promise<IpcResult<VaultEntryPayload | null>> {
+  if (!session.fs) return { ok: false, message: NO_ROOT };
+  if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
+  try {
+    const stat = await session.fs.stat(relative);
+    if (!stat) return { ok: true, value: null };
+    return {
+      ok: true,
+      value: { path: stat.path, kind: stat.kind, size: stat.size, modifiedAt: stat.modifiedAt },
+    };
+  } catch (error) {
+    return { ok: false, message: messageOf(error) };
+  }
+}
+
+export async function removeVaultFile(
+  session: VaultSession,
+  relative: unknown,
+): Promise<IpcResult<null>> {
+  if (!session.fs) return { ok: false, message: NO_ROOT };
+  if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
+  try {
+    // Never recursive from here. The mirror removes files it wrote, one at a
+    // time; a recursive delete reachable from the renderer is a way to empty
+    // a folder the app does not own.
+    await session.fs.remove(relative);
+    return { ok: true, value: null };
   } catch (error) {
     return { ok: false, message: messageOf(error) };
   }

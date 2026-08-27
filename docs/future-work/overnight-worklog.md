@@ -107,3 +107,55 @@ rather than adding to the pile:
 
 The `DesktopBridge` contract in the web app is the single definition both
 sides compile against, so the preload could not be written wrong here.
+
+## Round 4 — the two operations the mirror needs, and a folder that persists
+
+`mirrorWorkspace` calls `stat` before every write and `remove` for every file
+that has left the workspace. Round 3 shipped neither over IPC, so the port was
+real but the mirror still could not run against it. Two channels close that:
+
+- `vault-stat` and `vault-remove`. `removeVaultFile` is never recursive, on
+  purpose: the mirror only ever deletes files it wrote, and a recursive delete
+  reachable from the renderer is a much larger thing to get wrong than the
+  convenience is worth
+- The chosen folder is remembered in the preference store under `vault-root`
+  and taken up again on launch — but **re-verified**, not trusted. A path in a
+  preference file is a claim about last week's disk. `restoreRoot` runs it back
+  through `verifyRoot`, and a folder that is now somebody else's is dropped
+  *and* un-remembered rather than silently refused every launch
+- The restore is deliberately not awaited at startup. A remembered root can be
+  a disconnected network share, and the window should not wait on it
+
+Desktop tests 72 → 78.
+
+## Round 5 — the mirror finally has a caller
+
+`mirrorWorkspace` has existed, tested, with zero callers since it was written.
+Two pieces in a new `apps/web/src/features/vault-mirror/` give it one:
+
+- `DesktopVaultFs` wears `IWorkspaceFs` over the bridge's six folder calls.
+  Two methods have no channel and are satisfied locally: `mkdirp` is a no-op
+  because a write creates its parents on the far side, and a channel that makes
+  empty directories is a channel that can litter a folder with them; `rename`
+  is a copy and a delete, which is what a rename across a process boundary
+  would be anyway
+- `createMirrorRunner` debounces, coalesces, and — the part that matters —
+  remembers what the last run wrote. `previousPaths` is how the mirror knows
+  which files have departed, and it has to outlive the process. It lives in
+  `.weaveforge/mirror.json` **inside the folder**, not in local storage: the
+  folder can be opened on another machine, and a manifest that travelled
+  separately from the files it describes would name paths that were never
+  written there and delete files it did not own. A missing manifest degrades to
+  "remove nothing" — a stale file is visible and fixable; a wrongly deleted one
+  is not
+- A request that lands mid-run is re-run afterwards rather than folded into a
+  snapshot taken before the save happened, and a `suspended` flag lets the
+  Phase 3 read-back stand the mirror down so the two directions cannot chase
+  each other
+- A mirror failure is reported through `onError`, never thrown. Supabase is the
+  source of truth; losing a mirror write costs a stale file, failing the save
+  that triggered it would cost the user their edit
+
+12 tests (web 897 → 909). Phase 2 of `live-vault-folder.md` is done bar the
+wiring into the save path, which needs a UI affordance for choosing the folder
+and is the next round's work.

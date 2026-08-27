@@ -70,6 +70,8 @@ export const CHANNELS = {
   vaultRead: "weaveforge:vault-read",
   vaultWrite: "weaveforge:vault-write",
   vaultList: "weaveforge:vault-list",
+  vaultStat: "weaveforge:vault-stat",
+  vaultRemove: "weaveforge:vault-remove",
 } as const;
 
 /**
