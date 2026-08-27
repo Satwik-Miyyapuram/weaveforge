@@ -18,24 +18,19 @@
  * page: `<!-- generated:<id> -->` and `<!-- /generated:<id> -->`.
  */
 
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-/** Anything generated, installed, or built. None of it is ours to count. */
-const SKIP_DIRS = new Set([
-  "node_modules", ".next", ".git", "dist", "out", "release", "coverage",
-  "__pycache__", ".venv", "venv", ".turbo", "playwright-report", "test-results",
-]);
 
 const CODE = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".css", ".sql"]);
 
 /**
  * One row of the table: where it is, what it is for, and how it is measured.
  *
- * `count` is either lines of code or a file tally, because for two of these the
+ * `unit` is either lines of code or a file tally, because for two of these the
  * honest unit is files — a migration is a step in a sequence whether it is four
  * lines or four hundred, and so is a page of documentation.
  */
@@ -50,43 +45,37 @@ const AREAS = [
   { dir: "docs", unit: "files", what: "Documentation, this page included" },
 ];
 
-function walk(dir, onFile) {
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return; // A folder that is not checked out is not a folder with no code.
-  }
-  for (const entry of entries) {
-    if (entry.name.startsWith(".") && entry.name !== ".gitignore") continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) walk(full, onFile);
-    } else {
-      onFile(full);
-    }
-  }
-}
+/**
+ * The files git is tracking, which is the only definition of "our code" that
+ * two machines agree on.
+ *
+ * Walking the working tree counted whatever happened to be lying in it — a
+ * stale build directory, a scratch script, someone's notes — so the same commit
+ * measured differently here and on CI, and the check that exists to catch drift
+ * became the thing that drifted.
+ */
+const TRACKED = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
+  .split("\0")
+  .filter(Boolean);
 
 function measure({ dir, unit }) {
-  const full = path.join(ROOT, dir);
   let lines = 0;
   let files = 0;
-  walk(full, (file) => {
-    const ext = path.extname(file);
+  for (const rel of TRACKED) {
+    if (!rel.startsWith(`${dir}/`)) continue;
+    const ext = path.extname(rel);
     if (unit === "files") {
       if (ext === ".sql" || ext === ".md") files += 1;
-      return;
+      continue;
     }
-    if (!CODE.has(ext)) return;
+    if (!CODE.has(ext)) continue;
     files += 1;
     // Counted the way `wc -l` counts: a trailing newline does not open a line.
-    const text = readFileSync(file, "utf8");
+    const text = readFileSync(path.join(ROOT, rel), "utf8");
     if (text) lines += text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
-  });
+  }
   return { lines, files };
 }
-
 /** Digits a reader can scan, grouped the way they read them. */
 const n = (value) => value.toLocaleString("en-US");
 
