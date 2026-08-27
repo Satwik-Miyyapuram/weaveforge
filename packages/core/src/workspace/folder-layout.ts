@@ -32,6 +32,47 @@ export const ENTITY_DIRS: Record<WorkspaceEntityType, string> = {
 };
 
 /**
+ * The type, spelled into the filename: `methods--a1b2c3.note.md`.
+ *
+ * The directory already says what a file is, but the directory is the first
+ * thing that falls away — in a tab, in quick-open, in a search result, in the
+ * OS "recent files" list, `methods--a1b2c3.md` could be a note, a paper's note
+ * or a report section. The suffix travels with the name.
+ *
+ * It is a hint and never a source of truth: `weaveforge-id` frontmatter and
+ * the containing directory decide what a file is, in that order, so a folder
+ * written before this existed still imports and a file moved by hand into the
+ * wrong directory is read as what its directory says.
+ */
+export const KIND_SUFFIX: Record<WorkspaceEntityType, string> = {
+  vault_page: "note",
+  paper: "paper",
+  reading_list: "list",
+  report_section: "report",
+  experiment: "experiment",
+  milestone: "milestone",
+  log_entry: "log",
+};
+
+const SUFFIX_TO_TYPE = new Map<string, WorkspaceEntityType>(
+  Object.entries(KIND_SUFFIX).map(([type, suffix]) => [suffix, type as WorkspaceEntityType]),
+);
+
+/** The type a path's suffix claims, or null when it carries none. */
+export function parseKindSuffix(path: string): WorkspaceEntityType | null {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  const match = /\.([a-z_]+)\.md$/.exec(name);
+  return match ? (SUFFIX_TO_TYPE.get(match[1]!) ?? null) : null;
+}
+
+/** The filename with its kind suffix and extension removed. */
+export function stripKindSuffix(name: string): string {
+  return name.replace(/\.md$/, "").replace(/\.[a-z_]+$/, (suffix) =>
+    SUFFIX_TO_TYPE.has(suffix.slice(1)) ? "" : suffix,
+  );
+}
+
+/**
  * Filesystem-safe, human-readable slug. Reserved Windows device names get a
  * suffix — a file called `con.md` cannot be created on Windows, and a folder
  * that will not round-trip on one platform is not portable.
@@ -69,8 +110,10 @@ export interface FolderNode {
  */
 export function treePaths(
   nodes: readonly FolderNode[],
-  root: string,
+  type: WorkspaceEntityType,
 ): Map<string, string> {
+  const root = ENTITY_DIRS[type];
+  const ext = `.${KIND_SUFFIX[type]}.md`;
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const childCount = new Map<string, number>();
   for (const node of nodes) {
@@ -116,8 +159,8 @@ export function treePaths(
     out.set(
       node.id,
       (childCount.get(node.id) ?? 0) > 0
-        ? `${dirFor(node)}/${slug}.md`
-        : `${parentDir}/${slug}.md`,
+        ? `${dirFor(node)}/${slug}${ext}`
+        : `${parentDir}/${slug}${ext}`,
     );
   }
   return out;
@@ -125,13 +168,13 @@ export function treePaths(
 
 /** Flat path for a non-tree entity, with an id suffix so titles may repeat. */
 export function flatPath(type: WorkspaceEntityType, id: string, title: string): string {
-  return `${ENTITY_DIRS[type]}/${slugFor(title)}--${idSuffix(id)}.md`;
+  return `${ENTITY_DIRS[type]}/${slugFor(title)}--${idSuffix(id)}.${KIND_SUFFIX[type]}.md`;
 }
 
-/** Logbook is dated rather than titled: `logbook/2026/03/2026-03-14--ab12cd.md`. */
+/** Logbook is dated rather than titled: `logbook/2026/03/2026-03-14--ab12cd.log.md`. */
 export function logPath(id: string, entryDate: string): string {
   const [year, month] = entryDate.split("-");
-  return `${ENTITY_DIRS.log_entry}/${year ?? "unknown"}/${month ?? "00"}/${entryDate}--${idSuffix(id)}.md`;
+  return `${ENTITY_DIRS.log_entry}/${year ?? "unknown"}/${month ?? "00"}/${entryDate}--${idSuffix(id)}.${KIND_SUFFIX.log_entry}.md`;
 }
 
 /** Assets live in one tree so a body's relative links resolve from anywhere. */

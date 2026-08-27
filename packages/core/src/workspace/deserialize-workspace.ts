@@ -12,7 +12,7 @@
 
 import { readFrontmatter, frontmatterList, frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
-import { WORKSPACE_META_DIR } from "./folder-layout.js";
+import { WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
 
 export interface ParsedEntity {
   /** Absent when the file carries no `weaveforge-id` — a hand-created file. */
@@ -52,7 +52,14 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   const { frontmatter, body } = readFrontmatter(content);
   const declared = frontmatterString(frontmatter, "weaveforge-type");
   const fromDir = DIR_TYPES[path.split("/")[0] ?? ""];
-  const type = declared && KNOWN_TYPES.has(declared) ? (declared as WorkspaceEntityType) : fromDir;
+  // Frontmatter, then the directory, then the filename suffix. The suffix is
+  // last because a file dragged into another directory is what its directory
+  // says it is, and it is present at all so a loose `ideas.note.md` still
+  // imports as a note.
+  const type =
+    declared && KNOWN_TYPES.has(declared)
+      ? (declared as WorkspaceEntityType)
+      : (fromDir ?? parseKindSuffix(path));
   if (!type) return null;
 
   const fileName = path.split("/").pop() ?? path;
@@ -60,7 +67,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
     frontmatterString(frontmatter, "title") ??
     // Fall back to the filename minus any id suffix, so a hand-created
     // `notes/My idea.md` imports with a sensible title.
-    fileName.replace(/\.md$/, "").replace(/--[a-zA-Z0-9]{1,8}$/, "");
+    stripKindSuffix(fileName).replace(/--[a-zA-Z0-9]{1,8}$/, "");
 
   const fields: ParsedEntity["fields"] = {};
   for (const [key, value] of Object.entries(frontmatter)) {

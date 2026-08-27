@@ -1,5 +1,5 @@
 import { unzipSync } from "fflate";
-import { normalizeTitleKey, stripFrontmatter, uniqueTitle } from "@weaveforge/core";
+import { normalizeTitleKey, stripFrontmatter, stripKindSuffix, uniqueTitle } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 
 export interface ImportResult {
@@ -114,7 +114,7 @@ export async function importNotesFromFiles(
   const planned: { file: File; title: string; parentKey: string; raw: string }[] = [];
   for (const f of mdFiles) {
     const raw = await f.text();
-    const base = f.name.replace(/\.md$/i, "");
+    const base = stripKindSuffix(f.name);
     const title = uniqueTitle(base, used);
     if (title !== base) {
       renamed.push({ from: base, to: title });

@@ -34,5 +34,6 @@
 @import "./privacy.css"; /* Privacy notice, delete-account panel, settings tabs. */
 @import "./ai-review.css"; /* AI review screen. */
 @import "./reader.css"; /* PDF reader. */
+@import "./editor-workspace.css"; /* Desktop editor: explorer tree, panes, tabs. */
 @import "./surfaces.css"; /* The borderless surfaces variant. */
 @import "./motion.css"; /* The reactive motion variant. */

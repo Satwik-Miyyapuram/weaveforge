@@ -60,7 +60,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
   const assets: SerializedWorkspace["assets"] = [];
 
   // --- notes, reading lists, report sections: nested by parentId ------------
-  const notePaths = treePaths(snapshot.vaultPages, ENTITY_DIRS.vault_page);
+  const notePaths = treePaths(snapshot.vaultPages, "vault_page");
   for (const page of snapshot.vaultPages) {
     const path = notePaths.get(page.id)!;
     files[path] = markdown(
@@ -75,7 +75,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
 
   const listPaths = treePaths(
     snapshot.readingLists.map((l) => ({ id: l.id, title: l.name, parentId: l.parentId })),
-    ENTITY_DIRS.reading_list,
+    "reading_list",
   );
   for (const list of snapshot.readingLists) {
     const path = listPaths.get(list.id)!;
@@ -89,7 +89,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
     );
   }
 
-  const sectionPaths = treePaths(snapshot.reportSections, ENTITY_DIRS.report_section);
+  const sectionPaths = treePaths(snapshot.reportSections, "report_section");
   for (const section of snapshot.reportSections) {
     const path = sectionPaths.get(section.id)!;
     files[path] = markdown(
