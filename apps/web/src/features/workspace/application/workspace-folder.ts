@@ -217,16 +217,6 @@ export function requestSync(): void {
   syncs.request();
 }
 
-/** Stand the mirror down while a read-back is being applied. */
-export function suspendSync(suspended: boolean): void {
-  syncs.suspended = suspended;
-}
-
-/** The most recent mirror failure, for a panel that wants to say so. */
-export function lastSyncError(): unknown {
-  return syncErrors.at(-1) ?? null;
-}
-
 /**
  * Follow the workspace while a folder is connected.
  *
@@ -551,6 +541,22 @@ export function settleConflict(
 export async function applyFolderImport(
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>> = {},
+): Promise<{ created: number; updated: number }> {
+  // The mirror stands down for the duration. Every write below changes the
+  // workspace, and a sync waking up halfway through would write the folder from
+  // a half-imported snapshot — then be asked to import that back.
+  syncs.suspended = true;
+  try {
+    return await applyEntries(diff, resolutions);
+  } finally {
+    syncs.suspended = false;
+    requestSync();
+  }
+}
+
+async function applyEntries(
+  diff: ImportDiff,
+  resolutions: Readonly<Record<string, ConflictResolution>>,
 ): Promise<{ created: number; updated: number }> {
   const container = getContainer();
   // Read once: the set only has to describe the workspace as it stood before

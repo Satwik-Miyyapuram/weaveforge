@@ -9,11 +9,6 @@ export interface IntegrationPluginRegistration {
   readonly kind: "bibliography" | "citation" | "notification" | "logSync" | "gitRead";
 }
 
-/** Optional feature module contributed by a plugin package. */
-export interface FeatureModulePluginRegistration {
-  readonly module: FeatureModule;
-}
-
 /**
  * A deploy-time plugin package exports a factory returning this shape.
  * Register via `weaveforge.config.ts` → `plugins: [myPlugin()]`.

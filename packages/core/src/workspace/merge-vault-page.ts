@@ -109,24 +109,3 @@ export function vaultPageSide(path: string, content: string): VaultPageSide | nu
   if (!parsed || parsed.type !== "vault_page") return null;
   return { fields: { ...parsed.fields, title: parsed.title }, body: parsed.body };
 }
-
-/**
- * Try to settle a both-changed file from the two files themselves.
- *
- * Returns null when there is nothing to merge on — an unparseable side, or a
- * base this folder never recorded — which leaves the conflict standing. That
- * is the safe direction: a merge that guesses at a missing base is how an edit
- * disappears.
- */
-export function mergeVaultPageFiles(
-  path: string,
-  base: VaultPageBase | undefined,
-  folderContent: string | undefined,
-  workspaceContent: string | undefined,
-): VaultPageMerge | null {
-  if (!base || folderContent === undefined || workspaceContent === undefined) return null;
-  const folder = vaultPageSide(path, folderContent);
-  const workspace = vaultPageSide(path, workspaceContent);
-  if (!folder || !workspace) return null;
-  return mergeVaultPage(base, folder, workspace);
-}

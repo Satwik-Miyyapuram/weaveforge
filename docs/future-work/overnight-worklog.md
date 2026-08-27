@@ -531,3 +531,22 @@ alone leaves the folder holding two files with one id.
 
 Phase 3 is now complete. Verified: core 1004, web 939, desktop 88, three tsc
 projects clean, lint clean, solid/dry/hygiene clean.
+
+## Round 15 — dead exports, and one that should not have been dead
+
+Swept every exported symbol for uses outside its own declaration. Most hits were
+noise (a type used only in the file that declares it), but eight were genuinely
+unreachable and are gone: `MirrorMode`, `mergeVaultPageFiles` (written last
+round for a caller that never appeared), `ThemeColorKey`/`ThemeFontKey`/
+`ThemeRadiusKey`, `FeatureModulePluginRegistration`, and `lastSyncError`.
+
+`suspendSync` was on that list too, and deleting it would have been the wrong
+answer. The coalescer already documents a `suspended` flag as "true while a
+read-back is being applied, so the mirror stands down", and nothing had ever set
+it: `applyFolderImport` wrote page after page with the mirror free to wake up
+mid-import, write the folder from a half-imported workspace, and then be asked
+to import that back. It now suspends for the duration and syncs once at the end,
+in a `finally` so a failed import does not leave the mirror switched off.
+
+Net −25 lines. Verified: core 1004, web 939, three tsc projects clean, lint
+clean, solid/dry/hygiene clean.

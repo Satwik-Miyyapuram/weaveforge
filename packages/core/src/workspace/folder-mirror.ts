@@ -14,8 +14,6 @@ import type { WorkspaceSnapshot } from "./workspace-snapshot.js";
 import { vaultPageBase, type VaultPageBase } from "./merge-vault-page.js";
 import { serializeWorkspace } from "./serialize-workspace.js";
 
-export type MirrorMode = "off" | "on";
-
 export interface MirrorResult {
   written: string[];
   removed: string[];
