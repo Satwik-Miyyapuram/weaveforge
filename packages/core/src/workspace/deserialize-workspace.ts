@@ -110,11 +110,22 @@ export interface DiffOptions {
 
 export type ImportAction = "created" | "updated" | "unchanged" | "conflict";
 
+/**
+ * Why an entry conflicts, which decides what may be done about it.
+ *
+ * `both-changed` can be settled any way the user likes -- the two copies are
+ * both notes and either is a legitimate answer. `type-mismatch` cannot: the id
+ * in the file belongs to a different kind of entity, so there is nothing to
+ * update, and importing the file as a new note is the only safe outcome.
+ */
+export type ConflictKind = "both-changed" | "type-mismatch";
+
 export interface ImportDiffEntry {
   action: ImportAction;
   entity: ParsedEntity;
   /** Why an entry is a conflict, shown to the user before any write. */
   reason?: string;
+  kind?: ConflictKind;
 }
 
 export interface ImportDiff {
@@ -164,6 +175,7 @@ export function diffWorkspace(
       entries.push({
         action: "conflict",
         entity,
+        kind: "type-mismatch",
         reason: `The id in ${entity.path} belongs to a ${current.type}, not a ${entity.type}.`,
       });
       continue;
@@ -189,6 +201,7 @@ export function diffWorkspace(
       entries.push({
         action: "conflict",
         entity,
+        kind: "both-changed",
         reason: `${entity.path} changed both in the folder and in the workspace since they last agreed.`,
       });
       continue;

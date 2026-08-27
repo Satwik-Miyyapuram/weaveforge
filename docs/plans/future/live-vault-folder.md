@@ -151,8 +151,17 @@ and it keeps itself up to date from then on.
       the same conflict `offline-first-sync.md` already settled for the
       database. Reuse its three-way merge per field rather than inventing a
       second policy
-- [ ] Anything that does not merge lands as a conflict record the user
-      resolves, never a silent overwrite
+- [x] Anything that does not merge lands as a conflict the user resolves, never
+      a silent overwrite. Three ways out, per file: keep this app's copy (the
+      default, and what an unsettled conflict does), take the folder's copy, or
+      keep both -- which imports the folder's copy as a new note and leaves the
+      workspace's alone. Keeping both is the only one that discards nothing, and
+      is the fallback `offline-first-sync.md` already settled on
+- [x] "Take the folder's copy" is not offered for a type mismatch, and is
+      refused in the application layer as well as hidden in the UI: the id in
+      the file names a paper or an experiment, so there is no note to write over
+- [x] `settleConflict` holds the whole policy and does no I/O, so it is tested
+      without an app container -- 6 tests
 
 ### Phase 5 — Git (optional, gated)
 - [ ] `GitPort` already exists. Commit the folder after each settled write, so

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { changedSide, diffWorkspace, digestText, type ParsedEntity } from "../src/workspace/index.js";
+import { changedSide, diffWorkspace, digestText, type ParsedEntity } from "../../src/workspace/index.js";
 
 test("a digest is stable and text-sensitive", () => {
   assert.equal(digestText("hello"), digestText("hello"));

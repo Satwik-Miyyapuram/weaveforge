@@ -13,6 +13,8 @@ import {
   folderSession,
   previewArchiveImport,
   clearExternalChanges,
+  keepBothTitle,
+  type ConflictResolution,
   externalChanges,
   onExternalChange,
   previewFolderImport,
@@ -302,7 +304,19 @@ function ImportPreview({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const writable = diff.counts.created + diff.counts.updated;
+  /**
+   * How each conflicted file is to be settled, by path.
+   *
+   * Empty means "keep the workspace's copy" for all of them, which is why a
+   * conflict left alone is never written: the default has to be the choice
+   * that discards nothing the user can still see.
+   */
+  const [resolutions, setResolutions] = useState<Record<string, ConflictResolution>>({});
+  const conflicts = diff.entries.filter((entry) => entry.action === "conflict");
+  const settled = conflicts.filter(
+    (entry) => (resolutions[entry.entity.path] ?? "keep") !== "keep",
+  ).length;
+  const writable = diff.counts.created + diff.counts.updated + settled;
 
   return (
     <div className="field">
@@ -312,16 +326,55 @@ function ImportPreview({
         {diff.skipped?.length ? ` · ${diff.skipped.length} file(s) skipped as unsafe` : ""}
       </p>
 
-      {diff.counts.conflict > 0 && (
+      {conflicts.length > 0 && (
         <ul className="wiki-lint-list">
-          {diff.entries
-            .filter((entry) => entry.action === "conflict")
-            .slice(0, 10)
-            .map((entry, index) => (
-              <li key={`${entry.entity.path}-${index}`} data-severity="error">
-                {entry.reason ?? entry.entity.path}
+          {conflicts.slice(0, 10).map((entry, index) => {
+            const path = entry.entity.path;
+            const chosen = resolutions[path] ?? "keep";
+            const choose = (resolution: ConflictResolution) =>
+              setResolutions((current) => ({ ...current, [path]: resolution }));
+            return (
+              <li key={`${path}-${index}`} data-severity="error">
+                {entry.reason ?? path}
+                <div className="screen-actions">
+                  <button
+                    className={chosen === "keep" ? "btn-secondary" : "btn-ghost"}
+                    type="button"
+                    aria-pressed={chosen === "keep"}
+                    onClick={() => choose("keep")}
+                  >
+                    Keep this app&apos;s copy
+                  </button>
+                  {/* Not offered for a type mismatch: the id in the file names a
+                      paper or an experiment, so there is no note to write over. */}
+                  {entry.kind !== "type-mismatch" && (
+                    <button
+                      className={chosen === "folder" ? "btn-secondary" : "btn-ghost"}
+                      type="button"
+                      aria-pressed={chosen === "folder"}
+                      onClick={() => choose("folder")}
+                    >
+                      Take the folder&apos;s copy
+                    </button>
+                  )}
+                  <button
+                    className={chosen === "both" ? "btn-secondary" : "btn-ghost"}
+                    type="button"
+                    aria-pressed={chosen === "both"}
+                    onClick={() => choose("both")}
+                  >
+                    Keep both
+                  </button>
+                </div>
+                {chosen === "both" && (
+                  <p className="muted jump-to-meta">
+                    Imported as “{keepBothTitle(entry.entity.title)}”, leaving this app&apos;s
+                    copy as it is.
+                  </p>
+                )}
               </li>
-            ))}
+            );
+          })}
         </ul>
       )}
 
@@ -335,7 +388,7 @@ function ImportPreview({
           onClick={() => {
             setBusy(true);
             setError(null);
-            void applyFolderImport(diff)
+            void applyFolderImport(diff, resolutions)
               .then((result) =>
                 onApplied(`Imported ${result.created} new and ${result.updated} changed note(s).`),
               )
@@ -348,8 +401,8 @@ function ImportPreview({
       </div>
       <p className="muted jump-to-meta">
         Only notes are imported. Papers and experiments carry structured fields a markdown body
-        cannot round-trip, and a half-imported paper is worse than an unimported one. Conflicts
-        are never applied.
+        cannot round-trip, and a half-imported paper is worse than an unimported one. A file
+        both sides changed is never written over until you say which copy wins.
       </p>
     </div>
   );

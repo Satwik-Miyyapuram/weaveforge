@@ -359,3 +359,41 @@ a file whose contents hashed to nothing.
 Verification: web 932 (was 929, +3 new), core 965 (was 957, +8 new), desktop 87,
 0 fail. `tsc` clean for core, web and desktop, `next lint` clean,
 solid/dry/hygiene pass. Registry untouched.
+
+## Round 10 — Phase 4b: a way out of a conflict
+
+Round 9 gave the import diff the ability to say "both sides changed this". The
+panel then listed those files and offered nothing to do about them: the note was
+stuck, unimportable, and Phase 3's "the folder changed" notice pointed at a
+button that would not act on it. A conflict with no resolution is a dead end
+dressed as a warning.
+
+Three ways out, per file, and the default is the one that discards nothing the
+user can still see:
+
+- **keep this app's copy** -- the default, and what an unsettled conflict does.
+  The next mirror run writes it back over the folder's
+- **take the folder's copy** -- an ordinary update
+- **keep both** -- the folder's copy is imported as a new note, titled
+  "... (from folder)", and the workspace's is left alone. This is the fallback
+  `offline-first-sync.md` already settled on for the database: keep both, tell
+  the user
+
+Taking the folder's copy is not offered for a type mismatch, where the id in the
+file names a paper or an experiment rather than a note. There is nothing to
+write over, so the UI hides the button *and* the application layer refuses it,
+turning it into "keep both" -- a UI that hides an unsafe option is a UI, not a
+guarantee.
+
+`settleConflict` holds the whole policy and does no I/O. That matters because
+`applyFolderImport` reaches for the app container on its first line and cannot
+be tested without one, while the conflict policy -- the part worth getting wrong
+-- is now six plain assertions.
+
+Also fixed: Round 9's core test was sitting flat in `packages/core/test/` rather
+than under the area it exercises, which `check-hygiene` catches. Moved to
+`packages/core/test/workspace/`.
+
+Verification: web 938 (was 932, +6 new), core 965, desktop 87, 0 fail. `tsc`
+clean for core, web and desktop, `next lint` clean, solid/dry/hygiene pass.
+Registry untouched.

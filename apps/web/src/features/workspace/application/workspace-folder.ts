@@ -9,6 +9,7 @@ import {
   parseWorkspaceFolder,
   serializeWorkspace,
   type ImportDiff,
+  type ImportDiffEntry,
   type IWorkspaceFs,
   type IWorkspaceGit,
   type MirrorResult,
@@ -412,14 +413,65 @@ async function diffAgainstWorkspace(
 }
 
 /**
+ * What to do about a file both sides changed.
+ *
+ * `keep` leaves the workspace's copy alone, and the next mirror run writes it
+ * back over the folder's. `folder` takes the folder's copy, losing the
+ * workspace's. `both` imports the folder's copy as a new note and leaves the
+ * workspace's untouched, which is the only one of the three that discards
+ * nothing -- and the fallback `offline-first-sync.md` already settled on for
+ * the database: keep both, tell the user.
+ */
+export type ConflictResolution = "keep" | "folder" | "both";
+
+/** How the folder's copy is titled when both copies are kept. */
+export function keepBothTitle(title: string): string {
+  return `${title} (from folder)`;
+}
+
+/**
+ * Turn a settled conflict into an ordinary entry, or `null` to leave it alone.
+ *
+ * Separated from applying because applying reaches for the app container on
+ * its first line, and this decision -- which is the whole of the conflict
+ * policy -- can then be tested without one.
+ */
+export function settleConflict(
+  entry: ImportDiffEntry,
+  resolutions: Readonly<Record<string, ConflictResolution>>,
+): ImportDiffEntry | null {
+  if (entry.action !== "conflict") return entry;
+
+  const asked = resolutions[entry.entity.path] ?? "keep";
+  // A type mismatch has nothing to update: the id names a paper or an
+  // experiment, so writing the file over it is not on offer whatever the
+  // caller asked for. Importing it as a new note still is.
+  const resolution = asked === "folder" && entry.kind === "type-mismatch" ? "both" : asked;
+  if (resolution === "keep") return null;
+  if (resolution === "folder") return { ...entry, action: "updated" };
+  return {
+    ...entry,
+    action: "created",
+    entity: { ...entry.entity, id: undefined, title: keepBothTitle(entry.entity.title) },
+  };
+}
+
+/**
  * Apply an import.
  *
  * Only notes are written. Papers, experiments, and the rest carry structured
  * fields that a markdown body cannot round-trip faithfully, and half-importing
  * a paper — body updated, metadata silently stale — is worse than not
- * importing it. Conflicts are never applied.
+ * importing it.
+ *
+ * A conflict is applied only where the caller says how to settle it, and
+ * `keep` is the default: a file both sides changed is never written over on a
+ * guess.
  */
-export async function applyFolderImport(diff: ImportDiff): Promise<{ created: number; updated: number }> {
+export async function applyFolderImport(
+  diff: ImportDiff,
+  resolutions: Readonly<Record<string, ConflictResolution>> = {},
+): Promise<{ created: number; updated: number }> {
   const container = getContainer();
   // Read once: the set only has to describe the workspace as it stood before
   // the import, and re-reading it per note would be a request per note.
@@ -427,9 +479,12 @@ export async function applyFolderImport(diff: ImportDiff): Promise<{ created: nu
   let created = 0;
   let updated = 0;
 
-  for (const entry of diff.entries) {
-    if (entry.entity.type !== "vault_page") continue;
-    if (entry.action === "conflict" || entry.action === "unchanged") continue;
+  for (const raw of diff.entries) {
+    if (raw.entity.type !== "vault_page") continue;
+    if (raw.action === "unchanged") continue;
+
+    const entry = settleConflict(raw, resolutions);
+    if (!entry) continue;
 
     if (entry.action === "created") {
       // The page has to exist before its images can be uploaded — storage keys
