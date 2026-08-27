@@ -188,3 +188,60 @@ addition:
   file the workspace had since dropped stayed in the folder for good
 
 25 tests across the two files (web 897 → 915). Registry untouched.
+
+### Round 6 — The folder becomes reachable, and the reduction goal runs out
+
+**Shipped.** Settings -> Folder now offers the desktop shell's own dialog when
+there is a shell, replacing the browser picker rather than joining it, and takes
+up the remembered root on mount. Every piece built in Rounds 4 and 5 -- the IPC
+channels, `DesktopWorkspaceFs`, the persisted manifest -- is now reachable from
+the app, which it was not before.
+
+Auto-sync is still not wired, and the plan doc now says why instead of calling
+it unfinished. `requestSync` needs a chokepoint the app does not have. There is
+no mutation bus; `Outbox.append` is the nearest thing and only runs when offline
+sync is switched on, so hanging the mirror there would give a folder that
+updates itself for some users and not others. Recorded as Phase 2b, and it turns
+out to have three consumers rather than one.
+
+**Measured, before doing any more reduction work.** The standing instruction is
+to reduce what we have written. The measurements say there is very little left
+to take:
+
+- 118,602 lines across 1,279 tracked source files -- mean 97 lines per file
+- One file above 1,000 lines (`pdf-reader.tsx`, 1,726). The next largest is 712
+- Duplicated 10-line windows across the whole tree: **2**, one of them an import
+  block in two sibling tests
+- Exports referenced nowhere outside their own file: 310, but every one that is
+  a function or a value is used *inside* its own file. None is deletable. They
+  are over-exported, not dead
+
+So the honest read is that the size is feature breadth, not bloat, and the two
+reductions still available are cosmetic: narrowing over-wide exports, and
+splitting one outlier file. Splitting `pdf-reader.tsx` into three files of 570
+lines is not less code, and its logic closes over roughly thirty pieces of
+component state -- extraction would produce a props bag, which is relocation
+dressed as reduction. Not done, deliberately.
+
+**Researched.** Written up in full as `docs/plans/future/interop-surface.md`.
+Two findings worth the round:
+
+1. Hosting Obsidian plugins is not achievable -- a plugin is handed the live
+   `App` object and Obsidian's Electron internals, so emulating it means
+   reimplementing Obsidian against a contract nobody offers us. The ecosystem
+   converged on a *local HTTP surface* instead, and that is what the browser
+   extensions, scripts, and MCP servers are actually written against. Matching
+   those routes gets the compatibility without the emulation, and Tier 1 -- the
+   folder we already ship -- covers every plugin that works by reading and
+   writing vault files, because the user runs it inside Obsidian against our
+   folder.
+2. Zotero has no working API for creating PDF annotations that appear in its
+   reader; it is an open request as of 2026, and it blocks precisely the
+   AI-assisted-reading and cross-reader-sync workflows people now want. We
+   already store anchors in Zotero's position shape, so this is a much smaller
+   piece of work for us than for a reader starting cold, and the resulting claim
+   is checkable in one sentence: annotate here, open Zotero, the highlights are
+   there.
+
+Verification: core 957, web 915, desktop 78, 0 fail. `tsc` clean, `next lint`
+clean, solid/dry/hygiene pass. Registry untouched.
