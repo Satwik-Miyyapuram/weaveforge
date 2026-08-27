@@ -319,7 +319,7 @@ export function checkBibliography(input: BibliographyInput): BibliographyReport 
     cited.add(citation.key);
     if (byKey.has(citation.key)) continue;
     // Once per key per file: a key cited forty times is one thing to fix.
-    const at = `${citation.key} ${citation.file}`;
+    const at = `${citation.key}\u0000${citation.file}`;
     if (reportedMissing.has(at)) continue;
     reportedMissing.add(at);
     findings.push({
