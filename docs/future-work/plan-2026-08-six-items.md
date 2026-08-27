@@ -10,6 +10,17 @@ Every item answers the same three questions before it earns a place: does it
 work with the network unplugged, what does it cost in lines, and what can it
 delete.
 
+## Where it stands
+
+All six are built, on `feat/obsidian-vault-interop`, in the order below.
+Item 2 was last because it is the only one with a migration and a second
+person in it; its figure export is what made `markdownToLatex` pass a whole
+`figure` block through rather than the handful of line prefixes an image
+figure happens to use.
+
+What remains from this plan is the line budget at the bottom, which is a
+standing obligation rather than a feature.
+
 ## What the survey changed
 
 Three findings, because they move items around:
