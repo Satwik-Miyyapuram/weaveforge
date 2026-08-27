@@ -1,4 +1,4 @@
-import { WORKSPACE_META_DIR, type IWorkspaceFs } from "@weaveforge/core";
+import { WORKSPACE_META_DIR, digestText, type IWorkspaceFs } from "@weaveforge/core";
 
 /**
  * What the last sync wrote, and how the next one is paced.
@@ -23,24 +23,63 @@ import { WORKSPACE_META_DIR, type IWorkspaceFs } from "@weaveforge/core";
 export const MIRROR_MANIFEST_PATH = `${WORKSPACE_META_DIR}/mirror.json`;
 
 export async function readMirrorManifest(fs: IWorkspaceFs): Promise<string[]> {
+  return Object.keys(await readMirrorBase(fs)).sort();
+}
+
+/**
+ * What each mirrored file said when the two sides last agreed, by path.
+ *
+ * The digests are the third side of the merge. Without them an import can only
+ * see that two copies differ, and carrying the folder's copy over a workspace
+ * edit made since the mirror wrote it is a silent loss.
+ *
+ * A version 1 manifest listed paths and no digests. It is still read, and
+ * yields an empty base: the import then behaves as it did before, showing the
+ * difference and letting the user decide.
+ */
+export async function readMirrorBase(fs: IWorkspaceFs): Promise<Record<string, string>> {
   try {
-    const parsed = JSON.parse(await fs.readText(MIRROR_MANIFEST_PATH)) as { paths?: unknown };
-    if (!Array.isArray(parsed.paths)) return [];
-    return parsed.paths.filter((path): path is string => typeof path === "string");
+    const parsed = JSON.parse(await fs.readText(MIRROR_MANIFEST_PATH)) as {
+      paths?: unknown;
+      digests?: unknown;
+    };
+    const digests =
+      typeof parsed.digests === "object" && parsed.digests !== null
+        ? (parsed.digests as Record<string, unknown>)
+        : {};
+    const base: Record<string, string> = {};
+    for (const path of Array.isArray(parsed.paths) ? parsed.paths : []) {
+      if (typeof path !== "string") continue;
+      const digest = digests[path];
+      base[path] = typeof digest === "string" ? digest : "";
+    }
+    return base;
   } catch {
     // Absent, truncated, or written by something else. Remove nothing.
-    return [];
+    return {};
   }
+}
+
+/** The digest a file's text is recorded under. Change detection only. */
+export function baseDigest(text: string): string {
+  return digestText(text);
 }
 
 export async function writeMirrorManifest(
   fs: IWorkspaceFs,
   paths: readonly string[],
+  digests: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   await fs.mkdirp(WORKSPACE_META_DIR);
+  const kept = [...new Set(paths)].sort();
   const body = {
-    version: 1,
-    paths: [...new Set(paths)].sort(),
+    version: 2,
+    paths: kept,
+    // Only for paths still claimed, so a manifest cannot grow forever with
+    // digests of files that left the folder years ago.
+    digests: Object.fromEntries(
+      kept.filter((path) => digests[path] !== undefined).map((path) => [path, digests[path]]),
+    ),
     writtenAt: new Date().toISOString(),
   };
   await fs.writeFile(MIRROR_MANIFEST_PATH, `${JSON.stringify(body, null, 2)}\n`);

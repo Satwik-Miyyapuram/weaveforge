@@ -7,6 +7,7 @@ import {
   MIRROR_MANIFEST_PATH,
   createCoalescer,
   nextManifest,
+  readMirrorBase,
   readMirrorManifest,
   writeMirrorManifest,
 } from "../application/mirror-manifest";
@@ -15,6 +16,30 @@ test("a manifest round trips, sorted and deduplicated", async () => {
   const fs = new MemoryWorkspaceFs();
   await writeMirrorManifest(fs, ["b.md", "a.md", "b.md"]);
   assert.deepEqual(await readMirrorManifest(fs), ["a.md", "b.md"]);
+});
+
+test("the base digests round trip with the paths", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await writeMirrorManifest(fs, ["a.md", "b.md"], { "a.md": "d1", "b.md": "d2" });
+  assert.deepEqual(await readMirrorBase(fs), { "a.md": "d1", "b.md": "d2" });
+});
+
+test("a digest for a path that left is not carried forward", async () => {
+  const fs = new MemoryWorkspaceFs();
+  // The mirror reports a digest for every file it serialized, including ones
+  // this run no longer claims; storing those would grow the manifest forever.
+  await writeMirrorManifest(fs, ["a.md"], { "a.md": "d1", "gone.md": "d2" });
+  assert.deepEqual(await readMirrorBase(fs), { "a.md": "d1" });
+});
+
+test("a version 1 manifest keeps its paths and offers no base", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.mkdirp(MIRROR_MANIFEST_PATH.split("/").slice(0, -1).join("/"));
+  await fs.writeFile(MIRROR_MANIFEST_PATH, JSON.stringify({ version: 1, paths: ["a.md"] }));
+  assert.deepEqual(await readMirrorManifest(fs), ["a.md"]);
+  // Empty rather than absent: the path is still ours to remove, but nothing is
+  // known about what it said when the two sides last agreed.
+  assert.deepEqual(await readMirrorBase(fs), { "a.md": "" });
 });
 
 test("an absent manifest reads as remove-nothing rather than throwing", async () => {

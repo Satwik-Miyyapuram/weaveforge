@@ -319,3 +319,43 @@ dependency in an installer for a convenience.
 Verification: web 929 (was 924, +5 new), core 957, desktop 87 (was 78, +9 new),
 0 fail. `tsc` clean for web and desktop, `next lint` clean, solid/dry/hygiene
 pass. Registry untouched.
+
+## Round 9 — Phase 4a: telling a folder edit from a workspace one
+
+Research phase found a correctness hole rather than a feature gap. `diffWorkspace`
+compared two copies of a note and called any difference an update. It had no way
+to know *which side* moved, so importing a folder whose note had been edited in
+the app since the last mirror carried the older copy over the newer one --
+silently, with no way back. Everything downstream inherited that: the read-back
+button, and Phase 3's "the folder changed" notice pointing at it.
+
+The missing piece is the third side of a three-way merge: the note as it stood
+when the two sides last agreed. The mirror already knows it, because the mirror
+wrote it. So `MirrorResult` now carries a digest of every markdown file the
+folder holds at the end of a run -- written and unchanged alike, since unchanged
+is still agreed -- and the manifest stores them at version 2.
+
+`changedSide` reads three digests and answers folder / workspace / both /
+neither / unknown, and `diffWorkspace` takes it as an optional `origin`:
+
+- folder moved -> an update, as before
+- workspace moved -> `unchanged`. The folder's copy is simply the older one, and
+  carrying it back would undo an edit that has not been mirrored yet
+- both -> a conflict named after the file, never applied
+- both arriving at the same text -> agreement, not a conflict
+- unknown -> behave exactly as before, which is what a version 1 manifest, a
+  folder from another machine, or a hand-made file gets
+
+The digest is FNV-1a, not crypto, on purpose: it is only ever compared against a
+value this app produced from the same text on the same machine, nothing is
+authenticated by it, and a collision costs a missed change rather than a forged
+one. The alternative is a dependency or an async API in a path that is otherwise
+plain string work.
+
+A version 1 manifest reads as path-with-empty-digest, and the empty string is
+mapped back to "unknown" at the call site rather than being allowed to look like
+a file whose contents hashed to nothing.
+
+Verification: web 932 (was 929, +3 new), core 965 (was 957, +8 new), desktop 87,
+0 fail. `tsc` clean for core, web and desktop, `next lint` clean,
+solid/dry/hygiene pass. Registry untouched.

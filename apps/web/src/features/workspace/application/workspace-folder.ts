@@ -1,11 +1,13 @@
 import {
   ASSET_DIR,
   NoOpWorkspaceGit,
+  changedSide,
   describeChanges,
   diffWorkspace,
   fromRelativeBlobLinks,
   mirrorWorkspace,
   parseWorkspaceFolder,
+  serializeWorkspace,
   type ImportDiff,
   type IWorkspaceFs,
   type IWorkspaceGit,
@@ -27,9 +29,10 @@ import {
 } from "./asset-reanchor";
 import {
   MIRROR_MANIFEST_PATH,
+  baseDigest,
   createCoalescer,
   nextManifest,
-  readMirrorManifest,
+  readMirrorBase,
   writeMirrorManifest,
   type Coalescer,
 } from "./mirror-manifest";
@@ -154,7 +157,8 @@ export async function syncToFolder(): Promise<SyncOutcome> {
   const fs = activeFs;
   const container = getContainer();
   const snapshot = await container.workspace.snapshot();
-  const previousPaths = await readMirrorManifest(fs);
+  const base = await readMirrorBase(fs);
+  const previousPaths = Object.keys(base);
 
   const mirror = await mirrorWorkspace(snapshot, fs, {
     previousPaths,
@@ -164,7 +168,7 @@ export async function syncToFolder(): Promise<SyncOutcome> {
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     },
   });
-  await writeMirrorManifest(fs, nextManifest(previousPaths, mirror));
+  await writeMirrorManifest(fs, nextManifest(previousPaths, mirror), mirror.mirrored);
 
   let commit: WorkspaceCommit | null = null;
   if (activeGit.kind !== "none") {
@@ -310,6 +314,7 @@ export async function previewFolderImport(): Promise<ImportDiff> {
   const files: Record<string, string> = {};
   const assets = new Map<string, Uint8Array>();
   let assetBytes = 0;
+  const base = await readMirrorBase(activeFs);
 
   for await (const entry of activeFs.walk("")) {
     if (entry.path.endsWith(".md")) {
@@ -328,7 +333,7 @@ export async function previewFolderImport(): Promise<ImportDiff> {
     assets.set(entry.path, bytes);
   }
 
-  return diffAgainstWorkspace(files, assets);
+  return diffAgainstWorkspace(files, assets, base);
 }
 
 /** Diff a ZIP the user picked, without connecting a folder. */
@@ -351,6 +356,13 @@ export async function previewArchiveImport(bytes: Uint8Array): Promise<ImportDif
 async function diffAgainstWorkspace(
   files: Record<string, string>,
   assets: Map<string, Uint8Array>,
+  /**
+   * What the folder said when the two sides last agreed, by path.
+   *
+   * Absent for an archive import: a ZIP has no shared history with this
+   * workspace, so every difference is the user's to judge.
+   */
+  base: Readonly<Record<string, string>> = {},
 ): Promise<ImportDiff> {
   const snapshot = await getContainer().workspace.snapshot();
   const existing = [
@@ -381,7 +393,22 @@ async function diffAgainstWorkspace(
     }),
   }));
 
-  return diffWorkspace(parsed, existing);
+  // What the mirror would write from the workspace as it stands now. Compared
+  // against the same base as the folder's copy, this is what says whether the
+  // difference came from out there or in here.
+  const current = serializeWorkspace(snapshot).files;
+
+  return diffWorkspace(parsed, existing, {
+    origin: (path) =>
+      changedSide({
+        // A version 1 manifest recorded the path and no digest, which reads
+        // as an empty string here and must not be mistaken for a file whose
+        // contents hashed to nothing.
+        base: base[path] || undefined,
+        folder: files[path] === undefined ? undefined : baseDigest(files[path]),
+        workspace: current[path] === undefined ? undefined : baseDigest(current[path]),
+      }),
+  });
 }
 
 /**

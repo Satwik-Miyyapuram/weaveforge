@@ -132,6 +132,21 @@ and it keeps itself up to date from then on.
       write the id back into the file
 
 ### Phase 4 — Conflicts
+- [x] The mirror manifest is version 2 and records a digest of every file it
+      left in the folder. That is the third side of the merge: without it an
+      import can only see that two copies differ, and cannot tell an edit made
+      out there from one made in here. Version 1 manifests still read, and yield
+      no base, so those folders behave exactly as they did before
+- [x] `changedSide` in `packages/core/src/workspace/change-origin.ts` reads the
+      three digests and answers `folder`, `workspace`, `both`, `neither`, or
+      `unknown`. `diffWorkspace` takes it as an optional `origin` and uses it:
+      a folder edit is an update, a workspace edit is *not* something to import
+      back, and both moving is a conflict named after the file
+- [x] This closes a real hole. Before it, importing a folder whose note had
+      been edited in the app since the last mirror carried the older copy over
+      the newer one with nothing shown and no way back
+- [x] Both sides arriving at the same text counts as agreement, not a conflict
+- [x] 11 tests (8 core, 3 web)
 - [ ] A body edited on disk while the in-app editor holds a Yjs document is
       the same conflict `offline-first-sync.md` already settled for the
       database. Reuse its three-way merge per field rather than inventing a

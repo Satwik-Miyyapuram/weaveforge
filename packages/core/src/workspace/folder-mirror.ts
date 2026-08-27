@@ -8,6 +8,7 @@
  * failing the save would cost the user their edit.
  */
 
+import { digestText } from "./change-origin.js";
 import type { IWorkspaceFs } from "./fs-port.js";
 import type { WorkspaceSnapshot } from "./workspace-snapshot.js";
 import { serializeWorkspace } from "./serialize-workspace.js";
@@ -19,6 +20,14 @@ export interface MirrorResult {
   removed: string[];
   /** Unchanged files, skipped without a write. */
   unchanged: number;
+  /**
+   * A digest of every markdown file the folder now holds, by path.
+   *
+   * This is what the two sides agreed on at the end of this run, and the next
+   * import compares against it to tell a folder edit from a workspace one.
+   * Written and unchanged files alike: an unchanged file is still agreed.
+   */
+  mirrored: Record<string, string>;
 }
 
 /**
@@ -46,9 +55,11 @@ export async function mirrorWorkspace(
   const { files, assets } = serializeWorkspace(snapshot);
   const written: string[] = [];
   const removed: string[] = [];
+  const mirrored: Record<string, string> = {};
   let unchanged = 0;
 
   for (const [path, content] of Object.entries(files)) {
+    mirrored[path] = digestText(content);
     const existing = await fs.stat(path).catch(() => null);
     if (existing) {
       const current = await fs.readText(path).catch(() => null);
@@ -90,5 +101,5 @@ export async function mirrorWorkspace(
     removed.push(path);
   }
 
-  return { written, removed, unchanged };
+  return { written, removed, unchanged, mirrored };
 }

@@ -10,6 +10,7 @@
  * `diffWorkspace`) and paths are validated by the caller before reaching here.
  */
 
+import type { ChangeSide } from "./change-origin.js";
 import { readFrontmatter, frontmatterList, frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
 import { WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
@@ -95,6 +96,18 @@ export function parseWorkspaceFolder(files: Record<string, string>): ParsedEntit
   return out;
 }
 
+export interface DiffOptions {
+  /**
+   * Who changed each file, by folder path.
+   *
+   * Optional because the manifest that carries the base may be missing -- an
+   * older folder, one written by another machine, a file the mirror never
+   * wrote. Without it the diff behaves exactly as it did before: a difference
+   * is an update, and the user decides.
+   */
+  origin?(path: string): ChangeSide;
+}
+
 export type ImportAction = "created" | "updated" | "unchanged" | "conflict";
 
 export interface ImportDiffEntry {
@@ -129,6 +142,7 @@ export interface ExistingEntity {
 export function diffWorkspace(
   parsed: readonly ParsedEntity[],
   existing: readonly ExistingEntity[],
+  options: DiffOptions = {},
 ): ImportDiff {
   const byId = new Map(existing.map((entity) => [entity.id, entity]));
   const entries: ImportDiffEntry[] = [];
@@ -157,7 +171,29 @@ export function diffWorkspace(
 
     const sameTitle = current.title.trim() === entity.title.trim();
     const sameBody = current.body.trim() === entity.body.trim();
-    entries.push({ action: sameTitle && sameBody ? "unchanged" : "updated", entity });
+    if (sameTitle && sameBody) {
+      entries.push({ action: "unchanged", entity });
+      continue;
+    }
+
+    // The two copies differ. Which of them moved decides what that means: an
+    // import that carries the folder's copy over a workspace edit made since
+    // the mirror wrote it is a silent loss, and the only honest answer when
+    // both sides moved is to ask.
+    const side = options.origin?.(entity.path) ?? "unknown";
+    if (side === "workspace") {
+      entries.push({ action: "unchanged", entity });
+      continue;
+    }
+    if (side === "both") {
+      entries.push({
+        action: "conflict",
+        entity,
+        reason: `${entity.path} changed both in the folder and in the workspace since they last agreed.`,
+      });
+      continue;
+    }
+    entries.push({ action: "updated", entity });
   }
 
   const counts: Record<ImportAction, number> = {
