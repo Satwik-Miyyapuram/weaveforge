@@ -5,9 +5,12 @@ export const experimentsModule: FeatureModule = {
   id: "experiments",
   title: "Experiments",
   navGroup: "experiments",
-  // Runs are reported by the SDK to a server. Until that has a local
-  // counterpart, the offline build has no experiments to list (plan D10).
-  requiresNetwork: true,
+  // The SDK reported runs to a server, and for a while that made this the one
+  // feature a copy with no account could not have. It now writes into the local
+  // database over the loopback API (`local-sdk-api.ts`), so the offline build
+  // has experiments to list — what it does not have is a page per experiment,
+  // which `experiment-href.ts` handles.
+  requiresNetwork: false,
   navItems: [{ key: "experiments", label: "Experiments", path: "/experiments", icon: "flask" }],
   routes: [{ path: "/experiments", component: "experiments/ExperimentsPage" }],
   migrations: ["0009_experiments.sql"],

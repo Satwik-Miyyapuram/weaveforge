@@ -1,4 +1,5 @@
 import http from "node:http";
+import { readFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -55,7 +56,18 @@ const page = `<!doctype html><meta charset="utf-8"><title>smoke</title><script>
 })();
 </script><h1>smoke</h1>`;
 
-const EXPECTED_MEMBERS = ["checkUpdate", "fetchImage", "fetchTitle", "onSignIn", "platform", "version"];
+/**
+ * What the bridge should expose, read from the preload rather than listed here.
+ *
+ * A hand-written list went stale the first time a channel was added, and the
+ * check it was guarding -- that the page sees the bridge and nothing besides --
+ * started failing for the one reason that is not a bug. Read from the source,
+ * it still catches what matters: a member the preload never declared appearing
+ * on the page, or a declared one that never arrives.
+ */
+const EXPECTED_MEMBERS = [
+  ...readFileSync(path.join(root, "src/preload.ts"), "utf8").matchAll(/^ {2}([a-zA-Z]+):/gm),
+].map((match) => match[1]).sort();
 
 let reported = null;
 const server = http.createServer((request, response) => {

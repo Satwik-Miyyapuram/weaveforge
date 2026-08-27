@@ -27,7 +27,7 @@ interface SettingsRow {
   ai_access: Record<string, unknown> | null;
 }
 
-type Secrets = Pick<UserSettings, "zoteroApiKey" | "semanticScholarKey" | "integrations">;
+export type Secrets = Pick<UserSettings, "zoteroApiKey" | "semanticScholarKey" | "integrations">;
 
 const TABLE = "user_settings";
 const CREDENTIALS_ROUTE = "/api/settings/credentials";
@@ -67,13 +67,14 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
-  private async loadSecrets(): Promise<Secrets> {
+  /** Overridden by the local copy, which has no server route to ask. */
+  protected async loadSecrets(): Promise<Secrets> {
     const res = await fetch(CREDENTIALS_ROUTE, { headers: await this.authHeader() });
     if (!res.ok) return {};
     return (await res.json()) as Secrets;
   }
 
-  private async saveSecrets(secrets: Secrets): Promise<void> {
+  protected async saveSecrets(secrets: Secrets): Promise<void> {
     const res = await fetch(CREDENTIALS_ROUTE, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(await this.authHeader()) },

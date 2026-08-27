@@ -55,3 +55,64 @@ def test_wandb_history_skips_internal_and_nonnumeric():
 def test_matplotlib_source_available_is_bool():
     src = default_registry.get("matplotlib")
     assert isinstance(src.available(), bool)
+
+
+class _AngryRun:
+    """A W&B run that has lost its connection and says so, loudly, every time."""
+
+    url = "https://wandb.ai/e/p/r"
+
+    def __init__(self):
+        self.calls = 0
+
+    def log(self, metrics, step=None):
+        self.calls += 1
+        raise RuntimeError("network is gone")
+
+    def finish(self, exit_code=0):
+        raise RuntimeError("still gone")
+
+
+def test_a_mirror_that_cannot_reach_wandb_stops_instead_of_raising():
+    from weaveforge.sync.wandb import _WandbMirror
+
+    run = _AngryRun()
+    mirror = _WandbMirror(run)
+    mirror.log({"loss": 1.0}, 0)
+    # Switched off after the first failure: the loop is not paying for a retry
+    # per step for the rest of the run.
+    mirror.log({"loss": 0.9}, 1)
+    assert run.calls == 1
+    assert mirror.url is None
+    mirror.finish("done")
+
+
+class _HappyRun:
+    url = "https://wandb.ai/e/p/r"
+
+    def __init__(self):
+        self.logged = []
+        self.exit_code = None
+
+    def log(self, metrics, step=None):
+        self.logged.append((metrics, step))
+
+    def finish(self, exit_code=0):
+        self.exit_code = exit_code
+
+
+def test_a_mirrored_run_ends_with_the_exit_code_wandb_expects():
+    from weaveforge.sync.wandb import _WandbMirror
+
+    run = _HappyRun()
+    mirror = _WandbMirror(run)
+    mirror.log({"loss": 1.0}, 3)
+    assert run.logged == [({"loss": 1.0}, 3)]
+    mirror.finish("failed")
+    assert run.exit_code == 1
+
+    other = _HappyRun()
+    done = _WandbMirror(other)
+    done.finish("done")
+    done.finish("done")  # closed once, whatever else calls it
+    assert other.exit_code == 0

@@ -232,3 +232,13 @@ button.nav-link {
     animation: none !important;
   }
 }
+
+/* The offline badge. Quiet, but present wherever the account links are, so a
+   copy working without an account says so without being asked. */
+.local-mode-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--muted); border: 1px solid var(--border); background: transparent;
+}
+.nav-bottom .local-mode-badge, .desktop-only .local-mode-badge { align-self: flex-start; margin-bottom: 6px; }

@@ -2,6 +2,7 @@
  * LWW cache invalidation over Realtime `proj:{projectId}` (plan §7.4).
  */
 
+import { isLocalMode } from "@/backend/providers/local/local-identity";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { getRealtimeClient } from "@/backend/providers/supabase/client";
 
@@ -103,6 +104,15 @@ export class ProjectLwwInvalidator {
     if (this.channel) void this.channel.unsubscribe();
     this.channel = null;
     if (!projectId) return;
+    // Nobody else is looking at this project.
+    //
+    // A copy working on the computer has no account, no peers, and no promise
+    // to keep but one: nothing leaves the machine. `getRealtimeClient` builds
+    // its socket from the compiled-in config rather than from the database it
+    // is handed, so without this a local-mode write reached the hosted realtime
+    // endpoint over HTTP — the project's id and the anon key, sent from a copy
+    // whose whole point is that it sends nothing.
+    if (isLocalMode()) return;
     // Same socket split as co-editing — see `getRealtimeClient`.
     const realtime = getRealtimeClient(db);
     this.channel = realtime.channel(`proj:${projectId}`, {

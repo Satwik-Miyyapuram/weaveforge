@@ -64,10 +64,18 @@
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico"
     },
-    "npmRebuild": false
+    "npmRebuild": false,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Satwik-Miyyapuram",
+        "repo": "weaveforge"
+      }
+    ]
   },
   "author": "WeaveForge",
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.5"
+    "@electric-sql/pglite": "^0.5.5",
+    "electron-updater": "^6.8.9"
   }
 }

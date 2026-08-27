@@ -89,10 +89,32 @@ test("sidebar: every navigating entry has a destination", () => {
   // `projects` and `signout` run actions; everything else must go somewhere,
   // or it renders as a dead link.
   for (const link of accountLinks({ canSupervise: true, hasProject: false, pendingProposals: 1 })) {
-    if (link.id === "projects" || link.id === "signout") {
+    if (link.id === "projects" || link.id === "signout" || link.id === "signin") {
       assert.equal(link.href, undefined, `${link.id} should act, not navigate`);
     } else {
       assert.ok(link.href, `${link.id} has no href`);
     }
   }
+});
+
+
+test("sidebar: a copy with no account is offered the way in, not a way out", () => {
+  // "Sign out" of what? There is no session to end, and the entry is the one
+  // place a reader would look for the account they have not made yet.
+  const offline = ids({ local: true });
+  assert.ok(offline.includes("signin"), "offline mode offers Sign in");
+  assert.ok(!offline.includes("signout"), "offline mode does not offer Sign out");
+  assert.ok(ids({ local: false }).includes("signout"));
+});
+
+
+test("sidebar: a copy with no account is not sent to routes it does not ship", () => {
+  // The desktop bundle holds `/supervision` and `/shared` aside, so linking to
+  // them offline is a 404 the router also prefetches.
+  const offline = ids({ local: true, canSupervise: true });
+  assert.ok(!offline.includes("supervise"));
+  assert.ok(!offline.includes("shared"));
+  const online = ids({ local: false, canSupervise: true });
+  assert.ok(online.includes("supervise"));
+  assert.ok(online.includes("shared"));
 });

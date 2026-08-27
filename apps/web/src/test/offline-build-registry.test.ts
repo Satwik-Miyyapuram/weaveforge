@@ -20,14 +20,16 @@ async function offlineRegistry() {
 
 test("modules that need a server are absent, not disabled", async () => {
   const ids = (await offlineRegistry()).allModules.map((module) => module.id);
-  for (const id of ["sharing", "org", "experiments"]) {
+  for (const id of ["sharing", "org"]) {
     assert.equal(ids.includes(id), false, `${id} should not be in an offline build`);
   }
 });
 
 test("the app itself is all still there", async () => {
   const ids = (await offlineRegistry()).allModules.map((module) => module.id);
-  for (const id of ["dashboard", "papers", "vault", "wiki", "logbook", "settings"]) {
+  // `experiments` among them: the SDK writes into the local database now, so a
+  // copy with no account has runs of its own to show.
+  for (const id of ["dashboard", "papers", "vault", "wiki", "logbook", "settings", "experiments"]) {
     assert.equal(ids.includes(id), true, `${id} should survive an offline build`);
   }
 });
@@ -39,7 +41,6 @@ test("nothing links to a screen the build does not contain", async () => {
     ...registry.navGroups.flatMap((group) => group.items.map((item) => item.path)),
   ];
   for (const path of paths) {
-    assert.equal(path.startsWith("/experiments"), false);
     assert.equal(path.startsWith("/shared"), false);
     assert.equal(path.startsWith("/supervision"), false);
   }

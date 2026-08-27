@@ -488,6 +488,29 @@ npm run check:solid
 
 ---
 
+## Overleaf, with no account
+
+A linked Overleaf report does three things, and only one of them needs a
+server. The link itself is an ordinary row. The section tree is a pure
+function in `@weaveforge/core` (`parseLatexSectionTree`). Only holding the
+Overleaf token needs somewhere safe.
+
+On a server that somewhere is a key the browser never sees. A copy running with
+no account has no such key, so the token goes into **this computer's keychain**
+instead, through the shell's `secret-store` (`overleaf-token`). The page asks
+the shell to read the project by name; the token never crosses back. The clone
+itself happens in the Electron main process over the `weaveforge:overleaf-read`
+channel, using the same reader the hosted path uses — imported, not copied.
+
+So with no account you can link a report, rename it, re-point it at another
+project or entry file, set section targets and unlink it, all with the network
+down. **Viewing the contents still needs a network**, because that is a clone
+from `overleaf.com`: offline here means no server of ours, not no Overleaf.
+
+The validation rules both paths share live in
+`features/overleaf/domain/link-rules.ts`, so an Overleaf project id that could
+reshape a clone URL is refused in the same words either way.
+
 ## Related docs
 
 - [DESIGN.md](DESIGN.md) — SOLID principles, `IMetadataSource`, composition root

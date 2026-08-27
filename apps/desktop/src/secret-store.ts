@@ -40,10 +40,17 @@ export interface SecretFile {
 /**
  * The secrets a page may name.
  *
- * Two today. Adding one is a deliberate act with a review attached,
+ * Three today. Adding one is a deliberate act with a review attached,
  * which is the entire point of the list being short and here.
+ *
+ * `overleaf-token` is the newest, and it is here rather than in the database
+ * for a reason worth stating: on a server the Overleaf token is sealed with a
+ * key the browser never sees, and a copy working with no account has no such
+ * key and no server to hold one. The keychain is the equivalent this machine
+ * actually has, and it never crosses back to the page — the clone that uses it
+ * happens on this side.
  */
-export const SECRET_NAMES = ["ai-provider", "local-api-token"] as const;
+export const SECRET_NAMES = ["ai-provider", "local-api-token", "overleaf-token"] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 const UNKNOWN_NAME = "That is not something this app stores.";

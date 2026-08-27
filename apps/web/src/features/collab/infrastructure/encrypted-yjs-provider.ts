@@ -43,10 +43,20 @@ export interface EncryptedYjsProviderOptions {
   onError?: (stage: string, detail: string) => void;
   /** Fires on every successful join, so a stale failure notice can be cleared. */
   onConnected?: () => void;
+  /**
+   * Whether there is anybody to broadcast to.
+   *
+   * False on a copy that works with no account: the document lives in a folder
+   * on one computer, there is no second editor and no socket to reach, and
+   * opening one anyway sent a failing request on every keystroke and put a
+   * "live sync unavailable" notice under a document nobody else can open. The
+   * CRDT log is still written — solo means no transport, not no history.
+   */
+  live?: boolean;
 }
 
 export class EncryptedYjsProvider {
-  private readonly channel: RealtimeChannel;
+  private readonly channel: RealtimeChannel | null;
   private pending: Uint8Array[] = [];
   private mergeTimer: ReturnType<typeof setTimeout> | null = null;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -57,25 +67,34 @@ export class EncryptedYjsProvider {
     null;
 
   constructor(private readonly opts: EncryptedYjsProviderOptions) {
+    this.channel = opts.live === false ? null : this.join();
+    opts.doc.on("update", this.onLocalUpdate);
+    if (opts.awareness && this.channel) this.bindAwareness(opts.awareness);
+    void this.bootstrapFromStore();
+  }
+
+  /** Joins the document's broadcast topic. Only called when there is a socket. */
+  private join(): RealtimeChannel {
+    const opts = this.opts;
     // The socket, which after a cutover is not the same host as the data API.
     const db = getRealtimeClient(opts.db as SupabaseClient);
-    this.channel = db.channel(`crdt:${opts.resourceType}:${opts.resourceId}`, {
+    const channel = db.channel(`crdt:${opts.resourceType}:${opts.resourceId}`, {
       config: { broadcast: { self: false }, private: true },
     });
-    this.channel.on("broadcast", { event: "yjs" }, ({ payload }) => {
+    channel.on("broadcast", { event: "yjs" }, ({ payload }) => {
       void this.onRemote(payload as { data?: string });
     });
-    this.channel.on("broadcast", { event: "awareness" }, ({ payload }) => {
+    channel.on("broadcast", { event: "awareness" }, ({ payload }) => {
       void this.onAwarenessRemote(payload as { data?: string });
     });
     // Token first, then join — see the note in `project-lww-invalidator`.
     void db.realtime
       .setAuth()
       .then(() =>
-        this.channel.subscribe((status, err) => {
+        channel.subscribe((status, err) => {
           this.subscribed = status === "SUBSCRIBED";
           if (process.env.NODE_ENV !== "production") {
-            console.debug(`[collab] ${this.channel.topic} → ${status}${err ? `: ${err.message}` : ""}`);
+            console.debug(`[collab] ${channel.topic} → ${status}${err ? `: ${err.message}` : ""}`);
           }
           if (this.destroyed) return;
           if (status === "SUBSCRIBED") this.opts.onConnected?.();
@@ -85,9 +104,7 @@ export class EncryptedYjsProvider {
         }),
       )
       .catch((err) => this.opts.onError?.("setAuth", formatError(err)));
-    opts.doc.on("update", this.onLocalUpdate);
-    if (opts.awareness) this.bindAwareness(opts.awareness);
-    void this.bootstrapFromStore();
+    return channel;
   }
 
   private bindAwareness(awareness: Awareness) {
@@ -95,7 +112,7 @@ export class EncryptedYjsProvider {
       const changed = added.concat(updated, removed);
       const update = encodeAwarenessUpdate(awareness, changed);
       const data = btoa(String.fromCharCode(...update));
-      void this.channel.send({ type: "broadcast", event: "awareness", payload: { data } });
+      void this.channel?.send({ type: "broadcast", event: "awareness", payload: { data } });
     };
     awareness.on("update", this.awarenessHandler);
   }
@@ -113,6 +130,12 @@ export class EncryptedYjsProvider {
   private async flushOutbound() {
     this.mergeTimer = null;
     if (this.pending.length === 0 || this.destroyed) return;
+    if (!this.channel) {
+      // Solo: the updates were queued for a broadcast that is not happening.
+      // Persistence runs on its own timer and has its own copy of them.
+      this.pending = [];
+      return;
+    }
     const merged = mergeUpdates(this.pending);
     this.pending = [];
     const data = btoa(String.fromCharCode(...merged));
@@ -222,7 +245,7 @@ export class EncryptedYjsProvider {
     // `unsubscribe`, not `removeChannel`: the latter drops the channel from the
     // client's registry, and supabase-js disconnects the shared socket once the
     // registry empties — taking the project-wide invalidation channel with it.
-    void this.channel.unsubscribe();
+    void this.channel?.unsubscribe();
 
     // Forced: `destroyed` is already true above, and this is the flush that
     // carries the last few seconds of typing into the log.

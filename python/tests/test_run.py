@@ -102,3 +102,88 @@ def test_sync_source_ingests_curves_and_artifacts(monkeypatch):
     assert e.metrics["acc"] == 0.9
     assert "https://wandb.ai/run/1" in e.artifacts
     assert [p.value for p in c.metrics.history(e.id, "acc")] == [0.5, 0.9]
+
+
+class RecordingMirror:
+    """A mirror that keeps what it was told rather than sending it anywhere."""
+
+    def __init__(self, name, config):
+        self.name = name
+        self.config = config
+        self.logged = []
+        self.finished = None
+
+    def log(self, metrics, step):
+        self.logged.append((dict(metrics), step))
+
+    def finish(self, status):
+        self.finished = status
+
+
+class RecordingMirrorSource:
+    id = "recorder"
+
+    def __init__(self):
+        self.opened = []
+
+    def available(self):
+        return True
+
+    def open(self, *, name, config):
+        mirror = RecordingMirror(name, config)
+        self.opened.append(mirror)
+        return mirror
+
+
+def _no_git(monkeypatch):
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
+
+
+def test_a_mirrored_run_is_carried_along_and_closed_with_this_one(monkeypatch):
+    _no_git(monkeypatch)
+    source = RecordingMirrorSource()
+    registry = SyncRegistry()
+    registry.register(source)
+
+    with track("mirrored", config={"lr": 0.1}, container=MemoryContainer(),
+               registry=registry, mirror="recorder") as run:
+        run.log_metric("loss", 0.5, step=0)
+        run.log_metrics({"loss": 0.4, "acc": 0.9}, step=1)
+
+    mirror = source.opened[0]
+    assert mirror.name == "mirrored" and mirror.config == {"lr": 0.1}
+    assert mirror.logged == [({"loss": 0.5}, 0), ({"loss": 0.4}, 1), ({"acc": 0.9}, 1)]
+    assert mirror.finished == "done"
+
+
+def test_a_failed_run_closes_its_mirror_as_failed(monkeypatch):
+    _no_git(monkeypatch)
+    source = RecordingMirrorSource()
+    registry = SyncRegistry()
+    registry.register(source)
+
+    with pytest.raises(ValueError):
+        with track("mirrored", container=MemoryContainer(), registry=registry,
+                   mirror="recorder"):
+            raise ValueError("training died")
+
+    assert source.opened[0].finished == "failed"
+
+
+def test_a_source_that_cannot_mirror_says_so_before_the_run_starts(monkeypatch):
+    _no_git(monkeypatch)
+    registry = SyncRegistry()
+
+    class ReadOnly:
+        id = "read-only"
+
+        def available(self):
+            return True
+
+        def read(self, ref):
+            return []
+
+    registry.register(ReadOnly())
+    with pytest.raises(TypeError):
+        with track("x", container=MemoryContainer(), registry=registry, mirror="read-only"):
+            pass

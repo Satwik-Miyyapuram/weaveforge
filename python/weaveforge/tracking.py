@@ -18,12 +18,30 @@ from .features.experiments.application.git import capture_git_state
 from .features.experiments.application.run import Run
 from .features.experiments.domain.experiment import ExperimentStatus, NewExperimentInput
 from .sync.registry import SyncRegistry, default_registry
+from .sync.source import Mirror, MirrorSource
 
 
 def _connect(project: str | None = None):
     from .container import connect  # lazy: only needs supabase when actually used
 
     return connect(project=project)
+
+
+
+def _open_mirror(
+    mirror: str | None, registry: SyncRegistry, name: str, config: Mapping[str, Any]
+) -> Mirror | None:
+    """Resolve ``mirror="wandb"`` to a live second home for this run's numbers.
+
+    Named the same way sync sources are, and looked up in the same registry, so
+    a user's own mirror is selected by the same argument as the built-in one.
+    """
+    if not mirror:
+        return None
+    source = registry.get(mirror)
+    if not isinstance(source, MirrorSource):
+        raise TypeError(f"The '{mirror}' sync source cannot mirror a live run.")
+    return source.open(name=name, config=dict(config))
 
 
 def _start_run(
@@ -35,6 +53,7 @@ def _start_run(
     capture_git: bool,
     registry: SyncRegistry,
     extra_input: Mapping[str, Any],
+    mirror: Mirror | None = None,
 ) -> Run:
     input_kw = dict(extra_input)
     if capture_git:
@@ -53,6 +72,7 @@ def _start_run(
     return Run(
         container.manage_experiment,
         experiment,
+        mirror=mirror,
         uploader=uploader,
         registry=registry,
     )
@@ -65,6 +85,7 @@ def track(
     config: Mapping[str, Any] | None = None,
     hypothesis: str | None = None,
     sync: Mapping[str, Any] | None = None,
+    mirror: str | None = None,
     capture_git: bool = True,
     status_on_success: ExperimentStatus = "done",
     container: Any = None,
@@ -75,20 +96,24 @@ def track(
     """Context manager around one run.
 
     ``sync`` is a mapping of ``source_id -> ref`` (e.g. ``{"tensorboard": "runs/x"}``)
-    pulled on successful exit. ``project`` (a name) scopes this run to that
+    pulled on successful exit. ``mirror`` (e.g. ``"wandb"``) runs the other way:
+    everything logged here is logged there too while the run happens, and the
+    mirrored run is closed with this one. ``project`` (a name) scopes this run to that
     project so it shows under it in the dashboard. Pass ``container`` to reuse a
     connection or inject an in-memory one in tests; otherwise a Supabase
     connection is opened.
     """
     ctx = container or _connect(project=project)
+    sources = registry or default_registry
     run = _start_run(
         ctx,
         name,
         config=config or {},
         hypothesis=hypothesis,
         capture_git=capture_git,
-        registry=registry or default_registry,
+        registry=sources,
         extra_input=experiment_fields,
+        mirror=_open_mirror(mirror, sources, name, config or {}),
     )
     try:
         yield run

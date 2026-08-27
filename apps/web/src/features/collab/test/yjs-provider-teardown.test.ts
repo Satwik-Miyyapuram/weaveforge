@@ -157,3 +157,33 @@ test("provider: destroy does not disconnect the shared socket", async () => {
   );
   assert.ok(h.order.includes("unsubscribe"));
 });
+
+test("provider: solo opens no channel and broadcasts nothing", async () => {
+  // A copy with no account has no peers and no socket to reach. Opening the
+  // channel anyway sent a failing broadcast on every keystroke and put a "live
+  // sync unavailable" notice under a document nobody else can open. The CRDT
+  // log still has to be written: solo means no transport, not no history.
+  const h = harness();
+  const doc = new Y.Doc();
+  const provider = new EncryptedYjsProvider({
+    doc,
+    db: h.db as never,
+    crdtStore: h.crdtStore as never,
+    resourceType: "vault_page",
+    resourceId: "abc",
+    projectId: "p1",
+    authorId: "u1",
+    live: false,
+  });
+  doc.getText("body").insert(0, "typed with nobody else around");
+
+  await provider.destroy();
+
+  for (const op of ["subscribe", "send", "unsubscribe", "removeChannel"]) {
+    assert.ok(!h.order.includes(op), `solo must not ${op}; saw ${JSON.stringify(h.order)}`);
+  }
+  assert.ok(
+    h.order.includes("append:done"),
+    `solo must still write the log; saw ${JSON.stringify(h.order)}`,
+  );
+});

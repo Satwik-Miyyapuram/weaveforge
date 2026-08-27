@@ -39,6 +39,23 @@ export WEAVEFORGE_PROJECT="My Thesis"   # or WEAVEFORGE_PROJECT_ID=<uuid>
 
 The SDK sends the token to your WeaveForge instance, which validates it and applies row-level security as your user.
 
+### Against the desktop app, with no account
+
+The desktop app serves the same routes from the database in your folder, so a
+training script can write into a copy that has never signed in. Turn the local
+API on in **Settings → Let other apps in**, copy the token it shows, and point the SDK
+at the loopback port:
+
+```bash
+export WEAVEFORGE_TOKEN=<the token the app shows>
+export WEAVEFORGE_API_URL=http://127.0.0.1:27123
+export WEAVEFORGE_PROJECT="My Thesis"
+```
+
+Nothing else changes: the same `track(...)`, the same runs and curves, and the
+app shows them under **Experiments** as they arrive. The app has to be running,
+and the port only listens on `127.0.0.1` — no other machine can reach it.
+
 Apply migrations through at least `0017` (metrics + artifacts bucket) — see root [README § Database](../README.md#database).
 
 ## Quick example
@@ -60,6 +77,29 @@ train(beta=4.0)
 - **`@track_experiment`** — creates row (`running`), pins git state, logs metrics, uploads figures, sets `done`/`failed` on exit.
 - **`with track(...) as run:`** — same without a decorator.
 - **Callbacks** — `weaveforge.integrations.lightning.WeaveForgeCallback`, `.keras.WeaveForgeCallback`.
+
+## Keep W&B too
+
+A run can be carried into Weights & Biases while it happens, so a lab that
+already watches W&B dashboards keeps watching them:
+
+```python
+with weaveforge.track("beta-vae", config={"beta": 4.0}, mirror="wandb") as run:
+    run.log_metrics({"loss": 0.4}, step=step)
+```
+
+Every number logged here is logged there, and the mirrored run is closed with
+this one (`done` → exit code 0, `failed` → 1). Two deliberate choices:
+
+- **W&B never breaks training.** The first failure to reach it logs a warning,
+  switches mirroring off, and the run carries on writing where it always was.
+- **No login prompt.** With no `WANDB_API_KEY`, the mirror starts in W&B's
+  `offline` mode — the run lands in a local directory to `wandb sync` later.
+  Set `WANDB_MODE` yourself to override, and `WANDB_PROJECT` to name the
+  project.
+
+The other direction still exists: `run.sync_wandb("entity/project/run_id")`
+imports a run somebody else already finished.
 
 ## CLI
 
