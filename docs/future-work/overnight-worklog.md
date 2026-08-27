@@ -245,3 +245,38 @@ Two findings worth the round:
 
 Verification: core 957, web 915, desktop 78, 0 fail. `tsc` clean, `next lint`
 clean, solid/dry/hygiene pass. Registry untouched.
+
+### Round 7 — The seam, and the folder starts keeping itself up to date
+
+Phase 2b, which Round 6 had recorded as the blocker. Three things wanted to
+know that the workspace had changed and the app had nowhere to tell them from.
+
+The chokepoint turned out to be the Supabase client itself. Every repository
+base class was checked first -- `ProjectRepository` and
+`ProjectScopedSupabaseRepository` hold a constructor and a project id, no write
+helper -- so the shared thing further down is `db.from(table)`, which roughly
+forty repositories reach for and none reach past. `watchWrites` wraps the client
+once, at the single place it is created, and reports the table after a write
+resolves without error. No call site changed.
+
+The per-write alternative was rejected on maintenance grounds rather than
+taste: forty edits that every repository written afterwards has to repeat, and
+forgetting one leaves the folder silently stale for exactly one kind of edit.
+
+Details that took the thinking:
+- PostgREST answers errors in the payload rather than by rejecting, so success
+  is `!result.error`, not "the promise settled"
+- a write chain continues past the mutation (`.insert(...).select().eq(...)`),
+  so the wrapper stays attached through the rest of the chain and reports from
+  whichever object is finally awaited
+- a listener that throws cannot fail a write that already succeeded, and cannot
+  stop the other listeners hearing about it
+- the mirror subscribes when a folder is opened, not when the module loads: a
+  listener running with no folder would debounce, wake, find nothing to write,
+  and sleep again on every edit for the rest of the session
+
+Phase 2 is now complete end to end. A desktop user picks a folder in
+Settings -> Folder and it keeps itself up to date from then on.
+
+Verification: web 924 (was 915, +9 new), core 957, desktop 78, 0 fail. `tsc`
+clean, `next lint` clean, solid/dry/hygiene pass. Registry untouched.

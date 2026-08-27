@@ -75,22 +75,33 @@ gave it a third backing and the two things it was missing.
       and takes up the remembered root on mount so a folder survives a restart
       without a dialog nobody asked for
 
-Not yet wired into the save path, and blocked rather than merely unfinished:
-`requestSync` has no chokepoint to hang off. There is no mutation bus in the
-app. `Outbox.append` is the closest thing to one, but it only runs when offline
-sync is switched on, so hanging the mirror there would give a folder that
-updates itself for some users and not others -- worse than one that never does,
-because the difference is invisible. Phase 2b below is that prerequisite; until
-it lands, "Write workspace to folder" is the trigger and it is honest about
-being manual.
-
-### Phase 2b — A change notification worth hanging things off
-- [ ] One place that says "the workspace changed", raised by the write paths
-      themselves rather than by a store that only some users run
-- [ ] `requestSync` subscribes to it; so can the graph, the search index, and
-      anything else currently re-reading on a timer or on a screen mount
-- [ ] Chosen over polling because the mirror's cost is the snapshot, not the
+### Phase 2b — A change notification worth hanging things off ✅
+- [x] `notifyWorkspaceChange` / `onWorkspaceChange` in `lib/workspace-changes.ts`
+      is the one place that says the workspace changed. It carries a table name
+      and nothing else: every listener re-reads what it needs anyway, and a
+      richer event would be a second description of the data to keep true
+- [x] Raised by `watchWrites`, which wraps the Supabase client once at its
+      single creation site in `wire-supabase-backend.ts`. Roughly forty
+      repositories reach for `db.from(table)` and none reach past it, so this
+      covers all of them and edits none of them. The alternative -- a
+      `notifyChanged()` per write -- is forty edits that every future repository
+      must repeat, where forgetting one leaves the folder silently stale for
+      exactly one kind of edit
+- [x] Only successful writes report. PostgREST answers errors in the payload
+      rather than by rejecting, so the check is on `error`; a failed write that
+      reported would have the mirror re-read the whole workspace to discover
+      nothing had happened. Reads are untouched
+- [x] A listener that throws cannot fail the write that triggered it, and
+      cannot stop the other listeners hearing about it
+- [x] `requestSync` subscribes when a folder is opened, not when the module
+      loads: a listener running with no folder would debounce, wake, find
+      nothing, and sleep again on every edit for the rest of the session
+- [x] Chosen over polling because the mirror's cost is the snapshot, not the
       write, and a poll pays that cost on every tick to usually find nothing
+- [x] 9 tests in `apps/web/src/backend/test/watch-writes.test.ts`
+
+Phase 2 is now complete: a desktop user picks a folder in Settings -> Folder,
+and it keeps itself up to date from then on.
 
 ### Phase 3 — Read-back
 - [ ] Watch the root; on an external change, `parseWorkspaceFolder` the

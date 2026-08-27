@@ -15,6 +15,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
@@ -90,6 +91,7 @@ export async function chooseFolder(options: { git: boolean }): Promise<boolean> 
   if (!fs) return false;
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
+  watchForChanges();
   return true;
 }
 
@@ -112,6 +114,7 @@ export async function chooseDesktopFolder(options: {
   const fs = new DesktopWorkspaceFs(bridge);
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
+  watchForChanges();
   return true;
 }
 
@@ -120,12 +123,15 @@ export async function openBrowserStorageFolder(options: { git: boolean }): Promi
   const fs = await BrowserWorkspaceFs.openOpfs();
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
+  watchForChanges();
 }
 
 export function closeFolder(): void {
   activeFs = null;
   activeGit = new NoOpWorkspaceGit();
   syncs.cancel();
+  unwatch?.();
+  unwatch = null;
   pendingAssets = new Map();
 }
 
@@ -206,6 +212,21 @@ export function suspendSync(suspended: boolean): void {
 /** The most recent mirror failure, for a panel that wants to say so. */
 export function lastSyncError(): unknown {
   return syncErrors.at(-1) ?? null;
+}
+
+/**
+ * Follow the workspace while a folder is connected.
+ *
+ * Subscribed when a folder is opened rather than when this module loads: a
+ * listener that ran with no folder would debounce, wake, find nothing to write,
+ * and go back to sleep on every edit the user makes for the rest of the
+ * session.
+ */
+let unwatch: (() => void) | null = null;
+
+function watchForChanges(): void {
+  unwatch?.();
+  unwatch = onWorkspaceChange(() => requestSync());
 }
 
 export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommit[]> {

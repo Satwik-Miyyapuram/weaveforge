@@ -36,6 +36,8 @@ import type {
   IBlobStore,
 } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { notifyWorkspaceChange } from "@/lib/workspace-changes";
+import { watchWrites } from "./watch-writes";
 import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import { SupabaseDashboardLayoutRepository } from "@/features/dashboard/infrastructure/supabase-dashboard-layout-repository";
@@ -135,7 +137,9 @@ export function wireSupabaseBackend(
     );
   }
 
-  const db = createSupabaseClient(url, anonKey, config.dataUrl);
+  // Wrapped once, here, so that every repository below reports its writes
+  // without any of them having to know that something is listening.
+  const db = watchWrites(createSupabaseClient(url, anonKey, config.dataUrl), notifyWorkspaceChange);
   const session = new SupabaseSessionProvider(db);
   const auth = new SupabaseAuthService(db);
   const adminProvisioner =
