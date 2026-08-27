@@ -32,6 +32,16 @@ export const QUIET_MS = 400;
 export interface VaultWatchOptions {
   /** Called with the paths that changed, once things go quiet. */
   onChange(paths: string[]): void;
+  /**
+   * Put a path into the one form both sides are compared in.
+   *
+   * The two sides arrive spelled differently: the renderer sends a workspace
+   * path that the writer folds before using, while the watcher reports what
+   * the filesystem called it. Comparing them unfolded means a write never
+   * matches its own echo, and every file the app writes is announced back to
+   * it as somebody else's change.
+   */
+  normalize?: (path: string) => string;
   now?: () => number;
   quietMs?: number;
   selfWriteWindowMs?: number;
@@ -49,6 +59,7 @@ export interface VaultWatch {
 }
 
 export function createVaultWatch(options: VaultWatchOptions): VaultWatch {
+  const normalize = options.normalize ?? ((path: string) => path);
   const now = options.now ?? (() => Date.now());
   const quietMs = options.quietMs ?? QUIET_MS;
   const selfWindow = options.selfWriteWindowMs ?? SELF_WRITE_WINDOW_MS;
@@ -71,7 +82,7 @@ export function createVaultWatch(options: VaultWatchOptions): VaultWatch {
   return {
     noteSelfWrite(path: string) {
       const at = now();
-      mine.set(path, at);
+      mine.set(normalize(path), at);
       // Swept here rather than on a timer of its own: the map only grows while
       // the app is writing, and the app writing is exactly when this runs.
       for (const [seen, when] of mine) {
@@ -79,7 +90,8 @@ export function createVaultWatch(options: VaultWatchOptions): VaultWatch {
       }
     },
 
-    saw(path: string) {
+    saw(raw: string) {
+      const path = normalize(raw);
       const written = mine.get(path);
       if (written !== undefined && now() - written <= selfWindow) {
         // Our own echo. Forget it, so that a second change to the same file

@@ -29,6 +29,7 @@ import {
   type IConceptExtractor,
 } from "./ai-extraction.js";
 import type { AiModelRequest, IModelConversation } from "./ai-types.js";
+import { UNTRUSTED_CONTEXT_RULE, contextNonce, fenceUntrusted } from "./untrusted-context.js";
 
 /** Characters of a document sent per batch. Past this, prose stops being cheap. */
 const MAX_DOC_CHARS = 6_000;
@@ -200,9 +201,18 @@ export class ModelConceptExtractor implements IConceptExtractor {
     request: ExtractionRequest,
   ): Promise<ExtractionResult> {
     const maxChars = this.options.maxDocumentChars ?? MAX_DOC_CHARS;
-    const corpus = batch
-      .map((doc) => `--- id: ${doc.id}\ntitle: ${doc.title}\n\n${(doc.text ?? "").slice(0, maxChars)}`)
-      .join("\n\n");
+    // A document is somebody's writing, and a plain `--- id:` header is one a
+    // document can write for itself — to claim a sibling's id, or to close the
+    // corpus and address the model directly. The nonce fence cannot be forged
+    // by text that existed before this request.
+    const nonce = contextNonce();
+    const corpus = fenceUntrusted(
+      batch.map((doc) => ({
+        label: `id: ${doc.id} — ${doc.title}`,
+        text: (doc.text ?? "").slice(0, maxChars),
+      })),
+      nonce,
+    );
 
     const known = (request.existingConcepts ?? []).slice(0, 200);
     const knownLine = known.length
@@ -211,7 +221,14 @@ export class ModelConceptExtractor implements IConceptExtractor {
 
     const modelRequest: AiModelRequest = {
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "system",
+          content: [
+            SYSTEM_PROMPT,
+            `Documents are delimited by <<context-${nonce}>> and <</context-${nonce}>>, each headed by its id.`,
+            UNTRUSTED_CONTEXT_RULE,
+          ].join("\n"),
+        },
         { role: "user", content: `${knownLine}\nDocuments:\n\n${corpus}` },
       ],
       ...(this.options.model ? { model: this.options.model } : {}),

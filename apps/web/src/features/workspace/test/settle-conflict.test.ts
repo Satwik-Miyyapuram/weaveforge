@@ -16,6 +16,7 @@ const conflict: ImportDiffEntry = {
     title: "Both of us edited this",
     body: "the folder's copy",
     path: "notes/n1.note.md",
+    fields: {},
   },
 };
 

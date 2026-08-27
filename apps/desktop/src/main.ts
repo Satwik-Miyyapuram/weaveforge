@@ -26,6 +26,7 @@ import {
   type RememberRoot,
   writeVaultFile,
 } from "./vault-handlers";
+import { safeWorkspacePath } from "@weaveforge/core";
 import { SecretStore } from "./secret-store";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
@@ -444,6 +445,16 @@ function startWatchingVault(root: string): void {
   stopWatchingVault();
   vaultWatch = createVaultWatch({
     onChange: (paths) => mainWindow?.webContents.send(CHANNELS.vaultChanged, paths),
+    // The same folding the writer does, so a write matches its own echo. A
+    // path this refuses is one no write could have produced, and is left as it
+    // came: it is somebody else's file either way.
+    normalize: (at) => {
+      try {
+        return safeWorkspacePath(at);
+      } catch {
+        return at;
+      }
+    },
   });
   try {
     vaultWatcher = fs.watch(root, { recursive: true }, (_event, name) => {

@@ -104,3 +104,28 @@ test("a quiet folder reports nothing", () => {
   quiet();
   assert.deepEqual(batches, []);
 });
+
+test("a self-write spelled differently is still recognised as our own", () => {
+  const batches: string[][] = [];
+  const timers: (() => void)[] = [];
+  const watch = createVaultWatch({
+    onChange: (paths) => batches.push(paths),
+    // Stands in for the folding the writer does: the renderer's spelling and
+    // the filesystem's spelling have to meet somewhere.
+    normalize: (at) => at.split("\\").join("/").replace(/^\.\//, ""),
+    now: () => 1_000,
+    quietMs: 5,
+    setTimeoutFn: (fn) => {
+      timers.push(fn);
+      return timers.length;
+    },
+    clearTimeoutFn: () => timers.pop(),
+  });
+
+  watch.noteSelfWrite(".\\notes\\mine.md");
+  watch.saw("notes/mine.md");
+  watch.saw("notes/theirs.md");
+  timers.splice(0).forEach((fire) => fire());
+
+  assert.deepEqual(batches, [["notes/theirs.md"]]);
+});

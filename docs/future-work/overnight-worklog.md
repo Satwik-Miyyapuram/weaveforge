@@ -397,3 +397,55 @@ than under the area it exercises, which `check-hygiene` catches. Moved to
 Verification: web 938 (was 932, +6 new), core 965, desktop 87, 0 fail. `tsc`
 clean for core, web and desktop, `next lint` clean, solid/dry/hygiene pass.
 Registry untouched.
+
+## Round 11 -- the folder's echo, and what indexed prose is allowed to say
+
+Two findings, both from reviewing the four rounds already on this branch rather
+than from adding a feature.
+
+### The watcher could report our own writes as somebody else's
+
+`main.ts` recorded a self-write under the path the renderer sent, while the
+watcher reported the path the filesystem gave back. Those are the same path
+spelled two ways: the writer folds through `safeWorkspacePath` before touching
+disk, so `notes\a.md` or `./notes/a.md` from a caller would have been remembered
+unfolded, never matched its own echo, and shown the user "1 file changed in the
+folder outside WeaveForge" for a file WeaveForge had just written.
+
+`createVaultWatch` now takes a `normalize`, applied on both sides of the
+comparison, and `main.ts` passes the same folding the writer does. A path
+`safeWorkspacePath` refuses is left as it came -- no write could have produced
+it, so it is somebody else's file either way.
+
+### Indexed content was reaching models unfenced
+
+Everything indexed here is somebody else's writing: a PDF the user imported, a
+note that arrived through a shared folder, a page fetched from the web. Both
+prompt-building sites pasted that text in behind a delimiter the text itself
+could write -- `[label]` in the grounded query, `--- id: <id>` in the concept
+extractor -- with nothing in the system turn saying the region was data.
+
+So a note could close the corpus and address the model in its own voice, or open
+a header claiming a sibling document's id.
+
+`untrusted-context.ts` now holds one guard used by both: a per-request nonce in
+the fence, `UNTRUSTED_CONTEXT_RULE` stated in the system turn where a document
+cannot reach, and neutralising of the nonce, of turn markers, and of the
+invisible characters that would hide those markers from a person reviewing the
+same note by eye. The invisible set is tested by code point rather than written
+as a character class, because a source file of literal control characters is a
+guard nobody can review.
+
+This is mitigation, not a proof, and the doc comment says so. The reason it is
+enough is structural and was already true: no executor is reachable from a tool
+call, and a proposal reaches the workspace only after a person accepts it
+(`ai-write-proposal.ts`), so the worst a successful injection buys is a bad
+answer or a bad proposal -- never a write. Tier 2 and Tier 3 of
+`interop-surface.md` inherit that shape when they are built.
+
+Also fixed: Round 10's `settleConflict` fixture was missing `fields`, which
+`tsc` catches now that the test compiles against core's source.
+
+Verification: core 974 (was 965, +9 new), web 938, desktop 88 (+1), 0 fail.
+`tsc` clean for core, web and desktop, `next lint` clean, solid/dry/hygiene
+pass. Registry untouched.

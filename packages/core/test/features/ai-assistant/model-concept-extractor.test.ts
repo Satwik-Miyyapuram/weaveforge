@@ -123,7 +123,7 @@ test("documents are batched, and counts merge across batches", async () => {
   }));
 
   const model = fakeModel((request) => {
-    const ids = [...request.messages[1]!.content.matchAll(/--- id: (\S+)/g)].map((m) => m[1]);
+    const ids = [...request.messages[1]!.content.matchAll(/\[id: (\S+)/g)].map((m) => m[1]);
     return JSON.stringify({
       concepts: [{ name: "Attention", aliases: [], kind: "method", documentIds: ids, evidence: "attention" }],
     });
