@@ -71,8 +71,26 @@ gave it a third backing and the two things it was missing.
       than folded into a snapshot taken before the save happened
 - [x] 25 tests in `apps/web/src/features/workspace/test/`
 
-Not yet wired into the save path: choosing the desktop folder still needs a UI
-affordance, which is where this picks up next.
+- [x] Settings -> Folder offers the shell's own dialog when there is a shell,
+      and takes up the remembered root on mount so a folder survives a restart
+      without a dialog nobody asked for
+
+Not yet wired into the save path, and blocked rather than merely unfinished:
+`requestSync` has no chokepoint to hang off. There is no mutation bus in the
+app. `Outbox.append` is the closest thing to one, but it only runs when offline
+sync is switched on, so hanging the mirror there would give a folder that
+updates itself for some users and not others -- worse than one that never does,
+because the difference is invisible. Phase 2b below is that prerequisite; until
+it lands, "Write workspace to folder" is the trigger and it is honest about
+being manual.
+
+### Phase 2b — A change notification worth hanging things off
+- [ ] One place that says "the workspace changed", raised by the write paths
+      themselves rather than by a store that only some users run
+- [ ] `requestSync` subscribes to it; so can the graph, the search index, and
+      anything else currently re-reading on a timer or on a screen mount
+- [ ] Chosen over polling because the mirror's cost is the snapshot, not the
+      write, and a poll pays that cost on every tick to usually find nothing
 
 ### Phase 3 — Read-back
 - [ ] Watch the root; on an external change, `parseWorkspaceFolder` the

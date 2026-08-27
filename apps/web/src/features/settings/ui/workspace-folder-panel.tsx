@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ImportDiff, WorkspaceCommit } from "@weaveforge/core";
 import { formatError } from "@/lib/format-error";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
   applyFolderImport,
+  chooseDesktopFolder,
   chooseFolder,
   closeFolder,
   folderHistory,
@@ -33,6 +35,36 @@ export function WorkspaceFolderPanel() {
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
   const [diff, setDiff] = useState<(ImportDiff & { skipped?: string[] }) | null>(null);
   const archiveInput = useRef<HTMLInputElement | null>(null);
+  // Resolved after mount, never during render: the server has no shell, and a
+  // first render that disagreed with it would be a hydration mismatch.
+  const [hasShell, setHasShell] = useState(false);
+  useEffect(() => setHasShell(desktop() !== null), []);
+
+  /**
+   * Take up the folder the desktop shell already remembers.
+   *
+   * The shell re-checks that the path still exists before answering, so this
+   * reconnects a folder across restarts without ever opening a dialog the user
+   * did not ask for. A folder already chosen this session wins: reconnecting
+   * over it would silently swap where the next write lands.
+   */
+  useEffect(() => {
+    if (!hasShell || session) return;
+    let live = true;
+    void chooseDesktopFolder({ git: false, reuse: true })
+      .then((adopted) => {
+        if (live && adopted) setSession(folderSession());
+      })
+      .catch(() => {
+        // A remembered folder that has since gone -- an unplugged drive, a
+        // dead network share -- leaves the panel exactly as it was.
+      });
+    return () => {
+      live = false;
+    };
+    // Runs for the empty state only; once connected there is nothing to adopt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasShell]);
 
   const run = async (label: string, work: () => Promise<void>) => {
     setBusy(label);
@@ -77,7 +109,21 @@ export function WorkspaceFolderPanel() {
             Local history only — commits stay on this device. There is no push, pull, or merge.
           </p>
           <div className="screen-actions">
-            {supportsDirectoryPicker() && (
+            {hasShell && (
+              <button
+                className="btn-secondary"
+                type="button"
+                disabled={busy !== null}
+                onClick={() =>
+                  void run("desktop", async () => {
+                    if (await chooseDesktopFolder({ git })) setSession(folderSession());
+                  })
+                }
+              >
+                Choose a folder…
+              </button>
+            )}
+            {!hasShell && supportsDirectoryPicker() && (
               <button
                 className="btn-secondary"
                 type="button"
@@ -105,7 +151,7 @@ export function WorkspaceFolderPanel() {
               Use browser storage
             </button>
           </div>
-          {!supportsDirectoryPicker() && (
+          {!hasShell && !supportsDirectoryPicker() && (
             <p className="muted jump-to-meta">
               Choosing a real folder needs a Chromium-based browser. Browser storage works
               everywhere, but the files are not visible in Finder or Explorer.
@@ -115,7 +161,10 @@ export function WorkspaceFolderPanel() {
       ) : (
         <div className="field">
           <p className="muted">
-            Connected to {session.kind === "picked" ? "a folder on this device" : "browser storage"}
+            Connected to{" "}
+            {session.kind === "opfs"
+              ? "browser storage"
+              : "a folder on this device"}
             {session.git === "isomorphic" ? ", with git history" : ""}.
           </p>
           <div className="screen-actions">
