@@ -61,8 +61,9 @@ export function LocalApiPanel() {
       <h4 className="settings-group">Let other apps in</h4>
       <p className="muted jump-to-meta">
         Serve the folder over HTTP on this machine only, using the same routes as
-        Obsidian&rsquo;s local REST API, so tools written for that already work. Nothing outside
-        this computer can reach it.
+        Obsidian&rsquo;s local REST API, so tools written for that already work. Training
+        scripts can use it too: point the Python SDK at this address and its runs land here.
+        Nothing outside this computer can reach it.
       </p>
       {error && <p className="error">{error}</p>}
       <label className="field-inline">

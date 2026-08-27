@@ -119,6 +119,23 @@ What this covers and what it costs:
 - Sharing, supervision and anything else that needs a second person are
   account features and stay unavailable.
 
+### Training scripts write into it too
+
+The local HTTP API also answers the Python SDK's routes, so a run logged from a
+training script lands in the same folder-sized database as everything else. Turn
+the API on in **Settings → Let other apps in**, then:
+
+```bash
+export WEAVEFORGE_TOKEN=<the token the app shows>
+export WEAVEFORGE_API_URL=http://127.0.0.1:27123
+```
+
+`weaveforge.track(...)` then behaves exactly as it does against a server: the
+same client, the same routes, the same rows. Re-sending a step overwrites it
+rather than duplicating it, so a script that retries a flush is safe. Artifacts
+are the exception — they are blobs, and the local API only knows how to run
+SQL — so figures logged this way have nowhere to go offline.
+
 ## Updates
 
 Packaged copies update themselves: `electron-updater` checks the GitHub releases

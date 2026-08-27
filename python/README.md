@@ -39,6 +39,23 @@ export WEAVEFORGE_PROJECT="My Thesis"   # or WEAVEFORGE_PROJECT_ID=<uuid>
 
 The SDK sends the token to your WeaveForge instance, which validates it and applies row-level security as your user.
 
+### Against the desktop app, with no account
+
+The desktop app serves the same routes from the database in your folder, so a
+training script can write into a copy that has never signed in. Turn the local
+API on in **Settings → Let other apps in**, copy the token it shows, and point the SDK
+at the loopback port:
+
+```bash
+export WEAVEFORGE_TOKEN=<the token the app shows>
+export WEAVEFORGE_API_URL=http://127.0.0.1:27123
+export WEAVEFORGE_PROJECT="My Thesis"
+```
+
+Nothing else changes: the same `track(...)`, the same runs and curves, and the
+app shows them under **Experiments** as they arrive. The app has to be running,
+and the port only listens on `127.0.0.1` — no other machine can reach it.
+
 Apply migrations through at least `0017` (metrics + artifacts bucket) — see root [README § Database](../README.md#database).
 
 ## Quick example
