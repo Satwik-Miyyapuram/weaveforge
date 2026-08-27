@@ -132,6 +132,9 @@ export function closeFolder(): void {
   syncs.cancel();
   unwatch?.();
   unwatch = null;
+  unwatchFolder?.();
+  unwatchFolder = null;
+  clearExternalChanges();
   pendingAssets = new Map();
 }
 
@@ -224,9 +227,70 @@ export function lastSyncError(): unknown {
  */
 let unwatch: (() => void) | null = null;
 
+let unwatchFolder: (() => void) | null = null;
+
 function watchForChanges(): void {
   unwatch?.();
   unwatch = onWorkspaceChange(() => requestSync());
+  watchFolderForChanges();
+}
+
+/**
+ * Somebody else's edits to the connected folder, by path.
+ *
+ * Reported, never applied. The panel's contract is that pulling changes back is
+ * an explicit action with a diff shown first, and applying a folder edit blind
+ * would overwrite whatever the workspace holds for that note with no way back
+ * -- the three-way merge that would make it safe does not exist yet.
+ */
+let external = new Set<string>();
+const externalListeners = new Set<(paths: string[]) => void>();
+
+/** The paths changed outside the app since the last time they were cleared. */
+export function externalChanges(): string[] {
+  return [...external].sort();
+}
+
+/** Forget them, once the reader has looked. */
+export function clearExternalChanges(): void {
+  external = new Set();
+  announceExternal();
+}
+
+export function onExternalChange(listener: (paths: string[]) => void): () => void {
+  externalListeners.add(listener);
+  return () => externalListeners.delete(listener);
+}
+
+function announceExternal(): void {
+  const paths = externalChanges();
+  for (const listener of [...externalListeners]) {
+    try {
+      listener(paths);
+    } catch {
+      // A listener's problem is its own; the folder still changed.
+    }
+  }
+}
+
+/**
+ * Listen to the shell's folder watcher, where there is one.
+ *
+ * A browser has nothing to subscribe to: it cannot watch a directory it was
+ * handed, which is why the workspace port has no watch method to fake.
+ */
+function watchFolderForChanges(): void {
+  unwatchFolder?.();
+  unwatchFolder = null;
+  const bridge = desktop();
+  if (!bridge || folderSession()?.kind !== "desktop") return;
+  unwatchFolder = bridge.onVaultChange((paths) => {
+    const before = external.size;
+    for (const path of paths) {
+      if (path !== MIRROR_MANIFEST_PATH) external.add(path);
+    }
+    if (external.size !== before) announceExternal();
+  });
 }
 
 export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommit[]> {

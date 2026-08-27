@@ -12,6 +12,9 @@ import {
   folderHistory,
   folderSession,
   previewArchiveImport,
+  clearExternalChanges,
+  externalChanges,
+  onExternalChange,
   previewFolderImport,
   supportsDirectoryPicker,
   syncToFolder,
@@ -39,6 +42,18 @@ export function WorkspaceFolderPanel() {
   // first render that disagreed with it would be a hydration mismatch.
   const [hasShell, setHasShell] = useState(false);
   useEffect(() => setHasShell(desktop() !== null), []);
+
+  /**
+   * What somebody else changed in the folder, where the shell can see it.
+   *
+   * Shown, not applied: the reader gets the same diff they would get from
+   * "Check folder for changes", having been told there is something to check.
+   */
+  const [outside, setOutside] = useState<string[]>([]);
+  useEffect(() => {
+    setOutside(externalChanges());
+    return onExternalChange(setOutside);
+  }, []);
 
   /**
    * Take up the folder the desktop shell already remembers.
@@ -167,6 +182,14 @@ export function WorkspaceFolderPanel() {
               : "a folder on this device"}
             {session.git === "isomorphic" ? ", with git history" : ""}.
           </p>
+          {outside.length > 0 && (
+            <p className="muted jump-to-meta">
+              {outside.length === 1
+                ? "One file changed in the folder outside WeaveForge"
+                : `${outside.length} files changed in the folder outside WeaveForge`}
+              . Check the folder to see what.
+            </p>
+          )}
           <div className="screen-actions">
             <button
               className="btn-secondary"
@@ -194,6 +217,7 @@ export function WorkspaceFolderPanel() {
               onClick={() =>
                 void run("preview", async () => {
                   setDiff(await previewFolderImport());
+                  clearExternalChanges();
                 })
               }
             >

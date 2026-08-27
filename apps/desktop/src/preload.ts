@@ -67,6 +67,13 @@ const bridge: DesktopBridge = {
   clearSecret: async (name) => {
     await call<null>(CHANNELS.secretClear, name);
   },
+  onVaultChange: (cb) => {
+    // Wrapped for the same reason `onSignIn` is: the renderer must not be
+    // handed Electron's event object, and with it a way back into this process.
+    const listener = (_event: unknown, paths: string[]) => cb(paths);
+    ipcRenderer.on(CHANNELS.vaultChanged, listener);
+    return () => ipcRenderer.off(CHANNELS.vaultChanged, listener);
+  },
   onSignIn: (cb) => {
     // The listener is wrapped rather than passed through, so the renderer never
     // receives Electron's `IpcRendererEvent` — which carries `sender`, and with

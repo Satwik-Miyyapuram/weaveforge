@@ -104,8 +104,28 @@ Phase 2 is now complete: a desktop user picks a folder in Settings -> Folder,
 and it keeps itself up to date from then on.
 
 ### Phase 3 — Read-back
-- [ ] Watch the root; on an external change, `parseWorkspaceFolder` the
-      affected file and apply it through the same use cases the UI calls
+- [x] `createVaultWatch` in `apps/desktop/src/vault-watch.ts` collects
+      filesystem events and reports them as one batch after things go quiet: a
+      single save in Obsidian or VS Code arrives as a write, a rename, and a
+      second write, and reporting each would be three reviews for one edit
+- [x] Writes this process makes are noted before they happen, so the mirror's
+      own output is not reported back as somebody else's change. An echo is
+      forgiven once, not forever -- an editor saving over a file the mirror has
+      just written is real news the second time
+- [x] `fs.watch(root, { recursive: true })` in the main process, reaching the
+      renderer on the `vaultChanged` channel via the same main -> renderer event
+      pattern as `signIn`. Recursive watching works on Windows and macOS but not
+      Linux; a native watcher would be a compiled dependency in an installer for
+      a convenience, so Linux simply gets no notification
+- [x] The renderer *reports*, and does not apply: `externalChanges()` and
+      `onExternalChange` in `workspace-folder.ts`, surfaced by Settings ->
+      Folder as a line above the actions. Applying blind would overwrite the
+      workspace's copy with no way back, and the merge that would make it safe
+      is Phase 4. The panel's contract already says pulling changes back is an
+      explicit action with a diff shown first
+- [x] 14 tests (9 desktop, 5 web)
+- [ ] Apply the affected file through the same use cases the UI calls, once
+      Phase 4 exists to settle what happens when both sides changed
 - [ ] Identity comes from `weaveforge-id`, so a file renamed in Finder renames
       the entity instead of forking it — this already works and is tested
 - [ ] A file with no `weaveforge-id` is an import: create the entity, then

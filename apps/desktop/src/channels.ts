@@ -72,6 +72,15 @@ export const CHANNELS = {
   vaultList: "weaveforge:vault-list",
   vaultStat: "weaveforge:vault-stat",
   vaultRemove: "weaveforge:vault-remove",
+  /**
+   * Main -> renderer, like `signIn`: somebody else changed the folder.
+   *
+   * Carries the paths that changed and nothing about what happened to them.
+   * A rename arrives as two paths and a delete as one, and telling those apart
+   * from filesystem events alone is guesswork the reader does better by
+   * looking at the folder -- which it has to do anyway to say what changed.
+   */
+  vaultChanged: "weaveforge:vault-changed",
 } as const;
 
 /**

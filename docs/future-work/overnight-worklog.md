@@ -280,3 +280,42 @@ Settings -> Folder and it keeps itself up to date from then on.
 
 Verification: web 924 (was 915, +9 new), core 957, desktop 78, 0 fail. `tsc`
 clean, `next lint` clean, solid/dry/hygiene pass. Registry untouched.
+
+## Round 8 — Phase 3: noticing that somebody else changed the folder
+
+The folder has been written from the workspace since Round 7. This is the other
+direction's first half: knowing that Obsidian, VS Code, or Finder touched it.
+
+`apps/desktop/src/vault-watch.ts` holds the whole decision and imports no
+Electron, so it is tested with an owned clock and timer harness. Two problems
+made it more than an `fs.watch` call:
+
+- editors do not save once. A single save arrives as a write, a rename, and a
+  second write within milliseconds, and an atomic save is a create-and-replace
+  rather than a write at all. Events are collected and reported as one batch
+  after the folder goes quiet
+- the app writes to this folder itself, so a naive watcher would ask the user to
+  review their own edits. Write handlers note the path before writing -- before,
+  because the filesystem event can arrive while the write is still returning,
+  and an echo that beat its own note would be reported as somebody else's change
+
+The batch carries paths and nothing about what happened to them: a rename
+arrives as two paths and a delete as one, and telling those apart from
+filesystem events is guesswork the reader does better by looking -- which it has
+to do anyway to say what changed.
+
+The renderer reports rather than applies. `externalChanges()` /
+`onExternalChange` in `workspace-folder.ts`, shown by Settings -> Folder as a
+line above the buttons, and cleared when the reader checks the folder. Applying
+a folder edit blind would overwrite the workspace's copy with no way back, and
+the three-way merge that would make it safe is Phase 4. The panel's own contract
+already said this: pulling changes back is an explicit action with a diff shown
+first, never a background sync.
+
+Linux gets no notification, on purpose. Recursive `fs.watch` works on Windows
+and macOS and not there, and pulling in a native watcher would be a compiled
+dependency in an installer for a convenience.
+
+Verification: web 929 (was 924, +5 new), core 957, desktop 87 (was 78, +9 new),
+0 fail. `tsc` clean for web and desktop, `next lint` clean, solid/dry/hygiene
+pass. Registry untouched.
