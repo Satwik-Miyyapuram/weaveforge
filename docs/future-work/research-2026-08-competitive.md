@@ -88,13 +88,26 @@ Ours is the only MCP server that could answer "what did I claim in chapter 3,
 which run supports it, and which paper did I get it from". Add the experiment
 and report tools; keep every write behind the proposal gate.
 
-### 6. Compile locally — optional, desktop-only
+### 6. Compile locally — small, desktop-only, and only if a TeX is already here
 
-The free-tier compile timeout is a real, named pain. A desktop copy that finds a
-local TeX installation could compile with no queue and no ceiling.
-Detection-based, silent when absent, and honest that it is not us competing with
-Overleaf's collaboration.
+The free-tier compile timeout is a real, named pain, and the obvious reading of
+this item — put a TeX distribution in the app — is the wrong one. A full TeX
+Live is around 7-8 GB; even a small scheme is a few hundred megabytes, against
+a desktop app that is currently a couple of hundred in total. Shipping one
+would make the download an order of magnitude larger for the minority of
+people who would use it.
 
+So: **detect, never bundle.** Look for `latexmk`, `pdflatex` or `tectonic` on
+the path. Found, the report grows a Compile button that spawns it, tails the
+log and shows the PDF — no queue, no ceiling, no network. Not found, the
+button never appears and Overleaf stays exactly as it is. That is a spawn, a
+log parse and a file path, which makes this one of the *small* items rather
+than a large one; the size was always in the dependency we are not taking.
+
+If people ask for it later, the honest middle is an opt-in download they
+trigger themselves — Tectonic is a ~25 MB binary that fetches packages on
+first use and caches them — and it must be their choice, because it is a
+network dependency inside the feature we advertise as offline.
 ### Explicitly not doing
 
 - **A chat-with-your-PDF box.** Fifty plugins already do it, and it is the
