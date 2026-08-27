@@ -83,6 +83,14 @@ export const CHANNELS = {
    * is not Zotero's own local API.
    */
   zoteroLocal: "weaveforge:zotero-local",
+  /**
+   * Whether this computer has a TeX, and one compile with it.
+   *
+   * The app ships no TeX -- a full TeX Live is several gigabytes -- so the
+   * probe answers null on most machines and the feature stays hidden.
+   */
+  texProbe: "weaveforge:tex-probe",
+  texCompile: "weaveforge:tex-compile",
   localApiSet: "weaveforge:local-api-set",
   /**
    * Main -> renderer, like `signIn`: somebody else changed the folder.

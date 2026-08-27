@@ -30,6 +30,7 @@ import {
 import { safeWorkspacePath } from "@weaveforge/core";
 import { LOCAL_API_HOST, LOCAL_API_PORT, newLocalApiToken, startLocalApi, type LocalApi } from "./local-api-server";
 import { fetchZoteroLocal } from "./zotero-local";
+import { compileTex, probeTex, type TexSourceFile } from "./tex";
 import { SecretStore } from "./secret-store";
 import { handleOverleafRead } from "./overleaf-source";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
@@ -541,6 +542,27 @@ ipcMain.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
         error instanceof Error
           ? error.message
           : "Zotero on this computer did not answer. Is it running?",
+    };
+  }
+});
+
+ipcMain.handle(CHANNELS.texProbe, async () => {
+  return { ok: true, value: await probeTex() };
+});
+
+ipcMain.handle(CHANNELS.texCompile, async (_event, files: unknown, entryFile: unknown) => {
+  // The page names the files; `compileTex` refuses any path that would leave
+  // the temporary directory it makes, so nothing here is written near the
+  // reader's own work.
+  if (!Array.isArray(files) || typeof entryFile !== "string") {
+    return { ok: false, message: "That is not a project to compile." };
+  }
+  try {
+    return { ok: true, value: await compileTex(files as TexSourceFile[], entryFile) };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "The compile could not be started.",
     };
   }
 });

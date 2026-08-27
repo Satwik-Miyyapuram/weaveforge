@@ -8,6 +8,8 @@ import type {
   DesktopUpdate,
   DesktopVaultEntry,
   DesktopVaultRoot,
+  DesktopTexCompileResult,
+  DesktopTexTool,
   DesktopZoteroReply,
 } from "@/lib/desktop/desktop-bridge";
 import { CHANNELS, type ImagePayload, type IpcResult, type TitlePayload } from "./channels";
@@ -69,6 +71,8 @@ const bridge: DesktopBridge = {
   zoteroLocal: (url) => call<DesktopZoteroReply>(CHANNELS.zoteroLocal, url),
   readOverleafProject: (projectId, entryFile) =>
     call<DesktopOverleafSource>(CHANNELS.overleafRead, projectId, entryFile),
+  probeTex: () => call<DesktopTexTool | null>(CHANNELS.texProbe),
+  compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
