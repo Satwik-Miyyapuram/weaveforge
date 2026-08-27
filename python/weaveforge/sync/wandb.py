@@ -64,13 +64,20 @@ class WandbSource:
         # a local directory, because a training script must not stop to ask.
         signed_in = bool(os.environ.get("WANDB_API_KEY"))
         mode = os.environ.get("WANDB_MODE") or ("online" if signed_in else "offline")
-        run = wandb.init(
+        # A second tracked run in one process must not silently attach to the
+        # first. Newer wandb spells that as a string and deprecates the boolean;
+        # older wandb only understands the boolean, so try the new spelling and
+        # fall back rather than printing a deprecation warning into every log.
+        settings: dict[str, Any] = dict(
             project=os.environ.get("WANDB_PROJECT"),
             name=name,
             config=dict(config),
             mode=mode,
-            reinit=True,
         )
+        try:
+            run = wandb.init(reinit="finish_previous", **settings)
+        except (TypeError, ValueError):
+            run = wandb.init(reinit=True, **settings)
         return _WandbMirror(run)
 
     def read(self, run_path: str) -> list[MetricSeries]:
