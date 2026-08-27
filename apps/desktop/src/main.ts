@@ -13,10 +13,25 @@ import {
 } from "./app-protocol";
 import type { LocalClient } from "./local-db";
 import { LocalDbHost } from "./local-db-host";
+import {
+  adoptRoot,
+  currentRoot,
+  forgetRoot,
+  listVaultFiles,
+  newVaultSession,
+  readVaultFile,
+  removeVaultFile,
+  restoreRoot,
+  statVaultFile,
+  type RememberRoot,
+  writeVaultFile,
+} from "./vault-handlers";
+import { safeWorkspacePath } from "@weaveforge/core";
 import { SecretStore } from "./secret-store";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
+import { createVaultWatch, type VaultWatch } from "./vault-watch";
 import { PreferenceStore } from "./preference-store";
 import { fetchReleases, findUpdate } from "./update-check";
 
@@ -342,6 +357,118 @@ const localDb = new LocalDbHost({
 ipcMain.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
   localDb.query(sql, params),
 );
+
+/**
+ * The workspace folder.
+ *
+ * The renderer never names a directory: `vaultChoose` opens a picker and the
+ * chosen path stays in this process, so every later read and write is relative
+ * to something a person selected in a dialog. That is the whole reason the
+ * session lives here rather than being passed in on each call.
+ */
+const vault = newVaultSession();
+
+/** The chosen folder outlives the process, so the app comes back to it. */
+const rememberRoot: RememberRoot = (root) => {
+  void preferenceStore().write("vault-root", root);
+};
+
+/**
+ * Take up last run's folder, re-verified. Deliberately not awaited at startup:
+ * the window should not wait on a disk that may be a disconnected network
+ * share, and the renderer asks for the root when it needs it anyway.
+ */
+void preferenceStore()
+  .read("vault-root")
+  .then((result) => (result.ok ? restoreRoot(vault, result.value, rememberRoot) : null))
+  .then((root) => (root ? startWatchingVault(root.path) : null))
+  .catch(() => null);
+
+ipcMain.handle(CHANNELS.vaultChoose, async () => {
+  const window = mainWindow;
+  const result = window
+    ? await dialog.showOpenDialog(window, {
+        title: "Choose a folder for your workspace",
+        properties: ["openDirectory", "createDirectory"],
+      })
+    : await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
+  // A dismissed dialog is the user declining, not a failure.
+  const adopted = await adoptRoot(
+    vault,
+    result.canceled ? null : (result.filePaths[0] ?? null),
+    rememberRoot,
+  );
+  if (adopted.ok && adopted.value) startWatchingVault(adopted.value.path);
+  return adopted;
+});
+
+ipcMain.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
+ipcMain.handle(CHANNELS.vaultForget, () => {
+  stopWatchingVault();
+  return forgetRoot(vault, rememberRoot);
+});
+ipcMain.handle(CHANNELS.vaultRead, (_event, at: unknown) => readVaultFile(vault, at));
+ipcMain.handle(CHANNELS.vaultWrite, async (_event, at: unknown, contents: unknown) => {
+  // Said before the write rather than after: the filesystem event can arrive
+  // while the write is still returning, and an echo that beats its own note
+  // would be reported as somebody else's change.
+  if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
+  return writeVaultFile(vault, at, contents);
+});
+ipcMain.handle(CHANNELS.vaultList, (_event, at: unknown) => listVaultFiles(vault, at));
+ipcMain.handle(CHANNELS.vaultStat, (_event, at: unknown) => statVaultFile(vault, at));
+ipcMain.handle(CHANNELS.vaultRemove, async (_event, at: unknown) => {
+  if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
+  return removeVaultFile(vault, at);
+});
+
+/**
+ * Watch the chosen folder, and tell the window when somebody else touches it.
+ *
+ * `fs.watch` recursively is supported on Windows and macOS and not on Linux,
+ * and there is no third-party watcher in this app's dependencies to fall back
+ * to. A platform that cannot watch simply does not, and the folder stays as
+ * manual as it was before -- the alternative, pulling in a native watcher, is
+ * a compiled dependency in an installer for a feature that is a convenience.
+ */
+let vaultWatch: VaultWatch | null = null;
+let vaultWatcher: fs.FSWatcher | null = null;
+
+function stopWatchingVault(): void {
+  vaultWatch?.stop();
+  vaultWatch = null;
+  vaultWatcher?.close();
+  vaultWatcher = null;
+}
+
+function startWatchingVault(root: string): void {
+  stopWatchingVault();
+  vaultWatch = createVaultWatch({
+    onChange: (paths) => mainWindow?.webContents.send(CHANNELS.vaultChanged, paths),
+    // The same folding the writer does, so a write matches its own echo. A
+    // path this refuses is one no write could have produced, and is left as it
+    // came: it is somebody else's file either way.
+    normalize: (at) => {
+      try {
+        return safeWorkspacePath(at);
+      } catch {
+        return at;
+      }
+    },
+  });
+  try {
+    vaultWatcher = fs.watch(root, { recursive: true }, (_event, name) => {
+      if (!name) return;
+      vaultWatch?.saw(name.toString().split(path.sep).join("/"));
+    });
+    // A watch that fails later -- an unplugged drive -- must not take the
+    // process with it. The folder is still readable when it comes back.
+    vaultWatcher.on("error", () => stopWatchingVault());
+  } catch {
+    // Recursive watching is unavailable here. Nothing else changes.
+    stopWatchingVault();
+  }
+}
 
 app.on("will-quit", (event) => {
   event.preventDefault();

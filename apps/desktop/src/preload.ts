@@ -3,6 +3,8 @@ import type {
   DesktopBridge,
   DesktopPreferenceValue,
   DesktopUpdate,
+  DesktopVaultEntry,
+  DesktopVaultRoot,
 } from "@/lib/desktop/desktop-bridge";
 import { CHANNELS, type ImagePayload, type IpcResult, type TitlePayload } from "./channels";
 
@@ -44,12 +46,33 @@ const bridge: DesktopBridge = {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },
   queryLocalDb: (sql, params) => call<unknown[]>(CHANNELS.dbQuery, sql, params),
+  chooseVaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultChoose),
+  vaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultRoot),
+  forgetVaultRoot: async () => {
+    await call<null>(CHANNELS.vaultForget);
+  },
+  readVaultFile: (path) => call<string | null>(CHANNELS.vaultRead, path),
+  writeVaultFile: async (path, contents) => {
+    await call<null>(CHANNELS.vaultWrite, path, contents);
+  },
+  listVaultFiles: (path) => call<DesktopVaultEntry[]>(CHANNELS.vaultList, path ?? ""),
+  statVaultFile: (path) => call<DesktopVaultEntry | null>(CHANNELS.vaultStat, path),
+  removeVaultFile: async (path) => {
+    await call<null>(CHANNELS.vaultRemove, path);
+  },
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);
   },
   clearSecret: async (name) => {
     await call<null>(CHANNELS.secretClear, name);
+  },
+  onVaultChange: (cb) => {
+    // Wrapped for the same reason `onSignIn` is: the renderer must not be
+    // handed Electron's event object, and with it a way back into this process.
+    const listener = (_event: unknown, paths: string[]) => cb(paths);
+    ipcRenderer.on(CHANNELS.vaultChanged, listener);
+    return () => ipcRenderer.off(CHANNELS.vaultChanged, listener);
   },
   onSignIn: (cb) => {
     // The listener is wrapped rather than passed through, so the renderer never

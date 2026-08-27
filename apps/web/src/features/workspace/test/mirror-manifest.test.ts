@@ -1,0 +1,220 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+
+import {
+  MIRROR_MANIFEST_PATH,
+  baseDigest,
+  claimImportedFile,
+  createCoalescer,
+  nextManifest,
+  readMirrorBase,
+  readMirrorManifest,
+  writeMirrorManifest,
+} from "../application/mirror-manifest";
+
+test("a manifest round trips, sorted and deduplicated", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await writeMirrorManifest(fs, ["b.md", "a.md", "b.md"]);
+  assert.deepEqual(await readMirrorManifest(fs), ["a.md", "b.md"]);
+});
+
+test("the base digests round trip with the paths", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await writeMirrorManifest(fs, ["a.md", "b.md"], { "a.md": "d1", "b.md": "d2" });
+  assert.deepEqual(await readMirrorBase(fs), { "a.md": "d1", "b.md": "d2" });
+});
+
+test("a digest for a path that left is not carried forward", async () => {
+  const fs = new MemoryWorkspaceFs();
+  // The mirror reports a digest for every file it serialized, including ones
+  // this run no longer claims; storing those would grow the manifest forever.
+  await writeMirrorManifest(fs, ["a.md"], { "a.md": "d1", "gone.md": "d2" });
+  assert.deepEqual(await readMirrorBase(fs), { "a.md": "d1" });
+});
+
+test("a version 1 manifest keeps its paths and offers no base", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.mkdirp(MIRROR_MANIFEST_PATH.split("/").slice(0, -1).join("/"));
+  await fs.writeFile(MIRROR_MANIFEST_PATH, JSON.stringify({ version: 1, paths: ["a.md"] }));
+  assert.deepEqual(await readMirrorManifest(fs), ["a.md"]);
+  // Empty rather than absent: the path is still ours to remove, but nothing is
+  // known about what it said when the two sides last agreed.
+  assert.deepEqual(await readMirrorBase(fs), { "a.md": "" });
+});
+
+test("an absent manifest reads as remove-nothing rather than throwing", async () => {
+  assert.deepEqual(await readMirrorManifest(new MemoryWorkspaceFs()), []);
+});
+
+test("a truncated or foreign manifest also removes nothing", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.mkdirp(MIRROR_MANIFEST_PATH.split("/")[0]!);
+
+  await fs.writeFile(MIRROR_MANIFEST_PATH, '{"paths": ["a.md"');
+  assert.deepEqual(await readMirrorManifest(fs), []);
+
+  // Valid JSON, wrong shape — something else's file living at our path.
+  await fs.writeFile(MIRROR_MANIFEST_PATH, '{"files": ["a.md"]}');
+  assert.deepEqual(await readMirrorManifest(fs), []);
+});
+
+test("non-string entries are dropped rather than trusted", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.mkdirp(MIRROR_MANIFEST_PATH.split("/")[0]!);
+  await fs.writeFile(MIRROR_MANIFEST_PATH, '{"paths": ["a.md", 7, null, "b.md"]}');
+  assert.deepEqual(await readMirrorManifest(fs), ["a.md", "b.md"]);
+});
+
+test("the next manifest keeps what stayed, drops what left, adds what was written", () => {
+  assert.deepEqual(
+    nextManifest(["kept.md", "gone.md"], { written: ["new.md"], removed: ["gone.md"] }).sort(),
+    ["kept.md", "new.md"],
+  );
+});
+
+test("a file rewritten in place is not listed twice", () => {
+  assert.deepEqual(nextManifest(["a.md"], { written: ["a.md"], removed: [] }), ["a.md"]);
+});
+
+/** A coalescer whose clock this test owns. */
+function harness(run: () => Promise<unknown>, onError?: (error: unknown) => void) {
+  const timers: (() => void)[] = [];
+  const coalescer = createCoalescer({
+    run,
+    debounceMs: 5,
+    ...(onError ? { onError } : {}),
+    setTimeoutFn: (fn) => {
+      timers.push(fn);
+      return timers.length;
+    },
+    clearTimeoutFn: () => timers.pop(),
+  });
+  return { coalescer, fire: () => timers.splice(0).forEach((fire) => fire()) };
+}
+
+test("a burst of requests is one run", async () => {
+  let runs = 0;
+  const { coalescer, fire } = harness(async () => {
+    runs += 1;
+  });
+
+  coalescer.request();
+  coalescer.request();
+  coalescer.request();
+  fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(runs, 1);
+});
+
+test("a request landing mid-run is honoured afterwards", async () => {
+  let runs = 0;
+  const gate: { release?: () => void } = {};
+  const { coalescer, fire } = harness(async () => {
+    runs += 1;
+    if (runs === 1) {
+      await new Promise<void>((resolve) => {
+        gate.release = resolve;
+      });
+    }
+  });
+
+  coalescer.request();
+  fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(runs, 1);
+
+  // Second request arrives while the first run is still going.
+  coalescer.request();
+  fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(runs, 1, "the second run should wait rather than overlap");
+
+  gate.release?.();
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(runs, 2);
+});
+
+test("a suspended coalescer stands down", async () => {
+  let runs = 0;
+  const { coalescer, fire } = harness(async () => {
+    runs += 1;
+  });
+
+  coalescer.suspended = true;
+  coalescer.request();
+  fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(runs, 0);
+
+  coalescer.suspended = false;
+  coalescer.request();
+  fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(runs, 1);
+});
+
+test("cancelling drops a pending request", async () => {
+  let runs = 0;
+  const { coalescer, fire } = harness(async () => {
+    runs += 1;
+  });
+
+  coalescer.request();
+  coalescer.cancel();
+  fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(runs, 0);
+});
+
+test("a failing run is reported, not thrown", async () => {
+  const seen: unknown[] = [];
+  const { coalescer, fire } = harness(async () => {
+    throw new Error("disk unplugged");
+  }, (error) => seen.push(error));
+
+  coalescer.request();
+  fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(seen.length, 1);
+
+  // And the coalescer is still usable afterwards.
+  coalescer.request();
+  fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(seen.length, 2);
+});
+
+test("a hand-written file is stamped with the id it was imported as", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("notes/My idea.md", "---\ntitle: My idea\n---\n\nthe body\n");
+  await writeMirrorManifest(fs, ["notes/old.note.md"], { "notes/old.note.md": "d0" });
+
+  assert.equal(await claimImportedFile(fs, "notes/My idea.md", "n1"), true);
+
+  const stamped = await fs.readText("notes/My idea.md");
+  assert.match(stamped, /^---\nweaveforge-id: n1\n/);
+  // Claimed, so the next mirror removes it once the entity is written out
+  // under its own name — instead of leaving the folder holding both copies.
+  const base = await readMirrorBase(fs);
+  assert.deepEqual(Object.keys(base).sort(), ["notes/My idea.md", "notes/old.note.md"]);
+  assert.equal(base["notes/My idea.md"], baseDigest(stamped));
+  assert.equal(base["notes/old.note.md"], "d0");
+});
+
+test("a file that already carries an id is neither rewritten nor claimed", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const content = "---\nweaveforge-id: n9\n---\n\nbody\n";
+  await fs.writeFile("notes/theirs.md", content);
+
+  assert.equal(await claimImportedFile(fs, "notes/theirs.md", "n1"), false);
+  assert.equal(await fs.readText("notes/theirs.md"), content);
+  assert.deepEqual(await readMirrorBase(fs), {});
+});
+
+test("a file that has gone since the preview is not an error", async () => {
+  const fs = new MemoryWorkspaceFs();
+  assert.equal(await claimImportedFile(fs, "notes/gone.md", "n1"), false);
+});

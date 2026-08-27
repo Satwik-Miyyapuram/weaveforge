@@ -29,6 +29,7 @@ Both talk to the **same Postgres schema** (`supabase/migrations/`). Log a run in
 - **Plan + logbook** — milestones with dependencies and compute estimates; markdown daily log; supervisor read access along the org tree.
 - **Experiments tied to code** — branch/commit pinning, metric curves, artifact uploads, compare view for sweeps.
 - **Report + vault** — nested report sections with progress; Obsidian-style vault pages for long-form notes.
+- **Your notes as files** — mirror the workspace to a folder of plain Markdown that opens as an Obsidian vault, edit it out there, and pull the changes back with a diff shown first ([`docs/workspace-folder.md`](docs/workspace-folder.md)).
 - **Collaboration** — share papers, experiments, sections, vault notes, or whole types with labmates; **pin shared items into your library**; comment threads and **co-editing** where granted.
 - **Privacy model** — data stored server-side with encryption at rest; Postgres RLS is the access boundary (owner-or-shared); external **view links** (`/link?t=…`) with optional expiry. Not end-to-end encrypted.
 - **Labs without IT** — professors create a lab and share three invite codes (professor / PhD / masters); join with a code or run **standalone**.
@@ -145,6 +146,7 @@ Ordered the way you meet the project: use it, host it, then build on it.
 | [`docs/paste.md`](docs/paste.md) | What happens to text pasted from a PDF, terminal, spreadsheet, or chat |
 | [`docs/collaborative-editing.md`](docs/collaborative-editing.md) | Two people in one note, live cursors, no overwrite prompt |
 | [`docs/desktop.md`](docs/desktop.md) | The desktop app — same account, own window |
+| [`docs/workspace-folder.md`](docs/workspace-folder.md) | A folder of plain Markdown that mirrors your workspace, and reads your edits back |
 | [`python/README.md`](python/README.md) | Python SDK — push ML runs into the same dashboard |
 | [`docs/MCP_IMPLEMENTATION.md`](docs/MCP_IMPLEMENTATION.md) | MCP relay for driving WeaveForge from an AI assistant |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history (whole project) |

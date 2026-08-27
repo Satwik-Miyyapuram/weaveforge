@@ -69,9 +69,6 @@ export const THEME_FONT_KEYS = ["sans", "serif", "mono"] as const;
 /** Geometry slots, in the same spirit as the font slots. */
 export const THEME_RADIUS_KEYS = ["card", "control", "chip"] as const;
 
-export type ThemeColorKey = (typeof THEME_COLOR_KEYS)[number];
-export type ThemeFontKey = (typeof THEME_FONT_KEYS)[number];
-export type ThemeRadiusKey = (typeof THEME_RADIUS_KEYS)[number];
 
 /** How surfaces are separated from each other. */
 export type SurfaceStyle = "borderless" | "bordered";

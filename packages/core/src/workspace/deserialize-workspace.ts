@@ -10,6 +10,7 @@
  * `diffWorkspace`) and paths are validated by the caller before reaching here.
  */
 
+import type { ChangeSide } from "./change-origin.js";
 import { readFrontmatter, frontmatterList, frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
 import { WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
@@ -95,13 +96,44 @@ export function parseWorkspaceFolder(files: Record<string, string>): ParsedEntit
   return out;
 }
 
+export interface DiffOptions {
+  /**
+   * Who changed each file, by folder path.
+   *
+   * Optional because the manifest that carries the base may be missing -- an
+   * older folder, one written by another machine, a file the mirror never
+   * wrote. Without it the diff behaves exactly as it did before: a difference
+   * is an update, and the user decides.
+   */
+  origin?(path: string): ChangeSide;
+}
+
 export type ImportAction = "created" | "updated" | "unchanged" | "conflict";
+
+/**
+ * Why an entry conflicts, which decides what may be done about it.
+ *
+ * `both-changed` can be settled any way the user likes -- the two copies are
+ * both notes and either is a legitimate answer. `type-mismatch` cannot: the id
+ * in the file belongs to a different kind of entity, so there is nothing to
+ * update, and importing the file as a new note is the only safe outcome.
+ */
+export type ConflictKind = "both-changed" | "type-mismatch";
 
 export interface ImportDiffEntry {
   action: ImportAction;
   entity: ParsedEntity;
   /** Why an entry is a conflict, shown to the user before any write. */
   reason?: string;
+  kind?: ConflictKind;
+  /**
+   * The fields a per-field merge could not settle, when one was attempted.
+   *
+   * Present only on a `both-changed` conflict that survived the merge, and it
+   * names what is actually in dispute -- `body`, or a frontmatter key -- so the
+   * user is asked about the disagreement rather than about the file.
+   */
+  conflictFields?: readonly string[];
 }
 
 export interface ImportDiff {
@@ -129,6 +161,7 @@ export interface ExistingEntity {
 export function diffWorkspace(
   parsed: readonly ParsedEntity[],
   existing: readonly ExistingEntity[],
+  options: DiffOptions = {},
 ): ImportDiff {
   const byId = new Map(existing.map((entity) => [entity.id, entity]));
   const entries: ImportDiffEntry[] = [];
@@ -150,6 +183,7 @@ export function diffWorkspace(
       entries.push({
         action: "conflict",
         entity,
+        kind: "type-mismatch",
         reason: `The id in ${entity.path} belongs to a ${current.type}, not a ${entity.type}.`,
       });
       continue;
@@ -157,7 +191,30 @@ export function diffWorkspace(
 
     const sameTitle = current.title.trim() === entity.title.trim();
     const sameBody = current.body.trim() === entity.body.trim();
-    entries.push({ action: sameTitle && sameBody ? "unchanged" : "updated", entity });
+    if (sameTitle && sameBody) {
+      entries.push({ action: "unchanged", entity });
+      continue;
+    }
+
+    // The two copies differ. Which of them moved decides what that means: an
+    // import that carries the folder's copy over a workspace edit made since
+    // the mirror wrote it is a silent loss, and the only honest answer when
+    // both sides moved is to ask.
+    const side = options.origin?.(entity.path) ?? "unknown";
+    if (side === "workspace") {
+      entries.push({ action: "unchanged", entity });
+      continue;
+    }
+    if (side === "both") {
+      entries.push({
+        action: "conflict",
+        entity,
+        kind: "both-changed",
+        reason: `${entity.path} changed both in the folder and in the workspace since they last agreed.`,
+      });
+      continue;
+    }
+    entries.push({ action: "updated", entity });
   }
 
   const counts: Record<ImportAction, number> = {

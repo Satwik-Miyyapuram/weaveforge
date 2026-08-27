@@ -31,6 +31,8 @@ archived versions and nothing linked to them, so they are gone.
 | [`competitive-strategy-report-plan.md`](completed/competitive-strategy-report-plan.md) | Archived competitive report draft |
 | [`hosting-and-cost-plan.md`](completed/hosting-and-cost-plan.md) | Hosted vs self-host licensing boundary (AGPL-3.0) |
 | [`COMMERCIALIZATION_AND_COST_PLAN.md`](completed/COMMERCIALIZATION_AND_COST_PLAN.md) | Cost drivers and OCI guidance; its tier table is superseded by [`../pricing-strategy.md`](../pricing-strategy.md) |
+| [`offline-first-sync.md`](completed/offline-first-sync.md) | Offline-first desktop and sync — data-kind classification, three-way merge, conflict policy. **Delivered** |
+| [`desktop-editor-workspace.md`](completed/desktop-editor-workspace.md) | Desktop editor shell — kind suffixes, explorer tree, split panes and tabs, quick open. **Phases 1–6 delivered** |
 
 ## Elsewhere
 
@@ -43,5 +45,5 @@ archived versions and nothing linked to them, so they are gone.
 
 | Plan | Notes |
 |------|-------|
-| [`offline-first-sync.md`](future/offline-first-sync.md) | Offline-first desktop and sync — data-kind classification, three-way merge, conflict policy. Proposal only |
-| [`desktop-editor-workspace.md`](future/desktop-editor-workspace.md) | Desktop editor shell — kind suffixes (`.note.md`, `.paper.md`), explorer tree, split panes and tabs, quick open. Phase 1 in progress |
+| [`live-vault-folder.md`](future/live-vault-folder.md) | Two-way folder sync on desktop — wires up `FsPort`/`GitPort`/`deserializeWorkspace`, which today have no callers. Makes the workspace folder openable as an Obsidian vault. Proposal |
+

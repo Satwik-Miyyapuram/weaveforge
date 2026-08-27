@@ -16,7 +16,7 @@ import type { IpcResult } from "./channels";
  * Secrets go through the keychain; preferences go in a plain file beside it.
  */
 
-export const PREFERENCE_NAMES = ["sync-offer-shown", "sync-target"] as const;
+export const PREFERENCE_NAMES = ["sync-offer-shown", "sync-target", "vault-root"] as const;
 export type PreferenceName = (typeof PREFERENCE_NAMES)[number];
 
 /** What a preference may be. Anything else is a bug on the calling side. */

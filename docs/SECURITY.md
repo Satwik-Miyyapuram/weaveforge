@@ -81,6 +81,35 @@ do here.
 Users can turn both paste lookups off in Settings → Paste; with them off, no
 paste rule contacts anything outside the workspace.
 
+## Text from the library reaching a model
+
+A workspace exists to hold other people's papers and notes. Every one of them is
+text somebody else wrote, and any of it may contain a line addressed to a model
+rather than to a reader. Two places have to account for that.
+
+**Inbound — context we build.** `run-ai-query` and the concept extractor are the
+only two places that paste indexed content into a prompt, and both go through
+`packages/core/src/features/ai-assistant/domain/untrusted-context.ts`. Excerpts
+are wrapped in a fence carrying a random nonce the text cannot predict, the
+system turn states that the fenced material is data and that instructions found
+inside it are to be reported rather than followed, and the text itself is
+neutralised first: the nonce, anything shaped like a turn marker, and invisible
+characters (zero-width, bidi overrides, control codes) are removed.
+
+**Outbound — results we return.** WeaveForge's own MCP tools hand library
+content to a third-party agent that may hold shell and write tools of its own,
+so the same treatment is applied on the way out by `mcpReadResult`: notice,
+fence, and an honest, counted truncation. Every read tool declares
+`resultsAreUntrusted` in the tool manifest, which makes shipping raw content a
+contradiction of the manifest rather than an omission nobody notices.
+
+**What is actually guaranteed.** Fencing and neutralising are mitigation, not
+proof — no prompt-level defence is. The guarantee is structural: no executor is
+reachable from a tool call, every call is re-checked by `AiAccessPolicy` which
+fails closed on all seven checks, and a proposal changes nothing until a person
+accepts it. Text that talks a model into asking for a write still only produces
+a proposal somebody has to read.
+
 ## Good practice for users
 
 - The **anon key** is public by design — RLS is the security boundary. Never

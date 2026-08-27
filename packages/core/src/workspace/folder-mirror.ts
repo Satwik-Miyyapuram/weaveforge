@@ -8,17 +8,34 @@
  * failing the save would cost the user their edit.
  */
 
+import { digestText } from "./change-origin.js";
 import type { IWorkspaceFs } from "./fs-port.js";
 import type { WorkspaceSnapshot } from "./workspace-snapshot.js";
+import { vaultPageBase, type VaultPageBase } from "./merge-vault-page.js";
 import { serializeWorkspace } from "./serialize-workspace.js";
-
-export type MirrorMode = "off" | "on";
 
 export interface MirrorResult {
   written: string[];
   removed: string[];
   /** Unchanged files, skipped without a write. */
   unchanged: number;
+  /**
+   * A digest of every markdown file the folder now holds, by path.
+   *
+   * This is what the two sides agreed on at the end of this run, and the next
+   * import compares against it to tell a folder edit from a workspace one.
+   * Written and unchanged files alike: an unchanged file is still agreed.
+   */
+  mirrored: Record<string, string>;
+  /**
+   * The frontmatter and body digest of every note the folder now holds.
+   *
+   * Enough for the next import to merge per field rather than only report that
+   * two copies differ. Notes only: the other entity types are written from
+   * structured records the app owns, and a person editing one by hand in the
+   * folder is not the case this was built for.
+   */
+  bases: Record<string, VaultPageBase>;
 }
 
 /**
@@ -46,9 +63,14 @@ export async function mirrorWorkspace(
   const { files, assets } = serializeWorkspace(snapshot);
   const written: string[] = [];
   const removed: string[] = [];
+  const mirrored: Record<string, string> = {};
+  const bases: Record<string, VaultPageBase> = {};
   let unchanged = 0;
 
   for (const [path, content] of Object.entries(files)) {
+    mirrored[path] = digestText(content);
+    const noteBase = vaultPageBase(path, content);
+    if (noteBase) bases[path] = noteBase;
     const existing = await fs.stat(path).catch(() => null);
     if (existing) {
       const current = await fs.readText(path).catch(() => null);
@@ -90,5 +112,5 @@ export async function mirrorWorkspace(
     removed.push(path);
   }
 
-  return { written, removed, unchanged };
+  return { written, removed, unchanged, mirrored, bases };
 }

@@ -78,6 +78,14 @@ update — whatever it loads is already current.
 If the check cannot reach GitHub it says nothing rather than showing you an
 error, because a shell that cannot reach GitHub is still a working shell.
 
+## A folder on your disk
+
+The desktop app can point WeaveForge at any folder you pick and keep it mirrored
+as plain Markdown, then tell you when something out there changes it. The
+browser can do this too, but only for a folder you re-pick each session; the
+desktop app remembers the one you chose, and is the only place the folder is
+watched. See [`workspace-folder.md`](workspace-folder.md).
+
 ## Links
 
 Links to other sites open in your normal browser, not inside the app window.

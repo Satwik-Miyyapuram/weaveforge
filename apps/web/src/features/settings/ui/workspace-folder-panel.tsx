@@ -1,15 +1,22 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ImportDiff, WorkspaceCommit } from "@weaveforge/core";
 import { formatError } from "@/lib/format-error";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
   applyFolderImport,
+  chooseDesktopFolder,
   chooseFolder,
   closeFolder,
   folderHistory,
   folderSession,
   previewArchiveImport,
+  clearExternalChanges,
+  keepBothTitle,
+  type ConflictResolution,
+  externalChanges,
+  onExternalChange,
   previewFolderImport,
   supportsDirectoryPicker,
   syncToFolder,
@@ -33,6 +40,48 @@ export function WorkspaceFolderPanel() {
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
   const [diff, setDiff] = useState<(ImportDiff & { skipped?: string[] }) | null>(null);
   const archiveInput = useRef<HTMLInputElement | null>(null);
+  // Resolved after mount, never during render: the server has no shell, and a
+  // first render that disagreed with it would be a hydration mismatch.
+  const [hasShell, setHasShell] = useState(false);
+  useEffect(() => setHasShell(desktop() !== null), []);
+
+  /**
+   * What somebody else changed in the folder, where the shell can see it.
+   *
+   * Shown, not applied: the reader gets the same diff they would get from
+   * "Check folder for changes", having been told there is something to check.
+   */
+  const [outside, setOutside] = useState<string[]>([]);
+  useEffect(() => {
+    setOutside(externalChanges());
+    return onExternalChange(setOutside);
+  }, []);
+
+  /**
+   * Take up the folder the desktop shell already remembers.
+   *
+   * The shell re-checks that the path still exists before answering, so this
+   * reconnects a folder across restarts without ever opening a dialog the user
+   * did not ask for. A folder already chosen this session wins: reconnecting
+   * over it would silently swap where the next write lands.
+   */
+  useEffect(() => {
+    if (!hasShell || session) return;
+    let live = true;
+    void chooseDesktopFolder({ git: false, reuse: true })
+      .then((adopted) => {
+        if (live && adopted) setSession(folderSession());
+      })
+      .catch(() => {
+        // A remembered folder that has since gone -- an unplugged drive, a
+        // dead network share -- leaves the panel exactly as it was.
+      });
+    return () => {
+      live = false;
+    };
+    // Runs for the empty state only; once connected there is nothing to adopt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasShell]);
 
   const run = async (label: string, work: () => Promise<void>) => {
     setBusy(label);
@@ -77,7 +126,21 @@ export function WorkspaceFolderPanel() {
             Local history only — commits stay on this device. There is no push, pull, or merge.
           </p>
           <div className="screen-actions">
-            {supportsDirectoryPicker() && (
+            {hasShell && (
+              <button
+                className="btn-secondary"
+                type="button"
+                disabled={busy !== null}
+                onClick={() =>
+                  void run("desktop", async () => {
+                    if (await chooseDesktopFolder({ git })) setSession(folderSession());
+                  })
+                }
+              >
+                Choose a folder…
+              </button>
+            )}
+            {!hasShell && supportsDirectoryPicker() && (
               <button
                 className="btn-secondary"
                 type="button"
@@ -105,7 +168,7 @@ export function WorkspaceFolderPanel() {
               Use browser storage
             </button>
           </div>
-          {!supportsDirectoryPicker() && (
+          {!hasShell && !supportsDirectoryPicker() && (
             <p className="muted jump-to-meta">
               Choosing a real folder needs a Chromium-based browser. Browser storage works
               everywhere, but the files are not visible in Finder or Explorer.
@@ -115,9 +178,20 @@ export function WorkspaceFolderPanel() {
       ) : (
         <div className="field">
           <p className="muted">
-            Connected to {session.kind === "picked" ? "a folder on this device" : "browser storage"}
+            Connected to{" "}
+            {session.kind === "opfs"
+              ? "browser storage"
+              : "a folder on this device"}
             {session.git === "isomorphic" ? ", with git history" : ""}.
           </p>
+          {outside.length > 0 && (
+            <p className="muted jump-to-meta">
+              {outside.length === 1
+                ? "One file changed in the folder outside WeaveForge"
+                : `${outside.length} files changed in the folder outside WeaveForge`}
+              . Check the folder to see what.
+            </p>
+          )}
           <div className="screen-actions">
             <button
               className="btn-secondary"
@@ -145,6 +219,7 @@ export function WorkspaceFolderPanel() {
               onClick={() =>
                 void run("preview", async () => {
                   setDiff(await previewFolderImport());
+                  clearExternalChanges();
                 })
               }
             >
@@ -229,7 +304,19 @@ function ImportPreview({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const writable = diff.counts.created + diff.counts.updated;
+  /**
+   * How each conflicted file is to be settled, by path.
+   *
+   * Empty means "keep the workspace's copy" for all of them, which is why a
+   * conflict left alone is never written: the default has to be the choice
+   * that discards nothing the user can still see.
+   */
+  const [resolutions, setResolutions] = useState<Record<string, ConflictResolution>>({});
+  const conflicts = diff.entries.filter((entry) => entry.action === "conflict");
+  const settled = conflicts.filter(
+    (entry) => (resolutions[entry.entity.path] ?? "keep") !== "keep",
+  ).length;
+  const writable = diff.counts.created + diff.counts.updated + settled;
 
   return (
     <div className="field">
@@ -239,16 +326,55 @@ function ImportPreview({
         {diff.skipped?.length ? ` · ${diff.skipped.length} file(s) skipped as unsafe` : ""}
       </p>
 
-      {diff.counts.conflict > 0 && (
+      {conflicts.length > 0 && (
         <ul className="wiki-lint-list">
-          {diff.entries
-            .filter((entry) => entry.action === "conflict")
-            .slice(0, 10)
-            .map((entry, index) => (
-              <li key={`${entry.entity.path}-${index}`} data-severity="error">
-                {entry.reason ?? entry.entity.path}
+          {conflicts.slice(0, 10).map((entry, index) => {
+            const path = entry.entity.path;
+            const chosen = resolutions[path] ?? "keep";
+            const choose = (resolution: ConflictResolution) =>
+              setResolutions((current) => ({ ...current, [path]: resolution }));
+            return (
+              <li key={`${path}-${index}`} data-severity="error">
+                {entry.reason ?? path}
+                <div className="screen-actions">
+                  <button
+                    className={chosen === "keep" ? "btn-secondary" : "btn-ghost"}
+                    type="button"
+                    aria-pressed={chosen === "keep"}
+                    onClick={() => choose("keep")}
+                  >
+                    Keep this app&apos;s copy
+                  </button>
+                  {/* Not offered for a type mismatch: the id in the file names a
+                      paper or an experiment, so there is no note to write over. */}
+                  {entry.kind !== "type-mismatch" && (
+                    <button
+                      className={chosen === "folder" ? "btn-secondary" : "btn-ghost"}
+                      type="button"
+                      aria-pressed={chosen === "folder"}
+                      onClick={() => choose("folder")}
+                    >
+                      Take the folder&apos;s copy
+                    </button>
+                  )}
+                  <button
+                    className={chosen === "both" ? "btn-secondary" : "btn-ghost"}
+                    type="button"
+                    aria-pressed={chosen === "both"}
+                    onClick={() => choose("both")}
+                  >
+                    Keep both
+                  </button>
+                </div>
+                {chosen === "both" && (
+                  <p className="muted jump-to-meta">
+                    Imported as “{keepBothTitle(entry.entity.title)}”, leaving this app&apos;s
+                    copy as it is.
+                  </p>
+                )}
               </li>
-            ))}
+            );
+          })}
         </ul>
       )}
 
@@ -262,7 +388,7 @@ function ImportPreview({
           onClick={() => {
             setBusy(true);
             setError(null);
-            void applyFolderImport(diff)
+            void applyFolderImport(diff, resolutions)
               .then((result) =>
                 onApplied(`Imported ${result.created} new and ${result.updated} changed note(s).`),
               )
@@ -275,8 +401,9 @@ function ImportPreview({
       </div>
       <p className="muted jump-to-meta">
         Only notes are imported. Papers and experiments carry structured fields a markdown body
-        cannot round-trip, and a half-imported paper is worse than an unimported one. Conflicts
-        are never applied.
+        cannot round-trip, and a half-imported paper is worse than an unimported one. Edits made
+        on both sides are merged field by field where they do not collide; where they do, nothing
+        is written over until you say which copy wins.
       </p>
     </div>
   );

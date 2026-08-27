@@ -1,6 +1,7 @@
 import type { AiAccessPolicy } from "../domain/ai-access-policy.js";
 import type { AiModelRequest, AiModelResponse, AiSessionGrant, AiAccessSettings } from "../domain/ai-types.js";
 import type { IAiSourceReader } from "../domain/ai-reader.js";
+import { UNTRUSTED_CONTEXT_RULE, contextNonce, fenceUntrusted } from "../domain/untrusted-context.js";
 
 export interface AiQuerySource {
   resourceType: Parameters<IAiSourceReader["read"]>[0]["resourceType"];
@@ -55,16 +56,28 @@ export class RunAiQueryUseCase {
       if (excerpt) excerpts.push(excerpt);
     }
 
-    const context = excerpts
-      .map((excerpt) => `[${excerpt.source.label}]\n${excerpt.text}`)
-      .join("\n\n");
+    // The excerpts are the user's library, not the user: a paper, a note that
+    // arrived through a shared folder, a page someone else wrote. Fenced with a
+    // nonce and named as data in the system turn, because prose that reaches a
+    // model unmarked is prose that can give it instructions.
+    const nonce = contextNonce();
+    const context = excerpts.length
+      ? fenceUntrusted(
+          excerpts.map((excerpt) => ({ label: excerpt.source.label, text: excerpt.text })),
+          nonce,
+        )
+      : "(none)";
     return this.deps.conversation.complete({
       messages: [
         {
           role: "system",
-          content: "Answer only from the supplied research context. Cite source labels when making claims. If context is insufficient, say so.",
+          content: [
+            "Answer only from the supplied research context. Cite source labels when making claims. If context is insufficient, say so.",
+            `The context is delimited by <<context-${nonce}>> and <</context-${nonce}>>.`,
+            UNTRUSTED_CONTEXT_RULE,
+          ].join(" "),
         },
-        { role: "user", content: `Question: ${question}\n\nResearch context:\n${context || "(none)"}` },
+        { role: "user", content: `Question: ${question}\n\nResearch context:\n${context}` },
       ],
     });
   }

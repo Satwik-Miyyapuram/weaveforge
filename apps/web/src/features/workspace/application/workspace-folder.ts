@@ -1,20 +1,29 @@
 import {
   ASSET_DIR,
   NoOpWorkspaceGit,
+  changedSide,
   describeChanges,
   diffWorkspace,
   fromRelativeBlobLinks,
+  mergeVaultPage,
   mirrorWorkspace,
   parseWorkspaceFolder,
+  serializeWorkspace,
+  vaultPageSide,
   type ImportDiff,
+  type ImportDiffEntry,
   type IWorkspaceFs,
   type IWorkspaceGit,
   type MirrorResult,
+  type VaultPageBase,
   type WorkspaceCommit,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
+import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
 import {
   assetExtension,
@@ -22,6 +31,17 @@ import {
   ownedAssetFolderPaths,
   planAssetReanchor,
 } from "./asset-reanchor";
+import {
+  MIRROR_MANIFEST_PATH,
+  baseDigest,
+  claimImportedFile,
+  createCoalescer,
+  nextManifest,
+  readMirrorBase,
+  readMirrorBases,
+  writeMirrorManifest,
+  type Coalescer,
+} from "./mirror-manifest";
 import {
   IMPORT_LIMITS,
   ImportLimitError,
@@ -40,7 +60,8 @@ import {
 
 let activeFs: IWorkspaceFs | null = null;
 let activeGit: IWorkspaceGit = new NoOpWorkspaceGit();
-let lastWrittenPaths: string[] = [];
+
+
 
 /**
  * Asset bytes from the most recent preview, keyed by folder path.
@@ -52,14 +73,19 @@ let lastWrittenPaths: string[] = [];
 let pendingAssets = new Map<string, Uint8Array>();
 
 export interface FolderSession {
-  kind: "picked" | "opfs";
+  kind: "picked" | "opfs" | "desktop";
   git: "none" | "isomorphic";
 }
 
 export function folderSession(): FolderSession | null {
   if (!activeFs) return null;
   return {
-    kind: activeFs instanceof BrowserWorkspaceFs ? "picked" : "opfs",
+    kind:
+      activeFs instanceof DesktopWorkspaceFs
+        ? "desktop"
+        : activeFs instanceof BrowserWorkspaceFs
+          ? "picked"
+          : "opfs",
     git: activeGit.kind === "isomorphic" ? "isomorphic" : "none",
   };
 }
@@ -74,7 +100,30 @@ export async function chooseFolder(options: { git: boolean }): Promise<boolean> 
   if (!fs) return false;
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
-  lastWrittenPaths = [];
+  watchForChanges();
+  return true;
+}
+
+/**
+ * Adopt the desktop shell's folder, choosing one if none is remembered.
+ *
+ * The renderer never names a path: it asks for a dialog, and the main process
+ * keeps the answer. `false` means there is no desktop shell, or the user
+ * dismissed the dialog.
+ */
+export async function chooseDesktopFolder(options: {
+  git: boolean;
+  /** Take up the remembered folder instead of opening a dialog. */
+  reuse?: boolean;
+}): Promise<boolean> {
+  const bridge = desktop();
+  if (!bridge) return false;
+  const root = options.reuse ? await bridge.vaultRoot() : await bridge.chooseVaultRoot();
+  if (!root) return false;
+  const fs = new DesktopWorkspaceFs(bridge);
+  activeFs = fs;
+  activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
+  watchForChanges();
   return true;
 }
 
@@ -83,13 +132,18 @@ export async function openBrowserStorageFolder(options: { git: boolean }): Promi
   const fs = await BrowserWorkspaceFs.openOpfs();
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
-  lastWrittenPaths = [];
+  watchForChanges();
 }
 
 export function closeFolder(): void {
   activeFs = null;
   activeGit = new NoOpWorkspaceGit();
-  lastWrittenPaths = [];
+  syncs.cancel();
+  unwatch?.();
+  unwatch = null;
+  unwatchFolder?.();
+  unwatchFolder = null;
+  clearExternalChanges();
   pendingAssets = new Map();
 }
 
@@ -106,18 +160,21 @@ export interface SyncOutcome {
  */
 export async function syncToFolder(): Promise<SyncOutcome> {
   if (!activeFs) throw new Error("No folder is connected.");
+  const fs = activeFs;
   const container = getContainer();
   const snapshot = await container.workspace.snapshot();
+  const base = await readMirrorBase(fs);
+  const previousPaths = Object.keys(base);
 
-  const mirror = await mirrorWorkspace(snapshot, activeFs, {
-    previousPaths: lastWrittenPaths,
+  const mirror = await mirrorWorkspace(snapshot, fs, {
+    previousPaths,
     fetchAsset: async (storagePath) => {
       const blobs = await container.vault.fetchAssetBlobs([storagePath]);
       const blob = blobs.get(storagePath);
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     },
   });
-  lastWrittenPaths = [...mirror.written, ...lastWrittenPaths.filter((p) => !mirror.removed.includes(p))];
+  await writeMirrorManifest(fs, nextManifest(previousPaths, mirror), mirror.mirrored, mirror.bases);
 
   let commit: WorkspaceCommit | null = null;
   if (activeGit.kind !== "none") {
@@ -130,6 +187,110 @@ export async function syncToFolder(): Promise<SyncOutcome> {
   }
 
   return { mirror, commit };
+}
+
+export const SYNC_DEBOUNCE_MS = 1_500;
+
+/**
+ * The pacing for `requestSync`, built once and reused for every folder.
+ *
+ * A mirror failure reaches `syncErrors` rather than the caller: `requestSync`
+ * is called from save paths, and a folder that cannot be written must not take
+ * the save down with it.
+ */
+const syncErrors: unknown[] = [];
+
+const syncs: Coalescer = createCoalescer({
+  debounceMs: SYNC_DEBOUNCE_MS,
+  run: async () => {
+    if (!activeFs) return;
+    await syncToFolder();
+  },
+  onError: (error) => {
+    syncErrors.push(error);
+  },
+});
+
+/** Ask for a sync. Cheap enough to call on every save. */
+export function requestSync(): void {
+  if (!activeFs) return;
+  syncs.request();
+}
+
+/**
+ * Follow the workspace while a folder is connected.
+ *
+ * Subscribed when a folder is opened rather than when this module loads: a
+ * listener that ran with no folder would debounce, wake, find nothing to write,
+ * and go back to sleep on every edit the user makes for the rest of the
+ * session.
+ */
+let unwatch: (() => void) | null = null;
+
+let unwatchFolder: (() => void) | null = null;
+
+function watchForChanges(): void {
+  unwatch?.();
+  unwatch = onWorkspaceChange(() => requestSync());
+  watchFolderForChanges();
+}
+
+/**
+ * Somebody else's edits to the connected folder, by path.
+ *
+ * Reported, never applied. The panel's contract is that pulling changes back is
+ * an explicit action with a diff shown first, and applying a folder edit blind
+ * would overwrite whatever the workspace holds for that note with no way back
+ * -- the three-way merge that would make it safe does not exist yet.
+ */
+let external = new Set<string>();
+const externalListeners = new Set<(paths: string[]) => void>();
+
+/** The paths changed outside the app since the last time they were cleared. */
+export function externalChanges(): string[] {
+  return [...external].sort();
+}
+
+/** Forget them, once the reader has looked. */
+export function clearExternalChanges(): void {
+  external = new Set();
+  announceExternal();
+}
+
+export function onExternalChange(listener: (paths: string[]) => void): () => void {
+  externalListeners.add(listener);
+  return () => externalListeners.delete(listener);
+}
+
+function announceExternal(): void {
+  const paths = externalChanges();
+  for (const listener of [...externalListeners]) {
+    try {
+      listener(paths);
+    } catch {
+      // A listener's problem is its own; the folder still changed.
+    }
+  }
+}
+
+/**
+ * Listen to the shell's folder watcher, where there is one.
+ *
+ * A browser has nothing to subscribe to: it cannot watch a directory it was
+ * handed, which is why the workspace port has no watch method to fake.
+ */
+function watchFolderForChanges(): void {
+  unwatchFolder?.();
+  unwatchFolder = null;
+  const bridge = desktop();
+  if (!bridge || folderSession()?.kind !== "desktop") return;
+  unwatchFolder = bridge.onVaultChange((paths) => {
+    const before = external.size;
+    for (const path of paths) {
+      if (path !== MIRROR_MANIFEST_PATH) external.add(path);
+    }
+    if (external.size !== before) announceExternal();
+  });
 }
 
 export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommit[]> {
@@ -149,6 +310,8 @@ export async function previewFolderImport(): Promise<ImportDiff> {
   const files: Record<string, string> = {};
   const assets = new Map<string, Uint8Array>();
   let assetBytes = 0;
+  const base = await readMirrorBase(activeFs);
+  const bases = await readMirrorBases(activeFs);
 
   for await (const entry of activeFs.walk("")) {
     if (entry.path.endsWith(".md")) {
@@ -167,7 +330,7 @@ export async function previewFolderImport(): Promise<ImportDiff> {
     assets.set(entry.path, bytes);
   }
 
-  return diffAgainstWorkspace(files, assets);
+  return diffAgainstWorkspace(files, assets, base, bases);
 }
 
 /** Diff a ZIP the user picked, without connecting a folder. */
@@ -190,6 +353,15 @@ export async function previewArchiveImport(bytes: Uint8Array): Promise<ImportDif
 async function diffAgainstWorkspace(
   files: Record<string, string>,
   assets: Map<string, Uint8Array>,
+  /**
+   * What the folder said when the two sides last agreed, by path.
+   *
+   * Absent for an archive import: a ZIP has no shared history with this
+   * workspace, so every difference is the user's to judge.
+   */
+  base: Readonly<Record<string, string>> = {},
+  /** Frontmatter and body digests from the same manifest, for the merge. */
+  bases: Readonly<Record<string, VaultPageBase>> = {},
 ): Promise<ImportDiff> {
   const snapshot = await getContainer().workspace.snapshot();
   const existing = [
@@ -220,7 +392,138 @@ async function diffAgainstWorkspace(
     }),
   }));
 
-  return diffWorkspace(parsed, existing);
+  // What the mirror would write from the workspace as it stands now. Compared
+  // against the same base as the folder's copy, this is what says whether the
+  // difference came from out there or in here.
+  const current = serializeWorkspace(snapshot).files;
+
+  const diff = diffWorkspace(parsed, existing, {
+    origin: (path) =>
+      changedSide({
+        // A version 1 manifest recorded the path and no digest, which reads
+        // as an empty string here and must not be mistaken for a file whose
+        // contents hashed to nothing.
+        base: base[path] || undefined,
+        folder: files[path] === undefined ? undefined : baseDigest(files[path]),
+        workspace: current[path] === undefined ? undefined : baseDigest(current[path]),
+      }),
+  });
+
+  // A file both sides changed is only a conflict if the changes collide. Most
+  // do not: a tag added in Obsidian and a paragraph rewritten here are two
+  // edits to one note, not two answers to one question.
+  const entries = diff.entries.map((entry) =>
+    mergeBothChanged(entry, bases[entry.entity.path], current[entry.entity.path]),
+  );
+  return { entries, counts: countActions(entries) };
+}
+
+function countActions(entries: readonly ImportDiffEntry[]): ImportDiff["counts"] {
+  const counts: ImportDiff["counts"] = { created: 0, updated: 0, unchanged: 0, conflict: 0 };
+  for (const entry of entries) counts[entry.action] += 1;
+  return counts;
+}
+
+/**
+ * Settle a both-changed file per field, or say what is actually in dispute.
+ *
+ * The folder's side is taken from the entry rather than re-read from the file,
+ * because the entry's body has already had this account's asset links restored
+ * -- comparing the raw file would report every note holding an image as
+ * rewritten.
+ *
+ * Anything the merge cannot settle stays a conflict, and a folder with no
+ * recorded base -- a manifest older than version 3, or a ZIP -- keeps the
+ * behaviour it had: report, and let the user decide.
+ */
+export function mergeBothChanged(
+  entry: ImportDiffEntry,
+  base: VaultPageBase | undefined,
+  workspaceContent: string | undefined,
+): ImportDiffEntry {
+  if (entry.action !== "conflict" || entry.kind !== "both-changed") return entry;
+  if (!base || workspaceContent === undefined) return entry;
+
+  const workspace = vaultPageSide(entry.entity.path, workspaceContent);
+  if (!workspace) return entry;
+
+  const merged = mergeVaultPage(
+    base,
+    { fields: { ...entry.entity.fields, title: entry.entity.title }, body: entry.entity.body },
+    workspace,
+  );
+
+  if (merged.conflicts.length > 0) {
+    const fields = merged.conflicts.map((conflict) => conflict.field);
+    return {
+      ...entry,
+      conflictFields: fields,
+      reason: `${entry.entity.path}: both sides changed ${listFields(fields)}.`,
+    };
+  }
+
+  const { title, ...fields } = merged.fields;
+  return {
+    ...entry,
+    action: "updated",
+    kind: undefined,
+    reason: undefined,
+    entity: {
+      ...entry.entity,
+      title: typeof title === "string" ? title : entry.entity.title,
+      fields: fields as ImportDiffEntry["entity"]["fields"],
+      body: merged.body,
+    },
+  };
+}
+
+function listFields(fields: readonly string[]): string {
+  if (fields.length === 1) return fields[0]!;
+  return `${fields.slice(0, -1).join(", ")} and ${fields[fields.length - 1]}`;
+}
+
+/**
+ * What to do about a file both sides changed.
+ *
+ * `keep` leaves the workspace's copy alone, and the next mirror run writes it
+ * back over the folder's. `folder` takes the folder's copy, losing the
+ * workspace's. `both` imports the folder's copy as a new note and leaves the
+ * workspace's untouched, which is the only one of the three that discards
+ * nothing -- and the fallback `offline-first-sync.md` already settled on for
+ * the database: keep both, tell the user.
+ */
+export type ConflictResolution = "keep" | "folder" | "both";
+
+/** How the folder's copy is titled when both copies are kept. */
+export function keepBothTitle(title: string): string {
+  return `${title} (from folder)`;
+}
+
+/**
+ * Turn a settled conflict into an ordinary entry, or `null` to leave it alone.
+ *
+ * Separated from applying because applying reaches for the app container on
+ * its first line, and this decision -- which is the whole of the conflict
+ * policy -- can then be tested without one.
+ */
+export function settleConflict(
+  entry: ImportDiffEntry,
+  resolutions: Readonly<Record<string, ConflictResolution>>,
+): ImportDiffEntry | null {
+  if (entry.action !== "conflict") return entry;
+
+  const asked = resolutions[entry.entity.path] ?? "keep";
+  // A type mismatch has nothing to update: the id names a paper or an
+  // experiment, so writing the file over it is not on offer whatever the
+  // caller asked for. Importing it as a new note still is.
+  const resolution = asked === "folder" && entry.kind === "type-mismatch" ? "both" : asked;
+  if (resolution === "keep") return null;
+  if (resolution === "folder") return { ...entry, action: "updated" };
+  return {
+    ...entry,
+    action: "created",
+    entity: { ...entry.entity, id: undefined, title: keepBothTitle(entry.entity.title) },
+  };
 }
 
 /**
@@ -229,9 +532,32 @@ async function diffAgainstWorkspace(
  * Only notes are written. Papers, experiments, and the rest carry structured
  * fields that a markdown body cannot round-trip faithfully, and half-importing
  * a paper — body updated, metadata silently stale — is worse than not
- * importing it. Conflicts are never applied.
+ * importing it.
+ *
+ * A conflict is applied only where the caller says how to settle it, and
+ * `keep` is the default: a file both sides changed is never written over on a
+ * guess.
  */
-export async function applyFolderImport(diff: ImportDiff): Promise<{ created: number; updated: number }> {
+export async function applyFolderImport(
+  diff: ImportDiff,
+  resolutions: Readonly<Record<string, ConflictResolution>> = {},
+): Promise<{ created: number; updated: number }> {
+  // The mirror stands down for the duration. Every write below changes the
+  // workspace, and a sync waking up halfway through would write the folder from
+  // a half-imported snapshot — then be asked to import that back.
+  syncs.suspended = true;
+  try {
+    return await applyEntries(diff, resolutions);
+  } finally {
+    syncs.suspended = false;
+    requestSync();
+  }
+}
+
+async function applyEntries(
+  diff: ImportDiff,
+  resolutions: Readonly<Record<string, ConflictResolution>>,
+): Promise<{ created: number; updated: number }> {
   const container = getContainer();
   // Read once: the set only has to describe the workspace as it stood before
   // the import, and re-reading it per note would be a request per note.
@@ -239,9 +565,12 @@ export async function applyFolderImport(diff: ImportDiff): Promise<{ created: nu
   let created = 0;
   let updated = 0;
 
-  for (const entry of diff.entries) {
-    if (entry.entity.type !== "vault_page") continue;
-    if (entry.action === "conflict" || entry.action === "unchanged") continue;
+  for (const raw of diff.entries) {
+    if (raw.entity.type !== "vault_page") continue;
+    if (raw.action === "unchanged") continue;
+
+    const entry = settleConflict(raw, resolutions);
+    if (!entry) continue;
 
     if (entry.action === "created") {
       // The page has to exist before its images can be uploaded — storage keys
@@ -254,6 +583,11 @@ export async function applyFolderImport(diff: ImportDiff): Promise<{ created: nu
       const body = await reanchorAssets(entry.entity.body, page.id, owned);
       if (body !== entry.entity.body) {
         await container.vault.manageVaultPage.update(page.id, { title: page.title, body });
+      }
+      // The file it came from now belongs to that page, so say so in the file.
+      // Skipped for an archive import, which has no folder to write back to.
+      if (activeFs && entry.entity.path) {
+        await claimImportedFile(activeFs, entry.entity.path, page.id).catch(() => false);
       }
       created += 1;
       continue;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mergeRows } from "../domain/merge";
+import { mergeRows } from "../../src/shared/three-way-merge.js";
 
 const base = { id: "p1", title: "Draft", read: false, tags: ["a"], row_version: 3 };
 
