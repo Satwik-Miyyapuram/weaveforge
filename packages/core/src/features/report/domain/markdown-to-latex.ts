@@ -37,11 +37,18 @@ const UNSUPPORTED = [
   { re: /!\[[^\]]*\]\((?!reportimg:)[^)\s]+\)/, label: "non-report image (include assets separately)" },
 ];
 
-function escapeLatexText(s: string): string {
+export function escapeLatexText(s: string): string {
+  // The replacement a backslash needs is itself made of braces, so it is parked
+  // on a character LaTeX has no meaning for and restored at the end. Escaping
+  // it first left `\textbackslash\{\}`, which prints the braces instead of a
+  // backslash -- visible only in text that already contained one.
+  const parked = "\u0001";
   return s
-    .replace(/\\/g, "\\textbackslash{}")
+    .replace(/\\/g, parked)
     .replace(/([{}$&#^_%])/g, "\\$1")
-    .replace(/~/g, "\\textasciitilde{}");
+    .replace(/~/g, "\\textasciitilde{}")
+    .split(parked)
+    .join("\\textbackslash{}");
 }
 
 function figureFileName(storagePath: string, used: Set<string>): string {

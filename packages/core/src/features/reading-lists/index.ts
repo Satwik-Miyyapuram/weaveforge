@@ -5,4 +5,5 @@
 
 export * from "./domain/reading-list.js";
 export * from "./domain/reading-list-repository.js";
+export * from "./domain/screening.js";
 export * from "./application/manage-reading-list.use-case.js";
