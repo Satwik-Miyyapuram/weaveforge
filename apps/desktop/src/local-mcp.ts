@@ -46,6 +46,23 @@ export interface JsonRpcResponse {
 
 const PROTOCOL_VERSION = "2025-06-18";
 
+/**
+ * Reorders the files a word search found, best first.
+ *
+ * Given as an argument rather than built here: the encoder lives in the window,
+ * which may not be open, and a server that could not answer without one would
+ * be worse than a server that answers by word.
+ */
+export type SemanticRanker = (query: string, candidates: readonly string[]) => Promise<string[] | null>;
+
+/** Apply a ranking, keeping anything it did not mention in its old place. */
+function reorder<T extends { filename: string }>(hits: readonly T[], order: readonly string[]): T[] {
+  const rank = new Map(order.map((name, index) => [name, index]));
+  return [...hits].sort(
+    (a, b) => (rank.get(a.filename) ?? order.length) - (rank.get(b.filename) ?? order.length),
+  );
+}
+
 /** What an agent may ask for, by kind. `all` is the absence of a filter. */
 const KINDS = Object.keys(ENTITY_DIRS) as WorkspaceEntityType[];
 
@@ -114,6 +131,7 @@ async function callTool(
   session: VaultSession,
   name: string,
   params: Record<string, unknown>,
+  rank?: SemanticRanker,
 ): Promise<unknown> {
   switch (name) {
     case "search_workspace": {
@@ -121,8 +139,14 @@ async function callTool(
       if (!query) throw new Error("A search needs a query.");
       const kind = kindOf(params);
       const hits = await searchVault(session, query, kind ? ENTITY_DIRS[kind] : "");
+      // Ranked by meaning when this copy has an encoder loaded, and left in
+      // the order the word search found them when it does not. An agent asking
+      // "what did I conclude about attrition" wants the note that says it in
+      // other words, which a word search cannot offer.
+      const ordered = rank ? await rank(query, hits.map((hit) => hit.filename)) : null;
+      const ranked = ordered ? reorder(hits, ordered) : hits;
       return content(
-        hits.map((hit) => ({ label: hit.filename, text: hit.matches.map((m) => m.context).join("\n") })),
+        ranked.map((hit) => ({ label: hit.filename, text: hit.matches.map((m) => m.context).join("\n") })),
       );
     }
     case "list_workspace": {
@@ -153,6 +177,7 @@ async function callTool(
 export async function routeMcpRequest(
   session: VaultSession,
   request: JsonRpcRequest,
+  rank?: SemanticRanker,
 ): Promise<JsonRpcResponse | null> {
   const id = request.id ?? null;
   const params = request.params ?? {};
@@ -174,7 +199,7 @@ export async function routeMcpRequest(
       const name = typeof params.name === "string" ? params.name : "";
       const args = (params.arguments as Record<string, unknown> | undefined) ?? {};
       try {
-        return ok(id, await callTool(session, name, args));
+        return ok(id, await callTool(session, name, args, rank));
       } catch (error) {
         // Reported as a tool error rather than a protocol one: the call was
         // well-formed and the answer is "no", which is a result the agent can

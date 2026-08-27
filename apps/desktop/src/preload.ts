@@ -88,6 +88,17 @@ const bridge: DesktopBridge = {
     ipcRenderer.on(CHANNELS.vaultChanged, listener);
     return () => ipcRenderer.off(CHANNELS.vaultChanged, listener);
   },
+  onSemanticRank: (cb) => {
+    const listener = (_event: unknown, id: number, query: string, candidates: string[]) => {
+      // The answer goes back on its own channel rather than through the event,
+      // for the same reason the event object is never handed over.
+      void Promise.resolve(cb(query, candidates))
+        .catch(() => null)
+        .then((order) => ipcRenderer.send(CHANNELS.semanticRanked, id, order));
+    };
+    ipcRenderer.on(CHANNELS.semanticRank, listener);
+    return () => ipcRenderer.off(CHANNELS.semanticRank, listener);
+  },
   onSignIn: (cb) => {
     // The listener is wrapped rather than passed through, so the renderer never
     // receives Electron's `IpcRendererEvent` — which carries `sender`, and with

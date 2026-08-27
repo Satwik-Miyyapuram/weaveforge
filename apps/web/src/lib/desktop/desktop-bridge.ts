@@ -187,6 +187,16 @@ export interface DesktopBridge {
    * installing one while the app is open does not have to restart it.
    */
   probeTex(): Promise<DesktopTexTool | null>;
+  /**
+   * Answer the MCP server's ranking requests while this window is open.
+   *
+   * Returning null means "no opinion", and the server keeps the order its word
+   * search produced -- which is what a copy with semantic search switched off
+   * should say.
+   */
+  onSemanticRank(
+    cb: (query: string, candidates: string[]) => Promise<string[] | null> | string[] | null,
+  ): () => void;
   compileTex(
     files: readonly { path: string; content: string }[],
     entryFile: string,

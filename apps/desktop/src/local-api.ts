@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { routeMcpRequest, type JsonRpcRequest } from "./local-mcp";
+import { routeMcpRequest, type JsonRpcRequest, type SemanticRanker } from "./local-mcp";
 import { routeSdkRequest, type SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
 import { listVaultFiles, readVaultFile, removeVaultFile, writeVaultFile } from "./vault-handlers";
@@ -137,6 +137,7 @@ export async function routeLocalRequest(
   request: LocalApiRequest,
   expected: string,
   query?: SdkQuery,
+  rank?: SemanticRanker,
 ): Promise<LocalApiResponse> {
   if (!tokenMatches(request.authorization, expected)) return fail(401, UNAUTHORIZED);
 
@@ -159,7 +160,7 @@ export async function routeLocalRequest(
     } catch {
       return json(400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Not JSON." } });
     }
-    const answer = await routeMcpRequest(session, parsed);
+    const answer = await routeMcpRequest(session, parsed, rank);
     // A notification is answered with no body at all, which is what a client
     // sending `notifications/initialized` waits for.
     return answer === null

@@ -31,6 +31,7 @@ import { safeWorkspacePath } from "@weaveforge/core";
 import { LOCAL_API_HOST, LOCAL_API_PORT, newLocalApiToken, startLocalApi, type LocalApi } from "./local-api-server";
 import { fetchZoteroLocal } from "./zotero-local";
 import { compileTex, probeTex, type TexSourceFile } from "./tex";
+import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { SecretStore } from "./secret-store";
 import { handleOverleafRead } from "./overleaf-source";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
@@ -326,7 +327,13 @@ if (bundled) {
  */
 function serveBundle(): void {
   protocol.handle(APP_SCHEME, async (request) => {
-    if (new URL(request.url).hostname !== APP_HOST) return new Response(null, { status: 404 });
+    const host = new URL(request.url).hostname;
+    // `app://models/...` is the encoder's weights, cached on the disk so the
+    // feature keeps working with the network unplugged.
+    if (host === MODEL_HOST) {
+      return serveModelFile(path.join(app.getPath("userData"), "models"), request.url);
+    }
+    if (host !== APP_HOST) return new Response(null, { status: 404 });
 
     const file = resolveAppFile(BUNDLE, request.url, (candidate) => fs.existsSync(candidate));
     if (!file) return new Response(null, { status: 404 });
@@ -474,11 +481,54 @@ async function localApiToken(): Promise<string> {
 
 const LOCAL_API_URL = `http://${LOCAL_API_HOST}:${LOCAL_API_PORT}`;
 
+/**
+ * Ask the window to rank a word search by meaning.
+ *
+ * The encoder is in the renderer -- it is a WebAssembly model in a worker, and
+ * there is one of it, loaded when somebody turned semantic search on. So the
+ * server asks, and takes silence for an answer: no window, no encoder, or a
+ * window that takes too long all mean "keep the order you have", which is a
+ * worse ranking and never a failed tool call.
+ */
+const RANK_TIMEOUT_MS = 4_000;
+let nextRankId = 1;
+const pendingRanks = new Map<number, (order: string[] | null) => void>();
+
+ipcMain.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown) => {
+  if (typeof id !== "number") return;
+  const waiting = pendingRanks.get(id);
+  if (!waiting) return;
+  pendingRanks.delete(id);
+  waiting(Array.isArray(order) ? (order as string[]).filter((name) => typeof name === "string") : null);
+});
+
+function rankSemantically(query: string, candidates: readonly string[]): Promise<string[] | null> {
+  const window = mainWindow;
+  if (!window || window.isDestroyed() || candidates.length < 2) return Promise.resolve(null);
+
+  const id = nextRankId++;
+  return new Promise<string[] | null>((resolve) => {
+    const finish = (order: string[] | null) => {
+      clearTimeout(timer);
+      resolve(order);
+    };
+    const timer = setTimeout(() => {
+      pendingRanks.delete(id);
+      resolve(null);
+    }, RANK_TIMEOUT_MS);
+    pendingRanks.set(id, finish);
+    window.webContents.send(CHANNELS.semanticRank, id, query, [...candidates]);
+  });
+}
+
 async function startLocalApiIfEnabled(): Promise<string | undefined> {
   if (localApi) return undefined;
   try {
-    localApi = await startLocalApi(vault, () => cachedToken, (sql, params) =>
-      localDb.query(sql, params),
+    localApi = await startLocalApi(
+      vault,
+      () => cachedToken,
+      (sql, params) => localDb.query(sql, params),
+      rankSemantically,
     );
     return undefined;
   } catch (error) {
