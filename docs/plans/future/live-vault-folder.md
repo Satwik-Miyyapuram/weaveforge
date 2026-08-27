@@ -53,11 +53,22 @@ Not yet done in this phase: persisting the chosen root across restarts. The
 of whether a remembered path is re-verified on launch (it should be) belongs
 with Phase 2, where something actually writes.
 
-### Phase 2 — Write-out
-- [ ] On change, `serializeWorkspace` + `diffWorkspace` against the previous
-      snapshot, writing only what differs
-- [ ] Debounced, and skipped entirely while a write from Phase 3 is being
-      applied, so the two directions cannot chase each other
+### Phase 2 — Write-out ✅
+- [x] `createMirrorRunner` collects a snapshot and hands it to
+      `mirrorWorkspace`, which content-compares before every write, so an
+      unchanged workspace produces no filesystem churn
+- [x] Debounced and coalesced, with a `suspended` flag Phase 3 raises while a
+      read-back is being applied, so the two directions cannot chase each
+      other. A request landing mid-run is re-run afterwards rather than folded
+      into a snapshot taken before the save happened
+- [x] `previousPaths` — the list that tells the mirror which files have
+      departed — persists in `.weaveforge/mirror.json` inside the folder, so
+      it travels with the files it describes
+- [x] `DesktopVaultFs` puts the desktop bridge behind `IWorkspaceFs`; 12 tests
+      in `apps/web/src/features/vault-mirror/test/`
+
+Not yet wired into the save path: choosing a folder still needs a UI
+affordance, which is where this picks up next.
 
 ### Phase 3 — Read-back
 - [ ] Watch the root; on an external change, `parseWorkspaceFolder` the
