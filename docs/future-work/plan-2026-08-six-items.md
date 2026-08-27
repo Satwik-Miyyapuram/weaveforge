@@ -51,14 +51,14 @@ chosen.
 
 **What to build.**
 
-1. `packages/core/src/features/report/domain/cite-key.ts` — move
+1. A new `packages/core/src/features/report/domain/cite-key.ts`, which moves
    `resolveCiteKey` and the dedupe wrapper out of `apps/web`. Pure, and `apps/web`
    imports it back. Net lines: roughly zero, and one duplication fewer for
    `check:dry` to worry about.
-2. `packages/core/src/features/report/domain/bib-entries.ts` — a small BibTeX
+2. A new `packages/core/src/features/report/domain/bib-entries.ts`: a small BibTeX
    reader: entry type, key, fields, brace balance. Not a full parser; the job is
    to answer questions about entries, not to re-render them.
-3. `packages/core/src/features/report/domain/bibliography-report.ts` — the
+3. A new `packages/core/src/features/report/domain/bibliography-report.ts` — the
    actual check, a pure function from `{ sources, entries }` to findings:
    - `\cite` keys with no entry (**the one Overleaf cannot answer**)
    - entries the draft never cites (**the other one**)
@@ -84,7 +84,7 @@ and a clean one says so in one line rather than an empty panel.
 
 **What to build.**
 
-1. `apps/desktop/src/tex.ts` — look for `latexmk`, then `tectonic`, then
+1. A new `apps/desktop/src/tex.ts` looks for `latexmk`, then `tectonic`, then
    `pdflatex` on the path. Answer `{ tool, version } | null`. Nothing is
    downloaded and nothing is installed; a missing TeX is a `null`, not an error.
 2. Two channels in `channels.ts`: `texProbe` and `texCompile`. Compile spawns in
