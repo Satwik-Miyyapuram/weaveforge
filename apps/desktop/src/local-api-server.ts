@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
 import { routeLocalRequest, type LocalApiRequest } from "./local-api";
+import type { SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
 
 /**
@@ -35,34 +36,54 @@ export interface LocalApi {
  *
  * `token()` is read per request rather than captured, so revoking a token
  * takes effect on the next request instead of on the next restart.
+ *
+ * `query` is what makes the Python SDK's routes answerable; omit it and this
+ * serves the folder alone.
  */
-export function startLocalApi(session: VaultSession, token: () => string): Promise<LocalApi> {
+export function startLocalApi(
+  session: VaultSession,
+  token: () => string,
+  query?: SdkQuery,
+): Promise<LocalApi> {
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = [];
     let size = 0;
     let refused = false;
 
     req.on("data", (chunk: Buffer) => {
+      if (refused) return; // Already answered; the rest of the upload is read and dropped.
       size += chunk.length;
       if (size > MAX_BODY) {
+        // Marked here, refused once the upload is over.
+        //
+        // Every part of this was learned the hard way. Closing the socket
+        // while the caller is still uploading resets the connection, and the
+        // reset discards the response with it: the caller sees a connection
+        // error rather than the 413 that explains itself. That is true
+        // whether the socket is destroyed at once or on a short timer, so
+        // the rest of the body is read and dropped, and the connection ends
+        // by itself once the upload finishes. Nothing oversized is kept:
+        // the buffer is released here, and no route runs for a refused request.
         refused = true;
-        res.writeHead(413, { "content-type": "application/json" });
-        res.end(JSON.stringify({ errorCode: 413, message: "That file is too large to accept." }));
-        req.destroy();
+        chunks.length = 0;
         return;
       }
       chunks.push(chunk);
     });
 
     req.on("end", () => {
-      if (refused) return;
+      if (refused) {
+        res.writeHead(413, { "content-type": "application/json" });
+        res.end(JSON.stringify({ errorCode: 413, message: "That file is too large to accept." }));
+        return;
+      }
       const request: LocalApiRequest = {
         method: req.method ?? "GET",
         url: req.url ?? "/",
         authorization: req.headers.authorization,
         body: Buffer.concat(chunks).toString("utf8"),
       };
-      void routeLocalRequest(session, request, token())
+      void routeLocalRequest(session, request, token(), query)
         .then((answer) => {
           res.writeHead(answer.status, {
             "content-type": `${answer.contentType}; charset=utf-8`,

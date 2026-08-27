@@ -29,6 +29,9 @@ import {
   ExperimentTitleLink,
 } from "./experiment-panels";
 import { ScreenHead } from "@/components/screen-head";
+import { isOfflineBuild } from "@/deployment/build-target";
+import { EXPERIMENTS_HREF, experimentHref } from "./experiment-href";
+import { ExperimentDetailScreen } from "./experiment-detail-screen";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };
 
@@ -81,6 +84,9 @@ export function ExperimentsScreen() {
   );
 
   useEffect(() => {
+    // A build with a page per experiment sends the reader there. A static one
+    // has no such page, and shows the experiment here instead.
+    if (isOfflineBuild()) return;
     if (!focusFromUrl) {
       appliedFocus.current = null;
       return;
@@ -261,6 +267,13 @@ export function ExperimentsScreen() {
             ))}
           </ul>
         ))}
+
+      {/* Only ever mounted in the static build; the served app navigates. */}
+      {isOfflineBuild() && focusFromUrl && (
+        <Modal title="Experiment" onClose={() => router.replace(EXPERIMENTS_HREF)}>
+          <ExperimentDetailScreen id={focusFromUrl} />
+        </Modal>
+      )}
     </section>
   );
 }
@@ -451,7 +464,7 @@ function ExperimentCard({
   const { beginNavigation } = useNavPending();
   const [busy, setBusy] = useState(false);
   const openDetail = useCallback(() => {
-    const dest = `/experiments/${exp.id}`;
+    const dest = experimentHref(exp.id);
     beginNavigation(dest);
     router.push(dest);
   }, [beginNavigation, router, exp.id]);

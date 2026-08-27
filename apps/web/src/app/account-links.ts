@@ -66,11 +66,16 @@ export function accountLinks(input: AccountLinksInput): AccountLink[] {
     links.push({ id: "projects", label: "Projects" });
   }
 
-  if (input.canSupervise) {
-    links.push({ id: "supervise", label: "Supervise", href: "/supervision" });
+  // Supervision and sharing are both about other people's copies of the app,
+  // and the desktop build ships neither route. Offering them without an account
+  // is a link to a page that is not in the bundle: the click 404s, and the
+  // router prefetches the miss on every render of the sidebar.
+  if (!input.local) {
+    if (input.canSupervise) {
+      links.push({ id: "supervise", label: "Supervise", href: "/supervision" });
+    }
+    links.push({ id: "shared", label: "Shared", href: "/shared" });
   }
-
-  links.push({ id: "shared", label: "Shared", href: "/shared" });
 
   if (input.pendingProposals > 0) {
     links.push({

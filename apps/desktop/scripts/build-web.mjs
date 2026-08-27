@@ -19,13 +19,14 @@ import { fileURLToPath } from "node:url";
  *     server endpoint with nothing serving it. Twenty-eight of the thirty-four
  *     are org, sharing, SDK and account endpoints the offline app does not have
  *     (D3, D10); the rest move to IPC in the main process.
- *   - **`app/experiments`.** A dynamic route whose ids come from the SDK at run
- *     time. An export needs every path known at build time, and there is no
- *     honest set to give it — `generateStaticParams` returning nothing is
+ *   - **`app/experiments/[id]`.** A dynamic route whose ids come from whatever
+ *     is training. An export needs every path known at build time, and there is
+ *     no honest set to give it — `generateStaticParams` returning nothing is
  *     rejected, and inventing a placeholder id would generate a page that
- *     exists only to 404 differently. Experiments are the SDK surface, which
- *     talks to a server the offline app does not have (D10), so the route being
- *     absent is the correct outcome rather than a limitation.
+ *     exists only to 404 differently. The *list* is exported: the SDK writes
+ *     into the local database over the loopback API now, so a copy with no
+ *     account has experiments to show. Opening one is `?experiment=<id>` on the
+ *     list rather than a page of its own — see `experiment-href.ts`.
  *   - **`app/org`, `app/shared`, `app/supervision`.** Other people's accounts,
  *     read over the network, always (D3). Their modules are marked
  *     `requiresNetwork`, so the offline build already has no nav entry and no
@@ -48,10 +49,16 @@ const exported = path.join(web, ".next-desktop");
 const destination = path.join(root, "dist/web");
 
 /** Route directories held aside for the build, as `[real, holding]` pairs. */
-const heldAside = ["api", "experiments", "org", "shared", "supervision"].map((name) => [
-  path.join(web, "src/app", name),
-  path.join(web, `src/.${name}-held-for-desktop-build`),
-]);
+const heldAside = [
+  ["api", "org", "shared", "supervision"].map((name) => [name, name]),
+  // The list stays; only the page-per-experiment goes.
+  [["experiments/[id]", "experiment-detail"]],
+]
+  .flat()
+  .map(([route, holding]) => [
+    path.join(web, "src/app", route),
+    path.join(web, `src/.${holding}-held-for-desktop-build`),
+  ]);
 
 for (const [real, holding] of heldAside) {
   if (fs.existsSync(holding)) {

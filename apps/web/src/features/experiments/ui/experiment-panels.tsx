@@ -1,5 +1,6 @@
 "use client";
 
+import { experimentHref } from "./experiment-href";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
@@ -257,7 +258,7 @@ export function MetricCurves({
 
 export function ExperimentTitleLink({ exp }: { exp: Experiment }) {
   return (
-    <Link href={`/experiments/${exp.id}`} className="exp-title-link">
+    <Link href={experimentHref(exp.id)} className="exp-title-link">
       {exp.name}
     </Link>
   );

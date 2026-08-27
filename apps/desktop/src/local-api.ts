@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { routeMcpRequest, type JsonRpcRequest } from "./local-mcp";
+import { routeSdkRequest, type SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
 import { listVaultFiles, readVaultFile, removeVaultFile, writeVaultFile } from "./vault-handlers";
 
@@ -135,11 +136,20 @@ export async function routeLocalRequest(
   session: VaultSession,
   request: LocalApiRequest,
   expected: string,
+  query?: SdkQuery,
 ): Promise<LocalApiResponse> {
   if (!tokenMatches(request.authorization, expected)) return fail(401, UNAUTHORIZED);
 
   const url = new URL(request.url, "http://127.0.0.1");
   const path = decodeURIComponent(url.pathname);
+
+  // The Python SDK's routes, when this copy has a database to answer them
+  // from. Without one — a shell that has never opened the local database — the
+  // paths are simply not served, rather than served and failing.
+  if (query) {
+    const answered = await routeSdkRequest(query, request, url, path);
+    if (answered) return answered;
+  }
 
   if (path === "/mcp") {
     if (request.method !== "POST") return fail(405, "MCP is spoken over POST.");

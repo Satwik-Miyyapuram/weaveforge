@@ -471,7 +471,9 @@ const LOCAL_API_URL = `http://${LOCAL_API_HOST}:${LOCAL_API_PORT}`;
 async function startLocalApiIfEnabled(): Promise<string | undefined> {
   if (localApi) return undefined;
   try {
-    localApi = await startLocalApi(vault, () => cachedToken);
+    localApi = await startLocalApi(vault, () => cachedToken, (sql, params) =>
+      localDb.query(sql, params),
+    );
     return undefined;
   } catch (error) {
     // The usual reason is another program on the port -- Obsidian's own REST

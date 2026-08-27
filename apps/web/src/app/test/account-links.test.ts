@@ -106,3 +106,15 @@ test("sidebar: a copy with no account is offered the way in, not a way out", () 
   assert.ok(!offline.includes("signout"), "offline mode does not offer Sign out");
   assert.ok(ids({ local: false }).includes("signout"));
 });
+
+
+test("sidebar: a copy with no account is not sent to routes it does not ship", () => {
+  // The desktop bundle holds `/supervision` and `/shared` aside, so linking to
+  // them offline is a 404 the router also prefetches.
+  const offline = ids({ local: true, canSupervise: true });
+  assert.ok(!offline.includes("supervise"));
+  assert.ok(!offline.includes("shared"));
+  const online = ids({ local: false, canSupervise: true });
+  assert.ok(online.includes("supervise"));
+  assert.ok(online.includes("shared"));
+});
