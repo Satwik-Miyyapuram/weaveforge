@@ -27,7 +27,9 @@
   .reader-split-panel,
   .reader-activity,
   .pdf-reader-outline,
-  .dashboard-card
+  .dashboard-card,
+  .git-branch-bar,
+  .screening-row
 ) {
   border-color: transparent;
   box-shadow: var(--e1), var(--rim);
@@ -49,6 +51,15 @@
 :root[data-surfaces="borderless"] .graph-focus-legend .graph-legend.card {
   border-color: transparent;
   box-shadow: var(--e1), var(--rim);
+}
+
+/* Same reason: a compound selector, so its own rule. A nested list row is a
+   subordinate surface, and the tree already says so through indentation and
+   the rail on its left — it gets the inset, not a rim, so depth still reads
+   downwards through the levels. */
+:root[data-surfaces="borderless"] .lists-screen .list-children .list-row {
+  border-color: transparent;
+  box-shadow: var(--e-inset);
 }
 
 /* Interactive cards animate between levels. Declared separately from the
@@ -125,7 +136,8 @@
   .pdf-reader-chrome,
   .pdf-reader-group,
   .pdf-reader-search,
-  .pdf-reader-sidebar
+  .pdf-reader-sidebar,
+  .quick-open
 ) {
   border-color: transparent;
   box-shadow: var(--e3), var(--rim);
@@ -160,7 +172,8 @@
   .graph-local-banner,
   .extraction-pending-banner,
   .pdf-reader-banner,
-  .metric-chip
+  .metric-chip,
+  .wiki-merge-preview
 ) {
   border-color: transparent;
   box-shadow: var(--e-inset);
@@ -198,3 +211,10 @@
     transform: none;
   }
 }
+/* Deliberately still outlined in this mode: `.ai-evidence-warn`,
+   `.brave-graph-warning` and the other danger-tinted banners. Their edge is
+   drawn from `--danger`, not from `--line` — it is the warning itself, not the
+   panel's frame, and replacing it with an elevation would say "raised" where
+   the design says "wrong". Table cell rules (`.extraction-table td`,
+   `.screening-counts td`) and list separators (`.integration-item`) stay for
+   the same kind of reason: they divide, they do not enclose. */
