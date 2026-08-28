@@ -163,9 +163,32 @@ const current = (() => {
 const newline = current?.includes("\r\n") ? "\r\n" : "\n";
 const text = newline === "\n" ? next : next.replace(/\n/g, "\r\n");
 
+/**
+ * The first line that differs, so a failure names the figure.
+ *
+ * "Out of date" alone is enough when the person reading it can run the
+ * generator and look at the diff. On CI they cannot, and a figure that is
+ * stale there and correct on a developer's machine leaves nothing to go on.
+ */
+function firstDifference(a, b) {
+  const left = a.split(/\r?\n/);
+  const right = b.split(/\r?\n/);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    if (left[i] !== right[i]) {
+      return [
+        `  line ${i + 1}`,
+        `  committed: ${left[i] ?? "(missing)"}`,
+        `  generated: ${right[i] ?? "(missing)"}`,
+      ].join("\n");
+    }
+  }
+  return "  (every line matches; only the newlines differ)";
+}
+
 if (process.argv.includes("--check")) {
   if (current !== text) {
     console.error(`atlas: out of date — ${OUT}. Run \`npm run docs:generate\`.`);
+    console.error(firstDifference(current ?? "", text));
     process.exit(1);
   }
   console.log("atlas: up to date");
