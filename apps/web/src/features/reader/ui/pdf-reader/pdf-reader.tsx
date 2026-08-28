@@ -58,10 +58,14 @@ import { bucketAnnotationsByPage } from "../../application/project-annotation-ge
 import { AnnotationSidebar, type ReportSectionOption } from "../annotation-sidebar";
 import { SelectionCreateBar } from "../selection-create-bar";
 import type { ReaderAnnotation } from "@weaveforge/core";
-import { darkPdfCanvasFilter, shouldUseDarkPdfRendering } from "../../application/reader-pdf-theme";
-import { backlinksForAnnotation, findAnnotationBacklinks, type AnnotationBacklinkHit } from "../../application/annotation-backlinks";
+import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
+import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { Select } from "@/components/select";
 import { DraftShapeOverlay, SafeExternalLink, TextBoxComposer } from "./overlays";
+import { useAnnotationContext } from "./use-annotation-context";
+import { useDarkPdf } from "./use-dark-pdf";
+import { useAnnotationActions } from "./use-annotation-actions";
+import { usePdfRendering } from "./use-pdf-rendering";
 
 import type {
   DraftShape,
@@ -104,16 +108,8 @@ export function PdfReader({
   onActivity,
   onSourceFailure,
 }: PdfReaderProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [pdf, setPdf] = useState<PdfDocument | null>(null);
-  const [numPages, setNumPages] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
-  const [pageSize, setPageSize] = useState<ReaderPageSize | null>(null);
-  const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
-  const [pageTexts, setPageTexts] = useState<DocumentPageText[]>([]);
-  const [outline, setOutline] = useState<ReaderOutlineItem[]>([]);
   const [showOutline, setShowOutline] = useState(false);
   const [spread, setSpread] = useState(false);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
@@ -124,20 +120,30 @@ export function PdfReader({
     quote: string;
     selection: import("@weaveforge/core").TextSelectionRange;
   } | null>(null);
-  const [createBusy, setCreateBusy] = useState(false);
-  const [reportSections, setReportSections] = useState<ReportSectionOption[]>([]);
-  const [pinsByKey, setPinsByKey] = useState<Map<string, string | null>>(new Map());
-  const [pinsList, setPinsList] = useState<
-    { annotationKey: string; reportSectionId: string; paperId: string }[]
-  >([]);
-  const [backlinkHits, setBacklinkHits] = useState<AnnotationBacklinkHit[]>([]);
-  const [darkPdf, setDarkPdf] = useState(false);
-  const [annError, setAnnError] = useState<string | null>(null);
-  const [vaultBacklinkPages, setVaultBacklinkPages] = useState<
-    { id: string; title: string; body: string }[]
-  >([]);
-  const pageGeometries = useRef(new Map<number, PageTextGeometry>());
-  const suppressPageScroll = useRef(false);
+  const clearPendingCreate = useCallback(() => setPendingCreate(null), []);
+  const { reportSections, pinsByKey, applyPin, backlinkHits } = useAnnotationContext(
+    paperId,
+    annotations,
+  );
+  const darkPdf = useDarkPdf();
+  const {
+    annError,
+    setAnnError,
+    createBusy,
+    persistDraft,
+    updateLocal,
+    removeLocal,
+    pinLocal,
+    saveAnchor,
+  } = useAnnotationActions({
+    paperId,
+    onAnnotationsChange,
+    onActivity,
+    applyPin,
+    selectedAnnId,
+    setSelectedAnnId,
+    clearPendingCreate,
+  });
   const inkPath = useRef<number[]>([]);
   /** Pressure reported for the stroke being drawn; one width is derived on release. */
   const inkPressures = useRef<number[]>([]);
@@ -248,10 +254,6 @@ export function PdfReader({
 
   /** Stable identity so a memoised page overlay is not re-rendered by a new closure. */
   const selectAnnotation = useCallback((id: string) => setSelectedAnnId(id), []);
-  const renderedPages = useRef(new Set<number>());
-  const renderingPages = useRef(new Map<number, Promise<void>>());
-  const renderTasks = useRef(new Map<number, RenderTask>());
-  const renderGeneration = useRef(0);
   const canCreate = Boolean(paperId && onAnnotationsChange);
   // Bucket once per annotation change rather than rescanning the whole list in
   // every page's overlay on every zoom, scroll, and rotation.
@@ -282,312 +284,35 @@ export function PdfReader({
     });
   }
 
-  const viewport = useReaderViewport({
-    initialPage: typeof page === "number" ? page + 1 : 1,
+  const {
+    viewport,
+    containerRef,
+    pdf,
+    numPages,
     pageSize,
     containerSize,
-    numPages,
+    pageTexts,
+    outline,
+    error,
+    openUrl,
+    pageGeometries,
+    suppressPageScroll,
+    renderPage,
+    clearHighlights,
+  } = usePdfRendering({
+    url,
+    originalUrl,
+    locus,
+    paperId,
+    paperTitle,
+    contentHash,
+    initialPage: typeof page === "number" ? page + 1 : 1,
+    onSourceFailure,
+    setJump,
   });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
 
-  const safeUrl = (() => {
-    if (url.startsWith("/api/pdf-proxy?")) {
-      const original = originalUrlFromProxy(url);
-      return original && isAllowedPdfProxyUrl(original) ? url : null;
-    }
-    // Bytes this app already cached and materialised — see isReaderObjectUrl.
-    if (isReaderObjectUrl(url)) return url;
-    return sanitizePdfUrl(url);
-  })();
-  const openUrl = (() => {
-    const direct = sanitizePdfUrl(originalUrl);
-    if (direct) return direct;
-    const fromProxy = originalUrlFromProxy(url);
-    if (fromProxy && isAllowedPdfProxyUrl(fromProxy)) return fromProxy;
-    return sanitizePdfUrl(url);
-  })();
-
-  const cancelRenderTasks = useCallback(() => {
-    for (const task of renderTasks.current.values()) {
-      try {
-        task.cancel();
-      } catch {
-        /* ignore */
-      }
-    }
-    renderTasks.current.clear();
-  }, []);
-
-  useEffect(() => {
-    const host = containerRef.current;
-    if (!host || typeof ResizeObserver === "undefined") return;
-    const measure = () => {
-      setContainerSize({
-        width: Math.max(1, host.clientWidth),
-        height: Math.max(1, host.clientHeight),
-      });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(host);
-    return () => observer.disconnect();
-  }, [pdf]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let task: ReturnType<PdfLib["getDocument"]> | null = null;
-    renderGeneration.current += 1;
-    renderedPages.current.clear();
-    renderingPages.current.clear();
-    // Page geometry is per-document. Keeping the previous document's items
-    // would let a selection on a not-yet-rendered page build an anchor from
-    // the *old* paper's text. The route remounts on url change, so this is
-    // belt-and-braces — but the component must honour its own url prop.
-    pageGeometries.current.clear();
-    // A pending "the observer moved the page, do not scroll" flag must not
-    // survive into the next document and swallow its first deliberate jump.
-    suppressPageScroll.current = false;
-    cancelRenderTasks();
-    setError(null);
-    setPdf(null);
-    setNumPages(0);
-    setPageSize(null);
-    setPageTexts([]);
-    setOutline([]);
-    setJump({ status: locus ? "searching" : "idle" });
-
-    if (!safeUrl) {
-      setError("That PDF link is not allowed — only https URLs can be opened.");
-      return;
-    }
-
-    void (async () => {
-      try {
-        const lib = await loadPdfLib();
-        if (cancelled) return;
-        const httpHeaders: Record<string, string> = {};
-        if (safeUrl.startsWith("/api/pdf-proxy?")) {
-          const accessToken = await getContainer().auth.auth.getAccessToken();
-          if (!accessToken) {
-            if (!cancelled) setError("Sign in to open this PDF in the reader.");
-            return;
-          }
-          httpHeaders.Authorization = `Bearer ${accessToken}`;
-        }
-        task = lib.getDocument({
-          url: safeUrl,
-          isEvalSupported: false,
-          ...(Object.keys(httpHeaders).length ? { httpHeaders, withCredentials: false } : {}),
-        });
-        if (cancelled) {
-          try {
-            task.destroy();
-          } catch {
-            /* ignore */
-          }
-          return;
-        }
-        const doc = await task.promise;
-        if (cancelled) return;
-        const first = await doc.getPage(1);
-        if (cancelled) return;
-        const base = first.getViewport({ scale: 1, rotation: 0 });
-        setPageSize({ width: base.width, height: base.height });
-        setPdf(doc);
-        setNumPages(doc.numPages);
-
-        // Extract text for search + outline (best-effort; never blocks rendering).
-        void (async () => {
-          try {
-            const texts: DocumentPageText[] = [];
-            for (let n = 1; n <= doc.numPages; n++) {
-              if (cancelled) return;
-              const p = await doc.getPage(n);
-              const content = await p.getTextContent();
-              const items = textItemsFromContent(content);
-              texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
-            }
-            if (cancelled) return;
-            setPageTexts(texts);
-            // Keep the text so this document stays searchable after the reader
-            // closes. Piggybacks on the pass above — no extra fetch or parse.
-            if (paperId) {
-              const source = {
-                paperId,
-                title: paperTitle ?? "PDF",
-                pages: texts,
-                extractedAt: new Date().toISOString(),
-              };
-              void savePdfText(getContainer().projects.context.projectId, source);
-              // Findable now rather than after a reload: the text is already in
-              // hand, and a reader who searches straight after reading is the
-              // common case, not the edge one.
-              getContainer().search.indexPdf(source);
-            }
-          } catch {
-            if (!cancelled) setPageTexts([]);
-          }
-        })();
-        void (async () => {
-          try {
-            const raw = await doc.getOutline();
-            if (cancelled) return;
-            setOutline(await mapOutline(doc, raw ?? []));
-          } catch {
-            if (!cancelled) setOutline([]);
-          }
-        })();
-      } catch (err) {
-        if (cancelled) return;
-        // A cached copy that will not open is recoverable: the screen can drop
-        // it and refetch from the network. Offer that before showing an error,
-        // so a bad cache entry is not a dead end.
-        if (isReaderObjectUrl(safeUrl) && onSourceFailure) {
-          onSourceFailure(safeUrl);
-          return;
-        }
-        setError(err instanceof Error ? err.message : "Could not load this PDF in the app.");
-      }
-    })();
-    return () => {
-      cancelled = true;
-      cancelRenderTasks();
-      try {
-        task?.destroy();
-      } catch {
-        /* ignore */
-      }
-    };
-    // locus intentionally omitted — jump effect owns locus changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [safeUrl, cancelRenderTasks]);
-
-  const clearHighlights = useCallback(() => {
-    containerRef.current?.querySelectorAll(".pdf-reader-hl").forEach((el) => el.remove());
-  }, []);
-
-  useEffect(() => {
-    renderGeneration.current += 1;
-    renderedPages.current.clear();
-    renderingPages.current.clear();
-    cancelRenderTasks();
-    clearHighlights();
-  }, [scale, rotation, clearHighlights, cancelRenderTasks]);
-
-  const renderPage = useCallback(
-    async (pageNumber: number) => {
-      if (!pdf || renderedPages.current.has(pageNumber)) return;
-      const inflight = renderingPages.current.get(pageNumber);
-      if (inflight) {
-        await inflight;
-        if (renderedPages.current.has(pageNumber) || !pdf) return;
-      }
-      const generation = renderGeneration.current;
-      let work!: Promise<void>;
-      work = (async () => {
-        try {
-          const host = containerRef.current?.querySelector<HTMLDivElement>(
-            `[data-page="${pageNumber}"]`,
-          );
-          if (!host) return;
-          const pdfPage = await pdf.getPage(pageNumber);
-          if (generation !== renderGeneration.current) return;
-          const viewport = pdfPage.getViewport({ scale, rotation });
-          const canvas = host.querySelector("canvas");
-          if (!(canvas instanceof HTMLCanvasElement)) return;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-          const ratio = window.devicePixelRatio || 1;
-          canvas.width = Math.floor(viewport.width * ratio);
-          canvas.height = Math.floor(viewport.height * ratio);
-          canvas.style.width = `${Math.floor(viewport.width)}px`;
-          canvas.style.height = `${Math.floor(viewport.height)}px`;
-          host.style.width = `${Math.floor(viewport.width)}px`;
-          host.style.height = `${Math.floor(viewport.height)}px`;
-          ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-          const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
-          renderTasks.current.set(pageNumber, renderTask);
-          try {
-            await renderTask.promise;
-          } finally {
-            if (renderTasks.current.get(pageNumber) === renderTask) {
-              renderTasks.current.delete(pageNumber);
-            }
-          }
-          if (generation !== renderGeneration.current) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            return;
-          }
-          // Text layer — selectable / copyable; input device for future annotation (R3).
-          let textLayer = host.querySelector<HTMLDivElement>(".pdf-reader-textlayer");
-          if (!textLayer) {
-            textLayer = document.createElement("div");
-            textLayer.className = "pdf-reader-textlayer";
-            host.appendChild(textLayer);
-          }
-          textLayer.replaceChildren();
-          textLayer.style.width = `${Math.floor(viewport.width)}px`;
-          textLayer.style.height = `${Math.floor(viewport.height)}px`;
-          const content = await pdfPage.getTextContent();
-          const lib = await loadPdfLib();
-          const geometryItems: import("@weaveforge/core").PageTextItem[] = [];
-          let itemIndex = 0;
-          for (const raw of content.items) {
-            const it = raw as {
-              str?: string;
-              transform?: number[];
-              width?: number;
-              height?: number;
-              hasEOL?: boolean;
-            };
-            if (typeof it.str !== "string" || !Array.isArray(it.transform)) continue;
-            geometryItems.push({
-              str: it.str,
-              transform: it.transform,
-              width: typeof it.width === "number" ? it.width : 0,
-              height: typeof it.height === "number" ? it.height : 0,
-              hasEOL: Boolean(it.hasEOL),
-            });
-            const tx = lib.Util.transform(viewport.transform, it.transform);
-            const fontHeight = Math.hypot(tx[2]!, tx[3]!) || (it.height ?? 0) * scale;
-            const width = (it.width ?? 0) * scale;
-            const span = document.createElement("span");
-            span.textContent = it.str;
-            span.setAttribute("data-item-index", String(itemIndex));
-            span.style.position = "absolute";
-            span.style.whiteSpace = "pre";
-            span.style.left = `${tx[4]!}px`;
-            span.style.top = `${tx[5]! - fontHeight}px`;
-            span.style.fontSize = `${Math.max(fontHeight, 1)}px`;
-            span.style.width = `${Math.max(width, 1)}px`;
-            textLayer.appendChild(span);
-            itemIndex += 1;
-          }
-          const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
-          pageGeometries.current.set(pageNumber, {
-            pageIndex: pageNumber - 1,
-            pageWidth: base.width,
-            pageHeight: base.height,
-            items: geometryItems,
-            // Stamp new anchors with the file they were captured against, so
-            // the overlay's trust check keeps working once hashes are real.
-            ...(contentHash ? { contentHash } : {}),
-          });
-          renderedPages.current.add(pageNumber);
-        } catch {
-          /* a failed / cancelled page must not break the rest of the document */
-        } finally {
-          if (renderingPages.current.get(pageNumber) === work) {
-            renderingPages.current.delete(pageNumber);
-          }
-        }
-      })();
-      renderingPages.current.set(pageNumber, work);
-      await work;
-    },
-    [pdf, scale, rotation, contentHash],
-  );
 
   const matchOnPage = useCallback(
     async (pageNumber: number): Promise<AnchorConfidence | null> => {
@@ -826,87 +551,6 @@ export function PdfReader({
     }
   }
 
-  useEffect(() => {
-    if (!paperId) {
-      setReportSections([]);
-      setPinsByKey(new Map());
-      setPinsList([]);
-      setVaultBacklinkPages([]);
-      setBacklinkHits([]);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [sections, pins, vaultPages] = await Promise.all([
-          getContainer().papers.listReportSections(),
-          getContainer().papers.listAnnotationPinsForPaper(paperId),
-          getContainer().vault.listPages().catch(() => []),
-        ]);
-        if (cancelled) return;
-        setReportSections(
-          sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
-        );
-        setPinsByKey(new Map(pins.map((p) => [p.annotationKey, p.reportSectionId])));
-        setPinsList(
-          pins.map((p) => ({
-            annotationKey: p.annotationKey,
-            reportSectionId: p.reportSectionId,
-            paperId: p.paperId,
-          })),
-        );
-        setVaultBacklinkPages(
-          vaultPages.map((p) => ({
-            id: p.id,
-            title: p.title || "Untitled note",
-            body: p.body ?? "",
-          })),
-        );
-      } catch {
-        if (!cancelled) {
-          setReportSections([]);
-          setPinsByKey(new Map());
-          setPinsList([]);
-          setVaultBacklinkPages([]);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [paperId]);
-
-  useEffect(() => {
-    if (!paperId) {
-      setBacklinkHits([]);
-      return;
-    }
-    setBacklinkHits(
-      findAnnotationBacklinks({
-        annotations,
-        pins: pinsList,
-        sections: reportSections,
-        vaultPages: vaultBacklinkPages,
-      }),
-    );
-  }, [paperId, annotations, pinsList, reportSections, vaultBacklinkPages]);
-
-  useEffect(() => {
-    const readTheme = () => {
-      const root = document.documentElement;
-      const theme = root.getAttribute("data-theme");
-      const mode = root.getAttribute("data-mode");
-      setDarkPdf(mode === "dark" || shouldUseDarkPdfRendering(theme, mode));
-    };
-    readTheme();
-    const observer = new MutationObserver(readTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme", "data-mode"],
-    });
-    return () => observer.disconnect();
-  }, []);
-
   /** The projection for one rendered page: its size, the zoom, and the rotation. */
   function pageProjection(pageNumber: number): PageProjection {
     const geometry = pageGeometries.current.get(pageNumber);
@@ -1001,44 +645,6 @@ export function PdfReader({
     });
   }
 
-  /** Returns the persisted annotation, or null when the write failed. */
-  async function persistDraft(
-    draft: import("@weaveforge/core").NewReaderAnnotation,
-  ): Promise<ReaderAnnotation | null> {
-    if (!paperId || !onAnnotationsChange) return null;
-
-    // Paint first, persist second. The write is a network round-trip, and
-    // waiting for it meant the highlight appeared hundreds of milliseconds
-    // after the click — long enough to read as a dead button.
-    const tempId = `${PENDING_ANNOTATION_PREFIX}${
-      globalThis.crypto?.randomUUID?.() ?? String(Date.now())
-    }`;
-    const optimistic = optimisticAnnotationFromDraft(draft, tempId);
-    onAnnotationsChange((prev) => [...prev, optimistic]);
-    setSelectedAnnId(tempId);
-    setPendingCreate(null);
-    setAnnError(null);
-    window.getSelection()?.removeAllRanges();
-
-    setCreateBusy(true);
-    try {
-      const created = await getContainer().papers.createReaderAnnotation(paperId, draft);
-      onAnnotationsChange((prev) => prev.map((a) => (a.id === tempId ? created : a)));
-      setSelectedAnnId((prev) => (prev === tempId ? created.id : prev));
-      onActivity?.("annotate", `Created ${created.type}`);
-      return created;
-    } catch (err) {
-      // Roll the optimistic one back — leaving it would show a highlight that
-      // vanishes on the next reload with no explanation.
-      onAnnotationsChange((prev) => prev.filter((a) => a.id !== tempId));
-      setSelectedAnnId((prev) => (prev === tempId ? null : prev));
-      setAnnError(err instanceof Error ? err.message : "Could not save the annotation.");
-      return null;
-    } finally {
-      setCreateBusy(false);
-    }
-  }
-
   async function createFromPending(
     type: Extract<ReaderAnnotationType, "highlight" | "underline" | "note">,
     color: string,
@@ -1076,85 +682,6 @@ export function PdfReader({
     });
     if (!draft) return;
     await persistDraft(draft);
-  }
-
-  async function updateLocal(
-    id: string,
-    patch: { comment?: string; tags?: string[]; color?: string },
-  ) {
-    if (!onAnnotationsChange) return;
-    // A colour change repaints the highlight, so waiting for the write shows a
-    // swatch that stays wrong until the network answers. Apply, then reconcile.
-    let previous: ReaderAnnotation | undefined;
-    onAnnotationsChange((prev) =>
-      prev.map((a) => {
-        if (a.id !== id) return a;
-        previous = a;
-        return applyAnnotationPatch(a, patch);
-      }),
-    );
-    setAnnError(null);
-    try {
-      const updated = await getContainer().papers.updateReaderAnnotation(id, patch);
-      onAnnotationsChange((prev) => prev.map((a) => (a.id === id ? updated : a)));
-      onActivity?.("annotate", "Updated annotation");
-    } catch (err) {
-      if (previous) {
-        const restore = previous;
-        onAnnotationsChange((prev) => prev.map((a) => (a.id === id ? restore : a)));
-      }
-      setAnnError(err instanceof Error ? err.message : "Could not update the annotation.");
-    }
-  }
-
-  async function removeLocal(id: string, options?: { confirm?: boolean }) {
-    if (!onAnnotationsChange) return;
-    // The eraser asks for no confirmation: a dialog per stroke would make
-    // rubbing out a word unusable, and the gesture is already deliberate.
-    if (options?.confirm !== false && !window.confirm("Delete this local annotation?")) return;
-    // Remove on screen straight away, restore if the delete fails — the same
-    // round-trip that delayed creation left a deleted highlight sitting there.
-    let removed: ReaderAnnotation | undefined;
-    onAnnotationsChange((prev) => {
-      removed = prev.find((a) => a.id === id);
-      return prev.filter((a) => a.id !== id);
-    });
-    if (selectedAnnId === id) setSelectedAnnId(null);
-    setAnnError(null);
-    try {
-      await getContainer().papers.removeReaderAnnotation(id);
-      onActivity?.("annotate", "Deleted annotation");
-    } catch (err) {
-      if (removed) {
-        const restore = removed;
-        onAnnotationsChange((prev) =>
-          prev.some((a) => a.id === restore.id) ? prev : [...prev, restore],
-        );
-      }
-      setAnnError(err instanceof Error ? err.message : "Could not delete the annotation.");
-    }
-  }
-
-  async function pinLocal(ann: ReaderAnnotation, sectionId: string | null) {
-    if (!paperId) return;
-    const key = annotationPinKey(ann);
-    try {
-      await getContainer().papers.setAnnotationPin(paperId, key, sectionId);
-      setPinsByKey((prev) => {
-        const next = new Map(prev);
-        if (sectionId) next.set(key, sectionId);
-        else next.delete(key);
-        return next;
-      });
-      setPinsList((prev) => {
-        const without = prev.filter((p) => p.annotationKey !== key);
-        if (!sectionId) return without;
-        return [...without, { annotationKey: key, reportSectionId: sectionId, paperId }];
-      });
-      setAnnError(null);
-    } catch (err) {
-      setAnnError(err instanceof Error ? err.message : "Could not pin the annotation.");
-    }
   }
 
   /** Delete every ink mark the eraser is touching, once per drag. */
@@ -1224,23 +751,6 @@ export function PdfReader({
         pathCount: created.anchor.zoteroPosition?.paths?.length ?? 1,
         lastAt: Date.now(),
       };
-    }
-  }
-
-  /** Persist a new anchor for an existing annotation, painting it immediately. */
-  async function saveAnchor(ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"]) {
-    if (!onAnnotationsChange) return;
-    const previous = ann.anchor;
-    onAnnotationsChange((prev) => prev.map((a) => (a.id === ann.id ? { ...a, anchor } : a)));
-    setAnnError(null);
-    try {
-      const updated = await getContainer().papers.updateReaderAnnotation(ann.id, { anchor });
-      onAnnotationsChange((prev) => prev.map((a) => (a.id === ann.id ? updated : a)));
-    } catch (err) {
-      onAnnotationsChange((prev) =>
-        prev.map((a) => (a.id === ann.id ? { ...a, anchor: previous } : a)),
-      );
-      setAnnError(err instanceof Error ? err.message : "Could not move the annotation.");
     }
   }
 
