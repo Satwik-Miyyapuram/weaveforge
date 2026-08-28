@@ -175,7 +175,7 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 | [`docs/building/design.md`](docs/building/design.md) | Architecture, SOLID boundaries, module pattern |
 | [`docs/using/extensions.md`](docs/using/extensions.md) | Extension seams — integrations, modules, backend, Python sync |
 | [`docs/building/themes.md`](docs/building/themes.md) | CSS-variable theming, light/dark, card accent palette |
-| [`docs/building/ui-spec.md`](docs/building/ui-spec.md) | Inventory of every screen, control, and state in the web app |
+| [`docs/internal/strategy/ui-spec.md`](docs/internal/strategy/ui-spec.md) | Inventory of every screen, control, and state in the web app |
 | [`docs/internal/reports/privacy-test-matrix.md`](docs/internal/reports/privacy-test-matrix.md) | Privacy guarantees mapped to the tests that prove them |
 | [`docs/internal/plans/README.md`](docs/internal/plans/README.md) | Plan index — completed plans and where in-flight work would go |
 | [`docs/internal/future-work/BACKLOG.md`](docs/internal/future-work/BACKLOG.md) | Proposed work not started |

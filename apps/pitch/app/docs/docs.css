@@ -53,6 +53,16 @@
 
 /* Reading measure: long lines are the main thing that makes docs unpleasant. */
 .docs-article { max-width: 46rem; }
+/* Nothing in a document may widen the page.
+   These are engineering docs: a paragraph carries `apps/web/src/features/...`
+   in it, a heading carries a function signature, and on a phone one of those
+   is wider than the screen. Left alone the whole page scrolls sideways, so
+   every line of prose has to be dragged back to read. Break inside a long
+   token rather than letting it push the layout. */
+.docs-article { overflow-wrap: break-word; }
+.docs-article h1, .docs-article h2, .docs-article h3, .docs-article h4 {
+  overflow-wrap: anywhere;
+}
 .docs-article h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 0.75rem; }
 .docs-article h2 {
   font-size: 1.35rem;
@@ -67,6 +77,8 @@
 .docs-lede { color: var(--muted); font-size: 1.05rem; }
 
 .docs-article code {
+  /* A path or an identifier has no spaces to break at, so it breaks anywhere. */
+  overflow-wrap: anywhere;
   background: var(--surface2);
   padding: 0.12em 0.35em;
   border-radius: 5px;
@@ -81,7 +93,15 @@
   /* Wide code must scroll inside its own box, never widen the page. */
   overflow-x: auto;
 }
-.docs-article pre code { background: none; padding: 0; font-size: 0.85rem; }
+.docs-article pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+  /* Inside a scrolling <pre> the opposite rule applies: code keeps its own
+     line breaks and the box scrolls, because a wrapped line of code lies
+     about where the line ends. */
+  overflow-wrap: normal;
+}
 
 .docs-article blockquote {
   margin: 1.25rem 0;
@@ -131,9 +151,17 @@
   padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
 }
-.docs-index-path { color: var(--faint); font-size: 0.8rem; font-family: var(--font-mono, monospace); }
+.docs-index-path {
+  color: var(--faint);
+  font-size: 0.8rem;
+  font-family: var(--font-mono, monospace);
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 860px) {
+  /* The one thing a phone must never do here. Wide content — tables, code —
+     scrolls inside its own box; the page itself does not. */
+  .docs-shell { overflow-x: hidden; }
   .docs-shell { grid-template-columns: minmax(0, 1fr); }
   .docs-nav {
     position: static;

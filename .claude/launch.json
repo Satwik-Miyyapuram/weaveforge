@@ -1,18 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    {
-      "name": "web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--workspace", "@weaveforge/web"],
-      "port": 3000,
-      "autoPort": true
-    },
-    {
-      "name": "web-prod",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["exec", "--workspace", "@weaveforge/web", "--", "next", "start", "-p", "3100"],
-      "port": 3100
-    }
+    { "name": "pitch-export", "runtimeExecutable": "npx", "runtimeArgs": ["-y", "serve", "apps/pitch/out", "-l", "4321"], "port": 4321 }
   ]
 }

@@ -1,14 +1,6 @@
 import Link from "next/link";
-import { docsBySection } from "../../lib/docs";
+import { ATLAS, docsBySection, SECTION_LABELS } from "../../lib/docs";
 import "./docs.css";
-
-const SECTION_LABELS: Record<string, string> = {
-  "": "Overview",
-  backend: "Backend & hosting",
-  storage: "Storage",
-  plans: "Plans",
-  "future-work": "Future work",
-};
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   const sections = docsBySection();
@@ -29,6 +21,14 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
                     <Link href={`/docs/${page.slug.join("/")}/`}>{page.title}</Link>
                   </li>
                 ))}
+                {/* Sits with the rest of "how it is built" even though it is not
+                    a Markdown page: a reader looking for the map should find it
+                    where the map belongs, not only by knowing the URL. */}
+                {section === "building" && (
+                  <li>
+                    <a href={ATLAS.href}>{ATLAS.title}</a>
+                  </li>
+                )}
               </ul>
             </section>
           ))}

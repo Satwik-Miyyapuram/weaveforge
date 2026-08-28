@@ -47,7 +47,7 @@ already reworked to **server-key** (done). Affected tables (`ai_proposals`, `ai_
 | 6 | **Merge `drop-e2ee` → `main`** | — | ✅ merged (ff) + pushed |
 | 7 | **Perf roadmap** | plan doc removed | ✅ rewritten for post-E2EE (plaintext + RLS; no decrypt workers) |
 | 8 | **Restore server-side title search** | paper repos | ✅ `ilike` re-enabled (postgres + supabase) |
-| 9 | **Stale E2EE docs** | `docs/building/ui-spec.md`, delete `hybrid-encryption-plan.md` | ✅ done (CHANGELOG kept as history) |
+| 9 | **Stale E2EE docs** | `docs/internal/strategy/ui-spec.md`, delete `hybrid-encryption-plan.md` | ✅ done (CHANGELOG kept as history) |
 | 10 | **Tests** | API + e2e | ✅ every Next `/api/*/route.ts` has colocated `test/route.test.ts` (`check:api-route-tests`); e2e covers papers/vault/logbook CRUD + sharing + equations + MCP + Overleaf + settings credential/MCP APIs. Domain CRUD is covered by core use-case tests + e2e PostgREST assertions (see API surfaces below). |
 | 11 | **Ops — Bug 1** | env | ✅ GH Actions secrets synced; Supabase smoke 200. CI `startup_failure` was **account billing lock** (not minutes — 668/3000 left); unlocked and CI green on [PR #23](https://github.com/Satwik-Miyyapuram/weaveforge/pull/23). Vercel linked: `satwik-miyyapurams-projects/weaveforge-web` — confirm host env vars (`SUPABASE_*`, service role, JWT, Overleaf key) in the Vercel dashboard. |
 
