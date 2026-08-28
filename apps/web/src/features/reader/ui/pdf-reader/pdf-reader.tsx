@@ -58,10 +58,15 @@ import { bucketAnnotationsByPage } from "../../application/project-annotation-ge
 import { AnnotationSidebar, type ReportSectionOption } from "../annotation-sidebar";
 import { SelectionCreateBar } from "../selection-create-bar";
 import type { ReaderAnnotation } from "@weaveforge/core";
-import { darkPdfCanvasFilter, shouldUseDarkPdfRendering } from "../../application/reader-pdf-theme";
-import { backlinksForAnnotation, findAnnotationBacklinks, type AnnotationBacklinkHit } from "../../application/annotation-backlinks";
+import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
+import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { Select } from "@/components/select";
 import { DraftShapeOverlay, SafeExternalLink, TextBoxComposer } from "./overlays";
+import { useAnnotationContext } from "./use-annotation-context";
+import { useDarkPdf } from "./use-dark-pdf";
+import { useAnnotationActions } from "./use-annotation-actions";
+import { usePdfRendering } from "./use-pdf-rendering";
+import { usePagePointer } from "./use-page-pointer";
 
 import type {
   DraftShape,
@@ -104,16 +109,8 @@ export function PdfReader({
   onActivity,
   onSourceFailure,
 }: PdfReaderProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [pdf, setPdf] = useState<PdfDocument | null>(null);
-  const [numPages, setNumPages] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
-  const [pageSize, setPageSize] = useState<ReaderPageSize | null>(null);
-  const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
-  const [pageTexts, setPageTexts] = useState<DocumentPageText[]>([]);
-  const [outline, setOutline] = useState<ReaderOutlineItem[]>([]);
   const [showOutline, setShowOutline] = useState(false);
   const [spread, setSpread] = useState(false);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
@@ -124,134 +121,33 @@ export function PdfReader({
     quote: string;
     selection: import("@weaveforge/core").TextSelectionRange;
   } | null>(null);
-  const [createBusy, setCreateBusy] = useState(false);
-  const [reportSections, setReportSections] = useState<ReportSectionOption[]>([]);
-  const [pinsByKey, setPinsByKey] = useState<Map<string, string | null>>(new Map());
-  const [pinsList, setPinsList] = useState<
-    { annotationKey: string; reportSectionId: string; paperId: string }[]
-  >([]);
-  const [backlinkHits, setBacklinkHits] = useState<AnnotationBacklinkHit[]>([]);
-  const [darkPdf, setDarkPdf] = useState(false);
-  const [annError, setAnnError] = useState<string | null>(null);
-  const [vaultBacklinkPages, setVaultBacklinkPages] = useState<
-    { id: string; title: string; body: string }[]
-  >([]);
-  const pageGeometries = useRef(new Map<number, PageTextGeometry>());
-  const suppressPageScroll = useRef(false);
-  const inkPath = useRef<number[]>([]);
-  /** Pressure reported for the stroke being drawn; one width is derived on release. */
-  const inkPressures = useRef<number[]>([]);
-  /** Pointer that owns the stroke in progress, so a second contact cannot join it. */
-  const inkPointerId = useRef<number | null>(null);
-  /**
-   * Whether a stylus has ever touched this reader.
-   *
-   * Palm rejection, without a device API for it: a tablet reports the hand
-   * resting on the glass as an ordinary `touch` pointer, indistinguishable from
-   * a fingertip, so drawing turned every resting palm into a stroke. Once a pen
-   * has been seen, touch stops drawing and goes back to scrolling — which is
-   * also what a pen user wants their finger to do. On a device with no pen this
-   * never trips, and finger drawing keeps working.
-   */
-  const sawPen = useRef(false);
-  /**
-   * Mirrors `sawPen` into render, so the page can hand touch scrolling back
-   * once a pen is in use. A drawing tool otherwise pins `touch-action: none`
-   * on every page and the document cannot be scrolled by finger at all.
-   */
-  const [penSeen, setPenSeen] = useState(false);
-  /** The ink annotation the last stroke went into, for stroke grouping. */
-  const inkGroup = useRef<InkGroup | null>(null);
-  const inkMove = useRef<InkMove | null>(null);
-  /** Ink deleted by the current eraser drag, so one pass deletes each mark once. */
-  const erasedIds = useRef<Set<string>>(new Set());
-  const dragRect = useRef<{
-    pageNumber: number;
-    x0: number;
-    y0: number;
-    x1: number;
-    y1: number;
-  } | null>(null);
-  /**
-   * The stroke or region currently under the pointer, in PDF coordinates.
-   *
-   * `inkPath` and `dragRect` are refs, so mutating them during a drag never
-   * re-rendered anything — the mark only appeared once pointer-up persisted the
-   * annotation, with no feedback while drawing. This mirrors them into state so
-   * the in-progress shape is painted, and is cleared when the drag ends.
-   */
-  const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
-  /**
-   * Live offset of the ink mark being dragged. Held here rather than pushed
-   * through `onAnnotationsChange` so a move repaints without writing to the
-   * annotation list (and the server) on every frame.
-   */
-  const [movePreview, setMovePreview] = useState<{ id: string; dx: number; dy: number } | null>(
-    null,
+  const clearPendingCreate = useCallback(() => setPendingCreate(null), []);
+  const { reportSections, pinsByKey, applyPin, backlinkHits } = useAnnotationContext(
+    paperId,
+    annotations,
   );
-  const moveFrame = useRef<number | null>(null);
-  const pendingMove = useRef<{ id: string; dx: number; dy: number } | null>(null);
-  /** Region a text annotation was drawn over, awaiting its text. */
-  const [pendingTextBox, setPendingTextBox] = useState<PendingTextBox | null>(null);
-  /** Sticky note awaiting its comment, with the colour chosen for it. */
-  const [pendingNote, setPendingNote] = useState<{ color: string } | null>(null);
-  const pendingShape = useRef<DraftShape | null>(null);
-  const shapeFrame = useRef<number | null>(null);
-
-  /**
-   * Publish the in-progress shape at most once per frame. Pointer-move fires far
-   * more often than the display refreshes, and each publish re-renders a page.
-   */
-  const scheduleDraft = useCallback((shape: DraftShape | null) => {
-    pendingShape.current = shape;
-    if (shapeFrame.current != null) return;
-    shapeFrame.current = window.requestAnimationFrame(() => {
-      shapeFrame.current = null;
-      setDraftShape(pendingShape.current);
-    });
-  }, []);
-
-  const clearDraft = useCallback(() => {
-    if (shapeFrame.current != null) {
-      window.cancelAnimationFrame(shapeFrame.current);
-      shapeFrame.current = null;
-    }
-    pendingShape.current = null;
-    setDraftShape(null);
-  }, []);
-
-  /** Same frame budget for a move as for a stroke — see `scheduleDraft`. */
-  const scheduleMove = useCallback((next: { id: string; dx: number; dy: number } | null) => {
-    pendingMove.current = next;
-    if (next == null) {
-      if (moveFrame.current != null) {
-        window.cancelAnimationFrame(moveFrame.current);
-        moveFrame.current = null;
-      }
-      setMovePreview(null);
-      return;
-    }
-    if (moveFrame.current != null) return;
-    moveFrame.current = window.requestAnimationFrame(() => {
-      moveFrame.current = null;
-      setMovePreview(pendingMove.current);
-    });
-  }, []);
-
-  useEffect(() => clearDraft, [clearDraft]);
-  useEffect(
-    () => () => {
-      if (moveFrame.current != null) window.cancelAnimationFrame(moveFrame.current);
-    },
-    [],
-  );
+  const darkPdf = useDarkPdf();
+  const {
+    annError,
+    setAnnError,
+    createBusy,
+    persistDraft,
+    updateLocal,
+    removeLocal,
+    pinLocal,
+    saveAnchor,
+  } = useAnnotationActions({
+    paperId,
+    onAnnotationsChange,
+    onActivity,
+    applyPin,
+    selectedAnnId,
+    setSelectedAnnId,
+    clearPendingCreate,
+  });
 
   /** Stable identity so a memoised page overlay is not re-rendered by a new closure. */
   const selectAnnotation = useCallback((id: string) => setSelectedAnnId(id), []);
-  const renderedPages = useRef(new Set<number>());
-  const renderingPages = useRef(new Map<number, Promise<void>>());
-  const renderTasks = useRef(new Map<number, RenderTask>());
-  const renderGeneration = useRef(0);
   const canCreate = Boolean(paperId && onAnnotationsChange);
   // Bucket once per annotation change rather than rescanning the whole list in
   // every page's overlay on every zoom, scroll, and rotation.
@@ -282,312 +178,65 @@ export function PdfReader({
     });
   }
 
-  const viewport = useReaderViewport({
-    initialPage: typeof page === "number" ? page + 1 : 1,
+  const {
+    viewport,
+    containerRef,
+    pdf,
+    numPages,
     pageSize,
     containerSize,
-    numPages,
+    pageTexts,
+    outline,
+    error,
+    openUrl,
+    pageGeometries,
+    suppressPageScroll,
+    renderPage,
+    clearHighlights,
+  } = usePdfRendering({
+    url,
+    originalUrl,
+    locus,
+    paperId,
+    paperTitle,
+    contentHash,
+    initialPage: typeof page === "number" ? page + 1 : 1,
+    onSourceFailure,
+    setJump,
   });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
 
-  const safeUrl = (() => {
-    if (url.startsWith("/api/pdf-proxy?")) {
-      const original = originalUrlFromProxy(url);
-      return original && isAllowedPdfProxyUrl(original) ? url : null;
-    }
-    // Bytes this app already cached and materialised — see isReaderObjectUrl.
-    if (isReaderObjectUrl(url)) return url;
-    return sanitizePdfUrl(url);
-  })();
-  const openUrl = (() => {
-    const direct = sanitizePdfUrl(originalUrl);
-    if (direct) return direct;
-    const fromProxy = originalUrlFromProxy(url);
-    if (fromProxy && isAllowedPdfProxyUrl(fromProxy)) return fromProxy;
-    return sanitizePdfUrl(url);
-  })();
+  const {
+    penSeen,
+    draftShape,
+    movePreview,
+    isMovingInk,
+    endInkGroup,
+    pendingTextBox,
+    setPendingTextBox,
+    pendingNote,
+    setPendingNote,
+    pageProjection,
+    onPagePointerDown,
+    onPagePointerMove,
+    onPagePointerUp,
+  } = usePagePointer({
+    canCreate,
+    createTool,
+    createColor,
+    selectedAnnId,
+    pageSize,
+    scale,
+    rotation,
+    pageGeometries,
+    annotations,
+    annotationsByPage,
+    persistDraft,
+    removeLocal,
+    saveAnchor,
+  });
 
-  const cancelRenderTasks = useCallback(() => {
-    for (const task of renderTasks.current.values()) {
-      try {
-        task.cancel();
-      } catch {
-        /* ignore */
-      }
-    }
-    renderTasks.current.clear();
-  }, []);
-
-  useEffect(() => {
-    const host = containerRef.current;
-    if (!host || typeof ResizeObserver === "undefined") return;
-    const measure = () => {
-      setContainerSize({
-        width: Math.max(1, host.clientWidth),
-        height: Math.max(1, host.clientHeight),
-      });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(host);
-    return () => observer.disconnect();
-  }, [pdf]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let task: ReturnType<PdfLib["getDocument"]> | null = null;
-    renderGeneration.current += 1;
-    renderedPages.current.clear();
-    renderingPages.current.clear();
-    // Page geometry is per-document. Keeping the previous document's items
-    // would let a selection on a not-yet-rendered page build an anchor from
-    // the *old* paper's text. The route remounts on url change, so this is
-    // belt-and-braces — but the component must honour its own url prop.
-    pageGeometries.current.clear();
-    // A pending "the observer moved the page, do not scroll" flag must not
-    // survive into the next document and swallow its first deliberate jump.
-    suppressPageScroll.current = false;
-    cancelRenderTasks();
-    setError(null);
-    setPdf(null);
-    setNumPages(0);
-    setPageSize(null);
-    setPageTexts([]);
-    setOutline([]);
-    setJump({ status: locus ? "searching" : "idle" });
-
-    if (!safeUrl) {
-      setError("That PDF link is not allowed — only https URLs can be opened.");
-      return;
-    }
-
-    void (async () => {
-      try {
-        const lib = await loadPdfLib();
-        if (cancelled) return;
-        const httpHeaders: Record<string, string> = {};
-        if (safeUrl.startsWith("/api/pdf-proxy?")) {
-          const accessToken = await getContainer().auth.auth.getAccessToken();
-          if (!accessToken) {
-            if (!cancelled) setError("Sign in to open this PDF in the reader.");
-            return;
-          }
-          httpHeaders.Authorization = `Bearer ${accessToken}`;
-        }
-        task = lib.getDocument({
-          url: safeUrl,
-          isEvalSupported: false,
-          ...(Object.keys(httpHeaders).length ? { httpHeaders, withCredentials: false } : {}),
-        });
-        if (cancelled) {
-          try {
-            task.destroy();
-          } catch {
-            /* ignore */
-          }
-          return;
-        }
-        const doc = await task.promise;
-        if (cancelled) return;
-        const first = await doc.getPage(1);
-        if (cancelled) return;
-        const base = first.getViewport({ scale: 1, rotation: 0 });
-        setPageSize({ width: base.width, height: base.height });
-        setPdf(doc);
-        setNumPages(doc.numPages);
-
-        // Extract text for search + outline (best-effort; never blocks rendering).
-        void (async () => {
-          try {
-            const texts: DocumentPageText[] = [];
-            for (let n = 1; n <= doc.numPages; n++) {
-              if (cancelled) return;
-              const p = await doc.getPage(n);
-              const content = await p.getTextContent();
-              const items = textItemsFromContent(content);
-              texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
-            }
-            if (cancelled) return;
-            setPageTexts(texts);
-            // Keep the text so this document stays searchable after the reader
-            // closes. Piggybacks on the pass above — no extra fetch or parse.
-            if (paperId) {
-              const source = {
-                paperId,
-                title: paperTitle ?? "PDF",
-                pages: texts,
-                extractedAt: new Date().toISOString(),
-              };
-              void savePdfText(getContainer().projects.context.projectId, source);
-              // Findable now rather than after a reload: the text is already in
-              // hand, and a reader who searches straight after reading is the
-              // common case, not the edge one.
-              getContainer().search.indexPdf(source);
-            }
-          } catch {
-            if (!cancelled) setPageTexts([]);
-          }
-        })();
-        void (async () => {
-          try {
-            const raw = await doc.getOutline();
-            if (cancelled) return;
-            setOutline(await mapOutline(doc, raw ?? []));
-          } catch {
-            if (!cancelled) setOutline([]);
-          }
-        })();
-      } catch (err) {
-        if (cancelled) return;
-        // A cached copy that will not open is recoverable: the screen can drop
-        // it and refetch from the network. Offer that before showing an error,
-        // so a bad cache entry is not a dead end.
-        if (isReaderObjectUrl(safeUrl) && onSourceFailure) {
-          onSourceFailure(safeUrl);
-          return;
-        }
-        setError(err instanceof Error ? err.message : "Could not load this PDF in the app.");
-      }
-    })();
-    return () => {
-      cancelled = true;
-      cancelRenderTasks();
-      try {
-        task?.destroy();
-      } catch {
-        /* ignore */
-      }
-    };
-    // locus intentionally omitted — jump effect owns locus changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [safeUrl, cancelRenderTasks]);
-
-  const clearHighlights = useCallback(() => {
-    containerRef.current?.querySelectorAll(".pdf-reader-hl").forEach((el) => el.remove());
-  }, []);
-
-  useEffect(() => {
-    renderGeneration.current += 1;
-    renderedPages.current.clear();
-    renderingPages.current.clear();
-    cancelRenderTasks();
-    clearHighlights();
-  }, [scale, rotation, clearHighlights, cancelRenderTasks]);
-
-  const renderPage = useCallback(
-    async (pageNumber: number) => {
-      if (!pdf || renderedPages.current.has(pageNumber)) return;
-      const inflight = renderingPages.current.get(pageNumber);
-      if (inflight) {
-        await inflight;
-        if (renderedPages.current.has(pageNumber) || !pdf) return;
-      }
-      const generation = renderGeneration.current;
-      let work!: Promise<void>;
-      work = (async () => {
-        try {
-          const host = containerRef.current?.querySelector<HTMLDivElement>(
-            `[data-page="${pageNumber}"]`,
-          );
-          if (!host) return;
-          const pdfPage = await pdf.getPage(pageNumber);
-          if (generation !== renderGeneration.current) return;
-          const viewport = pdfPage.getViewport({ scale, rotation });
-          const canvas = host.querySelector("canvas");
-          if (!(canvas instanceof HTMLCanvasElement)) return;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-          const ratio = window.devicePixelRatio || 1;
-          canvas.width = Math.floor(viewport.width * ratio);
-          canvas.height = Math.floor(viewport.height * ratio);
-          canvas.style.width = `${Math.floor(viewport.width)}px`;
-          canvas.style.height = `${Math.floor(viewport.height)}px`;
-          host.style.width = `${Math.floor(viewport.width)}px`;
-          host.style.height = `${Math.floor(viewport.height)}px`;
-          ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-          const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
-          renderTasks.current.set(pageNumber, renderTask);
-          try {
-            await renderTask.promise;
-          } finally {
-            if (renderTasks.current.get(pageNumber) === renderTask) {
-              renderTasks.current.delete(pageNumber);
-            }
-          }
-          if (generation !== renderGeneration.current) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            return;
-          }
-          // Text layer — selectable / copyable; input device for future annotation (R3).
-          let textLayer = host.querySelector<HTMLDivElement>(".pdf-reader-textlayer");
-          if (!textLayer) {
-            textLayer = document.createElement("div");
-            textLayer.className = "pdf-reader-textlayer";
-            host.appendChild(textLayer);
-          }
-          textLayer.replaceChildren();
-          textLayer.style.width = `${Math.floor(viewport.width)}px`;
-          textLayer.style.height = `${Math.floor(viewport.height)}px`;
-          const content = await pdfPage.getTextContent();
-          const lib = await loadPdfLib();
-          const geometryItems: import("@weaveforge/core").PageTextItem[] = [];
-          let itemIndex = 0;
-          for (const raw of content.items) {
-            const it = raw as {
-              str?: string;
-              transform?: number[];
-              width?: number;
-              height?: number;
-              hasEOL?: boolean;
-            };
-            if (typeof it.str !== "string" || !Array.isArray(it.transform)) continue;
-            geometryItems.push({
-              str: it.str,
-              transform: it.transform,
-              width: typeof it.width === "number" ? it.width : 0,
-              height: typeof it.height === "number" ? it.height : 0,
-              hasEOL: Boolean(it.hasEOL),
-            });
-            const tx = lib.Util.transform(viewport.transform, it.transform);
-            const fontHeight = Math.hypot(tx[2]!, tx[3]!) || (it.height ?? 0) * scale;
-            const width = (it.width ?? 0) * scale;
-            const span = document.createElement("span");
-            span.textContent = it.str;
-            span.setAttribute("data-item-index", String(itemIndex));
-            span.style.position = "absolute";
-            span.style.whiteSpace = "pre";
-            span.style.left = `${tx[4]!}px`;
-            span.style.top = `${tx[5]! - fontHeight}px`;
-            span.style.fontSize = `${Math.max(fontHeight, 1)}px`;
-            span.style.width = `${Math.max(width, 1)}px`;
-            textLayer.appendChild(span);
-            itemIndex += 1;
-          }
-          const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
-          pageGeometries.current.set(pageNumber, {
-            pageIndex: pageNumber - 1,
-            pageWidth: base.width,
-            pageHeight: base.height,
-            items: geometryItems,
-            // Stamp new anchors with the file they were captured against, so
-            // the overlay's trust check keeps working once hashes are real.
-            ...(contentHash ? { contentHash } : {}),
-          });
-          renderedPages.current.add(pageNumber);
-        } catch {
-          /* a failed / cancelled page must not break the rest of the document */
-        } finally {
-          if (renderingPages.current.get(pageNumber) === work) {
-            renderingPages.current.delete(pageNumber);
-          }
-        }
-      })();
-      renderingPages.current.set(pageNumber, work);
-      await work;
-    },
-    [pdf, scale, rotation, contentHash],
-  );
 
   const matchOnPage = useCallback(
     async (pageNumber: number): Promise<AnchorConfidence | null> => {
@@ -636,7 +285,7 @@ export function PdfReader({
         host.appendChild(hl);
       }
     },
-    [pdf, locus, scale, rotation],
+    [pdf, locus, scale, rotation, containerRef],
   );
 
   useEffect(() => {
@@ -686,7 +335,7 @@ export function PdfReader({
     );
     host?.scrollIntoView({ behavior: "smooth", block: "start" });
     void renderPage(viewport.page);
-  }, [viewport.page, pdf, numPages, renderPage]);
+  }, [viewport.page, pdf, numPages, renderPage, containerRef, suppressPageScroll]);
 
   useEffect(() => {
     if (!pdf || !locus) {
@@ -826,145 +475,11 @@ export function PdfReader({
     }
   }
 
-  useEffect(() => {
-    if (!paperId) {
-      setReportSections([]);
-      setPinsByKey(new Map());
-      setPinsList([]);
-      setVaultBacklinkPages([]);
-      setBacklinkHits([]);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [sections, pins, vaultPages] = await Promise.all([
-          getContainer().papers.listReportSections(),
-          getContainer().papers.listAnnotationPinsForPaper(paperId),
-          getContainer().vault.listPages().catch(() => []),
-        ]);
-        if (cancelled) return;
-        setReportSections(
-          sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
-        );
-        setPinsByKey(new Map(pins.map((p) => [p.annotationKey, p.reportSectionId])));
-        setPinsList(
-          pins.map((p) => ({
-            annotationKey: p.annotationKey,
-            reportSectionId: p.reportSectionId,
-            paperId: p.paperId,
-          })),
-        );
-        setVaultBacklinkPages(
-          vaultPages.map((p) => ({
-            id: p.id,
-            title: p.title || "Untitled note",
-            body: p.body ?? "",
-          })),
-        );
-      } catch {
-        if (!cancelled) {
-          setReportSections([]);
-          setPinsByKey(new Map());
-          setPinsList([]);
-          setVaultBacklinkPages([]);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [paperId]);
-
-  useEffect(() => {
-    if (!paperId) {
-      setBacklinkHits([]);
-      return;
-    }
-    setBacklinkHits(
-      findAnnotationBacklinks({
-        annotations,
-        pins: pinsList,
-        sections: reportSections,
-        vaultPages: vaultBacklinkPages,
-      }),
-    );
-  }, [paperId, annotations, pinsList, reportSections, vaultBacklinkPages]);
-
-  useEffect(() => {
-    const readTheme = () => {
-      const root = document.documentElement;
-      const theme = root.getAttribute("data-theme");
-      const mode = root.getAttribute("data-mode");
-      setDarkPdf(mode === "dark" || shouldUseDarkPdfRendering(theme, mode));
-    };
-    readTheme();
-    const observer = new MutationObserver(readTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme", "data-mode"],
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  /** The projection for one rendered page: its size, the zoom, and the rotation. */
-  function pageProjection(pageNumber: number): PageProjection {
-    const geometry = pageGeometries.current.get(pageNumber);
-    return {
-      pageWidth: geometry?.pageWidth ?? pageSize?.width ?? 0,
-      pageHeight: geometry?.pageHeight ?? pageSize?.height ?? 0,
-      scale,
-      rotation,
-    };
-  }
-
-  function screenToPdf(pageHost: HTMLElement, clientX: number, clientY: number) {
-    const rect = pageHost.getBoundingClientRect();
-    const pageNumber = Number(pageHost.dataset.page);
-    // Rotation is part of the mapping, not a reason to refuse to draw: the
-    // create tools used to switch off entirely at 90/180/270, which is exactly
-    // the orientation a scanned landscape page is read in.
-    return screenPointToPdf(clientX - rect.left, clientY - rect.top, pageProjection(pageNumber));
-  }
-
-  /**
-   * Whether this pointer is allowed to draw. See `sawPen` — a palm resting on a
-   * tablet arrives as a `touch` pointer and would otherwise scribble.
-   */
-  function pointerMayDraw(event: React.PointerEvent): boolean {
-    if (event.pointerType === "pen") {
-      if (!sawPen.current) {
-        sawPen.current = true;
-        setPenSeen(true);
-      }
-      return true;
-    }
-    if (event.pointerType === "touch") return !sawPen.current;
-    return true;
-  }
-
-  /**
-   * Ink annotations on this page whose stroke passes within `radius` of a point.
-   *
-   * Reads the page's bucket rather than the whole document: the eraser runs this
-   * on every pointer move, and scanning every annotation in a heavily marked-up
-   * paper to find the handful on the page under the pen is work for nothing.
-   */
-  function inkAnnotationsAt(pageNumber: number, x: number, y: number, radius: number) {
-    const onPage = annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS;
-    return onPage.filter((ann) => {
-      if (ann.type !== "ink") return false;
-      const position = ann.anchor.zoteroPosition;
-      if (!position?.paths?.length || position.pageIndex !== pageNumber - 1) return false;
-      const nib = typeof position.width === "number" ? position.width : INK_DEFAULT_WIDTH;
-      return inkPathsHitTest(position.paths, x, y, radius + nib / 2);
-    });
-  }
 
   function onSelectionMouseUp() {
     if (!canCreate || createTool !== "select") return;
     // A drag that moved an ink mark is not a text selection.
-    if (inkMove.current) return;
+    if (isMovingInk()) return;
     const root = containerRef.current;
     if (!root) return;
     const sel = window.getSelection();
@@ -999,44 +514,6 @@ export function PdfReader({
       quote: draft.text ?? "",
       selection: range,
     });
-  }
-
-  /** Returns the persisted annotation, or null when the write failed. */
-  async function persistDraft(
-    draft: import("@weaveforge/core").NewReaderAnnotation,
-  ): Promise<ReaderAnnotation | null> {
-    if (!paperId || !onAnnotationsChange) return null;
-
-    // Paint first, persist second. The write is a network round-trip, and
-    // waiting for it meant the highlight appeared hundreds of milliseconds
-    // after the click — long enough to read as a dead button.
-    const tempId = `${PENDING_ANNOTATION_PREFIX}${
-      globalThis.crypto?.randomUUID?.() ?? String(Date.now())
-    }`;
-    const optimistic = optimisticAnnotationFromDraft(draft, tempId);
-    onAnnotationsChange((prev) => [...prev, optimistic]);
-    setSelectedAnnId(tempId);
-    setPendingCreate(null);
-    setAnnError(null);
-    window.getSelection()?.removeAllRanges();
-
-    setCreateBusy(true);
-    try {
-      const created = await getContainer().papers.createReaderAnnotation(paperId, draft);
-      onAnnotationsChange((prev) => prev.map((a) => (a.id === tempId ? created : a)));
-      setSelectedAnnId((prev) => (prev === tempId ? created.id : prev));
-      onActivity?.("annotate", `Created ${created.type}`);
-      return created;
-    } catch (err) {
-      // Roll the optimistic one back — leaving it would show a highlight that
-      // vanishes on the next reload with no explanation.
-      onAnnotationsChange((prev) => prev.filter((a) => a.id !== tempId));
-      setSelectedAnnId((prev) => (prev === tempId ? null : prev));
-      setAnnError(err instanceof Error ? err.message : "Could not save the annotation.");
-      return null;
-    } finally {
-      setCreateBusy(false);
-    }
   }
 
   async function createFromPending(
@@ -1078,398 +555,7 @@ export function PdfReader({
     await persistDraft(draft);
   }
 
-  async function updateLocal(
-    id: string,
-    patch: { comment?: string; tags?: string[]; color?: string },
-  ) {
-    if (!onAnnotationsChange) return;
-    // A colour change repaints the highlight, so waiting for the write shows a
-    // swatch that stays wrong until the network answers. Apply, then reconcile.
-    let previous: ReaderAnnotation | undefined;
-    onAnnotationsChange((prev) =>
-      prev.map((a) => {
-        if (a.id !== id) return a;
-        previous = a;
-        return applyAnnotationPatch(a, patch);
-      }),
-    );
-    setAnnError(null);
-    try {
-      const updated = await getContainer().papers.updateReaderAnnotation(id, patch);
-      onAnnotationsChange((prev) => prev.map((a) => (a.id === id ? updated : a)));
-      onActivity?.("annotate", "Updated annotation");
-    } catch (err) {
-      if (previous) {
-        const restore = previous;
-        onAnnotationsChange((prev) => prev.map((a) => (a.id === id ? restore : a)));
-      }
-      setAnnError(err instanceof Error ? err.message : "Could not update the annotation.");
-    }
-  }
 
-  async function removeLocal(id: string, options?: { confirm?: boolean }) {
-    if (!onAnnotationsChange) return;
-    // The eraser asks for no confirmation: a dialog per stroke would make
-    // rubbing out a word unusable, and the gesture is already deliberate.
-    if (options?.confirm !== false && !window.confirm("Delete this local annotation?")) return;
-    // Remove on screen straight away, restore if the delete fails — the same
-    // round-trip that delayed creation left a deleted highlight sitting there.
-    let removed: ReaderAnnotation | undefined;
-    onAnnotationsChange((prev) => {
-      removed = prev.find((a) => a.id === id);
-      return prev.filter((a) => a.id !== id);
-    });
-    if (selectedAnnId === id) setSelectedAnnId(null);
-    setAnnError(null);
-    try {
-      await getContainer().papers.removeReaderAnnotation(id);
-      onActivity?.("annotate", "Deleted annotation");
-    } catch (err) {
-      if (removed) {
-        const restore = removed;
-        onAnnotationsChange((prev) =>
-          prev.some((a) => a.id === restore.id) ? prev : [...prev, restore],
-        );
-      }
-      setAnnError(err instanceof Error ? err.message : "Could not delete the annotation.");
-    }
-  }
-
-  async function pinLocal(ann: ReaderAnnotation, sectionId: string | null) {
-    if (!paperId) return;
-    const key = annotationPinKey(ann);
-    try {
-      await getContainer().papers.setAnnotationPin(paperId, key, sectionId);
-      setPinsByKey((prev) => {
-        const next = new Map(prev);
-        if (sectionId) next.set(key, sectionId);
-        else next.delete(key);
-        return next;
-      });
-      setPinsList((prev) => {
-        const without = prev.filter((p) => p.annotationKey !== key);
-        if (!sectionId) return without;
-        return [...without, { annotationKey: key, reportSectionId: sectionId, paperId }];
-      });
-      setAnnError(null);
-    } catch (err) {
-      setAnnError(err instanceof Error ? err.message : "Could not pin the annotation.");
-    }
-  }
-
-  /** Delete every ink mark the eraser is touching, once per drag. */
-  function eraseAt(pageNumber: number, x: number, y: number) {
-    for (const ann of inkAnnotationsAt(pageNumber, x, y, ERASER_RADIUS)) {
-      if (ann.origin !== "local") continue;
-      if (erasedIds.current.has(ann.id)) continue;
-      erasedIds.current.add(ann.id);
-      // A stroke being erased must not also be the group the next stroke joins.
-      if (inkGroup.current?.annotationId === ann.id) inkGroup.current = null;
-      void removeLocal(ann.id, { confirm: false });
-    }
-  }
-
-  /**
-   * Save a finished stroke, joining the mark in progress when there is one.
-   *
-   * See `canJoinInkGroup`: strokes drawn in one breath, same nib, same colour,
-   * same page are one annotation. That is what stops a handwritten sentence
-   * becoming twenty rows in the table and twenty entries in the sidebar.
-   */
-  async function persistInkStroke(input: {
-    pageNumber: number;
-    pageHeight: number;
-    path: number[];
-    width: number;
-  }) {
-    const pageIndex = input.pageNumber - 1;
-    const now = Date.now();
-    const group = inkGroup.current;
-
-    if (
-      canJoinInkGroup(group, { pageIndex, color: createColor, width: input.width, at: now }) &&
-      group
-    ) {
-      const existing = annotations.find((a) => a.id === group.annotationId);
-      const merged = existing ? appendInkStroke(existing.anchor, input.path) : null;
-      if (existing && merged) {
-        inkGroup.current = {
-          ...group,
-          pathCount: merged.zoteroPosition?.paths?.length ?? group.pathCount + 1,
-          lastAt: now,
-        };
-        await saveAnchor(existing, merged);
-        return;
-      }
-      // The group's row is gone (erased, or still being created) — fall through
-      // and start a fresh mark rather than dropping the stroke.
-      inkGroup.current = null;
-    }
-
-    const draft = draftInkAnnotation({
-      color: createColor,
-      pageIndex,
-      pageHeight: input.pageHeight,
-      path: input.path,
-      width: input.width,
-    });
-    if (!draft) return;
-    const created = await persistDraft(draft);
-    if (created) {
-      inkGroup.current = {
-        annotationId: created.id,
-        pageIndex,
-        color: createColor,
-        width: input.width,
-        pathCount: created.anchor.zoteroPosition?.paths?.length ?? 1,
-        lastAt: Date.now(),
-      };
-    }
-  }
-
-  /** Persist a new anchor for an existing annotation, painting it immediately. */
-  async function saveAnchor(ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"]) {
-    if (!onAnnotationsChange) return;
-    const previous = ann.anchor;
-    onAnnotationsChange((prev) => prev.map((a) => (a.id === ann.id ? { ...a, anchor } : a)));
-    setAnnError(null);
-    try {
-      const updated = await getContainer().papers.updateReaderAnnotation(ann.id, { anchor });
-      onAnnotationsChange((prev) => prev.map((a) => (a.id === ann.id ? updated : a)));
-    } catch (err) {
-      onAnnotationsChange((prev) =>
-        prev.map((a) => (a.id === ann.id ? { ...a, anchor: previous } : a)),
-      );
-      setAnnError(err instanceof Error ? err.message : "Could not move the annotation.");
-    }
-  }
-
-  /** Write a finished move to the annotation's stored paths. */
-  async function commitInkMove(move: InkMove) {
-    if (Math.hypot(move.dx, move.dy) < INK_MOVE_THRESHOLD) return;
-    const ann = annotations.find((a) => a.id === move.annotationId);
-    const position = ann?.anchor.zoteroPosition;
-    if (!ann || !position?.paths?.length) return;
-    // A moved mark is no longer where the group left off; the next stroke is a
-    // new mark rather than a jump back to the old position.
-    if (inkGroup.current?.annotationId === ann.id) inkGroup.current = null;
-    await saveAnchor(ann, {
-      ...ann.anchor,
-      zoteroPosition: {
-        ...position,
-        paths: translateInkPaths(position.paths, move.dx, move.dy),
-      },
-    });
-  }
-
-  /** Nib width for a fresh stroke: the tool's base, scaled by pen pressure. */
-  function inkWidthForEvent(event: React.PointerEvent): number {
-    const base = createTool === "highlighter" ? HIGHLIGHTER_WIDTH : INK_DEFAULT_WIDTH;
-    return inkWidthForPressure(event.pressure, base);
-  }
-
-  function onPagePointerDown(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
-    if (!canCreate || !pageSize) return;
-    const host = event.currentTarget;
-    const pt = screenToPdf(host, event.clientX, event.clientY);
-
-    // The select tool doubles as the move tool: pressing inside a selected ink
-    // mark picks it up. Ink was previously fixed where it landed, so a stroke
-    // drawn in the wrong place could only be deleted and redrawn.
-    if (createTool === "select") {
-      if (!selectedAnnId) return;
-      const hit = inkAnnotationsAt(pageNumber, pt.x, pt.y, ERASER_RADIUS).some(
-        (ann) => ann.id === selectedAnnId,
-      );
-      if (!hit) return;
-      event.preventDefault();
-      inkMove.current = {
-        annotationId: selectedAnnId,
-        pointerId: event.pointerId,
-        pageNumber,
-        fromX: pt.x,
-        fromY: pt.y,
-        dx: 0,
-        dy: 0,
-      };
-      host.setPointerCapture(event.pointerId);
-      return;
-    }
-
-    if (!pointerMayDraw(event)) return;
-    event.preventDefault();
-
-    if (createTool === "erase") {
-      erasedIds.current = new Set();
-      host.setPointerCapture(event.pointerId);
-      eraseAt(pageNumber, pt.x, pt.y);
-      return;
-    }
-
-    if (isInkTool(createTool)) {
-      // One contact owns the stroke. Without this a palm landing mid-stroke on
-      // a pen-less tablet would splice its own path into the same line.
-      if (inkPointerId.current != null) return;
-      inkPointerId.current = event.pointerId;
-      inkPath.current = [pt.x, pt.y];
-      inkPressures.current = [event.pressure];
-      scheduleDraft({
-        kind: "ink",
-        pageNumber,
-        path: [pt.x, pt.y],
-        width: inkWidthForEvent(event),
-        highlighter: createTool === "highlighter",
-      });
-      host.setPointerCapture(event.pointerId);
-      return;
-    }
-    // Both tools drag out a region. Text used to place a fixed 120x24 box
-    // wherever you clicked, with no way to say how big it should be.
-    if (createTool === "image" || createTool === "text") {
-      dragRect.current = {
-        pageNumber,
-        x0: pt.x,
-        y0: pt.y,
-        x1: pt.x,
-        y1: pt.y,
-      };
-      scheduleDraft({ kind: "rect", pageNumber, x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y });
-      host.setPointerCapture(event.pointerId);
-    }
-  }
-
-  function onPagePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!canCreate) return;
-    const host = event.currentTarget;
-    const pageNumber = Number(host.dataset.page);
-    const pt = screenToPdf(host, event.clientX, event.clientY);
-
-    const move = inkMove.current;
-    if (move && move.pointerId === event.pointerId) {
-      move.dx = pt.x - move.fromX;
-      move.dy = pt.y - move.fromY;
-      scheduleMove({ id: move.annotationId, dx: move.dx, dy: move.dy });
-      return;
-    }
-
-    if (createTool === "erase" && event.buttons !== 0) {
-      eraseAt(pageNumber, pt.x, pt.y);
-      return;
-    }
-
-    if (
-      isInkTool(createTool) &&
-      inkPointerId.current === event.pointerId &&
-      inkPath.current.length >= 2
-    ) {
-      // Samples inside the pen's own jitter carry no shape and would be stored
-      // forever; dropping them here also keeps the live preview cheap.
-      if (!shouldAppendInkPoint(inkPath.current, pt.x, pt.y)) return;
-      inkPath.current.push(pt.x, pt.y);
-      inkPressures.current.push(event.pressure);
-      scheduleDraft({
-        kind: "ink",
-        pageNumber,
-        path: [...inkPath.current],
-        width: inkWidthForEvent(event),
-        highlighter: createTool === "highlighter",
-      });
-      return;
-    }
-    if ((createTool === "image" || createTool === "text") && dragRect.current) {
-      dragRect.current.x1 = pt.x;
-      dragRect.current.y1 = pt.y;
-      scheduleDraft({ kind: "rect", ...dragRect.current });
-    }
-  }
-
-  function onPagePointerUp(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
-    if (!canCreate || !pageSize) return;
-
-    const move = inkMove.current;
-    if (move && move.pointerId === event.pointerId) {
-      inkMove.current = null;
-      scheduleMove(null);
-      void commitInkMove(move);
-      return;
-    }
-
-    if (createTool === "erase") {
-      erasedIds.current = new Set();
-      return;
-    }
-
-    // The persisted annotation takes over from here; drop the live preview so
-    // the two cannot both be painted for a frame.
-    clearDraft();
-    if (isInkTool(createTool) && inkPointerId.current === event.pointerId) {
-      const path = [...inkPath.current];
-      const pressures = [...inkPressures.current];
-      inkPath.current = [];
-      inkPressures.current = [];
-      inkPointerId.current = null;
-      if (path.length >= 4) {
-        const pageHeight =
-          pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
-        void persistInkStroke({
-          pageNumber,
-          pageHeight,
-          path,
-          width: inkWidthForPressure(
-            meanPressure(pressures),
-            createTool === "highlighter" ? HIGHLIGHTER_WIDTH : INK_DEFAULT_WIDTH,
-          ),
-        });
-      }
-      return;
-    }
-    inkPath.current = [];
-    inkPressures.current = [];
-    inkPointerId.current = null;
-    if (createTool === "text" && dragRect.current) {
-      const d = dragRect.current;
-      dragRect.current = null;
-      if (d.pageNumber !== pageNumber) return;
-      const pageHeight =
-        pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
-      const width = Math.abs(d.x1 - d.x0);
-      const height = Math.abs(d.y1 - d.y0);
-      // Hand off to the in-app composer rather than window.prompt, which is an
-      // unstyled OS dialog and on mobile hides the page you are annotating.
-      setPendingTextBox({
-        pageIndex: pageNumber - 1,
-        pageHeight,
-        x: Math.min(d.x0, d.x1),
-        y: Math.min(d.y0, d.y1),
-        // A tap rather than a drag still works: fall back to the default box
-        // size rather than creating something zero-sized and invisible.
-        ...(width >= MIN_TEXT_BOX_PDF_SIZE && height >= MIN_TEXT_BOX_PDF_SIZE
-          ? { width, height }
-          : {}),
-      });
-      return;
-    }
-    if (createTool === "image" && dragRect.current) {
-      const d = dragRect.current;
-      dragRect.current = null;
-      if (d.pageNumber !== pageNumber) return;
-      const pageHeight =
-        pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
-      const draft = draftImageRegion({
-        color: createColor,
-        pageIndex: pageNumber - 1,
-        pageHeight,
-        rect: [
-          Math.min(d.x0, d.x1),
-          Math.min(d.y0, d.y1),
-          Math.max(d.x0, d.x1),
-          Math.max(d.y0, d.y1),
-        ],
-      });
-      if (draft) void persistDraft(draft);
-    }
-    void event;
-  }
 
   if (error) {
     return (
@@ -1550,7 +636,7 @@ export function PdfReader({
               onChange={(e) => {
                 // Switching tool ends the mark in progress, so the next stroke
                 // never merges into one drawn with a different nib.
-                inkGroup.current = null;
+                endInkGroup();
                 setCreateTool(e.target.value as ReaderCreateTool);
               }}
             >
@@ -1570,7 +656,7 @@ export function PdfReader({
               aria-label="Annotation colour"
               value={createColor}
               onChange={(e) => {
-                inkGroup.current = null;
+                endInkGroup();
                 setCreateColor(e.target.value);
               }}
             />
