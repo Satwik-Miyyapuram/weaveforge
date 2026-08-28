@@ -9,6 +9,7 @@ import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { ShareButton, CommentsToggle } from "@/features/sharing";
 import { formatError } from "@/lib/format-error";
+import { AttachArtifactsButton } from "./attach-artifacts-button";
 import {
   Artifacts,
   ExpConfigPanel,
@@ -23,6 +24,9 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const id = idProp ?? (typeof params.id === "string" ? params.id : "");
   const [exp, setExp] = useState<Experiment | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Kept apart from `error`, which means "this experiment could not be loaded"
+  // and replaces the whole screen. A failed upload must not do that.
+  const [attachError, setAttachError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -130,12 +134,24 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
         <MetricCurves experimentId={exp.id} live={live} chartHeight={320} />
       </section>
 
-      {hasArtifacts && (
-        <section className="exp-detail-section">
+      <section className="exp-detail-section">
+        <div className="paper-note-head">
           <h3 className="exp-detail-heading">Figures &amp; artifacts</h3>
+          <div className="card-foot-right">
+            <AttachArtifactsButton
+              experimentId={exp.id}
+              onAttached={setExp}
+              onError={setAttachError}
+            />
+          </div>
+        </div>
+        {attachError && <p className="error">{attachError}</p>}
+        {hasArtifacts ? (
           <Artifacts urls={exp.artifacts} detail />
-        </section>
-      )}
+        ) : (
+          <p className="summary">Nothing attached yet. Runs log their own; add one here.</p>
+        )}
+      </section>
 
       {exp.resultNote && (
         <section className="exp-detail-section">

@@ -42,6 +42,13 @@ test("recordMetrics merges", async () => {
   assert.deepEqual(r.metrics, { val_loss: 0.2, mig: 0.41 });
 });
 
+test("addArtifacts appends and ignores ones already there", async () => {
+  const { uc: u } = uc();
+  const e = await u.add({ name: "x", artifacts: ["u/e/loss.png"] });
+  const r = await u.addArtifacts(e.id, ["u/e/loss.png", "u/e/acc.png"]);
+  assert.deepEqual(r.artifacts, ["u/e/loss.png", "u/e/acc.png"]);
+});
+
 test("shortSha truncates", () => {
   assert.equal(shortSha("a1b2c3d4e5f6"), "a1b2c3d");
   assert.equal(shortSha(undefined), undefined);

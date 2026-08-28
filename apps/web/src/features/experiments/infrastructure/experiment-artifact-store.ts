@@ -1,4 +1,4 @@
-import type { IBlobStore } from "@weaveforge/core";
+import type { IBlobStore, ICurrentUserProvider } from "@weaveforge/core";
 
 const BUCKET = "experiment-artifacts";
 const SIGNED_TTL_S = 3600;
@@ -24,7 +24,25 @@ const SIGNED_TTL_S = 3600;
  * works all week and then serves an XML error forever.
  */
 export class ExperimentArtifactStore {
-  constructor(private readonly blobs: IBlobStore) {}
+  constructor(
+    private readonly blobs: IBlobStore,
+    private readonly session: ICurrentUserProvider,
+  ) {}
+
+  /**
+   * Store one file a person attached, and return the entry to record.
+   *
+   * The key is `{userId}/{experimentId}/{uuid}/{name}`: the user id first
+   * because that is what RLS reads, and a uuid directory rather than a uuid
+   * filename so two figures called `loss.png` can both exist while the name
+   * shown under each stays the one their author gave it.
+   */
+  async upload(experimentId: string, file: File): Promise<string> {
+    const userId = await this.session.requireUserId();
+    const path = `${userId}/${experimentId}/${crypto.randomUUID()}/${safeName(file.name)}`;
+    await this.blobs.upload(BUCKET, path, file, file.type || "application/octet-stream");
+    return path;
+  }
 
   /**
    * Resolve entries to viewable URLs, in the order given.
@@ -50,4 +68,17 @@ export function isAbsoluteUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * A filename that is safe as one storage key segment.
+ *
+ * Anything outside the allowlist becomes a dash, which is enough: the name is
+ * a label, not an identifier, and the uuid above it is what makes the key
+ * unique. A name that reduces to nothing gets one, because a key must not end
+ * in an empty segment.
+ */
+export function safeName(name: string): string {
+  const cleaned = name.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[.-]+/, "").slice(0, 128);
+  return cleaned || "artifact";
 }
