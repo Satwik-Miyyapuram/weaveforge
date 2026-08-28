@@ -59,3 +59,19 @@ await cp(
   path.resolve(here, "../public/atlas.html"),
 );
 console.log("copied atlas.html");
+
+/**
+ * Mermaid, for the diagrams in the atlas.
+ *
+ * The atlas keeps its diagrams as `<pre class="mermaid">` source, which is the
+ * right thing to store — a diagram in text stays reviewable in a diff, and the
+ * page is generated from the repository. Something has to draw it, though, and
+ * on the site nothing did: every map was a block of unrendered source, worst of
+ * all on a phone. Served from our own origin rather than a CDN, so the page
+ * draws with no third party involved and keeps working offline.
+ */
+await cp(
+  require.resolve("mermaid/dist/mermaid.min.js"),
+  path.resolve(here, "../public/mermaid.min.js"),
+);
+console.log("copied mermaid.min.js");
