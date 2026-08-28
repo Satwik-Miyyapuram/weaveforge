@@ -66,8 +66,11 @@ export function ShareDialog({
   }, [reload, profile?.id]);
 
   const nameOf = useMemo(() => {
-    const map = new Map(members.map((m) => [m.id, m.fullName ?? m.email ?? m.id]));
-    return (id: string) => map.get(id) ?? id;
+    const map = new Map(members.map((m) => [m.id, m.fullName ?? m.email ?? "someone with no name set"]));
+    // A share can name a person the directory no longer lists — they left, or
+    // the listing has not loaded. Their id tells the reader nothing; saying so
+    // does, and the row still revokes.
+    return (id: string) => map.get(id) ?? "someone no longer in your lab";
   }, [members]);
 
   const sharedIds = new Set(shares.map((s) => s.recipientId));
