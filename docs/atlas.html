@@ -698,7 +698,7 @@ flowchart TB
 ├── <b>supabase/migrations/</b>           <i>0001 → 0120, 5,598 lines</i>
 ├── <b>scripts/</b>                       <i>58 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>66 files, 15,039 lines</i>
+└── <b>docs/</b>                          <i>66 files, 15,040 lines</i>
 </pre>
       </div>
     </section>
@@ -792,24 +792,31 @@ flowchart LR
       </p>
 
       <h3>Where each slice lives</h3>
+      <p class="caption">
+        The first three columns are where the code for a slice is written, not whether it runs:
+        a dash under <em>Core</em> means the slice has no <code>packages/core</code> module, which
+        is the ordinary case for anything that is only a screen. <em>No account</em> is the
+        column about capability — what the slice does on a desktop copy with the network
+        unplugged, where the database is PGlite on the same machine.
+      </p>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Slice</th><th>Core</th><th>Web</th><th>Python</th><th>What it owns</th></tr>
+            <tr><th>Slice</th><th>Core</th><th>Web</th><th>Python</th><th>No account</th><th>What it owns</th></tr>
           </thead>
           <tbody>
-            <tr><td class="key">papers</td><td>yes</td><td>yes</td><td>yes</td><td>Literature records, fields, notes, arXiv/DOI intake</td></tr>
-            <tr><td class="key">experiments</td><td>yes</td><td>yes</td><td>yes</td><td>Runs, step-indexed metrics, artifacts, comparison</td></tr>
-            <tr><td class="key">plan</td><td>yes</td><td>yes</td><td>—</td><td>Milestones, dependencies, timeline</td></tr>
-            <tr><td class="key">report</td><td>yes</td><td>yes</td><td>—</td><td>Sections, drafts, word counts, progress</td></tr>
-            <tr><td class="key">logbook</td><td>yes</td><td>yes</td><td>—</td><td>Dated entries, meeting notes</td></tr>
-            <tr><td class="key">vault</td><td>yes</td><td>yes</td><td>—</td><td>Markdown notes on disk, folder interop</td></tr>
-            <tr><td class="key">library</td><td>yes</td><td>yes</td><td>—</td><td>Files, blobs, tiering, previews</td></tr>
-            <tr><td class="key">sharing</td><td>yes</td><td>yes</td><td>—</td><td>Grants, supervision, RLS-backed access</td></tr>
-            <tr><td class="key">ai-assistant</td><td>yes</td><td>yes</td><td>—</td><td>13 tools, proposal queue, provider config</td></tr>
-            <tr><td class="key">offline-sync</td><td>—</td><td>yes</td><td>—</td><td>Outbox, puller, merge, conflicts, adoption</td></tr>
-            <tr><td class="key">editor-workspace</td><td>—</td><td>yes</td><td>—</td><td>Editing surface, paste and drop handling</td></tr>
-            <tr><td class="key">overleaf</td><td>yes</td><td>yes</td><td>—</td><td>Report push to an Overleaf project; link rules and the LaTeX section tree in core, so a copy with no account shares them</td></tr>
+            <tr><td class="key">papers</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td><td>Literature records, fields, notes, arXiv/DOI intake</td></tr>
+            <tr><td class="key">experiments</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td><td>Runs, step-indexed metrics, artifacts, comparison</td></tr>
+            <tr><td class="key">plan</td><td>yes</td><td>yes</td><td>—</td><td>yes</td><td>Milestones, dependencies, timeline</td></tr>
+            <tr><td class="key">report</td><td>yes</td><td>yes</td><td>—</td><td>yes</td><td>Sections, drafts, word counts, progress</td></tr>
+            <tr><td class="key">logbook</td><td>yes</td><td>yes</td><td>—</td><td>yes</td><td>Dated entries, meeting notes</td></tr>
+            <tr><td class="key">vault</td><td>yes</td><td>yes</td><td>—</td><td>yes</td><td>Markdown notes on disk, folder interop</td></tr>
+            <tr><td class="key">library</td><td>yes</td><td>yes</td><td>—</td><td>local files</td><td>Files, blobs, tiering, previews</td></tr>
+            <tr><td class="key">sharing</td><td>yes</td><td>yes</td><td>—</td><td>no</td><td>Grants, supervision, RLS-backed access</td></tr>
+            <tr><td class="key">ai-assistant</td><td>yes</td><td>yes</td><td>—</td><td>needs a provider</td><td>13 tools, proposal queue, provider config</td></tr>
+            <tr><td class="key">offline-sync</td><td>—</td><td>yes</td><td>—</td><td>n/a</td><td>Outbox, puller, merge, conflicts, adoption</td></tr>
+            <tr><td class="key">editor-workspace</td><td>—</td><td>yes</td><td>—</td><td>yes</td><td>Editing surface, paste and drop handling</td></tr>
+            <tr><td class="key">overleaf</td><td>yes</td><td>yes</td><td>—</td><td>link and edit</td><td>Report push to an Overleaf project; link rules and the LaTeX section tree in core, so a copy with no account shares them</td></tr>
           </tbody>
         </table>
       </div>
