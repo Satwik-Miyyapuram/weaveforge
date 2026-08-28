@@ -29,7 +29,7 @@ Both talk to the **same Postgres schema** (`supabase/migrations/`). Log a run in
 - **Plan + logbook** — milestones with dependencies and compute estimates; markdown daily log; supervisor read access along the org tree.
 - **Experiments tied to code** — branch/commit pinning, metric curves, artifact uploads, compare view for sweeps.
 - **Report + vault** — nested report sections with progress; Obsidian-style vault pages for long-form notes.
-- **Your notes as files** — mirror the workspace to a folder of plain Markdown that opens as an Obsidian vault, edit it out there, and pull the changes back with a diff shown first ([`docs/workspace-folder.md`](docs/workspace-folder.md)).
+- **Your notes as files** — mirror the workspace to a folder of plain Markdown that opens as an Obsidian vault, edit it out there, and pull the changes back with a diff shown first ([`docs/using/workspace-folder.md`](docs/using/workspace-folder.md)).
 - **Collaboration** — share papers, experiments, sections, vault notes, or whole types with labmates; **pin shared items into your library**; comment threads and **co-editing** where granted.
 - **Privacy model** — data stored server-side with encryption at rest; Postgres RLS is the access boundary (owner-or-shared); external **view links** (`/link?t=…`) with optional expiry. Not end-to-end encrypted.
 - **Labs without IT** — professors create a lab and share three invite codes (professor / PhD / masters); join with a code or run **standalone**.
@@ -40,7 +40,7 @@ Built **TDD + SOLID**: framework-agnostic core (`@weaveforge/core`), repository 
 
 ## Quick start
 
-**Prerequisites:** Node.js 22+, a [Supabase](https://supabase.com) project (or self-hosted Postgres — see [`docs/backend.md`](docs/backend.md)).
+**Prerequisites:** Node.js 22+, a [Supabase](https://supabase.com) project (or self-hosted Postgres — see [`docs/running/backend.md`](docs/running/backend.md)).
 
 ```bash
 git clone https://github.com/Satwik-Miyyapuram/weaveforge.git
@@ -54,7 +54,7 @@ npm run test:core          # 900+ domain tests, no network
 2. Apply schema: `supabase link --project-ref <ref> && supabase db push` (or paste migrations in the SQL editor — see [`supabase/migrations/README.md`](supabase/migrations/README.md)).
 3. `npm run dev` → http://localhost:3000 — sign in, create a project, start adding papers.
 
-Full setup (Auth providers, integrations, deploy): sections below and [`docs/dev.md`](docs/dev.md).
+Full setup (Auth providers, integrations, deploy): sections below and [`docs/building/dev.md`](docs/building/dev.md).
 
 ---
 
@@ -126,57 +126,59 @@ supabase/          SQL migrations — single schema source of truth
 ```
 
 - **Dependency inversion** — UI and scripts depend on interfaces; Supabase/Postgres adapters live in infrastructure.
-- **Feature modules** — `registry.ts` builds nav; extend via ports + composition root (see [`docs/extensions.md`](docs/extensions.md)).
+- **Feature modules** — `registry.ts` builds nav; extend via ports + composition root (see [`docs/using/extensions.md`](docs/using/extensions.md)).
 - **RLS everywhere** — anon key in the browser is fine; Postgres policies enforce access. Sharing adds read/comment; writes stay owner-only.
 
-Deep dive: [`docs/DESIGN.md`](docs/DESIGN.md) · [`docs/extensions.md`](docs/extensions.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md) (SOLID PR checklist) · `npm run check:solid` · `npm run check:dry`
+Deep dive: [`docs/building/design.md`](docs/building/design.md) · [`docs/using/extensions.md`](docs/using/extensions.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md) (SOLID PR checklist) · `npm run check:solid` · `npm run check:dry`
 
 ---
 
 ## Documentation
 
-Ordered the way you meet the project: use it, host it, then build on it.
+Ordered the way you meet the project: use it, host it, then build on it. The
+same split is the folder layout — [`docs/README.md`](docs/README.md) is the
+index, and `docs/internal/` holds the working notes that are not a manual.
 
 ### 1 — Using WeaveForge
 
 | Doc | Contents |
 |-----|----------|
-| [`docs/usage-cite-and-excerpts.md`](docs/usage-cite-and-excerpts.md) | Reading → notes → report → LaTeX: citations, excerpts, Overleaf export |
-| [`docs/search.md`](docs/search.md) | One search box over papers, notes, experiments, PDF text and annotations |
-| [`docs/paste.md`](docs/paste.md) | What happens to text pasted from a PDF, terminal, spreadsheet, or chat |
-| [`docs/collaborative-editing.md`](docs/collaborative-editing.md) | Two people in one note, live cursors, no overwrite prompt |
-| [`docs/desktop.md`](docs/desktop.md) | The desktop app — same account, own window |
-| [`docs/workspace-folder.md`](docs/workspace-folder.md) | A folder of plain Markdown that mirrors your workspace, and reads your edits back |
+| [`docs/using/citations-and-overleaf.md`](docs/using/citations-and-overleaf.md) | Reading → notes → report → LaTeX: citations, excerpts, Overleaf export |
+| [`docs/using/search.md`](docs/using/search.md) | One search box over papers, notes, experiments, PDF text and annotations |
+| [`docs/using/paste.md`](docs/using/paste.md) | What happens to text pasted from a PDF, terminal, spreadsheet, or chat |
+| [`docs/using/collaborative-editing.md`](docs/using/collaborative-editing.md) | Two people in one note, live cursors, no overwrite prompt |
+| [`docs/using/desktop.md`](docs/using/desktop.md) | The desktop app — same account, own window |
+| [`docs/using/workspace-folder.md`](docs/using/workspace-folder.md) | A folder of plain Markdown that mirrors your workspace, and reads your edits back |
 | [`python/README.md`](python/README.md) | Python SDK — push ML runs into the same dashboard |
-| [`docs/MCP_IMPLEMENTATION.md`](docs/MCP_IMPLEMENTATION.md) | MCP relay for driving WeaveForge from an AI assistant |
+| [`docs/building/mcp.md`](docs/building/mcp.md) | MCP relay for driving WeaveForge from an AI assistant |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history (whole project) |
 
 ### 2 — Hosting WeaveForge
 
 | Doc | Contents |
 |-----|----------|
-| [`docs/backend.md`](docs/backend.md) | Choosing a backend: Supabase or self-hosted Postgres |
-| [`docs/backend/postgres-provider.md`](docs/backend/postgres-provider.md) | What the `postgres` backend provider actually selects |
-| [`docs/backend/oracle-shift-guide.md`](docs/backend/oracle-shift-guide.md) | Start-to-finish move onto Oracle Cloud free tier |
-| [`docs/storage/README.md`](docs/storage/README.md) | Blob storage as its own composition layer (R2, tiering, growth) |
-| [`docs/self-host-roadmap.md`](docs/self-host-roadmap.md) | What is delivered vs still to provision for self-hosting |
+| [`docs/running/backend.md`](docs/running/backend.md) | Choosing a backend: Supabase or self-hosted Postgres |
+| [`docs/running/postgres-provider.md`](docs/running/postgres-provider.md) | What the `postgres` backend provider actually selects |
+| [`docs/running/oracle-shift.md`](docs/running/oracle-shift.md) | Start-to-finish move onto Oracle Cloud free tier |
+| [`docs/running/storage/README.md`](docs/running/storage/README.md) | Blob storage as its own composition layer (R2, tiering, growth) |
+| [`docs/internal/strategy/self-host-roadmap.md`](docs/internal/strategy/self-host-roadmap.md) | What is delivered vs still to provision for self-hosting |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Vulnerability reporting, RLS scope, data protection model |
-| [`docs/integrations.md`](docs/integrations.md) | Zotero, Git, Mattermost — provider setup and env vars |
-| [`docs/release.md`](docs/release.md) | The two release tracks: Python SDK (PyPI) and Android TWA |
+| [`docs/using/integrations.md`](docs/using/integrations.md) | Zotero, Git, Mattermost — provider setup and env vars |
+| [`docs/building/release.md`](docs/building/release.md) | The two release tracks: Python SDK (PyPI) and Android TWA |
 
 ### 3 — Developing WeaveForge
 
 | Doc | Contents |
 |-----|----------|
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Start here — PR checklist, dev workflow, sign-off |
-| [`docs/dev.md`](docs/dev.md) | Adding features and integrations, testing hooks, **enforced source hygiene** |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | Architecture, SOLID boundaries, module pattern |
-| [`docs/extensions.md`](docs/extensions.md) | Extension seams — integrations, modules, backend, Python sync |
-| [`docs/themes.md`](docs/themes.md) | CSS-variable theming, light/dark, card accent palette |
-| [`docs/UI-SPEC.md`](docs/UI-SPEC.md) | Inventory of every screen, control, and state in the web app |
-| [`docs/PRIVACY_TEST_MATRIX.md`](docs/PRIVACY_TEST_MATRIX.md) | Privacy guarantees mapped to the tests that prove them |
-| [`docs/plans/README.md`](docs/plans/README.md) | Plan index — completed plans and where in-flight work would go |
-| [`docs/future-work/BACKLOG.md`](docs/future-work/BACKLOG.md) | Proposed work not started |
+| [`docs/building/dev.md`](docs/building/dev.md) | Adding features and integrations, testing hooks, **enforced source hygiene** |
+| [`docs/building/design.md`](docs/building/design.md) | Architecture, SOLID boundaries, module pattern |
+| [`docs/using/extensions.md`](docs/using/extensions.md) | Extension seams — integrations, modules, backend, Python sync |
+| [`docs/building/themes.md`](docs/building/themes.md) | CSS-variable theming, light/dark, card accent palette |
+| [`docs/building/ui-spec.md`](docs/building/ui-spec.md) | Inventory of every screen, control, and state in the web app |
+| [`docs/internal/reports/privacy-test-matrix.md`](docs/internal/reports/privacy-test-matrix.md) | Privacy guarantees mapped to the tests that prove them |
+| [`docs/internal/plans/README.md`](docs/internal/plans/README.md) | Plan index — completed plans and where in-flight work would go |
+| [`docs/internal/future-work/BACKLOG.md`](docs/internal/future-work/BACKLOG.md) | Proposed work not started |
 
 ---
 
@@ -191,7 +193,7 @@ apps/desktop/     Electron shell around the web app (see apps/desktop/README.md)
 packages/core/    @weaveforge/core — shared domain + use-cases
 supabase/         Migrations 0001…0117 (see supabase/migrations/README.md)
 python/           weaveforge SDK
-docs/             Design, dev guide, integrations
+docs/             using/ building/ running/, and internal/ working notes
 ```
 
 ### Supabase project
@@ -209,7 +211,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 # Use a stable long random value so stored credentials remain decryptable.
 # OVERLEAF_CREDENTIAL_KEY=...
 # Optional: NEXT_PUBLIC_BACKEND_PROVIDER=supabase | postgres
-# Optional integration overrides — see docs/integrations.md
+# Optional integration overrides — see docs/using/integrations.md
 ```
 
 ### Database
@@ -224,7 +226,7 @@ Apply the full chain with `supabase db push`. Notable groups: org hierarchy (`00
 ### Collaboration
 
 - **Share** individual items or whole types with labmates; recipients use **Shared with me** and can **pin** into their library.
-- **Co-editing** — vault notes and logbook entries are live multi-user documents: peer cursors, presence, no save button and no overwrite. Backed by a Yjs CRDT over Realtime, durable in `crdt_updates`. See [Collaborative editing](docs/collaborative-editing.md).
+- **Co-editing** — vault notes and logbook entries are live multi-user documents: peer cursors, presence, no save button and no overwrite. Backed by a Yjs CRDT over Realtime, durable in `crdt_updates`. See [Collaborative editing](docs/using/collaborative-editing.md).
 - **Labs** — Settings → People → create/join lab or continue standalone. Professors get three invite codes.
 - **Supervisor view** — read-only access to supervisees' milestones and log entries along the org tree.
 
@@ -255,7 +257,7 @@ npm run lint
 npm run check:boundaries # every architectural check below, in one go
 npm run check:solid      # boundary lint (UI ↔ facades, no cross-feature /ui imports)
 npm run check:dry        # DRY lint (pin/share/owner-label patterns centralised in core)
-npm run check:hygiene    # source hygiene — see docs/dev.md
+npm run check:hygiene    # source hygiene — see docs/building/dev.md
 npm run dev --workspace @weaveforge/pitch     # pitch site @ :3300
 npm run build --workspace @weaveforge/pitch   # static export -> apps/pitch/out
 ```
@@ -265,7 +267,7 @@ npm run build --workspace @weaveforge/pitch   # static export -> apps/pitch/out
 ## Deploy
 
 - **Web** → Vercel (or any Node host): root `apps/web`, set `NEXT_PUBLIC_SUPABASE_*`, add production URL to Supabase Auth redirects.
-- **Database** → Supabase hosted or self-hosted Postgres per [`docs/backend.md`](docs/backend.md).
+- **Database** → Supabase hosted or self-hosted Postgres per [`docs/running/backend.md`](docs/running/backend.md).
 - **Pitch site** → GitHub Pages, built from `apps/pitch` by
   [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to
   `main` that touches it. See [The pitch site ↓](#the-pitch-site).

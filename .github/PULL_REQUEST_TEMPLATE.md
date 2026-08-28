@@ -20,7 +20,7 @@
 - [ ] No secrets (Supabase keys, tokens, passwords) anywhere in the diff
 - [ ] Docs / README / `CHANGELOG.md` updated if behaviour or setup changed
 - [ ] Architecture holds: domain and application layers import no Supabase;
-      wiring stays in the composition root (see `docs/DESIGN.md`)
+      wiring stays in the composition root (see `docs/building/design.md`)
 
 ## Database changes
 

@@ -23,7 +23,7 @@ export function wireBackend(
     // `postgres` selects the server-side blob registry (storage/server/blob-api.ts),
     // never a browser data layer: these repositories reach the database over
     // PostgREST, which a connection string cannot replace. Point them at your own
-    // database with NEXT_PUBLIC_DATA_URL instead — see docs/backend.md.
+    // database with NEXT_PUBLIC_DATA_URL instead — see docs/running/backend.md.
     default:
       throw new Error(
         `Backend provider "${config.provider}" has no browser data layer. Set NEXT_PUBLIC_BACKEND_PROVIDER=supabase, ` +

@@ -1,4 +1,4 @@
--- Fix A of docs/future-work/metrics-storage-plan.md — narrow the metric rows.
+-- Fix A of docs/internal/future-work/metrics-storage-plan.md — narrow the metric rows.
 --
 -- `experiment_metrics` is the only table in the schema that grows without
 -- bound, so it alone decides when the 50 GB `pgdata` volume fills — and OCI

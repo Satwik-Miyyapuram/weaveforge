@@ -6,7 +6,7 @@
  * than projections, so the storage plan's claims can be checked against reality
  * before and after each fix. Read-only.
  *
- * Usage (through the SSH tunnel — see docs/backend/oracle-shift-guide.md):
+ * Usage (through the SSH tunnel — see docs/running/oracle-shift.md):
  *   node scripts/measure-metrics-storage.mjs
  *   node scripts/measure-metrics-storage.mjs --json
  */

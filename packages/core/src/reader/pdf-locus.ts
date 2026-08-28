@@ -1,6 +1,6 @@
 /**
  * W3C Web Annotation selectors used as durable PDF text anchors.
- * Pure types — no I/O. See docs/plans/completed/pdf-viewer-plan.md §5.1.
+ * Pure types — no I/O. See docs/internal/plans/completed/pdf-viewer-plan.md §5.1.
  */
 
 /** Primary anchor: quote + optional context snippets (W3C TextQuoteSelector). */

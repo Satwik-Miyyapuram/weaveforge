@@ -9,7 +9,7 @@ import type { IpcResult } from "./channels";
  * committed to, and a setting that decides that has to be answered before the
  * first mirror run rather than after it; `sync-target` decides which server the
  * app talks to, which is a question that has to be answered before there is a
- * session to answer it from (`docs/plans/future/offline-first-sync.md` D2, D7).
+ * session to answer it from (`docs/internal/plans/completed/offline-first-sync.md` D2, D7).
  *
  * Deliberately *not* encrypted, and deliberately not in `secret-store.ts`. That
  * store exists to keep a credential from being readable at rest; a boolean

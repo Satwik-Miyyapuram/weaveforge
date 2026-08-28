@@ -1,5 +1,5 @@
 /**
- * Fix C of docs/future-work/metrics-storage-plan.md — bound a series' point
+ * Fix C of docs/internal/future-work/metrics-storage-plan.md — bound a series' point
  * count instead of only making each point smaller.
  *
  * Fixes A and B are constant factors: they make a point cheaper, but a run that

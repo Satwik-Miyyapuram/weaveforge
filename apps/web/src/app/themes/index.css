@@ -7,7 +7,7 @@
  * `data-theme` value — so they are listed light-side then dark-side purely so
  * the file reads like the theme picker.
  *
- * Adding a theme is a file here and a line below; see docs/themes.md.
+ * Adding a theme is a file here and a line below; see docs/building/themes.md.
  */
 @import "./common.css";
 

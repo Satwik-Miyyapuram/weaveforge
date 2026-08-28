@@ -4,11 +4,10 @@ import { docsBySection } from "../../lib/docs";
 export const metadata = { title: "Documentation — WeaveForge" };
 
 const SECTION_LABELS: Record<string, string> = {
-  "": "Overview",
-  backend: "Backend & hosting",
-  storage: "Storage",
-  plans: "Plans",
-  "future-work": "Future work",
+  "": "Start here",
+  using: "Using WeaveForge",
+  building: "How it is built",
+  running: "Running it yourself",
 };
 
 export default function DocsIndex() {

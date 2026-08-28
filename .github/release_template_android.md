@@ -11,4 +11,4 @@ Signed TWA build for `app.weaveforge.twa` → `https://my-weaveforge-web.vercel.
 - [ ] `appVersion` / `appVersionCode` bumped in `twa-manifest.json`
 - [ ] URL bar hidden after reinstall (Digital Asset Links OK)
 
-See [docs/release.md](../docs/release.md).
+See [docs/building/release.md](../docs/building/release.md).

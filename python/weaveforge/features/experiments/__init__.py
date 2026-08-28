@@ -1,6 +1,6 @@
 """experiments — the public API of the experiments feature module.
 
-Others import from here, never from the internals (``docs/DESIGN.md`` §3.1).
+Others import from here, never from the internals (``docs/building/design.md`` §3.1).
 The Supabase adapters in ``infrastructure`` are intentionally *not* re-exported:
 they are wired only at the composition root (``weaveforge.container``).
 """

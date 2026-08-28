@@ -73,7 +73,7 @@ with AGPL-3.0 may not.
     apps/web/scripts/copy-pdf-worker.mjs and is therefore redistributed as
     part of any deployment of this application. Not modified.
 
-  Planned, not yet vendored -- see docs/plans/completed/pdf-viewer-plan.md §1.2:
+  Planned, not yet vendored -- see docs/internal/plans/completed/pdf-viewer-plan.md §1.2:
 
   Zotero Reader (selective vendoring: selection geometry, text-layer
   alignment, zoom/rotation handling, annotation overlay positioning)

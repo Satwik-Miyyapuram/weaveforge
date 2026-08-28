@@ -2,7 +2,7 @@
 
 Mirrors ``packages/core/src/shared`` on the TypeScript side: generic
 repository interfaces and the time/id abstractions that keep domain
-factories pure and testable (see ``docs/DESIGN.md`` §5.1).
+factories pure and testable (see ``docs/building/design.md`` §5.1).
 """
 
 from .clock import Clock, IdGenerator, SystemClock, UuidGenerator, iso_date

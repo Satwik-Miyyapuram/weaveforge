@@ -108,4 +108,4 @@ if (!run("verify-migration.mjs")) {
 
 console.log(`\n${GREEN}✓ Done.${OFF} The replica on OCI matches Supabase and isolates users.\n`);
 console.log(`${DIM}Next, if you want to move traffic there too:${OFF}`);
-console.log(`${DIM}  docs/backend/oracle-shift-guide.md → Stage 3${OFF}\n`);
+console.log(`${DIM}  docs/running/oracle-shift.md → Stage 3${OFF}\n`);

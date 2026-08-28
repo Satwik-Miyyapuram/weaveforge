@@ -20,7 +20,7 @@ You can ignore `migrations-self-hosted-postgres/` until Phase 3+ self-hosting.
 
 1. Apply **all** files in `migrations/` to your database (in order).
 2. Then apply files in `migrations-self-hosted-postgres/` (auth stubs for Supabase Auth + external DB).
-3. Set `DATABASE_URL` and keep Supabase env vars for auth only — see [`docs/backend/postgres-provider.md`](../docs/backend/postgres-provider.md).
+3. Set `DATABASE_URL` and keep Supabase env vars for auth only — see [`docs/running/postgres-provider.md`](../docs/running/postgres-provider.md).
 
 ## Why two folders?
 

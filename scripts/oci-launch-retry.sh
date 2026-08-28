@@ -39,7 +39,7 @@ say()  { printf '%s\n' "$*"; }
 note() { printf '%s%s%s\n' "$DIM" "$*" "$OFF"; }
 die()  { printf '\n%s✖ %s%s\n\n' "$RED" "$*" "$OFF"; exit 1; }
 
-command -v oci >/dev/null || die "The OCI CLI is not installed. See docs/backend/oracle-shift-guide.md §1.5."
+command -v oci >/dev/null || die "The OCI CLI is not installed. See docs/running/oracle-shift.md §1.5."
 
 # Check authentication before anything else. Every discovery step below fails
 # when the CLI is unconfigured, but each fails with a message about the thing it

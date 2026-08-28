@@ -5,7 +5,7 @@
  * device rather than by the document. A pointer fires far faster than a hand
  * moves, so a raw capture stores hundreds of near-identical points per stroke —
  * a page of notes becomes megabytes of JSON in `reader_annotations`, which is
- * exactly the unbounded growth `docs/storage/growth.md` warns about. Everything
+ * exactly the unbounded growth `docs/running/storage/growth.md` warns about. Everything
  * here exists to keep a stroke's stored size proportional to its *shape*, not to
  * how long the pen was down or how fast the device reports.
  *

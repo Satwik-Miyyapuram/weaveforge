@@ -5,7 +5,7 @@ wandb, …) and an ``ArtifactSource`` produces files/links (matplotlib figures,
 run URLs). Both are plain protocols, and a :class:`SyncRegistry` resolves them
 by id, so adding a new logger is a *new class that self-registers* — never an
 edit to the ``Run`` or the use-case (Open/Closed; mirrors the paper
-``IMetadataSource`` resolver in ``docs/DESIGN.md`` §5.2).
+``IMetadataSource`` resolver in ``docs/building/design.md`` §5.2).
 
 Concrete sources live in sibling modules and are imported lazily (they pull in
 heavy optional deps), so importing ``weaveforge.sync`` stays cheap.

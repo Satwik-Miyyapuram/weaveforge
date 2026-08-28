@@ -1,4 +1,4 @@
--- Fix B of docs/future-work/metrics-storage-plan.md — pack settled points into
+-- Fix B of docs/internal/future-work/metrics-storage-plan.md — pack settled points into
 -- arrays, so the per-row tuple header stops being paid once per measurement.
 --
 -- After 0114 a point costs 132 B at scale, and almost all of that is per-row

@@ -50,4 +50,4 @@ applies in the right order from one command.
 
 Extra schema that **must not** exist on Supabase Cloud — e.g. a minimal `auth.users` stub and `auth.uid()` reading the JWT `sub` your app sets per connection (see `apps/web/src/backend/providers/postgres/pg-runner.ts`).
 
-See [`docs/backend/postgres-provider.md`](../../docs/backend/postgres-provider.md).
+See [`docs/running/postgres-provider.md`](../../docs/running/postgres-provider.md).

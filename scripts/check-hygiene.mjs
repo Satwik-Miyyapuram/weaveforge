@@ -3,7 +3,7 @@
  * Source hygiene checks for CI / pre-PR.
  *
  * Each rule here exists because the repo has already been bitten by it once.
- * The corresponding prose lives in docs/dev.md § Source hygiene (enforced) —
+ * The corresponding prose lives in docs/building/dev.md § Source hygiene (enforced) —
  * when a rule changes, change both.
  */
 import fs from "node:fs";
@@ -114,7 +114,7 @@ const OVERSIZED_ALLOWED = new Map([
     fail(
       `source files over ${MAX_FILE_LINES} lines`,
       over,
-      "split into a folder of modules named for the pieces, with an index.ts (see docs/DESIGN.md § 3.2.2)",
+      "split into a folder of modules named for the pieces, with an index.ts (see docs/building/design.md § 3.2.2)",
     );
   }
   if (stale.length) {
@@ -252,7 +252,7 @@ if (failures.length) {
     for (const line of lines) console.error(`  ${line}`);
     console.error(`  fix: ${fix}\n`);
   }
-  console.error("See docs/dev.md § Source hygiene (enforced).");
+  console.error("See docs/building/dev.md § Source hygiene (enforced).");
   process.exit(1);
 }
 

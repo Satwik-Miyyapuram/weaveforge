@@ -7,7 +7,7 @@ Once the domain is verified via Digital Asset Links, the URL bar is hidden.
 ## Releases
 
 Android ships on **`android-v*`** tags (e.g. `android-v3`). Python SDK uses
-**`vX.Y.Z`**. See [docs/release.md](../../../docs/release.md).
+**`vX.Y.Z`**. See [docs/building/release.md](../../../docs/building/release.md).
 
 ```bash
 # after bumping appVersion* in twa-manifest.json and merging to main:
