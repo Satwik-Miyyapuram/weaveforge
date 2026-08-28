@@ -50,6 +50,7 @@ no outbound request at boot, and these work with the network unplugged:
 | Projects, notes, papers, lists, reports | Yes | Ordinary rows in the local database |
 | The editor, including typing in a document | Yes | The CRDT log is still written; the sync channel is not opened, because there is nobody to reach |
 | The workspace folder mirror | Yes | The shell reads and writes the folder directly |
+| The workspace editor — panes, explorer, quick open | Yes | Pane layout, tree and fuzzy match are client logic; the documents are rows in the local database |
 | Experiments, and training scripts logging into them | Yes | The loopback API answers the SDK's own routes |
 | The MCP server | Yes | Same database, same rows |
 | Linking and editing an Overleaf report | Yes | The token sits in the keychain; the row is an ordinary row |
