@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
 import { routeLocalRequest, type LocalApiRequest } from "./local-api";
+import type { SemanticRanker } from "./local-mcp";
 import type { SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
 
@@ -44,6 +45,7 @@ export function startLocalApi(
   session: VaultSession,
   token: () => string,
   query?: SdkQuery,
+  rank?: SemanticRanker,
 ): Promise<LocalApi> {
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -83,7 +85,7 @@ export function startLocalApi(
         authorization: req.headers.authorization,
         body: Buffer.concat(chunks).toString("utf8"),
       };
-      void routeLocalRequest(session, request, token(), query)
+      void routeLocalRequest(session, request, token(), query, rank)
         .then((answer) => {
           res.writeHead(answer.status, {
             "content-type": `${answer.contentType}; charset=utf-8`,

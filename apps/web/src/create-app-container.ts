@@ -13,6 +13,7 @@ import {
   CheckCitationAlertsUseCase,
   LinkCitationsUseCase,
   ManageReadingListUseCase,
+  ScreenItemsUseCase,
   ManageReportSectionUseCase,
   ManageVaultPageUseCase,
   ManageProjectUseCase,
@@ -242,6 +243,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const manageReadingList = new ManageReadingListUseCase({
     lists: readingListRepository,
     items: readingListItemRepository,
+    clock: systemClock,
+    ids: uuidIds,
+  });
+
+  const screenItems = new ScreenItemsUseCase({
+    screening: backend.screeningRepository,
     clock: systemClock,
     ids: uuidIds,
   });
@@ -642,6 +649,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       lists: readingListRepository,
       listItems: readingListItemRepository,
       manageReadingList,
+      screenItems,
     }),
     workspace,
     search: (search = new WorkspaceSearch({

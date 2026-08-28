@@ -197,3 +197,22 @@
 
 /* Graph */
 .graph-stage { position: relative; margin: 8px 0 12px; }
+/* Screening: one row per record, the reviewers' answers, then the PRISMA counts. */
+.screening-panel { margin: 6px 0 10px; display: grid; gap: 10px; min-width: 0; }
+.screening-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.screening-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.screening-row {
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 0.88rem; min-width: 0;
+}
+.screening-title { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.screening-verdict { color: var(--muted); white-space: nowrap; }
+.screening-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.screening-reason { width: 140px; min-width: 0; }
+.screening-counts table { border-collapse: collapse; font-size: 0.88rem; }
+.screening-counts th,
+.screening-counts td {
+  border: 1px solid var(--border); padding: 4px 8px; text-align: left;
+}
+.screening-counts td { font-variant-numeric: tabular-nums; }

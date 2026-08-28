@@ -24,7 +24,7 @@ export interface MenuActions {
   goTo: (route: string) => void;
 }
 
-export function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
+function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
   const mac = process.platform === "darwin";
   const template: MenuItemConstructorOptions[] = [];
 

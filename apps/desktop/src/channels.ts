@@ -83,6 +83,23 @@ export const CHANNELS = {
    * is not Zotero's own local API.
    */
   zoteroLocal: "weaveforge:zotero-local",
+  /**
+   * Whether this computer has a TeX, and one compile with it.
+   *
+   * The app ships no TeX -- a full TeX Live is several gigabytes -- so the
+   * probe answers null on most machines and the feature stays hidden.
+   */
+  /**
+   * Main -> renderer: rank these files against this query.
+   *
+   * The encoder lives in the window, so the MCP server has to ask for a
+   * ranking rather than compute one. The window answers on `semanticRanked`,
+   * or does not, and the server keeps the order the word search gave it.
+   */
+  semanticRank: "weaveforge:semantic-rank",
+  semanticRanked: "weaveforge:semantic-ranked",
+  texProbe: "weaveforge:tex-probe",
+  texCompile: "weaveforge:tex-compile",
   localApiSet: "weaveforge:local-api-set",
   /**
    * Main -> renderer, like `signIn`: somebody else changed the folder.

@@ -9,6 +9,7 @@ import { formatError } from "@/lib/format-error";
 import { authHeaders } from "@/lib/auth-headers";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { LocalOverleafGateway } from "@/features/overleaf/infrastructure/local-overleaf-gateway";
+import { ProjectChecks } from "./project-checks";
 
 type LinkedReport = {
   id: string; project_id: string; title: string; connection_id: string; overleaf_project_id: string;
@@ -193,7 +194,7 @@ export function LinkedOverleafReports() {
           <div className="linked-overleaf-toolbar"><strong>{selected.title}</strong><span>{content?.files.length ?? 0} source files</span><a className="link-btn" href={content?.overleafUrl ?? selected.external_url ?? `https://www.overleaf.com/project/${selected.overleaf_project_id}`} target="_blank" rel="noreferrer">Open in Overleaf ↗</a><button type="button" className="link-btn" onClick={() => void openReport(selected)}>Refresh</button></div>
           {content && (() => {
             const total = content.sectionTree.roots.reduce((sum, node) => sum + subtreeWords(node, content.files), 0);
-            return <><div className="linked-overleaf-sections-head"><h3>Sections</h3><span className="linked-overleaf-total">{total.toLocaleString()} words</span></div>{content.sectionTree.warnings.length > 0 && <p className="warning">{content.sectionTree.warnings.join(" ")}</p>}<SectionTree roots={content.sectionTree.roots} files={content.files} targets={targets} onSetTarget={setSectionTarget} /><details className="linked-overleaf-source"><summary>View entry source</summary><pre>{content.files.find((file) => file.path === content.entryFile)?.content ?? "Entry file unavailable."}</pre></details></>;
+            return <><div className="linked-overleaf-sections-head"><h3>Sections</h3><span className="linked-overleaf-total">{total.toLocaleString()} words</span></div>{content.sectionTree.warnings.length > 0 && <p className="warning">{content.sectionTree.warnings.join(" ")}</p>}<ProjectChecks files={content.files} entryFile={content.entryFile} /><SectionTree roots={content.sectionTree.roots} files={content.files} targets={targets} onSetTarget={setSectionTarget} /><details className="linked-overleaf-source"><summary>View entry source</summary><pre>{content.files.find((file) => file.path === content.entryFile)?.content ?? "Entry file unavailable."}</pre></details></>;
           })()}
         </div>}
       </div>

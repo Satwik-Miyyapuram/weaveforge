@@ -195,6 +195,20 @@ export function PapersScreen() {
     const requestedId = paperFromUrl;
     const generation = ++paperOpenGeneration.current;
     let cancelled = false;
+    // A paper we cannot re-read is either still on screen from the list, or it
+    // is gone; both the "not found" and the "read failed" paths answer that the
+    // same way, so they ask here rather than each spelling it out.
+    const keepOrDrop = () => {
+      setGuestPaper((g) => (g?.id === requestedId ? g : null));
+      appliedPaperFromUrl.current = appliedKey;
+      setOpenId((cur) =>
+        cur === requestedId && (papers.some((row) => row.id === requestedId) || shared)
+          ? cur
+          : cur === requestedId
+            ? null
+            : cur,
+      );
+    };
     setOpenId(requestedId);
     void getContainer()
       .papers.getPaper(requestedId)
@@ -202,15 +216,7 @@ export function PapersScreen() {
         if (cancelled || generation !== paperOpenGeneration.current) return;
         if (!p) {
           // Keep an already-open hydrated paper; otherwise fall back to list summary.
-          setGuestPaper((g) => (g?.id === requestedId ? g : null));
-          appliedPaperFromUrl.current = appliedKey;
-          setOpenId((cur) =>
-            cur === requestedId && (papers.some((row) => row.id === requestedId) || shared)
-              ? cur
-              : cur === requestedId
-                ? null
-                : cur,
-          );
+          keepOrDrop();
           return;
         }
         appliedPaperFromUrl.current = appliedKey;
@@ -220,15 +226,7 @@ export function PapersScreen() {
       .catch(() => {
         if (cancelled || generation !== paperOpenGeneration.current) return;
         // Transient rehydrate failure must not kick the user out after a save.
-        setGuestPaper((g) => (g?.id === requestedId ? g : null));
-        appliedPaperFromUrl.current = appliedKey;
-        setOpenId((cur) =>
-          cur === requestedId && (papers.some((row) => row.id === requestedId) || shared)
-            ? cur
-            : cur === requestedId
-              ? null
-              : cur,
-        );
+        keepOrDrop();
       });
     return () => {
       cancelled = true;

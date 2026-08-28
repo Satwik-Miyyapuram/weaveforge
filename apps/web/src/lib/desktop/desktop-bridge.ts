@@ -182,6 +182,25 @@ export interface DesktopBridge {
    * request from this document is blocked as mixed content.
    */
   zoteroLocal(url: string): Promise<DesktopZoteroReply>;
+  /**
+   * The TeX on this machine, or null. Answered fresh each call, so somebody
+   * installing one while the app is open does not have to restart it.
+   */
+  probeTex(): Promise<DesktopTexTool | null>;
+  /**
+   * Answer the MCP server's ranking requests while this window is open.
+   *
+   * Returning null means "no opinion", and the server keeps the order its word
+   * search produced -- which is what a copy with semantic search switched off
+   * should say.
+   */
+  onSemanticRank(
+    cb: (query: string, candidates: string[]) => Promise<string[] | null> | string[] | null,
+  ): () => void;
+  compileTex(
+    files: readonly { path: string; content: string }[],
+    entryFile: string,
+  ): Promise<DesktopTexCompileResult>;
 
   /**
    * The LaTeX source of one linked Overleaf project, cloned on this machine.
@@ -204,6 +223,29 @@ export interface DesktopOverleafSource {
   entryFile: string;
   files: { path: string; content: string }[];
   overleafUrl: string;
+}
+
+/** The TeX this computer has, or null when it has none. */
+export interface DesktopTexTool {
+  kind: "latexmk" | "tectonic" | "pdflatex";
+  command: string;
+  version: string;
+}
+
+export interface DesktopTexError {
+  file: string;
+  /** 1-based, or 0 when the engine did not say. */
+  line: number;
+  message: string;
+}
+
+export interface DesktopTexCompileResult {
+  ok: boolean;
+  pdf: ArrayBuffer | null;
+  log: string;
+  errors: DesktopTexError[];
+  /** null means no TeX was found, which is not a failure to report loudly. */
+  engine: DesktopTexTool["kind"] | null;
 }
 
 /** A local Zotero response, flattened for the wire. */

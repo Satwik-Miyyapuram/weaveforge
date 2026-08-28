@@ -9,4 +9,8 @@ export * from "./domain/report-section.js";
 export * from "./domain/latex-section-tree.js";
 export * from "./domain/markdown-to-latex.js";
 export * from "./domain/report-section-repository.js";
+export * from "./domain/cite-key.js";
+export * from "./domain/bib-entries.js";
+export * from "./domain/bibliography-report.js";
+export * from "./domain/prisma-figure.js";
 export * from "./application/manage-report-section.use-case.js";

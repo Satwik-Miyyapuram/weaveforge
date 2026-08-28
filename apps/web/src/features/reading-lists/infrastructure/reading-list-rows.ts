@@ -25,6 +25,7 @@ export interface ReadingListItemRow {
   sort_order: number;
   note: string | null;
   inherited_from_list_id: string | null;
+  duplicate_of_item_id?: string | null;
 }
 
 export function toListDomain(row: ReadingListRow): ReadingList {
@@ -60,6 +61,7 @@ export function toItemDomain(row: ReadingListItemRow): ReadingListItem {
     sortOrder: row.sort_order,
     note: row.note ?? undefined,
     inheritedFromListId: row.inherited_from_list_id ?? undefined,
+    duplicateOfItemId: row.duplicate_of_item_id ?? undefined,
   };
 }
 
@@ -73,5 +75,6 @@ export function toItemRow(i: ReadingListItem): Record<string, unknown> {
     note: i.note ?? null,
   };
   if (i.inheritedFromListId) row.inherited_from_list_id = i.inheritedFromListId;
+  if (i.duplicateOfItemId) row.duplicate_of_item_id = i.duplicateOfItemId;
   return row;
 }

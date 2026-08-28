@@ -20,6 +20,7 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { DeleteIcon, UnlinkIcon } from "@/components/view-icons";
 import { collectListIds, listDisplayColor } from "./list-ui";
 import { ExtractionTable } from "./extraction-table";
+import { ScreeningPanel } from "./screening-panel";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -322,7 +323,7 @@ function ListNode(props: ListNodeProps) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [dragItemId, setDragItemId] = useState<string | null>(null);
   const [dropItemId, setDropItemId] = useState<string | null>(null);
-  const [view, setView] = usePersistedState<"tree" | "table">(
+  const [view, setView] = usePersistedState<"tree" | "table" | "screen">(
     `thesis.lists.view.${list.id}`,
     "tree",
   );
@@ -448,6 +449,14 @@ function ListNode(props: ListNodeProps) {
           >
             Table
           </button>
+          <button
+            type="button"
+            className={`link-btn${view === "screen" ? " is-active" : ""}`}
+            aria-pressed={view === "screen"}
+            onClick={() => setView("screen")}
+          >
+            Screen
+          </button>
         </div>
         {readOnly ? (
           <PinnedPaperBadge ownerName={sharedByName} />
@@ -477,6 +486,8 @@ function ListNode(props: ListNodeProps) {
         <div className="list-body">
           {view === "table" ? (
             <ExtractionTable node={node} papers={papers} readOnly={readOnly} />
+          ) : view === "screen" ? (
+            <ScreeningPanel node={node} papers={papers} readOnly={readOnly} />
           ) : (
             <>
           {items.length > 0 && (

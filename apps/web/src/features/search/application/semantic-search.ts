@@ -2,7 +2,8 @@ import { searchRevision, type SearchDoc } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { SemanticIndex, type EmbedProgress } from "./semantic-index";
 import { WorkerEmbedder, supportsLocalEmbedding } from "../infrastructure/worker-embedder";
-import { idbClearVectors, idbGetVectors, idbSetVectors } from "../infrastructure/vector-store-idb";
+import { vectorStore } from "../infrastructure/vector-store";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 
 /**
  * Turning semantic search on and off.
@@ -76,7 +77,7 @@ async function run(options: EnableOptions): Promise<void> {
 
   semantic = new SemanticIndex(embedder);
 
-  const stored = await idbGetVectors(projectId);
+  const stored = await vectorStore().get(projectId);
   const reused =
     stored?.revision === revision &&
     semantic.load({
@@ -89,10 +90,11 @@ async function run(options: EnableOptions): Promise<void> {
   if (!reused) {
     await semantic.build(docs, { onProgress: options.onProgress, signal: options.signal });
     const packed = semantic.serialize();
-    if (packed) void idbSetVectors(projectId, { ...packed, revision });
+    if (packed) void vectorStore().set(projectId, { ...packed, revision });
   }
 
   container.search.setSemanticIndex(semantic);
+  serveRankingRequests();
   rememberPreference(true);
 }
 
@@ -104,16 +106,62 @@ async function run(options: EnableOptions): Promise<void> {
  * browser's to evict.
  */
 export async function disableSemanticSearch(): Promise<void> {
+  stopServingRankingRequests?.();
+  stopServingRankingRequests = null;
   getContainer().search.setSemanticIndex(null);
   semantic?.clear();
   semantic = null;
   embedder?.dispose();
   embedder = null;
   rememberPreference(false);
-  await idbClearVectors();
+  await vectorStore().clear();
 }
 
 /** Passages currently embedded, for the settings panel. */
 export function semanticSize(): number {
   return semantic?.size ?? 0;
+}
+
+/**
+ * Answer the local MCP server's ranking requests while this window is open.
+ *
+ * The server searches the workspace folder by word, then asks here whether the
+ * files it found have a better order. That is the whole of "semantic search in
+ * the MCP tool": the encoder is loaded once, in this window, and lending it out
+ * is cheaper than a second copy in the shell.
+ *
+ * The candidates are file paths and the index is keyed by document id, so a
+ * name the index does not know is dropped from the ranking rather than guessed
+ * at -- the server keeps unranked files in the order it already had.
+ */
+let stopServingRankingRequests: (() => void) | null = null;
+
+function serveRankingRequests(): void {
+  const bridge = desktop();
+  if (!bridge || typeof bridge.onSemanticRank !== "function" || stopServingRankingRequests) return;
+
+  stopServingRankingRequests = bridge.onSemanticRank(async (query, candidates) => {
+    const index = semantic;
+    if (!index || !index.ready) return null;
+
+    const hits = await index.search(query, candidates.length);
+    const byId = new Map(hits.map((hit) => [hit.id, hit.score]));
+    const scored = candidates
+      .map((name) => ({ name, score: byId.get(documentIdOfPath(name)) }))
+      .filter((entry): entry is { name: string; score: number } => entry.score !== undefined)
+      .sort((a, b) => b.score - a.score);
+    return scored.length ? scored.map((entry) => entry.name) : null;
+  });
+}
+
+/**
+ * The document id behind a workspace file name.
+ *
+ * The folder writes one file per entry, named for its id, so the id is the
+ * base name with the extension taken off.
+ */
+function documentIdOfPath(file: string): string {
+  const base = file.slice(file.lastIndexOf("/") + 1);
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(0, dot) : base;
 }

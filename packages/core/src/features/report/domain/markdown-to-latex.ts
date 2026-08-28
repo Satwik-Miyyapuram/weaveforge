@@ -37,11 +37,18 @@ const UNSUPPORTED = [
   { re: /!\[[^\]]*\]\((?!reportimg:)[^)\s]+\)/, label: "non-report image (include assets separately)" },
 ];
 
-function escapeLatexText(s: string): string {
+export function escapeLatexText(s: string): string {
+  // The replacement a backslash needs is itself made of braces, so it is parked
+  // on a character LaTeX has no meaning for and restored at the end. Escaping
+  // it first left `\textbackslash\{\}`, which prints the braces instead of a
+  // backslash -- visible only in text that already contained one.
+  const parked = "\u0001";
   return s
-    .replace(/\\/g, "\\textbackslash{}")
+    .replace(/\\/g, parked)
     .replace(/([{}$&#^_%])/g, "\\$1")
-    .replace(/~/g, "\\textasciitilde{}");
+    .replace(/~/g, "\\textasciitilde{}")
+    .split(parked)
+    .join("\\textbackslash{}");
 }
 
 function figureFileName(storagePath: string, used: Set<string>): string {
@@ -150,6 +157,7 @@ export function markdownToLatex(md: string, opts: MarkdownToLatexOptions = {}): 
   let codeLang = "";
   let codeBuf: string[] = [];
   let inList = false;
+  let inFigure = false;
 
   const closeList = () => {
     if (inList) {
@@ -184,15 +192,13 @@ export function markdownToLatex(md: string, opts: MarkdownToLatexOptions = {}): 
       continue;
     }
 
-    // Pass through figure blocks already rewritten from reportimg:
-    if (
-      line.startsWith("\\begin{figure}") ||
-      line.startsWith("\\centering") ||
-      line.startsWith("\\includegraphics") ||
-      line.startsWith("\\caption{") ||
-      line === "\\end{figure}"
-    ) {
+    // Figure blocks pass through untouched, from the first line to the last.
+    // Some are rewritten from `reportimg:` above; others are TikZ a caller
+    // generated, whose body is neither Markdown nor prose and would come out
+    // as escaped text if it went through `inline`.
+    if (inFigure || line.startsWith("\\begin{figure}")) {
       closeList();
+      inFigure = line.trim() !== "\\end{figure}";
       out.push(line);
       continue;
     }

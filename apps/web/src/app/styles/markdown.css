@@ -109,6 +109,16 @@
 .linked-overleaf-source { margin-top: 16px; }
 .linked-overleaf-source pre { max-height: 360px; overflow: auto; padding: 12px; border-radius: 8px; background: var(--surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; font: 0.82rem/1.5 var(--font-mono); }
 
+.project-checks { display: grid; gap: 10px; margin: 12px 0 4px; }
+.project-checks-bib summary { cursor: pointer; font-size: .84rem; color: var(--muted); }
+.project-checks-findings { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; font-size: .82rem; }
+.project-checks-findings li { padding-left: 10px; border-left: 3px solid var(--line); color: var(--ink); }
+.project-checks-findings li.error { border-left-color: var(--danger, #c0392b); }
+.project-checks-where { color: var(--muted); font: .78rem/1.5 var(--font-mono); }
+.project-checks-compile { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.project-checks-engine { font-size: .78rem; color: var(--muted); }
+.project-checks-log pre { max-height: 300px; overflow: auto; padding: 12px; border-radius: 8px; background: var(--surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; font: 0.8rem/1.5 var(--font-mono); }
+
 .export-overleaf-form { display: grid; gap: 12px; margin-top: 4px; }
 .export-overleaf-field { display: grid; gap: 4px; font-weight: 600; color: var(--ink); }
 .export-overleaf-field input[type="text"] {

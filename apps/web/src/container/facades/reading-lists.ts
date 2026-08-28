@@ -1,4 +1,8 @@
-import type { ManageReadingListUseCase, ReadingListItem } from "@weaveforge/core";
+import type {
+  ManageReadingListUseCase,
+  ReadingListItem,
+  ScreenItemsUseCase,
+} from "@weaveforge/core";
 import type { LoadReadingListsScreenUseCase, ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
 
 export class ReadingListsFacade {
@@ -8,6 +12,7 @@ export class ReadingListsFacade {
       lists: import("@weaveforge/core").IReadingListRepository;
       listItems: import("@weaveforge/core").IReadingListItemRepository;
       manageReadingList: ManageReadingListUseCase;
+      screenItems: ScreenItemsUseCase;
     },
   ) {}
 
@@ -47,6 +52,11 @@ export class ReadingListsFacade {
 
   get manageReadingList() {
     return this.deps.manageReadingList;
+  }
+
+  /** Screening: recording a decision, and reading the whole screen back. */
+  get screenItems() {
+    return this.deps.screenItems;
   }
 }
 

@@ -5,7 +5,7 @@ import { OrgInviteValidationError, OrgValidationError } from "@weaveforge/core";
 import { formatError } from "@/lib/format-error";
 import { bearerToken } from "@/lib/bearer-token";
 
-export function orgApiService(): OrgInviteService {
+function orgApiService(): OrgInviteService {
   const cfg = readBackendConfig();
   if (!cfg.supabaseUrl || !cfg.supabaseServiceRoleKey) {
     throw new Error("Missing Supabase service role config.");

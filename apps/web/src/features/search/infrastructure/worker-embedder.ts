@@ -92,7 +92,7 @@ export class WorkerEmbedder implements IEmbedder {
     const response = await this.send({
       type: "load",
       model: this.options.model ?? DEFAULT_MODEL,
-      host: this.options.host,
+      host: this.options.host ?? cachedWeightHost(),
     });
     if (response.type !== "ready") throw new Error("The encoder failed to start.");
     this.dimensions = response.dimensions;
@@ -113,4 +113,16 @@ export class WorkerEmbedder implements IEmbedder {
 /** Whether this browser can run the encoder at all. */
 export function supportsLocalEmbedding(): boolean {
   return typeof Worker !== "undefined" && typeof WebAssembly !== "undefined";
+}
+
+/**
+ * Where the weights come from when nobody has said.
+ *
+ * The desktop build serves them from its own data directory, filling it from
+ * upstream the first time. That is what makes the feature keep working with
+ * the network unplugged; a browser copy has no such folder and uses the
+ * encoder library's own default host.
+ */
+function cachedWeightHost(): string | undefined {
+  return typeof location !== "undefined" && location.protocol === "app:" ? "app://models" : undefined;
 }

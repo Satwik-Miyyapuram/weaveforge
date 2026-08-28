@@ -5,7 +5,13 @@ import path from "node:path";
 import test from "node:test";
 
 import { routeLocalRequest, tokenMatches, type LocalApiRequest } from "../src/local-api";
-import { adoptRoot, newVaultSession, readVaultFile, type VaultSession } from "../src/vault-handlers";
+import {
+  adoptRoot,
+  newVaultSession,
+  readVaultFile,
+  writeVaultFile,
+  type VaultSession,
+} from "../src/vault-handlers";
 
 const TOKEN = "a".repeat(64);
 
@@ -142,7 +148,16 @@ test("the tool list names what the folder can be asked", async () => {
   const { body } = await mcp(await vault(), "tools/list");
   assert.deepEqual(
     (body.result.tools as { name: string }[]).map((tool) => tool.name),
-    ["search_workspace", "list_workspace", "read_entry"],
+    [
+      "search_workspace",
+      "list_workspace",
+      "get_report_section",
+      "list_experiments",
+      "get_experiment",
+      "get_paper",
+      "propose_report_edit",
+      "read_entry",
+    ],
   );
 });
 
@@ -177,6 +192,82 @@ test("an unknown tool is refused by name", async () => {
   const { body } = await mcp(await vault(), "tools/call", { name: "delete_everything" });
   assert.equal(body.result.isError, true);
   assert.match(body.result.content[0].text as string, /delete_everything/);
+});
+
+/** A vault with a report, for the tools that name a section rather than a path. */
+async function vaultWithReport(sections: readonly string[]): Promise<VaultSession> {
+  const session = await vault();
+  for (const name of sections) {
+    const written = await writeVaultFile(session, `report/${name}.md`, `# ${name}\nsome prose\n`);
+    assert.equal(written.ok, true);
+  }
+  return session;
+}
+
+test("a section is read by a word from its name", async () => {
+  const { body } = await mcp(await vaultWithReport(["01-methods", "02-results"]), "tools/call", {
+    name: "get_report_section",
+    arguments: { section: "results" },
+  });
+  assert.notEqual(body.result.isError, true);
+  assert.match(body.result.content[0].text as string, /02-results/);
+});
+
+test("a name that matches two sections is a question, not a coin flip", async () => {
+  const { body } = await mcp(await vaultWithReport(["01-methods", "02-methods-appendix"]), "tools/call", {
+    name: "get_report_section",
+    arguments: { section: "methods" },
+  });
+  assert.equal(body.result.isError, true);
+  assert.match(body.result.content[0].text as string, /matches 2 of them/);
+});
+
+test("a proposal lands beside the report, never in it", async () => {
+  const session = await vaultWithReport(["01-methods"]);
+  const { body } = await mcp(session, "tools/call", {
+    name: "propose_report_edit",
+    arguments: { section: "methods", proposal: "A shorter method.", rationale: "It repeats itself." },
+  });
+  assert.notEqual(body.result.isError, true);
+
+  // The section itself is untouched; the suggestion waits in its own folder.
+  const section = await readVaultFile(session, "report/01-methods.md");
+  assert.equal(section.ok && section.value, "# 01-methods\nsome prose\n");
+
+  const at = /Left at (\S+)\./.exec(body.result.content[0].text as string)?.[1] ?? "";
+  assert.match(at, /^\.weaveforge\/proposals\//);
+  const proposal = await readVaultFile(session, at);
+  assert.match(String(proposal.ok && proposal.value), /A shorter method\./);
+});
+
+test("a proposal with nothing to propose is refused", async () => {
+  const { body } = await mcp(await vaultWithReport(["01-methods"]), "tools/call", {
+    name: "propose_report_edit",
+    arguments: { section: "methods", proposal: "   " },
+  });
+  assert.equal(body.result.isError, true);
+});
+
+test("a ranker reorders what the word search found", async () => {
+  const session = await vault();
+  const ranked = await routeLocalRequest(
+    session,
+    ask({
+      method: "POST",
+      url: "/mcp",
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "search_workspace", arguments: { query: "e" } },
+      }),
+    }),
+    TOKEN,
+    undefined,
+    async () => ["notes/b.note.md", "notes/a.note.md"],
+  );
+  const text = JSON.parse(ranked.body).result.content[0].text as string;
+  assert.ok(text.indexOf("notes/b.note.md") < text.indexOf("notes/a.note.md"));
 });
 
 test("a notification is answered with nothing to answer", async () => {

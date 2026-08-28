@@ -28,7 +28,7 @@ function validParams(value: unknown): value is Param[] {
 }
 
 /** Read the migrations shipped beside this bundle, in name order. */
-export function readMigrations(dir: string): Migration[] {
+function readMigrations(dir: string): Migration[] {
   return fs
     .readdirSync(dir)
     .filter((name) => name.endsWith(".sql"))
