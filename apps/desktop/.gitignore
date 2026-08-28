@@ -1,3 +1,6 @@
-build/
+# Not build/ — that is electron-builder's buildResources directory, and it
+# holds the icons the installers are made with. Ignoring it shipped every
+# platform the default Electron icon, and failed the Linux build outright.
+build/desktop.ini
 dist/
 release/
