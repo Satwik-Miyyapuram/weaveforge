@@ -16,6 +16,21 @@ interface StoredAnnotation {
   tags?: string[];
 }
 
+/**
+ * What to call a paper the graph refers to.
+ *
+ * The panel is given the papers currently on the canvas, so an edge can point
+ * at one that a filter has hidden or that has since been removed. Its id names
+ * nothing a reader can act on, so say that it is not here instead. Long titles
+ * are cut with an ellipsis, so a cut title cannot be mistaken for the whole
+ * one.
+ */
+function paperLabel(papers: Paper[], id: string, max = 40): string {
+  const title = papers.find((p) => p.id === id)?.title;
+  if (!title) return "a paper not in this view";
+  return title.length > max ? `${title.slice(0, max - 1)}…` : title;
+}
+
 /** Side panel for a selected paper, note, report section, or concept node. */
 export function GraphSidePanel({
   paper,
@@ -166,13 +181,12 @@ function PaperPanel({
           <ul className="graph-side-list">
             {touching.slice(0, 8).map((e) => {
               const otherId = e.fromPaper === paper.id ? e.toPaper : e.fromPaper;
-              const other = papers.find((p) => p.id === otherId);
               return (
                 <li key={e.id}>
                   <span className="legend-swatch" style={{ background: RELATION_COLORS[e.relation] }} />
                   {e.relation.replace("_", " ")}{" "}
                   <button type="button" className="link-btn" onClick={() => onSelectPaper(otherId)}>
-                    {other?.title.slice(0, 40) ?? otherId}
+                    {paperLabel(papers, otherId)}
                   </button>
                   {e.source === "auto" && <span className="muted"> (auto)</span>}
                 </li>
@@ -405,7 +419,7 @@ function ConceptPanel({
                 {ann.color && <span className="annotation-swatch" style={{ background: ann.color }} aria-hidden />}
                 <div className="annotation-body">
                   <button type="button" className="link-btn annotation-paper" onClick={() => onSelectPaper(p.id)}>
-                    {p.title.slice(0, 48)}
+                    {paperLabel(papers, p.id, 48)}
                   </button>
                   {ann.text && <p className="annotation-text">{ann.text}</p>}
                   {ann.comment && <p className="annotation-comment">{ann.comment}</p>}
@@ -434,8 +448,6 @@ export function EdgeDetailPopover({
   onDeleted: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const from = papers.find((p) => p.id === edge.fromPaper);
-  const to = papers.find((p) => p.id === edge.toPaper);
 
   async function remove() {
     setBusy(true);
@@ -461,7 +473,7 @@ export function EdgeDetailPopover({
         <button type="button" className="link-btn" onClick={onClose}>✕</button>
       </div>
       <p className="muted graph-edge-popover-path">
-        {from?.title.slice(0, 36) ?? edge.fromPaper} → {to?.title.slice(0, 36) ?? edge.toPaper}
+        {paperLabel(papers, edge.fromPaper, 36)} → {paperLabel(papers, edge.toPaper, 36)}
       </p>
       {edge.note && <p>{edge.note}</p>}
       <p className="muted">Source: {edge.source}</p>

@@ -86,10 +86,13 @@ function reviewHeading(item: AiWriteProposal): string {
       typeof item.payload?.fieldName === "string" && item.payload.fieldName.trim()
         ? item.payload.fieldName.trim()
         : null;
-    // fieldId is authoritative; claimed name is an unverified MCP hint.
+    // fieldId is authoritative; claimed name is an unverified MCP hint. So the
+    // name leads — it is the only part a reader recognises — and the id
+    // follows it, shortened, as the thing that decides where the value lands.
+    const shown = unresolvedSourceLabel(fieldId);
     return claimed && claimed !== fieldId
-      ? `Set field ${fieldId} (claimed «${claimed}») on this paper`
-      : `Set field ${fieldId} on this paper`;
+      ? `Set field «${claimed}» (id ${shown}) on this paper`
+      : `Set field ${shown} on this paper`;
   }
   return "Review required";
 }
