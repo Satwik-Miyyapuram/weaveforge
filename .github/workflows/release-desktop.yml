@@ -1,0 +1,101 @@
+name: Release desktop app
+
+# Builds the desktop installers and publishes them to the GitHub Release for
+# the tag, together with the `latest*.yml` feed the in-app updater reads.
+#
+# Trigger: tag vX.Y.Z. That prefix is deliberate and is not free to change:
+# copies already installed on people's machines look for `v*` releases (see
+# `apps/desktop/src/update-check.ts`), so moving the desktop track to another
+# prefix would strand every one of them on the version they have.
+#
+# The Python SDK is on `py-v*` and Android on `android-v*`; neither runs here.
+#
+# SECURITY: the Windows and macOS builds are not code-signed. What a downloaded
+# update is checked against is the SHA-512 in `latest.yml`, fetched over HTTPS
+# from this same release — see the note in `apps/desktop/src/auto-update.ts`.
+# Signing certificates are the fix; until they exist, this is what an update is
+# worth, and the release notes should not claim otherwise.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      # One platform failing must not withdraw the installers that did build:
+      # a release with Windows and Linux on it is worth more than no release.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # No signing certificate exists, and electron-builder's default is to go
+      # looking for one in the keychain and fail the macOS build when it finds
+      # nothing. Unsigned is the deliberate state — see the note at the top.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_BACKEND_PROVIDER: supabase
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The tag is the claim; the package is the fact. A mismatch here ships an
+      # installer that tells the updater it is a version it is not, and every
+      # installed copy would then either miss the update or reinstall forever.
+      - name: Check the tag matches the desktop version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          pkg="$(node -p "require('./apps/desktop/package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match apps/desktop/package.json $pkg" >&2
+            exit 1
+          fi
+
+      - name: Build Core package
+        run: npm run build:core
+
+      # Builds the app, exports the offline web build into it, and uploads the
+      # installers plus the update feed to the release for this tag, creating
+      # the release (as a draft) if it does not exist yet.
+      - name: Build and publish the installers
+        run: npm run package --workspace @weaveforge/desktop -- --publish always
+
+  publish:
+    # electron-builder leaves the release a draft so three platforms can upload
+    # into it without racing to announce a half-filled one. Nothing is visible
+    # to the updater until this step, which runs once they are all done.
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish the release
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --draft=false --title "WeaveForge $tag" --latest
+          else
+            echo "no release for $tag — every platform build must have failed" >&2
+            exit 1
+          fi

@@ -1,48 +1,77 @@
 # Releasing WeaveForge
 
-This monorepo ships **two release tracks**. Do not mix their tags.
+This monorepo ships **three release tracks**, one tag prefix each. Do not mix them.
 
-| | **Project release** | **Android TWA** |
-|---|---------------------|-----------------|
-| Tag | `vX.Y.Z` (semver, e.g. `v0.5.0`) | `android-vN` (e.g. `android-v3`) |
-| Covers | Web app, `@weaveforge/core`, schema, and the `weaveforge` SDK | APK + AAB on the GitHub Release |
-| Artifact | GitHub Release + PyPI wheel/sdist | Signed Android bundle |
-| Workflow | `publish-python.yml` | `android-twa.yml` |
-| Changelog | [`../CHANGELOG.md`](../../CHANGELOG.md) | Same |
-| Web app | Deploys continuously on `main` (Vercel); the tag marks the version | Same host; Digital Asset Links must match the signing key |
+| | **Desktop app** | **Python SDK** | **Android TWA** |
+|---|---|---|---|
+| Tag | `vX.Y.Z` (e.g. `v0.6.0`) | `py-vX.Y.Z` (e.g. `py-v0.6.0`) | `android-vN` (e.g. `android-v4`) |
+| Covers | Electron shell + the offline web build inside it | The `weaveforge` SDK on PyPI | APK + AAB |
+| Artifact | GitHub Release: installers per platform, plus the `latest*.yml` the in-app updater reads | PyPI wheel + sdist | Signed Android bundle on the GitHub Release |
+| Workflow | `release-desktop.yml` | `publish-python.yml` | `android-twa.yml` |
+| Changelog | [`../CHANGELOG.md`](../../CHANGELOG.md) | Same | Same |
+| Web app | Deploys continuously on `main` (Vercel); the tag marks the version | — | Same host; Digital Asset Links must match the signing key |
 
-**One version line covers the whole repository.** The SDK is not versioned
-separately — it ships from the same tag, so its version must match. Releases
-before 0.5.0 kept a separate SDK history, archived in
+**Why the desktop keeps the bare `vX.Y.Z`.** Copies already installed look for
+`v*` releases (`apps/desktop/src/update-check.ts`), so moving that track to
+another prefix would strand every one of them on the version they have. The SDK
+moved instead — which is also what stops a desktop release publishing to PyPI,
+where a version cannot be taken back.
+
+**One version line still covers the whole repository.** The tracks are cut
+separately, but the numbers stay in step: `py-v0.6.0` and `v0.6.0` are the same
+commit's SDK and app. Releases before 0.5.0 kept a separate SDK history,
+archived in
 [`changelog-sdk-legacy.md`](../internal/reports/changelog-sdk-legacy.md).
 
 All changes still land on `main` via pull request (branch protection). Tags are cut **from `main` after merge**.
 
-## Project release (`vX.Y.Z`)
+## Desktop app (`vX.Y.Z`)
 
 1. PR: bump **every** version in step, and update [`../CHANGELOG.md`](../../CHANGELOG.md).
 
    ```
    package.json                        "version"
    apps/web/package.json               "version"
+   apps/desktop/package.json           "version"
    packages/core/package.json          "version"
    python/weaveforge/__init__.py   __version__
    ```
 
-   All four must match the tag. Missing the Python one is not caught by CI —
-   the publish only fails later, at PyPI, with `File already exists`, because
-   hatch read a version that had already been published.
+   `release-desktop.yml` refuses a tag that does not match
+   `apps/desktop/package.json`: an installer that claims a version it is not
+   makes every installed copy either miss the update or reinstall forever.
 2. Merge when CI is green.
 3. On `main`:
    ```bash
    git pull origin main
    git tag vX.Y.Z
    git push origin vX.Y.Z
-   gh release create vX.Y.Z --title "WeaveForge vX.Y.Z" --notes-file .github/release_template.md
    ```
-4. `publish-python.yml` publishes to PyPI. Confirm at https://pypi.org/project/weaveforge/ .
+4. `release-desktop.yml` builds on Linux, macOS and Windows and uploads each
+   installer plus `latest*.yml` into a **draft** release, then publishes it once
+   all three are done. Nothing reaches the updater while it is a draft, so a
+   half-uploaded release is never offered to anybody.
+5. Write the notes on the published release.
 
-Do not re-use a PyPI version. Prefer Trusted Publishing; `PYPI_API_TOKEN` is the fallback.
+SECURITY: the Windows and macOS builds are not code-signed, so the only
+integrity check on a downloaded update is the SHA-512 in `latest.yml`, served
+over HTTPS from the same release. Say so in the notes; do not describe the
+update as verified.
+
+## Python SDK (`py-vX.Y.Z`)
+
+1. Same version bump as above — the SDK is not versioned separately.
+2. On `main`:
+   ```bash
+   git pull origin main
+   git tag py-vX.Y.Z
+   git push origin py-vX.Y.Z
+   ```
+3. `publish-python.yml` checks the tag against `python/weaveforge/__init__.py`,
+   builds, and publishes. Confirm at https://pypi.org/project/weaveforge/ .
+
+Do not re-use a PyPI version — it cannot be replaced or deleted and re-uploaded.
+Prefer Trusted Publishing; `PYPI_API_TOKEN` is the fallback.
 
 ## Android TWA (`android-vN`)
 

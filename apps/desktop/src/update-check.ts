@@ -37,8 +37,9 @@ export interface Update {
  * `v0.5.2` → `[0, 5, 2]`.
  *
  * Deliberately strict. The repository's releases are not all this app's: the
- * Android builds are tagged `android-v0.5.2` and would otherwise sort as the
- * newest thing on offer, sending desktop readers to download an APK.
+ * Android builds are tagged `android-v0.5.2` and the Python SDK `py-v0.6.0`,
+ * and either would otherwise sort as the newest thing on offer — sending a
+ * desktop reader to download an APK, or a wheel.
  */
 export function parseTag(tag: string): [number, number, number] | null {
   const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag.trim());
