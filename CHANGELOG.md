@@ -6,7 +6,34 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-28
+
 ### Added
+- **The desktop app runs with no account and no network.** It ships a local
+  Postgres (PGlite) the page reaches over IPC, so a fresh install opens straight
+  into a workspace. Screens that need a server are left out of the offline
+  build, the persisted screen cache reports its real age, and the AI provider
+  key is kept in the OS keychain rather than a file.
+- **Sync, when you ask for it.** An ordered, idempotent outbox on the device and
+  a watermark on the change feed; a three-way merge per field, with the
+  conflicts that survive it shown rather than silently resolved. Local work done
+  before signing in can be adopted into an account once. The opt-in is offered
+  once and afterwards only from Settings, and each device states what it keeps
+  offline and the ceiling it keeps it under.
+- **The vault folder is a folder.** A workspace can live in a directory on disk
+  with git, a local HTTP surface, and a local MCP server over it, so other tools
+  can read and write the same notes. Zotero on this computer is read directly,
+  annotations included, without going through the web API.
+- **Systematic review screening, with PRISMA.** Two reviewers screen title and
+  abstract, then full text, independently; every reviewer's answer is visible,
+  and the counts are derived from those answers rather than stored. The PRISMA
+  figure is TikZ you can paste into a report, and the packages it needs are
+  loaded only when something uses them.
+- **Bibliography checks, a local LaTeX compile, offline semantic search, and a
+  wider MCP surface**, completing the six-item plan in
+  `docs/future-work/plan-2026-08-six-items.md`.
+- **Self-installing updates and a real window menu** on the desktop, with the
+  update check reading the repository's releases and ignoring the Android tags.
 - **Collaborative editing actually works, and now covers vault notes.** Two
   people can edit the same note or logbook entry at once, with peer cursors and
   presence. It had never run: `crdt_updates` was empty because the editor closed
@@ -14,6 +41,10 @@ follows [Semantic Versioning](https://semver.org/).
   keep wikilink and `@cite` completion, find-in-note and undo — co-editing a note
   is the same editor with a shared document behind it, not a plainer one. See
   [Collaborative editing](docs/collaborative-editing.md).
+
+### Changed
+- The desktop app is served from inside the window instead of loading a remote
+  page.
 
 ### Fixed
 - **The logbook's Edit button appeared to do nothing.** The form opened and shut

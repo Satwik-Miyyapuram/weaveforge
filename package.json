@@ -1,6 +1,6 @@
 {
   "name": "weaveforge",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "private": true,
   "description": "Open-source, modular tracker for a masters thesis (papers, experiments, logbook, report, meetings).",
   "license": "AGPL-3.0-only",
