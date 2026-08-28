@@ -165,6 +165,7 @@
   .dashboard-card,
   .artifact-card,
   .org-choice-card,
+  .integration-item,
   [data-reactive]
 )::after {
   content: "";
@@ -187,13 +188,38 @@
   .dashboard-card,
   .artifact-card,
   .org-choice-card,
+  .integration-item,
   [data-reactive]
 ):hover::after {
   opacity: 1;
 }
 
+/* The settings integration rows are in ReactiveMotion's pointer selector, so
+   they were being given --rx/--ry with nothing here reading them — the exact
+   half-wired case the header comment warns about. They take the sheen and the
+   press, but not the tilt: a row spanning the full width of the panel rotating
+   about its centre swings its far end several times further than a card does,
+   and reads as the whole panel bending. */
+:root[data-motion="reactive"] .integration-item {
+  position: relative;
+  scale: 1;
+  transition: scale var(--rm-fast) var(--layout-ease);
+}
+:root[data-motion="reactive"] .integration-item:active { scale: 0.995; }
+
 /* ---- Controls ---- */
-:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .seg button) {
+/* `.link-btn` is deliberately absent: it is a button styled as inline text and
+   usually sits inside a sentence, so lifting it by a pixel moves the baseline
+   of the line around it. Icon buttons have no such neighbours. */
+:root[data-motion="reactive"] :is(
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .entity-icon-btn,
+  .entity-open-icon,
+  .paper-open-icon,
+  .seg button
+) {
   translate: 0;
   scale: 1;
   transition:
@@ -202,11 +228,26 @@
     box-shadow var(--rm-base) var(--layout-ease),
     background var(--rm-fast) var(--layout-ease);
 }
-:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary):hover {
+:root[data-motion="reactive"] :is(
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .entity-icon-btn,
+  .entity-open-icon,
+  .paper-open-icon
+):hover {
   translate: 0 -1px;
   box-shadow: var(--e2);
 }
-:root[data-motion="reactive"] :is(.btn-primary, .btn-secondary, .seg button):active {
+:root[data-motion="reactive"] :is(
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .entity-icon-btn,
+  .entity-open-icon,
+  .paper-open-icon,
+  .seg button
+):active {
   translate: 0;
   scale: 0.97;
 }
@@ -324,7 +365,13 @@
    is no matching exit because React unmounts these immediately on close, and
    animating that would mean holding the node open past its own state. */
 @media (prefers-reduced-motion: no-preference) {
-  :root[data-motion="reactive"] :is(.header-menu, .proj-menu, .popover-panel) {
+  :root[data-motion="reactive"] :is(
+    .header-menu,
+    .proj-menu,
+    .popover-panel,
+    .quick-open,
+    .jump-to-dialog
+  ) {
     opacity: 1;
     translate: 0;
     transition:
@@ -333,9 +380,37 @@
   }
 
   @starting-style {
-    :root[data-motion="reactive"] :is(.header-menu, .proj-menu, .popover-panel) {
+    :root[data-motion="reactive"] :is(
+      .header-menu,
+      .proj-menu,
+      .popover-panel,
+      .quick-open,
+      .jump-to-dialog
+    ) {
       opacity: 0;
       translate: 0 -6px;
+    }
+  }
+
+  /* A dialog is not a dropdown: it has no trigger to fall out of, so it comes
+     up rather than down, and takes a little scale because it is the thing the
+     whole screen just deferred to. Entry only, for the same reason as above —
+     React unmounts these on close. */
+  :root[data-motion="reactive"] :is(.modal, .comments-sheet) {
+    opacity: 1;
+    translate: 0;
+    scale: 1;
+    transition:
+      opacity var(--rm-base) var(--layout-ease),
+      translate var(--rm-base) var(--rm-spring),
+      scale var(--rm-base) var(--rm-spring);
+  }
+
+  @starting-style {
+    :root[data-motion="reactive"] :is(.modal, .comments-sheet) {
+      opacity: 0;
+      translate: 0 8px;
+      scale: 0.98;
     }
   }
 }
@@ -409,6 +484,7 @@
     .dashboard-card,
     .artifact-card,
     .org-choice-card,
+    .integration-item,
     [data-reactive]
   )::after {
     display: none;
