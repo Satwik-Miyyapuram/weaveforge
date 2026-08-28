@@ -47,8 +47,36 @@ const PRIVATE_DIRS = new Set(["internal", "demo"]);
  */
 const FOLDER_INDEX = "README.md";
 
+/**
+ * The files GitHub reads out of `docs/`.
+ *
+ * A code of conduct and a security policy live here because GitHub looks for
+ * them in the root, `.github/` or `docs/` and nowhere else. They are repository
+ * governance, shown by GitHub in its own places — they are not part of the
+ * manual, and as pages they made the site open on a section of paperwork
+ * before anything about the product.
+ */
+const GITHUB_FILES = new Set(["CODE_OF_CONDUCT.md", "SECURITY.md"]);
+
+/**
+ * The atlas is a generated HTML page, not Markdown, so it is not one of the
+ * pages this module renders — `apps/pitch/scripts/copy-assets.mjs` copies it
+ * into the export and it is served from the site root. It is named here so the
+ * sidebar, the index and the links inside documents all point at the same
+ * place, and so a link to `docs/atlas.html` resolves to the copy on this site
+ * rather than to the raw file on GitHub.
+ */
+export const ATLAS = { href: "/atlas.html", title: "The atlas", relPath: "atlas.html" };
+
+/** What each folder is called on the site, in the order they are shown. */
+export const SECTION_LABELS: Record<string, string> = {
+  using: "Using WeaveForge",
+  building: "How it is built",
+  running: "Running it yourself",
+};
+
 function isPublished(relPath: string): boolean {
-  if (relPath === FOLDER_INDEX) return false;
+  if (relPath === FOLDER_INDEX || GITHUB_FILES.has(relPath)) return false;
   const [head] = relPath.split("/");
   return !(head && PRIVATE_DIRS.has(head));
 }
@@ -89,7 +117,7 @@ function slugFor(relPath: string): string[] {
 }
 
 /** The order sections read in; anything unlisted sorts after them. */
-const SECTION_ORDER = ["", "using", "building", "running"];
+const SECTION_ORDER = ["using", "building", "running"];
 const sectionRank = (section: string) => {
   const at = SECTION_ORDER.indexOf(section);
   return at === -1 ? SECTION_ORDER.length : at;
@@ -111,9 +139,9 @@ export function allDocs(): DocPage[] {
         section: slug.length > 1 ? slug[0]! : "",
       };
     })
-    // In reading order rather than alphabetical: the root pages, then the
-    // manual for a reader, then the two for somebody working on it. Alphabetical
-    // put "building" first, which is not where a visitor starts.
+    // In reading order rather than alphabetical: the manual for a reader
+    // first, then the two for somebody working on it. Alphabetical put
+    // "building" first, which is not where a visitor starts.
     .sort((a, b) =>
       a.section === b.section
         ? a.title.localeCompare(b.title)
@@ -146,6 +174,7 @@ function rewriteHref(href: string, fromRel: string): string {
   if (resolved.startsWith("..")) {
     return `${REPO_BLOB}/${resolved.replace(/^(\.\.\/)+/, "")}${suffix}`;
   }
+  if (resolved === ATLAS.relPath) return ATLAS.href;
   if (resolved.endsWith(".md")) {
     // A link to a document this site does not publish would 404 here. Send it
     // to the repository instead: the target still exists, it is just not part

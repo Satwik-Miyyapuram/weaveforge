@@ -23,11 +23,10 @@ For somebody changing the code.
 - [The atlas](atlas.html) — the same map as one drawn page, every figure read off this commit
 - [Developer guide](building/dev.md) — running it, the checks, the hygiene rules
 - [Design principles](building/design.md)
-- [UI inventory and spec](building/ui-spec.md)
 - [Theming](building/themes.md)
 - [MCP implementation](building/mcp.md)
 - [Releasing](building/release.md)
-- [Contributing](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md)
+- [Contributing](../CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md)
 
 ## [Running it yourself](running/)
 
@@ -47,7 +46,7 @@ to walk past a backlog to find it.
 
 ## Why the split
 
-`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and `SECURITY.md` stay at the top of
+`CODE_OF_CONDUCT.md` and `SECURITY.md` stay at the top of
 this folder rather than under `building/`: GitHub looks for them in the
 repository root, `.github/`, or `docs/`, and nowhere else. Everything else is
 sorted by its reader, which is also what decides whether it is published — the

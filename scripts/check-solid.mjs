@@ -135,7 +135,7 @@ if (facadeWiredSnapshot.length) {
 }
 
 if (failed) {
-  console.error("\nSee docs/CONTRIBUTING.md § SOLID PR checklist.");
+  console.error("\nSee CONTRIBUTING.md § SOLID PR checklist.");
   process.exit(1);
 }
 

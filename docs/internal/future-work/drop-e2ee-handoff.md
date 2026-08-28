@@ -60,7 +60,7 @@ Branch-local code/docs only. Nothing that hits prod DB or needs a decision:
 - **e2e test debt:** `apps/web/e2e/email-recovery.spec.ts` and the crypto specs exercise the
   now-disabled E2EE flow — they will fail CI. Skip/remove them (or gate on `CRYPTO_ENABLED`) when
   you next touch tests. Left alone by the loop to avoid deleting tests unattended.
-- **Historical docs** left intentionally: `CHANGELOG.md`, `docs/building/ui-spec.md`,
+- **Historical docs** left intentionally: `CHANGELOG.md`, `docs/internal/strategy/ui-spec.md`,
   `docs/running/postgres-provider.md`, `docs/internal/reports/crypto-recovery.md`, `docs/internal/reports/privacy-test-matrix.md`,
   `docs/future-work/hybrid-encryption-plan.md` — these describe E2EE as history or dev-spec;
   rewrite only if you want them current.

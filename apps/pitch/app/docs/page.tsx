@@ -1,14 +1,7 @@
 import Link from "next/link";
-import { docsBySection } from "../../lib/docs";
+import { ATLAS, docsBySection, SECTION_LABELS } from "../../lib/docs";
 
 export const metadata = { title: "Documentation — WeaveForge" };
-
-const SECTION_LABELS: Record<string, string> = {
-  "": "Start here",
-  using: "Using WeaveForge",
-  building: "How it is built",
-  running: "Running it yourself",
-};
 
 export default function DocsIndex() {
   const sections = docsBySection();
@@ -19,6 +12,14 @@ export default function DocsIndex() {
       <p className="docs-lede">
         Everything in the repository’s <code>docs/</code> folder, rendered. Each page links back to
         its source, so what you read here is what is in the tree.
+      </p>
+
+      <p className="docs-lede">
+        <a href={ATLAS.href}>
+          <strong>{ATLAS.title}</strong>
+        </a>{" "}
+        — the whole thing on one page: every feature, what talks to what, and how big each
+        part is. Drawn by hand, with every figure read off the commit it was built from.
       </p>
 
       {sections.map(({ section, pages }) => (
