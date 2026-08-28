@@ -309,10 +309,6 @@ export function PaperNote({
         </div>
       </div>
 
-      {/* What the graph and wording put next to this paper — including things
-          nobody linked by hand. */}
-      <RelatedPanel seedKind="paper" seedId={paper.id} />
-
       <div className="paper-note-body">
         <details className="paper-source-section" open>
           <summary>Note</summary>
@@ -385,6 +381,11 @@ export function PaperNote({
             <RelatedPapersPanel paper={paper} onChanged={onChanged} />
           </details>
         )}
+
+        {/* What the graph and wording put next to this paper — including
+            things nobody linked by hand. Last, because it is a way onwards
+            from the paper, and the paper itself is what the reader came for. */}
+        <RelatedPanel seedKind="paper" seedId={paper.id} />
       </div>
     </div>
   );

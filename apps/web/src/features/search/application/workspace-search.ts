@@ -269,6 +269,18 @@ export class WorkspaceSearch {
     this.documentCount += fresh.length - before.length;
   }
 
+  /**
+   * A stored document rebuilt as a hit, by `${kind}:${entityId}` id.
+   *
+   * What related-document lookup needs: it ranks ids, and the title and href a
+   * result is rendered with live in the index. Searching for the id instead
+   * finds nothing — an id is not text anyone wrote — and leaves the caller
+   * showing a raw uuid.
+   */
+  hitById(id: string): SearchHit | null {
+    return this.index?.hitById(id) ?? null;
+  }
+
   /** Synchronous query; returns nothing until the index is ready. */
   search(query: string, options?: SearchQueryOptions): readonly SearchHit[] {
     return this.index ? this.index.search(query, options) : [];
