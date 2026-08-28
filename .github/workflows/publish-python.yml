@@ -1,28 +1,23 @@
 name: Publish Python SDK
 
-# Publishes weaveforge to PyPI when a semver SDK tag is pushed / released.
-# Tags: vX.Y.Z only (e.g. v1.2.3). Android uses android-v* — never this workflow.
+# Publishes the `weaveforge` SDK to PyPI when an SDK tag is pushed.
+# Tags: py-vX.Y.Z (e.g. py-v0.6.0).
+#
+# The prefix separates the tracks. `vX.Y.Z` is the desktop app, and it creates a
+# GitHub Release; while this workflow also answered to `v*` and to any published
+# release, cutting a desktop release meant an unintended PyPI upload — and a
+# PyPI version cannot be taken back and re-used. Android is `android-v*`.
 #
 # Preferred auth: PyPI Trusted Publishing (OIDC) via the `pypi` environment.
 # Fallback: PYPI_API_TOKEN secret (full `pypi-...` string).
 
 on:
   push:
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
-  release:
-    types: [published]
+    tags: ["py-v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
 
 jobs:
   build-and-publish:
-    # Skip Android releases and non-semver tags that might still hit `release`.
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-      (github.event_name == 'release' &&
-        startsWith(github.event.release.tag_name, 'v') &&
-        !startsWith(github.event.release.tag_name, 'android-') &&
-        contains(github.event.release.tag_name, '.'))
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -34,6 +29,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      # PyPI rejects a version it already has, and it rejects it after the
+      # build, with a message about a file rather than about the tag. Comparing
+      # here says which of the two is wrong while it can still be fixed.
+      - name: Check the tag matches the SDK version
+        if: startsWith(github.ref, 'refs/tags/py-v')
+        run: |
+          tag="${GITHUB_REF#refs/tags/py-v}"
+          pkg="$(python -c "import re,pathlib; print(re.search(r'__version__ = \"([^\"]+)\"', pathlib.Path('python/weaveforge/__init__.py').read_text()).group(1))")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag py-v$tag does not match python/weaveforge/__init__.py $pkg" >&2
+            exit 1
+          fi
 
       - name: Build sdist + wheel
         working-directory: python

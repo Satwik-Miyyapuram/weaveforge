@@ -544,7 +544,7 @@
     <div class="facts">
       <div class="fact"><b>95,547</b><span>web app lines</span></div>
       <div class="fact"><b>35,323</b><span>core lines</span></div>
-      <div class="fact"><b>6,329</b><span>desktop lines</span></div>
+      <div class="fact"><b>6,330</b><span>desktop lines</span></div>
       <div class="fact"><b>2,556</b><span>python sdk</span></div>
       <div class="fact"><b>119</b><span>migrations</span></div>
       <div class="fact"><b>29</b><span>web features</span></div>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: supabase | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>6,329 lines, 25 files, main + preload only</i>
+├── <b>apps/desktop/src/</b>              <i>6,330 lines, 25 files, main + preload only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -698,7 +698,7 @@ flowchart TB
 ├── <b>supabase/migrations/</b>           <i>0001 → 0120, 5,598 lines</i>
 ├── <b>scripts/</b>                       <i>58 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>66 files, 15,040 lines</i>
+└── <b>docs/</b>                          <i>66 files, 15,069 lines</i>
 </pre>
       </div>
     </section>
@@ -1375,7 +1375,7 @@ flowchart TB
     S9["check:deployment-surface"]
   end
 
-  OTHER["verify.yml — sharing-rls · sdk-integration · ts-settings-contract<br/>pages.yml — pitch site<br/>publish-python.yml — PyPI on release<br/>android-twa.yml · android-fingerprint.yml"]
+  OTHER["verify.yml — sharing-rls · sdk-integration · ts-settings-contract<br/>pages.yml — pitch site<br/>release-desktop.yml — installers + update feed on v*<br/>publish-python.yml — PyPI on py-v*<br/>android-twa.yml · android-fingerprint.yml"]
 
   PR --> BT --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9
   PR --> DCO

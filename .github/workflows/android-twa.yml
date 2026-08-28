@@ -2,7 +2,7 @@ name: Build Android TWA
 
 # Builds + signs the TWA APK/AAB from the committed Bubblewrap project.
 # Trigger: tag android-v* (e.g. android-v3) or workflow_dispatch.
-# Python SDK releases use vX.Y.Z tags — those must NOT build Android.
+# The desktop app uses vX.Y.Z and the Python SDK py-vX.Y.Z — neither builds Android.
 #
 # Prerequisites (one time, done locally — see apps/web/twa/README.md):
 #   1. Bubblewrap project committed under apps/web/twa/ (keystore gitignored).

@@ -45,6 +45,10 @@ follows [Semantic Versioning](https://semver.org/).
 ### Changed
 - The desktop app is served from inside the window instead of loading a remote
   page.
+- Releases are cut per track: `vX.Y.Z` builds and publishes the desktop
+  installers with the feed the in-app updater reads, and the Python SDK moves to
+  `py-vX.Y.Z`. Until now no workflow built a desktop release at all, so an
+  installed copy had nothing newer to find.
 
 ### Fixed
 - **The logbook's Edit button appeared to do nothing.** The form opened and shut
