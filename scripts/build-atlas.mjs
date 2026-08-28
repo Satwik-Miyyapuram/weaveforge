@@ -136,7 +136,12 @@ function tokens() {
 }
 
 function build() {
-  const template = read(TEMPLATE);
+  // Newlines are decided once, at the end, by what the output file already
+  // uses. Read the template flat: on a Windows checkout it arrives with CRLF,
+  // and the conversion below then turned every one of those into \r\r\n — a
+  // file that regenerated identically on Windows and differed on CI, which is
+  // exactly the disagreement this generator exists to prevent.
+  const template = read(TEMPLATE).replace(/\r\n/g, "\n");
   const figures = tokens();
   const filled = template.replace(/\{\{([A-Z_]+)\}\}/g, (whole, key) => {
     const value = figures[key];
