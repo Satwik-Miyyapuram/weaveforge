@@ -291,10 +291,14 @@
   }
 
   .plate pre.mermaid {
-    min-width: 520px;
+    /* Wide enough that a diagram is not squeezed into an unreadable column on
+       a desktop, never wider than the phone it is being read on: the drawn SVG
+       scales to the box, and the plate scrolls if a diagram truly needs more. */
+    min-width: min(520px, 100%);
     display: flex;
     justify-content: center;
   }
+  .plate pre.mermaid svg { max-width: 100%; height: auto; }
 
   .caption {
     font-family: var(--mono);
@@ -1423,7 +1427,7 @@ flowchart LR
   </main>
 
   <footer>
-    <span>Generated from the working tree · branch feat/obsidian-vault-interop</span>
+    <span>Generated from the tracked files at the commit it was built from</span>
     <span>Counts are file line counts, node_modules and build output excluded</span>
   </footer>
 </div>

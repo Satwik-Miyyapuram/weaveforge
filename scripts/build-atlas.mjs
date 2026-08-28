@@ -94,6 +94,56 @@ function values() {
  * to be served inside a frame that supplied the skeleton. A file in `docs/` is
  * opened directly, so it gets its own.
  */
+/**
+ * How the diagrams are drawn once mermaid has loaded.
+ *
+ * Colours are read off the page's own custom properties rather than restated
+ * here, so a diagram cannot drift from the palette around it, and they are read
+ * again when the reader's theme changes — mermaid draws once and keeps the
+ * colours it was given, so the diagrams have to be re-rendered by hand.
+ */
+const MERMAID_INIT = `
+  (function () {
+    var blocks = Array.prototype.slice.call(document.querySelectorAll("pre.mermaid"));
+    if (!blocks.length || typeof mermaid === "undefined") return;
+    var source = blocks.map(function (el) { return el.textContent; });
+
+    function draw() {
+      var css = getComputedStyle(document.documentElement);
+      var v = function (name) { return css.getPropertyValue(name).trim(); };
+      blocks.forEach(function (el, i) {
+        el.removeAttribute("data-processed");
+        el.textContent = source[i];
+      });
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        fontFamily: v("--sans") || "system-ui, sans-serif",
+        theme: "base",
+        themeVariables: {
+          background: v("--plate"),
+          primaryColor: v("--surface"),
+          primaryTextColor: v("--ink"),
+          primaryBorderColor: v("--line-strong"),
+          secondaryColor: v("--accent-soft"),
+          tertiaryColor: v("--surface-2"),
+          lineColor: v("--line-strong"),
+          textColor: v("--ink-2"),
+          mainBkg: v("--surface"),
+          nodeBorder: v("--line-strong"),
+          clusterBkg: v("--plate"),
+          clusterBorder: v("--line"),
+        },
+      });
+      mermaid.run({ nodes: blocks });
+    }
+
+    draw();
+    var dark = window.matchMedia("(prefers-color-scheme: dark)");
+    if (dark.addEventListener) dark.addEventListener("change", draw);
+  })();
+`.trim();
+
 function page(body) {
   // The template's head ends at its closing `</style>`; everything after it is
   // the page. Split there rather than wrapping the whole fragment, so the style
@@ -116,6 +166,16 @@ function page(body) {
     "</head>",
     "<body>",
     rest.trim(),
+    // The diagrams are stored as text and drawn in the browser. Mermaid is
+    // served from this site's own origin — copied in by
+    // apps/pitch/scripts/copy-assets.mjs — so the page needs no third party and
+    // draws the same offline. `startOnLoad` is off because the theme has to be
+    // chosen from the reader's first, and a diagram drawn in the wrong palette
+    // is worse than one drawn a moment later.
+    '<script src="/mermaid.min.js"></script>',
+    "<script>",
+    MERMAID_INIT,
+    "</script>",
     "</body>",
     "</html>",
     "",
