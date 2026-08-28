@@ -56,7 +56,7 @@ step "4/4  Verifying"
 if node scripts/verify-migration.mjs; then
   printf '\n%s✓ Done.%s The replica on OCI matches Supabase and isolates users.\n\n' "$GREEN" "$OFF"
   printf '%sNext, if you want to move traffic there too:%s\n' "$DIM" "$OFF"
-  printf '%s  docs/backend/oracle-shift-guide.md → Stage 3%s\n\n' "$DIM" "$OFF"
+  printf '%s  docs/running/oracle-shift.md → Stage 3%s\n\n' "$DIM" "$OFF"
 else
   die "Verification failed. Do not point anything at this database yet."
 fi

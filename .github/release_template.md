@@ -15,4 +15,4 @@ pip install weaveforge==X.Y.Z
 
 **Full changelog:** https://github.com/Satwik-Miyyapuram/weaveforge/blob/vX.Y.Z/CHANGELOG.md
 
-<!-- Python SDK release only. Android uses tags android-v* (see docs/release.md). -->
+<!-- Python SDK release only. Android uses tags android-v* (see docs/building/release.md). -->

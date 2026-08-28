@@ -5,10 +5,10 @@ designed to be reused and extended.
 
 ## Ground rules
 
-- **Follow the design doc.** `docs/DESIGN.md` defines the modular + SOLID structure.
+- **Follow the design doc.** `docs/building/design.md` defines the modular + SOLID structure.
   New features arrive as new *feature modules* (`features/<name>/{domain,application,infrastructure,ui}`),
   not as edits scattered across existing ones.
-- **Read the extension guide.** [`docs/extensions.md`](docs/extensions.md) lists every seam you can plug into today
+- **Read the extension guide.** [`docs/using/extensions.md`](docs/using/extensions.md) lists every seam you can plug into today
   (integrations, metadata sources, feature modules, backend/storage, Python sync) and what still requires a PR.
 - **Depend on interfaces, not implementations.** Domain and application code must not
   import the Supabase SDK or any concrete infrastructure. Wire concrete adapters only
@@ -36,7 +36,7 @@ Before opening or merging a PR, confirm:
       in use-cases / application services. `bootstrap.ts` wires dependencies only;
       React components handle presentation and local UI state.
 
-See `docs/DESIGN.md` §4 for the full SOLID rubric.
+See `docs/building/design.md` §4 for the full SOLID rubric.
 
 ## Development prerequisites
 
@@ -63,7 +63,7 @@ Supabase Cloud stops at the latest file in [`supabase/migrations/`](supabase/mig
 
 ## Adding a feature module
 
-**Full checklist:** [`docs/extensions.md`](docs/extensions.md) §4 (registry, bootstrap, facades, routes).
+**Full checklist:** [`docs/using/extensions.md`](docs/using/extensions.md) §4 (registry, bootstrap, facades, routes).
 
 1. Create `features/<name>/` with the standard sub-layers.
 2. Define the entity and repository interface in `packages/core`.
@@ -75,7 +75,7 @@ Supabase Cloud stops at the latest file in [`supabase/migrations/`](supabase/mig
 
 Persistence and auth are env-selected at the composition root — same pattern as integrations.
 
-**Full guide:** [`docs/backend.md`](docs/backend.md)
+**Full guide:** [`docs/running/backend.md`](docs/running/backend.md)
 
 Default is Supabase (`NEXT_PUBLIC_BACKEND_PROVIDER=supabase`). To self-host: implement repository adapters against the existing Postgres schema and wire a new provider in `wire-backend.ts`.
 
@@ -83,15 +83,15 @@ Default is Supabase (`NEXT_PUBLIC_BACKEND_PROVIDER=supabase`). To self-host: imp
 
 Object/blob storage (paper images, experiment artifacts, vault assets) is a **separate layer** from relational backend — env-selected via `BLOB_PROVIDER`.
 
-**Full guide:** [`docs/storage/README.md`](docs/storage/README.md)
+**Full guide:** [`docs/running/storage/README.md`](docs/running/storage/README.md)
 
-Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Tiered hot/cold storage (R2 hot, MinIO cold, with a `blob_objects` registry row as the only index of an object's bucket and path) has shipped: set `BLOB_PROVIDER=tiered`. See [`docs/plans/completed/migration-plan.md`](docs/plans/completed/migration-plan.md).
+Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Tiered hot/cold storage (R2 hot, MinIO cold, with a `blob_objects` registry row as the only index of an object's bucket and path) has shipped: set `BLOB_PROVIDER=tiered`. See [`docs/internal/plans/completed/migration-plan.md`](docs/internal/plans/completed/migration-plan.md).
 
 ## Web integrations (`apps/web/src/integrations/`)
 
 The PWA wires third-party services through env-selected providers at the composition root. Feature UI depends on **facades**, not concrete SDKs.
 
-**Full guide:** [`docs/integrations.md`](docs/integrations.md)
+**Full guide:** [`docs/using/integrations.md`](docs/using/integrations.md)
 
 To add or swap a provider (bibliography, citation, notification, log sync, git read):
 

@@ -10,7 +10,7 @@ What are you trying to do, and what's missing today?
 
 **Proposed solution**
 What you'd like to see. If it's a new tracked concern, note that it should arrive
-as a new *feature module* (see `docs/DESIGN.md`) rather than edits across existing
+as a new *feature module* (see `docs/building/design.md`) rather than edits across existing
 ones.
 
 **Alternatives considered**

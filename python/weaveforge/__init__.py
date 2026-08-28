@@ -12,7 +12,7 @@ the PWA reads, using the decorator as the one entry point::
         return {"val_loss": 0.11}          # recorded as summary metrics
 
 Mirrors the web app's modular shape (``features/<name>/...``); the Supabase
-migrations are the shared source of truth (see ``docs/DESIGN.md`` §5.4).
+migrations are the shared source of truth (see ``docs/building/design.md`` §5.4).
 """
 
 from .features.experiments import (

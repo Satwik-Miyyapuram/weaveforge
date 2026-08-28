@@ -1,6 +1,6 @@
 import type { BlobObjectRecord } from "./blob-registry-ports.js";
 
-/** Tunable weights for the GDSF-inspired eviction score (see docs/storage/tiering.md). */
+/** Tunable weights for the GDSF-inspired eviction score (see docs/running/storage/tiering.md). */
 export interface BlobTieringWeights {
   /** Days idle multiplier (LRU). Default 1.0 */
   alpha: number;

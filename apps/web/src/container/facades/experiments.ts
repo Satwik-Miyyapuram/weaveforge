@@ -30,6 +30,21 @@ export class ExperimentsFacade {
     return this.deps.artifacts.viewUrls(entries);
   }
 
+  /**
+   * Attach files a person picked, and hand back the experiment they belong to.
+   *
+   * Uploaded first and recorded second, so a failed upload leaves no entry
+   * pointing at bytes that are not there. The row is written once for the whole
+   * batch rather than once per file: three figures chosen together are one
+   * change to the run, and three saves race each other.
+   */
+  async attachArtifacts(experimentId: string, files: readonly File[]) {
+    const entries = await Promise.all(
+      files.map((file) => this.deps.artifacts.upload(experimentId, file)),
+    );
+    return this.deps.manageExperiment.addArtifacts(experimentId, entries);
+  }
+
   private async reconcileAndLoad(): Promise<ExperimentsScreenData> {
     const data = await this.deps.load.execute();
     const running = data.experiments.filter((e) => e.status === "running");

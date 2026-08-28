@@ -509,4 +509,4 @@ export function ReadingScene() {
   );
 }
 
-/** Rows: what research actually needs · who covers it. Grounded in docs/competitive-scan.md. */
+/** Rows: what research actually needs · who covers it. Grounded in docs/internal/strategy/competitive-scan.md. */

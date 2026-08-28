@@ -26,4 +26,4 @@ npm run generate:routes
 ## Integration plugins
 
 Export a `WebWeaveForgePlugin` with `integrationManifests` from your package.
-See `docs/extensions.md` and `apps/web/src/integrations/manifests/`.
+See `docs/using/extensions.md` and `apps/web/src/integrations/manifests/`.

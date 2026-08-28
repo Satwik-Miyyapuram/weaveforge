@@ -127,4 +127,4 @@ pytest   # offline; Supabase integration test skips without env creds
 ## More
 
 - Root pitch + web app: [../README.md](../README.md)
-- Design principles: [../docs/DESIGN.md](../docs/DESIGN.md)
+- Design principles: [../docs/building/design.md](../docs/building/design.md)

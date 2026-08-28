@@ -45,6 +45,21 @@ export class ManageExperimentUseCase {
     return this.mutate(id, (e) => ({ ...e, metrics: { ...e.metrics, ...metrics } }));
   }
 
+  /**
+   * Attach artifacts to a run that has already finished.
+   *
+   * The SDK writes these while a run is going; a person writes them afterwards,
+   * when the plot that explains the result was drawn by hand. Appended rather
+   * than replaced, and existing entries are kept in their order: the figures of
+   * a run read as a sequence, and a re-upload should not reshuffle them.
+   */
+  async addArtifacts(id: string, entries: readonly string[]): Promise<Experiment> {
+    return this.mutate(id, (e) => {
+      const known = new Set(e.artifacts);
+      return { ...e, artifacts: [...e.artifacts, ...entries.filter((entry) => !known.has(entry))] };
+    });
+  }
+
   async remove(id: string): Promise<void> {
     await this.deps.repository.delete(id);
   }

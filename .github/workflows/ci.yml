@@ -79,7 +79,7 @@ jobs:
       - name: Install ripgrep (for check:solid)
         run: sudo apt-get update && sudo apt-get install -y ripgrep
 
-      # The whole boundary suite, not three of the five it contains: docs/dev.md
+      # The whole boundary suite, not three of the five it contains: docs/building/dev.md
       # has always said build-and-test runs check:boundaries, while check:ui and
       # check:hygiene only ever ran on a developer's machine.
       - name: Boundary checks

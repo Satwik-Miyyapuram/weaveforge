@@ -54,5 +54,5 @@ body:
     attributes:
       label: Before submitting
       options:
-        - label: I searched existing issues and the roadmap in `docs/plans/`.
+        - label: I searched existing issues and the roadmap in `docs/internal/plans/`.
           required: true

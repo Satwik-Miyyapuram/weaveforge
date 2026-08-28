@@ -31,7 +31,7 @@ follows [Semantic Versioning](https://semver.org/).
   loaded only when something uses them.
 - **Bibliography checks, a local LaTeX compile, offline semantic search, and a
   wider MCP surface**, completing the six-item plan in
-  `docs/future-work/plan-2026-08-six-items.md`.
+  `docs/internal/future-work/plan-2026-08-six-items.md`.
 - **Self-installing updates and a real window menu** on the desktop, with the
   update check reading the repository's releases and ignoring the Android tags.
 - **Collaborative editing actually works, and now covers vault notes.** Two
@@ -40,7 +40,7 @@ follows [Semantic Versioning](https://semver.org/).
   itself before anyone could type, and the socket died on the first send. Notes
   keep wikilink and `@cite` completion, find-in-note and undo — co-editing a note
   is the same editor with a shared document behind it, not a plainer one. See
-  [Collaborative editing](docs/collaborative-editing.md).
+  [Collaborative editing](docs/using/collaborative-editing.md).
 
 ### Changed
 - The desktop app is served from inside the window instead of loading a remote
@@ -88,7 +88,7 @@ follows [Semantic Versioning](https://semver.org/).
   (`0115`). Metric series are also downsampled on write — every point below step
   10,000, then halving per octave — which makes a run's footprint logarithmic in
   its length rather than linear. See
-  [the plan](docs/future-work/metrics-storage-plan.md).
+  [the plan](docs/internal/future-work/metrics-storage-plan.md).
 - **Zotero syncs in a fraction of the time.** Page reads use `Total-Results` to
   fetch offsets in parallel instead of walking them one at a time, and the
   attachment, annotation and note passes run together. Measured against a mock
@@ -140,8 +140,8 @@ follows [Semantic Versioning](https://semver.org/).
 - One changelog for the whole project. The Python SDK ships from the same
   repository tag as the web app, so the separate SDK history only invited the
   two to drift; pre-0.5.0 SDK releases are archived in
-  [`docs/changelog-sdk-legacy.md`](docs/changelog-sdk-legacy.md).
-- `docs/release.md` now describes a single project release covering the web
+  [`docs/internal/reports/changelog-sdk-legacy.md`](docs/internal/reports/changelog-sdk-legacy.md).
+- `docs/building/release.md` now describes a single project release covering the web
   app, core, schema, and SDK, and lists all four version files that must move
   together — the omission that made the 0.5.0 PyPI publish fail.
 

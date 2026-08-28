@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
  * Builds the copy of the app that goes inside the installer.
  *
  * The same source as the web build, exported to static files with no server
- * behind it — `docs/plans/future/offline-first-sync.md` D8. `next.config.mjs`
+ * behind it — `docs/internal/plans/completed/offline-first-sync.md` D8. `next.config.mjs`
  * switches on `WEAVEFORGE_DESKTOP` and does the rest; this script exists for
  * the one thing a config cannot express.
  *

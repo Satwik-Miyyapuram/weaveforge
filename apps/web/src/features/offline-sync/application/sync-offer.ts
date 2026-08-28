@@ -4,7 +4,7 @@
  * The offer is shown once in a device's life: one dismissible card, never a
  * modal, and after that it is a row in Settings and nothing else. An app that
  * asks twice has learned that asking works, and the reader learns to dismiss
- * without reading (`docs/plans/future/offline-first-sync.md` D2).
+ * without reading (`docs/internal/plans/completed/offline-first-sync.md` D2).
  *
  * The bit lives in the shell's preference file rather than in the app, because
  * it has to survive a reinstall-over-upgrade — a cleared browser store must not

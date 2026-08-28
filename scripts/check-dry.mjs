@@ -55,7 +55,7 @@ if (pinMergeInUi.length) {
 }
 
 if (failed) {
-  console.error("\nSee docs/dev.md § Post-merge review checklist (SOLID / DRY).");
+  console.error("\nSee docs/building/dev.md § Post-merge review checklist (SOLID / DRY).");
   process.exit(1);
 }
 

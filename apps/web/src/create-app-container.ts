@@ -170,7 +170,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const reportImageStore = new ReportImageStore(encryptedBlobStore, backend.session);
   // Signs artifact paths on read. Nothing stores a signed URL: SigV4 caps one
   // at seven days, so a stored link is a link with a deadline.
-  const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore);
+  const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
 
   const manageProject = new ManageProjectUseCase({
     repository: backend.projectRepository,

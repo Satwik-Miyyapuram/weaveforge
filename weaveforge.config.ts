@@ -26,7 +26,7 @@ export default defineConfig({
   // `pricingUi` is the separate, narrower switch: keep quota and usage
   // working, but hide every price, plan comparison, and upgrade prompt.
   // Users holding a complimentary lifetime grant never see pricing
-  // regardless of this flag. See docs/future-work/billing-and-quota-plan.md §9.
+  // regardless of this flag. See docs/internal/future-work/billing-and-quota-plan.md §9.
   // billing: { pricingUi: false },
   plugins: [],
 });

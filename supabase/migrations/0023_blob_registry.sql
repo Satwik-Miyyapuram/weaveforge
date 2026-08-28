@@ -1,5 +1,5 @@
 -- Migration: blob registry for hot (R2) / cold (OCI) tiering.
--- Owned by the storage layer. See docs/storage/tiering.md.
+-- Owned by the storage layer. See docs/running/storage/tiering.md.
 
 create table if not exists blob_objects (
   id               uuid primary key default gen_random_uuid(),

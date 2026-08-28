@@ -93,7 +93,7 @@ const withSerwist = withSerwistInit({
  * Whether this build is the one that goes inside the desktop shell.
  *
  * The desktop app is a static export with no server in it at all — see
- * `docs/plans/future/offline-first-sync.md` D8. That is not a packaging
+ * `docs/internal/plans/completed/offline-first-sync.md` D8. That is not a packaging
  * detail: an app that talks to a server is one where an online-only assumption
  * can be introduced and go unnoticed, and a static bundle makes "there is no
  * network" something the build enforces rather than something we maintain.
