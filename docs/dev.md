@@ -233,7 +233,7 @@ remembered:
 | `npm run check:ui` | `node scripts/check-ui-consistency.mjs` |
 | `npm run check:hygiene` | `node scripts/check-hygiene.mjs` |
 | `npm run check:mcp-plugin` | `node scripts/check-mcp-plugin.mjs` |
-| `npm run check:docs` | `node scripts/update-docs.mjs --check` |
+| `npm run check:docs` | `node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check` |
 
 <!-- /generated:boundary-checks -->
 

@@ -45,3 +45,17 @@ const domain = process.env.PAGES_DOMAIN || "www.weaveforge.org";
 await writeFile(path.resolve(here, "../public/CNAME"), `${domain}
 `);
 console.log(`wrote CNAME -> ${domain}`);
+
+/**
+ * The atlas, served as its own page.
+ *
+ * It is one designed HTML file generated from the repository, not Markdown, so
+ * the docs renderer cannot show it — it is copied in and served at /atlas.html.
+ * Copied rather than committed here for the same reason as the icons: a second
+ * copy in the tree is a copy that goes stale.
+ */
+await cp(
+  path.resolve(here, "../../../docs/atlas.html"),
+  path.resolve(here, "../public/atlas.html"),
+);
+console.log("copied atlas.html");
