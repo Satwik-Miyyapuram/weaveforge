@@ -48,18 +48,17 @@ export function RelatedPanel({
 
         const hits = container.search.related(`${seedKind}:${seedId}`, limit);
         const resolved = hits.flatMap((hit) => {
-          const [kind, ...rest] = hit.id.split(":");
-          const entityId = rest.join(":");
-          const doc = container.search.search(entityId, { limit: 1 });
-          // Fall back to the id when the document is not in the index — better
-          // a plain link than a dropped result.
-          const known = doc.find((candidate) => candidate.entityId === entityId);
+          // The index holds the title and the link; look the document up by
+          // its own id. A result whose document is gone is dropped rather than
+          // rendered as its uuid, which named nothing a reader could use.
+          const doc = container.search.hitById(hit.id);
+          if (!doc) return [];
           return [
             {
               id: hit.id,
-              title: known?.title ?? entityId,
-              href: known?.href ?? "#",
-              kind: kind ?? "note",
+              title: doc.title,
+              href: doc.href,
+              kind: doc.kind,
               arm: hit.arm,
             },
           ];
