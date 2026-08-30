@@ -16,6 +16,7 @@ import {
   shouldMountShellChildren,
   shouldShowWorkspaceLoader,
 } from "./privacy-disclaimer-readiness";
+import { useCapability } from "@/deployment/capabilities";
 
 /**
  * Blocks the app until the user accepts the org/privacy disclaimer once.
@@ -29,14 +30,20 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
   // long before profile/org data lands — and the screens do not need that data
   // to render, so holding them for it is pure waiting.
   const { gateReady, needsPrivacyAccept, settingsError, refreshProfile } = useStartup();
+  // Every paragraph of the disclaimer is about somebody else being able to read
+  // the data: the operator, the database, a share. On a copy whose database is
+  // a file on this disk there is no such person, so there is nothing to
+  // disclose and nothing to consent to — the modal would be asking the reader
+  // to accept the terms of a service they are not using.
+  const disclosable = useCapability("operatorDisclosure");
   const [needsAccept, setNeedsAccept] = useState(() => needsPrivacyAccept);
   const [containerReady, setContainerReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setNeedsAccept(needsPrivacyAccept);
-  }, [needsPrivacyAccept]);
+    setNeedsAccept(disclosable && needsPrivacyAccept);
+  }, [disclosable, needsPrivacyAccept]);
 
   // Create the heavy container as soon as the decision says accepted — shell
   // children call getContainer() sync on render, so it must exist before they

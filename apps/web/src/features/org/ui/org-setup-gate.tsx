@@ -8,6 +8,7 @@ import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
+import { useCapability } from "@/deployment/capabilities";
 
 /**
  * First-run gate: create a lab, join with a code, or continue standalone.
@@ -15,7 +16,13 @@ import { formatError } from "@/lib/format-error";
  */
 export function OrgSetupGate({ children }: { children: React.ReactNode }) {
   const { profile, loading, refresh } = useProfile();
+  // A copy with no account has no lab to create, none to join, and — the part
+  // that made this a dead end rather than a pointless screen — no server to
+  // answer `continueStandalone`, whose only implementation is an RPC. The
+  // gate was unanswerable, so it is not asked.
+  const hasOrgs = useCapability("org");
   const needsSetup =
+    hasOrgs &&
     !loading &&
     (!profile || profile.orgSetupComplete === false);
 
