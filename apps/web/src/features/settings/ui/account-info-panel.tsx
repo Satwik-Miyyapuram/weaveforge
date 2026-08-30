@@ -6,6 +6,7 @@ import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";
 import { useState } from "react";
 import { formatError } from "@/lib/format-error";
+import { useCapability } from "@/deployment/capabilities";
 
 function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
@@ -27,6 +28,7 @@ function labStatus(
 export function AccountInfoPanel() {
   const { user, updatePassword } = useAuth();
   const { profile, memberships, activeOrgId, loading } = useProfile();
+  const hasOrgs = useCapability("org");
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -67,25 +69,35 @@ export function AccountInfoPanel() {
     }
   }
 
+  // Role and Organization are positions inside a lab. A copy with no account
+  // is not standalone *within* anything — the concept is absent, and printing
+  // "Standalone — no lab" invites the reader to go looking for the lab screen
+  // that this copy does not have either.
   const rows: { label: string; value: string }[] = [
     { label: "Name", value: profile?.fullName ?? "—" },
     { label: "Email", value: user.email ?? profile?.email ?? "—" },
     { label: "Account ID", value: shortId(user.id) },
-    {
-      label: "Role",
-      value: loading ? "Loading…" : ROLE_LABELS[displayRole] ?? displayRole,
-    },
-    {
-      label: "Organization",
-      value: labStatus(loading, profile?.orgSetupComplete, inLab, labName),
-    },
+    ...(hasOrgs
+      ? [
+          {
+            label: "Role",
+            value: loading ? "Loading…" : ROLE_LABELS[displayRole] ?? displayRole,
+          },
+          {
+            label: "Organization",
+            value: labStatus(loading, profile?.orgSetupComplete, inLab, labName),
+          },
+        ]
+      : []),
   ];
 
   return (
     <div id="settings-account" className="card add-form account-info-panel settings-anchor" style={{ marginBottom: "24px" }}>
       <h3 className="settings-group">Account</h3>
       <p className="muted" style={{ margin: "4px 0 0" }}>
-        Signed-in identity — useful when switching between test accounts.
+        {hasOrgs
+          ? "Signed-in identity — useful when switching between test accounts."
+          : "This copy is working on your computer, with no account. Sign in to add a lab, sharing and another device."}
       </p>
       <dl className="account-info-grid">
         {rows.map(({ label, value }) => (

@@ -24,3 +24,22 @@ export const PRIVACY_DISCLAIMER_PARAGRAPHS = [
   "AI/MCP access is off by default. If you enable it, only the sources and capabilities you select may be disclosed through the browser relay. Selected excerpts can be sent to the model provider used by your client, subject to that provider's privacy policy. Credentials, PDFs, unselected sources, and unrestricted database access are never sent to the model.",
   "You can delete your account at any time from Settings. Deletion requires a one-time code emailed to your account address, then typing DELETE_USER. That permanently removes your data from the app.",
 ] as const;
+
+/**
+ * The same subject, for a copy whose database is a file on this disk.
+ *
+ * Not a shortened version of the text above: almost every sentence there is
+ * about a party that does not exist here — the operator, the row-level
+ * policies that keep other accounts out, the share, the account deletion that
+ * needs an emailed code. Showing it anyway would be the most misleading thing
+ * on the screen, because a reader who takes it at face value believes their
+ * work is somewhere it is not.
+ */
+export const PRIVACY_LOCAL_TITLE = "Your data, on this computer";
+
+export const PRIVACY_LOCAL_PARAGRAPHS = [
+  "This copy has no account and no server. Your papers, notes, experiments, logbook, settings, and files are in a database on this computer, and nothing in the app sends them anywhere. There is no operator who can read them, because there is nobody on the other end.",
+  "That cuts both ways: nothing is backed up for you, and there is no other device to fall back on. If this machine is lost or the app's data is deleted, the work is gone. Settings → Data exports everything, and the folder the app writes to can be backed up like any other.",
+  "Anyone who can use this computer can open the app and read the work in it. The protection here is your operating system account and disk encryption, not WeaveForge.",
+  "Two things still leave the machine when you ask them to: an AI provider you configure yourself, and an integration you connect (Zotero, GitLab, and the rest). Both are off until you turn them on, and both are then subject to that provider's own privacy policy. Signing in switches this copy to an account and a server, at which point the full privacy notice applies — the local database is left where it is.",
+] as const;

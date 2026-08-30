@@ -7,6 +7,7 @@ import { getContainer } from "@/bootstrap";
 import { ShareIcon } from "@/components/view-icons";
 import { ShareDialog } from "./share-dialog";
 import { useShareDialogHost } from "./share-dialog-host";
+import { useCapability } from "@/deployment/capabilities";
 
 /** Share trigger → ShareDialog. Icon-only by default; pass `showLabel` for text. */
 export function ShareButton({
@@ -28,6 +29,11 @@ export function ShareButton({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  // Sharing grants another account access to a row. With no account there is
+  // nobody to grant it to and no directory to pick them from, so the trigger is
+  // absent — the `/shared` screen is already dropped from the registry by
+  // `requiresNetwork`, and this is the same decision on the item itself.
+  const canShare = useCapability("sharing");
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const controlled = openProp !== undefined;
@@ -75,6 +81,9 @@ export function ShareButton({
     onOpenChange?.(next);
   }
   const projectId = getContainer().projects.context.projectId;
+
+  // After the hooks, not before them: the early return is a render decision.
+  if (!canShare) return null;
 
   return (
     <>

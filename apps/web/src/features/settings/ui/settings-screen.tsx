@@ -34,6 +34,7 @@ import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
+import { useCapability } from "@/deployment/capabilities";
 
 /**
  * Settings sections, as tabs. This screen used to render all eight stacked
@@ -82,6 +83,12 @@ export function SettingsScreen() {
   // would ship a tab that vanishes on hydration.
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => setIsDesktop(desktop() !== null), []);
+  // Same rule as the Updates tab below, applied to the sections that need an
+  // account rather than a window: absent, not present and refusing.
+  const hasAccount = useCapability("account");
+  const hasOrgs = useCapability("org");
+  const hasSync = useCapability("sync");
+  const hasApiTokens = useCapability("apiTokens");
   const { update } = useDesktopUpdate();
   const integrationConfig = getContainer().integrationConfig;
   const userIntegrations = useMemo(
@@ -290,6 +297,11 @@ export function SettingsScreen() {
     // one — it is not there, because a section that can never say anything is
     // a section a reader opens once and learns to distrust.
     if (t.id === "updates") return isDesktop;
+    // Nothing behind these without an account: no lab to administer, no server
+    // to issue a token, no second device to reconcile with.
+    if (t.id === "org") return hasOrgs;
+    if (t.id === "tokens") return hasApiTokens;
+    if (t.id === "sync") return hasSync;
     return true;
   });
 
@@ -556,10 +568,12 @@ export function SettingsScreen() {
 
       {tab === "data" && (
         <div id="settings-data-panel" role="tabpanel" aria-labelledby="settings-tab-data">
+          {/* Exporting works either way — it reads the database this copy has. */}
           <ExportDataPanel />
           <PrivacyNotice />
-          <GitHubLinkCard />
-          <DeleteAccountPanel />
+          {/* Linking a provider and deleting an account both need the account. */}
+          {hasAccount && <GitHubLinkCard />}
+          {hasAccount && <DeleteAccountPanel />}
         </div>
       )}
     </section>
