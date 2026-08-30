@@ -45,6 +45,7 @@
     "check:docs": "node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check",
     "generate:deployment": "node --import tsx scripts/generate-deployment-registry.mjs",
     "check:deployment-surface": "node --import tsx scripts/check-deployment-surface.mjs",
+    "check:release-drafts": "node scripts/check-release-drafts.mjs",
     "prebuild": "npm run generate:deployment",
     "build": "npm run build --workspace @weaveforge/web",
     "dev": "npm run dev --workspace @weaveforge/web",

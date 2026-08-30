@@ -96,6 +96,14 @@ jobs:
       - name: Deployment surface
         run: npm run check:deployment-surface
 
+      # A desktop release left as a draft is invisible to every installed copy,
+      # and nothing about the app says so — it simply reports no update. This
+      # is the only place that would notice.
+      - name: No desktop release left as a draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run check:release-drafts
+
   full-validation:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
