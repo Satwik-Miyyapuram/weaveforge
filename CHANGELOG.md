@@ -1,10 +1,23 @@
 # Changelog
 
 All notable changes to this project are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the Python SDK
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and every track
 follows [Semantic Versioning](https://semver.org/).
 
+**Three tracks, three version numbers.** The desktop app, the Python SDK and the
+Android build are released separately and number themselves separately — see
+[`docs/building/release.md`](docs/building/release.md). Entries go under the
+track they belong to, and a release heading names its track. 0.6.0 and every
+release before it were cut in lockstep, so those headings cover all three
+tracks at once.
+
 ## [Unreleased]
+
+### Desktop
+
+### Python SDK
+
+### Android
 
 ## [0.6.0] - 2026-08-28
 

@@ -17,9 +17,29 @@ another prefix would strand every one of them on the version they have. The SDK
 moved instead — which is also what stops a desktop release publishing to PyPI,
 where a version cannot be taken back.
 
-**One version line still covers the whole repository.** The tracks are cut
-separately, but the numbers stay in step: `py-v0.6.0` and `v0.6.0` are the same
-commit's SDK and app. Releases before 0.5.0 kept a separate SDK history,
+**Each track carries its own version number.** They are cut separately and
+they move separately: the desktop app going to 0.7.0 does not oblige the SDK to
+follow, and an SDK patch does not reissue the app. What a track's number means
+is what changed *in that track*.
+
+| Track | Version lives in | Free to move |
+|---|---|---|
+| Desktop app | `apps/desktop/package.json` | independently |
+| Python SDK | `python/weaveforge/__init__.py` `__version__` | independently |
+| Android TWA | `apps/web/twa/twa-manifest.json` | independently |
+
+`package.json`, `apps/web/package.json` and `packages/core/package.json` are
+**not** release numbers. Core is consumed as `"*"` by every workspace that uses
+it, so nothing resolves against those values; they track the desktop app
+because that is the artifact they are built into.
+
+Nothing enforces agreement between tracks, because nothing depends on it: the
+SDK does not send its version to the server and the server does not ask for it.
+The one check that does exist is per track — each workflow refuses a tag that
+disagrees with its own version file.
+
+Releases before 0.6.0 were cut in lockstep, so `py-v0.5.1` and `v0.5.1` are the
+same commit. From 0.6.0 on they need not be. Older separate SDK history is
 archived in
 [`changelog-sdk-legacy.md`](../internal/reports/changelog-sdk-legacy.md).
 
@@ -27,15 +47,17 @@ All changes still land on `main` via pull request (branch protection). Tags are 
 
 ## Desktop app (`vX.Y.Z`)
 
-1. PR: bump **every** version in step, and update [`../CHANGELOG.md`](../../CHANGELOG.md).
+1. PR: bump the desktop version, and add the entry under `### Desktop` in
+   [`../CHANGELOG.md`](../../CHANGELOG.md).
 
    ```
-   package.json                        "version"
-   apps/web/package.json               "version"
    apps/desktop/package.json           "version"
-   packages/core/package.json          "version"
-   python/weaveforge/__init__.py   __version__
+   package.json                        "version"   (follows the app)
+   apps/web/package.json               "version"   (follows the app)
+   packages/core/package.json          "version"   (follows the app)
    ```
+
+   Leave `python/weaveforge/__init__.py` alone unless the SDK itself changed.
 
    `release-desktop.yml` refuses a tag that does not match
    `apps/desktop/package.json`: an installer that claims a version it is not
@@ -60,7 +82,9 @@ update as verified.
 
 ## Python SDK (`py-vX.Y.Z`)
 
-1. Same version bump as above — the SDK is not versioned separately.
+1. PR: bump `__version__` in `python/weaveforge/__init__.py` to whatever the
+   SDK's own changes call for, and add the entry under `### Python SDK` in
+   [`../CHANGELOG.md`](../../CHANGELOG.md). Do not touch the app's versions.
 2. On `main`:
    ```bash
    git pull origin main
