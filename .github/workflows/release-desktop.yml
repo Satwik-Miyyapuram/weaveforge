@@ -16,6 +16,9 @@ name: Release desktop app
 # Signing certificates are the fix; until they exist, this is what an update is
 # worth, and the release notes should not claim otherwise.
 
+# A manual run builds and uploads workflow artifacts only. Releases are made by
+# tags, never by hand — see the note on the build step.
+
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
@@ -74,7 +77,32 @@ jobs:
       # installers plus the update feed to the release for this tag, creating
       # the release (as a draft) if it does not exist yet.
       - name: Build and publish the installers
+        if: startsWith(github.ref, 'refs/tags/v')
         run: npm run package --workspace @weaveforge/desktop -- --publish always
+
+      # A manual run is a build test, and it must not touch the releases. It
+      # used to run `--publish always`, which creates the release as a draft —
+      # and the `publish` job below is tag-gated, so nothing ever un-drafted it.
+      # The result was a v0.6.0 that existed, held every installer, and was
+      # invisible to every installed copy, because `newestRelease()` skips
+      # drafts (apps/desktop/src/update-check.ts). It cost an afternoon to work
+      # out. Manual runs now build to workflow artifacts and stop there.
+      - name: Build the installers (manual run — no release)
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        run: npm run package --workspace @weaveforge/desktop -- --publish never
+
+      - name: Upload the installers as workflow artifacts
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/latest*.yml
+          if-no-files-found: warn
+          retention-days: 7
 
   publish:
     # electron-builder leaves the release a draft so three platforms can upload
@@ -99,3 +127,22 @@ jobs:
             echo "no release for $tag — every platform build must have failed" >&2
             exit 1
           fi
+
+      # The whole point of this job is that the release stops being a draft, so
+      # say out loud that it did. A draft is indistinguishable from a missing
+      # release to an installed copy, and a green tick on a run that quietly
+      # left one behind is how that goes unnoticed for a month.
+      - name: Confirm the release is visible to the updater
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          draft="$(gh release view "$tag" --json isDraft -q .isDraft)"
+          feed="$(gh release view "$tag" --json assets -q '[.assets[].name] | index("latest.yml")')"
+          if [ "$draft" != "false" ]; then
+            echo "$tag is still a draft — installed copies cannot see it" >&2
+            exit 1
+          fi
+          if [ "$feed" = "null" ]; then
+            echo "$tag has no latest.yml — the Windows updater has nothing to read" >&2
+            exit 1
+          fi
+          echo "$tag is published and carries latest.yml"

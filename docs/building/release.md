@@ -75,6 +75,18 @@ All changes still land on `main` via pull request (branch protection). Tags are 
    half-uploaded release is never offered to anybody.
 5. Write the notes on the published release.
 
+**A release is made by a tag, never by hand.** Running the workflow manually
+(Actions → Release desktop app → Run workflow) builds all three platforms and
+attaches the installers to the run as artifacts — it creates no release and
+touches no existing one. That is deliberate: it used to publish, which left a
+**draft** release behind, and a draft is invisible to every installed copy
+because `newestRelease()` skips drafts. The app appeared to have no update
+available while a complete set of installers sat in the repository.
+
+If you ever see a draft desktop release, that is the bug, not the state: either
+publish it or delete it and re-push the tag. The tagged run now fails if the
+release is still a draft or has no `latest.yml` when it finishes.
+
 SECURITY: the Windows and macOS builds are not code-signed, so the only
 integrity check on a downloaded update is the SHA-512 in `latest.yml`, served
 over HTTPS from the same release. Say so in the notes; do not describe the
