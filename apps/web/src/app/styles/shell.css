@@ -5,7 +5,8 @@
   margin: 0;
   overflow-x: clip;
   /* Fluid gutters: scale with the viewport instead of a fixed column. */
-  padding: 24px clamp(14px, 4vw, 28px) calc(92px + env(safe-area-inset-bottom));
+  padding: 24px max(clamp(14px, 4vw, 28px), env(safe-area-inset-right)) calc(92px + env(safe-area-inset-bottom))
+    max(clamp(14px, 4vw, 28px), env(safe-area-inset-left));
   transition:
     max-width var(--layout-duration) var(--layout-ease),
     margin var(--layout-duration) var(--layout-ease),

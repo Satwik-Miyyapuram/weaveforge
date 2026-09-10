@@ -1,5 +1,6 @@
 import http from "node:http";
 import { AUTH_LOOPBACK_PORT, signInCallbackQuery } from "./handlers";
+import { isLoopbackHost } from "./local-api-server";
 
 /**
  * Where a provider sign-in comes back to.
@@ -23,7 +24,9 @@ import { AUTH_LOOPBACK_PORT, signInCallbackQuery } from "./handlers";
  */
 export function startAuthLoopback(onSignIn: (query: string) => void): http.Server {
   const server = http.createServer((request, response) => {
-    const query = signInCallbackQuery(request.url);
+    const query = isLoopbackHost(request.headers.host, AUTH_LOOPBACK_PORT)
+      ? signInCallbackQuery(request.url)
+      : null;
     if (!query) {
       response.writeHead(404, { "content-type": "text/plain" });
       response.end("Not found");

@@ -1,5 +1,6 @@
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./vector-store-idb";
 
 /**
@@ -86,18 +87,18 @@ function localStore(): VectorStore {
  */
 function pack(value: StoredVectors): string {
   const head = JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision });
-  return `${toBase64(new TextEncoder().encode(head))}.${toBase64(new Uint8Array(value.vectors))}`;
+  return `${encodeBase64(new TextEncoder().encode(head))}.${encodeBase64(new Uint8Array(value.vectors))}`;
 }
 
 function unpack(packed: string): StoredVectors | null {
   const split = packed.indexOf(".");
   if (split < 0) return null;
   try {
-    const head = JSON.parse(new TextDecoder().decode(fromBase64(packed.slice(0, split)))) as Omit<
+    const head = JSON.parse(new TextDecoder().decode(decodeBase64(packed.slice(0, split)))) as Omit<
       StoredVectors,
       "vectors"
     >;
-    const bytes = fromBase64(packed.slice(split + 1));
+    const bytes = decodeBase64(packed.slice(split + 1));
     const vectors = new ArrayBuffer(bytes.byteLength);
     new Uint8Array(vectors).set(bytes);
     return { ...head, vectors };
@@ -106,21 +107,6 @@ function unpack(packed: string): StoredVectors | null {
   }
 }
 
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  // In chunks: `apply` on a megabyte-long array overflows the argument stack.
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(binary);
-}
-
-function fromBase64(text: string): Uint8Array {
-  const binary = atob(text);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
 
 let chosen: VectorStore | null = null;
 

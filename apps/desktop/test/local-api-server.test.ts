@@ -9,7 +9,7 @@ const TOKEN = "test-token";
 const session = {} as VaultSession;
 
 /** One request, answered with its status — `fetch` hides an early reply. */
-function send(options: { path: string; method?: string; body?: Buffer }): Promise<number | string> {
+function send(options: { path: string; method?: string; body?: Buffer; host?: string }): Promise<number | string> {
   return new Promise((resolve) => {
     const body = options.body;
     const req = http.request(
@@ -22,6 +22,7 @@ function send(options: { path: string; method?: string; body?: Buffer }): Promis
         agent: false,
         headers: {
           authorization: `Bearer ${TOKEN}`,
+          ...(options.host ? { host: options.host } : {}),
           ...(body ? { "content-type": "application/json", "content-length": body.length } : {}),
         },
       },
@@ -57,6 +58,8 @@ test("a body past the limit is refused, and the next request is still served", a
     );
     // The one that used to time out: a new connection after the refusal.
     assert.equal(await send({ path: "/api/sdk/whoami" }), 200);
+    // Reached through a name that is not this computer: DNS rebinding.
+    assert.equal(await send({ path: "/api/sdk/whoami", host: "evil.example:27123" }), 421);
   } finally {
     await api.close();
   }

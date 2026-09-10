@@ -33,7 +33,7 @@ jobs:
           set -euo pipefail
           ALIAS="${KEY_ALIAS:-weaveforge}"
           FP=$(keytool -list -v -keystore android-keystore.jks -storepass "$STORE_PASS" -alias "$ALIAS" \
-            | awk -F' ' '/SHA256:/{print $2; exit}')
+            | awk -F' ' '/SHA256:/ && !done {print $2; done=1}')
           if [ -z "$FP" ]; then
             echo "Could not read SHA256 for alias=$ALIAS"
             keytool -list -keystore android-keystore.jks -storepass "$STORE_PASS" || true

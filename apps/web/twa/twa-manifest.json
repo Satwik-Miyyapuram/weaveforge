@@ -11,7 +11,7 @@
   "navigationDividerColor": "#000000",
   "navigationDividerColorDark": "#000000",
   "backgroundColor": "#000000",
-  "enableNotifications": true,
+  "enableNotifications": false,
   "startUrl": "/",
   "iconUrl": "https://app.weaveforge.org/icons/icon-512.png",
   "maskableIconUrl": "https://app.weaveforge.org/icons/maskable-512.png",

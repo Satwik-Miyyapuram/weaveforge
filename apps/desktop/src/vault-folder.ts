@@ -65,19 +65,23 @@ export function rootFingerprint(root: string): string {
 
 async function assertInside(root: string, target: string): Promise<void> {
   // `safeWorkspacePath` already refused `..` and absolute paths, so the only
-  // way out left is a symlink planted inside the folder. Resolve what actually
-  // exists and check where it landed.
-  let resolved = target;
-  try {
-    resolved = await fs.realpath(target);
-  } catch {
-    // Not created yet: the parent is what matters.
+  // way out left is a symlink planted inside the folder. Resolve the nearest
+  // ancestor that exists — a write creates the rest with `mkdir -p`, which
+  // follows a symlinked ancestor wherever it points — and check where it landed.
+  let existing = target;
+  let rest = "";
+  for (;;) {
     try {
-      resolved = path.join(await fs.realpath(path.dirname(target)), path.basename(target));
+      existing = await fs.realpath(existing);
+      break;
     } catch {
-      return; // Nothing on disk yet; the join below cannot escape.
+      const parent = path.dirname(existing);
+      if (parent === existing) return; // Nothing on disk at all: cannot escape.
+      rest = path.join(path.basename(existing), rest);
+      existing = parent;
     }
   }
+  const resolved = path.join(existing, rest);
   const realRoot = await fs.realpath(root).catch(() => path.resolve(root));
   const relative = path.relative(realRoot, resolved);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {

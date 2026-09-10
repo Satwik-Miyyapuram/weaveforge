@@ -15,10 +15,23 @@ export function encodeBytea(bytes: Uint8Array): string {
   return `\\x${[...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** `encode(bytea, 'base64')` payloads from JSON-RPC (e.g. redeem_share_link). */
-export function decodePostgresBase64(b64: string): Uint8Array {
+/** base64 → bytes; also the shape of `encode(bytea, 'base64')` payloads from JSON-RPC. */
+export function decodeBase64(b64: string): Uint8Array<ArrayBuffer> {
   const binary = atob(b64);
-  const out = new Uint8Array(binary.length);
+  const out = new Uint8Array(new ArrayBuffer(binary.length));
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
   return out;
+}
+
+/**
+ * Bytes → base64, in chunks: `String.fromCharCode(...bytes)` spreads the whole
+ * array onto the call stack and throws once a payload passes ~64K bytes,
+ * which a merged Yjs update easily does.
+ */
+export function encodeBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000) as unknown as number[]);
+  }
+  return btoa(binary);
 }

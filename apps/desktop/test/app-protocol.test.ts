@@ -72,4 +72,7 @@ test("every response carries the headers the server used to send", () => {
   assert.equal(headers["x-content-type-options"], "nosniff");
   assert.equal(headers["referrer-policy"], "strict-origin-when-cross-origin");
   assert.equal(headers["content-type"], "text/html; charset=utf-8");
+  assert.match(headers["content-security-policy"] ?? "", /frame-ancestors 'none'/);
+  // Only a document has a policy to carry; a script or image does not.
+  assert.equal(appHeaders("text/javascript; charset=utf-8")["content-security-policy"], undefined);
 });

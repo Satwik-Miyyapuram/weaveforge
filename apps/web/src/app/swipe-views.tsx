@@ -12,6 +12,7 @@ import { useNavPending } from "@/lib/nav-pending";
  * start on the graph canvas or a form control are ignored so they keep their
  * own gestures. Vertical scrolling is untouched (we never preventDefault).
  */
+const EDGE = 24;
 const IGNORE = ".graph-wrap, .graph-canvas, .dashboard-grid-wrap, .table-scroll, .papers-table-scroll, input, textarea, select, .custom-select-menu, .sub-nav";
 
 export function SwipeViews({
@@ -46,7 +47,10 @@ export function SwipeViews({
       return;
     }
     const t = e.touches[0];
-    if (t) start.current = { x: t.clientX, y: t.clientY, t: Date.now() };
+    // The outer 24px belong to the system: back on Android, the edge swipe on
+    // iOS. A swipe that starts there is one of those, not one of ours.
+    if (!t || t.clientX < EDGE || t.clientX > window.innerWidth - EDGE) return;
+    start.current = { x: t.clientX, y: t.clientY, t: Date.now() };
   }
 
   function onTouchEnd(e: React.TouchEvent) {

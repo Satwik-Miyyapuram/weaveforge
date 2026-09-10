@@ -38,6 +38,10 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": object.contentType,
         "Cache-Control": "private, no-store",
+        // An uploaded SVG or HTML would otherwise run as this origin's script.
+        // Sandboxed and script-less, it can still be shown in an <img>.
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (err) {
