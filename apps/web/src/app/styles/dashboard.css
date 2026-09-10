@@ -293,7 +293,10 @@
 
 /* ---- Mobile layout (≤899px — matches nav + dashboard breakpoint) ---- */
 @media (max-width: 899px) {
-  .app-shell { padding: 16px 14px calc(88px + env(safe-area-inset-bottom)); }
+  .app-shell {
+    padding: 16px max(14px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+  }
 
   /* Let the swipe surface fill the viewport so horizontal swipes register on
      the empty background too, not just on top of content cards. */

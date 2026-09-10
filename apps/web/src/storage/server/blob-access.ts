@@ -12,6 +12,14 @@ const BLOB_STORAGE_BUCKETS = [
   "report-images",
 ] as const;
 
+/** What a share of the resource in a path grants access to. */
+const SHARED_AS: Record<string, string> = {
+  "paper-images": "paper",
+  "experiment-artifacts": "experiment",
+  "vault-assets": "vault_page",
+  "report-images": "report_section",
+};
+
 /** Reject path traversal and writes outside the caller's `{userId}/` prefix. */
 export function assertBlobPathOwned(path: string, userId: string): void {
   if (!path || path.includes("..") || path.startsWith("/") || path.includes("\\")) {
@@ -29,29 +37,14 @@ export function assertAllowedBlobBucket(bucket: string): void {
   }
 }
 
-/** Paper image path: `{ownerId}/{paperId}/{file}`. */
-export function paperIdFromImagePath(path: string): string | null {
+/** Every bucket keys its objects `{ownerId}/{resourceId}/{file}`. */
+export function resourceIdFromBlobPath(path: string): string | null {
   const seg = path.split("/")[1];
-  if (!seg || !UUID_RE.test(seg)) return null;
-  return seg;
-}
-
-/** Vault asset path: `{ownerId}/{pageId}/{file}`. */
-function vaultPageIdFromPath(path: string): string | null {
-  const seg = path.split("/")[1];
-  if (!seg || !UUID_RE.test(seg)) return null;
-  return seg;
-}
-
-/** Report image path: `{ownerId}/{sectionId}/{file}`. */
-export function reportSectionIdFromImagePath(path: string): string | null {
-  const seg = path.split("/")[1];
-  if (!seg || !UUID_RE.test(seg)) return null;
-  return seg;
+  return seg && UUID_RE.test(seg) ? seg : null;
 }
 
 async function sharedResourceToUser(
-  resourceType: "paper" | "vault_page" | "report_section",
+  resourceType: string,
   resourceId: string,
   viewerUid: string,
 ): Promise<boolean> {
@@ -68,7 +61,7 @@ async function sharedResourceToUser(
   return !error && data === true;
 }
 
-/** Owner or explicit paper share may view a blob. */
+/** The owner, or someone the resource behind the blob is shared with, may view it. */
 export async function resolveBlobTierForViewer(
   bucket: string,
   path: string,
@@ -91,17 +84,8 @@ export async function resolveBlobTierForViewer(
   const tier: BlobTier = data.tier === "cold" ? "cold" : "hot";
   if (data.user_id === viewerUid) return tier;
 
-  if (bucket === "paper-images") {
-    const paperId = paperIdFromImagePath(path);
-    if (paperId && (await sharedResourceToUser("paper", paperId, viewerUid))) return tier;
-  }
-  if (bucket === "vault-assets") {
-    const pageId = vaultPageIdFromPath(path);
-    if (pageId && (await sharedResourceToUser("vault_page", pageId, viewerUid))) return tier;
-  }
-  if (bucket === "report-images") {
-    const sectionId = reportSectionIdFromImagePath(path);
-    if (sectionId && (await sharedResourceToUser("report_section", sectionId, viewerUid))) return tier;
-  }
+  const shared = SHARED_AS[bucket];
+  const resourceId = shared ? resourceIdFromBlobPath(path) : null;
+  if (shared && resourceId && (await sharedResourceToUser(shared, resourceId, viewerUid))) return tier;
   return null;
 }

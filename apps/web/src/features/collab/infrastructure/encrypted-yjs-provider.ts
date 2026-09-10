@@ -12,6 +12,7 @@ import { applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } fr
 import * as Y from "yjs";
 import { mergeUpdates, encodeStateAsUpdate } from "yjs";
 import { formatError } from "@/lib/format-error";
+import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 
 const MERGE_MS = 200;
 const PERSIST_IDLE_MS = 5000;
@@ -111,7 +112,7 @@ export class EncryptedYjsProvider {
     this.awarenessHandler = ({ added, updated, removed }) => {
       const changed = added.concat(updated, removed);
       const update = encodeAwarenessUpdate(awareness, changed);
-      const data = btoa(String.fromCharCode(...update));
+      const data = encodeBase64(update);
       void this.channel?.send({ type: "broadcast", event: "awareness", payload: { data } });
     };
     awareness.on("update", this.awarenessHandler);
@@ -138,7 +139,7 @@ export class EncryptedYjsProvider {
     }
     const merged = mergeUpdates(this.pending);
     this.pending = [];
-    const data = btoa(String.fromCharCode(...merged));
+    const data = encodeBase64(merged);
     try {
       const res = await this.channel.send({ type: "broadcast", event: "yjs", payload: { data } });
       if (res !== "ok") this.opts.onError?.("send", `broadcast returned ${String(res)}`);
@@ -149,13 +150,13 @@ export class EncryptedYjsProvider {
 
   private async onRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed) return;
-    const bin = Uint8Array.from(atob(payload.data), (c) => c.charCodeAt(0));
+    const bin = decodeBase64(payload.data);
     Y.applyUpdate(this.opts.doc, bin, this);
   }
 
   private async onAwarenessRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed || !this.opts.awareness) return;
-    const bin = Uint8Array.from(atob(payload.data), (c) => c.charCodeAt(0));
+    const bin = decodeBase64(payload.data);
     applyAwarenessUpdate(this.opts.awareness, bin, this);
   }
 

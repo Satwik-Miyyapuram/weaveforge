@@ -30,6 +30,9 @@ class ApiClient:
             base_url=api_url.rstrip("/"),
             headers={"Authorization": f"Bearer {token}"},
             timeout=60.0,
+            # Connection failures only -- a request that reached the server is
+            # never replayed, so nothing is logged twice.
+            transport=httpx.HTTPTransport(retries=3),
         )
 
     def get(self, path: str, params: dict | None = None) -> dict:

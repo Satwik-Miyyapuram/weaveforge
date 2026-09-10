@@ -6,7 +6,7 @@ import type {
   ShareLinkSaveInput,
 } from "@weaveforge/core";
 import type { ShareableType } from "@weaveforge/core";
-import { decodeBytea, decodePostgresBase64, encodeBytea } from "@/lib/bytea.js";
+import { decodeBytea, decodeBase64, encodeBytea } from "@/lib/bytea.js";
 
 function throwSupabaseError(error: { message?: string }, fallback: string): never {
   const msg = typeof error.message === "string" ? error.message : fallback;
@@ -140,7 +140,7 @@ export class SupabaseShareLinkRepository implements IShareLinkRepository {
       resourceType: row.resourceType as ShareableType,
       resourceId: row.resourceId as string,
       access: row.access as "view",
-      dekWrap: row.dekWrap ? decodePostgresBase64(row.dekWrap as string) : null,
+      dekWrap: row.dekWrap ? decodeBase64(row.dekWrap as string) : null,
       dekEpoch: (row.dekEpoch as number | null) ?? null,
     };
   }

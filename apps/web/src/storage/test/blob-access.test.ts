@@ -3,34 +3,20 @@ import assert from "node:assert/strict";
 import {
   assertAllowedBlobBucket,
   assertBlobPathOwned,
-  paperIdFromImagePath,
-  reportSectionIdFromImagePath,
+  resourceIdFromBlobPath,
 } from "../server/blob-access";
 
-describe("paperIdFromImagePath", () => {
-  it("extracts paper id from storage path", () => {
+describe("resourceIdFromBlobPath", () => {
+  it("reads the resource id out of `{owner}/{resource}/{file}`", () => {
     assert.equal(
-      paperIdFromImagePath(
-        "owner-id/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/fig.webp",
-      ),
+      resourceIdFromBlobPath("owner-id/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/fig.webp"),
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
   });
 
   it("returns null for invalid paths", () => {
-    assert.equal(paperIdFromImagePath("only-one-segment"), null);
-    assert.equal(paperIdFromImagePath("a/not-a-uuid/c.webp"), null);
-  });
-});
-
-describe("reportSectionIdFromImagePath", () => {
-  it("extracts section id from storage path", () => {
-    assert.equal(
-      reportSectionIdFromImagePath(
-        "owner-id/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/fig.webp",
-      ),
-      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-    );
+    assert.equal(resourceIdFromBlobPath("only-one-segment"), null);
+    assert.equal(resourceIdFromBlobPath("a/not-a-uuid/c.webp"), null);
   });
 });
 

@@ -72,12 +72,33 @@ export function resolveAppFile(
  * browser running our HTML and the reasons for them did not go away.
  */
 export function appHeaders(contentType: string): Record<string, string> {
-  return {
+  const headers: Record<string, string> = {
     "content-type": contentType,
     "x-content-type-options": "nosniff",
     "referrer-policy": "strict-origin-when-cross-origin",
   };
+  if (contentType.startsWith("text/html")) headers["content-security-policy"] = APP_CSP;
+  return headers;
 }
+
+/**
+ * The web build's policy, plus what only the desktop reaches: local model
+ * servers on loopback, and workers built from blobs.
+ */
+const APP_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*",
+  "worker-src 'self' blob:",
+  "media-src 'self' blob: https:",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
 
 /** The content type for a file, by extension. Unknown means bytes. */
 export function contentTypeFor(file: string): string {

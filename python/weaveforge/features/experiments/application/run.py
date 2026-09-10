@@ -11,6 +11,7 @@ behind "the decorator does everything down the line."
 from __future__ import annotations
 
 import io
+import warnings
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from typing import Any
@@ -25,6 +26,8 @@ from .manage_experiment import ManageExperimentUseCase
 Uploader = Callable[[str, str, bytes, str], str]
 
 _FLUSH_EVERY = 1000
+#: Points kept while the server is unreachable before the oldest are dropped.
+_MAX_BUFFERED = 20 * _FLUSH_EVERY
 _CONTENT_TYPES = {
     "png": "image/png",
     "webp": "image/webp",
@@ -69,7 +72,7 @@ class Run:
         if self._mirror is not None:
             self._mirror.log({name: float(value)}, int(step))
         if len(self._buffer) >= _FLUSH_EVERY:
-            self.flush()
+            self._auto_flush()
 
     def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
         if step is None:
@@ -153,7 +156,7 @@ class Run:
             if s.last_value is not None:
                 self._last[s.metric] = s.last_value
             if len(self._buffer) >= _FLUSH_EVERY:
-                self.flush()
+                self._auto_flush()
 
     def _ingest_artifacts(self, artifacts: Iterable[Any]) -> None:
         for art in artifacts:
@@ -161,6 +164,17 @@ class Run:
                 self.log_artifact(art.url)
             elif art.data is not None:
                 self.log_bytes(art.name, art.data, art.content_type)
+
+    def _auto_flush(self) -> None:
+        """A flush the training loop did not ask for. A server that is down for
+        a minute must not end the run: keep the points, warn once, and try again
+        at the next threshold. ``flush()`` and ``finish()`` still raise."""
+        try:
+            self.flush()
+        except Exception as exc:  # noqa: BLE001 - network errors of any shape
+            warnings.warn(f"weaveforge: could not send metrics, will retry ({exc})", stacklevel=3)
+            if len(self._buffer) > _MAX_BUFFERED:
+                del self._buffer[: len(self._buffer) - _MAX_BUFFERED]
 
     # --- lifecycle -------------------------------------------------------
     def flush(self) -> None:

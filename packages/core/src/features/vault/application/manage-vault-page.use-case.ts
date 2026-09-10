@@ -43,7 +43,8 @@ export class ManageVaultPageUseCase {
    */
   private async assertTitleUnique(title: string, exceptId?: string): Promise<void> {
     const key = normalizeTitleKey(title);
-    const existing = await this.deps.repository.list();
+    const repo = this.deps.repository;
+    const existing = await (repo.listSummaries ? repo.listSummaries() : repo.list());
     if (existing.some((p) => p.id !== exceptId && normalizeTitleKey(p.title) === key)) {
       throw new VaultPageValidationError(`A note titled “${title.trim()}” already exists.`);
     }

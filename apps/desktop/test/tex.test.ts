@@ -59,6 +59,15 @@ test("tex: a source path that leaves the build directory is refused", async () =
   await assert.rejects(() => compileTex([], "../main.tex", fakeTool()), /leaves the build directory/);
 });
 
+test("tex: a latexmk rc file in the sources is refused, it is a script", async () => {
+  for (const path of [".latexmkrc", "latexmkrc", "sub/.LatexMkRc"]) {
+    await assert.rejects(
+      () => compileTex([{ path, content: "system('id')" }], "main.tex", fakeTool()),
+      /run it as a script/,
+    );
+  }
+});
+
 test("tex: with no TeX installed the answer is a reason, not a failure", async () => {
   const result = await compileTex([{ path: "main.tex", content: MINIMAL }], "main.tex", null);
 

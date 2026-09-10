@@ -83,4 +83,28 @@ describe("the sync change feed", () => {
     const rows = await as.sql("select 1 from sync_changes($1, 500)", [highest[0]!.high]);
     assert.deepEqual(rows, []);
   });
+
+  it("pages by server_seq across tables, so a full page from one table hides nothing", async () => {
+    const db = await testDb();
+    const user = await db.createUser();
+    const as = db.as(user);
+    // A paper (alphabetically first) written *after* a project: per-table
+    // paging would send the paper, advance the watermark past the project,
+    // and never send the project.
+    const [project] = await as.sql<{ id: string }>(
+      "insert into projects (user_id, name) values ($1, $2) returning id",
+      [user, "older"],
+    );
+    await as.sql("insert into papers (user_id, title) values ($1, $2)", [user, "newer"]);
+    const page = await as.sql<{ table_name: string; row_id: string; server_seq: string }>(
+      "select table_name, row_id, server_seq from sync_changes(0, 1)",
+    );
+    assert.equal(page.length, 1);
+    assert.equal(page[0]!.row_id, project!.id);
+    const next = await as.sql<{ table_name: string }>(
+      "select table_name from sync_changes($1, 1)",
+      [page[0]!.server_seq],
+    );
+    assert.equal(next[0]!.table_name, "papers");
+  });
 });

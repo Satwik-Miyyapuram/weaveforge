@@ -97,6 +97,11 @@ function safeRelative(candidate: string): string {
   ) {
     throw new Error(`Refusing to write '${candidate}': it leaves the build directory.`);
   }
+  // latexmk's rc files are Perl. `-norc` stops latexmk reading them; refusing
+  // them here means no engine ever sees one.
+  if (/(^|\/)\.?latexmkrc$/i.test(normalized)) {
+    throw new Error(`Refusing to write '${candidate}': latexmk would run it as a script.`);
+  }
   return normalized;
 }
 
@@ -130,12 +135,15 @@ export async function probeTex(): Promise<TexTool | null> {
 
 function argsFor(tool: TexTool, entry: string): string[] {
   switch (tool.kind) {
+    // `./` so a file named `-something.tex` is a file, not an option. No rc
+    // file and no shell escape: the sources came from a page, and a project
+    // that could ship a `.latexmkrc` could run Perl on this computer.
     case "latexmk":
-      return ["-pdf", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", entry];
+      return ["-norc", "-pdf", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", `./${entry}`];
     case "tectonic":
-      return ["--keep-logs", "--print", entry];
+      return ["--keep-logs", "--print", "--", entry];
     case "pdflatex":
-      return ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", entry];
+      return ["-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", `./${entry}`];
   }
 }
 

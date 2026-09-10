@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from "electron";
 import fs from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -281,8 +281,18 @@ function preferenceStore(): PreferenceStore {
   const file = path.join(app.getPath("userData"), "preferences.json");
   return new PreferenceStore({
     read: () => fs.promises.readFile(file, "utf8").catch(() => null),
-    write: (contents) => fs.promises.writeFile(file, contents, "utf8"),
+    write: (contents) => writeWhole(file, contents),
   });
+}
+
+/**
+ * Written beside and renamed over: a crash mid-write leaves the old file, not
+ * half of the new one. These two files are read at every start.
+ */
+async function writeWhole(file: string, contents: string, mode?: number): Promise<void> {
+  const draft = `${file}.${process.pid}.tmp`;
+  await writeFile(draft, contents, { encoding: "utf8", mode });
+  await rename(draft, file);
 }
 
 ipcMain.handle(CHANNELS.preferenceRead, (_event, name: unknown) => preferenceStore().read(name));
@@ -359,7 +369,7 @@ function secretStore(): SecretStore {
   const file = path.join(app.getPath("userData"), "secrets.json");
   return new SecretStore(safeStorage, {
     read: () => readFile(file, "utf8").catch(() => null),
-    write: (contents) => writeFile(file, contents, { encoding: "utf8", mode: 0o600 }),
+    write: (contents) => writeWhole(file, contents, 0o600),
   });
 }
 

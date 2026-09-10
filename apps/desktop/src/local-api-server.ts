@@ -28,6 +28,19 @@ export function newLocalApiToken(): string {
 /** Bodies past this are refused rather than buffered. */
 const MAX_BODY = 8 * 1024 * 1024;
 
+/**
+ * Whether a request was addressed to this computer by name.
+ *
+ * A page can reach a loopback port through a DNS name it controls that
+ * resolves to 127.0.0.1 after the browser has decided the page is trusted
+ * (DNS rebinding). The `Host` header still says what the page typed, so a
+ * request that arrived under any other name is not one meant for us.
+ */
+export function isLoopbackHost(host: string | undefined, port: number): boolean {
+  const name = host?.trim().toLowerCase();
+  return name === `127.0.0.1:${port}` || name === `localhost:${port}` || name === `[::1]:${port}`;
+}
+
 export interface LocalApi {
   close(): Promise<void>;
 }
@@ -48,6 +61,12 @@ export function startLocalApi(
   rank?: SemanticRanker,
 ): Promise<LocalApi> {
   const server: Server = createServer((req, res) => {
+    if (!isLoopbackHost(req.headers.host, LOCAL_API_PORT)) {
+      res.writeHead(421, { "content-type": "application/json" });
+      res.end(JSON.stringify({ errorCode: 421, message: "Not for this host." }));
+      req.resume();
+      return;
+    }
     const chunks: Buffer[] = [];
     let size = 0;
     let refused = false;

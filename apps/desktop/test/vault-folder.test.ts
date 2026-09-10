@@ -79,12 +79,16 @@ test("a symlink out of the folder is refused too", async () => {
   const root = await tempDir();
   const outside = await tempDir();
   try {
-    await symlink(outside, path.join(root, "away"), "dir");
+    // A junction needs no privilege on Windows and resolves the same way.
+    await symlink(outside, path.join(root, "away"), process.platform === "win32" ? "junction" : "dir");
   } catch {
     return; // No permission to make links on this machine; nothing to prove.
   }
   const fs = new NodeWorkspaceFs(root);
   await assert.rejects(() => fs.writeFile("away/escaped.md", "no"));
+  // Through a folder that does not exist yet: the write would `mkdir -p` it
+  // on the far side of the link.
+  await assert.rejects(() => fs.writeFile("away/new/deeper/escaped.md", "no"));
 });
 
 test("listing gives one level, walking gives every file", async () => {

@@ -1,4 +1,5 @@
 import type { IBlobFetcher } from "@weaveforge/core";
+import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import type { LocalQuery } from "./pglite-client";
 
 /**
@@ -26,7 +27,7 @@ export class LocalBlobStore implements IBlobFetcher {
        values ($1, $2, $3, $4, now())
        on conflict (bucket, path) do update
          set content_type = excluded.content_type, bytes = excluded.bytes, updated_at = now()`,
-      [bucket, path, contentType || blob.type || "application/octet-stream", toBase64(bytes)],
+      [bucket, path, contentType || blob.type || "application/octet-stream", encodeBase64(bytes)],
     );
   }
 
@@ -45,7 +46,7 @@ export class LocalBlobStore implements IBlobFetcher {
   async fetchBytes(bucket: string, path: string): Promise<Uint8Array> {
     const row = (await this.read(bucket, [path])).get(path);
     if (!row) throw new Error(`Nothing stored at ${bucket}/${path} on this computer.`);
-    return fromBase64(row.bytes);
+    return decodeBase64(row.bytes);
   }
 
   async fetchBlob(bucket: string, path: string, fallbackContentType?: string): Promise<Blob> {
@@ -85,24 +86,8 @@ interface StoredBlob {
 
 function blobOf(row: StoredBlob, fallback?: string): Blob {
   // `.slice()` to hand `Blob` an `ArrayBuffer` rather than a possibly shared one.
-  return new Blob([fromBase64(row.bytes).slice().buffer as ArrayBuffer], {
+  return new Blob([decodeBase64(row.bytes).slice().buffer as ArrayBuffer], {
     type: row.content_type || fallback || "application/octet-stream",
   });
 }
 
-/** Chunked: `String.fromCharCode(...bytes)` on a whole PDF overflows the stack. */
-function toBase64(bytes: Uint8Array): string {
-  const CHUNK = 0x8000;
-  let text = "";
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    text += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(text);
-}
-
-function fromBase64(text: string): Uint8Array {
-  const binary = atob(text);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
