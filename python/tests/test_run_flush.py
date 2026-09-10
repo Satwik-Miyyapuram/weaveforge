@@ -30,9 +30,8 @@ class _FlakyMetrics(InMemoryMetricRepository):
 def _run(monkeypatch):
     monkeypatch.setattr(run_module, "_FLUSH_EVERY", 2)
     metrics = _FlakyMetrics()
-    uc = ManageExperimentUseCase(
-        InMemoryExperimentRepository(), FixedClock("2026-06-24T12:00:00.000Z"), SeqIdGenerator(), metrics
-    )
+    clock = FixedClock("2026-06-24T12:00:00.000Z")
+    uc = ManageExperimentUseCase(InMemoryExperimentRepository(), clock, SeqIdGenerator(), metrics)
     return metrics, Run(uc, uc.add(NewExperimentInput(name="x")))
 
 
