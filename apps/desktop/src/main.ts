@@ -42,6 +42,9 @@ import { PreferenceStore } from "./preference-store";
 import { fetchReleases, findUpdate } from "./update-check";
 import { installMenu, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
+import { registerGuardedIpc, sameOrigin } from "./ipc-guard";
+import { runBoundedQuit } from "./quit";
+import { temporaryName } from "./write-queue";
 
 /**
  * The desktop shell.
@@ -96,6 +99,21 @@ const APP_URL =
   process.env.WEAVEFORGE_URL ?? (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
 const APP_ORIGIN = new URL(APP_URL).origin;
 
+/**
+ * The only way a channel is registered, and the reason it is not `ipcMain`.
+ *
+ * The window is supposed to be the app and nothing else, and the navigation
+ * guard below is what keeps it that way. Two supported configurations step
+ * around that guard rather than through it: `WEAVEFORGE_URL` points the window
+ * at whatever a developer says, and a packaged shell's `__DEFAULT_APP_URL__` is
+ * whatever its build was stamped with -- including a plain-HTTP origin. In
+ * either case every channel below would happily answer a page that is not ours,
+ * and those channels include raw SQL, the workspace folder, the keychain and
+ * the switch that opens the loopback API. So the origin is checked on every
+ * call at the boundary itself; `ipc-guard.ts` has the reasoning and the rule.
+ */
+const ipc = registerGuardedIpc(APP_ORIGIN, ipcMain);
+
 /** Where the Help menu sends a reader. Matches the app's own docs link. */
 const DOCS_URL = "https://www.weaveforge.org/docs/";
 
@@ -144,7 +162,9 @@ function createWindow(): void {
    * arbitrary site, and that site would then be a page with a preload attached.
    */
   window.webContents.on("will-navigate", (event, url) => {
-    if (sameOrigin(url)) return;
+    // The same question the IPC guard asks, from the same helper: one answer to
+    // "is this the app" for the navigation and for the bridge it would expose.
+    if (sameOrigin(url, APP_ORIGIN)) return;
     event.preventDefault();
     void openExternally(url);
   });
@@ -153,20 +173,6 @@ function createWindow(): void {
     void openExternally(url);
     return { action: "deny" };
   });
-}
-
-/**
- * Whether a navigation is staying inside the app.
- *
- * Anything unparseable counts as "no" and is refused: a URL this cannot read is
- * not one the shell should follow, and `openExternally` will not open it either.
- */
-function sameOrigin(url: string): boolean {
-  try {
-    return new URL(url).origin === APP_ORIGIN;
-  } catch {
-    return false;
-  }
 }
 
 /** Hands a URL to the operating system, if it is a web address at all. */
@@ -288,24 +294,32 @@ function preferenceStore(): PreferenceStore {
 /**
  * Written beside and renamed over: a crash mid-write leaves the old file, not
  * half of the new one. These two files are read at every start.
+ *
+ * The draft's name is unique per write rather than per process, which the pid
+ * alone is not: two writes in this process picked the same name, so the loser's
+ * rename published the winner's bytes and one of the two changes disappeared.
+ * `temporaryName` has the counter and the random suffix; the queue in
+ * `write-queue.ts` is what keeps two writes from overlapping in the first
+ * place, and this is the belt to that pair of braces — a draft left behind by a
+ * killed process must not be one a later write can collide with either.
  */
 async function writeWhole(file: string, contents: string, mode?: number): Promise<void> {
-  const draft = `${file}.${process.pid}.tmp`;
+  const draft = `${file}.${temporaryName()}`;
   await writeFile(draft, contents, { encoding: "utf8", mode });
   await rename(draft, file);
 }
 
-ipcMain.handle(CHANNELS.preferenceRead, (_event, name: unknown) => preferenceStore().read(name));
-ipcMain.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
+ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) => preferenceStore().read(name));
+ipc.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
   preferenceStore().write(name, value),
 );
 
-ipcMain.handle(CHANNELS.fetchTitle, (_event, url: unknown) => handleFetchTitle(url));
-ipcMain.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(url));
+ipc.handle(CHANNELS.fetchTitle, (_event, url: unknown) => handleFetchTitle(url));
+ipc.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(url));
 // The settings panel asking, rather than the shell announcing. A failure is
 // null and not an error: a settings section that cannot reach GitHub should
 // say it does not know, not turn red.
-ipcMain.handle(CHANNELS.checkUpdate, async () => {
+ipc.handle(CHANNELS.checkUpdate, async () => {
   if (!app.isPackaged) return null;
   return findUpdate({ currentVersion: app.getVersion(), fetchReleases });
 });
@@ -373,13 +387,13 @@ function secretStore(): SecretStore {
   });
 }
 
-ipcMain.handle(CHANNELS.secretRead, (_event, name: unknown) => secretStore().read(name));
-ipcMain.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
+ipc.handle(CHANNELS.secretRead, (_event, name: unknown) => secretStore().read(name));
+ipc.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
   secretStore().write(name, value),
 );
-ipcMain.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().clear(name));
+ipc.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().clear(name));
 
-ipcMain.handle(CHANNELS.overleafRead, (_event, projectId: unknown, entryFile: unknown) =>
+ipc.handle(CHANNELS.overleafRead, (_event, projectId: unknown, entryFile: unknown) =>
   handleOverleafRead(projectId, entryFile, () => secretStore().read("overleaf-token")),
 );
 
@@ -399,7 +413,7 @@ const localDb = new LocalDbHost({
   },
 });
 
-ipcMain.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
+ipc.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
   localDb.query(sql, params),
 );
 
@@ -454,24 +468,24 @@ async function chooseWorkspaceFolder() {
   return adopted;
 }
 
-ipcMain.handle(CHANNELS.vaultChoose, () => chooseWorkspaceFolder());
+ipc.handle(CHANNELS.vaultChoose, () => chooseWorkspaceFolder());
 
-ipcMain.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
-ipcMain.handle(CHANNELS.vaultForget, () => {
+ipc.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
+ipc.handle(CHANNELS.vaultForget, () => {
   stopWatchingVault();
   return forgetRoot(vault, rememberRoot);
 });
-ipcMain.handle(CHANNELS.vaultRead, (_event, at: unknown) => readVaultFile(vault, at));
-ipcMain.handle(CHANNELS.vaultWrite, async (_event, at: unknown, contents: unknown) => {
+ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) => readVaultFile(vault, at));
+ipc.handle(CHANNELS.vaultWrite, async (_event, at: unknown, contents: unknown) => {
   // Said before the write rather than after: the filesystem event can arrive
   // while the write is still returning, and an echo that beats its own note
   // would be reported as somebody else's change.
   if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
   return writeVaultFile(vault, at, contents);
 });
-ipcMain.handle(CHANNELS.vaultList, (_event, at: unknown) => listVaultFiles(vault, at));
-ipcMain.handle(CHANNELS.vaultStat, (_event, at: unknown) => statVaultFile(vault, at));
-ipcMain.handle(CHANNELS.vaultRemove, async (_event, at: unknown) => {
+ipc.handle(CHANNELS.vaultList, (_event, at: unknown) => listVaultFiles(vault, at));
+ipc.handle(CHANNELS.vaultStat, (_event, at: unknown) => statVaultFile(vault, at));
+ipc.handle(CHANNELS.vaultRemove, async (_event, at: unknown) => {
   if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
   return removeVaultFile(vault, at);
 });
@@ -504,7 +518,7 @@ const RANK_TIMEOUT_MS = 4_000;
 let nextRankId = 1;
 const pendingRanks = new Map<number, (order: string[] | null) => void>();
 
-ipcMain.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown) => {
+ipc.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown) => {
   if (typeof id !== "number") return;
   const waiting = pendingRanks.get(id);
   if (!waiting) return;
@@ -560,7 +574,7 @@ async function resumeLocalApi(): Promise<void> {
   await startLocalApiIfEnabled();
 }
 
-ipcMain.handle(CHANNELS.localApiState, async () => {
+ipc.handle(CHANNELS.localApiState, async () => {
   const enabled = await preferenceStore().read("local-api");
   return {
     ok: true,
@@ -568,7 +582,7 @@ ipcMain.handle(CHANNELS.localApiState, async () => {
   };
 });
 
-ipcMain.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
+ipc.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
   if (enabled !== true) {
     await preferenceStore().write("local-api", false);
     await secretStore().clear("local-api-token");
@@ -592,7 +606,7 @@ ipcMain.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
   };
 });
 
-ipcMain.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
+ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
   try {
     return { ok: true, value: await fetchZoteroLocal(url) };
   } catch (error) {
@@ -606,11 +620,11 @@ ipcMain.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
   }
 });
 
-ipcMain.handle(CHANNELS.texProbe, async () => {
+ipc.handle(CHANNELS.texProbe, async () => {
   return { ok: true, value: await probeTex() };
 });
 
-ipcMain.handle(CHANNELS.texCompile, async (_event, files: unknown, entryFile: unknown) => {
+ipc.handle(CHANNELS.texCompile, async (_event, files: unknown, entryFile: unknown) => {
   // The page names the files; `compileTex` refuses any path that would leave
   // the temporary directory it makes, so nothing here is written near the
   // reader's own work.
@@ -627,7 +641,7 @@ ipcMain.handle(CHANNELS.texCompile, async (_event, files: unknown, entryFile: un
   }
 });
 
-ipcMain.handle(CHANNELS.vaultCommit, async () => {
+ipc.handle(CHANNELS.vaultCommit, async () => {
   // The setting is read here rather than sent by the renderer: a window that
   // could pass its own `true` would be switching folder history on without
   // anybody having chosen it.
@@ -683,9 +697,23 @@ function startWatchingVault(root: string): void {
   }
 }
 
+/**
+ * The one thing `will-quit` waits for, and it is not allowed to wait forever.
+ *
+ * Closing the local database is what makes the next launch start from a clean
+ * state, so it is done in order. But it is a WASM Postgres on a real disk, and
+ * any one of a running statement, a file lock or a drive that has gone away can
+ * make it take as long as it likes. An Electron process whose `will-quit`
+ * neither returns nor exits stays alive with no window: invisible, holding the
+ * single-instance lock, so every later launch raises a window that is not there
+ * and quits. That is a machine that appears to have stopped running the app
+ * until somebody opens Task Manager. `quit.ts` has the bound; three seconds is
+ * longer than any healthy close and short enough that nobody reaches for the
+ * power button.
+ */
 app.on("will-quit", (event) => {
   event.preventDefault();
-  void localDb.close().finally(() => app.exit(0));
+  runBoundedQuit({ cleanup: () => localDb.close(), exit: () => app.exit(0) });
 });
 
 // One window per app, and on macOS the dock icon brings it back rather than
@@ -712,8 +740,10 @@ if (!app.requestSingleInstanceLock()) {
     // stays shut.
     void resumeLocalApi();
     createWindow();
-    // Updates install themselves when they can; the older check-and-tell path
-    // stays for the menu entry and for builds with no feed behind them.
+    // Updates are fetched in the background and installed only when the reader
+    // says so -- see `auto-update.ts` for why quitting is not consent on an
+    // unsigned build. The older check-and-tell path stays for the menu entry
+    // and for builds with no feed behind them.
     void realUpdater().then((updater) => {
       if (updater) startAutoUpdate({ updater, window: () => mainWindow, enabled: true });
     });

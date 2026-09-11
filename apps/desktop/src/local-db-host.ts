@@ -57,19 +57,32 @@ export class LocalDbHost {
 
   private database(): Promise<LocalDatabase> {
     this.opening ??= (async () => {
-      const db = new LocalDatabase(await this.options.open());
-      const migrations = this.options.migrations.flatMap((dir) =>
-        readMigrations(dir).map((m) => ({ ...m, name: `${path.basename(dir)}/${m.name}` })),
-      );
-      await db.migrate(LOCAL_BOOTSTRAP_SQL, migrations);
-      await db.ensureLocalUser();
-      return db;
-    })().catch((error) => {
-      // A failed open must not be remembered as the answer, or every later
-      // query fails on a database that a restart might well have opened.
-      this.opening = undefined;
-      throw error;
-    });
+      // Held outside the promise's own value, because the value is exactly what
+      // is lost when this fails: the promise is rejected, nothing else refers
+      // to the client, and a half-open engine is left with a lock on the data
+      // directory. Migrating on top of one is how the *second* open ends up
+      // fighting the first for the same files.
+      let client: LocalClient | undefined;
+      try {
+        client = await this.options.open();
+        const db = new LocalDatabase(client);
+        const migrations = this.options.migrations.flatMap((dir) =>
+          readMigrations(dir).map((m) => ({ ...m, name: `${path.basename(dir)}/${m.name}` })),
+        );
+        await db.migrate(LOCAL_BOOTSTRAP_SQL, migrations);
+        await db.ensureLocalUser();
+        return db;
+      } catch (error) {
+        // Closed before the field is cleared, and cleared only once the close
+        // has settled: a retry that starts while the old engine is still
+        // shutting down is the race this is here to avoid. A failed close is
+        // swallowed -- the open failed, and that is the error worth reporting;
+        // the original throw is re-raised below either way.
+        if (client) await client.close().catch(() => undefined);
+        this.opening = undefined;
+        throw error;
+      }
+    })();
     return this.opening;
   }
 
@@ -98,6 +111,11 @@ export class LocalDbHost {
   async close(): Promise<void> {
     const opened = this.opening;
     this.opening = undefined;
-    if (opened) await (await opened).close();
+    // Optional, not a non-null assertion: a close that races a failed open
+    // finds nothing to await. The failure path above has already cleared the
+    // field and closed the client it managed to make, so there is nothing here
+    // to do -- and quitting is not the moment to raise about it.
+    const db = await opened?.catch(() => undefined);
+    await db?.close();
   }
 }

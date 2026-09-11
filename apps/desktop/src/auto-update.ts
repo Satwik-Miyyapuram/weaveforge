@@ -1,23 +1,28 @@
 import { app, dialog, type BrowserWindow } from "electron";
 
 /**
- * Updates that install themselves.
+ * Updates the reader is asked about before they run.
  *
  * The older path in `update-check.ts` only ever told the reader a release
  * existed and opened the download page; every update then cost a hand-run
  * installer. That is the part people skip, and a shell that drifts behind the
  * web app it loads is the failure this is meant to prevent. So: check quietly
- * in the background, download in the background, and install on quit — the
- * reader is asked once, after the bytes are already there, and can say later.
+ * in the background, download in the background, and ask once the bytes are
+ * already there.
  *
- * Two deliberate limits.
- *
- * SECURITY: the Windows build is not code-signed, so the only integrity check
- * on a downloaded update is the SHA-512 in `latest.yml`, which is fetched over
- * HTTPS from the same GitHub release. That is a real check, and it is weaker
- * than a signature: anyone who can serve a forged release over a trusted TLS
- * connection can serve a forged installer with a matching hash. Signing is the
- * fix, and until it is in place this is what an update is worth.
+ * SECURITY: what this file deliberately does *not* do is install without being
+ * asked. `autoInstallOnAppQuit` is false, so a downloaded update waits for the
+ * reader to choose "Restart now" and an app that is simply quit does not
+ * replace itself on the way out. That matters because the Windows build is not
+ * code-signed, so the only integrity check on a downloaded update is the
+ * SHA-512 in `latest.yml`, which is fetched over HTTPS from the same GitHub
+ * release. That is a real check, and it is weaker than a signature: anyone who
+ * can serve a forged release over a trusted TLS connection can serve a forged
+ * installer with a matching hash. On an unsigned build, turning a forged
+ * installer into a running one should cost the reader a click, not their next
+ * quit — so quitting is not a consent. The residual risk is bounded by that
+ * click and by nothing else, and the real fix is still signing the build; when
+ * it is signed, this restriction can be revisited.
  *
  * And nothing here runs unless the app is packaged and a feed exists. A
  * development copy has no release to be behind, and an offline copy must not
@@ -34,6 +39,15 @@ export interface Updater {
   quitAndInstall(silent?: boolean, forceRunAfter?: boolean): void;
 }
 
+/**
+ * The one question the reader is asked, with the answer it gave.
+ *
+ * A function rather than `dialog.showMessageBox` inline: the consent this file
+ * now exists to obtain is the part worth asserting in a test, and a test cannot
+ * put a window on a screen. The real dialog is installed by `main.ts`.
+ */
+export type AskToInstall = (info: { version: string }) => Promise<boolean>;
+
 /** How often an app that stays open looks again. Six hours, not six minutes. */
 export const RECHECK_MS = 6 * 60 * 60 * 1000;
 
@@ -45,39 +59,39 @@ export interface AutoUpdateOptions {
   enabled: boolean;
   /** Injected so the schedule is testable without waiting six hours. */
   schedule?: (fn: () => void, ms: number) => void;
+  /** Injected so the consent question is testable without a window. */
+  ask?: AskToInstall;
+  /** Whether a found update may be fetched before the reader is asked. */
+  autoDownload?: boolean;
 }
 
 /**
  * Start the background update loop. Returns whether it started.
  */
 export function startAutoUpdate(options: AutoUpdateOptions): boolean {
-  const { updater, window, enabled, schedule = setInterval } = options;
+  const {
+    updater,
+    window,
+    enabled,
+    schedule = setInterval,
+    ask = (info) => askInWindow(window, info),
+    autoDownload = true,
+  } = options;
   if (!enabled) return false;
 
-  updater.autoDownload = true;
-  updater.autoInstallOnAppQuit = true;
+  updater.autoDownload = autoDownload;
+  // Never, and not an option. See the SECURITY note at the top of this file:
+  // on an unsigned build, quitting the app must not be the act that installs
+  // an update nobody agreed to run.
+  updater.autoInstallOnAppQuit = false;
 
   // An update that cannot be reached is not an error the reader needs to see.
   updater.on("error", () => {});
 
   updater.on("update-downloaded", (info) => {
-    const target = window();
-    if (!target || target.isDestroyed()) return;
-    void dialog
-      .showMessageBox(target, {
-        type: "info",
-        title: "Update ready",
-        message: `WeaveForge ${info.version} is ready to install.`,
-        detail:
-          "It is already downloaded. Restarting takes a few seconds; if you would rather not " +
-          "stop now, it installs by itself the next time you quit.",
-        buttons: ["Restart now", "Later"],
-        defaultId: 0,
-        cancelId: 1,
-        noLink: true,
-      })
-      .then(({ response }) => {
-        if (response === 0) updater.quitAndInstall();
+    void ask(info)
+      .then((install) => {
+        if (install) updater.quitAndInstall();
       })
       .catch(() => {});
   });
@@ -86,6 +100,39 @@ export function startAutoUpdate(options: AutoUpdateOptions): boolean {
   look();
   schedule(look, RECHECK_MS);
   return true;
+}
+
+/**
+ * The question, in the app's own dialog.
+ *
+ * `showMessageBox` is used rather than something inside the page because the
+ * page is the *web app*: it is served from a server that knows nothing about
+ * which shell is asking, and putting this in it would mean browser readers
+ * being told to restart an app they do not have.
+ *
+ * A window that has gone away between the download finishing and the question
+ * being asked answers "no". Silence is the safe answer here, and the update is
+ * still downloaded and still offered the next time the app opens.
+ */
+async function askInWindow(
+  window: () => BrowserWindow | null,
+  info: { version: string },
+): Promise<boolean> {
+  const target = window();
+  if (!target || target.isDestroyed()) return false;
+  const { response } = await dialog.showMessageBox(target, {
+    type: "info",
+    title: "Update ready",
+    message: `WeaveForge ${info.version} is ready to install.`,
+    detail:
+      "It is already downloaded. Restarting takes a few seconds and installs it now. " +
+      "If you would rather not stop, choose Later: nothing is installed until you ask.",
+    buttons: ["Restart now", "Later"],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  return response === 0;
 }
 
 /**

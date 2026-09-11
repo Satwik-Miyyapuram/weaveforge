@@ -20,6 +20,25 @@ import { commitVault } from "./vault-git";
 const NO_ROOT = "No workspace folder is chosen yet.";
 const BAD_ARGUMENT = "That is not a path this folder can hold.";
 
+/**
+ * How much of one file crosses this bridge, in bytes.
+ *
+ * A workspace note is prose and is a few kilobytes; the largest thing the
+ * mirror writes is a document with a bibliography in it, and the largest that
+ * has turned up in this repository's own fixtures is under a megabyte. Eight
+ * is a ceiling, not a target: it is the point past which the file is not a
+ * note this app wrote, and the cost of guessing wrong is one refusal with a
+ * reason rather than a page that has to be read into a renderer's heap.
+ *
+ * Named and exported for the same reason `MAX_BODY` is in
+ * `local-api-server.ts` -- the number belongs to one place, and the test that
+ * asserts the refusal should not have to repeat it to mean anything.
+ */
+export const MAX_VAULT_BYTES = 8 * 1024 * 1024;
+
+/** Said when a file is too big to cross, on both sides of the bridge. */
+const TOO_LARGE = `That file is too large to open here (over ${MAX_VAULT_BYTES / (1024 * 1024)} MB).`;
+
 export interface VaultSession {
   root: VaultRootPayload | null;
   fs: NodeWorkspaceFs | null;
@@ -90,6 +109,12 @@ export async function readVaultFile(
   if (!session.fs) return { ok: false, message: NO_ROOT };
   if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
   try {
+    // Sized before it is read rather than after. A read that lands first would
+    // already have put the whole file on this side's heap to find out, which is
+    // the cost the cap exists to avoid -- and a folder can be watched by
+    // something that writes a database file into it.
+    const stat = await session.fs.stat(relative);
+    if (stat && stat.size > MAX_VAULT_BYTES) return { ok: false, message: TOO_LARGE };
     return { ok: true, value: await session.fs.readText(relative) };
   } catch (error) {
     // A missing file is a `null`, not a failure — callers ask about files that
@@ -107,6 +132,13 @@ export async function writeVaultFile(
   if (!session.fs) return { ok: false, message: NO_ROOT };
   if (typeof relative !== "string" || typeof contents !== "string") {
     return { ok: false, message: BAD_ARGUMENT };
+  }
+  // Measured in bytes rather than characters, because bytes are what the disk
+  // is asked for and what a cap is about: a page of prose can be a megabyte of
+  // UTF-8. The write would otherwise land first and the refusal would be about
+  // what is already on disk.
+  if (Buffer.byteLength(contents, "utf8") > MAX_VAULT_BYTES) {
+    return { ok: false, message: TOO_LARGE };
   }
   try {
     await session.fs.writeFile(relative, contents);
