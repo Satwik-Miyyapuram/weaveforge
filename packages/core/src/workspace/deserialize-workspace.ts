@@ -27,6 +27,10 @@ export interface ParsedEntity {
 
 const KNOWN_TYPES = new Set<string>([
   "vault_page",
+  // An ink note declares its type in frontmatter as well as in its `.ink.md`
+  // suffix. Without the declaration the directory would win and a note with
+  // strokes would import as a plain note — see the precedence note below.
+  "ink_page",
   "paper",
   "reading_list",
   "report_section",

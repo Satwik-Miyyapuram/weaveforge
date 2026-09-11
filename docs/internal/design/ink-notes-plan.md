@@ -483,6 +483,38 @@ Keep a `flags` bit for **uncompressed**: a small page (< ~64 kB uncompressed)
 is stored raw, because inflating a 4 kB page costs more than it saves and the
 sidecar is then readable by tooling.
 
+> **Measured correction, step 1 (2026-09-11).** The container is built and the
+> table above re-measured against the same harness data. Three things changed in
+> the telling, and one of them changes a budget.
+>
+> 1. **"brotli q5, with pressure = 52.5 kB" is a quality-11 figure.** 52 487
+>    bytes is what `brotliCompressSync` produced at its **default** quality in
+>    `ink-gold-standard.mjs`; the companion row (39.0 kB, q5) comes from
+>    `ink-compression-levels.mjs`, a slightly different generator. Re-measured at
+>    the q5 this section pins, the harness's own 300 000-point page is **74.5 kB**
+>    without pressure and **87.4 kB** with it — the same bytes, the right label.
+> 2. **The harness's generator is not a handwriting model.** Its LCG multiplies
+>    past 2⁵³, so successive draws are far more predictable than noise, which is
+>    why 300 000 coordinates compress to tens of kilobytes. A page built the way
+>    §4.4 says one is stored — 5 000 handwriting-shaped strokes, simplified to
+>    **12.8 points a stroke** — costs **188 kB at q5 with per-point pressure**
+>    (142 kB without) against **1 108 kB** of equivalent JSON: **~6×**, not 55×.
+>    That page carries roughly 150 kB of genuine entropy, so no container gets
+>    under it. **D3 still stands** — variable width is worth 46 kB a page here,
+>    not 13.5 kB — but the *absolute* per-page figure to plan against is
+>    hundreds of kilobytes.
+> 3. **The budget in §4.7 survives this; the "~150 dense pages" gloss does not.**
+>    8 MB compressed is about **forty** pages of that density, which is still
+>    consistent with 50 pages a note, and the soft 5 000-stroke cap is what keeps
+>    it so.
+>
+> 4. **The point array stays `Int16 [x, y, p, …]` interleaved, as sketched.** A
+>    three-plane split was measured and is *worse*: 85.3 kB against 71.6 kB at q5
+>    on the harness page, because a `0x00` high byte between every pair of
+>    coordinate deltas is cheaper to code than three separate streams. The
+>    container stores the sketch's layout, checks the sketch's every offset, and
+>    inflates a 300 000-point page in **2.4–3.2 ms**.
+
 ### 4.4 Stroke fields
 
 | Field | Meaning |

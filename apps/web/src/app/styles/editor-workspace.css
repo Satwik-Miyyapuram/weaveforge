@@ -130,6 +130,8 @@
 .pane-tab-icon.kind-tint-accent { color: var(--accent); }
 .explorer-icon.kind-tint-good,
 .pane-tab-icon.kind-tint-good { color: var(--s-good); }
+.explorer-icon.kind-tint-danger,
+.pane-tab-icon.kind-tint-danger { color: var(--s-danger); }
 
 .explorer-row.is-active .explorer-icon {
   color: inherit;

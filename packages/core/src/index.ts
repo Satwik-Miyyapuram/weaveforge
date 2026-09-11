@@ -36,6 +36,7 @@ export * from "./features/collab/index.js";
 export * from "./features/ai-assistant/index.js";
 export * from "./storage/index.js";
 export * from "./reader/index.js";
+export * from "./ink/index.js";
 export * from "./workspace/index.js";
 export * from "./search/index.js";
 export * from "./backend/index.js";

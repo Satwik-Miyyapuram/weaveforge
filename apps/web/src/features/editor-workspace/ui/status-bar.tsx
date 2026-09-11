@@ -34,7 +34,15 @@ export function saveLabel(state: SaveState): string {
   return "Saved";
 }
 
-/** The segments a document kind paints, in order. Empty for an unknown kind. */
+/**
+ * The segments a document kind paints, in order. Empty for an unknown kind.
+ *
+ * The last five are the ink note's, and they say what that document *is* rather
+ * than what its text says: a page and a stroke count instead of words, the tool
+ * and whether the pen reports pressure instead of a cursor, how much of the page
+ * an engine is sure of instead of an encoding, and `Ink` where a text kind would
+ * name a language.
+ */
 export type SegmentKey =
   | "words"
   | "chars"
@@ -42,7 +50,12 @@ export type SegmentKey =
   | "encoding"
   | "language"
   | "branch"
-  | "peers";
+  | "peers"
+  | "page"
+  | "strokes"
+  | "pen"
+  | "recognised"
+  | "ink";
 
 export function StatusBar({
   save,

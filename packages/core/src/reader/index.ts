@@ -96,6 +96,7 @@ export { buildAnnotationSortIndex } from "./sort-index.js";
 export {
   shouldAppendInkPoint,
   simplifyInkPath,
+  simplifyPathIndices,
   quantizeInkPath,
   compactInkPath,
   inkPathJsonSize,

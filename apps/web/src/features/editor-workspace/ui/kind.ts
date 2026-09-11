@@ -12,9 +12,11 @@
  * has heard of it reads as a plain text document with the fallback icon, which
  * is the honest answer and keeps a core change from breaking this screen.
  *
- * Ink (`.ink.md`, §3.3 of the design) is not built. When it lands it is one row
- * here — `pencil`, the ink tint, `document: "ink"` — and one case in
- * `document-host.tsx`. Nothing else in the screen learns a new word.
+ * Ink (`.ink.md`) is the first kind that is not text: it carries the `pencil`
+ * glyph, the `danger` tint the prototype's `.t-ink` uses, `document: "ink"` and
+ * a status bar about pages and strokes rather than words and lines (§6.1). It is
+ * one row here and one case in `document-host.tsx`. Nothing else in the screen
+ * learns a new word.
  */
 
 import { KIND_SUFFIX } from "@weaveforge/core";
@@ -24,6 +26,7 @@ import type { SegmentKey } from "./status-bar";
 
 export const KINDS: readonly TreeNodeKind[] = [
   "vault_page",
+  "ink_page",
   "paper",
   "reading_list",
   "report_section",
@@ -36,8 +39,8 @@ export const KINDS: readonly TreeNodeKind[] = [
 /** `icon` is a `nav-icon.tsx` handle; `fallback` is the same handle. */
 export const FALLBACK_KIND = "folder";
 
-/** The two tints a kind can carry. No colour is written anywhere but here. */
-export type KindTint = "info" | "warn" | "accent" | "good" | "neutral";
+/** The tints a kind can carry. No colour is written anywhere but here. */
+export type KindTint = "info" | "warn" | "accent" | "good" | "danger" | "neutral";
 
 export interface KindMeta {
   /** A `nav-icon.tsx` glyph handle — the same icon the nav uses for the entity. */
@@ -78,6 +81,13 @@ export interface KindMeta {
 
 const TEXT_SEGMENTS = ["words", "chars", "cursor", "encoding", "language"] as const;
 
+/**
+ * What an ink note's status bar says (§6.1): which page, how many strokes, the
+ * tool and whether the pen reports pressure, how sure the recogniser is, and the
+ * format's own name where a text kind would name a language.
+ */
+const INK_SEGMENTS = ["page", "strokes", "pen", "recognised", "ink"] as const;
+
 export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
   // A grouping row: it is not a document, so it has no file, no words and no
   // place as a list member, and nothing can link to it.
@@ -103,6 +113,23 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     memberOrder: 20,
     linkGroup: "notes",
     creatable: true,
+  },
+  // Handwritten: the same tree and the same wikilink table as a note, a
+  // different renderer, and the `t-ink` tint the prototype gives its tab.
+  ink_page: {
+    icon: "pencil",
+    tint: "danger",
+    suffix: ".ink.md",
+    document: "ink",
+    segments: INK_SEGMENTS,
+    documentRow: true,
+    // A note, so it sorts with the other notes inside a reading list.
+    memberOrder: 20,
+    linkGroup: "notes",
+    // Nothing creates one from a title yet: an ink note is made by the ink host,
+    // which is what writes its first page and its sidecar, and offering it in the
+    // explorer's "New note" would make a note no writer knows how to fill.
+    creatable: false,
   },
   paper: {
     icon: "book",
