@@ -7,6 +7,7 @@ import {
   type ReaderAnnotation,
   type ReaderAnnotationPatch,
 } from "../reader/index.js";
+import { NotFoundError } from "../shared/errors.js";
 
 /** Combined source+sink for tests and local-only composition. */
 export class InMemoryReaderAnnotationRepository
@@ -56,7 +57,7 @@ export class InMemoryReaderAnnotationRepository
 
   async update(id: string, patch: ReaderAnnotationPatch): Promise<ReaderAnnotation> {
     const existing = this.items.get(id);
-    if (!existing) throw new Error("Annotation not found");
+    if (!existing) throw new NotFoundError("Annotation not found");
     const now = new Date().toISOString();
     const next: ReaderAnnotation & { paperId: string } = {
       ...existing,

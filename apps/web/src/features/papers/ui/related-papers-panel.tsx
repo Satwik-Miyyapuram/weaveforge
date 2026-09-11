@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { type Paper } from "@weaveforge/core";
+import { type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 type RelatedHit = {
   title: string;
@@ -16,7 +17,12 @@ type RelatedHit = {
   citationCount?: number;
 };
 
-export function RelatedPapersPanel({ paper, onChanged }: { paper: Paper; onChanged: () => void }) {
+/**
+ * The seed is whatever the screen has open — the hydrated paper on the note
+ * page, or a summary — and `fetchRelatedPapers` only reads its identifiers, so
+ * the projection is enough here.
+ */
+export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [hits, setHits] = useState<RelatedHit[]>([]);
@@ -73,7 +79,7 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: Paper; onChang
       </button>
       {open && (
         <div className="related-papers-panel">
-          {error && <p className="error">{error}</p>}
+          {error && <FormError>{error}</FormError>}
           {msg && <p className="muted">{msg}</p>}
           <ul className="related-papers-list">
             {hits.map((h) => (

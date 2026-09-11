@@ -1,4 +1,5 @@
 import { AI_TOOL_NAMES, type AiToolName } from "./ai-types.js";
+import { WeaveForgeError } from "../../../shared/errors.js";
 
 export interface AiMcpToolManifestEntry {
   name: AiToolName;
@@ -34,7 +35,7 @@ export function aiMcpToolManifest(): readonly AiMcpToolManifestEntry[] {
   }));
 }
 
-export class AiBrowserPairingRequiredError extends Error {
+export class AiBrowserPairingRequiredError extends WeaveForgeError {
   readonly code = "browser_pairing_required" as const;
   constructor() {
     super("Open WeaveForge and unlock encryption to access this workspace.");

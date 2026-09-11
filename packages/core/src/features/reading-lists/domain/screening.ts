@@ -17,6 +17,7 @@
  */
 
 import type { Identifiable } from "../../../shared/repository.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 /** The two passes of a screen. Full text is only reached by surviving the first. */
 export type ScreeningStage = "title_abstract" | "full_text";
@@ -46,7 +47,7 @@ export interface ScreeningDecision extends Identifiable {
   decidedAt: string;
 }
 
-export class ScreeningError extends Error {
+export class ScreeningError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "ScreeningError";

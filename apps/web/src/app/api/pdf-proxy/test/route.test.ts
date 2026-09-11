@@ -114,3 +114,74 @@ test("pdf-proxy: refuses off-allowlist redirects before following", async () => 
     restore();
   }
 });
+
+/**
+ * The deadlines. Both use a short override — the rule is about a budget
+ * existing and covering the right phase, not about its length.
+ */
+
+/** A body that sends its first chunk and then never sends anything again. */
+function stalledBody(first: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(first);
+      // Deliberately never closed and never pulled again.
+    },
+  });
+}
+
+test("pdf-proxy: a body that stalls after the headers is abandoned on the body deadline", async () => {
+  // The header budget used to be cleared the moment the headers arrived, so an
+  // allowlisted host that answered 200 and then went quiet held the request —
+  // and the server slot — for as long as it liked. The byte cap never fires on
+  // a host that sends nothing.
+  const { restore } = stubFetch(() => new Response(
+    stalledBody(new TextEncoder().encode("%PDF-1.4")),
+    { status: 200, headers: { "content-type": "application/pdf" } },
+  ));
+  try {
+    const res = await proxyAllowlistedPdf("https://arxiv.org/pdf/stall", { bodyTimeoutMs: 25 });
+    assert.equal(res.status, 504);
+    assert.match((await res.json()).error, /did not arrive in time/);
+  } finally {
+    restore();
+  }
+});
+
+test("pdf-proxy: the deadline also covers a body that stalls mid-stream", async () => {
+  // Past the magic window, so the sniff succeeds and the client is already
+  // receiving bytes when the host goes quiet. The response cannot be replaced
+  // with an error status at that point, so the deadline cuts the body.
+  const head = new Uint8Array(2_048).fill(32);
+  head.set(new TextEncoder().encode("%PDF-1.4"), 0);
+  const { restore } = stubFetch(() => new Response(stalledBody(head), {
+    status: 200,
+    headers: { "content-type": "application/pdf" },
+  }));
+  try {
+    const res = await proxyAllowlistedPdf("https://arxiv.org/pdf/stall-tail", { bodyTimeoutMs: 25 });
+    assert.equal(res.status, 200);
+    // The status was already sent, so the deadline cuts the body instead: the
+    // read rejects rather than reading the stalled stream as a complete PDF.
+    await assert.rejects(() => res.text(), /timed out/, "a stalled tail must not read as a complete PDF");
+  } finally {
+    restore();
+  }
+});
+
+test("pdf-proxy: a complete body is not cut off by the deadline", async () => {
+  // The timer is cleared on every exit path, including the happy one — a stream
+  // that finishes normally must not have its connection aborted underneath it.
+  const { restore } = stubFetch(() => new Response("%PDF-1.4 complete", {
+    status: 200,
+    headers: { "content-type": "application/pdf" },
+  }));
+  try {
+    const res = await proxyAllowlistedPdf("https://arxiv.org/pdf/ok", { bodyTimeoutMs: 25 });
+    assert.equal(res.status, 200);
+    assert.equal(await res.text(), "%PDF-1.4 complete");
+  } finally {
+    restore();
+  }
+});
+

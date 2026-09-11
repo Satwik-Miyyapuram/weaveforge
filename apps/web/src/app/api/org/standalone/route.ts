@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createRestClient } from "@/backend/providers/supabase/client";
 import { readBackendConfig } from "@/backend/config";
 import { bearerToken } from "@/lib/bearer-token";
+import { formatErrorForResponse } from "@/lib/format-error";
 
 /** Standalone onboarding — anon key + user JWT, no service role. */
 export async function POST(request: Request) {
@@ -25,7 +26,9 @@ export async function POST(request: Request) {
 
   const { error } = await db.rpc("complete_org_setup");
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // `complete_org_setup` is a definer RPC; when it fails it can report a table
+    // or column by name. Sanitised rather than returned verbatim.
+    return NextResponse.json({ error: formatErrorForResponse(error, "org-standalone") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

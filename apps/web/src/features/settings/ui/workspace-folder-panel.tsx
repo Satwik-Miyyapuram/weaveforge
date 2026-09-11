@@ -23,6 +23,7 @@ import {
   syncToFolder,
   openBrowserStorageFolder,
 } from "@/features/workspace/application/workspace-folder";
+import { FormError } from "@/components/form-error";
 
 /**
  * Settings → Folder.
@@ -109,7 +110,7 @@ export function WorkspaceFolderPanel() {
         records its id, so renaming and moving files is safe.
       </p>
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {status && <p className="muted">{status}</p>}
 
       {!session ? (
@@ -381,7 +382,7 @@ function ImportPreview({
         </ul>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
 
       <div className="screen-actions">
         <button

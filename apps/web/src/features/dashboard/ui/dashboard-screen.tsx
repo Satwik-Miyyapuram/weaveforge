@@ -23,6 +23,7 @@ import { DashboardGrid } from "./dashboard-grid";
 import { DashboardEditBar } from "./dashboard-edit-bar";
 import { CardPickerSheet } from "./card-picker-sheet";
 import { useDashboardStats } from "./use-dashboard-stats";
+import { FormError } from "@/components/form-error";
 
 const layoutCache = new Map<string, DashboardLayout>();
 registerDashboardUiCacheClear(() => layoutCache.clear());
@@ -230,7 +231,7 @@ export function DashboardScreen() {
       </header>
 
       {layoutLoading && <ScreenLoader status="Loading dashboard…" compact />}
-      {layoutError && <p className="error">{layoutError}</p>}
+      {layoutError && <FormError>{layoutError}</FormError>}
       {statsError && (
         <p className="error dashboard-inline-error" role="alert">
           {statsError}

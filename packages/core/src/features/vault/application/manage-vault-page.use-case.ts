@@ -11,6 +11,7 @@ import {
 } from "../domain/vault-page.js";
 import type { IVaultPageRepository } from "../domain/vault-page-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { NotFoundError } from "../../../shared/errors.js";
 
 export interface EditVaultPageInput {
   title?: string;
@@ -44,7 +45,12 @@ export class ManageVaultPageUseCase {
   private async assertTitleUnique(title: string, exceptId?: string): Promise<void> {
     const key = normalizeTitleKey(title);
     const repo = this.deps.repository;
-    const existing = await (repo.listSummaries ? repo.listSummaries() : repo.list());
+    // Only the identity and the title are read here, so the card projection is
+    // preferred — and the annotation says so, because the two projections are
+    // now different types (review-2 F6).
+    const existing: readonly { id: string; title: string }[] = repo.listSummaries
+      ? await repo.listSummaries()
+      : await repo.list();
     if (existing.some((p) => p.id !== exceptId && normalizeTitleKey(p.title) === key)) {
       throw new VaultPageValidationError(`A note titled “${title.trim()}” already exists.`);
     }
@@ -53,7 +59,10 @@ export class ManageVaultPageUseCase {
   async update(id: string, input: EditVaultPageInput): Promise<VaultPage> {
     const existing = await this.deps.repository.getById(id);
     if (!existing) {
-      throw new VaultPageValidationError(`No vault page with id "${id}".`);
+      // Not-found, not invalid input: the id is well-formed and the request was
+      // fine — the row is gone. A route maps this to 404 (F5 of review 2; this
+      // used to arrive as a validation error, i.e. 400).
+      throw new NotFoundError(`No vault page with id "${id}".`);
     }
     const title = input.title !== undefined ? input.title.trim() : existing.title;
     if (!title) {

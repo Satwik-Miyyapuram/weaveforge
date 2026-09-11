@@ -77,6 +77,19 @@
   opacity: 1;
 }
 
+/*
+ * A pointer that cannot hover has to be shown the affordance permanently.
+ *
+ * `:focus-within` covers a keyboard, not a finger: on a touch screen nothing
+ * ever hovers and nothing takes focus until it is tapped, so the button stayed
+ * at `opacity: 0` — present, tappable, and invisible. `lists.css` carries the
+ * same override for its own hover-revealed control; this one was the pair that
+ * got missed.
+ */
+@media (hover: none) {
+  .explorer-start-note { opacity: 1; }
+}
+
 .explorer-start-note:hover {
   border-color: var(--accent);
   color: var(--accent);

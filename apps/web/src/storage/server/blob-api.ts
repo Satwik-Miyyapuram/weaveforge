@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createRestClient } from "@/backend/providers/supabase/client";
-import type { BlobTier, IBlobRegistry, IBlobStore, ICurrentUserProvider } from "@weaveforge/core";
+import type { BlobTier, IBlobStore, ICurrentUserProvider } from "@weaveforge/core";
 import { readBackendConfig } from "@/backend/config";
 import { getPgPool } from "@/backend/providers/postgres/pool";
 import { PgRunner } from "@/backend/providers/postgres/pg-runner";
@@ -31,7 +31,7 @@ export async function userIdFromToken(accessToken: string): Promise<string> {
   return data.user.id;
 }
 
-function blobRegistryForUser(userId: string): IBlobRegistry {
+function blobRegistryForUser(userId: string): PostgresBlobRegistry {
   const backend = readBackendConfig();
   if (backend.provider === "postgres" && backend.databaseUrl) {
     const pg = new PgRunner(getPgPool(backend.databaseUrl), new FixedUserSession(userId));
@@ -54,8 +54,18 @@ export async function buildTieredBlobStoreForToken(
   return buildTieredBlobStoreFromConfig(db, config);
 }
 
-/** Blob registry scoped to the authenticated user (signed URL minting). */
-export async function blobRegistryForToken(accessToken: string): Promise<IBlobRegistry> {
+/**
+ * Blob registry scoped to the authenticated user (signed URL minting).
+ *
+ * Typed as the concrete registries rather than `IBlobRegistry`: the signed-urls
+ * route mints up to 200 URLs in one request, and the batched read and batched
+ * access-counter bump (`getMany` / `recordAccessMany`) are how that stays two
+ * round trips instead of six hundred. They are extras on the adapters,
+ * deliberately not additions to the shared port, which `packages/core` owns.
+ */
+export async function blobRegistryForToken(
+  accessToken: string,
+): Promise<SupabaseBlobRegistry | PostgresBlobRegistry> {
   const uid = await userIdFromToken(accessToken);
   const backend = readBackendConfig();
   if (backend.provider === "postgres" && backend.databaseUrl) {

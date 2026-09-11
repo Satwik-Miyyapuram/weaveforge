@@ -43,6 +43,24 @@ export function toSummaryDomain(row: VaultPageRow): VaultPage {
   };
 }
 
+/**
+ * The row a page is written as.
+ *
+ * `updated_at` is deliberately absent. It is the server's column — migration
+ * `0128` attaches `set_updated_at()` to `vault_pages`, and it was sent from
+ * here until now, which meant the value was whatever the client last had in
+ * memory. That value can go *backwards*: a second device with a slow clock, or
+ * a client echoing the timestamp it read, writes an edit dated before the one
+ * it supersedes. `listStamps()` reads this column to decide which pages a
+ * client must refetch, so an edit dated into the past is an edit the delta read
+ * never reports. Letting the column default fill it on insert and the trigger
+ * own it on update is the same rule the other timestamped tables already have.
+ *
+ * `created_at` stays: it is not a freshness signal but a fact about when the
+ * page was authored, and an offline client that made the page an hour ago is
+ * the authority on that. `updated_at` is a statement about the *stored* row, so
+ * only the store can make it.
+ */
 export function toRow(p: VaultPage): Record<string, unknown> {
   return {
     id: p.id,
@@ -51,6 +69,5 @@ export function toRow(p: VaultPage): Record<string, unknown> {
     parent_id: p.parentId ?? null,
     sort_order: p.sortOrder,
     created_at: p.createdAt,
-    updated_at: p.updatedAt,
   };
 }

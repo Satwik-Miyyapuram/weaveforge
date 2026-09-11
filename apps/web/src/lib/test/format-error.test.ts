@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatError, readJsonBody } from "../format-error";
+import { formatError, formatErrorForResponse, readJsonBody } from "../format-error";
 
 test("formatError: null/undefined -> generic message", () => {
   assert.equal(formatError(null), "Something went wrong.");
@@ -92,3 +92,106 @@ test("a failed fetch handed back as a plain object still gets the network wordin
     /check your connection/,
   );
 });
+
+// ---------------------------------------------------------------- the wire form
+//
+// `formatError` is the display formatter: it is what the UI shows the person
+// whose own data is in the message. `formatErrorForResponse` is what a route
+// may put in a response body. The two are tested apart because the difference
+// between them is the whole point.
+
+test("formatErrorForResponse: a database message never reaches the client", () => {
+  const raw = {
+    message: 'duplicate key value violates unique constraint "api_tokens_token_hash_idx"',
+    details: "Key (token_hash)=(\\xdeadbeef) already exists.",
+    code: "23505",
+  };
+  const safe = formatErrorForResponse(raw, "test");
+  assert.doesNotMatch(safe, /api_tokens/);
+  assert.doesNotMatch(safe, /token_hash/);
+  assert.doesNotMatch(safe, /deadbeef/);
+  // The code is kept: it is the one useful token for a caller debugging an SDK
+  // call, and it names nothing.
+  assert.match(safe, /already in use/);
+  assert.match(safe, /23505/);
+});
+
+test("formatErrorForResponse: an RLS refusal reads as a permission problem", () => {
+  const safe = formatErrorForResponse({
+    message: 'new row violates row-level security policy for table "experiment_metric_points"',
+    code: "42501",
+  });
+  assert.doesNotMatch(safe, /experiment_metric_points/);
+  assert.match(safe, /permission/i);
+});
+
+test("formatErrorForResponse: each caller-fault SQLSTATE gets its own wording", () => {
+  assert.match(formatErrorForResponse({ code: "23503" }), /no longer exists/);
+  assert.match(formatErrorForResponse({ code: "23514" }), /not accepted/);
+  assert.match(formatErrorForResponse({ code: "22P02" }), /wrong format/);
+  assert.match(formatErrorForResponse({ code: "23502" }), /required field/);
+});
+
+test("formatErrorForResponse: a missing migration is surfaced, without the table name", () => {
+  // The one case where the generic wording is useless to the only person who can
+  // act on it. The existing `message — details — hint` form named `api_tokens`;
+  // this says the same useful thing and names nothing.
+  for (const code of ["42P01", "PGRST205"]) {
+    const safe = formatErrorForResponse({ message: 'relation "api_tokens" does not exist', code });
+    assert.match(safe, /migration/i);
+    assert.match(safe, /supabase db push/);
+    assert.doesNotMatch(safe, /api_tokens/, "the hint must not carry the table name");
+  }
+});
+
+test("formatErrorForResponse: anything not from the database passes through", () => {
+  // This is the half the SDK needs. Hiding a validation message would make the
+  // API undebuggable, and these are written for a reader already.
+  assert.equal(
+    formatErrorForResponse(new Error("A professor cannot create an admin account.")),
+    "A professor cannot create an admin account.",
+  );
+  assert.equal(
+    formatErrorForResponse(new Error("Server is missing SUPABASE_JWT_SECRET for API token auth.")),
+    "Server is missing SUPABASE_JWT_SECRET for API token auth.",
+  );
+  assert.match(
+    formatErrorForResponse(new Error("Failed to fetch")),
+    /Could not reach the server/,
+  );
+});
+
+test("formatErrorForResponse: a Node error code is not mistaken for a SQLSTATE", () => {
+  // `ENOENT` is five characters and could look like a code. Classifying it as a
+  // database error would hide a filesystem message behind "Something went wrong
+  // on the server."
+  const message = "ENOENT: no such file or directory, open '/var/data/x'";
+  assert.equal(formatErrorForResponse(new Error(message)), message);
+  assert.equal(formatErrorForResponse({ message: "connect ECONNREFUSED", code: "ECONNREFUSED" }), "connect ECONNREFUSED");
+});
+
+test("formatErrorForResponse: an unknown database code is generic but still coded", () => {
+  // `XX000` is `internal_error` in PostgreSQL, and its class is *letters* — the
+  // reason the class is looked up in a list rather than matched as two digits. A
+  // digits-only test would let this one through unsanitised.
+  for (const code of ["XX000", "P0001", "HV000", "0A000"]) {
+    const safe = formatErrorForResponse({ message: "internal detail nobody should see", code });
+    assert.doesNotMatch(safe, /internal detail/, code);
+    assert.match(safe, /Something went wrong on the server/, code);
+    assert.match(safe, new RegExp(code), code);
+  }
+});
+
+test("formatErrorForResponse: Node errno codes are five letters too, and are not SQLSTATEs", () => {
+  // The two are the same length and the same case; only the class distinguishes
+  // them, and no Node code has a PostgreSQL class prefix.
+  for (const code of ["EPERM", "EBADF", "ENXIO", "EPIPE", "EROFS"]) {
+    const message = `${code}: an operating-system message that is not ours to hide`;
+    assert.equal(
+      formatErrorForResponse({ message, code }),
+      message,
+      `${code} is a filesystem code, not a database one`,
+    );
+  }
+});
+

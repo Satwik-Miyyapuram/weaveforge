@@ -7,6 +7,7 @@
  */
 
 import type { Identifiable } from "../../../shared/repository.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export type ShareableType =
   | "milestone"
@@ -47,7 +48,7 @@ export interface NewShareInput {
   access?: ShareAccess;
 }
 
-export class ShareValidationError extends Error {
+export class ShareValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "ShareValidationError";

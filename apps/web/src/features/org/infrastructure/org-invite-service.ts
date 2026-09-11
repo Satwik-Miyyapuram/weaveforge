@@ -10,6 +10,8 @@ import {
   type OrgJoinSource,
   type Organization,
   OrgInviteValidationError,
+  OrgNotFoundError,
+  OrgPermissionError,
   OrgValidationError,
 } from "@weaveforge/core";
 import {
@@ -41,6 +43,18 @@ interface MembershipRow {
 }
 
 const ROLES: OrgInviteRole[] = ["professor", "phd", "masters"];
+
+/**
+ * How many times a code collision is retried.
+ *
+ * A code is 10 Crockford characters, so a collision is astronomically unlikely
+ * and this is really a guard against a broken generator that returns a constant
+ * — which should fail after a few tries rather than loop.
+ */
+const CODE_ATTEMPTS = 5;
+
+/** PostgreSQL unique_violation. The only error worth retrying a code insert for. */
+const UNIQUE_VIOLATION = "23505";
 
 /** Server-side org operations (service role). */
 export class OrgInviteService {
@@ -79,6 +93,23 @@ export class OrgInviteService {
     ));
   }
 
+  /**
+   * Create a lab, its three invite codes, the owner's membership and the
+   * owner's profile.
+   *
+   * One RPC, not four writes in sequence. PostgREST cannot open a transaction,
+   * so the old version — insert org, insert three codes, upsert membership,
+   * update profile — left a lab whose owner was not in it whenever anything
+   * failed in the middle. That lab is invisible: it is in nobody's membership
+   * list, `switch_active_org` refuses it, and the only repair is hand-written
+   * SQL. `create_organization_atomic` (migration 0125) is one statement, so a
+   * failure anywhere rolls all of it back.
+   *
+   * The codes are still generated here and hashed here — only the hashes travel
+   * — and the retry moved up a level with them: a duplicate `code_hash` now
+   * aborts the whole call rather than just one insert, which is the same
+   * condition, now with the org rolled back instead of orphaned.
+   */
   async createOrganization(userId: string, nameInput: string): Promise<{
     organization: Organization;
     codes: OrgInviteCodePlaintext[];
@@ -87,41 +118,27 @@ export class OrgInviteService {
     const name = validateOrgName(nameInput);
     const admin = this.admin();
 
-    const { data: org, error: orgErr } = await admin
-      .from("organizations")
-      .insert({ name, owner_id: userId })
-      .select("*")
-      .single();
-    if (orgErr || !org) throw new OrgValidationError(orgErr?.message ?? "Failed to create lab.");
-
-    const codes: OrgInviteCodePlaintext[] = [];
-    for (const targetRole of ROLES) {
-      const plaintext = await this.insertUniqueCode(admin, org.id, targetRole);
-      codes.push({ targetRole, code: plaintext });
+    for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
+      const codes: OrgInviteCodePlaintext[] = ROLES.map((targetRole) => ({
+        targetRole,
+        code: generateOrgInviteCode(),
+      }));
+      const { data, error } = await admin.rpc("create_organization_atomic", {
+        p_user_id: userId,
+        p_name: name,
+        p_codes: codes.map((c) => ({
+          target_role: c.targetRole,
+          code_hash: hashOrgInviteCodeInput(normalizeOrgInviteCode(c.code)),
+        })),
+      });
+      if (!error && data) return { organization: toOrg(data as OrgRow), codes };
+      // Only a code collision is retryable; anything else is a real failure and
+      // retrying it would just repeat it.
+      if (error && error.code !== UNIQUE_VIOLATION) {
+        throw new Error(error.message);
+      }
     }
-
-    await this.upsertMembership(admin, {
-      orgId: org.id,
-      userId,
-      role: "professor",
-      supervisorId: null,
-      joinedVia: "create",
-    });
-
-    await admin
-      .from("profiles")
-      .update({
-        role: "professor",
-        supervisor_id: null,
-        active_org_id: org.id,
-        org_setup_complete: true,
-      })
-      .eq("user_id", userId);
-
-    return {
-      organization: toOrg(org as OrgRow),
-      codes,
-    };
+    throw new Error("Could not generate a unique code.");
   }
 
   async joinOrganization(userId: string, input: JoinOrgInput): Promise<{ orgId: string }> {
@@ -146,7 +163,10 @@ export class OrgInviteService {
       .select("*")
       .eq("id", row.org_id)
       .single();
-    if (orgErr || !org) throw new OrgInviteValidationError("Lab not found.");
+    // A code that points at a lab which no longer exists is a 404, not a bad
+    // request: the code the caller holds was valid, and re-typing it cannot
+    // help. Typed now so the HTTP mapping can tell the two apart (review-2 F5).
+    if (orgErr || !org) throw new OrgNotFoundError("Lab not found.");
 
     const { data: existing } = await admin
       .from("org_memberships")
@@ -172,30 +192,25 @@ export class OrgInviteService {
       input,
     );
 
-    await this.upsertMembership(admin, {
-      orgId: row.org_id,
-      userId,
-      role: assignment.role,
-      supervisorId: assignment.supervisorId ?? null,
-      joinedVia: "invite",
+    // Membership, profile and the code's use count as one statement (migration
+    // 0125). Split across three PostgREST calls, a failure after the first left
+    // a role in `org_memberships` and a profile that still said `standalone` —
+    // two rows that disagree, so every read path trusting one of them is wrong.
+    //
+    // The role and supervisor are resolved above because that is domain logic
+    // with its own tests; what the RPC adds is that the increment is
+    // `use_count = use_count + 1` under the row lock rather than a value
+    // computed from a read, which is how a code used a thousand times came to
+    // read 700. The code row is re-checked inside the function, so a code
+    // revoked between the read above and this call cannot be used.
+    const { error: joinErr } = await admin.rpc("join_organization_atomic", {
+      p_user_id: userId,
+      p_org_id: row.org_id,
+      p_code_id: row.id,
+      p_role: assignment.role,
+      p_supervisor_id: assignment.supervisorId ?? null,
     });
-
-    await admin
-      .from("profiles")
-      .update({
-        role: assignment.role,
-        supervisor_id: assignment.supervisorId ?? null,
-        active_org_id: row.org_id,
-        org_setup_complete: true,
-      })
-      .eq("user_id", userId);
-
-    await admin
-      .from("org_invite_codes")
-      .update({
-        use_count: ((codeRow as CodeRow & { use_count?: number }).use_count ?? 0) + 1,
-      })
-      .eq("id", row.id);
+    if (joinErr) throw new OrgInviteValidationError(joinErr.message);
 
     return { orgId: row.org_id };
   }
@@ -273,7 +288,7 @@ export class OrgInviteService {
       .eq("user_id", userId)
       .maybeSingle();
     if (memErr) throw memErr;
-    if (!membership) throw new OrgValidationError("Not a member of this lab.");
+    if (!membership) throw new OrgPermissionError("Not a member of this lab.");
 
     await run(admin
       .from("profiles")
@@ -298,7 +313,7 @@ export class OrgInviteService {
       .eq("id", orgId)
       .single();
     if (!org || org.owner_id !== userId) {
-      throw new OrgValidationError("Only the lab owner can regenerate codes.");
+      throw new OrgPermissionError("Only the lab owner can regenerate codes.");
     }
 
     await admin
@@ -312,12 +327,21 @@ export class OrgInviteService {
     return { targetRole, code };
   }
 
+  /**
+   * Insert one fresh code for a role, retrying on a hash collision.
+   *
+   * Only `regenerateCode` uses this now: `createOrganization` has to make three
+   * codes and the org in one transaction, so its retry lives one level up in
+   * `create_organization_atomic`'s caller instead. Both are the same rule — a
+   * collision on `org_invite_codes_hash_idx` means try another code, never
+   * report a failure — and both share `CODE_ATTEMPTS` and `UNIQUE_VIOLATION`.
+   */
   private async insertUniqueCode(
     admin: SupabaseClient,
     orgId: string,
     targetRole: OrgInviteRole,
   ): Promise<string> {
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
       const plaintext = generateOrgInviteCode();
       const { error } = await admin.from("org_invite_codes").insert({
         org_id: orgId,
@@ -325,32 +349,17 @@ export class OrgInviteService {
         code_hash: hashOrgInviteCodeInput(normalizeOrgInviteCode(plaintext)),
       });
       if (!error) return plaintext;
-      if (error.code !== "23505") throw error;
+      if (error.code !== UNIQUE_VIOLATION) throw error;
     }
-    throw new OrgValidationError("Could not generate a unique code.");
+    throw new Error("Could not generate a unique code.");
   }
 
-  private async upsertMembership(
-    admin: SupabaseClient,
-    input: {
-      orgId: string;
-      userId: string;
-      role: OrgInviteRole;
-      supervisorId: string | null;
-      joinedVia: "create" | "invite";
-    },
-  ) {
-    await run(admin.from("org_memberships").upsert(
-      {
-        org_id: input.orgId,
-        user_id: input.userId,
-        role: input.role,
-        supervisor_id: input.supervisorId,
-        joined_via: input.joinedVia,
-      },
-      { onConflict: "org_id,user_id" },
-    ));
-  }
+  // `upsertMembership` used to live here, as a helper for the create and join
+  // flows. Both now perform the membership upsert inside
+  // `create_organization_atomic` / `join_organization_atomic` (migration 0125),
+  // where it shares a transaction with the profile write it has to agree with —
+  // which is the whole point of moving it. The method is gone rather than left
+  // unused, so there is one way to write a membership, not two.
 
   private async memberIdsForRole(
     admin: SupabaseClient,
@@ -375,9 +384,9 @@ export class OrgInviteService {
       .eq("id", orgId)
       .maybeSingle();
     if (orgErr) throw orgErr;
-    if (!org) throw new OrgValidationError("Lab not found.");
+    if (!org) throw new OrgNotFoundError("Lab not found.");
     if (org.owner_id === userId) {
-      throw new OrgValidationError(
+      throw new OrgPermissionError(
         "Lab owners cannot leave — delete the lab or transfer ownership first.",
       );
     }
@@ -389,7 +398,7 @@ export class OrgInviteService {
       .eq("user_id", userId)
       .maybeSingle();
     if (memErr) throw memErr;
-    if (!membership) throw new OrgValidationError("Not a member of this lab.");
+    if (!membership) throw new OrgPermissionError("Not a member of this lab.");
 
     const { error: delErr } = await admin
       .from("org_memberships")

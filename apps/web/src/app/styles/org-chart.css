@@ -8,8 +8,11 @@
   font-size: 0.72rem; text-transform: capitalize;
   padding: 2px 8px; border-radius: 999px; background: var(--active-bg); color: var(--active-fg);
 }
-.superv-status.s-done { background: #2f855a; color: #fff; }
-.superv-status.s-blocked { background: #c53030; color: #fff; }
+/* Status fills come from the same status ramp the rest of the app's pills use
+   (`entity-detail.css`), rather than a literal pair: those two hex values were
+   fixed for a light background and lost their text contrast on Amoled. */
+.superv-status.s-done { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+.superv-status.s-blocked { background: var(--st-danger-bg); color: var(--st-danger-fg); }
 
 /* ---- Member tree (org chart + supervisor picker) ---- */
 .member-tree { font-size: 0.9rem; }

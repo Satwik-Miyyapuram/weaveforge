@@ -1,6 +1,9 @@
 "use client";
 
 import css from "./pitch.module.css";
+import actsCss from "./pitch-acts.module.css";
+import groundCss from "./pitch-ground.module.css";
+import paperCss from "./pitch-paper.module.css";
 import { useScrollSteps } from "./use-pitch-scroll";
 
 export function Step({ i, active, idx, title, children }: {
@@ -28,7 +31,7 @@ export function Scene({ id, eyebrow, heading, lede, views, steps, tone = "flat" 
 }) {
   const { sceneRef, active } = useScrollSteps(steps.length);
   const single = views.length === 1;
-  const ground = tone === "band" ? css.band : css.seam;
+  const ground = tone === "band" ? groundCss.band : groundCss.seam;
 
   return (
     <section className={`${css.scene} ${ground}`} id={id} ref={sceneRef as React.RefObject<HTMLElement>}>
@@ -86,15 +89,15 @@ export function Sheet({ seed, lit }: { seed: number; lit: boolean }) {
     </span>
   );
   return (
-    <div className={css.sheet} data-lit={lit || undefined}>
-      <i className={css.sheetTitle} style={{ width: `${72 + (seed % 22)}%` }} />
-      <i className={css.sheetTitle} style={{ width: `${38 + (seed % 26)}%` }} />
-      <i className={css.sheetAuthors} style={{ width: `${44 + (seed % 18)}%` }} />
-      <span className={css.sheetRule} />
-      <span className={css.sheetCols}>
+    <div className={paperCss.sheet} data-lit={lit || undefined}>
+      <i className={paperCss.sheetTitle} style={{ width: `${72 + (seed % 22)}%` }} />
+      <i className={paperCss.sheetTitle} style={{ width: `${38 + (seed % 26)}%` }} />
+      <i className={paperCss.sheetAuthors} style={{ width: `${44 + (seed % 18)}%` }} />
+      <span className={paperCss.sheetRule} />
+      <span className={paperCss.sheetCols}>
         {col(0)}
         <span>
-          {fig && <i className={css.sheetFig} />}
+          {fig && <i className={paperCss.sheetFig} />}
           {Array.from({ length: fig ? 4 : 7 }, (_, k) => (
             <i key={k} style={{ width: line(k + 21) }} />
           ))}
@@ -156,17 +159,17 @@ export function PaperStack() {
  */
 export function AnnotationMacro() {
   return (
-    <figure className={css.macro} aria-hidden>
-      <div className={css.macroInner}>
-        <p className={`${css.macroLine} ${css.macroDim}`}>…imposes a constraint on the latent channel capacity, so that the model in turn</p>
-        <p className={css.macroLine}>
-          <span className={css.macroMark}>balances latent channel capacity against reconstruction accuracy</span>, and the relative
+    <figure className={paperCss.macro} aria-hidden>
+      <div className={paperCss.macroInner}>
+        <p className={`${paperCss.macroLine} ${paperCss.macroDim}`}>…imposes a constraint on the latent channel capacity, so that the model in turn</p>
+        <p className={paperCss.macroLine}>
+          <span className={paperCss.macroMark}>balances latent channel capacity against reconstruction accuracy</span>, and the relative
         </p>
-        <p className={`${css.macroLine} ${css.macroDim}`}>strength of that trade-off is governed by a single coefficient β, tuned per dataset…</p>
-        <span className={css.macroAnchor} style={{ top: "46%", height: "22%" }} />
-        <div className={css.macroNote}>
+        <p className={`${paperCss.macroLine} ${paperCss.macroDim}`}>strength of that trade-off is governed by a single coefficient β, tuned per dataset…</p>
+        <span className={paperCss.macroAnchor} style={{ top: "46%", height: "22%" }} />
+        <div className={paperCss.macroNote}>
           <p>Use for 2.1.2 — this is the sentence the whole capacity argument rests on.</p>
-          <p className={css.macroMeta}>direct quote · p. 4 · pinned to 2.1.2</p>
+          <p className={paperCss.macroMeta}>direct quote · p. 4 · pinned to 2.1.2</p>
         </div>
       </div>
     </figure>
@@ -185,12 +188,12 @@ export function AnnotationMacro() {
  */
 export function Act({ id, n, name }: { id: string; n: string; name: string }) {
   return (
-    <section className={css.act} id={id}>
+    <section className={actsCss.act} id={id}>
       <div className={css.wrap}>
-        <div className={css.actIn}>
-          <span className={css.actNum}>{n}</span>
-          <h2 className={css.actName}>{name}</h2>
-          <span className={css.actRule} aria-hidden />
+        <div className={actsCss.actIn}>
+          <span className={actsCss.actNum}>{n}</span>
+          <h2 className={actsCss.actName}>{name}</h2>
+          <span className={actsCss.actRule} aria-hidden />
         </div>
       </div>
     </section>
@@ -217,20 +220,20 @@ export function Spread({ id, eyebrow, heading, lede, points, figure, tone = "fla
   tone?: "flat" | "band";
 }) {
   return (
-    <section className={`${css.spread} ${tone === "band" ? css.band : css.seam}`} id={id}>
+    <section className={`${actsCss.spread} ${tone === "band" ? groundCss.band : groundCss.seam}`} id={id}>
       <div className={css.wrap}>
-        <div className={css.spreadIn} data-scene-head>
-          <div className={css.spreadCopy}>
+        <div className={actsCss.spreadIn} data-scene-head>
+          <div className={actsCss.spreadCopy}>
             <span className={css.eyebrow}>{eyebrow}</span>
             <h2>{heading}</h2>
             <p className="muted">{lede}</p>
-            <ul className={css.spreadPoints}>
+            <ul className={actsCss.spreadPoints}>
               {points.map((p) => (
                 <li key={p.k}><b>{p.k}</b><span>{p.body}</span></li>
               ))}
             </ul>
           </div>
-          <div className={css.spreadFig}>{figure}</div>
+          <div className={actsCss.spreadFig}>{figure}</div>
         </div>
       </div>
     </section>

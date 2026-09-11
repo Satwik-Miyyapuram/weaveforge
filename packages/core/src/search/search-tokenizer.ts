@@ -84,7 +84,11 @@ export function tokenize(text: string, options: TokenizerOptions = {}): string[]
   } = options;
 
   const extras: string[] = [];
-  if (tokenizeUrls) extras.push(...urlParts(text));
+  // Appended in a loop rather than spread: `text` can be a whole document (the
+  // search index feeds PDFs through here), and a spread is one call argument per
+  // element — past roughly 125 000 of them V8 throws `RangeError` instead of
+  // returning tokens. Same fix as `stepsToPrune`.
+  if (tokenizeUrls) for (const part of urlParts(text)) extras.push(part);
 
   const out = new Set<string>(extras);
 

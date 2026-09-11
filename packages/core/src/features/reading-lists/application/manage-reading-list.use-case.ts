@@ -19,6 +19,7 @@ import type {
   IReadingListRepository,
 } from "../domain/reading-list-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { NotFoundError } from "../../../shared/errors.js";
 
 export interface ManageReadingListDeps {
   lists: IReadingListRepository;
@@ -160,7 +161,8 @@ export class ManageReadingListUseCase {
   async removeList(listId: string): Promise<void> {
     if (!listId) throw new ReadingListValidationError("listId is required.");
     const list = await this.deps.lists.getById(listId);
-    if (!list) throw new ReadingListValidationError(`List ${listId} not found.`);
+    // NotFound, not Validation: see the vault use case for the reasoning.
+    if (!list) throw new NotFoundError(`List ${listId} not found.`);
 
     const all = await this.deps.lists.list();
     for (const child of all.filter((l) => l.parentId === listId)) {

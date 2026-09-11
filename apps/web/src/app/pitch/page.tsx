@@ -5,6 +5,10 @@ import { EntityCard } from "@/components/entity-card";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ReactiveMotion } from "@/app/reactive-motion";
 import css from "./pitch.module.css";
+import groundCss from "./pitch-ground.module.css";
+import headerCss from "./pitch-header.module.css";
+import outroCss from "./pitch-outro.module.css";
+import paletteCss from "./pitch-palette.module.css";
 import { APP_URL, DOCS_URL, REPO_URL } from "./links";
 import { Act, PaperStack, Scene, Spread, StatusPill } from "./chrome";
 import { HeroScene } from "./hero";
@@ -123,7 +127,7 @@ export default function PitchPage() {
   const navLink = (id: string, label: string, low = false) => (
     <a
       href={`#${id}`}
-      className={low ? css.navLow : undefined}
+      className={low ? headerCss.navLow : undefined}
       aria-current={navOn === id ? "true" : undefined}
     >
       {label}
@@ -136,36 +140,36 @@ export default function PitchPage() {
           so the light moves with the reader rather than on a timer. */}
       <div className={css.aurora} aria-hidden />
       {/* Follows the pointer. Painted above the ground layers, below content. */}
-      <div className={css.cursorGlow} aria-hidden />
+      <div className={paletteCss.cursorGlow} aria-hidden />
       {/* The product's own pointer plumbing, which publishes --rx/--ry on the
           card under the cursor so the sheen in app/styles/motion.css has somewhere to go. */}
       <ReactiveMotion />
       <header className={css.head}>
         <div className={`${css.wrap} ${css.headIn}`}>
-          <a className={css.brand} href="#top">
+          <a className={headerCss.brand} href="#top">
             <WeaveForgeLogo />
-            <span className={css.brandName}>WeaveForge</span>
+            <span className={headerCss.brandName}>WeaveForge</span>
           </a>
-          <nav className={css.nav} aria-label="Sections">
+          <nav className={headerCss.nav} aria-label="Sections">
             {navLink("overview", "Overview")}
             {navLink("why", "Why", true)}
-            <span className={`${css.navSep} ${css.navLow}`} aria-hidden />
+            <span className={`${headerCss.navSep} ${headerCss.navLow}`} aria-hidden />
             {navLink("chain", "The chain")}
             {navLink("reading", "Reading")}
             {navLink("experiments", "Experiments")}
             {navLink("writing", "Writing", true)}
-            <span className={`${css.navSep} ${css.navLow}`} aria-hidden />
+            <span className={`${headerCss.navSep} ${headerCss.navLow}`} aria-hidden />
             {navLink("labs", "Labs", true)}
-            <span className={css.navSep} aria-hidden />
+            <span className={headerCss.navSep} aria-hidden />
             {navLink("selfhost", "Self-host")}
             {navLink("compare", "Compare")}
           </nav>
-          <div className={css.headActions}>
+          <div className={headerCss.headActions}>
             {/* Not in the section nav above: that is anchors within this page,
                 and these two leave it. */}
-            <a className={css.headLink} href={DOCS_URL}>Docs</a>
+            <a className={headerCss.headLink} href={DOCS_URL}>Docs</a>
             <a
-              className={css.headLink}
+              className={headerCss.headLink}
               href={REPO_URL}
               aria-label="Source on GitHub"
               title="Source on GitHub"
@@ -190,7 +194,7 @@ export default function PitchPage() {
               the side is the only thing asked to read as paper. */}
           <div className={css.heroGrain} aria-hidden />
           <PaperStack />
-          <div className={`${css.wrap} ${css.above}`}>
+          <div className={`${css.wrap} ${outroCss.above}`}>
             <span className={css.eyebrow}>Open source · AGPL-3.0 · self-hostable</span>
             <h1>By the time you write it, you won&rsquo;t remember why.</h1>
             <p className={css.lede}>
@@ -477,7 +481,7 @@ $ npm run dev           # → http://localhost:3000`}</pre>
           }
         />
 
-        <section className={`${css.close} ${css.band}`}>
+        <section className={`${outroCss.close} ${groundCss.band}`}>
           <div className={css.wrap}>
             <h2>Start with one paper.</h2>
             <p className={css.lede}>
@@ -495,10 +499,10 @@ $ npm run dev           # → http://localhost:3000`}</pre>
         <CompareTable />
       </main>
 
-      <footer className={css.foot}>
-        <div className={`${css.wrap} ${css.footIn}`}>
+      <footer className={outroCss.foot}>
+        <div className={`${css.wrap} ${outroCss.footIn}`}>
           <p className="muted">WeaveForge · one workspace for papers, plan, experiments and writing · AGPL-3.0-only</p>
-          <div className={css.links}>
+          <div className={outroCss.links}>
             <a href={REPO_URL}>Source</a>
             <a href={DOCS_URL}>Docs</a>
             <a href={`${REPO_URL}/issues`}>Issues</a>

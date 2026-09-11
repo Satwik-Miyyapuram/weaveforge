@@ -1,0 +1,116 @@
+/*
+ * The seam/band ground treatments and the prose that sits on them.
+ *
+ * Split out of pitch.module.css, which had grown past 1,400 lines. The split is
+ * by selector, not by position: every class here is referenced by no rule
+ * outside this file, and no element carries one of these classes together with a
+ * class that stayed behind — or with one from another module here, except for
+ * `position: relative`, which both sides declare to the same value. So moving
+ * these rules cannot change what the cascade computes. The page imports this
+ * file beside pitch.module.css.
+ */
+
+/* ---- Why ---- */
+.why { padding: clamp(56px, 9vw, 120px) 0; scroll-margin-top: calc(var(--pitch-head) + 12px); }
+.whyHeading {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.8rem, 1.25rem + 2.4vw, 2.7rem);
+  line-height: 1.07;
+  letter-spacing: -0.021em;
+  text-wrap: balance;
+  max-width: 46rem;
+  margin: 14px 0 0;
+}
+.whyGrid {
+  display: grid;
+  gap: 14px;
+  margin-top: clamp(28px, 4vw, 44px);
+}
+@media (min-width: 760px) {
+  .whyGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+}
+.moment {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 22px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--e1, none);
+  border: 1px solid var(--border);
+}
+.momentQuote {
+  font-family: var(--font-serif);
+  font-size: clamp(1.15rem, 1rem + 0.6vw, 1.4rem);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  margin: 0;
+}
+.moment p { margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--muted); }
+.momentThen {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--accent);
+}
+
+/* ---- Sectioning ----
+   Twelve sections, twenty-three thousand pixels, and until now every one of
+   them was transparent on the same continuous ground with a one-pixel rule
+   between. Nothing told the eye it had finished a chapter and started
+   another; the page read as one very long field, and seven structurally
+   identical scenes in a row read as six too many.
+
+   Two devices fix it, and both are deliberately quiet.
+
+   The seam: a hairline that fades out at both ends rather than running wall
+   to wall. A full-width rule is a border between two boxes. A fading one is
+   the horizon of a single page — the same trick as the ground's own mask,
+   which stops the grid dead-flat at the foot of the viewport.
+
+   The band: alternate scenes lift onto a slightly raised ground, and the lift
+   fades in and out over the first and last 120px so the band has no edge to
+   catch on. Consistent margins do the rest — a band changes the light on a
+   section, never its measure or its rhythm. */
+.seam {
+  position: relative;
+}
+.seam::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border) 18%,
+    var(--border) 82%,
+    transparent
+  );
+}
+
+/* The raised ground. `-1` keeps it behind the scene's own contents but still
+   above the page's fixed ground layers, which sit at -2 and -3. */
+.band {
+  position: relative;
+}
+.band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    var(--pitch-band) 120px,
+    var(--pitch-band) calc(100% - 120px),
+    transparent 100%
+  );
+}

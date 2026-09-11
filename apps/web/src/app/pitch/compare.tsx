@@ -1,6 +1,8 @@
 "use client";
 
 import css from "./pitch.module.css";
+import compareCss from "./pitch-compare.module.css";
+import groundCss from "./pitch-ground.module.css";
 
 export const COMPARE_COLS = ["WeaveForge", "Zotero", "Obsidian", "Notion", "W&B", "Overleaf"] as const;
 export type Cover = "yes" | "part" | "no";
@@ -32,10 +34,10 @@ export const COVER_LABEL: Record<Cover, string> = { yes: "yes", part: "partly", 
  */
 export function CompareTable() {
   return (
-    <section className={`${css.compare} ${css.seam}`} id="compare">
+    <section className={`${compareCss.compare} ${groundCss.seam}`} id="compare">
       <div className={css.wrap}>
         <span className={css.eyebrow}>Side by side</span>
-        <h2 className={css.whyHeading}>Each of these is good at one link of the chain.</h2>
+        <h2 className={groundCss.whyHeading}>Each of these is good at one link of the chain.</h2>
         <p className={css.lede}>
           Nothing here is a bad tool — most of them are on this page because they are
           the best at what they do, and WeaveForge syncs with several rather than
@@ -44,12 +46,12 @@ export function CompareTable() {
         </p>
 
         <div className={css.tableScroll}>
-          <table className={css.table}>
+          <table className={compareCss.table}>
             <thead>
               <tr>
                 <th scope="col">What research needs</th>
                 {COMPARE_COLS.map((c) => (
-                  <th scope="col" key={c} className={c === "WeaveForge" ? css.own : undefined}>{c}</th>
+                  <th scope="col" key={c} className={c === "WeaveForge" ? compareCss.own : undefined}>{c}</th>
                 ))}
               </tr>
             </thead>
@@ -58,14 +60,14 @@ export function CompareTable() {
                 <tr key={r.need}>
                   <th scope="row">
                     {r.need}
-                    <span className={css.rowNote}>{r.note}</span>
+                    <span className={compareCss.rowNote}>{r.note}</span>
                   </th>
                   {COMPARE_COLS.map((c) => {
                     const v = r.cells[c];
                     return (
-                      <td key={c} className={c === "WeaveForge" ? css.own : undefined} data-cover={v}>
+                      <td key={c} className={c === "WeaveForge" ? compareCss.own : undefined} data-cover={v}>
                         <span aria-hidden>{COVER_MARK[v]}</span>
-                        <span className={css.srOnly}>{COVER_LABEL[v]}</span>
+                        <span className={compareCss.srOnly}>{COVER_LABEL[v]}</span>
                       </td>
                     );
                   })}
@@ -75,7 +77,7 @@ export function CompareTable() {
           </table>
         </div>
 
-        <p className={css.legend}>
+        <p className={compareCss.legend}>
           <span>● covered</span><span>◐ partly, or via a plugin</span><span>○ not its job</span>
         </p>
       </div>

@@ -7,6 +7,7 @@ import { Modal } from "@/components/modal";
 import { useState } from "react";
 import { formatError } from "@/lib/format-error";
 import { useCapability } from "@/deployment/capabilities";
+import { FormError } from "@/components/form-error";
 
 function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
@@ -121,7 +122,7 @@ export function AccountInfoPanel() {
             <p className="muted">This changes the password used to sign in.</p>
             <label className="field"><span>New password</span><input name="new-password" type="password" autoComplete="new-password" minLength={8} required /></label>
             <label className="field"><span>Retype new password</span><input name="confirm-password" type="password" autoComplete="new-password" minLength={8} required /></label>
-            {passwordError && <p className="error">{passwordError}</p>}
+            {passwordError && <FormError>{passwordError}</FormError>}
             {passwordSuccess && <p className="success">Your login password was changed.</p>}
             <div className="button-row">
               <button type="submit" className="btn-primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</button>

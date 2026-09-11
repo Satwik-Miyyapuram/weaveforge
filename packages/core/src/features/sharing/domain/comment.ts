@@ -5,6 +5,7 @@
  */
 
 import type { Identifiable } from "../../../shared/repository.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export interface Comment extends Identifiable {
   id: string;
@@ -22,7 +23,7 @@ export interface NewCommentInput {
   body: string;
 }
 
-export class CommentValidationError extends Error {
+export class CommentValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "CommentValidationError";

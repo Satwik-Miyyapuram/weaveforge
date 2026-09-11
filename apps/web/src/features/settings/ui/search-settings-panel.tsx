@@ -31,6 +31,7 @@ import {
   semanticSupported,
 } from "@/features/search/application/semantic-search";
 import type { EmbedProgress } from "@/features/search/application/semantic-index";
+import { FormError } from "@/components/form-error";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {
@@ -196,7 +197,7 @@ function LibraryPdfIndexing() {
         so it pauses a few seconds between papers to stay a welcome guest. Expect it to run in
         the background for a while on a large library.
       </p>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {progress && (
         <p className="muted" aria-live="polite">
           {progress.done} of {progress.total}
@@ -351,7 +352,7 @@ function SemanticSearchToggle() {
         workspace. Keyword search keeps working throughout, and both are combined in the results.
       </p>
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
 
       {busy && (
         <p className="muted" aria-live="polite">

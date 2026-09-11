@@ -180,7 +180,10 @@ export function markdownToLatex(md: string, opts: MarkdownToLatexOptions = {}): 
       } else {
         inCode = false;
         out.push("\\begin{verbatim}");
-        out.push(...codeBuf);
+        // Pushed line by line, not spread: a fence can hold an entire pasted
+        // file, and a spread becomes one call argument per line (V8 gives out
+        // around 125 000 of them). Same fix as `stepsToPrune`.
+        for (const codeLine of codeBuf) out.push(codeLine);
         out.push("\\end{verbatim}");
         if (codeLang) warnings.push(`Code fence language "${codeLang}" ignored in verbatim.`);
         codeBuf = [];
@@ -239,7 +242,9 @@ export function markdownToLatex(md: string, opts: MarkdownToLatexOptions = {}): 
       if (closing !== -1) {
         closeList();
         out.push("\\[");
-        out.push(...lines.slice(i + 1, closing));
+        // Same reasoning as the code fence above: a display-math block can be
+        // arbitrarily long, so it is appended line by line rather than spread.
+        for (let k = i + 1; k < closing; k += 1) out.push(lines[k]!);
         out.push("\\]");
         i = closing;
         continue;

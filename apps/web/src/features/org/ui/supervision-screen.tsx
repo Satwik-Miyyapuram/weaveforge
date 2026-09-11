@@ -14,6 +14,7 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 import { MemberTreeSelect } from "./member-tree";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
+import { FormError } from "@/components/form-error";
 
 /**
  * Supervisor view: browse the people beneath you and follow their published
@@ -110,7 +111,7 @@ function SuperviseePanel({ member }: { member: Member }) {
   }, [load]);
 
   if (loading) return <p className="muted">Loading {member.fullName || member.email}…</p>;
-  if (error) return <p className="error">{error}</p>;
+  if (error) return <FormError>{error}</FormError>;
 
   const selectedSnapshot = snapshots.find((s) => s.id === selectedSnapshotId) ?? null;
   const showFrozen = selectedSnapshot != null;

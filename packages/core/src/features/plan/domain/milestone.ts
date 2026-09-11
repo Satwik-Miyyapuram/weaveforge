@@ -6,6 +6,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export type MilestoneStatus = "planned" | "in_progress" | "done" | "blocked";
 
@@ -87,7 +88,7 @@ export interface MilestoneFilter {
   titleContains?: string;
 }
 
-export class MilestoneValidationError extends Error {
+export class MilestoneValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "MilestoneValidationError";

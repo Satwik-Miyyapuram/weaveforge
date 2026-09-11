@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
+import { formatErrorForResponse } from "@/lib/format-error";
 import { openOverleafToken } from "@/features/overleaf/infrastructure/overleaf-token-crypto";
 import { safeOverleafError } from "@/features/overleaf/infrastructure/overleaf-error";
 import { readOverleafProject } from "@/features/overleaf/infrastructure/overleaf-git-reader";
@@ -13,7 +14,7 @@ export async function GET(request: Request, context: { params: { id: string } })
   const { data: report, error } = await auth.db.from("overleaf_linked_reports")
     .select("id,overleaf_project_id,entry_file,external_url,connection_id")
     .eq("id", context.params.id).eq("user_id", auth.userId).eq("enabled", true).maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: formatErrorForResponse(error, "overleaf-content") }, { status: 500 });
   if (!report) return NextResponse.json({ error: "Linked Overleaf report not found." }, { status: 404 });
   const { data: connection } = await auth.db.from("overleaf_connections")
     .select("token_ciphertext").eq("id", report.connection_id).eq("user_id", auth.userId).eq("enabled", true).maybeSingle();

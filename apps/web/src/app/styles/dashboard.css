@@ -45,9 +45,11 @@
 .dashboard-edit-bar--editing {
   width: 100%;
 }
+/* `--danger` (the alias onto `--s-danger`), not `--error`: the latter is defined
+   by no theme, so the literal fallback was the only value this ever painted. */
 .dashboard-inline-error {
   font-size: 0.82rem; margin: 0 0 10px; padding: 8px 12px;
-  border-radius: 8px; background: color-mix(in srgb, var(--error, #c44) 12%, transparent);
+  border-radius: 8px; background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 .dashboard-screen { overflow-x: clip; }
 .dashboard-grid-wrap { margin-top: 4px; max-width: 100%; }

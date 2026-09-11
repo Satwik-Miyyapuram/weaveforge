@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchPageTitle, fetchRemoteImage } from "@/backend/net/fetch-for-paste";
-import { userIdFromToken } from "@/storage/server/blob-api";
-import { bearerToken } from "@/lib/bearer-token";
+import { requireSdkUser } from "@/app/api/sdk/_shared";
 
 /**
  * Fetching a page a visitor pasted, on their behalf.
@@ -16,6 +15,20 @@ import { bearerToken } from "@/lib/bearer-token";
  *
  * Authenticated, because an unauthenticated version of this is a scanning
  * service anybody on the internet can point at anything.
+ *
+ * `requireSdkUser` — the same helper `pdf-proxy` and `url-meta` use, and the
+ * same one the blob routes now use. This route used to carry its own
+ * `bearerToken()` + `userIdFromToken()` pair, which was the fourth variant of
+ * the same check in this codebase and the one that reported a *configuration*
+ * failure as `401 Not authenticated.`: a Supabase URL missing from the
+ * deployment told the caller to sign in again, which no amount of signing in
+ * would fix. The shared helper answers `500`/`503` for that and `401` only for
+ * a genuinely absent or invalid credential.
+ *
+ * It also accepts an SDK API token, which is the point of consolidating on it:
+ * this is an outbound fetch the Python SDK has the same reason to want as the
+ * browser does, and the scope check in `requireSdkUser` is what keeps an
+ * `mcp_relay`-scoped token out.
  */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -27,13 +40,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "as must be title or image" }, { status: 400 });
   }
 
-  const token = bearerToken(request);
-  if (!token) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
-  try {
-    await userIdFromToken(token);
-  } catch {
-    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
-  }
+  const auth = await requireSdkUser(request);
+  if (!auth.ok) return auth.response;
 
   if (as === "title") {
     const result = await fetchPageTitle(target);

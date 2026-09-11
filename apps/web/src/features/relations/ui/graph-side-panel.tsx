@@ -8,6 +8,7 @@ import { getContainer } from "@/bootstrap";
 import { RELATION_COLORS, tagColor } from "../domain/graph-palette";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 interface StoredAnnotation {
   text?: string;
@@ -363,7 +364,7 @@ function ConceptPanel({
               <option key={t} value={t}>#{t}</option>
             ))}
           </Select>
-          {error && <p className="error">{error}</p>}
+          {error && <FormError>{error}</FormError>}
           <button type="button" className="btn-primary" disabled={!mergeInto || busy} onClick={() => void merge()}>
             {busy ? "Merging…" : "Merge"}
           </button>

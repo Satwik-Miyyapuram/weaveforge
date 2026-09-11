@@ -8,6 +8,7 @@
  */
 
 import type { NewPaperInput } from "../domain/paper.js";
+import { WeaveForgeError } from "../../../shared/errors.js";
 
 export type PaperRef =
   | { kind: "arxiv"; value: string }
@@ -27,7 +28,7 @@ export interface IMetadataSource {
   fetch(ref: PaperRef): Promise<PaperMetadata>;
 }
 
-export class MetadataResolutionError extends Error {
+export class MetadataResolutionError extends WeaveForgeError {
   constructor(message: string) {
     super(message);
     this.name = "MetadataResolutionError";

@@ -2,7 +2,7 @@
  * Fetch related / recommended papers from Semantic Scholar for a seed library paper.
  * Filters out items already in the local library (by DOI / arXiv / title).
  */
-import { normalizeDoi, normalizeTitleKey, type Paper } from "@weaveforge/core";
+import { normalizeDoi, normalizeTitleKey, type PaperSummary } from "@weaveforge/core";
 
 export type RelatedPaperHit = {
   title: string;
@@ -55,7 +55,14 @@ function s2ToHit(p: S2Paper): RelatedPaperHit | null {
   };
 }
 
-function localKeys(papers: readonly Paper[]) {
+/**
+ * The library rows a "is this already in my library?" check needs: DOI, arXiv
+ * id and title. All three are on the summary projection, so the parameter is
+ * typed on it — the library a screen passes in is a summary read, and asking
+ * for a full `Paper` would be a demand the caller cannot meet without loading
+ * the abstract and metadata bag for every row in the library.
+ */
+function localKeys(papers: readonly PaperSummary[]) {
   const dois = new Set<string>();
   const arxivs = new Set<string>();
   const titles = new Set<string>();
@@ -90,10 +97,14 @@ const S2_FIELDS = "title,authors,year,externalIds,url,abstract,citationCount";
 
 /**
  * Prefer S2 recommendations; fall back to citation neighbors with titles.
+ *
+ * Both the seed and the library are typed on the summary projection: this only
+ * reads a paper's identifiers and title, all of which it carries. A full `Paper`
+ * satisfies these types as well, so no existing caller changes.
  */
 export async function fetchRelatedPapers(
-  seed: Paper,
-  library: readonly Paper[],
+  seed: PaperSummary,
+  library: readonly PaperSummary[],
   opts?: { apiKey?: string; limit?: number },
 ): Promise<RelatedPaperHit[]> {
   const limit = opts?.limit ?? 8;

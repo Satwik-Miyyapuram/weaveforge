@@ -5,14 +5,14 @@
 import {
   createExperiment,
   ExperimentValidationError,
+  statusPatchForExperiment,
   type Experiment,
   type ExperimentStatus,
   type NewExperimentInput,
 } from "../domain/experiment.js";
 import type { IExperimentRepository } from "../domain/experiment-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
-
-const TERMINAL: ExperimentStatus[] = ["done", "failed", "abandoned"];
+import { NotFoundError } from "../../../shared/errors.js";
 
 export interface ManageExperimentDeps {
   repository: IExperimentRepository;
@@ -29,16 +29,18 @@ export class ManageExperimentUseCase {
     return exp;
   }
 
+  /**
+   * Move a run to `status`.
+   *
+   * The timestamp rules live on {@link statusPatchForExperiment} so the
+   * `finishedAt` invariant has one definition: set while terminal, cleared when
+   * the run is reopened. Reopening used to leave the old end time in place.
+   */
   async setStatus(id: string, status: ExperimentStatus): Promise<Experiment> {
-    return this.mutate(id, (e) => {
-      const now = this.deps.clock.nowIso();
-      return {
-        ...e,
-        status,
-        startedAt: status === "running" && !e.startedAt ? now : e.startedAt,
-        finishedAt: TERMINAL.includes(status) ? now : e.finishedAt,
-      };
-    });
+    return this.mutate(id, (e) => ({
+      ...e,
+      ...statusPatchForExperiment(e, status, this.deps.clock.nowIso()),
+    }));
   }
 
   async recordMetrics(id: string, metrics: Record<string, unknown>): Promise<Experiment> {
@@ -66,7 +68,8 @@ export class ManageExperimentUseCase {
 
   private async mutate(id: string, change: (e: Experiment) => Experiment): Promise<Experiment> {
     const existing = await this.deps.repository.getById(id);
-    if (!existing) throw new ExperimentValidationError(`No experiment with id "${id}".`);
+    // NotFound, not Validation: see the vault use case for the reasoning.
+    if (!existing) throw new NotFoundError(`No experiment with id "${id}".`);
     const updated = change(existing);
     await this.deps.repository.save(updated);
     return updated;

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PAPER_STATUSES, type Paper, type ReadingList } from "@weaveforge/core";
+import { PAPER_STATUSES, type Paper, type PaperSummary, type ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
@@ -26,6 +26,7 @@ import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
 import { ListTagFilters } from "@/components/list-tag-filters";
 import { ScreenHead } from "@/components/screen-head";
+import { FormError } from "@/components/form-error";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -88,7 +89,7 @@ export function PapersScreen() {
 
   useEffect(() => setHasShell(typeof desktop()?.zoteroLocal === "function"), []);
 
-  const papers = data?.papers ?? emptyArray<Paper>();
+  const papers = data?.papers ?? emptyArray<PaperSummary>();
   const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
@@ -168,6 +169,14 @@ export function PapersScreen() {
   const paperFromUrl = searchParams.get("paper");
   const appliedPaperFromUrl = useRef<string | null>(null);
   const paperOpenGeneration = useRef(0);
+  /**
+   * Which paper `guestPaper` currently holds, readable from inside the effect
+   * below without adding it to that effect's dependency list — re-running the
+   * fetch every time the hydrated paper changes is what the generation counter
+   * above exists to prevent.
+   */
+  const guestPaperIdRef = useRef<string | null>(null);
+  guestPaperIdRef.current = guestPaper?.id ?? null;
   const listPaperStamp = paperFromUrl
     ? papers.find((p) => p.id === paperFromUrl)?.updatedAt ?? "missing"
     : null;
@@ -195,19 +204,19 @@ export function PapersScreen() {
     const requestedId = paperFromUrl;
     const generation = ++paperOpenGeneration.current;
     let cancelled = false;
-    // A paper we cannot re-read is either still on screen from the list, or it
-    // is gone; both the "not found" and the "read failed" paths answer that the
-    // same way, so they ask here rather than each spelling it out.
+    // A paper we cannot re-read is either already hydrated on screen or it is
+    // not; both the "not found" and the "read failed" paths answer that the same
+    // way, so they ask here rather than each spelling it out. The ref (not the
+    // state) is what makes the answer the value at the moment the response
+    // lands, rather than the one captured when the effect started.
     const keepOrDrop = () => {
-      setGuestPaper((g) => (g?.id === requestedId ? g : null));
+      const keepHydrated = guestPaperIdRef.current === requestedId;
+      if (!keepHydrated) setGuestPaper(null);
       appliedPaperFromUrl.current = appliedKey;
-      setOpenId((cur) =>
-        cur === requestedId && (papers.some((row) => row.id === requestedId) || shared)
-          ? cur
-          : cur === requestedId
-            ? null
-            : cur,
-      );
+      // Close the view when nothing hydrated is left to open. Leaving `openId`
+      // set is what would strand the screen on "Opening paper…": the list still
+      // holds the row, so `papers.some(...)` alone cannot tell the difference.
+      setOpenId((cur) => (cur !== requestedId ? cur : keepHydrated ? cur : null));
     };
     setOpenId(requestedId);
     void getContainer()
@@ -215,7 +224,9 @@ export function PapersScreen() {
       .then((p) => {
         if (cancelled || generation !== paperOpenGeneration.current) return;
         if (!p) {
-          // Keep an already-open hydrated paper; otherwise fall back to list summary.
+          // No hydrated row to show, and the list's summary is not a paper the
+          // note page can render — so this either keeps the paper already on
+          // screen or closes the view.
           keepOrDrop();
           return;
         }
@@ -225,7 +236,9 @@ export function PapersScreen() {
       })
       .catch(() => {
         if (cancelled || generation !== paperOpenGeneration.current) return;
-        // Transient rehydrate failure must not kick the user out after a save.
+        // Transient rehydrate failure must not kick the user out after a save —
+        // `keepOrDrop` keeps the view open whenever the hydrated paper is still
+        // in hand, which is exactly the post-save case.
         keepOrDrop();
       });
     return () => {
@@ -270,7 +283,7 @@ export function PapersScreen() {
     const statuses = new Set(statusFilter);
     const inAnyList = (id: string) =>
       listFilter.some((lid) => membership.get(lid)?.has(id) ?? false);
-    const hasAnyTag = (p: Paper) => tagFilter.some((t) => p.tags.includes(t));
+    const hasAnyTag = (p: PaperSummary) => tagFilter.some((t) => p.tags.includes(t));
     // Facet filters first; the ranked pass then orders what survives them.
     const scoped = papers.filter(
       (p) =>
@@ -290,11 +303,18 @@ export function PapersScreen() {
     });
   }, [papers, statusFilter, listFilter, tagFilter, membership, search, searchIndex]);
 
-  const openPaper = openId
-    ? (guestPaper?.id === openId ? guestPaper : null) ??
-      papers.find((p) => p.id === openId) ??
-      null
-    : null;
+  /*
+   * The open paper must be the hydrated row, never the list's summary.
+   *
+   * The list holds the summary projection, and `PaperNote` genuinely needs the
+   * full paper: it reads `paper.metadata` for the cite key, offers the delete
+   * that clears that metadata, and seeds its editor from the note text. Falling
+   * back to `papers.find(...)` handed it a projection with no `metadata` — a
+   * `Paper` by type and not one in fact, which is the class of bug review-2 F6
+   * is about. The effect above loads the real row; until it lands the screen
+   * keeps a loading state rather than rendering the note against a projection.
+   */
+  const openPaper = openId && guestPaper?.id === openId ? guestPaper : null;
 
   useEffect(() => {
     if (!openPaper) return;
@@ -327,6 +347,13 @@ export function PapersScreen() {
 
   if (loading) {
     return <ScreenLoading status="Loading papers…" />;
+  }
+
+  // A paper is open but not hydrated yet. `keepOrDrop` below resolves this to
+  // either a hydrated paper or a closed view, so this is the in-flight frame
+  // rather than a state the screen can settle in.
+  if (openId) {
+    return <ScreenLoading status="Opening paper…" />;
   }
 
   return (
@@ -495,7 +522,7 @@ export function PapersScreen() {
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {!error && papers.length === 0 && (
         <div className="empty">
           <p>No papers yet. Use “+ Paper” to add your first one.</p>

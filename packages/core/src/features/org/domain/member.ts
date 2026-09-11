@@ -29,6 +29,7 @@
 
 
 import type { Identifiable } from "../../../shared/repository.js";
+import { PermissionError, ValidationError } from "../../../shared/errors.js";
 
 
 
@@ -124,7 +125,7 @@ export interface NewMemberInput {
 
 
 
-export class MemberValidationError extends Error {
+export class MemberValidationError extends ValidationError {
 
   constructor(message: string) {
 
@@ -138,7 +139,7 @@ export class MemberValidationError extends Error {
 
 
 
-export class MemberPermissionError extends Error {
+export class MemberPermissionError extends PermissionError {
 
   constructor(message: string) {
 

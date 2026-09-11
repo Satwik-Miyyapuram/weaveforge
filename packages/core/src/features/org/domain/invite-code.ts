@@ -2,6 +2,8 @@
  * Crockford Base32 invite codes — normalization and join assignment (browser-safe).
  */
 
+import { ValidationError } from "../../../shared/errors.js";
+
 export const ORG_INVITE_ROLES = ["professor", "phd", "masters"] as const;
 export type OrgInviteRole = (typeof ORG_INVITE_ROLES)[number];
 
@@ -19,7 +21,7 @@ export function normalizeOrgInviteCode(input: string): string {
     .replace(/O/g, "0");
 }
 
-export class OrgInviteValidationError extends Error {
+export class OrgInviteValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "OrgInviteValidationError";

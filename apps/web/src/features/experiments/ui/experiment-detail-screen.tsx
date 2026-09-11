@@ -17,6 +17,7 @@ import {
   ExpMetricChips,
   MetricCurves,
 } from "./experiment-panels";
+import { FormError } from "@/components/form-error";
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const router = useRouter();
@@ -85,7 +86,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
         <button type="button" className="btn-secondary paper-back" onClick={goBackToList}>
           ← Experiments
         </button>
-        <p className="error">{error ?? "Experiment not found."}</p>
+        <FormError>{error ?? "Experiment not found."}</FormError>
       </section>
     );
   }
@@ -145,7 +146,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
             />
           </div>
         </div>
-        {attachError && <p className="error">{attachError}</p>}
+        {attachError && <FormError>{attachError}</FormError>}
         {hasArtifacts ? (
           <Artifacts urls={exp.artifacts} detail />
         ) : (

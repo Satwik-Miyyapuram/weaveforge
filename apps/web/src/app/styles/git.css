@@ -3,7 +3,7 @@
 .commit-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 10px; }
 .commit-item { display: grid; gap: 6px; min-width: 0; }
 .commit-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; min-width: 0; }
-.commit-sha { font-family: ui-monospace, monospace; font-size: 0.82rem; color: #46594d; font-weight: 600; text-decoration: none; flex: none; }
+.commit-sha { font-family: ui-monospace, monospace; font-size: 0.82rem; color: var(--muted); font-weight: 600; text-decoration: none; flex: none; }
 .commit-msg { font-size: 0.95rem; min-width: 0; overflow-wrap: anywhere; }
 .commit-meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; font-size: 0.8rem; }
 .commit-meta .muted { min-width: 0; overflow-wrap: anywhere; }
@@ -73,7 +73,7 @@
   text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap;
 }
 .cmp-table th .link-btn { font: inherit; }
-.cmp-table tr.leader td { background: color-mix(in srgb, var(--accent, #3e5a78) 12%, transparent); }
+.cmp-table tr.leader td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 /* Sharing + comments — viewport overlay (Modal portals to document.body). */
 .modal-backdrop {

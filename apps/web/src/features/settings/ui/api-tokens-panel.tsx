@@ -4,18 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { Select } from "@/components/select";
+import { FormError } from "@/components/form-error";
 import { useAuth } from "@/features/auth";
-import { formatError, readJsonBody } from "@/lib/format-error";
+import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
-
-interface ApiTokenRecord {
-  id: string;
-  name: string;
-  tokenPrefix: string;
-  expiresAt: string | null;
-  lastUsedAt: string | null;
-  createdAt: string;
-}
+import type { ApiTokenRecord } from "@/container/facades";
 
 const EXPIRY_OPTIONS = [
   { value: "0", label: "Never expires", days: null as number | null },
@@ -45,24 +38,12 @@ export function ApiTokensPanel() {
   const [copied, setCopied] = useState(false);
 
   const { busy, error, setError, submit: handleCreate } = useSubmit(async () => {
-    const accessToken = await getContainer().auth.auth.getAccessToken();
-    if (!accessToken) throw new Error("Sign in to create tokens.");
-
     const opt = EXPIRY_OPTIONS.find((o) => o.value === expiry) ?? EXPIRY_OPTIONS[2];
-    const res = await fetch("/api/settings/api-tokens", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, expiresInDays: opt.days }),
+    const payload = await getContainer().settings.apiTokens.create({
+      name,
+      expiresInDays: opt.days,
     });
-    const payload = await readJsonBody(res);
-    if (!res.ok) {
-      setError(formatError(payload.error ?? payload));
-      return;
-    }
-    const record = payload.record as ApiTokenRecord | undefined;
+    const record = payload.record;
     if (record) setTokens((prev) => [record, ...prev]);
     setRevealed(typeof payload.plaintext === "string" ? payload.plaintext : null);
     setCreateOpen(false);
@@ -75,19 +56,7 @@ export function ApiTokensPanel() {
     setError(null);
     setTokens([]);
     try {
-      const accessToken = await getContainer().auth.auth.getAccessToken();
-      if (!accessToken) throw new Error("Sign in to manage API tokens.");
-
-      const res = await fetch("/api/settings/api-tokens", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const payload = await readJsonBody(res);
-      if (!res.ok) {
-        setError(formatError(payload.error ?? payload));
-        return;
-      }
-      const raw = payload.tokens;
-      setTokens(Array.isArray(raw) ? (raw as ApiTokenRecord[]) : []);
+      setTokens(await getContainer().settings.apiTokens.list());
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -104,18 +73,7 @@ export function ApiTokensPanel() {
     if (!window.confirm("Revoke this token? Scripts using it will stop working immediately.")) return;
     setError(null);
     try {
-      const accessToken = await getContainer().auth.auth.getAccessToken();
-      if (!accessToken) throw new Error("Sign in to revoke tokens.");
-
-      const res = await fetch(`/api/settings/api-tokens?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const payload = await readJsonBody(res);
-      if (!res.ok) {
-        setError(formatError(payload.error ?? payload));
-        return;
-      }
+      await getContainer().settings.apiTokens.revoke(id);
       setTokens((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
       setError(formatError(err));
@@ -139,7 +97,7 @@ export function ApiTokensPanel() {
         export WEAVEFORGE_API_URL=https://your-app.example.com
       </pre>
 
-      {error ? <p className="error">{error}</p> : null}
+      <FormError>{error}</FormError>
 
       <div className="api-token-toolbar">
         <button type="button" className="btn-primary" onClick={() => setCreateOpen(true)}>

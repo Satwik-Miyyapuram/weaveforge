@@ -5,6 +5,7 @@ import { useSubmit } from "@/lib/hooks/use-submit";
 import { LOG_KINDS, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
+import { FormError } from "@/components/form-error";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -50,7 +51,7 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
           ))}
         </Select>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <button className="btn-primary" disabled={busy}>
         {busy ? "Saving…" : "Add log entry"}
       </button>

@@ -19,6 +19,34 @@ export class SupabaseBlobRegistry implements IBlobRegistry {
     return rowToRecord(data as BlobRow);
   }
 
+  /**
+   * The same lookup for a whole batch, in one round trip.
+   *
+   * `get` in a loop was the read half of an N+1: the signed-urls route mints up
+   * to 200 URLs in one request and called `get` once per path. One `in` query
+   * answers all of them — the unique key is `(bucket, path)`, so the result set
+   * is at most one row per request path.
+   *
+   * Keyed by `path` because that is what the caller asked with; a path with no
+   * row is simply absent from the map, which reads at the call site exactly as
+   * `get` returning null did.
+   */
+  async getMany(bucket: string, paths: readonly string[]): Promise<Map<string, BlobObjectRecord>> {
+    const out = new Map<string, BlobObjectRecord>();
+    if (paths.length === 0) return out;
+    const { data, error } = await this.db
+      .from("blob_objects")
+      .select("*")
+      .eq("bucket", bucket)
+      .in("path", [...paths]);
+    if (error) throw error;
+    for (const row of (data ?? []) as BlobRow[]) {
+      const record = rowToRecord(row);
+      out.set(record.path, record);
+    }
+    return out;
+  }
+
   async register(input: RegisterBlobInput): Promise<void> {
     await run(this.db.from("blob_objects").upsert({
       bucket: input.bucket,
@@ -29,17 +57,32 @@ export class SupabaseBlobRegistry implements IBlobRegistry {
     }));
   }
 
+  /**
+   * Bumped in the database, not read-modify-written here.
+   *
+   * This used to `get()` the row, add one in JavaScript and write the sum back,
+   * which loses an increment whenever two reads of the same blob overlap — and
+   * the rows that overlap are the hot ones the count is used to rank. Migration
+   * `0125` moves the `+ 1` to where the row lock is; `record_blob_access` also
+   * carries the ownership predicate the UPDATE policy used to apply, so a
+   * shared viewer's call stays a no-op rather than becoming an error.
+   */
   async recordAccess(bucket: string, path: string): Promise<void> {
-    const existing = await this.get(bucket, path);
-    if (!existing) return;
-    await run(this.db
-      .from("blob_objects")
-      .update({
-        access_count: existing.accessCount + 1,
-        last_accessed_at: new Date().toISOString(),
-      })
-      .eq("bucket", bucket)
-      .eq("path", path));
+    const { error } = await this.db.rpc("record_blob_access", {
+      p_bucket: bucket,
+      p_path: path,
+    });
+    if (error) throw error;
+  }
+
+  /** The same increment for a batch, in one statement (`0125`). */
+  async recordAccessMany(bucket: string, paths: readonly string[]): Promise<void> {
+    if (paths.length === 0) return;
+    const { error } = await this.db.rpc("record_blob_access_many", {
+      p_bucket: bucket,
+      p_paths: [...paths],
+    });
+    if (error) throw error;
   }
 
   async setTier(bucket: string, path: string, tier: BlobTier, sizeBytes?: number): Promise<void> {

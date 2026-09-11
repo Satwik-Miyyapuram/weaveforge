@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "../_shared";
+import { formatErrorForResponse } from "@/lib/format-error";
 import {
   MAX_BODY_BYTES,
   exceedsDeclaredLimit,
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     contentType: parsed.contentType,
     upsert: true,
   });
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+  if (upErr) return NextResponse.json({ error: formatErrorForResponse(upErr, "sdk-artifacts") }, { status: 500 });
 
   // Return the path, not a signed URL.
   //

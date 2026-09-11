@@ -116,12 +116,12 @@ textarea:focus,
   white-space: normal; overflow-wrap: anywhere;
 }
 .custom-select-item:hover,
-.custom-select-item.active { background: var(--status-neutral, #efece4); }
+.custom-select-item.active { background: var(--status-neutral); }
 /* Selected option: bold + a colored box. For status selects the box color comes
    from the status-<value> class on the item; otherwise a neutral box. The inset
    ring deepens it past the trigger pill. */
 .custom-select-item.sel { font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--sel-ring); }
-.custom-select-item.sel-plain { background: var(--status-neutral, #efece4); }
+.custom-select-item.sel-plain { background: var(--status-neutral); }
 .custom-select-group {
   padding: 6px 12px 4px; font-size: 0.68rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
@@ -148,7 +148,7 @@ textarea:focus,
 .ms-check.on { background: var(--accent); border-color: var(--accent); }
 .ms-check.on::after {
   content: "✓"; position: absolute; inset: 0;
-  color: var(--accent-fg, #fff); font-size: 11px; line-height: 15px; text-align: center;
+  color: var(--accent-fg); font-size: 11px; line-height: 15px; text-align: center;
 }
 
 /* A checkbox and its label on one line. Alignment is flex-start rather than
@@ -249,7 +249,7 @@ label.mp-row input[type="checkbox"]:checked::after,
   content: "✓";
   position: absolute;
   inset: 0;
-  color: var(--accent-fg, #fff);
+  color: var(--accent-fg);
   font-size: 11px;
   line-height: 14px;
   text-align: center;
@@ -272,7 +272,7 @@ label.mp-row input[type="checkbox"]:disabled,
 .btn-primary {
   justify-self: end; border: none; cursor: pointer;
   padding: 9px 16px; border-radius: 9px; font: inherit; font-weight: 600;
-  color: var(--accent-fg, #fff); background: var(--accent);
+  color: var(--accent-fg); background: var(--accent);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: transform 0.06s ease, filter 0.15s, box-shadow 0.15s;
 }

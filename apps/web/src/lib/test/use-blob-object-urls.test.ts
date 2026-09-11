@@ -69,3 +69,79 @@ test("an empty path list neither fetches nor churns the returned map", async () 
   assert.equal(harness.current, first);
   await harness.unmount();
 });
+
+/**
+ * A fetcher whose promises settle when the test says so.
+ *
+ * Every other test in this file resolves instantly, which is exactly why the
+ * leak was invisible: with no window between the effect starting and its fetch
+ * returning, the cancellation branch was never taken.
+ */
+function deferredFetcher() {
+  const pending = new Map<string, (blob: Blob) => void>();
+  return {
+    fetchOne: (path: string) =>
+      new Promise<Blob | null>((resolve) => {
+        pending.set(path, resolve);
+      }),
+    settle: async (path: string) => {
+      const resolve = pending.get(path);
+      if (!resolve) throw new Error(`no pending fetch for ${path}`);
+      pending.delete(path);
+      resolve(new Blob([path]));
+      // Let the continuation after the await run.
+      await Promise.resolve();
+      await Promise.resolve();
+    },
+  };
+}
+
+/** Counts object URLs so a leak shows up as created-minus-revoked. */
+async function withUrlSpy<T>(body: (spy: { created: string[]; revoked: string[] }) => Promise<T>): Promise<T> {
+  const created: string[] = [];
+  const revoked: string[] = [];
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  let seq = 0;
+  URL.createObjectURL = () => {
+    const url = `blob:test/${seq++}`;
+    created.push(url);
+    return url;
+  };
+  URL.revokeObjectURL = (url: string) => {
+    revoked.push(url);
+  };
+  try {
+    return await body({ created, revoked });
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+  }
+}
+
+test("a path change mid-flight revokes the URLs the abandoned run created", async () => {
+  await withUrlSpy(async ({ created, revoked }) => {
+    const fetcher = deferredFetcher();
+    const harness = await renderHook(
+      (paths: string[]) => useBlobObjectUrls(paths, fetcher.fetchOne),
+      ["paperimg:a"],
+    );
+
+    // The fetch for "a" is still in flight when the paths change, so run 1 is
+    // cancelled before it can publish anything. Its URLs are the leak: cleanup
+    // has already run and revoked what it held at that moment (nothing).
+    await harness.rerender(["paperimg:b"]);
+    await fetcher.settle("paperimg:a");
+    await fetcher.settle("paperimg:b");
+    await harness.flush();
+
+    assert.deepEqual([...harness.current.keys()], ["paperimg:b"]);
+    // One URL created for the abandoned "a", one for the live "b"; both are
+    // accounted for — the live one is only revoked at unmount.
+    assert.equal(created.length, 2);
+    assert.deepEqual(revoked, [created[0]]);
+
+    await harness.unmount();
+    assert.equal(revoked.length, created.length);
+  });
+});

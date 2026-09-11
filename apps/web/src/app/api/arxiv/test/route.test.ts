@@ -10,6 +10,33 @@ test("arxiv: 400 when id_list is missing", async () => {
   assert.match((await res.json()).error, /id_list is required/);
 });
 
+test("arxiv: 400 when id_list is past the cap, and nothing is requested", async () => {
+  // The route is an open relay, so the one thing a caller controls has a bound.
+  const { calls, restore } = stubFetch(() => new Response("should not happen", { status: 500 }));
+  try {
+    const res = await GET(
+      new Request(`http://localhost/api/arxiv?id_list=${"1".repeat(4_001)}`),
+    );
+    assert.equal(res.status, 400);
+    assert.match((await res.json()).error, /at most 4000 characters/);
+    assert.deepEqual(calls, [], "an oversized list must not leave the server");
+  } finally {
+    restore();
+  }
+});
+
+test("arxiv: an id_list at the cap is still proxied", async () => {
+  const { restore } = stubFetch(() => new Response("<feed/>", { status: 200 }));
+  try {
+    const res = await GET(
+      new Request(`http://localhost/api/arxiv?id_list=${"1".repeat(4_000)}`),
+    );
+    assert.equal(res.status, 200);
+  } finally {
+    restore();
+  }
+});
+
 test("arxiv: proxies the Atom XML with the upstream status and atom content-type", async () => {
   const atom = `<?xml version="1.0"?><feed><entry><title>Paper</title></entry></feed>`;
   const { restore } = stubFetch((url) => {
@@ -21,6 +48,30 @@ test("arxiv: proxies the Atom XML with the upstream status and atom content-type
     assert.equal(res.status, 200);
     assert.match(res.headers.get("content-type") ?? "", /application\/atom\+xml/);
     assert.equal(await res.text(), atom);
+  } finally {
+    restore();
+  }
+});
+
+test("arxiv: a good answer is cacheable, because it is a pure function of the request", async () => {
+  const { restore } = stubFetch(() => new Response("<feed/>", { status: 200 }));
+  try {
+    const res = await GET(new Request("http://localhost/api/arxiv?id_list=1706.03762"));
+    // Shared caching is right here: arXiv asks callers not to re-ask, and no
+    // caller's data is in the body.
+    assert.match(res.headers.get("cache-control") ?? "", /public/);
+    assert.match(res.headers.get("cache-control") ?? "", /max-age=600/);
+  } finally {
+    restore();
+  }
+});
+
+test("arxiv: an upstream error is not cached", async () => {
+  const { restore } = stubFetch(() => new Response("busy", { status: 503 }));
+  try {
+    const res = await GET(new Request("http://localhost/api/arxiv?id_list=x"));
+    assert.equal(res.status, 503);
+    assert.match(res.headers.get("cache-control") ?? "", /no-store/);
   } finally {
     restore();
   }

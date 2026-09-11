@@ -14,6 +14,7 @@ import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray } from "@/lib/empty";
 import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
+import { FormError } from "@/components/form-error";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -52,7 +53,7 @@ export function LogbookScreen() {
         </Modal>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {!error && entries.length === 0 && (
         <div className="empty">
           <p>No log entries yet. Use “+ Entry” to record what you did today.</p>
@@ -111,7 +112,7 @@ function PublishLabSnapshotForm({ onPublished }: { onPublished: () => void }) {
           placeholder="What should they focus on?"
         />
       </label>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <button type="submit" className="btn-primary" disabled={busy || !title.trim()}>
         {busy ? "Publishing…" : "Publish"}
       </button>
@@ -249,7 +250,7 @@ function EditLogForm({
           ))}
         </Select>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <div className="card-foot edit-actions">
         <button type="button" className="link-btn" onClick={onCancel} disabled={busy}>
           cancel

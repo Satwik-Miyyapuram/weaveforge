@@ -21,9 +21,40 @@ import {
   type IAiProposalStore,
 } from "@weaveforge/core";
 import { singleFlight } from "@/lib/cache/single-flight";
+import {
+  ensureRelay as ensureRelayLoop,
+  runningRelays as listRunningRelays,
+  stopAllRelays as stopEveryRelay,
+  stopRelay as stopRelayLoop,
+} from "@/features/ai-assistant/infrastructure/mcp-relay-manager";
+import {
+  clearPersistedMcpSessions,
+  loadPersistedMcpSessions,
+  savePersistedMcpSessions,
+  type PersistedMcpSession,
+} from "@/features/ai-assistant/infrastructure/mcp-session-store";
+import {
+  ByokModelConversation,
+  PROVIDER_PRESETS,
+  type ProviderApi as ByokProviderApi,
+  type ProviderDescriptor as ByokProviderDescriptor,
+} from "@/features/ai-assistant/infrastructure/byok-model-conversation";
 
 /** How long the pending-proposal count is reused across the shell's badges. */
 const PENDING_PROPOSALS_MEMO_MS = 15_000;
+
+/**
+ * The bring-your-own-key surface, as the settings panel sees it.
+ *
+ * The panel needs three things from the AI feature: the list of starting points,
+ * a way to build a client for a chosen endpoint, and the wire-format type. All
+ * three used to come from `features/ai-assistant/infrastructure/`, which is the
+ * panel knowing which transport the feature happens to speak. Re-exported here
+ * so the panel asks the container instead.
+ */
+export { PROVIDER_PRESETS };
+export type ProviderApi = ByokProviderApi;
+export type ProviderDescriptor = ByokProviderDescriptor;
 
 export interface AiSourceOption extends AiWorkspaceSource {
   category: string;
@@ -162,6 +193,57 @@ export class AiAssistantFacade {
 
   revokeAll(): void {
     this.sessions.clear();
+  }
+
+  /**
+   * Relay lifecycle, and the session-scoped store that survives a reload.
+   *
+   * The settings panel used to import both registries directly, which is the
+   * panel knowing how an MCP session is kept alive rather than asking for one.
+   * They are pass-throughs on purpose: the relay registry deliberately lives
+   * outside React so the poll loop outlives the modal, and re-implementing that
+   * here would change when a relay stops. Storage-independent, so nothing about
+   * the encryption of the persisted record changes either.
+   */
+  ensureRelay(sessionId: string, secret: string, settings: AiAccessSettings): void {
+    ensureRelayLoop(sessionId, secret, settings);
+  }
+
+  stopRelay(sessionId: string): void {
+    stopRelayLoop(sessionId);
+  }
+
+  stopAllRelays(): void {
+    stopEveryRelay();
+  }
+
+  /** Secret + settings for each running relay, for re-persisting the session set. */
+  runningRelays(): { sessionId: string; secret: string; settings: AiAccessSettings }[] {
+    return listRunningRelays();
+  }
+
+  loadPersistedSessions(): Promise<PersistedMcpSession[]> {
+    return loadPersistedMcpSessions();
+  }
+
+  savePersistedSessions(list: readonly PersistedMcpSession[]): Promise<void> {
+    return savePersistedMcpSessions(list);
+  }
+
+  clearPersistedSessions(): Promise<void> {
+    return clearPersistedMcpSessions();
+  }
+
+  /**
+   * A browser-direct client for one bring-your-own-key endpoint.
+   *
+   * Constructed here rather than in the panel so the panel never names the
+   * transport class — only the descriptor it already has to collect from the
+   * reader. The key stays in memory for the life of the returned object, which
+   * is the panel's own scope; nothing about that changes by being built here.
+   */
+  createByokConversation(descriptor: ProviderDescriptor, apiKey: string): ByokModelConversation {
+    return new ByokModelConversation(descriptor, apiKey);
   }
 
   /**

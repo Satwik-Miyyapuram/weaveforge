@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
-import { buildModuleRegistry, groupForPath } from "@/registry";
-import { getContainer } from "@/bootstrap";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { groupForPath } from "@/registry";
+import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 
 /**
@@ -16,10 +16,7 @@ export function SubNav() {
   const { effectivePath: pathname } = useNavPending();
   const navRef = useRef<HTMLElement>(null);
   const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
-  const navGroups = useMemo(
-    () => buildModuleRegistry(getContainer().integrationConfig).navGroups,
-    [],
-  );
+  const navGroups = useNavGroups();
   const group = groupForPath(pathname, navGroups);
   const multi = !!group && group.items.length > 1;
   const warmPath = useCallback((href: string) => {

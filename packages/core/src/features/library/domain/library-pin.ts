@@ -1,5 +1,6 @@
 import type { Identifiable } from "../../../shared/repository.js";
 import type { ShareableType } from "../../sharing/domain/share.js";
+import { PermissionError } from "../../../shared/errors.js";
 
 export interface LibraryPin extends Identifiable {
   id: string;
@@ -17,7 +18,7 @@ export interface NewLibraryPinInput {
   ownerId: string;
 }
 
-export class LibraryPinError extends Error {
+export class LibraryPinError extends PermissionError {
   constructor(message: string) {
     super(message);
     this.name = "LibraryPinError";

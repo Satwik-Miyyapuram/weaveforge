@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { CollabBodyHost } from "@/features/collab";
 import { formatError } from "@/lib/format-error";
+import { noteBodyText } from "@/lib/page-text";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
 import {
@@ -31,6 +32,7 @@ import {
 import { ExplorerPanel } from "./explorer-panel";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
+import { FormError } from "@/components/form-error";
 
 interface Document {
   kind: string;
@@ -81,7 +83,12 @@ export function WorkspaceScreen() {
             kind: "vault_page",
             id: page.id,
             title: page.title,
-            body: page.body ?? "",
+            // `vault.flat` holds summaries, which have no `body` — reading one
+            // off them was always `undefined`, so every note in the workspace
+            // was indexed with an empty body. `noteBodyText` prefers the full
+            // body when the entry has been hydrated and falls back to the
+            // preview (`bodyPreview`) otherwise.
+            body: noteBodyText(page),
           })),
           ...paperRows.map((paper) => ({
             kind: "paper",
@@ -243,7 +250,7 @@ export function WorkspaceScreen() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [apply]);
 
-  if (error && !documents) return <p className="error">{error}</p>;
+  if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <p className="muted">Loading workspace…</p>;
 
   return (

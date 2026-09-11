@@ -10,7 +10,6 @@ import { getContainer } from "@/bootstrap";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { accountLinks, type AccountLinkId } from "./account-links";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
-import { isLocalMode, setLocalMode } from "@/backend/providers/local/local-identity";
 
 
 const GridIcon = () => (
@@ -81,7 +80,10 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
       read();
     };
     read();
-    setLocal(isLocalMode());
+    // Read through the auth facade rather than the local backend provider: this
+    // component only needs the answer, and reaching for the provider is how a
+    // presentation file ends up knowing which backend a window was built with.
+    setLocal(getContainer().auth.isLocalMode());
     window.addEventListener("ai-proposals-changed", refresh);
     return () => window.removeEventListener("ai-proposals-changed", refresh);
   }, []);
@@ -132,7 +134,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
               key={link.id}
               className="signout"
               onClick={() => {
-                setLocalMode(false);
+                getContainer().auth.setLocalMode(false);
                 window.location.reload();
               }}
               title="Sign in to sync this work with an account. What is on this computer stays here."

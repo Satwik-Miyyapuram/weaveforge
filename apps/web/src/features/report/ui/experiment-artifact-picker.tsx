@@ -166,7 +166,7 @@ export function ExperimentArtifactPicker({
           ))
         )}
       </Select>
-      {error && <span className="error">{error}</span>}
+      {error && <span className="error" role="alert">{error}</span>}
       <button type="button" className="link-btn" onClick={() => setOpen(false)} disabled={busy}>
         cancel
       </button>

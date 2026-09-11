@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  bodyLinksTo, extractHashtags, normalizeTitleKey, type VaultPage, type VaultPageTreeNode } from "@weaveforge/core";
+  bodyLinksTo, extractHashtags, normalizeTitleKey,
+  type VaultPage, type VaultPageSummary, type VaultPageTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -21,11 +22,12 @@ import { rankedFilter } from "@/features/search/application/rank-filter";
 import { RelatedPanel } from "@/components/related-panel";
 import { useSearchIndex } from "@/lib/hooks/use-search-index";
 import { BacklinksPanel } from "./backlinks-panel";
-import { NoteCard, noteBodyText } from "./note-card";
+import { NoteCard, noteBodyText, isHydratedPage } from "./note-card";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
 import { ListTagFilters } from "@/components/list-tag-filters";
 import { ScreenHead } from "@/components/screen-head";
+import { FormError } from "@/components/form-error";
 
 export function VaultScreen() {
   const router = useRouter();
@@ -68,8 +70,15 @@ export function VaultScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const tree = data?.tree ?? emptyArray<import("@weaveforge/core").VaultPageTreeNode>();
-  const flat = data?.flat ?? emptyArray<import("@weaveforge/core").VaultPage>();
+  const tree =
+    data?.tree ?? emptyArray<import("@weaveforge/core").VaultPageTreeNode<VaultPageSummary>>();
+  // The list holds summaries; opening a note replaces that entry with the full
+  // page. `VaultPage` is assignable to `VaultPageSummary`, so one array can hold
+  // both — but the element type stays the summary, which forces a `.body` read
+  // through `noteBodyText`/`isHydratedPage` instead of silently yielding
+  // `undefined` (review-2 F6).
+  const flat =
+    data?.flat ?? emptyArray<import("@weaveforge/core").VaultPageSummary | VaultPage>();
   const lists = data?.lists ?? emptyArray<import("@weaveforge/core").ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
@@ -142,7 +151,10 @@ export function VaultScreen() {
       return;
     }
     const existing = flat.find((p) => p.id === selectedId);
-    if (existing?.body) {
+    // A hydrated entry is one that carries a `body` at all — including an empty
+    // one, which is a real note, not a summary. Testing the value instead would
+    // re-fetch every empty note forever.
+    if (existing && isHydratedPage(existing)) {
       hydratedPageIds.current.add(selectedId);
       appliedPageFromUrl.current = selectedId;
       return;
@@ -218,11 +230,19 @@ export function VaultScreen() {
     }
   }
 
-  /** `![[Note]]` transclusion: resolve a note title to its body for inlining. */
+  /**
+   * `![[Note]]` transclusion: resolve a note title to its body for inlining.
+   *
+   * Only a hydrated page can be transcluded: inlining a `bodyPreview` would
+   * silently truncate the note. An entry that is still a summary answers `null`,
+   * exactly as an absent one did, so the caller's "unresolved embed" path is
+   * unchanged.
+   */
   const resolveEmbed = useCallback(
     (title: string) => {
       const key = normalizeTitleKey(title);
-      return flat.find((p) => normalizeTitleKey(p.title) === key)?.body ?? null;
+      const page = flat.find((p) => normalizeTitleKey(p.title) === key);
+      return page && isHydratedPage(page) ? page.body : null;
     },
     [flat],
   );
@@ -260,10 +280,10 @@ export function VaultScreen() {
   const hasNotes = ownedNotes.length > 0 || pinnedPages.length > 0;
 
   const filterNotes = useCallback(
-    (notes: VaultPage[]) => {
+    (notes: (VaultPageSummary | VaultPage)[]) => {
       const inAnyList = (id: string) =>
         listFilter.some((lid) => membership.get(lid)?.has(id) ?? false);
-      const hasAnyTag = (p: VaultPage) =>
+      const hasAnyTag = (p: VaultPageSummary | VaultPage) =>
         tagFilter.some((t) => extractHashtags(noteBodyText(p)).includes(t));
       // List and tag filters first: they are cheap set membership, and the
       // ranked pass should only order what survives them.
@@ -380,7 +400,7 @@ export function VaultScreen() {
         </Modal>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {importMsg && <p className="muted vault-import-msg">{importMsg}</p>}
 
       {!error && !selected && hasNotes && (
@@ -414,6 +434,17 @@ export function VaultScreen() {
               ← Notes
             </button>
             <article className="card paper-article vault-editor">
+              {/* The editor binds its draft state to `page.body` in a
+                  `useState` initialiser, so it must never be handed a summary:
+                  the draft would start as `undefined` and the first save would
+                  write an empty body over the note (review-2 F6). Until the
+                  hydration effect above has replaced this entry with the full
+                  page, show the loading row instead. `isHydratedPage` tests for
+                  the property, not its value, so an intentionally empty note
+                  still reaches the editor. */}
+              {!isHydratedPage(selected) ? (
+                <ScreenLoading status="Opening note…" />
+              ) : (
               <PageEditor
                 page={selected}
                 readOnly={isReadOnlyPage(selected.id)}
@@ -431,6 +462,7 @@ export function VaultScreen() {
                   void load();
                 }}
               />
+              )}
             </article>
             <BacklinksPanel items={backlinks} onOpen={openPage} />
             {/* Backlinks are what points here; Related is what the graph and
@@ -479,6 +511,7 @@ export function VaultScreen() {
   );
 }
 
-function collectIds(node: VaultPageTreeNode): string[] {
+/** Every page id in a tree of summary nodes (the tree never carries bodies). */
+function collectIds(node: VaultPageTreeNode<VaultPageSummary>): string[] {
   return [node.page.id, ...node.children.flatMap(collectIds)];
 }

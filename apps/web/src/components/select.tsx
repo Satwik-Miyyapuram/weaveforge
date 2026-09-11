@@ -84,6 +84,9 @@ export function Select({
   const listRef = useRef<HTMLDivElement>(null);
   const reactId = useId();
   const baseId = id ?? reactId;
+  /** Named by the trigger's `aria-controls`, which is what makes the popup a
+   *  labelled part of the combobox rather than an anonymous listbox. */
+  const listboxId = `${baseId}-listbox`;
 
   // Status dropdowns carry a per-value color (status-<value> classes). When this
   // is a status select, tint the trigger by the selected value and give the
@@ -275,15 +278,28 @@ export function Select({
 
   return (
     <div className={`custom-select-container ${className}`} ref={containerRef}>
+      {/*
+        The trigger is a combobox, not a plain button.
+        `aria-activedescendant` — which this needs while the menu is open, because
+        focus stays on the trigger and the highlighted row is only described by it
+        — is supported on a combobox, a textbox and a group, and *not* on a
+        button. It was set on a `role=button` trigger, so assistive tech was
+        entitled to ignore it and the keyboard highlight went unannounced.
+        `role="combobox"` with `aria-expanded` and `aria-controls` pointing at the
+        listbox is the documented select-only pattern; `aria-haspopup="listbox"`
+        is dropped because it is the implicit value for combobox.
+      */}
       <button
         ref={buttonRef}
         type="button"
         id={id}
         className={buttonClass}
         disabled={disabled}
-        aria-haspopup="listbox"
+        role="combobox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        aria-controls={open && menuRect ? listboxId : undefined}
+        aria-autocomplete={searchable ? "list" : undefined}
         aria-activedescendant={
           open && active >= 0 && visible[active]
             ? `${baseId}-opt-${visible[active].index}`
@@ -298,6 +314,7 @@ export function Select({
       {open && menuRect && createPortal(
         <div
           ref={listRef}
+          id={listboxId}
           // The caller's class rides along: the menu is portalled out of the
           // container, so per-instance rules that were written as descendants
           // (`.status-select .custom-select-menu`) would otherwise stop matching.

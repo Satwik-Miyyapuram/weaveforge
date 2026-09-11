@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import type { Paper } from "@weaveforge/core";
+import type { Paper, PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 
@@ -32,7 +32,8 @@ function CardThumbs({ urls, total }: { urls: (string | null)[]; total?: number }
   );
 }
 
-function paperImagePaths(metadata: Paper["metadata"]): string[] {
+/** `undefined` for a summary entry, which carries no metadata bag at all. */
+function paperImagePaths(metadata: Paper["metadata"] | undefined): string[] {
   const raw = (metadata as Record<string, unknown> | undefined)?.["images"];
   return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
 }
@@ -41,9 +42,16 @@ function paperImagePaths(metadata: Paper["metadata"]): string[] {
  * First-N thumbnails for a paper card. Paper images are stored as encrypted
  * `paperimg:` paths, so they are fetched and decrypted here; only the first
  * few are ever requested.
+ *
+ * Takes either shape on purpose. A card in a list holds the summary projection,
+ * which carries no `metadata`, so there is nothing to draw from — and the `in`
+ * guard is what says so out loud instead of reading `metadata` off a projection
+ * and getting `undefined` (review-2 F6). Entries the pinned/shared merge
+ * hydrated with a full paper do have it, and those keep their thumbnails.
  */
-export function PaperCardThumbs({ paper }: { paper: Paper }) {
-  const all = useMemo(() => paperImagePaths(paper.metadata), [paper.metadata]);
+export function PaperCardThumbs({ paper }: { paper: PaperSummary | Paper }) {
+  const metadata = "metadata" in paper ? paper.metadata : undefined;
+  const all = useMemo(() => paperImagePaths(metadata), [metadata]);
   const paths = useMemo(() => all.slice(0, MAX_THUMBS), [all]);
   const fetchBlob = useCallback(
     (path: string) =>

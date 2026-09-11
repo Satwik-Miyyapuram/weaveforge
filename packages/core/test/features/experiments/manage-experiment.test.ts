@@ -57,6 +57,41 @@ test("setStatus: stamps startedAt on first run, finishedAt on a terminal status"
   assert.equal(done.startedAt, "2026-07-23T10:00:00.000Z");
 });
 
+test("setStatus: reopening a finished run clears finishedAt", async () => {
+  // `finishedAt` means "when this run ended". A run that is running again has
+  // not ended, so keeping the old stamp made the dashboard and the search index
+  // date a live run to a finish that had been undone.
+  const { uc } = makeUseCase("2026-07-23T10:00:00.000Z");
+  const created = await uc.add({ name: "Run" });
+  await uc.setStatus(created.id, "running");
+  const failed = await uc.setStatus(created.id, "failed");
+  assert.equal(failed.finishedAt, "2026-07-23T10:00:00.000Z");
+
+  const restarted = await uc.setStatus(created.id, "running");
+  assert.equal(restarted.status, "running");
+  assert.equal(restarted.finishedAt, undefined);
+  // The first start is history and is not rewritten by the restart.
+  assert.equal(restarted.startedAt, "2026-07-23T10:00:00.000Z");
+
+  // And finishing again re-stamps it.
+  const done = await uc.setStatus(created.id, "done");
+  assert.equal(done.finishedAt, "2026-07-23T10:00:00.000Z");
+});
+
+test("add: a run created already-finished carries its end stamp", async () => {
+  // The other half of the same invariant: `done` with no `finishedAt` is the
+  // state the review named as illegal.
+  const { uc } = makeUseCase("2026-07-23T10:00:00.000Z");
+  const imported = await uc.add({ name: "Old run", status: "done" });
+  assert.equal(imported.finishedAt, "2026-07-23T10:00:00.000Z");
+  // An open run still has none.
+  const planned = await uc.add({ name: "New run" });
+  assert.equal(planned.finishedAt, undefined);
+  const running = await uc.add({ name: "Live run", status: "running" });
+  assert.equal(running.finishedAt, undefined);
+  assert.equal(running.startedAt, "2026-07-23T10:00:00.000Z");
+});
+
 test("recordMetrics: shallow-merges into existing metrics", async () => {
   const { uc } = makeUseCase();
   const created = await uc.add({ name: "M", metrics: { acc: 0.1 } });

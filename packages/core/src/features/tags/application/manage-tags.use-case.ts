@@ -9,6 +9,7 @@ import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
 import { normalizeTagName, type PaperTag, type Tag, type TagSource } from "../domain/tag.js";
 import type { ITagRepository, IPaperTagRepository } from "../domain/tag-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { NotFoundError } from "../../../shared/errors.js";
 
 export interface ManageTagsDeps {
   tags: ITagRepository;
@@ -160,7 +161,9 @@ export class ManageTagsUseCase {
 
   private async refreshPaperCache(paperId: string): Promise<Paper> {
     const paper = await this.deps.papers.getById(paperId);
-    if (!paper) throw new Error(`No paper with id "${paperId}".`);
+    // A bare `Error` used to be thrown here, which no route could map (it fell
+    // through to 500). Same condition as the other not-found sites.
+    if (!paper) throw new NotFoundError(`No paper with id "${paperId}".`);
     const tags = await this.listForPaper(paperId);
     const names = normalizeTags(tags.map((t) => t.name)).sort();
     const updated: Paper = { ...paper, tags: names, updatedAt: this.deps.clock.nowIso() };

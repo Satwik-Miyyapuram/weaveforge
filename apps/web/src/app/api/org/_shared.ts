@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readBackendConfig } from "@/backend/config";
 import { OrgInviteService } from "@/features/org/infrastructure/org-invite-service";
-import { OrgInviteValidationError, OrgValidationError } from "@weaveforge/core";
+import { httpStatusForError } from "@weaveforge/core";
 import { formatError } from "@/lib/format-error";
 import { bearerToken } from "@/lib/bearer-token";
 
@@ -13,11 +13,14 @@ function orgApiService(): OrgInviteService {
   return new OrgInviteService(cfg.supabaseUrl, cfg.supabaseServiceRoleKey);
 }
 
+/**
+ * The status comes from the error's type, in core, so every org route answers
+ * the same way for the same condition. Hard-coding it per route is what made
+ * `OrgValidationError` a 400 on one endpoint and a 403 on another (review-2 F5).
+ */
 export function orgApiErrorResponse(err: unknown) {
   const message = formatError(err);
-  const status =
-    err instanceof OrgInviteValidationError || err instanceof OrgValidationError ? 400 : 500;
-  return NextResponse.json({ error: message }, { status });
+  return NextResponse.json({ error: message }, { status: httpStatusForError(err) });
 }
 
 export async function requireOrgApiUser(request: Request): Promise<

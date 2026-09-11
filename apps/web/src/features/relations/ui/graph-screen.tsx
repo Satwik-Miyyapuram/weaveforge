@@ -20,6 +20,7 @@ import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -418,7 +419,7 @@ export function GraphScreen() {
       {settingsDrawer}
       {addEdgeModal}
       <BraveGraphWarning />
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {linkMsg && <p className="muted">{linkMsg}</p>}
       {!hasGraphItems && (
         <div className="empty"><p>Add papers or notes first, then link them here.</p></div>

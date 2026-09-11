@@ -2,13 +2,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { PAPER_STATUSES, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { OpenIcon } from "@/components/view-icons";
 import { Select } from "@/components/select";
 import { paperExternalLink } from "./paper-external-link";
 
-/** Tabular list — same chrome as experiments Compare (`cmp-table`). */
+/**
+ * Tabular list — same chrome as experiments Compare (`cmp-table`).
+ *
+ * Reads the summary projection: the four sortable columns are title, first
+ * author, year and status, all of which it carries, and the link column is
+ * built from the identifiers it also carries. Nothing here needs a paper's
+ * abstract, bibtex or metadata bag, so nothing here should ask for one.
+ */
 export function PapersTable({
   papers,
   isReadOnly,
@@ -16,7 +23,7 @@ export function PapersTable({
   onOpen,
   onReplace,
 }: {
-  papers: readonly Paper[];
+  papers: readonly (PaperSummary | Paper)[];
   isReadOnly: (id: string) => boolean;
   sharedOwnerName: (id: string) => string | undefined;
   onOpen: (id: string) => void;
@@ -122,7 +129,7 @@ function PaperTableRow({
   onOpen,
   onReplace,
 }: {
-  paper: Paper;
+  paper: PaperSummary | Paper;
   readOnly: boolean;
   sharedByName?: string;
   onOpen: () => void;

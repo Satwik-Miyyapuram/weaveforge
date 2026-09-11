@@ -1,0 +1,81 @@
+/*
+ * The sticky header bar: brand, section nav and the account links beside it.
+ *
+ * Split out of pitch.module.css, which had grown past 1,400 lines. The split is
+ * by selector, not by position: every class here is referenced by no rule
+ * outside this file, and no element carries one of these classes together with a
+ * class that stayed behind — or with one from another module here, except for
+ * `position: relative`, which both sides declare to the same value. So moving
+ * these rules cannot change what the cascade computes. The page imports this
+ * file beside pitch.module.css.
+ */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+  flex: none;
+}
+.brand svg { width: 28px; height: 28px; border-radius: 7px; display: block; }
+.brandName {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.06rem;
+  letter-spacing: -0.02em;
+}
+@media (max-width: 430px) { .brandName { display: none; } }
+
+/* Never wraps: a wrapped sticky header eats a second row of the viewport on
+   every scroll. It does not scroll sideways either — a scrollport with
+   `scrollbar-width: none` on a desktop pointer is a link nobody can find. It
+   is shown only at widths where the set on display fits, and sheds its
+   lowest-priority entries below that. */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-right: auto;
+  overflow: hidden;
+  min-width: 0;
+}
+.nav a {
+  flex: none;
+  padding: 6px 9px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.18s var(--layout-ease, ease), background 0.18s var(--layout-ease, ease);
+}
+.nav a:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.nav a[aria-current="true"] { color: var(--accent); background: var(--accent-soft); }
+.navSep { flex: none; width: 1px; height: 18px; background: var(--border-strong); margin: 0 5px; }
+/* The four the page can spare: each is reachable from the prose above it, and
+   the hero's audience chips link Labs and Self-host directly. */
+@media (max-width: 1359px) { .navLow { display: none; } }
+@media (max-width: 1179px) { .nav { display: none; } }
+
+.headActions { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+
+/* Docs / GitHub in the header. Quieter than "Open the app", which stays the
+   one thing the page is asking for. */
+.headLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control, 8px);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.headLink:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+/* Below the nav breakpoint the bar is tight; the icon carries GitHub alone. */
+@media (max-width: 640px) { .headLink:not([aria-label]) { display: none; } }
+/* Only while the nav is there to push them: `margin-right: auto` on the nav
+   already does the work, and both margins together centre nothing. */
+@media (min-width: 1180px) { .headActions { margin-left: 0; } }

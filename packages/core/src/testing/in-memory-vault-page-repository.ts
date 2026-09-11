@@ -3,6 +3,7 @@ import {
   vaultBodyPreview,
   type VaultPage,
   type VaultPageFilter,
+  type VaultPageSummary,
   type VaultPageTreeNode,
 } from "../features/vault/domain/vault-page.js";
 import type { IVaultPageRepository } from "../features/vault/domain/vault-page-repository.js";
@@ -33,12 +34,22 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
     );
   }
 
-  async listSummaries(): Promise<VaultPage[]> {
+  /**
+   * The card/tree projection, modelled honestly (review-2 F6): no `body` field
+   * at all, exactly as the Supabase adapter's reduced column list produces.
+   * Spreading the full page and blanking `body` was the double that made the
+   * real projection look like a full entity.
+   */
+  async listSummaries(): Promise<VaultPageSummary[]> {
     const items = await this.list();
     return items.map((p) => ({
-      ...p,
-      body: "",
+      id: p.id,
+      title: p.title,
       bodyPreview: vaultBodyPreview(p.body),
+      parentId: p.parentId,
+      sortOrder: p.sortOrder,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
     }));
   }
 

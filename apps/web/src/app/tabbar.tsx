@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
-import { useMemo, useCallback } from "react";
-import { buildModuleRegistry } from "@/registry";
-import { getContainer } from "@/bootstrap";
+import { useCallback } from "react";
+import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 import type { LayoutBreakpoint, NavEnterAnim } from "@/lib/hooks/use-layout-breakpoint";
 import { NavIcon } from "./nav-icon";
@@ -38,10 +37,7 @@ export function TabBar({
   breakpoint?: LayoutBreakpoint;
 } = {}) {
   const { effectivePath: pathname } = useNavPending();
-  const { homeNavItem, navGroups } = useMemo(
-    () => buildModuleRegistry(getContainer().integrationConfig),
-    [],
-  );
+  const { homeNavItem, navGroups } = useModuleRegistry();
   const homeActive = pathname === "/dashboard" || pathname?.startsWith("/dashboard/");
   const warmPath = useCallback((href: string) => {
     prefetchScreenForPath(href.split(/[?#]/)[0] ?? href);
@@ -54,9 +50,23 @@ export function TabBar({
     .filter(Boolean)
     .join(" ");
   return (
-    <nav className={navClass}>
+    <nav className={navClass} aria-label="Primary">
       {onToggle && (
-        <button className="menu-toggle" onClick={onToggle} aria-label="Toggle menu" title="Toggle menu">
+        // Two landmarks render on most screens — this one and the sub-tab strip
+        // — and only the strip was named, so a screen-reader user navigating by
+        // landmark heard "navigation, navigation" with no way to tell them
+        // apart. The toggle also has to say what it does and in which
+        // direction: it collapses the labels away into an icon bar, so
+        // `aria-expanded` reports that state and `aria-controls` names the list
+        // it acts on.
+        <button
+          className="menu-toggle"
+          onClick={onToggle}
+          aria-label="Toggle menu"
+          aria-expanded={!collapsed}
+          aria-controls="nav-links"
+          title="Toggle menu"
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -64,7 +74,7 @@ export function TabBar({
           </svg>
         </button>
       )}
-      <div className="nav-links">
+      <div className="nav-links" id="nav-links">
         <Link
           href={homeNavItem.path}
           className={`nav-link nav-home${homeActive ? " active" : ""}`}

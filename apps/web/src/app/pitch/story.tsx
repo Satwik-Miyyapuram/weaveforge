@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import css from "./pitch.module.css";
+import groundCss from "./pitch-ground.module.css";
 import { StatusPill } from "./chrome";
 
 export const MOMENTS = [
@@ -29,10 +30,10 @@ export const MOMENTS = [
 
 export function WhySection() {
   return (
-    <section className={`${css.why} ${css.band}`} id="why">
+    <section className={`${groundCss.why} ${groundCss.band}`} id="why">
       <div className={css.wrap}>
         <span className={css.eyebrow}>Why it exists</span>
-        <h2 className={css.whyHeading}>
+        <h2 className={groundCss.whyHeading}>
           Research is mostly reasoning you will not remember having done.
         </h2>
         <p className={css.lede}>
@@ -41,12 +42,12 @@ export function WhySection() {
           were built to keep that part.
         </p>
 
-        <div className={css.whyGrid}>
+        <div className={groundCss.whyGrid}>
           {MOMENTS.map((m) => (
-            <article className={css.moment} key={m.quote}>
-              <p className={css.momentQuote}>{m.quote}</p>
+            <article className={groundCss.moment} key={m.quote}>
+              <p className={groundCss.momentQuote}>{m.quote}</p>
               <p>{m.body}</p>
-              <p className={css.momentThen}>{m.then}</p>
+              <p className={groundCss.momentThen}>{m.then}</p>
             </article>
           ))}
         </div>

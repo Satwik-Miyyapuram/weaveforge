@@ -8,6 +8,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export type PaperStatus = "to_read" | "reading" | "read" | "skimmed";
 
@@ -46,6 +47,39 @@ export interface Paper extends Identifiable {
   updatedAt: string;
 }
 
+/**
+ * The card projection of a paper — what `listSummaries()` returns.
+ *
+ * The papers grid paints a card from a subset of columns; the full row (the
+ * abstract, the bibtex, the `metadata` bag) is only loaded when a paper is
+ * opened. Typing that subset as a `Paper` is what let a summary be concatenated
+ * with full rows into one list and then written back through `toRow`, dropping
+ * everything the projection had not fetched (review-2 F6).
+ *
+ * The fields here are exactly what the card needs and what the summary columns
+ * carry (see `PAPER_SUMMARY_COLUMNS` in the Supabase adapter). Absent on
+ * purpose: `abstract`, `bibtex`, `metadata`, `venue`, `rating`.
+ */
+export interface PaperSummary {
+  id: string;
+  title: string;
+  authors: string[];
+  status: PaperStatus;
+  year?: number;
+  /** ISO date (yyyy-mm-dd) the paper was read. */
+  readAt?: string;
+  pdfPath?: string;
+  doi?: string;
+  arxivId?: string;
+  url?: string;
+  /** The reader's own summary / notes (a column, not the derived `metadata`). */
+  summary?: string;
+  /** Keyword tags (normalized, no leading '#'). */
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Fields accepted when creating a paper; the rest are defaulted. */
 export interface NewPaperInput {
   title: string;
@@ -72,7 +106,7 @@ export interface PaperFilter {
   doi?: string;
 }
 
-export class PaperValidationError extends Error {
+export class PaperValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "PaperValidationError";

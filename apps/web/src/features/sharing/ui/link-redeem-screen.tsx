@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getContainer } from "@/bootstrap";
 import { sharedResourceHref } from "./shared-item-routes.js";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 export function LinkRedeemScreen() {
   const params = useSearchParams();
@@ -37,7 +38,7 @@ export function LinkRedeemScreen() {
   if (!token) {
     return (
       <main className="app-shell link-redeem-screen" data-testid="link-redeem">
-        <p className="error">Missing link token.</p>
+        <FormError>Missing link token.</FormError>
       </main>
     );
   }
@@ -45,7 +46,7 @@ export function LinkRedeemScreen() {
   if (error) {
     return (
       <main className="app-shell link-redeem-screen" data-testid="link-redeem">
-        <p className="error">{error}</p>
+        <FormError>{error}</FormError>
       </main>
     );
   }

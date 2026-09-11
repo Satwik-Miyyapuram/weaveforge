@@ -7,6 +7,7 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "./project-provider";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { ScreenHead } from "@/components/screen-head";
+import { FormError } from "@/components/form-error";
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
@@ -45,7 +46,7 @@ export function ProjectsScreen() {
                 required
               />
             </div>
-            {error && <p className="error">{error}</p>}
+            {error && <FormError>{error}</FormError>}
             <button className="btn-primary" disabled={busy}>
               {busy ? "Creating…" : "Create project"}
             </button>

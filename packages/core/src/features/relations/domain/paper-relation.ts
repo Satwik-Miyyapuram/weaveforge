@@ -8,6 +8,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export type RelationType =
   | "cites"
@@ -51,7 +52,7 @@ export interface PaperRelationFilter {
   toPaper?: string;
 }
 
-export class PaperRelationValidationError extends Error {
+export class PaperRelationValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "PaperRelationValidationError";

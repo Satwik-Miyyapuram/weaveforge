@@ -7,6 +7,7 @@ import {
 } from "../domain/report-section.js";
 import type { IReportSectionRepository } from "../domain/report-section-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { NotFoundError } from "../../../shared/errors.js";
 
 export interface ManageReportSectionDeps {
   repository: IReportSectionRepository;
@@ -62,7 +63,8 @@ export class ManageReportSectionUseCase {
   ): Promise<ReportSection> {
     const existing = await this.deps.repository.getById(id);
     if (!existing) {
-      throw new ReportSectionValidationError(`No report section with id "${id}".`);
+      // NotFound, not Validation: see the vault use case for the reasoning.
+      throw new NotFoundError(`No report section with id "${id}".`);
     }
     const updated = change(existing);
     await this.deps.repository.save(updated);

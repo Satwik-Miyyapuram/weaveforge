@@ -15,6 +15,7 @@ import {
 } from "../domain/milestone.js";
 import type { IMilestoneRepository } from "../domain/milestone-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { NotFoundError } from "../../../shared/errors.js";
 
 export interface ManageMilestoneDeps {
   repository: IMilestoneRepository;
@@ -64,7 +65,8 @@ export class ManageMilestoneUseCase {
 
   private async mutate(id: string, change: (m: Milestone) => Milestone): Promise<Milestone> {
     const existing = await this.deps.repository.getById(id);
-    if (!existing) throw new MilestoneValidationError(`No milestone with id "${id}".`);
+    // NotFound, not Validation: see the vault use case for the reasoning.
+    if (!existing) throw new NotFoundError(`No milestone with id "${id}".`);
     const updated = change(existing);
     await this.deps.repository.save(updated);
     return updated;

@@ -1,4 +1,5 @@
 import type { Identifiable } from "../../../shared/repository.js";
+import { WeaveForgeError } from "../../../shared/errors.js";
 
 /** Project-scoped citation alert for one library paper. */
 export interface CitationAlertTrack extends Identifiable {
@@ -17,7 +18,7 @@ export interface NewCitationAlertTrackInput {
   lastCheckedAt?: string;
 }
 
-export class CitationAlertTrackError extends Error {
+export class CitationAlertTrackError extends WeaveForgeError {
   constructor(message: string) {
     super(message);
     this.name = "CitationAlertTrackError";

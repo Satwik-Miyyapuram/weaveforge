@@ -30,7 +30,6 @@ import {
   type ReaderAnnotationType,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { savePdfText } from "@/features/search/infrastructure/pdf-text-store";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
 import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
 import {

@@ -9,6 +9,7 @@ import { SharedItemRenderer } from "@/features/sharing/ui/shared-item-renderer";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
+import { FormError } from "@/components/form-error";
 
 type SharedWithMeView = {
   items: SharedItemDetail[];
@@ -46,7 +47,7 @@ export function SharedWithMeScreen() {
 
   return (
     <section className="screen">
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {!error && byOwner.length === 0 && (
         <div className="empty"><p>Nothing shared with you yet.</p></div>
       )}

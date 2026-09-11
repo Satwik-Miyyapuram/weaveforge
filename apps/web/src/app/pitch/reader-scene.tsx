@@ -9,6 +9,9 @@ import { AnnotationSidebar } from "@/features/reader/ui/annotation-sidebar";
 import { SelectionCreateBar } from "@/features/reader/ui/selection-create-bar";
 import { AnnotationOverlay } from "@/features/reader/ui/annotation-overlay";
 import css from "./pitch.module.css";
+import groundCss from "./pitch-ground.module.css";
+import outroCss from "./pitch-outro.module.css";
+import paperCss from "./pitch-paper.module.css";
 import { AnnotationMacro, PaperWall, StatusPill, Step } from "./chrome";
 import { Graph } from "./graph";
 import { useScrollSteps } from "./use-pitch-scroll";
@@ -313,17 +316,17 @@ export function PaperPage() {
       <p className={css.stageCap}>reader · {PAPER.cite}</p>
       <div
         ref={frameRef}
-        className={css.paper}
+        className={paperCss.paper}
         data-state={state}
         style={hit ? { height: hit.frameH } : undefined}
       >
         {/* The page and its overlay move together, so the highlight stays on
             its words no matter where the frame is looking. */}
         <div
-          className={css.paperSlide}
+          className={paperCss.paperSlide}
           style={hit ? { translate: `${-hit.offsetX}px ${-hit.offsetY}px` } : undefined}
         >
-          <canvas ref={canvasRef} className={css.paperCanvas} />
+          <canvas ref={canvasRef} className={paperCss.paperCanvas} />
           {hit && (
             <AnnotationOverlay
               annotations={hit.anns}
@@ -338,7 +341,7 @@ export function PaperPage() {
           )}
         </div>
         {state !== "ready" && (
-          <p className={css.paperNote}>
+          <p className={paperCss.paperNote}>
             {state === "failed"
               ? "arXiv did not answer — the highlight below is the same annotation."
               : "Fetching the paper from arXiv…"}
@@ -452,14 +455,14 @@ export function ReadingScene() {
   ];
 
   return (
-    <section className={`${css.scene} ${css.band}`} id="reading" ref={sceneRef as React.RefObject<HTMLElement>}>
+    <section className={`${css.scene} ${groundCss.band}`} id="reading" ref={sceneRef as React.RefObject<HTMLElement>}>
       {/* The field the scene is zooming into, kept in the margin so it does
           not disappear the moment the stage is down to one page. The lit
           sheet advances with the steps: it is the paper being talked about. */}
-      <div className={css.rail} aria-hidden>
-        <PaperWall count={8} lit={litSheet} className={css.railIn} />
+      <div className={paperCss.rail} aria-hidden>
+        <PaperWall count={8} lit={litSheet} className={paperCss.railIn} />
       </div>
-      <div className={`${css.wrap} ${css.above}`}>
+      <div className={`${css.wrap} ${outroCss.above}`}>
         <header className={css.sceneHead} data-scene-head>
           <span className={css.eyebrow}>Literature &amp; reading</span>
           <h2>From the whole field down to one sentence in one paper.</h2>

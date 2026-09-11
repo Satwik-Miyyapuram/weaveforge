@@ -17,6 +17,7 @@ import { OrgCodesPanel, OrgLabModal } from "./org-setup-gate";
 import { OrgSwitcher } from "./org-switcher";
 import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/org-api";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 /**
  * People / Organization panel. Embedded in Settings (not its own screen). Shows
@@ -137,7 +138,7 @@ export function OrgPanel() {
         </>
       )}
 
-      {leaveError && <p className="error">{leaveError}</p>}
+      {leaveError && <FormError>{leaveError}</FormError>}
 
       {isOrgHead && (
         <>
@@ -283,7 +284,7 @@ function CreateAccountForm({
         />
       </div>
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {done && <p className="muted">{done}</p>}
       <button className="btn-primary" disabled={busy}>
         {busy ? "Creating…" : "Create account"}

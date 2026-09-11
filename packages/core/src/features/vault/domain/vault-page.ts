@@ -7,6 +7,7 @@ import { imagePathsInBody, markdownImage } from "../../../shared/markdown-image.
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { buildTree } from "../../../shared/tree.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export interface VaultPage extends Identifiable {
   id: string;
@@ -32,6 +33,35 @@ export interface NewVaultPageInput {
   sortOrder?: number;
 }
 
+/**
+ * The card/tree projection of a page — what `listSummaries()` returns.
+ *
+ * Deliberately **not** a `VaultPage` with holes: it has no `body` field at all,
+ * so a summary cannot be passed where a full page is expected. That is the
+ * point. The screen used to concatenate these with full `getById` rows into one
+ * `VaultPage[]`, and `toRow` then persisted `body: p.body ?? ""` — silently
+ * wiping the note body of every page whose card the user edited (review-2 F6).
+ * With this type the write path does not compile, instead of relying on a
+ * screen-level hydration guard to remember.
+ *
+ * Everything the card/tree actually paints is here; the full text arrives via
+ * {@link VaultPage} from `getById` when a page is opened.
+ */
+export interface VaultPageSummary {
+  id: string;
+  title: string;
+  /**
+   * Short body prefix for note cards. Absent on a full page, so its presence
+   * tells a reader which projection it holds.
+   */
+  bodyPreview?: string;
+  /** Parent page for nesting; undefined = top level. */
+  parentId?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VaultPageFilter {
   /** Use `null` to select only top-level pages. */
   parentId?: string | null;
@@ -39,12 +69,23 @@ export interface VaultPageFilter {
   query?: string;
 }
 
-export interface VaultPageTreeNode {
-  page: VaultPage;
-  children: VaultPageTreeNode[];
+/**
+ * A node in the vault's page tree.
+ *
+ * Generic over the page projection it carries (review-2 F6). The tree is built
+ * from the *summary* columns — the card/tree paints a title and a preview, never
+ * a body — so `page` is a {@link VaultPageSummary} wherever the tree comes from
+ * `listSummaries`/`getTree`, and a full {@link VaultPage} only when it was built
+ * from rows that were actually read in full. Defaulting `P` to `VaultPage` keeps
+ * the meaning of a bare `VaultPageTreeNode` unchanged for code that really does
+ * hold full pages.
+ */
+export interface VaultPageTreeNode<P = VaultPage> {
+  page: P;
+  children: VaultPageTreeNode<P>[];
 }
 
-export class VaultPageValidationError extends Error {
+export class VaultPageValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "VaultPageValidationError";
@@ -71,8 +112,17 @@ export function createVaultPage(
   };
 }
 
-/** Build a nested page tree from a flat list (pure). */
-export function buildPageTree(pages: readonly VaultPage[]): VaultPageTreeNode[] {
+/**
+ * Build a nested page tree from a flat list (pure).
+ *
+ * Generic over the projection it is handed, so a caller holding summaries gets a
+ * tree of summaries rather than a tree that claims every node is a full page
+ * (review-2 F6). The constraints are the fields the tree is actually built from,
+ * which both {@link VaultPage} and {@link VaultPageSummary} satisfy.
+ */
+export function buildPageTree<
+  P extends { id: string; title: string; parentId?: string; sortOrder: number },
+>(pages: readonly P[]): VaultPageTreeNode<P>[] {
   return buildTree(pages, {
     id: (page) => page.id,
     parentId: (page) => page.parentId,

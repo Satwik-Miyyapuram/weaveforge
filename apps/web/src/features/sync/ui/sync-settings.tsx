@@ -10,6 +10,7 @@ import { projectSyncDescriptorsForConfig, sharedProviderHint } from "@/integrati
 import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
 import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -152,7 +153,7 @@ function IntegrationRow({
                 />
               </div>
             ))}
-            {error && <p className="error">{error}</p>}
+            {error && <FormError>{error}</FormError>}
             {saved && <p className="muted">Saved.</p>}
             <button type="button" className="btn-primary" onClick={() => void save()} disabled={saving}>
               {saving ? "Saving…" : "Save connection"}

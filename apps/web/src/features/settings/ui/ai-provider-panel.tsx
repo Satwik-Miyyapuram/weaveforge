@@ -12,11 +12,9 @@ import {
   restoreActiveProvider,
   setActiveProvider,
 } from "@/features/ai-assistant/application/ai-provider-session";
-import {
-  ByokModelConversation,
-  PROVIDER_PRESETS,
-  type ProviderApi,
-} from "@/features/ai-assistant/infrastructure/byok-model-conversation";
+import { getContainer } from "@/bootstrap";
+import { PROVIDER_PRESETS, type ProviderApi } from "@/container/facades";
+import { FormError } from "@/components/form-error";
 
 /**
  * Settings → AI provider.
@@ -103,7 +101,9 @@ export function AiProviderPanel() {
     setResult(null);
     try {
       const chosen = descriptor();
-      const client = new ByokModelConversation(chosen, apiKey);
+      // Built through the facade: the panel names an endpoint and a key, not
+      // the transport class that speaks to it.
+      const client = getContainer().aiAssistant.createByokConversation(chosen, apiKey);
       const response = await client.complete({
         messages: [{ role: "user" as const, content: "Reply with the single word: ready" }],
         temperature: 0,
@@ -223,7 +223,7 @@ export function AiProviderPanel() {
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {result && <p className="muted">Provider replied: “{result}”</p>}
       {note && <p className="muted">{note}</p>}
 

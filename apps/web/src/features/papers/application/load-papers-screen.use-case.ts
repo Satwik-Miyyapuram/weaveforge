@@ -3,13 +3,19 @@ import type {
   IReadingListRepository,
   IPaperRepository,
   IShareRepository,
-  Paper,
+  PaperSummary,
   ReadingList,
 } from "@weaveforge/core";
 import { mergePinnedScreenData } from "@weaveforge/core";
 
 export interface PapersScreenData {
-  papers: Paper[];
+  /**
+   * **Summaries**, not full papers: the card grid paints a title, authors and
+   * tags, and the summary projection carries nothing else. Typing these as
+   * `Paper` claimed an `abstract`/`bibtex`/`metadata` every element does not
+   * have, which is how a written-back card could drop them (review-2 F6).
+   */
+  papers: PaperSummary[];
   lists: ReadingList[];
   membership: Map<string, Set<string>>;
   /** paperId -> sharer user id (pinned shared papers). */

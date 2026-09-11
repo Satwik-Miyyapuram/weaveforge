@@ -5,6 +5,7 @@ import { checkBibliography, parseBibEntries, type BibFinding } from "@weaveforge
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import type { DesktopTexCompileResult, DesktopTexError } from "@/lib/desktop/desktop-bridge";
+import { FormError } from "@/components/form-error";
 
 type SourceFile = { path: string; content: string };
 
@@ -106,12 +107,12 @@ function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile
         {running ? "Compiling…" : "Compile here"}
       </button>
       <span className="project-checks-engine">{tool}</span>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {result && !result.ok && (
         <>
-          <p className="error">
+          <FormError>
             {result.errors.length} {result.errors.length === 1 ? "error" : "errors"} — no PDF.
-          </p>
+          </FormError>
           <ul className="project-checks-findings">
             {result.errors.slice(0, 40).map((texError: DesktopTexError, index) => (
               <li key={`${texError.file}:${texError.line}:${index}`} className="error">

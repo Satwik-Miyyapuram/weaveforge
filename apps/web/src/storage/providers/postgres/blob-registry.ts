@@ -14,6 +14,28 @@ export class PostgresBlobRegistry implements IBlobRegistry {
     return row ? rowToRecord(row) : null;
   }
 
+  /**
+   * The same lookup for a whole batch, in one round trip.
+   *
+   * Mirror of `SupabaseBlobRegistry.getMany` on the pooled path, so the route
+   * that mints up to 200 signed URLs in one request does one query whichever
+   * backend is wired. RLS applies as it does to `get` — the session's user is
+   * the filter — and a path the caller cannot see is simply absent from the map.
+   */
+  async getMany(bucket: string, paths: readonly string[]): Promise<Map<string, BlobObjectRecord>> {
+    const out = new Map<string, BlobObjectRecord>();
+    if (paths.length === 0) return out;
+    const rows = await this.pg.query<BlobRow>(
+      "select * from blob_objects where bucket = $1 and path = any($2)",
+      [bucket, [...paths]],
+    );
+    for (const row of rows) {
+      const record = rowToRecord(row);
+      out.set(record.path, record);
+    }
+    return out;
+  }
+
   async register(input: RegisterBlobInput): Promise<void> {
     await this.pg.exec(
       `insert into blob_objects (bucket, path, tier, size_bytes, priority)
@@ -32,6 +54,17 @@ export class PostgresBlobRegistry implements IBlobRegistry {
        set access_count = access_count + 1, last_accessed_at = now()
        where bucket = $1 and path = $2`,
       [bucket, path],
+    );
+  }
+
+  /** The same increment for a batch, in one statement. */
+  async recordAccessMany(bucket: string, paths: readonly string[]): Promise<void> {
+    if (paths.length === 0) return;
+    await this.pg.exec(
+      `update blob_objects
+       set access_count = access_count + 1, last_accessed_at = now()
+       where bucket = $1 and path = any($2)`,
+      [bucket, [...paths]],
     );
   }
 
