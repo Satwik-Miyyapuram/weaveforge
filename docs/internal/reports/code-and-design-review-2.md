@@ -361,7 +361,7 @@ apps/web/twa/twa-manifest.json
 Everything else — `AndroidManifest.xml`, the three Java classes, every
 resource, `build.gradle`, the gradle wrapper — exists only on this machine. The
 `.gitignore` entry meant to protect generated output ignores `apps/web/twa/app/`
-rather than `apps/web/twa/app/build/`. Bubblewrap's `update` deletes `app/` and
+rather than the Gradle `build/` output directory beneath it. Bubblewrap's `update` deletes `app/` and
 `build.gradle` before regenerating, so any hand edit is destroyed on the next
 release. The correct ignore is the build directory, not the source tree.
 
