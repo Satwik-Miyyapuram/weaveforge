@@ -1,55 +1,72 @@
 #!/usr/bin/env node
 /**
  * SOLID boundary checks for CI / pre-PR. Exits 1 when violations are found.
+ *
+ * The prose counterpart of every rule below is CONTRIBUTING.md § SOLID PR
+ * checklist and docs/building/dev.md § SOLID boundaries — when a rule changes,
+ * change all three.
+ *
+ * The searching is done by scripts/lib/search.mjs rather than by shelling out
+ * to ripgrep here, and that is a correctness fix rather than tidying: `rg` was
+ * invoked through `execSync`, which on Windows runs the command through
+ * `cmd.exe`, where a missing binary exits 1 — the same code ripgrep uses for
+ * "nothing matched". The gate therefore reported a pass on a machine without
+ * ripgrep while having checked nothing. The search module runs the same rules
+ * over the same files in Node when ripgrep is unusable, and fails loudly
+ * instead of quietly when even that is impossible.
  */
-import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { searchLines, searchedWith, trackedFiles } from "./lib/search.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-function rg(pattern, extraArgs = "") {
-  try {
-    const out = execSync(`rg -l "${pattern}" apps/web/src/features ${extraArgs}`, {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    return out.trim().split(/\r?\n/).filter(Boolean);
-  } catch (e) {
-    if (e.status === 1) return [];
-    throw e;
-  }
-}
+/**
+ * The files the search runs over: everything git tracks under `features/`.
+ *
+ * Taken from git (`ls-files`) rather than by walking the directory, so a build
+ * output directory or a scratch file cannot be searched — or, worse, reported
+ * as a violation — and so a contributor and CI look at the same set. The list
+ * is handed to the search as-is; see scripts/lib/search.mjs for why the paths
+ * travel as data rather than on a command line.
+ */
+const featureFiles = trackedFiles(root, ["apps/web/src/features"]);
+
+const search = (pattern, glob) =>
+  searchLines({ root, files: featureFiles, pattern, glob });
 
 let failed = false;
 
-const supabaseInUi = rg("@supabase", '--glob "**/ui/**"');
+const supabaseInUi = search("@supabase", "**/ui/**");
 if (supabaseInUi.length) {
   console.error("FAIL: Supabase imports under features/**/ui/:");
   for (const f of supabaseInUi) console.error(`  ${f}`);
   failed = true;
 }
 
-const crossUiLines = (() => {
-  try {
-    return execSync(
-      `rg "from [\\"']@/features/([a-z-]+)/ui/" apps/web/src/features --glob "*.{ts,tsx}"`,
-      { cwd: root, encoding: "utf8" },
-    )
-      .trim()
-      .split(/\r?\n/)
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
-})();
-
-for (const line of crossUiLines) {
-  const m = line.match(/^([^:]+):.*@\/features\/([a-z-]+)\/ui\//);
-  if (!m) continue;
-  const [, file, feature] = m;
+// Cross-feature `ui/` imports.
+//
+// The rule is about a feature reaching into another feature's presentation:
+// `features/reader/ui/…` is reader's business, and a second feature importing
+// it couples two screens through one component's file layout. What it is not
+// about is the composition layer above features — `app/`, `components/` — or
+// the shell, which exist to assemble features and therefore import their `ui/`
+// entry points by design. `app/app-shell.tsx` importing
+// `@/features/auth/ui/auth-provider` is the app being the app, so the search
+// deliberately covers `features/**` only. Widening it to `apps/web/src` would
+// fail on about twenty legitimate imports and teach everyone to ignore the
+// rule; what the rule actually verifies is stated here so its coverage is not
+// mistaken for something broader.
+//
+// A file whose own feature cannot be derived from its path is skipped: an
+// import from a shared helper under `features/<name>/…` is the only case, and
+// guessing an owner for it would invent a violation.
+const CROSS_UI_IMPORT = /^([^:]+):\d+:.*@\/features\/([a-z-]+)\/ui\//;
+for (const line of search('from ["\']@/features/([a-z-]+)/ui/', "*.{ts,tsx}")) {
+  const match = line.match(CROSS_UI_IMPORT);
+  if (!match) continue;
+  const [, file, feature] = match;
   const importer = file.replace(/\\/g, "/").match(/features\/([a-z-]+)\//)?.[1];
   if (importer && importer !== feature) {
     console.error(`FAIL: cross-feature ui import: ${line}`);
@@ -57,19 +74,7 @@ for (const line of crossUiLines) {
   }
 }
 
-const repoInUi = (() => {
-  try {
-    return execSync(
-      `rg "getContainer\\(\\)\\.\\w+Repository" apps/web/src/features --glob "**/ui/**"`,
-      { cwd: root, encoding: "utf8" },
-    )
-      .trim()
-      .split(/\r?\n/)
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
-})();
+const repoInUi = search("getContainer\\(\\)\\.\\w+Repository", "**/ui/**");
 if (repoInUi.length) {
   console.error("FAIL: UI reaches repositories via getContainer (use facades):");
   for (const line of repoInUi) console.error(`  ${line}`);
@@ -139,4 +144,4 @@ if (failed) {
   process.exit(1);
 }
 
-console.log("SOLID boundary checks passed.");
+console.log(`SOLID boundary checks passed (${featureFiles.length} files, ${searchedWith()}).`);

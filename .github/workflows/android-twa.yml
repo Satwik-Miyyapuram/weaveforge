@@ -8,7 +8,18 @@ name: Build Android TWA
 #   1. Bubblewrap project committed under apps/web/twa/ (keystore gitignored).
 #   2. Repo Secrets: ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD,
 #      ANDROID_KEY_PASSWORD, ANDROID_KEY_ALIAS
-#   3. assetlinks.json SHA-256 matches this keystore (run android-fingerprint.yml).
+#   3. assetlinks.json lists the upload keystore's SHA-256, and — once Play App
+#      Signing is enabled — Play's app-signing certificate SHA-256 as well,
+#      because Play re-signs the AAB and the installed certificate is then
+#      Play's, not the one this job checks.
+#
+# The Android project is source in this repository, and this job builds that
+# source. It deliberately does not run `bubblewrap update`: update calls
+# `TwaGenerator.removeTwaProject()` and rewrites the whole Gradle project from
+# the CLI's bundled template, so it replaces the committed tree — and any hand
+# edit in it — with whatever the CLI generates, without a diff to review. What
+# `update` would have contributed is asserted instead, by the two verification
+# steps below.
 
 on:
   push:
@@ -20,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     # Needed to create the android-v* release and upload the APK/AAB to it.
     # Without this the default token is read-only and `gh release create` 403s.
+    # It is also the only scope this job needs: no packages, no id-token, no
+    # issues, and no write access to anything but the release's own contents.
     permissions:
       contents: write
     defaults:
@@ -37,8 +50,19 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
+      # Pinned to an exact version on purpose. `compileSdkVersion`,
+      # `targetSdkVersion` and the Android Gradle Plugin version are not read
+      # from twa-manifest.json — they come from the CLI's bundled template — so
+      # `npm install -g @bubblewrap/cli` (whatever is current that day) silently
+      # decides what a release tag builds and what it targets.
+      #
+      # 1.24.1 is the template line the committed project came from: compileSdk
+      # 36, targetSdk 35, AGP 8.9.1, Gradle 8.11.1, matching
+      # gradle/wrapper/gradle-wrapper.properties. 1.25.0 moved its template to
+      # targetSdkVersion 36. Bump this pin and regenerate the project in the
+      # same commit — the consistency step below fails if they drift apart.
+      - name: Install Bubblewrap (pinned)
+        run: npm install -g @bubblewrap/cli@1.24.1
 
       # Without this Bubblewrap asks "Do you want Bubblewrap to install the
       # JDK?" on first run. CI has no stdin, so the prompt reads EOF and the
@@ -56,6 +80,183 @@ jobs:
           JSON
           cat "$HOME/.bubblewrap/config.json"
 
+      # The project this job compiles is committed; the manifest is the file
+      # people actually edit. Nothing rebuilds one from the other any more, so
+      # this is the step that keeps them saying the same thing — theme colour,
+      # orientation, notification delegation, version and package id included,
+      # across all three places the identity appears (twa-manifest.json,
+      # app/build.gradle, app/src/main/AndroidManifest.xml). It also proves the
+      # template settings still match the pinned CLI, and hands the application
+      # id to the assetlinks step so it is never hardcoded twice.
+      - name: Check twa-manifest.json, the Gradle project and AndroidManifest.xml agree
+        run: |
+          set -euo pipefail
+          cat > /tmp/check-twa-consistency.mjs <<'CHECK'
+          import fs from "node:fs";
+
+          const manifest = JSON.parse(fs.readFileSync("twa-manifest.json", "utf8"));
+          const app = fs.readFileSync("app/build.gradle", "utf8");
+          const root = fs.readFileSync("build.gradle", "utf8");
+          const androidManifest = fs.readFileSync("app/src/main/AndroidManifest.xml", "utf8");
+          const wrapper = fs.readFileSync("gradle/wrapper/gradle-wrapper.properties", "utf8");
+
+          const failures = [];
+          function expect(label, expected, actual) {
+            if (actual === null || actual === undefined) {
+              failures.push(`${label}: expected ${JSON.stringify(String(expected))}, found nothing`);
+              return;
+            }
+            if (String(expected) !== String(actual)) {
+              failures.push(`${label}: expected ${JSON.stringify(String(expected))}, found ${JSON.stringify(String(actual))}`);
+            }
+          }
+
+          // The generated map at the top of app/build.gradle.
+          const twaValue = (key) => {
+            const m = new RegExp(`^\\s*${key}:\\s*'([^']*)'`, "m").exec(app);
+            return m ? m[1] : null;
+          };
+          const twaNumberOrBool = (key) => {
+            const m = new RegExp(`^\\s*${key}:\\s*([^,\\n]+),`, "m").exec(app);
+            return m ? m[1].trim() : null;
+          };
+          // The android { defaultConfig { ... } } block.
+          const configString = (field) => {
+            const m = new RegExp(`^\\s*${field}\\s+"([^"]*)"`, "m").exec(app);
+            return m ? m[1] : null;
+          };
+          const configNumber = (field) => {
+            const m = new RegExp(`^\\s*${field}\\s+(\\d+)`, "m").exec(app);
+            return m ? m[1] : null;
+          };
+          const resString = (name) => {
+            const m = new RegExp(`resValue\\s+"string",\\s+"${name}",\\s*'([^']*)'`).exec(app);
+            return m ? m[1] : null;
+          };
+
+          expect("packageId / applicationId", manifest.packageId, twaValue("applicationId"));
+          expect("packageId / namespace", manifest.packageId, /namespace\s+"([^"]+)"/.exec(app)?.[1]);
+          expect("packageId / defaultConfig.applicationId", manifest.packageId, configString("applicationId"));
+          expect(
+            "packageId / AndroidManifest.xml package",
+            manifest.packageId,
+            /<manifest[^>]*\spackage="([^"]+)"/.exec(androidManifest)?.[1],
+          );
+          expect("host / hostName", manifest.host, twaValue("hostName"));
+          expect("startUrl / launchUrl", manifest.startUrl, twaValue("launchUrl"));
+          expect("name", manifest.name, twaValue("name"));
+          expect("launcherName", manifest.launcherName, twaValue("launcherName"));
+          expect("themeColor", manifest.themeColor, twaValue("themeColor"));
+          expect("themeColorDark", manifest.themeColorDark, twaValue("themeColorDark"));
+          expect("navigationColor", manifest.navigationColor, twaValue("navigationColor"));
+          expect("navigationColorDark", manifest.navigationColorDark, twaValue("navigationColorDark"));
+          expect("navigationDividerColor", manifest.navigationDividerColor, twaValue("navigationDividerColor"));
+          expect(
+            "navigationDividerColorDark",
+            manifest.navigationDividerColorDark,
+            twaValue("navigationDividerColorDark"),
+          );
+          expect("backgroundColor", manifest.backgroundColor, twaValue("backgroundColor"));
+          expect("enableNotifications", manifest.enableNotifications, twaNumberOrBool("enableNotifications"));
+          expect(
+            "splashScreenFadeOutDuration",
+            manifest.splashScreenFadeOutDuration,
+            twaNumberOrBool("splashScreenFadeOutDuration"),
+          );
+          expect("generatorApp", manifest.generatorApp, twaValue("generatorApp"));
+          expect("fallbackType", manifest.fallbackType, twaValue("fallbackType"));
+          expect(
+            "enableSiteSettingsShortcut",
+            manifest.enableSiteSettingsShortcut,
+            twaValue("enableSiteSettingsShortcut"),
+          );
+          expect("orientation", manifest.orientation, twaValue("orientation"));
+          expect("minSdkVersion", manifest.minSdkVersion, configNumber("minSdkVersion"));
+          expect("appVersionCode / versionCode", manifest.appVersionCode, configNumber("versionCode"));
+          expect("appVersionName / versionName", manifest.appVersionName, configString("versionName"));
+          expect("webManifestUrl", manifest.webManifestUrl, resString("webManifestUrl"));
+          expect("fullScopeUrl", manifest.fullScopeUrl, resString("fullScopeUrl"));
+
+          // Where compileSdk / targetSdk / the Android Gradle Plugin version come
+          // from: @bubblewrap/cli@1.24.1's template, which is why the pin above is
+          // 1.24.1. These are not in twa-manifest.json, so without this check a
+          // pin bump (or a hand edit) would change them with nothing to notice it.
+          expect("compileSdkVersion (Bubblewrap 1.24.1 template)", "36", configNumber("compileSdkVersion"));
+          expect("targetSdkVersion (Bubblewrap 1.24.1 template)", "35", configNumber("targetSdkVersion"));
+          expect(
+            "Android Gradle Plugin (Bubblewrap 1.24.1 template)",
+            "8.9.1",
+            /com\.android\.tools\.build:gradle:([0-9.]+)/.exec(root)?.[1],
+          );
+          expect(
+            "Gradle wrapper (Bubblewrap 1.24.1 template)",
+            "8.11.1",
+            /gradle-([0-9.]+)-bin\.zip/.exec(wrapper)?.[1],
+          );
+
+          // Two more of Bubblewrap's feature flags that materialise as content in
+          // the committed project rather than as a value in the manifest. They are
+          // asserted in both directions, so flipping the flag without regenerating
+          // fails here, and regenerating keeps passing. `alphaDependencies` picks
+          // the Android Browser Helper coordinate (FeatureManager), and
+          // `fallbackType` / `enableNotifications` each add a `uses-permission`.
+          const expectedHelper = manifest.alphaDependencies?.enabled ? "2.7.0-alpha02" : "2.6.2";
+          expect(
+            "androidbrowserhelper dependency (alphaDependencies.enabled)",
+            expectedHelper,
+            /androidbrowserhelper:androidbrowserhelper:([0-9A-Za-z.\-]+)/.exec(app)?.[1],
+          );
+          const expectedPermissions = [];
+          if (manifest.fallbackType === "webview") expectedPermissions.push("android.permission.INTERNET");
+          if (manifest.enableNotifications) expectedPermissions.push("android.permission.POST_NOTIFICATIONS");
+          const declaredPermissions = [...androidManifest.matchAll(/<uses-permission[^>]*android:name="([^"]+)"/g)]
+            .map((match) => match[1])
+            .sort();
+          expect(
+            "AndroidManifest.xml uses-permission (fallbackType + enableNotifications)",
+            expectedPermissions.sort().join(", "),
+            declaredPermissions.join(", "),
+          );
+
+          // Bubblewrap invokes the wrapper as `./gradlew` on anything that is not
+          // Windows, so the file has to be executable *in the index* (100755).
+          // git for Windows records 100644 for a file added without
+          // `git add --chmod=+x`, which is invisible here and fails on the runner
+          // with a bare "Permission denied" — so it is asserted rather than
+          // papered over with a chmod that would leave the repository wrong for
+          // anyone else building it. Windows reports no usable executable bit, so
+          // the check only applies where it means something.
+          if (process.platform !== "win32" && !(fs.statSync("gradlew").mode & 0o111)) {
+            failures.push(
+              "gradlew is not executable in this checkout: run " +
+              "`git update-index --chmod=+x apps/web/twa/gradlew` and commit the mode",
+            );
+          }
+
+          if (failures.length > 0) {
+            console.error("::error::The committed Gradle project and twa-manifest.json disagree.");
+            for (const failure of failures) console.error(`  - ${failure}`);
+            console.error(
+              "Regenerate with the pinned CLI (npm i -g @bubblewrap/cli@1.24.1, then " +
+              "bubblewrap update --skipVersionUpgrade), review git diff, and commit the result — " +
+              "or fix twa-manifest.json if the committed project is the intended state.",
+            );
+            process.exit(1);
+          }
+
+          console.log(
+            `TWA consistency: ${manifest.packageId} — twa-manifest.json, app/build.gradle and ` +
+            "app/src/main/AndroidManifest.xml agree.",
+          );
+          // Handed to later steps so the application id is read from the project
+          // here and compared with assetlinks.json there, instead of being
+          // written out a second time in this workflow.
+          if (process.env.GITHUB_ENV) {
+            fs.appendFileSync(process.env.GITHUB_ENV, `TWA_APPLICATION_ID=${manifest.packageId}\n`);
+          }
+          CHECK
+          node /tmp/check-twa-consistency.mjs
+
       - name: Restore signing keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -63,7 +264,15 @@ jobs:
           test -n "$KEYSTORE_B64" || { echo "ANDROID_KEYSTORE_B64 secret missing"; exit 1; }
           echo "$KEYSTORE_B64" | base64 -d > android-keystore.jks
 
-      - name: Verify assetlinks fingerprint matches keystore
+      # Digital Asset Links has two halves that both have to hold: the statement
+      # must name this package with this relation, and it must list the
+      # certificate the installed app was signed with. This step used to grep for
+      # the fingerprint alone, so a right fingerprint under a wrong package_name,
+      # or a statement that granted some other relation, passed and shipped an
+      # app Chrome refuses to verify — the URL-bar symptom the whole TWA exists
+      # to avoid. It is checked with node rather than jq because node is already
+      # guaranteed on the runner and parses JSON without a second tool.
+      - name: Verify assetlinks covers this package, fingerprint and relation
         env:
           STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -87,19 +296,215 @@ jobs:
             exit 1
           fi
           echo "Keystore SHA-256: $FP"
-          # Relative to apps/web/twa, so one level up — `../..` is `apps/`, and
-          # grep on a missing file also returns non-zero, which made a wrong
-          # path look identical to a fingerprint mismatch.
+          # Relative to apps/web/twa, so one level up — `../..` is `apps/`. A
+          # missing file used to be indistinguishable from a mismatch, because
+          # grep on a missing file also returns non-zero.
           ASSETLINKS="../public/.well-known/assetlinks.json"
           if [ ! -f "$ASSETLINKS" ]; then
             echo "::error::$ASSETLINKS not found (cwd $(pwd))."
             exit 1
           fi
-          if ! grep -q "$FP" "$ASSETLINKS"; then
-            echo "::error::$ASSETLINKS is missing fingerprint $FP — URL bar will show in the TWA."
-            echo "Update assetlinks.json, deploy the web app, then re-run."
+          if [ -z "${TWA_APPLICATION_ID:-}" ]; then
+            echo "::error::TWA_APPLICATION_ID was not exported by the consistency step."
             exit 1
           fi
+          ASSETLINKS="$ASSETLINKS" FP="$FP" APPLICATION_ID="$TWA_APPLICATION_ID" node -e '
+          const fs = require("fs");
+          const file = process.env.ASSETLINKS;
+          const applicationId = process.env.APPLICATION_ID;
+          const relation = "delegate_permission/common.handle_all_urls";
+          const normalize = (value) => String(value).toUpperCase().replace(/[^0-9A-F]/g, "");
+          const wanted = normalize(process.env.FP);
+
+          let statements;
+          try {
+            statements = JSON.parse(fs.readFileSync(file, "utf8"));
+          } catch (error) {
+            console.error("::error::" + file + " is not valid JSON: " + error.message);
+            process.exit(1);
+          }
+          if (!Array.isArray(statements) || statements.length === 0) {
+            console.error("::error::" + file + " must be a non-empty JSON array of statements.");
+            process.exit(1);
+          }
+
+          const forPackage = statements.filter((statement) => {
+            const target = statement && statement.target;
+            return target && target.namespace === "android_app" && target.package_name === applicationId;
+          });
+          if (forPackage.length === 0) {
+            const found = statements
+              .map((statement) => statement && statement.target && statement.target.package_name)
+              .filter(Boolean);
+            console.error(
+              "::error::" + file + " has no statement for package_name " + applicationId +
+              " (found: " + (found.join(", ") || "none") + "). That name was read from " +
+              "app/build.gradle, so a rename that misses this file leaves the TWA unverified " +
+              "and showing the URL bar.",
+            );
+            process.exit(1);
+          }
+
+          const matching = forPackage.filter((statement) => {
+            const fingerprints = statement.target.sha256_cert_fingerprints;
+            return Array.isArray(fingerprints) && fingerprints.some((fp) => normalize(fp) === wanted);
+          });
+          if (matching.length === 0) {
+            console.error(
+              "::error::" + file + " lists no fingerprint matching the keystore for " +
+              applicationId + ": " + process.env.FP,
+            );
+            console.error("Update assetlinks.json, deploy the web app, then re-run.");
+            process.exit(1);
+          }
+
+          const wrongRelation = matching.filter((statement) =>
+            !Array.isArray(statement.relation) || !statement.relation.includes(relation));
+          if (wrongRelation.length > 0) {
+            console.error(
+              "::error::the statement in " + file + " that carries the keystore fingerprint for " +
+              applicationId + " does not grant " + relation + ".",
+            );
+            process.exit(1);
+          }
+
+          const placeholders = forPackage.filter((statement) =>
+            statement.target.sha256_cert_fingerprints.some((fp) => /[^0-9A-Fa-f:\s]/.test(String(fp))));
+          if (placeholders.length > 0) {
+            console.log(
+              "::warning::" + file + " still carries a placeholder fingerprint. Installs from Play " +
+              "are signed with Play App Signing, not with the upload certificate checked here, so " +
+              "that entry is still needed — see apps/web/twa/README.md.",
+            );
+          }
+
+          console.log(
+            "assetlinks.json: package_name " + applicationId + " ✓, fingerprint " + process.env.FP +
+            " ✓, relation " + relation + " ✓",
+          );
+          '
+
+      # The icons and the web manifest live on the deployed site, not in this
+      # repository, and the committed mipmap resources were generated from them.
+      # A build therefore cannot be proven reproducible from a clone alone; what
+      # it can do is record exactly which bytes the generator would fetch today
+      # and refuse an asset that has stopped being what twa-manifest.json
+      # describes. See apps/web/twa/README.md § Icons for the residual gap.
+      - name: Verify the deployed PWA assets the generator consumes
+        run: |
+          set -euo pipefail
+          cat > /tmp/check-pwa-assets.mjs <<'ASSETS'
+          import crypto from "node:crypto";
+          import fs from "node:fs";
+
+          const manifest = JSON.parse(fs.readFileSync("twa-manifest.json", "utf8"));
+          const failures = [];
+          const rows = [];
+
+          const sha256 = (buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
+
+          function pngDimensions(buffer) {
+            if (buffer.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") return null;
+            if (buffer.subarray(12, 16).toString("ascii") !== "IHDR") return null;
+            return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+          }
+
+          async function get(url) {
+            const response = await fetch(url, { signal: AbortSignal.timeout(30000), redirect: "follow" });
+            if (!response.ok) throw new Error(`${url} answered HTTP ${response.status}`);
+            return Buffer.from(await response.arrayBuffer());
+          }
+
+          async function checkIcon(field, url) {
+            const bytes = await get(url);
+            const size = pngDimensions(bytes);
+            if (!size) {
+              failures.push(`${field}: ${url} is no longer a PNG`);
+              return;
+            }
+            if (size.width !== size.height || size.width < 512) {
+              failures.push(
+                `${field}: ${url} is ${size.width}x${size.height}; the committed mipmaps were ` +
+                "generated from a square icon of at least 512x512",
+              );
+            }
+            rows.push(`| ${field} | ${url} | ${size.width}x${size.height} | ${sha256(bytes)} |`);
+          }
+
+          async function checkWebManifest(url) {
+            const bytes = await get(url);
+            let parsed;
+            try {
+              parsed = JSON.parse(bytes.toString("utf8"));
+            } catch (error) {
+              failures.push(`webManifestUrl: ${url} is not JSON: ${error.message}`);
+              return;
+            }
+            if (parsed.name !== manifest.name) {
+              failures.push(
+                `webManifestUrl: name is ${JSON.stringify(parsed.name)}, twa-manifest.json says ` +
+                `${JSON.stringify(manifest.name)}`,
+              );
+            }
+            if (parsed.start_url !== manifest.startUrl) {
+              failures.push(
+                `webManifestUrl: start_url is ${JSON.stringify(parsed.start_url)}, twa-manifest.json says ` +
+                `${JSON.stringify(manifest.startUrl)}`,
+              );
+            }
+            const icons = Array.isArray(parsed.icons) ? parsed.icons : [];
+            for (const pointedAt of [manifest.iconUrl, manifest.maskableIconUrl]) {
+              const base = String(pointedAt).split("/").pop();
+              const advertised = icons.find((icon) => String(icon.src || "").split("/").pop() === base);
+              if (!advertised) {
+                failures.push(
+                  `webManifestUrl: ${url} no longer advertises ${base}, which twa-manifest.json points at`,
+                );
+              }
+            }
+            rows.push(`| webManifestUrl | ${url} | — | ${sha256(bytes)} |`);
+          }
+
+          try {
+            await checkIcon("iconUrl", manifest.iconUrl);
+            await checkIcon("maskableIconUrl", manifest.maskableIconUrl);
+            await checkWebManifest(manifest.webManifestUrl);
+          } catch (error) {
+            failures.push(
+              `could not fetch the deployed assets: ${error.message}. A tag build depends on ` +
+              `${manifest.host} serving the icons twa-manifest.json names; that is a known ` +
+              "non-determinism, and this step exists so it is visible rather than silent.",
+            );
+          }
+
+          if (process.env.GITHUB_STEP_SUMMARY) {
+            fs.appendFileSync(
+              process.env.GITHUB_STEP_SUMMARY,
+              [
+                "## Deployed PWA assets fetched by the Bubblewrap generator",
+                "",
+                "The committed `mipmap-*` resources were generated from these. A change below means the",
+                "next regeneration produces a different APK, which is why two builds of the same tag can",
+                "differ.",
+                "",
+                "| field | URL | size | SHA-256 |",
+                "| --- | --- | --- | --- |",
+                ...rows,
+                "",
+              ].join("\n"),
+            );
+          }
+
+          if (failures.length > 0) {
+            console.error("::error::The deployed PWA assets are not what twa-manifest.json describes.");
+            for (const failure of failures) console.error(`  - ${failure}`);
+            process.exit(1);
+          }
+
+          console.log(`Deployed PWA assets verified (${rows.length} fetched).`);
+          for (const row of rows) console.log(row);
+          ASSETS
+          node /tmp/check-pwa-assets.mjs
 
       - name: Build signed APK + AAB
         env:
@@ -107,12 +512,29 @@ jobs:
           BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          # manifest-checksum.txt is gitignored, so `build` never finds it and
-          # asks "would you like to regenerate your project?" — another prompt
-          # with no stdin. Regenerating explicitly answers it and rebuilds the
-          # Android project from twa-manifest.json, which is the file we edit.
-          bubblewrap update --skipVersionUpgrade
-          bubblewrap build --skipPwaValidation
+          # `bubblewrap build` compares manifest-checksum.txt with the current
+          # twa-manifest.json and, when it is missing or stale, stops to ask
+          # "would you like to regenerate your project?". CI has no stdin, so the
+          # question reads EOF and kills the step before it builds anything. The
+          # file is gitignored — it is derived state — so it is never present
+          # here; writing it answers the check on its own terms. The value is what
+          # Bubblewrap itself writes: `computeChecksum` is a plain SHA-1 of the
+          # manifest bytes.
+          #
+          # Doing this is only safe because the consistency step above already
+          # proved the committed project matches the manifest. That is the trade
+          # this job makes instead of `bubblewrap update`: update would have
+          # "fixed" the same drift by deleting the committed project and
+          # regenerating it from the CLI's template, so the diff that a reviewer
+          # needed would never exist.
+          node -e "process.stdout.write(require('crypto').createHash('sha1').update(require('fs').readFileSync('twa-manifest.json')).digest('hex'))" > manifest-checksum.txt
+          echo "manifest-checksum.txt: $(cat manifest-checksum.txt)"
+          # The previous revision passed `--skipPwaValidation` here. `build` in the
+          # pinned CLI never reads that flag — it belongs to `init`, which this job
+          # deliberately does not run — so passing it only invited the reader to
+          # believe a validation had been disabled. `bubblewrap build` compiles the
+          # committed project, which is all this step means to do.
+          bubblewrap build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -130,7 +552,9 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
-          # Create the release if this was a bare tag push
+          # Create the release if this was a bare tag push. The AAB is signed
+          # with the upload key; Play re-signs it with the app-signing key, which
+          # is why assetlinks.json has to list both certificates.
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --title "Android ${TAG#android-}" \

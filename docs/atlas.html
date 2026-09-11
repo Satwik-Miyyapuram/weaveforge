@@ -542,11 +542,11 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>95,965</b><span>web app lines</span></div>
-      <div class="fact"><b>35,324</b><span>core lines</span></div>
-      <div class="fact"><b>6,414</b><span>desktop lines</span></div>
-      <div class="fact"><b>2,573</b><span>python sdk</span></div>
-      <div class="fact"><b>121</b><span>migrations</span></div>
+      <div class="fact"><b>99,827</b><span>web app lines</span></div>
+      <div class="fact"><b>36,591</b><span>core lines</span></div>
+      <div class="fact"><b>7,997</b><span>desktop lines</span></div>
+      <div class="fact"><b>2,883</b><span>python sdk</span></div>
+      <div class="fact"><b>129</b><span>migrations</span></div>
       <div class="fact"><b>29</b><span>web features</span></div>
     </div>
   </header>
@@ -656,7 +656,7 @@ flowchart TB
 
       <div class="tree">
 <pre><b>weaveforge/</b>
-├── <b>packages/core/src/</b>            <i>35,324 lines — the only place rules live</i>
+├── <b>packages/core/src/</b>            <i>36,591 lines — the only place rules live</i>
 │   ├── <u>features/</u>                 <i>18 slices: papers, experiments, plan, report,</i>
 │   │                              <i>logbook, library, vault, wiki, org, sharing,</i>
 │   │                              <i>collab, tags, relations, reading-lists,</i>
@@ -669,7 +669,7 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>95,965 lines</i>
+├── <b>apps/web/src/</b>                 <i>99,827 lines</i>
 │   ├── <u>app/</u>                      <i>26 pages + 35 API routes</i>
 │   ├── <u>features/</u>                 <i>29 slices — core's 18 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: supabase | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>6,414 lines, 25 files, main + preload only</i>
+├── <b>apps/desktop/src/</b>              <i>7,997 lines, 28 files, main + preload only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -689,16 +689,16 @@ flowchart TB
 │
 ├── <b>apps/pitch/</b>                    <i>732 lines — public site, GitHub Pages</i>
 │
-├── <b>python/weaveforge/</b>             <i>2,573 lines + 927 lines of tests</i>
+├── <b>python/weaveforge/</b>             <i>2,883 lines + 1,361 lines of tests</i>
 │   ├── features/{experiments,papers,projects}/{domain,application,infrastructure}
 │   ├── sync/                      <i>tensorboard · wandb · matplotlib · registry</i>
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
-├── <b>supabase/migrations/</b>           <i>0001 → 0122, 5,665 lines</i>
-├── <b>scripts/</b>                       <i>59 files — boundary gates, migration, seeding</i>
+├── <b>supabase/migrations/</b>           <i>0001 → 0130, 6,673 lines</i>
+├── <b>scripts/</b>                       <i>63 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>66 files, 15,105 lines</i>
+└── <b>docs/</b>                          <i>68 files, 16,751 lines</i>
 </pre>
       </div>
     </section>
@@ -988,7 +988,7 @@ flowchart TB
   BRIDGE["preload.ts<br/>window.weaveforge<br/>one bridge object, 26 members"]
 
   subgraph main["Main process"]
-    DB["local-db.ts<br/>PGlite + the 121 migrations"]
+    DB["local-db.ts<br/>PGlite + the 129 migrations"]
     FOLDER["vault-folder.ts<br/>read / write / list / stat"]
     WATCH["vault-watch.ts<br/>notices outside edits"]
     GIT["vault-git.ts<br/>commit history"]
@@ -1294,7 +1294,7 @@ flowchart TB
     <section id="data">
       <h2>Data layer</h2>
       <p>
-        121 numbered migrations, applied in order, by all three backends. Access control is in
+        129 numbered migrations, applied in order, by all three backends. Access control is in
         the database rather than in the app: a missing check in a React component is a bug, a
         missing RLS policy is a breach, so the policy is the one that decides.
       </p>

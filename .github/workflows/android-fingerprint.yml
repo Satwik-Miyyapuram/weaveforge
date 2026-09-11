@@ -3,6 +3,13 @@ name: Android keystore fingerprint
 # Prints the SHA-256 of the signing keystore (from GitHub Secrets) so
 # apps/web/public/.well-known/assetlinks.json can be kept in sync.
 # Manual only — never commit the keystore.
+#
+# This can only ever print the *upload* certificate, because the keystore is the
+# only certificate this repository holds. Once the AAB is published through Play
+# App Signing, the installed app is signed with Play's app-signing certificate
+# instead, and that fingerprint has to be copied from the Play Console
+# (Release → Setup → App integrity) — no job here can derive it. Both entries
+# belong in assetlinks.json; see apps/web/twa/README.md § Digital Asset Links.
 
 on:
   workflow_dispatch:
@@ -10,6 +17,9 @@ on:
 jobs:
   fingerprint:
     runs-on: ubuntu-latest
+    # Reads the repository and a secret, writes a job summary. Nothing else.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +57,10 @@ jobs:
           echo "- SHA-256: \`$FP\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Paste into \`apps/web/public/.well-known/assetlinks.json\` under \`sha256_cert_fingerprints\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "This is the **upload** certificate. Installs from Play App Signing carry Play's" >> "$GITHUB_STEP_SUMMARY"
+          echo "app-signing certificate instead — copy that SHA-256 from the Play Console and add it" >> "$GITHUB_STEP_SUMMARY"
+          echo "as the second entry too, or Play installs show the URL bar." >> "$GITHUB_STEP_SUMMARY"
           # Also write a machine-readable line for log scrapers
           echo "FINGERPRINT_SHA256=$FP"
 

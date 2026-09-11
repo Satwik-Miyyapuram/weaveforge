@@ -22,6 +22,11 @@ on:
       - 'apps/web/scripts/run-integration-tests.mjs'
       - 'apps/web/package.json'
 
+# All three jobs only read the repository and talk to the live Supabase project
+# with secrets; none of them writes to the repository or needs an OIDC token.
+permissions:
+  contents: read
+
 jobs:
   sharing-rls:
     runs-on: ubuntu-latest

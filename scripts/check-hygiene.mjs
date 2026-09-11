@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { boundsArrayLength } from "./lib/array-bounds.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -27,7 +28,16 @@ function tracked(...globs) {
 
 const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
 
-/** Of these paths, the ones git is told to ignore. Exits 1 when none match. */
+/**
+ * Of these paths, the ones git is told to ignore. Exits 1 when none match.
+ *
+ * That exit 1 is a real answer — "none of these is ignored" — not a failure, so
+ * it is the one case this returns empty for. Everything else is rethrown: a git
+ * that refuses to run leaves every candidate unexplained, which would report a
+ * pile of existing docs as broken paths and send the reader looking for a rename
+ * that never happened. A blanket `catch { return []; }` here was the same shape
+ * of over-forgiving catch the ripgrep gates were just fixed for, so it is gone.
+ */
 function checkIgnore(paths) {
   if (!paths.length) return [];
   try {
@@ -39,8 +49,9 @@ function checkIgnore(paths) {
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean);
-  } catch {
-    return [];
+  } catch (error) {
+    if (error.status === 1) return [];
+    throw error;
   }
 }
 const failures = [];
@@ -179,19 +190,29 @@ const OVERSIZED_ALLOWED = new Map([
 // Two routes took an array straight from the body and awaited one database
 // round trip per element. The number of round trips one request can buy has to
 // be a constant in the code, not a number the caller picks.
+//
+// The rule used to accept any `.length >` at all, which is not a bound: a route
+// whose only comparison was `if (toInsert.length > 0)` passed while the cap two
+// lines above it could be deleted without the gate noticing. It now wants the
+// comparison that actually bounds the array — `.length` against a NAME in caps
+// or a numeric literal. `> 0` and `=== 0` are emptiness tests, not limits, and
+// are ignored; comparing against `someConfig.maxItems` would also be a real
+// bound but not one this rule can tell from an ordinary field access, so the
+// convention the message states is the one the gate can check.
 // ---------------------------------------------------------------------------
+
 {
   const unbounded = tracked("apps/web/src/app/api").filter((f) => {
     if (!f.endsWith("/route.ts")) return false;
     const src = read(f);
     if (!src.includes("Array.isArray")) return false;
-    return !/\.length\s*>/.test(src);
+    return !boundsArrayLength(src);
   });
   if (unbounded.length) {
     fail(
       "API routes that accept an array from the body without capping its length",
       unbounded,
-      "compare .length against a named constant and answer 400 over the cap (see apps/web/src/storage/signed-url-limits.ts)",
+      "compare .length against a named constant (MAX_*) or a numeric literal and answer 400 over the cap (see apps/web/src/storage/signed-url-limits.ts)",
     );
   }
 }

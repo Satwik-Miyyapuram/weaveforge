@@ -1,0 +1,157 @@
+# Dependabot: what gets checked, and why it is configured this way.
+#
+# Before this file there was no dependency scanning of any kind — no Dependabot,
+# no CodeQL, no `npm audit` in a workflow — so a CVE in a transitive package was
+# found by reading release notes, or not at all. That matters more here than in
+# an average repository: the web app holds a session token, the Python SDK ships
+# an HTTP client into other people's training loops, and the desktop app has a
+# preload bridge that hands raw SQL to the renderer.
+#
+# npm needs one entry per directory. A workspace manifest is a separate
+# dependency graph to Dependabot — `apps/web/package.json` is not covered by the
+# root entry — so every `package.json` in the repository is listed below:
+# `package.json` (root), `apps/web`, `apps/desktop`, `apps/pitch`, and
+# `packages/core`. A new workspace added later does not appear here by itself;
+# add it, or its dependencies are never checked again.
+#
+# Weekly, not daily. The tracks in docs/building/release.md are cut by hand and
+# each carries its own version, so there is no cadence a daily batch would keep
+# up with, and a daily wall of update PRs is one people stop reading.
+#
+# Grouped patch and minor updates, because a repository where every patch bump
+# is its own pull request gets a queue nobody reviews, and an unreviewed queue is
+# the same as no scanning. A minor bump of a framework can still be a breaking
+# change, but it arrives as one reviewable PR per ecosystem rather than twenty.
+# Major updates are deliberately left ungrouped and out of the groups below:
+# they are the ones that need reading, and `react` 18→19 or `next` 14→15 wants a
+# PR of its own.
+#
+# `npm audit` in CI is NOT added here. It reports the lockfile's full transitive
+# tree and would fail unrelated pull requests on a vulnerable package that has no
+# released fix — which is how an audit step becomes a step people disable.
+# Dependabot raises the PR that fixes it instead.
+#
+# Worth knowing before the first Dependabot PR arrives: the `dco` job requires a
+# `Signed-off-by:` trailer and Dependabot cannot add one, so its pull requests
+# will fail that check and need a manual sign-off commit or a bot exemption.
+# That is a consequence of the gate, not of this file.
+
+version: 2
+
+updates:
+  # The root manifest: workspace wiring and the `supabase` CLI dev dependency.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm-root-patch-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Next.js app: the largest dependency graph in the repository, and the one
+  # facing the network.
+  - package-ecosystem: npm
+    directory: "/apps/web"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      web-patch-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Electron shell. Its own graph, and the one with the widest privilege.
+  - package-ecosystem: npm
+    directory: "/apps/desktop"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      desktop-patch-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Pitch site. Static export, but it still ships to the public web.
+  - package-ecosystem: npm
+    directory: "/apps/pitch"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      pitch-patch-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Domain core. Consumed as `"*"` by every workspace, so a bump here reaches
+  # all of them at once and is worth its own entry rather than a shared group.
+  - package-ecosystem: npm
+    directory: "/packages/core"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      core-patch-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # The Python SDK. `pip` reads `python/pyproject.toml`; it is published to PyPI,
+  # so an advisory here is one other people install.
+  - package-ecosystem: pip
+    directory: "/python"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      python-patch-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # The workflows themselves. Actions are pinned to major tags here, not to
+  # SHAs (a separate finding), so this entry is currently the only thing that
+  # says when a tag moves to a new major.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions-patch-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

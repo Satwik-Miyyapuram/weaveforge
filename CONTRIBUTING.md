@@ -25,7 +25,9 @@ Before opening or merging a PR, confirm:
       composition root (`bootstrap.ts`) via use-cases or repository interfaces.
 - [ ] **No cross-feature `ui/` imports** — feature code must not import another
       feature's `ui/` folder. Use the feature's public `index.ts` (or shared types in
-      `packages/core`) instead.
+      `packages/core`) instead. Only `apps/web/src/features/**` is scanned: `app/` and
+      `components/` sit above the features and import their `ui/` entry points by
+      design.
 - [ ] **New repo has contract test** — every new repository interface gets a shared
       contract suite in `packages/core/src/testing/` and a test file under
       `packages/core/test/` run against the in-memory implementation (and against
@@ -188,6 +190,20 @@ git rebase --signoff origin/main
 
 Commits made before this check existed are not signed off, and the check does
 not look at them — it reads only what a pull request adds.
+
+You can run it yourself before pushing; on Windows this is the only copy that
+runs, since the CI job's shell script needs bash:
+
+```bash
+npm run check:dco -- origin/main HEAD
+```
+
+Bot commits are exempt. A sign-off certifies that *the author* has the right to
+submit the work, so a commit no person wrote has nothing to certify — and
+Dependabot cannot add a trailer, which would otherwise leave every dependency PR
+permanently blocked on a required check. The exemption is GitHub's own naming
+convention (`<name>[bot]@users.noreply.github.com`), which a person cannot
+register in, rather than a list of accounts that could be widened by mistake.
 
 Set your git identity correctly before committing. Contributions recorded under
 the wrong identity are painful to untangle later, particularly if the project's
