@@ -1,4 +1,5 @@
 import type { Identifiable } from "../../../shared/repository.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 /** Supported custom field kinds on papers. */
 export const PAPER_FIELD_KINDS = [
@@ -65,7 +66,7 @@ export interface SetPaperFieldValueInput {
   value: PaperFieldValueData;
 }
 
-export class PaperFieldValidationError extends Error {
+export class PaperFieldValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "PaperFieldValidationError";

@@ -5,6 +5,7 @@ import {
   SHARE_LINK_DEFAULT_TTL_DAYS, type ShareLink, type ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 function formatExpiry(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -81,7 +82,7 @@ export function ShareLinkPanel({
       <p className="share-link-expiry-hint">
         New links expire after {SHARE_LINK_DEFAULT_TTL_DAYS} days by default.
       </p>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {createdUrl && (
         <div className="share-link-created">
           <p className="muted">Copy this link now — the token is not shown again.</p>

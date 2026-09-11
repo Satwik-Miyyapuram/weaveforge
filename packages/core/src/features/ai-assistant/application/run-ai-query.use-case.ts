@@ -2,6 +2,7 @@ import type { AiAccessPolicy } from "../domain/ai-access-policy.js";
 import type { AiModelRequest, AiModelResponse, AiSessionGrant, AiAccessSettings } from "../domain/ai-types.js";
 import type { IAiSourceReader } from "../domain/ai-reader.js";
 import { UNTRUSTED_CONTEXT_RULE, contextNonce, fenceUntrusted } from "../domain/untrusted-context.js";
+import { PermissionError } from "../../../shared/errors.js";
 
 export interface AiQuerySource {
   resourceType: Parameters<IAiSourceReader["read"]>[0]["resourceType"];
@@ -25,7 +26,7 @@ export interface RunAiQueryDeps {
   };
 }
 
-export class AiQueryDeniedError extends Error {
+export class AiQueryDeniedError extends PermissionError {
   constructor(public readonly reason: string) {
     super(`AI query denied: ${reason}`);
     this.name = "AiQueryDeniedError";

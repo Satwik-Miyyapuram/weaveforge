@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireSdkUser } from "../_shared";
+import { formatErrorForResponse } from "@/lib/format-error";
 
 
 
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
 
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: formatErrorForResponse(error, "sdk-experiments") }, { status: 500 });
 
   return NextResponse.json({ experiment: data ?? null });
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
 
     .maybeSingle();
 
-  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
+  if (readErr) return NextResponse.json({ error: formatErrorForResponse(readErr, "sdk-experiments") }, { status: 500 });
 
 
 
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await user.db.from("experiments").upsert(upsert).select("*").limit(1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: formatErrorForResponse(error, "sdk-experiments") }, { status: 500 });
 
   const saved = (data ?? [])[0] ?? null;
 
@@ -137,7 +138,7 @@ export async function DELETE(request: Request) {
 
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: formatErrorForResponse(error, "sdk-experiments") }, { status: 500 });
 
   if (!count) {
 

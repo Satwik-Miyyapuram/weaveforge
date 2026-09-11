@@ -6,7 +6,9 @@
  * the Python SDK both build on these contracts.
  */
 
+export * from "./shared/errors.js";
 export * from "./shared/repository.js";
+export * from "./shared/unit-of-work.js";
 export * from "./shared/clock.js";
 export * from "./shared/dates.js";
 export * from "./shared/module.js";

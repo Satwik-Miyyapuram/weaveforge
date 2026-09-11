@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { buildModuleRegistry, groupForPath } from "@/registry";
-import { getContainer } from "@/bootstrap";
+import { groupForPath } from "@/registry";
+import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { useNavPending } from "@/lib/nav-pending";
 
 /**
@@ -28,10 +28,7 @@ export function SwipeViews({
   const { beginNavigation } = useNavPending();
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
 
-  const navGroups = useMemo(
-    () => buildModuleRegistry(getContainer().integrationConfig).navGroups,
-    [],
-  );
+  const navGroups = useNavGroups();
   const group = groupForPath(pathname, navGroups);
   const items = group?.items ?? [];
   const idx = items.findIndex((it) => pathname?.startsWith(it.path));

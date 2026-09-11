@@ -1,4 +1,5 @@
 import type { IpcResult } from "./channels";
+import { WriteQueue } from "./write-queue";
 
 /**
  * The handful of settings that belong to the shell rather than to the app.
@@ -40,6 +41,15 @@ export interface PreferenceFile {
 }
 
 export class PreferenceStore {
+  /**
+   * Reads do not queue; writes do.
+   *
+   * A read overlapping a write gets the file as it was or as it became, and
+   * both are answers. It is the read-modify-write *cycle* that has to be one
+   * thing, so only a write runs one.
+   */
+  private readonly writes = new WriteQueue();
+
   constructor(private readonly file: PreferenceFile) {}
 
   async read(name: unknown): Promise<IpcResult<PreferenceValue>> {
@@ -55,12 +65,13 @@ export class PreferenceStore {
   async write(name: unknown, value: unknown): Promise<IpcResult<null>> {
     if (!isName(name)) return { ok: false, message: UNKNOWN_NAME };
     if (!isValue(value)) return { ok: false, message: BAD_VALUE };
-
-    const all = await this.load();
-    if (value === null) delete all[name];
-    else all[name] = value;
-    await this.file.write(`${JSON.stringify(all, null, 2)}\n`);
-    return { ok: true, value: null };
+    return this.writes.run(async () => {
+      const all = await this.load();
+      if (value === null) delete all[name];
+      else all[name] = value;
+      await this.file.write(`${JSON.stringify(all, null, 2)}\n`);
+      return { ok: true, value: null };
+    });
   }
 
   /** Everything on file, or nothing if there is no file or it is not readable. */

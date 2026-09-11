@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { compileTex, parseTexLog } from "../src/tex";
+import { argsFor, compileTex, parseTexLog } from "../src/tex";
 
 test("tex: -file-line-error lines become a file, a line and a reason", () => {
   const errors = parseTexLog(
@@ -80,6 +80,31 @@ test("tex: with no TeX installed the answer is a reason, not a failure", async (
     // A developer machine with TeX on it: then it must actually have compiled.
     assert.equal(result.ok, true, result.log);
     assert.ok(result.pdf);
+  }
+});
+
+test("tex: tectonic is asked to write the PDF, not to print it", () => {
+  // The bug this pins down: `--print` sends the PDF to stdout instead of
+  // writing it, and `compileTex` reads `<entry>.pdf` from the build directory.
+  // So `ok` was false on every tectonic-only machine, and the promisified
+  // `execFile` decoded the whole PDF as UTF-8 into the log the reader is shown.
+  // It was invisible wherever `latexmk` exists, because that is probed first.
+  const args = argsFor({ kind: "tectonic", command: "tectonic", version: "test" }, "main.tex");
+
+  assert.equal(args.includes("--print"), false);
+  // `--keep-logs` is what puts the `.log` `compileTex` reads next to the PDF.
+  assert.ok(args.includes("--keep-logs"));
+  // The `--` separator stays, so an entry file named `-something.tex` is a file
+  // rather than an option.
+  assert.deepEqual(args, ["--keep-logs", "--", "main.tex"]);
+});
+
+test("tex: no engine is asked for anything that writes outside its own directory", () => {
+  const tool = (kind: "latexmk" | "tectonic" | "pdflatex") => ({ kind, command: kind, version: "t" });
+  for (const kind of ["latexmk", "tectonic", "pdflatex"] as const) {
+    const args = argsFor(tool(kind), "main.tex");
+    assert.equal(args.some((arg) => arg.startsWith("--outdir") || arg === "-output-directory"), false, kind);
+    assert.ok(args.some((arg) => arg.includes("main.tex")), kind);
   }
 });
 

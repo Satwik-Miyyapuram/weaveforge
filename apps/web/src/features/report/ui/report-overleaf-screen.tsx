@@ -10,18 +10,30 @@ import type { ReportScreenData } from "@/features/report/application/load-report
 import { LinkedOverleafReports } from "./linked-overleaf-reports";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
 import { ScreenHead } from "@/components/screen-head";
+import { FormError } from "@/components/form-error";
 
 /**
  * Overleaf tab — linked Overleaf projects + browser ZIP export.
  * Outline sections live on `/report` (Sections).
  */
 export function ReportOverleafScreen() {
+  /*
+   * Full papers, not the summary projection.
+   *
+   * The export builds a biblatex file from each paper's `bibtex` (verbatim when
+   * present) and, when it is not, from its `venue` to pick between `@article`,
+   * `@inproceedings` and `@misc`. Neither field is on `PaperSummary`, so the
+   * summary read `loadScreenData` returns would silently drop every venue — an
+   * `@article` with no journal, which is the exact Overleaf warning the entry
+   * shape exists to avoid. `listPapers` is the full read this needs; it is
+   * already cached by the repository, and this tab exists to export the library.
+   */
   const loadScreen = useCallback(async (): Promise<ReportScreenData & { papers: Paper[] }> => {
-    const [data, papersData] = await Promise.all([
+    const [data, papers] = await Promise.all([
       getContainer().report.loadScreenData(),
-      getContainer().papers.loadScreenData().catch(() => null),
+      getContainer().papers.listPapers().catch(() => [] as Paper[]),
     ]);
-    return { ...data, papers: papersData?.papers ?? [] };
+    return { ...data, papers };
   }, []);
 
   const { data, loading, error } = useScreenData("report-overleaf", loadScreen);
@@ -46,7 +58,7 @@ export function ReportOverleafScreen() {
         </button>
       </ScreenHead>
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
 
       <ExportOverleafPackagePanel
         tree={tree}

@@ -6,6 +6,7 @@ import {
   downloadUserDataExport,
   downloadWorkspaceFolder,
 } from "@/features/export/application/export-user-data";
+import { FormError } from "@/components/form-error";
 
 /** Settings → "Your data": ZIP export of the account, as JSON or as markdown. */
 export function ExportDataPanel() {
@@ -38,7 +39,7 @@ export function ExportDataPanel() {
         renaming or moving files is safe. The <strong>JSON archive</strong> is the exact
         machine-readable shape, better for scripts and backups.
       </p>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <div className="field-row-equal">
         <button
           className="btn-secondary"

@@ -9,6 +9,7 @@ sources. Everything else is a method on the ``Run``.
 from __future__ import annotations
 
 import inspect
+import warnings
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from functools import wraps
@@ -102,8 +103,12 @@ def track(
     project so it shows under it in the dashboard. Pass ``container`` to reuse a
     connection or inject an in-memory one in tests; otherwise a Supabase
     connection is opened.
+
+    A connection *this* call opened is closed on exit; a ``container`` you passed
+    in is yours, so it is left open (you may still hold the ``Run``).
     """
     ctx = container or _connect(project=project)
+    owns_connection = container is None
     sources = registry or default_registry
     run = _start_run(
         ctx,
@@ -116,17 +121,60 @@ def track(
         mirror=_open_mirror(mirror, sources, name, config or {}),
     )
     try:
-        yield run
-    except BaseException:
-        run.flush()
+        try:
+            yield run
+        except BaseException:
+            _finalise_failed(run)
+            raise
+        else:
+            if sync:
+                for source_id, ref in dict(sync).items():
+                    run.sync(source_id, ref)
+            run.flush()
+            run.set_status(status_on_success)
+    finally:
+        if owns_connection:
+            _close_owned(ctx)
+
+
+def _finalise_failed(run: Run) -> None:
+    """Best-effort finalisation of a run whose body raised. Never raises.
+
+    Order and guarding both matter. The status is written **first**, so a flush
+    that cannot reach the server can no longer leave the run marked ``running``
+    forever — and the flush is then still attempted, because the buffered curves
+    are worth keeping. Both steps are network I/O on a machine that has just
+    lost the network (usually *why* training died), so both are guarded: the
+    caller's exception is the one worth propagating, and replacing it with
+    ``httpx.ConnectError`` would hide the real failure. This is the deliberate
+    difference from :meth:`Run.flush` on its own, which raises because there the
+    caller asked for a send.
+    """
+    try:
         run.set_status("failed")
-        raise
-    else:
-        if sync:
-            for source_id, ref in dict(sync).items():
-                run.sync(source_id, ref)
+    except Exception as exc:  # noqa: BLE001 - never mask the training error
+        warnings.warn(f"weaveforge: could not mark the run failed ({exc})", stacklevel=3)
+    try:
         run.flush()
-        run.set_status(status_on_success)
+    except Exception as exc:  # noqa: BLE001 - never mask the training error
+        warnings.warn(f"weaveforge: could not send metrics ({exc})", stacklevel=3)
+
+
+def _close_owned(container: Any) -> None:
+    """Release the HTTP pool of a container :func:`track` opened for itself.
+
+    Only called when ``track`` created the connection: an injected container
+    belongs to the caller, who may keep using the ``Run`` (or their own
+    connection) after the block. Best-effort, like the rest of finalisation — a
+    close that fails must not turn a successful run into a raised one.
+    """
+    close = getattr(getattr(container, "api", None), "close", None)
+    if not callable(close):
+        return
+    try:
+        close()
+    except Exception as exc:  # noqa: BLE001
+        warnings.warn(f"weaveforge: could not close the API client ({exc})", stacklevel=3)
 
 
 def track_experiment(

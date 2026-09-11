@@ -32,6 +32,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { EXPERIMENTS_HREF, experimentHref } from "./experiment-href";
 import { ExperimentDetailScreen } from "./experiment-detail-screen";
+import { FormError } from "@/components/form-error";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };
 
@@ -99,15 +100,19 @@ export function ExperimentsScreen() {
   const { isReadOnly: isReadOnlyExperiment, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
 
-  // Poll every 5s while this screen is open so metrics/status stay fresh.
+  // Poll while a run is actually in progress so metrics/status stay fresh.
+  // Ungated it polled forever on a screen full of finished experiments, and
+  // every tick asked the loader to re-fetch a cached payload — see the wording
+  // on the live badge, which has to match what this actually does.
   const hasLiveRunning = useMemo(
     () => items.some((e) => e.status === "running" && !isStaleRunningExperiment(e)),
     [items],
   );
   useEffect(() => {
+    if (!hasLiveRunning) return;
     const t = setInterval(() => { void load(); }, 5000);
     return () => clearInterval(t);
-  }, [load]);
+  }, [hasLiveRunning, load]);
 
   const visible = useMemo(() => {
     const set = new Set(statusFilter);
@@ -122,7 +127,11 @@ export function ExperimentsScreen() {
     <section className="screen">
       <ScreenHead>
         {hasLiveRunning && (
-          <span className="live-dot" title="A run is in progress — auto-refreshing every 5s">● live</span>
+          // The tick is 5s, but a tick does not necessarily refresh anything:
+          // `useScreenData` serves the cached payload and only re-fetches once
+          // the screen cache is older than its 120s freshness window. "Every 5s"
+          // claimed a freshness this screen never had.
+          <span className="live-dot" title="A run is in progress — this screen re-checks for updates in the background, at most once every 2 minutes">● live</span>
         )}
         <button
           className="btn-primary"
@@ -238,7 +247,7 @@ export function ExperimentsScreen() {
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {!error && items.length === 0 && (
         <div className="empty">
           <p>No experiments yet. Use “+ Experiment” to record your first one.</p>
@@ -576,7 +585,7 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
       </div>
       <div className="field"><label htmlFor="erepo">Repo URL</label><input id="erepo" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/you/thesis-experiments" /></div>
       <div className="field"><label htmlFor="econfig">Config (JSON)</label><textarea id="econfig" rows={2} value={config} onChange={(e) => setConfig(e.target.value)} placeholder='{"beta":4,"latent_dim":32,"seed":0}' /></div>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <button className="btn-primary" disabled={busy}>{busy ? "Adding…" : "Add experiment"}</button>
     </form>
   );

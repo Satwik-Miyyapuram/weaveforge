@@ -34,6 +34,14 @@ test("the app itself is all still there", async () => {
   }
 });
 
+test("the editor workspace is a desktop screen, so the desktop build lists it", async () => {
+  const registry = await offlineRegistry();
+  const ids = registry.allModules.map((module) => module.id);
+  for (const id of ["editor-workspace"]) {
+    assert.equal(ids.includes(id), true, `${id} should survive an offline build`);
+  }
+});
+
 test("nothing links to a screen the build does not contain", async () => {
   const registry = await offlineRegistry();
   const paths = [

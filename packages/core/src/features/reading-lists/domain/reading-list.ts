@@ -10,6 +10,7 @@
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { buildTree } from "../../../shared/tree.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export interface ReadingList extends Identifiable {
   id: string;
@@ -57,7 +58,7 @@ export interface ReadingListTreeNode {
   children: ReadingListTreeNode[];
 }
 
-export class ReadingListValidationError extends Error {
+export class ReadingListValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "ReadingListValidationError";

@@ -5,6 +5,7 @@ import {
   PAPER_FIELD_KINDS,
   computeRollup,
   type Paper,
+  type PaperSummary,
   type PaperFieldDef,
   type PaperFieldKind,
   type PaperFieldRollupAgg,
@@ -23,7 +24,10 @@ export function PaperFieldsStrip({ paperId, readOnly }: { paperId: string; readO
   const [defs, setDefs] = useState<PaperFieldDef[]>([]);
   const [values, setValues] = useState<Map<string, PaperFieldValueData>>(new Map());
   const [projectValues, setProjectValues] = useState<PaperFieldValue[]>([]);
-  const [library, setLibrary] = useState<Paper[]>([]);
+  // The relation picker only needs an id and a title per candidate paper, both
+  // of which the summary projection carries. Typing this as `Paper[]` claimed
+  // an abstract and a metadata bag the screen load never returns.
+  const [library, setLibrary] = useState<PaperSummary[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [managing, setManaging] = useState(false);
@@ -128,7 +132,7 @@ function PaperFieldEditor({
 }: {
   def: PaperFieldDef;
   value: PaperFieldValueData | undefined;
-  papers?: Paper[];
+  papers?: PaperSummary[];
   disabled: boolean;
   onChange: (next: PaperFieldValueData | null) => void;
 }) {

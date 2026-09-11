@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   AddPaperUseCase,
   UpdatePaperUseCase,
-  PaperValidationError,
+  NotFoundError,
   countWords,
   imagesOf,
   type Paper,
@@ -81,7 +81,10 @@ test("addImage / removeImage: maintain metadata.images and require a path", asyn
 
 test("mutations throw for an unknown id; remove deletes", async () => {
   const { repo, uc, add } = makeSetup();
-  await assert.rejects(uc.setStatus("nope", "read"), PaperValidationError);
+  // Was `PaperValidationError` before the error taxonomy (review-2 F5): a
+  // missing id is a not-found condition, not an invalid input, and the type is
+  // what a route maps to 404 rather than 400.
+  await assert.rejects(uc.setStatus("nope", "read"), NotFoundError);
   const p = await add.addManual({ title: "P" });
   await uc.remove(p.id);
   assert.equal(await repo.getById(p.id), null);

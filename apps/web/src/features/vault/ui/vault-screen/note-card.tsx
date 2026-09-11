@@ -1,15 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { extractHashtags, type VaultPage } from "@weaveforge/core";
+import { extractHashtags, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { EntityCard } from "@/components/entity-card";
 import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { cardSnippet } from "@/lib/card-snippet";
+import { isHydratedPage, noteBodyText } from "@/lib/page-text";
 
-export function noteBodyText(page: VaultPage): string {
-  return page.body || page.bodyPreview || "";
-}
+/**
+ * Re-exported so the screens and panels that already imported them from here do
+ * not have to change. The definitions moved to `@/lib/page-text` because a
+ * second feature (the editor workspace) needs the same two functions, and a
+ * shared helper under `features/vault/ui/` would make that import a
+ * cross-feature `ui/` import.
+ */
+export { isHydratedPage, noteBodyText };
 
 /** Papers-style card for a note: title + excerpt; click opens the full note. */
 export function NoteCard({
@@ -19,7 +25,7 @@ export function NoteCard({
   onOpen,
   onChanged,
 }: {
-  page: VaultPage;
+  page: VaultPageSummary | VaultPage;
   readOnly?: boolean;
   sharedByName?: string;
   onOpen: () => void;

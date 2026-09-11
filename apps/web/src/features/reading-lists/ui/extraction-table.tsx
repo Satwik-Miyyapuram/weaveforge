@@ -20,6 +20,7 @@ import {
   type PendingFieldFill,
 } from "../application/extraction-table";
 import { collectListIds } from "./list-ui";
+import { FormError } from "@/components/form-error";
 
 function collectSubtreeIds(node: ReadingListTreeNode): string[] {
   return collectListIds([node]);
@@ -203,7 +204,7 @@ export function ExtractionTable({
           <Link href="/ai-review">Open AI review →</Link>
         </p>
       )}
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <div className="extraction-table-scroll">
         <table>
           <thead>

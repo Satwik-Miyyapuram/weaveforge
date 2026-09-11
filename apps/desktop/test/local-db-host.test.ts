@@ -1,0 +1,139 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { LocalDbHost } from "../src/local-db-host";
+import type { LocalClient, LocalTransaction } from "../src/local-db";
+
+/**
+ * What happens to the engine when opening it fails part-way.
+ *
+ * `LocalDbHost` opens PGlite once and migrates it. The failure this file is
+ * about is the gap between those two: the engine is open, the migration throws,
+ * and the reference to the engine used to be dropped without closing it. The
+ * next query then opened a *second* engine on the same data directory while the
+ * first still held it — which on a real data directory means a lock, a warm
+ * cache and two Postgres instances disagreeing about who owns the files.
+ *
+ * A stub client rather than a real PGlite: what is being asserted is which
+ * calls the host makes and in what order, which is exactly what a real engine
+ * would hide behind a WASM boot. `migrate` runs for real over it, so the
+ * failure arrives from the same place it does in the app.
+ */
+
+/** A client that fails the query it is told to, and counts what it was asked. */
+function stub(failOn?: string) {
+  const calls = { exec: 0, query: 0, close: 0 };
+  const client: LocalClient = {
+    async exec() {
+      calls.exec += 1;
+    },
+    async query<T>(sql: string) {
+      calls.query += 1;
+      if (failOn && sql.includes(failOn)) throw new Error(`stub refused: ${failOn}`);
+      return { rows: [] as T[] };
+    },
+    async transaction<T>(fn: (tx: LocalTransaction) => Promise<T>) {
+      return fn({
+        query: async <R>(sql: string) => {
+          calls.query += 1;
+          if (failOn && sql.includes(failOn)) throw new Error(`stub refused: ${failOn}`);
+          return { rows: [] as R[] };
+        },
+      });
+    },
+    async close() {
+      calls.close += 1;
+    },
+  };
+  return { client, calls };
+}
+
+/** No migrations on disk: the stub would rather be asked than read from. */
+const NO_MIGRATIONS: string[] = [];
+
+test("local-db-host: a failed migration closes the engine it opened", async () => {
+  const opened: ReturnType<typeof stub>[] = [];
+  const host = new LocalDbHost({
+    open: async () => {
+      // Fails on the ledger read, which is after `open()` succeeded — the exact
+      // window the finding is about.
+      const made = stub("weaveforge_migrations");
+      opened.push(made);
+      return made.client;
+    },
+    migrations: NO_MIGRATIONS,
+  });
+
+  const answer = await host.query("select 1", []);
+  assert.equal(answer.ok, false);
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0]?.calls.close, 1, "the engine that was opened must be closed");
+});
+
+test("local-db-host: a second call after a failed open leaves exactly one engine open", async () => {
+  const opened: ReturnType<typeof stub>[] = [];
+  const host = new LocalDbHost({
+    open: async () => {
+      // The first engine fails to migrate; the second is healthy.
+      const made = stub(opened.length === 0 ? "weaveforge_migrations" : undefined);
+      opened.push(made);
+      return made.client;
+    },
+    migrations: NO_MIGRATIONS,
+  });
+
+  assert.equal((await host.query("select 1", [])).ok, false);
+  assert.equal((await host.query("select 1", [])).ok, true);
+
+  assert.equal(opened.length, 2, "a retry is a fresh open, not a remembered failure");
+  assert.equal(opened[0]?.calls.close, 1, "the failed engine was closed, not abandoned");
+  assert.equal(opened[1]?.calls.close, 0, "the healthy engine stays open for the queries that follow");
+
+  // And the healthy one is the one being used: asking twice reuses it rather
+  // than opening a third.
+  assert.equal((await host.query("select 1", [])).ok, true);
+  assert.equal(opened.length, 2);
+
+  await host.close();
+  assert.equal(opened[1]?.calls.close, 1);
+});
+
+test("local-db-host: closing after a failed open does not throw", async () => {
+  const host = new LocalDbHost({
+    open: async () => stub("weaveforge_migrations").client,
+    migrations: NO_MIGRATIONS,
+  });
+
+  assert.equal((await host.query("select 1", [])).ok, false);
+  // Quitting runs this. A close that raised here would be a quit that hangs or
+  // a crash on the way out, neither of which is a useful thing to report.
+  await assert.doesNotReject(() => host.close());
+});
+
+test("local-db-host: a close that races a failed open still resolves", async () => {
+  const host = new LocalDbHost({
+    open: async () => {
+      throw new Error("no data directory");
+    },
+    migrations: NO_MIGRATIONS,
+  });
+
+  const failed = host.query("select 1", []);
+  await assert.doesNotReject(() => host.close());
+  assert.equal((await failed).ok, false);
+});
+
+test("local-db-host: a bad query is refused before anything is opened", async () => {
+  const opened: string[] = [];
+  const host = new LocalDbHost({
+    open: async () => {
+      opened.push("opened");
+      return stub().client;
+    },
+    migrations: NO_MIGRATIONS,
+  });
+
+  assert.equal((await host.query("", [])).ok, false);
+  assert.equal((await host.query("select 1", [{ not: "a param" }])).ok, false);
+  assert.deepEqual(opened, []);
+});

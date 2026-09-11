@@ -133,15 +133,30 @@ export async function probeTex(): Promise<TexTool | null> {
   return null;
 }
 
-function argsFor(tool: TexTool, entry: string): string[] {
+/**
+ * What each engine is asked to do, as an argument vector.
+ *
+ * Exported so the vector itself can be asserted: the `--print` bug below was
+ * invisible for as long as tectonic was only ever second in the probe order,
+ * and a test that can read the arguments is what stops it coming back.
+ */
+export function argsFor(tool: TexTool, entry: string): string[] {
   switch (tool.kind) {
     // `./` so a file named `-something.tex` is a file, not an option. No rc
     // file and no shell escape: the sources came from a page, and a project
     // that could ship a `.latexmkrc` could run Perl on this computer.
     case "latexmk":
       return ["-norc", "-pdf", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", `./${entry}`];
+    // No `--print`. It sends the PDF to stdout instead of writing it, and
+    // `compileTex` reads `<entry>.pdf` from the build directory -- so with
+    // `--print` the file was never there, `ok` was false on every
+    // tectonic-only machine, and the promisified `execFile` decoded a whole
+    // PDF's worth of binary as UTF-8 into the log the reader is shown.
+    // `--keep-logs` stays: it is what puts the `.log` `compileTex` reads
+    // beside the PDF. The `--` separator stays too, so an entry file whose
+    // name begins with a dash is a file rather than an option.
     case "tectonic":
-      return ["--keep-logs", "--print", "--", entry];
+      return ["--keep-logs", "--", entry];
     case "pdflatex":
       return ["-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", `./${entry}`];
   }

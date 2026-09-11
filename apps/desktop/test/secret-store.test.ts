@@ -124,3 +124,55 @@ test("an empty value is refused", async () => {
 
   assert.equal(result.ok, false);
 });
+
+// ------------------------------------------------------------ concurrent writes
+
+/**
+ * A file with a real gap between its read and its write.
+ *
+ * Without the gap, every write's read-modify-write cycle finishes in one
+ * microtask and the cycles cannot interleave — so a test would pass whether or
+ * not writes were serialised at all.
+ */
+function slowFile(initial: string | null = null) {
+  const state = { contents: initial };
+  const disk: SecretFile = {
+    async read() {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      return state.contents;
+    },
+    async write(contents: string) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      state.contents = contents;
+    },
+  };
+  return { disk, state };
+}
+
+test("two secrets written at once both survive", async () => {
+  const { disk } = slowFile();
+  const store = new SecretStore(fakeCrypto(), disk);
+
+  await Promise.all([
+    store.write("ai-provider", "sk-live"),
+    store.write("overleaf-token", "ol-live"),
+    store.write("local-api-token", "local-live"),
+  ]);
+
+  // This is the finding, in the form that matters: a clobbered write here is a
+  // credential the reader typed that is silently gone at the next launch.
+  assert.deepEqual(await store.read("ai-provider"), { ok: true, value: "sk-live" });
+  assert.deepEqual(await store.read("overleaf-token"), { ok: true, value: "ol-live" });
+  assert.deepEqual(await store.read("local-api-token"), { ok: true, value: "local-live" });
+});
+
+test("forgetting one secret does not resurrect or drop another written at the same time", async () => {
+  const { disk } = slowFile();
+  const store = new SecretStore(fakeCrypto(), disk);
+  await store.write("ai-provider", "sk-live");
+
+  await Promise.all([store.clear("ai-provider"), store.write("overleaf-token", "ol-live")]);
+
+  assert.deepEqual(await store.read("ai-provider"), { ok: true, value: null });
+  assert.deepEqual(await store.read("overleaf-token"), { ok: true, value: "ol-live" });
+});

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
+import { FormError } from "@/components/form-error";
 
 export function AddVaultPageForm({
   parents,
@@ -44,7 +45,7 @@ export function AddVaultPageForm({
           </Select>
         </div>
       )}
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <div className="form-foot">
         {onClose && (
           <button type="button" className="btn-secondary" onClick={onClose}>

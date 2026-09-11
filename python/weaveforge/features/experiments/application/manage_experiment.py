@@ -90,12 +90,21 @@ class ManageExperimentUseCase:
 
         return self._mutate(id, change, existing=existing)
 
-    def record_history(self, points: Iterable[MetricPoint]) -> None:
+    def record_history(
+        self, points: Iterable[MetricPoint], *, timeout: float | None = None
+    ) -> None:
+        """Append step-indexed samples, optionally bounded by ``timeout`` seconds.
+
+        The bound exists for the SDK's *automatic* flush: it runs inside the
+        training loop and must not stall it on an unreachable server, whereas an
+        explicit ``Run.flush()`` is a request the caller made and gets the
+        adapter's own default (``timeout=None``).
+        """
         if self._metrics is None:
             raise ExperimentValidationError(
                 "No metric repository wired — cannot record step history."
             )
-        self._metrics.append(points)
+        self._metrics.append(points, timeout=timeout)
 
     def remove(self, id: str) -> None:
         self._repo.delete(id)

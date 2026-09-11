@@ -35,14 +35,36 @@ class ApiClient:
             transport=httpx.HTTPTransport(retries=3),
         )
 
+    def __enter__(self) -> ApiClient:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        # Closes the connection pool on every path, including a raised one: an
+        # exception inside the block is not a reason to leak sockets.
+        self.close()
+
     def get(self, path: str, params: dict | None = None) -> dict:
         r = self._client.get(path, params=params)
         _check_redirect(r)
         r.raise_for_status()
         return r.json()
 
-    def post(self, path: str, json: dict) -> dict:
-        r = self._client.post(path, json=json)
+    def post(
+        self, path: str, json: dict, timeout: float | None = None
+    ) -> dict:
+        """POST, optionally with a per-request ``timeout`` (seconds).
+
+        ``timeout`` is passed only when given: httpx reads ``timeout=None`` as
+        "wait forever", not "use the client default", so the two calls are kept
+        separate rather than passing the argument through unconditionally. That
+        is what keeps the 60s default for the sends a caller explicitly asked
+        for, while the automatic metric flush supplies its own, much shorter one
+        — see ``Run._auto_flush``.
+        """
+        if timeout is None:
+            r = self._client.post(path, json=json)
+        else:
+            r = self._client.post(path, json=json, timeout=timeout)
         _check_redirect(r)
         r.raise_for_status()
         return r.json()

@@ -7,6 +7,7 @@ import type { PaperRef } from "../../papers/application/metadata-source.js";
 import type { ICitationAlertTrackRepository } from "../domain/citation-alert-track-repository.js";
 import type { CitationCandidate, ICitationSource } from "./citation-source.js";
 import { rankCitationAlerts } from "./rank-citation-alerts.js";
+import { NotFoundError } from "../../../shared/errors.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -94,7 +95,8 @@ export class CheckCitationAlertsUseCase {
 
   async setTracking(paperId: string, enabled: boolean): Promise<Paper> {
     const paper = await this.deps.papers.getById(paperId);
-    if (!paper) throw new Error(`No paper with id "${paperId}".`);
+    // Same condition and same wording as the paper use case's not-found throw.
+    if (!paper) throw new NotFoundError(`No paper with id "${paperId}".`);
     if (!enabled) {
       await this.deps.tracks.untrack(paperId);
       return paper;

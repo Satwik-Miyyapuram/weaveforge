@@ -35,6 +35,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { useCapability } from "@/deployment/capabilities";
+import { FormError } from "@/components/form-error";
 
 /**
  * Settings sections, as tabs. This screen used to render all eight stacked
@@ -536,7 +537,7 @@ export function SettingsScreen() {
                 )}
               </div>
             )}
-            {error && <p className="error">{error}</p>}
+            {error && <FormError>{error}</FormError>}
             <button className="btn-primary" disabled={busy}>
               {busy ? "Saving…" : "Save connection"}
             </button>
@@ -548,7 +549,7 @@ export function SettingsScreen() {
         <Modal title="AI & MCP access" onClose={() => !busy && setAiAccessOpen(false)}>
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then(() => setAiAccessOpen(false)); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} />
-            {error && <p className="error">{error}</p>}
+            {error && <FormError>{error}</FormError>}
             <div className="ai-access-modal-actions"><button type="button" className="btn-secondary" onClick={() => setAiAccessOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</button></div>
           </form>
         </Modal>

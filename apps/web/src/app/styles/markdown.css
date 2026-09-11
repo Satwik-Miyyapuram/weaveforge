@@ -27,8 +27,11 @@
 .callout-title { padding: 8px 12px; font-weight: 600; font-size: 0.9rem; }
 .callout-body { padding: 0 12px 8px; }
 .callout-body > :first-child { margin-top: 0; }
-.callout--warning, .callout--caution, .callout--danger { background: color-mix(in srgb, #c0573f 9%, var(--surface)); border-left-color: #c0573f; }
-.callout--tip, .callout--success, .callout--check { background: color-mix(in srgb, #7c9885 12%, var(--surface)); border-left-color: #7c9885; }
+/* Left edge from the status ramp rather than a literal pair: a callout is a
+   warning or a tip, which is exactly what --s-warn / --s-good name, and the two
+   hexes these used were tuned for a light surface only. */
+.callout--warning, .callout--caution, .callout--danger { background: color-mix(in srgb, var(--s-warn) 9%, var(--surface)); border-left-color: var(--s-warn); }
+.callout--tip, .callout--success, .callout--check { background: color-mix(in srgb, var(--s-good) 12%, var(--surface)); border-left-color: var(--s-good); }
 .callout--info, .callout--note { border-left-color: var(--accent); }
 .markdown .katex-display { margin: 0; }
 .linked-overleaf-card { margin: 18px 0; }
@@ -113,7 +116,7 @@
 .project-checks-bib summary { cursor: pointer; font-size: .84rem; color: var(--muted); }
 .project-checks-findings { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; font-size: .82rem; }
 .project-checks-findings li { padding-left: 10px; border-left: 3px solid var(--line); color: var(--ink); }
-.project-checks-findings li.error { border-left-color: var(--danger, #c0392b); }
+.project-checks-findings li.error { border-left-color: var(--danger); }
 .project-checks-where { color: var(--muted); font: .78rem/1.5 var(--font-mono); }
 .project-checks-compile { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .project-checks-engine { font-size: .78rem; color: var(--muted); }

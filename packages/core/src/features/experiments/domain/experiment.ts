@@ -6,6 +6,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export type ExperimentStatus =
   | "planned"
@@ -39,6 +40,18 @@ export interface Experiment extends Identifiable {
   artifacts: string[];
   resultNote?: string;
   startedAt?: string;
+  /**
+   * When the run reached a terminal status; absent while it has not.
+   *
+   * Invariant: `finishedAt` is present **iff** `status` is terminal. It is
+   * enforced by {@link createExperiment} and by {@link statusPatchForExperiment}
+   * rather than by the type. Making it unrepresentable would mean splitting
+   * `Experiment` into a discriminated union of open and closed runs, which
+   * touches every construction site, every repository row mapper, and every
+   * consumer reading `experiment.finishedAt` — a refactor of its own rather than
+   * a drive-by fix. What the type *can* do is refuse the transition that used to
+   * leave a reopened run claiming an end time it no longer has.
+   */
   finishedAt?: string;
   /** Paper this run tests/implements. */
   relatedPaper?: string;
@@ -67,7 +80,7 @@ export interface ExperimentFilter {
   relatedPaper?: string;
 }
 
-export class ExperimentValidationError extends Error {
+export class ExperimentValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "ExperimentValidationError";
@@ -96,8 +109,47 @@ export function createExperiment(
     artifacts: input.artifacts ?? [],
     resultNote: input.resultNote,
     startedAt: status === "running" ? now : undefined,
+    // A run created already-finished (an import of a past run) gets its end
+    // stamp here; without this the row would say "done" and carry no time,
+    // which is the illegal state the field's invariant forbids.
+    finishedAt: TERMINAL_EXPERIMENT_STATUSES.includes(status) ? now : undefined,
     relatedPaper: input.relatedPaper,
     createdAt: now,
+  };
+}
+
+/** The statuses that end a run. Kept here so `finishedAt` has one definition. */
+export const TERMINAL_EXPERIMENT_STATUSES: readonly ExperimentStatus[] = [
+  "done",
+  "failed",
+  "abandoned",
+];
+
+/**
+ * The status-related fields for a run moving to `status` at `now`.
+ *
+ * One function rather than the same three ternaries copied into every caller,
+ * because the transition has an invariant to keep: `finishedAt` is set exactly
+ * when the run is terminal. Entering a terminal status stamps it; *leaving* one
+ * clears it. Clearing is the half that used to be missing — a run moved from
+ * `failed` back to `running` kept the old end time, so the dashboard showed a
+ * live run with a finish timestamp, and any reader that prefers `finishedAt`
+ * over `startedAt` (the search index does) dated the run to a finish that had
+ * been undone.
+ */
+export function statusPatchForExperiment(
+  experiment: Experiment,
+  status: ExperimentStatus,
+  now: string,
+): Pick<Experiment, "status" | "startedAt" | "finishedAt"> {
+  const terminal = TERMINAL_EXPERIMENT_STATUSES.includes(status);
+  return {
+    status,
+    // First start is remembered; a later restart does not rewrite history.
+    startedAt: status === "running" && !experiment.startedAt ? now : experiment.startedAt,
+    // Stamped on the way in — the behaviour this replaces — and removed on the
+    // way out, which is the part that was missing.
+    finishedAt: terminal ? now : undefined,
   };
 }
 

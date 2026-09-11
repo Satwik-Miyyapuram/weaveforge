@@ -13,7 +13,10 @@ class InMemoryMetricRepository:
     def __init__(self) -> None:
         self._points: list[MetricPoint] = []
 
-    def append(self, points: Iterable[MetricPoint]) -> None:
+    def append(
+        self, points: Iterable[MetricPoint], *, timeout: float | None = None
+    ) -> None:
+        # Nothing to time out against: kept for port parity.
         self._points.extend(points)
 
     def history(

@@ -1,0 +1,117 @@
+/*
+ * Act markers and the unpinned spreads between them.
+ *
+ * Split out of pitch.module.css, which had grown past 1,400 lines. The split is
+ * by selector, not by position: every class here is referenced by no rule
+ * outside this file, and no element carries one of these classes together with a
+ * class that stayed behind — or with one from another module here, except for
+ * `position: relative`, which both sides declare to the same value. So moving
+ * these rules cannot change what the cascade computes. The page imports this
+ * file beside pitch.module.css.
+ */
+
+/* ---- Act bands ----
+   The hero offers three doors — researchers, labs, self-hosters — and until
+   now the body ignored all three: one undifferentiated run in which a lab
+   lead reached their own content most of the way down the page, behind five
+   scenes written for somebody else.
+
+   These are not scenes. No pinning, no steps, nothing to read for more than a
+   second: a rule, a number, and who the next stretch is addressed to. The
+   raised grounds elsewhere on the page now line up behind the acts, so a
+   change in light means something instead of alternating for its own sake. */
+.act {
+  position: relative;
+  padding: clamp(30px, 5vw, 54px) 0 clamp(16px, 3vw, 26px);
+  scroll-margin-top: calc(var(--pitch-head) + 12px);
+}
+.actIn {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.actNum {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  flex: none;
+}
+.actName {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.1rem, 0.95rem + 0.7vw, 1.45rem);
+  letter-spacing: -0.015em;
+  margin: 0;
+  flex: none;
+}
+/* Runs out to the end of the measure. A rule that stops short reads as an
+   underline for the words; one that runs out reads as a horizon. */
+.actRule {
+  flex: 1;
+  height: 1px;
+  min-width: 24px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), transparent);
+}
+
+/* ---- Spreads ----
+   A pinned scene is a promise: stay here, there are four beats, the picture
+   changes under each. It is the right device three to five times, before the
+   reader learns the pattern and starts scrolling past it — which is what
+   seven in a row cost.
+
+   A spread is the same content without the promise: visual and prose side by
+   side, one screen, taken in at a glance. It is for the sections that are
+   conclusions rather than arguments, and it gives the pinned scenes on either
+   side their weight back. */
+.spread {
+  position: relative;
+  padding: clamp(40px, 6vw, 76px) 0;
+  scroll-margin-top: calc(var(--pitch-head) + 12px);
+}
+.spreadIn {
+  display: grid;
+  gap: clamp(22px, 4vw, 48px);
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .spreadIn { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
+}
+.spreadCopy { display: grid; gap: 14px; align-content: start; }
+.spreadCopy h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 1.2rem + 1.9vw, 2.3rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  margin: 0;
+  max-width: 20ch;
+}
+.spreadCopy > p { max-width: 46ch; margin: 0; }
+.spreadPoints {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.spreadPoints li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: baseline;
+  max-width: 48ch;
+  font-size: 0.97rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.spreadPoints b {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-weight: 500;
+}
+.spreadFig { min-width: 0; display: grid; gap: 10px; }

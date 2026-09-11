@@ -7,8 +7,9 @@ import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { formatError } from "@/lib/format-error";
 import { authHeaders } from "@/lib/auth-headers";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { LocalOverleafGateway } from "@/features/overleaf/infrastructure/local-overleaf-gateway";
+import { FormError } from "@/components/form-error";
+import { getContainer } from "@/bootstrap";
 import { ProjectChecks } from "./project-checks";
 
 type LinkedReport = {
@@ -25,10 +26,12 @@ type ReportContent = { files: { path: string; content: string }[]; entryFile: st
  * build ships no server -- so the same six operations go straight to the local
  * database and the shell. Resolved once and remembered: the answer cannot
  * change without a reload, because the whole backend is wired at startup.
+ * Which wiring that is comes from the auth facade; importing the local backend
+ * provider here would make this file know which one a window was built with.
  */
 let localGateway: LocalOverleafGateway | null | undefined;
 function local(): LocalOverleafGateway | null {
-  if (localGateway === undefined) localGateway = isLocalMode() ? new LocalOverleafGateway() : null;
+  if (localGateway === undefined) localGateway = getContainer().auth.isLocalMode() ? new LocalOverleafGateway() : null;
   return localGateway;
 }
 
@@ -156,7 +159,7 @@ export function LinkedOverleafReports() {
           data — Overleaf&apos;s access controls apply to the source of truth.
         </p>
         {formOpen && <LinkOverleafForm projectId={current.id} onLinked={() => { setFormOpen(false); void reload(); }} onError={setError} />}
-        {error && <p className="error" role="alert">{error}</p>}
+        <FormError>{error}</FormError>
         {!reports.length && !formOpen ? <p className="muted">No Overleaf reports linked to this project yet.</p> : <div className="linked-overleaf-list">{reports.map((report) => editingId === report.id ? (
           <EditOverleafReportForm
             key={report.id}

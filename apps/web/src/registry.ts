@@ -25,6 +25,7 @@ function moduleEnabled(mod: FeatureModule, config: IntegrationConfig): boolean {
   const featureAllowlist = getAppConfig().enabledBuiltinFeatureIds;
   if (featureAllowlist && !featureAllowlist.includes(mod.id)) return false;
   if (mod.requiresNetwork && isOfflineBuild()) return false;
+  if (mod.desktopOnly && !isOfflineBuild()) return false;
   if (mod.id === "git") {
     return config.gitRead.length > 0;
   }

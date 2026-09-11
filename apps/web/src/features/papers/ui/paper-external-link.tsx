@@ -1,8 +1,13 @@
 "use client";
 
-import type { Paper } from "@weaveforge/core";
+import type { Paper, PaperSummary } from "@weaveforge/core";
 
-export function paperExternalLink(paper: Paper): { href: string; label: string } | null {
+/**
+ * The external link for a paper, from the identifiers the summary projection
+ * already carries. Typed on the projection so a card in a list can call it
+ * without the full row; a full `Paper` satisfies it too.
+ */
+export function paperExternalLink(paper: PaperSummary): { href: string; label: string } | null {
   if (paper.url?.trim()) return { href: paper.url.trim(), label: "Paper link" };
   if (paper.doi?.trim()) return { href: `https://doi.org/${paper.doi.trim()}`, label: "DOI" };
   if (paper.arxivId?.trim()) {
@@ -11,7 +16,7 @@ export function paperExternalLink(paper: Paper): { href: string; label: string }
   return null;
 }
 
-export function PaperExternalLink({ paper }: { paper: Paper }) {
+export function PaperExternalLink({ paper }: { paper: PaperSummary | Paper }) {
   const link = paperExternalLink(paper);
   if (!link) return null;
   return (

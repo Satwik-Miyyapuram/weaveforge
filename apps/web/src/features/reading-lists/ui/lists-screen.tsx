@@ -27,6 +27,7 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
 import { ScreenHead } from "@/components/screen-head";
+import { FormError } from "@/components/form-error";
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };
 
@@ -172,7 +173,7 @@ export function ListsScreen() {
         </Modal>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {!error && tree.length === 0 && pinnedLists.length === 0 && (
         <div className="empty">
           <p>No lists yet. Use “+ List” to create your first grouping.</p>

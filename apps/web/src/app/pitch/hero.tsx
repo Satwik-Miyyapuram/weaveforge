@@ -1,6 +1,7 @@
 "use client";
 
 import css from "./pitch.module.css";
+import groundCss from "./pitch-ground.module.css";
 import { Step } from "./chrome";
 import { useScrollSteps } from "./use-pitch-scroll";
 
@@ -147,7 +148,7 @@ export const HERO_STEPS = [
 export function HeroScene() {
   const { sceneRef, active } = useScrollSteps(HERO_STEPS.length);
   return (
-    <section className={`${css.scene} ${css.overview} ${css.seam}`} id="overview"
+    <section className={`${css.scene} ${css.overview} ${groundCss.seam}`} id="overview"
              ref={sceneRef as React.RefObject<HTMLElement>}>
       <div className={css.wrap}>
         <div className={css.sceneInner}>

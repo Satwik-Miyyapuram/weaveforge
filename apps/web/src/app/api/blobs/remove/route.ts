@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   assertAllowedBlobBucket, assertBlobPathOwned, } from "@/storage/server/blob-access";
-import { buildTieredBlobStoreForToken, userIdFromToken } from "@/storage/server/blob-api";
+import { buildTieredBlobStoreForToken } from "@/storage/server/blob-api";
 import { blobFailure, tieredBlobToken } from "../_shared";
 
 export async function POST(request: Request) {
-  const gate = tieredBlobToken(request);
+  const gate = await tieredBlobToken(request);
   if ("refusal" in gate) return gate.refusal;
   const token = gate.token;
 
@@ -20,9 +20,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const uid = await userIdFromToken(token);
     assertAllowedBlobBucket(body.bucket);
-    assertBlobPathOwned(body.path, uid);
+    assertBlobPathOwned(body.path, gate.userId);
     const store = await buildTieredBlobStoreForToken(token);
     await store.remove(body.bucket, body.path);
     return NextResponse.json({ ok: true });

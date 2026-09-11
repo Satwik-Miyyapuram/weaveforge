@@ -5,6 +5,7 @@ import { useSubmit } from "@/lib/hooks/use-submit";
 import type { ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
+import { FormError } from "@/components/form-error";
 
 export type ReportParentOption = { section: ReportSection; depth: number };
 
@@ -107,7 +108,7 @@ export function AddSectionForm({
           />
         </div>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <button className="btn-primary" disabled={busy}>
         {busy ? "Adding…" : "Add section"}
       </button>

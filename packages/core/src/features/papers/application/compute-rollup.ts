@@ -10,6 +10,37 @@ import type {
 } from "../domain/paper-field.js";
 import { parseRollupOptions } from "../domain/paper-field.js";
 
+/**
+ * Key for the `(paperId, fieldId)` pair.
+ *
+ * NUL as the separator, because both halves are arbitrary user text and any
+ * printable delimiter can occur inside one of them — the same reason the metrics
+ * ingest route keys its series this way.
+ */
+function valueKey(paperId: string, fieldId: string): string {
+  return `${paperId}\u0000${fieldId}`;
+}
+
+/**
+ * Index every value by `(paperId, fieldId)`.
+ *
+ * `values` is the whole project's field values, loaded once by the caller, and
+ * this module is called once per row *per rollup column* — a linear `find` per
+ * lookup made a table of N rows against M values cost O(N × M) per column.
+ * Building the map once per call makes each lookup constant time.
+ *
+ * First value wins, matching the `Array.prototype.find` this replaces: a
+ * duplicate `(paperId, fieldId)` row behaves exactly as it did before.
+ */
+function indexValues(values: readonly PaperFieldValue[]): Map<string, PaperFieldValue> {
+  const index = new Map<string, PaperFieldValue>();
+  for (const value of values) {
+    const key = valueKey(value.paperId, value.fieldId);
+    if (!index.has(key)) index.set(key, value);
+  }
+  return index;
+}
+
 export function computeRollup(
   paperId: string,
   rollupDef: PaperFieldDef,
@@ -23,9 +54,8 @@ export function computeRollup(
   const relationDef = defs.find((d) => d.id === config.relationFieldId);
   if (!relationDef || relationDef.kind !== "relation") return null;
 
-  const relationValue = values.find(
-    (v) => v.paperId === paperId && v.fieldId === relationDef.id,
-  )?.value;
+  const byKey = indexValues(values);
+  const relationValue = byKey.get(valueKey(paperId, relationDef.id))?.value;
   const relatedIds = Array.isArray(relationValue) ? relationValue : [];
 
   if (config.agg === "count") return relatedIds.length;
@@ -35,14 +65,17 @@ export function computeRollup(
   if (!sourceDef) return null;
 
   const relatedValues = relatedIds.flatMap((id) => {
-    const row = values.find((v) => v.paperId === id && v.fieldId === sourceDef.id);
+    const row = byKey.get(valueKey(id, sourceDef.id));
     return row ? [row.value] : [];
   });
 
   if (config.agg === "values") {
     const out: string[] = [];
     for (const value of relatedValues) {
-      if (Array.isArray(value)) out.push(...value.map(String));
+      // Appended one at a time rather than `out.push(...value)`: a spread is
+      // one call argument per element, and a relation with six figures of ids
+      // would overflow the stack instead of producing the list.
+      if (Array.isArray(value)) for (const item of value) out.push(String(item));
       else if (value != null) out.push(String(value));
     }
     return out;

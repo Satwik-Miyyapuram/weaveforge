@@ -14,6 +14,7 @@
  */
 
 import { normalizeVector } from "./embedding-port.js";
+import { ValidationError } from "../shared/errors.js";
 
 export interface VectorHit {
   id: string;
@@ -26,7 +27,7 @@ export interface VectorEntry {
   vector: Float32Array;
 }
 
-export class VectorDimensionError extends Error {
+export class VectorDimensionError extends ValidationError {
   constructor(expected: number, got: number) {
     super(`Vector has ${got} dimensions, index holds ${expected}.`);
     this.name = "VectorDimensionError";

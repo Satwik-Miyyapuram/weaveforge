@@ -5,6 +5,7 @@ import type { Paper, ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 interface StoredAnnotation {
   key?: string;
@@ -75,7 +76,7 @@ export function SectionRelatedExcerpts({
   return (
     <aside className="section-excerpts" aria-label="Related annotations">
       <h3 className="section-excerpts-title">Pinned annotations</h3>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <ul className="section-excerpts-list">
         {items.map(({ paper, annotation }, index) => {
           const quote = (annotation.text ?? annotation.comment ?? "").trim();

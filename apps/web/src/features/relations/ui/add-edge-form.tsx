@@ -5,6 +5,7 @@ import { RELATION_TYPES, type Paper, type RelationType } from "@weaveforge/core"
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 /** Form for manually linking two papers; used inside the Add edge modal. */
 export function AddEdgeForm({
@@ -64,7 +65,7 @@ export function AddEdgeForm({
           {papers.map((p) => (<option key={p.id} value={p.id}>{p.title}</option>))}
         </Select>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <div className="form-foot">
         <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
         <button className="btn-primary" disabled={busy}>{busy ? "Linking…" : "Add edge"}</button>

@@ -292,7 +292,7 @@ export function PageEditor({
             />
           )}
           <div className="summary-editor-foot">
-            {saveError && <span className="error">{saveError}</span>}
+            {saveError && <span className="error" role="alert">{saveError}</span>}
             {/* Cancelling a collaborative edit cannot roll the body back — it is
                 already shared and saved — so the escape hatch is just "close". */}
             <button type="button" className="link-btn" onClick={collab ? closeEditor : cancelEdit} disabled={saving}>

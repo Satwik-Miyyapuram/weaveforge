@@ -147,7 +147,7 @@
   cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--ink);
   background: none; border: none; padding: 8px 10px; border-radius: 8px;
 }
-.proj-menu-item:hover { background: var(--status-neutral, #efece4); }
+.proj-menu-item:hover { background: var(--status-neutral); }
 .proj-menu-item.sel { color: var(--accent-ink); }
 .proj-menu-item .check { margin-left: auto; color: var(--accent); }
 .proj-menu-sep { height: 1px; background: var(--line); margin: 4px 0; }
@@ -175,7 +175,10 @@
 .header-overflow { position: relative; display: inline-flex; }
 .header-overflow-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 8px;
+  /* The shared touch target, not a number: 40px was under `--touch-min` (44px),
+     so the one control that opens the whole account menu was the smallest thing
+     in the bar on a phone. */
+  width: var(--touch-min); height: var(--touch-min); border-radius: 8px;
   border: 1px solid var(--border); background: transparent; color: var(--muted);
   cursor: pointer; font-size: calc(var(--icon-size) + 4px); line-height: 1;
 }

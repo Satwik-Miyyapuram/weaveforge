@@ -23,7 +23,7 @@
 }
 .ai-access-panel { margin-bottom: 24px; padding: 0; }
 .ai-access-modal { max-width: 640px; }.ai-access-modal .ai-access-panel { margin: 0; }.ai-access-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
-.ai-access-launcher-icon { display: grid; place-items: center; color: var(--accent-fg, #fff); font-size: 1rem; background: var(--accent); }
+.ai-access-launcher-icon { display: grid; place-items: center; color: var(--accent-fg); font-size: 1rem; background: var(--accent); }
 
 /* Hero */
 .ai-access-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 2px 0 20px; border-bottom: 1px solid var(--line); }

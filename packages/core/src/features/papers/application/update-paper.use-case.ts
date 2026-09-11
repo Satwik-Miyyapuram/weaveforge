@@ -18,6 +18,7 @@ import type { IPaperRepository } from "../domain/paper-repository.js";
 import type { TagSource } from "../../tags/domain/tag.js";
 import type { ManageTagsUseCase } from "../../tags/application/manage-tags.use-case.js";
 import type { Clock } from "../../../shared/clock.js";
+import { NotFoundError } from "../../../shared/errors.js";
 
 export interface UpdatePaperDeps {
   repository: IPaperRepository;
@@ -113,7 +114,8 @@ export class UpdatePaperUseCase {
   ): Promise<Paper> {
     const existing = await this.deps.repository.getById(id);
     if (!existing) {
-      throw new PaperValidationError(`No paper with id "${id}".`);
+      // NotFound, not Validation: see the vault use case for the reasoning.
+      throw new NotFoundError(`No paper with id "${id}".`);
     }
     const updated = { ...change(existing), updatedAt: this.deps.clock.nowIso() };
     await this.deps.repository.save(updated);

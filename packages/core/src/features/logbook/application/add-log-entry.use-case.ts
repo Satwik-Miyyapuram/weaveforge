@@ -16,6 +16,7 @@ import {
 } from "../domain/log-entry.js";
 import type { ILogEntryRepository } from "../domain/log-entry-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { NotFoundError } from "../../../shared/errors.js";
 
 /** Editable fields of an existing log entry (id/date/createdAt are preserved). */
 export interface EditLogEntryInput {
@@ -44,7 +45,8 @@ export class AddLogEntryUseCase {
   async update(id: string, input: EditLogEntryInput): Promise<LogEntry> {
     const existing = await this.deps.repository.getById(id);
     if (!existing) {
-      throw new LogEntryValidationError(`No log entry with id "${id}".`);
+      // NotFound, not Validation: see the vault use case for the reasoning.
+      throw new NotFoundError(`No log entry with id "${id}".`);
     }
     const body = input.body?.trim();
     if (!body) {

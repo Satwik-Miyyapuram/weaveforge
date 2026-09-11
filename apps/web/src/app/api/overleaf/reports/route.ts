@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
+import { formatErrorForResponse } from "@/lib/format-error";
 import {
   entryFileError,
   externalUrl,
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     .order("updated_at", { ascending: false });
   if (projectId) query = query.eq("project_id", projectId);
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: formatErrorForResponse(error, "overleaf-reports") }, { status: 500 });
   return NextResponse.json({ reports: data ?? [] }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     overleaf_project_id: overleafProjectId, entry_file: entryFile,
     external_url: externalUrl(overleafProjectId),
   }).select(ROW_FIELDS).single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: formatErrorForResponse(error, "overleaf-reports") }, { status: 500 });
   return NextResponse.json({ report: data }, { status: 201 });
 }
 
@@ -108,7 +109,7 @@ export async function PATCH(request: Request) {
     .eq("user_id", auth.userId)
     .select(ROW_FIELDS)
     .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: formatErrorForResponse(error, "overleaf-reports") }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Report not found." }, { status: 404 });
   return NextResponse.json({ report: data });
 }
@@ -123,7 +124,7 @@ export async function DELETE(request: Request) {
     .delete({ count: "exact" })
     .eq("id", id)
     .eq("user_id", auth.userId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: formatErrorForResponse(error, "overleaf-reports") }, { status: 500 });
   if (!count) return NextResponse.json({ error: "Report not found." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

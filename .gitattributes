@@ -1,0 +1,18 @@
+# Line endings and modes that must survive a Windows checkout.
+#
+# Nothing here is a repo-wide renormalisation: `* text=auto` would rewrite every
+# blob in the tree and bury the next real change under a whole-repository diff.
+# These are the two files in the repository whose bytes are executed by another
+# platform and whose line endings therefore change whether the build works.
+#
+# `gradlew` is a shell script. Bubblewrap runs it as `./gradlew` on Linux
+# (`GradleWrapper.ts` in `@bubblewrap/core`), so a CRLF shebang line makes the
+# kernel fail to find the interpreter, and the file also has to keep its
+# executable bit — see the note in `.gitignore` about `core.filemode`.
+
+/apps/web/twa/gradlew text eol=lf
+/apps/web/twa/gradlew.bat text eol=crlf
+
+# The wrapper jar is fetched by Bubblewrap and must stay byte-identical to the
+# template's, so git must not touch it in either direction.
+/apps/web/twa/gradle/wrapper/gradle-wrapper.jar binary

@@ -6,6 +6,7 @@ import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { LIST_COLOR_PRESETS } from "./list-ui";
+import { FormError } from "@/components/form-error";
 
 /**
  * Add-list form. UI only: collects input and delegates to the manage use-case.
@@ -77,7 +78,7 @@ export function AddListForm({
           ))}
         </div>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <button className="btn-primary" disabled={busy}>
         {busy ? "Adding…" : "Add list"}
       </button>

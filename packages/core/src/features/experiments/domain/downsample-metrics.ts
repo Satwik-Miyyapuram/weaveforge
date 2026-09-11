@@ -119,9 +119,19 @@ export function planSeriesIngest<T extends { step: number }>(
  * Returns the steps to delete. The newest point survives regardless, for the
  * same reason ingest keeps it: a curve that loses its endpoint reads as a run
  * that stopped early.
+ *
+ * The maximum is found with a loop rather than `Math.max(...steps)`: a spread
+ * compiles to one call argument per element, and V8 rejects somewhere around
+ * 125 000 of them with `RangeError: Maximum call stack size exceeded`. The
+ * series this function exists to prune is precisely the one long enough to hit
+ * that — see `scripts/prune-metric-series.mjs`, which hands it every step of an
+ * over-budget series.
  */
 export function stepsToPrune(storedSteps: readonly number[]): number[] {
   if (storedSteps.length === 0) return [];
-  const maxStep = Math.max(...storedSteps);
+  let maxStep = -Infinity;
+  for (const step of storedSteps) {
+    if (step > maxStep) maxStep = step;
+  }
   return storedSteps.filter((s) => s !== maxStep && !isOnSamplingGrid(s));
 }

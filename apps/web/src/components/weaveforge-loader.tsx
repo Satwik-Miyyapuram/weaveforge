@@ -38,6 +38,8 @@ const FEATURE_TIPS = [
 ] as const;
 
 const TIP_INTERVAL_MS = 3200;
+/** Fade-out before the swap; must match the `.weaveforge-loader-tip` transition. */
+const TIP_FADE_MS = 220;
 
 export type ThesisLoaderProps = {
   /** Short status line under the brand, e.g. "Loading…" or "Unlocking…" */
@@ -79,16 +81,26 @@ function ThesisLoader({
   const [tipIndex, setTipIndex] = useState(0);
   const [tipVisible, setTipVisible] = useState(true);
 
+  /*
+   * The rotate-and-fade is a two-step animation: hide, swap after the fade-out,
+   * show. Both timers are tracked and cleared, because the inner `setTimeout`
+   * outlives the interval that scheduled it — unmounting during the 220ms fade
+   * left a pending callback that called `setState` on a dead component.
+   */
   useEffect(() => {
     if (!showTips) return;
+    let fade: number | undefined;
     const id = window.setInterval(() => {
       setTipVisible(false);
-      window.setTimeout(() => {
+      fade = window.setTimeout(() => {
         setTipIndex((i) => (i + 1) % FEATURE_TIPS.length);
         setTipVisible(true);
-      }, 220);
+      }, TIP_FADE_MS);
     }, TIP_INTERVAL_MS);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+      if (fade !== undefined) window.clearTimeout(fade);
+    };
   }, [showTips]);
 
   const tip = FEATURE_TIPS[tipIndex]!;
@@ -111,9 +123,25 @@ function ThesisLoader({
       {!inline && <p className="weaveforge-loader-brand">WeaveForge</p>}
       <p className="weaveforge-loader-status">{status}</p>
       {showTips ? (
+        /*
+         * Hidden from assistive tech, and the status line above is the only
+         * thing this region has to say.
+         *
+         * The tips are decoration — a rotating marketing line, not a statement
+         * about the load — but they are inside the `role="status"` element, so a
+         * change to them is a change to the live region: every 3.2s the whole
+         * thing was re-announced, cutting across the one string a screen reader
+         * user actually needs here ("Loading…", "Unlocking…") and repeating the
+         * same eight tips for as long as the gate stayed up. `aria-hidden` takes
+         * this subtree out of the accessibility tree, so the rotation is no
+         * longer a live-region mutation; the markup stays where it is because
+         * moving it out would make it a new flex child of
+         * `.weaveforge-loader` and shift the layout it is centred in.
+         */
         <div
           className={`weaveforge-loader-tip${tipVisible ? " weaveforge-loader-tip--in" : ""}`}
           key={tipIndex}
+          aria-hidden
         >
           <strong>{tip.title}</strong>
           <span>{tip.detail}</span>

@@ -9,6 +9,7 @@ import { getContainer } from "@/bootstrap";
 import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
+import { FormError } from "@/components/form-error";
 
 function isImageUrl(url: string): boolean {
   try {
@@ -232,7 +233,7 @@ export function MetricCurves({
     return [...groups.entries()];
   }, [points]);
 
-  if (error) return <p className="error">{error}</p>;
+  if (error) return <FormError>{error}</FormError>;
   if (points === null) return <p className="muted">Loading curves…</p>;
   if (byMetric.length === 0)
     return (

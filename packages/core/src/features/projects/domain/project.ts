@@ -5,6 +5,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export interface Project extends Identifiable {
   id: string;
@@ -18,7 +19,7 @@ export interface NewProjectInput {
   color?: string;
 }
 
-export class ProjectValidationError extends Error {
+export class ProjectValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "ProjectValidationError";

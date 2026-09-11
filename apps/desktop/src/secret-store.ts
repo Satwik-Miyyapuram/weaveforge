@@ -1,4 +1,5 @@
 import type { IpcResult } from "./channels";
+import { WriteQueue } from "./write-queue";
 
 /**
  * The one credential store the shell offers the page, and why it exists.
@@ -63,6 +64,15 @@ export function isSecretName(name: unknown): name is SecretName {
 }
 
 export class SecretStore {
+  /**
+   * One write at a time. The same lost update as the preference store's, and
+   * worse here: this file holds the keys, so a clobbered write is a credential
+   * the reader typed that is silently not there the next time the app opens.
+   * `WriteQueue` has the reasoning; `clear` goes through it too, because a
+   * "forget this" that overlaps a write can otherwise be undone by it.
+   */
+  private readonly writes = new WriteQueue();
+
   constructor(
     private readonly crypto: SecretCrypto,
     private readonly file: SecretFile,
@@ -93,21 +103,25 @@ export class SecretStore {
     if (typeof value !== "string" || !value) return { ok: false, message: UNKNOWN_NAME };
     if (!this.crypto.isEncryptionAvailable()) return { ok: false, message: NO_KEYCHAIN };
 
-    const stored = await this.load();
-    stored[name] = this.crypto.encryptString(value).toString("base64");
-    await this.file.write(JSON.stringify(stored));
-    return { ok: true, value: null };
+    return this.writes.run(async () => {
+      const stored = await this.load();
+      stored[name] = this.crypto.encryptString(value).toString("base64");
+      await this.file.write(JSON.stringify(stored));
+      return { ok: true, value: null };
+    });
   }
 
   async clear(name: unknown): Promise<IpcResult<null>> {
     if (!isSecretName(name)) return { ok: false, message: UNKNOWN_NAME };
-    const stored = await this.load();
-    // Deleted whether or not encryption is available: forgetting must work on
-    // a machine where remembering never did.
-    if (!(name in stored)) return { ok: true, value: null };
-    delete stored[name];
-    await this.file.write(JSON.stringify(stored));
-    return { ok: true, value: null };
+    return this.writes.run(async () => {
+      const stored = await this.load();
+      // Deleted whether or not encryption is available: forgetting must work on
+      // a machine where remembering never did.
+      if (!(name in stored)) return { ok: true, value: null };
+      delete stored[name];
+      await this.file.write(JSON.stringify(stored));
+      return { ok: true, value: null };
+    });
   }
 
   /**

@@ -17,7 +17,12 @@ try:  # support both the new `lightning` and legacy `pytorch_lightning`
     from lightning.pytorch.callbacks import Callback
 except ImportError:  # pragma: no cover
     try:
-        from pytorch_lightning.callbacks import Callback
+        # On a machine with both distributions installed, mypy resolves both
+        # imports and sees the second as an incompatible redefinition of the
+        # first. They are the same class under two names (Lightning re-exports
+        # the legacy module), and only one branch ever executes, so the ignore
+        # is about the checker's single-pass view rather than a real mismatch.
+        from pytorch_lightning.callbacks import Callback  # type: ignore[assignment]
     except ImportError as exc:  # pragma: no cover
         raise ImportError(
             "PyTorch Lightning is required for this callback. "

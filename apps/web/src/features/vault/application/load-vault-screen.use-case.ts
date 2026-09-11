@@ -4,14 +4,22 @@ import type {
   IShareRepository,
   IVaultPageRepository,
   ReadingList,
-  VaultPage,
+  VaultPageSummary,
   VaultPageTreeNode,
 } from "@weaveforge/core";
 import { buildPageTree, mergePinnedScreenData } from "@weaveforge/core";
 
 export interface VaultScreenData {
-  tree: VaultPageTreeNode[];
-  flat: VaultPage[];
+  /**
+   * The nested tree, and the flat list beside it, both hold **summaries**.
+   *
+   * The screen paints titles and body previews; the full body arrives from
+   * `getById` when a page is opened. These used to be typed as `VaultPage`,
+   * which claimed a body every element does not have — and a card edit written
+   * back through that type persisted `body: ""` over a real note (review-2 F6).
+   */
+  tree: VaultPageTreeNode<VaultPageSummary>[];
+  flat: VaultPageSummary[];
   lists: ReadingList[];
   /** listId -> note ids in that list */
   membership: Map<string, Set<string>>;

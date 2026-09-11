@@ -10,6 +10,7 @@ import { Select } from "@/components/select";
 import { MemberPicker } from "./member-picker";
 import { ShareLinkPanel } from "./share-link-panel";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 /**
  * Manage who an item (or all of a type, when `resourceId` is null) is shared
@@ -123,9 +124,9 @@ export function ShareDialog({
 
   return (
     <Modal title={title} onClose={onClose}>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {isBlanket && !activeProjectId && (
-        <p className="error">Select a project to blanket-share.</p>
+        <FormError>Select a project to blanket-share.</FormError>
       )}
 
       <div className="share-current">

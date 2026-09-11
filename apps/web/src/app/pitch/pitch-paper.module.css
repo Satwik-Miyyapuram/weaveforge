@@ -1,0 +1,232 @@
+/*
+ * Every drawn-paper visual: the real page window, the first-page sheets, the annotation macro and the reading rail.
+ *
+ * Split out of pitch.module.css, which had grown past 1,400 lines. The split is
+ * by selector, not by position: every class here is referenced by no rule
+ * outside this file, and no element carries one of these classes together with a
+ * class that stayed behind — or with one from another module here, except for
+ * `position: relative`, which both sides declare to the same value. So moving
+ * these rules cannot change what the cascade computes. The page imports this
+ * file beside pitch.module.css.
+ */
+
+/* ---- The real paper ----
+   A page of a PDF rendered by pdf.js, with highlight boxes positioned from
+   the coordinates pdf.js returns for the matched text. */
+/* A window onto the page, not the whole page. Height is set from the quote's
+   own geometry once it is found. */
+.paper {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--border);
+  min-height: 220px;
+}
+/* Carries the page and the annotation overlay together, so sliding the window
+   can never move one without the other. */
+.paperSlide { position: absolute; top: 0; left: 0; translate: 0 0; }
+.paperCanvas { display: block; }
+/* The highlight itself is the reader's own .pdf-reader-ann overlay, styled by
+   app/styles/cards.css. Only the frame it sits in belongs to this page. */
+.paperNote {
+  position: absolute;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+/* ---- Drawn first pages ----
+
+   The page ships no images: no scan, no licence, no bytes over the wire, and
+   no colour that fights the theme. A first page is drawn instead, and drawn as
+   a *shape* — two title lines, an author line, a rule, two columns, a figure
+   box — because that silhouette is what the eye recognises. Undifferentiated
+   ruled bars do not read as a paper at any size; they read as dirt. */
+.sheet {
+  aspect-ratio: 3 / 4;
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  padding: 9% 8%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6cqw;
+  overflow: hidden;
+  /* Every bar is sized in cqw — a share of this sheet's own width — so one
+     sheet scales as a drawing rather than as a box with fixed furniture: the
+     rail's sheets and the hero's are the same component at very different
+     sizes. Not em: the element cannot query itself, so a font-size in cqw
+     resolves against the viewport and the anatomy collapses. */
+  container-type: inline-size;
+  opacity: 0.5;
+  transition: opacity 0.6s ease, background 0.6s ease, border-color 0.6s ease;
+}
+.sheet i {
+  display: block;
+  height: 1.5cqw;
+  border-radius: 1px;
+  background: var(--ink);
+  opacity: 0.42;
+  flex: none;
+}
+.sheetTitle { height: 3cqw; opacity: 0.7; }
+.sheetAuthors { height: 1.4cqw; opacity: 0.4; margin-top: 1.6cqw; }
+.sheetRule {
+  display: block;
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.25;
+  margin: 2.4cqw 0 2.6cqw;
+  flex: none;
+}
+.sheetFig {
+  border: 1px solid var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  height: 17cqw !important;
+  opacity: 0.32;
+  margin-bottom: 2.4cqw;
+  border-radius: 1px;
+}
+.sheetCols { display: flex; gap: 5cqw; flex: 1; min-height: 0; }
+.sheetCols > span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2.2cqw;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* One sheet holds focus: the paper the scene is talking about. A field with
+   no subject is wallpaper; a field with one lit sheet is a shelf with your
+   paper open on it. Which sheet is lit advances with the steps. */
+.sheet[data-lit="true"] {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--surface);
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.5);
+}
+.sheet[data-lit="true"] i { opacity: 0.5; }
+.sheet[data-lit="true"] .sheetTitle { background: var(--accent); opacity: 0.85; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet { transition: none; }
+}
+
+/* ---- The annotation macro ----
+   The one real picture on the page, and the only one no competitor can copy:
+   it is a photograph of the claim the product makes about itself. Blown well
+   past reading size, so the subject is the highlight's own edge, the note
+   hanging off it, and the anchor line leaving the frame — not the sentence. */
+.macro {
+  position: relative;
+  margin: clamp(18px, 3vw, 30px) 0 clamp(24px, 4vw, 40px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  /* The crop: the text runs off the right edge on purpose. A frame that
+     contains everything is a screenshot; one that cuts is a close-up. */
+  overflow: hidden;
+}
+.macroInner {
+  position: relative;
+  padding: clamp(22px, 4vw, 44px) clamp(20px, 4vw, 48px);
+}
+.macroLine {
+  font-family: var(--font-serif);
+  font-size: clamp(1.05rem, 0.8rem + 1.4vw, 1.85rem);
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  margin: 0;
+  color: var(--ink);
+}
+.macroDim { color: var(--faint); }
+.macroMark {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: 2px;
+}
+.macroNote {
+  position: relative;
+  margin: 26px 0 0 clamp(28px, 7vw, 104px);
+  padding: 12px 16px;
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  border-radius: 0 8px 8px 0;
+  max-width: 40ch;
+}
+.macroNote p { margin: 0; font-size: 0.95rem; line-height: 1.55; }
+.macroMeta {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 8px 0 0;
+}
+/* The anchor: what ties the note to the words, and the reason the highlight
+   survives a different build of the same PDF. Drawn, because it is the part
+   of the product that has no screen of its own. */
+.macroAnchor {
+  position: absolute;
+  left: clamp(16px, 4.5vw, 56px);
+  width: clamp(12px, 4vw, 44px);
+  border-left: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-bottom: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-bottom-left-radius: 10px;
+  pointer-events: none;
+}
+
+/* ---- The reading rail ----
+   The side rail on the reading scene: the same drawn sheets as the hero wall,
+   but narrow and in the margin, so the field the scene is about stays visible
+   while the scene zooms into one page of it. */
+.rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  /* Narrow enough to clear the steps column at the width where the
+     header still fits — a rail that runs under the prose is not a
+     margin, it is a smudge. */
+  width: clamp(120px, 15vw, 220px);
+  z-index: 0;
+  pointer-events: none;
+}
+/* The scene is some 5,600px tall and the rail holds twelve sheets. Laid out
+   straight into the absolute box they stack against its top edge — a few
+   hundred pixels of sheets, thousands of pixels above where the reader is,
+   visible for none of the scene. Sticking a viewport-tall panel inside the
+   absolute box keeps the field beside the reader the whole way down, which is
+   the only reason it is there. */
+.railIn {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: grid;
+  /* Two columns, not three: a first page needs enough width for its title
+     lines and its two text columns to be legible as those things. At a third
+     of the rail a sheet is 60px across and its anatomy collapses into bars. */
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: min-content;
+  gap: 12px;
+  padding: 12vh 0;
+  align-content: center;
+  /* Fades top and bottom (the field continues past the scene) and on the left
+     (where the prose column ends), so a step's last word never lands on a
+     sheet at the widths where the two nearly touch. */
+  mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent),
+    linear-gradient(to right, transparent, #000 22%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent),
+    linear-gradient(to right, transparent, #000 22%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+}
+@media (max-width: 900px) {
+  .rail { display: none; }
+}

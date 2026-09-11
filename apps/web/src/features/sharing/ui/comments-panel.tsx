@@ -6,6 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { DeleteIcon } from "@/components/view-icons";
 import { useProfile } from "@/features/org";
 import { formatError } from "@/lib/format-error";
+import { FormError } from "@/components/form-error";
 
 /**
  * A lightweight feedback thread on an item. Anyone with view access sees it;
@@ -93,7 +94,7 @@ export function CommentsPanel({
           </li>
         ))}
       </ul>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {canComment && (
         <div className="comment-add">
           <textarea

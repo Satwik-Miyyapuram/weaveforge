@@ -347,7 +347,7 @@ export function PaperNote({
               handleRef={editorHandle}
             />
             <div className="summary-editor-foot">
-              {saveError && <span className="error">{saveError}</span>}
+              {saveError && <span className="error" role="alert">{saveError}</span>}
               <button type="button" className="link-btn" onClick={() => setEditing(false)} disabled={busy}>cancel</button>
               <button
                 type="button"

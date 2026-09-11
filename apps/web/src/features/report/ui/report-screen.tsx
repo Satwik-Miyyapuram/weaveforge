@@ -25,6 +25,7 @@ import { SectionNote } from "./section-note";
 import { Markdown } from "@/components/markdown/markdown";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { ScreenHead } from "@/components/screen-head";
+import { FormError } from "@/components/form-error";
 
 type ReportViewData = ReportScreenData & {
   ownerNames: Map<string, string>;
@@ -259,7 +260,7 @@ export function ReportScreen() {
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {!error && tree.length === 0 && pinnedSections.length === 0 && (
         <div className="empty">
           <p>No sections yet. Use “+ Report” to sketch your outline.</p>

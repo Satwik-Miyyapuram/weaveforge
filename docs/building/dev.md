@@ -92,7 +92,7 @@ When landing sharing, library, or org onboarding work, confirm:
 | **Share matching** | Use `shareCoversResource` / `shareAllowsComment` from `@weaveforge/core` in use-cases — never in UI components. |
 | **Library pins** | Writes go through `PinSharedResourceUseCase`; repos must pass `runLibraryPinRepositoryContract`. |
 | **Screen data** | Multi-repo orchestration lives in `Load*ScreenUseCase` classes wired in `bootstrap.ts`, not in React screens. Pin merge uses `mergePinnedScreenData` from `@weaveforge/core`. |
-| **Pinned owner labels** | Use `loadPinnedOwnerNames()` — do not duplicate `buildMemberNameMap` loops in screens. |
+| **Pinned owner labels** | `buildMemberNameMap` may be named only in `features/sharing/application/member-labels.ts` (the definition), `features/sharing/application/load-pinned-owner-names.ts` (the wrapper) and `features/sharing/ui/shared-with-me-screen.tsx` (which builds from members its use-case already loaded, so it costs no extra directory read). Anywhere else, call `loadPinnedOwnerNames()`. `check:dry` searches all of `features/`, not just `ui/`, and fails on a fourth caller — it could not see `application/` before, which is where the real callers are. |
 | **Duplicate copy** | Papers: `DuplicateSharedPaperUseCase` (core). Vault pages: `DuplicateSharedVaultPageUseCase` (web, asset re-upload). Both require an active share grant. |
 | **Org API routes** | Shared helpers in `apps/web/src/app/api/org/_shared.ts`; code preview requires auth. |
 | **Standalone onboarding** | Client calls `complete_org_setup()` RPC; `/api/org/standalone` is the JWT fallback only. |
@@ -106,6 +106,8 @@ When landing sharing, library, or org onboarding work, confirm:
 - Cross-feature imports from another feature's `ui/` folder (use the feature's public barrel, e.g. `@/features/sharing`)
 - UI calling `getContainer().*Repository` directly (use facades)
 
+Scope, so it is not mistaken for more: the cross-feature rule reads `apps/web/src/features/**` only. `apps/web/src/app/**` and `apps/web/src/components/**` sit *above* the features — `app/app-shell.tsx` importing `@/features/auth/ui/auth-provider` is the shell assembling a feature, not a feature reaching into another one — so those imports are deliberately permitted rather than missed. A file whose own feature cannot be derived from its path is skipped rather than guessed at.
+
 `npm run check:dry` runs in the same job. It fails when UI screens duplicate patterns we centralised: share matching, pin merge, or pinned owner label loops.
 
 UI talks to **`getContainer().<feature>`** facades only; repositories stay behind use-cases in `bootstrap.ts`.
@@ -117,6 +119,8 @@ enforces the rules below. Every one of them is here because the repo was bitten
 by it once — the script is [`scripts/check-hygiene.mjs`](../../scripts/check-hygiene.mjs),
 and a rule change belongs in both places.
 
+`check:solid` and `check:dry` search through [`scripts/lib/search.mjs`](../../scripts/lib/search.mjs). ripgrep is used when it is installed and the same rules run in Node when it is not, over the same file list taken from `git ls-files`, so the two cannot disagree about what they matched. This replaced an `execSync("rg …")` call that read ripgrep's exit 1 as "no matches" — on Windows a missing `rg` is *also* exit 1, so a machine without ripgrep reported a pass having checked nothing. A gate that cannot run now fails; it never passes quietly.
+
 | Rule | Why | What the check does |
 |------|-----|---------------------|
 | **No literal control characters in source** | One literal control byte makes git classify the whole file as binary: it vanishes from `git grep` and its diffs stop rendering. Two files had gone invisible this way, both from a control-character range typed straight into a regex. | Scans every tracked text file for bytes below space (other than tab, newline, carriage return) and for DEL. Write them as escapes: `"\u0000"`, `/[\u0000-\u001f]/`. |
@@ -124,7 +128,7 @@ and a rule change belongs in both places.
 | **Core tests mirror `src/`** | `packages/core/test/` was 132 flat files — finding an area's tests meant already knowing their names. | Fails on a test sitting directly in `test/`, and on a test folder with no matching folder under `packages/core/src/`. |
 | **App tests live in a `test/` folder** | A test beside its subject is easy to find; a test loose in a feature folder is one more thing to skim past. | Fails on any `apps/*/src/**/*.test.ts(x)` not inside a `test/` directory. |
 | **The MCP plugin server answers like a server** | It lives outside every workspace, so no unit test imports it and no typecheck sees it. Two protocol bugs shipped that way: an unimplemented method got no reply at all, and one unparseable stdin line killed the process mid-session. | [`check:mcp-plugin`](../../scripts/check-mcp-plugin.mjs) spawns it, runs a real handshake, and asserts every `AI_TOOL_NAMES` tool is offered. |
-| **Bounded arrays from request bodies** | Two routes took an array straight from the body and awaited a database round trip per element, so one request could buy unbounded work. | Fails on any `app/api/**/route.ts` that uses `Array.isArray` without comparing a `.length` against a cap. Name the cap as a constant and answer 400 above it — [`storage/signed-url-limits.ts`](../../apps/web/src/storage/signed-url-limits.ts) is the pattern. |
+| **Bounded arrays from request bodies** | Two routes took an array straight from the body and awaited a database round trip per element, so one request could buy unbounded work. | Fails on any `app/api/**/route.ts` that uses `Array.isArray` without comparing a `.length` against a **named constant in caps or a non-zero numeric literal** (`MAX_SIGNED_URL_PATHS`, `200`). An emptiness test (`> 0`, `=== 0`) does not count, and neither does a lowercase identifier. Comments are stripped before the test, so a cap merely quoted in a comment does not satisfy it. Name the cap as a constant and answer 400 above it — [`storage/signed-url-limits.ts`](../../apps/web/src/storage/signed-url-limits.ts) is the pattern. |
 | **Every path a doc names exists** | Renames and deletions do not touch prose, so docs accumulate paths into files removed many commits ago; two plans had drifted far enough that a reader following them landed on nothing. | Fails on a backticked repo-rooted path in any tracked `.md` that resolves to no file. A line introducing a file that does not exist yet is skipped, as is a doc under `plans/completed/` or one whose banner opens **Historical** or **Predates**. |
 
 Two more rules the checker cannot see, so they are on you:
@@ -214,12 +218,14 @@ These tests run in `check:all` and on every PR.
 
 | Required check | What it runs |
 |----------------|--------------|
-| **build-and-test** | `npm run build:core`, core + web tests, schema and RLS tests, typecheck, `check:boundaries` (listed below), lint, Next.js build, `check:deployment-surface` |
+| **build-and-test** | `npm run build:core`, core + web + desktop tests, schema and RLS tests (which now include the schema invariants: every `public` table has RLS, every RLS table has a policy, every `security definer` function pins `search_path`, no definer function is anon-executable outside its allowlist), typecheck, the seven boundary gates as **separate steps** plus an aggregate step that fails the job if any did not pass, lint, Next.js build, `check:deployment-surface` |
 | **python-sdk** | ruff, mypy, pytest |
-| **dco** | [`scripts/check-dco.sh`](../../scripts/check-dco.sh) — every commit the PR adds carries a `Signed-off-by:` line naming its own author. Commit with `git commit -s`; sign off a branch already written with `git rebase --signoff origin/main`. Reads only what the PR adds, so the unsigned history before the check is not its business. |
+| **dco** | [`scripts/check-dco.sh`](../../scripts/check-dco.sh) and its Node twin [`scripts/check-dco.mjs`](../../scripts/check-dco.mjs) — every commit the PR adds carries a `Signed-off-by:` line naming its own author. Bot commits are exempt (GitHub's `<name>[bot]@users.noreply.github.com` convention), because a sign-off certifies the author and Dependabot cannot write one — without it every dependency PR would block on this required check. CI runs both scripts, so the two cannot drift; the `.mjs` is the copy a Windows contributor can run: `npm run check:dco -- origin/main HEAD`. Commit with `git commit -s`; sign off a branch already written with `git rebase --signoff origin/main`. Reads only what the PR adds, so the unsigned history before the check is not its business. |
 
 The gates `check:boundaries` runs, read from `package.json` rather than
 remembered:
+
+CI runs these seven as **separate steps** rather than through `check:boundaries`, so each gate names itself in the job log and a second broken rule is visible in the same run instead of waiting behind the first. An aggregate step fails the job if any gate did not pass, so the job is still red on a failure. `check:boundaries` itself is unchanged and remains the fast local pre-PR pass — but it is now a second copy of this list, so a gate added there must be added to [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) too.
 
 <!-- generated:boundary-checks -->
 

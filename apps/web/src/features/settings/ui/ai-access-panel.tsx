@@ -5,15 +5,10 @@ import {
   AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS, AI_PROPOSAL_KINDS, AI_READ_CATEGORIES, aiReadCategoryForResource, applyUserIntegrationFields, getUserIntegrationField, type AiAccessSettings, type AiProposalKind, type AiReadCategory, type UserSettings } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
-import type { AiSourceOption } from "@/container/facades";
+import type { AiSourceOption, McpTokenRecord } from "@/container/facades";
 import { Select } from "@/components/select";
-import { ensureRelay, runningRelays, stopAllRelays, stopRelay } from "@/features/ai-assistant/infrastructure/mcp-relay-manager";
+import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
-import {
-  clearPersistedMcpSessions,
-  loadPersistedMcpSessions,
-  savePersistedMcpSessions,
-} from "@/features/ai-assistant/infrastructure/mcp-session-store";
 import { ChevronIcon } from "@/components/chevron-icon";
 
 const READ_LABELS: Record<AiReadCategory, string> = {
@@ -38,13 +33,6 @@ const PROPOSAL_LABELS: Record<AiProposalKind, string> = {
   milestone_follow_up: "Create milestone follow-ups",
   experiment_follow_up: "Create experiment follow-ups",
 };
-
-interface McpTokenRecord {
-  id: string;
-  name: string;
-  tokenPrefix: string;
-  lastUsedAt: string | null;
-}
 
 const DEFAULT_AI_ACCESS: AiAccessSettings = {
   enabled: false,
@@ -137,11 +125,13 @@ export function AiAccessPanel({ settings, onChange }: {
 
   /** `isCurrent` lets the caller drop a response that arrived after the gate closed. */
   const loadMcpTokens = useCallback(async (isCurrent: () => boolean = () => true) => {
-    const accessToken = await getContainer().auth.auth.getAccessToken();
-    if (!accessToken) return;
-    const response = await fetch("/api/settings/mcp-tokens", { headers: { Authorization: `Bearer ${accessToken}` } });
-    const payload = await response.json() as { tokens?: McpTokenRecord[] };
-    if (response.ok && isCurrent()) setMcpTokens(payload.tokens ?? []);
+    try {
+      const tokens = await getContainer().settings.mcpTokens.list();
+      if (isCurrent()) setMcpTokens(tokens);
+    } catch {
+      // Advisory list: a failed read leaves the last known set in place rather
+      // than blanking the panel, which says less than showing what it had.
+    }
   }, []);
 
   useEffect(() => {
@@ -159,13 +149,14 @@ export function AiAccessPanel({ settings, onChange }: {
   // Snapshot the currently running sessions (grant + secret + settings) to
   // session-scoped storage so a reload can resume the relays until they expire.
   const persistSessions = useCallback(() => {
-    const active = getContainer().aiAssistant.listActiveSessions();
-    const meta = new Map(runningRelays().map((entry) => [entry.sessionId, entry]));
+    const ai = getContainer().aiAssistant;
+    const active = ai.listActiveSessions();
+    const meta = new Map(ai.runningRelays().map((entry) => [entry.sessionId, entry]));
     const list = active.flatMap((session) => {
       const extra = meta.get(session.grant.id);
       return extra ? [{ session, secret: extra.secret, settings: extra.settings }] : [];
     });
-    void savePersistedMcpSessions(list);
+    void ai.savePersistedSessions(list);
   }, []);
 
   // Rehydrate persisted sessions after a reload: restore the grants and restart
@@ -177,7 +168,8 @@ export function AiAccessPanel({ settings, onChange }: {
     }
     let cancelled = false;
     setSessionsReady(false);
-    void loadPersistedMcpSessions()
+    void getContainer().aiAssistant
+      .loadPersistedSessions()
       .then((persisted) => {
         if (cancelled) return;
         if (persisted.length === 0) return;
@@ -187,7 +179,7 @@ export function AiAccessPanel({ settings, onChange }: {
         ai.restoreActiveSessions(live.map((record) => record.session));
         for (const record of live) {
           // Prefer live AI access over a looser persisted snapshot.
-          ensureRelay(record.session.grant.id, record.secret, access);
+          ai.ensureRelay(record.session.grant.id, record.secret, access);
         }
         setSessions(ai.listActiveSessions());
         // Persist is owned by the sessionsReady effect so we never race a later
@@ -204,8 +196,9 @@ export function AiAccessPanel({ settings, onChange }: {
   // Push tightened AI access into any live relay without restarting the poll loop.
   useEffect(() => {
     if (!sessionsReady) return;
-    for (const entry of runningRelays()) {
-      ensureRelay(entry.sessionId, entry.secret, access);
+    const ai = getContainer().aiAssistant;
+    for (const entry of ai.runningRelays()) {
+      ai.ensureRelay(entry.sessionId, entry.secret, access);
     }
     persistSessions();
   }, [access, persistSessions, sessionsReady]);
@@ -233,7 +226,7 @@ export function AiAccessPanel({ settings, onChange }: {
       const remembered = getUserIntegrationField(settings, "mcp", "pairingSecret");
       const secret = remembered ?? (crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""));
       if (rememberConnection && !remembered) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: secret }));
-      ensureRelay(session.grant.id, secret, access);
+      getContainer().aiAssistant.ensureRelay(session.grant.id, secret, access);
       setConnection({ sessionId: session.grant.id, secret });
       setSessions(getContainer().aiAssistant.listActiveSessions());
       persistSessions();
@@ -249,13 +242,9 @@ export function AiAccessPanel({ settings, onChange }: {
     setBusy(true);
     setSessionError(null);
     try {
-      const accessToken = await getContainer().auth.auth.getAccessToken();
-      if (!accessToken) throw new Error("Sign in to create an MCP token.");
-      const response = await fetch("/api/settings/mcp-tokens", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } });
-      const payload = await response.json() as { plaintext?: string; record?: McpTokenRecord; error?: string };
-      if (!response.ok || !payload.plaintext) throw new Error(payload.error ?? "Could not create MCP token.");
-      setNewMcpToken(payload.plaintext);
-      if (payload.record) setMcpTokens((current) => [payload.record!, ...current]);
+      const { plaintext, record } = await getContainer().settings.mcpTokens.create();
+      setNewMcpToken(plaintext);
+      if (record) setMcpTokens((current) => [record, ...current]);
     } catch (err) {
       setSessionError(formatError(err));
     } finally {
@@ -268,11 +257,7 @@ export function AiAccessPanel({ settings, onChange }: {
     setBusy(true);
     setSessionError(null);
     try {
-      const accessToken = await getContainer().auth.auth.getAccessToken();
-      if (!accessToken) throw new Error("Sign in to revoke an MCP token.");
-      const response = await fetch(`/api/settings/mcp-tokens?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } });
-      const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "Could not revoke MCP token.");
+      await getContainer().settings.mcpTokens.revoke(id);
       setMcpTokens((current) => current.filter((token) => token.id !== id));
       setNewMcpToken(null);
     } catch (err) {
@@ -283,10 +268,11 @@ export function AiAccessPanel({ settings, onChange }: {
   }
 
   function revokeAll() {
-    stopAllRelays();
+    const ai = getContainer().aiAssistant;
+    ai.stopAllRelays();
     setConnection(null);
-    getContainer().aiAssistant.revokeAll();
-    void clearPersistedMcpSessions();
+    ai.revokeAll();
+    void ai.clearPersistedSessions();
     setSessions([]);
   }
 
@@ -365,7 +351,7 @@ export function AiAccessPanel({ settings, onChange }: {
           </details>
           <section className="ai-section ai-session-section">
             <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions expire after 30 minutes and end when you revoke them.</p></div></div>
-            {!encryptionUnlocked && <p className="error">Unlock encryption to select sources and start a session.</p>}
+            {!encryptionUnlocked && <FormError>Unlock encryption to select sources and start a session.</FormError>}
             {encryptionUnlocked && (
               <>
                 <div className="field">
@@ -423,7 +409,7 @@ export function AiAccessPanel({ settings, onChange }: {
                 <button type="button" className="btn-secondary ai-start-access" onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
                   {busy ? "Starting…" : `Start access for ${sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length} source${(sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length) === 1 ? "" : "s"}`}
                 </button>
-                {sessionError && <p className="error">{sessionError}</p>}
+                <FormError>{sessionError}</FormError>
                 {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open and encryption unlocked.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</button></div></div>}
               </>
             )}
@@ -433,7 +419,7 @@ export function AiAccessPanel({ settings, onChange }: {
                   <div className="ai-active-session" key={session.grant.id}>
                     <span><strong>{session.workspace.name}</strong><small>{session.grant.readable.length} source{session.grant.readable.length === 1 ? "" : "s"} · expires {new Date(session.grant.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></span>
                     <button type="button" className="link-btn danger" onClick={() => {
-                      stopRelay(session.grant.id);
+                      getContainer().aiAssistant.stopRelay(session.grant.id);
                       if (connection?.sessionId === session.grant.id) setConnection(null);
                       getContainer().aiAssistant.revokeSession(session.grant.id);
                       setSessions(getContainer().aiAssistant.listActiveSessions());

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { OrgValidationError } from "@weaveforge/core";
 import type { OrgInviteRole } from "@weaveforge/core";
-import { formatError } from "@/lib/format-error";
 import {
   orgApiErrorResponse,
   requireOrgApiUser,
@@ -34,8 +32,12 @@ export async function POST(request: Request) {
     const code = await auth.svc.regenerateCode(auth.userId, body.orgId, body.targetRole);
     return NextResponse.json(code);
   } catch (err) {
-    const message = formatError(err);
-    const status = err instanceof OrgValidationError ? 403 : 500;
-    return NextResponse.json({ error: message }, { status });
+    // Same helper as GET, so both verbs answer identically for the same
+    // condition. This used to answer 403 for every `OrgValidationError`,
+    // including "Lab not found." and the plain input errors — while the shared
+    // helper answered 400 for the same class (review-2 F5). "Only the lab owner
+    // can regenerate codes" belongs on a PermissionError, which maps to 403
+    // here without a special case.
+    return orgApiErrorResponse(err);
   }
 }

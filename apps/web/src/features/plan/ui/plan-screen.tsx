@@ -17,6 +17,7 @@ import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { PlanScreenData } from "@/features/plan/application/load-plan-screen.use-case";
 import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
+import { FormError } from "@/components/form-error";
 
 type PlanViewData = PlanScreenData & { ownerNames: Map<string, string> };
 
@@ -211,7 +212,7 @@ export function PlanScreen() {
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {!error && items.length === 0 && (
         <div className="empty">
           <p>No milestones yet. Use “+ Milestone” to sketch the road ahead.</p>
@@ -657,7 +658,7 @@ function MilestoneForm({
         </button>
       </div>
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <div className={onCancel ? "card-foot edit-actions" : "card-foot form-foot"}>
         {onCancel && (
           <button type="button" className="link-btn" onClick={onCancel} disabled={busy}>

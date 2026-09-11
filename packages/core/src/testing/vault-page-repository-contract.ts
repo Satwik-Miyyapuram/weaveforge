@@ -61,4 +61,65 @@ export function runVaultPageRepositoryContract(
     await repo.delete(page.id);
     assert.equal(await repo.getById(page.id), null);
   });
+
+  // --- the lossy method (review-2 F4c) -------------------------------------
+  //
+  // `listSummaries` is the projection the note cards and the tree paint from,
+  // and it is the one method no contract suite covered. It is optional on the
+  // port, so both shapes are asserted rather than one being skipped silently.
+  test(`[${label}] listSummaries, when present, covers every saved page`, async () => {
+    const repo = makeRepo();
+    if (!repo.listSummaries) {
+      // Not an error: the port allows the `list()` fallback.
+      assert.equal(repo.listSummaries, undefined);
+      return;
+    }
+    await repo.save(samplePage({ id: "a" }));
+    await repo.save(samplePage({ id: "b", parentId: "a", title: "Child" }));
+    const summaries = await repo.listSummaries();
+    assert.deepEqual(
+      summaries.map((s) => s.id).sort(),
+      ["a", "b"],
+      "a card/tree list that omits a page drops it from the screen",
+    );
+  });
+
+  test(`[${label}] listSummaries keeps the identity the tree nests on`, async () => {
+    const repo = makeRepo();
+    if (!repo.listSummaries) return;
+    const page = samplePage({ id: "child", parentId: "root", sortOrder: 3 });
+    await repo.save(page);
+    const [summary] = await repo.listSummaries();
+    assert.ok(summary);
+    assert.equal(summary.id, page.id);
+    assert.equal(summary.title, page.title);
+    // Nesting and ordering are read from the projection, not from getById.
+    assert.equal(summary.parentId, "root");
+    assert.equal(summary.sortOrder, 3);
+    assert.equal(summary.updatedAt, page.updatedAt);
+  });
+
+  test(`[${label}] listSummaries gives the card text without claiming the body`, async () => {
+    // The failure mode F6 names: the projection is concatenated with full rows
+    // and written back, and `toRow` persists `body: p.body ?? ""` — wiping the
+    // note. A summary must therefore either carry the real body or clearly not
+    // carry one; `body: ""` with no preview is the one shape that is a lie.
+    const repo = makeRepo();
+    if (!repo.listSummaries) return;
+    const page = samplePage({ id: "a", body: "A note with real content." });
+    await repo.save(page);
+    const [summary] = await repo.listSummaries();
+    assert.ok(summary);
+    const body = (summary as { body?: unknown }).body;
+    if (body !== undefined) {
+      assert.equal(body, page.body, "a summary that carries a body must carry the real one");
+    } else {
+      assert.ok(
+        typeof summary.bodyPreview === "string" && summary.bodyPreview.length > 0,
+        "a summary without a body must at least give the card a preview",
+      );
+    }
+    // And the stored page is untouched either way.
+    assert.equal((await repo.getById(page.id))?.body, page.body);
+  });
 }

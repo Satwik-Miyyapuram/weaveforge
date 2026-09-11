@@ -6,6 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { paperSourceNoteScaffold } from "../application/paper-source-note-scaffold";
 import { useSubmit } from "@/lib/hooks/use-submit";
+import { FormError } from "@/components/form-error";
 
 
 type RefKind = PaperRef["kind"]; // "arxiv" | "doi" | "zotero"
@@ -135,7 +136,7 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
           </Select>
         </div>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <button className="btn-primary" disabled={busy}>
         {busy ? "Adding…" : "Add paper"}
       </button>

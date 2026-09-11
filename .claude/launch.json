@@ -1,6 +1,35 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "pitch-export", "runtimeExecutable": "npx", "runtimeArgs": ["-y", "serve", "apps/pitch/out", "-l", "4321"], "port": 4321 }
+    {
+      "name": "pitch-export",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "apps/pitch/out",
+        "-l",
+        "4321"
+      ],
+      "port": 4321
+    },
+    {
+      "name": "web-desktop-mode",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "cross-env",
+        "NEXT_PUBLIC_WEAVEFORGE_DESKTOP=1",
+        "npm",
+        "run",
+        "dev",
+        "-w",
+        "apps/web",
+        "--",
+        "-p",
+        "3011"
+      ],
+      "port": 3011
+    }
   ]
 }

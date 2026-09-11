@@ -9,6 +9,7 @@
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { buildTree } from "../../../shared/tree.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export type ReportStatus = "not_started" | "drafting" | "review" | "done";
 
@@ -65,7 +66,7 @@ export interface ReportSectionTreeNode {
   children: ReportSectionTreeNode[];
 }
 
-export class ReportSectionValidationError extends Error {
+export class ReportSectionValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "ReportSectionValidationError";

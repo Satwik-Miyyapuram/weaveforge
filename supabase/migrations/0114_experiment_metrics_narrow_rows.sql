@@ -45,8 +45,21 @@
 --
 -- Reversal: supabase/migrations-rollback/0114_experiment_metrics_narrow_rows.sql
 --
--- Re-runnable: every step is guarded, and the whole conversion is skipped once
--- `experiment_metrics` is already a view.
+-- Re-runnable: every step is guarded, and the whole conversion — the copy *and*
+-- the row-only compatibility view with its INSTEAD OF triggers — is skipped
+-- once `experiment_metrics` is already a view. The view section is guarded by a
+-- second, separate test (see §3) rather than riding on the conversion's: by the
+-- time it runs on a first apply the old table has already been dropped, so the
+-- "is it still a table?" test can no longer tell a first apply from a re-run.
+-- Without that second guard a re-run reinstalled the row-only view and the
+-- three row-only trigger functions, silently reverting `0115`'s chunk-aware
+-- versions and un-hiding every point that had been archived into a chunk.
+--
+-- (Editing an already-shipped migration, for the record: the change is a no-op
+-- on a fresh sequential apply — the new guard is satisfied on exactly the runs
+-- that used to reach that section — and only alters what a *second* apply does.
+-- It is the root-cause fix; a later migration re-asserting `0115`'s definitions
+-- would repair the state only until the next re-run of this file.)
 
 -- ---------------------------------------------------------------------------
 -- 1. The name lookup.
@@ -221,101 +234,134 @@ grant select, insert, update, delete on experiment_metric_points to authenticate
 grant select, insert, update, delete on experiment_metric_points to service_role;
 
 -- ---------------------------------------------------------------------------
--- 3. The compatibility view.
+-- 3. The compatibility view — guarded separately, so a re-run cannot revert
+--    `0115`'s chunk-aware replacement.
 -- ---------------------------------------------------------------------------
 
--- `security_invoker` so the base table's RLS is evaluated as the caller. The
--- policies rode along with the table through the rename, so ownership and
--- sharing rules are unchanged — without this flag the view would run as its
--- owner and quietly hand every row to everyone.
-create or replace view experiment_metrics
-  with (security_invoker = true)
-as
-  select p.user_id,
-         p.experiment_id,
-         n.name as metric,
-         p.step,
-         p.value,
-         p.wall_time
-    from experiment_metric_points p
-    join experiment_metric_names n on n.id = p.metric_id;
-
-grant select, insert, update, delete on experiment_metrics to authenticated;
-grant select, insert, update, delete on experiment_metrics to service_role;
-
-/**
- * Writes arriving as `metric text` land on the narrowed table.
- *
- * `on conflict … do update` makes re-ingest idempotent. The duplicates this
- * migration cleaned up exist because a batch was delivered twice and the old
- * schema happily stored both copies; under the new primary key that would now
- * be an error, which would turn a harmless retry into a failed run. Last write
- * wins instead.
- */
-create or replace function experiment_metrics_insert()
-returns trigger
-language plpgsql
-security invoker
-as $$
+-- Why this needs its own guard rather than living inside §2's block.
+--
+-- §2 asks "is `experiment_metrics` still a table?", which is the right question
+-- for the conversion, because the conversion is what replaces the table with a
+-- view. This section runs *after* §2, so on a first apply the table is already
+-- gone and the view does not exist yet — the state to recognise here is "no
+-- `experiment_metrics` at all". On a re-run of this file, `0115` has since
+-- replaced the view with a chunk-aware one, and that state is "a view exists".
+--
+-- The two are distinguishable, and this is the test:
+--
+--   * first apply — §2 dropped the table; §3 finds nothing → build the row-only
+--                   view and its INSTEAD OF triggers.
+--   * re-run      — §2 returns early; §3 finds `0115`'s view → leave it, and
+--                   leave `0115`'s trigger functions attached to it.
+--
+-- `create or replace view` is what made the unguarded version destructive: it
+-- silently swapped a chunk-aware view for a row-only one, and the
+-- `drop trigger`/`create trigger` pairs below re-pointed writes at the 0114
+-- trigger functions — so archived points stopped being read *and* stopped being
+-- updated or deleted, while the writes that did land went to the row store
+-- beside a chunk that still held the old value. Re-running a file is routine
+-- after a failed deploy, which made that a data-loss step rather than a
+-- theoretical one.
+do $compatibility_view$
 begin
-  insert into experiment_metric_points (user_id, experiment_id, metric_id, step, value, wall_time)
-  values (
-    coalesce(new.user_id, auth.uid()),       -- the table default the view cannot carry
-    new.experiment_id,
-    experiment_metric_name_id(new.metric),
-    coalesce(new.step, 0),
-    new.value,
-    new.wall_time
-  )
-  on conflict (experiment_id, metric_id, step)
-  do update set value = excluded.value, wall_time = excluded.wall_time;
-  return new;
-end;
-$$;
+  if to_regclass('public.experiment_metrics') is not null then
+    return;                                  -- 0115's view is the current one
+  end if;
 
-drop trigger if exists experiment_metrics_insert_trg on experiment_metrics;
-create trigger experiment_metrics_insert_trg
-  instead of insert on experiment_metrics
-  for each row execute function experiment_metrics_insert();
+  -- `security_invoker` so the base table's RLS is evaluated as the caller. The
+  -- policies rode along with the table through the rename, so ownership and
+  -- sharing rules are unchanged — without this flag the view would run as its
+  -- owner and quietly hand every row to everyone.
+  create or replace view experiment_metrics
+    with (security_invoker = true)
+  as
+    select p.user_id,
+           p.experiment_id,
+           n.name as metric,
+           p.step,
+           p.value,
+           p.wall_time
+      from experiment_metric_points p
+      join experiment_metric_names n on n.id = p.metric_id;
 
-create or replace function experiment_metrics_update()
-returns trigger
-language plpgsql
-security invoker
-as $$
-begin
-  update experiment_metric_points
-     set value     = new.value,
-         wall_time = new.wall_time,
-         step      = new.step,
-         metric_id = experiment_metric_name_id(new.metric)
-   where experiment_id = old.experiment_id
-     and metric_id     = experiment_metric_name_id(old.metric)
-     and step          = old.step;
-  return new;
-end;
-$$;
+  grant select, insert, update, delete on experiment_metrics to authenticated;
+  grant select, insert, update, delete on experiment_metrics to service_role;
 
-drop trigger if exists experiment_metrics_update_trg on experiment_metrics;
-create trigger experiment_metrics_update_trg
-  instead of update on experiment_metrics
-  for each row execute function experiment_metrics_update();
+  /**
+   * Writes arriving as `metric text` land on the narrowed table.
+   *
+   * `on conflict … do update` makes re-ingest idempotent. The duplicates this
+   * migration cleaned up exist because a batch was delivered twice and the old
+   * schema happily stored both copies; under the new primary key that would now
+   * be an error, which would turn a harmless retry into a failed run. Last write
+   * wins instead.
+   */
+  create or replace function experiment_metrics_insert()
+  returns trigger
+  language plpgsql
+  security invoker
+  as $$
+  begin
+    insert into experiment_metric_points (user_id, experiment_id, metric_id, step, value, wall_time)
+    values (
+      coalesce(new.user_id, auth.uid()),       -- the table default the view cannot carry
+      new.experiment_id,
+      experiment_metric_name_id(new.metric),
+      coalesce(new.step, 0),
+      new.value,
+      new.wall_time
+    )
+    on conflict (experiment_id, metric_id, step)
+    do update set value = excluded.value, wall_time = excluded.wall_time;
+    return new;
+  end;
+  $$;
 
-create or replace function experiment_metrics_delete()
-returns trigger
-language plpgsql
-security invoker
-as $$
-begin
-  delete from experiment_metric_points
-   where experiment_id = old.experiment_id
-     and metric_id     = experiment_metric_name_id(old.metric)
-     and step          = old.step;
-  return old;
-end;
-$$;
+  drop trigger if exists experiment_metrics_insert_trg on experiment_metrics;
+  create trigger experiment_metrics_insert_trg
+    instead of insert on experiment_metrics
+    for each row execute function experiment_metrics_insert();
 
-drop trigger if exists experiment_metrics_delete_trg on experiment_metrics;
-create trigger experiment_metrics_delete_trg
-  instead of delete on experiment_metrics
-  for each row execute function experiment_metrics_delete();
+  create or replace function experiment_metrics_update()
+  returns trigger
+  language plpgsql
+  security invoker
+  as $$
+  begin
+    update experiment_metric_points
+       set value     = new.value,
+           wall_time = new.wall_time,
+           step      = new.step,
+           metric_id = experiment_metric_name_id(new.metric)
+     where experiment_id = old.experiment_id
+       and metric_id     = experiment_metric_name_id(old.metric)
+       and step          = old.step;
+    return new;
+  end;
+  $$;
+
+  drop trigger if exists experiment_metrics_update_trg on experiment_metrics;
+  create trigger experiment_metrics_update_trg
+    instead of update on experiment_metrics
+    for each row execute function experiment_metrics_update();
+
+  create or replace function experiment_metrics_delete()
+  returns trigger
+  language plpgsql
+  security invoker
+  as $$
+  begin
+    delete from experiment_metric_points
+     where experiment_id = old.experiment_id
+       and metric_id     = experiment_metric_name_id(old.metric)
+       and step          = old.step;
+    return old;
+  end;
+  $$;
+
+  drop trigger if exists experiment_metrics_delete_trg on experiment_metrics;
+  create trigger experiment_metrics_delete_trg
+    instead of delete on experiment_metrics
+    for each row execute function experiment_metrics_delete();
+end
+$compatibility_view$;

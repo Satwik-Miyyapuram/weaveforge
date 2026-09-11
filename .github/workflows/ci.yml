@@ -56,9 +56,33 @@ jobs:
       - name: Run Web unit tests
         run: npm test --workspace @weaveforge/web
 
+      # 147 tests across 6 suites in ~14s, covering the desktop's own modules:
+      # the IPC guard, both stores, the vault folder, the loopback API and the
+      # app: protocol. They passed and never gated a merge — `check:all` includes
+      # test:desktop, but CI runs check:boundaries, not check:all, and grep for
+      # test:desktop across .github/workflows returned nothing.
+      #
+      # No setup of its own: the script is `node --import tsx --test
+      # test/*.test.ts`, tsx is a workspace dependency, and the desktop reads no
+      # Supabase env var and starts no browser. It does import @weaveforge/core,
+      # which is why "Build Core package" above has to stay ahead of it.
+      - name: Run Desktop tests
+        run: npm run test:desktop
+
       # Schema and RLS, against the shipped migrations on an in-process
       # Postgres. It used to live in the opt-in job because it needed a live
       # project and two accounts; it needs neither now, so it runs on every PR.
+      #
+      # This step is also where the schema invariants run — the suite walks both
+      # `src/features` and `src/backend`, and
+      # `backend/test/schema-invariants.rls.integration.ts` asserts that every
+      # public table has RLS, every RLS table has a policy, every `security
+      # definer` function pins `search_path`, and no definer function is
+      # anon-executable outside its documented allowlist. That is the coverage the
+      # review wanted wired in (finding G5); it needs no workflow of its own, and
+      # the script that previously asserted the first of those
+      # (`scripts/verify-migration.mjs`) still needs two live databases and so
+      # still runs nowhere.
       - name: Run schema and RLS tests
         run: npm run test:integration:web
 
@@ -76,14 +100,105 @@ jobs:
       - name: Run Typechecks
         run: npm run typecheck
 
-      - name: Install ripgrep (for check:solid)
+      # Kept because it makes the seven gate steps below faster, NOT because they
+      # need it: check:solid and check:dry now run the same rules in Node when
+      # ripgrep is missing (they used to fail open instead — on Windows a missing
+      # `rg` exits 1, which they read as "no matches"). `if: always()` is only so
+      # an earlier failure cannot cost the gates their accelerator; it still sits
+      # before them, exactly as it always has.
+      - name: Install ripgrep (accelerator for the boundary gates)
+        if: always()
         run: sudo apt-get update && sudo apt-get install -y ripgrep
 
-      # The whole boundary suite, not three of the five it contains: docs/building/dev.md
-      # has always said build-and-test runs check:boundaries, while check:ui and
-      # check:hygiene only ever ran on a developer's machine.
-      - name: Boundary checks
-        run: npm run check:boundaries
+      # One step per gate, not `check:boundaries`.
+      #
+      # The chained script stops at the first failure, so a PR used to see a
+      # single "Boundary checks" step and no way to tell which of the seven rules
+      # rejected it — and a second broken rule could not be found until the first
+      # was fixed. Each gate now reports on its own line.
+      #
+      # `if: always()` is what makes that true: without it the first failing step
+      # still stops the job. `check:boundaries` itself is untouched and still runs
+      # the same seven in the same order for anyone running it by hand.
+      #
+      # THE COST OF SPLITTING: this list is now written twice, here and in the
+      # `check:boundaries` script. Adding an eighth gate to package.json and not
+      # to this list means CI stops running it — silently, and in the direction of
+      # less checking. Whoever edits `check:boundaries` should edit this too, and
+      # the boundary-checks table in docs/building/dev.md is generated from the
+      # script, so it will not prompt anyone.
+      #
+      # Each step carries an `id` because the summary at the end reads
+      # `steps.<id>.outcome`. A step's `name` is not its id, and ids cannot hold a
+      # colon — so the ids are `gate_*` while the names stay the script names.
+      #
+      # The aggregate step after them is what keeps the job red: `if: always()`
+      # means a failure no longer stops the job by itself, so it is collected
+      # explicitly rather than left to chance.
+      - name: check:solid
+        id: gate_solid
+        if: always()
+        run: npm run check:solid
+
+      - name: check:dry
+        id: gate_dry
+        if: always()
+        run: npm run check:dry
+
+      - name: check:api-route-tests
+        id: gate_routes
+        if: always()
+        run: npm run check:api-route-tests
+
+      - name: check:ui
+        id: gate_ui
+        if: always()
+        run: npm run check:ui
+
+      - name: check:hygiene
+        id: gate_hygiene
+        if: always()
+        run: npm run check:hygiene
+
+      - name: check:mcp-plugin
+        id: gate_mcp
+        if: always()
+        run: npm run check:mcp-plugin
+
+      - name: check:docs
+        id: gate_docs
+        if: always()
+        run: npm run check:docs
+
+      # Fails when any gate above failed, naming them.
+      #
+      # Without this step the job would go green with a red gate in it, because
+      # `if: always()` on the gates means a failure no longer stops the job on its
+      # own.
+      #
+      # Anything that is not exactly "success" counts as a failure — "failure",
+      # "cancelled" and "skipped" all mean the rule did not run cleanly, and a
+      # skipped gate silently proving nothing is the exact failure mode these
+      # gates were just fixed for.
+      - name: Boundary checks summary
+        if: always()
+        run: |
+          failed=""
+          check() {
+            if [ "$2" != "success" ]; then failed="$failed $1($2)"; fi
+          }
+          check "check:solid"           "${{ steps.gate_solid.outcome }}"
+          check "check:dry"             "${{ steps.gate_dry.outcome }}"
+          check "check:api-route-tests" "${{ steps.gate_routes.outcome }}"
+          check "check:ui"              "${{ steps.gate_ui.outcome }}"
+          check "check:hygiene"         "${{ steps.gate_hygiene.outcome }}"
+          check "check:mcp-plugin"      "${{ steps.gate_mcp.outcome }}"
+          check "check:docs"            "${{ steps.gate_docs.outcome }}"
+          if [ -n "$failed" ]; then
+            echo "::error::boundary gate(s) did not pass:$failed"
+            exit 1
+          fi
+          echo "all seven boundary gates passed"
 
       - name: Lint Web App
         run: npm run lint --workspace @weaveforge/web
@@ -189,9 +304,24 @@ jobs:
           # The default shallow clone cannot walk base..head.
           fetch-depth: 0
 
-      - name: Check sign-offs
+      # The shell version, which is what this job has always run. It stays the
+      # authority for CI on Linux, and the Node version below runs beside it so a
+      # divergence between the two — the only thing that could silently change
+      # which sign-offs count — fails the pull request instead of going unnoticed.
+      - name: Check sign-offs (shell)
         run: >
           scripts/check-dco.sh
+          "${{ github.event.pull_request.base.sha }}"
+          "${{ github.event.pull_request.head.sha }}"
+
+      # The same rule again through scripts/check-dco.mjs, which is the copy a
+      # Windows contributor can actually run: the shell version needs bash, and
+      # until this existed the only DCO gate in the repository was unreachable
+      # from the platform the desktop app ships on. No setup step is needed —
+      # ubuntu-latest has Node.
+      - name: Check sign-offs (Node, same rule)
+        run: >
+          node scripts/check-dco.mjs
           "${{ github.event.pull_request.base.sha }}"
           "${{ github.event.pull_request.head.sha }}"
 

@@ -39,7 +39,10 @@ export function useBlobObjectUrls(
 
     void (async () => {
       if (paths.length === 0) {
-        setUrls((prev) => (prev.size === 0 ? prev : new Map()));
+        // Nothing to publish — and on a torn-down run, publishing at all is
+        // wrong: the resolving promise would otherwise overwrite the map the
+        // *new* run is about to fill.
+        if (!cancelled) setUrls((prev) => (prev.size === 0 ? prev : new Map()));
         return;
       }
 
@@ -78,7 +81,25 @@ export function useBlobObjectUrls(
         objectUrls.push(url);
         map.set(path, url);
       }
-      if (!cancelled) setUrls(map);
+      /*
+       * Revoke rather than publish when this run was torn down while the fetch
+       * was in flight.
+       *
+       * The cleanup below already ran — it revokes the URLs `objectUrls` held at
+       * that moment, which is none of these. Dropping them on the floor here
+       * leaks every one of them, and because an object URL pins its blob for the
+       * life of the document, the bytes stay resident for the whole session. A
+       * screen that changes `paths` faster than a blob fetch completes (a card
+       * thumb list re-filtered on every keystroke) leaks one set per change.
+       * They must not be handed to `setUrls` either: the map they would replace
+       * belongs to the run that superseded this one.
+       */
+      if (cancelled) {
+        for (const url of objectUrls) URL.revokeObjectURL(url);
+        objectUrls.length = 0;
+        return;
+      }
+      setUrls(map);
     })();
 
     return () => {

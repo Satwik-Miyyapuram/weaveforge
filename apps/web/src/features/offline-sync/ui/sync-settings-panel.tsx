@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/features/auth";
 import { formatError } from "@/lib/format-error";
 import { useSyncStatus } from "./use-sync";
+import { FormError } from "@/components/form-error";
 
 /**
  * Settings → Sync.
@@ -46,7 +47,7 @@ export function SyncSettingsPanel() {
         account so another machine can see it too. Nothing leaves this device until you do.
       </p>
       {!user && <p className="muted">Sign in first, and this becomes one button.</p>}
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <button
         type="button"
         className="btn-secondary"

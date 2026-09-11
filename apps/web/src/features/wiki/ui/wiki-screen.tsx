@@ -20,6 +20,7 @@ import {
   runWikiLint,
   type WikiBuildPreview,
 } from "../application/build-wiki";
+import { FormError } from "@/components/form-error";
 
 /**
  * Wiki: draft concept pages from what you have written, and keep them healthy.
@@ -157,7 +158,7 @@ export function WikiScreen() {
         </p>
       </header>
 
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
 
       <div className="card add-form">
         <h3 className="settings-group">Draft new pages</h3>
@@ -437,7 +438,7 @@ function MergeDialog({
 
   return (
     <Modal title="Merge pages" onClose={onClose}>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       {!preview ? (
         <p className="muted">Preparing…</p>
       ) : (
@@ -448,11 +449,11 @@ function MergeDialog({
           </p>
 
           {preview.result.contradictions.length > 0 && (
-            <p className="error">
+            <FormError>
               {preview.result.contradictions.length} statement
               {preview.result.contradictions.length === 1 ? "" : "s"} disagree. Both sides are kept
               under “Conflicting notes” for you to resolve — the merge will not pick one.
-            </p>
+            </FormError>
           )}
 
           <pre className="wiki-merge-preview">{preview.result.body}</pre>

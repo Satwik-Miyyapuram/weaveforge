@@ -8,6 +8,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import { isoDate, type Clock, type IdGenerator } from "../../../shared/clock.js";
+import { ValidationError } from "../../../shared/errors.js";
 
 export type LogKind = "daily" | "weekly";
 
@@ -49,7 +50,7 @@ export interface LogEntryFilter {
   bodyContains?: string;
 }
 
-export class LogEntryValidationError extends Error {
+export class LogEntryValidationError extends ValidationError {
   constructor(message: string) {
     super(message);
     this.name = "LogEntryValidationError";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PAPER_STATUSES, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { EntityCard } from "@/components/entity-card";
@@ -19,7 +19,14 @@ export function PaperCard({
   onReplace,
   onChanged,
 }: {
-  paper: Paper;
+  /**
+   * The summary projection, which is what the list holds. Everything the card
+   * paints — title, authors, year, status, tags, note snippet — is on it. The
+   * two things that are not (`metadata` for thumbnails, and the row the delete
+   * needs) are resolved where they are used: `PaperCardThumbs` guards on the
+   * property, and `confirmRemovePaper` re-reads the full row.
+   */
+  paper: PaperSummary | Paper;
   readOnly?: boolean;
   sharedByName?: string;
   onOpen: () => void;

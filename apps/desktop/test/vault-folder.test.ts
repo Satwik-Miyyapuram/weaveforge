@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { NodeWorkspaceFs, rootFingerprint, verifyRoot } from "../src/vault-folder";
 import {
+  MAX_VAULT_BYTES,
   adoptRoot,
   currentRoot,
   forgetRoot,
@@ -151,6 +152,67 @@ test("a non-string path is refused without touching disk", async () => {
   await adoptRoot(session, await tempDir());
   assert.equal((await readVaultFile(session, 42)).ok, false);
   assert.equal((await writeVaultFile(session, "a.md", 42)).ok, false);
+});
+
+// --------------------------------------------------------------- the size cap
+
+test("a file past the cap is refused before it is read into this process", async () => {
+  const session = newVaultSession();
+  const root = await tempDir();
+  await adoptRoot(session, root);
+  // Written straight to the disk, because the write below is what refuses one
+  // this size. The realistic shape of this is a file dropped into a watched
+  // folder by something that is not this app.
+  await writeFile(path.join(root, "big.bin"), Buffer.alloc(MAX_VAULT_BYTES + 1));
+
+  const answer = await readVaultFile(session, "big.bin");
+
+  assert.equal(answer.ok, false);
+  assert.match(answer.ok ? "" : answer.message, /too large/i);
+});
+
+test("a file of exactly the cap is still read, so the boundary is the boundary", async () => {
+  const session = newVaultSession();
+  const root = await tempDir();
+  await adoptRoot(session, root);
+  await writeFile(path.join(root, "at-cap.txt"), Buffer.alloc(MAX_VAULT_BYTES, "x"));
+
+  // "Over the cap" means over it: the number itself is allowed through, and a
+  // check written as `>=` would quietly refuse the last byte it advertised.
+  const answer = await readVaultFile(session, "at-cap.txt");
+  assert.equal(answer.ok, true);
+  assert.equal(answer.ok ? answer.value?.length : 0, MAX_VAULT_BYTES);
+});
+
+test("a write past the cap is refused before it reaches the disk", async () => {
+  const session = newVaultSession();
+  await adoptRoot(session, await tempDir());
+  const size = MAX_VAULT_BYTES + 1;
+  // One byte over the cap. Unicode, so that a cap counted in characters rather
+  // than bytes would let it through: `Buffer.byteLength` is what is asserted.
+  const contents = "é".repeat(Math.ceil(size / 2)).slice(0, size);
+
+  let tried: string | null = null;
+  session.fs = {
+    writeFile: async (at: string) => {
+      tried = at;
+    },
+  } as unknown as NodeWorkspaceFs;
+
+  const answer = await writeVaultFile(session, "notes/big.note.md", contents);
+
+  assert.equal(answer.ok, false);
+  assert.match(answer.ok ? "" : answer.message, /too large/i);
+  assert.equal(tried, null, "the refusal must come before the write, not after it");
+});
+
+test("a note of an ordinary size is unaffected by the cap", async () => {
+  const session = newVaultSession();
+  await adoptRoot(session, await tempDir());
+  const body = "x".repeat(100_000);
+
+  assert.deepEqual(await writeVaultFile(session, "notes/long.note.md", body), { ok: true, value: null });
+  assert.deepEqual(await readVaultFile(session, "notes/long.note.md"), { ok: true, value: body });
 });
 
 test("an escaping path is a refusal with a reason, not a crash", async () => {

@@ -111,19 +111,34 @@ Prefer Trusted Publishing; `PYPI_API_TOKEN` is the fallback.
 
 ## Android TWA (`android-vN`)
 
+The number in the tag is `appVersionCode`, not the app version — that is the
+track that has to increase for Play, and it is why the older `android-v0.5.2`
+tags were replaced. `android-v4` was code 4; with the manifest at code 6, the
+next release is `android-v6`. The workflow triggers on `android-v*`, so the
+number only has to match the manifest you are shipping.
+
 1. PR: bump `appVersion` / `appVersionName` / `appVersionCode` in `apps/web/twa/twa-manifest.json` (and regenerate Bubblewrap project files if you change icons/name/host).
-2. Confirm `apps/web/public/.well-known/assetlinks.json` lists the **current** keystore SHA-256:
+2. Confirm `apps/web/public/.well-known/assetlinks.json` lists **both** signing
+   certificates — the fingerprint is checked against the package and the
+   relation by the workflow, and a mismatch brings the Chrome URL bar back:
    ```bash
    gh workflow run android-fingerprint.yml
    gh run watch
-   # copy SHA-256 from the job summary into assetlinks.json, PR + deploy web
+   # 1. upload cert: copy SHA-256 from the job summary (or keytool, below)
+   # 2. Play app-signing cert: Play Console -> Release -> Setup -> App integrity
+   #    -> App signing key certificate -> SHA-256 certificate fingerprint
+   # Replace the placeholder entry in assetlinks.json, PR + deploy web
    ```
-   Mismatch = Chrome URL bar comes back.
+   For a sideload-only build the upload certificate alone is enough. The moment
+   you upload the AAB to Play, Play re-signs it, and the installed app carries
+   Play's certificate instead — so the fingerprint that verifies a Play install
+   is the one from the console, and `keytool -printcert -jarfile` on the AAB
+   gives you the *upload* signature, not that one.
 3. Merge, then on `main`:
    ```bash
    git pull origin main
-   git tag android-v3
-   git push origin android-v3
+   git tag android-v6      # match appVersionCode
+   git push origin android-v6
    ```
 4. `android-twa.yml` builds, uploads artifacts, and attaches APK/AAB to the GitHub Release (creates the release if needed).
 
@@ -136,11 +151,12 @@ Deployed file must serve the signing cert fingerprint:
 `https://app.weaveforge.org/.well-known/assetlinks.json`
 
 - Sideload / self-signed builds → fingerprint of `android-keystore.jks` (alias `weaveforge`).
-- Play App Signing → **also** add Google Play’s app-signing cert SHA-256 from Play Console.
+- Play App Signing → **also** add Google Play’s app-signing cert SHA-256 from Play Console. The committed file carries this entry as a visibly invalid placeholder (`REPLACE_WITH_...`) so it cannot be mistaken for a working fingerprint; the workflow warns while it is present.
+
+`assetlinks.json` may hold several statements for the same package; Chrome
+accepts the install if any one of them matches. Package id: `app.weaveforge.twa`.
 
 Tester: https://developers.google.com/digital-asset-links/tools/generator  
-
-Package id: `app.weaveforge.twa`.
 
 ## Web app (no product tag)
 

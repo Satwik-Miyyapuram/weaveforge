@@ -11,6 +11,8 @@
  * absolute paths and any segment that escapes the root.
  */
 
+import { ValidationError } from "../shared/errors.js";
+
 export interface WorkspaceStat {
   path: string;
   size: number;
@@ -32,7 +34,7 @@ export interface IWorkspaceFs {
   rename(from: string, to: string): Promise<void>;
 }
 
-export class WorkspacePathError extends Error {
+export class WorkspacePathError extends ValidationError {
   constructor(path: string) {
     super(`Unsafe workspace path: ${path}`);
     this.name = "WorkspacePathError";

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatError } from "@/lib/format-error";
 import { desktop, type DesktopLocalApi } from "@/lib/desktop/desktop-bridge";
+import { FormError } from "@/components/form-error";
 
 /**
  * Settings → Folder → the local HTTP surface.
@@ -65,7 +66,7 @@ export function LocalApiPanel() {
         scripts can use it too: point the Python SDK at this address and its runs land here.
         Nothing outside this computer can reach it.
       </p>
-      {error && <p className="error">{error}</p>}
+      {error && <FormError>{error}</FormError>}
       <label className="field-inline">
         <input
           type="checkbox"
@@ -76,7 +77,7 @@ export function LocalApiPanel() {
         />
         Serve the folder at {state.url}
       </label>
-      {state.reason && <p className="error">{state.reason}</p>}
+      {state.reason && <FormError>{state.reason}</FormError>}
       {token && (
         <div className="field">
           <p className="muted jump-to-meta">

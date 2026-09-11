@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { planSeriesIngest } from "@weaveforge/core";
 import { requireSdkUser } from "../_shared";
 import { MAX_POINTS_PER_REQUEST, MAX_SERIES_PER_REQUEST } from "./limits";
+import { formatErrorForResponse } from "@/lib/format-error";
 
 type SdkDb = Extract<Awaited<ReturnType<typeof requireSdkUser>>, { ok: true }>["db"];
 
@@ -106,7 +107,11 @@ export async function POST(request: Request) {
 
   if (toInsert.length > 0) {
     const { error } = await user.db.from("experiment_metrics").insert(toInsert);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // A refusal here is usually the ownership policy from migration 0126 (the
+    // caller does not own the experiment) — a `42501` whose raw text names the
+    // table. Sanitised, with the code kept so the SDK caller can tell a policy
+    // refusal from a validation error.
+    if (error) return NextResponse.json({ error: formatErrorForResponse(error, "sdk-metrics") }, { status: 500 });
   }
 
   // After the insert, so a failure above leaves the stored curve untouched.
