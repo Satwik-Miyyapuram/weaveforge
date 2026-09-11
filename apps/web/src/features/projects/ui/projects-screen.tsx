@@ -65,13 +65,23 @@ export function ProjectsScreen() {
       {!loading && projects.length > 0 && (
         <ul className="project-list">
           {projects.map((p) => (
-            <li
-              key={p.id}
-              className="card project-card"
-              onClick={() => setProject(p.id)}
-            >
-              <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
-              <span className="project-name">{p.name}</span>
+            <li key={p.id}>
+              {/*
+               * A real `<button>`, not a `<li>` with an `onClick`. This is the
+               * first screen a signed-in user with no project sees, and the
+               * clickable list item could not be reached by keyboard or
+               * activated with Enter or Space — no `role`, no `tabIndex`, no
+               * key handler. A button gets the role, the focus ring and both
+               * activation keys for free.
+               */}
+              <button
+                type="button"
+                className="card project-card"
+                onClick={() => setProject(p.id)}
+              >
+                <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
+                <span className="project-name">{p.name}</span>
+              </button>
             </li>
           ))}
         </ul>

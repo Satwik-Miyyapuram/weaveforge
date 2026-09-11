@@ -207,7 +207,13 @@
 .railIn {
   position: sticky;
   top: 0;
+  /* `100vh` first as the fallback, then `dvh`, the way base.css does it on
+     `body`. `pitch.module.css` derives every pinned scene from `100dvh` for the
+     collapsing-address-bar reason recorded there; this one panel was left on
+     the raw unit, so on iOS Safari and Android Chrome it stood taller than the
+     visible viewport and its bottom rows fell under the browser chrome. */
   height: 100vh;
+  height: 100dvh;
   display: grid;
   /* Two columns, not three: a first page needs enough width for its title
      lines and its two text columns to be legible as those things. At a third

@@ -24,7 +24,7 @@
   bottom: calc(10px + env(safe-area-inset-bottom));
   top: auto;
   right: auto;
-  z-index: 30;
+  z-index: var(--z-nav);
   transform: translateX(-50%);
   width: min(calc(100% - 24px), 520px);
   max-width: 520px;

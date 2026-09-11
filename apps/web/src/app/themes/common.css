@@ -48,6 +48,19 @@
    * border-radius; as a background on the element it follows the radius. */
   --press: color-mix(in srgb, var(--ink) 9%, transparent);
 
+  /* Hover for a surface filled with `--accent` — `.btn-primary`, and anything
+   * else that needs the accent one step darker without leaving the palette.
+   *
+   * A derived alias rather than a 15th raw token, and that is a deliberate
+   * departure from the audit's R2: this file's whole contract is that a new
+   * theme redefines raw tokens and inherits the aliases, so deriving here is
+   * what keeps fourteen palettes from each needing a nineteenth value kept in
+   * step by hand. It replaces `filter: brightness(0.94)`, which dimmed the
+   * button's *text* and its rim highlight along with its background, and mixed
+   * toward black regardless of the palette — `color-mix` against `--ink` is
+   * near-black in every theme and costs no composite pass either. */
+  --accent-hover: color-mix(in srgb, var(--accent) 92%, var(--ink));
+
   /* Scrollbars — thumb/track follow active theme. */
   --scrollbar-thumb: color-mix(in srgb, var(--muted) 42%, var(--border-strong));
   --scrollbar-thumb-hover: color-mix(in srgb, var(--muted) 72%, var(--border-strong));
