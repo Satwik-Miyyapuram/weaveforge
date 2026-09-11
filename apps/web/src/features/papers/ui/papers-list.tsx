@@ -118,16 +118,18 @@ export function PapersScreen() {
    * The Zotero on this machine, rather than the one in the cloud.
    *
    * Only offered in the desktop app, because only the shell can reach a
-   * plain-HTTP loopback server. Papers already carrying a `zoteroKey` gain
-   * their annotations; nothing is created and nothing is sent back.
+   * plain-HTTP loopback server. Its items become papers, and those papers
+   * gain their annotations; nothing is sent back.
    */
   const importLocalZotero = useCallback(async () => {
     setSyncing(true);
     setSyncMsg(null);
     setError(null);
     try {
-      const { annotations, items } = await getContainer().papers.importLocalZoteroAnnotations();
-      setSyncMsg(`Read ${items} annotated item${items === 1 ? "" : "s"} from Zotero on this computer — ${annotations} paper${annotations === 1 ? "" : "s"} updated.`);
+      const { papers, annotations, items } = await getContainer().papers.importLocalZotero();
+      setSyncMsg(
+        `Read Zotero on this computer — ${papers} new paper${papers === 1 ? "" : "s"}, ${items} annotated item${items === 1 ? "" : "s"}, ${annotations} paper${annotations === 1 ? "" : "s"} updated.`,
+      );
       await load();
     } catch (err) {
       setError(formatError(err));

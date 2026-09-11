@@ -35,7 +35,8 @@ export class ZoteroSync {
     this.baseUrl = deps.baseUrl ?? "https://api.zotero.org";
   }
 
-  async sync(): Promise<ZoteroSyncResult> {
+  /** One read of the remote library, and of the local one to match it against. */
+  private async snapshot() {
     const creds = await this.deps.credentials();
     if (!creds.apiKey || !creds.library) {
       throw new Error("Zotero is not configured. Add your API key and library in Settings.");
@@ -44,10 +45,10 @@ export class ZoteroSync {
     const libraryUrl = zoteroLibraryUrl(creds.library, this.baseUrl);
     const col = creds.collection;
 
-    // --- pull side: read ALL remote items (paginated; scoped to the project's
-    // collection). Reading only the first page would make items past the page
-    // size look "missing" and get re-pushed every sync → duplicates. Pages
-    // after the first go out together — see `fetchAllZoteroItems`. ---
+    // Read ALL remote items (paginated; scoped to the project's collection).
+    // Reading only the first page would make items past the page size look
+    // "missing" and get re-pushed every sync → duplicates. Pages after the
+    // first go out together — see `fetchAllZoteroItems`.
     const remoteRaw = await fetchAllZoteroItems<{ data?: ZoteroItemData }>({
       baseUrl: libraryUrl,
       // Top-level items only. `/items` also returns attachments, notes and
@@ -75,21 +76,19 @@ export class ZoteroSync {
     // (the same paper can carry a DOI on one side, an arXiv id on the other);
     // title is only a fallback key when a paper has neither id (see contentKeys).
     // So a paper with a DOI/arXiv will NOT match a remote item that has only a title.
-    const remoteKeys = new Set(remote.flatMap(keysOfRemote));
     const localKeys = new Set(local.flatMap(keysOfLocal));
-    // Zotero item keys still present remotely (for delete-propagation).
-    const remoteItemKeys = new Set(remote.map((d) => d.key).filter(Boolean) as string[]);
-    const hasRemoteMatch = (p: Paper) => keysOfLocal(p).some((k) => remoteKeys.has(k));
+    return { remote, local, localKeys, headers, libraryUrl, col };
+  }
 
-    // Reconcile in a safe order against this one remote snapshot: PULL first
-    // (additive), then PUSH (additive), then DELETE (destructive) last.
-
-    // --- pull: remote items not present locally (by any content key) ---
-    //
-    // The tag pass used to re-read the *entire* paper list inside this loop,
-    // once per pulled item, to find the row it had just created — so pulling
-    // 200 papers meant 200 full reads of a table that was growing as it went.
-    // One read afterwards finds all of them.
+  /**
+   * Remote items not present locally (by any content key) become papers.
+   *
+   * The tag pass used to re-read the *entire* paper list inside this loop,
+   * once per pulled item, to find the row it had just created — so pulling
+   * 200 papers meant 200 full reads of a table that was growing as it went.
+   * One read afterwards finds all of them.
+   */
+  private async pullInto(remote: ZoteroItemData[], localKeys: Set<string>): Promise<number> {
     let pulled = 0;
     const pulledItems: ZoteroItemData[] = [];
     for (const d of remote) {
@@ -112,6 +111,30 @@ export class ZoteroSync {
         if (created) await this.deps.onItemTags(created, d);
       }
     }
+    return pulled;
+  }
+
+  /**
+   * Pull only: every remote item not yet in the library becomes a paper, and
+   * nothing is sent back or removed. This is the whole of a read from the
+   * Zotero on this computer, whose local API answers GETs and nothing else —
+   * and the first third of a sync against the cloud one.
+   */
+  async pull(): Promise<number> {
+    const { remote, localKeys } = await this.snapshot();
+    return this.pullInto(remote, localKeys);
+  }
+
+  async sync(): Promise<ZoteroSyncResult> {
+    const { remote, local, localKeys, headers, libraryUrl, col } = await this.snapshot();
+    const remoteKeys = new Set(remote.flatMap(keysOfRemote));
+    // Zotero item keys still present remotely (for delete-propagation).
+    const remoteItemKeys = new Set(remote.map((d) => d.key).filter(Boolean) as string[]);
+    const hasRemoteMatch = (p: Paper) => keysOfLocal(p).some((k) => remoteKeys.has(k));
+
+    // Reconcile in a safe order against this one remote snapshot: PULL first
+    // (additive), then PUSH (additive), then DELETE (destructive) last.
+    const pulled = await this.pullInto(remote, localKeys);
 
     // --- push: local papers that have never been in Zotero. ---
     //
