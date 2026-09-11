@@ -1,0 +1,91 @@
+-- Migration: take the `anon` grant off every internal definer function, and
+-- stop relying on `revoke ... from public` for it.
+--
+-- The root cause is an idiom, not a slip. Every hardening migration in this
+-- tree — `0079`, `0081`, `0114`, `0116`, `0117`, `0123`, `0125` — removed the
+-- default EXECUTE grant with:
+--
+--   revoke all on function public.some_fn(...) from public;
+--
+-- That removes the `PUBLIC` pseudo-role entry and nothing else. But Supabase
+-- does not grant through `PUBLIC`: `alter default privileges in schema public
+-- grant execute on functions to anon, authenticated, service_role` writes an
+-- *explicit* `anon=X` entry into each new function's ACL. Revoking from PUBLIC
+-- leaves that entry exactly where it was. Measured on the shipped migrations,
+-- against a stub function created after the bootstrap:
+--
+--   as created                  anon EXECUTE = true
+--   after revoke from public    anon EXECUTE = true   <-- the idiom, doing nothing
+--   after revoke from anon      anon EXECUTE = false
+--
+-- So the same idiom that reads as "clients cannot call this" was only ever
+-- half-true, and `0123`'s own audit comments asserted the other half on the
+-- strength of the text rather than the ACL. `0123` fixed `sync_prepare()`
+-- correctly (it lists `anon` explicitly); this migration applies the same
+-- treatment to the rest and a test now enforces it.
+--
+-- What was actually reachable, and why each revoke is safe. PostgREST exposes
+-- every function in `public` at `POST /rest/v1/rpc/<name>` and anon holds the
+-- anon key, so "anon-executable" means "callable by anyone on the internet who
+-- has loaded the site":
+--
+--   * `ensure_user_provisioned()` (0117) — reads `auth.uid()` and `auth.jwt()`.
+--     For anon both are null, so it raises 'Not authenticated' and touches
+--     nothing. Not exploitable; still wrong to expose, because it is a write
+--     path whose only guard is an exception it happens to raise.
+--   * `ensure_auth_user_row()` (0117) — a no-op stub on Supabase, overridden on
+--     self-hosted Postgres where it writes `auth.users`. A write path that is
+--     deliberately empty on one deployment is not a write path to leave open on
+--     the other.
+--   * `experiment_metric_name_id(text)` (0114) — inserts into the shared
+--     `experiment_metric_names` dictionary, which is `using (true)` on SELECT
+--     precisely because it is shared. Anon could grow a global table with
+--     arbitrary strings. Request not required to authenticate for it; it is not
+--     a route any client calls.
+--   * `purge_ai_mcp_relay_requests()` (0116) — deletes rows belonging to
+--     *everyone*: it is definer precisely so one user's poll can sweep another
+--     user's abandoned envelope. Anon could force the sweep at will. Only dead
+--     rows are eligible (settled an hour, or a day past deadline), so this costs
+--     work rather than data.
+--   * `record_blob_access(text, text)` / `record_blob_access_many(text, text[])`
+--     (0125) — both are `update ... where user_id = (select auth.uid())`. For
+--     anon that predicate matches nothing, so they are no-ops. `0125` introduces
+--     them and now carries its own explicit `from anon` revoke for each, so this
+--     migration does not repeat it. They are listed here because they are part
+--     of the same sweep and the test below covers them either way.
+--
+-- Found by running the invariant rather than by reading: the two rules differ,
+-- and only the catalogs say which function is in which state. `record_blob_access`
+-- looked exactly like `purge_ai_mcp_relay_requests` in the migration text — same
+-- `revoke ... from public`, same grant to `authenticated` — yet one was closed
+-- and the other open, because `0125` happened to name `anon` as well.
+--
+-- `resolve_share_link(bytea)` is deliberately NOT in this list. `0081` excludes
+-- it by name — a share link is opened by a recipient who has no account, so that
+-- one is public on purpose and is rate limited by `check_share_link_rate`.
+--
+-- Note for the self-hosted track: `supabase/migrations-self-hosted-postgres`
+-- re-creates `ensure_auth_user_row()` with a real body, so it needs its own
+-- explicit anon revoke there. That directory is applied instead of, not after,
+-- this one — see the bootstrap in `packages/core/src/database/local-postgres.ts`.
+--
+-- Reversal: `grant execute on function <fn> to anon;` for any one function.
+-- The pre-migration behaviour is "every definer function is anon-callable",
+-- which is the state this exists to end.
+--
+-- Guarded by the test at
+-- `apps/web/src/backend/test/schema-invariants.rls.integration.ts`. The test
+-- asserts the *privilege*, not the presence of a revoke statement — which is the
+-- distinction that let the original bug survive four migrations of looking fixed.
+-- It was negative-controlled: with these four revokes commented out it fails and
+-- names exactly these four functions.
+
+revoke all on function public.ensure_user_provisioned() from anon;
+revoke all on function public.ensure_auth_user_row() from anon;
+revoke all on function public.experiment_metric_name_id(text) from anon;
+revoke all on function public.purge_ai_mcp_relay_requests() from anon;
+
+-- `service_role` keeps `sync_prepare()` (granted in 0123) and the rest keep the
+-- roles their own migrations named. Nothing above is revoked from
+-- `authenticated`, so no application path changes: every one of these functions
+-- is either authenticated-only or service-role-only by intent.

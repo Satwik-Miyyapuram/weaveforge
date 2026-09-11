@@ -1,0 +1,107 @@
+-- Migration: function EXECUTE grants — take the DDL function out of reach of
+-- clients, and drop an RPC that reads a table which no longer exists.
+--
+-- Two function-level ACL problems, in one file because they are the same
+-- subject: who may call a `security definer` function. One is an over-broad
+-- grant on a live function, the other is a grant on a dead one.
+--
+-- ===========================================================================
+-- 1. `sync_prepare()` — a DDL function any client could call
+-- ===========================================================================
+--
+-- `sync_prepare()` (0118) is `security definer` and its body is a loop of
+-- `alter table`, `create index`, `create trigger` and a full-table `update`
+-- over every table in `sync_tables`. It was reachable by any client holding the
+-- anon key: `POST /rpc/sync_prepare` made the server take `ACCESS EXCLUSIVE`
+-- locks and rewrite every registered table.
+--
+-- ## Why the `from public` revoke that `0081` did everywhere else was not
+--    enough here — and is not enough anywhere
+--
+-- `REVOKE … FROM PUBLIC` removes one entry from the function's ACL: the entry
+-- for the `PUBLIC` pseudo-role. It does not remove a grant made to `anon`
+-- directly, and on this deployment every new function *has* one. Supabase — and
+-- the test bootstrap that reproduces it, `LOCAL_BOOTSTRAP_SQL` in
+-- `packages/core/src/database/local-postgres.ts` — sets:
+--
+--   alter default privileges in schema public
+--     grant execute on functions to anon, authenticated, service_role;
+--
+-- so a function is created with an ACL that names `anon` explicitly. Measured:
+--
+--   as created                proacl {=X/owner, owner=X/owner, anon=X/owner, …}   anon EXECUTE = true
+--   after revoke-from-public  proacl {owner=X/owner, anon=X/owner, …}             anon EXECUTE = true
+--   after revoke-from-anon    proacl {owner=X/owner, …}                           anon EXECUTE = false
+--
+-- `0081`'s pattern is therefore only half a fix: it closes the `PUBLIC` entry
+-- and leaves the `anon` one. `sync_prepare` needed both revokes, and so does
+-- every other internal definer function on this schema — that second sweep is
+-- `0130_revoke_anon_from_internal_definers.sql`, which carries the explicit
+-- `from anon` revokes for `ensure_auth_user_row`, `ensure_user_provisioned`,
+-- `experiment_metric_name_id`, `purge_ai_mcp_relay_requests`,
+-- `record_blob_access` and `record_blob_access_many`. It is a separate file
+-- because it is a different change (remediation across functions this file did
+-- not introduce) with its own allowlist reasoning.
+--
+-- ## Why a revoke is the whole fix for `sync_prepare`
+--
+-- The function's work is legitimate and stays legitimate for the deployer.
+-- Migrations run as the object owner, and the owner keeps `EXECUTE` whatever is
+-- revoked from the client roles — which is how `0120` can keep calling it.
+-- Nothing in the application calls it: the client half of sync is `sync_apply`,
+-- and the only other caller in the tree is a migration.
+--
+-- ===========================================================================
+-- 2. `get_public_keys()` — a dead RPC, still granted
+-- ===========================================================================
+--
+-- `0037` created it to let labmates fetch each other's wrapping public keys and
+-- granted it to `authenticated`. `0099` dropped the entire client-E2EE schema —
+-- `user_keys` among it — and left the function behind. `0079` then revoked it
+-- from `anon` and `0081` revoked it from `PUBLIC`, which is why the leftover
+-- looked handled: the function is still callable by `authenticated` (a grant
+-- made directly in `0037`, which neither revoke removes), and calling it raises
+-- `relation "user_keys" does not exist`.
+--
+-- So it is a dead RPC that fails at call time rather than at deploy time: any
+-- client with the call cached, or any reader who trusts the grant as evidence
+-- the endpoint works, gets a 500 from PostgREST for a feature removed two years
+-- of migrations ago.
+--
+-- Callers checked before dropping (whole repo, not just the app): the only
+-- references are `0037` (the definition), `0079` and `0081` (the grant
+-- hardenings) and the migrations README's table of contents. Nothing in
+-- `apps/`, `packages/`, `python/` or `scripts/` calls it.
+--
+-- `if exists` and the exact signature: `0037` is the only definition, and
+-- naming the argument list keeps the drop from taking a same-named function
+-- with a different signature that a future migration might add.
+--
+-- ===========================================================================
+-- Reversal
+-- ===========================================================================
+--
+-- `grant execute on function public.sync_prepare() to authenticated;` restores
+-- the pre-0123 behaviour, which is also the vulnerable one. Re-creating
+-- `get_public_keys` as `0037` has it only works once `user_keys` exists again,
+-- i.e. once the E2EE schema is restored from the phase-5 backup
+-- (`scripts/phase5-backup.mjs`).
+
+-- ---------------------------------------------------------------------------
+-- 1. `sync_prepare`
+-- ---------------------------------------------------------------------------
+
+revoke all on function public.sync_prepare() from public;
+revoke all on function public.sync_prepare() from anon;
+revoke all on function public.sync_prepare() from authenticated;
+
+-- Granted explicitly rather than left to the default: `service_role` is what
+-- PostgREST runs as, and a table added to `sync_tables` by an operator script
+-- that talks through the REST API has to be able to prepare it.
+grant execute on function public.sync_prepare() to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 2. `get_public_keys`
+-- ---------------------------------------------------------------------------
+
+drop function if exists public.get_public_keys(uuid[]);
