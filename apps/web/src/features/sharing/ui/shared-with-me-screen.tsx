@@ -10,6 +10,9 @@ import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import type { LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
 import { FormError } from "@/components/form-error";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
+import Link from "next/link";
 
 type SharedWithMeView = {
   items: SharedItemDetail[];
@@ -49,7 +52,17 @@ export function SharedWithMeScreen() {
     <section className="screen">
       {error && <FormError>{error}</FormError>}
       {!error && byOwner.length === 0 && (
-        <div className="empty"><p>Nothing shared with you yet.</p></div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="book" />}
+          title="Nothing shared with you yet"
+          body="When someone shares a paper, a note or a reading list with you, it lands here grouped by who sent it. You can comment on what they share; the edits stay theirs."
+          action={
+            <Link className="btn-secondary" href="/papers">
+              Go to your papers
+            </Link>
+          }
+        />
       )}
 
       {byOwner.map(([ownerId, list]) => (

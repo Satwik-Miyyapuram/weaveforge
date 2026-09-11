@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { useAuth } from "@/features/auth";
@@ -36,6 +37,8 @@ export function ApiTokensPanel() {
   const [expiry, setExpiry] = useState("90");
   const [revealed, setRevealed] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  /** The token awaiting a revoke confirmation, by id. */
+  const [revoking, setRevoking] = useState<string | null>(null);
 
   const { busy, error, setError, submit: handleCreate } = useSubmit(async () => {
     const opt = EXPIRY_OPTIONS.find((o) => o.value === expiry) ?? EXPIRY_OPTIONS[2];
@@ -70,13 +73,14 @@ export function ApiTokensPanel() {
 
 
   async function handleRevoke(id: string) {
-    if (!window.confirm("Revoke this token? Scripts using it will stop working immediately.")) return;
     setError(null);
     try {
       await getContainer().settings.apiTokens.revoke(id);
       setTokens((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
       setError(formatError(err));
+    } finally {
+      setRevoking(null);
     }
   }
 
@@ -122,13 +126,25 @@ export function ApiTokensPanel() {
                 <span>Expires {formatWhen(t.expiresAt)}</span>
                 <span>Last used {formatWhen(t.lastUsedAt)}</span>
               </div>
-              <button type="button" className="link-btn danger" onClick={() => void handleRevoke(t.id)}>
+              <button type="button" className="link-btn danger" onClick={() => setRevoking(t.id)}>
                 Revoke
               </button>
             </li>
           ))}
         </ul>
       )}
+
+      {/* The confirmation the app draws, in place of `window.confirm`. */}
+      {revoking ? (
+        <ConfirmDialog
+          title="Revoke this token?"
+          body={`Scripts using “${tokens.find((t) => t.id === revoking)?.name ?? "this token"}” will stop working immediately.`}
+          confirmLabel="Revoke"
+          danger
+          onConfirm={() => void handleRevoke(revoking)}
+          onClose={() => setRevoking(null)}
+        />
+      ) : null}
 
       {createOpen ? (
         <Modal title="Generate API token" onClose={() => setCreateOpen(false)}>

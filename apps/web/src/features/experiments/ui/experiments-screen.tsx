@@ -10,6 +10,8 @@ import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { Popover } from "@/components/popover";
 import { CompareViewIcon, FilterIcon, ListViewIcon } from "@/components/view-icons";
+import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { EntityCard } from "@/components/entity-card";
 import { ExperimentCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
@@ -249,14 +251,28 @@ export function ExperimentsScreen() {
 
       {error && <FormError>{error}</FormError>}
       {!error && items.length === 0 && (
-        <div className="empty">
-          <p>No experiments yet. Use “+ Experiment” to record your first one.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="flask" />}
+          title="No experiments yet"
+          body="An experiment is one run you can point at: what you changed, what came out, and which paper it came from. Record the first one and the chain starts here."
+          action={
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+            >
+              + Experiment
+            </button>
+          }
+        />
       )}
       {items.length > 0 && visible.length === 0 && (
-        <div className="empty">
-          <p>No experiments match the filter.</p>
-        </div>
+        <EmptyState
+          variant="no-results"
+          body="No experiments match the filter."
+          action={<ClearFiltersButton onClear={() => setStatusFilter([])} />}
+        />
       )}
 
       {visible.length > 0 &&

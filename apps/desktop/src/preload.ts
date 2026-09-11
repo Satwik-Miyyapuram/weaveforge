@@ -3,6 +3,7 @@ import type {
   DesktopBridge,
   DesktopCommitResult,
   DesktopLocalApi,
+  DesktopLocalDbState,
   DesktopOverleafSource,
   DesktopPreferenceValue,
   DesktopUpdate,
@@ -52,6 +53,10 @@ const bridge: DesktopBridge = {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },
   queryLocalDb: (sql, params) => call<unknown[]>(CHANNELS.dbQuery, sql, params),
+  localDbState: () => call<DesktopLocalDbState>(CHANNELS.dbState),
+  resetLocalDb: async () => {
+    await call<null>(CHANNELS.dbReset);
+  },
   chooseVaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultChoose),
   vaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultRoot),
   forgetVaultRoot: async () => {

@@ -59,6 +59,29 @@ const RULES = [
     use: 'className="themed-check" on the input',
     why: "the bare browser checkbox does not follow the active theme",
   },
+  {
+    name: "OS confirmation dialog",
+    pattern: /window\.(confirm|prompt)\(/g,
+    use: "<ConfirmDialog> from @/components/confirm-dialog",
+    why: "a system dialog ignores the theme and, on a phone, covers the page it is asking about",
+    // The two error boundaries are the deliberate exception: they may be
+    // rendering because the component tree that draws the app's own modal is
+    // what failed, so their confirmation must depend on nothing that could be
+    // the thing that broke. Both carry a comment saying so.
+    allow: ["app/route-error.tsx", "app/global-error.tsx"],
+  },
+  {
+    name: "onClick on a list item",
+    pattern: /<li\b[^>]*?\bonClick=/gs,
+    use: "a <button> inside the <li>",
+    why: "a clickable <li> has no role, no tab stop and no Enter/Space handling, so it cannot be operated by keyboard",
+  },
+  {
+    name: "bare empty state",
+    pattern: /className="empty"/g,
+    use: '<EmptyState variant="first-run" | "no-results"> from @/components/empty-state',
+    why: "one grey sentence with nothing to click, on the screen where a new user decides whether the product is for them",
+  },
 ];
 
 /** Every .tsx file under the UI paths. */

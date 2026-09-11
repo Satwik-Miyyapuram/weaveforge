@@ -11,9 +11,18 @@
  * A tab holds `{kind, id}`, never a path — see `workspace-tree.ts` for why.
  */
 
+/** Which view a tab is in. The shipped editor is Edit and stays the default. */
+export type DocumentMode = "edit" | "read";
+
 export interface TabRef {
   kind: string;
   id: string;
+  /**
+   * Remembered per tab, so a tab switched away from and back comes back the way
+   * it was left. Optional on the type because every `{kind, id}` written before
+   * this existed is still a valid tab — it reads as `edit`, which is what it was.
+   */
+  mode?: DocumentMode;
 }
 
 export interface PaneLeaf {
@@ -189,6 +198,84 @@ export function focusPane(layout: PaneLayout, paneId: string): PaneLayout {
 /** The tab a pane is showing, if any. */
 export function activeTab(leaf: PaneLeaf): TabRef | undefined {
   return leaf.tabs[leaf.activeIndex];
+}
+
+/** The tab the focused pane is showing — the one the screen is "on". */
+export function activeTabRef(layout: PaneLayout): TabRef | undefined {
+  const leaf = leaves(layout.root).find((candidate) => candidate.id === layout.focusedPaneId);
+  return leaf ? activeTab(leaf) : undefined;
+}
+
+/**
+ * The key of the document being edited, for highlighting a row in the explorer.
+ *
+ * The first tab of the first pane is *not* the answer: with two tabs open that
+ * is simply the leftmost, so the tree highlighted a file the user was not
+ * looking at and did not follow them when they switched tabs. The focused
+ * pane's active tab is the document on screen.
+ */
+export function activeTabKey(layout: PaneLayout): string | undefined {
+  const tab = activeTabRef(layout);
+  return tab ? tabKey(tab) : undefined;
+}
+
+/** The mode a tab is in. Anything that predates modes was and is Edit. */
+export function tabMode(tab: TabRef): DocumentMode {
+  return tab.mode ?? "edit";
+}
+
+/** The tab at a pane-and-index, or `undefined` when either is gone. */
+export function tabAt(layout: PaneLayout, paneId: string, index: number): TabRef | undefined {
+  return leaves(layout.root).find((leaf) => leaf.id === paneId)?.tabs[index];
+}
+
+/**
+ * Put one document into Edit or Read.
+ *
+ * Touches only the addressed document — in every pane where it is open, because
+ * a mode belongs to the document, not to the pane showing it. The identical
+ * layout object comes back when nothing matched, so this is safe to call from a
+ * state updater without churning the tree.
+ */
+export function setTabMode(layout: PaneLayout, target: TabRef, mode: DocumentMode): PaneLayout {
+  const key = tabKey(target);
+  let changed = false;
+  const rewrite = (node: PaneNode): PaneNode => {
+    if (node.type === "leaf") {
+      if (!node.tabs.some((tab) => tabKey(tab) === key && tabMode(tab) !== mode)) return node;
+      changed = true;
+      return {
+        ...node,
+        tabs: node.tabs.map((tab) => (tabKey(tab) === key ? { ...tab, mode } : tab)),
+      };
+    }
+    const first = rewrite(node.children[0]);
+    const second = rewrite(node.children[1]);
+    return first === node.children[0] && second === node.children[1]
+      ? node
+      : { ...node, children: [first, second] };
+  };
+  const root = rewrite(layout.root);
+  return changed ? { ...layout, root } : layout;
+}
+
+/**
+ * Flip the document at a pane-and-index between Edit and Read.
+ *
+ * Addressed by position rather than by `TabRef` on purpose: the caller is a
+ * click handler inside the pane and holds the tab *as it was rendered*, so
+ * passing that object back would flip based on a stale mode and the second
+ * press would be a no-op. This reads the mode from the layout it is changing.
+ */
+export function toggleTabModeAt(layout: PaneLayout, paneId: string, index: number): PaneLayout {
+  const tab = tabAt(layout, paneId, index);
+  if (!tab) return layout;
+  return setTabMode(layout, tab, tabMode(tab) === "edit" ? "read" : "edit");
+}
+
+/** Flip a document between Edit and Read. */
+export function toggleTabMode(layout: PaneLayout, target: TabRef): PaneLayout {
+  return setTabMode(layout, target, tabMode(target) === "edit" ? "read" : "edit");
 }
 
 /**

@@ -206,6 +206,36 @@ export function ImageIcon(props: IconProps) {
   );
 }
 
+/**
+ * Folder — a container in the workspace explorer.
+ *
+ * The app had no folder glyph in either icon set: the explorer drew the `▸`/`▾`
+ * twisty and a Unicode block instead. Drawn to the same contract as its
+ * neighbours (24 grid, round caps and joins, stroke 2).
+ */
+export function FolderIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18Z" />
+    </Svg>
+  );
+}
+
+/**
+ * Check — a confirmation tick.
+ *
+ * The app's checkmark elsewhere is the *character* `✓` inside a `.check` span
+ * (`features/org/ui/org-switcher.tsx`), which is fine in a menu row and wrong
+ * in a status bar sitting among SVG icons.
+ */
+export function CheckIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </Svg>
+  );
+}
+
 /** Unlink — remove from list (not delete entity). */
 export function UnlinkIcon(props: IconProps) {
   return (

@@ -24,7 +24,7 @@
   margin: 0 0 18px;
   position: sticky;
   top: calc(8px + env(safe-area-inset-top, 0px));
-  z-index: 15;
+  z-index: var(--z-sticky);
   /* The scrollbar would sit inside the pill's rounded border and clip against
      it; the overflowing edge is affordance enough, and the tabs are reachable
      by keyboard regardless. */

@@ -25,6 +25,8 @@ import { PaperCard } from "./paper-card";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
 import { ListTagFilters } from "@/components/list-tag-filters";
+import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 
@@ -526,14 +528,37 @@ export function PapersScreen() {
 
       {error && <FormError>{error}</FormError>}
       {!error && papers.length === 0 && (
-        <div className="empty">
-          <p>No papers yet. Use “+ Paper” to add your first one.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="book" />}
+          title="No papers yet"
+          body="Everything in WeaveForge hangs off a paper: the notes you take on it, the runs it inspired, the section it ends up in. Add your first one and the rest has somewhere to attach."
+          action={
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+            >
+              + Paper
+            </button>
+          }
+        />
       )}
       {!error && papers.length > 0 && visible.length === 0 && (
-        <div className="empty">
-          <p>No papers match the filter.</p>
-        </div>
+        <EmptyState
+          variant="no-results"
+          body="No papers match the filter."
+          action={
+            <ClearFiltersButton
+              onClear={() => {
+                setSearch("");
+                setStatusFilter([]);
+                setListFilter([]);
+                setTagFilter([]);
+              }}
+            />
+          }
+        />
       )}
 
       {visible.length > 0 && layout === "list" && (

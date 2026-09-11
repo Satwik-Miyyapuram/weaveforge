@@ -13,6 +13,7 @@ import {
 } from "./app-protocol";
 import type { LocalClient } from "./local-db";
 import { LocalDbHost } from "./local-db-host";
+import { applyDeferredMove, moveAside } from "./local-db-reset";
 import {
   adoptRoot,
   currentRoot,
@@ -403,19 +404,32 @@ ipc.handle(CHANNELS.overleafRead, (_event, projectId: unknown, entryFile: unknow
  * PGlite is imported here and nowhere else, and lazily: it is a WASM Postgres,
  * and an app that stays online for its whole life should never pay to load it.
  */
+const localDbDir = path.join(app.getPath("userData"), "local-db");
 const localDb = new LocalDbHost({
   migrations: [path.join(__dirname, "migrations"), path.join(__dirname, "migrations-local")],
+  dataDir: localDbDir,
   open: async () => {
     const { PGlite } = await import("@electric-sql/pglite");
     const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
-    const dataDir = path.join(app.getPath("userData"), "local-db");
-    return (await PGlite.create({ dataDir, extensions: { pgcrypto } })) as unknown as LocalClient;
+    // A reset the previous run could only write down; see `local-db-reset.ts`.
+    applyDeferredMove(localDbDir);
+    return (await PGlite.create({ dataDir: localDbDir, extensions: { pgcrypto } })) as unknown as LocalClient;
+  },
+  discard: async () => {
+    // The engine that failed may still hold the directory. When it does, the
+    // move waits for a process that has never opened it — this one, relaunched.
+    if ((await moveAside(localDbDir)) === "deferred") {
+      app.relaunch();
+      app.exit(0);
+    }
   },
 });
 
 ipc.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
   localDb.query(sql, params),
 );
+ipc.handle(CHANNELS.dbState, () => ({ ok: true, value: localDb.state() }));
+ipc.handle(CHANNELS.dbReset, () => localDb.reset());
 
 /**
  * The workspace folder.

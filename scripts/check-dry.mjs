@@ -116,6 +116,41 @@ if (pinMergeInUi.length) {
   failed = true;
 }
 
+/**
+ * Per-kind decisions live in the editor workspace's kind table.
+ *
+ * `docs/internal/design/editor-workspace-redesign.md` §3.3: "No `if (kind ===
+ * "paper")` outside those tables. If a step needs a per-kind branch, it adds a
+ * column to `kind.ts`." The rule exists because the branch is the thing that
+ * grows: each one is a place ink notes, a new entity kind or a new pane mode
+ * has to be remembered.
+ *
+ * What this catches is a comparison against a *kind literal*. It deliberately
+ * does not catch `node.kind === kind` — comparing one value to another, as the
+ * breadcrumb walk and the palette's grouping both do — because that is asking
+ * "are these the same kind", not deciding behaviour for a particular one. Tests
+ * are exempt for the same reason the rule exists: asserting that a paper came
+ * back as a paper is the assertion, not a decision the product makes.
+ */
+const KIND_LITERAL = 'kind === "(vault_page|paper|report_section|reading_list|experiment|milestone|log_entry|folder)"';
+const kindBranches = search(KIND_LITERAL, "apps/web/src/features/editor-workspace/**/*.{ts,tsx}");
+const kindBranchOwners = [
+  "ui/kind.ts",
+  "ui/document-host.tsx",
+  "application/workspace-tree.ts",
+  "/test/",
+];
+const strayKindBranches = kindBranches.filter(
+  (line) => !kindBranchOwners.some((owner) => line.replace(/\\/g, "/").includes(owner)),
+);
+if (strayKindBranches.length) {
+  console.error(
+    "FAIL: per-kind branch outside the kind table — add a column to ui/kind.ts instead:",
+  );
+  for (const line of strayKindBranches) console.error(`  ${line}`);
+  failed = true;
+}
+
 if (failed) {
   console.error("\nSee docs/building/dev.md § Post-merge review checklist (SOLID / DRY).");
   process.exit(1);

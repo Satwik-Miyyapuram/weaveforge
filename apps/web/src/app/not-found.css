@@ -1,0 +1,62 @@
+/*
+ * The 404, `app/route-not-found.tsx`.
+ *
+ * It renders inside the root layout, but not inside a screen: on a mistyped URL
+ * the app shell has nothing to put around it (the route does not exist, so the
+ * screen that would carry a heading is the thing that is missing). So this is
+ * the one screen that centres its own card rather than filling the shell's grid.
+ *
+ * Colours are tokens only, like every other file in styles/ — the card has to
+ * survive all sixteen themes, which is what `--surface` / `--border` / `--e1`
+ * exist for. No motion is added: a 404 is not a place to perform, and what is
+ * not added does not need a reduced-motion carve-out.
+ */
+.not-found {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The shell already pads 24px; this only adds the height a short page needs to
+     sit in the middle of the window rather than at its top. `dvh` over `vh` for
+     the reason styles/base.css:137-140 gives — a mobile address bar. */
+  min-height: min(70vh, 70dvh);
+  padding: 16px 0;
+}
+
+.not-found-card {
+  /* Overrides `.screen`'s --app-max (1200px): a 404 is one narrow column, not a
+     grid. max-width on the section, `margin-inline: auto` comes from .screen. */
+  max-width: 520px;
+  padding: 32px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--e1);
+  text-align: center;
+}
+
+.not-found-card .app-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+/* Serif, at the size a page title gets — `.screen-head h1` in buttons.css is
+   the app's other page title, and this reads as its sibling. */
+.not-found-title {
+  margin: 16px 0 8px;
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.not-found-card .muted {
+  margin: 0 0 24px;
+}
+
+.not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}

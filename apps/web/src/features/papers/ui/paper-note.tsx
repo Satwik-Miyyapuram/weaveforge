@@ -29,6 +29,7 @@ import { PaperFieldsStrip } from "./paper-fields";
 import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
+import { Modal } from "@/components/modal";
 
 /** Full-page reading view for one paper: the note as an article, plus tags,
  *  annotations, figures, and an inline note editor. */
@@ -55,6 +56,8 @@ export function PaperNote({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [trackingCitations, setTrackingCitations] = useState<boolean | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
+  /** The APPEND / REPLACE choice, when a note has no template markers. */
+  const [templateChoiceOpen, setTemplateChoiceOpen] = useState(false);
   const [editingIds, setEditingIds] = useState(false);
   // Filled in while the editor is on screen, so the button can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
@@ -122,40 +125,32 @@ export function PaperNote({
 
   /** Explicit re-render of the source-note template — never silent on load (C1). */
   function reRenderTemplate() {
-    const citeKey = resolveCiteKey(paper);
     const hasMarkers = /<!--\s*\/?wf:(generated|editable):/.test(draft);
     if (!hasMarkers && draft.trim()) {
-      const choice = window.prompt(
-        "This note has no template markers.\n\nType APPEND to keep your text and add a fresh metadata block,\nor REPLACE to start from a clean template (your current draft is discarded).",
-        "APPEND",
-      );
-      if (choice == null) return;
-      const normalized = choice.trim().toUpperCase();
-      if (normalized === "REPLACE") {
-        const next = reRenderPaperSourceNote("", {
-          title: paper.title,
-          authors: paper.authors,
-          year: paper.year,
-          venue: paper.venue,
-          doi: paper.doi,
-          citeKey,
-        });
-        setDraft(next);
-        setSaveError(null);
-        return;
-      }
-      if (normalized !== "APPEND") return;
+      // A three-way decision, asked as two buttons. It used to be a
+      // `window.prompt` that required the user to *type* the word APPEND or
+      // REPLACE into a single-line OS text box — the least discoverable
+      // interaction in the product, and a system dialog that ignores the theme
+      // and covers the page on a phone.
+      setTemplateChoiceOpen(true);
+      return;
     }
-    const next = reRenderPaperSourceNote(draft, {
+    applyTemplate(draft);
+  }
+
+  /** Write the re-rendered template over (`base === ""`) or under the draft. */
+  function applyTemplate(base: string) {
+    const next = reRenderPaperSourceNote(base, {
       title: paper.title,
       authors: paper.authors,
       year: paper.year,
       venue: paper.venue,
       doi: paper.doi,
-      citeKey,
+      citeKey: resolveCiteKey(paper),
     });
     setDraft(next);
     setSaveError(null);
+    setTemplateChoiceOpen(false);
   }
 
   const remove = () => confirmRemovePaper(paper, setBusy, onChanged);
@@ -387,6 +382,39 @@ export function PaperNote({
             from the paper, and the paper itself is what the reader came for. */}
         <RelatedPanel seedKind="paper" seedId={paper.id} />
       </div>
+
+      {/*
+       * The APPEND / REPLACE choice, as two buttons rather than a typed word.
+       *
+       * The note has no template markers, so re-rendering the source template
+       * has to know whether to keep the prose or start from a clean file. Both
+       * answers are offered plainly, and the destructive one is coloured for
+       * it; neither autofocuses — the modal's focus trap lands on Cancel.
+       */}
+      {templateChoiceOpen ? (
+        <Modal title="Re-render the note template" onClose={() => setTemplateChoiceOpen(false)}>
+          <p className="muted confirm-dialog-body">
+            This note has no template markers. Add a fresh metadata block above your text, or start
+            from a clean template — the latter discards the draft you have now.
+          </p>
+          <div className="confirm-dialog-actions">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setTemplateChoiceOpen(false)}
+              autoFocus
+            >
+              Cancel
+            </button>
+            <button type="button" className="btn-secondary danger" onClick={() => applyTemplate("")}>
+              Replace
+            </button>
+            <button type="button" className="btn-primary" onClick={() => applyTemplate(draft)}>
+              Append
+            </button>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

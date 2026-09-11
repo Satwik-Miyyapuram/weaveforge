@@ -67,7 +67,7 @@
 .papers-board-col .entity-card { margin-bottom: 8px; }
 
 .jump-to-backdrop {
-  position: fixed; inset: 0; z-index: 80;
+  position: fixed; inset: 0; z-index: var(--z-overlay);
   background: color-mix(in srgb, var(--ink) 35%, transparent);
   display: flex; align-items: flex-start; justify-content: center;
   padding: 12vh 16px 16px;

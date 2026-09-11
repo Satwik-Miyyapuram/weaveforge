@@ -8,6 +8,7 @@ import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import type { AiSourceOption, McpTokenRecord } from "@/container/facades";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatError } from "@/lib/format-error";
 import { ChevronIcon } from "@/components/chevron-icon";
 
@@ -56,6 +57,8 @@ export function AiAccessPanel({ settings, onChange }: {
   const [connection, setConnection] = useState<{ sessionId: string; secret: string } | null>(null);
   const [mcpTokens, setMcpTokens] = useState<readonly McpTokenRecord[]>([]);
   const [newMcpToken, setNewMcpToken] = useState<string | null>(null);
+  /** The MCP token awaiting a revoke confirmation, by id. */
+  const [revokingMcp, setRevokingMcp] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [rememberConnection, setRememberConnection] = useState(() => Boolean(getUserIntegrationField(settings, "mcp", "pairingSecret")));
   const access: AiAccessSettings = settings.aiAccess ?? DEFAULT_AI_ACCESS;
@@ -253,7 +256,6 @@ export function AiAccessPanel({ settings, onChange }: {
   }
 
   async function revokeMcpToken(id: string) {
-    if (!window.confirm("Revoke this MCP token? Any Codex connection using it will stop immediately.")) return;
     setBusy(true);
     setSessionError(null);
     try {
@@ -264,6 +266,7 @@ export function AiAccessPanel({ settings, onChange }: {
       setSessionError(formatError(err));
     } finally {
       setBusy(false);
+      setRevokingMcp(null);
     }
   }
 
@@ -375,7 +378,7 @@ export function AiAccessPanel({ settings, onChange }: {
                   <button type="button" className="btn-secondary" onClick={() => void createMcpToken()} disabled={busy}>{mcpTokens.length ? "Create replacement" : "Create MCP token"}</button>
                 </div>
                 {newMcpToken && <div className="ai-connection-value"><span><small>New MCP token — copy it now</small><code>••••••••••••••••••••••••</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("token", newMcpToken)}>{copied === "token" ? "Copied" : "Copy"}</button></div>}
-                {mcpTokens.length > 0 && <div className="ai-token-list"><small>{mcpTokens.length} active MCP token{mcpTokens.length === 1 ? "" : "s"}</small>{mcpTokens.map((token) => <div className="ai-active-session" key={token.id}><span><strong>{token.name}</strong><small>{token.tokenPrefix} · {token.lastUsedAt ? `last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "not used yet"}</small></span><button type="button" className="link-btn danger" onClick={() => void revokeMcpToken(token.id)} disabled={busy}>Revoke</button></div>)}</div>}
+                {mcpTokens.length > 0 && <div className="ai-token-list"><small>{mcpTokens.length} active MCP token{mcpTokens.length === 1 ? "" : "s"}</small>{mcpTokens.map((token) => <div className="ai-active-session" key={token.id}><span><strong>{token.name}</strong><small>{token.tokenPrefix} · {token.lastUsedAt ? `last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "not used yet"}</small></span><button type="button" className="link-btn danger" onClick={() => setRevokingMcp(token.id)} disabled={busy}>Revoke</button></div>)}</div>}
                 <div className="ai-source-scope">
                   <div>
                     <strong>Source access</strong>
@@ -433,6 +436,19 @@ export function AiAccessPanel({ settings, onChange }: {
           </section>
         </>
       )}
+
+      {/* The confirmation the app draws, in place of `window.confirm`. */}
+      {revokingMcp ? (
+        <ConfirmDialog
+          title="Revoke this MCP token?"
+          body="Any Codex connection using it will stop immediately."
+          confirmLabel="Revoke"
+          danger
+          busy={busy}
+          onConfirm={() => void revokeMcpToken(revokingMcp)}
+          onClose={() => setRevokingMcp(null)}
+        />
+      ) : null}
     </section>
   );
 }

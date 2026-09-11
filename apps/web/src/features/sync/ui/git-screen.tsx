@@ -7,6 +7,9 @@ import type { Integration, SyncProvider } from "../domain/integration";
 import { gitConnection } from "../domain/integration-fields";
 import type { GitBranch, GitCommit } from "../infrastructure/git-client";
 import { Select } from "@/components/select";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
+import Link from "next/link";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { formatError } from "@/lib/format-error";
 
@@ -113,9 +116,17 @@ export function GitScreen() {
       )}
       {loading && !integration && <ScreenLoader status="Loading git history…" />}
       {!loading && !integration && (
-        <div className="empty">
-          <p>No repo connected. Enable GitHub or GitLab in Settings → Sync.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="git" />}
+          title="No repository connected"
+          body="Connect the repository your project lives in and this screen lists its branches and commits — so the code behind a result stays a click away from the result."
+          action={
+            <Link className="btn-primary" href="/settings">
+              Open settings
+            </Link>
+          }
+        />
       )}
       {error && <p className="muted">{error}</p>}
 

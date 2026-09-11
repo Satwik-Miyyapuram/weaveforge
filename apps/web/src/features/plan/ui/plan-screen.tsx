@@ -10,6 +10,8 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Select } from "@/components/select";
 import { EntityCard } from "@/components/entity-card";
 import { EditIcon } from "@/components/view-icons";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -214,9 +216,21 @@ export function PlanScreen() {
 
       {error && <FormError>{error}</FormError>}
       {!error && items.length === 0 && (
-        <div className="empty">
-          <p>No milestones yet. Use “+ Milestone” to sketch the road ahead.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="flag" />}
+          title="No milestones yet"
+          body="A milestone is a date you are steering by — a submission, a review, a chapter handed over. Sketch the road ahead and the plan screen starts counting towards it."
+          action={
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+            >
+              + Milestone
+            </button>
+          }
+        />
       )}
 
       <ul className="exp-list">

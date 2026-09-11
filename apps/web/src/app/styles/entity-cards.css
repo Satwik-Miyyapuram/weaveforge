@@ -1,4 +1,78 @@
+/*
+ * Empty states.
+ *
+ * `.empty` on its own was all fifteen of them — one centred grey sentence with
+ * nothing to click, on the screen where a new user decides whether the product
+ * is for them. The two modifiers below are the two states that were being
+ * served by one style; `components/empty-state.tsx` renders both.
+ */
 .empty { text-align: center; color: var(--muted); padding: 32px; }
+
+.empty-body { margin: 0; }
+
+/* First run: what this screen is for, and the action that starts it. */
+.empty--first-run {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 32px;
+}
+
+/* The mark: the screen's own icon in a tile — the same treatment the editor
+   workspace's composed empty state uses, so the two read as one idea. */
+.empty-mark {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--faint);
+}
+
+.empty-mark .nav-icon,
+.empty-mark .vicon { width: 26px; height: 26px; }
+
+.empty-title {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.empty--first-run .empty-body {
+  max-width: 46ch;
+  font-size: 0.9rem;
+  line-height: 1.62;
+}
+
+/* Filtered to nothing: one line and the way back. Deliberately quieter than a
+   first run — this state is a keystroke old, not a decision. */
+.empty--no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 32px;
+}
+
+.empty--no-results .empty-body { font-size: 0.9rem; }
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+}
+
 .summary { margin: 8px 0 0; font-size: 0.92rem; overflow-wrap: anywhere; }
 
 /* Shared entity cards (papers / report / notes / experiments / milestones). */
@@ -61,7 +135,7 @@
   gap: 4px;
   min-width: 0;
   padding: 10px 12px;
-  transition: border-color 0.12s, background 0.12s;
+  transition: border-color var(--dur-base), background var(--dur-base);
 }
 .entity-card[role="button"],
 .paper-card[role="button"] { cursor: pointer; }
@@ -96,6 +170,10 @@
   letter-spacing: -0.01em;
   overflow-wrap: break-word;
   word-break: normal;
+  /* Even line breaks on a two-line title. `balance` was pitch-only, so the
+     marketing headlines got it and the product's own card titles did not —
+     the same title wrapped raggedly on /papers and evenly on the pitch. */
+  text-wrap: balance;
 }
 /* Status lives in the foot with actions so the title can use full width. */
 .entity-card-status {

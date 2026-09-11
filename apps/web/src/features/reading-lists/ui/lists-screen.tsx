@@ -18,6 +18,8 @@ import { AddListForm } from "./add-list-form";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { DeleteIcon, UnlinkIcon } from "@/components/view-icons";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { collectListIds, listDisplayColor } from "./list-ui";
 import { ExtractionTable } from "./extraction-table";
 import { ScreeningPanel } from "./screening-panel";
@@ -175,9 +177,17 @@ export function ListsScreen() {
 
       {error && <FormError>{error}</FormError>}
       {!error && tree.length === 0 && pinnedLists.length === 0 && (
-        <div className="empty">
-          <p>No lists yet. Use “+ List” to create your first grouping.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="list" />}
+          title="No reading lists yet"
+          body="A reading list is how a pile of papers becomes an argument: group them by theme, nest the groups, and keep the reason each one is there. It is a view over your papers, not a second copy of them."
+          action={
+            <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+              + List
+            </button>
+          }
+        />
       )}
 
       {!error && (tree.length > 0 || pinnedLists.length > 0) && (

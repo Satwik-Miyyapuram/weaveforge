@@ -4,11 +4,23 @@
  * app, and coloured only through theme tokens — no hex values live here.
  */
 
+.workspace-shell {
+  /* 260px: wide enough for a title plus its kind icon, narrow enough that the
+     document keeps the window. The rail beside it is `--nav-rail-width` (nav.css). */
+  --workspace-explorer: 260px;
+}
+
 .explorer-panel {
-  overflow: auto;
-  padding-block: 0.4rem;
   background: var(--surface);
   border-inline-end: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Spans both rows of the shell: the explorer is full height, and the status
+     bar belongs to the document column, not to this one. */
+  grid-row: 1 / -1;
+  grid-column: 1;
 }
 
 .explorer-tree {
@@ -18,21 +30,29 @@
 }
 
 .explorer-row {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding-block: 0.18rem;
-  padding-inline-end: 0.4rem;
-  border-radius: 6px;
+  gap: 6px;
+  height: 25px;
+  padding-inline-end: 8px;
   color: var(--text);
-  font-size: 0.86rem;
-  line-height: 1.5;
-  cursor: default;
+  font-size: 0.845rem;
+  /* The row has an `onClick`. It is a control, and it has to look like one.
+     It carried the UA's arrow cursor, which made the most-clicked thing in the
+     screen — the tree — read as static text. */
+  cursor: pointer;
   user-select: none;
+  transition: background 0.1s;
 }
 
 .explorer-row:hover {
   background: var(--surface2);
+}
+
+.explorer-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .explorer-row.is-active {
@@ -40,16 +60,327 @@
   color: var(--accent);
 }
 
+/* The active row is marked by a 2px accent rule on its leading edge, so the
+   document you are looking at is unambiguous at a glance. */
+.explorer-row.is-active::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: var(--accent);
+}
+
+/* A member row of a reading list: the same document, seen through a list.
+   Dimmed rather than hidden, because it *is* the same file. */
+.explorer-row.is-member {
+  color: var(--muted);
+}
+
+.explorer-row.is-member .explorer-label {
+  font-weight: 400;
+}
+
+.explorer-row.is-inherited {
+  color: var(--faint);
+  font-style: italic;
+}
+
+/*
+ * Indentation guides: one 1px rule per depth, drawn from the row's own left
+ * edge. A reading list nests four deep and the tree is unreadable without them.
+ */
+.explorer-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.explorer-row:hover .explorer-guide,
+.explorer-row.is-active .explorer-guide {
+  background: var(--border-strong);
+}
+
 .explorer-twisty,
 .explorer-icon {
   flex: none;
-  width: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.95rem;
   text-align: center;
   color: var(--faint);
 }
 
+.explorer-icon .nav-icon,
+.explorer-icon .vicon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+/* The per-kind tint (see ui/kind.ts). The colour lives here, not in the code. */
+.explorer-icon.kind-tint-info,
+.pane-tab-icon.kind-tint-info { color: var(--s-info); }
+.explorer-icon.kind-tint-warn,
+.pane-tab-icon.kind-tint-warn { color: var(--s-warn); }
+.explorer-icon.kind-tint-accent,
+.pane-tab-icon.kind-tint-accent { color: var(--accent); }
+.explorer-icon.kind-tint-good,
+.pane-tab-icon.kind-tint-good { color: var(--s-good); }
+
 .explorer-row.is-active .explorer-icon {
   color: inherit;
+}
+
+/*
+ * The kind suffix. Shown on hover, focus and selection only: the icon and its
+ * tint already say the kind, and 260px is too narrow to spend eight repeated
+ * characters per row. It never truncates — the title does, which is why this
+ * is `flex: none`.
+ */
+.explorer-ext {
+  flex: none;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68em;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.explorer-row:hover .explorer-ext,
+.explorer-row:focus-visible .explorer-ext,
+.explorer-row.is-active .explorer-ext {
+  opacity: 1;
+}
+
+/* On a pointer that cannot hover the suffix would never appear at all. */
+@media (hover: none) {
+  .explorer-ext { opacity: 1; }
+}
+
+/* Git status ticks — the one place a user notices a note changed elsewhere. */
+.explorer-git {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.explorer-git.is-modified { color: var(--s-warn); }
+.explorer-git.is-untracked { color: var(--s-good); }
+
+/* An Outline row's heading level, where a file row would show its suffix. */
+.explorer-heading-level {
+  flex: none;
+  margin-inline-start: 2px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+/* "In 2 lists" on a Files row: membership is discoverable without opening the
+   Reading lists section, and the tooltip carries the names. */
+.explorer-in-lists {
+  display: none;
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+.explorer-row:hover .explorer-in-lists,
+.explorer-row.is-active .explorer-in-lists {
+  display: inline;
+}
+
+/* -------------------------------------------------------------------------
+   Explorer header: title, filter and actions (§3.5)
+   ---------------------------------------------------------------------- */
+
+.explorer-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  height: 36px;
+  padding: 0 6px 0 12px;
+}
+
+.explorer-title {
+  margin-inline-end: auto;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.explorer-search {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 0 8px 8px;
+}
+
+.explorer-filter {
+  width: 100%;
+  padding: 6px 24px 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.explorer-filter::placeholder { color: var(--faint); }
+
+.explorer-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.explorer-filter-clear {
+  position: absolute;
+  inset-inline-end: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+}
+
+.explorer-filter-clear:hover { background: var(--surface2); color: var(--text); }
+
+.explorer-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+}
+
+.explorer-action {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.explorer-action:hover { background: var(--surface2); color: var(--text); }
+.explorer-action .nav-icon { width: 16px; height: 16px; }
+.explorer-action .vicon { width: 15px; height: 15px; }
+
+/* The scroll container. Sections stack from the top and the last one takes the
+   remaining height, so a long Files list scrolls instead of pushing Reading
+   lists off the bottom of the panel. */
+.explorer-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-block-end: 14px;
+  overflow: auto;
+}
+
+/* -------------------------------------------------------------------------
+   Explorer sections (§3.1)
+   ---------------------------------------------------------------------- */
+
+.explorer-section {
+  flex: none;
+  border-block-start: 1px solid var(--border);
+}
+
+.explorer-section:first-child { border-block-start: none; }
+.explorer-section:last-child { flex: 1 1 auto; min-height: 0; }
+
+.explorer-section-head {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px 0 6px;
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-sticky);
+  background: var(--surface);
+}
+
+.explorer-section-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+}
+
+.explorer-section-toggle:hover { color: var(--text); }
+.explorer-section-toggle .chev { display: grid; place-items: center; width: 14px; height: 14px; }
+.explorer-section-toggle .chev svg { width: 12px; height: 12px; }
+
+.explorer-section-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.explorer-section-count {
+  margin-inline-start: auto;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.explorer-section-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The last section scrolls on its own, so the sections above it stay put. */
+.explorer-section:last-child > .explorer-section-rows {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.explorer-section-empty {
+  padding: 4px 10px 6px;
+  font-size: 0.78rem;
 }
 
 .explorer-label {
@@ -95,12 +426,30 @@
   color: var(--accent);
 }
 
-/* The shell: explorer on the left, panes filling what is left of the viewport. */
+/*
+ * The shell: explorer on the left, panes filling what is left of the window.
+ *
+ * `height: 100dvh`, not `calc(100dvh - var(--nav-inset))`. `--nav-inset` is the
+ * app shell's *horizontal* inset — 232px on desktop, the width of the labelled
+ * sidebar — so subtracting it here sized the editor's height by the sidebar's
+ * width. On a 1440x900 window the space actually available to this screen,
+ * after the shell's top padding, the sub-nav strip and the bottom padding, is
+ * about `100dvh - 130px`, so the panes came up ~100px short and the leftover
+ * painted as page background. On `/workspace` the shell is full-bleed and the
+ * primary nav is a rail (`.editor-route` in shell.css/nav.css), so there
+ * is no vertical chrome to subtract and no magic number to keep in step.
+ */
 .workspace-shell {
   display: grid;
-  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-  height: calc(100dvh - var(--nav-inset, 0px));
+  grid-template-columns: var(--workspace-explorer) minmax(0, 1fr);
+  /* Row 1 is the document column (breadcrumbs live inside each pane), row 2 is
+     the status bar, which belongs under the document rather than under the
+     explorer — that is where the prototype puts it, and where the eye looks
+     for the state of the file it is editing. */
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100dvh;
   min-height: 0;
+  overflow: hidden;
 }
 
 .pane-root,
@@ -113,6 +462,8 @@
 
 .pane-root {
   flex: 1;
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .pane-split-row {
@@ -166,71 +517,314 @@
 
 .pane-tabs {
   display: flex;
+  flex: none;
   align-items: stretch;
-  gap: 1px;
+  height: 36px;
+  gap: 0;
   overflow-x: auto;
+  scrollbar-width: none;
   background: var(--surface);
   border-block-end: 1px solid var(--border);
 }
 
+.pane-tabs::-webkit-scrollbar { display: none; }
+
+/* -------------------------------------------------------------------------
+   Tabs (§3.6)
+   ---------------------------------------------------------------------- */
+
 .pane-tab {
+  position: relative;
   display: flex;
+  flex: none;
   align-items: center;
-  gap: 0.35rem;
-  max-width: 14rem;
-  padding: 0.3rem 0.5rem;
-  background: var(--surface2);
+  gap: 7px;
+  max-width: 200px;
+  min-width: 0;
+  padding: 0 11px;
+  background: var(--surface);
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.815rem;
   white-space: nowrap;
-  cursor: default;
+  border-inline-end: 1px solid var(--border);
+  /* A tab is clicked to switch documents: it has to answer the pointer. */
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
 }
 
+.pane-tab:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+/* The active document is marked by a 2px accent rule on the tab's top edge and
+   lifted onto the document's own background. */
 .pane-tab.is-active {
   background: var(--bg);
   color: var(--text);
-  box-shadow: inset 0 2px 0 var(--accent);
 }
+
+.pane-tab.is-active::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.pane-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.pane-tab-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--faint);
+}
+
+.pane-tab-icon .nav-icon { width: 14px; height: 14px; }
+
+.pane-tab.is-active .pane-tab-icon { color: inherit; }
+
+/* The suffix always shows here: two tabs can share a title, and the tab is the
+   one place the path is gone entirely (§3.2). */
+.pane-tab-ext {
+  flex: none;
+  margin-inline-start: -3px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68em;
+  letter-spacing: -0.01em;
+}
+
+.pane-tab.is-active .pane-tab-ext { opacity: 0.75; }
 
 .pane-tab-label {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.pane-tab-close,
-.pane-action {
+/* -------------------------------------------------------------------------
+   Presence in the strip (§3.6)
+   ---------------------------------------------------------------------- */
+
+.pane-peers {
+  display: flex;
+  align-items: center;
+  margin-inline-end: 6px;
+}
+
+.pane-peer {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-inline-start: -6px;
+  border: 1.5px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.pane-peer:first-child { margin-inline-start: 0; }
+
+/* -------------------------------------------------------------------------
+   Edit / Read, per tab (§3.9)
+   ---------------------------------------------------------------------- */
+
+.pane-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-inline-end: 4px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.pane-mode-btn {
+  padding: 2px 7px;
   border: none;
+  border-radius: 4px;
   background: transparent;
-  color: var(--faint);
-  font-size: 0.85rem;
-  line-height: 1;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.pane-tab-close:hover,
-.pane-action:hover {
+.pane-mode-btn:hover { color: var(--text); background: var(--surface2); }
+
+.pane-mode-btn.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The close control lives in a 16px slot that is the dirty dot until the tab
+   is hovered — the standard gesture, and it takes the permanent `×` off every
+   tab. */
+.pane-tab-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.pane-tab:hover .pane-tab-close,
+.pane-tab.is-active .pane-tab-close,
+.pane-tab-close:focus-visible {
+  opacity: 1;
+}
+
+.pane-tab-close:hover {
+  background: var(--surface2);
   color: var(--text);
+}
+
+.pane-action {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.pane-action:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.pane-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .pane-tab-actions {
   display: flex;
-  gap: 0.15rem;
+  flex: none;
+  align-items: center;
+  gap: 1px;
   margin-inline-start: auto;
-  padding-inline: 0.35rem;
+  padding-inline: 7px;
+  border-inline-start: 1px solid var(--border);
 }
 
-.pane-body {
+/* The pane's toolbar for a tab in Edit mode: the image button, before the
+   mode switch. Same icon button the note screen uses, so no new size here. */
+.pane-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-inline-end: 4px;
+  padding-inline-end: 5px;
+  border-inline-end: 1px solid var(--border);
+}
+
+.pane-tools .entity-icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+/* Resizing a picture from the read view. The host is the positioning context
+   so the control sits under the picture and scrolls with the document. */
+.image-size-host {
+  position: relative;
+}
+
+.document-read img.md-image {
+  cursor: pointer;
+}
+
+.image-size {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 0.8rem;
+}
+
+.image-size-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+}
+
+.image-size-label input[type="range"] {
+  width: 9rem;
+  accent-color: var(--accent);
+}
+
+.image-size-value {
+  min-width: 3ch;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* Naming a new note or folder: the quick-open box with a parent picker under
+   the name. */
+/* The backdrop stretches its child to the row's height; a name box is as
+   tall as its two rows and no more. */
+.new-document {
+  align-self: flex-start;
+  max-height: none;
+}
+
+.new-document-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.new-document-parent {
+  display: flex;
   flex: 1;
-  min-height: 0;
-  overflow: auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.85rem;
 }
 
-.pane-document {
-  height: 100%;
+.new-document-parent select {
+  flex: 1;
+  min-width: 0;
 }
 
-.pane-empty {
-  padding: 1.25rem;
+.new-document .error {
+  margin: 0 0.6rem 0.5rem;
 }
 
 .workspace-error {
@@ -287,12 +881,60 @@
   background: transparent;
   color: var(--text);
   text-align: start;
-  cursor: default;
+  /* A result is a `<button>`. It was styled as a static row. */
+  cursor: pointer;
 }
+
+.quick-open-result:hover { background: var(--surface2); }
 
 .quick-open-result.is-active {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* The kind column, so Notes, Papers, Lists and Report hits do not interleave
+   without saying which is which. */
+.quick-open-kind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--faint);
+}
+
+.quick-open-title {
+  flex: none;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.quick-open-result.is-active .quick-open-title { color: inherit; }
+
+.quick-open-kind .nav-icon { width: 14px; height: 14px; }
+.quick-open-result.is-active .quick-open-kind { color: inherit; }
+
+.quick-open-group {
+  margin: 0;
+  padding: 0.35rem 0.5rem 0.15rem;
+  color: var(--faint);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.quick-open-group-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The characters the scorer matched. `matched` has been computed since the
+   palette shipped and was never rendered; this is what makes a fuzzy match
+   legible rather than mystifying. */
+.quick-open-path mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 2px;
 }
 
 .quick-open-path {
@@ -306,3 +948,257 @@
 .quick-open-empty {
   padding: 0.75rem;
 }
+
+/* -------------------------------------------------------------------------
+   Breadcrumbs (§3.4, step 6)
+   ---------------------------------------------------------------------- */
+
+.breadcrumbs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg);
+  border-block-end: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 0.73rem;
+  white-space: nowrap;
+}
+
+.breadcrumbs::-webkit-scrollbar { display: none; }
+
+.breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.breadcrumb-btn,
+.breadcrumb-current {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.breadcrumb-btn:hover { background: var(--surface2); color: var(--text); }
+
+/* The last crumb is where you already are, so it is the one crumb that is not
+   a control: it renders as a plain span, takes no focus and answers no click.
+   It keeps the arrow cursor deliberately — the rule that a clickable row must
+   show a pointer is about rows that can be clicked. */
+.breadcrumb-current {
+  color: var(--muted);
+  font-weight: 500;
+  cursor: default;
+}
+
+.breadcrumb-ext {
+  margin-inline-start: 1px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+/* The chevron points down by default; a crumb separator points right. */
+.breadcrumb-sep {
+  display: inline-flex;
+  flex: none;
+  color: var(--faint);
+  opacity: 0.55;
+}
+
+.breadcrumb-sep .chev svg {
+  width: 12px;
+  height: 12px;
+  transform: rotate(-90deg);
+}
+
+/* -------------------------------------------------------------------------
+   The document and its empty state (§3.4, §3.8, step 6)
+   ---------------------------------------------------------------------- */
+
+.pane-body-wrap {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.pane-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.pane-document {
+  height: 100%;
+}
+
+/* -------------------------------------------------------------------------
+   The composed empty state (§3.8)
+   ---------------------------------------------------------------------- */
+
+.pane-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+  padding: 34px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.pane-empty-mark {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-block-end: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--faint);
+}
+
+.pane-empty-mark .nav-icon { width: 26px; height: 26px; }
+
+.pane-empty-title {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pane-empty-line {
+  max-width: 44ch;
+  margin: 0;
+  font-size: 0.845rem;
+  line-height: 1.62;
+}
+
+.pane-shortcuts {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 8px 20px;
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: start;
+}
+
+/* `display: contents` so the two halves of a row are the grid's own children
+   and the keycaps line up in a column. */
+.pane-shortcut { display: contents; }
+
+.pane-shortcut dt {
+  display: flex;
+  justify-self: end;
+  gap: 3px;
+}
+
+.pane-shortcut dd { margin: 0; }
+
+.pane-shortcut kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.document-read {
+  height: 100%;
+}
+
+/* The rendered view is prose, so it gets the reading measure rather than the
+   full width of a maximised window. */
+.document-read-body {
+  max-width: var(--content-measure);
+  margin-inline: auto;
+  padding: 40px 44px 150px;
+}
+
+/* -------------------------------------------------------------------------
+   The status bar (§3.4, step 2)
+   ---------------------------------------------------------------------- */
+
+.status-bar {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 26px;
+  padding: 0 5px;
+  overflow: hidden;
+  background: var(--surface2);
+  border-block-start: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.status-bar > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.status-bar-save { color: var(--muted); }
+.status-bar.is-saved .status-bar-save { color: var(--s-good); }
+.status-bar.is-unsaved .status-bar-save { color: var(--s-warn); }
+
+.status-bar-check { width: 12px; height: 12px; }
+
+/* The in-progress mark is a dot, not a spinner: at 26px a rotating glyph is
+   noise, and the label already says the state. */
+.status-bar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-bar-spacer { flex: 1; }
+
+.status-bar-segment {
+  font-variant-numeric: tabular-nums;
+}
+
+.status-bar-segment[data-segment="cursor"],
+.status-bar-segment[data-segment="words"],
+.status-bar-segment[data-segment="chars"] {
+  font-family: var(--font-mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explorer-row,
+  .pane-tab,
+  .pane-mode-btn,
+  .breadcrumb-btn,
+  .explorer-action {
+    transition: none !important;
+  }
+}
+

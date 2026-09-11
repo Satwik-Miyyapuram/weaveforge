@@ -18,6 +18,19 @@ await mkdir(path.dirname(to), { recursive: true });
 await cp(from, to, { recursive: true });
 console.log(`copied icons -> ${path.relative(process.cwd(), to)}`);
 
+// The link-preview card, for the `og:image` in app/layout.tsx.
+//
+// Same rule as the icons above: `apps/web/public/` is where a served brand
+// asset is kept, and `apps/pitch/public/` is gitignored and rebuilt from it.
+// A copy committed in both places is a copy that goes stale, and a card still
+// showing last year's palette is worse than no card at all. Next reads it out
+// of this directory when it exports, so it has to land before `next build`.
+await cp(
+  path.resolve(here, "../../web/public/og.png"),
+  path.resolve(here, "../public/og.png"),
+);
+console.log("copied og.png");
+
 // The pdf.js worker, for the page that renders a real paper.
 //
 // Resolved from the package, not from apps/web/public. The web app copies it

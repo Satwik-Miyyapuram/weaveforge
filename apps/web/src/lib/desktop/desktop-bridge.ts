@@ -27,6 +27,11 @@ export interface DesktopImage {
   url: string;
 }
 
+export interface DesktopLocalDbState {
+  failure: string | null;
+  dataDir: string;
+}
+
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
@@ -125,7 +130,19 @@ export interface DesktopBridge {
    * is a process the browser does not have. Each call is its own transaction on
    * the far side, so nothing here can hold a connection open.
    */
-  queryLocalDb(sql: string, params?: readonly (string | number | boolean | null)[]): Promise<unknown[]>;
+  queryLocalDb(sql: string, params?: readonly (string | number | boolean | null | Uint8Array)[]): Promise<unknown[]>;
+
+  /**
+   * Whether the local database could be opened, and where it lives.
+   *
+   * `failure` is `null` until an open has failed. When it is set, every
+   * `queryLocalDb` is failing for the same reason, and `resetLocalDb` is the
+   * way out: it moves the data directory aside (never deletes it) so the next
+   * query starts a fresh one. Refused while the database is healthy. The shell
+   * may relaunch itself to complete the move; the promise then never settles.
+   */
+  localDbState(): Promise<DesktopLocalDbState>;
+  resetLocalDb(): Promise<void>;
 
   /**
    * The workspace folder on disk: the same markdown the export produces, but
