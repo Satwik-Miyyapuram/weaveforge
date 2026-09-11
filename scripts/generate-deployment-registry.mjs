@@ -17,6 +17,7 @@ const features = [
   ["papers", "@/features/papers/module", "papersModule", false],
   ["vault", "@/features/vault/module", "vaultModule", false],
   ["wiki", "@/features/wiki/module", "wikiModule", false],
+  ["editor-workspace", "@/features/editor-workspace/module", "editorWorkspaceModule", false],
   ["graph", "@/features/relations/module", "graphModule", false],
   ["reading-lists", "@/features/reading-lists/module", "readingListsModule", false],
   ["experiments", "@/features/experiments/module", "experimentsModule", false],

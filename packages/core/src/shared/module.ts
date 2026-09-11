@@ -48,6 +48,13 @@ export interface FeatureModule {
    * data is in this category; see the offline-first plan, D3 and D10.
    */
   readonly requiresNetwork?: boolean;
+  /**
+   * The module only makes sense inside the desktop shell — it needs keyboard
+   * shortcuts a browser tab keeps for itself, or a window the shell owns — so
+   * the served web build leaves it out, the same way an offline build leaves
+   * out what needs a server.
+   */
+  readonly desktopOnly?: boolean;
   /** Migration file names this module owns (documentation/ordering aid). */
   readonly migrations?: readonly string[];
 }
