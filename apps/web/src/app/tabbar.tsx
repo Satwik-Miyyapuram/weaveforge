@@ -110,14 +110,28 @@ export function TabBar({
       </div>
       {breakpoint === "desktop" && (
         <div className="desktop-only nav-bottom">
-          <div className="app-brand">
-            <WeaveForgeLogo className="app-logo" />
-            <span className="app-name">WeaveForge</span>
-          </div>
-          <OrgSwitcher />
-          <ProjectSwitcher />
-          <ThemeToggle />
-          <HeaderActions />
+          {collapsed ? (
+            // The 64px rail cannot hold a labelled project switcher or a stack
+            // of account links, so it carries the compact overflow menu the
+            // mobile bar uses — the same links, behind the same "⋯" — plus the
+            // theme toggle. Everything else the sidebar holds is one click away
+            // in the rail's own links above.
+            <div className="nav-rail-actions">
+              <ThemeToggle />
+              <HeaderActions variant="menu" />
+            </div>
+          ) : (
+            <>
+              <div className="app-brand">
+                <WeaveForgeLogo className="app-logo" />
+                <span className="app-name">WeaveForge</span>
+              </div>
+              <OrgSwitcher />
+              <ProjectSwitcher />
+              <ThemeToggle />
+              <HeaderActions />
+            </>
+          )}
         </div>
       )}
     </nav>
