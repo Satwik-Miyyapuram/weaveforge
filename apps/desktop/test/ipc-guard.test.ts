@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { registerGuardedIpc, sameOrigin, type IpcSurface } from "../src/ipc-guard";
+import { originOf, registerGuardedIpc, sameOrigin, type IpcSurface } from "../src/ipc-guard";
 
 /**
  * The rule that stands between a page and the shell's own channels.
@@ -185,4 +185,11 @@ test("ipc guard: sameOrigin compares components, because URL.origin cannot", () 
   // A trailing dot is a different hostname as far as this is concerned, which
   // is the safe direction to be wrong in.
   assert.equal(sameOrigin("https://app.example./", "https://app.example"), false);
+});
+
+test("originOf reads the app:// origin Node's URL.origin reports as null", () => {
+  assert.equal(new URL("app://weaveforge/").origin, "null");
+  assert.equal(originOf("app://weaveforge/"), "app://weaveforge");
+  assert.equal(originOf("http://localhost:3000/notes"), "http://localhost:3000");
+  assert.equal(sameOrigin("app://weaveforge/notes/", originOf("app://weaveforge/")), true);
 });

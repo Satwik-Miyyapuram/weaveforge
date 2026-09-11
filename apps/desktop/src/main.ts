@@ -42,7 +42,7 @@ import { PreferenceStore } from "./preference-store";
 import { fetchReleases, findUpdate } from "./update-check";
 import { installMenu, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
-import { registerGuardedIpc, sameOrigin } from "./ipc-guard";
+import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
 import { runBoundedQuit } from "./quit";
 import { temporaryName } from "./write-queue";
 
@@ -97,7 +97,7 @@ const bundled = fs.existsSync(path.join(BUNDLE, "index.html"));
  */
 const APP_URL =
   process.env.WEAVEFORGE_URL ?? (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
-const APP_ORIGIN = new URL(APP_URL).origin;
+const APP_ORIGIN = originOf(APP_URL);
 
 /**
  * The only way a channel is registered, and the reason it is not `ipcMain`.
