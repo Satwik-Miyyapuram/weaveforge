@@ -55,7 +55,19 @@ export const CHANNELS = {
    * behind a breakpoint. Each call is its own transaction on the far side, with
    * the role and the claim set inside it — see `local-db.ts`.
    */
-  dbQuery: "weaveforge:db-query",
+  dbQuery: "weaveforge:db-query",
+  /**
+   * Whether the local database opened, and where it lives; and the one way
+   * out when it did not.
+   *
+   * A data directory that a crash or a force-quit left half-written cannot be
+   * opened by any later boot, and the page would otherwise be showing an
+   * Emscripten abort with a Reload button that reloads into the same abort.
+   * `dbReset` moves that directory aside — never deletes it — and is refused
+   * while the database is healthy. See `local-db-host.ts`.
+   */
+  dbState: "weaveforge:db-state",
+  dbReset: "weaveforge:db-reset",
   /**
    * The workspace folder: choose one, ask which one is chosen, read and write
    * inside it. What may be chosen and how a path is kept inside the root is

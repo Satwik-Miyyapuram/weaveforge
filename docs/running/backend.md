@@ -25,7 +25,11 @@ fetch`, indistinguishable from a dead network.
 | `docs.weaveforge.org` | legacy docs address — redirects to `www.weaveforge.org/docs/` | DNS only |
 | `api.weaveforge.org` | PostgREST data + realtime | the self-hosted box — [oracle-shift-guide](oracle-shift.md) |
 
-`CORS_ALLOWED_ORIGINS` on the API box must list `https://app.weaveforge.org`.
+`CORS_ALLOWED_ORIGINS` on the API box must list `https://app.weaveforge.org`
+and `app://weaveforge` — the desktop shell's renderer sends the latter as its
+Origin, and the Caddyfile's allowlist (`infra/oci/Caddyfile`) names both.
+Without the desktop origin the app can still work on this computer, but every
+sign-in or sync attempt from it dies as "Could not reach api.weaveforge.org".
 Preview deployments (`*.vercel.app`) are deliberately not on it: they would be
 new origins on every deploy. Test previews against a local API, or add the one
 preview host you need for as long as you need it.

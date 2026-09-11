@@ -51,6 +51,9 @@ function stub(failOn?: string) {
 /** No migrations on disk: the stub would rather be asked than read from. */
 const NO_MIGRATIONS: string[] = [];
 
+/** The options every test shares: nowhere real, and a discard that only counts. */
+const ELSEWHERE = { dataDir: "/nowhere/local-db", discard: async () => {} };
+
 test("local-db-host: a failed migration closes the engine it opened", async () => {
   const opened: ReturnType<typeof stub>[] = [];
   const host = new LocalDbHost({
@@ -62,6 +65,7 @@ test("local-db-host: a failed migration closes the engine it opened", async () =
       return made.client;
     },
     migrations: NO_MIGRATIONS,
+    ...ELSEWHERE,
   });
 
   const answer = await host.query("select 1", []);
@@ -80,6 +84,7 @@ test("local-db-host: a second call after a failed open leaves exactly one engine
       return made.client;
     },
     migrations: NO_MIGRATIONS,
+    ...ELSEWHERE,
   });
 
   assert.equal((await host.query("select 1", [])).ok, false);
@@ -102,6 +107,7 @@ test("local-db-host: closing after a failed open does not throw", async () => {
   const host = new LocalDbHost({
     open: async () => stub("weaveforge_migrations").client,
     migrations: NO_MIGRATIONS,
+    ...ELSEWHERE,
   });
 
   assert.equal((await host.query("select 1", [])).ok, false);
@@ -116,6 +122,7 @@ test("local-db-host: a close that races a failed open still resolves", async () 
       throw new Error("no data directory");
     },
     migrations: NO_MIGRATIONS,
+    ...ELSEWHERE,
   });
 
   const failed = host.query("select 1", []);
@@ -131,9 +138,82 @@ test("local-db-host: a bad query is refused before anything is opened", async ()
       return stub().client;
     },
     migrations: NO_MIGRATIONS,
+    ...ELSEWHERE,
   });
 
   assert.equal((await host.query("", [])).ok, false);
   assert.equal((await host.query("select 1", [{ not: "a param" }])).ok, false);
   assert.deepEqual(opened, []);
+});
+
+test("local-db-host: a failed open is reported as such, and reset moves aside", async () => {
+  let discarded = 0;
+  let attempts = 0;
+  const host = new LocalDbHost({
+    open: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("Aborted(). Build with -sASSERTIONS for more info.");
+      return stub().client;
+    },
+    migrations: NO_MIGRATIONS,
+    dataDir: "/nowhere/local-db",
+    discard: async () => {
+      discarded += 1;
+    },
+  });
+
+  assert.deepEqual(host.state(), { failure: null, dataDir: "/nowhere/local-db" });
+
+  const first = await host.query("select 1", []);
+  assert.equal(first.ok, false);
+  // The page sees that it was the *open* that failed, not the statement.
+  assert.match((first as { message: string }).message, /could not be opened.*Aborted/);
+  assert.match(host.state().failure ?? "", /Aborted/);
+
+  const reset = await host.reset();
+  assert.deepEqual(reset, { ok: true, value: null });
+  assert.equal(discarded, 1);
+  assert.equal(host.state().failure, null);
+
+  // The next query opens afresh, and the failure does not linger.
+  const second = await host.query("select 1", []);
+  assert.equal(second.ok, true);
+  assert.equal(attempts, 2);
+});
+
+test("local-db-host: reset is refused while the database is healthy", async () => {
+  let discarded = 0;
+  const host = new LocalDbHost({
+    open: async () => stub().client,
+    migrations: NO_MIGRATIONS,
+    dataDir: "/nowhere/local-db",
+    discard: async () => {
+      discarded += 1;
+    },
+  });
+
+  // Never opened: nothing has failed, so nothing may be moved.
+  assert.equal((await host.reset()).ok, false);
+  await host.query("select 1", []);
+  // Opened fine: same answer.
+  assert.equal((await host.reset()).ok, false);
+  assert.equal(discarded, 0);
+});
+
+test("local-db-host: a reset whose move fails keeps the failure for a retry", async () => {
+  const host = new LocalDbHost({
+    open: async () => {
+      throw new Error("Aborted().");
+    },
+    migrations: NO_MIGRATIONS,
+    dataDir: "/nowhere/local-db",
+    discard: async () => {
+      throw new Error("EACCES: permission denied");
+    },
+  });
+  await host.query("select 1", []);
+  const reset = await host.reset();
+  assert.equal(reset.ok, false);
+  assert.match((reset as { message: string }).message, /EACCES/);
+  assert.match(host.state().failure ?? "", /Aborted/);
 });
