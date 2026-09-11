@@ -22,7 +22,7 @@
     "electron-builder": "^25.1.8",
     "esbuild": "^0.28.2",
     "tsx": "^4.23.0",
-    "typescript": "^5.5.0"
+    "typescript": "^7.0.2"
   },
   "build": {
     "appId": "dev.weaveforge.desktop",
