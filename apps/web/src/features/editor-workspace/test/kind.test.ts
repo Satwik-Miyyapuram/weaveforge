@@ -41,9 +41,27 @@ test("a folder is a grouping, not a file, so it carries no suffix", () => {
 test("a kind core has not taught the editor yet still renders as text", () => {
   // `packages/core` gaining an entity type must not break this screen: the
   // unknown kind reads as a plain text document with the fallback icon.
-  assert.equal(kindIcon("ink_page"), kindIcon(FALLBACK_KIND));
-  assert.equal(documentKind("ink_page"), "text");
-  assert.deepEqual(segmentsFor("ink_page"), []);
+  assert.equal(kindIcon("something_new"), kindIcon(FALLBACK_KIND));
+  assert.equal(documentKind("something_new"), "text");
+  assert.deepEqual(segmentsFor("something_new"), []);
+});
+
+test("an ink note is its own row: pencil, the ink tint, .ink.md, the ink renderer", () => {
+  assert.equal(kindIcon("ink_page"), "pencil");
+  assert.equal(kindTintClass("ink_page"), "kind-tint-danger");
+  assert.equal(kindSuffix("ink_page"), ".ink.md");
+  assert.equal(documentKind("ink_page"), "ink");
+  assert.equal(documentSuffix("ink_page"), ".ink.md");
+  assert.equal(labelledTitle("Supervisor meeting", "ink_page"), "Supervisor meeting.ink.md");
+  assert.equal(isDocumentKind("ink_page"), true);
+  // A note, so it resolves against the notes table and a `[[link]]` can point
+  // at it exactly as it points at a typed note.
+  assert.equal(linkGroupOf("ink_page"), "notes");
+  assert.equal(memberRank("ink_page"), memberRank("vault_page"));
+});
+
+test("the ink status bar says pages and strokes, not words and lines", () => {
+  assert.deepEqual(segmentsFor("ink_page"), ["page", "strokes", "pen", "recognised", "ink"]);
 });
 
 test("a text document in edit mode is the shipped editor, in read mode markdown", () => {
@@ -51,6 +69,11 @@ test("a text document in edit mode is the shipped editor, in read mode markdown"
   assert.equal(rendererFor("vault_page", "read"), "markdown");
   assert.equal(rendererFor("paper", "edit"), "editor");
   assert.equal(rendererFor("paper", "read"), "markdown");
+});
+
+test("an ink note has one mode, so both of the tab's modes reach the ink renderer", () => {
+  assert.equal(rendererFor("ink_page", "edit"), "ink");
+  assert.equal(rendererFor("ink_page", "read"), "ink");
 });
 
 test("an unknown kind is safe in both modes", () => {
@@ -61,7 +84,8 @@ test("an unknown kind is safe in both modes", () => {
 test("Edit / Read applies to text kinds only", () => {
   assert.equal(supportsEditMode("paper"), true);
   assert.equal(supportsEditMode("vault_page"), true);
-  assert.equal(supportsEditMode("ink_page"), true, "an unknown kind is text, so it has both modes");
+  assert.equal(supportsEditMode("something_new"), true, "an unknown kind is text, so it has both modes");
+  assert.equal(supportsEditMode("ink_page"), false, "ink has one mode: its own");
 });
 
 test("the status bar segments a kind declares are the text ones", () => {
