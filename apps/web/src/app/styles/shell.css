@@ -255,7 +255,7 @@
  *
  * The desktop block in `nav.css` gives `.app-shell` a fluid gutter and the
  * layout a `--nav-inset` left padding so content clears the 216px sidebar.
- * The editor is not a page inside that frame — it is the frame: a 48px rail,
+ * The editor is not a page inside that frame — it is the frame: the nav rail,
  * its own explorer and panes that must reach the window's edges on all four
  * sides. Both declarations are therefore zeroed on this route only, and every
  * other route keeps them exactly as they were.

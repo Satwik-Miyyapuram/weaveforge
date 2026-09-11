@@ -87,8 +87,15 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // tabs supersede it). It is the one screen that is a workspace rather than a
   // page, and the only one that must reach the window's bottom edge.
   const editorRoute = useWorkspaceRoute();
-  const [manuallyCollapsed, setManuallyCollapsed] = useState(false);
-  const collapsed = editorRoute || manuallyCollapsed;
+  // The route picks the default and the hamburger overrides it: the rail on
+  // `/workspace`, the wide sidebar elsewhere, either way until the person
+  // toggles. `null` is "no override", and a route change clears it, so the
+  // workspace collapses again on the way back in. It used to be
+  // `editorRoute || manual`, which made the hamburger a dead button on the
+  // one screen where the sidebar is narrowest.
+  const [override, setOverride] = useState<boolean | null>(null);
+  const collapsed = override ?? editorRoute;
+  useEffect(() => setOverride(null), [editorRoute]);
   // Enable sidebar transitions only AFTER the layout has settled into place, so
   // the nav appearing on load (padding-left 0→232) doesn't slide the content
   // around. Collapse-toggle animations still play once this is on.
@@ -149,7 +156,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           collapsed={collapsed}
           navEnter={navEnter}
           breakpoint={breakpoint}
-          onToggle={() => setManuallyCollapsed(!manuallyCollapsed)}
+          onToggle={() => setOverride(!collapsed)}
         />
       )}
       <main id="main" className="app-shell">
