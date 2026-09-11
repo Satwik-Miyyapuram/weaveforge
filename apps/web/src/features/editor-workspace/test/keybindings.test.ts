@@ -22,6 +22,12 @@ test("⌘E toggles the document between Edit and Read", () => {
   assert.equal(commandForChord({ key: "e" }), null);
 });
 
+test("⌘N asks for a new note", () => {
+  assert.equal(commandForChord({ key: "n", metaKey: true }), "new-note");
+  assert.equal(commandForChord({ key: "N", ctrlKey: true }), "new-note");
+  assert.equal(commandForChord({ key: "n" }), null);
+});
+
 test("the shortcut table lists every command exactly once", () => {
   const table = shortcutTable();
   const commands = Object.keys(table);

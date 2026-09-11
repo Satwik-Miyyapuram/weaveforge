@@ -1,4 +1,5 @@
 import { renderToString } from "katex";
+import { parseImageAlt } from "@/lib/markdown-image-width";
 
 /**
  * Minimal markdown-to-HTML for prose blocks (headings, lists, inline). Fenced
@@ -66,11 +67,17 @@ function formatText(s: string): string {
     .replace(/\b_([^_]+)_\b/g, "<em>$1</em>")
     .replace(
       /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
-      (_m, alt: string, src: string) => {
+      (_m, rawAlt: string, src: string) => {
         // Captures here are already HTML-escaped; only quote-escape for attrs.
+        // A `|50%` suffix on the alt is a display width, not a description
+        // (see `markdown-image-width.ts`); it becomes a style and the bare alt
+        // is kept on a data attribute so the read view's resize control can
+        // find the reference it came from.
+        const { alt, width } = parseImageAlt(rawAlt);
         const safeAlt = alt.replace(/"/g, "&quot;");
         const safeSrc = src.replace(/"/g, "&quot;");
-        return `<img src="${safeSrc}" alt="${safeAlt}" class="md-image" loading="lazy" />`;
+        const style = width ? ` style="width:${width}"` : "";
+        return `<img src="${safeSrc}" alt="${safeAlt}" data-md-alt="${safeAlt}" class="md-image" loading="lazy"${style} />`;
       },
     )
     .replace(

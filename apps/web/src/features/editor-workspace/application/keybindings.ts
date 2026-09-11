@@ -13,7 +13,8 @@ export type WorkspaceCommand =
   | "close-tab"
   | "next-tab"
   | "previous-tab"
-  | "toggle-mode";
+  | "toggle-mode"
+  | "new-note";
 
 export interface KeyChord {
   key: string;
@@ -37,6 +38,9 @@ export function commandForChord(chord: KeyChord): WorkspaceCommand | null {
   const key = chord.key.toLowerCase();
   if (key === "p" && !chord.shiftKey) return "quick-open";
   if (key === "e" && !chord.shiftKey) return "toggle-mode";
+  // `Ctrl-N` is "new window" to a browser; the workspace claims it the way an
+  // editor does, and Electron does not give the browser's meaning a chance.
+  if (key === "n" && !chord.shiftKey) return "new-note";
   if (key === "\\") return "split-right";
   if (key === "w") return "close-tab";
   if (key === "tab") return chord.shiftKey ? "previous-tab" : "next-tab";
@@ -57,6 +61,7 @@ export function commandForChord(chord: KeyChord): WorkspaceCommand | null {
 const CHORDS: Record<WorkspaceCommand, string> = {
   "quick-open": "⌘P",
   "toggle-mode": "⌘E",
+  "new-note": "⌘N",
   "split-right": "⌘\\",
   "close-tab": "⌘W",
   "next-tab": "⌘⇥",
