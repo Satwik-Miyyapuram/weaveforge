@@ -8,6 +8,8 @@ import { useProject } from "./project-provider";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
+import { EmptyState } from "@/components/empty-state";
+import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
@@ -57,9 +59,17 @@ export function ProjectsScreen() {
       {loading && <ScreenLoader status="Loading projects…" />}
 
       {!loading && projects.length === 0 && (
-        <div className="empty">
-          <p>No projects yet. Use “New project” to create your first one.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<WeaveForgeLogo className="app-logo" />}
+          title="No projects yet"
+          body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
+          action={
+            <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+              + New project
+            </button>
+          }
+        />
       )}
 
       {!loading && projects.length > 0 && (
