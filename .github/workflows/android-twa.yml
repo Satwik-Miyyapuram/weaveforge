@@ -48,7 +48,7 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       # Pinned to an exact version on purpose. `compileSdkVersion`,
       # `targetSdkVersion` and the Android Gradle Plugin version are not read
