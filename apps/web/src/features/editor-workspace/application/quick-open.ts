@@ -109,3 +109,63 @@ export function quickOpenResults(
   results.sort((a, b) => b.score - a.score || a.node.label.localeCompare(b.node.label));
   return results.slice(0, MAX_RESULTS);
 }
+
+export interface QuickOpenGroup {
+  /** The root the group belongs to, as `kind.ts` names it. */
+  kind: string;
+  label: string;
+  results: QuickOpenResult[];
+}
+
+/**
+ * Group order: the order of the explorer's roots.
+ *
+ * Notes, Papers, Lists, Report — the same order the Files section stacks them
+ * in, so the palette and the tree agree about what the workspace is made of.
+ * Kinds that have no heading yet (an experiment row, say) land at the end in
+ * the order they were first seen rather than being dropped.
+ */
+const GROUP_ORDER: readonly { kind: string; label: string }[] = [
+  { kind: "vault_page", label: "Notes" },
+  { kind: "paper", label: "Papers" },
+  { kind: "reading_list", label: "Reading lists" },
+  { kind: "report_section", label: "Report" },
+];
+
+/**
+ * Split score-ordered hits into groups without re-sorting them.
+ *
+ * Inside a group the score order is preserved — the best hit is still first,
+ * which is what a palette is for — and across groups the root order wins, so
+ * Notes do not interleave with Papers.
+ */
+export function groupResults(results: readonly QuickOpenResult[]): QuickOpenGroup[] {
+  const groups: QuickOpenGroup[] = [];
+  const byKind = new Map<string, QuickOpenGroup>();
+
+  for (const entry of GROUP_ORDER) {
+    const group: QuickOpenGroup = { kind: entry.kind, label: entry.label, results: [] };
+    groups.push(group);
+    byKind.set(entry.kind, group);
+    const found = results.filter((result) => result.node.kind === entry.kind);
+    group.results.push(...found);
+  }
+
+  for (const result of results) {
+    if (byKind.has(result.node.kind)) continue;
+    let group = byKind.get(result.node.kind);
+    if (!group) {
+      group = { kind: result.node.kind, label: titleCase(result.node.kind), results: [] };
+      byKind.set(result.node.kind, group);
+      groups.push(group);
+    }
+    group.results.push(result);
+  }
+
+  return groups.filter((group) => group.results.length > 0);
+}
+
+function titleCase(text: string): string {
+  const words = text.replace(/[_-]+/g, " ").trim().split(/\s+/);
+  return words.map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`).join(" ");
+}
