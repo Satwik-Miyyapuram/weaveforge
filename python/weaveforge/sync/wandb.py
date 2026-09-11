@@ -23,7 +23,13 @@ _log = logging.getLogger(__name__)
 
 def _history_to_series(rows: Iterable[dict[str, Any]]) -> list[MetricSeries]:
     """Pure: wandb history rows (dicts keyed by metric, with ``_step``) →
-    one series per numeric metric. Internal ``_``-prefixed keys are skipped."""
+    one series per numeric metric. Internal ``_``-prefixed keys are skipped.
+
+    ``_timestamp`` is passed through **raw**: it is epoch seconds (a float), and
+    ``str()``-ing it here would hand ``normalize_wall_time`` a string it treats
+    as already ISO-parseable, so ``"1699999999.12"`` would reach a
+    ``timestamptz`` column and the insert would be rejected.
+    """
     by_metric: dict[str, MetricSeries] = {}
     for i, row in enumerate(rows):
         step = row.get("_step", i)
@@ -34,7 +40,7 @@ def _history_to_series(rows: Iterable[dict[str, Any]]) -> list[MetricSeries]:
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 continue
             series = by_metric.setdefault(key, MetricSeries(key))
-            series.add(int(step), float(value), str(wall) if wall is not None else None)
+            series.add(int(step), float(value), wall)
     return list(by_metric.values())
 
 

@@ -187,3 +187,59 @@ def test_a_source_that_cannot_mirror_says_so_before_the_run_starts(monkeypatch):
     with pytest.raises(TypeError):
         with track("x", container=MemoryContainer(), registry=registry, mirror="read-only"):
             pass
+
+
+class _RecordingApi:
+    """Stands in for the ApiClient just far enough to see whether it is closed."""
+
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def _container_with_api():
+    container = MemoryContainer()
+    api = _RecordingApi()
+    container.api = api  # the real Container has this field; the memory one does not
+    return container, api
+
+
+def test_track_closes_the_connection_it_opened_for_itself(monkeypatch):
+    _no_git(monkeypatch)
+    container, api = _container_with_api()
+    monkeypatch.setattr("weaveforge.tracking._connect", lambda project=None: container)
+
+    with track("owned") as run:
+        run.log_metric("loss", 1.0, step=0)
+
+    # Every track() used to leak an httpx pool because nothing called close().
+    assert api.closed is True
+
+
+def test_track_closes_its_own_connection_even_when_the_run_raised(monkeypatch):
+    _no_git(monkeypatch)
+    container, api = _container_with_api()
+    monkeypatch.setattr("weaveforge.tracking._connect", lambda project=None: container)
+
+    with pytest.raises(ValueError):
+        with track("owned"):
+            raise ValueError("training died")
+
+    assert api.closed is True
+
+
+def test_track_leaves_an_injected_container_open(monkeypatch):
+    """The caller opened that connection, so the caller closes it — and may
+    still hold the ``Run`` afterwards."""
+    _no_git(monkeypatch)
+    container, api = _container_with_api()
+
+    with track("injected", container=container) as run:
+        run.log_metric("loss", 1.0, step=0)
+
+    assert api.closed is False
+    # The run is still usable in the only sense that matters after the block.
+    assert container.experiments.list()[0].status == "done"
+

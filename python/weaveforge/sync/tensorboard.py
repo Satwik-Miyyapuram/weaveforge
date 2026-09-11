@@ -16,10 +16,16 @@ from .source import MissingDependencyError
 
 
 def _scalars_to_series(
-    rows: Iterable[tuple[str, int, float, str | None]]
+    rows: Iterable[tuple[str, int, float, Any]]
 ) -> list[MetricSeries]:
     """Group ``(tag, step, value, wall_time)`` rows into one series per tag,
-    each in step order."""
+    each in step order.
+
+    ``wall_time`` is passed through raw — tbparse hands back epoch seconds as a
+    float and ``str()``-ing it here would bypass the epoch branch of
+    :func:`~weaveforge.features.experiments.domain.metric_point.normalize_wall_time`
+    and put a numeric string into a ``timestamptz`` column.
+    """
     by_tag: dict[str, MetricSeries] = {}
     for tag, step, value, wall_time in rows:
         series = by_tag.setdefault(tag, MetricSeries(tag))
@@ -54,7 +60,8 @@ class TensorBoardSource:
                 row.tag,
                 row.step,
                 row.value,
-                str(row.wall_time) if has_wall else None,
+                # Raw, not `str()`: see _scalars_to_series.
+                row.wall_time if has_wall else None,
             )
             for row in df.itertuples(index=False)
         )

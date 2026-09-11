@@ -16,7 +16,13 @@ class SupabaseMetricRepository:
     def __init__(self, client: Any) -> None:
         self._db = client
 
-    def append(self, points: Iterable[MetricPoint]) -> None:
+    def append(
+        self, points: Iterable[MetricPoint], *, timeout: float | None = None
+    ) -> None:
+        # `timeout` is accepted for port parity and deliberately unused: this
+        # adapter talks to PostgREST through the caller's Supabase client, whose
+        # timeout is that client's configuration, not something a repository
+        # call should override per batch.
         rows = [
             {
                 "experiment_id": p.experiment_id,
