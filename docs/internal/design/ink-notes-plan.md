@@ -687,6 +687,47 @@ priced that correctly and then declined to pay it. Given that it removes a
 step (§7 step 3), and **keep the web engine working on desktop too**, so a
 missing or broken helper degrades to a slower recogniser rather than to nothing.
 
+> **Built and measured, step 3 (2026-09-11).** The helper exists
+> (`apps/desktop/native/ink-recogniser/`, ~400 lines of C#, published for
+> `win-arm64` and `win-x64`). Measured on the target hardware — Snapdragon X,
+> Windows 11 arm64, .NET 9 — with the contract test in
+> `apps/desktop/test/ink-recogniser.test.ts`:
+>
+> | | |
+> | --- | --- |
+> | **Cold start, once per session** | **~90–170 ms** (CLR + Windows SDK load) |
+> | Warm, three-line page (engine's own timing) | **32–63 ms** |
+> | Warm, two-line page, wall clock through the client | **~39 ms** |
+> | Published size, self-contained and trimmed | **13.4 MB** x64 / **13.8 MB** arm64 |
+>
+> So the process is **spawned once per session and kept**, not started per page:
+> paying 90–170 ms in front of every "Recognise" would be a visible pause the
+> whole paragraph above exists to avoid. That is the cold-start fact this note
+> was asked to record. §9 item 9 (a *real* 20-line page) is still open — the
+> numbers here are a page of synthetic letterforms, and the plan's own rule is
+> that a synthetic page is not a hand.
+>
+> Two API facts changed the design, and both contradict the text above:
+>
+> - **`InkAnalyzer` takes no vocabulary hints.** Neither it nor
+>   `InkRecognizerContainer` has a word-list parameter, so §5.4's claim that
+>   "Windows Ink accepts a word list as a recognition guide" is not available on
+>   this engine. The post-match against known titles is therefore the *only*
+>   path that helps on Windows, not a fallback for engines that cannot take
+>   hints. The fields stay on the wire because the interface is engine-agnostic.
+> - **There is no confidence score.** Nothing on `InkAnalysisLine` exposes one, so
+>   §5.4's "map each engine's score to `[0,1]`" is a no-op here and the dotted
+>   underline will never fire for Windows Ink. The helper reports `1`/`0`, which
+>   is honest; an invented score would make the correction UI lie.
+>
+> And one platform bug worth knowing before anyone else hits it: Windows Ink's
+> objects make the helper **fail-fast with `0xC0000409` at process teardown** —
+> after every answer is written and flushed, and only when a page's worth of
+> strokes has been analysed. `Environment.Exit(0)` does not avoid it;
+> `TerminateProcess(GetCurrentProcess(), 0)` does. The controls and the reasoning
+> are in the helper's README, and the workaround should be deleted when a Windows
+> update stops needing it.
+
 ### 5.4 Segmentation and hints — the parts that make a bad hand work
 
 - **Line segmentation** (`packages/core/src/ink/segment.ts`): sort strokes by
@@ -1375,7 +1416,12 @@ In order of value:
 - **The native recogniser is now a real dependency** (§5.3). A helper exe
   built per arch, a stdio protocol to keep stable, a Windows-only code path. Mitigated by keeping
   the web engine as a desktop fallback. This is the largest new engineering
-  commitment in this revision.
+  commitment in this revision. **Measured cost: 13.4 MB (x64) + 13.8 MB (arm64)
+  shipped, so a Windows installer grows by ~27 MB, not 14 MB** — the installer
+  carries both, because `electron-builder` targets both and a Windows on Arm
+  machine should not have to run the x64 build under emulation. Both are
+  self-contained and trimmed (no .NET runtime required on the target), which is
+  what those 14 MB are: `PublishTrimmed` is what makes it 14 and not 60.
 - **WebGL context loss** on integrated graphics is real (§6.2.9). Mitigated by
   a state model fully reconstructible from the sidecar plus a Canvas 2D
   fallback — but it must be built in from the start.
