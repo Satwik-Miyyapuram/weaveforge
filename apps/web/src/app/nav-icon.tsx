@@ -45,12 +45,6 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M8 7h8M8 11h8M8 15h5" />
     </>
   ),
-  vault: (
-    <>
-      <path d="M4 4h16v16H4V4Z" />
-      <path d="M8 4v16M4 8h12M4 12h12M4 16h12" />
-    </>
-  ),
   home: <path d="M4 11 12 4l8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9Z" />,
 };
 
