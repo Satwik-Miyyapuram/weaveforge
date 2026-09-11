@@ -14,11 +14,48 @@ import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 
 const basePath = process.env.BASE_PATH ?? "";
 
+/**
+ * The host this export answers on.
+ *
+ * Not a guess: `scripts/copy-assets.mjs` writes the CNAME GitHub Pages serves
+ * from (`PAGES_DOMAIN`, default www.weaveforge.org), and the Pages workflow
+ * builds with `BASE_PATH: ""` precisely because the site sits at the root of
+ * that domain. `metadataBase` is also what lets every image URL below stay
+ * relative, which is what keeps them correct under a non-empty `BASE_PATH`.
+ */
+const SITE_URL = "https://www.weaveforge.org";
+
+const TITLE = "WeaveForge — one workspace for research";
+const DESCRIPTION =
+  "Papers, notes, plan, experiments and writing in one project, so the reasoning behind your research survives the years it takes to do it.";
+
 export const metadata: Metadata = {
-  title: "WeaveForge — one workspace for research",
-  description:
-    "Papers, notes, plan, experiments and writing in one project, so the reasoning behind your research survives the years it takes to do it.",
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
   icons: { icon: `${basePath}/icons/weave_forge.svg` },
+  openGraph: {
+    type: "website",
+    siteName: "WeaveForge",
+    locale: "en",
+    url: `${basePath}/`,
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [
+      {
+        url: `${basePath}/og.png`,
+        width: 1200,
+        height: 630,
+        alt: "WeaveForge — one workspace for research.",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [`${basePath}/og.png`],
+  },
 };
 
 export const viewport: Viewport = {
