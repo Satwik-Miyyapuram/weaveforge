@@ -70,6 +70,13 @@ textarea:focus,
 /* Shared chevron: flip = popover/select, expand = tree rows. */
 .chev { display: inline-flex; align-items: center; justify-content: center; flex: none; opacity: 0.55; }
 .chev svg { display: block; transition: transform 0.15s ease; }
+/* The glyph is a down-chevron. `flip` turns it over when its popover is open;
+   `expand` starts pointing right and turns down when the row is open, so the
+   turn is the animation. */
+.chev-flip.open svg { transform: rotate(180deg); }
+.chev-expand svg { transform: rotate(-90deg); }
+.chev-expand.open svg,
+details[open] > summary .chev-expand svg { transform: rotate(0deg); }
 
 @keyframes menu-in {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }

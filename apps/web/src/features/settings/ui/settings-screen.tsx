@@ -15,6 +15,7 @@ import { OrgPanel } from "@/features/org";
 import { SyncSettings } from "@/features/sync";
 import { SearchSettingsPanel } from "./search-settings-panel";
 import { PasteSettingsPanel } from "./paste-settings-panel";
+import { EditorSettingsPanel } from "./editor-settings-panel";
 import { WorkspaceFolderPanel } from "./workspace-folder-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
 import { AccountInfoPanel } from "./account-info-panel";
@@ -50,6 +51,7 @@ const SETTINGS_TABS = [
   { id: "appearance", label: "Appearance" },
   { id: "search", label: "Search" },
   { id: "paste", label: "Paste" },
+  { id: "editor", label: "Editor" },
   { id: "folder", label: "Folder" },
   { id: "ai", label: "AI" },
   { id: "tokens", label: "Tokens" },
@@ -357,6 +359,7 @@ export function SettingsScreen() {
           and save themselves, so this panel does not join the Save button's
           dirty state. */}
       {tab === "paste" && <PasteSettingsPanel />}
+      {tab === "editor" && <EditorSettingsPanel />}
 
       {tab === "appearance" && (
       <div id="settings-appearance" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-appearance">

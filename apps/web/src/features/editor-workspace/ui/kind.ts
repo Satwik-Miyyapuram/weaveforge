@@ -67,6 +67,13 @@ export interface KindMeta {
    * these three lists, so a kind's answer here is what makes a link to it work.
    */
   linkGroup: "notes" | "papers" | "sections" | null;
+  /**
+   * Whether the workspace can make one of these from a title — the explorer's
+   * "New note", the new-note chord, a "Create note" completion row, a click on
+   * an unresolved link — and nest it under another of its kind. Only notes: a
+   * paper needs its metadata and a section its place in the report.
+   */
+  creatable: boolean;
 }
 
 const TEXT_SEGMENTS = ["words", "chars", "cursor", "encoding", "language"] as const;
@@ -83,6 +90,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     documentRow: false,
     memberOrder: null,
     linkGroup: null,
+    creatable: false,
   },
   vault_page: {
     icon: "notes",
@@ -94,6 +102,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     // Papers first, then notes; `10` and `20` leave room for a kind between.
     memberOrder: 20,
     linkGroup: "notes",
+    creatable: true,
   },
   paper: {
     icon: "book",
@@ -104,6 +113,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     documentRow: true,
     memberOrder: 10,
     linkGroup: "papers",
+    creatable: false,
   },
   reading_list: {
     icon: "list",
@@ -114,6 +124,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     documentRow: true,
     memberOrder: null,
     linkGroup: null,
+    creatable: false,
   },
   report_section: {
     icon: "doc",
@@ -124,6 +135,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     documentRow: true,
     memberOrder: null,
     linkGroup: "sections",
+    creatable: false,
   },
   experiment: {
     icon: "flask",
@@ -134,6 +146,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     documentRow: true,
     memberOrder: null,
     linkGroup: null,
+    creatable: false,
   },
   milestone: {
     icon: "flag",
@@ -144,6 +157,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     documentRow: true,
     memberOrder: null,
     linkGroup: null,
+    creatable: false,
   },
   log_entry: {
     icon: "pencil",
@@ -154,6 +168,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     documentRow: true,
     memberOrder: null,
     linkGroup: null,
+    creatable: false,
   },
 };
 
@@ -186,6 +201,11 @@ export function memberRank(kind: string): number {
 /** Which wikilink lookup table a kind resolves against, or `null`. */
 export function linkGroupOf(kind: string): KindMeta["linkGroup"] {
   return kindMeta(kind).linkGroup;
+}
+
+/** Whether the workspace can make a document of this kind from a title. */
+export function isCreatableKind(kind: string): boolean {
+  return kindMeta(kind).creatable;
 }
 
 /**

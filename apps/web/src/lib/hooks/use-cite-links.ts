@@ -43,7 +43,8 @@ const EMPTY: CiteLinkCatalog = {
   sections: [],
 };
 
-function paperCiteLabel(
+/** The completion row a paper makes: `Author (year) · Title`. Shared with the workspace. */
+export function paperCiteLabel(
   paper: {
     id: string;
     title: string;

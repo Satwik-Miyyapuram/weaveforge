@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { extractHashtags, normalizeTitleKey } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
+import { AttachImageButton } from "@/components/attach-image-button";
+import type { EditorHandleRef } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
+import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { noteBodyText } from "@/lib/page-text";
+import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
 import { bodyStats, formatCount, formatCursor } from "../application/document-stats";
@@ -43,12 +48,12 @@ import {
 import type { ExplorerSection } from "../application/explorer-state";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
+import { NewDocumentDialog, type FolderOption } from "./new-document-dialog";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { isDocumentKind, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
+import { isCreatableKind, isDocumentKind, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
-import type { WikilinkEntry } from "@/features/vault";
 
 interface Document {
   kind: string;
@@ -57,6 +62,10 @@ interface Document {
   body: string;
   /** Where the document sits, for the breadcrumbs. */
   path: string;
+  /** A note's folder; the tree nests notes by parent. */
+  parentId?: string;
+  /** A paper's keyword tags, for `#tag` completion. Notes carry theirs inline. */
+  tags?: readonly string[];
 }
 
 function store(): Storage | undefined {
@@ -76,12 +85,29 @@ function store(): Storage | undefined {
  */
 export function WorkspaceScreen() {
   const [documents, setDocuments] = useState<Document[] | null>(null);
+  const [completions, setCompletions] = useState<CiteCompletion[]>([]);
   const [tree, setTree] = useState<WorkspaceTreeNode[]>([]);
   const [listsTree, setListsTree] = useState<WorkspaceTreeNode[]>([]);
   const [membership, setMembership] = useState<ReadonlyMap<string, string[]>>(new Map());
   const [layout, setLayout] = useState<PaneLayout>(() => emptyLayout());
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [creating, setCreating] = useState<"note" | "folder" | null>(null);
+  const createMode = useWikilinkCreateMode();
+  // One handle per open document, so the pane's image button reaches the
+  // editor in the tab it sits over. The boxes outlive their editors: a handle
+  // is null until the lazily-loaded editor mounts and null again once it is
+  // gone, which is exactly what `AttachImageButton` expects.
+  const handles = useRef(new Map<string, EditorHandleRef>());
+  const handleFor = useCallback((tab: TabRef): EditorHandleRef => {
+    const key = tabKey(tab);
+    let handle = handles.current.get(key);
+    if (!handle) {
+      handle = { current: null };
+      handles.current.set(key, handle);
+    }
+    return handle;
+  }, []);
   const [metrics, setMetrics] = useState<Record<string, DocumentMetrics>>({});
   // Saves are debounced inside the editor, so a window closed a keystroke after
   // typing can have a write still in flight. Counted rather than a boolean:
@@ -113,6 +139,7 @@ export function WorkspaceScreen() {
         // the entry has been hydrated and falls back to the preview otherwise.
         body: noteBodyText(page),
         path: `notes/${page.title || "Untitled"}.note.md`,
+        parentId: page.parentId ?? undefined,
       })),
       ...paperRows.map((paper) => ({
         kind: "paper",
@@ -120,6 +147,7 @@ export function WorkspaceScreen() {
         title: paper.title,
         body: paper.summary ?? "",
         path: `papers/${paper.title || "Untitled"}.paper.md`,
+        tags: paper.tags,
       })),
       ...sectionRows.map((section) => ({
         kind: "report_section",
@@ -131,6 +159,28 @@ export function WorkspaceScreen() {
     ];
 
     setDocuments(loaded);
+    // The `@` and `[[` rows, in the shape `/notes` builds them: a paper's row
+    // carries its authors and year so a cite can be formatted, a note's and a
+    // section's just their title. Duplicate titles collapse to one row.
+    const seen = new Set<string>();
+    const rows: CiteCompletion[] = [];
+    for (const paper of paperRows) {
+      const key = normalizeTitleKey(paper.title);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      rows.push(paperCiteLabel(paper));
+    }
+    const titled = [
+      ...vault.flat.map((page) => ({ title: page.title, detail: "note" })),
+      ...sectionRows.map((section) => ({ title: section.title, detail: "section" })),
+    ];
+    for (const row of titled) {
+      const key = normalizeTitleKey(row.title);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      rows.push({ title: row.title, label: row.title, detail: row.detail });
+    }
+    setCompletions(rows);
     setTree(
       buildWorkspaceTree({
         notes: vault.flat.map((page) => ({
@@ -312,16 +362,75 @@ export function WorkspaceScreen() {
     };
   }, [documents]);
 
+  // Every `#tag` the project uses, for completion: the ones written inline in
+  // any document plus the ones a paper carries as a field. Sorted so the list
+  // is stable between keystrokes.
+  const tags = useMemo(() => {
+    const all = new Set<string>();
+    for (const doc of documents ?? []) {
+      for (const tag of extractHashtags(doc.body)) all.add(tag);
+      for (const tag of doc.tags ?? []) all.add(tag);
+    }
+    return [...all].sort();
+  }, [documents]);
+
   const openLink = useCallback(
-    (entry: WikilinkEntry) => {
-      if (!entry.id) return;
+    (tab: TabRef) => {
       // A wikilink in Read mode opens the target's tab. There is no
       // click-to-edit at the caret: source and rendered positions do not map,
       // and pretending they do is where live-preview editors go wrong.
-      apply(openTab(layout, { kind: "vault_page", id: entry.id }));
+      apply(openTab(layout, tab));
     },
     [apply, layout],
   );
+
+  // A new note, from the explorer's button, the new-note chord, a "Create
+  // note" completion row or a click on an unresolved link. Made through the
+  // same use case `/notes` uses, reloaded so the tree and the link lists see
+  // it, then opened as a tab. Titles are unique, so a title that exists
+  // already opens rather than fails.
+  const createNote = useCallback(
+    async (input: { title: string; parentId?: string }, opts: { open?: boolean } = {}) => {
+      const wanted = normalizeTitleKey(input.title);
+      const existing = (documents ?? []).find(
+        (doc) => isCreatableKind(doc.kind) && normalizeTitleKey(doc.title) === wanted,
+      );
+      const id = existing
+        ? existing.id
+        : (await getContainer().vault.manageVaultPage.add({ title: input.title, parentId: input.parentId })).id;
+      if (!existing) await reload();
+      if (opts.open !== false) apply(openTab(layout, { kind: "vault_page", id }));
+    },
+    [apply, documents, layout, reload],
+  );
+
+  const createFromLink = useCallback(
+    (title: string, opts?: { open?: boolean }) => {
+      void createNote({ title }, opts).catch((err) => setError(formatError(err)));
+    },
+    [createNote],
+  );
+
+  // The notes that can hold a new one — every note can — in tree order with
+  // their depth, for the dialog's parent list.
+  const folders = useMemo<FolderOption[]>(() => {
+    const notes = (documents ?? []).filter((doc) => isCreatableKind(doc.kind));
+    const byParent = new Map<string | undefined, Document[]>();
+    for (const note of notes) {
+      const list = byParent.get(note.parentId) ?? [];
+      list.push(note);
+      byParent.set(note.parentId, list);
+    }
+    const out: FolderOption[] = [];
+    const walk = (parentId: string | undefined, depth: number) => {
+      for (const note of byParent.get(parentId) ?? []) {
+        out.push({ id: note.id, title: note.title, depth });
+        walk(note.id, depth + 1);
+      }
+    };
+    walk(undefined, 0);
+    return out;
+  }, [documents]);
 
   const renderDocument = useCallback(
     (tab: TabRef) => {
@@ -334,13 +443,27 @@ export function WorkspaceScreen() {
           mode={tabMode(tab)}
           body={doc.body}
           links={links}
+          completions={completions}
+          tags={tags}
           onSave={(body: string) => save(tab, body)}
           onMetrics={(next) => setMetrics((current) => ({ ...current, [key]: next }))}
           onOpenLink={openLink}
+          onCreateNote={createMode === "create" ? createFromLink : undefined}
+          handleRef={handleFor(tab)}
+          onError={setError}
         />
       );
     },
-    [byKey, links, openLink, save],
+    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor],
+  );
+
+  // The pane's toolbar, for a tab in Edit mode: the same image button the
+  // note, paper and report screens show, inserting at the caret of the editor
+  // under it. Drag and paste already work inside the editor; this is the third
+  // way in, for a picture on disk.
+  const renderTools = useCallback(
+    (tab: TabRef) => <AttachImageButton editor={handleFor(tab)} onError={setError} />,
+    [handleFor],
   );
 
   // One mount per open document, not per visible tab, so the same note in two
@@ -382,18 +505,13 @@ export function WorkspaceScreen() {
     [tree, listsTree, outline],
   );
 
-  // Breadcrumbs and the minimap are per pane, because a split shows two
-  // documents and each one has its own path and its own shape.
+  // Breadcrumbs are per pane, because a split shows two documents and each
+  // one has its own path.
   const crumbsFor = useCallback(
     (tab: TabRef) => breadcrumbs({ kind: tab.kind, id: tab.id }, tree, listsTree),
     [tree, listsTree],
   );
 
-  const metricsFor = useCallback((tab: TabRef) => metrics[tabKey(tab)], [metrics]);
-  const bodyFor = useCallback(
-    (tab: TabRef) => metrics[tabKey(tab)]?.text ?? byKey.get(tabKey(tab))?.body ?? "",
-    [byKey, metrics],
-  );
 
   const openNode = useCallback(
     (node: WorkspaceTreeNode, options: { split: boolean }) => {
@@ -416,6 +534,7 @@ export function WorkspaceScreen() {
       event.preventDefault();
 
       if (command === "quick-open") return setPaletteOpen(true);
+      if (command === "new-note") return setCreating("note");
 
       setLayout((current) => {
         const pane = current.focusedPaneId;
@@ -476,14 +595,15 @@ export function WorkspaceScreen() {
           apply(openTab(layout, { kind: "paper", id: paperId }));
         }}
         onRelease={jumpToHeading}
+        onNewNote={() => setCreating("note")}
+        onNewFolder={() => setCreating("folder")}
       />
       <PaneView
         layout={layout}
         labelFor={labelFor}
         renderDocument={renderDocument}
+        renderTools={renderTools}
         crumbsFor={crumbsFor}
-        metricsFor={metricsFor}
-        bodyFor={bodyFor}
         onOpenCrumb={(crumb) => {
           if (!crumb.key) return;
           const [kind, ...rest] = crumb.key.split(":");
@@ -513,6 +633,15 @@ export function WorkspaceScreen() {
           documents={documentNodes}
           onPick={openNode}
           onClose={() => setPaletteOpen(false)}
+        />
+      ) : null}
+      {creating ? (
+        <NewDocumentDialog
+          kind={creating}
+          folders={folders}
+          initialParentId={activeDoc && isCreatableKind(activeDoc.kind) ? activeDoc.parentId : undefined}
+          onCreate={createNote}
+          onClose={() => setCreating(null)}
         />
       ) : null}
     </div>

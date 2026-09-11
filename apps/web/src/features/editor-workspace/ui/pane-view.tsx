@@ -19,8 +19,6 @@ import {
 } from "../application/pane-tree";
 import { Breadcrumbs } from "./breadcrumbs";
 import { kindIcon, kindSuffix, kindTintClass } from "./kind";
-import { Minimap, viewportFraction } from "./minimap";
-import type { DocumentMetrics } from "./document-host";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -44,12 +42,14 @@ export interface PaneViewProps extends PaneActions {
   peers?: (tab: TabRef) => readonly string[];
   /** The path to a document, for the strip above the pane. */
   crumbsFor?: (tab: TabRef) => readonly Crumb[];
-  /** What the active renderer reports about itself, tab by tab. */
-  metricsFor?: (tab: TabRef) => DocumentMetrics | undefined;
-  /** The body of a document, for the minimap. */
-  bodyFor?: (tab: TabRef) => string;
   /** A crumb click: open the document the crumb names. */
   onOpenCrumb?: (crumb: Crumb) => void;
+  /**
+   * Tools for the tab on screen while it is being edited — the image button.
+   * Rendered in the strip beside Edit / Read, so a document's controls sit
+   * with its mode rather than in a toolbar of their own.
+   */
+  renderTools?: (tab: TabRef) => ReactNode;
 }
 
 /**
@@ -125,9 +125,8 @@ function PaneLeafView({
   renderDocument,
   peers,
   crumbsFor,
-  metricsFor,
-  bodyFor,
   onOpenCrumb,
+  renderTools,
   onActivate,
   onClose,
   onFocus,
@@ -140,13 +139,6 @@ function PaneLeafView({
   const editing = showing ? tabMode(showing) : "edit";
   const peerNames = showing ? (peers?.(showing) ?? []) : [];
   const crumbs = showing ? (crumbsFor?.(showing) ?? []) : [];
-  const metrics = showing ? metricsFor?.(showing) : undefined;
-  const body = showing ? (bodyFor?.(showing) ?? "") : "";
-  // A renderer that reports no text — an ink page — gets no minimap column,
-  // and the pane lays out without it rather than showing an empty rail.
-  const showMinimap = Boolean(showing) && editing === "edit" && metrics?.text !== undefined;
-  const totalLines = body ? body.replace(/\r\n/g, "\n").split("\n").length : 0;
-  const fraction = showMinimap ? viewportFraction(metrics, totalLines) : null;
 
   return (
     <section
@@ -209,6 +201,9 @@ function PaneLeafView({
           );
         })}
         <div className="pane-tab-actions">
+          {showing && editing === "edit" && renderTools ? (
+            <span className="pane-tools">{renderTools(showing)}</span>
+          ) : null}
           {leaf.tabs.length > 0 && showing ? (
             // Edit / Read, per tab. Two segments rather than a toggle button so
             // the current mode is readable without hovering.
@@ -272,7 +267,7 @@ function PaneLeafView({
         <Breadcrumbs crumbs={crumbs} kind={showing.kind} onOpen={onOpenCrumb} />
       ) : null}
 
-      <div className={`pane-body-wrap${showMinimap ? " has-minimap" : ""}`}>
+      <div className="pane-body-wrap">
         <div className="pane-body">
           {leaf.tabs.length === 0 ? (
             <EmptyState />
@@ -290,7 +285,6 @@ function PaneLeafView({
             ))
           )}
         </div>
-        {showMinimap ? <Minimap body={body} fraction={fraction} /> : null}
       </div>
     </section>
   );
@@ -307,6 +301,7 @@ function PaneLeafView({
 function EmptyState() {
   const commands: WorkspaceCommand[] = [
     "quick-open",
+    "new-note",
     "split-right",
     "close-tab",
     "next-tab",
@@ -361,6 +356,7 @@ export function chordKeys(chord: string): string[] {
 
 const SHORTCUT_LABEL: Record<WorkspaceCommand, string> = {
   "quick-open": "Go to file",
+  "new-note": "New note",
   "toggle-mode": "Edit / Read",
   "split-right": "Split right",
   "close-tab": "Close tab",

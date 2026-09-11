@@ -6,7 +6,7 @@
 
 .workspace-shell {
   /* 260px: wide enough for a title plus its kind icon, narrow enough that the
-     document keeps the window. The rail beside it is 48px (nav.css). */
+     document keeps the window. The rail beside it is `--nav-rail-width` (nav.css). */
   --workspace-explorer: 260px;
 }
 
@@ -436,7 +436,7 @@
  * after the shell's top padding, the sub-nav strip and the bottom padding, is
  * about `100dvh - 130px`, so the panes came up ~100px short and the leftover
  * painted as page background. On `/workspace` the shell is full-bleed and the
- * primary nav is a 48px rail (`.editor-route` in shell.css/nav.css), so there
+ * primary nav is a rail (`.editor-route` in shell.css/nav.css), so there
  * is no vertical chrome to subtract and no magic number to keep in step.
  */
 .workspace-shell {
@@ -734,6 +734,99 @@
   border-inline-start: 1px solid var(--border);
 }
 
+/* The pane's toolbar for a tab in Edit mode: the image button, before the
+   mode switch. Same icon button the note screen uses, so no new size here. */
+.pane-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-inline-end: 4px;
+  padding-inline-end: 5px;
+  border-inline-end: 1px solid var(--border);
+}
+
+.pane-tools .entity-icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+/* Resizing a picture from the read view. The host is the positioning context
+   so the control sits under the picture and scrolls with the document. */
+.image-size-host {
+  position: relative;
+}
+
+.document-read img.md-image {
+  cursor: pointer;
+}
+
+.image-size {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 0.8rem;
+}
+
+.image-size-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+}
+
+.image-size-label input[type="range"] {
+  width: 9rem;
+  accent-color: var(--accent);
+}
+
+.image-size-value {
+  min-width: 3ch;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* Naming a new note or folder: the quick-open box with a parent picker under
+   the name. */
+/* The backdrop stretches its child to the row's height; a name box is as
+   tall as its two rows and no more. */
+.new-document {
+  align-self: flex-start;
+  max-height: none;
+}
+
+.new-document-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.new-document-parent {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.new-document-parent select {
+  flex: 1;
+  min-width: 0;
+}
+
+.new-document .error {
+  margin: 0 0.6rem 0.5rem;
+}
+
 .workspace-error {
   grid-column: 1 / -1;
   padding: 0.4rem 0.75rem;
@@ -929,12 +1022,9 @@
 }
 
 /* -------------------------------------------------------------------------
-   The document, its empty state and its minimap (§3.4, §3.8, step 6)
+   The document and its empty state (§3.4, §3.8, step 6)
    ---------------------------------------------------------------------- */
 
-/* The document column and, to its right, the minimap when the renderer
-   reported text. A renderer that reports none — an ink page — lays out with
-   the column absent rather than with an empty rail. */
 .pane-body-wrap {
   display: flex;
   flex: 1;
@@ -1045,46 +1135,6 @@
   max-width: var(--content-measure);
   margin-inline: auto;
   padding: 40px 44px 150px;
-}
-
-.minimap {
-  position: relative;
-  flex: none;
-  width: 76px;
-  overflow: hidden;
-  background: var(--bg);
-  border-inline-start: 1px solid var(--border);
-  cursor: pointer;
-}
-
-.minimap-lines {
-  display: grid;
-  gap: 3px;
-  padding: 9px 7px;
-  opacity: 0.4;
-}
-
-.minimap-line {
-  height: 2px;
-  border-radius: 1px;
-  background: var(--muted);
-}
-
-.minimap-line.is-h1,
-.minimap-line.is-h2,
-.minimap-line.is-h3 {
-  height: 3px;
-  background: var(--accent);
-}
-
-.minimap-line.is-blank { background: transparent; }
-
-.minimap-viewport {
-  position: absolute;
-  inset-inline: 0;
-  height: 158px;
-  background: color-mix(in srgb, var(--muted) 11%, transparent);
-  border-block: 1px solid var(--border-strong);
 }
 
 /* -------------------------------------------------------------------------

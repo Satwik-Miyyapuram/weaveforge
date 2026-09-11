@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import { breadcrumbs } from "../application/breadcrumbs";
 import { headingSlug, outlineOf } from "../application/outline";
-import { minimapLines, viewportFraction } from "../ui/minimap";
 import {
   buildListsTree,
   buildWorkspaceTree,
@@ -96,27 +95,6 @@ test("a document with no headings has an empty outline, and that is not an error
   assert.deepEqual(outlineOf(""), []);
 });
 
-test("every line becomes a bar, blank lines included", () => {
-  const bars = minimapLines("one\n\ntwo");
-  assert.equal(bars.length, 3);
-  assert.equal(bars[1]!.blank, true);
-  assert.equal(bars[1]!.width, 0);
-});
 
-test("a heading bar is marked at its level and indentation is read off the line", () => {
-  const bars = minimapLines("## Heading\n    indented text");
-  assert.equal(bars[0]!.heading, 2);
-  assert.ok(bars[1]!.indent > 0);
-});
 
-test("a very long document is sampled to the column, not cut off", () => {
-  const body = Array.from({ length: 1000 }, (_, index) => `line ${index}`).join("\n");
-  assert.equal(minimapLines(body).length, 220);
-});
 
-test("the viewport is a fraction of the document, and unknown without a cursor", () => {
-  assert.equal(viewportFraction({ cursor: { line: 50, col: 1 } }, 100), 0.5);
-  assert.equal(viewportFraction({}, 100), null);
-  assert.equal(viewportFraction(undefined, 100), null);
-  assert.equal(viewportFraction({ cursor: { line: 1, col: 1 } }, 0), null);
-});
