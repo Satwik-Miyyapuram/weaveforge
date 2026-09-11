@@ -49,19 +49,51 @@ export interface KindMeta {
   document: "text" | "ink";
   /** Status-bar segments for this kind, in paint order. */
   segments: readonly SegmentKey[];
+  /**
+   * Whether a row of this kind is a *document* — something with an id that can
+   * be opened, saved and counted — as opposed to a grouping row. The explorer
+   * asks this instead of comparing against `"folder"` by name, and an Outline
+   * heading row is the other thing that is not a document.
+   */
+  documentRow: boolean;
+  /**
+   * The order member rows take inside a reading list: papers before notes.
+   * `null` where the kind never appears as a list member.
+   */
+  memberOrder: number | null;
+  /**
+   * Which of Read mode's wikilink lookup tables this kind resolves against, or
+   * `null` where a `[[link]]` cannot point at it. `VaultMarkdown` takes exactly
+   * these three lists, so a kind's answer here is what makes a link to it work.
+   */
+  linkGroup: "notes" | "papers" | "sections" | null;
 }
 
 const TEXT_SEGMENTS = ["words", "chars", "cursor", "encoding", "language"] as const;
 
 export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
-  // A grouping row: it is not a document, so it has no file and no words.
-  folder: { icon: "folder", tint: "neutral", suffix: null, document: "text", segments: [] },
+  // A grouping row: it is not a document, so it has no file, no words and no
+  // place as a list member, and nothing can link to it.
+  folder: {
+    icon: "folder",
+    tint: "neutral",
+    suffix: null,
+    document: "text",
+    segments: [],
+    documentRow: false,
+    memberOrder: null,
+    linkGroup: null,
+  },
   vault_page: {
     icon: "notes",
     tint: "info",
     suffix: ".note.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    documentRow: true,
+    // Papers first, then notes; `10` and `20` leave room for a kind between.
+    memberOrder: 20,
+    linkGroup: "notes",
   },
   paper: {
     icon: "book",
@@ -69,6 +101,9 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".paper.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    documentRow: true,
+    memberOrder: 10,
+    linkGroup: "papers",
   },
   reading_list: {
     icon: "list",
@@ -76,6 +111,9 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".list.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    documentRow: true,
+    memberOrder: null,
+    linkGroup: null,
   },
   report_section: {
     icon: "doc",
@@ -83,6 +121,9 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".report.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    documentRow: true,
+    memberOrder: null,
+    linkGroup: "sections",
   },
   experiment: {
     icon: "flask",
@@ -90,9 +131,30 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".experiment.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    documentRow: true,
+    memberOrder: null,
+    linkGroup: null,
   },
-  milestone: { icon: "flag", tint: "neutral", suffix: ".milestone.md", document: "text", segments: TEXT_SEGMENTS },
-  log_entry: { icon: "pencil", tint: "neutral", suffix: ".log.md", document: "text", segments: TEXT_SEGMENTS },
+  milestone: {
+    icon: "flag",
+    tint: "neutral",
+    suffix: ".milestone.md",
+    document: "text",
+    segments: TEXT_SEGMENTS,
+    documentRow: true,
+    memberOrder: null,
+    linkGroup: null,
+  },
+  log_entry: {
+    icon: "pencil",
+    tint: "neutral",
+    suffix: ".log.md",
+    document: "text",
+    segments: TEXT_SEGMENTS,
+    documentRow: true,
+    memberOrder: null,
+    linkGroup: null,
+  },
 };
 
 /** The table row for a kind, or the folder row for anything unknown. */
@@ -103,6 +165,27 @@ export function kindMeta(kind: string): KindMeta {
 /** The icon handle for a kind — what `NavIcon` should draw. */
 export function kindIcon(kind: string): string {
   return kindMeta(kind).icon;
+}
+
+/**
+ * Whether a row of this kind is a document that can be opened and saved.
+ *
+ * The alternative is `kind === "folder"` at every call site, which is a per-kind
+ * decision taken outside the table — exactly what §3.3 forbids, and what would
+ * need editing again when ink's heading rows arrive.
+ */
+export function isDocumentKind(kind: string): boolean {
+  return kindMeta(kind).documentRow;
+}
+
+/** Papers before notes inside a reading list, by the table's own ordering. */
+export function memberRank(kind: string): number {
+  return kindMeta(kind).memberOrder ?? Number.MAX_SAFE_INTEGER;
+}
+
+/** Which wikilink lookup table a kind resolves against, or `null`. */
+export function linkGroupOf(kind: string): KindMeta["linkGroup"] {
+  return kindMeta(kind).linkGroup;
 }
 
 /**
@@ -124,7 +207,7 @@ export function kindTintClass(kind: string): string | null {
  * the "no `kind ===` outside these tables" rule holds everywhere.
  */
 export function kindIconClass(kind: string, open = false): string | null {
-  if (kind === "folder") return open ? "kind-tint-accent" : null;
+  if (!isDocumentKind(kind)) return open ? "kind-tint-accent" : null;
   return kindTintClass(kind);
 }
 

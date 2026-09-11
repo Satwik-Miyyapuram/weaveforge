@@ -11,6 +11,10 @@ import {
   type WorkspaceTreeNode,
   type WorkspaceTreeInput,
 } from "../application/workspace-tree";
+// The ordering a real caller passes: `workspace-screen.tsx` hands the tree the
+// table's own member rank, so "papers before notes" stays in `kind.ts` and the
+// application layer never compares a kind against `"paper"`.
+import { memberRank } from "../ui/kind";
 
 const EMPTY: WorkspaceTreeInput = { notes: [], papers: [], reportSections: [] };
 
@@ -147,6 +151,7 @@ const LISTS: ListsTreeInput = {
     ["paper:p3", "Screening methods"],
     ["vault_page:n1", "Disentanglement reading cluster"],
   ]),
+  memberRank,
 };
 
 test("the section header is the Lists root, so lists sit at level one", () => {

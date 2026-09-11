@@ -8,10 +8,13 @@ import {
   KINDS,
   documentKind,
   documentSuffix,
+  isDocumentKind,
   kindIcon,
   kindSuffix,
   kindTintClass,
   labelledTitle,
+  linkGroupOf,
+  memberRank,
   segmentsFor,
 } from "../ui/kind";
 import { rendererFor, supportsEditMode } from "../ui/document-host";
@@ -78,4 +81,34 @@ test("a label carries its suffix where the row's context is gone", () => {
   assert.equal(labelledTitle("Baselines", "vault_page"), "Baselines.note.md");
   assert.equal(labelledTitle("Higgins 2017", "paper"), "Higgins 2017.paper.md");
   assert.equal(labelledTitle("Latent spaces", "reading_list"), "Latent spaces.list.md");
+});
+
+test("the table says which kinds are documents and which are groupings", () => {
+  assert.equal(isDocumentKind("vault_page"), true);
+  assert.equal(isDocumentKind("paper"), true);
+  assert.equal(isDocumentKind("reading_list"), true);
+  assert.equal(isDocumentKind("folder"), false);
+  // An unknown kind reads as the fallback row, which is a grouping row: the
+  // safe answer, because opening a tab for something with no writer does
+  // nothing, where refusing to open one would lose the row instead.
+  assert.equal(isDocumentKind("something_new"), false);
+});
+
+test("member rows are ranked papers-then-notes, and unranked kinds sort last", () => {
+  assert.ok(memberRank("paper") < memberRank("vault_page"));
+  // A kind that is never a list member carries no rank, so it cannot
+  // accidentally slot in ahead of one that is.
+  assert.equal(memberRank("report_section"), Number.MAX_SAFE_INTEGER);
+  assert.equal(memberRank("experiment"), Number.MAX_SAFE_INTEGER);
+});
+
+test("each linkable kind resolves against exactly one wikilink table", () => {
+  assert.equal(linkGroupOf("vault_page"), "notes");
+  assert.equal(linkGroupOf("paper"), "papers");
+  assert.equal(linkGroupOf("report_section"), "sections");
+  // A link cannot point at a list, a folder or an experiment, and saying so
+  // here is what keeps those out of Read mode's lookup tables.
+  assert.equal(linkGroupOf("reading_list"), null);
+  assert.equal(linkGroupOf("folder"), null);
+  assert.equal(linkGroupOf("experiment"), null);
 });

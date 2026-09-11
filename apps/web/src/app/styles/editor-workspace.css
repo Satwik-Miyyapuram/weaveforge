@@ -38,8 +38,9 @@
   padding-inline-end: 8px;
   color: var(--text);
   font-size: 0.845rem;
-  /* The row has an `onClick`. It is a control, and it has to look like one —
-     `cursor: default` on a clickable row is the bug this line fixes. */
+  /* The row has an `onClick`. It is a control, and it has to look like one.
+     It carried the UA's arrow cursor, which made the most-clicked thing in the
+     screen — the tree — read as static text. */
   cursor: pointer;
   user-select: none;
   transition: background 0.1s;
@@ -896,6 +897,10 @@
 
 .breadcrumb-btn:hover { background: var(--surface2); color: var(--text); }
 
+/* The last crumb is where you already are, so it is the one crumb that is not
+   a control: it renders as a plain span, takes no focus and answers no click.
+   It keeps the arrow cursor deliberately — the rule that a clickable row must
+   show a pointer is about rows that can be clicked. */
 .breadcrumb-current {
   color: var(--muted);
   font-weight: 500;

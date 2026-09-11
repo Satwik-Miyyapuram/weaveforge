@@ -139,11 +139,24 @@ export function flattenTree(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeN
     // prefixed by its list, and it is the *same document* as the row under
     // Files. Without this guard a paper in four lists would be four palette
     // hits for one file.
-    if (node.kind !== "folder" && !node.isMember) out.push(node);
+    if (isDocumentNode(node) && !node.isMember) out.push(node);
     for (const child of node.children) walk(child);
   };
   for (const node of nodes) walk(node);
   return out;
+}
+
+/**
+ * Whether a node is a document rather than a grouping row.
+ *
+ * This module owns the `folder` sentinel — it is the kind *this* file stamps on
+ * the grouping rows it builds — so the question is answered here rather than by
+ * a literal at each call site. It is deliberately not the same question as
+ * `kind.ts`'s `isDocumentKind`, which answers for a kind string coming from a
+ * tab or a palette row, and which has to know about ink's heading rows too.
+ */
+export function isDocumentNode(node: WorkspaceTreeNode): boolean {
+  return node.kind !== "folder";
 }
 
 export interface VisibleRow {
@@ -209,6 +222,12 @@ export interface ListsTreeInput {
   items: readonly ListItemEntry[];
   /** Titles for member rows. A row with no entry falls back to its id. */
   titles?: ReadonlyMap<string, string>;
+  /**
+   * The order member rows take, by kind. Passed in rather than decided here:
+   * "papers before notes" is a per-kind presentation choice, so it lives in
+   * `ui/kind.ts`'s table, and this module stays free of the UI layer.
+   */
+  memberRank?: (kind: string) => number;
 }
 
 /** The slug a title becomes in a mirrored path — the same rule everywhere. */
@@ -300,9 +319,13 @@ export function buildListsTree(input: ListsTreeInput): WorkspaceTreeNode[] {
   for (const [listId, rows] of members) {
     const list = byId.get(listId);
     if (!list) continue;
-    const papers = rows.filter((row) => row.kind === "paper").sort(byLabel);
-    const notes = rows.filter((row) => row.kind !== "paper").sort(byLabel);
-    list.children.push(...papers, ...notes);
+    // Rank first (the caller's table says papers precede notes), then label —
+    // so the ordering rule is data, not a comparison against `"paper"`.
+    const rank = input.memberRank ?? (() => 0);
+    const ordered = [...rows].sort(
+      (a, b) => rank(a.kind) - rank(b.kind) || byLabel(a, b),
+    );
+    list.children.push(...ordered);
   }
 
   return roots;
