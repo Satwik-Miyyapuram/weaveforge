@@ -19,11 +19,6 @@ import {
   INK_CHUNK_MAGIC,
   INK_CHUNK_RAW_THRESHOLD,
   InkChunkError,
-  chunkAbsolutePoints,
-  chunkLine,
-  chunkLineText,
-  chunkStroke,
-  chunkStrokePoints,
   decodeInkChunk,
   decodeInkChunkBody,
   encodeInkChunk,
@@ -31,10 +26,17 @@ import {
   fitsInkNoteBudget,
   identityInkChunkCodec,
   inkChunkBodySize,
-  pageFromChunk,
   readInkChunkHeader,
   type InkChunkCodec,
 } from "../../src/ink/ink-binary.js";
+import {
+  chunkAbsolutePoints,
+  chunkLine,
+  chunkLineText,
+  chunkStroke,
+  chunkStrokePoints,
+  pageFromChunk,
+} from "../../src/ink/ink-chunk-read.js";
 import { makeInkStroke, packInkStroke, type InkPage } from "../../src/ink/ink-note.js";
 
 /** Brotli at quality 5, the knee §4.3 pins. */

@@ -94,15 +94,9 @@ import {
   clampInkPageSize,
   inkEnumIndex,
   inkEnumValue,
-  makeInkStroke,
   pressureByte,
-  type InkColour,
-  type InkLineRecord,
   type InkPage,
   type InkPaper,
-  type InkShape,
-  type InkStroke,
-  type InkTool,
 } from "./ink-note.js";
 import { clampInkNoteWidth, INK_PEN_WIDTH } from "./width.js";
 
@@ -270,9 +264,8 @@ function inkChunkLayout(
  * Encoding
  * ---------------------------------------------------------------------- */
 
-/** One encoder and one decoder for the module: neither holds state. */
+/** One encoder for the module: it holds no state. */
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
 
 const clampU16 = (value: number): number =>
   Number.isFinite(value) ? Math.max(0, Math.min(65_535, Math.round(value))) : 0;
@@ -654,132 +647,12 @@ export async function decodeInkChunk(
   return { ...view, flags: header.flags };
 }
 
-/* -------------------------------------------------------------------------
- * Views → the model
- * ---------------------------------------------------------------------- */
-
-/**
- * One stroke's points as absolute coordinates, in 0.1 mm.
- *
- * The deltas are cumulative within a stroke and the chain restarts at each
- * stroke, so this is a single sequential pass over that stroke's own slice —
- * which is also the shape the page buffer wants before it uploads.
- */
-export function chunkStrokePoints(
-  view: InkChunkView,
-  strokeIndex: number,
-): { points: Float64Array; pressures: Uint8Array } {
-  const start = view.strokePointOffset[strokeIndex] ?? 0;
-  const count = view.strokePointCount[strokeIndex] ?? 0;
-  const points = new Float64Array(count * 2);
-  const pressures = new Uint8Array(count);
-  let x = 0;
-  let y = 0;
-  for (let i = 0; i < count; i += 1) {
-    const at = (start + i) * 3;
-    if (i === 0) {
-      x = view.points[at]!;
-      y = view.points[at + 1]!;
-    } else {
-      x += view.points[at]!;
-      y += view.points[at + 1]!;
-    }
-    points[i * 2] = x;
-    points[i * 2 + 1] = y;
-    pressures[i] = view.points[at + 2]!;
-  }
-  return { points, pressures };
-}
-
-/** Every point of a page, absolute, in one pass over all of its strokes. */
-export function chunkAbsolutePoints(view: InkChunkView): Int16Array {
-  const out = new Int16Array(view.pointCount * 3);
-  let cursor = 0;
-  for (let stroke = 0; stroke < view.strokeCount; stroke += 1) {
-    const start = view.strokePointOffset[stroke] ?? 0;
-    const count = view.strokePointCount[stroke] ?? 0;
-    let x = 0;
-    let y = 0;
-    for (let i = 0; i < count; i += 1) {
-      const at = (start + i) * 3;
-      if (i === 0) {
-        x = view.points[at]!;
-        y = view.points[at + 1]!;
-      } else {
-        x += view.points[at]!;
-        y += view.points[at + 1]!;
-      }
-      out[cursor] = x;
-      out[cursor + 1] = y;
-      out[cursor + 2] = view.points[at + 2]!;
-      cursor += 3;
-    }
-  }
-  return out;
-}
-
-/** One line's text, decoded on demand — nothing walks the blob up front. */
-export function chunkLineText(view: InkChunkView, lineIndex: number): string {
-  const offset = view.lineTextOffset[lineIndex] ?? 0;
-  const length = view.lineTextLength[lineIndex] ?? 0;
-  return length === 0 ? "" : decoder.decode(view.texts.subarray(offset, offset + length));
-}
-
-/** One stroke as the model holds it: absolute points, names, real numbers. */
-export function chunkStroke(view: InkChunkView, strokeIndex: number): InkStroke {
-  const { points, pressures } = chunkStrokePoints(view, strokeIndex);
-  return makeInkStroke({
-    points: Array.from(points),
-    pressures: Array.from(pressures),
-    width: view.strokeWidth[strokeIndex] || INK_PEN_WIDTH,
-    tool: inkEnumValue(INK_TOOLS, view.strokeTool[strokeIndex]!),
-    colour: inkEnumValue(INK_COLOURS, view.strokeColour[strokeIndex]!),
-    shape: inkEnumValue(INK_SHAPES, view.strokeShape[strokeIndex]!),
-    t0: view.strokeT0[strokeIndex]!,
-    lineIndex: view.strokeLine[strokeIndex]!,
-  });
-}
-
-/** One line of recognised text as the model holds it. */
-export function chunkLine(view: InkChunkView, lineIndex: number): InkLineRecord {
-  return {
-    strokeStart: view.lineStrokeStart[lineIndex]!,
-    strokeCount: view.lineStrokeCount[lineIndex]!,
-    yMin: view.lineYMin[lineIndex]!,
-    yMax: view.lineYMax[lineIndex]!,
-    text: chunkLineText(view, lineIndex),
-    confidence: (view.lineConfidence[lineIndex] ?? 0) / 255,
-  };
-}
-
-/**
- * The whole page as the model.
- *
- * This is the expensive direction on purpose: it materialises numbers for
- * segmentation, recognition, tests and `wf ink dump`, while the renderer reads
- * the views directly. Nothing on the pen path calls it.
- */
-export function pageFromChunk(view: InkChunkView): InkPage {
-  return {
-    width: view.width,
-    height: view.height,
-    paper: view.paper,
-    background: view.background,
-    strokes: Array.from({ length: view.strokeCount }, (_unused, index) => chunkStroke(view, index)),
-    lines: Array.from({ length: view.lineCount }, (_unused, index) => chunkLine(view, index)),
-  };
-}
-
-/** Round-trip an uncompressed body back to the model it was packed from. */
-export function pageFromChunkBytes(body: Uint8Array): InkPage {
-  return pageFromChunk(decodeInkChunkBody(body));
-}
-
 /**
  * How many bytes a page's body would take.
  *
  * Sizes the write path before it allocates, and lets the byte budget be checked
- * without packing the page twice.
+ * without packing the page twice. It is the same layout arithmetic the encoder
+ * uses, so the two cannot disagree.
  */
 export function inkChunkBodySize(page: InkPage): number {
   const pointCount = page.strokes.reduce(
