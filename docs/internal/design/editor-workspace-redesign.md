@@ -6,8 +6,11 @@ re-read at that commit.
 **Prototype:** [`editor-workspace-redesign.html`](editor-workspace-redesign.html) —
 open it in any browser. The strip at the bottom switches **Proposed / Current
 build** and the Paper / Mocha / Amoled palettes, opens the command palette
-(`⌘P`), and toggles the empty state. Every claim in this document is visible
-there side by side.
+(`⌘P`), flips the document between **Source view** (what ships) and the read
+view (`⌘E`), opens the **Ink note** tab (§3.3), and toggles the empty state.
+The bottom panel's Problems / Output tabs, the Output channel filter and `⌘J`
+work in the prototype. Every claim in this document is visible there side by
+side.
 
 ---
 
@@ -84,8 +87,10 @@ The packaged app is `apps/desktop/release/win-arm64-unpacked/WeaveForge.exe`
 ### Definition of done for the whole plan
 
 - Every defect in §2 (D1–D7) is fixed, with the test named in §5 added.
-- The explorer shows the four roots of §3.1 — Notes, Papers, Lists, Report —
-  with the Lists root built from real reading lists.
+- The explorer is three stacked sections — **Files** (Notes, Papers, Report),
+  **Reading lists**, **Outline** — each with its own header and collapse, the
+  way VS Code's Explorer stacks Folder / Outline / Timeline. Reading lists is
+  built from real reading lists and is a view over Files, not a fourth root.
 - The screen matches the **Proposed** view of the prototype at 1440×900 in the
   Paper, Mocha and Amoled themes — same chrome, same icons, same spacing.
 - `npm run check:all` passes.
@@ -105,11 +110,24 @@ The packaged app is `apps/desktop/release/win-arm64-unpacked/WeaveForge.exe`
    `.list.md`, `.report.md`) as `KIND_SUFFIX` spells it
    (`packages/core/src/workspace/folder-layout.ts:47-55`). §3.2 says where it
    shows and where it hides.
-5. **Reading lists are folders in the explorer.** A fourth root, Lists, nested
-   as the lists nest, with papers and notes as leaves. §3.1.
+5. **Reading lists are a second explorer section, not a fourth root.** The
+   explorer is a stack of sections — Files, Reading lists, Outline — each
+   collapsible. Files is the mirror folder, complete, no duplicates. Reading
+   lists nests as the lists nest with papers and notes as dimmed member rows
+   that open the same tab. Same document in two sections is a second lens, not
+   a second copy; that is what a list is for. §3.1.
 6. **Every per-kind decision is a table keyed by kind.** Icon, tint, suffix,
    document renderer, status-bar segments. Handwritten (ink) notes arrive later
    as one more row in each table, not as a special case. §3.3.
+7. **A document has two modes, Edit and Read, per tab.** Edit is the shipped
+   CodeMirror source editor (`CollabBodyHost`) and stays the default. Read is
+   the notes screen's `VaultMarkdown` renderer, reused, not rewritten. `⌘E`
+   toggles. No live-preview / WYSIWYG editor. §3.9.
+8. **An ink note is one `.ink.md` file.** Frontmatter, then the recognised text
+   as the markdown body, then the strokes in a fenced ` ```ink ` block at the
+   end. No sidecar, no binary. The text layer is what search, backlinks, the
+   wiki lint and git diff see. Stroke capture uses Pointer Events with
+   pressure; recognition is a pluggable engine behind one interface. §3.3.
 
 ---
 
@@ -139,6 +157,28 @@ The prototype is built to be the final product's look, not an impression of it.
 - **The file suffixes** are the real `KIND_SUFFIX` values; the sample paths in
   the palette (`notes/baselines/graph-prior-module.note.md`) are shaped exactly
   as `flatPath` / `treePaths` shape them.
+- **The source view** is the shipped editor's geometry — `lineNumbers()` gutter,
+  `EditorView.lineWrapping`, `@codemirror/lang-markdown` tokens
+  (`collaborative-markdown-editor.tsx:173`) — and its frontmatter is byte-for-
+  byte what `serialize-workspace.ts` writes (`weaveforge-id`, `weaveforge-type`,
+  `title`, `updated-at`, `created-at`, `aliases`). The remote caret with a name
+  flag is `y-codemirror.next` with `pickColor(authorId)`.
+- **The Problems rows** are the three real producers: `TexError`
+  (`apps/desktop/src/tex.ts:58`, `file:line`), `LintFinding`
+  (`packages/core/src/features/ai-assistant/domain/wiki-lint.ts`, dead-link /
+  orphan) and the citation-key check. **The Output rows** are one line each
+  from `mirrorWorkspace` (`MirrorResult`), `commitVault`, the Zotero local read,
+  `compileTex` and `vaultChanged`. Nothing in the panel needs data the app does
+  not already have.
+- **The explorer sections** are the three of §3.1; the Reading lists tree is
+  the §3.1 tree shape with member rows dimmed and one inherited row; Outline
+  shows the headings of the read-view document and is collapsed by default.
+  Collapse works. **Current build** hides the section headers and the two
+  proposed sections, because the shipped tree has one root list.
+- **The ink note is a mock.** The tool bar, text layer and file layout are the
+  design; the handwriting is the OS handwriting face, not captured strokes.
+  What it demonstrates is that the four kind tables in §3.3 are enough — the
+  same tab, crumbs, status bar and panel hold an ink page with no special case.
 
 **Rendered and checked.** The prototype was rendered in headless Chromium
 (Edge) at 1440×900 in all six mode × theme combinations. Two rendering bugs
@@ -146,7 +186,9 @@ were found and fixed in the file: the inline `<svg>` elements had no `viewBox`,
 so the 24-grid paths were cropped instead of scaled; and the brand mark used
 React's camelCase attribute names (`strokeWidth`), which raw HTML ignores. Both
 are the kind of thing a source read cannot catch — if you change the prototype,
-render it again.
+render it again. Re-rendered 2026-09-11 after the source view, panel and ink
+additions: read / source / ink × Paper / Mocha and Current build, no console
+errors.
 
 ---
 
@@ -382,12 +424,35 @@ Everything below is in the prototype and is standard for this class of tool.
 The three subsections first are the model changes — what the explorer *is* —
 then the chrome, then the polish.
 
-### 3.1 Lists — reading lists as folders (step 3b)
+### 3.1 Lists — reading lists as an explorer section (step 3b)
 
 The explorer has three roots today (`workspace-tree.ts:1-13`: notes, papers,
 report). The product's organising object — the reading list — is missing from
 it, so the only way to group papers in the editor is not to. The proposal adds
-a fourth root, **Lists**, and treats each reading list as a folder.
+reading lists as folders — but **in their own explorer section**, not as a
+fourth root beside Notes and Papers.
+
+**Why a section and not a root.** A first draft of this design put Lists as a
+fourth root in the same tree. Rendered, it read as a bug: Papers said "here
+are all the papers", Lists said "here are some of them again", and the tree
+had two models in one column. VS Code's answer is the one to copy: the
+Explorer is a *stack of views* — Open Editors, the folder, Outline, Timeline —
+each with its own uppercase header, its own collapse, its own data source.
+Outline duplicates the file's headings and nobody reads that as a duplicate,
+because the header says it is a different lens. So:
+
+| Section | Source | Default | Notes |
+| --- | --- | --- | --- |
+| **Files** | `workspace-tree.ts` roots: Notes, Papers, Report | open | the mirror folder, complete, no document twice; ink notes live here |
+| **Reading lists** | §3.1 tree below, from `container.readingLists` | open | member rows dimmed (`--muted`), inherited rows `--faint` italic; header has *New list* |
+| **Outline** | headings of the active tab, from the same parse Read mode uses | collapsed | empty for an ink note; click scrolls the pane |
+| *Open editors* | the tab strip | — | not in v1; tabs are visible already |
+
+The section header is the collapse control (`aria-expanded`); the sections
+stack from the top and the last one takes the remaining height, as in VS Code.
+The count chip on a section header is the number of top-level rows. A paper
+under Files shows `N lists` on hover with the list names in the tooltip, so
+membership is discoverable without opening the second section.
 
 **The data is already there.** `ReadingList` nests through `parentId`
 (`packages/core/src/features/reading-lists/domain/reading-list.ts:15-24`) and
@@ -397,15 +462,17 @@ a fourth root, **Lists**, and treats each reading list as a folder.
 `listItemsForLists(ids)` returns every membership in one round trip
 (`container/facades/reading-lists.ts:19-21,51-53`).
 
-**Tree shape.** One `nestedRoot("Lists", "reading_list", lists)` exactly as
-Notes and Report are built, then each list node gets its members appended as
-children, papers first then notes, each sorted by label:
+**Tree shape.** `buildListsTree(lists, items)` returns the list nodes at level
+one of the *Reading lists* section (there is no "Lists" folder row — the
+section header is that), built with the same `nestedRoot` helper Notes and
+Report use, then each list node gets its members appended as children, papers
+first then notes, each sorted by label:
 
 ```
-Lists                                  folder     key "reading-lists"
+READING LISTS                          section    (header, not a row)
 ├─ Latent spaces            .list.md   reading_list  key "reading_list:<id>"
 │  └─ Disentanglement       .list.md   reading_list
-│     ├─ β-VAE: Learning …  .paper.md  paper      key "reading_list:<listId>/paper:<paperId>"
+│     ├─ β-VAE: Learning …  .paper.md  paper      key "reading_list:<listId>/paper:<paperId>"   (member, dimmed)
 │     ├─ Disentanglement: … .paper.md  paper
 │     └─ Disentanglement r… .note.md   vault_page key "reading_list:<listId>/vault_page:<pageId>"
 └─ Screening — September    .list.md   reading_list
@@ -431,8 +498,9 @@ Rules, each of which is a test in `test/workspace-tree.test.ts`:
   they were inherited into, dimmed (`--faint`), and are not editable there.
 - Items with `duplicateOfItemId` are hidden; that state belongs to the
   screening screen.
-- A paper that is in no list still appears under Papers. Papers stays flat and
-  complete; Lists is a view over it.
+- A paper that is in no list still appears under Papers. Files stays complete;
+  Reading lists is a view over it. Member rows carry `isMember: true` so the
+  row renders dimmed; the pane, tabs and palette never see the flag.
 
 What Lists does **not** do in v1: drag-and-drop between lists, "add to list"
 from the tree, reordering by `sortOrder`. Those are explicit follow-ups; the
@@ -469,20 +537,85 @@ slug. Slugs strip `β` and `:` and the user did not name the paper
 
 ### 3.3 Room for what comes next — handwritten notes
 
-Handwritten (ink) notes are planned and are not in this design. What *is* in
-this design is the shape that lets them arrive as data rather than as a
-rewrite. When they land they will be a new `WorkspaceEntityType` in core with
-its own `KIND_SUFFIX` (say `ink` → `.ink.md`, frontmatter plus an attached
-stroke file, the same way images attach to notes today). On the editor side
-they touch exactly four tables, and every one of those tables must exist by
-the end of this plan:
+Handwritten (ink) notes are planned and are not in this plan's steps. This
+section fixes the file format, the capture and recognition approach and the
+four tables they touch, so that when they land they arrive as data rather than
+as a rewrite. The prototype's **Ink note** button shows the result.
+
+#### What a research user needs from ink
+
+Meeting notes with a supervisor, derivations at the whiteboard, margin notes on
+a paper, a quick figure of an architecture. Three things follow: the note must
+be **searchable and linkable** like every other note (`[[wikilink]]` into it and
+out of it, hits in `⌘P`, backlinks in the graph); it must **round-trip through
+the vault folder and git** like every other `.md` (decision 4); and it must be
+**editable later as text** — a recognised sentence you can fix with a keyboard.
+
+#### File format — `.ink.md`, one file
+
+Modelled on the layout Obsidian's InkedMark plugin settled on after the sidecar
+approach (HandLayers' `.handwriting/` JSON) proved sync- and grep-hostile: the
+recognised text is the body, the strokes ride along in the same file.
+
+```markdown
+---
+weaveforge-id: …
+weaveforge-type: ink_page
+title: Supervisor meeting 11 Feb
+updated-at: …
+ink: { pages: 3, recognised: 0.92, engine: chromium-hwr }
+---
+Drop the β sweep for §3.2 — ranking unchanged. Structured prior instead,
+see [[Graph-prior module]].
+
+```ink
+{"v":1,"unit":"mm","pages":[{"strokes":[{"c":"text","w":0.7,"p":[[x,y,pressure],…]},…]}]}
+```
+```
+
+- **Body = text layer.** Everything the app already does to a note body —
+  search index, wikilink resolution, wiki lint, mirror, git diff — works on an
+  ink note unchanged. A low-confidence word is plain text the user can correct.
+- **Strokes = trailing fenced block**, quantised to 0.1 mm with pressure, one
+  object per stroke with its tool (`text` / `hl` / `figure`) so the page can be
+  re-rendered and re-recognised. `VaultMarkdown` and CodeMirror both already
+  treat a fenced block as opaque, so the Read view shows the text and the
+  Edit view shows the JSON — neither needs to learn anything.
+- **Attachments stay attachments.** A PDF page inked over is
+  `![](vault:…/page-3.png)` plus strokes, the same way images attach to notes
+  today (`vault-page.ts`, `vaultImageMarkdown`).
+- **Suffix** `ink` → `.ink.md` in `KIND_SUFFIX` (core change, later plan).
+  `stripKindSuffix` / `parseKindSuffix` already handle a new key.
+
+#### Capture and recognition
+
+- **Capture** is the DOM: `PointerEvent` with `pressure`, `tiltX/Y` and
+  `pointerType === "pen"`, plus `getCoalescedEvents()` so a fast stroke keeps
+  every sample rather than one per frame. Palm rejection = ignore `touch` while
+  a `pen` pointer is down. Rendering to `<canvas>` while drawing, committed as
+  SVG paths into the model. No dependency.
+- **Recognition** is one interface, `recognise(strokes, lang) → { text,
+  confidence }[]`, with engines behind it:
+  - *Chromium Handwriting Recognition API* (`navigator.queryHandwritingRecognizer`,
+    WICG draft, Chromium ≥ 99) — on-device, in Electron today, no key, the
+    first engine. Availability depends on the OS recogniser, so it is a
+    capability, not a promise.
+  - *MyScript iink* (iinkTS) — best quality including maths, cloud, paid; an
+    opt-in engine for people who want formula recognition.
+  - *None* — an ink note with no text layer is still a valid note: title,
+    links typed in the frontmatter, strokes only.
+- **Where it runs:** on stroke end, debounced like the 1500 ms save; result
+  written into the body with `<mark data-conf>` only in the UI, plain text on
+  disk.
+
+#### The four tables
 
 | Table | Where it lives after this plan | What ink adds |
 | --- | --- | --- |
-| Kind → icon, tint, suffix | `features/editor-workspace/ui/kind.ts` (new, step 3) — the §2 D5 table as code | one row; the icon will be `pencil` or a new glyph |
-| Kind → document renderer | `features/editor-workspace/ui/document-host.tsx` (new, step 3): a `switch` on `tab.kind` that today always returns `CollabBodyHost` | one case returning the ink canvas |
-| Kind → status-bar segments | `ui/status-bar.tsx` (step 2): `segmentsFor(kind)` returns the list of segments to paint | ink returns none of words / chars / Ln / Col / language — the bar shows save state, branch and peers only |
-| Kind → minimap | `ui/minimap.tsx` (step 6): rendered only when the renderer exposes text | ink has no text, so no minimap — the pane must lay out correctly without one |
+| Kind → icon, tint, suffix | `features/editor-workspace/ui/kind.ts` (new, step 3) — the §2 D5 table as code | one row: `pencil`, a fifth tint, `.ink.md` |
+| Kind → document renderer | `features/editor-workspace/ui/document-host.tsx` (new, step 3): a `switch` on `tab.kind` that today always returns `CollabBodyHost` | one case returning the ink host: tool bar, canvas, text-layer column |
+| Kind → status-bar segments | `ui/status-bar.tsx` (step 2): `segmentsFor(kind)` returns the list of segments to paint | ink returns page, strokes, pen state, recognised %, "Ink" — none of words / chars / Ln / Col |
+| Kind → minimap | `ui/minimap.tsx` (step 6): rendered only when the renderer exposes text | ink has no minimap; the right column is the text layer instead |
 
 Concretely, the constraints on the implementer now:
 
@@ -497,6 +630,15 @@ Concretely, the constraints on the implementer now:
   `kind`, `id`, `label`, `path` — all of which an ink note has.
 - **The pane reducer is body-agnostic already** (`pane-tree.ts` stores
   `{ kind, id }`) — keep it so.
+- **The Edit / Read control (§3.9) hides for ink.** Ink has one mode; the
+  text-layer column is its read view.
+
+Sources: InkedMark (Obsidian) file layout — community.obsidian.md/plugins/inkedmark;
+alternatives compared at obsidianstats.com/tags/handwriting; WICG Handwriting
+Recognition — developer.chrome.com/docs/web-platform/handwriting-recognition,
+wicg.github.io/handwriting-recognition; MyScript iinkTS — github.com/MyScript/iinkTS;
+`getCoalescedEvents` — developer.mozilla.org/en-US/docs/Web/API/PointerEvent/getCoalescedEvents;
+WICG Ink API (low-latency pen) — wicg.github.io/ink-enhancement.
 
 ### 3.4 Structure — new chrome
 
@@ -506,7 +648,8 @@ Concretely, the constraints on the implementer now:
 | **Status bar** (26px, full width) | Save state, word/char count, Ln/Col, encoding, language, branch, sync, CRDT peer count. Segments come from `segmentsFor(kind)` (§3.3). The screen is full-bleed, so it owns its own bottom edge. | 2 |
 | **Breadcrumbs** (28px) | `Project › Notes › Baselines › Disentanglement reading cluster.note.md`. The explorer collapses; the path must not. | 6 |
 | **Minimap** (74px) | Long notes; also the fastest scroll affordance on a workspace screen. Text documents only. | 6 |
-| **Bottom panel** (collapsible) | **Problems** and **Output**. Problems shows checks this product can actually run — the prototype's example is a citation key with no matching imported paper. Output is the sync and folder-mirror log the app already writes. **No Terminal**: the app has no shell and will not grow one for this. | 9 (optional) |
+| **Explorer sections** | Files / Reading lists / Outline, each a collapsible section with its own header (§3.1). Outline is the active document's headings from the Read-mode parse; empty for ink. | 3b (Files + Reading lists), 6 (Outline, with the minimap — same heading list) |
+| **Bottom panel** (collapsible, `⌘J`) | **Problems** and **Output**, both built only from data the app already produces. **Problems** merges three sources into one list — `TexError { file, line, message }` from the report compile (`apps/desktop/src/tex.ts:58`, today shown only in `report/ui/project-checks.tsx`), `LintFinding` from `runWikiLint()` (dead-link, orphan, duplicate, empty — today only on the wiki screen) and the citation-key check (a `[@key]` / `[[key]]` with no imported paper). Each row: severity icon, source, message, `path:line`; click opens the file at that line. **Output** is one append-only log with a channel filter — *Sync* (`MirrorResult` from `mirrorWorkspace`, `vaultChanged` from the watcher), *Git* (`commitVault`), *TeX* (engine + timing + error count), *Zotero* (local read counts) — the same sentences `workspace-folder-panel.tsx` already builds. **No Terminal**: the app has no shell and will not grow one for this. | 9 (optional) |
 
 ### 3.5 Explorer — rebuilt rows (step 3)
 
@@ -567,6 +710,38 @@ read from that table**, not hard-code the strings, so it cannot drift.
 
 ---
 
+### 3.9 Document modes — what a `.md` file looks like in the pane
+
+What ships today: the workspace pane renders `CollabBodyHost`
+(`workspace-screen.tsx:185-205`) with `markdownEditing={{ placeholder }}` — a
+CodeMirror **source** editor with line numbers, markdown highlighting and Yjs
+carets. There is no rendered view on `/workspace`. The rendered reading view
+exists on the notes screen only (`vault-screen/page-editor.tsx:230-300`,
+`showEditor` toggling `VaultMarkdown` against the editor).
+
+The prototype's default document (the frontmatter card, serif headings, the
+callout, the table with status pills) is that `VaultMarkdown` output moved into
+the pane, not something new. So the proposal is:
+
+| Mode | Renderer | Default for | Shortcut |
+| --- | --- | --- | --- |
+| **Edit** | `CollabBodyHost` as today — source, Ln/Col, minimap from text | every text kind (what ships now) | `⌘E` toggles |
+| **Read** | `VaultMarkdown` (`components/markdown/markdown.tsx`) — wikilinks, callouts, KaTeX, the same as `/notes` | none by default; remembered per tab | `⌘E` toggles |
+
+- The control lives in `.tab-actions` as a two-segment Edit / Read, per tab;
+  `document-host.tsx` takes `mode` as a second key next to `kind`.
+- Read is read-only. Clicking a wikilink in Read opens the target tab; there is
+  no click-to-edit at the caret, because the source and rendered positions do
+  not map and pretending they do is where live-preview editors go wrong.
+- **No live preview** (Obsidian-style WYSIWYG) in this plan. It is a third
+  editor and the §4 rule is no new editor surface.
+- The frontmatter block in Read shows the human keys (`title`, `tags`,
+  `updated-at`, `weaveforge-type`); the ids stay in source.
+- Use the prototype's **Source view** button (or `⌘E`) to compare the two on
+  the same document; **Current build** forces source because that is all it has.
+
+This is step 5b in §5.
+
 ## 4. What this does not do
 
 - **No framework or styling change.** Global CSS, the existing token system, the
@@ -576,11 +751,13 @@ read from that table**, not hard-code the strings, so it cannot drift.
   24px grid — stroke 1.7 for navigation, 2 for actions — plus the two glyphs the
   app is missing (folder, check).
 - **No change to the domain or the data layer.** Lists are read through the
-  facade that already exists; the tree builder gains a fourth root and nothing
+  facade that already exists; the tree builder gains a second tree and nothing
   in `packages/core` moves.
 - **No terminal.** See §3.4.
 - **No new editor surface.** `CollabBodyHost` stays exactly as it is; it is
-  wrapped by `document-host.tsx`, not replaced. Ink is a later plan (§3.3).
+  wrapped by `document-host.tsx`, not replaced. Read mode reuses
+  `VaultMarkdown`, so it is not a new surface either (§3.9). Ink is a later
+  plan (§3.3).
 - **Not a mobile design.** The workspace is desktop-only by module flag
   (`features/editor-workspace/module.ts:14`) and the route gates on `desktop()`
   (`app/workspace/page.tsx:30`), so no responsive variant is proposed.
@@ -601,18 +778,19 @@ style as `styles/editor-workspace.css` and can be lifted almost directly.
 | 1 | Full-bleed: on `/workspace` render `TabBar` collapsed (rail), zero `.app-shell` padding, no `SubNav`, `.workspace-shell { height: 100dvh }` and drop `--nav-inset` from the height (D1) | `app/app-shell.tsx` (`:130-138`, `:161`), `styles/nav.css`, `styles/shell.css`, `styles/editor-workspace.css:99-104` | At 1440×900 the panes reach the window's bottom edge; every other route is pixel-identical to before | none — visual; screenshot the desktop build before/after and attach to the PR |
 | 2 | Status bar with save state from `pending` (D7): Saved / Saving… / Unsaved, then `segmentsFor(kind)` — words, chars, Ln/Col, encoding, language — then branch, peers | `features/editor-workspace/ui/workspace-screen.tsx:65,182`, new `ui/status-bar.tsx`, CSS | Typing flips the indicator to Saving… and back within one save cycle | `test/status-bar.test.ts`: the label for `pending = 0 / 1 / n`; `segmentsFor("paper")` includes `words`, `segmentsFor(<unknown kind>)` returns `[]` |
 | 3 | Explorer: `ui/kind.ts` (icon, tint, suffix per kind — the D5 table), `ui/document-host.tsx` (kind → renderer, one case), filter input, indentation guides, SVG icons, suffix on hover, header actions, git ticks, path hint | `features/editor-workspace/ui/explorer-panel.tsx:16-25` and the row markup, new `ui/kind.ts`, `ui/document-host.tsx`, CSS | No Unicode glyph left in `explorer-panel.tsx`; no `kind ===` outside `kind.ts` / `document-host.tsx`; filter narrows rows live; collapse-all closes every branch | `test/kind.test.ts`: every `TreeNodeKind` has an icon and a suffix, suffix equals `.${KIND_SUFFIX[kind]}.md`; `test/explorer-state.test.ts`: `collapseAll(state)` returns no expanded keys; `filterRows(rows, ".list")` keeps only list rows |
-| 3b | Lists root (§3.1): extend `WorkspaceTreeInput` with `lists` + `listItems`, build the fourth root, load it in `workspace-screen.tsx` from `container.readingLists` | `features/editor-workspace/application/workspace-tree.ts`, `ui/workspace-screen.tsx:70-125` | Lists appears between Papers and Report with real lists; a paper under a list opens the same tab as under Papers | `test/workspace-tree.test.ts`: nested lists nest; member key is `reading_list:<l>/paper:<p>` and `kind`/`id` are the paper's; `flattenTree` lists each paper once; inherited rows flagged; duplicates absent |
+| 3b | Explorer sections + Reading lists (§3.1): `explorer-panel.tsx` renders `sections: { id, title, tree, collapsed }[]` with a header per section; `buildListsTree(lists, listItems)` in `workspace-tree.ts` builds the Reading lists tree, loaded in `workspace-screen.tsx` from `container.readingLists`; section collapse state in `explorer-state.ts` | `features/editor-workspace/application/workspace-tree.ts`, `application/explorer-state.ts`, `ui/explorer-panel.tsx`, `ui/workspace-screen.tsx:70-125`, CSS | Files section shows Notes / Papers / Report unchanged; Reading lists section shows real lists with dimmed member rows; a member row opens the same tab as under Papers; a section header collapses only its section | `test/workspace-tree.test.ts`: nested lists nest; member key is `reading_list:<l>/paper:<p>` and `kind`/`id` are the paper's; member rows carry `isMember`; `flattenTree` lists each paper once; inherited rows flagged; duplicates absent; `test/explorer-state.test.ts`: `toggleSection("lists")` leaves the Files expansion set untouched |
 | 4 | Wire `onStartNote` (D2) and fix `activeKey` (D3) | `features/editor-workspace/ui/workspace-screen.tsx:258-264`, `application/pane-tree.ts` | "Start note" appears on papers without a note and opens the paper tab; the highlighted row follows the focused tab | `test/pane-tree.test.ts`: `activeTabKey(layout)` for one pane, two panes, and a focused pane with no tabs |
 | 5 | Tabs: kind icon + suffix, dirty dot → close on hover, 2px accent on the active tab, hover/active/focus states, correct cursors on `.explorer-row` / `.pane-tab` / `.quick-open-result` (D4), peer avatars in the strip | `features/editor-workspace/ui/pane-view.tsx:150-183`, `styles/editor-workspace.css:30,186,290` | `grep -n 'cursor: default' styles/editor-workspace.css` is empty; `.pane-tab:hover` exists | none — visual |
+| 5b | Edit / Read per tab (§3.9): `document-host.tsx` switches on `(kind, mode)`; Read renders `VaultMarkdown` with the tab's body, read-only; two-segment control in the tab strip; `⌘E` in `keybindings.ts` | `ui/document-host.tsx`, `ui/pane-view.tsx`, `application/keybindings.ts`, `application/pane-tree.ts` (mode on the tab) | `⌘E` flips the active tab; the mode survives a tab switch and a split; wikilinks in Read open tabs; Ln/Col and minimap disappear in Read | `test/document-host.test.ts`: `(note, edit)` → editor, `(note, read)` → markdown, `(<unknown kind>, read)` → editor; `test/pane-tree.test.ts`: `setMode` touches only the addressed tab |
 | 6 | Breadcrumbs (from `node.path`, suffix on the last crumb) + minimap (text renderers only) | new `ui/breadcrumbs.tsx`, `ui/minimap.tsx`, CSS | Crumbs update on tab switch; minimap scrolls the document; a pane whose renderer reports no text lays out with no minimap column | `test/breadcrumbs.test.ts`: crumbs for a depth-3 note, a root paper, and a paper under a list (crumbs follow the *list* path) |
 | 7 | Palette: render `matched` as `<mark>`, group by kind with a heading row, kind icon | `features/editor-workspace/ui/quick-open-dialog.tsx:94-95`, CSS | Typing `dis` underlines `d i s` in the results; hits are under Notes / Papers / Lists / Report headings in that order | `test/quick-open.test.ts`: `groupResults(results)` keeps score order inside each group and root order across groups |
 | 8 | Composed empty state driven by the keybindings table | `features/editor-workspace/ui/pane-view.tsx:188`, `application/keybindings.ts`, CSS | The shortcut grid shows exactly the chords `commandForChord` accepts | `test/keybindings.test.ts`: `shortcutTable()` lists every `WorkspaceCommand` once |
-| 9 | *(optional)* Bottom panel: Problems + Output. Problems runs the citation-key check (report body `[@key]` / `[[key]]` against imported papers); Output tails the sync log | new `ui/panel.tsx`, CSS | Only if the owner asks. No Terminal tab. | `test/problems.test.ts`: unknown citation key → one problem with its location |
+| 9 | *(optional)* Bottom panel (§3.4): `application/problems.ts` maps `TexError[]`, `LintFinding[]` and the citation-key check to one `Problem { severity, source, message, path, line? }` list; `application/output-log.ts` is an append-only ring of `{ at, channel, message }` fed by the mirror, commit, TeX, Zotero and watcher results; `ui/panel.tsx` with Problems / Output tabs, channel filter, `⌘J` | new `application/problems.ts`, `application/output-log.ts`, `ui/panel.tsx`, `keybindings.ts`, CSS | Only if the owner asks. No Terminal tab. A TeX error row opens the `.tex` at its line; the count badge equals the row count. | `test/problems.test.ts`: a `TexError` with `line: 0` → no line; a `dead-link` finding → warning with the page path; unknown citation key → one problem with its location; `test/output-log.test.ts`: `MirrorResult` → the "Wrote N files … already up to date" sentence, capped ring drops the oldest |
 
 Step 0 is a prerequisite for 2 and 3 and is risk-free on its own. Steps 1–5 fix
-every defect in §2. 3b depends on 3 (it uses `kind.ts`). Steps 6–8 are the
-additions and can be resequenced without affecting them. Step 9 is off by
-default (§0, decision 3).
+every defect in §2. 3b depends on 3 (it uses `kind.ts`); 5b depends on 3
+(`document-host.tsx`). Steps 6–8 are the additions and can be resequenced
+without affecting them. Step 9 is off by default (§0, decision 3).
 
 ### Per-PR checklist
 

@@ -221,7 +221,7 @@ The section nav is removed outright at 1179px with nothing put in its place — 
 disclosure, no sheet, no jump control. The pitch is a long scrollytelling page:
 `page.tsx:99` registers nine scrollspy sections (`overview`, `why`, `chain`,
 `reading`, `experiments`, `writing`, `labs`, `selfhost`, `compare`) and the reader
-scrolls past all of them. On a tablet or phone — where the two audience the page
+scrolls past all of them. On a tablet or phone — where the two audiences the page
 opens with (`page.tsx:212-216`, "Labs & groups" and "Self-hosters") are most
 likely to arrive from a shared link — there is no way to reach `#compare` or
 `#selfhost` except by scrolling the entire page, and no indication of which
@@ -682,8 +682,6 @@ widths (`chrome.tsx:87,93-95`) and the project dot colour
 Minor, listed only because the project's own convention (`styles/index.css:1-11`)
 is explicit that styles live in the area's stylesheet.
 
----
-
 **Do.** `pitch/page.tsx:475` — replace `style={{ marginTop: 14 }}` with a
 class in the nearest pitch module (e.g. `.ctaGap { margin-top: 14px; }`).
 **Done when.** `grep -n "style={{" apps/web/src/app/pitch/page.tsx` lists only
@@ -730,7 +728,7 @@ Recorded so the negative results are not re-litigated.
 - **The desktop shell was not audited for visual design.** `apps/desktop` is an
   Electron host that loads the same web bundle, so its design surface is the web
   app's; only its native chrome was out of scope here.
-- **Performance was not profiled.** The list-Virtualisation, view-timeline and
+- **Performance was not profiled.** The list virtualisation, view-timeline and
   `content-visibility` work is documented in the source with measurements taken
   by whoever wrote it; this audit read those claims and did not reproduce them.
 - **Colour contrast was not computed.** The palettes are internally consistent
