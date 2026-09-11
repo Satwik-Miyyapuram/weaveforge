@@ -66,6 +66,19 @@ export function sameOrigin(url: string, origin: string): boolean {
   return there !== null && here !== null && sameOriginParts(there, here);
 }
 
+/**
+ * The origin of a URL, spelled the way `sameOrigin` can read it back.
+ *
+ * `new URL("app://weaveforge/").origin` is the string `"null"` in Node, for
+ * the reason above, and a guard handed `"null"` refuses its own window on the
+ * first call. This is the one way to turn the window's URL into an origin.
+ */
+export function originOf(url: string): string {
+  const p = parts(url);
+  if (!p) throw new Error(`Not a URL: ${url}`);
+  return `${p.protocol}//${p.hostname}${p.port ? `:${p.port}` : ""}`;
+}
+
 interface OriginParts {
   protocol: string;
   hostname: string;
