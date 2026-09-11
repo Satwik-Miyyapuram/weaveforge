@@ -58,6 +58,69 @@
 @media (max-width: 1359px) { .navLow { display: none; } }
 @media (max-width: 1179px) { .nav { display: none; } }
 
+/*
+ * The small-screen replacement for the bar above.
+ *
+ * The bar is removed outright at 1179px, and until now nothing took its place —
+ * so on a tablet or a phone, where the two audiences the page opens with are
+ * most likely to arrive from a shared link, there was no way to reach `#compare`
+ * or `#selfhost` except by scrolling the whole page, and no indication of which
+ * section you were in. The control reuses the scrollspy value the desktop bar
+ * already carries as `aria-current`.
+ *
+ * Hidden at the width where the bar is shown, so the two never appear together.
+ */
+.sectionsBtn {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+  padding: 7px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control, 8px);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sectionsBtn:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.sectionsBtn svg { transition: transform 0.18s var(--layout-ease, ease); }
+.sectionsBtn[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+/* The sheet: full width under the header, closing on a link press. It scrolls
+   on its own so a short viewport cannot push the last link out of reach. */
+.sectionsSheet {
+  display: grid;
+  gap: 2px;
+  padding: 8px clamp(14px, 4vw, 28px) 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  max-height: 60dvh;
+  overflow-y: auto;
+}
+.sectionsSheet a {
+  padding: 10px 12px;
+  border-radius: var(--radius-control, 8px);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+.sectionsSheet a:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.sectionsSheet a[aria-current="true"] { color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+
+@media (max-width: 1179px) {
+  .sectionsBtn { display: inline-flex; }
+}
+/* The bar is hidden from here down, so the button is the only way to the
+   sections — it must never be hidden too. */
+@media (min-width: 1180px) {
+  .sectionsSheet { display: none; }
+}
+
 .headActions { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
 
 /* Docs / GitHub in the header. Quieter than "Open the app", which stays the

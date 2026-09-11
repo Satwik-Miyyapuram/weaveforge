@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { EntityCard } from "@/components/entity-card";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ReactiveMotion } from "@/app/reactive-motion";
@@ -10,6 +10,7 @@ import headerCss from "./pitch-header.module.css";
 import outroCss from "./pitch-outro.module.css";
 import paletteCss from "./pitch-palette.module.css";
 import { APP_URL, DOCS_URL, REPO_URL } from "./links";
+import { SECTIONS } from "./sections";
 import { Act, PaperStack, Scene, Spread, StatusPill } from "./chrome";
 import { HeroScene } from "./hero";
 import { LiveRun, WhySection } from "./story";
@@ -31,8 +32,15 @@ import { useCursorGlow } from "./use-pitch-scroll";
  * own showcase seed (scripts/seed-showcase-data.mjs).
  */
 
+/**
+ * The sections themselves are `SECTIONS` in ./sections.ts: one list, rendered
+ * by both the desktop bar and the small-screen "Sections" sheet, so the two
+ * cannot disagree about what the page contains.
+ */
 export default function PitchPage() {
   const [navOn, setNavOn] = useState<string>("");
+  /** The small-screen sections sheet. Closed until asked for. */
+  const [sectionsOpen, setSectionsOpen] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
   useCursorGlow();
 
@@ -129,6 +137,7 @@ export default function PitchPage() {
       href={`#${id}`}
       className={low ? headerCss.navLow : undefined}
       aria-current={navOn === id ? "true" : undefined}
+      onClick={() => setSectionsOpen(false)}
     >
       {label}
     </a>
@@ -151,19 +160,40 @@ export default function PitchPage() {
             <span className={headerCss.brandName}>WeaveForge</span>
           </a>
           <nav className={headerCss.nav} aria-label="Sections">
-            {navLink("overview", "Overview")}
-            {navLink("why", "Why", true)}
-            <span className={`${headerCss.navSep} ${headerCss.navLow}`} aria-hidden />
-            {navLink("chain", "The chain")}
-            {navLink("reading", "Reading")}
-            {navLink("experiments", "Experiments")}
-            {navLink("writing", "Writing", true)}
-            <span className={`${headerCss.navSep} ${headerCss.navLow}`} aria-hidden />
-            {navLink("labs", "Labs", true)}
-            <span className={headerCss.navSep} aria-hidden />
-            {navLink("selfhost", "Self-host")}
-            {navLink("compare", "Compare")}
+            {SECTIONS.map((section) => (
+              <Fragment key={section.id}>
+                {navLink(section.id, section.label, Boolean(section.low))}
+                {section.sep ? (
+                  <span
+                    className={`${headerCss.navSep}${section.sep === "low" ? ` ${headerCss.navLow}` : ""}`}
+                    aria-hidden
+                  />
+                ) : null}
+              </Fragment>
+            ))}
           </nav>
+
+          {/*
+           * Below 1180px the section bar is hidden outright, and nothing was
+           * put in its place — so on a tablet or a phone there was no way to
+           * reach `#compare` or `#selfhost` except by scrolling a page about
+           * ten screens tall, and no indication of which section you were in.
+           * This is that control. `SECTIONS` is the one list both navs render
+           * from, so they cannot drift apart.
+           */}
+          <button
+            type="button"
+            className={headerCss.sectionsBtn}
+            aria-expanded={sectionsOpen}
+            aria-controls="pitch-sections"
+            onClick={() => setSectionsOpen((open) => !open)}
+          >
+            <span>Sections</span>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
           <div className={headerCss.headActions}>
             {/* Not in the section nav above: that is anchors within this page,
                 and these two leave it. */}
@@ -183,6 +213,24 @@ export default function PitchPage() {
           </div>
           <div className={css.progress} aria-hidden />
         </div>
+
+        {/* The sheet the "Sections" control opens: a full-width panel under the
+            header, on the small screens where the bar above is hidden. The
+            links come from the same `SECTIONS` list the bar renders. */}
+        {sectionsOpen ? (
+          <nav className={headerCss.sectionsSheet} id="pitch-sections" aria-label="Sections">
+            {SECTIONS.map((section) => (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                aria-current={navOn === section.id ? "true" : undefined}
+                onClick={() => setSectionsOpen(false)}
+              >
+                {section.label}
+              </a>
+            ))}
+          </nav>
+        ) : null}
       </header>
 
       <main id="top">
@@ -472,7 +520,12 @@ $ npm install
 $ npm run build:core
 $ npm run test:core     # 460+ domain tests, no network
 $ npm run dev           # → http://localhost:3000`}</pre>
-              <div className="tag-chips" style={{ marginTop: 14 }}>
+              {/* The one-off margin is a class, not an inline style: the pitch
+                  has eight CSS modules and `styles/index.css` is explicit that
+                  styles live in the area's stylesheet. Dynamic values — the
+                  `Sheet` line widths, a project dot's colour — stay inline,
+                  because those genuinely come from data. */}
+              <div className={`tag-chips ${css.ctaTags}`}>
                 {["Next.js PWA", "Postgres + RLS", "Python SDK", "Zotero", "GitHub / GitLab", "Overleaf", "Semantic Scholar", "Mattermost"].map((t) => (
                   <span className="tag-chip" key={t}>{t}</span>
                 ))}
