@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { Paper, PaperRelation, ReadingList, ReportSection, VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
@@ -11,6 +12,8 @@ import { BraveGraphWarning } from "./brave-graph-warning";
 import { GraphCanvas } from "./graph-canvas";
 import type { GNode } from "../application/build-graph-data";
 import { SettingsIcon } from "@/components/view-icons";
+import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { GraphLegend } from "./graph-legend";
 import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
@@ -422,10 +425,31 @@ export function GraphScreen() {
       {error && <FormError>{error}</FormError>}
       {linkMsg && <p className="muted">{linkMsg}</p>}
       {!hasGraphItems && (
-        <div className="empty"><p>Add papers or notes first, then link them here.</p></div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="graph" />}
+          title="Nothing to link yet"
+          body="The graph draws what is already connected: a note that cites a paper, a paper a run came from, a section a note ends up in. Add papers or notes first, and the links appear here as you make them."
+          action={
+            <Link className="btn-secondary" href="/papers">
+              Go to papers
+            </Link>
+          }
+        />
       )}
       {hasGraphItems && !hasVisibleItems && (
-        <div className="empty"><p>No items match the filter.</p></div>
+        <EmptyState
+          variant="no-results"
+          body="No items match the filter."
+          action={
+            <ClearFiltersButton
+              onClear={() => {
+                setSelectedLists([]);
+                setSelectedTags([]);
+              }}
+            />
+          }
+        />
       )}
       {graphView}
       {hasVisibleItems && <GraphLegend showConcepts={settings.showConcepts} />}

@@ -76,6 +76,12 @@ const RULES = [
     use: "a <button> inside the <li>",
     why: "a clickable <li> has no role, no tab stop and no Enter/Space handling, so it cannot be operated by keyboard",
   },
+  {
+    name: "bare empty state",
+    pattern: /className="empty"/g,
+    use: '<EmptyState variant="first-run" | "no-results"> from @/components/empty-state',
+    why: "one grey sentence with nothing to click, on the screen where a new user decides whether the product is for them",
+  },
 ];
 
 /** Every .tsx file under the UI paths. */

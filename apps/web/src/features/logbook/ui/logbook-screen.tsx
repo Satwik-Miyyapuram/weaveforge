@@ -9,6 +9,8 @@ import { AddLogEntryForm } from "./add-log-entry-form";
 import { Select } from "@/components/select";
 import { Markdown } from "@/components/markdown/markdown";
 import { DeleteIcon, EditIcon } from "@/components/view-icons";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { CollabBodyHost } from "@/features/collab";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray } from "@/lib/empty";
@@ -55,9 +57,17 @@ export function LogbookScreen() {
 
       {error && <FormError>{error}</FormError>}
       {!error && entries.length === 0 && (
-        <div className="empty">
-          <p>No log entries yet. Use “+ Entry” to record what you did today.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="pencil" />}
+          title="No log entries yet"
+          body="The logbook is the part you will be glad of in month seven: what you tried today, and what it told you. One line is enough to start."
+          action={
+            <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+              + Entry
+            </button>
+          }
+        />
       )}
 
       <ul className={`log-list ${entries.length > 20 ? "long-list" : ""}`}>
