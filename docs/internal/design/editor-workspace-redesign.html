@@ -1,0 +1,1384 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-mode="proposed">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WeaveForge — Editor workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   THEME TOKENS
+   Copied verbatim from apps/web/src/app/themes/{light,mocha,amoled}.css.
+   No colour in this file is invented.
+   ========================================================================== */
+:root, [data-theme="light"] {
+  --bg:#f4f1ea; --surface:#fbfaf6; --surface2:#efece3; --elev:#fdfcf9;
+  --border:#e4dfd2; --border-strong:#d3ccb9;
+  --text:#2b2924; --muted:#6b6659; --faint:#9a9384;
+  --accent:#3b5b8c; --accent-fg:#ffffff; --accent-soft:#e7edf5;
+  --s-neutral:#6b6659; --s-neutral-bg:#eceae2;
+  --s-info:#2f6f8f; --s-info-bg:#e2eef2;
+  --s-good:#3f7a52; --s-good-bg:#e4efe6;
+  --s-warn:#a6742a; --s-warn-bg:#f3ebdc;
+  --s-danger:#a4443a; --s-danger-bg:#f3e2df;
+  --s-mute:#8a8478; --s-mute-bg:#ecebe4;
+  --e1: 0 1px 2px rgba(30,30,40,.05), 0 4px 12px rgba(30,30,40,.04);
+  --e3: 0 1px 2px rgba(30,30,40,.06), 0 14px 32px rgba(30,30,40,.10);
+  --shadow: 0 2px 8px rgba(30,30,40,.06), 0 16px 32px rgba(30,30,40,.10);
+  --rim: inset 0 1px 0 rgba(255,255,255,.72);
+}
+[data-theme="mocha"] {
+  --bg:#1e1e2e; --surface:#181825; --surface2:#313244; --elev:#252537;
+  --border:#313244; --border-strong:#45475a;
+  --text:#cdd6f4; --muted:#a6adc8; --faint:#7f849c;
+  --accent:#89b4fa; --accent-fg:#1e1e2e; --accent-soft:#2a2b40;
+  --s-neutral:#a6adc8; --s-neutral-bg:#292a3a;
+  --s-info:#89dceb; --s-info-bg:#1f2c33;
+  --s-good:#a6e3a1; --s-good-bg:#1f2b1e;
+  --s-warn:#f9e2af; --s-warn-bg:#31301f;
+  --s-danger:#f38ba8; --s-danger-bg:#33212a;
+  --s-mute:#7f849c; --s-mute-bg:#26273a;
+  --e1: 0 1px 2px rgba(0,0,0,.34), 0 4px 12px rgba(0,0,0,.28);
+  --e3: 0 1px 2px rgba(0,0,0,.4), 0 14px 32px rgba(0,0,0,.46);
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.5);
+  --rim: inset 0 1px 0 rgba(255,255,255,.06);
+}
+[data-theme="amoled"] {
+  --bg:#000000; --surface:#0a0a0a; --surface2:#141414; --elev:#101010;
+  --border:#1f1f1f; --border-strong:#2e2e2e;
+  --text:#eaeaea; --muted:#8a8a8a; --faint:#5a5a5a;
+  --accent:#4c8dff; --accent-fg:#000000; --accent-soft:#10161f;
+  --s-neutral:#9a9a9a; --s-neutral-bg:#161616;
+  --s-info:#5ab0d0; --s-info-bg:#0d1c22;
+  --s-good:#5cc98a; --s-good-bg:#0c1f14;
+  --s-warn:#c99a4a; --s-warn-bg:#1f1808;
+  --s-danger:#d86a62; --s-danger-bg:#20100e;
+  --s-mute:#6a6a6a; --s-mute-bg:#141414;
+  --e1: 0 1px 2px rgba(0,0,0,.34), 0 4px 12px rgba(0,0,0,.28);
+  --e3: 0 1px 2px rgba(0,0,0,.4), 0 14px 32px rgba(0,0,0,.46);
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.5);
+  --rim: inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* Aliases, from apps/web/src/app/themes/common.css */
+:root {
+  --ink: var(--text); --line: var(--border); --panel: var(--elev);
+  --input-bg: var(--elev); --chip: var(--surface2); --pill: var(--surface2);
+  --active-bg: var(--accent-soft); --active-fg: var(--accent);
+  --accent-ink: var(--accent); --danger: var(--s-danger);
+  --st-neutral-bg: var(--s-neutral-bg); --st-neutral-fg: var(--s-neutral);
+  --st-positive-bg: var(--s-good-bg);  --st-positive-fg: var(--s-good);
+  --st-info-bg: var(--s-info-bg);      --st-info-fg: var(--s-info);
+  --st-warn-bg: var(--s-warn-bg);      --st-warn-fg: var(--s-warn);
+  --st-danger-bg: var(--s-danger-bg);  --st-danger-fg: var(--s-danger);
+  /* base.css */
+  --icon-size: 16px; --nav-icon-size: calc(var(--icon-size) + 5px);
+  --content-measure: 72ch; --touch-min: 44px;
+  --font-plex-sans: "IBM Plex Sans";
+  --font-plex-serif: "IBM Plex Serif";
+  --font-plex-mono: "IBM Plex Mono";
+  --font: var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--font-plex-serif), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+*,*::before,*::after { box-sizing:border-box; }
+html,body { margin:0; padding:0; height:100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: var(--font); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  overflow:hidden;
+}
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+
+/* The app's own icon contract, both stroke weights:
+     nav-icon.tsx    → strokeWidth 1.7   (navigation)
+     view-icons.tsx  → strokeWidth 2     (actions)          */
+.i-nav, .i-act { fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+.i-nav { stroke-width:1.7; }
+.i-act { stroke-width:2; }
+
+/* ==========================================================================
+   REVIEW HARNESS — not product chrome. Styled to read as a tool.
+   ========================================================================== */
+.harness {
+  position:fixed; z-index:900; left:50%; bottom:16px; transform:translateX(-50%);
+  display:flex; align-items:center; gap:4px; padding:5px;
+  background:var(--elev); border:1px solid var(--border-strong);
+  border-radius:999px; box-shadow:var(--e3);
+}
+.harness-label {
+  color:var(--faint); padding:0 6px 0 10px; font-weight:600;
+  letter-spacing:.09em; text-transform:uppercase; font-size:9.5px;
+}
+.harness button {
+  border:1px solid transparent; background:transparent; color:var(--muted);
+  font:inherit; font-size:12px; font-weight:500; padding:5px 12px;
+  border-radius:999px; cursor:pointer; transition:background .15s, color .15s;
+}
+.harness button:hover { background:var(--surface2); color:var(--text); }
+.harness button[aria-pressed="true"] { background:var(--accent); color:var(--accent-fg); }
+.harness-sep { width:1px; height:18px; background:var(--border); margin:0 3px; }
+
+/* ==========================================================================
+   APP FRAME
+   proposed: rail 48 + explorer 264 + editor
+   current : sidebar 232 + explorer 216 + editor
+   ========================================================================== */
+.app { display:grid; height:100dvh; }
+[data-mode="proposed"] .app { grid-template-columns:48px 264px minmax(0,1fr); }
+[data-mode="current"]  .app { grid-template-columns:232px 216px minmax(0,1fr); }
+
+/* ==========================================================================
+   PRIMARY NAV — icon rail on /workspace.
+   Real NavIcon paths at strokeWidth 1.7, sized from --nav-icon-size.
+   ========================================================================== */
+.rail {
+  grid-row:1 / -1; display:flex; flex-direction:column; align-items:center;
+  background:var(--surface); border-right:1px solid var(--border);
+  padding:10px 0 8px; gap:2px; min-width:0; overflow:hidden;
+}
+[data-mode="current"] .rail { align-items:stretch; padding:20px 14px; gap:4px; }
+
+.rail-logo { width:30px; height:30px; display:block; margin-bottom:10px; flex:none; border-radius:8px; }
+[data-mode="current"] .rail-logo { margin:0 0 8px; }
+
+.rail-item {
+  position:relative; width:36px; height:34px; flex:none;
+  display:grid; place-items:center; border-radius:9px;
+  color:var(--muted); background:transparent; border:none; cursor:pointer;
+  transition:background .15s, color .15s;
+}
+.rail-item:hover { color:var(--text); background:var(--surface2); }
+.rail-item[aria-current="page"] { color:var(--active-fg); background:var(--active-bg); }
+.rail-item[aria-current="page"]::before {
+  content:""; position:absolute; left:-10px; top:50%; transform:translateY(-50%);
+  width:2px; height:18px; border-radius:0 2px 2px 0; background:var(--accent);
+}
+.rail-item .i-nav { width:var(--nav-icon-size); height:var(--nav-icon-size); }
+.rail-badge {
+  position:absolute; top:2px; right:2px; min-width:14px; height:14px; padding:0 3px;
+  border-radius:7px; background:var(--s-danger); color:#fff;
+  font-size:9px; font-weight:600; line-height:14px; text-align:center;
+  font-family:var(--font-mono);
+}
+.rail-spacer { flex:1; }
+.rail-tip {
+  position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%);
+  background:var(--elev); color:var(--text); border:1px solid var(--border-strong);
+  border-radius:6px; padding:4px 9px; font-size:11px; white-space:nowrap;
+  box-shadow:var(--e1); opacity:0; pointer-events:none; transition:opacity .12s;
+  z-index:60; display:flex; align-items:center; gap:7px;
+}
+.rail-tip kbd { font-family:var(--font-mono); font-size:9.5px; color:var(--faint); }
+.rail-item:hover .rail-tip { opacity:1; }
+
+[data-mode="current"] .rail-item {
+  width:100%; height:auto; justify-content:flex-start; gap:12px;
+  padding:9px 14px; border-radius:999px; font-size:.92rem; font-weight:500;
+}
+[data-mode="current"] .rail-item[aria-current="page"]::before { display:none; }
+[data-mode="current"] .rail-tip { display:none; }
+.rail-label { display:none; font-size:.92rem; }
+[data-mode="current"] .rail-label { display:block; }
+[data-mode="current"] .rail-item .i-nav { width:19px; height:19px; }
+[data-mode="current"] .rail-logo { width:28px; height:28px; }
+.rail-head {
+  display:none; color:var(--faint); font-size:.64rem; font-weight:600;
+  letter-spacing:.12em; text-transform:uppercase; padding:16px 14px 5px;
+}
+[data-mode="current"] .rail-head { display:block; }
+[data-mode="current"] .rail-head:first-of-type { padding-top:6px; }
+
+/* ==========================================================================
+   EXPLORER
+   ========================================================================== */
+.explorer {
+  grid-row:1 / -1; display:flex; flex-direction:column; min-width:0;
+  background:var(--surface); border-right:1px solid var(--border);
+}
+.ex-head { display:flex; align-items:center; gap:1px; height:36px; padding:0 6px 0 12px; flex:none; }
+.ex-title {
+  font-size:.68rem; font-weight:600; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--muted); margin-right:auto;
+}
+[data-mode="current"] .ex-title { font-size:.8rem; letter-spacing:0; text-transform:none; font-weight:500; }
+
+.icon-btn {
+  width:24px; height:24px; display:grid; place-items:center;
+  border:none; background:transparent; color:var(--faint);
+  border-radius:6px; cursor:pointer; flex:none;
+  transition:background .12s, color .12s;
+}
+.icon-btn:hover { background:var(--surface2); color:var(--text); }
+.icon-btn .i-act { width:15px; height:15px; }
+.icon-btn .i-nav { width:16px; height:16px; }
+
+[data-mode="current"] .ex-filter { display:none; }
+.ex-filter { padding:0 8px 8px; flex:none; }
+.filter-wrap { position:relative; display:flex; align-items:center; }
+.filter-wrap > .i-nav { position:absolute; left:8px; width:13px; height:13px; color:var(--faint); pointer-events:none; }
+.filter-input {
+  width:100%; font:inherit; font-size:.8rem; font-family:var(--font);
+  padding:6px 24px 6px 26px; border-radius:7px;
+  border:1px solid var(--border); background:var(--input-bg); color:var(--text);
+}
+.filter-input::placeholder { color:var(--faint); }
+.filter-input:focus { outline:none; border-color:var(--accent); }
+.filter-x {
+  position:absolute; right:4px; width:17px; height:17px; display:grid; place-items:center;
+  border:none; background:transparent; color:var(--faint); cursor:pointer; border-radius:4px;
+}
+.filter-x:hover { color:var(--text); background:var(--surface2); }
+.filter-x svg { width:11px; height:11px; }
+
+.ex-body { flex:1; overflow:auto; padding-bottom:14px; min-height:0; }
+.tree { list-style:none; margin:0; padding:0; }
+
+.row {
+  position:relative; display:flex; align-items:center; gap:6px;
+  height:25px; padding-right:8px; cursor:pointer;
+  color:var(--text); font-size:.845rem; user-select:none;
+  transition:background .1s;
+}
+.row:hover { background:var(--surface2); }
+.row[aria-selected="true"] { background:var(--accent-soft); color:var(--accent); }
+.row[aria-selected="true"]::before {
+  content:""; position:absolute; left:0; top:0; bottom:0; width:2px; background:var(--accent);
+}
+.row:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+
+/* Real chevron-icon.tsx geometry. */
+.tw { width:14px; height:14px; flex:none; display:grid; place-items:center; color:var(--faint); }
+.tw svg { width:11px; height:11px; transform:rotate(-90deg); transition:transform .15s ease; }
+.row.is-open .tw svg { transform:rotate(0deg); }
+
+.row .i-nav { width:15px; height:15px; }
+.row .label { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+
+/* 16px per level; the guides sit 5px inside each step. */
+.row[aria-level="1"] { padding-left:8px; }
+.row[aria-level="2"] { padding-left:24px; }
+.row[aria-level="3"] { padding-left:40px; }
+.row[aria-level="4"] { padding-left:56px; }
+[data-mode="current"] .row[aria-level="2"] { padding-left:20px; }
+[data-mode="current"] .row[aria-level="3"] { padding-left:32px; }
+[data-mode="current"] .row[aria-level="4"] { padding-left:44px; }
+
+/* Indent guides — a 3-level tree cannot be read without them. */
+.guides { position:absolute; inset:0; pointer-events:none; }
+.guide { position:absolute; top:0; bottom:0; width:1px; background:var(--border); }
+.row:hover .guide { background:var(--border-strong); }
+.row[aria-selected="true"] .guide { background:color-mix(in srgb, var(--accent) 45%, transparent); }
+[data-mode="current"] .guides { display:none; }
+
+/* Per-entity-type icon tint, from the semantic ramp. */
+.t-note   { color:var(--s-info); }
+.t-paper  { color:var(--s-warn); }
+.t-report { color:var(--s-good); }
+.t-list   { color:var(--accent); }
+/* The kind suffix, as KIND_SUFFIX spells it into the mirrored filename. */
+.ext { color:var(--faint); font-family:var(--font-mono); font-size:.68em; margin-left:2px; flex:none; letter-spacing:-.01em; }
+/* In the tree the icon and tint already say the kind, so the suffix only
+   appears on the row you are looking at; tabs, crumbs and the palette always
+   show it, because there the row's context is gone. */
+.row .ext { display:none; }
+.row:hover .ext, .row:focus-visible .ext, .row[aria-selected="true"] .ext { display:inline; }
+.row[aria-selected="true"] .ext { color:inherit; opacity:.7; }
+.t-folder { color:var(--faint); }
+.t-folder.has-open { color:var(--accent); }
+.row[aria-selected="true"] .t-note,
+.row[aria-selected="true"] .t-paper,
+.row[aria-selected="true"] .t-report,
+.row[aria-selected="true"] .t-folder { color:inherit; }
+
+/* Count chips on the three roots. */
+.root-count {
+  margin-left:auto; font-family:var(--font-mono); font-size:.63rem;
+  color:var(--faint); background:var(--surface2); border-radius:9px; padding:0 6px;
+  line-height:15px;
+}
+.row[aria-selected="true"] .root-count { background:var(--bg); }
+
+.git-tick { margin-left:6px; font-family:var(--font-mono); font-size:.68rem; font-weight:500; flex:none; }
+.git-m { color:var(--s-warn); }
+.git-u { color:var(--s-good); }
+
+.start-note {
+  margin-left:auto; flex:none; opacity:0;
+  font:inherit; font-size:.66rem; font-weight:500; padding:1px 7px; border-radius:5px;
+  border:1px solid var(--border-strong); background:transparent; color:var(--muted);
+  cursor:pointer; transition:opacity .12s, border-color .15s, color .15s;
+}
+.row:hover .start-note, .row:focus-within .start-note { opacity:1; }
+.start-note:hover { border-color:var(--accent); color:var(--accent); }
+@media (hover:none) { .start-note { opacity:1; } }
+
+/* The shipped Unicode glyphs, kept only for the comparison view. */
+.glyph { display:none; width:.95rem; text-align:center; color:var(--faint); flex:none; font-size:.8rem; }
+[data-mode="current"] .glyph { display:inline-block; }
+[data-mode="current"] .row .i-nav { display:none; }
+[data-mode="current"] .tw svg { display:none; }
+[data-mode="current"] .row[aria-expanded] .tw::before { content:"▾"; font-size:.7rem; }
+[data-mode="current"] .row[aria-expanded]:not(.is-open) .tw::before { content:"▸"; }
+/* The shipped explorer has no header actions, counts or git ticks
+   (explorer-panel.tsx renders the tree and nothing else). */
+[data-mode="current"] .ex-head .icon-btn,
+[data-mode="current"] .root-count,
+[data-mode="current"] .git-tick,
+[data-mode="current"] .ext { display:none; }
+/* The shipped tab strip: no icon, a permanent "×", no presence avatars,
+   and "▥ ▤" text for the split buttons (pane-view.tsx:160-183). */
+[data-mode="current"] .tab .i-nav,
+[data-mode="current"] .tab-dot,
+[data-mode="current"] .peers { display:none; }
+[data-mode="current"] .tab-x { opacity:1; }
+
+/* ==========================================================================
+   EDITOR COLUMN
+   ========================================================================== */
+.editor-col {
+  display:grid; grid-template-rows:36px 28px minmax(0,1fr) auto 26px;
+  min-width:0; min-height:0; background:var(--bg);
+}
+[data-mode="current"] .editor-col { grid-template-rows:36px auto minmax(0,1fr); }
+
+/* ---- tabs ---- */
+.tabbar {
+  display:flex; align-items:stretch; background:var(--surface);
+  border-bottom:1px solid var(--border); min-width:0;
+}
+.tabs { display:flex; align-items:stretch; overflow-x:auto; scrollbar-width:none; min-width:0; }
+.tabs::-webkit-scrollbar { display:none; }
+.tab {
+  position:relative; display:flex; align-items:center; gap:7px;
+  padding:0 11px; max-width:200px; min-width:0; flex:none;
+  font-size:.815rem; color:var(--muted); cursor:pointer;
+  border-right:1px solid var(--border); background:var(--surface);
+  transition:background .12s, color .12s;
+}
+.tab:hover { background:var(--surface2); color:var(--text); }
+.tab[aria-selected="true"] { background:var(--bg); color:var(--text); }
+.tab[aria-selected="true"]::before {
+  content:""; position:absolute; top:0; left:0; right:0; height:2px; background:var(--accent);
+}
+.tab .i-nav { width:14px; height:14px; }
+.tab-label { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.tab-slot { width:16px; height:16px; flex:none; display:grid; place-items:center; position:relative; }
+.tab-dot { width:7px; height:7px; border-radius:50%; background:currentColor; transition:opacity .12s; }
+.tab-x {
+  position:absolute; inset:0; display:grid; place-items:center;
+  border:none; background:transparent; color:inherit; cursor:pointer;
+  border-radius:4px; opacity:0; transition:opacity .12s, background .12s;
+}
+.tab-x svg { width:11px; height:11px; }
+.tab:hover .tab-x, .tab[aria-selected="true"] .tab-x, .tab-x:focus-visible { opacity:1; }
+.tab:hover .tab-dot, .tab[aria-selected="true"] .tab-dot { opacity:0; }
+.tab-x:hover { background:var(--surface2); color:var(--text); }
+
+.tab-actions {
+  display:flex; align-items:center; gap:1px; margin-left:auto;
+  padding:0 7px; flex:none; border-left:1px solid var(--border);
+}
+/* Collaboration presence — colours match pickColor(authorId) in the app. */
+.peers { display:flex; align-items:center; margin-right:6px; }
+.peer {
+  width:20px; height:20px; border-radius:50%; display:grid; place-items:center;
+  font-size:9px; font-weight:600; color:#fff; letter-spacing:.02em;
+  border:1.5px solid var(--surface); margin-left:-6px;
+}
+.peer:first-child { margin-left:0; }
+.peer-more {
+  width:20px; height:20px; border-radius:50%; display:grid; place-items:center;
+  font-size:9px; font-weight:600; background:var(--surface2); color:var(--muted);
+  border:1.5px solid var(--surface); margin-left:-6px;
+}
+
+/* ---- breadcrumbs ---- */
+.crumbs {
+  display:flex; align-items:center; height:28px; padding:0 12px; flex:none;
+  font-size:.73rem; color:var(--faint); background:var(--bg);
+  border-bottom:1px solid var(--border);
+  overflow-x:auto; scrollbar-width:none; white-space:nowrap;
+}
+.crumbs::-webkit-scrollbar { display:none; }
+.crumb { padding:2px 6px; border-radius:4px; cursor:pointer; transition:background .12s, color .12s; }
+.crumb:hover { background:var(--surface2); color:var(--text); }
+.crumb.is-file { color:var(--muted); font-weight:500; }
+.crumb-sep { width:12px; height:12px; color:var(--faint); opacity:.55; flex:none; transform:rotate(-90deg); }
+.crumb-dot { color:var(--faint); opacity:.6; padding:0 2px; }
+.crumb-kind { color:var(--faint); font-family:var(--font-mono); font-size:.68rem; }
+
+/* ---- document + minimap ---- */
+.doc-wrap { display:grid; grid-template-columns:minmax(0,1fr) auto; min-height:0; }
+.doc-scroll { overflow:auto; min-width:0; }
+.doc { max-width:72ch; margin:0 auto; padding:40px 44px 150px; }
+
+.fm {
+  font-family:var(--font-mono); font-size:.755rem; line-height:1.8;
+  background:var(--surface); border:1px solid var(--border);
+  border-left:2px solid var(--accent); border-radius:14px;
+  padding:12px 15px; color:var(--muted); margin:0 0 30px; white-space:pre;
+  overflow-x:auto;
+}
+.fm-k { color:var(--accent); }
+.fm-v { color:var(--text); }
+
+.doc h1 {
+  font-family:var(--font-serif); font-weight:600; font-size:1.95rem;
+  line-height:1.18; letter-spacing:-.022em; margin:0 0 8px; text-wrap:balance;
+}
+.doc-meta { display:flex; flex-wrap:wrap; gap:6px 16px; color:var(--faint); font-size:.755rem; margin:0 0 4px; }
+.doc-meta span { font-variant-numeric:tabular-nums; display:inline-flex; align-items:center; gap:5px; }
+.doc-meta .i-nav { width:12px; height:12px; }
+.doc h2 {
+  font-family:var(--font-serif); font-weight:600; font-size:1.22rem;
+  letter-spacing:-.012em; margin:36px 0 10px; text-wrap:balance;
+}
+.doc p { line-height:1.72; margin:0 0 16px; }
+
+/* Real wikilink treatment: styles/markdown.css */
+.wikilink {
+  color:var(--accent-ink); background:var(--chip);
+  padding:1px 6px; border-radius:5px; font-weight:500; cursor:pointer;
+  text-decoration:none;
+}
+.wikilink:hover { background:var(--accent-soft); }
+code { font-family:var(--font-mono); font-size:.85em; background:var(--surface2); padding:2px 5px; border-radius:4px; }
+
+/* Real callout: styles/markdown.css */
+.callout {
+  border-left:2px solid var(--s-warn); background:var(--s-warn-bg);
+  border-radius:0 10px 10px 0;
+  padding:13px 16px; margin:22px 0; font-size:.87rem;
+}
+.callout-label {
+  display:block; font-size:.64rem; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--s-warn); margin-bottom:6px;
+}
+.doc blockquote {
+  margin:20px 0; padding:2px 0 2px 17px; border-left:2px solid var(--border-strong);
+  color:var(--muted); font-family:var(--font-serif); font-style:italic; font-size:1.01rem;
+}
+.doc table { border-collapse:collapse; width:100%; margin:20px 0; font-size:.84rem; }
+.doc th, .doc td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); }
+.doc th {
+  color:var(--muted); font-weight:500; font-size:.66rem;
+  letter-spacing:.08em; text-transform:uppercase;
+}
+.doc td.num { font-family:var(--font-mono); font-variant-numeric:tabular-nums; text-align:right; }
+
+/* Real status pills: styles/entity-detail.css */
+.status {
+  display:inline-block; flex:none; font-size:.68rem; text-transform:capitalize;
+  padding:3px 9px; border-radius:999px; line-height:1.4;
+  background:var(--st-neutral-bg); color:var(--st-neutral-fg); white-space:nowrap;
+}
+.status-in_progress, .status-running, .status-drafting { background:var(--st-info-bg); color:var(--st-info-fg); }
+.status-done, .status-read { background:var(--st-positive-bg); color:var(--st-positive-fg); }
+.status-review, .status-skimmed { background:var(--st-warn-bg); color:var(--st-warn-fg); }
+.status-blocked, .status-failed { background:var(--st-danger-bg); color:var(--st-danger-fg); }
+
+/* Real tag chips: styles/papers.css */
+.tag-chips { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 0; }
+.tag-chip {
+  display:inline-flex; align-items:center; gap:4px; font-size:.7rem;
+  padding:3px 9px; border-radius:999px; background:var(--chip); color:var(--accent-ink);
+}
+
+/* ---- minimap ---- */
+.minimap {
+  width:76px; flex:none; border-left:1px solid var(--border);
+  background:var(--bg); position:relative; overflow:hidden; cursor:pointer;
+}
+.mini { padding:9px 7px; display:grid; gap:3px; opacity:.4; }
+.ml { height:2px; border-radius:1px; background:var(--muted); }
+.ml.h { background:var(--accent); height:3px; }
+.ml.q { background:var(--faint); }
+.ml.c { background:var(--s-good); }
+.mini-view {
+  position:absolute; left:0; right:0; top:44px; height:158px;
+  background:color-mix(in srgb, var(--muted) 11%, transparent);
+  border-top:1px solid var(--border-strong); border-bottom:1px solid var(--border-strong);
+}
+
+/* ---- bottom panel ---- */
+.panel { border-top:1px solid var(--border); background:var(--surface); flex:none; }
+.panel-head { display:flex; align-items:center; gap:2px; height:31px; padding:0 8px; }
+.panel-tab {
+  display:inline-flex; align-items:center; gap:6px;
+  border:none; background:transparent; color:var(--faint);
+  font:inherit; font-size:.68rem; font-weight:600; letter-spacing:.07em;
+  text-transform:uppercase; padding:5px 10px; border-radius:6px; cursor:pointer;
+  position:relative; transition:color .12s, background .12s;
+}
+.panel-tab .i-nav { width:12px; height:12px; }
+.panel-tab:hover { color:var(--text); background:var(--surface2); }
+.panel-tab[aria-selected="true"] { color:var(--text); }
+.panel-tab[aria-selected="true"]::after {
+  content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:2px; background:var(--accent);
+}
+.panel-count {
+  font-size:.62rem; padding:0 5px; border-radius:8px;
+  background:var(--s-warn-bg); color:var(--s-warn); font-weight:700;
+  font-family:var(--font-mono); line-height:14px;
+}
+.panel-body {
+  border-top:1px solid var(--border); padding:9px 13px 12px;
+  font-family:var(--font-mono); font-size:.735rem; color:var(--muted);
+  max-height:132px; overflow:auto;
+}
+.prow { display:flex; gap:10px; padding:3px 0; align-items:baseline; }
+.prow .i-nav { width:12px; height:12px; color:var(--s-warn); position:relative; top:1px; }
+.prow .ploc { color:var(--faint); margin-left:auto; font-variant-numeric:tabular-nums; }
+.prow code { background:transparent; padding:0; color:var(--text); }
+
+/* ---- status bar ---- */
+.statusbar {
+  grid-column:2 / -1; display:flex; align-items:center; gap:1px;
+  height:26px; padding:0 5px; background:var(--surface2);
+  border-top:1px solid var(--border);
+  font-size:.72rem; color:var(--muted); min-width:0; overflow:hidden;
+}
+.sb {
+  display:inline-flex; align-items:center; gap:5px; padding:3px 8px;
+  border-radius:5px; cursor:pointer; white-space:nowrap;
+  transition:background .12s, color .12s;
+}
+.sb:hover { background:var(--surface); color:var(--text); }
+.sb .i-nav { width:13px; height:13px; }
+.sb-num { font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
+.sb-spacer { flex:1; }
+.sb-saved { color:var(--s-good); }
+.sb-saved .i-act { width:12px; height:12px; }
+[data-mode="current"] .statusbar { display:none; }
+
+/* ==========================================================================
+   COMMAND PALETTE
+   ========================================================================== */
+.scrim {
+  position:fixed; inset:0; z-index:800;
+  background:color-mix(in srgb, var(--bg) 42%, transparent);
+  backdrop-filter:blur(3px); display:flex; justify-content:center; padding-top:11vh;
+}
+.scrim[hidden] { display:none; }
+.palette {
+  width:min(640px, 92vw); max-height:62vh; display:flex; flex-direction:column;
+  background:var(--elev); border:1px solid var(--border-strong);
+  border-radius:14px; box-shadow:var(--e3); overflow:hidden;
+  animation:pop .16s cubic-bezier(.22,.61,.36,1);
+}
+@keyframes pop { from { opacity:0; transform:translateY(-6px) scale(.99); } }
+.p-input-wrap { display:flex; align-items:center; gap:10px; padding:0 15px; border-bottom:1px solid var(--border); }
+.p-input-wrap > .i-nav { width:16px; height:16px; color:var(--faint); }
+.p-input {
+  flex:1; border:none; background:transparent; color:var(--text);
+  font:inherit; font-size:.94rem; padding:14px 0; outline:none;
+}
+.p-input::placeholder { color:var(--faint); }
+.p-mode {
+  font-size:.6rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--faint); border:1px solid var(--border); border-radius:4px; padding:2px 6px;
+}
+.p-results { list-style:none; margin:0; padding:5px; overflow-y:auto; }
+.p-group {
+  font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--faint); padding:9px 10px 4px;
+}
+.p-row {
+  display:flex; align-items:center; gap:10px; width:100%;
+  padding:7px 10px; border:none; border-radius:7px; background:transparent;
+  color:var(--text); font:inherit; font-size:.86rem; text-align:left; cursor:pointer;
+}
+.p-row .i-nav { width:15px; height:15px; }
+.p-row[aria-selected="true"] { background:var(--accent-soft); color:var(--accent); }
+.p-dir { color:var(--faint); font-size:.75rem; }
+.p-row[aria-selected="true"] .p-dir { color:color-mix(in srgb, var(--accent) 65%, var(--faint)); }
+/* The matched-character highlight the shipped dialog computes and never renders
+   (quick-open.ts:22 documents `matched` as "for highlighting"). */
+.p-row mark {
+  background:transparent; color:inherit; font-weight:700;
+  text-decoration:underline; text-decoration-color:var(--accent);
+  text-underline-offset:3px; text-decoration-thickness:1.5px;
+}
+.p-kind { margin-left:auto; font-family:var(--font-mono); font-size:.66rem; color:var(--faint); }
+.p-foot {
+  display:flex; align-items:center; gap:15px; padding:9px 14px;
+  border-top:1px solid var(--border); color:var(--faint); font-size:.7rem;
+}
+.p-foot .i-nav { width:13px; height:13px; }
+.p-foot .right { display:flex; gap:15px; margin-left:auto; }
+kbd {
+  font-family:var(--font-mono); font-size:.64rem;
+  border:1px solid var(--border-strong); border-radius:4px;
+  padding:1px 5px; background:var(--surface); color:var(--muted);
+}
+.p-empty { padding:28px 12px; text-align:center; color:var(--faint); font-size:.85rem; }
+
+/* ==========================================================================
+   CURRENT-BUILD SIMULATION
+   ========================================================================== */
+[data-mode="current"] .proposed-only { display:none; }
+.current-note {
+  display:none;
+  font-family:var(--font-mono); font-size:.7rem; line-height:1.6;
+  color:var(--s-danger); background:var(--s-danger-bg);
+  border:1px solid color-mix(in srgb, var(--s-danger) 35%, transparent);
+  border-radius:7px; padding:9px 11px; margin-bottom:16px;
+}
+[data-mode="current"] .current-note { display:block; }
+/* .workspace-shell { height: calc(100dvh - var(--nav-inset)) } with
+   --nav-inset: 232px — a horizontal token subtracted from a height. */
+[data-mode="current"] .doc-scroll { max-height:calc(100dvh - 232px - 36px); }
+[data-mode="current"] .doc { padding:16px 14px; max-width:none; }
+[data-mode="current"] .doc h1 { font-size:1.15rem; }
+[data-mode="current"] .fm,
+[data-mode="current"] .callout,
+[data-mode="current"] .doc table,
+[data-mode="current"] .doc blockquote,
+[data-mode="current"] .doc-meta,
+[data-mode="current"] .tag-chips { display:none; }
+
+/* Composed empty state, replacing one grey sentence. */
+.empty-pane {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:100%; gap:8px; color:var(--muted); text-align:center; padding:34px;
+}
+.ep-mark {
+  width:52px; height:52px; border-radius:14px; display:grid; place-items:center;
+  background:var(--surface); border:1px solid var(--border);
+  color:var(--faint); margin-bottom:8px;
+}
+.ep-mark svg { width:26px; height:26px; }
+.empty-pane h3 {
+  font-family:var(--font-serif); font-weight:600; font-size:1.08rem;
+  margin:0; color:var(--text); letter-spacing:-.01em;
+}
+.empty-pane > p { margin:0; font-size:.845rem; max-width:44ch; line-height:1.62; }
+.sc-grid {
+  display:grid; grid-template-columns:auto auto; gap:8px 20px;
+  margin-top:22px; font-size:.78rem; color:var(--muted); text-align:left;
+}
+.sc-grid .sk { justify-self:end; display:flex; gap:3px; }
+</style>
+</head>
+<body>
+
+<!-- ==========================================================================
+     ICON SPRITE — every path below is copied from the shipped source.
+       nav-icon.tsx   (strokeWidth 1.7) → i-home, i-book, i-list, i-graph,
+                                          i-flask, i-git, i-pencil, i-flag,
+                                          i-doc, i-notes, i-search
+       view-icons.tsx (strokeWidth 2)   → i-settings, i-check
+       chevron-icon.tsx                 → i-chevron
+       weave-forge-logo.tsx             → #wg-logo
+     The single new glyph is i-folder: the app has no folder icon in either set,
+     because the explorer has never drawn one. Drawn to the same contract.
+     nav-icon.tsx also defines `vault`, which is deliberately NOT carried here —
+     no feature module references it (vault and wiki both use `notes`), so it is
+     dead in the shipped set and would be dead weight in the mockup.
+     ========================================================================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <!-- nav-icon.tsx -->
+  <g id="i-home"><path d="M4 11 12 4l8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9Z"/></g>
+  <g id="i-book"><path d="M4 5a2 2 0 0 1 2-2h10v16H6a2 2 0 0 0-2 2V5Zm12 14H6"/></g>
+  <g id="i-list"><path d="M8 6h11M8 12h11M8 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></g>
+  <g id="i-graph"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="9" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8 7.5 15.5 8.5M7.5 8 8.5 15.5"/></g>
+  <g id="i-flask"><path d="M9 3h6M10 3v6l-5 8a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-8V3M7.5 14h9"/></g>
+  <g id="i-git"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M6 12h6a3 3 0 0 0 3-3"/></g>
+  <g id="i-pencil"><path d="M4 20h4L19 9a2 2 0 0 0-3-3L5 16v4ZM14.5 7.5l3 3"/></g>
+  <g id="i-flag"><path d="M5 21V4m0 1h12l-3 4 3 4H5"/></g>
+  <g id="i-doc"><path d="M6 3h8l4 4v14H6V3ZM14 3v4h4M9 13h6M9 17h6"/></g>
+  <g id="i-notes"><path d="M14 3H6a2 2 0 0 0-2 2v14l4-2 4 2 4-2 4 2V5a2 2 0 0 0-2-2Z"/><path d="M8 7h8M8 11h8M8 15h5"/></g>
+  <g id="i-search"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></g>
+  <!-- view-icons.tsx -->
+  <g id="i-settings"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></g>
+  <!-- NEW: the app has no check glyph. Its checkmark is the character "✓" in a
+       `.check` span (org-switcher.tsx:61, project-switcher.tsx:36), which is a
+       text glyph in a menu row. A status-bar "Saved" indicator sits among SVG
+       icons and needs a drawn one, so this is the second new glyph. -->
+  <g id="i-check"><path d="M5 12.5l4.5 4.5L19 7"/></g>
+  <!-- chevron-icon.tsx -->
+  <g id="i-chevron"><polyline points="6 9 12 15 18 9"/></g>
+  <!-- NEW: neither shipped icon set contains a folder glyph. -->
+  <g id="i-folder"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18Z"/></g>
+  <!-- Brand mark, inline from weave-forge-logo.tsx so it reads theme tokens. -->
+  <g id="wg-logo-mark">
+    <rect width="512" height="512" rx="115" fill="var(--surface2)"/>
+    <path d="M 230 125 L 194 125 A 54 54 0 0 0 140 179 L 140 355 A 54 54 0 0 0 194 409 L 318 409 A 54 54 0 0 0 372 355 L 372 265"
+          fill="none" stroke="var(--text)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="264" y1="125" x2="264" y2="215" stroke="var(--text)" stroke-width="12" stroke-linecap="round"/>
+    <line x1="264" y1="215" x2="356" y2="139" stroke="var(--text)" stroke-width="12" stroke-linecap="round"/>
+    <line x1="264" y1="215" x2="372" y2="229" stroke="var(--text)" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="264" cy="125" r="22" fill="var(--text)"/>
+    <circle cx="264" cy="215" r="22" fill="var(--text)"/>
+    <circle cx="356" cy="139" r="22" fill="var(--accent)"/>
+    <circle cx="372" cy="229" r="22" fill="var(--text)"/>
+  </g>
+</defs>
+</svg>
+
+<div class="app">
+
+  <!-- ==================== PRIMARY NAV ==================== -->
+  <nav class="rail" aria-label="Primary">
+    <svg class="rail-logo" viewBox="0 0 512 512" role="img" aria-label="WeaveForge"><use href="#wg-logo-mark"/></svg>
+
+    <span class="rail-head">Library</span>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-book"/></svg><span class="rail-label">Papers</span><span class="rail-tip">Papers</span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-notes"/></svg><span class="rail-label">Notes</span><span class="rail-tip">Notes</span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-notes"/></svg><span class="rail-label">Wiki</span><span class="rail-tip">Wiki</span></button>
+    <button class="rail-item" type="button" aria-current="page"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-pencil"/></svg><span class="rail-label">Editor</span><span class="rail-tip">Editor</span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-graph"/></svg><span class="rail-label">Graph</span><span class="rail-tip">Graph</span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-list"/></svg><span class="rail-label">Lists</span><span class="rail-tip">Lists</span></button>
+
+    <span class="rail-head">Work</span>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flask"/></svg><span class="rail-label">Experiments</span><span class="rail-tip">Experiments</span><span class="rail-badge">3</span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flag"/></svg><span class="rail-label">Plan</span><span class="rail-tip">Plan</span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-doc"/></svg><span class="rail-label">Report</span><span class="rail-tip">Report</span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-pencil"/></svg><span class="rail-label">Log</span><span class="rail-tip">Log</span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-git"/></svg><span class="rail-label">Git</span><span class="rail-tip">Git <kbd>2 changes</kbd></span></button>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-home"/></svg><span class="rail-label">Home</span><span class="rail-tip">Home</span></button>
+
+    <span class="rail-spacer"></span>
+    <button class="rail-item" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-search"/></svg><span class="rail-label">Search</span><span class="rail-tip">Search <kbd>⌘K</kbd></span></button>
+    <button class="rail-item" type="button"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-settings"/></svg><span class="rail-label">Settings</span><span class="rail-tip">Settings</span></button>
+  </nav>
+
+  <!-- ==================== EXPLORER ==================== -->
+  <aside class="explorer" aria-label="Workspace">
+    <div class="ex-head">
+      <span class="ex-title">Explorer</span>
+      <button class="icon-btn" title="New note" aria-label="New note"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-notes"/></svg></button>
+      <button class="icon-btn" title="New folder" aria-label="New folder"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-folder"/></svg></button>
+      <button class="icon-btn" title="Collapse all" aria-label="Collapse all">
+        <svg class="i-act" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      </button>
+      <button class="icon-btn" title="Refresh" aria-label="Refresh">
+        <svg class="i-act" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4h-4"/></svg>
+      </button>
+    </div>
+
+    <div class="ex-filter">
+      <div class="filter-wrap">
+        <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        <input class="filter-input" type="text" placeholder="Filter by name…" aria-label="Filter workspace">
+        <button class="filter-x" title="Clear filter" aria-label="Clear filter">
+          <svg class="i-act" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="ex-body">
+      <ul class="tree" role="tree" aria-label="Workspace files">
+
+        <!-- ── Notes ── -->
+        <li role="none">
+          <div class="row is-open" role="treeitem" aria-level="1" aria-expanded="true" tabindex="0">
+            <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+            <span class="glyph">▸</span>
+            <svg class="i-nav t-folder has-open" viewBox="0 0 24 24"><use href="#i-folder"/></svg>
+            <span class="label">Notes</span>
+            <span class="root-count">4</span>
+          </div>
+          <ul class="tree" role="group">
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" aria-selected="true" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">◆</span>
+                <svg class="i-nav t-note" viewBox="0 0 24 24"><use href="#i-notes"/></svg>
+                <span class="label">Disentanglement reading cluster</span><span class="ext">.note.md</span>
+                <span class="git-tick git-m">M</span>
+              </div>
+            </li>
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+                <span class="glyph">▸</span>
+                <svg class="i-nav t-folder" viewBox="0 0 24 24"><use href="#i-folder"/></svg>
+                <span class="label">Baselines</span>
+                <span class="root-count">2</span>
+              </div>
+            </li>
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">◆</span>
+                <svg class="i-nav t-note" viewBox="0 0 24 24"><use href="#i-notes"/></svg>
+                <span class="label">Graph-prior module</span><span class="ext">.note.md</span>
+              </div>
+            </li>
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">◆</span>
+                <svg class="i-nav t-note" viewBox="0 0 24 24"><use href="#i-notes"/></svg>
+                <span class="label">Capacity trade-off notes</span><span class="ext">.note.md</span>
+              </div>
+            </li>
+          </ul>
+        </li>
+
+        <!-- ── Papers ── -->
+        <li role="none">
+          <div class="row is-open" role="treeitem" aria-level="1" aria-expanded="true" tabindex="-1">
+            <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+            <span class="glyph">▸</span>
+            <svg class="i-nav t-folder has-open" viewBox="0 0 24 24"><use href="#i-folder"/></svg>
+            <span class="label">Papers</span>
+            <span class="root-count">20</span>
+          </div>
+          <ul class="tree" role="group">
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">❐</span>
+                <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+                <span class="label">β-VAE: Learning Basic Visual Concepts</span><span class="ext">.paper.md</span>
+                <span class="start-note">Start note</span>
+              </div>
+            </li>
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">❐</span>
+                <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+                <span class="label">Disentanglement: Is It All in the Architecture?</span><span class="ext">.paper.md</span>
+                <span class="git-tick git-u">U</span>
+              </div>
+            </li>
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">❐</span>
+                <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+                <span class="label">Variational Graph Auto-Encoders</span><span class="ext">.paper.md</span>
+              </div>
+            </li>
+          </ul>
+        </li>
+
+        <!-- ── Lists ── reading lists are folders whose leaves are papers (and notes) -->
+        <li role="none">
+          <div class="row is-open" role="treeitem" aria-level="1" aria-expanded="true" tabindex="-1">
+            <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+            <span class="glyph">▸</span>
+            <svg class="i-nav t-folder has-open" viewBox="0 0 24 24"><use href="#i-folder"/></svg>
+            <span class="label">Lists</span>
+            <span class="root-count">3</span>
+          </div>
+          <ul class="tree" role="group">
+            <li role="none">
+              <div class="row is-open" role="treeitem" aria-level="2" aria-expanded="true" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+                <span class="glyph">▸</span>
+                <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
+                <span class="label">Latent spaces</span><span class="ext">.list.md</span>
+                <span class="root-count">2</span>
+              </div>
+              <ul class="tree" role="group">
+                <li role="none">
+                  <div class="row is-open" role="treeitem" aria-level="3" aria-expanded="true" tabindex="-1">
+                    <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span></span>
+                    <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+                    <span class="glyph">▸</span>
+                    <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
+                    <span class="label">Disentanglement</span><span class="ext">.list.md</span>
+                    <span class="root-count">3</span>
+                  </div>
+                  <ul class="tree" role="group">
+                    <li role="none">
+                      <div class="row" role="treeitem" aria-level="4" tabindex="-1">
+                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span><span class="guide" style="left:51px"></span></span>
+                        <span class="tw"></span><span class="glyph">❐</span>
+                        <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+                        <span class="label">β-VAE: Learning Basic Visual Concepts</span><span class="ext">.paper.md</span>
+                      </div>
+                    </li>
+                    <li role="none">
+                      <div class="row" role="treeitem" aria-level="4" tabindex="-1">
+                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span><span class="guide" style="left:51px"></span></span>
+                        <span class="tw"></span><span class="glyph">❐</span>
+                        <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+                        <span class="label">Disentanglement: Is It All in the Architecture?</span><span class="ext">.paper.md</span>
+                      </div>
+                    </li>
+                    <li role="none">
+                      <div class="row" role="treeitem" aria-level="4" tabindex="-1">
+                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span><span class="guide" style="left:51px"></span></span>
+                        <span class="tw"></span><span class="glyph">◆</span>
+                        <svg class="i-nav t-note" viewBox="0 0 24 24"><use href="#i-notes"/></svg>
+                        <span class="label">Disentanglement reading cluster</span><span class="ext">.note.md</span>
+                      </div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" aria-expanded="false" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+                <span class="glyph">▸</span>
+                <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
+                <span class="label">Screening — September</span><span class="ext">.list.md</span>
+                <span class="root-count">14</span>
+              </div>
+            </li>
+          </ul>
+        </li>
+
+        <!-- ── Report ── -->
+        <li role="none">
+          <div class="row is-open" role="treeitem" aria-level="1" aria-expanded="true" tabindex="-1">
+            <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+            <span class="glyph">▸</span>
+            <svg class="i-nav t-folder has-open" viewBox="0 0 24 24"><use href="#i-folder"/></svg>
+            <span class="label">Report</span>
+            <span class="root-count">12</span>
+          </div>
+          <ul class="tree" role="group">
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">§</span>
+                <svg class="i-nav t-report" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+                <span class="label">2.1.2 Disentanglement literature</span><span class="ext">.report.md</span>
+                <span class="git-tick git-m">M</span>
+              </div>
+            </li>
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">§</span>
+                <svg class="i-nav t-report" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+                <span class="label">3.2 Graph-prior module</span><span class="ext">.report.md</span>
+              </div>
+            </li>
+          </ul>
+        </li>
+
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ==================== EDITOR ==================== -->
+  <div class="editor-col">
+
+    <div class="tabbar">
+      <div class="tabs" role="tablist" aria-label="Open documents">
+        <div class="tab" role="tab" aria-selected="true" tabindex="0">
+          <svg class="i-nav t-note" viewBox="0 0 24 24"><use href="#i-notes"/></svg>
+          <span class="tab-label">Disentanglement reading cluster<span class="ext">.note.md</span></span>
+          <span class="tab-slot"><span class="tab-dot"></span>
+            <button class="tab-x" aria-label="Close Disentanglement reading cluster">
+              <svg class="i-act" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </span>
+        </div>
+        <div class="tab" role="tab" aria-selected="false" tabindex="-1">
+          <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+          <span class="tab-label">β-VAE: Learning Basic Visual Concepts</span>
+          <span class="tab-slot"><span class="tab-dot" style="opacity:1"></span>
+            <button class="tab-x" aria-label="Close β-VAE"><svg class="i-act" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </span>
+        </div>
+        <div class="tab" role="tab" aria-selected="false" tabindex="-1">
+          <svg class="i-nav t-report" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+          <span class="tab-label">3.2 Graph-prior module</span>
+          <span class="tab-slot">
+            <button class="tab-x" aria-label="Close 3.2 Graph-prior module"><svg class="i-act" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </span>
+        </div>
+      </div>
+      <div class="tab-actions">
+        <!-- Collaboration presence, lifted out of the document body into the chrome. -->
+        <span class="peers" title="Editing with dr. m. haddad and m. okonkwo">
+          <span class="peer" style="background:#7c6f9c">MH</span>
+          <span class="peer" style="background:#5b8c7a">MO</span>
+          <span class="peer-more">+1</span>
+        </span>
+        <button class="icon-btn" title="Split right" aria-label="Split right">
+          <svg class="i-act" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M12 4.5v15"/></svg>
+        </button>
+        <button class="icon-btn" title="Split down" aria-label="Split down">
+          <svg class="i-act" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 12h17"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="crumbs proposed-only">
+      <span class="crumb">Project</span>
+      <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
+      <span class="crumb">Notes</span>
+      <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
+      <span class="crumb">Baselines</span>
+      <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
+      <span class="crumb is-file">Disentanglement reading cluster<span class="ext">.note.md</span></span>
+      <span class="crumb-dot">·</span>
+      <span class="crumb-kind">vault_page</span>
+    </div>
+
+    <div class="doc-wrap" id="docwrap">
+      <div class="doc-scroll">
+        <article class="doc">
+          <div class="current-note">
+            <strong>.workspace-shell { height: calc(100dvh - var(--nav-inset)) }</strong><br>
+            --nav-inset is 232px and is the <em>horizontal</em> inset the shell uses to clear the
+            sidebar (nav.css:142 → shell.css:45 padding-left). It is being subtracted from the
+            <em>height</em>. The panes also sit inside .app-shell's padding and below the sub-nav
+            strip, so they stop roughly 100px above the window edge.
+          </div>
+
+          <pre class="fm proposed-only"><span class="fm-k">title:</span>   <span class="fm-v">Disentanglement reading cluster</span>
+<span class="fm-k">tags:</span>    <span class="fm-v">[to-verify, disentanglement]</span>
+<span class="fm-k">papers:</span>  <span class="fm-v">[higgins-2017-bvae, locatello-2019]</span>
+<span class="fm-k">updated:</span> <span class="fm-v">2026-02-11</span></pre>
+
+          <h1>Disentanglement reading cluster</h1>
+          <p class="doc-meta proposed-only">
+            <span><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-notes"/></svg>412 words</span>
+            <span><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-git"/></svg>edited 4m ago</span>
+            <span><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-graph"/></svg>3 backlinks</span>
+            <span><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-book"/></svg>2 papers</span>
+          </p>
+
+          <div class="tag-chips proposed-only">
+            <span class="tag-chip">#to-verify</span>
+            <span class="tag-chip">#disentanglement</span>
+            <span class="tag-chip">#capacity</span>
+          </div>
+
+          <p class="proposed-only" style="height:8px;margin:0"></p>
+
+          <p>
+            The claim rests on a single coefficient. Higgins et&nbsp;al. put one
+            hyperparameter in front of the KL term and show that raising it trades
+            reconstruction for factorised latents.
+          </p>
+
+          <blockquote class="proposed-only">
+            “…a single hyperparameter <strong>β</strong> that balances latent channel
+            capacity against reconstruction accuracy.”
+          </blockquote>
+
+          <h2>Does β survive a structured prior?</h2>
+          <p>
+            Locatello argues unsupervised disentanglement is impossible without
+            inductive bias — and a graph prior is exactly that bias. See
+            <span class="wikilink">Variational Graph Auto-Encoders</span>.
+          </p>
+
+          <div class="callout proposed-only">
+            <span class="callout-label">Decision · 2026-02-11</span>
+            Using the structured-prior variant rather than the β sweep for §3.2.
+            The sweep was already run (<span class="wikilink">β-VAE sweep — seed 42</span>)
+            and the ranking is unchanged, so re-running buys nothing.
+          </div>
+
+          <h2>Numbers to carry into §3.2</h2>
+          <table class="proposed-only">
+            <thead><tr><th>Run</th><th>Config</th><th style="text-align:right">val_loss</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>β-VAE sweep — seed 42</td><td><code>β=4 · lr=1e-3</code></td><td class="num">0.1826</td><td><span class="status status-done">done</span></td></tr>
+              <tr><td>ResNet-18 baseline</td><td><code>lr=3e-4</code></td><td class="num">0.3401</td><td><span class="status status-done">done</span></td></tr>
+              <tr><td>Graph-prior ablation</td><td><code>β=8 · k=16</code></td><td class="num">0.1633</td><td><span class="status status-running">running</span></td></tr>
+            </tbody>
+          </table>
+        </article>
+      </div>
+
+      <div class="minimap proposed-only" title="Minimap" aria-hidden="true">
+        <div class="mini">
+          <div class="ml h" style="width:64%"></div>
+          <div class="ml c" style="width:41%"></div>
+          <div class="ml q" style="width:53%"></div>
+          <div class="ml" style="width:88%"></div><div class="ml" style="width:79%"></div>
+          <div class="ml" style="width:91%"></div><div class="ml" style="width:44%"></div>
+          <div class="ml h" style="width:57%"></div>
+          <div class="ml" style="width:84%"></div><div class="ml" style="width:70%"></div>
+          <div class="ml c" style="width:36%"></div>
+          <div class="ml" style="width:93%"></div><div class="ml" style="width:66%"></div>
+          <div class="ml q" style="width:81%"></div><div class="ml" style="width:74%"></div>
+          <div class="ml h" style="width:49%"></div>
+          <div class="ml" style="width:89%"></div><div class="ml" style="width:58%"></div>
+          <div class="ml c" style="width:72%"></div><div class="ml" style="width:63%"></div>
+          <div class="ml" style="width:95%"></div><div class="ml" style="width:42%"></div>
+          <div class="ml q" style="width:77%"></div><div class="ml" style="width:86%"></div>
+          <div class="ml" style="width:59%"></div><div class="ml" style="width:90%"></div>
+        </div>
+        <div class="mini-view"></div>
+      </div>
+    </div>
+
+    <div class="panel proposed-only">
+      <div class="panel-head">
+        <button class="panel-tab" aria-selected="true">
+          <svg class="i-nav" viewBox="0 0 24 24" style="color:var(--s-warn)"><use href="#i-flag"/></svg> Problems <span class="panel-count">1</span>
+        </button>
+        <button class="panel-tab" aria-selected="false">
+          <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-doc"/></svg> Output
+        </button>
+        <span class="sb-spacer"></span>
+        <button class="icon-btn" aria-label="Hide panel" title="Hide panel">
+          <svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg>
+        </button>
+      </div>
+      <div class="panel-body">
+        <div class="prow">
+          <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flag"/></svg>
+          <span>citation key <code>locatello-2019</code> matches no imported paper</span>
+          <span class="ploc">workspace · 1 of 1</span>
+        </div>
+        <div class="prow" style="color:var(--faint)">
+          <span style="width:12px;flex:none"></span>
+          <span>Output holds the sync and folder-mirror log. There is no terminal: the app has no shell.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="sb"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-git"/></svg> main</span>
+      <span class="sb"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flag"/></svg> 2 changes</span>
+      <span class="sb sb-saved"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-check"/></svg> Saved</span>
+      <span class="sb-spacer"></span>
+      <span class="sb"><span class="sb-num">412</span> words</span>
+      <span class="sb"><span class="sb-num">2,684</span> chars</span>
+      <span class="sb">Ln <span class="sb-num">28</span>, Col <span class="sb-num">14</span></span>
+      <span class="sb">Spaces: 2</span>
+      <span class="sb">UTF-8</span>
+      <span class="sb">Markdown</span>
+      <span class="sb"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-graph"/></svg> 3 peers</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== COMMAND PALETTE ==================== -->
+<div class="scrim" id="scrim" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Go to file">
+    <div class="p-input-wrap">
+      <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+      <input class="p-input" id="pq" placeholder="Go to file — try a name, a folder, or .report" aria-label="Search documents" autocomplete="off" spellcheck="false">
+      <span class="p-mode">Files</span>
+    </div>
+    <ul class="p-results" id="presults" role="listbox" aria-label="Matching documents"></ul>
+    <div class="p-foot">
+      <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+      <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+      <span><kbd>↵</kbd> open</span>
+      <span class="right"><span><kbd>⌘↵</kbd> split</span><span><kbd>esc</kbd> close</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== REVIEW HARNESS ==================== -->
+<div class="harness" role="group" aria-label="Review controls">
+  <span class="harness-label">Review</span>
+  <button id="b-proposed" aria-pressed="true">Proposed</button>
+  <button id="b-current" aria-pressed="false">Current build</button>
+  <span class="harness-sep"></span>
+  <button class="th" data-th="light" aria-pressed="true">Paper</button>
+  <button class="th" data-th="mocha" aria-pressed="false">Mocha</button>
+  <button class="th" data-th="amoled" aria-pressed="false">Amoled</button>
+  <span class="harness-sep"></span>
+  <button id="b-palette">Palette ⌘P</button>
+  <button id="b-empty" aria-pressed="false">Empty state</button>
+</div>
+
+<script>
+/* The entity → nav-icon map, exactly as each feature module declares it:
+     papers=book · vault=notes · wiki=notes · editor-workspace=pencil · graph=graph
+     reading-lists=list · experiments=flask · git=git · plan=flag · logbook=pencil
+     report=doc · dashboard=home                                                */
+const ICON = { note:"notes", paper:"book", report:"doc", experiment:"flask", list:"list" };
+const TINT = { note:"t-note", paper:"t-paper", report:"t-report", experiment:"t-paper", list:"t-list" };
+const GROUP = { note:"Notes", paper:"Papers", report:"Report", experiment:"Experiments", list:"Lists" };
+
+const root = document.documentElement;
+const $ = (s) => document.querySelector(s);
+
+/* ---- mode + theme ---- */
+function setMode(m) {
+  root.dataset.mode = m;
+  $("#b-proposed").setAttribute("aria-pressed", String(m === "proposed"));
+  $("#b-current").setAttribute("aria-pressed", String(m === "current"));
+}
+setMode(root.dataset.mode || "proposed");
+document.querySelectorAll(".th").forEach((o) => o.setAttribute("aria-pressed", String(o.dataset.th === root.dataset.theme)));
+$("#b-proposed").onclick = () => setMode("proposed");
+$("#b-current").onclick = () => setMode("current");
+document.querySelectorAll(".th").forEach((b) => {
+  b.onclick = () => {
+    root.dataset.theme = b.dataset.th;
+    document.querySelectorAll(".th").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+  };
+});
+
+/* ---- explorer: disclosure, selection, filter ---- */
+document.querySelectorAll(".row").forEach((row) => {
+  row.addEventListener("click", () => {
+    if (row.hasAttribute("aria-expanded")) {
+      const open = row.classList.toggle("is-open");
+      row.setAttribute("aria-expanded", String(open));
+      const g = row.parentElement.querySelector(":scope > ul");
+      if (g) g.hidden = !open;
+      return;
+    }
+    document.querySelectorAll('.row[aria-selected="true"]').forEach((o) => o.removeAttribute("aria-selected"));
+    row.setAttribute("aria-selected", "true");
+  });
+});
+const filter = $(".filter-input");
+filter.addEventListener("input", () => {
+  const q = filter.value.trim().toLowerCase();
+  document.querySelectorAll(".row").forEach((row) => {
+    const label = row.querySelector(".label");
+    if (!label) return;
+    row.style.display = !q || label.textContent.toLowerCase().includes(q) ? "" : "none";
+  });
+});
+$(".filter-x").addEventListener("click", () => {
+  filter.value = ""; filter.dispatchEvent(new Event("input")); filter.focus();
+});
+
+/* ---- tabs ---- */
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", (e) => {
+    if (e.target.closest(".tab-x")) return;
+    document.querySelectorAll(".tab").forEach((t) => {
+      t.setAttribute("aria-selected", String(t === tab));
+      t.tabIndex = t === tab ? 0 : -1;
+    });
+  });
+});
+
+/* ---- command palette -----------------------------------------------------
+   The scorer is the real one from application/quick-open.ts, including the
+   `matched` indices it computes and the shipped dialog never renders.        */
+const DOCS = [
+  ["Disentanglement reading cluster","notes/disentanglement-reading-cluster.note.md","note"],
+  ["Graph-prior module","notes/baselines/graph-prior-module.note.md","note"],
+  ["Capacity trade-off notes","notes/capacity-trade-off-notes.note.md","note"],
+  ["β-VAE: Learning Basic Visual Concepts","papers/higgins-2017-bvae.paper.md","paper"],
+  ["Disentanglement: Is It All in the Architecture?","papers/locatello-2019.paper.md","paper"],
+  ["Variational Graph Auto-Encoders","papers/kipf-2016-vgae.paper.md","paper"],
+  ["Disentanglement","reading-lists/latent-spaces/disentanglement.list.md","list"],
+  ["2.1.2 Disentanglement literature","report/2.1.2-disentanglement-literature.report.md","report"],
+  ["3.2 Graph-prior module","report/3.2-graph-prior-module.report.md","report"],
+  ["β-VAE sweep — seed 42","experiments/bvae-sweep-seed-42.exp.md","experiment"]
+];
+const M = 8, C = 12, W = 10, S = 16, G = 1;
+function score(text, q) {
+  if (!q) return { score:0, matched:[] };
+  const h = text.toLowerCase(), n = q.toLowerCase();
+  let sc = 0, at = 0, prev = -1; const matched = [];
+  for (const ch of n) {
+    if (ch === " ") continue;
+    const f = h.indexOf(ch, at);
+    if (f === -1) return null;
+    sc += M;
+    if (f === prev + 1) sc += C; else sc -= Math.min((f - at) * G, M);
+    if (f === 0 || /[^a-z0-9]/.test(h[f - 1])) sc += W;
+    if (f === 0) sc += S;
+    matched.push(f); prev = f; at = f + 1;
+  }
+  return { score: sc - Math.floor(h.length / 12), matched };
+}
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+function mark(label, idx) {
+  if (!idx || !idx.length) return esc(label);
+  const set = new Set(idx); let out = "";
+  for (let i = 0; i < label.length; i++)
+    out += set.has(i) ? "<mark>" + esc(label[i]) + "</mark>" : esc(label[i]);
+  return out;
+}
+let cursor = 0, results = [];
+function render(q) {
+  const rows = [];
+  for (const [label, path, kind] of DOCS) {
+    const bT = score(label, q), bP = score(path, q);
+    if (!bT && !bP) continue;
+    const tS = bT ? bT.score + 4 : -Infinity, pS = bP ? bP.score : -Infinity;
+    rows.push({ label, path, kind, score: Math.max(tS, pS),
+      matched: (bT && tS >= pS) ? bT.matched : (bP ? bP.matched : []) });
+  }
+  rows.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
+  results = rows.slice(0, 40);
+  cursor = Math.min(cursor, Math.max(results.length - 1, 0));
+
+  const list = $("#presults");
+  if (!results.length) {
+    list.innerHTML = '<li class="p-empty">Nothing matches \u201C' + esc(q) + '\u201D.</li>';
+    return;
+  }
+  let html = "", last = null;
+  results.forEach((r, i) => {
+    if (r.kind !== last) { html += '<li class="p-group">' + GROUP[r.kind] + "</li>"; last = r.kind; }
+    const dir = r.path.slice(0, r.path.lastIndexOf("/") + 1);
+    html += '<li><button type="button" role="option" class="p-row" aria-selected="' + (i === cursor) +
+      '" data-i="' + i + '"><svg class="i-nav ' + TINT[r.kind] + '" viewBox="0 0 24 24"><use href="#i-' + ICON[r.kind] +
+      '"/></svg><span>' + mark(r.label, r.matched) + '</span>' +
+      '<span class="p-dir">' + esc(dir) + '</span>' +
+      '<span class="p-kind">' + r.kind + "</span></button></li>";
+  });
+  list.innerHTML = html;
+}
+function move(d) {
+  cursor = Math.max(0, Math.min(cursor + d, results.length - 1));
+  document.querySelectorAll(".p-row").forEach((el, i) => el.setAttribute("aria-selected", String(i === cursor)));
+  const active = document.querySelector('.p-row[aria-selected="true"]');
+  if (active && active.scrollIntoView) active.scrollIntoView({ block:"nearest" });
+}
+function openPalette() {
+  $("#scrim").hidden = false;
+  const inp = $("#pq"); inp.value = ""; cursor = 0; render("");
+  inp.focus();
+}
+function closePalette() { $("#scrim").hidden = true; }
+$("#b-palette").onclick = openPalette;
+$("#pq").addEventListener("input", (e) => { cursor = 0; render(e.target.value.trim()); });
+$("#scrim").addEventListener("click", (e) => { if (e.target.id === "scrim") closePalette(); });
+$("#presults").addEventListener("click", (e) => { if (e.target.closest(".p-row")) closePalette(); });
+window.addEventListener("keydown", (e) => {
+  const open = !$("#scrim").hidden;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && !e.shiftKey && (e.key.toLowerCase() === "p" || e.key.toLowerCase() === "k")) {
+    e.preventDefault(); if (open) closePalette(); else openPalette(); return;
+  }
+  if (!open) return;
+  if (e.key === "Escape") { e.preventDefault(); closePalette(); }
+  if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
+  if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
+  if (e.key === "Enter") { e.preventDefault(); closePalette(); }
+});
+
+/* ---- empty-state demo ---- */
+const wrap = $("#docwrap");
+const DOC_HTML = wrap.innerHTML;
+$("#b-empty").onclick = (e) => {
+  const on = e.currentTarget.getAttribute("aria-pressed") === "true";
+  e.currentTarget.setAttribute("aria-pressed", String(!on));
+  if (on) { wrap.innerHTML = DOC_HTML; return; }
+  wrap.innerHTML = `
+    <div class="empty-pane" style="grid-column:1 / -1">
+      <span class="ep-mark"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-pencil"/></svg></span>
+      <h3>Nothing open</h3>
+      <p>Pick a document on the left, or go straight to one by name. Your layout comes back when you return.</p>
+      <div class="sc-grid">
+        <span class="sk"><kbd>⌘</kbd><kbd>P</kbd></span><span>Go to file</span>
+        <span class="sk"><kbd>⌘</kbd><kbd>\\</kbd></span><span>Split right</span>
+        <span class="sk"><kbd>⌘</kbd><kbd>W</kbd></span><span>Close tab</span>
+        <span class="sk"><kbd>⌘</kbd><kbd>⇥</kbd></span><span>Next tab</span>
+      </div>
+    </div>`;
+};
+render("");
+</script>
+</body>
+</html>
