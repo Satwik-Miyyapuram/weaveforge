@@ -46,7 +46,7 @@ import { ExplorerPanel } from "./explorer-panel";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { kindSuffix, segmentsFor } from "./kind";
+import { isDocumentKind, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 import type { WikilinkEntry } from "@/features/vault";
 
@@ -192,6 +192,9 @@ export function WorkspaceScreen() {
           })),
           items,
           titles,
+          // Papers before notes, from `kind.ts`'s own ordering column, so the
+          // rule is not a comparison against `"paper"` in two places.
+          memberRank,
         }),
       );
       setMembership(
@@ -249,10 +252,16 @@ export function WorkspaceScreen() {
       pendingRef.current += 1;
       setPending(pendingRef.current);
       try {
-        if (tab.kind === "vault_page") await container.vault.manageVaultPage.update(tab.id, { body });
-        else if (tab.kind === "paper") await container.papers.updatePaper.setSummary(tab.id, body);
-        else if (tab.kind === "report_section")
-          await container.report.manageReportSection.setNotes(tab.id, body);
+        // Which use case writes a body, as a lookup rather than an
+        // `if (kind === …)` chain. It cannot live in `ui/kind.ts` — the values
+        // are container calls, and that table is pure data — but it is the same
+        // kind of per-kind column, and it is the one an ink note adds a row to.
+        const writers: Record<string, (id: string, next: string) => Promise<unknown>> = {
+          vault_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
+          paper: (id, next) => container.papers.updatePaper.setSummary(id, next),
+          report_section: (id, next) => container.report.manageReportSection.setNotes(id, next),
+        };
+        await writers[tab.kind]?.(tab.id, body);
         setDirty(false);
         setDocuments((current) =>
           (current ?? []).map((doc) =>
@@ -286,16 +295,20 @@ export function WorkspaceScreen() {
   const active = activeTabRef(layout);
   const activeKeyOf = active ? tabKey(active) : undefined;
 
-  // Where Read mode's wikilinks can go. The same lists `/notes` hands
-  // `VaultMarkdown`, built from the documents this screen already loaded.
+  // Where Read mode's wikilinks can go. The same three lists `/notes` hands
+  // `VaultMarkdown`, built from the documents this screen already loaded. Which
+  // kind resolves against which list is `kind.ts`'s `linkGroup`, so a kind that
+  // cannot be linked to is left out rather than filtered by name here.
   const links = useMemo(() => {
     const rows = documents ?? [];
+    const inGroup = (group: "notes" | "papers" | "sections") =>
+      rows
+        .filter((doc) => linkGroupOf(doc.kind) === group)
+        .map((doc) => ({ id: doc.id, title: doc.title }));
     return {
-      notes: rows.filter((doc) => doc.kind === "vault_page").map((doc) => ({ id: doc.id, title: doc.title })),
-      papers: rows.filter((doc) => doc.kind === "paper").map((doc) => ({ id: doc.id, title: doc.title })),
-      sections: rows
-        .filter((doc) => doc.kind === "report_section")
-        .map((doc) => ({ id: doc.id, title: doc.title })),
+      notes: inGroup("notes"),
+      papers: inGroup("papers"),
+      sections: inGroup("sections"),
     };
   }, [documents]);
 
@@ -384,7 +397,7 @@ export function WorkspaceScreen() {
 
   const openNode = useCallback(
     (node: WorkspaceTreeNode, options: { split: boolean }) => {
-      if (!node.id || node.kind === "folder") return;
+      if (!node.id || !isDocumentKind(node.kind)) return;
       const tab = { kind: node.kind, id: node.id };
       apply(openTab(options.split ? splitPane(layout, layout.focusedPaneId, "row") : layout, tab));
       setPaletteOpen(false);

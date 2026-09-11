@@ -25,7 +25,7 @@ import {
   type VisibleRow,
   type WorkspaceTreeNode,
 } from "../application/workspace-tree";
-import { documentSuffix, kindIcon, kindIconClass } from "./kind";
+import { documentSuffix, isDocumentKind, kindIcon, kindIconClass } from "./kind";
 
 export interface ExplorerSelection {
   kind: TreeNodeKind;
@@ -166,8 +166,8 @@ export function ExplorerPanel({
         onRelease?.(node);
         return;
       }
-      if (node.children.length > 0 || node.kind === "folder") setOpen(node.key);
-      if (node.id && node.kind !== "folder") onOpen({ kind: node.kind, id: node.id });
+      if (node.children.length > 0 || !isDocumentKind(node.kind)) setOpen(node.key);
+      if (node.id && isDocumentKind(node.kind)) onOpen({ kind: node.kind, id: node.id });
     },
     [onOpen, onRelease, setOpen],
   );
@@ -374,7 +374,7 @@ export function ExplorerPanel({
                     const painted = flat.find((candidate) => candidate.node.key === node.key);
                     const branch = node.children.length > 0;
                     const rowOpen = effectiveExpanded.has(node.key);
-                    const suffix = node.kind === "folder" ? null : documentSuffix(node.kind);
+                    const suffix = isDocumentKind(node.kind) ? documentSuffix(node.kind) : null;
                     const lists = node.id ? listNames?.get(`${node.kind}:${node.id}`) : undefined;
                     const git = gitStatus?.get(node.key);
                     const tint = kindIconClass(node.kind, rowOpen);
@@ -427,7 +427,7 @@ export function ExplorerPanel({
                             {branch ? <ChevronIcon open={rowOpen} variant="expand" /> : null}
                           </span>
                           <span className={`explorer-icon${tint ? ` ${tint}` : ""}`} aria-hidden="true">
-                            {node.kind === "folder" ? (
+                            {!isDocumentKind(node.kind) ? (
                               <FolderIcon />
                             ) : (
                               <NavIcon name={kindIcon(node.kind)} />
