@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
-import { ZOTERO_NOT_RUNNING, localZoteroAnnotations, zoteroLocalFetch } from "../infrastructure/zotero-local";
+import {
+  ZOTERO_NOT_RUNNING,
+  localZoteroAnnotations,
+  localZoteroLibrary,
+  zoteroLocalFetch,
+} from "../infrastructure/zotero-local";
 
 function bridgeWith(
   reply: (url: string) => { status: number; body: string; headers: Record<string, string> },
@@ -62,4 +67,40 @@ test("annotations come back joined to their paper, with no API key involved", as
 
   assert.equal(byPaper.get("PAP1")?.[0]?.text, "boiling water");
   assert.ok(seen.every((url) => url.startsWith("http://127.0.0.1:23119/api/users/0/")));
+});
+
+test("the local library's items become papers, and only reads leave the page", async () => {
+  // A local paper with no `zoteroKey` and no match in the local library — the
+  // very thing a cloud sync would push, and then delete-propagate on the next
+  // pass. The local read must do neither: the API refuses writes, and a paper
+  // that is only in the cloud library is not gone.
+  const elsewhere = {
+    id: "p-cloud",
+    title: "Only in the cloud",
+    authors: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  } as unknown as import("@weaveforge/core").Paper;
+  const seen: string[] = [];
+  const added: string[] = [];
+  const pulled = await localZoteroLibrary(
+    bridgeWith((url) => {
+      seen.push(url);
+      const items = url.includes("/items/top")
+        ? [{ data: { key: "PAP1", itemType: "preprint", title: "Boiling water", DOI: "10.1/x" } }]
+        : [];
+      return { status: 200, body: JSON.stringify(items), headers: { "total-results": "1" } };
+    }),
+    {
+      listPapers: async () => [elsewhere],
+      addPaper: async (input) => {
+        added.push(input.title);
+      },
+    },
+  ).pull();
+
+  assert.equal(pulled, 1);
+  assert.deepEqual(added, ["Boiling water"]);
+  assert.ok(seen.every((url) => url.startsWith("http://127.0.0.1:23119/api/users/0/")));
+  assert.ok(seen.every((url) => !url.includes("key=")), "no API key on a local read");
 });

@@ -71,7 +71,9 @@ one that carried the header.
 
 Zotero 7 serves a read-only copy of the Web API on `http://127.0.0.1:23119/api`
 as library `users/0`, with no key and no account. "Read Zotero on this
-computer", in the papers screen's add menu, imports annotations through it.
+computer", in the papers screen's add menu, imports papers and then their
+annotations through it — a copy with no account has no other way to fill its
+shelf.
 
 Everything below the origin is the cloud path reused: `zoteroLibraryUrl` already
 took an `apiOrigin`, so `fetchAllZoteroItems`, the attachment-to-paper join and
@@ -87,10 +89,13 @@ Two things are specific to it:
   and returns only the headers the pager reads. A general fetch channel
   reachable from the renderer would forward requests to anything the machine
   can reach.
-- **Nothing is created and nothing is written back.** Papers are matched on the
-  `zoteroKey` they already carry, and Zotero's local API answers reads only.
-  Annotations still go *out* via `ZoteroApiAnnotationWriteBack`, which needs an
-  API key because it goes through `api.zotero.org`.
+- **Nothing is written back and nothing is removed.** The read is
+  `ZoteroSync.pull()` alone: items not yet in the library become papers, and
+  annotations are matched on the `zoteroKey` those papers carry. There is no
+  push (the local API answers reads only) and no delete-propagation (the local
+  library may be a subset of the cloud one). Annotations still go *out* via
+  `ZoteroApiAnnotationWriteBack`, which needs an API key because it goes
+  through `api.zotero.org`.
 
 ### Runtime flow
 
