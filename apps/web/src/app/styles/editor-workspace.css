@@ -182,6 +182,22 @@
   font-size: 0.62rem;
 }
 
+/* "In 2 lists" on a Files row: membership is discoverable without opening the
+   Reading lists section, and the tooltip carries the names. */
+.explorer-in-lists {
+  display: none;
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+.explorer-row:hover .explorer-in-lists,
+.explorer-row.is-active .explorer-in-lists {
+  display: inline;
+}
+
 /* -------------------------------------------------------------------------
    Explorer header: title, filter and actions (§3.5)
    ---------------------------------------------------------------------- */
@@ -790,6 +806,14 @@
   align-items: center;
   color: var(--faint);
 }
+
+.quick-open-title {
+  flex: none;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.quick-open-result.is-active .quick-open-title { color: inherit; }
 
 .quick-open-kind .nav-icon { width: 14px; height: 14px; }
 .quick-open-result.is-active .quick-open-kind { color: inherit; }
