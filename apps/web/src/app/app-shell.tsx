@@ -137,6 +137,13 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
         collapsed ? "nav-collapsed" : ""
       } ${editorRoute ? "editor-route" : ""}`.replace(/\s+/g, " ").trim()}
     >
+      {/* First focusable thing in the shell. The primary nav renders above
+          `<main>` and is a nine-item sidebar on desktop, so without this a
+          keyboard user tabs the whole navigation on every route before reaching
+          content. Hidden until focused; `base.css` already draws the ring. */}
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
       {current && (
         <TabBar
           collapsed={collapsed}
@@ -145,7 +152,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           onToggle={() => setManuallyCollapsed(!manuallyCollapsed)}
         />
       )}
-      <main className="app-shell">
+      <main id="main" className="app-shell">
         <JumpToPalette />
         {/* Mobile's home for the account controls; on desktop they live in the
             nav. Rendered for one breakpoint only — mounting both and hiding one

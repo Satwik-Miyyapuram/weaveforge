@@ -1,3 +1,6 @@
+/* Long-form prose: `pretty` rather than `balance`, because what shows up in a
+   paragraph is not an uneven first line but an orphaned last word. */
+.markdown { text-wrap: pretty; }
 .markdown h3, .markdown h4, .markdown h5 { margin: 10px 0 4px; letter-spacing: -0.01em; }
 .markdown ul, .markdown ol { margin: 6px 0; padding-left: 20px; }
 .markdown ol { list-style: decimal; }

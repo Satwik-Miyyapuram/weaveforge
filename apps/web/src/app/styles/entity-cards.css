@@ -61,7 +61,7 @@
   gap: 4px;
   min-width: 0;
   padding: 10px 12px;
-  transition: border-color 0.12s, background 0.12s;
+  transition: border-color var(--dur-base), background var(--dur-base);
 }
 .entity-card[role="button"],
 .paper-card[role="button"] { cursor: pointer; }
@@ -96,6 +96,10 @@
   letter-spacing: -0.01em;
   overflow-wrap: break-word;
   word-break: normal;
+  /* Even line breaks on a two-line title. `balance` was pitch-only, so the
+     marketing headlines got it and the product's own card titles did not —
+     the same title wrapped raggedly on /papers and evenly on the pitch. */
+  text-wrap: balance;
 }
 /* Status lives in the foot with actions so the title can use full width. */
 .entity-card-status {

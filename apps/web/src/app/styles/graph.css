@@ -103,7 +103,7 @@
 .tag-chip-btn { cursor: pointer; border: none; font: inherit; }
 .graph-merge-box { display: grid; gap: 6px; margin: 8px 0; padding: 8px; background: var(--surface2); border-radius: 8px; }
 .graph-edge-popover {
-  position: fixed; z-index: 80; width: min(280px, 90vw); padding: 10px 12px;
+  position: fixed; z-index: var(--z-overlay); width: min(280px, 90vw); padding: 10px 12px;
   transform: translate(-50%, -100%); margin-top: -8px;
 }
 .graph-edge-popover-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
@@ -150,7 +150,7 @@
 
 /* Full-bleed focus mode: graph fills the viewport, controls float as overlays. */
 .graph-focus {
-  position: fixed; inset: 0; z-index: 70; overflow: hidden;
+  position: fixed; inset: 0; z-index: var(--z-overlay); overflow: hidden;
   background: radial-gradient(circle at 50% 42%, var(--surface2), var(--surface));
 }
 .graph-focus .graph-wrap.fill {

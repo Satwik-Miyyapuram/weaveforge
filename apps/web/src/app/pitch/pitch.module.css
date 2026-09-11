@@ -419,6 +419,11 @@
 
 .sceneInner { display: grid; gap: 8px; }
 
+/* The self-host call to action's tag row: `.tag-chips` is the app's card-tag
+   treatment, reused here (the pitch renders the product's own components), with
+   the one-off gap the call site used to carry as an inline style. */
+.ctaTags { margin-top: 14px; }
+
 /* Stacked (phones): the visual pins under the header, steps run beneath it.
    Height is capped so the reader still has somewhere to read. */
 .stage {
