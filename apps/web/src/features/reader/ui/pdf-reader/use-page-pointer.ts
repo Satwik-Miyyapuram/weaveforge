@@ -16,6 +16,10 @@ import {
   type ReaderAnnotation,
   type ReaderPageSize,
 } from "@weaveforge/core";
+// The shared palm rules, through ink's public API: an ink note needs the same
+// three layers this reader already had, so they live in one place rather than in
+// two implementations that would drift.
+import { InkPenGate } from "@/features/ink";
 import {
   appendInkStroke,
   draftImageRegion,
@@ -103,19 +107,19 @@ export function usePagePointer({
   /** Pointer that owns the stroke in progress, so a second contact cannot join it. */
   const inkPointerId = useRef<number | null>(null);
   /**
-   * Whether a stylus has ever touched this reader.
+   * Which pointer may draw, which is ink's palm handling and not the reader's.
    *
-   * Palm rejection, without a device API for it: a tablet reports the hand
-   * resting on the glass as an ordinary `touch` pointer, indistinguishable from
-   * a fingertip, so drawing turned every resting palm into a stroke. Once a pen
-   * has been seen, touch stops drawing and goes back to scrolling — which is
-   * also what a pen user wants their finger to do. On a device with no pen this
-   * never trips, and finger drawing keeps working.
+   * Palm rejection without a device API: a tablet reports the hand resting on the
+   * glass as an ordinary `touch` pointer, indistinguishable from a fingertip, so
+   * drawing turned every resting palm into a stroke. The rules live in
+   * `features/ink` because an ink note needs exactly the same ones — and this is
+   * the layer §3.1 says to keep *exactly* as it is, which is why the reader still
+   * draws a touch immediately rather than deferring it (see `pointerMayDraw`).
    */
-  const sawPen = useRef(false);
+  const penGate = useRef<InkPenGate>(new InkPenGate({ handedness: "right" }));
   /**
-   * Mirrors `sawPen` into render, so the page can hand touch scrolling back
-   * once a pen is in use. A drawing tool otherwise pins `touch-action: none`
+   * Mirrors the gate's pen flag into render, so the page can hand touch scrolling
+   * back once a pen is in use. A drawing tool otherwise pins `touch-action: none`
    * on every page and the document cannot be scrolled by finger at all.
    */
   const [penSeen, setPenSeen] = useState(false);
@@ -226,18 +230,30 @@ export function usePagePointer({
   }
 
   /**
-   * Whether this pointer is allowed to draw. See `sawPen` — a palm resting on a
-   * tablet arrives as a `touch` pointer and would otherwise scribble.
+   * Whether this pointer is allowed to draw.
+   *
+   * The palm rules are ink's (`InkPenGate`); what is the reader's is the answer to
+   * a deferred touch. The plan's rule five holds a touch for 120 ms to see whether
+   * it moves, and an ink note wants that because its surface has no scroll of its
+   * own. A PDF page already scrolls by finger through `touch-action`, so deferring
+   * here would add latency to finger drawing without buying anything — the
+   * deferred verdict is therefore read as "draw", which is what this reader has
+   * always done.
    */
   function pointerMayDraw(event: React.PointerEvent): boolean {
-    if (event.pointerType === "pen") {
-      if (!sawPen.current) {
-        sawPen.current = true;
-        setPenSeen(true);
-      }
-      return true;
-    }
-    if (event.pointerType === "touch") return !sawPen.current;
+    const decision = penGate.current.decide({
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      pressure: event.pressure,
+      width: event.nativeEvent.width,
+      height: event.nativeEvent.height,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      bounds: event.currentTarget.getBoundingClientRect(),
+      t: event.timeStamp,
+    });
+    if (decision === "ignore") return false;
+    if (event.pointerType === "pen" && !penSeen) setPenSeen(true);
     return true;
   }
 

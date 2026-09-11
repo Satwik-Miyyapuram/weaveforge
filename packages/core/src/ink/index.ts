@@ -98,6 +98,14 @@ export {
   readInkChunkHeader,
   decodeInkChunkBody,
   decodeInkChunk,
+  inkChunkBodySize,
+  fitsInkNoteBudget,
+  type InkChunkCodec,
+  type InkChunkView,
+  type InkChunkHeader,
+} from "./ink-binary.js";
+
+export {
   chunkStrokePoints,
   chunkAbsolutePoints,
   chunkLineText,
@@ -105,12 +113,7 @@ export {
   chunkLine,
   pageFromChunk,
   pageFromChunkBytes,
-  inkChunkBodySize,
-  fitsInkNoteBudget,
-  type InkChunkCodec,
-  type InkChunkView,
-  type InkChunkHeader,
-} from "./ink-binary.js";
+} from "./ink-chunk-read.js";
 
 export {
   INK_GROUP_WINDOW_MS,
