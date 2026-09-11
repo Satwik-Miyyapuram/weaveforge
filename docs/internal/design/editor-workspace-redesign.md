@@ -128,6 +128,13 @@ The packaged app is `apps/desktop/release/win-arm64-unpacked/WeaveForge.exe`
    end. No sidecar, no binary. The text layer is what search, backlinks, the
    wiki lint and git diff see. Stroke capture uses Pointer Events with
    pressure; recognition is a pluggable engine behind one interface. §3.3.
+   **Superseded on the container and engine** by `ink-notes-plan.md` (rev 3):
+   strokes live in per-page binary `.inkb` chunks under `.ink/<id>/`, never in
+   the markdown body (measured: a fenced block of stroke JSON stalls
+   CodeMirror and the CRDT); recognition is Windows Ink on desktop, an online
+   stroke model on web — `chromium-hwr` was verified absent on Windows. The
+   `.ink.md` suffix, the `ink_page` kind row and the text-layer-is-the-body
+   rule still stand.
 
 ---
 
@@ -552,6 +559,14 @@ the vault folder and git** like every other `.md` (decision 4); and it must be
 **editable later as text** — a recognised sentence you can fix with a keyboard.
 
 #### File format — `.ink.md`, one file
+
+> **Superseded by `ink-notes-plan.md` §4 (2026-09-11).** The one-file layout
+> below is kept for the record. The plan keeps the `.ink.md` note as
+> frontmatter + text layer, but moves strokes out to per-page binary chunks
+> (`.ink/<weaveforge-id>/<ulid>.inkb`, brotli q5) — the fenced ` ```ink `
+> block was measured to stall CodeMirror and bloat the CRDT — and replaces
+> `engine: chromium-hwr` (absent on Windows) with Windows Ink `InkAnalyzer`
+> on desktop and an online stroke model on web.
 
 Modelled on the layout Obsidian's InkedMark plugin settled on after the sidecar
 approach (HandLayers' `.handwriting/` JSON) proved sync- and grep-hostile: the
