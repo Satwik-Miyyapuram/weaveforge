@@ -95,18 +95,53 @@ backups/
 *.jks
 *.keystore
 apps/web/twa/android-keystore.jks
-# TWA local Gradle / Bubblewrap outputs
+
+# --- Android TWA: ignore the build output, never the project -----------------
+#
+# This block used to ignore `apps/web/twa/app/` — the Gradle *module source*
+# (AndroidManifest.xml, the Java classes, every `res/` file) — along with
+# `gradle/`, `gradlew`, `gradlew.bat`, `build.gradle`, `settings.gradle` and
+# `gradle.properties`. The result was that `git ls-files apps/web/twa` returned
+# only the README and `twa-manifest.json`, while
+# `.github/workflows/android-twa.yml` claimed to build "from the committed
+# Bubblewrap project": nothing under the Android tree had ever been reviewed or
+# could be reproduced from a clone. `bubblewrap update` calls
+# `TwaGenerator.removeTwaProject()` and then regenerates the whole module from
+# the CLI's bundled template, so the next release would also have replaced
+# whatever was on disk — the ignore rule was protecting a source tree from
+# being committed and simultaneously guaranteeing it would be overwritten.
+#
+# The correct ignore is the *output* directory. Bubblewrap and Gradle write
+# everything they produce under a `build` directory — `app/build/` for the
+# module, `build/` at the project root (the generic `build/` rule above already
+# matches both at any depth; the explicit line below keeps that true for someone
+# reading only this block) — and `.gradle/` for the Gradle daemon's local state.
+# `apps/web/twa/app/src/**`, `apps/web/twa/app/build.gradle`,
+# `apps/web/twa/build.gradle`, `apps/web/twa/settings.gradle`,
+# `apps/web/twa/gradle.properties`, the `gradle/` wrapper (jar + properties) and
+# `gradlew` / `gradlew.bat` are the project, and are committed on purpose.
+apps/web/twa/app/build/
+apps/web/twa/build/
 apps/web/twa/.gradle/
-apps/web/twa/app/
-apps/web/twa/*.apk
-apps/web/twa/*.apk.idsig
-apps/web/twa/gradle/
-apps/web/twa/gradlew
-apps/web/twa/gradlew.bat
-apps/web/twa/build.gradle
-apps/web/twa/settings.gradle
-apps/web/twa/gradle.properties
+
+# Signed and unsigned build artifacts. `app-release-bundle.aab` had no rule at
+# all before this, so the one output the Play upload path exists to produce was
+# the only one that could have been committed by accident.
+*.apk
+*.apk.idsig
+*.aab
+
+# Bubblewrap records the SHA-1 of the `twa-manifest.json` it last generated the
+# project from, and `bubblewrap build` compares it: when the file is missing or
+# stale it stops and asks whether to regenerate. The release workflow writes it
+# before building, and it is derived from a committed file, so it is generated
+# state rather than source.
 apps/web/twa/manifest-checksum.txt
+
+# The Play Store listing icon Bubblewrap leaves beside the project. Nothing in
+# the Gradle project or the manifest references it (the icons the APK actually
+# carries are generated into `app/src/main/res/mipmap-*`), so it is an upload
+# artifact, not source.
 apps/web/twa/store_icon.png
 
 # playwright (root)
