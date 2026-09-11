@@ -15,15 +15,23 @@ import type { IpcResult } from "./channels";
  */
 
 const OPEN_FAILED = "The local database could not be opened.";
+const HEALTHY = "The local database opened normally; there is nothing to reset.";
 const BAD_QUERY = "A query is a string of SQL and a list of plain values.";
 
-/** What a parameter may be. Anything else is a structured clone away from a lie. */
-type Param = string | number | boolean | null;
+/**
+ * What a parameter may be. Anything else is a structured clone away from a
+ * lie. Bytes are in: a bytea column (the CRDT log) takes nothing else, and the
+ * structured clone carries a `Uint8Array` across whole.
+ */
+type Param = string | number | boolean | null | Uint8Array;
 
 function validParams(value: unknown): value is Param[] {
   return (
     Array.isArray(value) &&
-    value.every((p) => p === null || ["string", "number", "boolean"].includes(typeof p))
+    value.every(
+      (p) =>
+        p === null || p instanceof Uint8Array || ["string", "number", "boolean"].includes(typeof p),
+    )
   );
 }
 
@@ -48,10 +56,40 @@ export interface LocalDbHostOptions {
    * the directory's name and the file's name together.
    */
   migrations: readonly string[];
+  /** Where the data lives. Reported to the page, so a person can find it. */
+  dataDir: string;
+  /**
+   * Move the data directory out of the way so the next open starts fresh.
+   *
+   * Injected, like `open`, because how a directory is moved is the shell's
+   * business — on Windows a failed engine can still hold handles, and the move
+   * may have to wait for a relaunch. Whatever it does, it must never delete:
+   * the directory being moved is somebody's data, unreadable or not.
+   */
+  discard: () => Promise<void>;
+}
+
+/** What the page can know about the database without querying it. */
+export interface LocalDbState {
+  /** Why the last open failed, or `null` if it has not failed. */
+  failure: string | null;
+  dataDir: string;
+}
+
+/** An open that failed, told apart from a query that did. */
+class OpenError extends Error {
+  constructor(cause: unknown) {
+    super(`${OPEN_FAILED} ${cause instanceof Error ? cause.message : String(cause)}`);
+  }
 }
 
 export class LocalDbHost {
   private opening: Promise<LocalDatabase> | undefined;
+  /**
+   * The last open failure, kept so `state()` can report it and `reset()` can
+   * refuse to touch a database that never failed. Cleared by a reset.
+   */
+  private failure: string | undefined;
 
   constructor(private readonly options: LocalDbHostOptions) {}
 
@@ -80,7 +118,9 @@ export class LocalDbHost {
         // the original throw is re-raised below either way.
         if (client) await client.close().catch(() => undefined);
         this.opening = undefined;
-        throw error;
+        const failed = new OpenError(error);
+        this.failure = failed.message;
+        throw failed;
       }
     })();
     return this.opening;
@@ -104,6 +144,30 @@ export class LocalDbHost {
       return { ok: true, value: rows };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : OPEN_FAILED };
+    }
+  }
+
+  state(): LocalDbState {
+    return { failure: this.failure ?? null, dataDir: this.options.dataDir };
+  }
+
+  /**
+   * Move the unopenable database aside, so the next query starts a new one.
+   *
+   * Refused unless an open has actually failed: a page that could reset a
+   * working database would be a page that could make a person's data
+   * disappear from the app with one call. The failure is cleared only once
+   * the move succeeded, so a move that fails leaves the button where it was
+   * and the person can try again after reading why.
+   */
+  async reset(): Promise<IpcResult<null>> {
+    if (this.failure === undefined) return { ok: false, message: HEALTHY };
+    try {
+      await this.options.discard();
+      this.failure = undefined;
+      return { ok: true, value: null };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
     }
   }
 

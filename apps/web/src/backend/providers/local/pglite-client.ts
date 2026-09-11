@@ -1,5 +1,7 @@
 import { LOCAL_USER_ID } from "@weaveforge/core";
 
+import { decodeBytea } from "@/lib/bytea";
+
 /**
  * A PostgREST-shaped client over the local database.
  *
@@ -66,6 +68,8 @@ function projection(columns: string): string {
     .join(", ");
 }
 
+const BYTEA_HEX = /^\\x(?:[0-9a-fA-F]{2})*$/;
+
 /**
  * A value on its way into a statement.
  *
@@ -73,9 +77,17 @@ function projection(columns: string): string {
  * text and is coerced by the column it lands in — an unknown-typed parameter
  * takes the target's type, which is exactly what a `jsonb` column wants.
  */
-function encode(value: unknown): string | number | boolean | null {
+function encode(value: unknown): string | number | boolean | Uint8Array | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();
+  // PostgREST takes bytea as `\x`-hex text, which is how every repository
+  // writes it (`encodeBytea`). PGlite types each parameter from the column it
+  // lands in and wants bytes, not their spelling, for a bytea one — the CRDT
+  // log's every append failed with "Invalid input for bytea type" — so the
+  // spelling is turned back into bytes here. A text column holding a string
+  // that is `\x` and hex digits and nothing else would be misread, and no
+  // column holds one.
+  if (typeof value === "string" && BYTEA_HEX.test(value)) return decodeBytea(value);
   if (typeof value === "object") return JSON.stringify(value);
   if (typeof value === "bigint") return Number(value);
   return value as string | number | boolean;

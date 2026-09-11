@@ -2,7 +2,9 @@
  * bytea ↔ Uint8Array for Supabase PostgREST.
  */
 
-export function decodeBytea(value: string): Uint8Array {
+export function decodeBytea(value: string | Uint8Array): Uint8Array {
+  // PGlite hands a bytea column back as bytes already; PostgREST as hex text.
+  if (value instanceof Uint8Array) return value;
   const hex = value.startsWith("\\x") ? value.slice(2) : value;
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i++) {
