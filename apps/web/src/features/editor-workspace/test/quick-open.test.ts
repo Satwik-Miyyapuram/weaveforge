@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { quickOpenResults, scoreMatch } from "../application/quick-open";
+import {
+  groupResults,
+  quickOpenResults,
+  scoreMatch,
+  type QuickOpenResult,
+} from "../application/quick-open";
 import { buildWorkspaceTree, flattenTree } from "../application/workspace-tree";
 
 const DOCUMENTS = flattenTree(
@@ -69,4 +74,58 @@ test("matched positions come back for highlighting", () => {
 
 test("spaces separate terms rather than being searched for", () => {
   assert.equal(rank("batch norm")[0], "Batch Normalization");
+});
+
+test("results group under the explorer's root order, not by score", () => {
+  const groups = groupResults(quickOpenResults(DOCUMENTS, "a"));
+  assert.deepEqual(
+    groups.map((group) => group.label),
+    ["Notes", "Papers", "Report"],
+  );
+});
+
+test("score order is preserved inside a group", () => {
+  const results = quickOpenResults(DOCUMENTS, "b");
+  const groups = groupResults(results);
+  const notes = groups.find((group) => group.kind === "vault_page")!;
+
+  const ranked = results.filter((result) => result.node.kind === "vault_page");
+  assert.deepEqual(
+    notes.results.map((result) => result.node.label),
+    ranked.map((result) => result.node.label),
+  );
+});
+
+test("a group with no hits is left out rather than shown empty", () => {
+  const groups = groupResults(quickOpenResults(DOCUMENTS, "batch"));
+  assert.deepEqual(
+    groups.map((group) => group.kind),
+    ["paper"],
+  );
+});
+
+test("every result appears in exactly one group", () => {
+  const results = quickOpenResults(DOCUMENTS, "a");
+  const grouped = groupResults(results).flatMap((group) => group.results);
+  assert.equal(grouped.length, results.length);
+  assert.deepEqual(new Set(grouped), new Set(results));
+});
+
+test("a kind with no heading yet still gets a group, after the known ones", () => {
+  const results = quickOpenResults(DOCUMENTS, "a");
+  const stranger: QuickOpenResult = {
+    node: {
+      key: "experiment:x",
+      kind: "experiment",
+      id: "x",
+      label: "Ablation",
+      path: "experiments/ablation.experiment.md",
+      children: [],
+    },
+    score: 99,
+    matched: [],
+  };
+  const groups = groupResults([stranger, ...results]);
+  assert.equal(groups[groups.length - 1]!.kind, "experiment");
+  assert.equal(groups[groups.length - 1]!.label, "Experiment");
 });
