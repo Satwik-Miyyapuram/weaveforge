@@ -235,7 +235,43 @@ body {
 .filter-x:hover { color:var(--text); background:var(--surface2); }
 .filter-x svg { width:11px; height:11px; }
 
-.ex-body { flex:1; overflow:auto; padding-bottom:14px; min-height:0; }
+.ex-body { flex:1; overflow:auto; padding-bottom:14px; min-height:0; display:flex; flex-direction:column; }
+/* Explorer sections — VS Code's Explorer is a stack of independent views
+   (Open Editors / Folder / Outline / Timeline), each with its own header and
+   collapse. Files is the mirror folder, complete and duplicate-free; Reading
+   lists is a *view* over it, so the same paper appearing in both reads as a
+   second lens, not a second copy. */
+.ex-sec { flex:none; border-top:1px solid var(--border); }
+.ex-sec:first-child { border-top:none; }
+.ex-sec:last-child { flex:1 1 auto; }  /* sections stack from the top; the last one takes the rest */
+.ex-sec-head {
+  display:flex; align-items:center; gap:4px; height:26px; padding:0 8px 0 6px;
+  font-size:.66rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); cursor:pointer; user-select:none; position:sticky; top:0;
+  background:var(--surface); z-index:1;
+}
+.ex-sec-head:hover { color:var(--text); }
+.ex-sec-head .tw { width:14px; height:14px; display:grid; place-items:center; }
+.ex-sec-head .tw svg { width:12px; height:12px; transition:transform .12s; }
+.ex-sec.is-collapsed .ex-sec-head .tw svg { transform:rotate(-90deg); }
+.ex-sec.is-collapsed > .tree { display:none; }
+.ex-sec-head .sec-count { margin-left:auto; font-family:var(--font-mono); font-size:.62rem; font-weight:500; letter-spacing:0; color:var(--faint); }
+.ex-sec-head .icon-btn { width:20px; height:20px; opacity:0; }
+.ex-sec-head:hover .icon-btn { opacity:1; }
+/* Rows inside Reading lists that are members (papers/notes already under
+   Files) are dimmed: the row is a reference, not the file. */
+.row.is-member .label { color:var(--muted); }
+.row.is-member .i-nav { opacity:.75; }
+.row.is-member.is-inherited .label { color:var(--faint); font-style:italic; }
+/* Under Files, a paper in N lists says so on hover. */
+.in-lists { margin-left:auto; flex:none; font-size:.62rem; color:var(--faint); font-family:var(--font-mono); display:none; }
+.row:hover .in-lists, .row[aria-selected="true"] .in-lists { display:inline; }
+.row:hover .in-lists + .start-note { margin-left:6px; }
+/* Outline rows: headings of the active document. */
+.row.ol { font-size:.78rem; }
+.row.ol .ol-h { font-family:var(--font-mono); font-size:.62rem; color:var(--faint); width:18px; flex:none; }
+[data-mode="current"] .ex-sec-head { display:none; }
+[data-mode="current"] .ex-sec { border-top:none; }
 .tree { list-style:none; margin:0; padding:0; }
 
 .row {
@@ -280,6 +316,7 @@ body {
 .t-paper  { color:var(--s-warn); }
 .t-report { color:var(--s-good); }
 .t-list   { color:var(--accent); }
+.t-ink    { color:var(--s-danger); }
 /* The kind suffix, as KIND_SUFFIX spells it into the mirrored filename. */
 .ext { color:var(--faint); font-family:var(--font-mono); font-size:.68em; margin-left:2px; flex:none; letter-spacing:-.01em; }
 /* In the tree the icon and tint already say the kind, so the suffix only
@@ -489,6 +526,118 @@ code { font-family:var(--font-mono); font-size:.85em; background:var(--surface2)
   padding:3px 9px; border-radius:999px; background:var(--chip); color:var(--accent-ink);
 }
 
+/* ---- Edit / Read control (tab-actions) ----
+   Real: a per-tab toggle on the document host. Edit is the shipped CodeMirror
+   source editor (CollabBodyHost); Read is the notes screen's VaultMarkdown. */
+.seg { display:inline-flex; border:1px solid var(--border); border-radius:7px; padding:2px; margin-right:6px; }
+.seg button {
+  border:none; background:transparent; color:var(--faint); font:inherit; font-size:.68rem;
+  font-weight:600; letter-spacing:.04em; padding:2px 8px; border-radius:5px; cursor:pointer;
+  transition:background .12s, color .12s;
+}
+.seg button:hover { color:var(--text); }
+.seg button[aria-pressed="true"] { background:var(--surface2); color:var(--text); }
+[data-mode="current"] .seg { display:none; }
+
+/* ---- source view (what CollabBodyHost actually renders) ----
+   Geometry from the shipped CodeMirror stack: lineNumbers() gutter, lineWrapping,
+   @codemirror/lang-markdown token classes. Colours are the site CodeMirror theme
+   (lib/theme/codemirror-theme.ts) mapped onto the same tokens. */
+.doc-scroll-source { display:none; font-family:var(--font-mono); font-size:.8rem; line-height:1.62; }
+[data-view="source"] .doc-scroll-read, [data-mode="current"] .doc-scroll-read { display:none; }
+[data-view="source"] .doc-scroll-source, [data-mode="current"] .doc-scroll-source { display:block; }
+.src { display:grid; grid-template-columns:auto minmax(0,1fr); max-width:88ch; margin:0 auto; padding:22px 24px 150px; }
+[data-mode="current"] .src { max-width:none; padding:10px 8px; }
+.src .ln {
+  color:var(--faint); text-align:right; padding-right:14px; user-select:none;
+  font-variant-numeric:tabular-nums; opacity:.7;
+}
+.src .cl { white-space:pre-wrap; overflow-wrap:anywhere; color:var(--text); }
+.src .cl.active { background:color-mix(in srgb, var(--muted) 8%, transparent); }
+.src .ln.active { color:var(--text); opacity:1; }
+.cm-meta  { color:var(--faint); }
+.cm-key   { color:var(--accent); }
+.cm-h     { color:var(--accent); font-weight:700; }
+.cm-link  { color:var(--accent-ink); }
+.cm-quote { color:var(--muted); font-style:italic; }
+.cm-em    { font-style:italic; }
+.cm-strong{ font-weight:700; }
+.cm-code  { background:var(--surface2); border-radius:3px; padding:0 3px; }
+.cm-caret { display:inline-block; width:1.5px; height:1.05em; background:var(--accent); vertical-align:text-bottom; margin-left:1px; animation:blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity:0; } }
+/* y-codemirror.next remote caret: the peer's pickColor() with a name flag. */
+.cm-peer { position:relative; border-left:2px solid #5b8c7a; margin-left:-1px; }
+.cm-peer::after {
+  content:attr(data-name); position:absolute; left:-2px; top:-1.15em;
+  font-size:.58rem; font-family:var(--font); font-weight:600; letter-spacing:.02em;
+  background:#5b8c7a; color:#fff; padding:0 4px; border-radius:3px 3px 3px 0; white-space:nowrap;
+}
+.cm-sel { background:color-mix(in srgb, #5b8c7a 22%, transparent); }
+
+/* ---- ink note (kind: ink, suffix .ink.md) ----
+   Storage: one file. Frontmatter + recognised text layer as the body + the stroke
+   data in a trailing fenced block — so grep, the wiki lint and git all keep
+   working on the text. See the design brief §3.3. */
+.doc-wrap[hidden] { display:none; }
+.ink-wrap { grid-template-columns:minmax(0,1fr) 248px; grid-template-rows:auto minmax(0,1fr); }
+.ink-bar {
+  grid-column:1 / -1; display:flex; align-items:center; gap:2px; height:34px; padding:0 10px;
+  border-bottom:1px solid var(--border); background:var(--surface); font-size:.72rem; color:var(--muted);
+}
+.ink-tool {
+  display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:6px; border:none;
+  background:transparent; color:var(--muted); font:inherit; font-size:.72rem; cursor:pointer;
+}
+.ink-tool:hover { background:var(--surface2); color:var(--text); }
+.ink-tool[aria-pressed="true"] { background:var(--accent-soft); color:var(--accent); }
+.ink-tool .i-nav { width:14px; height:14px; }
+.ink-sep { width:1px; height:16px; background:var(--border); margin:0 6px; }
+.ink-swatch { width:12px; height:12px; border-radius:50%; border:1.5px solid var(--surface); box-shadow:0 0 0 1px var(--border-strong); }
+.ink-page {
+  overflow:auto; min-width:0;
+  background-color:var(--bg);
+  background-image:radial-gradient(color-mix(in srgb, var(--muted) 28%, transparent) 1px, transparent 1px);
+  background-size:22px 22px; background-position:11px 11px;
+}
+.ink-page svg { display:block; width:100%; max-width:820px; margin:0 auto; height:auto; }
+.ink-page .stroke { fill:none; stroke:var(--text); stroke-linecap:round; stroke-linejoin:round; }
+.ink-page .stroke.hl { stroke:var(--s-warn); opacity:.35; stroke-width:14; }
+.ink-page .stroke.acc { stroke:var(--accent); }
+.ink-page .lasso { fill:none; stroke:var(--accent); stroke-dasharray:4 4; opacity:.8; }
+.ink-page .fig { fill:none; stroke:var(--faint); }
+.ink-page .hand {
+  font-family:"Segoe Print", "Bradley Hand", "Chalkboard", "Comic Sans MS", cursive;
+  font-size:24px; fill:var(--text); letter-spacing:.01em;
+}
+.ink-page .hand.title { font-size:30px; font-weight:700; }
+.ink-page .hand.small { font-size:18px; }
+.ink-page .hand.acc, .ink-page .hand .acc { fill:var(--accent); }
+.ink-text {
+  border-left:1px solid var(--border); background:var(--surface); overflow:auto;
+  padding:12px 14px; font-size:.78rem; line-height:1.6; color:var(--muted);
+}
+.ink-text h4 {
+  margin:0 0 8px; font-size:.62rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--faint);
+  display:flex; align-items:center; gap:6px;
+}
+.ink-text h4 .conf { margin-left:auto; font-family:var(--font-mono); font-weight:500; letter-spacing:0; text-transform:none; }
+.ink-text p { margin:0 0 10px; }
+.ink-text .low { color:var(--faint); text-decoration:underline dotted; text-underline-offset:3px; cursor:text; }
+.ink-text .wikilink { font-size:.74rem; }
+.ink-text .ink-src {
+  margin-top:14px; padding-top:10px; border-top:1px dashed var(--border);
+  font-family:var(--font-mono); font-size:.66rem; color:var(--faint); white-space:pre; overflow-x:auto;
+}
+/* Status bar: segmentsFor("ink") hides the text counters and adds ink segments. */
+.sb.sb-ink-only { display:none; }
+[data-ink="true"] .sb.sb-ink-only { display:inline-flex; }
+[data-ink="true"] .sb.sb-text-only { display:none; }
+[data-ink="true"] .seg { visibility:hidden; }
+.crumb-doc { display:contents; }
+.crumb-ink { display:none; }
+[data-ink="true"] .crumb-ink { display:contents; }
+[data-ink="true"] .crumb-doc { display:none; }
+
 /* ---- minimap ---- */
 .minimap {
   width:76px; flex:none; border-left:1px solid var(--border);
@@ -531,10 +680,38 @@ code { font-family:var(--font-mono); font-size:.85em; background:var(--surface2)
   font-family:var(--font-mono); font-size:.735rem; color:var(--muted);
   max-height:132px; overflow:auto;
 }
-.prow { display:flex; gap:10px; padding:3px 0; align-items:baseline; }
+.panel.is-collapsed .panel-body { display:none; }
+.panel-head .icon-btn .i-act { transform:rotate(0deg); transition:transform .15s; }
+.panel.is-collapsed .panel-head .icon-btn .i-act { transform:rotate(180deg); }
+.panel-view[hidden] { display:none; }
+.prow { display:flex; gap:10px; padding:3px 5px; margin:0 -5px; align-items:baseline; cursor:pointer; border-radius:4px; }
+.prow:hover { background:var(--surface2); }
 .prow .i-nav { width:12px; height:12px; color:var(--s-warn); position:relative; top:1px; }
-.prow .ploc { color:var(--faint); margin-left:auto; font-variant-numeric:tabular-nums; }
+.prow[data-sev="error"] .i-nav { color:var(--s-danger); }
+.prow[data-sev="info"]  .i-nav { color:var(--s-info); }
+.prow .psrc { color:var(--faint); flex:none; width:6.5ch; }
+.prow .ploc { color:var(--faint); margin-left:auto; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .prow code { background:transparent; padding:0; color:var(--text); }
+/* Output: one log, filtered by channel. Channels are the real producers —
+   mirrorWorkspace, commitVault, compileTex, the Zotero local read, vault-watch. */
+.chans { display:flex; gap:2px; margin-left:14px; }
+.chans[hidden] { display:none; }
+.chan {
+  border:none; background:transparent; color:var(--faint); font:inherit; font-size:.64rem;
+  font-weight:600; letter-spacing:.04em; padding:2px 7px; border-radius:5px; cursor:pointer;
+}
+.chan:hover { color:var(--text); background:var(--surface2); }
+.chan[aria-pressed="true"] { background:var(--surface2); color:var(--text); }
+.orow { display:grid; grid-template-columns:7ch 6ch minmax(0,1fr); gap:0 12px; padding:2px 0; }
+.orow .ots { color:var(--faint); font-variant-numeric:tabular-nums; }
+.orow .och { font-weight:600; }
+.orow[data-ch="sync"] .och { color:var(--s-info); }
+.orow[data-ch="git"] .och { color:var(--s-good); }
+.orow[data-ch="tex"] .och { color:var(--s-warn); }
+.orow[data-ch="zotero"] .och { color:var(--s-danger); }
+.orow .omsg { color:var(--muted); white-space:pre-wrap; }
+.orow .omsg b { color:var(--text); font-weight:500; }
+.orow.is-err .omsg { color:var(--s-danger); }
 
 /* ---- status bar ---- */
 .statusbar {
@@ -633,14 +810,8 @@ kbd {
 /* .workspace-shell { height: calc(100dvh - var(--nav-inset)) } with
    --nav-inset: 232px — a horizontal token subtracted from a height. */
 [data-mode="current"] .doc-scroll { max-height:calc(100dvh - 232px - 36px); }
-[data-mode="current"] .doc { padding:16px 14px; max-width:none; }
-[data-mode="current"] .doc h1 { font-size:1.15rem; }
-[data-mode="current"] .fm,
-[data-mode="current"] .callout,
-[data-mode="current"] .doc table,
-[data-mode="current"] .doc blockquote,
-[data-mode="current"] .doc-meta,
-[data-mode="current"] .tag-chips { display:none; }
+[data-mode="current"] .doc-wrap { grid-template-rows:auto minmax(0,1fr); }
+[data-mode="current"] .current-note { grid-column:1 / -1; margin:10px 10px 0; }
 
 /* Composed empty state, replacing one grey sentence. */
 .empty-pane {
@@ -774,6 +945,12 @@ kbd {
     </div>
 
     <div class="ex-body">
+      <section class="ex-sec" data-sec="files">
+        <div class="ex-sec-head" role="button" aria-expanded="true" tabindex="0">
+          <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+          <span>Files</span>
+          <span class="sec-count">notes · papers · report</span>
+        </div>
       <ul class="tree" role="tree" aria-label="Workspace files">
 
         <!-- ── Notes ── -->
@@ -783,7 +960,7 @@ kbd {
             <span class="glyph">▸</span>
             <svg class="i-nav t-folder has-open" viewBox="0 0 24 24"><use href="#i-folder"/></svg>
             <span class="label">Notes</span>
-            <span class="root-count">4</span>
+            <span class="root-count">5</span>
           </div>
           <ul class="tree" role="group">
             <li role="none">
@@ -821,6 +998,15 @@ kbd {
                 <span class="label">Capacity trade-off notes</span><span class="ext">.note.md</span>
               </div>
             </li>
+            <li role="none" class="proposed-only">
+              <div class="row" role="treeitem" aria-level="2" tabindex="-1" data-kind="ink">
+                <span class="guides"><span class="guide" style="left:19px"></span></span>
+                <span class="tw"></span><span class="glyph">◆</span>
+                <svg class="i-nav t-ink" viewBox="0 0 24 24"><use href="#i-pencil"/></svg>
+                <span class="label">Supervisor meeting 11 Feb</span><span class="ext">.ink.md</span>
+                <span class="git-tick git-u">U</span>
+              </div>
+            </li>
           </ul>
         </li>
 
@@ -840,6 +1026,7 @@ kbd {
                 <span class="tw"></span><span class="glyph">❐</span>
                 <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
                 <span class="label">β-VAE: Learning Basic Visual Concepts</span><span class="ext">.paper.md</span>
+                <span class="in-lists proposed-only" title="Latent spaces › Disentanglement">1 list</span>
                 <span class="start-note">Start note</span>
               </div>
             </li>
@@ -858,77 +1045,6 @@ kbd {
                 <span class="tw"></span><span class="glyph">❐</span>
                 <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
                 <span class="label">Variational Graph Auto-Encoders</span><span class="ext">.paper.md</span>
-              </div>
-            </li>
-          </ul>
-        </li>
-
-        <!-- ── Lists ── reading lists are folders whose leaves are papers (and notes) -->
-        <li role="none">
-          <div class="row is-open" role="treeitem" aria-level="1" aria-expanded="true" tabindex="-1">
-            <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
-            <span class="glyph">▸</span>
-            <svg class="i-nav t-folder has-open" viewBox="0 0 24 24"><use href="#i-folder"/></svg>
-            <span class="label">Lists</span>
-            <span class="root-count">3</span>
-          </div>
-          <ul class="tree" role="group">
-            <li role="none">
-              <div class="row is-open" role="treeitem" aria-level="2" aria-expanded="true" tabindex="-1">
-                <span class="guides"><span class="guide" style="left:19px"></span></span>
-                <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
-                <span class="glyph">▸</span>
-                <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
-                <span class="label">Latent spaces</span><span class="ext">.list.md</span>
-                <span class="root-count">2</span>
-              </div>
-              <ul class="tree" role="group">
-                <li role="none">
-                  <div class="row is-open" role="treeitem" aria-level="3" aria-expanded="true" tabindex="-1">
-                    <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span></span>
-                    <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
-                    <span class="glyph">▸</span>
-                    <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
-                    <span class="label">Disentanglement</span><span class="ext">.list.md</span>
-                    <span class="root-count">3</span>
-                  </div>
-                  <ul class="tree" role="group">
-                    <li role="none">
-                      <div class="row" role="treeitem" aria-level="4" tabindex="-1">
-                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span><span class="guide" style="left:51px"></span></span>
-                        <span class="tw"></span><span class="glyph">❐</span>
-                        <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
-                        <span class="label">β-VAE: Learning Basic Visual Concepts</span><span class="ext">.paper.md</span>
-                      </div>
-                    </li>
-                    <li role="none">
-                      <div class="row" role="treeitem" aria-level="4" tabindex="-1">
-                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span><span class="guide" style="left:51px"></span></span>
-                        <span class="tw"></span><span class="glyph">❐</span>
-                        <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
-                        <span class="label">Disentanglement: Is It All in the Architecture?</span><span class="ext">.paper.md</span>
-                      </div>
-                    </li>
-                    <li role="none">
-                      <div class="row" role="treeitem" aria-level="4" tabindex="-1">
-                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span><span class="guide" style="left:51px"></span></span>
-                        <span class="tw"></span><span class="glyph">◆</span>
-                        <svg class="i-nav t-note" viewBox="0 0 24 24"><use href="#i-notes"/></svg>
-                        <span class="label">Disentanglement reading cluster</span><span class="ext">.note.md</span>
-                      </div>
-                    </li>
-                  </ul>
-                </li>
-              </ul>
-            </li>
-            <li role="none">
-              <div class="row" role="treeitem" aria-level="2" aria-expanded="false" tabindex="-1">
-                <span class="guides"><span class="guide" style="left:19px"></span></span>
-                <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
-                <span class="glyph">▸</span>
-                <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
-                <span class="label">Screening — September</span><span class="ext">.list.md</span>
-                <span class="root-count">14</span>
               </div>
             </li>
           </ul>
@@ -965,6 +1081,92 @@ kbd {
         </li>
 
       </ul>
+      </section>
+
+      <!-- ── Reading lists ── a view over Files: each list is a folder whose
+           members are references to papers/notes that live under Files.
+           Member rows are dimmed; clicking one opens the same tab as under Files. -->
+      <section class="ex-sec proposed-only" data-sec="lists">
+        <div class="ex-sec-head" role="button" aria-expanded="true" tabindex="0">
+          <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+          <span>Reading lists</span>
+          <button class="icon-btn" title="New list" aria-label="New list"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-list"/></svg></button>
+          <span class="sec-count">3</span>
+        </div>
+        <ul class="tree" role="tree" aria-label="Reading lists">
+            <li role="none">
+              <div class="row is-open" role="treeitem" aria-level="1" aria-expanded="true" tabindex="-1">
+                <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+                <span class="glyph">▸</span>
+                <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
+                <span class="label">Latent spaces</span><span class="ext">.list.md</span>
+                <span class="root-count">2</span>
+              </div>
+              <ul class="tree" role="group">
+                <li role="none">
+                  <div class="row is-open" role="treeitem" aria-level="2" aria-expanded="true" tabindex="-1">
+                    <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+                    <span class="glyph">▸</span>
+                    <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
+                    <span class="label">Disentanglement</span><span class="ext">.list.md</span>
+                    <span class="root-count">3</span>
+                  </div>
+                  <ul class="tree" role="group">
+                    <li role="none">
+                      <div class="row is-member" role="treeitem" aria-level="3" tabindex="-1">
+                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span></span>
+                        <span class="tw"></span><span class="glyph">❐</span>
+                        <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+                        <span class="label">β-VAE: Learning Basic Visual Concepts</span><span class="ext">.paper.md</span>
+                      </div>
+                    </li>
+                    <li role="none">
+                      <div class="row is-member" role="treeitem" aria-level="3" tabindex="-1">
+                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span></span>
+                        <span class="tw"></span><span class="glyph">❐</span>
+                        <svg class="i-nav t-paper" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+                        <span class="label">Disentanglement: Is It All in the Architecture?</span><span class="ext">.paper.md</span>
+                      </div>
+                    </li>
+                    <li role="none">
+                      <div class="row is-member is-inherited" role="treeitem" aria-level="3" tabindex="-1" title="Inherited from Latent spaces">
+                        <span class="guides"><span class="guide" style="left:19px"></span><span class="guide" style="left:35px"></span></span>
+                        <span class="tw"></span><span class="glyph">◆</span>
+                        <svg class="i-nav t-note" viewBox="0 0 24 24"><use href="#i-notes"/></svg>
+                        <span class="label">Disentanglement reading cluster</span><span class="ext">.note.md</span>
+                      </div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li role="none">
+              <div class="row" role="treeitem" aria-level="1" aria-expanded="false" tabindex="-1">
+                <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+                <span class="glyph">▸</span>
+                <svg class="i-nav t-list" viewBox="0 0 24 24"><use href="#i-list"/></svg>
+                <span class="label">Screening — September</span><span class="ext">.list.md</span>
+                <span class="root-count">14</span>
+              </div>
+            </li>
+        </ul>
+      </section>
+
+      <!-- ── Outline ── headings of the active document, from the same parse
+           the Read view uses. Collapsed by default; empty for an ink note. -->
+      <section class="ex-sec proposed-only is-collapsed" data-sec="outline">
+        <div class="ex-sec-head" role="button" aria-expanded="false" tabindex="0">
+          <span class="tw"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></span>
+          <span>Outline</span>
+          <span class="sec-count">4</span>
+        </div>
+        <ul class="tree" role="tree" aria-label="Document outline">
+          <li role="none"><div class="row ol" role="treeitem" aria-level="1" tabindex="-1"><span class="ol-h">H1</span><span class="label">Disentanglement reading cluster</span></div></li>
+          <li role="none"><div class="row ol" role="treeitem" aria-level="2" tabindex="-1"><span class="ol-h">H2</span><span class="label">Why these three</span></div></li>
+          <li role="none"><div class="row ol" role="treeitem" aria-level="2" tabindex="-1"><span class="ol-h">H2</span><span class="label">Decision 2026-02-11</span></div></li>
+          <li role="none"><div class="row ol" role="treeitem" aria-level="2" tabindex="-1"><span class="ol-h">H2</span><span class="label">Baselines</span></div></li>
+        </ul>
+      </section>
     </div>
   </aside>
 
@@ -996,8 +1198,22 @@ kbd {
             <button class="tab-x" aria-label="Close 3.2 Graph-prior module"><svg class="i-act" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
           </span>
         </div>
+        <!-- Ink note: kind "ink", suffix .ink.md. Same tab, a different host. -->
+        <div class="tab proposed-only" role="tab" aria-selected="false" tabindex="-1" data-kind="ink">
+          <svg class="i-nav t-ink" viewBox="0 0 24 24"><use href="#i-pencil"/></svg>
+          <span class="tab-label">Supervisor meeting 11 Feb<span class="ext">.ink.md</span></span>
+          <span class="tab-slot">
+            <button class="tab-x" aria-label="Close Supervisor meeting 11 Feb"><svg class="i-act" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </span>
+        </div>
       </div>
       <div class="tab-actions">
+        <!-- Per-tab document mode. Edit = CodeMirror source (ships today).
+             Read = VaultMarkdown, the notes screen's read view. ⌘E toggles. -->
+        <div class="seg" role="group" aria-label="Document mode" title="⌘E">
+          <button type="button" data-view="source" aria-pressed="false">Edit</button>
+          <button type="button" data-view="read" aria-pressed="true">Read</button>
+        </div>
         <!-- Collaboration presence, lifted out of the document body into the chrome. -->
         <span class="peers" title="Editing with dr. m. haddad and m. okonkwo">
           <span class="peer" style="background:#7c6f9c">MH</span>
@@ -1017,29 +1233,77 @@ kbd {
       <span class="crumb">Project</span>
       <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
       <span class="crumb">Notes</span>
-      <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
-      <span class="crumb">Baselines</span>
-      <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
-      <span class="crumb is-file">Disentanglement reading cluster<span class="ext">.note.md</span></span>
-      <span class="crumb-dot">·</span>
-      <span class="crumb-kind">vault_page</span>
+      <span class="crumb-doc">
+        <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
+        <span class="crumb">Baselines</span>
+        <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
+        <span class="crumb is-file">Disentanglement reading cluster<span class="ext">.note.md</span></span>
+        <span class="crumb-dot">·</span>
+        <span class="crumb-kind">vault_page</span>
+      </span>
+      <span class="crumb-ink">
+        <svg class="crumb-sep i-act"><use href="#i-chevron"/></svg>
+        <span class="crumb is-file">Supervisor meeting 11 Feb<span class="ext">.ink.md</span></span>
+        <span class="crumb-dot">·</span>
+        <span class="crumb-kind">ink_page</span>
+      </span>
     </div>
 
     <div class="doc-wrap" id="docwrap">
-      <div class="doc-scroll">
-        <article class="doc">
-          <div class="current-note">
-            <strong>.workspace-shell { height: calc(100dvh - var(--nav-inset)) }</strong><br>
-            --nav-inset is 232px and is the <em>horizontal</em> inset the shell uses to clear the
-            sidebar (nav.css:142 → shell.css:45 padding-left). It is being subtracted from the
-            <em>height</em>. The panes also sit inside .app-shell's padding and below the sub-nav
-            strip, so they stop roughly 100px above the window edge.
-          </div>
+      <div class="current-note">
+        <strong>.workspace-shell { height: calc(100dvh - var(--nav-inset)) }</strong><br>
+        --nav-inset is 232px and is the <em>horizontal</em> inset the shell uses to clear the
+        sidebar (nav.css:142 → shell.css:45 padding-left). It is being subtracted from the
+        <em>height</em>. The panes also sit inside .app-shell's padding and below the sub-nav
+        strip, so they stop roughly 100px above the window edge. The shipped workspace has
+        no read view: this CodeMirror source pane is the only way a document renders.
+      </div>
 
-          <pre class="fm proposed-only"><span class="fm-k">title:</span>   <span class="fm-v">Disentanglement reading cluster</span>
-<span class="fm-k">tags:</span>    <span class="fm-v">[to-verify, disentanglement]</span>
-<span class="fm-k">papers:</span>  <span class="fm-v">[higgins-2017-bvae, locatello-2019]</span>
-<span class="fm-k">updated:</span> <span class="fm-v">2026-02-11</span></pre>
+      <!-- Edit: the source the shipped CollabBodyHost shows. Identical text to the
+           read view below, and the frontmatter is what serialize-workspace.ts writes. -->
+      <div class="doc-scroll doc-scroll-source" aria-label="Source view">
+        <div class="src">
+          <span class="ln">1</span><span class="cl cm-meta">---</span>
+          <span class="ln">2</span><span class="cl"><span class="cm-key">weaveforge-id:</span> 7f3c2a1e-9b04-4d61-8e7a-2c5f0b1d9a44</span>
+          <span class="ln">3</span><span class="cl"><span class="cm-key">weaveforge-type:</span> vault_page</span>
+          <span class="ln">4</span><span class="cl"><span class="cm-key">title:</span> Disentanglement reading cluster</span>
+          <span class="ln">5</span><span class="cl"><span class="cm-key">tags:</span> [to-verify, disentanglement, capacity]</span>
+          <span class="ln">6</span><span class="cl"><span class="cm-key">updated-at:</span> 2026-02-11T14:02:11Z</span>
+          <span class="ln">7</span><span class="cl"><span class="cm-key">created-at:</span> 2026-01-28T09:40:03Z</span>
+          <span class="ln">8</span><span class="cl"><span class="cm-key">aliases:</span> [Disentanglement reading cluster]</span>
+          <span class="ln">9</span><span class="cl cm-meta">---</span>
+          <span class="ln">10</span><span class="cl"></span>
+          <span class="ln">11</span><span class="cl cm-h"># Disentanglement reading cluster</span>
+          <span class="ln">12</span><span class="cl"></span>
+          <span class="ln">13</span><span class="cl">The claim rests on a single coefficient. Higgins et al. put one hyperparameter in front of the KL term and show that raising it trades reconstruction for factorised latents.</span>
+          <span class="ln">14</span><span class="cl"></span>
+          <span class="ln">15</span><span class="cl cm-quote">&gt; “…a single hyperparameter **β** that balances latent channel capacity against reconstruction accuracy.”</span>
+          <span class="ln">16</span><span class="cl"></span>
+          <span class="ln">17</span><span class="cl cm-h">## Does β survive a structured prior?</span>
+          <span class="ln">18</span><span class="cl"></span>
+          <span class="ln">19</span><span class="cl">Locatello argues unsupervised disentanglement is impossible without inductive bias — and a graph prior is exactly that bias. See <span class="cm-link">[[Variational Graph Auto-Encoders]]</span>.</span>
+          <span class="ln">20</span><span class="cl"></span>
+          <span class="ln">21</span><span class="cl cm-quote">&gt; [!decision] 2026-02-11</span>
+          <span class="ln">22</span><span class="cl cm-quote">&gt; Using the structured-prior variant rather than the β sweep for §3.2.</span>
+          <span class="ln">23</span><span class="cl cm-quote">&gt; The sweep was already run (<span class="cm-link">[[β-VAE sweep — seed 42]]</span>) and the ranking is unchanged, so re-running buys nothing.</span>
+          <span class="ln">24</span><span class="cl"></span>
+          <span class="ln">25</span><span class="cl cm-h">## Numbers to carry into §3.2</span>
+          <span class="ln">26</span><span class="cl"></span>
+          <span class="ln">27</span><span class="cl">| Run | Config | val_loss | Status |</span>
+          <span class="ln active">28</span><span class="cl active">| β-VAE sweep — seed 42 | <span class="cm-code">β=4 · lr=1e-3</span><span class="cm-caret"></span> | 0.1826 | done |</span>
+          <span class="ln">29</span><span class="cl">| ResNet-18 baseline | <span class="cm-code">lr=3e-4</span> | 0.3401 | done |</span>
+          <span class="ln">30</span><span class="cl">| Graph-prior ablation | <span class="cm-code">β=8 · k=16</span> | <span class="cm-peer" data-name="M. Okonkwo"></span><span class="cm-sel">0.1633</span> | running |</span>
+          <span class="ln">31</span><span class="cl"></span>
+        </div>
+      </div>
+
+      <!-- Read: VaultMarkdown, the same renderer the notes screen already uses. -->
+      <div class="doc-scroll doc-scroll-read">
+        <article class="doc">
+          <pre class="fm proposed-only"><span class="fm-k">title:</span>       <span class="fm-v">Disentanglement reading cluster</span>
+<span class="fm-k">tags:</span>        <span class="fm-v">[to-verify, disentanglement, capacity]</span>
+<span class="fm-k">updated-at:</span>  <span class="fm-v">2026-02-11</span>
+<span class="fm-k">weaveforge-type:</span> <span class="fm-v">vault_page</span></pre>
 
           <h1>Disentanglement reading cluster</h1>
           <p class="doc-meta proposed-only">
@@ -1117,29 +1381,144 @@ kbd {
       </div>
     </div>
 
-    <div class="panel proposed-only">
-      <div class="panel-head">
-        <button class="panel-tab" aria-selected="true">
-          <svg class="i-nav" viewBox="0 0 24 24" style="color:var(--s-warn)"><use href="#i-flag"/></svg> Problems <span class="panel-count">1</span>
+    <!-- Ink host: what document-host.tsx mounts for kind "ink". No minimap — the
+         right column is the recognised text layer, which is also what search,
+         backlinks and the wiki lint read. -->
+    <div class="doc-wrap ink-wrap proposed-only" id="inkwrap" hidden>
+      <div class="ink-bar">
+        <button class="ink-tool" type="button" aria-pressed="true"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-pencil"/></svg>Pen</button>
+        <button class="ink-tool" type="button" aria-pressed="false"><svg class="i-nav" viewBox="0 0 24 24"><path d="M4 18h9M5 14l8-8 4 4-8 8H5v-4Z"/></svg>Highlighter</button>
+        <button class="ink-tool" type="button" aria-pressed="false"><svg class="i-nav" viewBox="0 0 24 24"><path d="M4 16l9-9 5 5-6 6H7l-3-2Z"/></svg>Eraser</button>
+        <button class="ink-tool" type="button" aria-pressed="false"><svg class="i-nav" viewBox="0 0 24 24"><path d="M5 12c0-4 3-7 7-7s7 3 7 7-3 7-7 7-4-2-4-4" stroke-dasharray="3 2"/></svg>Lasso</button>
+        <span class="ink-sep"></span>
+        <button class="ink-tool" type="button" aria-label="Ink colour: text"><span class="ink-swatch" style="background:var(--text)"></span></button>
+        <button class="ink-tool" type="button" aria-label="Ink colour: accent"><span class="ink-swatch" style="background:var(--accent)"></span></button>
+        <button class="ink-tool" type="button" aria-label="Ink colour: warn"><span class="ink-swatch" style="background:var(--s-warn)"></span></button>
+        <span class="ink-sep"></span>
+        <button class="ink-tool" type="button"><svg class="i-nav" viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h13"/></svg>Recognise</button>
+        <button class="ink-tool" type="button"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Insert PDF page</button>
+        <span class="sb-spacer"></span>
+        <span style="font-family:var(--font-mono);font-size:.68rem;color:var(--faint)">page 1 / 3 · pen · pressure on</span>
+      </div>
+
+      <div class="ink-page" aria-label="Ink canvas">
+        <svg viewBox="0 0 820 560" role="img" aria-label="Handwritten meeting notes">
+          <!-- Words are set in the OS handwriting face as a stand-in for real
+               strokes; the figure, highlighter, lasso and tick are drawn paths so
+               pressure and tool differences read. -->
+          <text class="hand title" x="64" y="76" transform="rotate(-1 64 76)">Supervisor meeting 11 Feb</text>
+          <path class="stroke hl" d="M60 80h330"/>
+
+          <text class="hand" x="70" y="136" transform="rotate(-.6 70 136)">Drop the β sweep for §3.2 —</text>
+          <text class="hand" x="70" y="172" transform="rotate(.4 70 172)">ranking unchanged. Structured</text>
+          <text class="hand" x="70" y="208" transform="rotate(-.5 70 208)">prior instead, see <tspan class="acc">[[Graph-prior module]]</tspan></text>
+
+          <!-- encoder → graph prior → decoder, with the open question -->
+          <rect class="fig" x="470" y="124" width="104" height="46" rx="8" stroke-width="1.5" transform="rotate(-1.5 522 147)"/>
+          <text class="hand small" x="486" y="153">encoder</text>
+          <path class="fig" stroke-width="1.5" d="M578 147h40"/><path class="fig" stroke-width="1.5" d="M610 140l8 7-8 7"/>
+          <ellipse class="fig" cx="676" cy="147" rx="54" ry="27" stroke-width="1.5" transform="rotate(2 676 147)"/>
+          <text class="hand small acc" x="640" y="152">graph prior</text>
+          <path class="fig" stroke-width="1.5" d="M676 175v40"/><path class="fig" stroke-width="1.5" d="M669 207l7 8 7-8"/>
+          <rect class="fig" x="624" y="222" width="104" height="46" rx="8" stroke-width="1.5" transform="rotate(1 676 245)"/>
+          <text class="hand small" x="642" y="251">decoder</text>
+          <path class="stroke acc" stroke-width="2.4" d="M738 96c4-10 14-10 14-2s-10 8-8 18M744 124v3"/>
+          <path class="lasso" stroke-width="1.2" d="M454 108c40-14 130-16 190-6 44 8 96 40 102 84 6 44-30 92-90 96-70 4-160-12-196-50-24-26-30-104-6-124Z"/>
+
+          <text class="hand" x="70" y="300" transform="rotate(.3 70 300)">Open q: does the prior collapse when k &gt; 16 ?</text>
+
+          <text class="hand" x="70" y="366" transform="rotate(-.4 70 366)">Compare against [[VGAE]] table 2,</text>
+          <path class="stroke hl" d="M232 370h146"/>
+          <text class="hand" x="70" y="402" transform="rotate(.5 70 402)">not the appendix.</text>
+
+          <rect class="fig" x="70" y="458" width="18" height="18" rx="3" stroke-width="1.5" transform="rotate(-3 79 467)"/>
+          <path class="stroke acc" stroke-width="2.2" d="M73 467l5 7 11-14"/>
+          <text class="hand" x="100" y="474" transform="rotate(-.3 100 474)">Re-run ablation, seed 43, before Friday</text>
+        </svg>
+      </div>
+
+      <div class="ink-text" aria-label="Recognised text">
+        <h4>Text layer <span class="conf">92 % · 3 words unsure</span></h4>
+        <p><strong>Supervisor meeting 11 Feb</strong></p>
+        <p>Drop the β sweep for §3.2 — ranking unchanged. Structured prior instead, see <span class="wikilink">Graph-prior module</span>.</p>
+        <p>Encoder → graph prior → decoder. Open question: does the prior <span class="low" title="low confidence — click to correct">collapse</span> when k &gt; 16?</p>
+        <p>Compare against <span class="wikilink">Variational Graph Auto-Encoders</span> table 2, not the <span class="low" title="low confidence — click to correct">appendix</span>.</p>
+        <p>☑ Re-run ablation with seed 43 before Friday.</p>
+        <div class="ink-src">---
+weaveforge-type: ink_page
+title: Supervisor meeting 11 Feb
+ink: { pages: 3, recognised: 0.92, engine: chromium-hwr }
+---
+&lt;text layer above&gt;
+
+```ink
+{"v":1,"unit":"mm","pages":[{"strokes":[
+  {"c":"text","w":0.7,"p":[[12.3,14.1,0.62],…]},
+  …
+```</div>
+      </div>
+    </div>
+
+    <div class="panel proposed-only" id="panel">
+      <div class="panel-head" role="tablist" aria-label="Bottom panel">
+        <button class="panel-tab" role="tab" aria-selected="true" data-panel="problems">
+          <svg class="i-nav" viewBox="0 0 24 24" style="color:var(--s-warn)"><use href="#i-flag"/></svg> Problems <span class="panel-count">4</span>
         </button>
-        <button class="panel-tab" aria-selected="false">
+        <button class="panel-tab" role="tab" aria-selected="false" data-panel="output">
           <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-doc"/></svg> Output
         </button>
+        <div class="chans" id="chans" hidden role="group" aria-label="Output channel">
+          <button class="chan" type="button" data-ch="all" aria-pressed="true">All</button>
+          <button class="chan" type="button" data-ch="sync" aria-pressed="false">Sync</button>
+          <button class="chan" type="button" data-ch="git" aria-pressed="false">Git</button>
+          <button class="chan" type="button" data-ch="tex" aria-pressed="false">TeX</button>
+          <button class="chan" type="button" data-ch="zotero" aria-pressed="false">Zotero</button>
+        </div>
         <span class="sb-spacer"></span>
-        <button class="icon-btn" aria-label="Hide panel" title="Hide panel">
+        <button class="icon-btn" id="panel-toggle" aria-label="Hide panel" title="Hide panel (⌘J)" aria-expanded="true">
           <svg class="i-act" viewBox="0 0 24 24"><use href="#i-chevron"/></svg>
         </button>
       </div>
-      <div class="panel-body">
-        <div class="prow">
+
+      <!-- Problems: only checks this product can already run. Each row is a real
+           type — TexError (tex.ts), LintFinding (wiki-lint.ts), and the citation
+           key check the report screen does. Click a row → open the file at line. -->
+      <div class="panel-body panel-view" data-panel="problems" role="tabpanel">
+        <div class="prow" data-sev="error">
           <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flag"/></svg>
+          <span class="psrc">tex</span>
+          <span>Undefined control sequence <code>\citet</code> — natbib is not loaded</span>
+          <span class="ploc">report/3.2-graph-prior-module.tex:41</span>
+        </div>
+        <div class="prow" data-sev="warning">
+          <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flag"/></svg>
+          <span class="psrc">cite</span>
           <span>citation key <code>locatello-2019</code> matches no imported paper</span>
-          <span class="ploc">workspace · 1 of 1</span>
+          <span class="ploc">notes/disentanglement-reading-cluster.note.md:5</span>
         </div>
-        <div class="prow" style="color:var(--faint)">
-          <span style="width:12px;flex:none"></span>
-          <span>Output holds the sync and folder-mirror log. There is no terminal: the app has no shell.</span>
+        <div class="prow" data-sev="warning">
+          <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flag"/></svg>
+          <span class="psrc">lint</span>
+          <span>dead link <code>[[β-VAE sweep — seed 41]]</code> — no page with that title (did you mean <code>seed 42</code>?)</span>
+          <span class="ploc">notes/capacity-trade-off-notes.note.md:19</span>
         </div>
+        <div class="prow" data-sev="info">
+          <svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flag"/></svg>
+          <span class="psrc">lint</span>
+          <span>orphan — nothing links to <code>Supervisor meeting 11 Feb</code></span>
+          <span class="ploc">notes/supervisor-meeting-11-feb.ink.md</span>
+        </div>
+      </div>
+
+      <!-- Output: one append-only log, one line per event, from the producers the
+           app already has. Not a terminal — there is no shell to run. -->
+      <div class="panel-body panel-view" data-panel="output" role="tabpanel" hidden>
+        <div class="orow" data-ch="sync"><span class="ots">14:02:11</span><span class="och">sync</span><span class="omsg">mirror → <b>~/Research/msc-vault</b>: wrote 3, removed 0, 41 already up to date (mirrorWorkspace)</span></div>
+        <div class="orow" data-ch="git"><span class="ots">14:02:12</span><span class="och">git</span><span class="omsg">commit <b>4c1e9a2</b> on main — "Mirror: 3 notes, 1 report section" (commitVault)</span></div>
+        <div class="orow" data-ch="zotero"><span class="ots">14:03:05</span><span class="och">zotero</span><span class="omsg">local read: <b>2 papers</b>, 14 annotations imported; 1 skipped — no PDF attachment</span></div>
+        <div class="orow is-err" data-ch="tex"><span class="ots">14:03:40</span><span class="och">tex</span><span class="omsg">tectonic 3.2-graph-prior-module.tex — <b>1 error</b>, 2 warnings, 1.8 s. No PDF. See Problems.</span></div>
+        <div class="orow" data-ch="sync"><span class="ots">14:06:30</span><span class="och">sync</span><span class="omsg">vault changed on disk: notes/capacity-trade-off-notes.note.md — reloaded (vaultChanged)</span></div>
+        <div class="orow" data-ch="sync"><span class="ots">14:06:31</span><span class="och">sync</span><span class="omsg">ink: recognised page 1 of supervisor-meeting-11-feb.ink.md — 92 %, text layer updated</span></div>
       </div>
     </div>
 
@@ -1148,12 +1527,18 @@ kbd {
       <span class="sb"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-flag"/></svg> 2 changes</span>
       <span class="sb sb-saved"><svg class="i-act" viewBox="0 0 24 24"><use href="#i-check"/></svg> Saved</span>
       <span class="sb-spacer"></span>
-      <span class="sb"><span class="sb-num">412</span> words</span>
-      <span class="sb"><span class="sb-num">2,684</span> chars</span>
-      <span class="sb">Ln <span class="sb-num">28</span>, Col <span class="sb-num">14</span></span>
-      <span class="sb">Spaces: 2</span>
-      <span class="sb">UTF-8</span>
-      <span class="sb">Markdown</span>
+      <!-- segmentsFor(kind): text kinds get counters, ink gets pen state. -->
+      <span class="sb sb-text-only"><span class="sb-num">412</span> words</span>
+      <span class="sb sb-text-only"><span class="sb-num">2,684</span> chars</span>
+      <span class="sb sb-text-only">Ln <span class="sb-num">28</span>, Col <span class="sb-num">14</span></span>
+      <span class="sb sb-text-only">Spaces: 2</span>
+      <span class="sb sb-text-only">UTF-8</span>
+      <span class="sb sb-text-only">Markdown</span>
+      <span class="sb sb-ink-only">Page <span class="sb-num">1</span>/<span class="sb-num">3</span></span>
+      <span class="sb sb-ink-only"><span class="sb-num">184</span> strokes</span>
+      <span class="sb sb-ink-only">Pen · pressure</span>
+      <span class="sb sb-ink-only">Recognised <span class="sb-num">92</span>%</span>
+      <span class="sb sb-ink-only">Ink</span>
       <span class="sb"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-graph"/></svg> 3 peers</span>
     </div>
   </div>
@@ -1188,6 +1573,8 @@ kbd {
   <button class="th" data-th="amoled" aria-pressed="false">Amoled</button>
   <span class="harness-sep"></span>
   <button id="b-palette">Palette ⌘P</button>
+  <button id="b-source" aria-pressed="false" title="⌘E">Source view</button>
+  <button id="b-ink" aria-pressed="false">Ink note</button>
   <button id="b-empty" aria-pressed="false">Empty state</button>
 </div>
 
@@ -1196,9 +1583,9 @@ kbd {
      papers=book · vault=notes · wiki=notes · editor-workspace=pencil · graph=graph
      reading-lists=list · experiments=flask · git=git · plan=flag · logbook=pencil
      report=doc · dashboard=home                                                */
-const ICON = { note:"notes", paper:"book", report:"doc", experiment:"flask", list:"list" };
-const TINT = { note:"t-note", paper:"t-paper", report:"t-report", experiment:"t-paper", list:"t-list" };
-const GROUP = { note:"Notes", paper:"Papers", report:"Report", experiment:"Experiments", list:"Lists" };
+const ICON = { note:"notes", paper:"book", report:"doc", experiment:"flask", list:"list", ink:"pencil" };
+const TINT = { note:"t-note", paper:"t-paper", report:"t-report", experiment:"t-paper", list:"t-list", ink:"t-ink" };
+const GROUP = { note:"Notes", paper:"Papers", report:"Report", experiment:"Experiments", list:"Lists", ink:"Ink notes" };
 
 const root = document.documentElement;
 const $ = (s) => document.querySelector(s);
@@ -1232,6 +1619,7 @@ document.querySelectorAll(".row").forEach((row) => {
     }
     document.querySelectorAll('.row[aria-selected="true"]').forEach((o) => o.removeAttribute("aria-selected"));
     row.setAttribute("aria-selected", "true");
+    setInk(row.dataset.kind === "ink");
   });
 });
 const filter = $(".filter-input");
@@ -1251,11 +1639,71 @@ $(".filter-x").addEventListener("click", () => {
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", (e) => {
     if (e.target.closest(".tab-x")) return;
-    document.querySelectorAll(".tab").forEach((t) => {
-      t.setAttribute("aria-selected", String(t === tab));
-      t.tabIndex = t === tab ? 0 : -1;
-    });
+    selectTab(tab);
   });
+});
+function selectTab(tab) {
+  document.querySelectorAll(".tab").forEach((t) => {
+    t.setAttribute("aria-selected", String(t === tab));
+    t.tabIndex = t === tab ? 0 : -1;
+  });
+  setInk(tab.dataset.kind === "ink");
+}
+
+/* ---- document mode: Edit (source) / Read ----
+   Per tab in the real thing; one global here. ⌘E toggles, as the brief proposes. */
+function setView(v) {
+  root.dataset.view = v;
+  document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === v)));
+  $("#b-source").setAttribute("aria-pressed", String(v === "source"));
+}
+setView(root.dataset.view || "read");
+document.querySelectorAll(".seg button").forEach((b) => { b.onclick = () => setView(b.dataset.view); });
+$("#b-source").onclick = () => setView(root.dataset.view === "source" ? "read" : "source");
+
+/* ---- explorer sections ---- */
+document.querySelectorAll(".ex-sec-head").forEach((h) => {
+  const toggle = () => {
+    const sec = h.parentElement;
+    const collapsed = sec.classList.toggle("is-collapsed");
+    h.setAttribute("aria-expanded", String(!collapsed));
+  };
+  h.addEventListener("click", (e) => { if (!e.target.closest(".icon-btn")) toggle(); });
+  h.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+});
+
+/* ---- ink host ---- */
+function setInk(on) {
+  root.dataset.ink = String(on);
+  $("#inkwrap").hidden = !on;
+  $("#docwrap").hidden = on;
+  $("#b-ink").setAttribute("aria-pressed", String(on));
+  const tab = document.querySelector('.tab[data-kind="ink"]');
+  if (on && tab.getAttribute("aria-selected") !== "true") selectTab(tab);
+  if (!on && tab.getAttribute("aria-selected") === "true") selectTab(document.querySelector(".tab"));
+}
+$("#b-ink").onclick = () => setInk(root.dataset.ink !== "true");
+
+/* ---- bottom panel: Problems / Output, channel filter, ⌘J ---- */
+function setPanel(name) {
+  document.querySelectorAll(".panel-tab").forEach((t) => t.setAttribute("aria-selected", String(t.dataset.panel === name)));
+  document.querySelectorAll(".panel-view").forEach((v) => { v.hidden = v.dataset.panel !== name; });
+  $("#chans").hidden = name !== "output";
+  $("#panel").classList.remove("is-collapsed");
+  $("#panel-toggle").setAttribute("aria-expanded", "true");
+}
+document.querySelectorAll(".panel-tab").forEach((t) => { t.onclick = () => setPanel(t.dataset.panel); });
+function togglePanel() {
+  const collapsed = $("#panel").classList.toggle("is-collapsed");
+  $("#panel-toggle").setAttribute("aria-expanded", String(!collapsed));
+  $("#panel-toggle").setAttribute("aria-label", collapsed ? "Show panel" : "Hide panel");
+}
+$("#panel-toggle").onclick = togglePanel;
+document.querySelectorAll(".chan").forEach((c) => {
+  c.onclick = () => {
+    document.querySelectorAll(".chan").forEach((o) => o.setAttribute("aria-pressed", String(o === c)));
+    document.querySelectorAll(".orow").forEach((r) => { r.hidden = c.dataset.ch !== "all" && r.dataset.ch !== c.dataset.ch; });
+  };
 });
 
 /* ---- command palette -----------------------------------------------------
@@ -1271,7 +1719,8 @@ const DOCS = [
   ["Disentanglement","reading-lists/latent-spaces/disentanglement.list.md","list"],
   ["2.1.2 Disentanglement literature","report/2.1.2-disentanglement-literature.report.md","report"],
   ["3.2 Graph-prior module","report/3.2-graph-prior-module.report.md","report"],
-  ["β-VAE sweep — seed 42","experiments/bvae-sweep-seed-42.exp.md","experiment"]
+  ["β-VAE sweep — seed 42","experiments/bvae-sweep-seed-42.exp.md","experiment"],
+  ["Supervisor meeting 11 Feb","notes/supervisor-meeting-11-feb.ink.md","ink"]
 ];
 const M = 8, C = 12, W = 10, S = 16, G = 1;
 function score(text, q) {
@@ -1351,6 +1800,8 @@ window.addEventListener("keydown", (e) => {
   if (mod && !e.shiftKey && (e.key.toLowerCase() === "p" || e.key.toLowerCase() === "k")) {
     e.preventDefault(); if (open) closePalette(); else openPalette(); return;
   }
+  if (mod && !e.shiftKey && e.key.toLowerCase() === "j" && !open) { e.preventDefault(); togglePanel(); return; }
+  if (mod && !e.shiftKey && e.key.toLowerCase() === "e" && !open) { e.preventDefault(); $("#b-source").click(); return; }
   if (!open) return;
   if (e.key === "Escape") { e.preventDefault(); closePalette(); }
   if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
@@ -1365,6 +1816,7 @@ $("#b-empty").onclick = (e) => {
   const on = e.currentTarget.getAttribute("aria-pressed") === "true";
   e.currentTarget.setAttribute("aria-pressed", String(!on));
   if (on) { wrap.innerHTML = DOC_HTML; return; }
+  setInk(false);
   wrap.innerHTML = `
     <div class="empty-pane" style="grid-column:1 / -1">
       <span class="ep-mark"><svg class="i-nav" viewBox="0 0 24 24"><use href="#i-pencil"/></svg></span>
@@ -1375,6 +1827,8 @@ $("#b-empty").onclick = (e) => {
         <span class="sk"><kbd>⌘</kbd><kbd>\\</kbd></span><span>Split right</span>
         <span class="sk"><kbd>⌘</kbd><kbd>W</kbd></span><span>Close tab</span>
         <span class="sk"><kbd>⌘</kbd><kbd>⇥</kbd></span><span>Next tab</span>
+        <span class="sk"><kbd>⌘</kbd><kbd>E</kbd></span><span>Edit / Read</span>
+        <span class="sk"><kbd>⌘</kbd><kbd>J</kbd></span><span>Problems panel</span>
       </div>
     </div>`;
 };
