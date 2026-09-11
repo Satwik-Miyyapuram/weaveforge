@@ -13,6 +13,7 @@ import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { useIsDetailView } from "@/lib/hooks/use-detail-view";
+import { useWorkspaceRoute } from "@/lib/hooks/use-workspace-route";
 import { HeaderActions } from "./header-actions";
 import { ThemeToggle } from "./theme-toggle";
 import { TabBar } from "./tabbar";
@@ -81,7 +82,13 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   const accountRoute = isAccountRoute(pathname);
   const { breakpoint, navEnter } = useLayoutBreakpoint();
   const detailView = useIsDetailView();
-  const [collapsed, setCollapsed] = useState(false);
+  // On `/workspace` the shell changes shape: the primary nav is always the icon
+  // rail, the content is full-bleed and the sub-nav strip is gone (document
+  // tabs supersede it). It is the one screen that is a workspace rather than a
+  // page, and the only one that must reach the window's bottom edge.
+  const editorRoute = useWorkspaceRoute();
+  const [manuallyCollapsed, setManuallyCollapsed] = useState(false);
+  const collapsed = editorRoute || manuallyCollapsed;
   // Enable sidebar transitions only AFTER the layout has settled into place, so
   // the nav appearing on load (padding-left 0→232) doesn't slide the content
   // around. Collapse-toggle animations still play once this is on.
@@ -128,14 +135,14 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
     <div
       className={`layout layout--${breakpoint} ${current ? "has-nav" : ""} ${anim ? "anim" : ""} ${
         collapsed ? "nav-collapsed" : ""
-      }`.replace(/\s+/g, " ").trim()}
+      } ${editorRoute ? "editor-route" : ""}`.replace(/\s+/g, " ").trim()}
     >
       {current && (
         <TabBar
           collapsed={collapsed}
           navEnter={navEnter}
           breakpoint={breakpoint}
-          onToggle={() => setCollapsed(!collapsed)}
+          onToggle={() => setManuallyCollapsed(!manuallyCollapsed)}
         />
       )}
       <main className="app-shell">
@@ -158,7 +165,10 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
             {/* Detail views (a single paper/note/experiment) carry their own
                 header and Back control, so the sub-tab strip and the
                 swipe-between-tabs gesture are hidden and disabled there. */}
-            {!detailView && <SubNav />}
+            {/* The workspace hides it too — document tabs supersede the
+                Library strip there, and the rail keeps the rest one click
+                away. */}
+            {!detailView && !editorRoute && <SubNav />}
             <SwipeViews disabled={detailView}>
               <RoutePending>
                 <PageTransition>{children}</PageTransition>

@@ -214,3 +214,26 @@
    looked identical at all three control sizes. */
 .header-link svg, .signout svg { width: var(--icon-size); height: var(--icon-size); flex: none; }
 .header-link:hover { color: var(--accent-ink); background: var(--hover); }
+
+/*
+ * Full-bleed chrome on `/workspace`.
+ *
+ * The desktop block in `nav.css` gives `.app-shell` a fluid gutter and the
+ * layout a `--nav-inset` left padding so content clears the 216px sidebar.
+ * The editor is not a page inside that frame — it is the frame: a 48px rail,
+ * its own explorer and panes that must reach the window's edges on all four
+ * sides. Both declarations are therefore zeroed on this route only, and every
+ * other route keeps them exactly as they were.
+ *
+ * These rules are unsuffixed rather than inside the ≥900px block on purpose:
+ * the failure they fix (`styles/editor-workspace.css` sizing its height from a
+ * horizontal token) was caused by a desktop-only padding leaking into a height
+ * calculation, and a bare zero cannot leak.
+ */
+.layout.has-nav.editor-route {
+  padding-left: 0;
+}
+
+.layout.editor-route .app-shell {
+  padding: 0;
+}
