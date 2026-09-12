@@ -31,6 +31,11 @@ were tuning, not architecture.
 | `403db6b` | Toolbar swatches did not match the ink; dark mode drew on a white canvas | Palette hard-coded to the light theme; canvas cleared opaque white | Canvas transparent and premultiplied so the CSS paper shows; the host reads `--text`, `--accent`, `--s-*` from the theme and posts them to the worker (`ink-palette.ts`) |
 | `403db6b` | Lasso invisible while drawn; selection not shown; eraser had no cursor; no finger pan or pinch | Nothing drew them | SVG overlay in page units (`.ink-overlay`, `.ink-lasso`, `.ink-selection`); ring cursor for the eraser; one finger pans when touch does not draw, two fingers always pinch |
 | `4149003` | A light, fast stroke ended in a dot wider than itself; blobs at corners | Windows sends `pointerup` with pressure 0, which the filter read as "no channel" and the renderer as full base width; a 0.55–1.45 pressure swing and 35 % speed thinning made the rest of the stroke thin | The lift tapers from the last pressure (`NibFilter`); swing 0.7–1.3; speed taper 20 %, read from core |
+| `2d8b032` | The last few millimetres of a fast stroke vanished on lift | The predicted samples were dropped, not flushed, at pen-up | The prediction is flushed into the stroke before the refit |
+| `cc7f1a3` | Two colours where one highlighter overlapped itself; "dual colour" on every fold | Each capsule blended separately, so a self-overlap doubled the alpha | Per-stroke stencil (`GREATER k` / `REPLACE`) draws each highlighter once as a union; only different strokes add. The context probe runs on a scratch canvas so the real one keeps its first context |
+| `d505eb9` | Recognised text repeated three times | The .NET helper added the line's text once per stroke it owned | Owners collected from `GetStrokeIds()`, text added once per owner |
+| `f8ed108` | The page went blank past a certain zoom | The whole-page backing store (CSS size × dpr) outgrew what the GPU would allocate | `backingRatio()` lowers the effective dpr so the store stays ≤ 20 M px and ≤ 8192 per side; the same ratio goes into the view transform |
+| `ef4e38e` | Lasso: selected strokes not shown as selected; strokes stayed put while the box moved | Nothing drew the selection; only pointer-up translated it | Accent halo (capsules grown by 3 device px at 30 %, stencil-deduped) under the selected strokes; `drag-selection` shows the held strokes shifted with the box, `move-selection` on lift commits |
 
 ## 3. How it was verified without a hand on the pen
 
@@ -42,6 +47,12 @@ zero at 1× and 2.6× zoom after `403db6b`. Real-mouse circles were drawn with
 `SendInput` and read back as round. Touch pan and pinch were checked by
 dispatching two-finger `pointermove`s and reading `scrollTop` and the canvas
 width.
+
+For the lasso, highlighter and zoom fixes a real synthetic pen was used as
+well: `mkpen.mjs` writes a sample list, `pen.ps1` injects it through
+`InjectSyntheticPointerInput` with pressure, so Windows Ink itself delivers
+the events — the same path a Surface Pen takes — and the screenshots were
+cropped and read back for seams, doubled alpha and a blank canvas.
 
 ## 4. Still open
 
