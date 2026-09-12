@@ -27,7 +27,9 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M8 7.5 15.5 8.5M7.5 8 8.5 15.5" />
     </>
   ),
-  flask: <path d="M9 3h6M10 3v6l-5 8a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-8V3M7.5 14h9" />,
+  flask: (
+    <path d="M9 3h6M10 3v6l-5 8a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-8V3M7.5 14h9" />
+  ),
   git: (
     <>
       <circle cx="6" cy="6" r="2.5" />
@@ -45,7 +47,20 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M8 7h8M8 11h8M8 15h5" />
     </>
   ),
-  home: <path d="M4 11 12 4l8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9Z" />,
+  folder: (
+    <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18Z" />
+  ),
+  ink: (
+    <>
+      <path d="m12 19 7-7 3 3-7 7-3-3z" />
+      <path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+      <path d="m2 2 7.586 7.586" />
+      <circle cx="11" cy="11" r="2" />
+    </>
+  ),
+  home: (
+    <path d="M4 11 12 4l8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9Z" />
+  ),
 };
 
 export function NavIcon({ name }: { name?: string }) {

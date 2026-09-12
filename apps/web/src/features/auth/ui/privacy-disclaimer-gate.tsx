@@ -17,8 +17,14 @@ import {
   shouldShowWorkspaceLoader,
 } from "./privacy-disclaimer-readiness";
 import { useCapability } from "@/deployment/capabilities";
-import { desktop, type DesktopLocalDbState } from "@/lib/desktop/desktop-bridge";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
+import {
+  desktop,
+  type DesktopLocalDbState,
+} from "@/lib/desktop/desktop-bridge";
+import {
+  isLocalMode,
+  setLocalMode,
+} from "@/backend/providers/local/local-identity";
 
 /**
  * Blocks the app until the user accepts the org/privacy disclaimer once.
@@ -26,12 +32,17 @@ import { isLocalMode } from "@/backend/providers/local/local-identity";
  * is ready, even when startup is served from the localStorage cache on cold reopen
  * (TabBar / ProjectProvider call getContainer() synchronously on render).
  */
-export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode }) {
+export function PrivacyDisclaimerGate({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // Gate on the disclaimer decision, not the org/profile bundle. `gateReady`
   // is known from cache (returning users) or after the settings read (cold),
   // long before profile/org data lands — and the screens do not need that data
   // to render, so holding them for it is pure waiting.
-  const { gateReady, needsPrivacyAccept, settingsError, refreshProfile } = useStartup();
+  const { gateReady, needsPrivacyAccept, settingsError, refreshProfile } =
+    useStartup();
   // Every paragraph of the disclaimer is about somebody else being able to read
   // the data: the operator, the database, a share. On a copy whose database is
   // a file on this disk there is no such person, so there is nothing to
@@ -122,7 +133,8 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
   // the same unreachable API and reports the same failure, with no way out.
   if (settingsError) return <StartupFailure message={settingsError} />;
 
-  if (!needsAccept && !containerReady && error) return <StartupFailure message={error} />;
+  if (!needsAccept && !containerReady && error)
+    return <StartupFailure message={error} />;
 
   return (
     <>
@@ -135,7 +147,9 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
               ))}
             </ul>
             <details className="privacy-disclaimer-full">
-              <summary>Read the full privacy and data-protection details</summary>
+              <summary>
+                Read the full privacy and data-protection details
+              </summary>
               {PRIVACY_DISCLAIMER_PARAGRAPHS.map((p) => (
                 <p key={p} className="muted">
                   {p}
@@ -143,7 +157,12 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
               ))}
             </details>
             {error && <FormError>{error}</FormError>}
-            <button type="button" className="btn-primary" disabled={busy} onClick={() => void accept()}>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => void accept()}
+            >
               {busy ? "Saving…" : "I understand — continue"}
             </button>
           </div>
@@ -164,17 +183,39 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
 function StartupFailure({ message }: { message: string }) {
   const broken = useLocalDbFailure();
   return (
-    <main className="app-shell" style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}>
-      <h1 style={{ fontSize: "1.25rem", marginBottom: 8 }}>Couldn’t start the app</h1>
-      {broken ? <LocalDbRecovery state={broken} /> : <FormError>{message}</FormError>}
-      <button
-        type="button"
-        className={broken ? "btn-secondary" : "btn-primary"}
-        style={{ marginTop: 16 }}
-        onClick={() => window.location.reload()}
-      >
-        Reload
-      </button>
+    <main
+      className="app-shell"
+      style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}
+    >
+      <h1 style={{ fontSize: "1.25rem", marginBottom: 8 }}>
+        Couldn’t start the app
+      </h1>
+      {broken ? (
+        <LocalDbRecovery state={broken} />
+      ) : (
+        <FormError>{message}</FormError>
+      )}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+        <button
+          type="button"
+          className={broken ? "btn-secondary" : "btn-primary"}
+          onClick={() => window.location.reload()}
+        >
+          Reload
+        </button>
+        {desktop() && !isLocalMode() ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setLocalMode(true);
+              window.location.reload();
+            }}
+          >
+            Work on this computer (offline)
+          </button>
+        ) : null}
+      </div>
     </main>
   );
 }
@@ -232,24 +273,33 @@ function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <p>
-        The app’s own database on this computer could not be opened. This happens when a
-        previous run was interrupted while writing to it.
+        The app’s own database on this computer could not be opened. This
+        happens when a previous run was interrupted while writing to it.
       </p>
       <p className="muted" style={{ wordBreak: "break-all" }}>
         {state.dataDir}
       </p>
       <details>
         <summary className="muted">Technical detail</summary>
-        <p className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: "0.85em" }}>
+        <p
+          className="muted"
+          style={{ fontFamily: "var(--font-mono)", fontSize: "0.85em" }}
+        >
           {state.failure}
         </p>
       </details>
       <p>
-        Starting fresh moves the old database aside as <code>local-db.broken-…</code> in the
-        same folder — nothing is deleted — and opens a new, empty one.
+        Starting fresh moves the old database aside as{" "}
+        <code>local-db.broken-…</code> in the same folder — nothing is deleted —
+        and opens a new, empty one.
       </p>
       {error && <FormError>{error}</FormError>}
-      <button type="button" className="btn-primary" disabled={busy} onClick={() => void reset()}>
+      <button
+        type="button"
+        className="btn-primary"
+        disabled={busy}
+        onClick={() => void reset()}
+      >
         {busy ? "Moving aside…" : "Start with a fresh database"}
       </button>
     </div>

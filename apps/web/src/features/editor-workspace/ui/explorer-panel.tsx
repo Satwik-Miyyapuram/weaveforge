@@ -267,7 +267,7 @@ export function ExplorerPanel({
               aria-label={newNoteLabel}
               onClick={onNewNote}
             >
-              <NavIcon name="pencil" />
+              <NavIcon name="notes" />
             </button>
           ) : null}
           {onNewInkNote ? (
@@ -278,7 +278,7 @@ export function ExplorerPanel({
               aria-label="New ink note"
               onClick={onNewInkNote}
             >
-              <NavIcon name="pencil" />
+              <NavIcon name="ink" />
             </button>
           ) : null}
           {onNewFolder ? (

@@ -183,7 +183,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
                 Library strip there, and the rail keeps the rest one click
                 away. */}
             {!detailView && !editorRoute && <SubNav />}
-            <SwipeViews disabled={detailView}>
+            <SwipeViews disabled={detailView || editorRoute}>
               <RoutePending>
                 <PageTransition>{children}</PageTransition>
               </RoutePending>

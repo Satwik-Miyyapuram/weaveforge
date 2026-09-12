@@ -46,8 +46,8 @@ test("a kind core has not taught the editor yet still renders as text", () => {
   assert.deepEqual(segmentsFor("something_new"), []);
 });
 
-test("an ink note is its own row: pencil, the ink tint, .ink.md, the ink renderer", () => {
-  assert.equal(kindIcon("ink_page"), "pencil");
+test("an ink note is its own row: ink, the ink tint, .ink.md, the ink renderer", () => {
+  assert.equal(kindIcon("ink_page"), "ink");
   assert.equal(kindTintClass("ink_page"), "kind-tint-danger");
   assert.equal(kindSuffix("ink_page"), ".ink.md");
   assert.equal(documentKind("ink_page"), "ink");

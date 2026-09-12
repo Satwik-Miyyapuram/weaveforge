@@ -174,12 +174,17 @@ export function InkPage({
   );
 
   return (
-    <div className="ink-page" data-page={pageIndex}>
+    <div
+      className="ink-page"
+      data-page={pageIndex}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+    >
       {/*
-        `touch-action` follows the same rule the reader learned: while a pen is in
-        use — or the wrist guard is on — touch must not scroll the canvas, because
-        the hand would move the page under the pen. Otherwise a finger scrolls a long
-        page, which is what a finger is for (§3.3).
+        `touch-action: none` ensures the browser never attempts to interpret drawing
+        gestures as scrolling or panning, preventing Chromium from dispatching pointercancel
+        and dropping ink strokes (§3.3).
       */}
       <canvas
         ref={canvasRef}
@@ -187,7 +192,7 @@ export function InkPage({
         style={{
           width: `${width}px`,
           height: `${height}px`,
-          touchAction: penOnly || penSeen ? "none" : "pan-y",
+          touchAction: "none",
         }}
         width={width}
         height={height}

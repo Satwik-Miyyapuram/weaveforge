@@ -13,7 +13,8 @@ import { useNavPending } from "@/lib/nav-pending";
  * own gestures. Vertical scrolling is untouched (we never preventDefault).
  */
 const EDGE = 24;
-const IGNORE = ".graph-wrap, .graph-canvas, .dashboard-grid-wrap, .table-scroll, .papers-table-scroll, input, textarea, select, .custom-select-menu, .sub-nav";
+const IGNORE =
+  ".graph-wrap, .graph-canvas, .dashboard-grid-wrap, .table-scroll, .papers-table-scroll, input, textarea, select, .custom-select-menu, .sub-nav, .ink-wrap, .ink-page, .ink-canvas, .ink-host, .ink-page-scroll, [data-ink], .workspace-screen, .editor-workspace, .document-host, .editor-pane, canvas, [style*='touch-action: none']";
 
 export function SwipeViews({
   children,
@@ -39,7 +40,8 @@ export function SwipeViews({
       start.current = null;
       return;
     }
-    if ((e.target as HTMLElement).closest(IGNORE)) {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest(IGNORE) || target?.tagName === "CANVAS") {
       start.current = null;
       return;
     }
@@ -59,9 +61,9 @@ export function SwipeViews({
     if (!t) return;
     const dx = t.clientX - s.x;
     const dy = t.clientY - s.y;
-    if (Date.now() - s.t > 600) return;            // too slow
+    if (Date.now() - s.t > 600) return; // too slow
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // not a clear horizontal swipe
-    const next = items[idx + (dx < 0 ? 1 : -1)];   // swipe left → next tab
+    const next = items[idx + (dx < 0 ? 1 : -1)]; // swipe left → next tab
     if (next) {
       beginNavigation(next.path);
       router.push(next.path);
@@ -69,7 +71,11 @@ export function SwipeViews({
   }
 
   return (
-    <div className="swipe-views" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div
+      className="swipe-views"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       {children}
     </div>
   );
