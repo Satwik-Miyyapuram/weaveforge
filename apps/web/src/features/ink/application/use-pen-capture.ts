@@ -722,6 +722,9 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         workerRef.current = null;
         presenterRef.current = null;
         pendingRef.current = [];
+        // Whatever the pool still holds is ours alone now; the worker's copies
+        // went with it. Nothing keeps the free list's buffers alive after this.
+        poolRef.current.clear();
       };
     };
 
