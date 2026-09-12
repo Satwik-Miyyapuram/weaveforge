@@ -18,11 +18,19 @@
 /** Units per millimetre. Every width and coordinate in ink notes is in these. */
 export const INK_WIDTH_UNITS_PER_MM = 10;
 
-/** The three pen widths the ink bar offers, in 0.1 mm: 0.3, 0.6 and 1.0 mm. */
-export const INK_PEN_WIDTHS = [3, 6, 10] as const;
+/**
+ * The three pen widths the ink bar offers, in 0.1 mm: 0.5, 1.0 and 1.6 mm.
+ *
+ * These are the *rendered* widths at a pen's rest pressure, and they are wider
+ * than the nib sizes a stationery catalogue would print for the same look: a
+ * 0.5 mm gel pen leaves a line nearer 1 mm because ink spreads, and every
+ * note-taking app that looks "like a pen" draws it that wide. The first
+ * revision offered 0.3 / 0.6 / 1.0 and read as a hairline on the device.
+ */
+export const INK_PEN_WIDTHS = [5, 10, 16] as const;
 
 /** The default pen, and the width a stroke with no usable one falls back to. */
-export const INK_PEN_WIDTH = 6;
+export const INK_PEN_WIDTH = 10;
 
 /** Highlighter nib: 6 mm, the width the plan and the prototype both name. */
 export const INK_HIGHLIGHTER_WIDTH = 60;

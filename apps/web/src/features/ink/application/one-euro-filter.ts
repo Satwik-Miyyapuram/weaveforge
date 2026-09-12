@@ -47,22 +47,26 @@ export interface OneEuroOptions {
 }
 
 /**
- * Position: `fcMin = 1 Hz`, `β = 80 Hz per (0.1 mm/ms)`.
+ * Position: `fcMin = 1 Hz`, `β = 30 Hz per (0.1 mm/ms)`.
  *
  * The pair to hold onto is the *behaviour*, and it is what the tests assert:
  *
  * | Speed | Cutoff | Lag behind a moving stroke |
  * | --- | --- | --- |
- * | 0.05 units/ms — a slow deliberate line | 5 Hz | a fraction of a pixel |
- * | 0.5 units/ms — normal writing | 41 Hz | ~0.2 mm |
- * | 5 units/ms — a fast sweep | 401 Hz | ~0.02 mm |
+ * | 0.05 units/ms — a slow deliberate line | 2.5 Hz | a fraction of a pixel |
+ * | 0.5 units/ms — normal writing | 16 Hz | ~0.5 mm |
+ * | 5 units/ms — a fast sweep | 151 Hz | ~0.5 mm |
  *
  * The taper therefore damps where staircasing is visible and phases out where lag
  * would be felt. A *fixed* 1 Hz low-pass lags a normal-speed stroke by about 4 mm,
  * which is why revision 2's blanket ban read as necessary and why it was wrong.
  * `fcMin` is the plan's literature value and the paper's shape is unchanged; only
- * β is expressed in this feature's units, and §9 item 7 is where the pair is
- * re-tuned on the real device.
+ * β is expressed in this feature's units. §9 item 7 is where the pair was
+ * re-tuned on the real device: the first cut was `β = 80`, which phased out at
+ * writing speed (41 Hz) and let the digitiser's per-sample jitter through as a
+ * wobble on every curve. At 30 the lag caps near half a millimetre at any
+ * speed — hidden under the OS ink trail on Windows, and a fraction of a nib
+ * anywhere else — and a curve comes out as the hand drew it.
  *
  * `derivativeCutoff = 3 Hz` rather than the paper's 1 Hz, because the cutoff that
  * phases the filter out is *derived from* the speed estimate: at 1 Hz that
@@ -71,7 +75,7 @@ export interface OneEuroOptions {
  */
 export const INK_POSITION_FILTER: OneEuroOptions = {
   minCutoff: 1,
-  beta: 80,
+  beta: 30,
   derivativeCutoff: 3,
 };
 

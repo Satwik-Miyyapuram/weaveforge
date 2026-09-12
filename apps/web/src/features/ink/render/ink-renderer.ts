@@ -23,7 +23,12 @@
  * 10–15× a review claimed for geometry this engine does not draw.
  */
 
-import type { InkColour, InkTool } from "@weaveforge/core";
+import {
+  INK_PRESSURE_MAX_FACTOR,
+  INK_PRESSURE_MIN_FACTOR,
+  type InkColour,
+  type InkTool,
+} from "@weaveforge/core";
 
 import type { InkBounds, InkStrokeGeometry } from "../application/page-buffer";
 
@@ -317,9 +322,16 @@ export function radiusAt(
   const base = stroke.width / 2;
   if (!stroke.variableWidth) return base;
   const raw = stroke.pressure[index] ?? 0;
-  // 0 means "no pressure channel" and 0.5 is a mouse; neither should taper.
+  // 0 means "no pressure channel" and 0.5 is a mouse; neither should taper. A
+  // pen scales over core's full range — a light touch is little over half the
+  // nib and a firm press half again as wide — because that swing, not the
+  // spline, is most of what makes a stroke read as written with a pen.
   const pressure = raw === 0 ? 0.5 : raw / 255;
-  const pressureScale = raw === 0 ? 1 : 0.75 + pressure * 0.5;
+  const pressureScale =
+    raw === 0
+      ? 1
+      : INK_PRESSURE_MIN_FACTOR +
+        pressure * (INK_PRESSURE_MAX_FACTOR - INK_PRESSURE_MIN_FACTOR);
   // Speed in 0.1 mm per sample rather than per millisecond: the sample rate is not
   // in this data, and the taper only needs "how fast relative to a stroke". It is
   // read over a window of samples, not the two neighbours: a digitiser's spacing
