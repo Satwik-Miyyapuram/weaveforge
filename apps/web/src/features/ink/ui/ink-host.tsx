@@ -66,6 +66,12 @@ import { usePenCapture } from "../application/use-pen-capture";
 import type { PenHaptics } from "../application/pen-haptics";
 import { trailStyle } from "../application/ink-trail";
 import {
+  INK_RENDER_COLOURS,
+  readThemePalette,
+  samePalette,
+  type InkPalette,
+} from "../render/ink-palette";
+import {
   installNativeStrokeHandler,
   nativeInkBridge,
   nativeStrokeEvents,
@@ -230,6 +236,11 @@ export function InkHost({
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  /**
+   * The theme's ink colours, read off the document. State rather than a ref
+   * because the trail's style and the native overlay's tool depend on it.
+   */
+  const [palette, setPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSeq = useRef(0);
   const pendingModel = useRef(new Map<number, (page: InkPageModel) => void>());
@@ -337,6 +348,7 @@ export function InkHost({
           tool: tool === "highlighter" ? "highlighter" : "pen",
           width: liveWidth,
           pageWidthPx: canvasRef.current?.getBoundingClientRect().width ?? 0,
+          palette,
         }),
     },
     // The pen's haptics follow the filtered sample, not the raw one: the same
@@ -539,6 +551,37 @@ export function InkHost({
     };
   }, [pageCount, pageIndex, requestModel, send]);
 
+  /**
+   * The ink palette follows the theme. The swatches in the bar are painted with
+   * the same CSS tokens, so what the bar shows is what the page draws — in
+   * light, dark, and any theme the app grows. Read on mount and again whenever
+   * the root's attributes change (that is how a theme is switched) or the OS
+   * scheme flips; posted only when a value actually moved.
+   */
+  useEffect(() => {
+    let last: InkPalette | null = null;
+    const refresh = () => {
+      const next = readThemePalette(document);
+      if (last && samePalette(last, next)) return;
+      last = next;
+      setPalette(next);
+      send({ type: "palette", colours: next });
+    };
+    refresh();
+    const observer = new MutationObserver(refresh);
+    observer.observe(document.documentElement, { attributes: true });
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    media.addEventListener("change", refresh);
+    // A theme's stylesheet can land after the first paint.
+    const late = window.setTimeout(refresh, 500);
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", refresh);
+      window.clearTimeout(late);
+    };
+    // `pen.backend` so a renderer that came up later is handed the palette too.
+  }, [pen.backend, send]);
+
   /** Keep the worker's viewport in step with the layout. */
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -614,9 +657,10 @@ export function InkHost({
         tool: tool === "highlighter" ? "highlighter" : "pen",
         width: nib,
         pageWidthPx,
+        palette,
       }).diameter,
     });
-  }, [native, tool, colour, nib, scale]);
+  }, [native, tool, colour, nib, scale, palette]);
 
   useEffect(() => {
     native?.setPenOnly(pen.penOnly);
@@ -949,6 +993,16 @@ export function InkHost({
     return () => element.removeEventListener("wheel", onWheel);
   }, []);
 
+  /** One finger dragged the page: scroll the other way, so the paper follows. */
+  const onPan = useCallback((dx: number, dy: number) => {
+    scrollRef.current?.scrollBy(-dx, -dy);
+  }, []);
+
+  /** Two fingers pinched: zoom, clamped like the wheel is. */
+  const onPinch = useCallback((factor: number) => {
+    setZoom((value) => Math.min(4, Math.max(0.5, value * factor)));
+  }, []);
+
   const onErase = useCallback(
     (from: { x: number; y: number }, to: { x: number; y: number }) => {
       send({ type: "erase", from, to });
@@ -1043,6 +1097,8 @@ export function InkHost({
           onMoveSelection={onMoveSelection}
           penOnly={pen.penOnly}
           penSeen={pen.penSeen}
+          onPan={onPan}
+          onPinch={onPinch}
         />
       </div>
       <InkTextLayer
