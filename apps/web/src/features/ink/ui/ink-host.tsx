@@ -48,6 +48,7 @@ import {
   splitInkTextLayer,
   writeInkNoteBody,
   type InkColour,
+  type InkHand,
   type InkNoteMeta,
   type InkPage as InkPageModel,
   type InkRecogniser,
@@ -56,6 +57,7 @@ import {
 } from "@weaveforge/core";
 
 import { usePenCapture } from "../application/use-pen-capture";
+import { trailStyle } from "../application/ink-trail";
 import type { InkStrokeHeader, InkWorkerEvent } from "../application/capture-protocol";
 import { loadInkPages, type InkChunkStore, type InkStoredPage } from "../application/ink-chunk-store";
 import {
@@ -145,6 +147,8 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
   const [pageCount, setPageCount] = useState(0);
   /** The header, as it will be written back. */
   const metaRef = useRef<InkNoteMeta>(readInkNoteBody(body).meta);
+  /** The writing hand, mirrored into state so the bar and the gate follow it. */
+  const [hand, setHandState] = useState<InkHand>(metaRef.current.hand);
   /** The text layer's pages, for the body (§4.2). */
   const textPagesRef = useRef<string[]>(splitInkTextLayer(readInkNoteBody(body).text));
   /** The current page's recognition, for the column and for corrections. */
@@ -232,6 +236,18 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
     tool: tool === "highlighter" ? "highlighter" : "pen",
     width: nib,
     colour,
+    handedness: hand,
+    // The Delegated Ink Trail (§6.2.6): the hook asks for the presenter and
+    // tells the worker which path it is on; this is only the style per sample.
+    trail: {
+      style: (liveWidth) =>
+        trailStyle({
+          colour,
+          tool: tool === "highlighter" ? "highlighter" : "pen",
+          width: liveWidth,
+          pageWidthPx: canvasRef.current?.getBoundingClientRect().width ?? 0,
+        }),
+    },
     onStrokeEnd: () => {
       // One state change per stroke, which is the contract the hook's doc comment
       // makes: the live stroke never entered React, so there is nothing to batch.
@@ -242,6 +258,16 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
   });
 
   const { send } = pen;
+
+  /** The hand is the note's (§4.1), so changing it is a save. */
+  const setHand = useCallback(
+    (next: InkHand) => {
+      metaRef.current = { ...metaRef.current, hand: next };
+      setHandState(next);
+      scheduleSave();
+    },
+    [scheduleSave],
+  );
 
   /** A request the worker answers by id: model, chunk, or PNG. */
   const requestModel = useCallback(() => {
@@ -580,6 +606,8 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
         strokes={strokes}
         recognised={confidence}
         penOnly={pen.penOnly}
+        hand={hand}
+        delegating={pen.delegating}
         penSeen={pen.penSeen}
         backend={pen.backend}
         busy={recognising}
@@ -600,6 +628,7 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
           setTool("pen");
         }}
         onPenOnly={pen.setPenOnly}
+        onHand={setHand}
         onRecognise={() => void recognise()}
         onExport={() => void onExport()}
         onUndo={onUndo}

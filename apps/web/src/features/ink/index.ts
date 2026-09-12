@@ -164,3 +164,12 @@ export {
 } from "./application/recognisers";
 export { InkBar, INK_BAR_TOOLS, nibForTool, toolLabel, type InkBarProps, type InkBarTool } from "./ui/ink-bar";
 export { InkPage, type InkPageProps } from "./ui/ink-page";
+export {
+  requestInkPresenter,
+  trailColour,
+  trailDiameterPx,
+  trailStyle,
+  updateTrail,
+  type InkPresenterLike,
+  type InkTrailStyle,
+} from "./application/ink-trail";
