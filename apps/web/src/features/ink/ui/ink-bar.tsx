@@ -80,6 +80,12 @@ export interface InkBarProps {
   onUndo: () => void;
   onRedo: () => void;
   onAddPage: () => void;
+  /** Add an image to the current page as background (§4.8). */
+  onAddImage?: () => void;
+  /** Whether the current page has a background image. */
+  hasPageBackground?: boolean;
+  /** Remove the background image from the current page. */
+  onRemovePageBackground?: () => void;
   /** Insert a PDF page or an image as a new page's background (§4.8); absent, no button. */
   onInsertPage?: () => void;
   onPrevPage: () => void;
@@ -209,6 +215,9 @@ export function InkBar({
   onUndo,
   onRedo,
   onAddPage,
+  onAddImage,
+  hasPageBackground = false,
+  onRemovePageBackground,
   onInsertPage,
   onPrevPage,
   onNextPage,
@@ -435,6 +444,65 @@ export function InkBar({
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
+
+      {onAddImage ? (
+        <button
+          type="button"
+          className="ink-tool ink-tool-icon-only"
+          onClick={onAddImage}
+          title={
+            hasPageBackground
+              ? "Change page image (or paste / drop)"
+              : "Add image to page (or paste / drop)"
+          }
+          aria-label={
+            hasPageBackground ? "Change page image" : "Add image to page"
+          }
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+            <circle cx="9" cy="9" r="2" />
+            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+          </svg>
+        </button>
+      ) : null}
+
+      {hasPageBackground && onRemovePageBackground ? (
+        <button
+          type="button"
+          className="ink-tool ink-tool-icon-only"
+          onClick={onRemovePageBackground}
+          title="Remove page image"
+          aria-label="Remove page image"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m3 3 18 18" />
+            <path d="M15 9h.01" />
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L12 15" />
+          </svg>
+        </button>
+      ) : null}
 
       {onInsertPage ? (
         <button

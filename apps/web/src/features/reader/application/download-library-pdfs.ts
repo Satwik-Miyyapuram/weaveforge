@@ -12,6 +12,7 @@
 
 import { getContainer } from "@/bootstrap";
 
+import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import {
   fetchPdfBytesForCache,
   getReaderPdfByteCache,
@@ -56,7 +57,9 @@ export async function downloadLibraryPdfs(
     fetched: 0,
     skipped: 0,
   };
-  if (!cache) return progress;
+  // Only pre-download library PDFs when a workspace folder is open (desktop / app setup).
+  // In online web mode, PDFs are strictly fetched on demand when opened.
+  if (!cache || !activeWorkspaceFs()) return progress;
   const pauseMs = options.pauseMs ?? DOWNLOAD_PAUSE_MS;
   for (const paper of papers) {
     if (options.signal?.aborted) break;
@@ -112,3 +115,35 @@ export function downloadLibraryPdfsOnce(): void {
     // Best-effort: the reader fetches on open regardless.
   });
 }
+
+/**
+ * Pre-download a single paper's PDF when added or imported in desktop mode.
+ */
+export async function downloadPaperPdf(paperId: string): Promise<boolean> {
+  if (!activeWorkspaceFs()) return false;
+  const cache = getReaderPdfByteCache();
+  if (!cache) return false;
+  try {
+    const held = await cache.get(paperId);
+    if (held && held.byteLength > 0) return true;
+    const container = getContainer();
+    const paper = await container.papers.getPaper(paperId);
+    if (!paper) return false;
+    const resolution = await resolvePaperPdfSource({
+      id: paper.id,
+      url: paper.url,
+      arxivId: paper.arxivId,
+      doi: paper.doi,
+      pdfPath: paper.pdfPath,
+      metadata: paper.metadata,
+    });
+    if (!resolution.ok) return false;
+    const bytes = await fetchPdfBytesForCache(resolution.hit.url);
+    if (!bytes) return false;
+    await cache.set(paper.id, bytes);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
