@@ -11,13 +11,13 @@
  *    join discs to z-fight, no notch geometry, no vertex soup — 295 000 segments
  *    upload as 5.9 MB and draw in one call per colour.
  * 2. **The highlighter goes through the hardware stencil buffer**, never an
- *    offscreen target: `EQUAL 0` / `INCR` with multiply blending straight to the
- *    backbuffer. The first fragment on a pixel passes and sets the bit; every later
- *    overlapping fragment is rejected by fixed-function hardware *before* the
- *    fragment shader runs. That replaces a full-resolution RGBA target (~22 MB at
+ *    offscreen target: `GREATER k` / `REPLACE` per stroke, blending straight to
+ *    the backbuffer. The first fragment of a stroke on a pixel passes and writes
+ *    the stroke's value; every later overlapping fragment of the *same* stroke is
+ *    rejected by fixed-function hardware *before* the fragment shader runs, and
+ *    the next stroke passes again, so crossings darken the way two swipes of a
+ *    real highlighter do. That replaces a full-resolution RGBA target (~22 MB at
  *    2880 × 1920) plus a full-screen composite per frame with one stencil clear.
- *    Global dedupe is deliberate: two crossing highlighter strokes do **not**
- *    darken where they cross.
  * 3. **Draw incrementally.** The live stroke's new segments are appended to a
  *    dynamic buffer with `bufferSubData` at the growing end, so a frame costs the
  *    new geometry and not the whole stroke (measured 0.5 ms against 4.8 ms).
@@ -126,6 +126,9 @@ flat in vec2 vNeighbourRadius;
 flat in float vMargin;
 uniform vec4 inkColour;   // rgb + alpha
 uniform float feather;    // AA width in page units
+// 0: every fragment. 1: only fully covered fragments. 2: only the AA edge.
+// The highlighter is drawn in two passes through the stencil (see render()).
+uniform int coverage;
 out vec4 outColour;
 // Signed distance to a capsule whose radius runs from ra at a to rb at b:
 // negative inside, zero on the edge.
@@ -164,6 +167,8 @@ void main() {
   float fw = max(fwidth(sd), feather) * 0.5;
   float alpha = 1.0 - smoothstep(-fw, fw, sd);
   if (alpha <= 0.0) discard;
+  if (coverage == 1 && alpha < 1.0) discard;
+  if (coverage == 2 && alpha >= 1.0) discard;
   // Premultiplied: the blend is ONE / ONE_MINUS_SRC_ALPHA.
   float a = inkColour.a * alpha;
   outColour = vec4(inkColour.rgb * a, a);
@@ -256,6 +261,7 @@ export class WebglInkRenderer implements InkRenderer {
   private readonly cameraUniform: WebGLUniformLocation | null;
   private readonly colourUniform: WebGLUniformLocation | null;
   private readonly featherUniform: WebGLUniformLocation | null;
+  private readonly coverageUniform: WebGLUniformLocation | null;
   /** The quad's inflation, in page units — the overdraw lever (§11.3.9). */
   private readonly marginUniform: WebGLUniformLocation | null;
   private readonly backgroundProgram: WebGLProgram;
@@ -323,6 +329,7 @@ export class WebglInkRenderer implements InkRenderer {
     this.cameraUniform = gl.getUniformLocation(this.program, "camera");
     this.colourUniform = gl.getUniformLocation(this.program, "inkColour");
     this.featherUniform = gl.getUniformLocation(this.program, "feather");
+    this.coverageUniform = gl.getUniformLocation(this.program, "coverage");
     this.marginUniform = gl.getUniformLocation(this.program, "margin");
 
     this.backgroundProgram = linkProgram(
@@ -589,30 +596,63 @@ export class WebglInkRenderer implements InkRenderer {
     let drawn = 0;
     let segments = 0;
 
-    // Opaque strokes first, straight to the target.
-    for (const batch of this.batches.values()) {
-      if (batch.highlighter || batch.used === 0) continue;
-      drawn += this.drawBatch(batch);
-      segments += batch.used;
-    }
-
-    // Then the highlighter, deduped through the stencil: the first fragment on a
-    // pixel passes and sets the bit, every later overlapping fragment is rejected
-    // by fixed-function hardware before the shader runs. Translucent "over"
-    // rather than multiply: the canvas is transparent and the paper is under it
-    // in CSS, so there is nothing here for a multiply to darken.
+    // The highlighter first, so the ink is drawn over it and stays its own
+    // colour, which is what a real highlighter under a pen line looks like.
+    // Translucent "over" rather than multiply: the canvas is transparent and
+    // the paper is under it in CSS, so there is nothing here for a multiply
+    // to darken.
+    //
+    // Deduped through the stencil *per stroke*: one stroke never darkens
+    // itself where its capsules overlap, but two strokes do darken where they
+    // cross, the way two swipes of a real highlighter do. Each stroke draws
+    // with its own reference value k, passing where the stencil holds less
+    // than k and writing k where it passes: the first fragment of stroke k on
+    // a pixel gets through, the second is rejected, and stroke k + 1 gets
+    // through again. Eight bits give 255 strokes between stencil clears.
+    //
+    // Two passes per stroke, because a capsule's antialiased edge runs through
+    // the inside of the stroke wherever the path bends. If that edge fragment
+    // — say 30 % covered — claimed the pixel, the fully covered fragment of the
+    // capsule behind it would be rejected, and the seam shows as a pale
+    // hairline across the band. So the fully covered fragments go first and
+    // claim their pixels; the edge fragments follow and are let through only
+    // where no full fragment landed, which is the true outline of the union.
     const highlighter = [...this.batches.values()].filter(
       (batch) => batch.highlighter && batch.used > 0,
     );
     if (highlighter.length > 0) {
       gl.enable(gl.STENCIL_TEST);
-      gl.stencilFunc(gl.EQUAL, 0, 0xff);
-      gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
+      let k = 0;
       for (const batch of highlighter) {
-        drawn += this.drawBatch(batch, 0.35);
+        const ranges =
+          batch.records.length > 0
+            ? batch.records.map((record) => [record.offset, record.count])
+            : [[0, batch.used]];
+        for (const [offset, count] of ranges) {
+          k += 1;
+          if (k > 255) {
+            gl.clear(gl.STENCIL_BUFFER_BIT);
+            k = 1;
+          }
+          gl.stencilFunc(gl.GREATER, k, 0xff);
+          gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+          gl.uniform1i(this.coverageUniform, 1);
+          drawn += this.drawBatch(batch, 0.35, offset, count);
+          gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+          gl.uniform1i(this.coverageUniform, 2);
+          this.drawBatch(batch, 0.35, offset, count);
+        }
         segments += batch.used;
       }
       gl.disable(gl.STENCIL_TEST);
+      gl.uniform1i(this.coverageUniform, 0);
+    }
+
+    // Then the opaque strokes, straight to the target.
+    for (const batch of this.batches.values()) {
+      if (batch.highlighter || batch.used === 0) continue;
+      drawn += this.drawBatch(batch);
+      segments += batch.used;
     }
 
     this.stats = {
@@ -809,9 +849,15 @@ export class WebglInkRenderer implements InkRenderer {
   }
 
   /** One instanced draw call for a batch, and the instances it covered. */
-  private drawBatch(batch: Batch, alphaOverride?: number): number {
+  private drawBatch(
+    batch: Batch,
+    alphaOverride?: number,
+    first = 0,
+    count = batch.used - first,
+  ): number {
     const gl = this.gl;
-    if (!batch.buffer || batch.used === 0) return 0;
+    if (!batch.buffer || count <= 0) return 0;
+    const base = first * INK_INSTANCE_FLOATS * 4;
     gl.bindBuffer(gl.ARRAY_BUFFER, batch.buffer);
     const segmentLocation = gl.getAttribLocation(this.program, "seg");
     gl.enableVertexAttribArray(segmentLocation);
@@ -821,7 +867,7 @@ export class WebglInkRenderer implements InkRenderer {
       gl.FLOAT,
       false,
       INK_INSTANCE_FLOATS * 4,
-      0,
+      base + 0,
     );
     gl.vertexAttribDivisor(segmentLocation, 1);
     const radiusLocation = gl.getAttribLocation(this.program, "radius");
@@ -832,7 +878,7 @@ export class WebglInkRenderer implements InkRenderer {
       gl.FLOAT,
       false,
       INK_INSTANCE_FLOATS * 4,
-      16,
+      base + 16,
     );
     gl.vertexAttribDivisor(radiusLocation, 1);
     const neighbourLocation = gl.getAttribLocation(this.program, "neighbours");
@@ -843,7 +889,7 @@ export class WebglInkRenderer implements InkRenderer {
       gl.FLOAT,
       false,
       INK_INSTANCE_FLOATS * 4,
-      24,
+      base + 24,
     );
     gl.vertexAttribDivisor(neighbourLocation, 1);
     const neighbourRadiusLocation = gl.getAttribLocation(
@@ -857,15 +903,15 @@ export class WebglInkRenderer implements InkRenderer {
       gl.FLOAT,
       false,
       INK_INSTANCE_FLOATS * 4,
-      40,
+      base + 40,
     );
     gl.vertexAttribDivisor(neighbourRadiusLocation, 1);
 
     const rgb = this.palette[batch.colour] ?? this.palette.text;
     const alpha = alphaOverride ?? (batch.highlighter ? 0.35 : 1);
     gl.uniform4f(this.colourUniform, rgb[0], rgb[1], rgb[2], alpha);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.used);
-    return batch.used;
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
+    return count;
   }
 
   /** The offscreen target export renders into, reused between exports. */
@@ -982,12 +1028,26 @@ function linkProgram(
   return program;
 }
 
-/** Whether this runtime can run the WebGL2 renderer at all. */
+/**
+ * Whether this runtime can run the WebGL2 renderer at all.
+ *
+ * Probed on a scratch canvas, never on the one the renderer will draw to: a
+ * canvas keeps the first context it hands out, attributes and all, so a probe
+ * with the defaults on the real canvas would leave the renderer a context
+ * with no stencil — and the highlighter's dedupe would silently become a
+ * plain translucent overdraw, seams at every capsule and darker crossings.
+ */
 export function supportsWebglInk(
   canvas: OffscreenCanvas | HTMLCanvasElement,
 ): boolean {
   try {
-    return Boolean(canvas.getContext("webgl2"));
+    const scratch =
+      typeof OffscreenCanvas === "function"
+        ? new OffscreenCanvas(1, 1)
+        : canvas instanceof HTMLCanvasElement
+          ? canvas.ownerDocument.createElement("canvas")
+          : canvas;
+    return Boolean(scratch.getContext("webgl2"));
   } catch {
     return false;
   }

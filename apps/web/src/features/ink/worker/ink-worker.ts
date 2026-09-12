@@ -280,11 +280,12 @@ function commitStroke(stroke: LiveStroke): void {
       shape = snapped.shape;
     }
   }
-  if (shape === "none" && stroke.header.tool !== "highlighter") {
-    // A pen stroke is refitted on lift (§6.2.5): resampled evenly and run
+  if (shape === "none") {
+    // A stroke is refitted on lift (§6.2.5): resampled evenly and run
     // through a non-causal kernel, which takes out the digitiser's per-sample
     // wobble the live filter cannot without lag. A snapped shape is already
-    // clean and a highlighter is too wide for the wobble to show.
+    // clean. The highlighter is refitted too: its width hides the wobble, but
+    // the stencil dedupe turns each wobbling join into a faint seam.
     const smoothed = smoothInkStroke(raw, rawPressures);
     raw = smoothed.points;
     rawPressures = smoothed.pressures;

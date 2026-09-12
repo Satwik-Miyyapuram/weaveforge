@@ -72,7 +72,7 @@ function page(tools: ("pen" | "highlighter")[]) {
   return model;
 }
 
-test("it draws pen strokes before highlighters, one fill each, and the live stroke last", () => {
+test("it draws highlighters under pen strokes, one fill each, and the live stroke last", () => {
   const { canvas, calls, fills } = recordingCanvas();
   const renderer = new CanvasInkRenderer({ canvas });
   const buffer = new InkPageBuffer(page(["highlighter", "pen"]));
@@ -82,8 +82,8 @@ test("it draws pen strokes before highlighters, one fill each, and the live stro
   renderer.setStrokes(buffer.allStrokes());
   renderer.draw();
   assert.deepEqual(fills, [
-    cssInkColour("text"),
     cssInkColour("accent", HIGHLIGHTER_ALPHA),
+    cssInkColour("text"),
   ]);
   assert.ok(
     calls.some((call) => call.name === "clearRect"),
