@@ -36,6 +36,7 @@ were tuning, not architecture.
 | `d505eb9` | Recognised text repeated three times | The .NET helper added the line's text once per stroke it owned | Owners collected from `GetStrokeIds()`, text added once per owner |
 | `f8ed108` | The page went blank past a certain zoom | The whole-page backing store (CSS size × dpr) outgrew what the GPU would allocate | `backingRatio()` lowers the effective dpr so the store stays ≤ 20 M px and ≤ 8192 per side; the same ratio goes into the view transform |
 | `ef4e38e` | Lasso: selected strokes not shown as selected; strokes stayed put while the box moved | Nothing drew the selection; only pointer-up translated it | Accent halo (capsules grown by 3 device px at 30 %, stencil-deduped) under the selected strokes; `drag-selection` shows the held strokes shifted with the box, `move-selection` on lift commits |
+| `863852e` | Recognise gave "(unreadable)" at 0 % for a line holding a "1" or a dash | `InkAnalyzer` classed a two-point stroke (a straight line simplified to its ends) as a drawing, and the line it sat in came back empty | Every stroke is marked `InkAnalysisStrokeKind.Writing` before analysis: the note asked for text |
 
 ## 3. How it was verified without a hand on the pen
 
