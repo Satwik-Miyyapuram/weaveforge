@@ -308,6 +308,7 @@ interface SessionHarness {
   trail: number;
   committed: InkStrokeHeader[];
   cancelled: number[];
+  gate: InkPenGate;
 }
 
 function sessionHarness(
@@ -324,14 +325,15 @@ function sessionHarness(
     mode: "clone",
     post: (message) => messages.push(message),
   });
+  const gate = new InkPenGate();
   const harness: SessionHarness = {
     session: null as unknown as PenCaptureSession,
     messages,
     trail: 0,
     committed,
     cancelled,
+    gate,
   };
-  const gate = new InkPenGate();
   harness.session = new PenCaptureSession({
     gate,
     filter: new NibFilter(),
@@ -578,4 +580,70 @@ test("a stroke that never leaves the page is never sent anywhere", () => {
   harness.session.pointerUp(
     pointer({ pointerType: "pen", pointerId: 13, t: 16 }),
   );
+});
+
+test("a pointer that never began a stroke still releases the gate on its way up", () => {
+  const harness = sessionHarness();
+  // Before any pen, a touch is deferred: the gate holds it, the session does
+  // not start a stroke. Lifting before the timer answers must free the gate.
+  const claim = harness.session.pointerDown(
+    pointer({ pointerType: "touch", pointerId: 21, t: 0 }),
+  );
+  assert.equal(claim.decision, "defer");
+  assert.equal(harness.session.active, false);
+  harness.session.pointerUp(
+    pointer({ pointerType: "touch", pointerId: 21, t: 16 }),
+  );
+  const next = harness.session.pointerDown(
+    pointer({ pointerType: "touch", pointerId: 22, clientX: 400, t: 40 }),
+  );
+  assert.equal(next.decision, "defer", "the next touch is not locked out");
+});
+
+test("a coalesced event that carries timeStamp rather than t is not a NaN sample", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(
+    pointer({ pointerType: "pen", pointerId: 4, t: 0 }),
+  );
+  const native = {
+    ...pointer({
+      pointerType: "pen",
+      pointerId: 4,
+      clientX: 200,
+      clientY: 200,
+      t: 0,
+    }),
+  } as unknown as { t: number; timeStamp: number };
+  native.t = Number.NaN;
+  native.timeStamp = 8;
+  harness.session.pointerRawUpdate(
+    pointer({
+      pointerType: "pen",
+      pointerId: 4,
+      clientX: 300,
+      clientY: 300,
+      t: 20,
+      getCoalescedEvents: () => [
+        native as unknown as ReturnType<typeof pointer>,
+      ],
+    }),
+  );
+  harness.session.pointerUp(
+    pointer({
+      pointerType: "pen",
+      pointerId: 4,
+      clientX: 300,
+      clientY: 300,
+      t: 24,
+    }),
+  );
+  for (const message of harness.messages) {
+    if (!("sample" in message)) continue;
+    const view = new Float32Array(message.sample.buffer);
+    for (const value of view.subarray(0, message.sample.count * 4))
+      assert.ok(
+        Number.isFinite(value),
+        "every field of every sample is finite",
+      );
+  }
 });

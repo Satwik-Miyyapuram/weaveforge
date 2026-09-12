@@ -488,7 +488,9 @@ export function InkHost({
       transform: { scale, offsetX: 0, offsetY: 0, devicePixelRatio: dpr },
     });
     send({ type: "resize", width: box.width, height: box.height, dpr });
-  }, [scale, send]);
+    // `pen.backend` is in the list so a renderer that came up after the first
+    // layout gets the layout again.
+  }, [pen.backend, scale, send]);
 
   /** Measure the pane, so the fit is the container's and not a guess. */
   useEffect(() => {
