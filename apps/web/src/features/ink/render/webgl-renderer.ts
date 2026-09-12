@@ -465,6 +465,19 @@ export class WebglInkRenderer implements InkRenderer {
 
   setLive(stroke: InkLiveStroke | null): void {
     if (!stroke) {
+      // The stroke has been committed (or abandoned), and the commit is already
+      // in its own batch. The live batch must stop drawing *now*: left resident
+      // it keeps rendering the raw, un-smoothed samples under the refitted
+      // commit, so the stroke is drawn twice — every anti-aliased edge blends
+      // twice (the ribbing again, this time between two copies rather than two
+      // instances), the wobble the lift refit removed goes back on top, and
+      // undoing the last stroke looks dead, because `removeStroke` reaches
+      // committed batches only. Cleared here, and again when the next live
+      // stroke reuses the batch.
+      if (this.liveBatch) {
+        this.liveBatch.used = 0;
+        this.liveBatch.records = [];
+      }
       this.live = null;
       this.liveBatch = null;
       this.livePacked = 0;
