@@ -527,6 +527,44 @@ test("predicted samples ride the live tail and are never part of the stroke", ()
   );
 });
 
+test("a real sample pending when a prediction arrives is posted on its own, not as part of the predicted tail", () => {
+  const harness = sessionHarness({ delegating: false });
+  harness.session.pointerDown(
+    pointer({ pointerType: "pen", pointerId: 4, t: 0 }),
+  );
+  harness.session.pointerRawUpdate(
+    pointer({
+      pointerType: "pen",
+      pointerId: 4,
+      clientX: 120,
+      clientY: 120,
+      t: 8,
+      getPredictedEvents: () => [
+        pointer({
+          pointerType: "pen",
+          pointerId: 4,
+          clientX: 160,
+          clientY: 160,
+          t: 16,
+        }),
+      ],
+    }),
+  );
+  const samples = harness.messages.filter(
+    (message) => message.type === "samples",
+  );
+  // The worker throws a predicted tail away when the next samples land, so a
+  // real sample that travelled under the predicted flag would be lost with it.
+  assert.deepEqual(
+    samples.map((message) => [Boolean(message.predicted), message.sample.count]),
+    [
+      [false, 1],
+      [true, 1],
+    ],
+    "the real sample first, unflagged; then the predicted tail alone",
+  );
+});
+
 test("while delegating, prediction is not used at all", () => {
   const harness = sessionHarness({ delegating: true });
   harness.session.pointerDown(
