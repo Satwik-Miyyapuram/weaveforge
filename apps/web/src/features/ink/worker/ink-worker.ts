@@ -398,6 +398,12 @@ function startRenderer(delegating: boolean): void {
   let reason = "";
   try {
     if (!supportsWebglInk(canvas)) throw new Error("WebGL2 is unavailable");
+    // The shaders are compiled on a throwaway canvas first. A canvas that has
+    // given out a WebGL context can never give out a 2D one, so a driver that
+    // rejects the shaders has to be found before the real canvas is asked for
+    // anything — otherwise the failure takes the Canvas 2D fallback with it.
+    if (typeof OffscreenCanvas !== "undefined")
+      new WebglInkRenderer({ canvas: new OffscreenCanvas(1, 1) }).dispose();
     renderer = new WebglInkRenderer({
       canvas,
       delegating,
