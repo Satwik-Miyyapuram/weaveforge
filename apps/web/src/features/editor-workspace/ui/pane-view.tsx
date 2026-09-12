@@ -232,6 +232,17 @@ function PaneLeafView({
               >
                 Read
               </button>
+              {showing.kind === "paper" ? (
+                <button
+                  type="button"
+                  className={`pane-mode-btn${editing === "pdf" ? " is-on" : ""}`}
+                  aria-pressed={editing === "pdf"}
+                  title="The paper's PDF"
+                  onClick={() => onSetMode(leaf.id, leaf.activeIndex, "pdf")}
+                >
+                  PDF
+                </button>
+              ) : null}
             </div>
           ) : null}
           {peerNames.length > 0 ? (

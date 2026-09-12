@@ -1220,6 +1220,25 @@
   padding: 40px 44px 150px;
 }
 
+/* A paper's PDF mode: the reader's paper half filling the pane, with its
+   one tool — "Load PDF…" — in the corner rather than in a header row. */
+.paper-pdf-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 8px;
+}
+.paper-pdf-pane .reader-main { flex: 1; min-height: 0; }
+.paper-pdf-pane .empty-state { margin: auto; }
+.paper-pdf-pane-tools {
+  position: absolute;
+  right: 20px;
+  bottom: 16px;
+  z-index: 2;
+}
+
 /* -------------------------------------------------------------------------
    The status bar (§3.4, step 2)
    ---------------------------------------------------------------------- */

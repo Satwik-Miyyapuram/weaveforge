@@ -76,6 +76,12 @@ test("an ink note has one mode, so both of the tab's modes reach the ink rendere
   assert.equal(rendererFor("ink_page", "read"), "ink");
 });
 
+test("PDF is a paper's third mode; on anything else it means Edit", () => {
+  assert.equal(rendererFor("paper", "pdf"), "pdf");
+  assert.equal(rendererFor("vault_page", "pdf"), "editor");
+  assert.equal(rendererFor("ink_page", "pdf"), "ink");
+});
+
 test("an unknown kind is safe in both modes", () => {
   assert.equal(rendererFor("something_new", "edit"), "editor");
   assert.equal(rendererFor("something_new", "read"), "markdown");

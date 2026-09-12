@@ -33,11 +33,12 @@ import { CollabBodyHost } from "@/features/collab";
 // are theirs, not because this screen learned the prefixes.
 import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
+import { PaperPdfPane } from "@/features/reader";
 import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
 import { VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import type { TabRef } from "../application/pane-tree";
+import type { DocumentMode, TabRef } from "../application/pane-tree";
 import { ImageSizeControl } from "./image-size-control";
 import { documentKind } from "./kind";
 
@@ -55,7 +56,7 @@ export interface DocumentLinks {
 
 export interface DocumentHostProps {
   tab: TabRef;
-  mode: "edit" | "read";
+  mode: DocumentMode;
   body: string;
   /** Where a read-mode wikilink can go. The same lists `/notes` passes. */
   links?: DocumentLinks;
@@ -92,7 +93,7 @@ export function cursorAt(view: EditorView): { line: number; col: number } {
 }
 
 /** Which of the three renderers a (kind, mode) pair means. */
-export type RendererName = "editor" | "markdown" | "ink";
+export type RendererName = "editor" | "markdown" | "ink" | "pdf";
 
 /**
  * The whole decision, as data.
@@ -101,8 +102,10 @@ export type RendererName = "editor" | "markdown" | "ink";
  * switch the design's §3.3 table describes, and it is the only place in the
  * screen that knows a kind and a mode can interact.
  */
-export function rendererFor(kind: string, mode: "edit" | "read"): RendererName {
+export function rendererFor(kind: string, mode: DocumentMode): RendererName {
   if (documentKind(kind) === "ink") return "ink";
+  // Only a paper has a PDF; the mode on any other kind means Edit.
+  if (mode === "pdf") return kind === "paper" ? "pdf" : "editor";
   return mode === "read" ? "markdown" : "editor";
 }
 
@@ -254,6 +257,12 @@ export function DocumentHost({
     // already holds and asks the container's ink facade for its pages itself,
     // which keeps the reading of `.ink/<id>/` in the feature that owns the format.
     return <InkHost noteId={tab.id} body={body} deps={getContainer().ink} onSave={onSave} />;
+  }
+
+  if (renderer === "pdf") {
+    // The reader's paper half, in the tab. The route is the same component
+    // with a header around it; the PDF is not loaded twice.
+    return <PaperPdfPane paperId={tab.id} />;
   }
 
   if (renderer === "markdown") {
