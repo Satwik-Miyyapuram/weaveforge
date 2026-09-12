@@ -104,8 +104,12 @@ void main() {
   vec2 normal = vec2(-dir.y, dir.x);
   // Not "half": a reserved word in GLSL ES, which ANGLE on Direct3D rejects.
   float extent = max(radius.x, radius.y) + margin;
-  // The quad covers the segment plus the nib and the AA margin, on every side.
-  vec2 along = dir * len * corner.x;
+  // The quad covers the segment plus the nib and the AA margin, on every side:
+  // across it for the body, and *past both ends* for the caps. Without the
+  // end extension the quad stops flat at A and B, so a stroke's ends are
+  // squared off and the outside of every bend has a wedge no instance covers,
+  // which shows as a speckle of pinholes along a curve.
+  vec2 along = dir * (len * corner.x + extent * (2.0 * corner.x - 1.0));
   vec2 across = normal * extent * corner.y;
   vec2 page = a + along + across;
   vPage = page;
