@@ -39,6 +39,7 @@ import {
   type InkChunkCodec,
   type InkPage,
   type InkShape,
+  smoothInkStroke,
 } from "@weaveforge/core";
 
 import {
@@ -275,6 +276,15 @@ function commitStroke(stroke: LiveStroke): void {
       rawPressures = new Array(raw.length / 2).fill(128);
       shape = snapped.shape;
     }
+  }
+  if (shape === "none" && stroke.header.tool !== "highlighter") {
+    // A pen stroke is refitted on lift (§6.2.5): resampled evenly and run
+    // through a non-causal kernel, which takes out the digitiser's per-sample
+    // wobble the live filter cannot without lag. A snapped shape is already
+    // clean and a highlighter is too wide for the wobble to show.
+    const smoothed = smoothInkStroke(raw, rawPressures);
+    raw = smoothed.points;
+    rawPressures = smoothed.pressures;
   }
   const packed = packInkStroke(raw, rawPressures);
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep

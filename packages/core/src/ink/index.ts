@@ -34,6 +34,15 @@ export {
 } from "./width.js";
 
 export {
+  INK_SMOOTH_SPACING,
+  INK_SMOOTH_PASSES,
+  type SmoothedInkStroke,
+  resampleInkStroke,
+  binomialSmooth,
+  smoothInkStroke,
+} from "./smooth.js";
+
+export {
   INK_TOOLS,
   INK_COLOURS,
   INK_PAPERS,
