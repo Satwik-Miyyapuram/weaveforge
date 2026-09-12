@@ -815,7 +815,12 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         // platform gesture, revokes the capture a few pixels in and sends
         // `pointercancel`; the stroke then dies with one or two samples.
         event.preventDefault();
-        event.currentTarget.setPointerCapture?.(event.pointerId);
+        try {
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        } catch {
+          // A synthetic or already-released pointer has no capture to take; the
+          // stroke has begun regardless.
+        }
         return;
       }
       if (claim.decision !== "defer") return;
@@ -831,7 +836,13 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           ? { x: newest.clientX ?? 0, y: newest.clientY ?? 0 }
           : null;
         session.confirmTouch(at, newest);
-        if (session.active) event.currentTarget.setPointerCapture?.(pointerId);
+        if (session.active) {
+          try {
+            event.currentTarget.setPointerCapture?.(pointerId);
+          } catch {
+            // As above: capture is a nicety, the stroke is not.
+          }
+        }
       }, TOUCH_DEFER_MS);
     },
     [toGateEvent],
