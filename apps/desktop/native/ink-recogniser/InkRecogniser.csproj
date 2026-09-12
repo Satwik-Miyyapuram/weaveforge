@@ -17,7 +17,12 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <!--
+      22000, not 19041: the pen haptics waveforms (`PencilContinuous` and its
+      kin, PenHapticsEngine.cs) are Windows 11 API. The program still runs on
+      17763 — every 22000 member is behind an `ApiInformation` check.
+    -->
+    <TargetFramework>net9.0-windows10.0.22000.0</TargetFramework>
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -38,7 +43,7 @@
     <DebugType>none</DebugType>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!-- CSWinRT generates the projections for the WinRT types this uses. -->
-    <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>
+    <WindowsSdkPackageVersion>10.0.22000.57</WindowsSdkPackageVersion>
   </PropertyGroup>
 
 </Project>

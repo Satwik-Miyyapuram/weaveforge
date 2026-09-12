@@ -42,6 +42,13 @@ function fakeHelper(options: { ready?: boolean; echo?: boolean } = {}) {
         setImmediate(() => child.emit("exit", 0));
         continue;
       }
+      if (request.type === "haptics-probe") {
+        setImmediate(() =>
+          stdout.write(`${JSON.stringify({ id: request.id, type: "haptics", available: true })}
+`),
+        );
+        continue;
+      }
       if (request.type === "recognise" && options.echo !== false) {
         const count = request.lines?.length ?? 0;
         setImmediate(() =>
@@ -193,6 +200,25 @@ test("no helper for this platform means unavailable and no spawn at all", async 
   recogniser.dispose();
 });
 
+test("haptics: nothing is written until the probe has said yes, then samples go unanswered", async () => {
+  const helper = fakeHelper();
+  const recogniser = createInkRecogniser({ executable: "fake.exe", spawnHelper: () => helper });
+  // Before the probe: a sample is dropped, not queued — a stroke never waits on it.
+  recogniser.haptics({ type: "update", pressure: 0.5, velocity: 1 });
+  assert.equal(await recogniser.hapticsAvailable(), true);
+  assert.equal(await recogniser.hapticsAvailable(), true, "cached: one probe per process");
+  recogniser.haptics({ type: "tool", tool: "pen" });
+  recogniser.haptics({ type: "update", pressure: 0.5, velocity: 1 });
+  recogniser.haptics({ type: "stop" });
+  await new Promise((resolve) => setImmediate(resolve));
+  const types = helper.written.map((line) => (JSON.parse(line) as { type: string }).type);
+  assert.deepEqual(types, ["haptics-probe", "haptics-tool", "haptics-update", "haptics-stop"]);
+  const update = JSON.parse(helper.written[2]!) as { id?: number; pressure: number; velocity: number };
+  assert.equal(update.id, undefined, "no id: nothing answers a sample");
+  assert.deepEqual([update.pressure, update.velocity], [0.5, 1]);
+  recogniser.dispose();
+});
+
 /* -------------------------------------------------------------------------
  * The real helper, where one has been built
  * ------------------------------------------------------------------------- */
@@ -229,6 +255,13 @@ test(
     try {
       assert.equal(await recogniser.available(), true, "the helper starts and reports ready");
       assert.ok(recogniser.version && recogniser.version.length > 0);
+      // The haptics API is Windows 11's; a yes says the OS has it, not that a
+      // pen is in the hand. The samples after it must not upset the recogniser.
+      const haptics = await recogniser.hapticsAvailable();
+      t.diagnostic(`helper: haptics available=${haptics}`);
+      recogniser.haptics({ type: "tool", tool: "pen" });
+      recogniser.haptics({ type: "update", pressure: 0.6, velocity: 0.9 });
+      recogniser.haptics({ type: "stop" });
 
       const cold = await recogniser.recognise({
         lines: [

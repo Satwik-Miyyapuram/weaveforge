@@ -99,7 +99,10 @@ export interface DesktopBridge {
   readPreference(name: DesktopPreferenceName): Promise<DesktopPreferenceValue>;
 
   /** Keeps one. Writing null forgets it. */
-  writePreference(name: DesktopPreferenceName, value: DesktopPreferenceValue): Promise<void>;
+  writePreference(
+    name: DesktopPreferenceName,
+    value: DesktopPreferenceValue,
+  ): Promise<void>;
 
   /**
    * The operating system's keychain, for the few credentials worth keeping.
@@ -130,7 +133,10 @@ export interface DesktopBridge {
    * is a process the browser does not have. Each call is its own transaction on
    * the far side, so nothing here can hold a connection open.
    */
-  queryLocalDb(sql: string, params?: readonly (string | number | boolean | null | Uint8Array)[]): Promise<unknown[]>;
+  queryLocalDb(
+    sql: string,
+    params?: readonly (string | number | boolean | null | Uint8Array)[],
+  ): Promise<unknown[]>;
 
   /**
    * Whether the local database could be opened, and where it lives.
@@ -212,7 +218,10 @@ export interface DesktopBridge {
    * should say.
    */
   onSemanticRank(
-    cb: (query: string, candidates: string[]) => Promise<string[] | null> | string[] | null,
+    cb: (
+      query: string,
+      candidates: string[],
+    ) => Promise<string[] | null> | string[] | null,
   ): () => void;
   compileTex(
     files: readonly { path: string; content: string }[],
@@ -231,7 +240,10 @@ export interface DesktopBridge {
    * Requires a token to have been kept under `overleaf-token`; without one
    * this rejects, and the caller's recourse is to ask for it again.
    */
-  readOverleafProject(projectId: string, entryFile: string): Promise<DesktopOverleafSource>;
+  readOverleafProject(
+    projectId: string,
+    entryFile: string,
+  ): Promise<DesktopOverleafSource>;
 
   /**
    * The operating system's handwriting recogniser, where there is one.
@@ -247,7 +259,23 @@ export interface DesktopBridge {
    */
   inkAvailable(): Promise<boolean>;
   inkRecognise(request: DesktopInkRequest): Promise<DesktopInkResult>;
+
+  /**
+   * The pen's own haptics (ink-native-bridges.md §4): a Surface Slim Pen 2
+   * vibrates like graphite on paper, driven per sample from pressure and speed.
+   * `inkHapticsAvailable` is the OS having the API; whether the pen in the hand
+   * has an actuator is only known once it is on the glass, so a yes means the
+   * samples are worth sending. `inkHaptics` never answers.
+   */
+  inkHapticsAvailable(): Promise<boolean>;
+  inkHaptics(message: DesktopInkHaptics): void;
 }
+
+/** One message to the pen's actuator: velocity in CSS px/ms, pressure in [0, 1]. */
+export type DesktopInkHaptics =
+  | { type: "tool"; tool: "pen" | "highlighter" | "eraser" }
+  | { type: "update"; pressure: number; velocity: number }
+  | { type: "stop" };
 
 /** One page's lines for the recogniser: flat `[x, y, pressure, …]` per stroke. */
 export interface DesktopInkRequest {
@@ -339,15 +367,12 @@ export interface DesktopVaultEntry {
 }
 
 /** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */
-export type DesktopSecretName = "ai-provider" | "local-api-token" | "overleaf-token";
+export type DesktopSecretName =
+  "ai-provider" | "local-api-token" | "overleaf-token";
 
 /** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
 export type DesktopPreferenceName =
-  | "sync-offer-shown"
-  | "sync-target"
-  | "vault-root"
-  | "vault-git"
-  | "local-api";
+  "sync-offer-shown" | "sync-target" | "vault-root" | "vault-git" | "local-api";
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {

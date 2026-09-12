@@ -63,6 +63,7 @@ import {
 } from "@weaveforge/core";
 
 import { usePenCapture } from "../application/use-pen-capture";
+import type { PenHaptics } from "../application/pen-haptics";
 import { trailStyle } from "../application/ink-trail";
 import {
   installNativeStrokeHandler,
@@ -102,6 +103,8 @@ export interface InkHostDeps {
   };
   recogniser: () => Promise<InkRecogniser | null>;
   hints: () => Promise<InkRecognitionHints>;
+  /** The pen's actuator, where the platform can drive one; `null` elsewhere. */
+  haptics?: () => Promise<PenHaptics | null>;
 }
 
 export interface InkHostProps {
@@ -330,6 +333,9 @@ export function InkHost({
           pageWidthPx: canvasRef.current?.getBoundingClientRect().width ?? 0,
         }),
     },
+    // The pen's haptics follow the filtered sample, not the raw one: the same
+    // pressure and speed the nib is drawn with, so the feel and the line agree.
+    onLive: (sample) => hapticsRef.current?.update(sample),
     onStrokeEnd: () => {
       // One state change per stroke, which is the contract the hook's doc comment
       // makes: the live stroke never entered React, so there is nothing to batch.
@@ -340,6 +346,51 @@ export function InkHost({
   });
 
   const { send } = pen;
+
+  /*
+   * The pen's haptics (ink-native-bridges.md §4), where the platform has them.
+   * Asked for once per mount; until the answer comes, and everywhere it is
+   * `null`, the ref is empty and every call above is skipped.
+   */
+  const hapticsRef = useRef<PenHaptics | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void deps.haptics?.().then((haptics) => {
+      if (!cancelled) hapticsRef.current = haptics;
+    });
+    return () => {
+      cancelled = true;
+      hapticsRef.current?.stop();
+      hapticsRef.current = null;
+    };
+  }, [deps]);
+
+  /** The waveform is the tool's: graphite, felt, rubber. */
+  useEffect(() => {
+    hapticsRef.current?.setTool(
+      tool === "highlighter"
+        ? "highlighter"
+        : tool === "eraser"
+          ? "eraser"
+          : "pen",
+    );
+  }, [tool]);
+
+  /** The pen up, and the actuator off in the same handler — nothing waits a frame. */
+  const penHandlers = useMemo(
+    () => ({
+      ...pen.handlers,
+      onPointerUp: (event: React.PointerEvent<HTMLCanvasElement>) => {
+        hapticsRef.current?.stop();
+        pen.handlers.onPointerUp(event);
+      },
+      onPointerCancel: (event: React.PointerEvent<HTMLCanvasElement>) => {
+        hapticsRef.current?.stop();
+        pen.handlers.onPointerCancel(event);
+      },
+    }),
+    [pen.handlers],
+  );
 
   /** The hand is the note's (§4.1), so changing it is a save. */
   const setHand = useCallback(
@@ -978,7 +1029,7 @@ export function InkHost({
           paper={page.paper}
           tool={tool}
           project={project}
-          penHandlers={pen.handlers}
+          penHandlers={penHandlers}
           canvasRef={canvasRef}
           onErase={onErase}
           onLasso={onLasso}

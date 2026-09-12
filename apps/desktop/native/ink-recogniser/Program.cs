@@ -10,8 +10,21 @@
 //   out  {"id":1,"type":"recognised","engine":"windows-ink@1",
 //         "lines":[{"text":"...","confidence":1,"alternatives":["..."]}],"ms":7}
 //
+//   in   {"id":2,"type":"haptics-probe"}
+//   out  {"id":2,"type":"haptics","available":true,"device":"pen 3 at pointer 5"}
+//        (`available` is the OS having the API; `device` is set only if a haptic
+//        pen was in range at that moment, and is a diagnostic, not a condition)
+//
+//   in   {"type":"haptics-tool","tool":"pen"}            (no answer)
+//   in   {"type":"haptics-update","pressure":0.6,"velocity":0.9}
+//   in   {"type":"haptics-stop"}
+//
 //   in   {"type":"quit"}
 //   out  (exit)
+//
+// The haptics messages (ink-native-bridges.md §4, PenHapticsEngine.cs) carry no
+// id and get no answer: they arrive at up to 120 Hz during a stroke, and a reply
+// per sample would be the pipe's whole bandwidth. Only the probe answers.
 //
 // and, once at startup, {"type":"ready","engine":"windows-ink@1","version":"..."}.
 //
@@ -58,6 +71,9 @@ internal static class Program
 
     /// <summary>Points one stroke may hold. Past this it is a clock, not a pen.</summary>
     private const int MaxPointsPerStroke = 100_000;
+
+    /// <summary>The pen's actuator, when the pen has one. See PenHapticsEngine.cs.</summary>
+    private static readonly PenHapticsEngine Haptics = new();
 
     /// <summary>
     /// The whole program runs on one STA thread, and that is not a detail.
@@ -133,7 +149,7 @@ internal static class Program
                 response = Serialize(new ErrorResponse("error", error.Message, null));
             }
             if (response is null) break; // quit
-            Write(response);
+            if (response.Length > 0) Write(response);
         }
         Stop(0);
     }
@@ -199,7 +215,10 @@ internal static class Program
         Console.Out.Flush();
     }
 
-    /// <summary>Handle one request line, or null when the caller asked to quit.</summary>
+    /// <summary>
+    /// Handle one request line: the answer, `""` for a message that gets none, or
+    /// null when the caller asked to quit.
+    /// </summary>
     private static string? Handle(string line)
     {
         using var document = JsonDocument.Parse(line);
@@ -217,6 +236,17 @@ internal static class Program
                 return Serialize(new ReadyResponse("ready", EngineId, Describe(), id));
             case "recognise":
                 return Recognise(root, id);
+            case "haptics-probe":
+                return Serialize(new HapticsResponse("haptics", Haptics.Probe(), Haptics.Device, id));
+            case "haptics-tool":
+                Haptics.SetTool(root.TryGetProperty("tool", out var tool) ? tool.GetString() ?? "pen" : "pen");
+                return string.Empty;
+            case "haptics-update":
+                Haptics.Update(Number(root, "pressure"), Number(root, "velocity"));
+                return string.Empty;
+            case "haptics-stop":
+                Haptics.Stop();
+                return string.Empty;
             default:
                 return Serialize(new ErrorResponse("error", $"unknown request type {type ?? "(none)"}", id));
         }
@@ -361,6 +391,11 @@ internal static class Program
         return lines;
     }
 
+    private static float Number(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var element) && element.TryGetDouble(out var value) && !double.IsNaN(value)
+            ? (float)value
+            : 0f;
+
     private static int Elapsed(long started) => (int)Math.Max(0, Environment.TickCount64 - started);
 
     /// <summary>
@@ -408,6 +443,8 @@ internal static class Program
         int Ms,
         int? Id);
 
+    internal sealed record HapticsResponse(string Type, bool Available, string? Device, int? Id);
+
     internal sealed record RecognisedLine(string Text, double Confidence, List<string>? Alternatives);
 
     internal sealed class RecogniseRequest
@@ -443,5 +480,6 @@ internal static class Program
 [JsonSerializable(typeof(Program.ReadyResponse))]
 [JsonSerializable(typeof(Program.ErrorResponse))]
 [JsonSerializable(typeof(Program.RecognisedResponse))]
+[JsonSerializable(typeof(Program.HapticsResponse))]
 [JsonSerializable(typeof(Program.RecogniseRequest))]
 internal sealed partial class InkJsonContext : JsonSerializerContext;
