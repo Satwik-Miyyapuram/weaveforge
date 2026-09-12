@@ -229,3 +229,32 @@ test("position and pressure are filtered as one state, so the trail and the ink 
     "the filter exposes the speed its cutoff is derived from",
   );
 });
+
+test("a sharp corner drawn at speed keeps its apex: both axes share one cutoff", () => {
+  // A "Λ" at writing speed: 45° up for 25 samples, then 45° down. With the
+  // paper's per-axis cutoff the y axis, whose velocity flips at the apex, is
+  // damped to `minCutoff` for a few samples while x is not, and the apex is
+  // dragged sideways. The pen's speed never dropped; the response must not.
+  const filter = new NibFilter();
+  const step = 5.4; // 0.1 mm per 6 ms sample, ~0.9 mm/ms
+  const samples: { x: number; y: number }[] = [];
+  for (let i = 0; i <= 50; i += 1) {
+    const raw =
+      i <= 25
+        ? { x: i * step, y: -i * step }
+        : { x: i * step, y: -(50 - i) * step };
+    const out = filter.filter({ ...raw, pressure: 0.5, t: i * 6 });
+    samples.push({ x: out.x, y: out.y });
+  }
+  // Over the four samples after the apex the pen moved +4·step in y. A lagging
+  // y axis returned a fraction of that while x kept its full share.
+  const apex = samples[25]!;
+  const later = samples[29]!;
+  const dx = later.x - apex.x;
+  const dy = later.y - apex.y;
+  assert.ok(dx > 0 && dy > 0, `after the apex: dx=${dx} dy=${dy}`);
+  assert.ok(
+    dy / dx > 0.6,
+    `the descending edge should be near 45°, got dy/dx = ${(dy / dx).toFixed(2)}`,
+  );
+});
