@@ -459,6 +459,40 @@ test("coalesced events are consumed with the dispatched one, not instead of it",
   assert.equal(counts, 5, "the newest sample is not dropped every frame");
 });
 
+test("the dispatched event is not counted twice when its coalesced list ends with it", () => {
+  // Chromium's `getCoalescedEvents()` on a `pointermove` ends with the dispatched
+  // event's own sample, and a `pointerup` repeats the last move. Each repeat
+  // would be a zero-timestep sample: unfiltered, and a dip in the width.
+  const harness = sessionHarness();
+  harness.session.pointerDown(
+    pointer({ pointerType: "pen", pointerId: 3, t: 0 }),
+  );
+  const same = { pointerType: "pen" as const, pointerId: 3, clientX: 300, clientY: 300, t: 20 };
+  harness.session.pointerRawUpdate(
+    pointer({
+      ...same,
+      getCoalescedEvents: () => [
+        pointer({ pointerType: "pen", pointerId: 3, clientX: 200, clientY: 200, t: 8 }),
+        pointer(same),
+      ],
+    }),
+  );
+  harness.session.pointerUp(pointer(same));
+  const counts = harness.messages
+    .filter(
+      (message) =>
+        message.type === "stroke-begin" ||
+        message.type === "samples" ||
+        message.type === "stroke-end",
+    )
+    .reduce(
+      (sum, message) => sum + ("sample" in message ? message.sample.count : 0),
+      0,
+    );
+  // Down, the coalesced one, the dispatched one: three, not five.
+  assert.equal(counts, 3);
+});
+
 test("predicted samples ride the live tail and are never part of the stroke", () => {
   const harness = sessionHarness({ delegating: false });
   harness.session.pointerDown(

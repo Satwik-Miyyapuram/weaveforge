@@ -159,13 +159,12 @@ export class OneEuroFilter {
 
     const dt = time - this.previousTime;
     if (!(dt > 0)) {
-      // Two samples with the same timestamp, or a clock that went backwards. The
-      // newest value wins rather than a division by zero producing NaN, which
-      // would poison every later sample.
-      this.value = value;
-      this.previousValue = value;
-      this.previousTime = time;
-      return value;
+      // Two samples with the same timestamp, or a clock that went backwards.
+      // There is no timestep to filter over, so the estimate stands: snapping
+      // to the raw value here would put an unfiltered point into the stroke
+      // wherever a platform repeats a sample, and a division by zero would
+      // poison every later one.
+      return this.value;
     }
 
     const rawDerivative = (value - this.previousValue) / dt;
