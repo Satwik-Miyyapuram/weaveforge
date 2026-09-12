@@ -6,8 +6,19 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { FolderIcon } from "@/components/view-icons";
 import { NavIcon } from "@/app/nav-icon";
 import {
-  collapseAll,
-  expandAll,
+  canDrop,
+  canRename,
+  creatableUnder,
+  creationTarget,
+  draftPlaceholder,
+  dropParentId,
+  rootKey,
+  rootOf,
+  EXPLORER_DRAG_TYPE,
+  type CreateKind,
+  type Draft,
+} from "../application/explorer-edit";
+import {
   isSectionOpen,
   readExpanded,
   readSections,
@@ -55,20 +66,25 @@ interface PaintedRow extends VisibleRow {
 export function ExplorerPanel({
   sections,
   activeKey,
+  activeDoc,
   onOpen,
   onStartNote,
   onRelease,
-  onNewNote,
-  onNewInkNote,
-  onNewFolder,
+  draft,
+  onDraft,
+  onCreate,
+  onRename,
+  onMove,
+  onHide,
   onRefresh,
-  newNoteLabel = "New note",
   gitStatus,
   listNames,
 }: {
   sections: readonly ExplorerSection[];
   /** The document currently focused in a pane, highlighted here. */
   activeKey?: string;
+  /** The same document, with its parent: where a "new file" from the head lands. */
+  activeDoc?: { kind: string; id: string; parentId?: string };
   onOpen: (selection: ExplorerSelection) => void;
   /** Offered on a paper that has no note yet. */
   onStartNote?: (paperId: string) => void;
@@ -77,12 +93,21 @@ export function ExplorerPanel({
    * opening, and this is the only thing the panel does with it.
    */
   onRelease?: (node: WorkspaceTreeNode) => void;
-  onNewNote?: () => void;
-  /** A handwritten note: the same dialog, an ink body, the ink renderer. */
-  onNewInkNote?: () => void;
-  onNewFolder?: () => void;
+  /**
+   * The draft row on screen, if any. The screen owns it so `⌘N` can start
+   * one; the panel starts them from its head and its row buttons the same way.
+   */
+  draft?: Draft | null;
+  onDraft?: (draft: Draft | null) => void;
+  /** Enter on a draft row. Rejects with the use case's message on a bad title. */
+  onCreate?: (draft: Draft, title: string) => Promise<void>;
+  /** Enter on a row being renamed. Rejects likewise. */
+  onRename?: (node: WorkspaceTreeNode, title: string) => Promise<void>;
+  /** A row dropped on another: `parentId` is `null` for a drop on the root. */
+  onMove?: (node: WorkspaceTreeNode, parentId: string | null) => Promise<void>;
+  /** Puts the panel away; `⌘B` brings it back. */
+  onHide?: () => void;
   onRefresh?: () => void;
-  newNoteLabel?: string;
   /** `M` / `U` ticks, keyed by tree key. Absent where git is not watching. */
   gitStatus?: ReadonlyMap<string, string>;
   /** Which lists a document belongs to, for the "N lists" hint. */
@@ -97,6 +122,11 @@ export function ExplorerPanel({
   const [query, setQuery] = useState("");
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  /** The row whose label is a text box, and what its last attempt said. */
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [problem, setProblem] = useState<{ key: string; message: string } | null>(null);
+  /** The row a drag is over and may drop on. */
+  const [dropKey, setDropKey] = useState<string | null>(null);
 
   useEffect(() => {
     const store = typeof localStorage === "undefined" ? undefined : localStorage;
@@ -141,17 +171,102 @@ export function ExplorerPanel({
     [persistExpanded],
   );
 
-  const onCollapseAll = useCallback(() => {
-    const next = collapseAll();
-    setExpanded(next);
-    persistExpanded(next);
-  }, [persistExpanded]);
+  /**
+   * The key of the row a draft sits under. A note's parent is a note row;
+   * `null` is the root row. Searched, because a key carries the kind and the
+   * draft carries only the id.
+   */
+  const draftParentKey = useMemo(() => {
+    if (!draft) return null;
+    if (draft.parentId === null) return rootKey(draft.root);
+    let found: string | null = null;
+    const walk = (node: WorkspaceTreeNode) => {
+      if (found) return;
+      if (node.id === draft.parentId && rootOf(node) === draft.root) found = node.key;
+      for (const child of node.children) walk(child);
+    };
+    for (const section of sections) for (const root of section.tree) walk(root);
+    return found ?? rootKey(draft.root);
+  }, [draft, sections]);
 
-  const onExpandAll = useCallback(() => {
-    const next = expandAll(sections.flatMap((section) => section.tree));
-    setExpanded(next);
-    persistExpanded(next);
-  }, [persistExpanded, sections]);
+  // A draft's folder opens, or the draft would be typed into blind.
+  useEffect(() => {
+    if (!draftParentKey) return;
+    setExpanded((current) => {
+      if (current.has(draftParentKey)) return current;
+      const next = toggleExpanded(current, draftParentKey);
+      persistExpanded(next);
+      return next;
+    });
+  }, [draftParentKey, persistExpanded]);
+
+  const startDraft = useCallback(
+    (kind: CreateKind, under?: WorkspaceTreeNode) => {
+      setProblem(null);
+      setRenaming(null);
+      if (under) {
+        const root = rootOf(under);
+        if (!root) return;
+        onDraft?.({ kind, root, parentId: under.kind === "folder" ? null : (under.id ?? null) });
+        return;
+      }
+      onDraft?.({ kind, ...creationTarget(kind, activeDoc) });
+    },
+    [activeDoc, onDraft],
+  );
+
+  const submitDraft = useCallback(
+    async (title: string) => {
+      if (!draft) return;
+      if (!title.trim()) {
+        onDraft?.(null);
+        return;
+      }
+      try {
+        await onCreate?.(draft, title.trim());
+        setProblem(null);
+        onDraft?.(null);
+      } catch (error) {
+        setProblem({ key: "draft", message: messageOf(error) });
+      }
+    },
+    [draft, onCreate, onDraft],
+  );
+
+  const submitRename = useCallback(
+    async (node: WorkspaceTreeNode, title: string) => {
+      if (!title.trim() || title.trim() === node.label) {
+        setRenaming(null);
+        return;
+      }
+      try {
+        await onRename?.(node, title.trim());
+        setProblem(null);
+        setRenaming(null);
+      } catch (error) {
+        setProblem({ key: node.key, message: messageOf(error) });
+      }
+    },
+    [onRename],
+  );
+
+  const nodeByKey = useMemo(() => {
+    const map = new Map<string, WorkspaceTreeNode>();
+    const walk = (node: WorkspaceTreeNode) => {
+      map.set(node.key, node);
+      for (const child of node.children) walk(child);
+    };
+    for (const section of sections) for (const root of section.tree) walk(root);
+    return map;
+  }, [sections]);
+
+  /** The dragged row, read off the transfer; `null` when it is not ours. */
+  const draggedFrom = (event: React.DragEvent): WorkspaceTreeNode | null => {
+    const key = event.dataTransfer.getData(EXPLORER_DRAG_TYPE) || dragging.current;
+    return key ? (nodeByKey.get(key) ?? null) : null;
+  };
+  // `getData` is empty during `dragover` in Chromium, so the key is kept here too.
+  const dragging = useRef<string | null>(null);
 
   const onToggleSection = useCallback((id: string) => {
     setOpenSections((current) => {
@@ -244,6 +359,12 @@ export function ExplorerPanel({
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       activate(node);
+      return;
+    }
+    if (event.key === "F2" && canRename(node)) {
+      event.preventDefault();
+      setProblem(null);
+      setRenaming(node.key);
     }
   };
 
@@ -259,57 +380,48 @@ export function ExplorerPanel({
       <div className="explorer-head">
         <span className="explorer-title">Explorer</span>
         <div className="explorer-head-actions">
-          {onNewNote ? (
+          {onDraft ? (
+            <>
+              <button
+                type="button"
+                className="explorer-action"
+                title="New note"
+                aria-label="New note"
+                onClick={() => startDraft("note")}
+              >
+                <NavIcon name="notes" />
+              </button>
+              <button
+                type="button"
+                className="explorer-action"
+                title="New ink note"
+                aria-label="New ink note"
+                onClick={() => startDraft("ink")}
+              >
+                <NavIcon name="ink" />
+              </button>
+              <button
+                type="button"
+                className="explorer-action"
+                title="New folder"
+                aria-label="New folder"
+                onClick={() => startDraft("folder")}
+              >
+                <FolderIcon />
+              </button>
+            </>
+          ) : null}
+          {onHide ? (
             <button
               type="button"
               className="explorer-action"
-              title={newNoteLabel}
-              aria-label={newNoteLabel}
-              onClick={onNewNote}
+              title="Hide explorer (⌘B)"
+              aria-label="Hide explorer"
+              onClick={onHide}
             >
-              <NavIcon name="notes" />
+              <HideGlyph />
             </button>
           ) : null}
-          {onNewInkNote ? (
-            <button
-              type="button"
-              className="explorer-action"
-              title="New ink note"
-              aria-label="New ink note"
-              onClick={onNewInkNote}
-            >
-              <NavIcon name="ink" />
-            </button>
-          ) : null}
-          {onNewFolder ? (
-            <button
-              type="button"
-              className="explorer-action"
-              title="New folder"
-              aria-label="New folder"
-              onClick={onNewFolder}
-            >
-              <FolderIcon />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="explorer-action"
-            title="Collapse all"
-            aria-label="Collapse all"
-            onClick={onCollapseAll}
-          >
-            <ChevronIcon open variant="expand" />
-          </button>
-          <button
-            type="button"
-            className="explorer-action"
-            title="Expand all"
-            aria-label="Expand all"
-            onClick={onExpandAll}
-          >
-            <ChevronIcon variant="expand" />
-          </button>
           {onRefresh ? (
             <button
               type="button"
@@ -392,6 +504,9 @@ export function ExplorerPanel({
                     const lists = node.id ? listNames?.get(`${node.kind}:${node.id}`) : undefined;
                     const git = gitStatus?.get(node.key);
                     const tint = kindIconClass(node.kind, rowOpen);
+                    const offered = onDraft ? creatableUnder(node) : [];
+                    const rowProblem = problem?.key === node.key ? problem.message : null;
+                    const draggable = Boolean(onMove) && canRename(node);
                     const title = [
                       node.path,
                       lists && lists.length > 0
@@ -418,15 +533,46 @@ export function ExplorerPanel({
                             node.isMember ? "is-member" : "",
                             node.inherited ? "is-inherited" : "",
                             rowOpen ? "is-open" : "",
+                            dropKey === node.key ? "is-drop-target" : "",
                           ]
                             .filter(Boolean)
                             .join(" ")}
                           style={{ paddingInlineStart: `${8 + depth * 16}px` }}
                           onClick={() => {
+                            if (renaming === node.key) return;
                             setFocusKey(node.key);
                             activate(node);
                           }}
                           onKeyDown={(event) => painted && onKeyDown(event, painted)}
+                          draggable={draggable}
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData(EXPLORER_DRAG_TYPE, node.key);
+                            event.dataTransfer.effectAllowed = "move";
+                            dragging.current = node.key;
+                          }}
+                          onDragEnd={() => {
+                            dragging.current = null;
+                            setDropKey(null);
+                          }}
+                          onDragOver={(event) => {
+                            const source = draggedFrom(event);
+                            if (!source || !canDrop(source, node)) return;
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                            if (dropKey !== node.key) setDropKey(node.key);
+                          }}
+                          onDragLeave={() => {
+                            if (dropKey === node.key) setDropKey(null);
+                          }}
+                          onDrop={(event) => {
+                            setDropKey(null);
+                            const source = draggedFrom(event);
+                            if (!source || !canDrop(source, node)) return;
+                            event.preventDefault();
+                            void onMove?.(source, dropParentId(node)).catch((error) =>
+                              setProblem({ key: node.key, message: messageOf(error) }),
+                            );
+                          }}
                         >
                           {/* One 1px rule per level, 5px inside each 16px step. */}
                           {Array.from({ length: depth }, (_, level) => (
@@ -447,7 +593,20 @@ export function ExplorerPanel({
                               <NavIcon name={kindIcon(node.kind)} />
                             )}
                           </span>
-                          <span className="explorer-label">{node.label}</span>
+                          {renaming === node.key ? (
+                            <InlineTitle
+                              className="explorer-label"
+                              initial={node.label}
+                              placeholder="Title"
+                              onSubmit={(title) => submitRename(node, title)}
+                              onCancel={() => {
+                                setRenaming(null);
+                                setProblem(null);
+                              }}
+                            />
+                          ) : (
+                            <span className="explorer-label">{node.label}</span>
+                          )}
                           {/* An Outline row says its heading level in mono,
                               where a file row would carry its kind suffix. */}
                           {node.headingLevel !== undefined ? (
@@ -469,6 +628,70 @@ export function ExplorerPanel({
                             </span>
                           ) : null}
                           {suffix ? <span className="explorer-ext">{suffix}</span> : null}
+                          {/* Hover actions, VS Code's way: they sit on the
+                              row they act on, so "new in here" needs no
+                              question about where. */}
+                          {offered.length > 0 && renaming !== node.key ? (
+                            <span className="explorer-row-actions">
+                              {offered.includes("note") ? (
+                                <button
+                                  type="button"
+                                  className="explorer-row-action"
+                                  title="New note here"
+                                  aria-label="New note here"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    startDraft("note", node);
+                                  }}
+                                >
+                                  <NavIcon name="notes" />
+                                </button>
+                              ) : null}
+                              {offered.includes("section") ? (
+                                <button
+                                  type="button"
+                                  className="explorer-row-action"
+                                  title="New section here"
+                                  aria-label="New section here"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    startDraft("section", node);
+                                  }}
+                                >
+                                  <NavIcon name="doc" />
+                                </button>
+                              ) : null}
+                              {offered.includes("folder") ? (
+                                <button
+                                  type="button"
+                                  className="explorer-row-action"
+                                  title="New folder here"
+                                  aria-label="New folder here"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    startDraft("folder", node);
+                                  }}
+                                >
+                                  <FolderIcon />
+                                </button>
+                              ) : null}
+                              {onRename && canRename(node) ? (
+                                <button
+                                  type="button"
+                                  className="explorer-row-action"
+                                  title="Rename (F2)"
+                                  aria-label="Rename"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setProblem(null);
+                                    setRenaming(node.key);
+                                  }}
+                                >
+                                  <NavIcon name="pencil" />
+                                </button>
+                              ) : null}
+                            </span>
+                          ) : null}
                           {node.missingNote && onStartNote && node.id ? (
                             <button
                               type="button"
@@ -482,6 +705,57 @@ export function ExplorerPanel({
                             </button>
                           ) : null}
                         </div>
+                        {rowProblem ? (
+                          <div
+                            className="explorer-problem"
+                            role="alert"
+                            style={{ paddingInlineStart: `${8 + (depth + 1) * 16}px` }}
+                          >
+                            {rowProblem}
+                          </div>
+                        ) : null}
+                        {draft && draftParentKey === node.key ? (
+                          <div
+                            className="explorer-row is-draft"
+                            style={{ paddingInlineStart: `${8 + (depth + 1) * 16}px` }}
+                          >
+                            <span className="explorer-twisty" aria-hidden="true" />
+                            <span className="explorer-icon" aria-hidden="true">
+                              {draft.kind === "folder" ? (
+                                <FolderIcon />
+                              ) : (
+                                <NavIcon
+                                  name={
+                                    draft.kind === "ink"
+                                      ? "ink"
+                                      : draft.kind === "section"
+                                        ? "doc"
+                                        : "notes"
+                                  }
+                                />
+                              )}
+                            </span>
+                            <InlineTitle
+                              className="explorer-label"
+                              initial=""
+                              placeholder={draftPlaceholder(draft.kind)}
+                              onSubmit={submitDraft}
+                              onCancel={() => {
+                                setProblem(null);
+                                onDraft?.(null);
+                              }}
+                            />
+                          </div>
+                        ) : null}
+                        {draft && draftParentKey === node.key && problem?.key === "draft" ? (
+                          <div
+                            className="explorer-problem"
+                            role="alert"
+                            style={{ paddingInlineStart: `${8 + (depth + 2) * 16}px` }}
+                          >
+                            {problem.message}
+                          </div>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -497,6 +771,85 @@ export function ExplorerPanel({
         </ul>
       </div>
     </nav>
+  );
+}
+
+/**
+ * The text box a draft or a rename types into. Enter submits, Escape cancels,
+ * and leaving it submits what is there — VS Code's rule, so a click elsewhere
+ * after typing a name does not throw the name away.
+ */
+function InlineTitle({
+  className,
+  initial,
+  placeholder,
+  onSubmit,
+  onCancel,
+}: {
+  className: string;
+  initial: string;
+  placeholder: string;
+  onSubmit: (title: string) => void | Promise<void>;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const ref = useRef<HTMLInputElement>(null);
+  const done = useRef(false);
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+  const finish = (submit: boolean) => {
+    if (done.current) return;
+    done.current = true;
+    if (submit) void onSubmit(value);
+    else onCancel();
+  };
+  return (
+    <input
+      ref={ref}
+      type="text"
+      className={`${className} explorer-inline-title`}
+      value={value}
+      placeholder={placeholder}
+      aria-label={placeholder}
+      onChange={(event) => setValue(event.target.value)}
+      onClick={(event) => event.stopPropagation()}
+      onBlur={() => finish(true)}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          finish(true);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          finish(false);
+        }
+      }}
+    />
+  );
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function HideGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="15"
+      height="15"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </svg>
   );
 }
 

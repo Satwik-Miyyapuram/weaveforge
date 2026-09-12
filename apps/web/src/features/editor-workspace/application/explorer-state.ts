@@ -13,6 +13,25 @@
 import type { WorkspaceTreeNode } from "./workspace-tree";
 
 export const EXPLORER_STORAGE_KEY = "weaveforge.explorer.expanded";
+const HIDDEN_KEY = "weaveforge.explorer.hidden";
+
+/** Whether the panel is put away. Off the first time, like VS Code's side bar. */
+export function readHidden(store: Storage | undefined): boolean {
+  try {
+    return store?.getItem(HIDDEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function writeHidden(store: Storage | undefined, hidden: boolean): void {
+  try {
+    if (hidden) store?.setItem(HIDDEN_KEY, "1");
+    else store?.removeItem(HIDDEN_KEY);
+  } catch {
+    // Storage is a convenience; the panel works without it.
+  }
+}
 export const SECTIONS_STORAGE_KEY = "weaveforge.explorer.sections";
 
 /** The roots start open: an explorer with nothing visible looks broken. */

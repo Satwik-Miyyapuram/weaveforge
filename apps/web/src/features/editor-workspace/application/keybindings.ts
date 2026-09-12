@@ -14,7 +14,8 @@ export type WorkspaceCommand =
   | "next-tab"
   | "previous-tab"
   | "toggle-mode"
-  | "new-note";
+  | "new-note"
+  | "toggle-explorer";
 
 export interface KeyChord {
   key: string;
@@ -41,6 +42,8 @@ export function commandForChord(chord: KeyChord): WorkspaceCommand | null {
   // `Ctrl-N` is "new window" to a browser; the workspace claims it the way an
   // editor does, and Electron does not give the browser's meaning a chance.
   if (key === "n" && !chord.shiftKey) return "new-note";
+  // `⌘B` is VS Code's "toggle side bar"; the explorer is the side bar here.
+  if (key === "b" && !chord.shiftKey) return "toggle-explorer";
   if (key === "\\") return "split-right";
   if (key === "w") return "close-tab";
   if (key === "tab") return chord.shiftKey ? "previous-tab" : "next-tab";
@@ -62,6 +65,7 @@ const CHORDS: Record<WorkspaceCommand, string> = {
   "quick-open": "⌘P",
   "toggle-mode": "⌘E",
   "new-note": "⌘N",
+  "toggle-explorer": "⌘B",
   "split-right": "⌘\\",
   "close-tab": "⌘W",
   "next-tab": "⌘⇥",

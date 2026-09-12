@@ -25,6 +25,7 @@ test("⌘E toggles the document between Edit and Read", () => {
 test("⌘N asks for a new note", () => {
   assert.equal(commandForChord({ key: "n", metaKey: true }), "new-note");
   assert.equal(commandForChord({ key: "N", ctrlKey: true }), "new-note");
+  assert.equal(commandForChord({ key: "b", metaKey: true }), "toggle-explorer");
   assert.equal(commandForChord({ key: "n" }), null);
 });
 
