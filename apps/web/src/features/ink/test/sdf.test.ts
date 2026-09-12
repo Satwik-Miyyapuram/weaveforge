@@ -15,6 +15,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  INK_MAX_BACKING_DIMENSION,
+  INK_MAX_BACKING_PIXELS,
+  backingRatio,
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
   INK_SEGMENT_SUBDIVISIONS,
@@ -367,4 +370,20 @@ test("a circle drawn by hand and simplified unevenly is drawn round", () => {
       assert.ok(r > 224 && r < 235, `span ${i} at ${k / 8}: radius ${r}`);
     }
   }
+});
+
+test("backingRatio: the display's ratio while the backing store fits", () => {
+  assert.equal(backingRatio(800, 1131, 1.25), 1.25);
+});
+
+test("backingRatio: lowers the ratio rather than exceeding the pixel budget", () => {
+  // A4 at 4× on a 2× display would be 8700 × 12300; the cap holds it under budget.
+  const ratio = backingRatio(4352, 6155, 2);
+  assert.ok(ratio < 2);
+  assert.ok(4352 * ratio * 6155 * ratio <= INK_MAX_BACKING_PIXELS + 1);
+});
+
+test("backingRatio: keeps a single edge under the dimension cap", () => {
+  const ratio = backingRatio(9000, 100, 2);
+  assert.ok(9000 * ratio <= INK_MAX_BACKING_DIMENSION + 1e-6);
 });
