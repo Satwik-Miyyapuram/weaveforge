@@ -258,3 +258,14 @@ test("a sharp corner drawn at speed keeps its apex: both axes share one cutoff",
     `the descending edge should be near 45°, got dy/dx = ${(dy / dx).toFixed(2)}`,
   );
 });
+
+test("a pen-up that reports pressure 0 tapers from the last pressure, not to full width", () => {
+  const filter = new NibFilter();
+  let last = 0;
+  for (let i = 0; i < 10; i += 1) {
+    last = filter.filter({ x: i * 5, y: 0, pressure: 0.25, t: i * 8 }).pressure;
+  }
+  const lift = filter.filter({ x: 50, y: 0, pressure: 0, t: 80 });
+  assert.ok(lift.pressure > 0, "the lift keeps a pressure");
+  assert.ok(lift.pressure < last, "and it is lighter than the stroke was");
+});
