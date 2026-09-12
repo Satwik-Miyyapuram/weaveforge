@@ -207,8 +207,8 @@ In `apps/web/src/features/search` and `apps/desktop`:
 
 ## 8. Summary Checklist for Implementation
 
-1. [ ] Add V8 heap constraints and Chromium flags in `apps/desktop/src/main.ts`.
-2. [ ] Add `trimProcessMemory()` helper in `apps/desktop/src/main.ts` triggered on `window.on("minimize")` and idle timeout.
-3. [ ] Add `finally` block in `WebglInkRenderer.capture()` to delete framebuffer and depth-stencil renderbuffers immediately after export.
-4. [ ] Add 5-minute idle eviction to local semantic search embedding model.
-5. [ ] Verify `InkHost` cleanup calls `worker.terminate()` and clears transferred array buffer pools.
+1. [x] Add V8 heap constraints and Chromium flags in `apps/desktop/src/main.ts`. (The cap is 512 MB, not 256: the encoder worker and a large vault's search index share it, and an isolate at the cap is killed.)
+2. [x] Add `trimProcessMemory()` helper in `apps/desktop/src/main.ts` triggered on `window.on("minimize")` and idle timeout.
+3. [x] Add `finally` block in `WebglInkRenderer.capture()` to delete framebuffer and depth-stencil renderbuffers immediately after export.
+4. [x] Add 5-minute idle eviction to local semantic search embedding model (`WorkerEmbedder`, re-loads on the next `embed`).
+5. [x] Verify `InkHost` cleanup calls `worker.terminate()` and clears transferred array buffer pools (`usePenCapture`'s dispose now also clears the sample pool).

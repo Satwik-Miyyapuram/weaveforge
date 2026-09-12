@@ -563,29 +563,34 @@ export class WebglInkRenderer implements InkRenderer {
     if (this.lost) return null;
     const width = Math.max(1, Math.round(this.pageWidth * scale));
     const height = Math.max(1, Math.round(this.pageHeight * scale));
-    const target = this.ensureTarget(width, height);
     const wasTransform = this.transform;
     const wasWidth = this.width;
     const wasHeight = this.height;
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
-    gl.viewport(0, 0, width, height);
-    gl.clearColor(1, 1, 1, 1);
-    gl.clearStencil(0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-    // The page, drawn 1:1 into its own pixels.
-    this.transform = { scale, offsetX: 0, offsetY: 0, devicePixelRatio: 1 };
-    this.width = width;
-    this.height = height;
-    this.draw();
-
     const pixels = new Uint8Array(width * height * 4);
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-    this.transform = wasTransform;
-    this.width = wasWidth;
-    this.height = wasHeight;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    try {
+      const target = this.ensureTarget(width, height);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+      gl.viewport(0, 0, width, height);
+      gl.clearColor(1, 1, 1, 1);
+      gl.clearStencil(0);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+      // The page, drawn 1:1 into its own pixels.
+      this.transform = { scale, offsetX: 0, offsetY: 0, devicePixelRatio: 1 };
+      this.width = width;
+      this.height = height;
+      this.draw();
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    } finally {
+      this.transform = wasTransform;
+      this.width = wasWidth;
+      this.height = wasHeight;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      // An A4 page at 2× is ~100 MB of texture and stencil; an export is rare
+      // and the next one can allocate again. Kept only for as long as it is
+      // being read.
+      this.releaseTarget();
+    }
 
     // A fresh canvas that is *never drawn to again*: the readback rule (§6.2.8) is
     // about Canvas 2D surfaces being drawn to, and this one only ever receives.
@@ -608,13 +613,7 @@ export class WebglInkRenderer implements InkRenderer {
       if (batch.buffer) gl.deleteBuffer(batch.buffer);
     }
     this.batches.clear();
-    if (this.target) {
-      gl.deleteFramebuffer(this.target.framebuffer);
-      gl.deleteTexture(this.target.texture);
-      if (this.target.depthStencil)
-        gl.deleteRenderbuffer(this.target.depthStencil);
-      this.target = null;
-    }
+    this.releaseTarget();
     if (this.backgroundTexture) gl.deleteTexture(this.backgroundTexture);
     this.backgroundTexture = null;
     this.background = null;
@@ -784,6 +783,16 @@ export class WebglInkRenderer implements InkRenderer {
   }
 
   /** The offscreen target export renders into, reused between exports. */
+  private releaseTarget(): void {
+    if (!this.target) return;
+    const gl = this.gl;
+    gl.deleteFramebuffer(this.target.framebuffer);
+    gl.deleteTexture(this.target.texture);
+    if (this.target.depthStencil)
+      gl.deleteRenderbuffer(this.target.depthStencil);
+    this.target = null;
+  }
+
   private ensureTarget(width: number, height: number): CaptureTarget {
     const gl = this.gl;
     if (

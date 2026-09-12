@@ -1,4 +1,14 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, session, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  net,
+  protocol,
+  safeStorage,
+  session,
+  shell,
+} from "electron";
 import fs from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -29,14 +39,27 @@ import {
   writeVaultFile,
 } from "./vault-handlers";
 import { safeWorkspacePath } from "@weaveforge/core";
-import { LOCAL_API_HOST, LOCAL_API_PORT, newLocalApiToken, startLocalApi, type LocalApi } from "./local-api-server";
+import {
+  LOCAL_API_HOST,
+  LOCAL_API_PORT,
+  newLocalApiToken,
+  startLocalApi,
+  type LocalApi,
+} from "./local-api-server";
 import { fetchZoteroLocal } from "./zotero-local";
 import { compileTex, probeTex, type TexSourceFile } from "./tex";
-import { createInkRecogniser, type InkRecognitionRequest } from "./ink-recogniser";
+import {
+  createInkRecogniser,
+  type InkRecognitionRequest,
+} from "./ink-recogniser";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { SecretStore } from "./secret-store";
 import { handleOverleafRead } from "./overleaf-source";
-import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
+import {
+  handleFetchImage,
+  handleFetchTitle,
+  mayOpenExternally,
+} from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
 import { createVaultWatch, type VaultWatch } from "./vault-watch";
@@ -98,7 +121,8 @@ const bundled = fs.existsSync(path.join(BUNDLE, "index.html"));
  * dev server is how this is developed.
  */
 const APP_URL =
-  process.env.WEAVEFORGE_URL ?? (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
+  process.env.WEAVEFORGE_URL ??
+  (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
 const APP_ORIGIN = originOf(APP_URL);
 
 /**
@@ -121,6 +145,67 @@ const DOCS_URL = "https://www.weaveforge.org/docs/";
 
 let mainWindow: BrowserWindow | null = null;
 let loopback: import("node:http").Server | null = null;
+
+/*
+ * Memory (docs/internal/design/memory-optimization.md, tiers 1 and 2).
+ *
+ * Every switch must be appended before `whenReady`; Chromium reads them when
+ * it starts its subprocesses. The V8 cap applies to every renderer and worker
+ * isolate. 512 MB rather than the note's 256: the encoder worker's JS heap
+ * and a large vault's search index both live under it, and an isolate that
+ * hits the cap is killed outright, which costs far more than the difference.
+ */
+app.commandLine.appendSwitch(
+  "js-flags",
+  "--max-old-space-size=512 --optimize-for-size",
+);
+app.commandLine.appendSwitch("disable-speech-api");
+app.commandLine.appendSwitch("disable-print-preview");
+app.commandLine.appendSwitch(
+  "disable-features",
+  [
+    "Translate",
+    "AutofillServerCommunication",
+    "CalculateNativeWinOcclusion",
+    "MediaRouter",
+    "OptimizationHints",
+  ].join(","),
+);
+app.commandLine.appendSwitch("force-color-profile", "srgb");
+app.commandLine.appendSwitch("max-active-webgl-contexts", "4");
+
+/** How long a blurred window sits before its working set is trimmed. */
+const IDLE_TRIM_MS = 180_000;
+let idleTrim: NodeJS.Timeout | null = null;
+
+/**
+ * Hand inactive pages back to Windows. `process.trimWorkingSet` is Electron's
+ * own binding over `EmptyWorkingSet`; it drops the cached pages the OS would
+ * otherwise keep resident for lack of pressure, and the next focus faults them
+ * back in without a visible stall. A no-op elsewhere.
+ */
+function trimProcessMemory(): void {
+  if (process.platform !== "win32") return;
+  const trim = (process as unknown as { trimWorkingSet?: () => void })
+    .trimWorkingSet;
+  try {
+    trim?.();
+  } catch {
+    // Not fatal: the working set is merely left as it was.
+  }
+}
+
+function registerMemoryTrimming(window: BrowserWindow): void {
+  window.on("minimize", trimProcessMemory);
+  window.on("blur", () => {
+    if (idleTrim) clearTimeout(idleTrim);
+    idleTrim = setTimeout(trimProcessMemory, IDLE_TRIM_MS);
+  });
+  window.on("focus", () => {
+    if (idleTrim) clearTimeout(idleTrim);
+    idleTrim = null;
+  });
+}
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -152,6 +237,7 @@ function createWindow(): void {
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;
   });
+  registerMemoryTrimming(window);
 
   void window.loadURL(APP_URL);
 
@@ -235,7 +321,10 @@ async function offerUpdate({ tellWhenCurrent = false } = {}): Promise<void> {
 
   offering = true;
   try {
-    const update = await findUpdate({ currentVersion: app.getVersion(), fetchReleases }).catch(() => null);
+    const update = await findUpdate({
+      currentVersion: app.getVersion(),
+      fetchReleases,
+    }).catch(() => null);
     // Silence is right for the check on launch and wrong for one the reader
     // asked for: a menu entry that does nothing visible reads as broken.
     if (!update) {
@@ -244,7 +333,8 @@ async function offerUpdate({ tellWhenCurrent = false } = {}): Promise<void> {
           type: "info",
           title: "Up to date",
           message: `WeaveForge ${app.getVersion()} is the newest version.`,
-          detail: "If you are offline, this only means no newer version could be reached.",
+          detail:
+            "If you are offline, this only means no newer version could be reached.",
           buttons: ["OK"],
           noLink: true,
         });
@@ -305,19 +395,29 @@ function preferenceStore(): PreferenceStore {
  * place, and this is the belt to that pair of braces — a draft left behind by a
  * killed process must not be one a later write can collide with either.
  */
-async function writeWhole(file: string, contents: string, mode?: number): Promise<void> {
+async function writeWhole(
+  file: string,
+  contents: string,
+  mode?: number,
+): Promise<void> {
   const draft = `${file}.${temporaryName()}`;
   await writeFile(draft, contents, { encoding: "utf8", mode });
   await rename(draft, file);
 }
 
-ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) => preferenceStore().read(name));
+ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) =>
+  preferenceStore().read(name),
+);
 ipc.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
   preferenceStore().write(name, value),
 );
 
-ipc.handle(CHANNELS.fetchTitle, (_event, url: unknown) => handleFetchTitle(url));
-ipc.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(url));
+ipc.handle(CHANNELS.fetchTitle, (_event, url: unknown) =>
+  handleFetchTitle(url),
+);
+ipc.handle(CHANNELS.fetchImage, (_event, url: unknown) =>
+  handleFetchImage(url),
+);
 // The settings panel asking, rather than the shell announcing. A failure is
 // null and not an error: a settings section that cannot reach GitHub should
 // say it does not know, not turn red.
@@ -338,7 +438,12 @@ if (bundled) {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: APP_SCHEME,
-      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+      },
     },
   ]);
 }
@@ -357,11 +462,16 @@ function serveBundle(): void {
     // `app://models/...` is the encoder's weights, cached on the disk so the
     // feature keeps working with the network unplugged.
     if (host === MODEL_HOST) {
-      return serveModelFile(path.join(app.getPath("userData"), "models"), request.url);
+      return serveModelFile(
+        path.join(app.getPath("userData"), "models"),
+        request.url,
+      );
     }
     if (host !== APP_HOST) return new Response(null, { status: 404 });
 
-    const file = resolveAppFile(BUNDLE, request.url, (candidate) => fs.existsSync(candidate));
+    const file = resolveAppFile(BUNDLE, request.url, (candidate) =>
+      fs.existsSync(candidate),
+    );
     if (!file) return new Response(null, { status: 404 });
 
     const response = await net.fetch(pathToFileURL(file).toString());
@@ -389,14 +499,22 @@ function secretStore(): SecretStore {
   });
 }
 
-ipc.handle(CHANNELS.secretRead, (_event, name: unknown) => secretStore().read(name));
+ipc.handle(CHANNELS.secretRead, (_event, name: unknown) =>
+  secretStore().read(name),
+);
 ipc.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
   secretStore().write(name, value),
 );
-ipc.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().clear(name));
+ipc.handle(CHANNELS.secretClear, (_event, name: unknown) =>
+  secretStore().clear(name),
+);
 
-ipc.handle(CHANNELS.overleafRead, (_event, projectId: unknown, entryFile: unknown) =>
-  handleOverleafRead(projectId, entryFile, () => secretStore().read("overleaf-token")),
+ipc.handle(
+  CHANNELS.overleafRead,
+  (_event, projectId: unknown, entryFile: unknown) =>
+    handleOverleafRead(projectId, entryFile, () =>
+      secretStore().read("overleaf-token"),
+    ),
 );
 
 /**
@@ -407,14 +525,20 @@ ipc.handle(CHANNELS.overleafRead, (_event, projectId: unknown, entryFile: unknow
  */
 const localDbDir = path.join(app.getPath("userData"), "local-db");
 const localDb = new LocalDbHost({
-  migrations: [path.join(__dirname, "migrations"), path.join(__dirname, "migrations-local")],
+  migrations: [
+    path.join(__dirname, "migrations"),
+    path.join(__dirname, "migrations-local"),
+  ],
   dataDir: localDbDir,
   open: async () => {
     const { PGlite } = await import("@electric-sql/pglite");
     const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
     // A reset the previous run could only write down; see `local-db-reset.ts`.
     applyDeferredMove(localDbDir);
-    return (await PGlite.create({ dataDir: localDbDir, extensions: { pgcrypto } })) as unknown as LocalClient;
+    return (await PGlite.create({
+      dataDir: localDbDir,
+      extensions: { pgcrypto },
+    })) as unknown as LocalClient;
   },
   discard: async () => {
     // The engine that failed may still hold the directory. When it does, the
@@ -454,7 +578,9 @@ const rememberRoot: RememberRoot = (root) => {
  */
 void preferenceStore()
   .read("vault-root")
-  .then((result) => (result.ok ? restoreRoot(vault, result.value, rememberRoot) : null))
+  .then((result) =>
+    result.ok ? restoreRoot(vault, result.value, rememberRoot) : null,
+  )
   .then((root) => (root ? startWatchingVault(root.path) : null))
   .catch(() => null);
 
@@ -472,7 +598,9 @@ async function chooseWorkspaceFolder() {
         title: "Choose a folder for your workspace",
         properties: ["openDirectory", "createDirectory"],
       })
-    : await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
+    : await dialog.showOpenDialog({
+        properties: ["openDirectory", "createDirectory"],
+      });
   // A dismissed dialog is the user declining, not a failure.
   const adopted = await adoptRoot(
     vault,
@@ -490,16 +618,25 @@ ipc.handle(CHANNELS.vaultForget, () => {
   stopWatchingVault();
   return forgetRoot(vault, rememberRoot);
 });
-ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) => readVaultFile(vault, at));
-ipc.handle(CHANNELS.vaultWrite, async (_event, at: unknown, contents: unknown) => {
-  // Said before the write rather than after: the filesystem event can arrive
-  // while the write is still returning, and an echo that beats its own note
-  // would be reported as somebody else's change.
-  if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
-  return writeVaultFile(vault, at, contents);
-});
-ipc.handle(CHANNELS.vaultList, (_event, at: unknown) => listVaultFiles(vault, at));
-ipc.handle(CHANNELS.vaultStat, (_event, at: unknown) => statVaultFile(vault, at));
+ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) =>
+  readVaultFile(vault, at),
+);
+ipc.handle(
+  CHANNELS.vaultWrite,
+  async (_event, at: unknown, contents: unknown) => {
+    // Said before the write rather than after: the filesystem event can arrive
+    // while the write is still returning, and an echo that beats its own note
+    // would be reported as somebody else's change.
+    if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
+    return writeVaultFile(vault, at, contents);
+  },
+);
+ipc.handle(CHANNELS.vaultList, (_event, at: unknown) =>
+  listVaultFiles(vault, at),
+);
+ipc.handle(CHANNELS.vaultStat, (_event, at: unknown) =>
+  statVaultFile(vault, at),
+);
 ipc.handle(CHANNELS.vaultRemove, async (_event, at: unknown) => {
   if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
   return removeVaultFile(vault, at);
@@ -538,12 +675,20 @@ ipc.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown) => {
   const waiting = pendingRanks.get(id);
   if (!waiting) return;
   pendingRanks.delete(id);
-  waiting(Array.isArray(order) ? (order as string[]).filter((name) => typeof name === "string") : null);
+  waiting(
+    Array.isArray(order)
+      ? (order as string[]).filter((name) => typeof name === "string")
+      : null,
+  );
 });
 
-function rankSemantically(query: string, candidates: readonly string[]): Promise<string[] | null> {
+function rankSemantically(
+  query: string,
+  candidates: readonly string[],
+): Promise<string[] | null> {
   const window = mainWindow;
-  if (!window || window.isDestroyed() || candidates.length < 2) return Promise.resolve(null);
+  if (!window || window.isDestroyed() || candidates.length < 2)
+    return Promise.resolve(null);
 
   const id = nextRankId++;
   return new Promise<string[] | null>((resolve) => {
@@ -574,7 +719,9 @@ async function startLocalApiIfEnabled(): Promise<string | undefined> {
     // The usual reason is another program on the port -- Obsidian's own REST
     // plugin, most likely. Reported rather than retried: two things answering
     // on one port is not something to resolve behind the user's back.
-    return error instanceof Error ? error.message : "The port is not available.";
+    return error instanceof Error
+      ? error.message
+      : "The port is not available.";
   }
 }
 
@@ -593,7 +740,10 @@ ipc.handle(CHANNELS.localApiState, async () => {
   const enabled = await preferenceStore().read("local-api");
   return {
     ok: true,
-    value: { enabled: localApi !== null && enabled.ok && enabled.value === true, url: LOCAL_API_URL },
+    value: {
+      enabled: localApi !== null && enabled.ok && enabled.value === true,
+      url: LOCAL_API_URL,
+    },
   };
 });
 
@@ -617,7 +767,12 @@ ipc.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
   const reason = await startLocalApiIfEnabled();
   return {
     ok: true,
-    value: { enabled: localApi !== null, url: LOCAL_API_URL, token, ...(reason ? { reason } : {}) },
+    value: {
+      enabled: localApi !== null,
+      url: LOCAL_API_URL,
+      token,
+      ...(reason ? { reason } : {}),
+    },
   };
 });
 
@@ -663,31 +818,46 @@ ipc.handle(CHANNELS.inkRecognise, async (_event, request: unknown) => {
     return { ok: false, message: "That is not a page to recognise." };
   }
   try {
-    return { ok: true, value: await inkHelper().recognise(body as InkRecognitionRequest) };
+    return {
+      ok: true,
+      value: await inkHelper().recognise(body as InkRecognitionRequest),
+    };
   } catch (error) {
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "The handwriting recogniser did not answer.",
+      message:
+        error instanceof Error
+          ? error.message
+          : "The handwriting recogniser did not answer.",
     };
   }
 });
 
-ipc.handle(CHANNELS.texCompile, async (_event, files: unknown, entryFile: unknown) => {
-  // The page names the files; `compileTex` refuses any path that would leave
-  // the temporary directory it makes, so nothing here is written near the
-  // reader's own work.
-  if (!Array.isArray(files) || typeof entryFile !== "string") {
-    return { ok: false, message: "That is not a project to compile." };
-  }
-  try {
-    return { ok: true, value: await compileTex(files as TexSourceFile[], entryFile) };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "The compile could not be started.",
-    };
-  }
-});
+ipc.handle(
+  CHANNELS.texCompile,
+  async (_event, files: unknown, entryFile: unknown) => {
+    // The page names the files; `compileTex` refuses any path that would leave
+    // the temporary directory it makes, so nothing here is written near the
+    // reader's own work.
+    if (!Array.isArray(files) || typeof entryFile !== "string") {
+      return { ok: false, message: "That is not a project to compile." };
+    }
+    try {
+      return {
+        ok: true,
+        value: await compileTex(files as TexSourceFile[], entryFile),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "The compile could not be started.",
+      };
+    }
+  },
+);
 
 ipc.handle(CHANNELS.vaultCommit, async () => {
   // The setting is read here rather than sent by the renderer: a window that
@@ -719,7 +889,8 @@ function stopWatchingVault(): void {
 function startWatchingVault(root: string): void {
   stopWatchingVault();
   vaultWatch = createVaultWatch({
-    onChange: (paths) => mainWindow?.webContents.send(CHANNELS.vaultChanged, paths),
+    onChange: (paths) =>
+      mainWindow?.webContents.send(CHANNELS.vaultChanged, paths),
     // The same folding the writer does, so a write matches its own echo. A
     // path this refuses is one no write could have produced, and is left as it
     // came: it is somebody else's file either way.
@@ -810,7 +981,8 @@ if (!app.requestSingleInstanceLock()) {
     // unsigned build. The older check-and-tell path stays for the menu entry
     // and for builds with no feed behind them.
     void realUpdater().then((updater) => {
-      if (updater) startAutoUpdate({ updater, window: () => mainWindow, enabled: true });
+      if (updater)
+        startAutoUpdate({ updater, window: () => mainWindow, enabled: true });
     });
     installMenu({
       chooseFolder: async () => {
