@@ -18,17 +18,30 @@ import {
 } from "../application/one-euro-filter";
 
 /** Feed a channel a series of values 8 ms apart, as a 120 Hz pen would. */
-function run(filter: OneEuroFilter, values: readonly number[], step = 8): number[] {
+function run(
+  filter: OneEuroFilter,
+  values: readonly number[],
+  step = 8,
+): number[] {
   return values.map((value, index) => filter.filter(value, index * step));
 }
 
 test("the smoothing factor rises with the cutoff and never exceeds one", () => {
-  assert.ok(oneEuroAlpha(1000, 8) > 0.97, `a very high cutoff is nearly the identity: ${oneEuroAlpha(1000, 8)}`);
-  assert.ok(oneEuroAlpha(1, 8) < oneEuroAlpha(10, 8), "a lower cutoff damps harder");
+  assert.ok(
+    oneEuroAlpha(1000, 8) > 0.97,
+    `a very high cutoff is nearly the identity: ${oneEuroAlpha(1000, 8)}`,
+  );
+  assert.ok(
+    oneEuroAlpha(1, 8) < oneEuroAlpha(10, 8),
+    "a lower cutoff damps harder",
+  );
   assert.ok(oneEuroAlpha(1, 0) < 1, "a zero timestep cannot divide by zero");
   // The unit slip this pins: cutoffs are per second and a pen reports
   // milliseconds, so at 120 Hz a 1 Hz cutoff is heavy damping, not none.
-  assert.ok(oneEuroAlpha(1, 8) < 0.1, `1 Hz at 120 Hz should damp hard: ${oneEuroAlpha(1, 8)}`);
+  assert.ok(
+    oneEuroAlpha(1, 8) < 0.1,
+    `1 Hz at 120 Hz should damp hard: ${oneEuroAlpha(1, 8)}`,
+  );
 });
 
 test("a jittery pressure ramp is smoothed: its roughness collapses", () => {
@@ -66,8 +79,14 @@ test("a deliberate step in pressure is not over-damped: it arrives", () => {
   const values = [...new Array(10).fill(0.2), ...new Array(30).fill(0.9)];
   const filtered = run(filter, values);
   const settled = filtered.at(-1)!;
-  assert.ok(settled > 0.88, `a press that holds reaches the new value, got ${settled.toFixed(3)}`);
-  assert.ok(filtered[9]! < 0.35, "and it has not jumped before the step arrives");
+  assert.ok(
+    settled > 0.88,
+    `a press that holds reaches the new value, got ${settled.toFixed(3)}`,
+  );
+  assert.ok(
+    filtered[9]! < 0.35,
+    "and it has not jumped before the step arrives",
+  );
 });
 
 test("a slow staircased position is smoothed into a line", () => {
@@ -92,14 +111,22 @@ test("a slow staircased position is smoothed into a line", () => {
     "the treads are rounded rather than stepped: " +
       `${roughness(filtered).toFixed(3)} against ${roughness(staircase).toFixed(3)}`,
   );
-  const worst = Math.max(...filtered.map((value, i) => Math.abs(value - staircase[i]!)));
-  assert.ok(worst < 5, `never more than half a tread behind: ${worst.toFixed(2)}`);
+  const worst = Math.max(
+    ...filtered.map((value, i) => Math.abs(value - staircase[i]!)),
+  );
+  assert.ok(
+    worst < 5,
+    `never more than half a tread behind: ${worst.toFixed(2)}`,
+  );
   assert.ok(
     filtered.some((value, i) => Math.abs(value - staircase[i]!) > 0.5),
     "and the curve is genuinely smoothed rather than passed through",
   );
   for (let i = 1; i < filtered.length; i += 1) {
-    assert.ok(filtered[i]! >= filtered[i - 1]! - 1e-9, "a monotone drag stays monotone");
+    assert.ok(
+      filtered[i]! >= filtered[i - 1]! - 1e-9,
+      "a monotone drag stays monotone",
+    );
   }
   // It never overshoots where the pen went — the property that matters for a mark
   // on a page: a filter may lag, but it must not draw outside the stroke.
@@ -119,13 +146,20 @@ test("a fast straight sweep is not dragged behind the pen", () => {
   // was protecting, and the reason the ban was unnecessary.
   for (let i = 20; i < sweep.length; i += 1) {
     const lag = sweep[i]! - filtered[i]!;
-    assert.ok(lag < 4, `sample ${i} lagged ${lag.toFixed(2)} units of a 40-unit step`);
+    assert.ok(
+      lag < 4,
+      `sample ${i} lagged ${lag.toFixed(2)} units of a 40-unit step`,
+    );
   }
 });
 
 test("the first sample of a stroke passes through untouched", () => {
   const filter = new OneEuroFilter(INK_POSITION_FILTER);
-  assert.equal(filter.filter(1200, 1000), 1200, "a stroke must begin where the pen went down");
+  assert.equal(
+    filter.filter(1200, 1000),
+    1200,
+    "a stroke must begin where the pen went down",
+  );
   assert.equal(filter.last, 1200);
   filter.reset();
   assert.equal(filter.last, null, "a new stroke starts with no state");
@@ -142,7 +176,11 @@ test("two samples with the same timestamp do not poison the filter", () => {
 test("the nib filter reports the raw speed, which is what the taper reads", () => {
   const nib = new NibFilter();
   const first = nib.filter({ x: 0, y: 0, pressure: 0.7, t: 0 });
-  assert.equal(first.velocity, 0, "there is no speed before there are two samples");
+  assert.equal(
+    first.velocity,
+    0,
+    "there is no speed before there are two samples",
+  );
   const second = nib.filter({ x: 30, y: 40, pressure: 0.7, t: 10 });
   assert.equal(second.velocity, 5, "50 units in 10 ms is 5 units per ms");
   nib.reset();
@@ -155,12 +193,19 @@ test("a device that reports no pressure has its pressure left alone", () => {
   const none = nib.filter({ x: 0, y: 0, pressure: 0, t: 0 });
   assert.equal(none.pressure, 0);
   const mouse = nib.filter({ x: 10, y: 0, pressure: 0.5, t: 8 });
-  assert.equal(mouse.pressure, 0.5, "filtering 0.5 toward 0 would invent a pressure signal");
+  assert.equal(
+    mouse.pressure,
+    0.5,
+    "filtering 0.5 toward 0 would invent a pressure signal",
+  );
   nib.reset();
   const pen = nib.filter({ x: 0, y: 0, pressure: 0.2, t: 0 });
   assert.equal(pen.pressure, 0.2);
   const press = nib.filter({ x: 10, y: 0, pressure: 0.9, t: 8 });
-  assert.ok(press.pressure > 0.2 && press.pressure < 0.9, "a real press is filtered, not passed");
+  assert.ok(
+    press.pressure > 0.2 && press.pressure < 0.9,
+    "a real press is filtered, not passed",
+  );
 });
 
 test("position and pressure are filtered as one state, so the trail and the ink agree", () => {
@@ -172,5 +217,8 @@ test("position and pressure are filtered as one state, so the trail and the ink 
     { x: sample.x, y: sample.y, pressure: sample.pressure },
     { x: 100, y: 200, pressure: 0.6 },
   );
-  assert.ok(nib.speed >= 0, "the filter exposes the speed its cutoff is derived from");
+  assert.ok(
+    nib.speed >= 0,
+    "the filter exposes the speed its cutoff is derived from",
+  );
 });

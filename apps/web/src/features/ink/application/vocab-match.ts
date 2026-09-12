@@ -60,7 +60,11 @@ export function damerauLevenshtein(a: string, b: string): number {
     const current = [i];
     for (let j = 1; j <= n; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      let value = Math.min(previous[j]! + 1, current[j - 1]! + 1, previous[j - 1]! + cost);
+      let value = Math.min(
+        previous[j]! + 1,
+        current[j - 1]! + 1,
+        previous[j - 1]! + cost,
+      );
       if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
         value = Math.min(value, previous2[j - 2]! + 1);
       }
@@ -72,14 +76,18 @@ export function damerauLevenshtein(a: string, b: string): number {
   return previous[n]!;
 }
 
-const fold = (word: string): string => word.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+const fold = (word: string): string =>
+  word.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 
 /**
  * The distance between a run of recognised words and an entry, or `Infinity`
  * when any word is further than {@link VOCAB_WORD_DISTANCE} or the total is
  * over {@link VOCAB_SPAN_RATIO} of the entry.
  */
-export function spanDistance(words: readonly string[], entryWords: readonly string[]): number {
+export function spanDistance(
+  words: readonly string[],
+  entryWords: readonly string[],
+): number {
   if (words.length !== entryWords.length || words.length === 0) return Infinity;
   let total = 0;
   let length = 0;
@@ -122,7 +130,10 @@ function matchSpan(
  * length of some entry, longest entries first so "Graph-prior module" wins over
  * a one-word "module". A window that matched is skipped over, not re-matched.
  */
-export function matchVocabulary(text: string, vocabulary: readonly string[]): VocabMatchResult {
+export function matchVocabulary(
+  text: string,
+  vocabulary: readonly string[],
+): VocabMatchResult {
   const matches: VocabMatch[] = [];
   const entries = vocabulary.map((entry) => entry.trim()).filter(Boolean);
 
@@ -135,7 +146,9 @@ export function matchVocabulary(text: string, vocabulary: readonly string[]): Vo
   // Outside the links: the plain words, with the links masked so they are neither
   // matched twice nor split by the window.
   const parts = out.split(/(\[\[[^\]]+\]\])/g);
-  const lengths = [...new Set(entries.map((entry) => entry.split(/\s+/).length))].sort((a, b) => b - a);
+  const lengths = [
+    ...new Set(entries.map((entry) => entry.split(/\s+/).length)),
+  ].sort((a, b) => b - a);
   out = parts
     .map((part) => {
       if (part.startsWith("[[")) return part;
@@ -156,7 +169,8 @@ export function matchVocabulary(text: string, vocabulary: readonly string[]): Vo
           if (matches.length > before) {
             // Splice the entry back in as one token, keeping the punctuation
             // the last word carried.
-            const trailing = /[^\p{L}\p{N}]*$/u.exec(window[length - 1]!)?.[0] ?? "";
+            const trailing =
+              /[^\p{L}\p{N}]*$/u.exec(window[length - 1]!)?.[0] ?? "";
             const leading = /^[^\p{L}\p{N}]*/u.exec(window[0]!)?.[0] ?? "";
             tokens.splice(i * 2, length * 2 - 1, leading + replaced + trailing);
             i += 1;
@@ -169,6 +183,7 @@ export function matchVocabulary(text: string, vocabulary: readonly string[]): Vo
     })
     .join("");
 
-  for (const [from, to] of INK_SYMBOL_MAP) out = out.split(` ${from} `).join(` ${to} `);
+  for (const [from, to] of INK_SYMBOL_MAP)
+    out = out.split(` ${from} `).join(` ${to} `);
   return { text: out, matches };
 }

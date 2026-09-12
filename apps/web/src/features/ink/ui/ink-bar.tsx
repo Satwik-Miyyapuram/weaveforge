@@ -80,6 +80,8 @@ export interface InkBarProps {
   onUndo: () => void;
   onRedo: () => void;
   onAddPage: () => void;
+  /** Insert a PDF's page as a new page's background (§4.8); absent, no button. */
+  onInsertPdfPage?: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
   onDeleteSelection?: () => void;
@@ -207,6 +209,7 @@ export function InkBar({
   onUndo,
   onRedo,
   onAddPage,
+  onInsertPdfPage,
   onPrevPage,
   onNextPage,
   onDeleteSelection,
@@ -432,6 +435,32 @@ export function InkBar({
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
+
+      {onInsertPdfPage ? (
+        <button
+          type="button"
+          className="ink-tool ink-tool-icon-only"
+          onClick={onInsertPdfPage}
+          title="Insert a PDF page as a new page"
+          aria-label="Insert a PDF page as a new page"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+            <path d="M12 18v-6M9 15h6" />
+          </svg>
+        </button>
+      ) : null}
 
       <span className="ink-sep" aria-hidden="true" />
 

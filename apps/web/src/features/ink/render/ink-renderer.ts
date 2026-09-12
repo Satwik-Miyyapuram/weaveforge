@@ -65,12 +65,21 @@ export interface InkLiveStroke {
   realCount: number;
 }
 
+/** A decoded page image, as both renderers can consume it. */
+export type InkBackgroundImage = ImageBitmap;
+
 export interface InkRenderer {
   readonly backend: InkBackend;
   /** What the renderer is doing: strokes, segments, the backend. */
   readonly renderStats: InkRenderStats;
   /** Page size and paper, in 0.1 mm. */
   setPage(size: { width: number; height: number }, paper: string): void;
+  /**
+   * The page's background image — an inserted PDF page (§4.8) — stretched to
+   * the page and drawn under every stroke, on screen and in an export. `null`
+   * clears it. The renderer keeps the image; the caller does not close it.
+   */
+  setBackground(image: InkBackgroundImage | null): void;
   /**
    * Replace every stroke. The page load path, and the rebuild after a loss.
    *
@@ -138,7 +147,12 @@ export function capsuleHalfExtent(
   by: number,
   radius: number,
   margin: number,
-): { halfWidth: number; halfHeight: number; length: number; degenerate: boolean } {
+): {
+  halfWidth: number;
+  halfHeight: number;
+  length: number;
+  degenerate: boolean;
+} {
   const dx = bx - ax;
   const dy = by - ay;
   const length = Math.hypot(dx, dy);
@@ -230,7 +244,10 @@ export function radiusAt(
   const pressureScale = raw === 0 ? 1 : 0.75 + pressure * 0.5;
   const previous = Math.max(0, index - 1);
   const next = Math.min(stroke.x.length - 1, index + 1);
-  const span = Math.hypot(stroke.x[next]! - stroke.x[previous]!, stroke.y[next]! - stroke.y[previous]!);
+  const span = Math.hypot(
+    stroke.x[next]! - stroke.x[previous]!,
+    stroke.y[next]! - stroke.y[previous]!,
+  );
   // Speed in 0.1 mm per sample rather than per millisecond: the sample rate is not
   // in this data, and the taper only needs "how fast relative to a stroke".
   const speed = span / Math.max(1, next - previous);
@@ -239,7 +256,10 @@ export function radiusAt(
 }
 
 /** The colour a stroke paints with, as a palette index the shader reads. */
-export function colourIndex(colour: InkColour, palette: readonly InkColour[]): number {
+export function colourIndex(
+  colour: InkColour,
+  palette: readonly InkColour[],
+): number {
   const index = palette.indexOf(colour);
   return index < 0 ? 0 : index;
 }
@@ -256,8 +276,14 @@ export function pageExtent(
   transform: InkViewTransform,
 ): { width: number; height: number } {
   return {
-    width: Math.max(1, Math.round(width * transform.scale * transform.devicePixelRatio)),
-    height: Math.max(1, Math.round(height * transform.scale * transform.devicePixelRatio)),
+    width: Math.max(
+      1,
+      Math.round(width * transform.scale * transform.devicePixelRatio),
+    ),
+    height: Math.max(
+      1,
+      Math.round(height * transform.scale * transform.devicePixelRatio),
+    ),
   };
 }
 

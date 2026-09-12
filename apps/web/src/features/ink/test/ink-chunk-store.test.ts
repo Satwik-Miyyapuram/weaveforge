@@ -6,10 +6,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { defaultInkNoteMeta, inkChunkPath, newInkChunkId } from "@weaveforge/core";
+import {
+  defaultInkNoteMeta,
+  inkChunkPath,
+  newInkChunkId,
+} from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
-import { MemoryInkChunkStore, chunkIdOfFileName, loadInkPages } from "../application/ink-chunk-store";
+import {
+  MemoryInkChunkStore,
+  chunkIdOfFileName,
+  loadInkPages,
+} from "../application/ink-chunk-store";
 import { FsInkChunkStore } from "../infrastructure/fs-ink-chunk-store";
 import { RoutedInkChunkStore } from "../infrastructure/routed-ink-chunk-store";
 
@@ -83,7 +91,11 @@ test("loadInkPages keeps declared order, appends orphans, and makes one page fro
     pages.map((page) => page.chunkId),
     [b, a, orphan],
   );
-  assert.equal(pages[0]!.chunk, null, "a declared page whose chunk is missing stays, empty");
+  assert.equal(
+    pages[0]!.chunk,
+    null,
+    "a declared page whose chunk is missing stays, empty",
+  );
   assert.deepEqual([...pages[1]!.chunk!], [1]);
   assert.equal(pages[2]!.paper, "ruled");
 });

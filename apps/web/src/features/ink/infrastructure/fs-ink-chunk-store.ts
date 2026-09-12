@@ -6,9 +6,16 @@
  * which is what lets a chunk another device wrote appear as an orphan page.
  */
 
-import { inkChunkPath, inkSidecarDir, type IWorkspaceFs } from "@weaveforge/core";
+import {
+  inkChunkPath,
+  inkSidecarDir,
+  type IWorkspaceFs,
+} from "@weaveforge/core";
 
-import { chunkIdOfFileName, type InkChunkStore } from "../application/ink-chunk-store";
+import {
+  chunkIdOfFileName,
+  type InkChunkStore,
+} from "../application/ink-chunk-store";
 
 export class FsInkChunkStore implements InkChunkStore {
   constructor(private readonly fs: () => IWorkspaceFs | null) {}
@@ -27,7 +34,11 @@ export class FsInkChunkStore implements InkChunkStore {
     return fs.readFile(path);
   }
 
-  async write(noteId: string, chunkId: string, bytes: Uint8Array): Promise<void> {
+  async write(
+    noteId: string,
+    chunkId: string,
+    bytes: Uint8Array,
+  ): Promise<void> {
     const fs = this.require();
     await fs.mkdirp(inkSidecarDir(noteId));
     await fs.writeFile(inkChunkPath(noteId, chunkId), bytes);

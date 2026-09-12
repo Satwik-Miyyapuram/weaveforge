@@ -26,19 +26,29 @@ import {
   type RecognisedLine,
 } from "@weaveforge/core";
 
-import type { DesktopBridge, DesktopInkRequest } from "@/lib/desktop/desktop-bridge";
+import type {
+  DesktopBridge,
+  DesktopInkRequest,
+} from "@/lib/desktop/desktop-bridge";
 
 export const WINDOWS_INK_ENGINE_ID = "windows-ink@1";
 export const STROKE_CTC_ENGINE_ID = "stroke-ctc-small@1";
 
 /** A page's lines as the desktop helper wants them: flat `[x, y, p, …]` per stroke. */
-export function desktopInkRequest(lines: readonly InkLine[], hints: InkRecognitionHints): DesktopInkRequest {
+export function desktopInkRequest(
+  lines: readonly InkLine[],
+  hints: InkRecognitionHints,
+): DesktopInkRequest {
   return {
     lines: lines.map((line) => ({
       strokes: line.strokes.map((stroke) => {
         const flat: number[] = [];
         for (let i = 0; i + 1 < stroke.points.length; i += 2) {
-          flat.push(stroke.points[i]!, stroke.points[i + 1]!, stroke.pressures[i / 2] ?? 128);
+          flat.push(
+            stroke.points[i]!,
+            stroke.points[i + 1]!,
+            stroke.pressures[i / 2] ?? 128,
+          );
         }
         return flat;
       }),
@@ -49,7 +59,9 @@ export function desktopInkRequest(lines: readonly InkLine[], hints: InkRecogniti
 }
 
 /** Windows Ink, reached over the bridge. `null` bridge means a browser. */
-export function createDesktopInkRecogniser(bridge: () => DesktopBridge | null): InkRecogniser {
+export function createDesktopInkRecogniser(
+  bridge: () => DesktopBridge | null,
+): InkRecogniser {
   let known: boolean | null = null;
   return {
     id: WINDOWS_INK_ENGINE_ID,
@@ -68,12 +80,19 @@ export function createDesktopInkRecogniser(bridge: () => DesktopBridge | null): 
     },
     async recognise(lines, hints): Promise<RecognisedLine[]> {
       const desktop = bridge();
-      if (!desktop) throw new Error("The handwriting recogniser is only available on the desktop.");
-      const result = await desktop.inkRecognise(desktopInkRequest(lines, hints));
+      if (!desktop)
+        throw new Error(
+          "The handwriting recogniser is only available on the desktop.",
+        );
+      const result = await desktop.inkRecognise(
+        desktopInkRequest(lines, hints),
+      );
       return result.lines.map((line) => ({
         text: line.text,
         conf: mapInkConfidence(line.confidence),
-        ...(line.alternatives?.length ? { alternatives: [...line.alternatives] } : {}),
+        ...(line.alternatives?.length
+          ? { alternatives: [...line.alternatives] }
+          : {}),
       }));
     },
   };
@@ -101,7 +120,9 @@ export function createStrokeModelRecogniser(): InkRecogniser {
 }
 
 /** MyScript, when and only when a key was supplied. */
-export function createOptionalMyScriptRecogniser(options: MyScriptOptions): InkRecogniser | null {
+export function createOptionalMyScriptRecogniser(
+  options: MyScriptOptions,
+): InkRecogniser | null {
   if (!isMyScriptConfigured(options)) return null;
   return createMyScriptRecogniser(options);
 }
@@ -115,7 +136,9 @@ export function inkRecogniserCandidates(input: {
     createDesktopInkRecogniser(input.bridge),
     createStrokeModelRecogniser(),
   ];
-  const myScript = input.myScript ? createOptionalMyScriptRecogniser(input.myScript) : null;
+  const myScript = input.myScript
+    ? createOptionalMyScriptRecogniser(input.myScript)
+    : null;
   if (myScript) candidates.push(myScript);
   return candidates;
 }

@@ -95,7 +95,11 @@ export {
   type InkViewTransform,
 } from "./render/ink-renderer";
 
-export { INK_RENDER_COLOURS, WebglInkRenderer, supportsWebglInk } from "./render/webgl-renderer";
+export {
+  INK_RENDER_COLOURS,
+  WebglInkRenderer,
+  supportsWebglInk,
+} from "./render/webgl-renderer";
 export {
   CanvasInkRenderer,
   HIGHLIGHTER_ALPHA,
@@ -109,7 +113,11 @@ export {
   type Context2dLike,
 } from "./render/canvas-renderer";
 
-export { recogniseShape, fittedInkPath, fittedArrowPaths } from "./application/shape-snap";
+export {
+  recogniseShape,
+  fittedInkPath,
+  fittedArrowPaths,
+} from "./application/shape-snap";
 
 export {
   InkHost,
@@ -122,7 +130,11 @@ export {
   type InkHostPage,
   type InkHostProps,
 } from "./ui/ink-host";
-export { InkTextLayer, lineClass, type InkTextLayerProps } from "./ui/ink-text-layer";
+export {
+  InkTextLayer,
+  lineClass,
+  type InkTextLayerProps,
+} from "./ui/ink-text-layer";
 
 export {
   MemoryInkChunkStore,
@@ -162,7 +174,14 @@ export {
   desktopInkRequest,
   inkRecogniserCandidates,
 } from "./application/recognisers";
-export { InkBar, INK_BAR_TOOLS, nibForTool, toolLabel, type InkBarProps, type InkBarTool } from "./ui/ink-bar";
+export {
+  InkBar,
+  INK_BAR_TOOLS,
+  nibForTool,
+  toolLabel,
+  type InkBarProps,
+  type InkBarTool,
+} from "./ui/ink-bar";
 export { InkPage, type InkPageProps } from "./ui/ink-page";
 export {
   requestInkPresenter,

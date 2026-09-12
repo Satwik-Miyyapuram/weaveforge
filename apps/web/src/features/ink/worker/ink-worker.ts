@@ -49,14 +49,19 @@ import {
   type InkWorkerEvent,
   type InkWorkerMessage,
 } from "../application/capture-protocol";
-import { InkPageBuffer, boundsOf, type InkBounds } from "../application/page-buffer";
-import { fittedArrowPaths, fittedInkPath, recogniseShape } from "../application/shape-snap";
+import {
+  InkPageBuffer,
+  boundsOf,
+  type InkBounds,
+} from "../application/page-buffer";
+import {
+  fittedArrowPaths,
+  fittedInkPath,
+  recogniseShape,
+} from "../application/shape-snap";
 import { InkStrokeIndex } from "../application/stroke-index";
 import { CanvasInkRenderer } from "../render/canvas-renderer";
-import {
-  WebglInkRenderer,
-  supportsWebglInk,
-} from "../render/webgl-renderer";
+import { WebglInkRenderer, supportsWebglInk } from "../render/webgl-renderer";
 import type { InkLiveStroke, InkRenderer } from "../render/ink-renderer";
 
 /** A stroke as the worker holds it once the pen has left the page. */
@@ -128,6 +133,8 @@ const state = {
   returns: [] as ArrayBuffer[],
   /** Set while a `load-page` is in flight so two loads cannot interleave. */
   loading: false,
+  /** The page's background image, kept here so a page install or a new renderer can re-apply it. */
+  background: null as ImageBitmap | null,
 };
 
 /** The worker's own scope, typed: `self` in a module worker is not the window. */
@@ -149,18 +156,29 @@ function post(event: InkWorkerEvent, transfer: Transferable[] = []): void {
  * uncompressed chunk correctly and refuses a compressed one with the container's
  * own error rather than silently producing nothing.
  */
-function makeCodec(name: "identity" | "deflate-raw" | undefined): InkChunkCodec | null {
+function makeCodec(
+  name: "identity" | "deflate-raw" | undefined,
+): InkChunkCodec | null {
   if (name !== "deflate-raw") return null;
-  if (typeof CompressionStream !== "function" || typeof DecompressionStream !== "function") return null;
+  if (
+    typeof CompressionStream !== "function" ||
+    typeof DecompressionStream !== "function"
+  )
+    return null;
   return {
     id: "deflate-raw",
-    compress: async (bytes) => pipeThrough(new CompressionStream("deflate-raw"), bytes),
-    decompress: async (bytes) => pipeThrough(new DecompressionStream("deflate-raw"), bytes),
+    compress: async (bytes) =>
+      pipeThrough(new CompressionStream("deflate-raw"), bytes),
+    decompress: async (bytes) =>
+      pipeThrough(new DecompressionStream("deflate-raw"), bytes),
   };
 }
 
 /** Push bytes through a transform stream and collect what comes out. */
-async function pipeThrough(stream: GenericTransformStream, bytes: Uint8Array): Promise<Uint8Array> {
+async function pipeThrough(
+  stream: GenericTransformStream,
+  bytes: Uint8Array,
+): Promise<Uint8Array> {
   const writer = stream.writable.getWriter();
   void writer.write(bytes);
   void writer.close();
@@ -204,7 +222,10 @@ function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): void {
 }
 
 /** Replace the predicted tail: truncate to the last real sample, then append. */
-function replacePredictedTail(stroke: LiveStroke, payload: InkSamplePayload): void {
+function replacePredictedTail(
+  stroke: LiveStroke,
+  payload: InkSamplePayload,
+): void {
   stroke.points.length = stroke.realSamples * 2;
   stroke.pressures.length = stroke.realSamples;
   eachInkSample(payload, (x, y, pressure) => {
@@ -229,7 +250,13 @@ function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
     y[i] = stroke.points[i * 2 + 1]!;
     pressure[i] = stroke.pressures[i]!;
   }
-  return { header: stroke.header, x, y, pressure, realCount: stroke.realSamples };
+  return {
+    header: stroke.header,
+    x,
+    y,
+    pressure,
+    realCount: stroke.realSamples,
+  };
 }
 
 /** Pack the finished stroke into the page, and tell the main thread what was kept. */
@@ -277,10 +304,10 @@ function commitStroke(stroke: LiveStroke): void {
     points[i * 2 + 1] = geometry.y[i]!;
     pressures[i] = geometry.pressure[i]!;
   }
-  post(
-    { type: "stroke-committed", header: stroke.header, points, pressures },
-    [points.buffer, pressures.buffer],
-  );
+  post({ type: "stroke-committed", header: stroke.header, points, pressures }, [
+    points.buffer,
+    pressures.buffer,
+  ]);
   reportState();
 }
 
@@ -293,12 +320,18 @@ function reportState(): void {
     strokes: state.buffer.liveCount,
     segments: stats?.segments ?? 0,
     backend: state.renderer?.backend ?? "none",
+    width: state.buffer.width,
+    height: state.buffer.height,
   });
 }
 
 /** Tell the bar how deep undo and redo go. */
 function reportHistory(): void {
-  post({ type: "history", undo: state.history.length, redo: state.redone.length });
+  post({
+    type: "history",
+    undo: state.history.length,
+    redo: state.redone.length,
+  });
 }
 
 /**
@@ -309,14 +342,21 @@ function reportHistory(): void {
  * arrow is its shaft and its head joined into one path, which is what one
  * stroke can hold; the head's own doubling back is what draws the barbs.
  */
-function snapShape(points: readonly number[]): { points: number[]; shape: InkShape } | null {
+function snapShape(
+  points: readonly number[],
+): { points: number[]; shape: InkShape } | null {
   const recognised = recogniseShape(points);
   if (!recognised.fit) return null;
   const geometry = recognised.fit.geometry;
-  const paths = geometry.kind === "arrow" ? fittedArrowPaths(geometry) : [fittedInkPath(geometry)];
+  const paths =
+    geometry.kind === "arrow"
+      ? fittedArrowPaths(geometry)
+      : [fittedInkPath(geometry)];
   const flat: number[] = [];
   for (const path of paths) for (const [x, y] of path) flat.push(x, y);
-  return flat.length >= 4 ? { points: flat, shape: recognised.fit.shape } : null;
+  return flat.length >= 4
+    ? { points: flat, shape: recognised.fit.shape }
+    : null;
 }
 
 /** One frame: draw, count it, hand buffers back, ask for the next. */
@@ -326,7 +366,11 @@ function tick(): void {
   if (state.live) state.renderer?.setLive(liveForRenderer(state.live));
   else state.renderer?.setLive(null);
   state.renderer?.draw();
-  post({ type: "frame", frame: state.frame, strokeId: state.live?.header.strokeId ?? 0 });
+  post({
+    type: "frame",
+    frame: state.frame,
+    strokeId: state.live?.header.strokeId ?? 0,
+  });
   if (state.returns.length > 0) {
     const buffers = state.returns.splice(0, state.returns.length);
     post({ type: "samples-returned", buffers }, buffers);
@@ -358,7 +402,11 @@ function startRenderer(delegating: boolean): void {
       canvas,
       delegating,
       onContextLifecycle: (state_) => {
-        post(state_ === "lost" ? { type: "context-lost" } : { type: "context-restored", backend: "webgl2" });
+        post(
+          state_ === "lost"
+            ? { type: "context-lost" }
+            : { type: "context-restored", backend: "webgl2" },
+        );
         if (state_ === "restored") {
           // Everything is reconstructible from the page buffer, so recovery is
           // "re-upload", never "recover the user's data" (§6.2.9).
@@ -387,7 +435,11 @@ function startRenderer(delegating: boolean): void {
     return;
   }
   state.renderer = renderer;
-  renderer.setPage({ width: state.width, height: state.height }, state.buffer.paper);
+  renderer.setPage(
+    { width: state.width, height: state.height },
+    state.buffer.paper,
+  );
+  renderer.setBackground(state.background);
   renderer.resize(state.width, state.height, state.dpr);
   renderer.setStrokes(state.buffer.allStrokes());
   state.index = new InkStrokeIndex(state.buffer);
@@ -395,7 +447,9 @@ function startRenderer(delegating: boolean): void {
 }
 
 /** Load a page's bytes into the buffer and the renderer. */
-async function loadPage(message: Extract<InkWorkerMessage, { type: "load-page" }>): Promise<void> {
+async function loadPage(
+  message: Extract<InkWorkerMessage, { type: "load-page" }>,
+): Promise<void> {
   if (state.loading) return;
   state.loading = true;
   try {
@@ -405,7 +459,9 @@ async function loadPage(message: Extract<InkWorkerMessage, { type: "load-page" }
     const model = message.chunk
       ? pageFromChunk(
           await decodeInkChunk(
-            message.chunk instanceof Uint8Array ? message.chunk : new Uint8Array(message.chunk),
+            message.chunk instanceof Uint8Array
+              ? message.chunk
+              : new Uint8Array(message.chunk),
             state.codec ?? undefined,
           ),
         )
@@ -419,7 +475,10 @@ async function loadPage(message: Extract<InkWorkerMessage, { type: "load-page" }
         };
     installPage(model);
   } catch (error) {
-    post({ type: "error", message: error instanceof Error ? error.message : String(error) });
+    post({
+      type: "error",
+      message: error instanceof Error ? error.message : String(error),
+    });
   } finally {
     state.loading = false;
   }
@@ -435,7 +494,11 @@ function installPage(model: InkPage): void {
   state.history = [];
   state.redone = [];
   state.selection = [];
-  state.renderer?.setPage({ width: model.width, height: model.height }, model.paper);
+  state.renderer?.setPage(
+    { width: model.width, height: model.height },
+    model.paper,
+  );
+  state.renderer?.setBackground(state.background);
   state.renderer?.setStrokes(state.buffer.allStrokes());
   reportState();
   reportHistory();
@@ -447,15 +510,33 @@ async function savePage(requestId: number): Promise<void> {
   const page = state.buffer.toPage();
   const strokes = page.strokes.length;
   if (strokes === 0) {
-    post({ type: "page-saved", requestId, pageIndex: state.pageIndex, bytes: null, strokes });
+    post({
+      type: "page-saved",
+      requestId,
+      pageIndex: state.pageIndex,
+      bytes: null,
+      strokes,
+    });
     return;
   }
   const bytes = await encodeInkChunk(page, state.codec ?? undefined);
-  post({ type: "page-saved", requestId, pageIndex: state.pageIndex, bytes, strokes }, [bytes.buffer]);
+  post(
+    {
+      type: "page-saved",
+      requestId,
+      pageIndex: state.pageIndex,
+      bytes,
+      strokes,
+    },
+    [bytes.buffer],
+  );
 }
 
 /** Take a set of strokes out, as one history step, and tell the screen. */
-function eraseIndices(indices: readonly number[], kind: "erase" | "draw" = "erase"): number[] {
+function eraseIndices(
+  indices: readonly number[],
+  kind: "erase" | "draw" = "erase",
+): number[] {
   const removed: number[] = [];
   for (const index of indices) {
     if (state.buffer.erase(index)) {
@@ -488,7 +569,11 @@ function restoreIndices(indices: readonly number[]): void {
 }
 
 /** Translate strokes in place. The geometry is the buffer's own, so it is edited. */
-function translateIndices(indices: readonly number[], dx: number, dy: number): void {
+function translateIndices(
+  indices: readonly number[],
+  dx: number,
+  dy: number,
+): void {
   for (const index of indices) {
     const geometry = state.buffer.stroke(index);
     if (!geometry) continue;
@@ -510,7 +595,11 @@ function translateIndices(indices: readonly number[], dx: number, dy: number): v
  * `polygon` is flat `[x, y, …]` in page units. The lasso is a hand-drawn loop,
  * so the polygon is closed implicitly from its last point back to its first.
  */
-export function pointInPolygon(px: number, py: number, polygon: readonly number[]): boolean {
+export function pointInPolygon(
+  px: number,
+  py: number,
+  polygon: readonly number[],
+): boolean {
   const count = polygon.length / 2;
   let inside = false;
   for (let i = 0, j = count - 1; i < count; j = i, i += 1) {
@@ -518,7 +607,8 @@ export function pointInPolygon(px: number, py: number, polygon: readonly number[
     const yi = polygon[i * 2 + 1]!;
     const xj = polygon[j * 2]!;
     const yj = polygon[j * 2 + 1]!;
-    const crosses = yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
+    const crosses =
+      yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
     if (crosses) inside = !inside;
   }
   return inside;
@@ -558,7 +648,12 @@ function lasso(polygon: readonly number[]): void {
     chosen.push(candidate);
     const b = geometry.bounds;
     bounds = bounds
-      ? [Math.min(bounds[0], b[0]), Math.min(bounds[1], b[1]), Math.max(bounds[2], b[2]), Math.max(bounds[3], b[3])]
+      ? [
+          Math.min(bounds[0], b[0]),
+          Math.min(bounds[1], b[1]),
+          Math.max(bounds[2], b[2]),
+          Math.max(bounds[3], b[3]),
+        ]
       : [b[0], b[1], b[2], b[3]];
   }
   state.selection = chosen;
@@ -566,7 +661,10 @@ function lasso(polygon: readonly number[]): void {
 }
 
 /** Erase along a swept segment, and report what went. */
-function erase(from: { x: number; y: number }, to: { x: number; y: number }): void {
+function erase(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): void {
   const index = state.index ?? new InkStrokeIndex(state.buffer);
   state.index = index;
   index.ensure();
@@ -597,7 +695,10 @@ function strokeNearPoint(
   to: { x: number; y: number },
   radius = 30,
 ): boolean {
-  const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / radius));
+  const steps = Math.max(
+    1,
+    Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / radius),
+  );
   const r2 = radius * radius;
   for (let step = 0; step <= steps; step += 1) {
     const t = step / steps;
@@ -612,7 +713,16 @@ function strokeNearPoint(
       continue;
     }
     for (let i = 0; i + 1 < stroke.x.length; i += 1) {
-      if (distanceToSegmentSquared(px, py, stroke.x[i]!, stroke.y[i]!, stroke.x[i + 1]!, stroke.y[i + 1]!) <= r2) {
+      if (
+        distanceToSegmentSquared(
+          px,
+          py,
+          stroke.x[i]!,
+          stroke.y[i]!,
+          stroke.x[i + 1]!,
+          stroke.y[i + 1]!,
+        ) <= r2
+      ) {
         return true;
       }
     }
@@ -620,11 +730,21 @@ function strokeNearPoint(
   return false;
 }
 
-function distanceToSegmentSquared(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+function distanceToSegmentSquared(
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): number {
   const vx = bx - ax;
   const vy = by - ay;
   const length2 = vx * vx + vy * vy;
-  const t = length2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / length2));
+  const t =
+    length2 === 0
+      ? 0
+      : Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / length2));
   const dx = ax + vx * t - px;
   const dy = ay + vy * t - py;
   return dx * dx + dy * dy;
@@ -653,13 +773,22 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         void loadPage(message);
         break;
       case "stroke-begin": {
-        state.live = { header: message.header, points: [], pressures: [], realSamples: 0 };
+        state.live = {
+          header: message.header,
+          points: [],
+          pressures: [],
+          realSamples: 0,
+        };
         appendSamples(state.live, message.sample);
         ensureLoop();
         break;
       }
       case "samples": {
-        if (!state.live || state.live.header.strokeId !== message.header.strokeId) break;
+        if (
+          !state.live ||
+          state.live.header.strokeId !== message.header.strokeId
+        )
+          break;
         if (message.predicted) replacePredictedTail(state.live, message.sample);
         else appendSamples(state.live, message.sample);
         break;
@@ -698,7 +827,10 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
       }
       case "save-page":
         void savePage(message.requestId).catch((error: unknown) =>
-          post({ type: "error", message: error instanceof Error ? error.message : String(error) }),
+          post({
+            type: "error",
+            message: error instanceof Error ? error.message : String(error),
+          }),
         );
         break;
       case "page-model":
@@ -727,18 +859,38 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       }
       case "move-selection": {
-        if (state.selection.length === 0 || (message.dx === 0 && message.dy === 0)) break;
+        if (
+          state.selection.length === 0 ||
+          (message.dx === 0 && message.dy === 0)
+        )
+          break;
         translateIndices(state.selection, message.dx, message.dy);
-        state.history.push({ kind: "move", indices: [...state.selection], dx: message.dx, dy: message.dy });
+        state.history.push({
+          kind: "move",
+          indices: [...state.selection],
+          dx: message.dx,
+          dy: message.dy,
+        });
         state.redone = [];
         reportHistory();
+        break;
+      }
+      case "set-background": {
+        state.background?.close?.();
+        state.background = message.image;
+        state.renderer?.setBackground(message.image);
+
         break;
       }
       case "export-page": {
         void state.renderer
           ?.capture(message.scale)
-          .then((png) => post({ type: "exported", requestId: message.requestId, png }))
-          .catch(() => post({ type: "exported", requestId: message.requestId, png: null }));
+          .then((png) =>
+            post({ type: "exported", requestId: message.requestId, png }),
+          )
+          .catch(() =>
+            post({ type: "exported", requestId: message.requestId, png: null }),
+          );
         break;
       }
       case "resize": {
@@ -765,7 +917,10 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
       }
     }
   } catch (error) {
-    post({ type: "error", message: error instanceof Error ? error.message : String(error) });
+    post({
+      type: "error",
+      message: error instanceof Error ? error.message : String(error),
+    });
   } finally {
     // Buffers that were transferred belong to the worker until it hands them back.
     // Doing it here rather than per message keeps the return batched, which is the

@@ -18,7 +18,11 @@ import { acceptLine, recognisePage } from "../application/recognise-page";
 
 /** A short stroke at (x, y) starting at time t. */
 const at = (x: number, y: number, t: number) =>
-  makeInkStroke({ points: [x, y, x + 40, y + 2, x + 80, y + 30], pressures: [128, 128, 128], t0: t });
+  makeInkStroke({
+    points: [x, y, x + 40, y + 2, x + 80, y + 30],
+    pressures: [128, 128, 128],
+    t0: t,
+  });
 
 function page(): InkPage {
   const model = blankInkPage("blank");
@@ -105,7 +109,11 @@ test("a manual correction survives re-recognition", async () => {
     recogniser: engine(["second again"], calls),
     hints: { vocabulary: [], lang: "en" },
   });
-  assert.deepEqual(calls, [[2]], "only the uncorrected line went to the engine");
+  assert.deepEqual(
+    calls,
+    [[2]],
+    "only the uncorrected line went to the engine",
+  );
   assert.equal(again.text, "first\nsecond again");
   assert.equal(again.lines[0]!.conf, 1);
 });

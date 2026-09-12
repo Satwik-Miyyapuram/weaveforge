@@ -26,7 +26,10 @@ import {
 } from "../application/use-pen-capture";
 import { InkPenGate } from "../application/pen-gate";
 import { NibFilter } from "../application/one-euro-filter";
-import { InkSamplePool, InkSampleWriter } from "../application/capture-protocol";
+import {
+  InkSamplePool,
+  InkSampleWriter,
+} from "../application/capture-protocol";
 
 const area = {} as Element;
 
@@ -74,11 +77,29 @@ test("the diameter is the nib's width on the page, and follows pressure", () => 
   assert.equal(trailDiameterPx(0, 420), 1, "never thinner than a pixel");
   assert.equal(trailDiameterPx(10, 0), 1, "a page with no width still draws");
 
-  const light = trailStyle({ colour: "text", tool: "pen", width: nibWidth(6, 0.2), pageWidthPx: 800 });
-  const firm = trailStyle({ colour: "text", tool: "pen", width: nibWidth(6, 0.9), pageWidthPx: 800 });
+  const light = trailStyle({
+    colour: "text",
+    tool: "pen",
+    width: nibWidth(6, 0.2),
+    pageWidthPx: 800,
+  });
+  const firm = trailStyle({
+    colour: "text",
+    tool: "pen",
+    width: nibWidth(6, 0.9),
+    pageWidthPx: 800,
+  });
   assert.ok(firm.diameter > light.diameter, "pressing harder widens the trail");
   assert.equal(light.color, trailColour("text"));
-  assert.match(trailStyle({ colour: "warn", tool: "highlighter", width: 60, pageWidthPx: 800 }).color, /^rgba\(/);
+  assert.match(
+    trailStyle({
+      colour: "warn",
+      tool: "highlighter",
+      width: 60,
+      pageWidthPx: 800,
+    }).color,
+    /^rgba\(/,
+  );
 });
 
 test("a presenter that refuses an event is reported, not thrown", () => {
@@ -87,14 +108,20 @@ test("a presenter that refuses an event is reported, not thrown", () => {
       throw new TypeError("untrusted event");
     },
   };
-  assert.equal(updateTrail(refusing, {} as PointerEvent, { color: "red", diameter: 2 }), false);
+  assert.equal(
+    updateTrail(refusing, {} as PointerEvent, { color: "red", diameter: 2 }),
+    false,
+  );
   const calls: number[] = [];
   const willing: InkPresenterLike = {
     updateInkTrailStartPoint(_event, style) {
       calls.push(style.diameter);
     },
   };
-  assert.equal(updateTrail(willing, {} as PointerEvent, { color: "red", diameter: 3 }), true);
+  assert.equal(
+    updateTrail(willing, {} as PointerEvent, { color: "red", diameter: 3 }),
+    true,
+  );
   assert.deepEqual(calls, [3]);
 });
 
@@ -103,13 +130,23 @@ test("the session marks the dispatched sample and not the coalesced ones", () =>
   const session = new PenCaptureSession({
     gate: new InkPenGate(),
     filter: new NibFilter(),
-    writer: new InkSampleWriter({ pool: new InkSamplePool({ capacity: 4 }), mode: "clone", post: () => {} }),
+    writer: new InkSampleWriter({
+      pool: new InkSamplePool({ capacity: 4 }),
+      mode: "clone",
+      post: () => {},
+    }),
     project: (x, y) => ({ x, y }),
     onLive: (_sample, _width, event) => seen.push(event),
     predict: () => false,
   });
   session.setTool({ width: 6, tool: "pen", colour: "text", pageIndex: 0 });
-  const base = { pointerType: "pen", pointerId: 1, pressure: 0.5, width: 1, height: 1 };
+  const base = {
+    pointerType: "pen",
+    pointerId: 1,
+    pressure: 0.5,
+    width: 1,
+    height: 1,
+  };
   const down: PenPointerEvent = { ...base, clientX: 10, clientY: 10, t: 0 };
   session.pointerDown(down);
   const coalesced: PenPointerEvent[] = [

@@ -162,7 +162,12 @@ export class InkStrokeIndex {
   nearBox(box: InkBounds, slack = 0): number[] {
     const built = this.built;
     if (!built) return [];
-    const found = built.tree.search(box[0] - slack, box[1] - slack, box[2] + slack, box[3] + slack);
+    const found = built.tree.search(
+      box[0] - slack,
+      box[1] - slack,
+      box[2] + slack,
+      box[3] + slack,
+    );
     this.lastVisited = found.length;
     const out: number[] = [];
     for (const leaf of found) {

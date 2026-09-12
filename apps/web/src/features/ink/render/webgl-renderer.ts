@@ -48,6 +48,7 @@ import {
   type InkRenderStats,
   type InkRenderer,
   type InkViewTransform,
+  type InkBackgroundImage,
 } from "./ink-renderer";
 
 /**
@@ -70,7 +71,14 @@ export const INK_RENDER_COLOURS: Record<InkColour, [number, number, number]> = {
 };
 
 /** The palette's order, so a stroke's colour name becomes a shader index. */
-const PALETTE: readonly InkColour[] = ["text", "accent", "warn", "good", "info", "danger"];
+const PALETTE: readonly InkColour[] = [
+  "text",
+  "accent",
+  "warn",
+  "good",
+  "info",
+  "danger",
+];
 
 const VERTEX_SHADER = `#version 300 es
 in vec2 corner;          // unit quad: (0,-1) (1,-1) (1,1) (0,-1) (1,1) (0,1)
@@ -157,6 +165,34 @@ interface CaptureTarget {
   width: number;
   height: number;
 }
+/**
+ * The background pass: the page image as one textured quad over the page rect,
+ * through the same camera as the strokes. `corner` is the stroke quad's unit
+ * geometry reused — x in [0,1], y in [-1,1] — mapped onto the page.
+ */
+const BACKGROUND_VERTEX_SHADER = `#version 300 es
+in vec2 corner;
+uniform vec2 pageSize;   // device pixels
+uniform vec4 camera;     // scale, offsetX, offsetY, unused
+uniform vec2 pageDims;   // page width and height in page units
+out vec2 vUv;
+void main() {
+  vec2 uv = vec2(corner.x, (corner.y + 1.0) * 0.5);
+  vUv = uv;
+  vec2 page = uv * pageDims;
+  vec2 scaled = (page + vec2(camera.y, camera.z)) * camera.x;
+  vec2 unit = scaled / pageSize;
+  gl_Position = vec4(unit.x * 2.0 - 1.0, 1.0 - unit.y * 2.0, 0.0, 1.0);
+}`;
+
+const BACKGROUND_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec2 vUv;
+uniform sampler2D image;
+out vec4 outColour;
+void main() {
+  outColour = texture(image, vUv);
+}`;
 
 export interface WebglInkRendererOptions {
   canvas: OffscreenCanvas | HTMLCanvasElement;
@@ -194,8 +230,16 @@ export class WebglInkRenderer implements InkRenderer {
   private readonly featherUniform: WebGLUniformLocation | null;
   /** The quad's inflation, in page units — the overdraw lever (§11.3.9). */
   private readonly marginUniform: WebGLUniformLocation | null;
+  private readonly backgroundProgram: WebGLProgram;
+  private readonly backgroundPageSizeUniform: WebGLUniformLocation | null;
+  private readonly backgroundCameraUniform: WebGLUniformLocation | null;
+  private readonly backgroundDimsUniform: WebGLUniformLocation | null;
+  private readonly backgroundImageUniform: WebGLUniformLocation | null;
+  private background: InkBackgroundImage | null = null;
+  private backgroundTexture: WebGLTexture | null = null;
   private readonly batches = new Map<string, Batch>();
-  private readonly onLifecycle: ((state: "lost" | "restored") => void) | undefined;
+  private readonly onLifecycle:
+    ((state: "lost" | "restored") => void) | undefined;
 
   private width = 1;
   /** The buffer index the next appended stroke gets, absent an explicit one. */
@@ -204,7 +248,12 @@ export class WebglInkRenderer implements InkRenderer {
   private dpr = 1;
   private pageWidth = 2100;
   private pageHeight = 2970;
-  private transform: InkViewTransform = { scale: 1, offsetX: 0, offsetY: 0, devicePixelRatio: 1 };
+  private transform: InkViewTransform = {
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    devicePixelRatio: 1,
+  };
   private live: InkLiveStroke | null = null;
   private livePacked = 0;
   private liveBatch: Batch | null = null;
@@ -229,7 +278,10 @@ export class WebglInkRenderer implements InkRenderer {
       preserveDrawingBuffer: false,
       premultipliedAlpha: false,
     };
-    const gl = options.canvas.getContext("webgl2", attributes) as WebGL2RenderingContext | null;
+    const gl = options.canvas.getContext(
+      "webgl2",
+      attributes,
+    ) as WebGL2RenderingContext | null;
     if (!gl) throw new Error("ink: WebGL2 is not available");
     this.gl = gl;
 
@@ -239,6 +291,28 @@ export class WebglInkRenderer implements InkRenderer {
     this.colourUniform = gl.getUniformLocation(this.program, "inkColour");
     this.featherUniform = gl.getUniformLocation(this.program, "feather");
     this.marginUniform = gl.getUniformLocation(this.program, "margin");
+
+    this.backgroundProgram = linkProgram(
+      gl,
+      BACKGROUND_VERTEX_SHADER,
+      BACKGROUND_FRAGMENT_SHADER,
+    );
+    this.backgroundPageSizeUniform = gl.getUniformLocation(
+      this.backgroundProgram,
+      "pageSize",
+    );
+    this.backgroundCameraUniform = gl.getUniformLocation(
+      this.backgroundProgram,
+      "camera",
+    );
+    this.backgroundDimsUniform = gl.getUniformLocation(
+      this.backgroundProgram,
+      "pageDims",
+    );
+    this.backgroundImageUniform = gl.getUniformLocation(
+      this.backgroundProgram,
+      "image",
+    );
 
     const corner = gl.createBuffer();
     if (!corner) throw new Error("ink: could not create the quad buffer");
@@ -277,6 +351,11 @@ export class WebglInkRenderer implements InkRenderer {
     this.pageHeight = Math.max(1, size.height);
   }
 
+  setBackground(image: InkBackgroundImage | null): void {
+    this.background = image;
+    this.uploadBackground();
+  }
+
   setTransform(transform: InkViewTransform): void {
     this.transform = transform;
   }
@@ -301,8 +380,14 @@ export class WebglInkRenderer implements InkRenderer {
 
   appendStroke(stroke: InkStrokeGeometry, index = this.nextStroke): void {
     this.nextStroke = index + 1;
-    const batch = this.batchFor(stroke.colour, usesHighlighterPass(stroke.tool));
-    const segments = Math.max(0, Math.min(stroke.x.length, stroke.y.length) - 1);
+    const batch = this.batchFor(
+      stroke.colour,
+      usesHighlighterPass(stroke.tool),
+    );
+    const segments = Math.max(
+      0,
+      Math.min(stroke.x.length, stroke.y.length) - 1,
+    );
     if (segments === 0) return;
     const offset = batch.used;
     this.ensureBatchCapacity(batch, offset + segments);
@@ -356,7 +441,11 @@ export class WebglInkRenderer implements InkRenderer {
       return;
     }
     const colour = stroke.header.colour;
-    const batch = this.batchFor(colour, usesHighlighterPass(stroke.header.tool), true);
+    const batch = this.batchFor(
+      colour,
+      usesHighlighterPass(stroke.header.tool),
+      true,
+    );
     const points = Math.min(stroke.x.length, stroke.y.length);
     const segments = Math.max(0, points - 1);
     if (this.live !== stroke || batch !== this.liveBatch) {
@@ -404,6 +493,8 @@ export class WebglInkRenderer implements InkRenderer {
     gl.clearStencil(0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
+    this.drawBackground();
+
     gl.useProgram(this.program);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.cornerBuffer);
     const cornerLocation = gl.getAttribLocation(this.program, "corner");
@@ -411,13 +502,20 @@ export class WebglInkRenderer implements InkRenderer {
     gl.vertexAttribPointer(cornerLocation, 2, gl.FLOAT, false, 0, 0);
 
     gl.uniform2f(this.pageSizeUniform, this.width, this.height);
-    gl.uniform4f(this.cameraUniform, this.transform.scale * this.dpr, this.transform.offsetX, this.transform.offsetY, 0);
+    gl.uniform4f(
+      this.cameraUniform,
+      this.transform.scale * this.dpr,
+      this.transform.offsetX,
+      this.transform.offsetY,
+      0,
+    );
     // The AA margin and the feather are the same quantity in two places: the quad
     // is inflated by it (so the fragment shader has pixels to antialias into) and
     // `smoothstep` covers it. One pixel of device space, converted to page units,
     // which is the plan's lever on overdraw (§11.3.9) — inflate generously and
     // every segment overlaps its neighbours.
-    const marginPageUnits = INK_AA_MARGIN_PX / Math.max(this.transform.scale * this.dpr, 0.0001);
+    const marginPageUnits =
+      INK_AA_MARGIN_PX / Math.max(this.transform.scale * this.dpr, 0.0001);
     gl.uniform1f(this.marginUniform, marginPageUnits);
     gl.uniform1f(this.featherUniform, marginPageUnits);
 
@@ -435,7 +533,9 @@ export class WebglInkRenderer implements InkRenderer {
     // pixel passes and sets the bit, every later overlapping fragment is rejected
     // by fixed-function hardware before the shader runs. Multiply blending, because
     // a highlighter darkens what is under it rather than covering it.
-    const highlighter = [...this.batches.values()].filter((batch) => batch.highlighter && batch.used > 0);
+    const highlighter = [...this.batches.values()].filter(
+      (batch) => batch.highlighter && batch.used > 0,
+    );
     if (highlighter.length > 0) {
       gl.enable(gl.STENCIL_TEST);
       gl.stencilFunc(gl.EQUAL, 0, 0xff);
@@ -511,17 +611,82 @@ export class WebglInkRenderer implements InkRenderer {
     if (this.target) {
       gl.deleteFramebuffer(this.target.framebuffer);
       gl.deleteTexture(this.target.texture);
-      if (this.target.depthStencil) gl.deleteRenderbuffer(this.target.depthStencil);
+      if (this.target.depthStencil)
+        gl.deleteRenderbuffer(this.target.depthStencil);
       this.target = null;
     }
+    if (this.backgroundTexture) gl.deleteTexture(this.backgroundTexture);
+    this.backgroundTexture = null;
+    this.background = null;
     gl.deleteBuffer(this.cornerBuffer);
     gl.deleteProgram(this.program);
+    gl.deleteProgram(this.backgroundProgram);
+  }
+
+  /** The page image under the strokes: one quad, page rect, same camera. */
+  private drawBackground(): void {
+    const gl = this.gl;
+    if (!this.backgroundTexture) return;
+    gl.useProgram(this.backgroundProgram);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.cornerBuffer);
+    const cornerLocation = gl.getAttribLocation(
+      this.backgroundProgram,
+      "corner",
+    );
+    gl.enableVertexAttribArray(cornerLocation);
+    gl.vertexAttribPointer(cornerLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(this.backgroundPageSizeUniform, this.width, this.height);
+    gl.uniform4f(
+      this.backgroundCameraUniform,
+      this.transform.scale * this.dpr,
+      this.transform.offsetX,
+      this.transform.offsetY,
+      0,
+    );
+    gl.uniform2f(this.backgroundDimsUniform, this.pageWidth, this.pageHeight);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.backgroundTexture);
+    gl.uniform1i(this.backgroundImageUniform, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  /** (Re)upload the kept image as the background texture; also after a restore. */
+  private uploadBackground(): void {
+    const gl = this.gl;
+    if (this.lost) return;
+    if (this.backgroundTexture) {
+      gl.deleteTexture(this.backgroundTexture);
+      this.backgroundTexture = null;
+    }
+    if (!this.background) return;
+    const texture = gl.createTexture();
+    if (!texture) return;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      this.background,
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    this.backgroundTexture = texture;
   }
 
   /* ----------------------------------------------------------------------- */
 
   /** The batch a colour and pass belong to. */
-  private batchFor(colour: InkColour, highlighter: boolean, live = false): Batch {
+  private batchFor(
+    colour: InkColour,
+    highlighter: boolean,
+    live = false,
+  ): Batch {
     const key = `${live ? "live:" : ""}${highlighter ? "hl" : "pen"}:${colour}`;
     const existing = this.batches.get(key);
     if (existing) return existing;
@@ -563,7 +728,10 @@ export class WebglInkRenderer implements InkRenderer {
     if (!batch.buffer || count <= 0) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, batch.buffer);
     const required = batch.capacity * INK_INSTANCE_FLOATS * 4;
-    const current = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
+    const current = gl.getBufferParameter(
+      gl.ARRAY_BUFFER,
+      gl.BUFFER_SIZE,
+    ) as number;
     if (!current || current < required) {
       // Grow the GPU buffer: the whole array goes up once, and every later upload
       // is a `bufferSubData` of the new segments.
@@ -573,7 +741,10 @@ export class WebglInkRenderer implements InkRenderer {
     gl.bufferSubData(
       gl.ARRAY_BUFFER,
       offset * INK_INSTANCE_FLOATS * 4,
-      batch.data.subarray(offset * INK_INSTANCE_FLOATS, (offset + count) * INK_INSTANCE_FLOATS),
+      batch.data.subarray(
+        offset * INK_INSTANCE_FLOATS,
+        (offset + count) * INK_INSTANCE_FLOATS,
+      ),
     );
   }
 
@@ -584,11 +755,25 @@ export class WebglInkRenderer implements InkRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, batch.buffer);
     const segmentLocation = gl.getAttribLocation(this.program, "seg");
     gl.enableVertexAttribArray(segmentLocation);
-    gl.vertexAttribPointer(segmentLocation, 4, gl.FLOAT, false, INK_INSTANCE_FLOATS * 4, 0);
+    gl.vertexAttribPointer(
+      segmentLocation,
+      4,
+      gl.FLOAT,
+      false,
+      INK_INSTANCE_FLOATS * 4,
+      0,
+    );
     gl.vertexAttribDivisor(segmentLocation, 1);
     const radiusLocation = gl.getAttribLocation(this.program, "radius");
     gl.enableVertexAttribArray(radiusLocation);
-    gl.vertexAttribPointer(radiusLocation, 2, gl.FLOAT, false, INK_INSTANCE_FLOATS * 4, 16);
+    gl.vertexAttribPointer(
+      radiusLocation,
+      2,
+      gl.FLOAT,
+      false,
+      INK_INSTANCE_FLOATS * 4,
+      16,
+    );
     gl.vertexAttribDivisor(radiusLocation, 1);
 
     const rgb = INK_RENDER_COLOURS[batch.colour] ?? INK_RENDER_COLOURS.text;
@@ -601,28 +786,56 @@ export class WebglInkRenderer implements InkRenderer {
   /** The offscreen target export renders into, reused between exports. */
   private ensureTarget(width: number, height: number): CaptureTarget {
     const gl = this.gl;
-    if (this.target && this.target.width === width && this.target.height === height) return this.target;
+    if (
+      this.target &&
+      this.target.width === width &&
+      this.target.height === height
+    )
+      return this.target;
     if (this.target) {
       gl.deleteFramebuffer(this.target.framebuffer);
       gl.deleteTexture(this.target.texture);
-      if (this.target.depthStencil) gl.deleteRenderbuffer(this.target.depthStencil);
+      if (this.target.depthStencil)
+        gl.deleteRenderbuffer(this.target.depthStencil);
     }
     const texture = gl.createTexture();
     const framebuffer = gl.createFramebuffer();
-    if (!texture || !framebuffer) throw new Error("ink: could not create the export target");
+    if (!texture || !framebuffer)
+      throw new Error("ink: could not create the export target");
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      width,
+      height,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      null,
+    );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      texture,
+      0,
+    );
     // A colour-only target has no stencil, and the highlighter pass would silently
     // fail to dedupe (§6.2.3). The export path draws highlighters through the same
     // shader, so it needs one too.
     const depthStencil = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, depthStencil);
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL, width, height);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthStencil);
+    gl.framebufferRenderbuffer(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_STENCIL_ATTACHMENT,
+      gl.RENDERBUFFER,
+      depthStencil,
+    );
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     this.target = { framebuffer, texture, depthStencil, width, height };
     return this.target;
@@ -633,11 +846,18 @@ export class WebglInkRenderer implements InkRenderer {
     for (const batch of this.batches.values()) {
       if (batch.used > 0) this.uploadBatch(batch, 0, batch.used);
     }
+    // The texture died with the context; the image did not.
+    this.backgroundTexture = null;
+    this.uploadBackground();
   }
 }
 
 /** Compile and link a program, or throw with the driver's own log. */
-function linkProgram(gl: WebGL2RenderingContext, vertex: string, fragment: string): WebGLProgram {
+function linkProgram(
+  gl: WebGL2RenderingContext,
+  vertex: string,
+  fragment: string,
+): WebGLProgram {
   const build = (type: number, source: string): WebGLShader => {
     const shader = gl.createShader(type);
     if (!shader) throw new Error("ink: could not create a shader");
@@ -668,7 +888,9 @@ function linkProgram(gl: WebGL2RenderingContext, vertex: string, fragment: strin
 }
 
 /** Whether this runtime can run the WebGL2 renderer at all. */
-export function supportsWebglInk(canvas: OffscreenCanvas | HTMLCanvasElement): boolean {
+export function supportsWebglInk(
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+): boolean {
   try {
     return Boolean(canvas.getContext("webgl2"));
   } catch {

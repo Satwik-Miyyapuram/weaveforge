@@ -146,7 +146,11 @@ export class OneEuroFilter {
    * stroke begin somewhere the pen never was.
    */
   filter(value: number, time: number): number {
-    if (this.value === null || this.previousTime === null || this.previousValue === null) {
+    if (
+      this.value === null ||
+      this.previousTime === null ||
+      this.previousValue === null
+    ) {
       this.value = value;
       this.previousValue = value;
       this.previousTime = time;
@@ -168,7 +172,8 @@ export class OneEuroFilter {
     const derivativeAlpha = oneEuroAlpha(this.options.derivativeCutoff, dt);
     this.derivative += derivativeAlpha * (rawDerivative - this.derivative);
 
-    const cutoff = this.options.minCutoff + this.options.beta * Math.abs(this.derivative);
+    const cutoff =
+      this.options.minCutoff + this.options.beta * Math.abs(this.derivative);
     const alpha = oneEuroAlpha(cutoff, dt);
     this.value += alpha * (value - this.value);
 
@@ -236,7 +241,10 @@ export class NibFilter {
    * property, and taking it from the filtered position would make a stroke's
    * width depend on how much the filter happened to be damping at that moment.
    */
-  velocityBetween(previous: { x: number; y: number; t: number } | null, sample: NibSample): number {
+  velocityBetween(
+    previous: { x: number; y: number; t: number } | null,
+    sample: NibSample,
+  ): number {
     if (!previous) return 0;
     const dt = sample.t - previous.t;
     if (!(dt > 0)) return 0;
@@ -253,11 +261,16 @@ export class NibFilter {
    */
   filter(sample: NibSample): FilteredNibSample {
     const velocity = this.velocityBetween(this.previous, sample);
-    const reports = Number.isFinite(sample.pressure) && sample.pressure > 0 && sample.pressure !== 0.5;
+    const reports =
+      Number.isFinite(sample.pressure) &&
+      sample.pressure > 0 &&
+      sample.pressure !== 0.5;
     const filtered = {
       x: this.x.filter(sample.x, sample.t),
       y: this.y.filter(sample.y, sample.t),
-      pressure: reports ? this.pressure.filter(sample.pressure, sample.t) : sample.pressure,
+      pressure: reports
+        ? this.pressure.filter(sample.pressure, sample.t)
+        : sample.pressure,
       velocity,
       t: sample.t,
     };

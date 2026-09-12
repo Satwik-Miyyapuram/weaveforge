@@ -6,7 +6,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_A4_HEIGHT, INK_A4_WIDTH, blankInkPage, makeInkStroke } from "@weaveforge/core";
+import {
+  INK_A4_HEIGHT,
+  INK_A4_WIDTH,
+  blankInkPage,
+  makeInkStroke,
+} from "@weaveforge/core";
 
 import { InkPageBuffer } from "../application/page-buffer";
 import {
@@ -23,7 +28,11 @@ interface Call {
 }
 
 /** A 2D context that records what was asked of it. */
-function recordingCanvas(): { canvas: Canvas2dLike; calls: Call[]; fills: string[] } {
+function recordingCanvas(): {
+  canvas: Canvas2dLike;
+  calls: Call[];
+  fills: string[];
+} {
   const calls: Call[] = [];
   const fills: string[] = [];
   let fillStyle = "";
@@ -72,8 +81,14 @@ test("it draws pen strokes before highlighters, one fill each, and the live stro
   assert.equal(canvas.width, 800);
   renderer.setStrokes(buffer.allStrokes());
   renderer.draw();
-  assert.deepEqual(fills, [cssInkColour("text"), cssInkColour("accent", HIGHLIGHTER_ALPHA)]);
-  assert.ok(calls.some((call) => call.name === "clearRect"), "a live draw clears rather than paints white");
+  assert.deepEqual(fills, [
+    cssInkColour("text"),
+    cssInkColour("accent", HIGHLIGHTER_ALPHA),
+  ]);
+  assert.ok(
+    calls.some((call) => call.name === "clearRect"),
+    "a live draw clears rather than paints white",
+  );
   assert.equal(renderer.renderStats.strokes, 2);
   assert.equal(renderer.renderStats.drawn, 4);
 });
@@ -96,7 +111,10 @@ test("strokes are addressed by buffer index across erase and restore", () => {
 test("capture paints white and the paper under the ink into a fresh canvas", async () => {
   const { canvas } = recordingCanvas();
   const target = recordingCanvas();
-  const renderer = new CanvasInkRenderer({ canvas, createCanvas: () => target.canvas });
+  const renderer = new CanvasInkRenderer({
+    canvas,
+    createCanvas: () => target.canvas,
+  });
   renderer.setPage({ width: 1000, height: 500 }, "ruled");
   renderer.setStrokes(new InkPageBuffer(page(["pen"])).allStrokes());
   const blob = await renderer.capture(0.5);
@@ -104,13 +122,19 @@ test("capture paints white and the paper under the ink into a fresh canvas", asy
   assert.equal(blob.type, "image/png");
   const names = target.calls.map((call) => call.name);
   assert.equal(names[1], "fillRect", "the export is opaque");
-  assert.ok(names.filter((name) => name === "stroke").length >= 5, "the rulings were drawn");
+  assert.ok(
+    names.filter((name) => name === "stroke").length >= 5,
+    "the rulings were drawn",
+  );
   assert.ok(names.includes("fill"), "and the ink over them");
 });
 
 test("it refuses a canvas with no 2D context", () => {
   assert.throws(
-    () => new CanvasInkRenderer({ canvas: { width: 0, height: 0, getContext: () => null } }),
+    () =>
+      new CanvasInkRenderer({
+        canvas: { width: 0, height: 0, getContext: () => null },
+      }),
     /Canvas 2D is unavailable/,
   );
 });

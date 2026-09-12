@@ -92,7 +92,11 @@ export class MemoryInkChunkStore implements InkChunkStore {
     return this.chunks.get(inkChunkPath(noteId, chunkId)) ?? null;
   }
 
-  async write(noteId: string, chunkId: string, bytes: Uint8Array): Promise<void> {
+  async write(
+    noteId: string,
+    chunkId: string,
+    bytes: Uint8Array,
+  ): Promise<void> {
     this.chunks.set(inkChunkPath(noteId, chunkId), bytes.slice());
   }
 

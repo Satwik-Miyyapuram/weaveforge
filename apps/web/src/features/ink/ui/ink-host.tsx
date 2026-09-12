@@ -42,10 +42,16 @@ import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   INK_PEN_WIDTH,
+  blankInkPage,
+  clampInkPageSize,
+  encodeInkChunk,
+  inkAttachmentIndex,
+  inkPageBackground,
   joinInkTextLayer,
   newInkChunkId,
   readInkNoteBody,
   splitInkTextLayer,
+  withInkPageBackground,
   writeInkNoteBody,
   type InkColour,
   type InkHand,
@@ -67,6 +73,7 @@ import {
   type InkChunkStore,
   type InkStoredPage,
 } from "../application/ink-chunk-store";
+import { pdfPageCount, rasterisePdfPage } from "../application/pdf-page-raster";
 import {
   acceptLine,
   recognisePage,
@@ -83,6 +90,11 @@ export type InkHostPage = InkStoredPage;
 /** What the host needs from the container; the ink facade satisfies it. */
 export interface InkHostDeps {
   chunks: InkChunkStore;
+  /** Where a page background lives (§4.8): the vault's attachments. */
+  assets: {
+    upload(ownerId: string, blob: Blob, ext: string): Promise<string>;
+    fetchBlob(path: string): Promise<Blob>;
+  };
   recogniser: () => Promise<InkRecogniser | null>;
   hints: () => Promise<InkRecognitionHints>;
 }
@@ -187,6 +199,14 @@ export function InkHost({
   /** The pages, once the sidecar has answered; `pageCount` is what React renders from. */
   const pagesRef = useRef<InkStoredPage[] | null>(null);
   const [pageCount, setPageCount] = useState(0);
+  /** The current page's size in page units; an inserted PDF page keeps its aspect. */
+  const [pageSize, setPageSize] = useState({
+    width: INK_A4_WIDTH,
+    height: INK_A4_HEIGHT,
+  });
+  /** What the file input is for: a PDF whose page becomes a new page here. */
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [inserting, setInserting] = useState(false);
   /** The header, as it will be written back. */
   const metaRef = useRef<InkNoteMeta>(readInkNoteBody(body).meta);
   /** The writing hand, mirrored into state so the bar and the gate follow it. */
@@ -251,6 +271,11 @@ export function InkHost({
         break;
       case "page-state":
         setStrokes(event.strokes);
+        setPageSize((size) =>
+          size.width === event.width && size.height === event.height
+            ? size
+            : { width: event.width, height: event.height },
+        );
         break;
       case "page-model":
         pendingModel.current.get(event.requestId)?.(event.page);
@@ -397,6 +422,37 @@ export function InkHost({
   }, [deps.chunks, noteId]);
 
   /**
+   * The page's background (§4.8): the attachment its text layer names on its
+   * first line, fetched and decoded here, handed to the worker as a bitmap.
+   * The worker draws it under the strokes on screen and in an export. A page
+   * without one clears the last page's.
+   */
+  useEffect(() => {
+    if (pageCount === 0) return;
+    const path = inkPageBackground(textPagesRef.current[pageIndex] ?? "");
+    send({ type: "set-background", image: null });
+    if (!path) return;
+    let live = true;
+    void deps.assets
+      .fetchBlob(path)
+      .then((blob) => createImageBitmap(blob))
+      .then((image) => {
+        if (!live) {
+          image.close();
+          return;
+        }
+        send({ type: "set-background", image }, [image]);
+      })
+      .catch(() => {
+        // A missing attachment is a page without its background, not a broken note.
+      });
+    return () => {
+      live = false;
+    };
+    // `pageCount` is in the list so the effect runs once the sidecar has answered.
+  }, [deps.assets, pageCount, pageIndex, send]);
+
+  /**
    * Tell the worker which page we are on, hand it the bytes, and read its line
    * table back so the text column shows what an earlier run left.
    */
@@ -450,7 +506,11 @@ export function InkHost({
     (result: RecognisedPage, replace: boolean) => {
       if (replace) send({ type: "replace-page", page: result.page });
       setRecognised(result);
-      textPagesRef.current[pageIndex] = result.text;
+      // Recognition replaces the page's text; the background line is the host's.
+      textPagesRef.current[pageIndex] = withInkPageBackground(
+        result.text,
+        inkPageBackground(textPagesRef.current[pageIndex] ?? ""),
+      );
       metaRef.current = {
         ...metaRef.current,
         recognised: result.confidence,
@@ -539,6 +599,67 @@ export function InkHost({
     setPageIndex(pages.length - 1);
     void saveBody();
   }, [flushSave, saveBody]);
+
+  /**
+   * A PDF's page as a new page (§4.8): rasterised with the reader's pdf.js,
+   * uploaded to the vault as this note's attachment, named on the new page's
+   * first text-layer line, mirrored in the chunk header as the attachment
+   * index. The page takes the PDF page's aspect at A4 width.
+   */
+  const onInsertPdfPage = useCallback(
+    async (file: File) => {
+      const pages = pagesRef.current;
+      if (!pages || inserting) return;
+      setInserting(true);
+      try {
+        const bytes = await file.arrayBuffer();
+        const count = await pdfPageCount(bytes);
+        let number = 1;
+        if (count > 1) {
+          const answer = window.prompt(
+            `Which page of ${file.name}? (1–${count})`,
+            "1",
+          );
+          if (answer === null) return;
+          number = Number.parseInt(answer, 10);
+          if (!Number.isFinite(number) || number < 1 || number > count) return;
+        }
+        const raster = await rasterisePdfPage(bytes, number, 1654);
+        const path = await deps.assets.upload(noteId, raster.blob, "png");
+        const size = clampInkPageSize(
+          INK_A4_WIDTH,
+          Math.round((INK_A4_WIDTH * raster.height) / raster.width),
+        );
+        const text = withInkPageBackground("", path);
+        const nextTextPages = [...textPagesRef.current, text];
+        const body = writeInkNoteBody(
+          metaRef.current,
+          joinInkTextLayer(nextTextPages),
+        );
+        const chunkId = newInkChunkId();
+        const chunk = await encodeInkChunk({
+          ...blankInkPage(metaRef.current.paper),
+          width: size.width,
+          height: size.height,
+          background: inkAttachmentIndex(body, path),
+        });
+        await deps.chunks.write(noteId, chunkId, chunk);
+        flushSave();
+        pages.push({ chunkId, chunk, paper: metaRef.current.paper });
+        textPagesRef.current = nextTextPages;
+        setPageCount(pages.length);
+        setPageIndex(pages.length - 1);
+        await saveBody();
+      } catch (error) {
+        setUnavailable(
+          `The PDF page could not be inserted: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        setInserting(false);
+      }
+    },
+    [deps.assets, deps.chunks, flushSave, inserting, noteId, saveBody],
+  );
 
   const onLasso = useCallback(
     (path: readonly number[]) => {
@@ -691,6 +812,17 @@ export function InkHost({
 
   return (
     <div className={`ink-wrap${showTextLayer ? "" : " ink-text-hidden"}`}>
+      <input
+        ref={pdfInputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void onInsertPdfPage(file);
+        }}
+      />
       <InkBar
         tool={tool}
         colour={colour}
@@ -730,6 +862,7 @@ export function InkHost({
         onUndo={onUndo}
         onRedo={onRedo}
         onAddPage={onAddPage}
+        onInsertPdfPage={() => pdfInputRef.current?.click()}
         onPrevPage={() => goToPage(pageIndex - 1)}
         onNextPage={() => goToPage(pageIndex + 1)}
         onDeleteSelection={onDeleteSelection}
@@ -738,7 +871,7 @@ export function InkHost({
       <div className="ink-page-scroll" ref={scrollRef}>
         <InkPage
           pageIndex={pageIndex}
-          pageSize={{ width: INK_A4_WIDTH, height: INK_A4_HEIGHT }}
+          pageSize={pageSize}
           scale={scale}
           paper={page.paper}
           tool={tool}
