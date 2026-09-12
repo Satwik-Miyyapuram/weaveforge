@@ -1412,8 +1412,32 @@
 }
 
 .ink-page {
+  position: relative;
   display: flex;
   justify-content: center;
+}
+
+/* The lasso and the selection box, drawn over the canvas in page units. */
+.ink-overlay {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  overflow: visible;
+}
+.ink-lasso {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+}
+.ink-selection {
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
 }
 
 /* The ink surface: the topmost thing in the page area, and never drawn over. */

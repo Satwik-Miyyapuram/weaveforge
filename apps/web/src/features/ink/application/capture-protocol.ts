@@ -26,6 +26,8 @@
 
 import type { InkColour, InkPage } from "@weaveforge/core";
 
+import type { InkPalette } from "../render/ink-palette";
+
 /** `x, y, pressure, t` per sample. */
 export const INK_SAMPLE_STRIDE = 4;
 
@@ -117,6 +119,8 @@ export type InkWorkerMessage =
    * bitmap is transferred; the worker owns it from here.
    */
   | { type: "set-background"; image: ImageBitmap | null }
+  /** The theme's ink colours, read off the document by the host (§6.1). */
+  | { type: "palette"; colours: InkPalette }
   /**
    * Pack the page into a chunk, exactly as the sidecar stores it.
    *

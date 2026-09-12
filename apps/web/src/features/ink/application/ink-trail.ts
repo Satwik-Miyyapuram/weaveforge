@@ -16,7 +16,11 @@
 
 import { INK_A4_WIDTH, type InkColour } from "@weaveforge/core";
 
-import { INK_RENDER_COLOURS } from "../render/webgl-renderer";
+import {
+  INK_RENDER_COLOURS,
+  paletteCss,
+  type InkPalette,
+} from "../render/ink-palette";
 
 /** The presenter, as this code uses it. The real one has more; a test needs this much. */
 export interface InkPresenterLike {
@@ -79,13 +83,12 @@ export function trailDiameterPx(width: number, pageWidthPx: number): number {
 }
 
 /** The trail's colour for a palette name: the renderer's own sRGB, as CSS. */
-export function trailColour(colour: InkColour, alpha = 1): string {
-  const [r, g, b] = INK_RENDER_COLOURS[colour] ?? INK_RENDER_COLOURS.text;
-  const channel = (value: number) =>
-    Math.round(Math.max(0, Math.min(1, value)) * 255);
-  return alpha >= 1
-    ? `rgb(${channel(r)}, ${channel(g)}, ${channel(b)})`
-    : `rgba(${channel(r)}, ${channel(g)}, ${channel(b)}, ${alpha})`;
+export function trailColour(
+  colour: InkColour,
+  alpha = 1,
+  palette: InkPalette = INK_RENDER_COLOURS,
+): string {
+  return paletteCss(palette, colour, alpha);
 }
 
 /**
@@ -97,9 +100,15 @@ export function trailStyle(input: {
   tool: "pen" | "highlighter";
   width: number;
   pageWidthPx: number;
+  /** The theme's colours; the light defaults when omitted. */
+  palette?: InkPalette;
 }): InkTrailStyle {
   return {
-    color: trailColour(input.colour, input.tool === "highlighter" ? 0.35 : 1),
+    color: trailColour(
+      input.colour,
+      input.tool === "highlighter" ? 0.35 : 1,
+      input.palette,
+    ),
     diameter: trailDiameterPx(input.width, input.pageWidthPx),
   };
 }

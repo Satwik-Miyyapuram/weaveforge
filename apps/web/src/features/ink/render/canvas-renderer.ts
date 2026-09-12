@@ -37,7 +37,11 @@ import {
   type InkViewTransform,
   type InkBackgroundImage,
 } from "./ink-renderer";
-import { INK_RENDER_COLOURS } from "./webgl-renderer";
+import {
+  INK_RENDER_COLOURS,
+  paletteCss,
+  type InkPalette,
+} from "./ink-palette";
 
 /** The 2D context, whichever canvas it came from. */
 export type Context2dLike =
@@ -63,9 +67,12 @@ export const HIGHLIGHTER_ALPHA = 0.35;
 export const PAPER_RULED_PITCH = 80;
 export const PAPER_GRID_PITCH = 50;
 
-export function cssInkColour(colour: InkColour, alpha = 1): string {
-  const [r, g, b] = INK_RENDER_COLOURS[colour] ?? INK_RENDER_COLOURS.text;
-  return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${alpha})`;
+export function cssInkColour(
+  colour: InkColour,
+  alpha = 1,
+  palette: InkPalette = INK_RENDER_COLOURS,
+): string {
+  return paletteCss(palette, colour, alpha);
 }
 
 export class CanvasInkRenderer implements InkRenderer {
@@ -89,6 +96,7 @@ export class CanvasInkRenderer implements InkRenderer {
   private pageWidth = 0;
   private pageHeight = 0;
   private paper = "blank";
+  private palette: InkPalette = INK_RENDER_COLOURS;
   private background: InkBackgroundImage | null = null;
   private width = 0;
   private height = 0;
@@ -122,6 +130,10 @@ export class CanvasInkRenderer implements InkRenderer {
     this.pageWidth = size.width;
     this.pageHeight = size.height;
     this.paper = paper;
+  }
+
+  setPalette(palette: InkPalette): void {
+    this.palette = { ...INK_RENDER_COLOURS, ...palette };
   }
 
   setBackground(image: InkBackgroundImage | null): void {
@@ -242,6 +254,7 @@ export class CanvasInkRenderer implements InkRenderer {
           stroke.pressure,
           stroke,
           highlighter,
+          this.palette,
         );
       }
     }
@@ -254,6 +267,7 @@ export class CanvasInkRenderer implements InkRenderer {
         live.pressure,
         live.header,
         live.header.tool === "highlighter",
+        this.palette,
       );
     }
   }
@@ -267,6 +281,7 @@ export function paintStroke(
   pressure: Uint8Array,
   stroke: { width: number; tool: string; colour: InkColour },
   highlighter: boolean,
+  palette: InkPalette = INK_RENDER_COLOURS,
 ): number {
   const count = x.length;
   if (count === 0) return 0;
@@ -280,6 +295,7 @@ export function paintStroke(
   context.fillStyle = cssInkColour(
     stroke.colour,
     highlighter ? HIGHLIGHTER_ALPHA : 1,
+    palette,
   );
   context.beginPath();
   if (count === 1) {

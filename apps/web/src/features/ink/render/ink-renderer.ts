@@ -31,6 +31,7 @@ import {
 } from "@weaveforge/core";
 
 import type { InkBounds, InkStrokeGeometry } from "../application/page-buffer";
+import type { InkPalette } from "./ink-palette";
 
 /** Which renderer is actually drawing. Reported in the status bar. */
 export type InkBackend = "webgl2" | "canvas2d" | "none";
@@ -79,6 +80,11 @@ export interface InkRenderer {
   readonly renderStats: InkRenderStats;
   /** Page size and paper, in 0.1 mm. */
   setPage(size: { width: number; height: number }, paper: string): void;
+  /**
+   * The theme's colours for the six ink names. Posted by the host whenever the
+   * theme changes; strokes keep their names and are redrawn in the new values.
+   */
+  setPalette(palette: InkPalette): void;
   /**
    * The page's background image — an inserted PDF page (§4.8) — stretched to
    * the page and drawn under every stroke, on screen and in an export. `null`

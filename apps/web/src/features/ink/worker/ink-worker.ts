@@ -55,6 +55,7 @@ import {
   boundsOf,
   type InkBounds,
 } from "../application/page-buffer";
+import type { InkPalette } from "../render/ink-palette";
 import {
   fittedArrowPaths,
   fittedInkPath,
@@ -136,6 +137,8 @@ const state = {
   loading: false,
   /** The page's background image, kept here so a page install or a new renderer can re-apply it. */
   background: null as ImageBitmap | null,
+  /** The theme's ink colours, kept so a renderer that comes up later draws in them. */
+  palette: null as InkPalette | null,
 };
 
 /** The worker's own scope, typed: `self` in a module worker is not the window. */
@@ -456,6 +459,7 @@ function startRenderer(delegating: boolean): void {
     state.buffer.paper,
   );
   renderer.setBackground(state.background);
+  if (state.palette) renderer.setPalette(state.palette);
   renderer.resize(state.width, state.height, state.dpr);
   renderer.setStrokes(state.buffer.allStrokes());
   state.index = new InkStrokeIndex(state.buffer);
@@ -889,6 +893,11 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         });
         state.redone = [];
         reportHistory();
+        break;
+      }
+      case "palette": {
+        state.palette = message.colours;
+        state.renderer?.setPalette(message.colours);
         break;
       }
       case "set-background": {

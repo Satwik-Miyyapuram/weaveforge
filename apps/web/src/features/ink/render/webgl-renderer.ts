@@ -53,24 +53,8 @@ import {
   type InkBackgroundImage,
 } from "./ink-renderer";
 
-/**
- * The palette the shader can draw. Indices match `INK_COLOURS`, and the values are
- * the light-theme sRGB tokens' equivalents.
- *
- * Colours are passed as data far enough into the pipeline that a theme change does
- * not need a shader rebuild, but they are *here* rather than read from CSS because
- * the worker has no document: a `getComputedStyle` call in a worker is not
- * available, and the palette is six values that change with the app's theme, which
- * the host re-posts rather than the renderer discovering.
- */
-export const INK_RENDER_COLOURS: Record<InkColour, [number, number, number]> = {
-  text: [0.13, 0.14, 0.16],
-  accent: [0.23, 0.42, 0.86],
-  warn: [0.85, 0.55, 0.09],
-  good: [0.16, 0.6, 0.36],
-  info: [0.2, 0.55, 0.72],
-  danger: [0.79, 0.24, 0.24],
-};
+import { INK_RENDER_COLOURS, type InkPalette } from "./ink-palette";
+export { INK_RENDER_COLOURS } from "./ink-palette";
 
 /** The palette's order, so a stroke's colour name becomes a shader index. */
 const PALETTE: readonly InkColour[] = [
@@ -92,12 +76,15 @@ uniform vec2 pageSize;   // device pixels, for normalising
 uniform vec4 camera;     // scale, offsetX, offsetY, unused
 uniform float margin;    // the AA margin in page units
 out vec2 vPage;
-out vec2 vA;
-out vec2 vB;
-out vec2 vRadius;
-out vec4 vNeighbours;
-out vec2 vNeighbourRadius;
-out float vMargin;
+// Per-instance constants travel \`flat\`: interpolating a constant across a
+// triangle is not guaranteed bit-exact, and the neighbour tie-break below
+// compares distances computed from these in two different instances.
+flat out vec2 vA;
+flat out vec2 vB;
+flat out vec2 vRadius;
+flat out vec4 vNeighbours;
+flat out vec2 vNeighbourRadius;
+flat out float vMargin;
 void main() {
   vec2 a = seg.xy;
   vec2 b = seg.zw;
@@ -131,12 +118,12 @@ void main() {
 export const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 in vec2 vPage;
-in vec2 vA;
-in vec2 vB;
-in vec2 vRadius;
-in vec4 vNeighbours;
-in vec2 vNeighbourRadius;
-in float vMargin;
+flat in vec2 vA;
+flat in vec2 vB;
+flat in vec2 vRadius;
+flat in vec4 vNeighbours;
+flat in vec2 vNeighbourRadius;
+flat in float vMargin;
 uniform vec4 inkColour;   // rgb + alpha
 uniform float feather;    // AA width in page units
 out vec4 outColour;
@@ -156,20 +143,30 @@ void main() {
   float sd = capsule(vPage, vA, vB, vRadius.x, vRadius.y);
   // Adjacent capsules overlap, and a pixel in both their edges would be blended
   // twice. So a fragment belongs to whichever capsule it is nearest, and the
-  // others discard it. The tie-break is asymmetric — the earlier capsule keeps
-  // an exact tie — so that exactly one of the pair draws it.
+  // others discard it. The two instances see the pixel through different
+  // quads, so \`vPage\` — and with it every distance — can differ by an ulp
+  // between them. An exact tie-break would then let both discard the same
+  // pixel, which is a white pinhole in the middle of the ink. So a capsule only
+  // yields when the neighbour is nearer by a clear margin; inside that margin
+  // both draw, and the double blend is confined to a band far narrower than a
+  // pixel.
+  const float tie = 0.01;
   if (vNeighbourRadius.x >= 0.0) {
     float before = capsule(vPage, vNeighbours.xy, vA, vNeighbourRadius.x, vRadius.x);
-    if (before < sd) discard;
+    if (before < sd - tie) discard;
   }
   if (vNeighbourRadius.y >= 0.0) {
     float after = capsule(vPage, vB, vNeighbours.zw, vRadius.y, vNeighbourRadius.y);
-    if (after <= sd) discard;
+    if (after < sd - tie) discard;
   }
-  float fw = max(fwidth(sd), feather);
+  // The edge ramps over one device pixel, centred on the outline: half a pixel
+  // either side. A wider ramp reads as a pale border around the ink.
+  float fw = max(fwidth(sd), feather) * 0.5;
   float alpha = 1.0 - smoothstep(-fw, fw, sd);
   if (alpha <= 0.0) discard;
-  outColour = vec4(inkColour.rgb, inkColour.a * alpha);
+  // Premultiplied: the blend is ONE / ONE_MINUS_SRC_ALPHA.
+  float a = inkColour.a * alpha;
+  outColour = vec4(inkColour.rgb * a, a);
 }`;
 
 const CORNERS = new Float32Array([0, -1, 1, -1, 1, 1, 0, -1, 1, 1, 0, 1]);
@@ -288,6 +285,7 @@ export class WebglInkRenderer implements InkRenderer {
   private live: InkLiveStroke | null = null;
   private livePacked = 0;
   private liveBatch: Batch | null = null;
+  private palette: InkPalette = INK_RENDER_COLOURS;
   private target: CaptureTarget | null = null;
   private lost = false;
   private stats: InkRenderStats = {
@@ -301,13 +299,17 @@ export class WebglInkRenderer implements InkRenderer {
   constructor(options: WebglInkRendererOptions) {
     this.canvas = options.canvas;
     this.onLifecycle = options.onContextLifecycle;
+    // The canvas is transparent: the paper is CSS under it — the theme's
+    // surface, the rulings — so the ink lands on whatever the theme paints and
+    // dark mode needs no work here. Premultiplied, because that is what the
+    // compositor blends fastest and what the shader writes.
     const attributes: WebGLContextAttributes = {
-      alpha: false,
+      alpha: true,
       antialias: false,
       stencil: true,
       desynchronized: !options.delegating,
       preserveDrawingBuffer: false,
-      premultipliedAlpha: false,
+      premultipliedAlpha: true,
     };
     const gl = options.canvas.getContext(
       "webgl2",
@@ -353,8 +355,9 @@ export class WebglInkRenderer implements InkRenderer {
 
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.clearColor(1, 1, 1, 1);
+    // Premultiplied "over": the shader multiplies colour by coverage itself.
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0, 0, 0, 0);
 
     // Context loss is the main new failure mode of putting ink on the GPU on
     // integrated graphics (§6.2.9). All state is reconstructible from the sidecar
@@ -380,6 +383,10 @@ export class WebglInkRenderer implements InkRenderer {
   setPage(size: { width: number; height: number }, _paper: string): void {
     this.pageWidth = Math.max(1, size.width);
     this.pageHeight = Math.max(1, size.height);
+  }
+
+  setPalette(palette: InkPalette): void {
+    this.palette = { ...INK_RENDER_COLOURS, ...palette };
   }
 
   setBackground(image: InkBackgroundImage | null): void {
@@ -532,11 +539,21 @@ export class WebglInkRenderer implements InkRenderer {
   }
 
   draw(): void {
+    this.render(null);
+  }
+
+  /**
+   * One frame into a target: the screen (transparent, the CSS paper shows
+   * through) or an export framebuffer (opaque white, a PNG has no paper under
+   * it).
+   */
+  private render(framebuffer: WebGLFramebuffer | null): void {
     const gl = this.gl;
     if (this.lost) return;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.viewport(0, 0, this.width, this.height);
-    gl.clearColor(1, 1, 1, 1);
+    if (framebuffer) gl.clearColor(1, 1, 1, 1);
+    else gl.clearColor(0, 0, 0, 0);
     // The stencil is cleared every frame, not just when the highlighter is used:
     // a stale bit would silently refuse the first highlighter fragment of the next
     // frame, which is a stroke that draws in patches.
@@ -581,8 +598,9 @@ export class WebglInkRenderer implements InkRenderer {
 
     // Then the highlighter, deduped through the stencil: the first fragment on a
     // pixel passes and sets the bit, every later overlapping fragment is rejected
-    // by fixed-function hardware before the shader runs. Multiply blending, because
-    // a highlighter darkens what is under it rather than covering it.
+    // by fixed-function hardware before the shader runs. Translucent "over"
+    // rather than multiply: the canvas is transparent and the paper is under it
+    // in CSS, so there is nothing here for a multiply to darken.
     const highlighter = [...this.batches.values()].filter(
       (batch) => batch.highlighter && batch.used > 0,
     );
@@ -590,12 +608,10 @@ export class WebglInkRenderer implements InkRenderer {
       gl.enable(gl.STENCIL_TEST);
       gl.stencilFunc(gl.EQUAL, 0, 0xff);
       gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
-      gl.blendFunc(gl.DST_COLOR, gl.ZERO);
       for (const batch of highlighter) {
         drawn += this.drawBatch(batch, 0.35);
         segments += batch.used;
       }
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.disable(gl.STENCIL_TEST);
     }
 
@@ -620,16 +636,11 @@ export class WebglInkRenderer implements InkRenderer {
     const pixels = new Uint8Array(width * height * 4);
     try {
       const target = this.ensureTarget(width, height);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
-      gl.viewport(0, 0, width, height);
-      gl.clearColor(1, 1, 1, 1);
-      gl.clearStencil(0);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
       // The page, drawn 1:1 into its own pixels.
       this.transform = { scale, offsetX: 0, offsetY: 0, devicePixelRatio: 1 };
       this.width = width;
       this.height = height;
-      this.draw();
+      this.render(target.framebuffer);
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     } finally {
       this.transform = wasTransform;
@@ -850,7 +861,7 @@ export class WebglInkRenderer implements InkRenderer {
     );
     gl.vertexAttribDivisor(neighbourRadiusLocation, 1);
 
-    const rgb = INK_RENDER_COLOURS[batch.colour] ?? INK_RENDER_COLOURS.text;
+    const rgb = this.palette[batch.colour] ?? this.palette.text;
     const alpha = alphaOverride ?? (batch.highlighter ? 0.35 : 1);
     gl.uniform4f(this.colourUniform, rgb[0], rgb[1], rgb[2], alpha);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.used);
