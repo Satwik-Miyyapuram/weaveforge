@@ -150,6 +150,27 @@ export class OneEuroFilter {
    * stroke begin somewhere the pen never was.
    */
   filter(value: number, time: number): number {
+    const dt = this.observe(value, time);
+    if (dt === null) return this.value!;
+    return this.settle(value, dt, this.speed);
+  }
+
+  /**
+   * The first half of {@link filter}: take the sample in and update the speed
+   * estimate, without moving the filtered value yet.
+   *
+   * Returns the timestep to filter over, or `null` when there is none — the
+   * first sample of a stroke (which passes through untouched: a first sample
+   * pulled toward zero would begin the stroke somewhere the pen never was), or
+   * two samples with the same timestamp, where the estimate simply stands.
+   * Snapping to the raw value there would put an unfiltered point into the
+   * stroke wherever a platform repeats a sample, and a division by zero would
+   * poison every later one.
+   *
+   * Split from {@link settle} so a 2-D filter can read both axes' speeds before
+   * choosing one cutoff for the pair.
+   */
+  observe(value: number, time: number): number | null {
     if (
       this.value === null ||
       this.previousTime === null ||
@@ -158,31 +179,25 @@ export class OneEuroFilter {
       this.value = value;
       this.previousValue = value;
       this.previousTime = time;
-      return value;
+      return null;
     }
-
     const dt = time - this.previousTime;
-    if (!(dt > 0)) {
-      // Two samples with the same timestamp, or a clock that went backwards.
-      // There is no timestep to filter over, so the estimate stands: snapping
-      // to the raw value here would put an unfiltered point into the stroke
-      // wherever a platform repeats a sample, and a division by zero would
-      // poison every later one.
-      return this.value;
-    }
+    if (!(dt > 0)) return null;
 
     const rawDerivative = (value - this.previousValue) / dt;
     const derivativeAlpha = oneEuroAlpha(this.options.derivativeCutoff, dt);
     this.derivative += derivativeAlpha * (rawDerivative - this.derivative);
-
-    const cutoff =
-      this.options.minCutoff + this.options.beta * Math.abs(this.derivative);
-    const alpha = oneEuroAlpha(cutoff, dt);
-    this.value += alpha * (value - this.value);
-
     this.previousValue = value;
     this.previousTime = time;
-    return this.value;
+    return dt;
+  }
+
+  /** The second half: move the filtered value with the cutoff `speed` earns. */
+  settle(value: number, dt: number, speed: number): number {
+    const cutoff = this.options.minCutoff + this.options.beta * speed;
+    const alpha = oneEuroAlpha(cutoff, dt);
+    this.value! += alpha * (value - this.value!);
+    return this.value!;
   }
 }
 
@@ -209,9 +224,9 @@ export interface FilteredNibSample {
 /**
  * The one filter state the pen path owns: position *and* pressure (D13).
  *
- * The two position channels are filtered independently, which is what the
- * original filter does — a shared isotropic filter cannot be right in both axes
- * of a stroke that is fast horizontally and slow vertically.
+ * The two position channels keep their own state but share one cutoff, taken
+ * from the pen's speed across the page. The original filter runs each axis on
+ * its own speed; see {@link NibFilter.filter} for why that bends corners.
  */
 export class NibFilter {
   private readonly x: OneEuroFilter;
@@ -268,9 +283,19 @@ export class NibFilter {
       Number.isFinite(sample.pressure) &&
       sample.pressure > 0 &&
       sample.pressure !== 0.5;
+    // One cutoff for both axes, from the pen's speed along the page rather than
+    // each axis's own. Per-axis speed is what the paper does, and it is wrong
+    // for handwriting at every corner: at the apex of a "Λ" the y velocity
+    // passes through zero while x carries on, so y is filtered at `minCutoff`
+    // for a few samples while x is not — the apex is dragged sideways into a
+    // shoulder. The pen's speed does not drop at a sharp corner drawn quickly,
+    // and neither should the filter's response.
+    const dtX = this.x.observe(sample.x, sample.t);
+    const dtY = this.y.observe(sample.y, sample.t);
+    const speed = Math.hypot(this.x.speed, this.y.speed);
     const filtered = {
-      x: this.x.filter(sample.x, sample.t),
-      y: this.y.filter(sample.y, sample.t),
+      x: dtX === null ? this.x.last! : this.x.settle(sample.x, dtX, speed),
+      y: dtY === null ? this.y.last! : this.y.settle(sample.y, dtY, speed),
       pressure: reports
         ? this.pressure.filter(sample.pressure, sample.t)
         : sample.pressure,
