@@ -37,3 +37,19 @@ test("setStatus throws for unknown id", async () => {
   const { uc } = makeUseCase();
   await assert.rejects(() => uc.setStatus("nope", "done"));
 });
+
+test("setTitle renames, and rejects an empty title", async () => {
+  const { uc } = makeUseCase();
+  const s = await uc.add({ title: "Draft" });
+  assert.equal((await uc.setTitle(s.id, "  Final ")).title, "Final");
+  await assert.rejects(() => uc.setTitle(s.id, "  "));
+});
+
+test("setParent nests, clears with null, and refuses a loop", async () => {
+  const { uc } = makeUseCase();
+  const chapter = await uc.add({ title: "Chapter" });
+  const section = await uc.add({ title: "Section" });
+  assert.equal((await uc.setParent(section.id, chapter.id)).parentId, chapter.id);
+  await assert.rejects(() => uc.setParent(chapter.id, section.id), /inside itself/);
+  assert.equal((await uc.setParent(section.id, null)).parentId, undefined);
+});

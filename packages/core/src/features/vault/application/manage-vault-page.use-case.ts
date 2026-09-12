@@ -16,6 +16,8 @@ import { NotFoundError } from "../../../shared/errors.js";
 export interface EditVaultPageInput {
   title?: string;
   body?: string;
+  /** A new parent; `null` moves the page to the top level. Absent leaves it. */
+  parentId?: string | null;
 }
 
 export interface ManageVaultPageDeps {
@@ -71,14 +73,39 @@ export class ManageVaultPageUseCase {
     if (normalizeTitleKey(title) !== normalizeTitleKey(existing.title)) {
       await this.assertTitleUnique(title, id);
     }
+    if (input.parentId !== undefined && input.parentId !== null) {
+      await this.assertNotUnder(input.parentId, id);
+    }
     const updated: VaultPage = {
       ...existing,
       title,
       body: input.body !== undefined ? input.body : existing.body,
+      ...(input.parentId === undefined
+        ? {}
+        : { parentId: input.parentId === null ? undefined : input.parentId }),
       updatedAt: this.deps.clock.nowIso(),
     };
     await this.deps.repository.save(updated);
     return updated;
+  }
+
+  /**
+   * A page cannot be moved under itself or under one of its descendants — the
+   * parent chain would loop and the tree would drop the whole branch.
+   */
+  private async assertNotUnder(parentId: string, id: string): Promise<void> {
+    let cursor: string | undefined = parentId;
+    const seen = new Set<string>();
+    while (cursor) {
+      if (cursor === id) {
+        throw new VaultPageValidationError("A note cannot be moved inside itself.");
+      }
+      if (seen.has(cursor)) return; // an existing loop is not this move's doing
+      seen.add(cursor);
+      const parent = await this.deps.repository.getById(cursor);
+      if (!parent) throw new NotFoundError(`No vault page with id "${parentId}".`);
+      cursor = parent.parentId;
+    }
   }
 
   async remove(id: string): Promise<void> {

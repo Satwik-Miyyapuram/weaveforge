@@ -77,3 +77,17 @@ test("update: throws for unknown id and blank title; remove deletes", async () =
   await uc.remove(created.id);
   assert.equal(await repo.getById(created.id), null);
 });
+
+test("update: moves a page under another, to the top with null, and never into itself", async () => {
+  const { uc } = makeUseCase();
+  const folder = await uc.add({ title: "Folder" });
+  const page = await uc.add({ title: "Page" });
+  const moved = await uc.update(page.id, { parentId: folder.id });
+  assert.equal(moved.parentId, folder.id);
+  // Absent leaves the parent alone; null clears it.
+  assert.equal((await uc.update(page.id, { body: "x" })).parentId, folder.id);
+  assert.equal((await uc.update(page.id, { parentId: null })).parentId, undefined);
+  await assert.rejects(uc.update(folder.id, { parentId: folder.id }), /inside itself/);
+  await uc.update(page.id, { parentId: folder.id });
+  await assert.rejects(uc.update(folder.id, { parentId: page.id }), /inside itself/);
+});

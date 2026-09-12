@@ -32,6 +32,32 @@ export class ManageReportSectionUseCase {
     return section;
   }
 
+  /** Rename in place, from the explorer's inline editor. */
+  async setTitle(id: string, title: string): Promise<ReportSection> {
+    const trimmed = title.trim();
+    if (!trimmed) throw new ReportSectionValidationError("Section title is required.");
+    return this.mutate(id, (s) => ({ ...s, title: trimmed }));
+  }
+
+  /** Move under another section, or to the top with `null`. */
+  async setParent(id: string, parentId: string | null): Promise<ReportSection> {
+    if (parentId) {
+      let cursor: string | undefined = parentId;
+      const seen = new Set<string>();
+      while (cursor) {
+        if (cursor === id) {
+          throw new ReportSectionValidationError("A section cannot be moved inside itself.");
+        }
+        if (seen.has(cursor)) break;
+        seen.add(cursor);
+        const parent = await this.deps.repository.getById(cursor);
+        if (!parent) throw new NotFoundError(`No report section with id "${parentId}".`);
+        cursor = parent.parentId;
+      }
+    }
+    return this.mutate(id, (s) => ({ ...s, parentId: parentId ?? undefined }));
+  }
+
   async setStatus(id: string, status: ReportStatus): Promise<ReportSection> {
     return this.mutate(id, (s) => ({ ...s, status }));
   }
