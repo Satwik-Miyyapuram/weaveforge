@@ -13,7 +13,12 @@
  * nib is the tool's (§6.3).
  */
 
-import { INK_COLOURS, INK_PEN_WIDTHS, INK_HIGHLIGHTER_WIDTH, type InkHand } from "@weaveforge/core";
+import {
+  INK_COLOURS,
+  INK_PEN_WIDTHS,
+  INK_HIGHLIGHTER_WIDTH,
+  type InkHand,
+} from "@weaveforge/core";
 
 /** The tools the bar offers, in the order the plan's sketch draws them. */
 export const INK_BAR_TOOLS = ["pen", "highlighter", "eraser", "lasso"] as const;
@@ -28,7 +33,10 @@ export const HIGHLIGHTER_NIB = INK_HIGHLIGHTER_WIDTH;
  * A highlighter is 6 mm because its tool says so; the eraser and the lasso do not
  * draw at all, so their width is only ever read by a test or a status line.
  */
-export function nibForTool(tool: InkBarTool | "shape", penWidth: number): number {
+export function nibForTool(
+  tool: InkBarTool | "shape",
+  penWidth: number,
+): number {
   if (tool === "highlighter") return HIGHLIGHTER_NIB;
   if (tool === "eraser") return 0;
   return penWidth;
@@ -60,6 +68,8 @@ export interface InkBarProps {
   canRedo?: boolean;
   /** How many strokes the lasso holds; the selection tools show only then. */
   selected?: number;
+  showTextLayer?: boolean;
+  onToggleTextLayer?: () => void;
   onTool: (tool: InkBarTool | "shape") => void;
   onColour: (colour: (typeof INK_COLOURS)[number]) => void;
   onWidth: (width: number) => void;
@@ -92,6 +102,81 @@ export function toolLabel(tool: InkBarTool | "shape"): string {
   }
 }
 
+function toolIcon(tool: InkBarTool) {
+  switch (tool) {
+    case "pen":
+      return (
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+          <path d="m15 5 4 4" />
+        </svg>
+      );
+    case "highlighter":
+      return (
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m9 11-6 6v3h3l6-6" />
+          <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
+        </svg>
+      );
+    case "eraser":
+      return (
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+          <path d="M22 21H7" />
+          <path d="m5 11 9 9" />
+        </svg>
+      );
+    case "lasso":
+      return (
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M7 22a5 5 0 0 1-2-4" />
+          <path d="M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1" />
+          <path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+        </svg>
+      );
+  }
+}
+
 export function InkBar({
   tool,
   colour,
@@ -110,6 +195,8 @@ export function InkBar({
   canUndo = true,
   canRedo = true,
   selected = 0,
+  showTextLayer = false,
+  onToggleTextLayer,
   onTool,
   onColour,
   onWidth,
@@ -127,129 +214,340 @@ export function InkBar({
 }: InkBarProps) {
   return (
     <div className="ink-bar" role="toolbar" aria-label="Ink tools">
-      {INK_BAR_TOOLS.map((entry) => (
+      {/* 1. Drawing Tools Segmented Pill */}
+      <div
+        className="ink-bar-group ink-bar-tools"
+        role="radiogroup"
+        aria-label="Drawing tools"
+      >
+        {INK_BAR_TOOLS.map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            className="ink-tool ink-tool-icon-only"
+            aria-pressed={tool === entry}
+            aria-label={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
+            title={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
+            onClick={() => onTool(entry)}
+          >
+            {toolIcon(entry)}
+          </button>
+        ))}
+      </div>
+
+      <span className="ink-sep" aria-hidden="true" />
+
+      {/* 2. Full 6-Color Swatches Palette */}
+      <div className="ink-swatches" role="radiogroup" aria-label="Ink color">
+        {INK_COLOURS.map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            className={`ink-swatch ink-swatch-${entry}`}
+            aria-pressed={colour === entry}
+            aria-label={`Ink colour: ${entry}`}
+            title={`Ink colour: ${entry}`}
+            onClick={() => onColour(entry)}
+          />
+        ))}
+      </div>
+
+      <span className="ink-sep" aria-hidden="true" />
+
+      {/* 3. Nib Width Dots */}
+      <div
+        className="ink-bar-group ink-bar-widths"
+        title="Pen nib width"
+        style={{ opacity: tool === "pen" ? 1 : 0.45 }}
+      >
+        {INK_PEN_WIDTHS.map((entry) => {
+          const dotSize = entry <= 3 ? 4 : entry <= 6 ? 7 : 10;
+          return (
+            <button
+              key={entry}
+              type="button"
+              className="ink-tool ink-tool-icon-only ink-tool-nib"
+              aria-pressed={width === entry && tool === "pen"}
+              aria-label={`Nib ${(entry / 10).toFixed(1)} mm`}
+              title={`Nib ${(entry / 10).toFixed(1)} mm`}
+              onClick={() => onWidth(entry)}
+            >
+              <span
+                className="ink-nib-dot"
+                style={{ width: `${dotSize}px`, height: `${dotSize}px` }}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      <span className="ink-sep" aria-hidden="true" />
+
+      {/* 4. Undo / Redo */}
+      <div className="ink-bar-group">
         <button
-          key={entry}
           type="button"
-          className="ink-tool"
-          aria-pressed={tool === entry}
-          title={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
-          onClick={() => onTool(entry)}
+          className="ink-tool ink-tool-icon-only"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Undo (⌘Z)"
+          aria-label="Undo"
         >
-          {toolLabel(entry)}
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 7v6h6" />
+            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+          </svg>
         </button>
-      ))}
-      <span className="ink-sep" aria-hidden="true" />
-      {INK_COLOURS.slice(0, 3).map((entry) => (
         <button
-          key={entry}
           type="button"
-          className={`ink-swatch ink-swatch-${entry}`}
-          aria-pressed={colour === entry}
-          aria-label={`Ink colour: ${entry}`}
-          title={`Ink colour: ${entry}`}
-          onClick={() => onColour(entry)}
-        />
-      ))}
-      <span className="ink-sep" aria-hidden="true" />
-      {INK_PEN_WIDTHS.map((entry) => (
-        <button
-          key={entry}
-          type="button"
-          className="ink-tool ink-tool-nib"
-          aria-pressed={width === entry && tool === "pen"}
-          aria-label={`Nib ${(entry / 10).toFixed(1)} mm`}
-          title={`Nib ${(entry / 10).toFixed(1)} mm`}
-          onClick={() => onWidth(entry)}
+          className="ink-tool ink-tool-icon-only"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Redo (⌘⇧Z)"
+          aria-label="Redo"
         >
-          {(entry / 10).toFixed(1)}
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 7v6h-6" />
+            <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+          </svg>
         </button>
-      ))}
-      <span className="ink-sep" aria-hidden="true" />
-      <button type="button" className="ink-tool" onClick={onUndo} disabled={!canUndo} title="Undo (⌘Z)">
-        Undo
-      </button>
-      <button type="button" className="ink-tool" onClick={onRedo} disabled={!canRedo} title="Redo (⌘⇧Z)">
-        Redo
-      </button>
+      </div>
+
+      {/* Lasso Selection Actions */}
       {selected > 0 ? (
         <>
           <span className="ink-sep" aria-hidden="true" />
-          <button
-            type="button"
-            className="ink-tool"
-            onClick={onCopyAsText}
-            title="Copy the selected strokes' recognised text"
-          >
-            Copy as text
-          </button>
-          <button
-            type="button"
-            className="ink-tool"
-            onClick={onDeleteSelection}
-            title="Delete the selected strokes (Delete)"
-          >
-            Delete {selected}
-          </button>
+          <div className="ink-bar-group">
+            <button
+              type="button"
+              className="ink-tool"
+              onClick={onCopyAsText}
+              title="Copy the selected strokes' recognised text"
+            >
+              Copy as text
+            </button>
+            <button
+              type="button"
+              className="ink-tool"
+              onClick={onDeleteSelection}
+              title="Delete the selected strokes (Delete)"
+            >
+              Delete ({selected})
+            </button>
+          </div>
         </>
       ) : null}
+
       <span className="ink-sep" aria-hidden="true" />
-      <button type="button" className="ink-tool" onClick={onPrevPage} disabled={page <= 1} title="Previous page">
-        ‹
-      </button>
+
+      {/* 5. Page Switcher & Add Page */}
+      <div className="ink-page-pill">
+        <button
+          type="button"
+          className="ink-tool ink-tool-icon-only"
+          onClick={onPrevPage}
+          disabled={page <= 1}
+          title="Previous page"
+          aria-label="Previous page"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <span className="ink-page-count">
+          {page} / {pages}
+        </span>
+        <button
+          type="button"
+          className="ink-tool ink-tool-icon-only"
+          onClick={onNextPage}
+          disabled={page >= pages}
+          title="Next page"
+          aria-label="Next page"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+
       <button
         type="button"
-        className="ink-tool"
-        onClick={onNextPage}
-        disabled={page >= pages}
-        title="Next page"
+        className="ink-tool ink-tool-icon-only"
+        onClick={onAddPage}
+        title="Add new page"
+        aria-label="Add new page"
       >
-        ›
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </svg>
       </button>
-      <button type="button" className="ink-tool" onClick={onAddPage} title="Add page">
-        Add page
-      </button>
+
+      <span className="ink-sep" aria-hidden="true" />
+
+      {/* 6. OCR Recognise */}
       <button
         type="button"
-        className="ink-tool"
+        className="ink-tool ink-action-recognise"
         onClick={onRecognise}
         disabled={busy}
         title="Recognise this page (⌘⇧R)"
       >
-        {busy ? (progress ?? "Recognising…") : "Recognise"}
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+        </svg>
+        <span>{busy ? (progress ?? "Recognising…") : "Recognise"}</span>
       </button>
-      <button type="button" className="ink-tool" onClick={onExport} title="Export page PNG (⌘⇧E)">
-        Export PNG
+
+      {/* 7. Export PNG */}
+      <button
+        type="button"
+        className="ink-tool ink-tool-icon-only"
+        onClick={onExport}
+        title="Export page PNG (⌘⇧E)"
+        aria-label="Export page PNG"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <circle cx="9" cy="9" r="2" />
+          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+        </svg>
       </button>
+
+      {/* 8. Text Layer Toggle */}
+      {onToggleTextLayer ? (
+        <button
+          type="button"
+          className="ink-tool ink-tool-icon-only"
+          onClick={onToggleTextLayer}
+          aria-pressed={showTextLayer}
+          title={
+            showTextLayer ? "Hide recognized text" : "Show recognized text"
+          }
+          aria-label={
+            showTextLayer ? "Hide recognized text" : "Show recognized text"
+          }
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect width="18" height="18" x="3" y="3" rx="2" />
+            <path d="M15 3v18" />
+            <path d="M7 8h4M7 12h4M7 16h2" />
+          </svg>
+        </button>
+      ) : null}
+
       <span className="ink-sep" aria-hidden="true" />
-      <label className="ink-pen-only" title="Ignore touch entirely; the wrist guard">
+
+      {/* 9. Wrist Guard & Handedness */}
+      <label
+        className="ink-pen-only"
+        title="Ignore touch entirely; the wrist guard"
+      >
         <input
           type="checkbox"
           className="themed-check"
           checked={penOnly}
           onChange={(event) => onPenOnly(event.target.checked)}
         />
-        Pen only
+        <span>Pen only</span>
       </label>
+
       <button
         type="button"
-        className="ink-tool"
+        className="ink-tool ink-tool-hand"
         onClick={() => onHand(hand === "right" ? "left" : "right")}
         title="Which hand writes: the resting palm is expected on that side"
         aria-label={`Writing hand: ${hand}`}
       >
         {hand === "right" ? "Right hand" : "Left hand"}
       </button>
+
       <span className="ink-bar-spacer" />
-      {/*
-        The readout §6.1 draws at the end of the bar: which page, how many strokes,
-        whether a pen is being used, and how much of the page the recogniser is sure
-        of. `backend` is appended when it is not WebGL2, because a fallback renderer
-        is something the user should be able to see rather than wonder about.
-      */}
+
+      {/* 10. End Readout */}
       <span className="ink-readout" data-backend={backend ?? "starting"}>
-        page {page} / {pages} · {strokes} {strokes === 1 ? "stroke" : "strokes"} ·{" "}
-        {penSeen ? "pen" : "pointer"} · recognised {Math.round(recognised * 100)} %
+        p.{page}/{pages} · {strokes} {strokes === 1 ? "stroke" : "strokes"} ·{" "}
+        {penSeen ? "pen" : "pointer"} · {Math.round(recognised * 100)}%
         {backend && backend !== "webgl2" ? ` · ${backend}` : ""}
         {delegating ? " · delegated" : ""}
       </span>

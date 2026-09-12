@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, session, shell } from "electron";
 import fs from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -765,6 +765,9 @@ app.on("will-quit", (event) => {
   runBoundedQuit({ cleanup: () => localDb.close(), exit: () => app.exit(0) });
 });
 
+// Disable Chromium history navigation gestures (swiping back/forward across the screen)
+app.commandLine.appendSwitch("overscroll-history-navigation", "0");
+
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
 if (!app.requestSingleInstanceLock()) {
@@ -780,6 +783,19 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // Rewrite CORS headers for remote API calls from packaged custom app:// scheme
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
+      if (details.url.includes("weaveforge.org")) {
+        responseHeaders["access-control-allow-origin"] = ["*"];
+        responseHeaders["access-control-allow-headers"] = ["*"];
+        responseHeaders["access-control-allow-methods"] = [
+          "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+        ];
+      }
+      callback({ responseHeaders });
+    });
+
     if (bundled) serveBundle();
     // Started before the window, so a sign-in cannot come back to a port that
     // is not listening yet.

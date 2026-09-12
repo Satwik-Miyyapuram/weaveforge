@@ -1228,23 +1228,48 @@
   overflow: hidden;
 }
 
+.ink-wrap.ink-text-hidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ink-wrap.ink-text-hidden .ink-text {
+  display: none;
+}
+
 .ink-bar {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  overflow-x: auto;
-  white-space: nowrap;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  scrollbar-width: none;
+}
+
+.ink-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.ink-bar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--chip);
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 .ink-tool {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 3px 9px;
+  height: 28px;
+  padding: 0 8px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: none;
@@ -1252,40 +1277,122 @@
   font: inherit;
   font-size: 0.78rem;
   cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
 }
 
-.ink-tool:hover { background: var(--chip); color: var(--text); }
-.ink-tool[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
-.ink-tool:disabled { opacity: 0.5; cursor: default; }
-.ink-tool-nib { font-family: var(--font-mono); font-size: 0.72rem; }
+.ink-tool:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.ink-tool[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.ink-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ink-tool-icon-only {
+  width: 28px;
+  padding: 0;
+}
+
+.ink-tool-hand {
+  font-size: 0.74rem;
+  padding: 0 8px;
+}
+
+.ink-action-recognise {
+  padding: 0 10px;
+}
+
+.ink-nib-dot {
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ink-swatches {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+}
+
+.ink-page-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--chip);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  padding: 0 4px;
+}
+
+.ink-page-pill .ink-tool {
+  height: 24px;
+  width: 24px;
+  padding: 0;
+}
+
+.ink-page-count {
+  padding: 0 4px;
+  font-weight: 500;
+  white-space: nowrap;
+}
 
 .ink-sep {
   width: 1px;
-  height: 16px;
-  margin: 0 6px;
+  height: 18px;
+  margin: 0 4px;
   background: var(--border);
+  flex-shrink: 0;
 }
 
 .ink-swatch {
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid var(--border-strong);
+  border: 1.5px solid var(--border-strong);
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
 }
 
-.ink-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent-soft); }
+.ink-swatch:hover {
+  transform: scale(1.18);
+}
+
+.ink-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+  transform: scale(1.1);
+}
+
 .ink-swatch-text { background: var(--text); }
 .ink-swatch-accent { background: var(--accent); }
 .ink-swatch-warn { background: var(--s-warn); }
+.ink-swatch-good { background: var(--s-good); }
+.ink-swatch-info { background: var(--s-info); }
+.ink-swatch-danger { background: var(--s-danger); }
 
 .ink-pen-only {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--muted);
   font-size: 0.74rem;
+  cursor: pointer;
+  user-select: none;
 }
 
 .ink-bar-spacer { flex: 1 1 auto; }
@@ -1294,6 +1401,7 @@
   color: var(--faint);
   font-family: var(--font-mono);
   font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .ink-page-scroll {
@@ -1314,7 +1422,7 @@
   border-radius: 2px;
   box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
   background: var(--surface);
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 /* Paper is a CSS background, so it costs no storage (§6.2.12). */

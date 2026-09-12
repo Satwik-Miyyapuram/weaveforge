@@ -117,7 +117,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
   // Handwritten: the same tree and the same wikilink table as a note, a
   // different renderer, and the `t-ink` tint the prototype gives its tab.
   ink_page: {
-    icon: "pencil",
+    icon: "ink",
     tint: "danger",
     suffix: ".ink.md",
     document: "ink",

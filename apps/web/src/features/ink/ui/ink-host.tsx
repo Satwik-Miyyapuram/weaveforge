@@ -155,7 +155,22 @@ export function InkHost({
 }: InkHostProps) {
   const [pageIndex, setPageIndex] = useState(initialPage);
   const [tool, setTool] = useState<InkBarTool | "shape">("pen");
-  const [colour, setColour] = useState<InkColour>("text");
+  const [penColour, setPenColour] = useState<InkColour>("text");
+  const [highlighterColour, setHighlighterColour] = useState<InkColour>("warn");
+  const [showTextLayer, setShowTextLayer] = useState<boolean>(false);
+  const colour = tool === "highlighter" ? highlighterColour : penColour;
+
+  const onColourChange = useCallback(
+    (c: InkColour) => {
+      if (tool === "highlighter") {
+        setHighlighterColour(c);
+      } else {
+        setPenColour(c);
+        if (tool !== "pen") setTool("pen");
+      }
+    },
+    [tool],
+  );
   const [width, setWidth] = useState<number>(INK_PEN_WIDTH);
   const [zoom, setZoom] = useState(1);
   const [strokes, setStrokes] = useState(0);
@@ -607,10 +622,20 @@ export function InkHost({
           break;
         case "1":
         case "2":
-        case "3": {
-          const palette: InkColour[] = ["text", "accent", "warn"];
+        case "3":
+        case "4":
+        case "5":
+        case "6": {
+          const palette: InkColour[] = [
+            "text",
+            "accent",
+            "warn",
+            "good",
+            "info",
+            "danger",
+          ];
           const chosen = palette[Number(event.key) - 1];
-          if (chosen) setColour(chosen);
+          if (chosen) onColourChange(chosen);
           break;
         }
         default:
@@ -620,6 +645,7 @@ export function InkHost({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
+    onColourChange,
     onDeleteSelection,
     onExport,
     recognise,
@@ -664,7 +690,7 @@ export function InkHost({
   const confidence = recognised?.confidence ?? 0;
 
   return (
-    <div className="ink-wrap">
+    <div className={`ink-wrap${showTextLayer ? "" : " ink-text-hidden"}`}>
       <InkBar
         tool={tool}
         colour={colour}
@@ -683,6 +709,8 @@ export function InkHost({
         canUndo={history.undo > 0}
         canRedo={history.redo > 0}
         selected={selection.length}
+        showTextLayer={showTextLayer}
+        onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}
         onTool={(next) => {
           if (next !== "lasso" && selection.length > 0) {
             send({ type: "select-clear" });
@@ -690,7 +718,7 @@ export function InkHost({
           }
           setTool(next);
         }}
-        onColour={setColour}
+        onColour={onColourChange}
         onWidth={(next) => {
           setWidth(next);
           setTool("pen");
