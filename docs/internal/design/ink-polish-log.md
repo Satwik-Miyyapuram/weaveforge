@@ -40,6 +40,8 @@ were tuning, not architecture.
 | `4bbc681` | "Insert PDF page" did nothing on the second try, and sometimes the first | pdf.js detaches the `ArrayBuffer` it is handed, so the cached bytes were empty on the next call | Each `getDocument` gets a copy of the bytes |
 | `0ec436e` | Panning at zoom blanked the strokes for a moment, then they came back | The canvas was page-sized in CSS pixels; at 4× the compositor re-tiled it on every scroll and the tiles lagged | The canvas is a sticky window the size of the scroller, the sheet is what scrolls; the camera offset follows the scroll (one message per scroll, no re-raster) |
 | `0ec436e` | Inserted pages came in at the PDF's own aspect, so printing would scale | Page size was taken from the source | Every inserted page is placed on a white A4 sheet, fit and centred; images insert the same way |
+| `88fc7e3` | A paper in the workspace had no way to show its PDF; the reader route duplicated the shell | The reader was one screen, not a component | `PaperPdfPane` is the reader's paper half; a paper tab has a third mode, PDF, and a "Load PDF…" button writes the user's own file into the workspace byte cache |
+| `0876071` | Adding a paper offline failed: `malformed array literal: "[]"` | Every array was JSON-encoded, wrong for `text[]` columns | Array columns are named per table and encoded as `{"a","b"}`; jsonb arrays stay JSON |
 
 ## 3. How it was verified without a hand on the pen
 
