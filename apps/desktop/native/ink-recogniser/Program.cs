@@ -305,6 +305,14 @@ internal static class Program
         {
             var analyzer = new InkAnalyzer();
             analyzer.AddDataForStrokes(strokes);
+            // Everything here is writing: the note asked for text. Left to its
+            // own classifier the analyser files a two-point stroke — a "1"
+            // simplified to its ends, a dash, a "t" bar — as a drawing, and
+            // then the whole line it sits in comes back empty.
+            foreach (var stroke in strokes)
+            {
+                analyzer.SetStrokeDataKind(stroke.Id, InkAnalysisStrokeKind.Writing);
+            }
             // Blocking rather than awaiting: this thread is the apartment, and
             // `AsTask()` runs the operation's completion on the thread pool, so
             // there is nothing for this thread to pump. See `Main`.
