@@ -289,6 +289,38 @@ export function strokeCurveAt(
 export const INK_AA_MARGIN_PX = 1;
 
 /**
+ * The most device pixels a page canvas is given. The canvas covers the whole
+ * page, so at 4× zoom on a 2× display an A4 page would want 8700 × 12300 px —
+ * 430 MB of colour alone, plus the stencil — and the GPU refuses the
+ * allocation, which shows as the ink vanishing at some zoom level. Above this
+ * budget the backing store's pixel ratio is lowered instead (`backingRatio`),
+ * so the page stays drawn, slightly softer than the display could show.
+ * 20 M px is 80 MB of colour: 4000 × 5000, or the page at ~2.4× on this
+ * machine's 1.25× display, before any softening.
+ */
+export const INK_MAX_BACKING_PIXELS = 20_000_000;
+
+/** The largest single dimension a backing store is allowed, under WebGL's floor. */
+export const INK_MAX_BACKING_DIMENSION = 8192;
+
+/**
+ * The pixel ratio a canvas of `cssWidth × cssHeight` is given: the display's,
+ * unless the backing store would exceed `INK_MAX_BACKING_PIXELS` or
+ * `INK_MAX_BACKING_DIMENSION`, in which case as much of it as fits.
+ */
+export function backingRatio(
+  cssWidth: number,
+  cssHeight: number,
+  devicePixelRatio: number,
+): number {
+  const w = Math.max(1, cssWidth);
+  const h = Math.max(1, cssHeight);
+  const byArea = Math.sqrt(INK_MAX_BACKING_PIXELS / (w * h));
+  const byEdge = INK_MAX_BACKING_DIMENSION / Math.max(w, h);
+  return Math.max(0.1, Math.min(devicePixelRatio, byArea, byEdge));
+}
+
+/**
  * The half-extent of the quad that encloses a segment, per axis.
  *
  * This is the one piece of the SDF pipeline that is CPU arithmetic, and it is

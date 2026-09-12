@@ -71,6 +71,7 @@ import {
   samePalette,
   type InkPalette,
 } from "../render/ink-palette";
+import { backingRatio } from "../render/ink-renderer";
 import {
   installNativeStrokeHandler,
   nativeInkBridge,
@@ -587,7 +588,12 @@ export function InkHost({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const box = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    // The backing store is capped, so a deep zoom softens rather than vanishes.
+    const dpr = backingRatio(
+      box.width,
+      box.height,
+      window.devicePixelRatio || 1,
+    );
     send({
       type: "viewport",
       transform: { scale, offsetX: 0, offsetY: 0, devicePixelRatio: dpr },
