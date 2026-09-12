@@ -64,6 +64,11 @@ import {
 
 import { usePenCapture } from "../application/use-pen-capture";
 import { trailStyle } from "../application/ink-trail";
+import {
+  installNativeStrokeHandler,
+  nativeInkBridge,
+  nativeStrokeEvents,
+} from "../application/native-bridge";
 import type {
   InkStrokeHeader,
   InkWorkerEvent,
@@ -502,6 +507,101 @@ export function InkHost({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  /*
+   * The native shell (docs/internal/design/ink-native-bridges.md), when there
+   * is one. It inks over the page itself and hands each finished stroke back;
+   * everything below keeps it told where the page is and what the pen is.
+   */
+  const native = useMemo(() => nativeInkBridge(), []);
+
+  /** The overlay inks only over the page: its box, kept current as it moves. */
+  useEffect(() => {
+    if (!native) return;
+    const canvas = canvasRef.current;
+    const scroller = scrollRef.current;
+    if (!canvas || !scroller) return;
+    const tell = () => {
+      const box = canvas.getBoundingClientRect();
+      native.setViewport({
+        left: box.left,
+        top: box.top,
+        width: box.width,
+        height: box.height,
+      });
+    };
+    tell();
+    const observer = new ResizeObserver(tell);
+    observer.observe(canvas);
+    scroller.addEventListener("scroll", tell, { passive: true });
+    window.addEventListener("resize", tell);
+    window.addEventListener("scroll", tell, { passive: true });
+    return () => {
+      observer.disconnect();
+      scroller.removeEventListener("scroll", tell);
+      window.removeEventListener("resize", tell);
+      window.removeEventListener("scroll", tell);
+      native.clearViewport();
+    };
+  }, [native, pageCount, scale]);
+
+  /** The overlay's wet stroke looks like the ink it will become. */
+  useEffect(() => {
+    if (!native) return;
+    const pageWidthPx = canvasRef.current?.getBoundingClientRect().width ?? 0;
+    native.setTool({
+      tool: tool === "highlighter" ? "highlighter" : "pen",
+      colour,
+      widthPx: trailStyle({
+        colour,
+        tool: tool === "highlighter" ? "highlighter" : "pen",
+        width: nib,
+        pageWidthPx,
+      }).diameter,
+    });
+  }, [native, tool, colour, nib, scale]);
+
+  useEffect(() => {
+    native?.setPenOnly(pen.penOnly);
+  }, [native, pen.penOnly]);
+
+  useEffect(() => {
+    native?.setHandedness(hand);
+  }, [native, hand]);
+
+  /**
+   * A finished native stroke, through the same session the pointer events
+   * use — the gate, the filter, the writer, the worker — so it is filtered,
+   * indexed and saved exactly as a web stroke is. The overlay is cleared two
+   * frames later, once the worker has had a frame to draw the committed one.
+   */
+  useEffect(() => {
+    if (!native) return;
+    return installNativeStrokeHandler((points) => {
+      const events = nativeStrokeEvents(points, window.devicePixelRatio || 1);
+      const session = pen.session;
+      const first = events[0];
+      if (!first) {
+        native.clearOverlay();
+        return;
+      }
+      const last = events.length > 1 ? events[events.length - 1]! : first;
+      // Down, one raw update carrying the middle as its coalesced events, up.
+      const middle = events.slice(1, -1);
+      const dispatched = middle.pop();
+      session.pointerDown(first);
+      if (dispatched)
+        session.pointerRawUpdate({
+          ...dispatched,
+          getCoalescedEvents: () => middle,
+        });
+      if (last !== first) session.pointerUp(last);
+      else session.pointerUp({ ...first, t: first.t + 1 });
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => native.clearOverlay()),
+      );
+    });
+  }, [native, pen.session]);
 
   /** A recognised page becomes the worker's page, the column's lines and the body's text. */
   const applyRecognised = useCallback(
