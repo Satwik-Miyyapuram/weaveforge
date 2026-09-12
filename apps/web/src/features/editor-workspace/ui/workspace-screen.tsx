@@ -53,7 +53,8 @@ import {
 import type { ExplorerSection } from "../application/explorer-state";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
-import { NewDocumentDialog, type FolderOption } from "./new-document-dialog";
+import { creationTarget, type Draft } from "../application/explorer-edit";
+import { readHidden, writeHidden } from "../application/explorer-state";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
@@ -97,7 +98,20 @@ export function WorkspaceScreen() {
   const [layout, setLayout] = useState<PaneLayout>(() => emptyLayout());
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [creating, setCreating] = useState<"note" | "ink" | "folder" | null>(null);
+  // The explorer's draft row: what it will make and where. Owned here so the
+  // `⌘N` chord and the panel's own buttons start the same thing.
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [explorerHidden, setExplorerHidden] = useState(false);
+  // The chord handler is bound once; it reads the document on screen through
+  // a ref rather than closing over a stale one.
+  const activeDocRef = useRef<Document | undefined>(undefined);
+  useEffect(() => setExplorerHidden(readHidden(store())), []);
+  const toggleExplorer = useCallback(() => {
+    setExplorerHidden((current) => {
+      writeHidden(store(), !current);
+      return !current;
+    });
+  }, []);
   const createMode = useWikilinkCreateMode();
   // One handle per open document, so the pane's image button reaches the
   // editor in the tab it sits over. The boxes outlive their editors: a handle
@@ -426,33 +440,63 @@ export function WorkspaceScreen() {
     [apply, documents, layout, reload],
   );
 
+  /**
+   * The explorer's draft row, submitted. A note or folder goes through
+   * `createNote` — a folder *is* a note, one that will hold children — and a
+   * section through the report's use case. A failure (a duplicate title, an
+   * empty one) rejects, and the panel prints it under the row.
+   */
+  const createFromDraft = useCallback(
+    async (target: Draft, title: string) => {
+      if (target.root === "report") {
+        const section = await getContainer().report.manageReportSection.add({
+          title,
+          parentId: target.parentId ?? undefined,
+        });
+        await reload();
+        apply(openTab(layout, { kind: "report_section", id: section.id }));
+        return;
+      }
+      await createNote(
+        { title, parentId: target.parentId ?? undefined, ink: target.kind === "ink" },
+        { open: target.kind !== "folder" },
+      );
+    },
+    [apply, createNote, layout, reload],
+  );
+
+  const renameNode = useCallback(
+    async (node: WorkspaceTreeNode, title: string) => {
+      if (!node.id) return;
+      if (node.kind === "report_section") {
+        await getContainer().report.manageReportSection.setTitle(node.id, title);
+      } else {
+        await getContainer().vault.manageVaultPage.update(node.id, { title });
+      }
+      await reload();
+    },
+    [reload],
+  );
+
+  const moveNode = useCallback(
+    async (node: WorkspaceTreeNode, parentId: string | null) => {
+      if (!node.id) return;
+      if (node.kind === "report_section") {
+        await getContainer().report.manageReportSection.setParent(node.id, parentId);
+      } else {
+        await getContainer().vault.manageVaultPage.update(node.id, { parentId });
+      }
+      await reload();
+    },
+    [reload],
+  );
+
   const createFromLink = useCallback(
     (title: string, opts?: { open?: boolean }) => {
       void createNote({ title }, opts).catch((err) => setError(formatError(err)));
     },
     [createNote],
   );
-
-  // The notes that can hold a new one — every note can — in tree order with
-  // their depth, for the dialog's parent list.
-  const folders = useMemo<FolderOption[]>(() => {
-    const notes = (documents ?? []).filter((doc) => isCreatableKind(doc.kind));
-    const byParent = new Map<string | undefined, Document[]>();
-    for (const note of notes) {
-      const list = byParent.get(note.parentId) ?? [];
-      list.push(note);
-      byParent.set(note.parentId, list);
-    }
-    const out: FolderOption[] = [];
-    const walk = (parentId: string | undefined, depth: number) => {
-      for (const note of byParent.get(parentId) ?? []) {
-        out.push({ id: note.id, title: note.title, depth });
-        walk(note.id, depth + 1);
-      }
-    };
-    walk(undefined, 0);
-    return out;
-  }, [documents]);
 
   const renderDocument = useCallback(
     (tab: TabRef) => {
@@ -556,7 +600,15 @@ export function WorkspaceScreen() {
       event.preventDefault();
 
       if (command === "quick-open") return setPaletteOpen(true);
-      if (command === "new-note") return setCreating("note");
+      if (command === "toggle-explorer") return toggleExplorer();
+      if (command === "new-note") {
+        // Into the folder of the document on screen when it is a note or a
+        // section; otherwise the top of Notes. Never Papers.
+        const doc = activeDocRef.current;
+        const kind = doc?.kind === "report_section" ? "section" : "note";
+        setDraft({ kind, ...creationTarget(kind, doc) });
+        return;
+      }
 
       setLayout((current) => {
         const pane = current.focusedPaneId;
@@ -578,12 +630,13 @@ export function WorkspaceScreen() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [apply]);
+  }, [apply, toggleExplorer]);
 
   if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <p className="muted">Loading workspace…</p>;
 
   const activeDoc = activeKeyOf ? byKey.get(activeKeyOf) : undefined;
+  activeDocRef.current = activeDoc;
   const activeMetrics = activeKeyOf ? metrics[activeKeyOf] : undefined;
   const activeBody = activeMetrics?.text ?? activeDoc?.body ?? "";
   const stats = bodyStats(activeBody);
@@ -602,10 +655,25 @@ export function WorkspaceScreen() {
     : {};
 
   return (
-    <div className="workspace-shell">
+    <div className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}`}>
+      {explorerHidden ? (
+        <button
+          type="button"
+          className="explorer-show"
+          title="Show explorer (⌘B)"
+          aria-label="Show explorer"
+          onClick={toggleExplorer}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M9 4v16" />
+          </svg>
+        </button>
+      ) : null}
       <ExplorerPanel
         sections={sections}
         activeKey={activeKeyOf}
+        activeDoc={activeDoc}
         listNames={membership}
         onOpen={(selection) =>
           apply(openTab(layout, { kind: selection.kind, id: selection.id }))
@@ -617,9 +685,12 @@ export function WorkspaceScreen() {
           apply(openTab(layout, { kind: "paper", id: paperId }));
         }}
         onRelease={jumpToHeading}
-        onNewNote={() => setCreating("note")}
-        onNewInkNote={() => setCreating("ink")}
-        onNewFolder={() => setCreating("folder")}
+        draft={draft}
+        onDraft={setDraft}
+        onCreate={createFromDraft}
+        onRename={renameNode}
+        onMove={moveNode}
+        onHide={toggleExplorer}
       />
       <PaneView
         layout={layout}
@@ -656,15 +727,6 @@ export function WorkspaceScreen() {
           documents={documentNodes}
           onPick={openNode}
           onClose={() => setPaletteOpen(false)}
-        />
-      ) : null}
-      {creating ? (
-        <NewDocumentDialog
-          kind={creating}
-          folders={folders}
-          initialParentId={activeDoc && isCreatableKind(activeDoc.kind) ? activeDoc.parentId : undefined}
-          onCreate={createNote}
-          onClose={() => setCreating(null)}
         />
       ) : null}
     </div>

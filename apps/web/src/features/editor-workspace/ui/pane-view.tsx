@@ -137,6 +137,9 @@ function PaneLeafView({
   const focused = layout.focusedPaneId === leaf.id;
   const showing = activeTab(leaf);
   const editing = showing ? tabMode(showing) : "edit";
+  // An ink note has one view and its own bar for insertion: Edit / Read and
+  // the image tool would be two controls that do nothing.
+  const singleView = showing?.kind === "ink_page";
   const peerNames = showing ? (peers?.(showing) ?? []) : [];
   const crumbs = showing ? (crumbsFor?.(showing) ?? []) : [];
 
@@ -153,7 +156,9 @@ function PaneLeafView({
         if (paneId && index) onDropTab({ paneId, index: Number(index) }, leaf.id);
       }}
     >
-      <div className="pane-tabs" role="tablist" aria-label="Open documents">
+      {/* Two columns: the tabs scroll, the actions stay put. */}
+      <div className="pane-tabs">
+        <div className="pane-tab-scroll" role="tablist" aria-label="Open documents">
         {leaf.tabs.map((tab, index) => {
           const isActive = index === leaf.activeIndex;
           const suffix = kindSuffix(tab.kind);
@@ -200,11 +205,12 @@ function PaneLeafView({
             </div>
           );
         })}
+        </div>
         <div className="pane-tab-actions">
-          {showing && editing === "edit" && renderTools ? (
+          {showing && editing === "edit" && !singleView && renderTools ? (
             <span className="pane-tools">{renderTools(showing)}</span>
           ) : null}
-          {leaf.tabs.length > 0 && showing ? (
+          {leaf.tabs.length > 0 && showing && !singleView ? (
             // Edit / Read, per tab. Two segments rather than a toggle button so
             // the current mode is readable without hovering.
             <div className="pane-mode" role="group" aria-label="Document mode">
@@ -357,6 +363,7 @@ export function chordKeys(chord: string): string[] {
 const SHORTCUT_LABEL: Record<WorkspaceCommand, string> = {
   "quick-open": "Go to file",
   "new-note": "New note",
+  "toggle-explorer": "Hide / show explorer",
   "toggle-mode": "Edit / Read",
   "split-right": "Split right",
   "close-tab": "Close tab",
