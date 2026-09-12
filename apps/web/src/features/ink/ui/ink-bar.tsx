@@ -13,7 +13,7 @@
  * nib is the tool's (§6.3).
  */
 
-import { INK_COLOURS, INK_PEN_WIDTHS, INK_HIGHLIGHTER_WIDTH } from "@weaveforge/core";
+import { INK_COLOURS, INK_PEN_WIDTHS, INK_HIGHLIGHTER_WIDTH, type InkHand } from "@weaveforge/core";
 
 /** The tools the bar offers, in the order the plan's sketch draws them. */
 export const INK_BAR_TOOLS = ["pen", "highlighter", "eraser", "lasso"] as const;
@@ -45,6 +45,10 @@ export interface InkBarProps {
   /** Mean recognition confidence, 0 when the page has never been recognised. */
   recognised: number;
   penOnly: boolean;
+  /** Which hand writes; the palm quadrant rule reads it (§3.3). */
+  hand: InkHand;
+  /** Whether the OS is drawing the wet tail (§6.2.6), for the readout. */
+  delegating?: boolean;
   penSeen: boolean;
   /** The renderer actually drawing, for the readout at the end of the bar. */
   backend: string | null;
@@ -60,6 +64,7 @@ export interface InkBarProps {
   onColour: (colour: (typeof INK_COLOURS)[number]) => void;
   onWidth: (width: number) => void;
   onPenOnly: (value: boolean) => void;
+  onHand: (value: InkHand) => void;
   onRecognise: () => void;
   onExport: () => void;
   onUndo: () => void;
@@ -96,6 +101,8 @@ export function InkBar({
   strokes,
   recognised,
   penOnly,
+  hand,
+  delegating,
   penSeen,
   backend,
   busy,
@@ -107,6 +114,7 @@ export function InkBar({
   onColour,
   onWidth,
   onPenOnly,
+  onHand,
   onRecognise,
   onExport,
   onUndo,
@@ -223,6 +231,15 @@ export function InkBar({
         />
         Pen only
       </label>
+      <button
+        type="button"
+        className="ink-tool"
+        onClick={() => onHand(hand === "right" ? "left" : "right")}
+        title="Which hand writes: the resting palm is expected on that side"
+        aria-label={`Writing hand: ${hand}`}
+      >
+        {hand === "right" ? "Right hand" : "Left hand"}
+      </button>
       <span className="ink-bar-spacer" />
       {/*
         The readout §6.1 draws at the end of the bar: which page, how many strokes,
@@ -234,6 +251,7 @@ export function InkBar({
         page {page} / {pages} · {strokes} {strokes === 1 ? "stroke" : "strokes"} ·{" "}
         {penSeen ? "pen" : "pointer"} · recognised {Math.round(recognised * 100)} %
         {backend && backend !== "webgl2" ? ` · ${backend}` : ""}
+        {delegating ? " · delegated" : ""}
       </span>
     </div>
   );

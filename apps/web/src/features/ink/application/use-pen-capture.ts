@@ -47,6 +47,49 @@ import {
   type PenDecision,
   type PenGateEvent,
 } from "./pen-gate";
+import {
+  requestInkPresenter,
+  updateTrail,
+  type InkPresenterLike,
+  type InkTrailStyle,
+} from "./ink-trail";
+
+/** Where the wrist guard's per-device choice lives (§3.3). Not in the note. */
+export const INK_PEN_ONLY_STORAGE_KEY = "weaveforge.ink.penOnly";
+
+/** The one slice of `localStorage` the hook reads and writes. */
+export type PenOnlyStorage = Pick<Storage, "getItem" | "setItem">;
+
+function defaultPenOnlyStorage(): PenOnlyStorage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** The stored wrist-guard choice, `null` when this device has never made one. */
+export function readStoredPenOnly(
+  storage: PenOnlyStorage | null,
+): boolean | null {
+  try {
+    const value = storage?.getItem(INK_PEN_ONLY_STORAGE_KEY);
+    return value === "1" ? true : value === "0" ? false : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredPenOnly(
+  storage: PenOnlyStorage | null,
+  value: boolean,
+): void {
+  try {
+    storage?.setItem(INK_PEN_ONLY_STORAGE_KEY, value ? "1" : "0");
+  } catch {
+    // A full or forbidden store loses the preference, not the stroke.
+  }
+}
 
 /* -------------------------------------------------------------------------
  * The session: samples in, worker out
@@ -55,6 +98,8 @@ import {
 /** The pointer fields the session reads; a `PointerEvent` satisfies this. */
 export interface PenPointerEvent extends PenGateEvent {
   buttons?: number;
+  /** The platform event itself, which is what a presenter must be handed. */
+  native?: PointerEvent;
   /** Coalesced events, when the platform provides them. */
   getCoalescedEvents?: () => PenPointerEvent[];
   /** Predicted events, used **only** when not delegating (D11). */
@@ -75,14 +120,29 @@ export interface PenCaptureDeps {
   filter: NibFilter;
   writer: InkSampleWriter;
   /** Client coordinates to page units in 0.1 mm, `null` when off the page. */
-  project: (clientX: number, clientY: number) => { x: number; y: number } | null;
-  /** The newest filtered sample and its instantaneous width, for the trail. */
-  onLive?: (sample: FilteredNibSample, width: number) => void;
+  project: (
+    clientX: number,
+    clientY: number,
+  ) => { x: number; y: number } | null;
+  /**
+   * The newest filtered sample and its instantaneous width, for the trail.
+   * `event` is the dispatched sample — the one a presenter may be handed —
+   * and is absent for a coalesced one.
+   */
+  onLive?: (
+    sample: FilteredNibSample,
+    width: number,
+    event?: PenPointerEvent,
+  ) => void;
   /**
    * The worker acknowledged a stroke. The **only** thing a screen may re-render
    * for, once per stroke.
    */
-  onStrokeEnd?: (header: InkStrokeHeader, points: Float32Array, pressures: Uint8Array) => void;
+  onStrokeEnd?: (
+    header: InkStrokeHeader,
+    points: Float32Array,
+    pressures: Uint8Array,
+  ) => void;
   /** Whether predicted events may be used: false while delegating (§6.2.6). */
   predict?: () => boolean;
   /** A pointer whose stroke a late palm decision cancelled. */
@@ -106,7 +166,12 @@ export class PenCaptureSession {
   private readonly pressures: number[] = [];
   private newest: PenPointerEvent | null = null;
   /** The tool a stroke will use, remembered so a confirmed touch can begin. */
-  private tool: InkToolChoice = { width: 6, tool: "pen", colour: "text", pageIndex: 0 };
+  private tool: InkToolChoice = {
+    width: 6,
+    tool: "pen",
+    colour: "text",
+    pageIndex: 0,
+  };
 
   constructor(private readonly deps: PenCaptureDeps) {}
 
@@ -154,7 +219,10 @@ export class PenCaptureSession {
   }
 
   /** The deferral timer's answer for a deferred touch. */
-  confirmTouch(at: { x: number; y: number } | null, event: PenPointerEvent | null): void {
+  confirmTouch(
+    at: { x: number; y: number } | null,
+    event: PenPointerEvent | null,
+  ): void {
     const pointerId = event?.pointerId ?? this.pointerId;
     if (pointerId === null) return;
     if (this.deps.gate.confirm(pointerId, at) !== "draw" || !event) return;
@@ -174,7 +242,7 @@ export class PenCaptureSession {
     for (const sample of safeEvents(event.getCoalescedEvents?.bind(event))) {
       this.consume(sample, false);
     }
-    this.consume(event, false);
+    this.consume(event, false, false, true);
 
     // Prediction is for the fallback path only: while the OS is drawing the wet
     // tail, predicting as well forks the stroke (§6.2.6, D11). Predicted samples
@@ -192,7 +260,7 @@ export class PenCaptureSession {
   /** The pointer came up: hand the stroke to the worker. */
   pointerUp(event: PenPointerEvent): void {
     if (!this.active || event.pointerId !== this.pointerId) return;
-    this.consume(event, false);
+    this.consume(event, false, false, true);
     const header = this.header!;
     this.deps.writer.flush("stroke-end", header);
     this.clear();
@@ -200,7 +268,11 @@ export class PenCaptureSession {
   }
 
   /** The worker acknowledged the stroke: the screen may re-render now. */
-  committed(header: InkStrokeHeader, points: Float32Array, pressures: Uint8Array): void {
+  committed(
+    header: InkStrokeHeader,
+    points: Float32Array,
+    pressures: Uint8Array,
+  ): void {
     this.deps.onStrokeEnd?.(header, points, pressures);
   }
 
@@ -238,7 +310,7 @@ export class PenCaptureSession {
     // A stroke whose first sample does not land on the page is not a stroke: the
     // pen came down on the paper's margin or outside it, and telling the worker
     // to begin one would leave it waiting for a stroke that never arrives.
-    if (!this.consume(event, true)) {
+    if (!this.consume(event, true, false, true)) {
       this.clear();
       this.deps.gate.end(event.pointerId);
       return;
@@ -254,7 +326,12 @@ export class PenCaptureSession {
   }
 
   /** Filter one pointer sample and write it into the batch. */
-  private consume(event: PenPointerEvent, first: boolean, predicted = false): boolean {
+  private consume(
+    event: PenPointerEvent,
+    first: boolean,
+    predicted = false,
+    dispatched = false,
+  ): boolean {
     const header = this.header;
     if (!header) return false;
     if (!first && event.pointerId !== this.pointerId) return false;
@@ -271,13 +348,20 @@ export class PenCaptureSession {
     // The trail is told where to start *before* the sample is posted, and with
     // the same filtered width the worker will bake into geometry. A predicted
     // sample is not where the pen has been, so the trail is not moved for it.
-    if (!predicted) this.deps.onLive?.(sample, width);
+    if (!predicted)
+      this.deps.onLive?.(sample, width, dispatched ? event : undefined);
 
     if (!predicted) {
       this.points.push(sample.x, sample.y);
       this.pressures.push(sample.pressure);
     }
-    this.deps.writer.push(sample.x, sample.y, sample.pressure, sample.t, header);
+    this.deps.writer.push(
+      sample.x,
+      sample.y,
+      sample.pressure,
+      sample.t,
+      header,
+    );
     return true;
   }
 
@@ -288,7 +372,9 @@ export class PenCaptureSession {
 }
 
 /** Coalesced/predicted lists are optional and may throw on a synthetic event. */
-function safeEvents(read: (() => PenPointerEvent[]) | undefined): PenPointerEvent[] {
+function safeEvents(
+  read: (() => PenPointerEvent[]) | undefined,
+): PenPointerEvent[] {
   if (!read) return [];
   try {
     const events = read();
@@ -305,8 +391,14 @@ function safeEvents(read: (() => PenPointerEvent[]) | undefined): PenPointerEven
 /** The worker, as the hook needs it. A type, so tests can double it. */
 export interface InkWorkerLike {
   postMessage(message: InkWorkerMessage, transfer?: Transferable[]): void;
-  addEventListener(type: "message", listener: (event: MessageEvent<InkWorkerEvent>) => void): void;
-  removeEventListener(type: "message", listener: (event: MessageEvent<InkWorkerEvent>) => void): void;
+  addEventListener(
+    type: "message",
+    listener: (event: MessageEvent<InkWorkerEvent>) => void,
+  ): void;
+  removeEventListener(
+    type: "message",
+    listener: (event: MessageEvent<InkWorkerEvent>) => void,
+  ): void;
   terminate(): void;
 }
 
@@ -314,7 +406,10 @@ export interface UsePenCaptureOptions {
   /** The surface the pen draws on. Its box maps client coordinates to ink units. */
   element: () => HTMLCanvasElement | null;
   /** Client coordinates to page units in 0.1 mm, `null` off the page. */
-  project: (clientX: number, clientY: number) => { x: number; y: number } | null;
+  project: (
+    clientX: number,
+    clientY: number,
+  ) => { x: number; y: number } | null;
   /** The surface's box, read only when a touch needs the quadrant rule. */
   bounds?: () => PenGateEvent["bounds"];
   pageIndex: number;
@@ -323,9 +418,28 @@ export interface UsePenCaptureOptions {
   width: number;
   colour: InkColour;
   handedness?: InkHand;
-  /** The newest filtered sample and its width, for the delegated trail (§6.2.6). */
+  /** The newest filtered sample and its width, for a host that draws its own tail. */
   onLive?: (sample: FilteredNibSample, width: number) => void;
-  onStrokeEnd?: (header: InkStrokeHeader, points: Float32Array, pressures: Uint8Array) => void;
+  /**
+   * The Delegated Ink Trail (§6.2.6). Given, the hook asks the platform for a
+   * presenter over the canvas before the worker gets it, tells the worker which
+   * path it is on, and moves the trail's start point for every dispatched
+   * sample with the style this returns. Absent, the fallback path: prediction
+   * on, no presenter asked for.
+   */
+  trail?: {
+    /** The style for a live sample of `width` (0.1 mm). */
+    style: (width: number) => InkTrailStyle;
+    /** Injected for tests; the default reads `navigator.ink`. */
+    request?: (canvas: HTMLCanvasElement) => Promise<InkPresenterLike | null>;
+  };
+  /** Where the wrist guard's choice is kept. `null` keeps it for the session only. */
+  penOnlyStorage?: PenOnlyStorage | null;
+  onStrokeEnd?: (
+    header: InkStrokeHeader,
+    points: Float32Array,
+    pressures: Uint8Array,
+  ) => void;
   /** The worker's frame counter, for the trail's "is it behind?" check. */
   onFrame?: (frame: number) => void;
   onBackend?: (backend: "webgl2" | "canvas2d" | "none") => void;
@@ -339,8 +453,8 @@ export interface UsePenCaptureOptions {
    */
   onEvent?: (event: InkWorkerEvent) => void;
   /**
-   * Whether the delegated ink trail is active. Prediction is on **only** when it
-   * is not (§6.2.6); the host owns the presenter and passes its state in.
+   * Whether something else is drawing the wet tail. Prediction is on **only**
+   * when neither this nor the hook's own presenter is (§6.2.6).
    */
   delegating?: () => boolean;
   /** Where the worker comes from. Injected so tests need no bundler. */
@@ -357,6 +471,8 @@ export interface PenCaptureHandle {
   setPenOnly: (value: boolean) => void;
   /** The worker's backend, `null` until it has said. */
   backend: "webgl2" | "canvas2d" | "none" | null;
+  /** Whether the OS is drawing the wet tail: a presenter was granted. */
+  delegating: boolean;
   /** The worker's newest frame counter. */
   frame: number;
   /** Native pointer handlers for the canvas element. */
@@ -397,9 +513,20 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   const [penOnly, setPenOnlyState] = useState(false);
   const [backend, setBackend] = useState<PenCaptureHandle["backend"]>(null);
   const [frame, setFrame] = useState(0);
+  const [delegating, setDelegating] = useState(false);
+  const presenterRef = useRef<InkPresenterLike | null>(null);
+  const storageRef = useRef<PenOnlyStorage | null | undefined>(undefined);
+  if (storageRef.current === undefined) {
+    storageRef.current =
+      options.penOnlyStorage === undefined
+        ? defaultPenOnlyStorage()
+        : options.penOnlyStorage;
+  }
 
   const workerRef = useRef<InkWorkerLike | null>(null);
-  const gateRef = useRef<InkPenGate>(new InkPenGate({ handedness: options.handedness ?? "right" }));
+  const gateRef = useRef<InkPenGate>(
+    new InkPenGate({ handedness: options.handedness ?? "right" }),
+  );
   const filterRef = useRef<NibFilter>(new NibFilter());
   const poolRef = useRef<InkSamplePool>(new InkSamplePool({ capacity: 4 }));
   const deferTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -409,17 +536,33 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     const writer = new InkSampleWriter({
       pool: poolRef.current,
       mode: transferMode(),
-      post: (message, transfer) => workerRef.current?.postMessage(message, transfer),
+      post: (message, transfer) =>
+        workerRef.current?.postMessage(message, transfer),
     });
     sessionRef.current = new PenCaptureSession({
       gate: gateRef.current,
       filter: filterRef.current,
       writer,
       project: (x, y) => callbacksRef.current.project(x, y),
-      onLive: (sample, width) => callbacksRef.current.onLive?.(sample, width),
+      onLive: (sample, width, event) => {
+        // The trail is moved in the handler, before the sample is posted, with
+        // the same width the worker bakes in. A presenter that refuses the event
+        // is dropped: from then on the worker draws the tail, still unpredicted
+        // because the context was created for the delegated path.
+        const presenter = presenterRef.current;
+        const trail = callbacksRef.current.trail;
+        if (presenter && trail && event?.native) {
+          if (!updateTrail(presenter, event.native, trail.style(width))) {
+            presenterRef.current = null;
+          }
+        }
+        callbacksRef.current.onLive?.(sample, width);
+      },
       onStrokeEnd: (header, points, pressures) =>
         callbacksRef.current.onStrokeEnd?.(header, points, pressures),
-      predict: () => !(callbacksRef.current.delegating?.() ?? false),
+      predict: () =>
+        presenterRef.current === null &&
+        !(callbacksRef.current.delegating?.() ?? false),
     });
   }
 
@@ -438,6 +581,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         clientY: event.clientY,
         bounds: touch ? callbacksRef.current.bounds?.() : undefined,
         t: event.timeStamp,
+        native: event.nativeEvent,
         getCoalescedEvents: native.getCoalescedEvents?.bind(native),
         getPredictedEvents: native.getPredictedEvents?.bind(native),
       };
@@ -449,82 +593,117 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   useEffect(() => {
     const canvas = elementRef.current();
     if (!canvas) return;
-    const create =
-      callbacksRef.current.createWorker ??
-      (() =>
-        new Worker(new URL("../worker/ink-worker.ts", import.meta.url)) as unknown as InkWorkerLike);
-    const worker = create();
-    workerRef.current = worker;
+    let disposed = false;
+    let dispose: (() => void) | null = null;
 
-    const onMessage = (event: MessageEvent<InkWorkerEvent>) => {
-      const message = event.data;
-      switch (message.type) {
-        case "ready":
-          setBackend(message.backend);
-          callbacksRef.current.onBackend?.(message.backend);
-          break;
-        case "frame":
-          setFrame(message.frame);
-          callbacksRef.current.onFrame?.(message.frame);
-          break;
-        case "stroke-committed":
-          sessionRef.current?.committed(message.header, message.points, message.pressures);
-          break;
-        case "samples-returned":
-          for (const buffer of message.buffers) poolRef.current.release(buffer);
-          break;
-        case "context-lost":
-          callbacksRef.current.onContextLost?.();
-          break;
-        case "context-restored":
-          setBackend(message.backend);
-          break;
-        case "error":
-          // The pen must keep working when the worker cannot draw: a lost
-          // renderer is a degraded note, not a lost one.
-          setBackend("none");
-          break;
+    /** Everything after the presenter question is answered. */
+    const start = (presenter: InkPresenterLike | null) => {
+      if (disposed) return;
+      presenterRef.current = presenter;
+      setDelegating(presenter !== null);
+      const create =
+        callbacksRef.current.createWorker ??
+        (() =>
+          new Worker(
+            new URL("../worker/ink-worker.ts", import.meta.url),
+          ) as unknown as InkWorkerLike);
+      const worker = create();
+      workerRef.current = worker;
+
+      const onMessage = (event: MessageEvent<InkWorkerEvent>) => {
+        const message = event.data;
+        switch (message.type) {
+          case "ready":
+            setBackend(message.backend);
+            callbacksRef.current.onBackend?.(message.backend);
+            break;
+          case "frame":
+            setFrame(message.frame);
+            callbacksRef.current.onFrame?.(message.frame);
+            break;
+          case "stroke-committed":
+            sessionRef.current?.committed(
+              message.header,
+              message.points,
+              message.pressures,
+            );
+            break;
+          case "samples-returned":
+            for (const buffer of message.buffers)
+              poolRef.current.release(buffer);
+            break;
+          case "context-lost":
+            callbacksRef.current.onContextLost?.();
+            break;
+          case "context-restored":
+            setBackend(message.backend);
+            break;
+          case "error":
+            // The pen must keep working when the worker cannot draw: a lost
+            // renderer is a degraded note, not a lost one.
+            setBackend("none");
+            break;
+        }
+        callbacksRef.current.onEvent?.(message);
+      };
+      worker.addEventListener("message", onMessage);
+
+      const transfer =
+        callbacksRef.current.transferCanvas ??
+        ((target: HTMLCanvasElement) => target.transferControlToOffscreen());
+      let offscreen: OffscreenCanvas | null = null;
+      try {
+        offscreen = transfer(canvas);
+      } catch {
+        // A canvas can only be transferred once, and one without
+        // `transferControlToOffscreen` cannot be transferred at all. The worker
+        // then runs headless and the host paints through the fallback renderer.
+        offscreen = null;
       }
-      callbacksRef.current.onEvent?.(message);
-    };
-    worker.addEventListener("message", onMessage);
+      const box = canvas.getBoundingClientRect();
+      worker.postMessage(
+        {
+          type: "init",
+          canvas: offscreen,
+          width: Math.max(1, Math.round(box.width)),
+          height: Math.max(1, Math.round(box.height)),
+          dpr: typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+          // The worker only returns buffers it was given by transfer; in clone mode
+          // the memory never left this thread and returning it would pool an array
+          // that is still in use here.
+          mode: transferMode(),
+          // The sidecar is deflate-raw'd where the platform can; the worker falls
+          // back to identity where it cannot, and the chunk says which it was.
+          codec: "deflate-raw",
+          // Immutable once the context exists, so it is decided here (§6.2.6).
+          delegating: presenter !== null,
+        },
+        offscreen ? [offscreen] : [],
+      );
 
-    const transfer =
-      callbacksRef.current.transferCanvas ??
-      ((target: HTMLCanvasElement) => target.transferControlToOffscreen());
-    let offscreen: OffscreenCanvas | null = null;
-    try {
-      offscreen = transfer(canvas);
-    } catch {
-      // A canvas can only be transferred once, and one without
-      // `transferControlToOffscreen` cannot be transferred at all. The worker
-      // then runs headless and the host paints through the fallback renderer.
-      offscreen = null;
+      dispose = () => {
+        worker.removeEventListener("message", onMessage);
+        worker.postMessage({ type: "dispose" });
+        worker.terminate();
+        workerRef.current = null;
+        presenterRef.current = null;
+      };
+    };
+
+    // The presenter is asked for first because its answer picks the canvas's
+    // context attributes; without a trail option the worker starts at once.
+    const trail = callbacksRef.current.trail;
+    if (trail) {
+      void (trail.request ?? requestInkPresenter)(canvas).then(start, () =>
+        start(null),
+      );
+    } else {
+      start(null);
     }
-    const box = canvas.getBoundingClientRect();
-    worker.postMessage(
-      {
-        type: "init",
-        canvas: offscreen,
-        width: Math.max(1, Math.round(box.width)),
-        height: Math.max(1, Math.round(box.height)),
-        dpr: typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
-        // The worker only returns buffers it was given by transfer; in clone mode
-        // the memory never left this thread and returning it would pool an array
-        // that is still in use here.
-        mode: transferMode(),
-        // The sidecar is deflate-raw'd where the platform can; the worker falls
-        // back to identity where it cannot, and the chunk says which it was.
-        codec: "deflate-raw",
-      },
-      offscreen ? [offscreen] : [],
-    );
 
     return () => {
-      worker.removeEventListener("message", onMessage);
-      worker.postMessage({ type: "dispose" });
-      worker.terminate();
-      workerRef.current = null;
+      disposed = true;
+      dispose?.();
     };
     // One worker per canvas, deliberately: re-creating it would throw away the
     // committed geometry. Everything it needs is read through a ref.
@@ -563,6 +742,15 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
 
       if (event.pointerType === "pen") {
         if (!gateRef.current.hasSeenPen) setPenSeen(true);
+        // Layer three's default: the guard goes up on the first pen, unless this
+        // device has already said otherwise.
+        if (
+          !gateRef.current.penOnly &&
+          readStoredPenOnly(storageRef.current ?? null) === null
+        ) {
+          gateRef.current.penOnly = true;
+          setPenOnlyState(true);
+        }
       }
 
       if (claim.decision === "draw") {
@@ -578,7 +766,9 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       deferTimer.current = setTimeout(() => {
         deferTimer.current = null;
         const newest = session.newestEvent;
-        const at = newest ? { x: newest.clientX ?? 0, y: newest.clientY ?? 0 } : null;
+        const at = newest
+          ? { x: newest.clientX ?? 0, y: newest.clientY ?? 0 }
+          : null;
         session.confirmTouch(at, newest);
         if (session.active) event.currentTarget.setPointerCapture?.(pointerId);
       }, TOUCH_DEFER_MS);
@@ -614,22 +804,42 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   const setPenOnly = useCallback((value: boolean) => {
     gateRef.current.penOnly = value;
     setPenOnlyState(value);
+    writeStoredPenOnly(storageRef.current ?? null, value);
   }, []);
+
+  // The stored choice is applied after mount: the server has no storage, and
+  // deciding during render would ship a guard that flips on hydration.
+  useEffect(() => {
+    const stored = readStoredPenOnly(storageRef.current ?? null);
+    if (stored !== null) {
+      gateRef.current.penOnly = stored;
+      setPenOnlyState(stored);
+    }
+  }, []);
+
+  // Handedness is the note's, and a note can change hands mid-session.
+  useEffect(() => {
+    gateRef.current.handedness = options.handedness ?? "right";
+  }, [options.handedness]);
 
   const handlers = useMemo(
     () => ({ onPointerDown, onPointerMove, onPointerUp, onPointerCancel }),
     [onPointerDown, onPointerMove, onPointerUp, onPointerCancel],
   );
 
-  const send = useCallback((message: InkWorkerMessage, transfer: Transferable[] = []) => {
-    workerRef.current?.postMessage(message, transfer);
-  }, []);
+  const send = useCallback(
+    (message: InkWorkerMessage, transfer: Transferable[] = []) => {
+      workerRef.current?.postMessage(message, transfer);
+    },
+    [],
+  );
 
   return {
     penSeen,
     penOnly,
     setPenOnly,
     backend,
+    delegating,
     frame,
     handlers,
     session: sessionRef.current!,
