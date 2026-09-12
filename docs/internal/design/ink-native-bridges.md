@@ -564,6 +564,17 @@ A static vibration buzz feels synthetic and irritating. Real friction is **kinet
 
 ### 4.3 Implementation: `PenHapticsEngine.cs` (~50 Lines)
 
+> **As built** (`apps/desktop/native/ink-recogniser/PenHapticsEngine.cs`): the controller is
+> *not* taken from `PointerPoint.Properties.PointerDevice` — the helper is a headless process
+> and the pointer events go to Chromium's window. It is found through
+> `Windows.Devices.Input.PenDevice.GetFromPointerId`, scanning the system pointer ids when a
+> stroke starts, and rebound when a send fails (the pen left range). The pen waveforms are
+> Windows 11 API (SDK 22000), so the helper targets that TFM and guards with `ApiInformation`;
+> the stop call is `StopFeedback()`, and the wire messages are `haptics-probe` (answered),
+> `haptics-tool`, `haptics-update`, `haptics-stop` (fire-and-forget). The web side throttles to
+> 120 Hz and converts the filter's 0.1 mm/ms velocity to CSS px/ms
+> (`apps/web/src/features/ink/application/pen-haptics.ts`).
+
 Integrated directly into the existing out-of-process C#/WinRT recognition helper (`apps/desktop/native/ink-recogniser/`):
 
 ```csharp

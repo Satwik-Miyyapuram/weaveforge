@@ -19,6 +19,10 @@ import {
 } from "@weaveforge/core";
 
 import type { InkChunkStore } from "@/features/ink/application/ink-chunk-store";
+import {
+  createPenHaptics,
+  type PenHaptics,
+} from "@/features/ink/application/pen-haptics";
 import { inkRecogniserCandidates } from "@/features/ink/application/recognisers";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 
@@ -30,6 +34,7 @@ export interface InkAssetStore {
 
 export class InkFacade {
   private selected: Promise<InkRecogniser | null> | null = null;
+  private hapticsProbe: Promise<PenHaptics | null> | null = null;
 
   constructor(
     private readonly deps: {
@@ -75,6 +80,27 @@ export class InkFacade {
   /** Forget the choice, for when the opt-in changes. */
   reset(): void {
     this.selected = null;
+  }
+
+  /**
+   * The pen's haptics (ink-native-bridges.md §4), where the desktop app's OS
+   * can drive them; `null` everywhere else. Probed once: the answer is the
+   * machine's, not the note's.
+   */
+  haptics(): Promise<PenHaptics | null> {
+    this.hapticsProbe ??= (async () => {
+      const bridge = this.deps.bridge();
+      if (!bridge || typeof bridge.inkHapticsAvailable !== "function")
+        return null;
+      try {
+        return (await bridge.inkHapticsAvailable())
+          ? createPenHaptics(bridge)
+          : null;
+      } catch {
+        return null;
+      }
+    })();
+    return this.hapticsProbe;
   }
 
   /** The hints handed to an engine: the workspace's titles and keys, capped. */

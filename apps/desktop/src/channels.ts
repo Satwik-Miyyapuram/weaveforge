@@ -140,6 +140,13 @@ export const CHANNELS = {
    */
   inkAvailable: "weaveforge:ink-available",
   inkRecognise: "weaveforge:ink-recognise",
+  /**
+   * The pen's haptics (ink-native-bridges.md §4), through the same helper.
+   * `inkHaptics` is `send`, not `invoke`: it carries a sample at up to 120 Hz
+   * and nothing answers it.
+   */
+  inkHapticsAvailable: "weaveforge:ink-haptics-available",
+  inkHaptics: "weaveforge:ink-haptics",
 } as const;
 
 /**

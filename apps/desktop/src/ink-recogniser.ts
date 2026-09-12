@@ -60,10 +60,29 @@ export interface InkRecognitionResult {
   ms: number;
 }
 
+/**
+ * One message to the pen's actuator (ink-native-bridges.md §4). `update` is sent
+ * per sample during a stroke; the others once per tool change and pen lift.
+ */
+export type InkHapticsMessage =
+  | { type: "tool"; tool: string }
+  | { type: "update"; pressure: number; velocity: number }
+  | { type: "stop" };
+
 export interface InkRecogniserHelper {
   /** Whether a helper is present and has answered. Cached once true. */
   available(): Promise<boolean>;
   recognise(request: InkRecognitionRequest): Promise<InkRecognitionResult>;
+  /**
+   * Whether this OS can drive a haptic pen at all. Whether one is in the hand
+   * is only known stroke by stroke, so a yes here means "worth sending".
+   */
+  hapticsAvailable(): Promise<boolean>;
+  /**
+   * Fire and forget: no answer comes back, and a helper that is not running is
+   * not started for it — a stroke should never wait on a CLR cold start.
+   */
+  haptics(message: InkHapticsMessage): void;
   /** Release the process. The next call starts a new one. */
   dispose(): void;
   /** What the helper said about the machine, or `null` before it has spoken. */
@@ -147,6 +166,7 @@ export function createInkRecogniser(options: InkRecogniserOptions = {}): InkReco
   let version: string | null = null;
   let ready: Promise<boolean> | null = null;
   let disposed = false;
+  let hapticsSupported: boolean | null = null;
   const pending = new Map<number, Pending>();
 
   /** Fail every request in flight, because the process they were sent to is gone. */
@@ -167,6 +187,7 @@ export function createInkRecogniser(options: InkRecogniserOptions = {}): InkReco
       message?: string;
       ms?: number;
       lines?: InkRecognitionLine[];
+      available?: boolean;
     };
     try {
       message = JSON.parse(line);
@@ -195,6 +216,11 @@ export function createInkRecogniser(options: InkRecogniserOptions = {}): InkReco
     pending.delete(message.id);
     if (message.type === "error") {
       waiter.reject(new Error(message.message ?? "The handwriting recogniser failed."));
+      return;
+    }
+    if (message.type === "haptics") {
+      hapticsSupported = message.available === true;
+      waiter.resolve({ engine: message.engine ?? "windows-ink@1", lines: [], ms: 0 });
       return;
     }
     waiter.resolve({
@@ -251,6 +277,7 @@ export function createInkRecogniser(options: InkRecogniserOptions = {}): InkReco
       child = null;
       ready = null;
       version = null;
+      hapticsSupported = null;
     });
     child.on("error", (error) => {
       diagnose(`ink-recogniser: ${error.message}`);
@@ -287,29 +314,58 @@ export function createInkRecogniser(options: InkRecogniserOptions = {}): InkReco
 
   const recognise = async (request: InkRecognitionRequest): Promise<InkRecognitionResult> => {
     if (!(await available())) throw new Error("The Windows handwriting recogniser is not available.");
-    const process_ = start();
-    if (!process_) throw new Error("The Windows handwriting recogniser is not available.");
-    const id = nextId++;
-    const message = {
-      id,
+    return ask({
       type: "recognise",
       lines: request.lines,
       vocabulary: request.vocabulary ? [...request.vocabulary] : undefined,
       lang: request.lang,
-    };
+    });
+  };
+
+  /** One request with an answer, correlated by id. */
+  const ask = (body: Record<string, unknown>): Promise<InkRecognitionResult> => {
+    const process_ = start();
+    if (!process_) return Promise.reject(new Error("The Windows handwriting recogniser is not available."));
+    const id = nextId++;
     return new Promise<InkRecognitionResult>((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.delete(id);
         reject(new Error("The handwriting recogniser did not answer in time."));
       }, timeoutMs);
       pending.set(id, { resolve, reject, timer });
-      process_.stdin.write(`${JSON.stringify(message)}\n`);
+      process_.stdin.write(`${JSON.stringify({ id, ...body })}\n`);
     });
+  };
+
+  const hapticsAvailable = async (): Promise<boolean> => {
+    if (hapticsSupported !== null) return hapticsSupported;
+    if (!(await available())) return false;
+    try {
+      await ask({ type: "haptics-probe" });
+    } catch {
+      hapticsSupported = false;
+    }
+    return hapticsSupported ?? false;
+  };
+
+  const haptics = (message: InkHapticsMessage): void => {
+    // Only to a helper that is up and has said yes: the pipe is not opened for
+    // a sample, and a machine without the API gets nothing written at all.
+    if (!hapticsSupported || !child || child.killed) return;
+    const line =
+      message.type === "update"
+        ? { type: "haptics-update", pressure: message.pressure, velocity: message.velocity }
+        : message.type === "tool"
+          ? { type: "haptics-tool", tool: message.tool }
+          : { type: "haptics-stop" };
+    child.stdin.write(`${JSON.stringify(line)}\n`);
   };
 
   return {
     available,
     recognise,
+    hapticsAvailable,
+    haptics,
     dispose: () => {
       disposed = true;
       failAll("The handwriting recogniser was stopped.");
