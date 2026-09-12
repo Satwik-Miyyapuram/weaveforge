@@ -442,19 +442,24 @@ export class WebglInkRenderer implements InkRenderer {
       const at = batch.records.findIndex((record) => record.stroke === index);
       if (at < 0) continue;
       const removed = batch.records[at]!;
-      const last = batch.records[batch.records.length - 1]!;
-      if (last !== removed) {
-        // Swap the last record into the hole: the GPU range moves, nothing is
-        // re-packed, and the buffer is edited in place (§6.2.3's "erase is a
-        // buffer edit, not a repaint").
-        const from = last.offset * INK_INSTANCE_FLOATS;
-        const to = removed.offset * INK_INSTANCE_FLOATS;
-        const length = last.count * INK_INSTANCE_FLOATS;
-        batch.data.copyWithin(to, from, from + length);
-        batch.records[at] = { ...last, offset: removed.offset };
-        this.uploadBatch(batch, removed.offset, last.count);
+      const tailFrom = removed.offset + removed.count;
+      const tailCount = batch.used - tailFrom;
+      if (tailCount > 0) {
+        // Close the hole by sliding everything after it down: the records stay
+        // contiguous, nothing is re-packed, and the buffer is edited in place
+        // (§6.2.3's "erase is a buffer edit, not a repaint"). A swap with the
+        // last record would be one copy instead of a tail — but only when the
+        // two are the same size, and a stroke is any length.
+        batch.data.copyWithin(
+          removed.offset * INK_INSTANCE_FLOATS,
+          tailFrom * INK_INSTANCE_FLOATS,
+          batch.used * INK_INSTANCE_FLOATS,
+        );
+        for (const record of batch.records)
+          if (record.offset >= tailFrom) record.offset -= removed.count;
+        this.uploadBatch(batch, removed.offset, tailCount);
       }
-      batch.records.pop();
+      batch.records.splice(at, 1);
       batch.used -= removed.count;
       // The vacated tail is left as it is: `used` is what the draw reads, so the
       // stale instances beyond it are never drawn and the next append overwrites
