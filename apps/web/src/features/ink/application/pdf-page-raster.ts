@@ -16,7 +16,7 @@ export interface RasterisedPdfPage {
 /** How many pages the document has, so the prompt can bound the answer. */
 export async function pdfPageCount(bytes: ArrayBuffer): Promise<number> {
   const lib = await loadPdfLib();
-  const pdf = await lib.getDocument({ data: new Uint8Array(bytes) }).promise;
+  const pdf = await lib.getDocument({ data: copyOf(bytes) }).promise;
   try {
     return pdf.numPages;
   } finally {
@@ -35,7 +35,7 @@ export async function rasterisePdfPage(
   widthPx: number,
 ): Promise<RasterisedPdfPage> {
   const lib = await loadPdfLib();
-  const pdf = await lib.getDocument({ data: new Uint8Array(bytes) }).promise;
+  const pdf = await lib.getDocument({ data: copyOf(bytes) }).promise;
   try {
     const page = await pdf.getPage(pageNumber);
     const base = page.getViewport({ scale: 1 });
@@ -54,6 +54,15 @@ export async function rasterisePdfPage(
   } finally {
     await pdf.destroy();
   }
+}
+
+/**
+ * pdf.js transfers the buffer it is given to its worker, which detaches the
+ * caller's copy. A page count followed by a render must each hand over their
+ * own, or the second `Uint8Array` is built on a detached buffer and throws.
+ */
+function copyOf(bytes: ArrayBuffer): Uint8Array {
+  return new Uint8Array(bytes.slice(0));
 }
 
 function createCanvas(
