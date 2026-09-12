@@ -79,7 +79,7 @@ in vec2 radius;          // rA, rB in page units, per instance
 in vec4 neighbours;      // prevA.xy, nextB.xy: the capsules either side
 in vec2 neighbourRadius; // prevRA, nextRB; negative when there is no neighbour
 uniform vec2 pageSize;   // device pixels, for normalising
-uniform vec4 camera;     // scale, offsetX, offsetY, unused
+uniform vec4 camera;     // scale·dpr, offsetX·dpr, offsetY·dpr (device px), unused
 uniform float margin;    // the AA margin in page units
 uniform vec2 shift;      // page units: where a dragged selection is shown
 uniform float halo;      // page units added to every radius: the selection halo
@@ -122,7 +122,7 @@ void main() {
     neighbourRadius.x >= 0.0 ? neighbourRadius.x + halo : neighbourRadius.x,
     neighbourRadius.y >= 0.0 ? neighbourRadius.y + halo : neighbourRadius.y);
   // Page units → clip space. Y is flipped: page y grows downward, clip y upward.
-  vec2 scaled = (page + vec2(camera.y, camera.z)) * camera.x;
+  vec2 scaled = page * camera.x + vec2(camera.y, camera.z);
   vec2 unit = scaled / pageSize;
   gl_Position = vec4(unit.x * 2.0 - 1.0, 1.0 - unit.y * 2.0, 0.0, 1.0);
 }`;
@@ -218,14 +218,14 @@ interface CaptureTarget {
 export const BACKGROUND_VERTEX_SHADER = `#version 300 es
 in vec2 corner;
 uniform vec2 pageSize;   // device pixels
-uniform vec4 camera;     // scale, offsetX, offsetY, unused
+uniform vec4 camera;     // scale·dpr, offsetX·dpr, offsetY·dpr (device px), unused
 uniform vec2 pageDims;   // page width and height in page units
 out vec2 vUv;
 void main() {
   vec2 uv = vec2(corner.x, (corner.y + 1.0) * 0.5);
   vUv = uv;
   vec2 page = uv * pageDims;
-  vec2 scaled = (page + vec2(camera.y, camera.z)) * camera.x;
+  vec2 scaled = page * camera.x + vec2(camera.y, camera.z);
   vec2 unit = scaled / pageSize;
   gl_Position = vec4(unit.x * 2.0 - 1.0, 1.0 - unit.y * 2.0, 0.0, 1.0);
 }`;
@@ -603,8 +603,8 @@ export class WebglInkRenderer implements InkRenderer {
     gl.uniform4f(
       this.cameraUniform,
       this.transform.scale * this.dpr,
-      this.transform.offsetX,
-      this.transform.offsetY,
+      this.transform.offsetX * this.dpr,
+      this.transform.offsetY * this.dpr,
       0,
     );
     // The AA margin and the feather are the same quantity in two places: the quad
@@ -819,8 +819,8 @@ export class WebglInkRenderer implements InkRenderer {
     gl.uniform4f(
       this.backgroundCameraUniform,
       this.transform.scale * this.dpr,
-      this.transform.offsetX,
-      this.transform.offsetY,
+      this.transform.offsetX * this.dpr,
+      this.transform.offsetY * this.dpr,
       0,
     );
     gl.uniform2f(this.backgroundDimsUniform, this.pageWidth, this.pageHeight);

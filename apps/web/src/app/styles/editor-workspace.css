@@ -1495,15 +1495,28 @@
 .ink-page {
   position: relative;
   display: flex;
-  justify-content: center;
+  /* `safe`: a sheet wider than the pane starts at its left edge, not off it. */
+  justify-content: safe center;
+}
+
+/*
+ * The sheet is the page's full box, and what scrolls. Paper is its
+ * background; the canvas inside it is only as big as the pane and sticks to
+ * the pane's corner as the sheet scrolls beneath it, so the compositor is
+ * never asked for a page-sized surface and a pan does not re-tile the page.
+ */
+.ink-sheet {
+  position: relative;
+  flex: none;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  background: var(--surface);
 }
 
 /* The lasso and the selection box, drawn over the canvas in page units. */
 .ink-overlay {
   position: absolute;
-  left: 50%;
-  top: 0;
-  transform: translateX(-50%);
+  inset: 0;
   pointer-events: none;
   overflow: visible;
 }
@@ -1524,20 +1537,21 @@
 /* The ink surface: the topmost thing in the page area, and never drawn over. */
 .ink-canvas {
   display: block;
-  border-radius: 2px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
-  background: var(--surface);
+  position: sticky;
+  top: 0;
+  left: 0;
+  background: transparent;
   touch-action: none;
 }
 
 /* Paper is a CSS background, so it costs no storage (§6.2.12). */
-.ink-canvas.paper-blank { background: var(--surface); }
-.ink-canvas.paper-dotted {
+.ink-sheet.paper-blank { background: var(--surface); }
+.ink-sheet.paper-dotted {
   background-color: var(--surface);
   background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
   background-size: 16px 16px;
 }
-.ink-canvas.paper-ruled {
+.ink-sheet.paper-ruled {
   background-color: var(--surface);
   background-image: linear-gradient(var(--border) 1px, transparent 1px);
   background-size: 100% 24px;

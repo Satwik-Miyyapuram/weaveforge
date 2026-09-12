@@ -42,6 +42,15 @@ export interface InkPageProps {
   };
   /** The canvas, for the host to measure and to transfer. */
   canvasRef: React.RefObject<HTMLCanvasElement>;
+  /** The sheet — the page's full box — for the host to project against. */
+  sheetRef: React.RefObject<HTMLDivElement>;
+  /**
+   * The canvas's size in CSS pixels: the part of the sheet the scroller can
+   * show. The canvas is a window onto the sheet, not the sheet itself, so a
+   * deep zoom does not ask the compositor for a page-sized surface and a pan
+   * moves the window rather than re-tiling the page (§6.2.14).
+   */
+  view: { width: number; height: number };
   /** One erase sweep, in page units. */
   onErase: (
     from: { x: number; y: number },
@@ -119,6 +128,8 @@ export function InkPage({
   project,
   penHandlers,
   canvasRef,
+  sheetRef,
+  view,
   onErase,
   onLasso,
   selectionBounds,
@@ -153,6 +164,8 @@ export function InkPage({
 
   const width = Math.max(1, Math.round(pageSize.width * scale));
   const height = Math.max(1, Math.round(pageSize.height * scale));
+  const viewWidth = Math.max(1, Math.round(Math.min(width, view.width)));
+  const viewHeight = Math.max(1, Math.round(Math.min(height, view.height)));
   const fingerPans = penOnly || penSeen;
 
   /** One overlay update per frame, however fast the pointer reports. */
@@ -380,6 +393,11 @@ export function InkPage({
       onTouchMove={(e) => e.stopPropagation()}
       onTouchEnd={(e) => e.stopPropagation()}
     >
+      <div
+        ref={sheetRef}
+        className={`ink-sheet paper-${paper}`}
+        style={{ width: `${width}px`, height: `${height}px` }}
+      >
       {/*
         `touch-action: none` ensures the browser never attempts to interpret drawing
         gestures as scrolling or panning, preventing Chromium from dispatching pointercancel
@@ -387,15 +405,15 @@ export function InkPage({
       */}
       <canvas
         ref={canvasRef}
-        className={`ink-canvas paper-${paper}`}
+        className="ink-canvas"
         style={{
-          width: `${width}px`,
-          height: `${height}px`,
+          width: `${viewWidth}px`,
+          height: `${viewHeight}px`,
           touchAction: "none",
           cursor,
         }}
-        width={width}
-        height={height}
+        width={viewWidth}
+        height={viewHeight}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -433,6 +451,7 @@ export function InkPage({
           )}
         </svg>
       )}
+      </div>
     </div>
   );
 }

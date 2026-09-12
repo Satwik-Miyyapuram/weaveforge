@@ -34,6 +34,17 @@ export async function rasterisePdfPage(
   pageNumber: number,
   widthPx: number,
 ): Promise<RasterisedPdfPage> {
+  const canvas = await renderPdfPage(bytes, pageNumber, widthPx);
+  const blob = await toPngBlob(canvas);
+  return { blob, width: canvas.width, height: canvas.height };
+}
+
+/** The page drawn on a canvas, for a caller that composes it before encoding. */
+export async function renderPdfPage(
+  bytes: ArrayBuffer,
+  pageNumber: number,
+  widthPx: number,
+): Promise<HTMLCanvasElement | OffscreenCanvas> {
   const lib = await loadPdfLib();
   const pdf = await lib.getDocument({ data: copyOf(bytes) }).promise;
   try {
@@ -49,8 +60,7 @@ export async function rasterisePdfPage(
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, width, height);
     await page.render({ canvasContext: context, viewport }).promise;
-    const blob = await toPngBlob(canvas);
-    return { blob, width, height };
+    return canvas;
   } finally {
     await pdf.destroy();
   }
@@ -65,7 +75,7 @@ function copyOf(bytes: ArrayBuffer): Uint8Array {
   return new Uint8Array(bytes.slice(0));
 }
 
-function createCanvas(
+export function createCanvas(
   width: number,
   height: number,
 ): HTMLCanvasElement | OffscreenCanvas {
@@ -78,7 +88,7 @@ function createCanvas(
   return new OffscreenCanvas(width, height);
 }
 
-function toPngBlob(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<Blob> {
+export function toPngBlob(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<Blob> {
   if ("convertToBlob" in canvas)
     return canvas.convertToBlob({ type: "image/png" });
   return new Promise((resolve, reject) => {
