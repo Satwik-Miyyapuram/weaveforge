@@ -123,8 +123,20 @@ export interface InkRenderer {
   dispose(): void;
 }
 
-/** 6 floats per segment instance: A.xy, B.xy, rA, rB. */
-export const INK_INSTANCE_FLOATS = 6;
+/**
+ * 12 floats per segment instance: `A.xy, B.xy, rA, rB, prevA.xy, nextB.xy,
+ * prevRA, nextRB`.
+ *
+ * The second half is the instance's neighbours along the stroke: the start and
+ * radius of the capsule before it, the end and radius of the one after. A
+ * negative neighbour radius means there is none — the instance is the first or
+ * last of its stroke. The fragment shader needs them because adjacent capsules
+ * overlap, and where two anti-aliased edges overlap they blend twice: a 50 %
+ * edge pixel comes out 75 %, so every join along a stroke is a slightly darker
+ * band and the edge reads as ribbed. With the neighbours in hand each fragment
+ * can tell which capsule it is nearest to, and only that one draws it.
+ */
+export const INK_INSTANCE_FLOATS = 12;
 
 /**
  * Instances per sample-to-sample segment.
@@ -279,24 +291,37 @@ export function packStrokeInstances(
 ): number {
   const from = options.from ?? 0;
   const count = Math.min(stroke.x.length, stroke.y.length);
+  const segments = Math.max(0, count - 1);
+  const last = INK_SEGMENT_SUBDIVISIONS;
+  const at = (i: number, k: number) =>
+    strokeCurveAt(stroke, i, k / last, options.velocityScale);
   let cursor = 0;
-  for (let i = from; i + 1 < count; i += 1) {
-    let a = strokeCurveAt(stroke, i, 0, options.velocityScale);
-    for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {
-      const b = strokeCurveAt(
-        stroke,
-        i,
-        k / INK_SEGMENT_SUBDIVISIONS,
-        options.velocityScale,
-      );
-      const at = cursor * INK_INSTANCE_FLOATS;
-      out[at] = a.x;
-      out[at + 1] = a.y;
-      out[at + 2] = b.x;
-      out[at + 3] = b.y;
-      out[at + 4] = a.r;
-      out[at + 5] = b.r;
+  // Every instance carries its neighbours, so the sub-segment before the first
+  // packed one is evaluated too even though it is not written: when a live
+  // stroke re-packs its tail the first instance still needs to know what it
+  // joins onto.
+  let prev = from > 0 ? at(from - 1, last - 1) : null;
+  for (let i = from; i < segments; i += 1) {
+    let a = at(i, 0);
+    for (let k = 1; k <= last; k += 1) {
+      const b = at(i, k);
+      const next =
+        k < last ? at(i, k + 1) : i + 1 < segments ? at(i + 1, 1) : null;
+      const base = cursor * INK_INSTANCE_FLOATS;
+      out[base] = a.x;
+      out[base + 1] = a.y;
+      out[base + 2] = b.x;
+      out[base + 3] = b.y;
+      out[base + 4] = a.r;
+      out[base + 5] = b.r;
+      out[base + 6] = prev ? prev.x : 0;
+      out[base + 7] = prev ? prev.y : 0;
+      out[base + 8] = next ? next.x : 0;
+      out[base + 9] = next ? next.y : 0;
+      out[base + 10] = prev ? prev.r : -1;
+      out[base + 11] = next ? next.r : -1;
       cursor += 1;
+      prev = a;
       a = b;
     }
   }

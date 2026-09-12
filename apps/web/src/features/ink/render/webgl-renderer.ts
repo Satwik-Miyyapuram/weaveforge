@@ -86,6 +86,8 @@ export const VERTEX_SHADER = `#version 300 es
 in vec2 corner;          // unit quad: (0,-1) (1,-1) (1,1) (0,-1) (1,1) (0,1)
 in vec4 seg;             // A.xy, B.xy in page units
 in vec2 radius;          // rA, rB in page units, per instance
+in vec4 neighbours;      // prevA.xy, nextB.xy: the capsules either side
+in vec2 neighbourRadius; // prevRA, nextRB; negative when there is no neighbour
 uniform vec2 pageSize;   // device pixels, for normalising
 uniform vec4 camera;     // scale, offsetX, offsetY, unused
 uniform float margin;    // the AA margin in page units
@@ -93,6 +95,8 @@ out vec2 vPage;
 out vec2 vA;
 out vec2 vB;
 out vec2 vRadius;
+out vec4 vNeighbours;
+out vec2 vNeighbourRadius;
 out float vMargin;
 void main() {
   vec2 a = seg.xy;
@@ -116,6 +120,8 @@ void main() {
   vA = a;
   vB = b;
   vRadius = radius;
+  vNeighbours = neighbours;
+  vNeighbourRadius = neighbourRadius;
   // Page units → clip space. Y is flipped: page y grows downward, clip y upward.
   vec2 scaled = (page + vec2(camera.y, camera.z)) * camera.x;
   vec2 unit = scaled / pageSize;
@@ -128,22 +134,40 @@ in vec2 vPage;
 in vec2 vA;
 in vec2 vB;
 in vec2 vRadius;
+in vec4 vNeighbours;
+in vec2 vNeighbourRadius;
 in float vMargin;
 uniform vec4 inkColour;   // rgb + alpha
 uniform float feather;    // AA width in page units
 out vec4 outColour;
-void main() {
-  vec2 pa = vPage - vA;
-  vec2 ba = vB - vA;
+// Signed distance to a capsule whose radius runs from ra at a to rb at b:
+// negative inside, zero on the edge.
+float capsule(vec2 p, vec2 a, vec2 b, float ra, float rb) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
   // A degenerate segment — a dot — has no direction to project onto. Guarding the
   // division is what makes the plan's "zero-length segment renders a round dot"
   // true rather than a NaN.
   float denom = max(dot(ba, ba), 0.0001);
   float t = clamp(dot(pa, ba) / denom, 0.0, 1.0);
-  float d = length(pa - ba * t);
-  float r = mix(vRadius.x, vRadius.y, t);
-  float fw = max(fwidth(d), feather);
-  float alpha = 1.0 - smoothstep(r - fw, r + fw, d);
+  return length(pa - ba * t) - mix(ra, rb, t);
+}
+void main() {
+  float sd = capsule(vPage, vA, vB, vRadius.x, vRadius.y);
+  // Adjacent capsules overlap, and a pixel in both their edges would be blended
+  // twice. So a fragment belongs to whichever capsule it is nearest, and the
+  // others discard it. The tie-break is asymmetric — the earlier capsule keeps
+  // an exact tie — so that exactly one of the pair draws it.
+  if (vNeighbourRadius.x >= 0.0) {
+    float before = capsule(vPage, vNeighbours.xy, vA, vNeighbourRadius.x, vRadius.x);
+    if (before < sd) discard;
+  }
+  if (vNeighbourRadius.y >= 0.0) {
+    float after = capsule(vPage, vB, vNeighbours.zw, vRadius.y, vNeighbourRadius.y);
+    if (after <= sd) discard;
+  }
+  float fw = max(fwidth(sd), feather);
+  float alpha = 1.0 - smoothstep(-fw, fw, sd);
   if (alpha <= 0.0) discard;
   outColour = vec4(inkColour.rgb, inkColour.a * alpha);
 }`;
@@ -463,10 +487,12 @@ export class WebglInkRenderer implements InkRenderer {
     this.live = stroke;
     this.liveBatch = batch;
     this.ensureBatchCapacity(batch, strokeInstanceCount(points));
-    // Re-pack from one segment before the newest: the sample that just landed
-    // sets the tangent the previous segment curves with, and a predicted tail
-    // that was replaced rather than extended changes the last few outright.
-    this.livePacked = Math.max(0, Math.min(this.livePacked, segments) - 1);
+    // Re-pack from two segments before the newest: the sample that just landed
+    // sets the tangent the previous segment curves with, a predicted tail that
+    // was replaced rather than extended changes the last few outright, and the
+    // segment before *that* was packed as the stroke's end, with no neighbour
+    // after it, and now has one.
+    this.livePacked = Math.max(0, Math.min(this.livePacked, segments) - 2);
     const from = this.livePacked * INK_SEGMENT_SUBDIVISIONS;
     const written = packStrokeInstances(
       {
@@ -780,6 +806,31 @@ export class WebglInkRenderer implements InkRenderer {
       16,
     );
     gl.vertexAttribDivisor(radiusLocation, 1);
+    const neighbourLocation = gl.getAttribLocation(this.program, "neighbours");
+    gl.enableVertexAttribArray(neighbourLocation);
+    gl.vertexAttribPointer(
+      neighbourLocation,
+      4,
+      gl.FLOAT,
+      false,
+      INK_INSTANCE_FLOATS * 4,
+      24,
+    );
+    gl.vertexAttribDivisor(neighbourLocation, 1);
+    const neighbourRadiusLocation = gl.getAttribLocation(
+      this.program,
+      "neighbourRadius",
+    );
+    gl.enableVertexAttribArray(neighbourRadiusLocation);
+    gl.vertexAttribPointer(
+      neighbourRadiusLocation,
+      2,
+      gl.FLOAT,
+      false,
+      INK_INSTANCE_FLOATS * 4,
+      40,
+    );
+    gl.vertexAttribDivisor(neighbourRadiusLocation, 1);
 
     const rgb = INK_RENDER_COLOURS[batch.colour] ?? INK_RENDER_COLOURS.text;
     const alpha = alphaOverride ?? (batch.highlighter ? 0.35 : 1);
