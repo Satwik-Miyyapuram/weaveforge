@@ -178,34 +178,36 @@ export function catmullRom(
  * Turn angle at a sample below which the curve keeps its full tangent, and the
  * angle at which the tangent is gone and the sample is a corner.
  */
-const INK_CORNER_SOFT_COS = Math.cos(Math.PI / 6);
+/** The turn at which a tangent starts to fade: cos 60°. Zero by 90°. */
+const INK_CORNER_SOFT_COS = Math.cos(Math.PI / 3);
 
 /**
- * The tangent of the stroke at sample `i`, for the Hermite spans either side.
+ * The tangent of the stroke at sample `i`, for the span that begins there
+ * (`side = "out"`) or ends there (`side = "in"`).
  *
- * Uniform Catmull-Rom would take `(p[i+1] - p[i-1]) / 2`. That is right when
- * the samples are evenly spaced, and they are not by the time a stroke is
+ * Uniform Catmull-Rom takes `(p[i+1] - p[i-1]) / 2`. That is right when the
+ * samples are evenly spaced, and they are not by the time a stroke is
  * committed: the save-time simplification keeps a point only where the
  * centreline bends, so a straight run becomes one long span next to a short
  * one, and a tangent set by the long span overshoots the short one — a hooked
- * spur at every corner of a box, a loop at the point of a `v`. Three changes
- * keep the curve inside the samples:
+ * spur at every corner of a box, a loop at the point of a `v`.
  *
- * - the direction is the bisector of the two unit chords, not their sum, so a
- *   long chord does not dominate a short one;
- * - the magnitude is the shorter of the two chords, so a span is never asked
- *   to bend further than its own length;
- * - the magnitude also fades with the turn angle, gone by 90°, so a sharp
- *   corner is drawn as one — the curve runs straight into the sample and
- *   straight out — while a turn under 30° keeps its full tangent and a curve
- *   still reads as a curve.
+ * This is the *centripetal* Catmull-Rom tangent instead: each chord is given a
+ * knot interval of `√length`, and the tangent is the non-uniform finite
+ * difference over those knots (Yuksel, Schaefer & Keyser 2011). It is the one
+ * parametrisation that can form neither a cusp nor a self-intersection within
+ * a span, and it follows short chords tightly. Only a turn past 60° fades the
+ * tangent, to nothing at 90°: an earlier version faded from 30°, which turned
+ * small handwriting, where every turn is sharp relative to the sample spacing,
+ * into a polyline.
  *
- * At either end of the stroke the tangent is the one chord there, which makes
- * the end span a straight, evenly-parametrised run into the cap.
+ * The tangent is scaled to the span it serves, which is why a point has one
+ * per side; at either end of the stroke it is the one chord there.
  */
 export function strokeTangentAt(
   stroke: StrokeInstanceInput,
   i: number,
+  side: "in" | "out" = "out",
 ): { x: number; y: number } {
   const count = Math.min(stroke.x.length, stroke.y.length);
   const x = stroke.x[i]!;
@@ -221,18 +223,22 @@ export function strokeTangentAt(
   if (!(pl > 0) && !(nl > 0)) return { x: 0, y: 0 };
   if (!(pl > 0)) return { x: nx, y: ny };
   if (!(nl > 0)) return { x: px, y: py };
-  const ux = px / pl;
-  const uy = py / pl;
-  const vx = nx / nl;
-  const vy = ny / nl;
-  const bx = ux + vx;
-  const by = uy + vy;
-  const bl = Math.hypot(bx, by);
-  if (!(bl > 0)) return { x: 0, y: 0 };
-  const cos = ux * vx + uy * vy;
+  // Knot intervals: centripetal is α = ½, so the interval is the root of the
+  // chord. A vanishing interval would divide by zero; the chord is not zero here.
+  const dp = Math.sqrt(pl);
+  const dn = Math.sqrt(nl);
+  // The derivative of the centripetal spline at the knot, then scaled by the
+  // knot interval of the span it serves so it reads in that span's `u ∈ [0, 1]`.
+  const scale = side === "out" ? dn : dp;
+  // A true corner — the turn past 60°, gone at 90° — is drawn as one: even the
+  // centripetal tangent rounds a right angle by a few tenths of a millimetre,
+  // which a box drawn with a ruler tool should not show. Handwriting turns far
+  // less than that between neighbouring samples, so a letter keeps its curve.
+  const cos = (px * nx + py * ny) / (pl * nl);
   const corner = Math.max(0, Math.min(1, cos / INK_CORNER_SOFT_COS));
-  const magnitude = Math.min(pl, nl) * corner;
-  return { x: (bx / bl) * magnitude, y: (by / bl) * magnitude };
+  const tx = (px / dp - (px + nx) / (dp + dn) + nx / dn) * scale * corner;
+  const ty = (py / dp - (py + ny) / (dp + dn) + ny / dn) * scale * corner;
+  return { x: tx, y: ty };
 }
 
 /**
@@ -250,8 +256,8 @@ export function strokeCurveAt(
   const y1 = stroke.y[i]!;
   const x2 = stroke.x[i + 1]!;
   const y2 = stroke.y[i + 1]!;
-  const m1 = strokeTangentAt(stroke, i);
-  const m2 = strokeTangentAt(stroke, i + 1);
+  const m1 = strokeTangentAt(stroke, i, "out");
+  const m2 = strokeTangentAt(stroke, i + 1, "in");
   const uu = u * u;
   const uuu = uu * u;
   const h00 = 2 * uuu - 3 * uu + 1;

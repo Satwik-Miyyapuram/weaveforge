@@ -263,7 +263,8 @@ test("pressure widens a pen, and a device with none keeps its width", () => {
 test("a simplified box corner is drawn as a corner, with nothing past it", () => {
   // What the save-time simplification leaves of a drawn box: one sample per
   // corner, long spans between. Uniform Catmull-Rom hooks ~15 units past each
-  // corner here; the curve must stay inside the box and on its edges.
+  // corner here; the centripetal spline may round a corner by under a tenth of
+  // a millimetre (1 unit), which a 0.6 mm nib swallows, and no more.
   const stroke = {
     x: Float32Array.from([100, 300, 300, 100, 100]),
     y: Float32Array.from([500, 500, 650, 650, 500]),
@@ -274,15 +275,18 @@ test("a simplified box corner is drawn as a corner, with nothing past it", () =>
   for (let i = 0; i < 4; i += 1) {
     for (let k = 0; k <= 10; k += 1) {
       const p = strokeCurveAt(stroke, i, k / 10);
-      assert.ok(p.x >= 100 - 1e-6 && p.x <= 300 + 1e-6, `x inside: ${p.x}`);
-      assert.ok(p.y >= 500 - 1e-6 && p.y <= 650 + 1e-6, `y inside: ${p.y}`);
+      assert.ok(p.x >= 100 - 1 && p.x <= 300 + 1, `x inside: ${p.x}`);
+      assert.ok(p.y >= 500 - 1 && p.y <= 650 + 1, `y inside: ${p.y}`);
     }
   }
   const mid = strokeCurveAt(stroke, 0, 0.5);
-  assert.ok(Math.abs(mid.y - 500) < 1e-6, "the top edge is straight");
+  assert.ok(Math.abs(mid.y - 500) < 1, "the top edge is straight");
 });
 
 test("a gentle turn keeps its tangent, so a curve is still a curve", () => {
+  // Evenly spaced samples on a circle: the centripetal tangent must point along
+  // the circle and be about a chord long, so the spans bow out to the arc rather
+  // than cutting straight across it.
   const angles = [0, 20, 40, 60].map((degrees) => (degrees * Math.PI) / 180);
   const stroke = {
     x: Float32Array.from(angles.map((a) => 100 * Math.cos(a))),
@@ -293,5 +297,31 @@ test("a gentle turn keeps its tangent, so a curve is still a curve", () => {
   };
   const chord = Math.hypot(stroke.x[2]! - stroke.x[1]!, stroke.y[2]! - stroke.y[1]!);
   const m = strokeTangentAt(stroke, 1);
-  assert.ok(Math.abs(Math.hypot(m.x, m.y) - chord) < 1e-9, "full chord length");
+  const length = Math.hypot(m.x, m.y);
+  assert.ok(length > 0.8 * chord && length < 1.2 * chord, `about a chord: ${length}`);
+  // Along the circle at 20°: the direction is (-sin 20°, cos 20°).
+  const dot = (m.x * -Math.sin(angles[1]!) + m.y * Math.cos(angles[1]!)) / length;
+  assert.ok(dot > 0.999, `tangent to the circle: ${dot}`);
+  const mid = strokeCurveAt(stroke, 1, 0.5);
+  const radius = Math.hypot(mid.x, mid.y);
+  assert.ok(Math.abs(radius - 100) < 0.5, `the span bows to the arc: r=${radius}`);
+});
+
+test("a small loop, eight samples round, is still round — not a polyline", () => {
+  // A 1 mm letter loop after simplification: a sample every 45°. A tangent
+  // that fades on that turn draws an octagon; the span must bow to the arc.
+  const angles = Array.from({ length: 9 }, (_, i) => (i * Math.PI) / 4);
+  const stroke = {
+    x: Float32Array.from(angles.map((a) => 10 * Math.cos(a))),
+    y: Float32Array.from(angles.map((a) => 10 * Math.sin(a))),
+    pressure: Uint8Array.from(angles.map(() => 0)),
+    width: 6,
+    variableWidth: false,
+  };
+  for (let i = 1; i < 7; i += 1) {
+    const mid = strokeCurveAt(stroke, i, 0.5);
+    const radius = Math.hypot(mid.x, mid.y);
+    // The chord midpoint sits at r = 10·cos 22.5° ≈ 9.24; the arc at 10.
+    assert.ok(radius > 9.8 && radius < 10.2, `span ${i} bows to the arc: r=${radius}`);
+  }
 });
