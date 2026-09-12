@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Layer 1: the whole WeaveForge web app. -->
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Layer 2: the transparent front-buffered stylus overlay. -->
+    <org.weaveforge.ink.InkingOverlayView
+        android:id="@+id/inkOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+</FrameLayout>
