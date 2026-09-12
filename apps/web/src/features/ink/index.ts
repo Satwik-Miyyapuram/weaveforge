@@ -7,7 +7,7 @@
  * happens to define it: the palm rules are shared, the worker and the renderer
  * are this feature's own business.
  *
- * Steps 4–9 add the host, the renderer and the tools to this barrel as they land.
+ * The host, the renderer, the stores and recognition all pass through here.
  */
 
 export {
@@ -111,6 +111,56 @@ export {
 
 export { recogniseShape, fittedInkPath, fittedArrowPaths } from "./application/shape-snap";
 
-export { InkHost, fitScale, headerForTool, type InkHostPage, type InkHostProps } from "./ui/ink-host";
+export {
+  InkHost,
+  INK_NO_ENGINE_MESSAGE,
+  INK_SAVE_DELAY_MS,
+  fitScale,
+  headerForTool,
+  selectedText,
+  type InkHostDeps,
+  type InkHostPage,
+  type InkHostProps,
+} from "./ui/ink-host";
+export { InkTextLayer, lineClass, type InkTextLayerProps } from "./ui/ink-text-layer";
+
+export {
+  MemoryInkChunkStore,
+  chunkIdOfFileName,
+  loadInkPages,
+  type InkChunkStore,
+  type InkStoredPage,
+} from "./application/ink-chunk-store";
+export { FsInkChunkStore } from "./infrastructure/fs-ink-chunk-store";
+export { BlobInkChunkStore } from "./infrastructure/blob-ink-chunk-store";
+export { RoutedInkChunkStore } from "./infrastructure/routed-ink-chunk-store";
+
+export {
+  INK_SYMBOL_MAP,
+  VOCAB_SPAN_RATIO,
+  VOCAB_WORD_DISTANCE,
+  damerauLevenshtein,
+  matchVocabulary,
+  spanDistance,
+} from "./application/vocab-match";
+export {
+  acceptLine,
+  acceptedLines,
+  assembleRecognisedPage,
+  bandsCoincide,
+  recognisePage,
+  recognisedPageFromModel,
+  type RecognisePageInput,
+  type RecognisedPage,
+} from "./application/recognise-page";
+export {
+  STROKE_CTC_ENGINE_ID,
+  WINDOWS_INK_ENGINE_ID,
+  createDesktopInkRecogniser,
+  createOptionalMyScriptRecogniser,
+  createStrokeModelRecogniser,
+  desktopInkRequest,
+  inkRecogniserCandidates,
+} from "./application/recognisers";
 export { InkBar, INK_BAR_TOOLS, nibForTool, toolLabel, type InkBarProps, type InkBarTool } from "./ui/ink-bar";
 export { InkPage, type InkPageProps } from "./ui/ink-page";

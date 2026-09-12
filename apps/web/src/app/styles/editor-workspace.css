@@ -1355,6 +1355,14 @@
 .ink-text h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
 .ink-text p { margin: 0 0 10px; }
 .ink-text .ink-empty { color: var(--faint); }
+/* A line is a paragraph; unsure ones are dotted (§5.4), accepted ones plain. */
+.ink-text .ink-line { cursor: text; border-radius: 4px; padding: 2px 4px; margin: 0 -4px 8px; }
+.ink-text .ink-line:hover { background: var(--chip); }
+.ink-text .ink-line-unsure { border-bottom: 1px dotted var(--s-warn); }
+.ink-text .ink-line-sure { color: var(--text); }
+.ink-line-edit { margin: 0 0 10px; display: grid; gap: 6px; }
+.ink-line-edit .themed-input { width: 100%; }
+.ink-alternatives { display: flex; flex-wrap: wrap; gap: 4px; }
 
 @media (max-width: 1100px) {
   .ink-wrap { grid-template-columns: minmax(0, 1fr); }

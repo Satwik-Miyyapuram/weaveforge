@@ -132,6 +132,14 @@ export const CHANNELS = {
    * account gets the feature without the page ever holding the credential.
    */
   overleafRead: "weaveforge:overleaf-read",
+  /**
+   * The Windows Ink recogniser: whether the helper is present, and one page's
+   * lines through it. The helper is a process this side starts and keeps
+   * (`ink-recogniser.ts`); the page sends stroke trajectories and gets text
+   * back, and nothing leaves the machine.
+   */
+  inkAvailable: "weaveforge:ink-available",
+  inkRecognise: "weaveforge:ink-recognise",
 } as const;
 
 /**

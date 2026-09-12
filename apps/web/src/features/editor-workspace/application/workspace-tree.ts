@@ -14,6 +14,7 @@
 
 import {
   ENTITY_DIRS,
+  KIND_SUFFIX,
   flatPath,
   treePaths,
   type FolderNode,
@@ -62,8 +63,16 @@ export interface PaperEntry {
   hasNote: boolean;
 }
 
+/**
+ * A note in the tree, with the kind its body claims. An ink note sits among the
+ * notes — same folder, same parent chain — and only its row and suffix differ.
+ */
+export interface NoteNode extends FolderNode {
+  kind?: "vault_page" | "ink_page";
+}
+
 export interface WorkspaceTreeInput {
-  notes: readonly FolderNode[];
+  notes: readonly NoteNode[];
   papers: readonly PaperEntry[];
   reportSections: readonly FolderNode[];
 }
@@ -75,17 +84,21 @@ const byLabel = (a: WorkspaceTreeNode, b: WorkspaceTreeNode) =>
 function nestedRoot(
   label: string,
   type: WorkspaceEntityType,
-  nodes: readonly FolderNode[],
+  nodes: readonly NoteNode[],
 ): WorkspaceTreeNode {
   const paths = treePaths(nodes, type);
   const built = new Map<string, WorkspaceTreeNode>();
   for (const node of nodes) {
+    const kind = node.kind ?? type;
+    let path = paths.get(node.id) ?? ENTITY_DIRS[type];
+    // An ink note mirrors as `.ink.md` in the same place a note would be.
+    if (kind !== type) path = path.replace(/\.[a-z_]+\.md$/, `.${KIND_SUFFIX[kind]}.md`);
     built.set(node.id, {
-      key: `${type}:${node.id}`,
-      kind: type,
+      key: `${kind}:${node.id}`,
+      kind,
       id: node.id,
       label: node.title.trim() || "Untitled",
-      path: paths.get(node.id) ?? ENTITY_DIRS[type],
+      path,
       children: [],
     });
   }

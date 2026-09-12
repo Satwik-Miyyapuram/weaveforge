@@ -32,6 +32,7 @@ import { safeWorkspacePath } from "@weaveforge/core";
 import { LOCAL_API_HOST, LOCAL_API_PORT, newLocalApiToken, startLocalApi, type LocalApi } from "./local-api-server";
 import { fetchZoteroLocal } from "./zotero-local";
 import { compileTex, probeTex, type TexSourceFile } from "./tex";
+import { createInkRecogniser, type InkRecognitionRequest } from "./ink-recogniser";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { SecretStore } from "./secret-store";
 import { handleOverleafRead } from "./overleaf-source";
@@ -638,6 +639,39 @@ ipc.handle(CHANNELS.texProbe, async () => {
   return { ok: true, value: await probeTex() };
 });
 
+/**
+ * The handwriting helper, started on the first probe and kept for the session.
+ *
+ * Made lazily so a machine without the helper — every non-Windows build — never
+ * pays for a spawn attempt until the page asks, and the answer to `available`
+ * is then a plain `false` rather than a rejection.
+ */
+let inkRecogniser: ReturnType<typeof createInkRecogniser> | null = null;
+const inkHelper = () => (inkRecogniser ??= createInkRecogniser());
+
+ipc.handle(CHANNELS.inkAvailable, async () => {
+  try {
+    return { ok: true, value: await inkHelper().available() };
+  } catch {
+    return { ok: true, value: false };
+  }
+});
+
+ipc.handle(CHANNELS.inkRecognise, async (_event, request: unknown) => {
+  const body = request as Partial<InkRecognitionRequest> | null;
+  if (!body || !Array.isArray(body.lines)) {
+    return { ok: false, message: "That is not a page to recognise." };
+  }
+  try {
+    return { ok: true, value: await inkHelper().recognise(body as InkRecognitionRequest) };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "The handwriting recogniser did not answer.",
+    };
+  }
+});
+
 ipc.handle(CHANNELS.texCompile, async (_event, files: unknown, entryFile: unknown) => {
   // The page names the files; `compileTex` refuses any path that would leave
   // the temporary directory it makes, so nothing here is written near the
@@ -726,6 +760,7 @@ function startWatchingVault(root: string): void {
  * power button.
  */
 app.on("will-quit", (event) => {
+  inkRecogniser?.dispose();
   event.preventDefault();
   runBoundedQuit({ cleanup: () => localDb.close(), exit: () => app.exit(0) });
 });

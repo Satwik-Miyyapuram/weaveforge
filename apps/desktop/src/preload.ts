@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   DesktopBridge,
   DesktopCommitResult,
+  DesktopInkRequest,
+  DesktopInkResult,
   DesktopLocalApi,
   DesktopLocalDbState,
   DesktopOverleafSource,
@@ -77,6 +79,8 @@ const bridge: DesktopBridge = {
   readOverleafProject: (projectId, entryFile) =>
     call<DesktopOverleafSource>(CHANNELS.overleafRead, projectId, entryFile),
   probeTex: () => call<DesktopTexTool | null>(CHANNELS.texProbe),
+  inkAvailable: () => call<boolean>(CHANNELS.inkAvailable),
+  inkRecognise: (request: DesktopInkRequest) => call<DesktopInkResult>(CHANNELS.inkRecognise, request),
   compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),

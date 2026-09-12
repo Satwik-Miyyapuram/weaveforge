@@ -75,8 +75,14 @@ import {
   ReadingListsFacade,
   WorkspaceFacade,
   CollabFacade,
+  InkFacade,
   type AppContainer,
 } from "@/container/facades";
+import { BlobInkChunkStore } from "@/features/ink/infrastructure/blob-ink-chunk-store";
+import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-store";
+import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
+import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import type { ProjectContext } from "@/lib/project-context";
 import { systemClock, uuidIds } from "@/features/papers/infrastructure/system";
 import {
@@ -171,6 +177,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Signs artifact paths on read. Nothing stores a signed URL: SigV4 caps one
   // at seven days, so a stored link is a link with a deadline.
   const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
+  // Ink chunks follow the page: the folder's `.ink/` when one is open, the
+  // encrypted asset bucket otherwise (§4.1). Routed per call, since a folder
+  // can be chosen or forgotten while the app is running.
+  const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs);
+  const blobInkChunks = new BlobInkChunkStore(encryptedBlobStore, backend.session);
+  const inkChunkStore = new RoutedInkChunkStore(() => (activeWorkspaceFs() ? fsInkChunks : blobInkChunks));
 
   const manageProject = new ManageProjectUseCase({
     repository: backend.projectRepository,
@@ -539,6 +551,22 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       sections: reportSectionRepository,
       manageReportSection,
       images: reportImageStore,
+    }),
+    ink: new InkFacade({
+      chunks: inkChunkStore,
+      bridge: desktop,
+      myScript: async () => {
+        const settings = await backend.manageSettings.get();
+        const key = settings.integrations?.myscript?.applicationKey;
+        return key ? { applicationKey: key } : undefined;
+      },
+      vocabulary: async () => {
+        const [pages, papers] = await Promise.all([
+          vaultPageRepository.listSummaries?.() ?? vaultPageRepository.list(),
+          paperRepository.listSummaries?.() ?? paperRepository.list(),
+        ]);
+        return [pages.map((page) => page.title), papers.map((paper) => paper.title)];
+      },
     }),
     vault: new VaultFacade({
       load: loadVaultScreen,
