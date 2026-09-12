@@ -16,6 +16,7 @@ import { SyncSettings } from "@/features/sync";
 import { SearchSettingsPanel } from "./search-settings-panel";
 import { PasteSettingsPanel } from "./paste-settings-panel";
 import { EditorSettingsPanel } from "./editor-settings-panel";
+import { InkSettingsPanel } from "./ink-settings-panel";
 import { WorkspaceFolderPanel } from "./workspace-folder-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
 import { AccountInfoPanel } from "./account-info-panel";
@@ -52,6 +53,7 @@ const SETTINGS_TABS = [
   { id: "search", label: "Search" },
   { id: "paste", label: "Paste" },
   { id: "editor", label: "Editor" },
+  { id: "ink", label: "Ink" },
   { id: "folder", label: "Folder" },
   { id: "ai", label: "AI" },
   { id: "tokens", label: "Tokens" },
@@ -132,6 +134,9 @@ export function SettingsScreen() {
 
   const { busy, error, setError, submit } = useSubmit(async () => {
     await getContainer().settings.manageSettings.save(settings);
+    // The ink engine is chosen once per session from the saved settings; a
+    // MyScript key added or removed here changes the list, so forget the choice.
+    getContainer().ink.reset();
     // Ranking is read per query, so this lands without a reindex.
     getContainer().search.setSettings(settings.search);
     setSaved(true);
@@ -360,6 +365,7 @@ export function SettingsScreen() {
           dirty state. */}
       {tab === "paste" && <PasteSettingsPanel />}
       {tab === "editor" && <EditorSettingsPanel />}
+      {tab === "ink" && <InkSettingsPanel settings={settings} onChange={setSettings} />}
 
       {tab === "appearance" && (
       <div id="settings-appearance" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-appearance">
