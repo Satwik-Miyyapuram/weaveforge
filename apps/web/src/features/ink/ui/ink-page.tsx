@@ -29,7 +29,10 @@ export interface InkPageProps {
   paper: string;
   tool: InkBarTool | "shape";
   /** Client coordinates to page units in 0.1 mm, `null` off the page. */
-  project: (clientX: number, clientY: number) => { x: number; y: number } | null;
+  project: (
+    clientX: number,
+    clientY: number,
+  ) => { x: number; y: number } | null;
   /** The pen's own handlers, from `usePenCapture`. */
   penHandlers: {
     onPointerDown: (event: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -40,9 +43,20 @@ export interface InkPageProps {
   /** The canvas, for the host to measure and to transfer. */
   canvasRef: React.RefObject<HTMLCanvasElement>;
   /** One erase sweep, in page units. */
-  onErase: (from: { x: number; y: number }, to: { x: number; y: number }) => void;
+  onErase: (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ) => void;
   /** A lasso is a region rather than a stroke; the host decides what it means. */
   onLasso?: (path: readonly number[]) => void;
+  /**
+   * The current selection's box in page units, `null` when nothing is selected.
+   * A lasso pointer-down inside it drags the selection instead of drawing a
+   * new loop.
+   */
+  selectionBounds?: readonly [number, number, number, number] | null;
+  /** The drag ended: the selection moved by `dx, dy` page units. */
+  onMoveSelection?: (dx: number, dy: number) => void;
   /** Whether touch may draw at all, which is what `touch-action` follows. */
   penOnly: boolean;
   penSeen: boolean;
@@ -59,6 +73,8 @@ export function InkPage({
   canvasRef,
   onErase,
   onLasso,
+  selectionBounds,
+  onMoveSelection,
   penOnly,
   penSeen,
 }: InkPageProps) {
@@ -66,6 +82,8 @@ export function InkPage({
   const lastErase = useRef<{ x: number; y: number } | null>(null);
   /** The lasso path in page units, while it is being drawn. */
   const lasso = useRef<number[]>([]);
+  /** Where a selection drag began, while one is in progress. */
+  const drag = useRef<{ x: number; y: number } | null>(null);
 
   const width = Math.max(1, Math.round(pageSize.width * scale));
   const height = Math.max(1, Math.round(pageSize.height * scale));
@@ -83,13 +101,19 @@ export function InkPage({
       if (tool === "lasso") {
         const at = project(event.clientX, event.clientY);
         if (!at) return;
-        lasso.current = [at.x, at.y];
         event.currentTarget.setPointerCapture(event.pointerId);
+        // Down inside the selected box is a drag; anywhere else starts a new loop.
+        const b = selectionBounds;
+        if (b && at.x >= b[0] && at.x <= b[2] && at.y >= b[1] && at.y <= b[3]) {
+          drag.current = at;
+          return;
+        }
+        lasso.current = [at.x, at.y];
         return;
       }
       penHandlers.onPointerDown(event);
     },
-    [onErase, penHandlers, project, tool],
+    [onErase, penHandlers, project, selectionBounds, tool],
   );
 
   const onPointerMove = useCallback(
@@ -106,6 +130,7 @@ export function InkPage({
         return;
       }
       if (tool === "lasso") {
+        if (drag.current) return;
         const at = project(event.clientX, event.clientY);
         if (!at) return;
         lasso.current.push(at.x, at.y);
@@ -124,15 +149,28 @@ export function InkPage({
         return;
       }
       if (tool === "lasso") {
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+        const from = drag.current;
+        if (from) {
+          drag.current = null;
+          // The move is one worker message at the end, so it is one undo entry.
+          const to =
+            event.type === "pointercancel"
+              ? from
+              : project(event.clientX, event.clientY);
+          const dx = to ? to.x - from.x : 0;
+          const dy = to ? to.y - from.y : 0;
+          if (dx !== 0 || dy !== 0) onMoveSelection?.(dx, dy);
+          return;
+        }
         const path = lasso.current;
         lasso.current = [];
-        event.currentTarget.releasePointerCapture?.(event.pointerId);
         if (path.length >= 6) onLasso?.(path);
         return;
       }
       penHandlers.onPointerUp(event);
     },
-    [onLasso, penHandlers, tool],
+    [onLasso, onMoveSelection, penHandlers, project, tool],
   );
 
   return (
