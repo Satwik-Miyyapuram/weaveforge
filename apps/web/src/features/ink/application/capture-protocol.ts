@@ -24,7 +24,7 @@
  * memory.
  */
 
-import type { InkColour } from "@weaveforge/core";
+import type { InkColour, InkPage } from "@weaveforge/core";
 
 /** `x, y, pressure, t` per sample. */
 export const INK_SAMPLE_STRIDE = 4;
@@ -101,6 +101,29 @@ export type InkWorkerMessage =
   | { type: "redo" }
   /** Render the page to a PNG at `scale`. */
   | { type: "export-page"; requestId: number; scale: number }
+  /**
+   * Pack the page into a chunk, exactly as the sidecar stores it.
+   *
+   * Encoding happens here for the same reason decoding does: the worker holds the
+   * geometry, and `encodeInkChunk` on the main thread would mean shipping every
+   * point across first. The reply is `page-saved`.
+   */
+  | { type: "save-page"; requestId: number }
+  /** The page as a model, for recognition on the main thread. Reply: `page-model`. */
+  | { type: "page-model"; requestId: number }
+  /**
+   * Replace the page wholesale, after recognition reordered its strokes into
+   * line order and attached the line table (§5.4). Undo history is cleared: the
+   * indices it holds no longer name the same strokes.
+   */
+  | { type: "replace-page"; page: InkPage }
+  /** Select the strokes inside a closed polygon, in page units. Reply: `selected`. */
+  | { type: "lasso"; polygon: number[] }
+  | { type: "select-clear" }
+  /** Remove the selected strokes, as one undoable step. */
+  | { type: "delete-selection" }
+  /** Translate the selected strokes, in page units, as one undoable step. */
+  | { type: "move-selection"; dx: number; dy: number }
   | { type: "dispose" };
 
 /** What one posted batch looks like: a view plus how much of it is used. */
@@ -131,6 +154,14 @@ export type InkWorkerEvent =
   | { type: "erased"; indices: number[] }
   /** A PNG for `export-page`, as an encoded blob. */
   | { type: "exported"; requestId: number; png: Blob | null }
+  /** The chunk for `save-page`, or `null` when the page has no live strokes. */
+  | { type: "page-saved"; requestId: number; pageIndex: number; bytes: Uint8Array | null; strokes: number }
+  /** The page as a model, for `page-model`. */
+  | { type: "page-model"; requestId: number; pageIndex: number; page: InkPage }
+  /** What the lasso took: stroke indices and their union bounds, `[]` when nothing. */
+  | { type: "selected"; indices: number[]; bounds: [number, number, number, number] | null }
+  /** The page's undo depth changed, so the bar can enable its buttons. */
+  | { type: "history"; undo: number; redo: number }
   | { type: "context-lost" }
   | { type: "context-restored"; backend: "webgl2" | "canvas2d" | "none" }
   | { type: "error"; message: string };

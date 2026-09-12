@@ -71,10 +71,22 @@ export interface InkRenderer {
   readonly renderStats: InkRenderStats;
   /** Page size and paper, in 0.1 mm. */
   setPage(size: { width: number; height: number }, paper: string): void;
-  /** Replace every stroke. The page load path, and the rebuild after a loss. */
-  setStrokes(strokes: readonly InkStrokeGeometry[]): void;
-  /** Add one committed stroke without rebuilding anything. */
-  appendStroke(stroke: InkStrokeGeometry): void;
+  /**
+   * Replace every stroke. The page load path, and the rebuild after a loss.
+   *
+   * Position is identity: `strokes[i]` is the buffer's stroke `i`, and a `null`
+   * is a dead one whose index is still taken. That is what lets `removeStroke`
+   * be given a buffer index rather than a position the renderer would have to
+   * translate.
+   */
+  setStrokes(strokes: readonly (InkStrokeGeometry | null)[]): void;
+  /**
+   * Add one committed stroke without rebuilding anything.
+   *
+   * `index` is the buffer's; omitted, the renderer assigns the next one, which
+   * is the same number so long as the two have been kept in step.
+   */
+  appendStroke(stroke: InkStrokeGeometry, index?: number): void;
   /** Stop drawing one stroke. `index` is the buffer's, not a position. */
   removeStroke(index: number): void;
   /** The stroke under the pen, redrawn incrementally (D6). */

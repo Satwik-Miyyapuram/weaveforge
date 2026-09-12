@@ -171,6 +171,21 @@ export class InkPageBuffer {
     return this.alive[index] ? this.strokes[index]! : null;
   }
 
+  /**
+   * Every slot, dead ones as `null`, so position equals buffer index.
+   *
+   * What a renderer is rebuilt from: it keys removal on the buffer's index, and
+   * a list with the dead strokes squeezed out would shift every index after the
+   * first tombstone.
+   */
+  allStrokes(): (InkStrokeGeometry | null)[] {
+    const out: (InkStrokeGeometry | null)[] = [];
+    for (let i = 0; i < this.strokes.length; i += 1) {
+      out.push(this.alive[i] ? this.strokes[i]! : null);
+    }
+    return out;
+  }
+
   /** Every stroke still alive, in the order they were added. */
   liveStrokes(): InkStrokeGeometry[] {
     const out: InkStrokeGeometry[] = [];

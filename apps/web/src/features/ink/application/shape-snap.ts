@@ -1111,7 +1111,6 @@ export function fitArrow(
     if (reach[i]! > reach[i - 1]! && reach[i]! >= reach[i + 1]!) tipIndex = i;
   }
   // eslint-disable-next-line no-console
-  console.log("TRACE reach", { tipIndex, reach, len: points.length, span });
   if (tipIndex < 0) return null;
   const farthest = reach[tipIndex]!;
   // The shaft has to be a shaft and the head has to be a head: at least two
@@ -1119,11 +1118,9 @@ export function fitArrow(
   // the barbs. A head of exactly two samples is therefore accepted, which is the
   // minimum a real arrow can have.
   if (tipIndex < 2 || tipIndex > points.length - 3) {
-    console.log("TRACE B1", { tipIndex, len: points.length });
     return null;
   }
   if (farthest < ARROW_MIN_HEAD_REACH * span) {
-    console.log("TRACE B2");
     return null;
   }
 
@@ -1134,11 +1131,9 @@ export function fitArrow(
   const head = points.slice(tipIndex + 1);
   const headReach = Math.max(...head.map(([x, y]) => Math.hypot(x - start[0], y - start[1])));
   if (headReach > farthest * ARROW_MAX_HEAD_RATIO) {
-    console.log("TRACE D1", { headReach, farthest });
     return null;
   }
   if (pathLength(points) < ARROW_MIN_PATH_RATIO * farthest) {
-    console.log("TRACE E1", { pathLen: pathLength(points), need: ARROW_MIN_PATH_RATIO * farthest });
     return null;
   }
 
@@ -1152,7 +1147,6 @@ export function fitArrow(
   if (shaftError > ARROW_SHAFT_ERROR_LIMIT) return null;
 
   // eslint-disable-next-line no-console
-  console.log("TRACE arrow mid", { tipIndex, farthest, headReach, pathLen: pathLength(points) });
   const project = (x: number, y: number): SnapPoint => {
     const t = (x - cx) * dirX + (y - cy) * dirY;
     return [Math.round(cx + dirX * t), Math.round(cy + dirY * t)];
@@ -1193,17 +1187,6 @@ export function fitArrow(
 
   const opening = openingDegrees(tip, firstBarb, secondBarb);
   // eslint-disable-next-line no-console
-  console.log("TRACE arrow end", {
-    tipIndex,
-    farthest,
-    headReach,
-    tip,
-    base,
-    firstBarb,
-    secondBarb,
-    opening,
-    pathLen: pathLength(points),
-  });
   if (opening < ARROW_MIN_OPENING_DEGREES || opening > ARROW_MAX_OPENING_DEGREES) return null;
 
   return {
