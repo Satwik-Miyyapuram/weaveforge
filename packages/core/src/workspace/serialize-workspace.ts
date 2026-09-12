@@ -11,6 +11,7 @@ import type { WorkspaceSnapshot } from "./workspace-snapshot.js";
 import { workspaceSnapshotCounts } from "./workspace-snapshot.js";
 import { writeFrontmatter } from "./frontmatter.js";
 import { toRelativeBlobLinks } from "./blob-links.js";
+import { isInkNoteBody, readInkNoteBody, writeInkNoteMeta } from "../ink/ink-note.js";
 import {
   ENTITY_DIRS,
   WORKSPACE_META_DIR,
@@ -87,15 +88,19 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
   // --- notes, reading lists, report sections: nested by parentId ------------
   const notePaths = treePaths(snapshot.vaultPages, "vault_page");
   for (const page of snapshot.vaultPages) {
+    const stamps = { title: page.title, "updated-at": page.updatedAt, "created-at": page.createdAt };
+    if (isInkNoteBody(page.body)) {
+      // An ink note is a row like any note, marked by the header line its body
+      // starts with. In the folder it is what §4.1 describes: `.ink.md`, the ink
+      // keys in frontmatter, and only the text layer as the body. The strokes are
+      // not here at all — they are the `.ink/<id>/` chunks beside it.
+      const path = notePaths.get(page.id)!.replace(/\.note\.md$/, ".ink.md");
+      const { meta, text } = readInkNoteBody(page.body);
+      files[path] = markdown(path, page.id, "ink_page", { ...stamps, ...writeInkNoteMeta(meta) }, text, assets);
+      continue;
+    }
     const path = notePaths.get(page.id)!;
-    files[path] = markdown(
-      path,
-      page.id,
-      "vault_page",
-      { title: page.title, "updated-at": page.updatedAt, "created-at": page.createdAt },
-      page.body,
-      assets,
-    );
+    files[path] = markdown(path, page.id, "vault_page", stamps, page.body, assets);
   }
 
   const listPaths = treePaths(

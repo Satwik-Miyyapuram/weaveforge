@@ -392,6 +392,60 @@ export function writeInkNoteMeta(
 }
 
 /* -------------------------------------------------------------------------
+ * The ink header inside a stored body
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The first line of an ink note's stored body.
+ *
+ * The database keeps a note as `title + body` and nothing else — no type column,
+ * no frontmatter — so the ink metadata (§4.2's `ink:` block) has to travel inside
+ * the body when the note is a row rather than a file. It travels as one HTML
+ * comment on the first line, which markdown renders as nothing, the mirror
+ * lifts into frontmatter on the way out (`serialize-workspace.ts`) and puts back
+ * on the way in. Everything after it is the text layer.
+ */
+export const INK_BODY_HEADER = "<!-- weaveforge-ink";
+
+const INK_BODY_HEADER_LINE = /^<!--\s*weaveforge-ink\b([^]*?)-->[ \t]*\r?\n?/;
+
+/** Whether a stored body is an ink note's. Cheap: it looks at the first line only. */
+export function isInkNoteBody(body: string | null | undefined): boolean {
+  return typeof body === "string" && body.startsWith(INK_BODY_HEADER);
+}
+
+/**
+ * Split a stored body into its ink metadata and its text layer.
+ *
+ * A body with no header is a plain note read as an empty ink note — which is what
+ * a note that has never been opened with a pen is.
+ */
+export function readInkNoteBody(body: string): { meta: InkNoteMeta; text: string } {
+  const match = INK_BODY_HEADER_LINE.exec(body);
+  if (!match) return { meta: defaultInkNoteMeta(), text: body };
+  const record: Record<string, FrontmatterValue> = {};
+  for (const token of match[1]!.trim().split(/\s+/)) {
+    const eq = token.indexOf("=");
+    if (eq <= 0) continue;
+    const key = token.slice(0, eq);
+    const value = token.slice(eq + 1);
+    record[key] = key === INK_KEYS.pageOrder ? value.split(",").filter(Boolean) : value;
+  }
+  return { meta: readInkNoteMeta(record), text: body.slice(match[0].length) };
+}
+
+/** Join ink metadata and a text layer back into the body the database keeps. */
+export function writeInkNoteBody(meta: InkNoteMeta, text: string): string {
+  const fields = writeInkNoteMeta(meta);
+  const tokens: string[] = [];
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+    tokens.push(`${key}=${Array.isArray(value) ? value.join(",") : String(value)}`);
+  }
+  return `${INK_BODY_HEADER} ${tokens.join(" ")} -->\n${text.replace(/^\r?\n/, "")}`;
+}
+
+/* -------------------------------------------------------------------------
  * The text layer in the body
  * ---------------------------------------------------------------------- */
 

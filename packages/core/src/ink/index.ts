@@ -6,7 +6,10 @@
  * `segment.ts` the line grouping, `recognise.ts` the engine contract, and
  * `width.ts` the nib arithmetic in 0.1 mm. Nothing here imports an engine, a
  * canvas or a codec: what a runtime supplies — brotli or deflate, Windows Ink or
- * a stroke model — is injected at the call site.
+ * a stroke model — is injected at the call site. `myscript.ts` is the one engine
+ * that *is* here, and it is exported as policy rather than as an engine: the opt-in
+ * gate, the request/response mapping and the maths-to-LaTeX conversion, with the
+ * key injected by the caller and no network call of its own (§5.2, §7 step 10).
  */
 
 export {
@@ -59,6 +62,10 @@ export {
   isInkNoteFrontmatter,
   readInkNoteMeta,
   writeInkNoteMeta,
+  INK_BODY_HEADER,
+  isInkNoteBody,
+  readInkNoteBody,
+  writeInkNoteBody,
   inkPageMarker,
   splitInkTextLayer,
   joinInkTextLayer,
@@ -144,3 +151,34 @@ export {
   type InkRecognitionHints,
   type InkRecogniser,
 } from "./recognise.js";
+
+export {
+  MYSCRIPT_ENGINE_ID,
+  MYSCRIPT_DEFAULT_HOST,
+  MYSCRIPT_ENDPOINT_PATH,
+  MYSCRIPT_JIIX_MIME,
+  MYSCRIPT_LATEX_MIME,
+  MYSCRIPT_CONTENT_TYPES,
+  MYSCRIPT_DEFAULT_CONFIDENCE,
+  MYSCRIPT_DEFAULT_SCALE,
+  MYSCRIPT_DEFAULT_TIMEOUT_MS,
+  isMyScriptConfigured,
+  myScriptRequestBody,
+  myScriptRecognisedLines,
+  myScriptLatex,
+  latexBlock,
+  convertToLatex,
+  createMyScriptRecogniser,
+  type MyScriptContentType,
+  type MyScriptFetch,
+  type MyScriptOptions,
+  type MyScriptStrokeBody,
+  type MyScriptRequestLine,
+  type MyScriptRequestBody,
+  type MyScriptRequest,
+  type MyScriptRequestOptions,
+  type MyScriptResponseElement,
+  type MyScriptExportResponse,
+  type MyScriptLatex,
+  type MyScriptRecogniser,
+} from "./myscript.js";

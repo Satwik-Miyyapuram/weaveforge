@@ -257,3 +257,61 @@ test("a page size that could not fit an Int16 coordinate is clamped", () => {
   assert.deepEqual(clampInkPageSize(100_000, 100_000), { width: 32767, height: 32767 });
   assert.deepEqual(clampInkPageSize(2100.4, 2970.6), { width: 2100, height: 2971 });
 });
+
+/* -------------------------------------------------------------------------
+ * The header line inside a stored body
+ * ---------------------------------------------------------------------- */
+
+import { isInkNoteBody, readInkNoteBody, writeInkNoteBody } from "../../src/ink/ink-note.js";
+import { serializeWorkspace } from "../../src/workspace/serialize-workspace.js";
+import { parseWorkspaceFile } from "../../src/workspace/deserialize-workspace.js";
+
+test("the body header round-trips the ink metadata and leaves the text layer alone", () => {
+  const meta = {
+    pages: 2,
+    paper: "dotted" as const,
+    pageOrder: ["01JABCDEFGHJKMNPQRSTVWXYZ0", "01JABCDEFGHJKMNPQRSTVWXYZ1"],
+    recognised: 0.94,
+    engine: "windows-ink@1",
+    hand: "left" as const,
+  };
+  const body = writeInkNoteBody(meta, "first page\n\n<!-- page 2 -->\n\nsecond\n");
+  assert.ok(isInkNoteBody(body));
+  assert.ok(!isInkNoteBody("first page"));
+  const read = readInkNoteBody(body);
+  assert.deepEqual(read.meta, meta);
+  assert.equal(read.text, "first page\n\n<!-- page 2 -->\n\nsecond\n");
+});
+
+test("a plain body reads as an empty ink note, which is what a note never inked is", () => {
+  const read = readInkNoteBody("just words");
+  assert.deepEqual(read.meta, defaultInkNoteMeta());
+  assert.equal(read.text, "just words");
+});
+
+test("the mirror lifts the header into frontmatter and folds it back on import", () => {
+  const meta = { ...defaultInkNoteMeta(), pageOrder: ["01JABCDEFGHJKMNPQRSTVWXYZ0"], recognised: 0.5 };
+  const body = writeInkNoteBody(meta, "hello");
+  const out = serializeWorkspace({
+    papers: [],
+    vaultPages: [
+      {
+        id: "n1", title: "Ink", body, sortOrder: 0,
+        createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
+      } as never,
+    ],
+    readingLists: [], readingListItems: [], reportSections: [], experiments: [],
+    milestones: [], logEntries: [], relations: [], tags: [],
+    collectedAt: "2026-01-01T00:00:00Z",
+  });
+  const path = Object.keys(out.files).find((file) => file.endsWith(".ink.md"));
+  assert.ok(path, "an ink note is written as .ink.md");
+  const content = out.files[path!]!;
+  assert.match(content, /weaveforge-type: ink_page/);
+  assert.match(content, /ink-page-order/);
+  assert.ok(!content.includes("weaveforge-ink"), "the header line does not leak into the file");
+  const parsed = parseWorkspaceFile(path!, content);
+  assert.equal(parsed?.type, "vault_page");
+  assert.deepEqual(readInkNoteBody(parsed!.body).meta, meta);
+  assert.equal(readInkNoteBody(parsed!.body).text, "hello");
+});

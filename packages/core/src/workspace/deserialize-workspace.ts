@@ -14,6 +14,7 @@ import type { ChangeSide } from "./change-origin.js";
 import { readFrontmatter, frontmatterList, frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
 import { WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
+import { INK_NOTE_TYPE, readInkNoteMeta, writeInkNoteBody } from "../ink/ink-note.js";
 
 export interface ParsedEntity {
   /** Absent when the file carries no `weaveforge-id` — a hand-created file. */
@@ -78,6 +79,21 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   for (const [key, value] of Object.entries(frontmatter)) {
     if (key === "weaveforge-id" || key === "weaveforge-type" || key === "title") continue;
     fields[key] = value;
+  }
+
+  // An ink note is stored as a note whose body starts with the ink header (see
+  // `ink-note.ts`), so the folder's `ink_page` comes back as a `vault_page` with
+  // its frontmatter ink keys folded into that line. The importer then treats it
+  // as the note it is, and the strokes stay in `.ink/<id>/` where they were.
+  if (type === INK_NOTE_TYPE) {
+    return {
+      id: frontmatterString(frontmatter, "weaveforge-id"),
+      type: "vault_page",
+      title: title.trim() || "Untitled",
+      body: writeInkNoteBody(readInkNoteMeta(frontmatter), body.trimStart()),
+      path,
+      fields,
+    };
   }
 
   return {
