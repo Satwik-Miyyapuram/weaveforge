@@ -73,11 +73,10 @@ export interface InkPageProps {
   penSeen: boolean;
   /** One finger moved the page by `dx, dy` CSS pixels: scroll by that. */
   onPan?: (dx: number, dy: number) => void;
-  /**
-   * Two fingers moved apart or together: zoom by `factor` about the point
-   * `clientX, clientY`, which is where the fingers are.
-   */
+  /** Two fingers moved apart or together: zoom by factor about clientX, clientY */
   onPinch?: (factor: number, clientX: number, clientY: number) => void;
+  /** A file (image or PDF) dropped directly onto the page surface. */
+  onDropFile?: (file: File) => void;
 }
 
 /** The eraser's cursor: a ring the size of a fingertip, hot spot at its centre. */
@@ -139,9 +138,12 @@ export function InkPage({
   penSeen,
   onPan,
   onPinch,
+  onDropFile,
 }: InkPageProps) {
   /** The last erase position, so a sweep is one segment per move and not a point. */
   const lastErase = useRef<{ x: number; y: number } | null>(null);
+  /** Whether an image or PDF file is currently being dragged over the sheet. */
+  const [isDragOver, setIsDragOver] = useState(false);
   /** The lasso path in page units, while it is being drawn. */
   const lasso = useRef<number[]>([]);
   /** The lasso as drawn so far, mirrored into state so the overlay can show it. */
@@ -395,8 +397,25 @@ export function InkPage({
     >
       <div
         ref={sheetRef}
-        className={`ink-sheet paper-${paper}`}
+        className={`ink-sheet paper-${paper}${isDragOver ? " is-drag-over" : ""}`}
         style={{ width: `${width}px`, height: `${height}px` }}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("Files")) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+            if (!isDragOver) setIsDragOver(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+          setIsDragOver(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file && onDropFile) onDropFile(file);
+        }}
       >
       {/*
         `touch-action: none` ensures the browser never attempts to interpret drawing
