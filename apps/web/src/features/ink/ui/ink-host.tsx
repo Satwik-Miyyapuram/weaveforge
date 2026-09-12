@@ -5,8 +5,23 @@
  *
  * Everything the ink view is, in one component that the kind table can point at
  * (§6.1). It owns the tool state, the canvas, the pen hook and the worker's
- * non-pen traffic; {@link InkBar} and {@link InkPage} are the two presentational
- * halves, and the text-layer column is where step 5 puts recognition.
+ * non-pen traffic; {@link InkBar}, {@link InkPage} and {@link InkTextLayer} are
+ * the presentational parts.
+ *
+ * What it is handed is a note id, the note's body and a way to save the body;
+ * what it does with them is the whole of §4 and §5 as the user sees it:
+ *
+ * - **Pages come from the sidecar.** The host asks the chunk store for the
+ *   note's pages itself (`loadInkPages`), so the pane never learns the format.
+ * - **Every stroke is saved, late.** A stroke ends, a timer starts, and when it
+ *   fires the worker hands back the page's chunk, which goes to the store, and
+ *   the body's header goes to `onSave` with the page count and order. Nothing
+ *   is written mid-stroke.
+ * - **Recognition is on demand and per line.** The page model comes from the
+ *   worker, `recognisePage` runs it through the session's engine with the
+ *   workspace's vocabulary, the segmented page goes back to the worker with
+ *   `replace-page`, and the text layer gets the lines. A correction in the text
+ *   column marks a line certain and is saved the same way.
  *
  * Three things about *this* layer are load-bearing:
  *
@@ -18,8 +33,8 @@
  *   worker; the only state that changes during a stroke is the committed count,
  *   which the worker reports once per stroke.
  * - **One worker, one door.** Loading a page, resizing, the viewport transform,
- *   erase, undo and export all go through `pen.send`, because the pen path owns
- *   the worker and a second one would double the geometry.
+ *   erase, undo, lasso, save and export all go through `pen.send`, because the
+ *   pen path owns the worker and a second one would double the geometry.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,34 +43,59 @@ import {
   INK_A4_WIDTH,
   INK_PEN_WIDTH,
   joinInkTextLayer,
+  newInkChunkId,
+  readInkNoteBody,
   splitInkTextLayer,
+  writeInkNoteBody,
   type InkColour,
+  type InkNoteMeta,
+  type InkPage as InkPageModel,
+  type InkRecogniser,
+  type InkRecognitionHints,
+  type RecognisedLine,
 } from "@weaveforge/core";
 
 import { usePenCapture } from "../application/use-pen-capture";
-import type { InkStrokeHeader } from "../application/capture-protocol";
+import type { InkStrokeHeader, InkWorkerEvent } from "../application/capture-protocol";
+import { loadInkPages, type InkChunkStore, type InkStoredPage } from "../application/ink-chunk-store";
+import {
+  acceptLine,
+  recognisePage,
+  recognisedPageFromModel,
+  type RecognisedPage,
+} from "../application/recognise-page";
 import { InkBar, nibForTool, type InkBarTool } from "./ink-bar";
 import { InkPage } from "./ink-page";
+import { InkTextLayer } from "./ink-text-layer";
 
-/** A page as the host is given it: its bytes, and the paper it is drawn on. */
-export interface InkHostPage {
-  /** The chunk exactly as the sidecar holds it, or `null` for a page never written. */
-  chunk: Uint8Array | null;
-  paper: string;
+/** A page as the host holds it: the sidecar's view of it. */
+export type InkHostPage = InkStoredPage;
+
+/** What the host needs from the container; the ink facade satisfies it. */
+export interface InkHostDeps {
+  chunks: InkChunkStore;
+  recogniser: () => Promise<InkRecogniser | null>;
+  hints: () => Promise<InkRecognitionHints>;
 }
 
 export interface InkHostProps {
-  /** The note's pages, in order. */
-  pages: readonly InkHostPage[];
-  /** The note's body: the recognised text layer, one paragraph per line. */
+  /** The note whose sidecar holds the pages. */
+  noteId: string;
+  /** The note's body: the ink header and the recognised text layer. */
   body: string;
+  deps: InkHostDeps;
   /** The page the note opens on, 0-based. */
   initialPage?: number;
-  /** Where a committed page's bytes come from when it is saved. */
+  /** Where the body goes when a page, the order or the text layer changes. */
   onSave?: (body: string) => Promise<void>;
-  /** The tools the ink bar should show as unavailable. */
-  busy?: boolean;
 }
+
+/** How long after the last stroke the page is written. */
+export const INK_SAVE_DELAY_MS = 1200;
+
+/** The message the text column shows where no engine can run. */
+export const INK_NO_ENGINE_MESSAGE =
+  "No handwriting engine is available here. On Windows the desktop app recognises offline; a MyScript key in Settings enables recognition elsewhere.";
 
 /**
  * The fit: how many CSS pixels one 0.1 mm unit is worth.
@@ -71,39 +111,113 @@ export function fitScale(containerWidth: number, pageWidth = INK_A4_WIDTH): numb
   return containerWidth / pageWidth;
 }
 
-export function InkHost({ pages, body, initialPage = 0, onSave, busy }: InkHostProps) {
+/** The lines the lasso's strokes belong to, as text, one per line. */
+export function selectedText(page: InkPageModel, indices: readonly number[]): string {
+  const chosen = new Set(indices);
+  const out: string[] = [];
+  for (const line of page.lines) {
+    if (!line.text) continue;
+    for (let i = line.strokeStart; i < line.strokeStart + line.strokeCount; i += 1) {
+      if (chosen.has(i)) {
+        out.push(line.text);
+        break;
+      }
+    }
+  }
+  return out.join("\n");
+}
+
+export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHostProps) {
   const [pageIndex, setPageIndex] = useState(initialPage);
   const [tool, setTool] = useState<InkBarTool | "shape">("pen");
   const [colour, setColour] = useState<InkColour>("text");
   const [width, setWidth] = useState<number>(INK_PEN_WIDTH);
   const [zoom, setZoom] = useState(1);
   const [strokes, setStrokes] = useState(0);
-  const [recognised, setRecognised] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [history, setHistory] = useState({ undo: 0, redo: 0 });
+  const [selection, setSelection] = useState<number[]>([]);
+  const [recognising, setRecognising] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState<string | null>(null);
+  /** The pages, once the sidecar has answered; `pageCount` is what React renders from. */
+  const pagesRef = useRef<InkStoredPage[] | null>(null);
+  const [pageCount, setPageCount] = useState(0);
+  /** The header, as it will be written back. */
+  const metaRef = useRef<InkNoteMeta>(readInkNoteBody(body).meta);
+  /** The text layer's pages, for the body (§4.2). */
+  const textPagesRef = useRef<string[]>(splitInkTextLayer(readInkNoteBody(body).text));
+  /** The current page's recognition, for the column and for corrections. */
+  const [recognised, setRecognised] = useState<RecognisedPage | null>(null);
+  const recognisedRef = useRef<RecognisedPage | null>(null);
+  recognisedRef.current = recognised;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  /** The text layer's pages, for the right-hand column (§4.2). */
-  const [textPages, setTextPages] = useState<string[]>(() => splitInkTextLayer(body));
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSeq = useRef(0);
+  const pendingModel = useRef(new Map<number, (page: InkPageModel) => void>());
+  const pendingSave = useRef(new Map<number, (bytes: Uint8Array | null) => void>());
+  const pendingExport = useRef(new Map<number, (png: Blob | null) => void>());
 
   const scale = useMemo(() => fitScale(containerWidth) * zoom, [containerWidth, zoom]);
-  const page = pages[pageIndex] ?? { chunk: null, paper: "blank" };
+  const page: InkStoredPage = pagesRef.current?.[pageIndex] ?? {
+    chunkId: "",
+    chunk: null,
+    paper: metaRef.current.paper,
+  };
 
   /** Client coordinates to page units. The one projection everything shares. */
-  const project = useCallback(
-    (clientX: number, clientY: number) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return null;
-      const box = canvas.getBoundingClientRect();
-      return {
-        x: ((clientX - box.left) / Math.max(box.width, 1)) * INK_A4_WIDTH,
-        y: ((clientY - box.top) / Math.max(box.height, 1)) * INK_A4_HEIGHT,
-      };
-    },
-    [],
-  );
+  const project = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const box = canvas.getBoundingClientRect();
+    return {
+      x: ((clientX - box.left) / Math.max(box.width, 1)) * INK_A4_WIDTH,
+      y: ((clientY - box.top) / Math.max(box.height, 1)) * INK_A4_HEIGHT,
+    };
+  }, []);
 
   const nib = nibForTool(tool, width);
+
+  /** The save is late and coalesced: one write after the last stroke settles. */
+  const persistRef = useRef<() => Promise<void>>(async () => {});
+  const scheduleSave = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      void persistRef.current();
+    }, INK_SAVE_DELAY_MS);
+  }, []);
+
+  /** The worker's non-pen replies, matched to what asked for them. */
+  const onEvent = useCallback((event: InkWorkerEvent) => {
+    switch (event.type) {
+      case "history":
+        setHistory({ undo: event.undo, redo: event.redo });
+        break;
+      case "page-state":
+        setStrokes(event.strokes);
+        break;
+      case "page-model":
+        pendingModel.current.get(event.requestId)?.(event.page);
+        pendingModel.current.delete(event.requestId);
+        break;
+      case "page-saved":
+        pendingSave.current.get(event.requestId)?.(event.bytes);
+        pendingSave.current.delete(event.requestId);
+        break;
+      case "exported":
+        pendingExport.current.get(event.requestId)?.(event.png);
+        pendingExport.current.delete(event.requestId);
+        break;
+      case "selected":
+        setSelection(event.indices);
+        break;
+      default:
+        break;
+    }
+  }, []);
 
   const pen = usePenCapture({
     element: () => canvasRef.current,
@@ -122,16 +236,106 @@ export function InkHost({ pages, body, initialPage = 0, onSave, busy }: InkHostP
       // One state change per stroke, which is the contract the hook's doc comment
       // makes: the live stroke never entered React, so there is nothing to batch.
       setStrokes((count) => count + 1);
+      scheduleSave();
     },
+    onEvent,
   });
 
   const { send } = pen;
 
-  /** Tell the worker which page we are on, and hand it the bytes. */
+  /** A request the worker answers by id: model, chunk, or PNG. */
+  const requestModel = useCallback(() => {
+    return new Promise<InkPageModel>((resolve) => {
+      const requestId = ++requestSeq.current;
+      pendingModel.current.set(requestId, resolve);
+      send({ type: "page-model", requestId });
+    });
+  }, [send]);
+  const requestSave = useCallback(() => {
+    return new Promise<Uint8Array | null>((resolve) => {
+      const requestId = ++requestSeq.current;
+      pendingSave.current.set(requestId, resolve);
+      send({ type: "save-page", requestId });
+    });
+  }, [send]);
+  const requestExport = useCallback(() => {
+    return new Promise<Blob | null>((resolve) => {
+      const requestId = ++requestSeq.current;
+      pendingExport.current.set(requestId, resolve);
+      send({ type: "export-page", requestId, scale: 2 });
+    });
+  }, [send]);
+
+  /** The body as the header and text layer now stand. */
+  const saveBody = useCallback(async () => {
+    const pages = pagesRef.current;
+    if (!pages || !onSave) return;
+    const meta: InkNoteMeta = {
+      ...metaRef.current,
+      pages: pages.length,
+      pageOrder: pages.map((entry) => entry.chunkId),
+    };
+    metaRef.current = meta;
+    await onSave(writeInkNoteBody(meta, joinInkTextLayer(textPagesRef.current)));
+  }, [onSave]);
+
+  /** Write the current page's chunk, then the body. */
+  const persist = useCallback(async () => {
+    const pages = pagesRef.current;
+    const current = pages?.[pageIndex];
+    if (!pages || !current) return;
+    const bytes = await requestSave();
+    if (bytes) {
+      await deps.chunks.write(noteId, current.chunkId, bytes);
+      current.chunk = bytes;
+    }
+    await saveBody();
+  }, [deps.chunks, noteId, pageIndex, requestSave, saveBody]);
+  persistRef.current = persist;
+
+  /** Flush a pending save before the page changes or the host goes away. */
+  const flushSave = useCallback(() => {
+    if (!saveTimer.current) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    void persistRef.current();
+  }, []);
+  useEffect(() => flushSave, [flushSave]);
+
+  /** Load the sidecar once; a note with nothing written gets one blank page. */
   useEffect(() => {
-    send({ type: "load-page", pageIndex, chunk: page.chunk });
+    let live = true;
+    void loadInkPages(deps.chunks, noteId, metaRef.current).then((pages) => {
+      if (!live) return;
+      pagesRef.current = pages;
+      setPageCount(pages.length);
+      setPageIndex((index) => Math.min(index, pages.length - 1));
+    });
+    return () => {
+      live = false;
+    };
+  }, [deps.chunks, noteId]);
+
+  /**
+   * Tell the worker which page we are on, hand it the bytes, and read its line
+   * table back so the text column shows what an earlier run left.
+   */
+  useEffect(() => {
+    const current = pagesRef.current?.[pageIndex];
+    if (!current) return;
+    send({ type: "load-page", pageIndex, chunk: current.chunk });
     setStrokes(0);
-  }, [page.chunk, pageIndex, send]);
+    setSelection([]);
+    setRecognised(null);
+    let live = true;
+    void requestModel().then((model) => {
+      if (!live) return;
+      setRecognised(model.lines.length > 0 ? recognisedPageFromModel(model, metaRef.current.engine) : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [pageCount, pageIndex, requestModel, send]);
 
   /** Keep the worker's viewport in step with the layout. */
   useEffect(() => {
@@ -157,22 +361,136 @@ export function InkHost({ pages, body, initialPage = 0, onSave, busy }: InkHostP
     return () => observer.disconnect();
   }, []);
 
-  /** The keyboard, per §6.5: tools, undo, recognise, export. */
+  /** A recognised page becomes the worker's page, the column's lines and the body's text. */
+  const applyRecognised = useCallback(
+    (result: RecognisedPage, replace: boolean) => {
+      if (replace) send({ type: "replace-page", page: result.page });
+      setRecognised(result);
+      textPagesRef.current[pageIndex] = result.text;
+      metaRef.current = {
+        ...metaRef.current,
+        recognised: result.confidence,
+        engine: result.engine || metaRef.current.engine,
+      };
+      scheduleSave();
+    },
+    [pageIndex, scheduleSave, send],
+  );
+
+  /** Recognise this page: the engine, line by line, then the post-match (§5.4). */
+  const recognise = useCallback(async () => {
+    if (recognising) return;
+    setRecognising(true);
+    setProgress(null);
+    try {
+      const engine = await deps.recogniser();
+      if (!engine) {
+        setUnavailable(INK_NO_ENGINE_MESSAGE);
+        return;
+      }
+      setUnavailable(null);
+      const [model, hints] = await Promise.all([requestModel(), deps.hints()]);
+      const result = await recognisePage({
+        page: model,
+        recogniser: engine,
+        hints,
+        onProgress: (done, total) => setProgress(`line ${done} of ${total}`),
+      });
+      applyRecognised(result, true);
+    } catch (error) {
+      setUnavailable(error instanceof Error ? error.message : String(error));
+    } finally {
+      setRecognising(false);
+      setProgress(null);
+    }
+  }, [applyRecognised, deps, recognising, requestModel]);
+
+  /** A correction from the column: certain from now on. */
+  const onAccept = useCallback(
+    (index: number, text: string) => {
+      const current = recognisedRef.current;
+      if (!current) return;
+      applyRecognised(acceptLine(current, index, text), true);
+    },
+    [applyRecognised],
+  );
+
+  /**
+   * Export the page as a PNG.
+   *
+   * The blob comes back from the worker's offscreen target, never from a readback
+   * of the live canvas (§6.2.12), and lands as a download named for the note.
+   */
+  const onExport = useCallback(async () => {
+    const png = await requestExport();
+    if (!png) return;
+    const url = URL.createObjectURL(png);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${noteId}-page-${pageIndex + 1}.png`;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [noteId, pageIndex, requestExport]);
+
+  const goToPage = useCallback(
+    (index: number) => {
+      flushSave();
+      setPageIndex(Math.max(0, Math.min(index, pageCount - 1)));
+    },
+    [flushSave, pageCount],
+  );
+
+  /** A new blank page after the last, in the note's order. */
+  const onAddPage = useCallback(() => {
+    const pages = pagesRef.current;
+    if (!pages) return;
+    flushSave();
+    pages.push({ chunkId: newInkChunkId(), chunk: null, paper: metaRef.current.paper });
+    textPagesRef.current.push("");
+    setPageCount(pages.length);
+    setPageIndex(pages.length - 1);
+    void saveBody();
+  }, [flushSave, saveBody]);
+
+  const onLasso = useCallback(
+    (path: readonly number[]) => {
+      send({ type: "lasso", polygon: [...path] });
+    },
+    [send],
+  );
+  const onDeleteSelection = useCallback(() => {
+    send({ type: "delete-selection" });
+    setSelection([]);
+    scheduleSave();
+  }, [scheduleSave, send]);
+  const onCopyAsText = useCallback(async () => {
+    const model = await requestModel();
+    const text = selectedText(model, selection);
+    if (text && typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+    }
+  }, [requestModel, selection]);
+
+  /** The keyboard, per §6.5: tools, undo, recognise, export, the selection. */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
       if (event.metaKey || event.ctrlKey) {
-        if (event.key.toLowerCase() === "z") {
+        const key = event.key.toLowerCase();
+        if (key === "z") {
           event.preventDefault();
           send({ type: event.shiftKey ? "redo" : "undo" });
-        }
-        if (event.shiftKey && event.key.toLowerCase() === "r") {
+          scheduleSave();
+        } else if (event.shiftKey && key === "r") {
           event.preventDefault();
-          setRecognised(0); // step 5 replaces this with a real run
+          void recognise();
+        } else if (event.shiftKey && key === "e") {
+          event.preventDefault();
+          void onExport();
         }
         return;
       }
-      const target = event.target as HTMLElement | null;
-      if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
       switch (event.key.toLowerCase()) {
         case "p":
           setTool("pen");
@@ -189,6 +507,19 @@ export function InkHost({ pages, body, initialPage = 0, onSave, busy }: InkHostP
         case "s":
           setTool("shape");
           break;
+        case "delete":
+        case "backspace":
+          if (selection.length > 0) {
+            event.preventDefault();
+            onDeleteSelection();
+          }
+          break;
+        case "escape":
+          if (selection.length > 0) {
+            send({ type: "select-clear" });
+            setSelection([]);
+          }
+          break;
         case "1":
         case "2":
         case "3": {
@@ -203,7 +534,7 @@ export function InkHost({ pages, body, initialPage = 0, onSave, busy }: InkHostP
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [send]);
+  }, [onDeleteSelection, onExport, recognise, scheduleSave, selection.length, send]);
 
   /** Zoom without plumbing a gesture: ⌘/Ctrl and the wheel, or the buttons. */
   useEffect(() => {
@@ -221,34 +552,22 @@ export function InkHost({ pages, body, initialPage = 0, onSave, busy }: InkHostP
   const onErase = useCallback(
     (from: { x: number; y: number }, to: { x: number; y: number }) => {
       send({ type: "erase", from, to });
+      scheduleSave();
     },
-    [send],
+    [scheduleSave, send],
   );
 
-  const onUndo = useCallback(() => send({ type: "undo" }), [send]);
-  const onRedo = useCallback(() => send({ type: "redo" }), [send]);
+  const onUndo = useCallback(() => {
+    send({ type: "undo" });
+    scheduleSave();
+  }, [scheduleSave, send]);
+  const onRedo = useCallback(() => {
+    send({ type: "redo" });
+    scheduleSave();
+  }, [scheduleSave, send]);
 
-  /**
-   * Export the page as a PNG.
-   *
-   * The blob comes back from the worker's offscreen target, never from a readback
-   * of the live canvas (§6.2.12). Nothing is downloaded here: the caller decides,
-   * which is what lets step 8's "export for the report" land a file in the vault.
-   */
-  const onExport = useCallback(() => {
-    const requestId = Date.now();
-    send({ type: "export-page", requestId, scale: 2 });
-    const listener = (event: MessageEvent) => {
-      const data = event.data as { type?: string; requestId?: number; png?: Blob | null };
-      if (data?.type !== "exported" || data.requestId !== requestId) return;
-      window.removeEventListener("message", listener);
-      if (data.png) void onSave?.(joinInkTextLayer(textPages));
-    };
-    // The worker's own events arrive through the hook, so this is a one-shot
-    // listener on the window rather than a second channel; step 5's UI work moves
-    // the result into a menu.
-    window.addEventListener("message", listener);
-  }, [onSave, send, textPages]);
+  const lines: readonly RecognisedLine[] = recognised?.lines ?? [];
+  const confidence = recognised?.confidence ?? 0;
 
   return (
     <div className="ink-wrap">
@@ -257,26 +576,39 @@ export function InkHost({ pages, body, initialPage = 0, onSave, busy }: InkHostP
         colour={colour}
         width={width}
         page={pageIndex + 1}
-        pages={pages.length}
+        pages={Math.max(pageCount, 1)}
         strokes={strokes}
-        recognised={recognised}
+        recognised={confidence}
         penOnly={pen.penOnly}
         penSeen={pen.penSeen}
         backend={pen.backend}
-        busy={busy}
-        onTool={(next) => setTool(next)}
+        busy={recognising}
+        progress={progress}
+        canUndo={history.undo > 0}
+        canRedo={history.redo > 0}
+        selected={selection.length}
+        onTool={(next) => {
+          if (next !== "lasso" && selection.length > 0) {
+            send({ type: "select-clear" });
+            setSelection([]);
+          }
+          setTool(next);
+        }}
         onColour={setColour}
         onWidth={(next) => {
           setWidth(next);
           setTool("pen");
         }}
         onPenOnly={pen.setPenOnly}
-        onRecognise={() => setRecognised(recognised)}
-        onInsertPage={() => setTextPages((pages_) => pages_)}
-        onExport={onExport}
+        onRecognise={() => void recognise()}
+        onExport={() => void onExport()}
         onUndo={onUndo}
         onRedo={onRedo}
-        onAddPage={() => setPageIndex((index) => Math.min(index + 1, pages.length - 1))}
+        onAddPage={onAddPage}
+        onPrevPage={() => goToPage(pageIndex - 1)}
+        onNextPage={() => goToPage(pageIndex + 1)}
+        onDeleteSelection={onDeleteSelection}
+        onCopyAsText={() => void onCopyAsText()}
       />
       <div className="ink-page-scroll" ref={scrollRef}>
         <InkPage
@@ -289,30 +621,18 @@ export function InkHost({ pages, body, initialPage = 0, onSave, busy }: InkHostP
           penHandlers={pen.handlers}
           canvasRef={canvasRef}
           onErase={onErase}
+          onLasso={onLasso}
           penOnly={pen.penOnly}
           penSeen={pen.penSeen}
         />
       </div>
-      {/*
-        The text-layer column, which is the recognised text and the reason the note
-        is searchable at all (§4.2). Step 5 fills it with confidence, corrections and
-        links; what it shows now is the body the note already has, which is what a
-        note with no recognition is: readable text and no strokes' worth of index.
-      */}
-      <div className="ink-text" aria-label="Recognised text">
-        <h4>
-          Text layer{" "}
-          <span className="ink-conf">{Math.round(recognised * 100)} %</span>
-        </h4>
-        {(textPages[pageIndex] ?? "").split("\n").filter(Boolean).length === 0 ? (
-          <p className="ink-empty">
-            Nothing recognised on this page yet. Recognise it to make the note
-            searchable and linkable.
-          </p>
-        ) : (
-          (textPages[pageIndex] ?? "").split("\n").map((line, index) => <p key={index}>{line}</p>)
-        )}
-      </div>
+      <InkTextLayer
+        lines={lines}
+        confidence={confidence}
+        progress={progress}
+        unavailable={unavailable}
+        onAccept={onAccept}
+      />
     </div>
   );
 }

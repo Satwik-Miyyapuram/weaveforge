@@ -61,6 +61,15 @@ import {
 let activeFs: IWorkspaceFs | null = null;
 let activeGit: IWorkspaceGit = new NoOpWorkspaceGit();
 
+/**
+ * The open folder's filesystem, for a feature that keeps files beside the
+ * mirror rather than in it — the ink sidecar is the one so far. `null` while
+ * no folder is open, and the caller is expected to have somewhere else to go.
+ */
+export function activeWorkspaceFs(): IWorkspaceFs | null {
+  return activeFs;
+}
+
 
 
 /**

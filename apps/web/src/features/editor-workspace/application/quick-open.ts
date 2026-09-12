@@ -127,6 +127,7 @@ export interface QuickOpenGroup {
  */
 const GROUP_ORDER: readonly { kind: string; label: string }[] = [
   { kind: "vault_page", label: "Notes" },
+  { kind: "ink_page", label: "Ink notes" },
   { kind: "paper", label: "Papers" },
   { kind: "reading_list", label: "Reading lists" },
   { kind: "report_section", label: "Report" },

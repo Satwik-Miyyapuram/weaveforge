@@ -251,16 +251,9 @@ export function DocumentHost({
     // The sidecar is not loaded here: this component is handed a body and a save
     // callback by the pane, and an ink note's strokes live beside the note rather
     // than in it (§4.6). `InkHost` therefore starts on the text layer the body
-    // already holds and asks for its pages itself, which keeps the reading of
-    // `.ink/<id>/` in the feature that owns the format.
-    return (
-      <InkHost
-        pages={[{ chunk: null, paper: "blank" }]}
-        body={body}
-        onSave={onSave}
-        busy={false}
-      />
-    );
+    // already holds and asks the container's ink facade for its pages itself,
+    // which keeps the reading of `.ink/<id>/` in the feature that owns the format.
+    return <InkHost noteId={tab.id} body={body} deps={getContainer().ink} onSave={onSave} />;
   }
 
   if (renderer === "markdown") {

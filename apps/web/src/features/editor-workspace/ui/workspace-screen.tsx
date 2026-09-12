@@ -9,6 +9,11 @@ import type { EditorHandleRef } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { noteBodyText } from "@/lib/page-text";
+import { defaultInkNoteMeta, isInkNoteBody, writeInkNoteBody } from "@weaveforge/core";
+
+/** Which kind a note's body makes it: an ink note announces itself in its header (§4.1). */
+const noteKind = (body: string): "vault_page" | "ink_page" =>
+  isInkNoteBody(body) ? "ink_page" : "vault_page";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
@@ -92,7 +97,7 @@ export function WorkspaceScreen() {
   const [layout, setLayout] = useState<PaneLayout>(() => emptyLayout());
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [creating, setCreating] = useState<"note" | "folder" | null>(null);
+  const [creating, setCreating] = useState<"note" | "ink" | "folder" | null>(null);
   const createMode = useWikilinkCreateMode();
   // One handle per open document, so the pane's image button reaches the
   // editor in the tab it sits over. The boxes outlive their editors: a handle
@@ -129,18 +134,22 @@ export function WorkspaceScreen() {
     const sectionRows = report?.flat ?? [];
     const listRows = lists?.lists ?? [];
     const loaded: Document[] = [
-      ...vault.flat.map((page) => ({
-        kind: "vault_page",
-        id: page.id,
-        title: page.title,
+      ...vault.flat.map((page) => {
         // `vault.flat` holds summaries, which have no `body` — reading one off
         // them was always `undefined`, so every note in the workspace was
         // indexed with an empty body. `noteBodyText` prefers the full body when
         // the entry has been hydrated and falls back to the preview otherwise.
-        body: noteBodyText(page),
-        path: `notes/${page.title || "Untitled"}.note.md`,
-        parentId: page.parentId ?? undefined,
-      })),
+        const body = noteBodyText(page);
+        const kind = noteKind(body);
+        return {
+          kind,
+          id: page.id,
+          title: page.title,
+          body,
+          path: `notes/${page.title || "Untitled"}.${kind === "ink_page" ? "ink" : "note"}.md`,
+          parentId: page.parentId ?? undefined,
+        };
+      }),
       ...paperRows.map((paper) => ({
         kind: "paper",
         id: paper.id,
@@ -187,6 +196,7 @@ export function WorkspaceScreen() {
           id: page.id,
           title: page.title,
           parentId: page.parentId ?? undefined,
+          kind: noteKind(noteBodyText(page)),
         })),
         papers: paperRows.map((paper) => ({
           id: paper.id,
@@ -308,6 +318,8 @@ export function WorkspaceScreen() {
         // kind of per-kind column, and it is the one an ink note adds a row to.
         const writers: Record<string, (id: string, next: string) => Promise<unknown>> = {
           vault_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
+          // An ink note is a vault page whose body starts with the ink header (§4.1).
+          ink_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
           paper: (id, next) => container.papers.updatePaper.setSummary(id, next),
           report_section: (id, next) => container.report.manageReportSection.setNotes(id, next),
         };
@@ -390,16 +402,26 @@ export function WorkspaceScreen() {
   // it, then opened as a tab. Titles are unique, so a title that exists
   // already opens rather than fails.
   const createNote = useCallback(
-    async (input: { title: string; parentId?: string }, opts: { open?: boolean } = {}) => {
+    async (input: { title: string; parentId?: string; ink?: boolean }, opts: { open?: boolean } = {}) => {
       const wanted = normalizeTitleKey(input.title);
       const existing = (documents ?? []).find(
         (doc) => isCreatableKind(doc.kind) && normalizeTitleKey(doc.title) === wanted,
       );
+      // An ink note is born with its header and no text layer; the host writes
+      // the first page's chunk when there is a first stroke.
+      const body = input.ink ? writeInkNoteBody(defaultInkNoteMeta(), "") : undefined;
       const id = existing
         ? existing.id
-        : (await getContainer().vault.manageVaultPage.add({ title: input.title, parentId: input.parentId })).id;
+        : (
+            await getContainer().vault.manageVaultPage.add({
+              title: input.title,
+              parentId: input.parentId,
+              ...(body !== undefined ? { body } : {}),
+            })
+          ).id;
       if (!existing) await reload();
-      if (opts.open !== false) apply(openTab(layout, { kind: "vault_page", id }));
+      const kind = existing ? existing.kind : input.ink ? "ink_page" : "vault_page";
+      if (opts.open !== false) apply(openTab(layout, { kind, id }));
     },
     [apply, documents, layout, reload],
   );
@@ -596,6 +618,7 @@ export function WorkspaceScreen() {
         }}
         onRelease={jumpToHeading}
         onNewNote={() => setCreating("note")}
+        onNewInkNote={() => setCreating("ink")}
         onNewFolder={() => setCreating("folder")}
       />
       <PaneView

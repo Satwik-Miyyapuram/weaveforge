@@ -29,11 +29,11 @@ export function NewDocumentDialog({
   onCreate,
   onClose,
 }: {
-  kind: "note" | "folder";
+  kind: "note" | "ink" | "folder";
   folders: readonly FolderOption[];
   /** Pre-selected parent: the folder the document on screen sits in. */
   initialParentId?: string;
-  onCreate: (input: { title: string; parentId?: string }) => Promise<void>;
+  onCreate: (input: { title: string; parentId?: string; ink?: boolean }) => Promise<void>;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState("");
@@ -48,7 +48,7 @@ export function NewDocumentDialog({
     return () => previous?.focus?.();
   }, []);
 
-  const label = kind === "folder" ? "New folder" : "New note";
+  const label = kind === "folder" ? "New folder" : kind === "ink" ? "New ink note" : "New note";
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -57,7 +57,7 @@ export function NewDocumentDialog({
     setBusy(true);
     setError(null);
     try {
-      await onCreate({ title: trimmed, parentId: parentId || undefined });
+      await onCreate({ title: trimmed, parentId: parentId || undefined, ...(kind === "ink" ? { ink: true } : {}) });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -87,8 +87,8 @@ export function NewDocumentDialog({
           ref={inputRef}
           className="quick-open-input search-input"
           value={title}
-          placeholder={kind === "folder" ? "Folder name" : "Note title"}
-          aria-label={kind === "folder" ? "Folder name" : "Note title"}
+          placeholder={kind === "folder" ? "Folder name" : kind === "ink" ? "Ink note title" : "Note title"}
+          aria-label={kind === "folder" ? "Folder name" : kind === "ink" ? "Ink note title" : "Note title"}
           onChange={(event) => setTitle(event.target.value)}
         />
         <div className="new-document-row">

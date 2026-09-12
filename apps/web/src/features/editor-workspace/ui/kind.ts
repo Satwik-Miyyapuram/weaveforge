@@ -126,10 +126,10 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     // A note, so it sorts with the other notes inside a reading list.
     memberOrder: 20,
     linkGroup: "notes",
-    // Nothing creates one from a title yet: an ink note is made by the ink host,
-    // which is what writes its first page and its sidecar, and offering it in the
-    // explorer's "New note" would make a note no writer knows how to fill.
-    creatable: false,
+    // Made from a title like a note — the explorer's "New ink note" writes the
+    // ink header as the body, and the host writes the first page when it is
+    // drawn on — and it can hold other notes, so it counts as a folder too.
+    creatable: true,
   },
   paper: {
     icon: "book",

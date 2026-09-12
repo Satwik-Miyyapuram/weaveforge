@@ -48,17 +48,27 @@ export interface InkBarProps {
   penSeen: boolean;
   /** The renderer actually drawing, for the readout at the end of the bar. */
   backend: string | null;
+  /** A recognition run is on; the button says so and refuses a second. */
   busy?: boolean;
+  /** "line 3 of 12" while a run is on. */
+  progress?: string | null;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  /** How many strokes the lasso holds; the selection tools show only then. */
+  selected?: number;
   onTool: (tool: InkBarTool | "shape") => void;
   onColour: (colour: (typeof INK_COLOURS)[number]) => void;
   onWidth: (width: number) => void;
   onPenOnly: (value: boolean) => void;
   onRecognise: () => void;
-  onInsertPage: () => void;
   onExport: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onAddPage: () => void;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+  onDeleteSelection?: () => void;
+  onCopyAsText?: () => void;
 }
 
 /** The label a tool shows. `shape` is reachable by chord and by hold, not by tool. */
@@ -89,16 +99,23 @@ export function InkBar({
   penSeen,
   backend,
   busy,
+  progress,
+  canUndo = true,
+  canRedo = true,
+  selected = 0,
   onTool,
   onColour,
   onWidth,
   onPenOnly,
   onRecognise,
-  onInsertPage,
   onExport,
   onUndo,
   onRedo,
   onAddPage,
+  onPrevPage,
+  onNextPage,
+  onDeleteSelection,
+  onCopyAsText,
 }: InkBarProps) {
   return (
     <div className="ink-bar" role="toolbar" aria-label="Ink tools">
@@ -141,17 +158,48 @@ export function InkBar({
         </button>
       ))}
       <span className="ink-sep" aria-hidden="true" />
-      <button type="button" className="ink-tool" onClick={onUndo} title="Undo (⌘Z)">
+      <button type="button" className="ink-tool" onClick={onUndo} disabled={!canUndo} title="Undo (⌘Z)">
         Undo
       </button>
-      <button type="button" className="ink-tool" onClick={onRedo} title="Redo (⌘⇧Z)">
+      <button type="button" className="ink-tool" onClick={onRedo} disabled={!canRedo} title="Redo (⌘⇧Z)">
         Redo
+      </button>
+      {selected > 0 ? (
+        <>
+          <span className="ink-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="ink-tool"
+            onClick={onCopyAsText}
+            title="Copy the selected strokes' recognised text"
+          >
+            Copy as text
+          </button>
+          <button
+            type="button"
+            className="ink-tool"
+            onClick={onDeleteSelection}
+            title="Delete the selected strokes (Delete)"
+          >
+            Delete {selected}
+          </button>
+        </>
+      ) : null}
+      <span className="ink-sep" aria-hidden="true" />
+      <button type="button" className="ink-tool" onClick={onPrevPage} disabled={page <= 1} title="Previous page">
+        ‹
+      </button>
+      <button
+        type="button"
+        className="ink-tool"
+        onClick={onNextPage}
+        disabled={page >= pages}
+        title="Next page"
+      >
+        ›
       </button>
       <button type="button" className="ink-tool" onClick={onAddPage} title="Add page">
         Add page
-      </button>
-      <button type="button" className="ink-tool" onClick={onInsertPage} title="Insert PDF page">
-        Insert PDF page
       </button>
       <button
         type="button"
@@ -160,7 +208,7 @@ export function InkBar({
         disabled={busy}
         title="Recognise this page (⌘⇧R)"
       >
-        {busy ? "Recognising…" : "Recognise"}
+        {busy ? (progress ?? "Recognising…") : "Recognise"}
       </button>
       <button type="button" className="ink-tool" onClick={onExport} title="Export page PNG (⌘⇧E)">
         Export PNG

@@ -25,6 +25,7 @@ export * from "./auth";
 export * from "./sync";
 export * from "./reading-lists";
 export * from "./workspace";
+export * from "./ink";
 
 import type { IntegrationsRegistry } from "@/integrations/registry";
 import type { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
@@ -46,6 +47,7 @@ import type { AuthFacade } from "./auth";
 import type { SyncFacade } from "./sync";
 import type { ReadingListsFacade } from "./reading-lists";
 import type { WorkspaceFacade } from "./workspace";
+import type { InkFacade } from "./ink";
 
 /** Swappable third-party integrations wired at the composition root. */
 
@@ -70,6 +72,7 @@ export interface AppContainer {
   sync: SyncFacade;
   readingLists: ReadingListsFacade;
   workspace: WorkspaceFacade;
+  ink: InkFacade;
   search: import("@/features/search/application/workspace-search").WorkspaceSearch;
   prefetchProject: PrefetchProjectUseCase;
   /** Active integration providers for this deployment (env-driven). */

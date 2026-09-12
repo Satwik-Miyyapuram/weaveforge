@@ -59,6 +59,7 @@ export function ExplorerPanel({
   onStartNote,
   onRelease,
   onNewNote,
+  onNewInkNote,
   onNewFolder,
   onRefresh,
   newNoteLabel = "New note",
@@ -77,6 +78,8 @@ export function ExplorerPanel({
    */
   onRelease?: (node: WorkspaceTreeNode) => void;
   onNewNote?: () => void;
+  /** A handwritten note: the same dialog, an ink body, the ink renderer. */
+  onNewInkNote?: () => void;
   onNewFolder?: () => void;
   onRefresh?: () => void;
   newNoteLabel?: string;
@@ -263,6 +266,17 @@ export function ExplorerPanel({
               title={newNoteLabel}
               aria-label={newNoteLabel}
               onClick={onNewNote}
+            >
+              <NavIcon name="pencil" />
+            </button>
+          ) : null}
+          {onNewInkNote ? (
+            <button
+              type="button"
+              className="explorer-action"
+              title="New ink note"
+              aria-label="New ink note"
+              onClick={onNewInkNote}
             >
               <NavIcon name="pencil" />
             </button>

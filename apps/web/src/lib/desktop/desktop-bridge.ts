@@ -232,6 +232,34 @@ export interface DesktopBridge {
    * this rejects, and the caller's recourse is to ask for it again.
    */
   readOverleafProject(projectId: string, entryFile: string): Promise<DesktopOverleafSource>;
+
+  /**
+   * The operating system's handwriting recogniser, where there is one.
+   *
+   * Windows ships `InkAnalyzer` with its language models installed; the shell
+   * reaches it through a helper executable over stdio (§5.2). `inkAvailable`
+   * probes the helper once and caches a yes; `inkRecognise` sends one page's
+   * lines as stroke trajectories and gets text back. Nothing leaves the
+   * machine, which is what lets this be the preferred engine.
+   *
+   * A browser has no equivalent: Chromium's handwriting API was verified absent
+   * even on Windows, so the web build's engine is the in-worker model instead.
+   */
+  inkAvailable(): Promise<boolean>;
+  inkRecognise(request: DesktopInkRequest): Promise<DesktopInkResult>;
+}
+
+/** One page's lines for the recogniser: flat `[x, y, pressure, …]` per stroke. */
+export interface DesktopInkRequest {
+  lines: { strokes: number[][] }[];
+  vocabulary?: string[];
+  lang?: string;
+}
+
+export interface DesktopInkResult {
+  engine: string;
+  lines: { text: string; confidence: number; alternatives?: string[] }[];
+  ms: number;
 }
 
 /** One Overleaf checkout, flattened for the wire. */
