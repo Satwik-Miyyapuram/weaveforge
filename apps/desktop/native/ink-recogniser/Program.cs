@@ -321,9 +321,16 @@ internal static class Program
                 foreach (var line in AnalysisLines(analyzer.AnalysisRoot))
                 {
                     var said = line.RecognizedText ?? string.Empty;
+                    // An analysis line's text belongs to each requested line
+                    // that owns one of its strokes — once per owner, not once
+                    // per stroke, or a three-stroke word comes back three times.
+                    var owners = new HashSet<int>();
                     foreach (var strokeId in line.GetStrokeIds())
                     {
-                        if (!ownerOfStroke.TryGetValue(strokeId, out var owner)) continue;
+                        if (ownerOfStroke.TryGetValue(strokeId, out var owner)) owners.Add(owner);
+                    }
+                    foreach (var owner in owners)
+                    {
                         if (said.Length > 0) (text[owner] ??= []).Add(said);
                         foreach (var alternate in Alternatives(line))
                         {
