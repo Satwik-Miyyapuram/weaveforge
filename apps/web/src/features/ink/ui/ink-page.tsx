@@ -62,6 +62,31 @@ export interface InkPageProps {
   penSeen: boolean;
 }
 
+/**
+ * Take the pointer for an eraser sweep or a lasso loop. The same two steps the
+ * pen path takes on a draw: without `preventDefault` Chromium on Windows reads a
+ * pen-down as the start of a platform gesture, revokes the capture a few pixels
+ * in and sends `pointercancel`, so the sweep erases one point and the loop never
+ * closes. Capture can throw for a pointer the browser no longer tracks; that is
+ * not worth aborting the handler over.
+ */
+function claimPointer(event: React.PointerEvent<HTMLCanvasElement>): void {
+  event.preventDefault();
+  try {
+    event.currentTarget.setPointerCapture(event.pointerId);
+  } catch {
+    // Already released or synthetic: the sweep still works without capture.
+  }
+}
+
+function releasePointer(event: React.PointerEvent<HTMLCanvasElement>): void {
+  try {
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  } catch {
+    // Nothing to release.
+  }
+}
+
 export function InkPage({
   pageIndex,
   pageSize,
@@ -94,14 +119,14 @@ export function InkPage({
         const at = project(event.clientX, event.clientY);
         if (!at) return;
         lastErase.current = at;
-        event.currentTarget.setPointerCapture(event.pointerId);
+        claimPointer(event);
         onErase(at, at);
         return;
       }
       if (tool === "lasso") {
         const at = project(event.clientX, event.clientY);
         if (!at) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
+        claimPointer(event);
         // Down inside the selected box is a drag; anywhere else starts a new loop.
         const b = selectionBounds;
         if (b && at.x >= b[0] && at.x <= b[2] && at.y >= b[1] && at.y <= b[3]) {
@@ -120,6 +145,7 @@ export function InkPage({
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (tool === "eraser") {
         if (!lastErase.current) return;
+        event.preventDefault();
         const at = project(event.clientX, event.clientY);
         if (!at) return;
         // One segment per move rather than one point: a 240 Hz pen moves several
@@ -130,6 +156,7 @@ export function InkPage({
         return;
       }
       if (tool === "lasso") {
+        event.preventDefault();
         if (drag.current) return;
         const at = project(event.clientX, event.clientY);
         if (!at) return;
@@ -145,11 +172,11 @@ export function InkPage({
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (tool === "eraser") {
         lastErase.current = null;
-        event.currentTarget.releasePointerCapture?.(event.pointerId);
+        releasePointer(event);
         return;
       }
       if (tool === "lasso") {
-        event.currentTarget.releasePointerCapture?.(event.pointerId);
+        releasePointer(event);
         const from = drag.current;
         if (from) {
           drag.current = null;
