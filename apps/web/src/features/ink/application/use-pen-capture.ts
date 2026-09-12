@@ -331,6 +331,14 @@ export interface UsePenCaptureOptions {
   onBackend?: (backend: "webgl2" | "canvas2d" | "none") => void;
   onContextLost?: () => void;
   /**
+   * Every worker event, after the hook has taken what it needs.
+   *
+   * The hook owns the pen; the host owns the page. Saves, page models, lasso
+   * selections and history depth are the host's business, and threading each
+   * through a named callback would make the hook grow with every tool.
+   */
+  onEvent?: (event: InkWorkerEvent) => void;
+  /**
    * Whether the delegated ink trail is active. Prediction is on **only** when it
    * is not (§6.2.6); the host owns the presenter and passes its state in.
    */
@@ -477,6 +485,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           setBackend("none");
           break;
       }
+      callbacksRef.current.onEvent?.(message);
     };
     worker.addEventListener("message", onMessage);
 
@@ -504,6 +513,9 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         // the memory never left this thread and returning it would pool an array
         // that is still in use here.
         mode: transferMode(),
+        // The sidecar is deflate-raw'd where the platform can; the worker falls
+        // back to identity where it cannot, and the chunk says which it was.
+        codec: "deflate-raw",
       },
       offscreen ? [offscreen] : [],
     );

@@ -96,6 +96,20 @@ export {
 } from "./render/ink-renderer";
 
 export { INK_RENDER_COLOURS, WebglInkRenderer, supportsWebglInk } from "./render/webgl-renderer";
+export {
+  CanvasInkRenderer,
+  HIGHLIGHTER_ALPHA,
+  PAPER_GRID_PITCH,
+  PAPER_RULED_PITCH,
+  cssInkColour,
+  paintPaper,
+  paintStroke,
+  type Canvas2dLike,
+  type CanvasInkRendererOptions,
+  type Context2dLike,
+} from "./render/canvas-renderer";
+
+export { recogniseShape, fittedInkPath, fittedArrowPaths } from "./application/shape-snap";
 
 export { InkHost, fitScale, headerForTool, type InkHostPage, type InkHostProps } from "./ui/ink-host";
 export { InkBar, INK_BAR_TOOLS, nibForTool, toolLabel, type InkBarProps, type InkBarTool } from "./ui/ink-bar";

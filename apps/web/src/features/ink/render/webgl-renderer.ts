@@ -198,6 +198,8 @@ export class WebglInkRenderer implements InkRenderer {
   private readonly onLifecycle: ((state: "lost" | "restored") => void) | undefined;
 
   private width = 1;
+  /** The buffer index the next appended stroke gets, absent an explicit one. */
+  private nextStroke = 0;
   private height = 1;
   private dpr = 1;
   private pageWidth = 2100;
@@ -288,12 +290,17 @@ export class WebglInkRenderer implements InkRenderer {
     this.gl.viewport(0, 0, this.width, this.height);
   }
 
-  setStrokes(strokes: readonly InkStrokeGeometry[]): void {
+  setStrokes(strokes: readonly (InkStrokeGeometry | null)[]): void {
     this.clearBatches();
-    for (const stroke of strokes) this.appendStroke(stroke);
+    this.nextStroke = 0;
+    strokes.forEach((stroke, index) => {
+      if (stroke) this.appendStroke(stroke, index);
+    });
+    this.nextStroke = strokes.length;
   }
 
-  appendStroke(stroke: InkStrokeGeometry): void {
+  appendStroke(stroke: InkStrokeGeometry, index = this.nextStroke): void {
+    this.nextStroke = index + 1;
     const batch = this.batchFor(stroke.colour, usesHighlighterPass(stroke.tool));
     const segments = Math.max(0, Math.min(stroke.x.length, stroke.y.length) - 1);
     if (segments === 0) return;
@@ -310,7 +317,7 @@ export class WebglInkRenderer implements InkRenderer {
       batch.data.subarray(offset * INK_INSTANCE_FLOATS),
     );
     if (written === 0) return;
-    batch.records.push({ stroke: batch.records.length, offset, count: segments });
+    batch.records.push({ stroke: index, offset, count: segments });
     batch.used = offset + segments;
     this.uploadBatch(batch, offset, segments);
   }
