@@ -58,8 +58,15 @@ import {
 
 import { usePenCapture } from "../application/use-pen-capture";
 import { trailStyle } from "../application/ink-trail";
-import type { InkStrokeHeader, InkWorkerEvent } from "../application/capture-protocol";
-import { loadInkPages, type InkChunkStore, type InkStoredPage } from "../application/ink-chunk-store";
+import type {
+  InkStrokeHeader,
+  InkWorkerEvent,
+} from "../application/capture-protocol";
+import {
+  loadInkPages,
+  type InkChunkStore,
+  type InkStoredPage,
+} from "../application/ink-chunk-store";
 import {
   acceptLine,
   recognisePage,
@@ -108,18 +115,28 @@ export const INK_NO_ENGINE_MESSAGE =
  * number rather than a rect, and the worker's transform is one `postMessage` away
  * (§6.2.1: pan and zoom are uniform updates, so neither needs machinery).
  */
-export function fitScale(containerWidth: number, pageWidth = INK_A4_WIDTH): number {
+export function fitScale(
+  containerWidth: number,
+  pageWidth = INK_A4_WIDTH,
+): number {
   if (!(containerWidth > 0)) return 1;
   return containerWidth / pageWidth;
 }
 
 /** The lines the lasso's strokes belong to, as text, one per line. */
-export function selectedText(page: InkPageModel, indices: readonly number[]): string {
+export function selectedText(
+  page: InkPageModel,
+  indices: readonly number[],
+): string {
   const chosen = new Set(indices);
   const out: string[] = [];
   for (const line of page.lines) {
     if (!line.text) continue;
-    for (let i = line.strokeStart; i < line.strokeStart + line.strokeCount; i += 1) {
+    for (
+      let i = line.strokeStart;
+      i < line.strokeStart + line.strokeCount;
+      i += 1
+    ) {
       if (chosen.has(i)) {
         out.push(line.text);
         break;
@@ -129,7 +146,13 @@ export function selectedText(page: InkPageModel, indices: readonly number[]): st
   return out.join("\n");
 }
 
-export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHostProps) {
+export function InkHost({
+  noteId,
+  body,
+  deps,
+  initialPage = 0,
+  onSave,
+}: InkHostProps) {
   const [pageIndex, setPageIndex] = useState(initialPage);
   const [tool, setTool] = useState<InkBarTool | "shape">("pen");
   const [colour, setColour] = useState<InkColour>("text");
@@ -139,6 +162,10 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
   const [containerWidth, setContainerWidth] = useState(0);
   const [history, setHistory] = useState({ undo: 0, redo: 0 });
   const [selection, setSelection] = useState<number[]>([]);
+  /** The selection's box in page units, for the page to offer a drag inside it. */
+  const [selectionBounds, setSelectionBounds] = useState<
+    readonly [number, number, number, number] | null
+  >(null);
   const [recognising, setRecognising] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState<string | null>(null);
@@ -150,7 +177,9 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
   /** The writing hand, mirrored into state so the bar and the gate follow it. */
   const [hand, setHandState] = useState<InkHand>(metaRef.current.hand);
   /** The text layer's pages, for the body (§4.2). */
-  const textPagesRef = useRef<string[]>(splitInkTextLayer(readInkNoteBody(body).text));
+  const textPagesRef = useRef<string[]>(
+    splitInkTextLayer(readInkNoteBody(body).text),
+  );
   /** The current page's recognition, for the column and for corrections. */
   const [recognised, setRecognised] = useState<RecognisedPage | null>(null);
   const recognisedRef = useRef<RecognisedPage | null>(null);
@@ -161,10 +190,15 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSeq = useRef(0);
   const pendingModel = useRef(new Map<number, (page: InkPageModel) => void>());
-  const pendingSave = useRef(new Map<number, (bytes: Uint8Array | null) => void>());
+  const pendingSave = useRef(
+    new Map<number, (bytes: Uint8Array | null) => void>(),
+  );
   const pendingExport = useRef(new Map<number, (png: Blob | null) => void>());
 
-  const scale = useMemo(() => fitScale(containerWidth) * zoom, [containerWidth, zoom]);
+  const scale = useMemo(
+    () => fitScale(containerWidth) * zoom,
+    [containerWidth, zoom],
+  );
   const page: InkStoredPage = pagesRef.current?.[pageIndex] ?? {
     chunkId: "",
     chunk: null,
@@ -217,6 +251,7 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
         break;
       case "selected":
         setSelection(event.indices);
+        setSelectionBounds(event.bounds);
         break;
       default:
         break;
@@ -228,7 +263,9 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
     project,
     bounds: () => {
       const box = canvasRef.current?.getBoundingClientRect();
-      return box ? { left: box.left, top: box.top, width: box.width, height: box.height } : undefined;
+      return box
+        ? { left: box.left, top: box.top, width: box.width, height: box.height }
+        : undefined;
     },
     pageIndex,
     // The eraser and the lasso do not draw, so the pen's tool is the pen's: a
@@ -302,7 +339,9 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
       pageOrder: pages.map((entry) => entry.chunkId),
     };
     metaRef.current = meta;
-    await onSave(writeInkNoteBody(meta, joinInkTextLayer(textPagesRef.current)));
+    await onSave(
+      writeInkNoteBody(meta, joinInkTextLayer(textPagesRef.current)),
+    );
   }, [onSave]);
 
   /** Write the current page's chunk, then the body. */
@@ -356,7 +395,11 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
     let live = true;
     void requestModel().then((model) => {
       if (!live) return;
-      setRecognised(model.lines.length > 0 ? recognisedPageFromModel(model, metaRef.current.engine) : null);
+      setRecognised(
+        model.lines.length > 0
+          ? recognisedPageFromModel(model, metaRef.current.engine)
+          : null,
+      );
     });
     return () => {
       live = false;
@@ -471,7 +514,11 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
     const pages = pagesRef.current;
     if (!pages) return;
     flushSave();
-    pages.push({ chunkId: newInkChunkId(), chunk: null, paper: metaRef.current.paper });
+    pages.push({
+      chunkId: newInkChunkId(),
+      chunk: null,
+      paper: metaRef.current.paper,
+    });
     textPagesRef.current.push("");
     setPageCount(pages.length);
     setPageIndex(pages.length - 1);
@@ -483,6 +530,18 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
       send({ type: "lasso", polygon: [...path] });
     },
     [send],
+  );
+
+  /** The selection moved by `dx, dy`: the worker translates it, the box follows. */
+  const onMoveSelection = useCallback(
+    (dx: number, dy: number) => {
+      send({ type: "move-selection", dx, dy });
+      setSelectionBounds((b) =>
+        b ? [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy] : b,
+      );
+      scheduleSave();
+    },
+    [scheduleSave, send],
   );
   const onDeleteSelection = useCallback(() => {
     send({ type: "delete-selection" });
@@ -560,7 +619,14 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onDeleteSelection, onExport, recognise, scheduleSave, selection.length, send]);
+  }, [
+    onDeleteSelection,
+    onExport,
+    recognise,
+    scheduleSave,
+    selection.length,
+    send,
+  ]);
 
   /** Zoom without plumbing a gesture: ⌘/Ctrl and the wheel, or the buttons. */
   useEffect(() => {
@@ -569,7 +635,9 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      setZoom((value) => Math.min(4, Math.max(0.5, value * (event.deltaY < 0 ? 1.1 : 0.9))));
+      setZoom((value) =>
+        Math.min(4, Math.max(0.5, value * (event.deltaY < 0 ? 1.1 : 0.9))),
+      );
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
@@ -651,6 +719,8 @@ export function InkHost({ noteId, body, deps, initialPage = 0, onSave }: InkHost
           canvasRef={canvasRef}
           onErase={onErase}
           onLasso={onLasso}
+          selectionBounds={selectionBounds}
+          onMoveSelection={onMoveSelection}
           penOnly={pen.penOnly}
           penSeen={pen.penSeen}
         />
@@ -678,7 +748,12 @@ export function headerForTool(
     strokeId,
     pageIndex,
     width: nibForTool(tool, width),
-    tool: tool === "highlighter" ? "highlighter" : tool === "shape" ? "shape" : "pen",
+    tool:
+      tool === "highlighter"
+        ? "highlighter"
+        : tool === "shape"
+          ? "shape"
+          : "pen",
     colour,
   };
 }
