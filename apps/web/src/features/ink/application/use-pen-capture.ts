@@ -253,6 +253,14 @@ export class PenCaptureSession {
     if (this.predicts) {
       const predicted = safeEvents(event.getPredictedEvents?.bind(event));
       if (predicted.length > 0) {
+        // The real samples pending in the writer go out first, as their own
+        // message. A flush carries everything in the buffer under one flag, so
+        // flushing them together with the predicted tail would mark the real
+        // samples predicted too — and the worker discards a predicted tail when
+        // the next samples arrive, so most of the stroke would be lost, leaving
+        // only whatever the per-frame flush happened to send: a polyline of the
+        // few survivors.
+        this.deps.writer.flush("samples", this.header!);
         for (const sample of predicted) this.consume(sample, false, true);
         this.deps.writer.flush("samples", this.header!, true);
       }
@@ -545,6 +553,11 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   const [frame, setFrame] = useState(0);
   const [delegating, setDelegating] = useState(false);
   const presenterRef = useRef<InkPresenterLike | null>(null);
+  // Whether the worker's context was created for the delegated path. Decided
+  // once and never revisited: a presenter that later refuses an event is
+  // dropped, but the context is still `desynchronized: false`, so prediction
+  // stays off (§6.2.6).
+  const delegatedContextRef = useRef(false);
   const storageRef = useRef<PenOnlyStorage | null | undefined>(undefined);
   if (storageRef.current === undefined) {
     storageRef.current =
@@ -610,6 +623,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         callbacksRef.current.onStrokeEnd?.(header, points, pressures),
       predict: () =>
         presenterRef.current === null &&
+        !delegatedContextRef.current &&
         !(callbacksRef.current.delegating?.() ?? false),
     });
   }
@@ -648,6 +662,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     const start = (presenter: InkPresenterLike | null) => {
       if (disposed) return;
       presenterRef.current = presenter;
+      delegatedContextRef.current = presenter !== null;
       setDelegating(presenter !== null);
       const create =
         callbacksRef.current.createWorker ??
