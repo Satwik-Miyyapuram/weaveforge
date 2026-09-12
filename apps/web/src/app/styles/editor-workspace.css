@@ -1204,3 +1204,161 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * The ink note (§6.1)
+ *
+ * The grid is the plan's: the bar across the top spanning both columns, the page
+ * on the left, the recognised text layer on the right at the minimap column's
+ * width so a split pane lines up. The text column hides below 1100px, which is
+ * where the editor workspace already drops its right-hand panes.
+ *
+ * Two rules here are load-bearing rather than cosmetic. The canvas is the topmost
+ * element inside `.ink-page-scroll` and nothing is painted over it: a translucent
+ * `desynchronized` canvas with DOM above it silently loses the low-latency path
+ * (§6.1). And `.ink-canvas` gets `display: block`, because an inline canvas in a
+ * scrolling container leaves a baseline gap that shows as the page drifting.
+ * ------------------------------------------------------------------------ */
+
+.ink-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 248px;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ink-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.ink-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.ink-tool:hover { background: var(--chip); color: var(--text); }
+.ink-tool[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.ink-tool:disabled { opacity: 0.5; cursor: default; }
+.ink-tool-nib { font-family: var(--font-mono); font-size: 0.72rem; }
+
+.ink-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--border);
+}
+
+.ink-swatch {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+}
+
+.ink-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent-soft); }
+.ink-swatch-text { background: var(--text); }
+.ink-swatch-accent { background: var(--accent); }
+.ink-swatch-warn { background: var(--s-warn); }
+
+.ink-pen-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.ink-bar-spacer { flex: 1 1 auto; }
+
+.ink-readout {
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.ink-page-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 0;
+  background: var(--bg);
+}
+
+.ink-page {
+  display: flex;
+  justify-content: center;
+}
+
+/* The ink surface: the topmost thing in the page area, and never drawn over. */
+.ink-canvas {
+  display: block;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  background: var(--surface);
+  touch-action: pan-y;
+}
+
+/* Paper is a CSS background, so it costs no storage (§6.2.12). */
+.ink-canvas.paper-blank { background: var(--surface); }
+.ink-canvas.paper-dotted {
+  background-color: var(--surface);
+  background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.ink-canvas.paper-ruled {
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--border) 1px, transparent 1px);
+  background-size: 100% 24px;
+}
+
+.ink-text {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.ink-text h4 {
+  display: flex;
+  align-items: center;
+  margin: 0 0 10px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ink-text h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
+.ink-text p { margin: 0 0 10px; }
+.ink-text .ink-empty { color: var(--faint); }
+
+@media (max-width: 1100px) {
+  .ink-wrap { grid-template-columns: minmax(0, 1fr); }
+  .ink-text { display: none; }
+}
+
+

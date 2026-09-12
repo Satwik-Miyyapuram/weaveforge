@@ -255,7 +255,7 @@ test("a 240 Hz stroke through the session touches the screen once, at the end", 
   harness.session.committed(
     { strokeId: 1, pageIndex: 0, width: 6, tool: "pen", colour: "text" },
     new Float32Array([0, 0, 10, 10]),
-    new Float32Array([128, 128]),
+    new Uint8Array([128, 128]),
   );
   assert.equal(harness.committed.length, 1, "one acknowledgement, one render");
 });

@@ -19,6 +19,13 @@ export {
   PALM_SECOND_TOUCH_MS,
   TOUCH_DEFER_MS,
   TOUCH_MOVE_SLOP_PX,
+  type PalmReason,
+  type PenClaim,
+  type PenDecision,
+  type PenGateEvent,
+} from "./application/pen-gate";
+
+export {
   PenCaptureSession,
   transferMode,
   usePenCapture,
@@ -26,10 +33,6 @@ export {
   type InkWorkerLike,
   type PenCaptureDeps,
   type PenCaptureHandle,
-  type PenClaim,
-  type PenDecision,
-  type PalmReason,
-  type PenGateEvent,
   type PenPointerEvent,
   type UsePenCaptureOptions,
 } from "./application/use-pen-capture";
@@ -59,3 +62,41 @@ export {
   type InkWorkerEvent,
   type InkWorkerMessage,
 } from "./application/capture-protocol";
+
+export {
+  InkPageBuffer,
+  boundsContain,
+  boundsIntersect,
+  boundsOf,
+  fromGeometry,
+  toGeometry,
+  type IncomingStroke,
+  type InkBounds,
+  type InkStrokeGeometry,
+} from "./application/page-buffer";
+
+export {
+  ERASER_RADIUS,
+  MAX_PICK_CANDIDATES,
+  InkStrokeIndex,
+} from "./application/stroke-index";
+
+export {
+  INK_AA_MARGIN_PX,
+  INK_INSTANCE_FLOATS,
+  capsuleHalfExtent,
+  packStrokeInstances,
+  radiusAt,
+  usesHighlighterPass,
+  type InkBackend,
+  type InkLiveStroke,
+  type InkRenderer,
+  type InkRenderStats,
+  type InkViewTransform,
+} from "./render/ink-renderer";
+
+export { INK_RENDER_COLOURS, WebglInkRenderer, supportsWebglInk } from "./render/webgl-renderer";
+
+export { InkHost, fitScale, headerForTool, type InkHostPage, type InkHostProps } from "./ui/ink-host";
+export { InkBar, INK_BAR_TOOLS, nibForTool, toolLabel, type InkBarProps, type InkBarTool } from "./ui/ink-bar";
+export { InkPage, type InkPageProps } from "./ui/ink-page";
