@@ -37,6 +37,9 @@ were tuning, not architecture.
 | `f8ed108` | The page went blank past a certain zoom | The whole-page backing store (CSS size × dpr) outgrew what the GPU would allocate | `backingRatio()` lowers the effective dpr so the store stays ≤ 20 M px and ≤ 8192 per side; the same ratio goes into the view transform |
 | `ef4e38e` | Lasso: selected strokes not shown as selected; strokes stayed put while the box moved | Nothing drew the selection; only pointer-up translated it | Accent halo (capsules grown by 3 device px at 30 %, stencil-deduped) under the selected strokes; `drag-selection` shows the held strokes shifted with the box, `move-selection` on lift commits |
 | `863852e` | Recognise gave "(unreadable)" at 0 % for a line holding a "1" or a dash | `InkAnalyzer` classed a two-point stroke (a straight line simplified to its ends) as a drawing, and the line it sat in came back empty | Every stroke is marked `InkAnalysisStrokeKind.Writing` before analysis: the note asked for text |
+| `4bbc681` | "Insert PDF page" did nothing on the second try, and sometimes the first | pdf.js detaches the `ArrayBuffer` it is handed, so the cached bytes were empty on the next call | Each `getDocument` gets a copy of the bytes |
+| `0ec436e` | Panning at zoom blanked the strokes for a moment, then they came back | The canvas was page-sized in CSS pixels; at 4× the compositor re-tiled it on every scroll and the tiles lagged | The canvas is a sticky window the size of the scroller, the sheet is what scrolls; the camera offset follows the scroll (one message per scroll, no re-raster) |
+| `0ec436e` | Inserted pages came in at the PDF's own aspect, so printing would scale | Page size was taken from the source | Every inserted page is placed on a white A4 sheet, fit and centred; images insert the same way |
 
 ## 3. How it was verified without a hand on the pen
 

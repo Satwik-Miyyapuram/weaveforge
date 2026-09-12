@@ -78,3 +78,44 @@ that would loop the parent chain. The drop calls
 5. Ink image page.
 6. Paper PDF mode + Load PDF.
 7. Build, install, drive with CDP, log rows.
+8. The three asks below, landed between 5 and 6.
+
+## 8. Added mid-flight
+
+Three asks that arrived while the above was being built, and where they went.
+
+### 8.1 PDFs live in the folder; the web copy fetches online
+
+- `IPdfByteCache` gets a second implementation, `WorkspacePdfStore`, over the
+  workspace folder at `papers/pdf/<id>.pdf` (`paperPdfPath` in core). The
+  reader's shared cache is a `RoutedPdfByteCache`: the folder store when a
+  folder is open, IndexedDB otherwise. Nothing above the cache changes — the
+  ladder's cache rung is the same rung, it now reads from disk on desktop.
+- `downloadLibraryPdfs` walks the library once a folder is adopted and pulls
+  every paper's PDF through the same ladder, three seconds apart, into the
+  store. Held papers are skipped; a paper with no source is skipped. The
+  desktop build therefore opens PDFs from disk, offline included; the web
+  build fetches when the cache is cold and keeps up to 32 in IndexedDB.
+- "Load PDF…" (§6) writes to the same cache, so a user-supplied PDF lands in
+  the folder on desktop.
+
+### 8.2 A pan at zoom keeps the ink
+
+- The canvas was the size of the page in CSS pixels, so at 4× it was a
+  surface the compositor re-tiled on every scroll, and the tiles arrived
+  after the strokes disappeared. The canvas is now a window: `.ink-sheet`
+  is the page's full box (paper is its background, and it is what scrolls),
+  and `.ink-canvas` inside it is `position: sticky`, sized to the scroller's
+  client box, never larger.
+- The camera offset is where the sheet's corner sits relative to the canvas,
+  in CSS pixels, re-sent on every scroll (one message, no re-raster). The
+  WebGL shader, the canvas2d transform and `boundsToClip` all read the same
+  offset, scaled by dpr at the edge. `project` uses the sheet's rect and the
+  page's own size, so an older, non-A4 page still projects correctly.
+
+### 8.3 Every page is A4
+
+- An inserted page — a PDF page or an image — is placed on a white A4 sheet
+  (1654 × 2339 px at 200 dpi), fit inside and centred (`placeOnSheet`), and
+  the page's size is `INK_A4_WIDTH × INK_A4_HEIGHT`. Print later is one
+  page per page, no scaling surprises.
