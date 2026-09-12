@@ -26,6 +26,7 @@
 import {
   INK_PRESSURE_MAX_FACTOR,
   INK_PRESSURE_MIN_FACTOR,
+  INK_VELOCITY_TAPER,
   type InkColour,
   type InkTool,
 } from "@weaveforge/core";
@@ -443,7 +444,8 @@ export function radiusAt(
       stroke.y[i + 1]! - stroke.y[i]!,
     );
   const speed = span / Math.max(1, next - previous);
-  const velocityScaleFactor = 1 - Math.min(1, speed / velocityScale) * 0.3;
+  const velocityScaleFactor =
+    1 - Math.min(1, speed / velocityScale) * INK_VELOCITY_TAPER;
   return base * pressureScale * velocityScaleFactor;
 }
 

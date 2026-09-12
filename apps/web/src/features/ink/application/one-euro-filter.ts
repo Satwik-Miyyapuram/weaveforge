@@ -283,6 +283,17 @@ export class NibFilter {
       Number.isFinite(sample.pressure) &&
       sample.pressure > 0 &&
       sample.pressure !== 0.5;
+    // A pen that has reported pressure and now reports `0` has lifted: the
+    // `pointerup` on Windows carries no pressure. Taking that `0` as "no
+    // channel" would give the last sample the full base width — a blob on the
+    // end of a light stroke — so the lift tapers from the last pressure instead.
+    const lifted =
+      !reports && sample.pressure === 0 && this.pressure.last !== null;
+    const pressure = reports
+      ? this.pressure.filter(sample.pressure, sample.t)
+      : lifted
+        ? this.pressure.last! * 0.6
+        : sample.pressure;
     // One cutoff for both axes, from the pen's speed along the page rather than
     // each axis's own. Per-axis speed is what the paper does, and it is wrong
     // for handwriting at every corner: at the apex of a "Λ" the y velocity
@@ -296,9 +307,7 @@ export class NibFilter {
     const filtered = {
       x: dtX === null ? this.x.last! : this.x.settle(sample.x, dtX, speed),
       y: dtY === null ? this.y.last! : this.y.settle(sample.y, dtY, speed),
-      pressure: reports
-        ? this.pressure.filter(sample.pressure, sample.t)
-        : sample.pressure,
+      pressure,
       velocity,
       t: sample.t,
     };

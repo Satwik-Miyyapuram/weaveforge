@@ -52,12 +52,12 @@ export const INK_MAX_WIDTH = 200;
 /** Speed at which the velocity taper reaches its floor, in 0.1 mm per ms. */
 export const INK_VELOCITY_FULL_TAPER = 4;
 
-/** How much thinner a stroke gets at full speed: 35 % off the base width. */
-export const INK_VELOCITY_TAPER = 0.35;
+/** How much thinner a stroke gets at full speed: 20 % off the base width. */
+export const INK_VELOCITY_TAPER = 0.2;
 
 /** Lightest and heaviest a pressure of 0 and 1 scale the base width by. */
-export const INK_PRESSURE_MIN_FACTOR = 0.55;
-export const INK_PRESSURE_MAX_FACTOR = 1.45;
+export const INK_PRESSURE_MIN_FACTOR = 0.7;
+export const INK_PRESSURE_MAX_FACTOR = 1.3;
 
 /**
  * A stroke width clamped to what a nib can be.
