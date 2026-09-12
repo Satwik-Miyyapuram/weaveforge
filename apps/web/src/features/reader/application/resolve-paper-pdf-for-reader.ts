@@ -5,16 +5,35 @@
 
 import type { IPdfByteCache, PdfSourceResolution } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { IndexedDbPdfByteCache } from "../infrastructure/indexeddb-pdf-byte-cache";
+import {
+  RoutedPdfByteCache,
+  WorkspacePdfStore,
+} from "../infrastructure/workspace-pdf-store";
 import { resolvePaperPdfSource, paperToPdfSourcePaper } from "./resolve-paper-pdf-source";
 import { proxiedPdfUrl } from "./sanitize-reader-url";
 
 const CACHE_CAP = 32;
 let sharedCache: IPdfByteCache | null = null;
 
-function getReaderPdfByteCache(): IPdfByteCache | undefined {
-  if (typeof indexedDB === "undefined") return undefined;
-  if (!sharedCache) sharedCache = new IndexedDbPdfByteCache(CACHE_CAP);
+/**
+ * Where a paper's bytes are kept between opens. With a workspace folder open
+ * — the desktop build, once set up — that is the folder itself, `papers/pdf/`,
+ * so the PDF is fetched once and read from disk after, offline included. In a
+ * browser it is IndexedDB, a bounded cache, and the network when that is
+ * cold: the web build fetches online, the desktop build does not have to.
+ */
+export function getReaderPdfByteCache(): IPdfByteCache | undefined {
+  const hasBrowser = typeof indexedDB !== "undefined";
+  if (!hasBrowser && !activeWorkspaceFs()) return undefined;
+  if (!sharedCache) {
+    const browser = hasBrowser ? new IndexedDbPdfByteCache(CACHE_CAP) : null;
+    const folder = new WorkspacePdfStore(activeWorkspaceFs);
+    sharedCache = new RoutedPdfByteCache(() =>
+      activeWorkspaceFs() ? folder : (browser ?? folder),
+    );
+  }
   return sharedCache;
 }
 
