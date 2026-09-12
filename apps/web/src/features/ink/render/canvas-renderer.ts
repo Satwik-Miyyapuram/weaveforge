@@ -29,11 +29,13 @@ import type { InkColour } from "@weaveforge/core";
 import type { InkStrokeGeometry } from "../application/page-buffer";
 import {
   INK_SEGMENT_SUBDIVISIONS,
+  INK_SELECTION_HALO_PX,
   radiusAt,
   strokeCurveAt,
   type InkLiveStroke,
   type InkRenderStats,
   type InkRenderer,
+  type InkShift,
   type InkViewTransform,
   type InkBackgroundImage,
 } from "./ink-renderer";
@@ -102,6 +104,9 @@ export class CanvasInkRenderer implements InkRenderer {
   private height = 0;
   private drawn = 0;
   private nextIndex = 0;
+  /** The lasso's selection, by stroke index, and where a drag is showing it. */
+  private selected = new Set<number>();
+  private shift: InkShift = { x: 0, y: 0 };
 
   constructor(options: CanvasInkRendererOptions) {
     this.canvas = options.canvas;
@@ -198,6 +203,11 @@ export class CanvasInkRenderer implements InkRenderer {
     return target.convertToBlob({ type: "image/png" });
   }
 
+  setSelection(indices: readonly number[], shift: InkShift): void {
+    this.selected = new Set(indices);
+    this.shift = { x: shift.x, y: shift.y };
+  }
+
   dispose(): void {
     this.strokes.clear();
     this.order = [];
@@ -240,6 +250,28 @@ export class CanvasInkRenderer implements InkRenderer {
     }
 
     this.drawn = 0;
+    // The selection's halo first, under everything: the same capsules grown
+    // by a few device pixels in the accent colour, shifted by the drag.
+    const haloPageUnits = INK_SELECTION_HALO_PX / Math.max(k, 0.0001);
+    if (this.selected.size > 0) {
+      for (const index of this.order) {
+        const stroke = this.strokes.get(index);
+        if (!stroke || !this.selected.has(index)) continue;
+        context.save();
+        context.translate(this.shift.x, this.shift.y);
+        this.drawn += paintStroke(
+          context,
+          stroke.x,
+          stroke.y,
+          stroke.pressure,
+          { ...stroke, colour: "accent" },
+          false,
+          this.palette,
+          { alpha: 0.3, grow: haloPageUnits },
+        );
+        context.restore();
+      }
+    }
     // Highlighters first at 35 %, then pen strokes over them: the WebGL order.
     for (const pass of ["highlighter", "pen"] as const) {
       for (const index of this.order) {
@@ -247,6 +279,11 @@ export class CanvasInkRenderer implements InkRenderer {
         if (!stroke) continue;
         const highlighter = stroke.tool === "highlighter";
         if ((pass === "highlighter") !== highlighter) continue;
+        const held = this.selected.has(index);
+        if (held) {
+          context.save();
+          context.translate(this.shift.x, this.shift.y);
+        }
         this.drawn += paintStroke(
           context,
           stroke.x,
@@ -256,6 +293,7 @@ export class CanvasInkRenderer implements InkRenderer {
           highlighter,
           this.palette,
         );
+        if (held) context.restore();
       }
     }
     if (this.live) {
@@ -273,7 +311,11 @@ export class CanvasInkRenderer implements InkRenderer {
   }
 }
 
-/** Fill one stroke as a union of capsules. Returns the segments drawn. */
+/**
+ * Fill one stroke as a union of capsules. Returns the segments drawn.
+ * `halo` draws it as a selection halo instead: `grow` page units wider on
+ * every side, at `alpha`.
+ */
 export function paintStroke(
   context: Context2dLike,
   x: Float32Array,
@@ -282,6 +324,7 @@ export function paintStroke(
   stroke: { width: number; tool: string; colour: InkColour },
   highlighter: boolean,
   palette: InkPalette = INK_RENDER_COLOURS,
+  halo?: { alpha: number; grow: number },
 ): number {
   const count = x.length;
   if (count === 0) return 0;
@@ -292,14 +335,15 @@ export function paintStroke(
     width: stroke.width,
     variableWidth: stroke.tool === "pen",
   };
+  const grow = halo?.grow ?? 0;
   context.fillStyle = cssInkColour(
     stroke.colour,
-    highlighter ? HIGHLIGHTER_ALPHA : 1,
+    halo ? halo.alpha : highlighter ? HIGHLIGHTER_ALPHA : 1,
     palette,
   );
   context.beginPath();
   if (count === 1) {
-    context.arc(x[0]!, y[0]!, radiusAt(input, 0), 0, Math.PI * 2);
+    context.arc(x[0]!, y[0]!, radiusAt(input, 0) + grow, 0, Math.PI * 2);
     context.fill();
     return 1;
   }
@@ -308,7 +352,7 @@ export function paintStroke(
     let a = strokeCurveAt(input, i, 0);
     for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {
       const b = strokeCurveAt(input, i, k / INK_SEGMENT_SUBDIVISIONS);
-      capsule(context, a.x, a.y, a.r, b.x, b.y, b.r);
+      capsule(context, a.x, a.y, a.r + grow, b.x, b.y, b.r + grow);
       a = b;
     }
   }

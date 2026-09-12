@@ -463,6 +463,7 @@ function startRenderer(delegating: boolean): void {
   if (state.palette) renderer.setPalette(state.palette);
   renderer.resize(state.width, state.height, state.dpr);
   renderer.setStrokes(state.buffer.allStrokes());
+  renderer.setSelection(state.selection, { x: 0, y: 0 });
   state.index = new InkStrokeIndex(state.buffer);
   post({ type: "ready", backend: renderer.backend });
 }
@@ -521,6 +522,7 @@ function installPage(model: InkPage): void {
   );
   state.renderer?.setBackground(state.background);
   state.renderer?.setStrokes(state.buffer.allStrokes());
+  state.renderer?.setSelection([], { x: 0, y: 0 });
   reportState();
   reportHistory();
   post({ type: "selected", indices: [], bounds: null });
@@ -639,6 +641,7 @@ export function pointInPolygon(
 function lasso(polygon: readonly number[]): void {
   if (polygon.length < 6) {
     state.selection = [];
+    state.renderer?.setSelection([], { x: 0, y: 0 });
     post({ type: "selected", indices: [], bounds: null });
     return;
   }
@@ -678,6 +681,8 @@ function lasso(polygon: readonly number[]): void {
       : [b[0], b[1], b[2], b[3]];
   }
   state.selection = chosen;
+  state.renderer?.setSelection(chosen, { x: 0, y: 0 });
+  ensureLoop();
   post({ type: "selected", indices: chosen, bounds });
 }
 
@@ -870,16 +875,31 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       case "select-clear":
         state.selection = [];
+        state.renderer?.setSelection([], { x: 0, y: 0 });
         post({ type: "selected", indices: [], bounds: null });
+        ensureLoop();
         break;
       case "delete-selection": {
         const indices = state.selection;
         state.selection = [];
+        state.renderer?.setSelection([], { x: 0, y: 0 });
         eraseIndices(indices);
         post({ type: "selected", indices: [], bounds: null });
         break;
       }
+      case "drag-selection": {
+        if (state.selection.length === 0) break;
+        state.renderer?.setSelection(state.selection, {
+          x: message.dx,
+          y: message.dy,
+        });
+        ensureLoop();
+        break;
+      }
       case "move-selection": {
+        // The drag preview ends with the move, whether or not it went anywhere.
+        state.renderer?.setSelection(state.selection, { x: 0, y: 0 });
+        ensureLoop();
         if (
           state.selection.length === 0 ||
           (message.dx === 0 && message.dy === 0)

@@ -37,6 +37,15 @@ import type { InkPalette } from "./ink-palette";
 /** Which renderer is actually drawing. Reported in the status bar. */
 export type InkBackend = "webgl2" | "canvas2d" | "none";
 
+/** A translation in page units: where a dragged selection is shown before it lands. */
+export interface InkShift {
+  x: number;
+  y: number;
+}
+
+/** How wide the selection halo is, in device pixels, either side of the ink. */
+export const INK_SELECTION_HALO_PX = 3;
+
 /** How page units map to the canvas: `device = page * scale * dpr + offset`. */
 export interface InkViewTransform {
   /** CSS pixels per 0.1 mm unit. */
@@ -112,6 +121,11 @@ export interface InkRenderer {
   removeStroke(index: number): void;
   /** The stroke under the pen, redrawn incrementally (D6). */
   setLive(stroke: InkLiveStroke | null): void;
+  /**
+   * The lasso's selection: these strokes are drawn with a halo, shifted by
+   * `shift` page units while a drag is in progress. Empty clears it.
+   */
+  setSelection(indices: readonly number[], shift: InkShift): void;
   setTransform(transform: InkViewTransform): void;
   /** Resize the drawing surface. CSS pixels; the renderer applies the DPR. */
   resize(cssWidth: number, cssHeight: number, devicePixelRatio: number): void;
