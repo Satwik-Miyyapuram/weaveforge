@@ -41,7 +41,9 @@ import type { InkStrokeGeometry } from "../application/page-buffer";
 import {
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
+  INK_SEGMENT_SUBDIVISIONS,
   packStrokeInstances,
+  strokeInstanceCount,
   usesHighlighterPass,
   type InkBackend,
   type InkLiveStroke,
@@ -385,9 +387,8 @@ export class WebglInkRenderer implements InkRenderer {
       stroke.colour,
       usesHighlighterPass(stroke.tool),
     );
-    const segments = Math.max(
-      0,
-      Math.min(stroke.x.length, stroke.y.length) - 1,
+    const segments = strokeInstanceCount(
+      Math.min(stroke.x.length, stroke.y.length),
     );
     if (segments === 0) return;
     const offset = batch.used;
@@ -457,12 +458,12 @@ export class WebglInkRenderer implements InkRenderer {
     }
     this.live = stroke;
     this.liveBatch = batch;
-    this.ensureBatchCapacity(batch, segments);
-    if (segments <= this.livePacked) {
-      // The predicted tail was replaced rather than extended, so the last few
-      // segments change. Re-pack from one before the change.
-      this.livePacked = Math.max(0, Math.min(this.livePacked, segments) - 1);
-    }
+    this.ensureBatchCapacity(batch, strokeInstanceCount(points));
+    // Re-pack from one segment before the newest: the sample that just landed
+    // sets the tangent the previous segment curves with, and a predicted tail
+    // that was replaced rather than extended changes the last few outright.
+    this.livePacked = Math.max(0, Math.min(this.livePacked, segments) - 1);
+    const from = this.livePacked * INK_SEGMENT_SUBDIVISIONS;
     const written = packStrokeInstances(
       {
         x: stroke.x,
@@ -471,15 +472,15 @@ export class WebglInkRenderer implements InkRenderer {
         width: stroke.header.width,
         variableWidth: !usesHighlighterPass(stroke.header.tool),
       },
-      batch.data.subarray(this.livePacked * INK_INSTANCE_FLOATS),
+      batch.data.subarray(from * INK_INSTANCE_FLOATS),
       { from: this.livePacked },
     );
     if (written > 0) {
       const count = written / INK_INSTANCE_FLOATS;
-      this.uploadBatch(batch, this.livePacked, count);
-      this.livePacked += count;
+      this.uploadBatch(batch, from, count);
+      this.livePacked += count / INK_SEGMENT_SUBDIVISIONS;
     }
-    batch.used = this.livePacked;
+    batch.used = this.livePacked * INK_SEGMENT_SUBDIVISIONS;
   }
 
   draw(): void {

@@ -28,7 +28,9 @@ import type { InkColour } from "@weaveforge/core";
 
 import type { InkStrokeGeometry } from "../application/page-buffer";
 import {
+  INK_SEGMENT_SUBDIVISIONS,
   radiusAt,
+  strokeCurveAt,
   type InkLiveStroke,
   type InkRenderStats,
   type InkRenderer,
@@ -285,16 +287,14 @@ export function paintStroke(
     context.fill();
     return 1;
   }
+  // The same spline the GPU path draws, so the two backends agree to the pixel.
   for (let i = 0; i + 1 < count; i += 1) {
-    capsule(
-      context,
-      x[i]!,
-      y[i]!,
-      radiusAt(input, i),
-      x[i + 1]!,
-      y[i + 1]!,
-      radiusAt(input, i + 1),
-    );
+    let a = strokeCurveAt(input, i, 0);
+    for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {
+      const b = strokeCurveAt(input, i, k / INK_SEGMENT_SUBDIVISIONS);
+      capsule(context, a.x, a.y, a.r, b.x, b.y, b.r);
+      a = b;
+    }
   }
   // One fill per stroke with the non-zero rule: overlapping capsules of the same
   // stroke paint once, which is what keeps a translucent highlighter even.

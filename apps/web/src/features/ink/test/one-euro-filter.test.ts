@@ -168,8 +168,14 @@ test("the first sample of a stroke passes through untouched", () => {
 test("two samples with the same timestamp do not poison the filter", () => {
   const filter = new OneEuroFilter(INK_POSITION_FILTER);
   filter.filter(10, 100);
-  filter.filter(20, 100);
-  const value = filter.filter(30, 108);
+  filter.filter(12, 108);
+  const held = filter.last;
+  assert.equal(
+    filter.filter(20, 108),
+    held,
+    "a repeated timestamp has no timestep to filter over: the estimate stands",
+  );
+  const value = filter.filter(30, 116);
   assert.ok(Number.isFinite(value), "a zero timestep must not produce NaN");
 });
 

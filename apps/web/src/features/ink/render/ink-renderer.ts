@@ -122,6 +122,72 @@ export interface InkRenderer {
 export const INK_INSTANCE_FLOATS = 6;
 
 /**
+ * Instances per sample-to-sample segment.
+ *
+ * The samples are joined by a Catmull-Rom spline rather than straight lines: a
+ * 120 Hz digitiser puts a sample every millimetre or so on a normal stroke, and
+ * a polyline at that spacing has visible corners on every curve. Each span of
+ * the spline is drawn as this many capsules, so an instance is about a third
+ * of a millimetre and the corners are below the anti-aliasing.
+ */
+export const INK_SEGMENT_SUBDIVISIONS = 3;
+
+/** How many instances a stroke of `points` samples packs to. */
+export function strokeInstanceCount(points: number): number {
+  return Math.max(0, points - 1) * INK_SEGMENT_SUBDIVISIONS;
+}
+
+/**
+ * Uniform Catmull-Rom: the curve through `p1` and `p2` at `u` in [0, 1], with
+ * `p0` and `p3` as the neighbours that set the tangents.
+ */
+export function catmullRom(
+  p0: number,
+  p1: number,
+  p2: number,
+  p3: number,
+  u: number,
+): number {
+  return (
+    0.5 *
+    (2 * p1 +
+      (-p0 + p2) * u +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * u * u * u)
+  );
+}
+
+/**
+ * A point on the stroke's curve between samples `i` and `i + 1`, and the nib
+ * radius there. The missing neighbour at either end of the stroke is the end
+ * sample reflected through its neighbour, which makes the end segment a
+ * straight, evenly-parametrised run into the cap.
+ */
+export function strokeCurveAt(
+  stroke: StrokeInstanceInput,
+  i: number,
+  u: number,
+  velocityScale?: number,
+): { x: number; y: number; r: number } {
+  const count = Math.min(stroke.x.length, stroke.y.length);
+  const x1 = stroke.x[i]!;
+  const y1 = stroke.y[i]!;
+  const x2 = stroke.x[i + 1]!;
+  const y2 = stroke.y[i + 1]!;
+  const x0 = i > 0 ? stroke.x[i - 1]! : 2 * x1 - x2;
+  const y0 = i > 0 ? stroke.y[i - 1]! : 2 * y1 - y2;
+  const x3 = i + 2 < count ? stroke.x[i + 2]! : 2 * x2 - x1;
+  const y3 = i + 2 < count ? stroke.y[i + 2]! : 2 * y2 - y1;
+  return {
+    x: catmullRom(x0, x1, x2, x3, u),
+    y: catmullRom(y0, y1, y2, y3, u),
+    r:
+      radiusAt(stroke, i, velocityScale) * (1 - u) +
+      radiusAt(stroke, i + 1, velocityScale) * u,
+  };
+}
+
+/**
  * Anti-aliasing margin, in device pixels.
  *
  * The plan's lever on overdraw is to keep this at ~1 px rather than inflating the
@@ -187,16 +253,19 @@ export interface StrokeInstanceInput {
 /**
  * Pack a stroke's segments into instance data.
  *
- * One instance per segment, `A.xy, B.xy, rA, rB`, where a radius is the nib width
- * at that point. The taper is `f(width, pressure, velocity)` from §6.2.5, and the
- * velocity half of it is computed here from the positions because that is where
- * the positions are: a fast stroke thins, a slow one keeps its width, and the
- * pressure the device reported scales between them.
+ * `INK_SEGMENT_SUBDIVISIONS` instances per segment, `A.xy, B.xy, rA, rB`, where
+ * a radius is the nib width at that point. The taper is `f(width, pressure,
+ * velocity)` from §6.2.5, and the velocity half of it is computed here from the
+ * positions because that is where the positions are: a fast stroke thins, a
+ * slow one keeps its width, and the pressure the device reported scales
+ * between them.
  *
  * `out` is written into rather than allocated, because this runs once per stroke
  * at commit time and once per *frame* for the live stroke. It must be at least
- * `segments * INK_INSTANCE_FLOATS` long; the writer returns how many floats it
- * used so a pooled buffer can be reused.
+ * `strokeInstanceCount(points) * INK_INSTANCE_FLOATS` long; the writer returns
+ * how many floats it used so a pooled buffer can be reused. `from` is the first
+ * *segment* to pack — a live stroke re-packs its last segment when the next
+ * sample lands, because that sample sets the tangent the segment curves with.
  */
 export function packStrokeInstances(
   stroke: StrokeInstanceInput,
@@ -207,21 +276,30 @@ export function packStrokeInstances(
   const count = Math.min(stroke.x.length, stroke.y.length);
   let cursor = 0;
   for (let i = from; i + 1 < count; i += 1) {
-    const ax = stroke.x[i]!;
-    const ay = stroke.y[i]!;
-    const bx = stroke.x[i + 1]!;
-    const by = stroke.y[i + 1]!;
-    const at = cursor * INK_INSTANCE_FLOATS;
-    out[at] = ax;
-    out[at + 1] = ay;
-    out[at + 2] = bx;
-    out[at + 3] = by;
-    out[at + 4] = radiusAt(stroke, i, options.velocityScale);
-    out[at + 5] = radiusAt(stroke, i + 1, options.velocityScale);
-    cursor += 1;
+    let a = strokeCurveAt(stroke, i, 0, options.velocityScale);
+    for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {
+      const b = strokeCurveAt(
+        stroke,
+        i,
+        k / INK_SEGMENT_SUBDIVISIONS,
+        options.velocityScale,
+      );
+      const at = cursor * INK_INSTANCE_FLOATS;
+      out[at] = a.x;
+      out[at + 1] = a.y;
+      out[at + 2] = b.x;
+      out[at + 3] = b.y;
+      out[at + 4] = a.r;
+      out[at + 5] = b.r;
+      cursor += 1;
+      a = b;
+    }
   }
   return cursor * INK_INSTANCE_FLOATS;
 }
+
+/** Samples either side of a point that its speed is averaged over. */
+const RADIUS_SPEED_WINDOW = 4;
 
 /**
  * The nib radius at one point, in 0.1 mm.
@@ -242,14 +320,18 @@ export function radiusAt(
   // 0 means "no pressure channel" and 0.5 is a mouse; neither should taper.
   const pressure = raw === 0 ? 0.5 : raw / 255;
   const pressureScale = raw === 0 ? 1 : 0.75 + pressure * 0.5;
-  const previous = Math.max(0, index - 1);
-  const next = Math.min(stroke.x.length - 1, index + 1);
-  const span = Math.hypot(
-    stroke.x[next]! - stroke.x[previous]!,
-    stroke.y[next]! - stroke.y[previous]!,
-  );
   // Speed in 0.1 mm per sample rather than per millisecond: the sample rate is not
-  // in this data, and the taper only needs "how fast relative to a stroke".
+  // in this data, and the taper only needs "how fast relative to a stroke". It is
+  // read over a window of samples, not the two neighbours: a digitiser's spacing
+  // jitters from sample to sample, and a width that followed it would scallop.
+  const previous = Math.max(0, index - RADIUS_SPEED_WINDOW);
+  const next = Math.min(stroke.x.length - 1, index + RADIUS_SPEED_WINDOW);
+  let span = 0;
+  for (let i = previous; i < next; i += 1)
+    span += Math.hypot(
+      stroke.x[i + 1]! - stroke.x[i]!,
+      stroke.y[i + 1]! - stroke.y[i]!,
+    );
   const speed = span / Math.max(1, next - previous);
   const velocityScaleFactor = 1 - Math.min(1, speed / velocityScale) * 0.3;
   return base * pressureScale * velocityScaleFactor;

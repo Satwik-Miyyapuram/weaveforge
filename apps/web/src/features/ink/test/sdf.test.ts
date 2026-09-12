@@ -17,9 +17,13 @@ import assert from "node:assert/strict";
 import {
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
+  INK_SEGMENT_SUBDIVISIONS,
   capsuleHalfExtent,
+  catmullRom,
   packStrokeInstances,
   radiusAt,
+  strokeCurveAt,
+  strokeInstanceCount,
 } from "../render/ink-renderer";
 
 test("a zero-length segment becomes a dot, not a degenerate quad", () => {
@@ -68,34 +72,67 @@ test("the AA margin is one device pixel, which is the overdraw lever", () => {
   assert.equal(loose.halfHeight - tight.halfHeight, 3);
 });
 
-test("the packer writes one instance per segment, in the layout the shader reads", () => {
+test("the packer writes the subdivided spline, in the layout the shader reads", () => {
   const out = new Float32Array(INK_INSTANCE_FLOATS * 8);
   const written = packStrokeInstances(
     {
       x: Float32Array.from([0, 10, 20]),
-      y: Float32Array.from([5, 5, 15]),
+      y: Float32Array.from([5, 5, 5]),
       pressure: Uint8Array.from([0, 0, 0]),
       width: 6,
       variableWidth: false,
     },
     out,
   );
+  const perSegment = INK_INSTANCE_FLOATS * INK_SEGMENT_SUBDIVISIONS;
   assert.equal(
     written,
-    INK_INSTANCE_FLOATS * 2,
-    "three points are two segments",
+    perSegment * 2,
+    "three points are two segments, each subdivided",
   );
+  assert.equal(strokeInstanceCount(3), 2 * INK_SEGMENT_SUBDIVISIONS);
+  // Collinear, evenly spaced samples: the spline is the line, so the
+  // sub-segments are the thirds of it, and the layout is A.xy, B.xy, rA, rB.
+  const third = 10 / INK_SEGMENT_SUBDIVISIONS;
+  const first = Array.from(out.subarray(0, 6));
+  assert.deepEqual(first.slice(0, 2), [0, 5]);
+  assert.ok(Math.abs(first[2]! - third) < 1e-5 && first[3] === 5);
+  assert.deepEqual(first.slice(4), [3, 3]);
+  const last = Array.from(out.subarray(written - 6, written));
+  assert.ok(Math.abs(last[0]! - (20 - third)) < 1e-5);
+  assert.deepEqual(last.slice(2), [20, 5, 3, 3], "the last ends on the last sample");
+  // The chain is continuous: every instance starts where the previous ended.
+  for (let at = 6; at < written; at += 6) {
+    assert.equal(out[at], out[at - 4]);
+    assert.equal(out[at + 1], out[at - 3]);
+  }
   assert.deepEqual(
-    Array.from(out.subarray(0, 6)),
-    [0, 5, 10, 5, 3, 3],
-    "A.xy, B.xy, rA, rB",
-  );
-  assert.deepEqual(Array.from(out.subarray(6, 12)), [10, 5, 20, 15, 3, 3]);
-  assert.deepEqual(
-    Array.from(out.subarray(12)).every((value) => value === 0),
+    Array.from(out.subarray(written)).every((value) => value === 0),
     true,
     "and nothing past it",
   );
+});
+
+test("the spline follows an arc the polyline would cut", () => {
+  // Four samples on a circle: halfway along the middle segment the chord sits
+  // 1.5 % inside the circle, and the spline within 0.1 % of it.
+  const radius = 100;
+  const angles = [0, 20, 40, 60].map((degrees) => (degrees * Math.PI) / 180);
+  const stroke = {
+    x: Float32Array.from(angles.map((a) => radius * Math.cos(a))),
+    y: Float32Array.from(angles.map((a) => radius * Math.sin(a))),
+    pressure: Uint8Array.from([0, 0, 0, 0]),
+    width: 6,
+    variableWidth: false,
+  };
+  const mid = strokeCurveAt(stroke, 1, 0.5);
+  const chord = radius * Math.cos((10 * Math.PI) / 180);
+  const along = Math.hypot(mid.x, mid.y);
+  assert.ok(along > chord, `outside the chord: ${along} > ${chord}`);
+  assert.ok(Math.abs(along - radius) < 0.1 * radius * 0.01);
+  const start = strokeCurveAt(stroke, 1, 0);
+  assert.ok(Math.abs(start.x - stroke.x[1]!) < 1e-9, "and passes through the samples");
+  assert.equal(catmullRom(0, 1, 2, 3, 0.25), 1.25, "a straight run is linear");
 });
 
 test("a stroke with one point has no segments, and packs to nothing", () => {
@@ -117,7 +154,7 @@ test("packing from a point onward appends only the new segments (D6)", () => {
   // Incremental drawing: a frame that added one point must cost one segment, not
   // the whole stroke — the flush-verified measurement was 0.5 ms against 4.8 ms.
   const points = 8;
-  const out = new Float32Array(INK_INSTANCE_FLOATS * points);
+  const out = new Float32Array(INK_INSTANCE_FLOATS * strokeInstanceCount(points));
   const stroke = {
     x: Float32Array.from(
       Array.from({ length: points }, (_unused, i) => i * 10),
@@ -128,11 +165,11 @@ test("packing from a point onward appends only the new segments (D6)", () => {
     variableWidth: true,
   };
   const first = packStrokeInstances(stroke, out, { from: 0 });
-  assert.equal(first, INK_INSTANCE_FLOATS * (points - 1));
+  assert.equal(first, INK_INSTANCE_FLOATS * strokeInstanceCount(points));
   const grown = packStrokeInstances(stroke, out, { from: points - 2 });
   assert.equal(
     grown,
-    INK_INSTANCE_FLOATS * 1,
+    INK_INSTANCE_FLOATS * INK_SEGMENT_SUBDIVISIONS,
     "only the last segment is repacked",
   );
 });

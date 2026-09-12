@@ -165,6 +165,8 @@ export class PenCaptureSession {
   private readonly points: number[] = [];
   private readonly pressures: number[] = [];
   private newest: PenPointerEvent | null = null;
+  /** The last real sample consumed, so a repeat of it is dropped (see `consume`). */
+  private lastRaw: { x: number; y: number; t: number } | null = null;
   /** The tool a stroke will use, remembered so a confirmed touch can begin. */
   private tool: InkToolChoice = {
     width: 6,
@@ -327,6 +329,7 @@ export class PenCaptureSession {
     this.pointerId = null;
     this.points.length = 0;
     this.pressures.length = 0;
+    this.lastRaw = null;
   }
 
   /** Filter one pointer sample and write it into the batch. */
@@ -349,6 +352,22 @@ export class PenCaptureSession {
       ? event.t
       : ((event as unknown as { timeStamp?: number }).timeStamp ??
         (typeof performance === "undefined" ? Date.now() : performance.now()));
+    // The dispatched `pointermove` is also the last entry of its own coalesced
+    // list, and a `pointerup` usually repeats the last move. A repeated sample
+    // has `dt = 0`, which the filter can only answer by passing the raw value
+    // through — so every frame boundary would be an unfiltered point — and it
+    // halves the spacing the renderer reads speed from, so the width would
+    // dip at every frame boundary too. It is not new information; drop it.
+    if (
+      !first &&
+      !predicted &&
+      this.lastRaw &&
+      this.lastRaw.t === t &&
+      this.lastRaw.x === projected.x &&
+      this.lastRaw.y === projected.y
+    )
+      return false;
+    if (!predicted) this.lastRaw = { x: projected.x, y: projected.y, t };
     const sample = this.deps.filter.filter({
       x: projected.x,
       y: projected.y,
