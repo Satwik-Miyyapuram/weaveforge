@@ -123,3 +123,12 @@ test("every shader declares GLSL ES 3.00 on its first line", () => {
   for (const [name, source] of Object.entries(SHADERS))
     assert.ok(source.startsWith("#version 300 es\n"), name);
 });
+
+test("both vertex shaders apply the camera the same way: scale the page, then add the device-pixel offset", () => {
+  // The host sends the offset in CSS pixels and the renderer multiplies it by
+  // the ratio before the upload, so the shader adds it after scaling — the
+  // canvas2d path and `boundsToClip` do the same, and a scroll lands the ink
+  // in the same place on every backend.
+  for (const source of [VERTEX_SHADER, BACKGROUND_VERTEX_SHADER])
+    assert.match(source, /page \* camera\.x \+ vec2\(camera\.y, camera\.z\)/);
+});

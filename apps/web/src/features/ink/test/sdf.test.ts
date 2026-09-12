@@ -18,6 +18,7 @@ import {
   INK_MAX_BACKING_DIMENSION,
   INK_MAX_BACKING_PIXELS,
   backingRatio,
+  boundsToClip,
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
   INK_SEGMENT_SUBDIVISIONS,
@@ -386,4 +387,18 @@ test("backingRatio: lowers the ratio rather than exceeding the pixel budget", ()
 test("backingRatio: keeps a single edge under the dimension cap", () => {
   const ratio = backingRatio(9000, 100, 2);
   assert.ok(9000 * ratio <= INK_MAX_BACKING_DIMENSION + 1e-6);
+});
+
+test("boundsToClip: the camera offset is CSS pixels, scaled by the ratio like the page is", () => {
+  // A view scrolled 100 CSS px into the page on a 2× display: the page's
+  // corner is at -200 device px, and a stroke at page x = 50 with scale 2 is
+  // at 50·2·2 − 200 = 0 — the left edge of the window.
+  const clip = boundsToClip([50, 0, 100, 10], {
+    scale: 2,
+    offsetX: -100,
+    offsetY: 0,
+    devicePixelRatio: 2,
+  });
+  assert.equal(clip.x, 0);
+  assert.equal(clip.width, 200);
 });

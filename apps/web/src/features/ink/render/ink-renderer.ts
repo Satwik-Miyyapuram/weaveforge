@@ -46,10 +46,15 @@ export interface InkShift {
 /** How wide the selection halo is, in device pixels, either side of the ink. */
 export const INK_SELECTION_HALO_PX = 3;
 
-/** How page units map to the canvas: `device = page * scale * dpr + offset`. */
+/**
+ * How page units map to the canvas: `css = page * scale + offset`, then
+ * `device = css * dpr`. The offset is where the page's corner sits in the
+ * canvas, in CSS pixels — negative once the view has scrolled into the page.
+ */
 export interface InkViewTransform {
   /** CSS pixels per 0.1 mm unit. */
   scale: number;
+  /** CSS pixels. */
   offsetX: number;
   offsetY: number;
   devicePixelRatio: number;
@@ -534,8 +539,8 @@ export function boundsToClip(
 ): { x: number; y: number; width: number; height: number } {
   const scale = transform.scale * transform.devicePixelRatio;
   return {
-    x: bounds[0] * scale + transform.offsetX,
-    y: bounds[1] * scale + transform.offsetY,
+    x: bounds[0] * scale + transform.offsetX * transform.devicePixelRatio,
+    y: bounds[1] * scale + transform.offsetY * transform.devicePixelRatio,
     width: (bounds[2] - bounds[0]) * scale,
     height: (bounds[3] - bounds[1]) * scale,
   };

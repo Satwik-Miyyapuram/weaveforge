@@ -86,7 +86,8 @@ import {
   type InkChunkStore,
   type InkStoredPage,
 } from "../application/ink-chunk-store";
-import { pdfPageCount, rasterisePdfPage } from "../application/pdf-page-raster";
+import { pdfPageCount } from "../application/pdf-page-raster";
+import { isPageSource, isPdf, pageBackgroundFromFile } from "../application/page-background";
 import {
   acceptLine,
   recognisePage,
@@ -202,6 +203,9 @@ export function InkHost({
   const [zoom, setZoom] = useState(1);
   const [strokes, setStrokes] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
+  /** The scroller's visible box: the canvas is never larger than this. */
+  const [view, setView] = useState({ width: 0, height: 0 });
+  const sheetRef = useRef<HTMLDivElement>(null);
   const [history, setHistory] = useState({ undo: 0, redo: 0 });
   const [selection, setSelection] = useState<number[]>([]);
   /** The selection's box in page units, for the page to offer a drag inside it. */
@@ -260,16 +264,19 @@ export function InkHost({
     paper: metaRef.current.paper,
   };
 
-  /** Client coordinates to page units. The one projection everything shares. */
+  /**
+   * Client coordinates to page units. The one projection everything shares.
+   * Against the sheet, not the canvas: the canvas is only the visible part.
+   */
   const project = useCallback((clientX: number, clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const box = canvas.getBoundingClientRect();
+    const sheet = sheetRef.current;
+    if (!sheet) return null;
+    const box = sheet.getBoundingClientRect();
     return {
-      x: ((clientX - box.left) / Math.max(box.width, 1)) * INK_A4_WIDTH,
-      y: ((clientY - box.top) / Math.max(box.height, 1)) * INK_A4_HEIGHT,
+      x: ((clientX - box.left) / Math.max(box.width, 1)) * pageSize.width,
+      y: ((clientY - box.top) / Math.max(box.height, 1)) * pageSize.height,
     };
-  }, []);
+  }, [pageSize.height, pageSize.width]);
 
   const nib = nibForTool(tool, width);
 
@@ -348,7 +355,7 @@ export function InkHost({
           colour,
           tool: tool === "highlighter" ? "highlighter" : "pen",
           width: liveWidth,
-          pageWidthPx: canvasRef.current?.getBoundingClientRect().width ?? 0,
+          pageWidthPx: sheetRef.current?.getBoundingClientRect().width ?? 0,
           palette,
         }),
     },
@@ -583,10 +590,17 @@ export function InkHost({
     // `pen.backend` so a renderer that came up later is handed the palette too.
   }, [pen.backend, send]);
 
-  /** Keep the worker's viewport in step with the layout. */
+  /**
+   * Keep the worker's viewport in step with the layout. The canvas is a
+   * window onto the sheet, so the camera's offset is where the sheet's corner
+   * sits relative to the canvas — it moves with every scroll, and a scroll
+   * costs one message, not a page-sized re-raster.
+   */
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const sheet = sheetRef.current;
+    const scroller = scrollRef.current;
+    if (!canvas || !sheet || !scroller) return;
     const box = canvas.getBoundingClientRect();
     // The backing store is capped, so a deep zoom softens rather than vanishes.
     const dpr = backingRatio(
@@ -594,20 +608,40 @@ export function InkHost({
       box.height,
       window.devicePixelRatio || 1,
     );
-    send({
-      type: "viewport",
-      transform: { scale, offsetX: 0, offsetY: 0, devicePixelRatio: dpr },
-    });
+    const camera = () => {
+      const canvasBox = canvas.getBoundingClientRect();
+      const sheetBox = sheet.getBoundingClientRect();
+      send({
+        type: "viewport",
+        transform: {
+          scale,
+          offsetX: sheetBox.left - canvasBox.left,
+          offsetY: sheetBox.top - canvasBox.top,
+          devicePixelRatio: dpr,
+        },
+      });
+    };
     send({ type: "resize", width: box.width, height: box.height, dpr });
+    camera();
+    scroller.addEventListener("scroll", camera, { passive: true });
+    return () => scroller.removeEventListener("scroll", camera);
     // `pen.backend` is in the list so a renderer that came up after the first
-    // layout gets the layout again.
-  }, [pen.backend, scale, send]);
+    // layout gets the layout again; `view` and `pageSize` because the canvas
+    // was just resized to them.
+  }, [pen.backend, scale, send, view, pageSize, pageIndex]);
 
   /** Measure the pane, so the fit is the container's and not a guess. */
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
-    const measure = () => setContainerWidth(element.clientWidth);
+    const measure = () => {
+      setContainerWidth(element.clientWidth);
+      setView((was) =>
+        was.width === element.clientWidth && was.height === element.clientHeight
+          ? was
+          : { width: element.clientWidth, height: element.clientHeight },
+      );
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
@@ -654,7 +688,7 @@ export function InkHost({
   /** The overlay's wet stroke looks like the ink it will become. */
   useEffect(() => {
     if (!native) return;
-    const pageWidthPx = canvasRef.current?.getBoundingClientRect().width ?? 0;
+    const pageWidthPx = sheetRef.current?.getBoundingClientRect().width ?? 0;
     native.setTool({
       tool: tool === "highlighter" ? "highlighter" : "pen",
       colour,
@@ -810,35 +844,39 @@ export function InkHost({
   }, [flushSave, saveBody]);
 
   /**
-   * A PDF's page as a new page (§4.8): rasterised with the reader's pdf.js,
-   * uploaded to the vault as this note's attachment, named on the new page's
-   * first text-layer line, mirrored in the chunk header as the attachment
-   * index. The page takes the PDF page's aspect at A4 width.
+   * A PDF's page or an image as a new page (§4.8): laid on an A4 sheet
+   * (the PDF page rasterised with the reader's pdf.js), uploaded to the vault
+   * as this note's attachment, named on the new page's first text-layer line,
+   * mirrored in the chunk header as the attachment index. The page is A4
+   * whatever the source's shape, so the note prints as drawn.
    */
-  const onInsertPdfPage = useCallback(
+  const onInsertPage = useCallback(
     async (file: File) => {
       const pages = pagesRef.current;
       if (!pages || inserting) return;
+      if (!isPageSource(file)) {
+        setUnavailable(`${file.name} is not a PDF or an image.`);
+        return;
+      }
       setInserting(true);
       try {
-        const bytes = await file.arrayBuffer();
-        const count = await pdfPageCount(bytes);
         let number = 1;
-        if (count > 1) {
-          const answer = window.prompt(
-            `Which page of ${file.name}? (1–${count})`,
-            "1",
-          );
-          if (answer === null) return;
-          number = Number.parseInt(answer, 10);
-          if (!Number.isFinite(number) || number < 1 || number > count) return;
+        if (isPdf(file)) {
+          const count = await pdfPageCount(await file.arrayBuffer());
+          if (count > 1) {
+            const answer = window.prompt(
+              `Which page of ${file.name}? (1–${count})`,
+              "1",
+            );
+            if (answer === null) return;
+            number = Number.parseInt(answer, 10);
+            if (!Number.isFinite(number) || number < 1 || number > count)
+              return;
+          }
         }
-        const raster = await rasterisePdfPage(bytes, number, 1654);
-        const path = await deps.assets.upload(noteId, raster.blob, "png");
-        const size = clampInkPageSize(
-          INK_A4_WIDTH,
-          Math.round((INK_A4_WIDTH * raster.height) / raster.width),
-        );
+        const png = await pageBackgroundFromFile(file, number);
+        const path = await deps.assets.upload(noteId, png, "png");
+        const size = clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT);
         const text = withInkPageBackground("", path);
         const nextTextPages = [...textPagesRef.current, text];
         const body = writeInkNoteBody(
@@ -861,7 +899,7 @@ export function InkHost({
         await saveBody();
       } catch (error) {
         setUnavailable(
-          `The PDF page could not be inserted: ${error instanceof Error ? error.message : String(error)}`,
+          `The page could not be inserted: ${error instanceof Error ? error.message : String(error)}`,
         );
       } finally {
         setInserting(false);
@@ -1040,12 +1078,12 @@ export function InkHost({
       <input
         ref={pdfInputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept="application/pdf,.pdf,image/*"
         hidden
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
-          if (file) void onInsertPdfPage(file);
+          if (file) void onInsertPage(file);
         }}
       />
       <InkBar
@@ -1087,7 +1125,7 @@ export function InkHost({
         onUndo={onUndo}
         onRedo={onRedo}
         onAddPage={onAddPage}
-        onInsertPdfPage={() => pdfInputRef.current?.click()}
+        onInsertPage={() => pdfInputRef.current?.click()}
         onPrevPage={() => goToPage(pageIndex - 1)}
         onNextPage={() => goToPage(pageIndex + 1)}
         onDeleteSelection={onDeleteSelection}
@@ -1097,6 +1135,8 @@ export function InkHost({
         <InkPage
           pageIndex={pageIndex}
           pageSize={pageSize}
+          sheetRef={sheetRef}
+          view={view}
           scale={scale}
           paper={page.paper}
           tool={tool}
