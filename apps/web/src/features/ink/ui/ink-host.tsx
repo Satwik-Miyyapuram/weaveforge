@@ -301,6 +301,12 @@ export function InkHost({
         setSelection(event.indices);
         setSelectionBounds(event.bounds);
         break;
+      case "error":
+        // The worker keeps the strokes when it cannot draw them; the readout
+        // says "none" for the backend, and this says why, where a developer
+        // tools console will show it. Nothing else in the app hears it.
+        console.error(`ink: the renderer failed — ${event.message}`);
+        break;
       default:
         break;
     }

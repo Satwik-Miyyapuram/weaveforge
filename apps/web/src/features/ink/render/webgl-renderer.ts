@@ -80,7 +80,7 @@ const PALETTE: readonly InkColour[] = [
   "danger",
 ];
 
-const VERTEX_SHADER = `#version 300 es
+export const VERTEX_SHADER = `#version 300 es
 in vec2 corner;          // unit quad: (0,-1) (1,-1) (1,1) (0,-1) (1,1) (0,1)
 in vec4 seg;             // A.xy, B.xy in page units
 in vec2 radius;          // rA, rB in page units, per instance
@@ -100,10 +100,11 @@ void main() {
   float len = length(d);
   vec2 dir = len > 0.0001 ? d / len : vec2(1.0, 0.0);
   vec2 normal = vec2(-dir.y, dir.x);
-  float half = max(radius.x, radius.y) + margin;
+  // Not "half": a reserved word in GLSL ES, which ANGLE on Direct3D rejects.
+  float extent = max(radius.x, radius.y) + margin;
   // The quad covers the segment plus the nib and the AA margin, on every side.
   vec2 along = dir * len * corner.x;
-  vec2 across = normal * half * corner.y;
+  vec2 across = normal * extent * corner.y;
   vec2 page = a + along + across;
   vPage = page;
   vA = a;
@@ -115,7 +116,7 @@ void main() {
   gl_Position = vec4(unit.x * 2.0 - 1.0, 1.0 - unit.y * 2.0, 0.0, 1.0);
 }`;
 
-const FRAGMENT_SHADER = `#version 300 es
+export const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 in vec2 vPage;
 in vec2 vA;
@@ -170,7 +171,7 @@ interface CaptureTarget {
  * through the same camera as the strokes. `corner` is the stroke quad's unit
  * geometry reused — x in [0,1], y in [-1,1] — mapped onto the page.
  */
-const BACKGROUND_VERTEX_SHADER = `#version 300 es
+export const BACKGROUND_VERTEX_SHADER = `#version 300 es
 in vec2 corner;
 uniform vec2 pageSize;   // device pixels
 uniform vec4 camera;     // scale, offsetX, offsetY, unused
@@ -185,7 +186,7 @@ void main() {
   gl_Position = vec4(unit.x * 2.0 - 1.0, 1.0 - unit.y * 2.0, 0.0, 1.0);
 }`;
 
-const BACKGROUND_FRAGMENT_SHADER = `#version 300 es
+export const BACKGROUND_FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 in vec2 vUv;
 uniform sampler2D image;
