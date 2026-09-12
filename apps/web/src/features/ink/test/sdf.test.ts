@@ -92,19 +92,29 @@ test("the packer writes the subdivided spline, in the layout the shader reads", 
   );
   assert.equal(strokeInstanceCount(3), 2 * INK_SEGMENT_SUBDIVISIONS);
   // Collinear, evenly spaced samples: the spline is the line, so the
-  // sub-segments are the thirds of it, and the layout is A.xy, B.xy, rA, rB.
+  // sub-segments are the thirds of it, and the layout is A.xy, B.xy, rA, rB,
+  // then the neighbours: prevA.xy, nextB.xy, prevRA, nextRB.
   const third = 10 / INK_SEGMENT_SUBDIVISIONS;
-  const first = Array.from(out.subarray(0, 6));
+  const stride = INK_INSTANCE_FLOATS;
+  const first = Array.from(out.subarray(0, stride));
   assert.deepEqual(first.slice(0, 2), [0, 5]);
   assert.ok(Math.abs(first[2]! - third) < 1e-5 && first[3] === 5);
-  assert.deepEqual(first.slice(4), [3, 3]);
-  const last = Array.from(out.subarray(written - 6, written));
+  assert.deepEqual(first.slice(4, 6), [3, 3]);
+  assert.equal(first[10], -1, "the first instance has nothing before it");
+  assert.ok(Math.abs(first[8]! - 2 * third) < 1e-5, "and the next ends a third on");
+  assert.equal(first[11], 3);
+  const last = Array.from(out.subarray(written - stride, written));
   assert.ok(Math.abs(last[0]! - (20 - third)) < 1e-5);
-  assert.deepEqual(last.slice(2), [20, 5, 3, 3], "the last ends on the last sample");
-  // The chain is continuous: every instance starts where the previous ended.
-  for (let at = 6; at < written; at += 6) {
-    assert.equal(out[at], out[at - 4]);
-    assert.equal(out[at + 1], out[at - 3]);
+  assert.deepEqual(last.slice(2, 6), [20, 5, 3, 3], "the last ends on the last sample");
+  assert.equal(last[11], -1, "and has nothing after it");
+  assert.ok(Math.abs(last[6]! - (20 - 2 * third)) < 1e-5);
+  // The chain is continuous: every instance starts where the previous ended,
+  // and knows it.
+  for (let at = stride; at < written; at += stride) {
+    assert.equal(out[at], out[at - stride + 2]);
+    assert.equal(out[at + 1], out[at - stride + 3]);
+    assert.equal(out[at + 6], out[at - stride], "prev is the previous start");
+    assert.equal(out[at - stride + 8], out[at + 2], "next is the following end");
   }
   assert.deepEqual(
     Array.from(out.subarray(written)).every((value) => value === 0),
@@ -171,6 +181,11 @@ test("packing from a point onward appends only the new segments (D6)", () => {
     grown,
     INK_INSTANCE_FLOATS * INK_SEGMENT_SUBDIVISIONS,
     "only the last segment is repacked",
+  );
+  // The re-packed instance still knows the one before it, which was not.
+  assert.ok(out[10]! >= 0, "a mid-stroke instance has a previous neighbour");
+  assert.ok(
+    Math.abs(out[6]! - ((points - 2) * 10 - 10 / INK_SEGMENT_SUBDIVISIONS)) < 1e-4,
   );
 });
 
