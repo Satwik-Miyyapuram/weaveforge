@@ -31,6 +31,7 @@ import { CollabBodyHost } from "@/features/collab";
 // sibling only through its index (CONTRIBUTING.md § SOLID). A paper's
 // `paperimg:` and a section's `reportimg:` resolve here because the resolvers
 // are theirs, not because this screen learned the prefixes.
+import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
 import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
 import { VaultMarkdown, type WikilinkEntry } from "@/features/vault";
@@ -245,9 +246,21 @@ export function DocumentHost({
   const renderer = rendererFor(tab.kind, mode);
 
   if (renderer === "ink") {
-    // Not built (design §3.3). The row exists so that an ink host is one more
-    // case here and nothing else in the screen learns a new kind.
-    return null;
+    // The one case §3.3 reserved, and the only place this screen mentions ink.
+    //
+    // The sidecar is not loaded here: this component is handed a body and a save
+    // callback by the pane, and an ink note's strokes live beside the note rather
+    // than in it (§4.6). `InkHost` therefore starts on the text layer the body
+    // already holds and asks for its pages itself, which keeps the reading of
+    // `.ink/<id>/` in the feature that owns the format.
+    return (
+      <InkHost
+        pages={[{ chunk: null, paper: "blank" }]}
+        body={body}
+        onSave={onSave}
+        busy={false}
+      />
+    );
   }
 
   if (renderer === "markdown") {

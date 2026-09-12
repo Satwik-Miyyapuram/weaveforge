@@ -24,6 +24,8 @@
  * memory.
  */
 
+import type { InkColour } from "@weaveforge/core";
+
 /** `x, y, pressure, t` per sample. */
 export const INK_SAMPLE_STRIDE = 4;
 
@@ -38,7 +40,8 @@ export interface InkStrokeHeader {
   /** The nib the ink bar chose, in 0.1 mm, before pressure and velocity. */
   width: number;
   tool: "pen" | "highlighter" | "shape";
-  colour: string;
+  /** The palette name the stroke paints with. Never a hex: the shader indexes it. */
+  colour: InkColour;
 }
 
 /** Messages the main thread sends the worker. */
@@ -55,12 +58,49 @@ export type InkWorkerMessage =
        * it would let the pool hand out an array that is still in use there.
        */
       mode: InkTransferMode;
+      /**
+       * The codec the worker decodes chunks with.
+       *
+       * A name rather than a function, because a function cannot cross a worker
+       * boundary. `deflate-raw` is what the web build can reach — `CompressionStream`
+       * does not expose brotli — and `identity` decodes a chunk stored raw, which is
+       * what a small page is (§4.3).
+       */
+      codec?: "identity" | "deflate-raw";
+      /**
+       * Whether the Delegated Ink Trail is drawing the wet tail.
+       *
+       * It chooses the context's `desynchronized` attribute, which is immutable, so
+       * it has to be known before the first `getContext` (§6.2.6, §6.2.8).
+       */
+      delegating?: boolean;
     }
   | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload }
   | { type: "samples"; header: InkStrokeHeader; sample: InkSamplePayload; predicted?: boolean }
   | { type: "stroke-end"; header: InkStrokeHeader; sample: InkSamplePayload }
   | { type: "samples-returned"; buffers: ArrayBuffer[] }
   | { type: "viewport"; transform: InkViewportTransform }
+  | { type: "resize"; width: number; height: number; dpr: number }
+  /**
+   * Load a page's stored geometry.
+   *
+   * The bytes, not a parsed page: the worker is the thing that decodes them, and
+   * sending the chunk keeps the decode off the main thread as §6.2.2 requires.
+   * `chunk` is null for a note with no sidecar — a valid empty ink note.
+   */
+  | {
+      type: "load-page";
+      pageIndex: number;
+      /** One compressed chunk, exactly as the sidecar holds it. */
+      chunk: Uint8Array | null;
+    }
+  /** Erase along a swept segment, in page units. */
+  | { type: "erase"; from: { x: number; y: number }; to: { x: number; y: number } }
+  /** Undo or redo one erase, by the stroke indices it took. */
+  | { type: "undo" }
+  | { type: "redo" }
+  /** Render the page to a PNG at `scale`. */
+  | { type: "export-page"; requestId: number; scale: number }
   | { type: "dispose" };
 
 /** What one posted batch looks like: a view plus how much of it is used. */
@@ -83,8 +123,14 @@ export interface InkViewportTransform {
 export type InkWorkerEvent =
   | { type: "ready"; backend: "webgl2" | "canvas2d" | "none" }
   | { type: "frame"; frame: number; strokeId: number }
-  | { type: "stroke-committed"; header: InkStrokeHeader; points: Float32Array; pressures: Float32Array }
+  | { type: "stroke-committed"; header: InkStrokeHeader; points: Float32Array; pressures: Uint8Array }
   | { type: "samples-returned"; buffers: ArrayBuffer[] }
+  /** What the worker is doing, for the status bar: counts and the backend. */
+  | { type: "page-state"; pageIndex: number; strokes: number; segments: number; backend: string }
+  /** The strokes an erase removed, so the screen can undo it. */
+  | { type: "erased"; indices: number[] }
+  /** A PNG for `export-page`, as an encoded blob. */
+  | { type: "exported"; requestId: number; png: Blob | null }
   | { type: "context-lost" }
   | { type: "context-restored"; backend: "webgl2" | "canvas2d" | "none" }
   | { type: "error"; message: string };
