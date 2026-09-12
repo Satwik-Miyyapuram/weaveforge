@@ -141,7 +141,7 @@ export const INK_INSTANCE_FLOATS = 12;
 /**
  * Instances per sample-to-sample segment.
  *
- * The samples are joined by a Catmull-Rom spline rather than straight lines: a
+ * The samples are joined by a Hermite spline rather than straight lines: a
  * 120 Hz digitiser puts a sample every millimetre or so on a normal stroke, and
  * a polyline at that spacing has visible corners on every curve. Each span of
  * the spline is drawn as this many capsules, so an instance is about a third
@@ -175,10 +175,70 @@ export function catmullRom(
 }
 
 /**
+ * Turn angle at a sample below which the curve keeps its full tangent, and the
+ * angle at which the tangent is gone and the sample is a corner.
+ */
+const INK_CORNER_SOFT_COS = Math.cos(Math.PI / 6);
+
+/**
+ * The tangent of the stroke at sample `i`, for the Hermite spans either side.
+ *
+ * Uniform Catmull-Rom would take `(p[i+1] - p[i-1]) / 2`. That is right when
+ * the samples are evenly spaced, and they are not by the time a stroke is
+ * committed: the save-time simplification keeps a point only where the
+ * centreline bends, so a straight run becomes one long span next to a short
+ * one, and a tangent set by the long span overshoots the short one — a hooked
+ * spur at every corner of a box, a loop at the point of a `v`. Three changes
+ * keep the curve inside the samples:
+ *
+ * - the direction is the bisector of the two unit chords, not their sum, so a
+ *   long chord does not dominate a short one;
+ * - the magnitude is the shorter of the two chords, so a span is never asked
+ *   to bend further than its own length;
+ * - the magnitude also fades with the turn angle, gone by 90°, so a sharp
+ *   corner is drawn as one — the curve runs straight into the sample and
+ *   straight out — while a turn under 30° keeps its full tangent and a curve
+ *   still reads as a curve.
+ *
+ * At either end of the stroke the tangent is the one chord there, which makes
+ * the end span a straight, evenly-parametrised run into the cap.
+ */
+export function strokeTangentAt(
+  stroke: StrokeInstanceInput,
+  i: number,
+): { x: number; y: number } {
+  const count = Math.min(stroke.x.length, stroke.y.length);
+  const x = stroke.x[i]!;
+  const y = stroke.y[i]!;
+  const hasPrev = i > 0;
+  const hasNext = i + 1 < count;
+  const px = hasPrev ? x - stroke.x[i - 1]! : 0;
+  const py = hasPrev ? y - stroke.y[i - 1]! : 0;
+  const nx = hasNext ? stroke.x[i + 1]! - x : 0;
+  const ny = hasNext ? stroke.y[i + 1]! - y : 0;
+  const pl = Math.hypot(px, py);
+  const nl = Math.hypot(nx, ny);
+  if (!(pl > 0) && !(nl > 0)) return { x: 0, y: 0 };
+  if (!(pl > 0)) return { x: nx, y: ny };
+  if (!(nl > 0)) return { x: px, y: py };
+  const ux = px / pl;
+  const uy = py / pl;
+  const vx = nx / nl;
+  const vy = ny / nl;
+  const bx = ux + vx;
+  const by = uy + vy;
+  const bl = Math.hypot(bx, by);
+  if (!(bl > 0)) return { x: 0, y: 0 };
+  const cos = ux * vx + uy * vy;
+  const corner = Math.max(0, Math.min(1, cos / INK_CORNER_SOFT_COS));
+  const magnitude = Math.min(pl, nl) * corner;
+  return { x: (bx / bl) * magnitude, y: (by / bl) * magnitude };
+}
+
+/**
  * A point on the stroke's curve between samples `i` and `i + 1`, and the nib
- * radius there. The missing neighbour at either end of the stroke is the end
- * sample reflected through its neighbour, which makes the end segment a
- * straight, evenly-parametrised run into the cap.
+ * radius there: a cubic Hermite span through the two samples with the tangents
+ * {@link strokeTangentAt} gives them.
  */
 export function strokeCurveAt(
   stroke: StrokeInstanceInput,
@@ -186,18 +246,21 @@ export function strokeCurveAt(
   u: number,
   velocityScale?: number,
 ): { x: number; y: number; r: number } {
-  const count = Math.min(stroke.x.length, stroke.y.length);
   const x1 = stroke.x[i]!;
   const y1 = stroke.y[i]!;
   const x2 = stroke.x[i + 1]!;
   const y2 = stroke.y[i + 1]!;
-  const x0 = i > 0 ? stroke.x[i - 1]! : 2 * x1 - x2;
-  const y0 = i > 0 ? stroke.y[i - 1]! : 2 * y1 - y2;
-  const x3 = i + 2 < count ? stroke.x[i + 2]! : 2 * x2 - x1;
-  const y3 = i + 2 < count ? stroke.y[i + 2]! : 2 * y2 - y1;
+  const m1 = strokeTangentAt(stroke, i);
+  const m2 = strokeTangentAt(stroke, i + 1);
+  const uu = u * u;
+  const uuu = uu * u;
+  const h00 = 2 * uuu - 3 * uu + 1;
+  const h10 = uuu - 2 * uu + u;
+  const h01 = -2 * uuu + 3 * uu;
+  const h11 = uuu - uu;
   return {
-    x: catmullRom(x0, x1, x2, x3, u),
-    y: catmullRom(y0, y1, y2, y3, u),
+    x: h00 * x1 + h10 * m1.x + h01 * x2 + h11 * m2.x,
+    y: h00 * y1 + h10 * m1.y + h01 * y2 + h11 * m2.y,
     r:
       radiusAt(stroke, i, velocityScale) * (1 - u) +
       radiusAt(stroke, i + 1, velocityScale) * u,

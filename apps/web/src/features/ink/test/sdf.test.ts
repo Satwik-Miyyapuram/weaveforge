@@ -23,6 +23,7 @@ import {
   packStrokeInstances,
   radiusAt,
   strokeCurveAt,
+  strokeTangentAt,
   strokeInstanceCount,
 } from "../render/ink-renderer";
 
@@ -257,4 +258,40 @@ test("pressure widens a pen, and a device with none keeps its width", () => {
     Math.abs(none - 3) < 1e-6,
     "no pressure channel and no movement means the base radius",
   );
+});
+
+test("a simplified box corner is drawn as a corner, with nothing past it", () => {
+  // What the save-time simplification leaves of a drawn box: one sample per
+  // corner, long spans between. Uniform Catmull-Rom hooks ~15 units past each
+  // corner here; the curve must stay inside the box and on its edges.
+  const stroke = {
+    x: Float32Array.from([100, 300, 300, 100, 100]),
+    y: Float32Array.from([500, 500, 650, 650, 500]),
+    pressure: Uint8Array.from([128, 128, 128, 128, 128]),
+    width: 6,
+    variableWidth: false,
+  };
+  for (let i = 0; i < 4; i += 1) {
+    for (let k = 0; k <= 10; k += 1) {
+      const p = strokeCurveAt(stroke, i, k / 10);
+      assert.ok(p.x >= 100 - 1e-6 && p.x <= 300 + 1e-6, `x inside: ${p.x}`);
+      assert.ok(p.y >= 500 - 1e-6 && p.y <= 650 + 1e-6, `y inside: ${p.y}`);
+    }
+  }
+  const mid = strokeCurveAt(stroke, 0, 0.5);
+  assert.ok(Math.abs(mid.y - 500) < 1e-6, "the top edge is straight");
+});
+
+test("a gentle turn keeps its tangent, so a curve is still a curve", () => {
+  const angles = [0, 20, 40, 60].map((degrees) => (degrees * Math.PI) / 180);
+  const stroke = {
+    x: Float32Array.from(angles.map((a) => 100 * Math.cos(a))),
+    y: Float32Array.from(angles.map((a) => 100 * Math.sin(a))),
+    pressure: Uint8Array.from([0, 0, 0, 0]),
+    width: 6,
+    variableWidth: false,
+  };
+  const chord = Math.hypot(stroke.x[2]! - stroke.x[1]!, stroke.y[2]! - stroke.y[1]!);
+  const m = strokeTangentAt(stroke, 1);
+  assert.ok(Math.abs(Math.hypot(m.x, m.y) - chord) < 1e-9, "full chord length");
 });
