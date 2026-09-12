@@ -40,6 +40,7 @@ import type { InkColour } from "@weaveforge/core";
 import type { InkStrokeGeometry } from "../application/page-buffer";
 import {
   INK_AA_MARGIN_PX,
+  INK_SELECTION_HALO_PX,
   INK_INSTANCE_FLOATS,
   INK_SEGMENT_SUBDIVISIONS,
   packStrokeInstances,
@@ -50,10 +51,15 @@ import {
   type InkRenderStats,
   type InkRenderer,
   type InkViewTransform,
+  type InkShift,
   type InkBackgroundImage,
 } from "./ink-renderer";
 
-import { INK_RENDER_COLOURS, type InkPalette } from "./ink-palette";
+import {
+  INK_RENDER_COLOURS,
+  type InkPalette,
+  type InkRgb,
+} from "./ink-palette";
 export { INK_RENDER_COLOURS } from "./ink-palette";
 
 /** The palette's order, so a stroke's colour name becomes a shader index. */
@@ -75,6 +81,8 @@ in vec2 neighbourRadius; // prevRA, nextRB; negative when there is no neighbour
 uniform vec2 pageSize;   // device pixels, for normalising
 uniform vec4 camera;     // scale, offsetX, offsetY, unused
 uniform float margin;    // the AA margin in page units
+uniform vec2 shift;      // page units: where a dragged selection is shown
+uniform float halo;      // page units added to every radius: the selection halo
 out vec2 vPage;
 // Per-instance constants travel \`flat\`: interpolating a constant across a
 // triangle is not guaranteed bit-exact, and the neighbour tie-break below
@@ -86,15 +94,16 @@ flat out vec4 vNeighbours;
 flat out vec2 vNeighbourRadius;
 flat out float vMargin;
 void main() {
-  vec2 a = seg.xy;
-  vec2 b = seg.zw;
+  vec2 a = seg.xy + shift;
+  vec2 b = seg.zw + shift;
+  vec2 r = radius + vec2(halo);
   vMargin = margin;
   vec2 d = b - a;
   float len = length(d);
   vec2 dir = len > 0.0001 ? d / len : vec2(1.0, 0.0);
   vec2 normal = vec2(-dir.y, dir.x);
   // Not "half": a reserved word in GLSL ES, which ANGLE on Direct3D rejects.
-  float extent = max(radius.x, radius.y) + margin;
+  float extent = max(r.x, r.y) + margin;
   // The quad covers the segment plus the nib and the AA margin, on every side:
   // across it for the body, and *past both ends* for the caps. Without the
   // end extension the quad stops flat at A and B, so a stroke's ends are
@@ -106,9 +115,12 @@ void main() {
   vPage = page;
   vA = a;
   vB = b;
-  vRadius = radius;
-  vNeighbours = neighbours;
-  vNeighbourRadius = neighbourRadius;
+  vRadius = r;
+  vNeighbours = neighbours + shift.xyxy;
+  // A negative neighbour radius means "no neighbour"; the halo must not turn it positive.
+  vNeighbourRadius = vec2(
+    neighbourRadius.x >= 0.0 ? neighbourRadius.x + halo : neighbourRadius.x,
+    neighbourRadius.y >= 0.0 ? neighbourRadius.y + halo : neighbourRadius.y);
   // Page units → clip space. Y is flipped: page y grows downward, clip y upward.
   vec2 scaled = (page + vec2(camera.y, camera.z)) * camera.x;
   vec2 unit = scaled / pageSize;
@@ -264,6 +276,11 @@ export class WebglInkRenderer implements InkRenderer {
   private readonly coverageUniform: WebGLUniformLocation | null;
   /** The quad's inflation, in page units — the overdraw lever (§11.3.9). */
   private readonly marginUniform: WebGLUniformLocation | null;
+  private readonly shiftUniform: WebGLUniformLocation | null;
+  private readonly haloUniform: WebGLUniformLocation | null;
+  /** The lasso's selection, by stroke index, and where a drag is showing it. */
+  private selected = new Set<number>();
+  private shift: InkShift = { x: 0, y: 0 };
   private readonly backgroundProgram: WebGLProgram;
   private readonly backgroundPageSizeUniform: WebGLUniformLocation | null;
   private readonly backgroundCameraUniform: WebGLUniformLocation | null;
@@ -331,6 +348,8 @@ export class WebglInkRenderer implements InkRenderer {
     this.featherUniform = gl.getUniformLocation(this.program, "feather");
     this.coverageUniform = gl.getUniformLocation(this.program, "coverage");
     this.marginUniform = gl.getUniformLocation(this.program, "margin");
+    this.shiftUniform = gl.getUniformLocation(this.program, "shift");
+    this.haloUniform = gl.getUniformLocation(this.program, "halo");
 
     this.backgroundProgram = linkProgram(
       gl,
@@ -403,6 +422,11 @@ export class WebglInkRenderer implements InkRenderer {
 
   setTransform(transform: InkViewTransform): void {
     this.transform = transform;
+  }
+
+  setSelection(indices: readonly number[], shift: InkShift): void {
+    this.selected = new Set(indices);
+    this.shift = { x: shift.x, y: shift.y };
   }
 
   resize(cssWidth: number, cssHeight: number, devicePixelRatio: number): void {
@@ -592,9 +616,47 @@ export class WebglInkRenderer implements InkRenderer {
       INK_AA_MARGIN_PX / Math.max(this.transform.scale * this.dpr, 0.0001);
     gl.uniform1f(this.marginUniform, marginPageUnits);
     gl.uniform1f(this.featherUniform, marginPageUnits);
+    gl.uniform2f(this.shiftUniform, 0, 0);
+    gl.uniform1f(this.haloUniform, 0);
 
     let drawn = 0;
     let segments = 0;
+
+    // The selection is drawn apart from the rest of its batch: shifted by the
+    // drag in progress, over a halo in the accent colour so it reads as held.
+    // The halo is the same capsules with every radius grown by a few device
+    // pixels, drawn once under everything selected.
+    const selecting = this.selected.size > 0;
+    const haloPageUnits =
+      INK_SELECTION_HALO_PX / Math.max(this.transform.scale * this.dpr, 0.0001);
+    const isSelected = (record: { stroke: number }) =>
+      selecting && this.selected.has(record.stroke);
+    const drawSelectedHalo = (): void => {
+      if (!selecting) return;
+      gl.uniform2f(this.shiftUniform, this.shift.x, this.shift.y);
+      gl.uniform1f(this.haloUniform, haloPageUnits);
+      const accent = this.palette.accent ?? this.palette.text;
+      // One translucent union through the stencil, the way a highlighter
+      // stroke is: a pixel takes the halo once, however many grown capsules
+      // cover it. Full fragments first, then the edge where nothing landed.
+      gl.enable(gl.STENCIL_TEST);
+      gl.stencilFunc(gl.EQUAL, 0, 0xff);
+      for (const coverage of [1, 2] as const) {
+        gl.stencilOp(gl.KEEP, gl.KEEP, coverage === 1 ? gl.INCR : gl.KEEP);
+        gl.uniform1i(this.coverageUniform, coverage);
+        for (const batch of this.batches.values()) {
+          for (const record of batch.records) {
+            if (!isSelected(record)) continue;
+            this.drawBatch(batch, 0.3, record.offset, record.count, accent);
+          }
+        }
+      }
+      gl.uniform1i(this.coverageUniform, 0);
+      gl.disable(gl.STENCIL_TEST);
+      gl.clear(gl.STENCIL_BUFFER_BIT);
+      gl.uniform2f(this.shiftUniform, 0, 0);
+      gl.uniform1f(this.haloUniform, 0);
+    };
 
     // The highlighter first, so the ink is drawn over it and stays its own
     // colour, which is what a real highlighter under a pen line looks like.
@@ -620,20 +682,26 @@ export class WebglInkRenderer implements InkRenderer {
     const highlighter = [...this.batches.values()].filter(
       (batch) => batch.highlighter && batch.used > 0,
     );
+    drawSelectedHalo();
     if (highlighter.length > 0) {
       gl.enable(gl.STENCIL_TEST);
       let k = 0;
       for (const batch of highlighter) {
-        const ranges =
+        const ranges: [number, number, boolean][] =
           batch.records.length > 0
-            ? batch.records.map((record) => [record.offset, record.count])
-            : [[0, batch.used]];
-        for (const [offset, count] of ranges) {
+            ? batch.records.map((record) => [
+                record.offset,
+                record.count,
+                isSelected(record),
+              ])
+            : [[0, batch.used, false]];
+        for (const [offset, count, held] of ranges) {
           k += 1;
           if (k > 255) {
             gl.clear(gl.STENCIL_BUFFER_BIT);
             k = 1;
           }
+          if (held) gl.uniform2f(this.shiftUniform, this.shift.x, this.shift.y);
           gl.stencilFunc(gl.GREATER, k, 0xff);
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
           gl.uniform1i(this.coverageUniform, 1);
@@ -641,6 +709,7 @@ export class WebglInkRenderer implements InkRenderer {
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
           gl.uniform1i(this.coverageUniform, 2);
           this.drawBatch(batch, 0.35, offset, count);
+          if (held) gl.uniform2f(this.shiftUniform, 0, 0);
         }
         segments += batch.used;
       }
@@ -648,10 +717,21 @@ export class WebglInkRenderer implements InkRenderer {
       gl.uniform1i(this.coverageUniform, 0);
     }
 
-    // Then the opaque strokes, straight to the target.
+    // Then the opaque strokes, straight to the target. A batch with nothing
+    // selected is one draw; otherwise its records go one by one, the selected
+    // ones shifted.
     for (const batch of this.batches.values()) {
       if (batch.highlighter || batch.used === 0) continue;
-      drawn += this.drawBatch(batch);
+      if (!selecting || !batch.records.some(isSelected)) {
+        drawn += this.drawBatch(batch);
+      } else {
+        for (const record of batch.records) {
+          const held = isSelected(record);
+          if (held) gl.uniform2f(this.shiftUniform, this.shift.x, this.shift.y);
+          drawn += this.drawBatch(batch, undefined, record.offset, record.count);
+          if (held) gl.uniform2f(this.shiftUniform, 0, 0);
+        }
+      }
       segments += batch.used;
     }
 
@@ -854,6 +934,7 @@ export class WebglInkRenderer implements InkRenderer {
     alphaOverride?: number,
     first = 0,
     count = batch.used - first,
+    colourOverride?: InkRgb,
   ): number {
     const gl = this.gl;
     if (!batch.buffer || count <= 0) return 0;
@@ -907,7 +988,8 @@ export class WebglInkRenderer implements InkRenderer {
     );
     gl.vertexAttribDivisor(neighbourRadiusLocation, 1);
 
-    const rgb = this.palette[batch.colour] ?? this.palette.text;
+    const rgb =
+      colourOverride ?? this.palette[batch.colour] ?? this.palette.text;
     const alpha = alphaOverride ?? (batch.highlighter ? 0.35 : 1);
     gl.uniform4f(this.colourUniform, rgb[0], rgb[1], rgb[2], alpha);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);

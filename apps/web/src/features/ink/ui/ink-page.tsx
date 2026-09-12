@@ -57,6 +57,8 @@ export interface InkPageProps {
   selectionBounds?: readonly [number, number, number, number] | null;
   /** The drag ended: the selection moved by `dx, dy` page units. */
   onMoveSelection?: (dx: number, dy: number) => void;
+  /** A drag in progress: the selection is shown `dx, dy` page units from where it is. */
+  onDragSelection?: (dx: number, dy: number) => void;
   /** Whether touch may draw at all, which is what `touch-action` follows. */
   penOnly: boolean;
   penSeen: boolean;
@@ -121,6 +123,7 @@ export function InkPage({
   onLasso,
   selectionBounds,
   onMoveSelection,
+  onDragSelection,
   penOnly,
   penSeen,
   onPan,
@@ -296,7 +299,11 @@ export function InkPage({
         const at = project(event.clientX, event.clientY);
         if (!at) return;
         if (drag.current) {
-          setDragOffset({ x: at.x - drag.current.x, y: at.y - drag.current.y });
+          const dx = at.x - drag.current.x;
+          const dy = at.y - drag.current.y;
+          setDragOffset({ x: dx, y: dy });
+          // The strokes follow the box: the worker draws them shifted.
+          onDragSelection?.(dx, dy);
           return;
         }
         if (lasso.current.length === 0) return;
@@ -306,7 +313,15 @@ export function InkPage({
       }
       penHandlers.onPointerMove(event);
     },
-    [onErase, penHandlers, project, publishLasso, tool, touchMove],
+    [
+      onDragSelection,
+      onErase,
+      penHandlers,
+      project,
+      publishLasso,
+      tool,
+      touchMove,
+    ],
   );
 
   const onPointerUp = useCallback(
@@ -330,7 +345,8 @@ export function InkPage({
               : project(event.clientX, event.clientY);
           const dx = to ? to.x - from.x : 0;
           const dy = to ? to.y - from.y : 0;
-          if (dx !== 0 || dy !== 0) onMoveSelection?.(dx, dy);
+          // Always, even by nothing: it ends the worker's drag preview.
+          onMoveSelection?.(dx, dy);
           return;
         }
         const path = lasso.current;

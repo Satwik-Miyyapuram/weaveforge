@@ -142,6 +142,11 @@ export type InkWorkerMessage =
   | { type: "select-clear" }
   /** Remove the selected strokes, as one undoable step. */
   | { type: "delete-selection" }
+  /**
+   * Show the selection shifted by `dx, dy` page units while it is being dragged.
+   * Nothing moves in the buffer; `move-selection` lands it.
+   */
+  | { type: "drag-selection"; dx: number; dy: number }
   /** Translate the selected strokes, in page units, as one undoable step. */
   | { type: "move-selection"; dx: number; dy: number }
   | { type: "dispose" };

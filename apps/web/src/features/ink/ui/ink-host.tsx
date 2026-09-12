@@ -881,12 +881,18 @@ export function InkHost({
   const onMoveSelection = useCallback(
     (dx: number, dy: number) => {
       send({ type: "move-selection", dx, dy });
+      if (dx === 0 && dy === 0) return;
       setSelectionBounds((b) =>
         b ? [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy] : b,
       );
       scheduleSave();
     },
     [scheduleSave, send],
+  );
+  /** The selection is being dragged: the worker shows it shifted, nothing moves yet. */
+  const onDragSelection = useCallback(
+    (dx: number, dy: number) => send({ type: "drag-selection", dx, dy }),
+    [send],
   );
   const onDeleteSelection = useCallback(() => {
     send({ type: "delete-selection" });
@@ -1101,6 +1107,7 @@ export function InkHost({
           onLasso={onLasso}
           selectionBounds={selectionBounds}
           onMoveSelection={onMoveSelection}
+          onDragSelection={onDragSelection}
           penOnly={pen.penOnly}
           penSeen={pen.penSeen}
           onPan={onPan}
