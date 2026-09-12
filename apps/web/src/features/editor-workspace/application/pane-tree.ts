@@ -11,8 +11,11 @@
  * A tab holds `{kind, id}`, never a path — see `workspace-tree.ts` for why.
  */
 
-/** Which view a tab is in. The shipped editor is Edit and stays the default. */
-export type DocumentMode = "edit" | "read";
+/**
+ * Which view a tab is in. The shipped editor is Edit and stays the default.
+ * `pdf` is a paper's third view: its PDF in the reader, in place.
+ */
+export type DocumentMode = "edit" | "read" | "pdf";
 
 export interface TabRef {
   kind: string;
@@ -260,7 +263,8 @@ export function setTabMode(layout: PaneLayout, target: TabRef, mode: DocumentMod
 }
 
 /**
- * Flip the document at a pane-and-index between Edit and Read.
+ * Flip the document at a pane-and-index between Edit and Read. From PDF the
+ * chord goes to Edit, the same as from Read: the chord is "back to source".
  *
  * Addressed by position rather than by `TabRef` on purpose: the caller is a
  * click handler inside the pane and holds the tab *as it was rendered*, so
