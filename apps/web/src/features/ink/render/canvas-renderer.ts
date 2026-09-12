@@ -33,11 +33,13 @@ import {
   type InkRenderStats,
   type InkRenderer,
   type InkViewTransform,
+  type InkBackgroundImage,
 } from "./ink-renderer";
 import { INK_RENDER_COLOURS } from "./webgl-renderer";
 
 /** The 2D context, whichever canvas it came from. */
-export type Context2dLike = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+export type Context2dLike =
+  CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 /** A canvas this renderer can paint: on the worker or, in a test, a double. */
 export interface Canvas2dLike {
@@ -68,15 +70,24 @@ export class CanvasInkRenderer implements InkRenderer {
   readonly backend = "canvas2d" as const;
 
   private readonly canvas: Canvas2dLike;
-  private readonly createCanvas: (width: number, height: number) => Canvas2dLike;
+  private readonly createCanvas: (
+    width: number,
+    height: number,
+  ) => Canvas2dLike;
   private context: Context2dLike | null;
   private strokes = new Map<number, InkStrokeGeometry>();
   private order: number[] = [];
   private live: InkLiveStroke | null = null;
-  private transform: InkViewTransform = { scale: 1, offsetX: 0, offsetY: 0, devicePixelRatio: 1 };
+  private transform: InkViewTransform = {
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    devicePixelRatio: 1,
+  };
   private pageWidth = 0;
   private pageHeight = 0;
   private paper = "blank";
+  private background: InkBackgroundImage | null = null;
   private width = 0;
   private height = 0;
   private drawn = 0;
@@ -86,21 +97,33 @@ export class CanvasInkRenderer implements InkRenderer {
     this.canvas = options.canvas;
     this.createCanvas =
       options.createCanvas ??
-      ((width, height) => new OffscreenCanvas(width, height) as unknown as Canvas2dLike);
+      ((width, height) =>
+        new OffscreenCanvas(width, height) as unknown as Canvas2dLike);
     this.context = options.canvas.getContext("2d");
     if (!this.context) throw new Error("Canvas 2D is unavailable");
   }
 
   get renderStats(): InkRenderStats {
     let segments = 0;
-    for (const stroke of this.strokes.values()) segments += Math.max(0, stroke.x.length - 1);
-    return { backend: "canvas2d", strokes: this.strokes.size, segments, drawn: this.drawn, marginPx: 0 };
+    for (const stroke of this.strokes.values())
+      segments += Math.max(0, stroke.x.length - 1);
+    return {
+      backend: "canvas2d",
+      strokes: this.strokes.size,
+      segments,
+      drawn: this.drawn,
+      marginPx: 0,
+    };
   }
 
   setPage(size: { width: number; height: number }, paper: string): void {
     this.pageWidth = size.width;
     this.pageHeight = size.height;
     this.paper = paper;
+  }
+
+  setBackground(image: InkBackgroundImage | null): void {
+    this.background = image;
   }
 
   setStrokes(strokes: readonly (InkStrokeGeometry | null)[]): void {
@@ -151,7 +174,13 @@ export class CanvasInkRenderer implements InkRenderer {
     const target = this.createCanvas(width, height);
     const context = target.getContext("2d");
     if (!context || !target.convertToBlob) return null;
-    this.paint(context, { scale, offsetX: 0, offsetY: 0, devicePixelRatio: 1 }, width, height, true);
+    this.paint(
+      context,
+      { scale, offsetX: 0, offsetY: 0, devicePixelRatio: 1 },
+      width,
+      height,
+      true,
+    );
     return target.convertToBlob({ type: "image/png" });
   }
 
@@ -159,6 +188,7 @@ export class CanvasInkRenderer implements InkRenderer {
     this.strokes.clear();
     this.order = [];
     this.live = null;
+    this.background = null;
     this.context = null;
   }
 
@@ -187,7 +217,13 @@ export class CanvasInkRenderer implements InkRenderer {
       transform.offsetX * transform.devicePixelRatio,
       transform.offsetY * transform.devicePixelRatio,
     );
-    if (opaque) paintPaper(context, this.paper, this.pageWidth, this.pageHeight);
+    if (opaque)
+      paintPaper(context, this.paper, this.pageWidth, this.pageHeight);
+    // The page image goes under the ink in page units, so it pans and zooms
+    // with the strokes and lands in an export at the export's scale.
+    if (this.background) {
+      context.drawImage(this.background, 0, 0, this.pageWidth, this.pageHeight);
+    }
 
     this.drawn = 0;
     // Pen strokes first, then highlighters over them at 35 %: the WebGL order.
@@ -197,7 +233,14 @@ export class CanvasInkRenderer implements InkRenderer {
         if (!stroke) continue;
         const highlighter = stroke.tool === "highlighter";
         if ((pass === "highlighter") !== highlighter) continue;
-        this.drawn += paintStroke(context, stroke.x, stroke.y, stroke.pressure, stroke, highlighter);
+        this.drawn += paintStroke(
+          context,
+          stroke.x,
+          stroke.y,
+          stroke.pressure,
+          stroke,
+          highlighter,
+        );
       }
     }
     if (this.live) {
@@ -225,8 +268,17 @@ export function paintStroke(
 ): number {
   const count = x.length;
   if (count === 0) return 0;
-  const input = { x, y, pressure, width: stroke.width, variableWidth: stroke.tool === "pen" };
-  context.fillStyle = cssInkColour(stroke.colour, highlighter ? HIGHLIGHTER_ALPHA : 1);
+  const input = {
+    x,
+    y,
+    pressure,
+    width: stroke.width,
+    variableWidth: stroke.tool === "pen",
+  };
+  context.fillStyle = cssInkColour(
+    stroke.colour,
+    highlighter ? HIGHLIGHTER_ALPHA : 1,
+  );
   context.beginPath();
   if (count === 1) {
     context.arc(x[0]!, y[0]!, radiusAt(input, 0), 0, Math.PI * 2);
@@ -234,7 +286,15 @@ export function paintStroke(
     return 1;
   }
   for (let i = 0; i + 1 < count; i += 1) {
-    capsule(context, x[i]!, y[i]!, radiusAt(input, i), x[i + 1]!, y[i + 1]!, radiusAt(input, i + 1));
+    capsule(
+      context,
+      x[i]!,
+      y[i]!,
+      radiusAt(input, i),
+      x[i + 1]!,
+      y[i + 1]!,
+      radiusAt(input, i + 1),
+    );
   }
   // One fill per stroke with the non-zero rule: overlapping capsules of the same
   // stroke paint once, which is what keeps a translucent highlighter even.
@@ -260,10 +320,13 @@ export function paintPaper(
     context.stroke();
   };
   if (paper === "ruled") {
-    for (let yy = PAPER_RULED_PITCH; yy < pageHeight; yy += PAPER_RULED_PITCH) rule(0, yy, pageWidth, yy);
+    for (let yy = PAPER_RULED_PITCH; yy < pageHeight; yy += PAPER_RULED_PITCH)
+      rule(0, yy, pageWidth, yy);
   } else if (paper === "grid") {
-    for (let yy = PAPER_GRID_PITCH; yy < pageHeight; yy += PAPER_GRID_PITCH) rule(0, yy, pageWidth, yy);
-    for (let xx = PAPER_GRID_PITCH; xx < pageWidth; xx += PAPER_GRID_PITCH) rule(xx, 0, xx, pageHeight);
+    for (let yy = PAPER_GRID_PITCH; yy < pageHeight; yy += PAPER_GRID_PITCH)
+      rule(0, yy, pageWidth, yy);
+    for (let xx = PAPER_GRID_PITCH; xx < pageWidth; xx += PAPER_GRID_PITCH)
+      rule(xx, 0, xx, pageHeight);
   } else if (paper === "dotted") {
     for (let yy = PAPER_GRID_PITCH; yy < pageHeight; yy += PAPER_GRID_PITCH) {
       for (let xx = PAPER_GRID_PITCH; xx < pageWidth; xx += PAPER_GRID_PITCH) {
@@ -296,7 +359,10 @@ function capsule(
   const angle = Math.atan2(dy, dx);
   // A round cap at each end and the two tangent edges between them. With
   // differing radii the edges are not quite parallel, which is the taper.
-  context.moveTo(ax + Math.cos(angle + Math.PI / 2) * ra, ay + Math.sin(angle + Math.PI / 2) * ra);
+  context.moveTo(
+    ax + Math.cos(angle + Math.PI / 2) * ra,
+    ay + Math.sin(angle + Math.PI / 2) * ra,
+  );
   context.arc(ax, ay, ra, angle + Math.PI / 2, angle - Math.PI / 2);
   context.arc(bx, by, rb, angle - Math.PI / 2, angle + Math.PI / 2);
   context.closePath();

@@ -496,6 +496,65 @@ export function joinInkTextLayer(pages: readonly string[]): string {
     .join("\n\n")}\n`;
 }
 
+/* -------------------------------------------------------------------------
+ * A page's background: an attachment (§4.8)
+ * ---------------------------------------------------------------------- */
+
+/** The alt text that marks an image ref as a page's background rather than a figure. */
+export const INK_BACKGROUND_ALT = "page background";
+
+const BACKGROUND_LINE = /^!\[page background\]\(vault:([^)\s]+)\)$/;
+
+/**
+ * The attachment a page's text layer names as its background, or `null`.
+ *
+ * An inserted PDF page is a raster in the vault's attachment folder and an
+ * `![page background](vault:…)` on the first line of that page's text layer
+ * (§4.8) — in the body so the vault's own image bookkeeping sees it, on the
+ * page so it moves with the page. The sidecar's `bg` index is a mirror of the
+ * same fact for a reader that has only the chunk; this line is what the host
+ * reads.
+ */
+export function inkPageBackground(text: string): string | null {
+  const first = text.split(/\r?\n/, 1)[0]?.trim() ?? "";
+  const match = BACKGROUND_LINE.exec(first);
+  return match ? match[1]! : null;
+}
+
+/**
+ * A page's text layer with its background line set, replaced or removed.
+ *
+ * Recognition replaces the page's text wholesale, so the host re-applies the
+ * page's background through this after every run; the line always sits first
+ * and there is never more than one.
+ */
+export function withInkPageBackground(text: string, path: string | null): string {
+  const lines = text.split(/\r?\n/);
+  if (lines.length > 0 && BACKGROUND_LINE.test(lines[0]!.trim())) lines.shift();
+  const rest = trimBlankEdges(lines).join("\n");
+  if (!path) return rest;
+  const line = `![${INK_BACKGROUND_ALT}](vault:${path})`;
+  return rest ? `${line}\n\n${rest}` : line;
+}
+
+/**
+ * The 1-based attachment index a page's chunk header carries for `path`, or
+ * `0`: the position of the path among every `vault:` image ref in the body,
+ * in order of first appearance, which is what "index into attachments" means
+ * in the chunk format (§4.3).
+ */
+export function inkAttachmentIndex(body: string, path: string | null): number {
+  if (!path) return 0;
+  const seen: string[] = [];
+  const re = /!\[[^\]]*\]\(vault:([^)\s]+)\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(body)) !== null) {
+    if (!seen.includes(match[1]!)) seen.push(match[1]!);
+  }
+  const index = seen.indexOf(path);
+  return index < 0 ? 0 : Math.min(255, index + 1);
+}
+
 function trimBlankEdges(lines: readonly string[]): string[] {
   let start = 0;
   let end = lines.length;

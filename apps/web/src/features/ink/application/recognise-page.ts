@@ -57,14 +57,19 @@ export interface RecognisedPage {
 }
 
 /** Whether two y-bands overlap by at least half of the smaller one. */
-export function bandsCoincide(a: readonly [number, number], b: readonly [number, number]): boolean {
+export function bandsCoincide(
+  a: readonly [number, number],
+  b: readonly [number, number],
+): boolean {
   const overlap = Math.min(a[1], b[1]) - Math.max(a[0], b[0]);
   const smaller = Math.min(a[1] - a[0], b[1] - b[0]);
   return smaller <= 0 ? overlap >= 0 : overlap >= smaller / 2;
 }
 
 /** The accepted (`confidence === 1`) lines of a page, by their band. */
-export function acceptedLines(page: InkPage): { band: [number, number]; text: string }[] {
+export function acceptedLines(
+  page: InkPage,
+): { band: [number, number]; text: string }[] {
   const out: { band: [number, number]; text: string }[] = [];
   for (const line of page.lines) {
     if (line.confidence < 1 || !line.text) continue;
@@ -105,7 +110,9 @@ export function assembleRecognisedPage(
   };
 }
 
-export async function recognisePage(input: RecognisePageInput): Promise<RecognisedPage> {
+export async function recognisePage(
+  input: RecognisePageInput,
+): Promise<RecognisedPage> {
   const { page, recogniser, hints } = input;
   const segmentation = segmentInkLines(page.strokes);
   const accepted = acceptedLines(page);
@@ -113,8 +120,11 @@ export async function recognisePage(input: RecognisePageInput): Promise<Recognis
   const results: RecognisedLine[] = [];
 
   for (const [index, line] of segmentation.lines.entries()) {
-    if (input.signal?.aborted) throw new DOMException("Recognition was cancelled.", "AbortError");
-    const kept = accepted.find((entry) => bandsCoincide(entry.band, line.yBand));
+    if (input.signal?.aborted)
+      throw new DOMException("Recognition was cancelled.", "AbortError");
+    const kept = accepted.find((entry) =>
+      bandsCoincide(entry.band, line.yBand),
+    );
     if (kept) {
       results.push({ text: kept.text, conf: 1 });
     } else {
@@ -150,8 +160,14 @@ async function recogniseLine(
  * Accept a correction: the body line becomes the person's text and the page's
  * record is marked certain, which is what keeps it through the next run.
  */
-export function acceptLine(recognised: RecognisedPage, index: number, text: string): RecognisedPage {
-  const lines = recognised.lines.map((line, i) => (i === index ? { text, conf: 1 } : line));
+export function acceptLine(
+  recognised: RecognisedPage,
+  index: number,
+  text: string,
+): RecognisedPage {
+  const lines = recognised.lines.map((line, i) =>
+    i === index ? { text, conf: 1 } : line,
+  );
   const records = recognised.page.lines.map((record, i) =>
     i === index ? { ...record, text, confidence: 1 } : record,
   );
@@ -172,7 +188,10 @@ export function acceptLine(recognised: RecognisedPage, index: number, text: stri
  * recognised lines, for a page opened after an earlier run. The engine name is
  * the note's, since the table does not record it.
  */
-export function recognisedPageFromModel(page: InkPage, engine: string | null): RecognisedPage {
+export function recognisedPageFromModel(
+  page: InkPage,
+  engine: string | null,
+): RecognisedPage {
   const lines: RecognisedLine[] = page.lines.map((record) => ({
     text: record.text,
     conf: record.confidence,

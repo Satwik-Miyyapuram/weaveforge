@@ -46,8 +46,13 @@ test("the desktop shell already allowed it, which is why omitting it fails on we
 
 test("the worker file the hook constructs exists where the hook says it does", () => {
   const hook = read("apps/web/src/features/ink/application/use-pen-capture.ts");
-  const match = /new URL\("([^"]*ink-worker\.ts)", import\.meta\.url\)/.exec(hook);
-  assert.ok(match, "the hook must construct the worker by a bundler-visible URL");
+  const match = /new URL\("([^"]*ink-worker\.ts)", import\.meta\.url\)/.exec(
+    hook,
+  );
+  assert.ok(
+    match,
+    "the hook must construct the worker by a bundler-visible URL",
+  );
   const worker = path.resolve(
     repoRoot,
     "apps/web/src/features/ink/application",

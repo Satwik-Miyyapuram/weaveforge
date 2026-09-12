@@ -38,7 +38,8 @@ const header: InkStrokeHeader = {
  * list would leave the sender's view intact and the test would assert nothing.
  */
 function recorder(mode: "transfer" | "clone", capacity = INK_SAMPLE_CAPACITY) {
-  const messages: { message: InkWorkerMessage; transfer: Transferable[] }[] = [];
+  const messages: { message: InkWorkerMessage; transfer: Transferable[] }[] =
+    [];
   const pool = new InkSamplePool({ capacity: 4 });
   const channel = new MessageChannel();
   const writer = new InkSampleWriter({
@@ -88,7 +89,9 @@ test("a flushed batch carries x, y, pressure and t in that order", () => {
 
   // And the zero-allocation walk sees the same values.
   const seen: number[][] = [];
-  eachInkSample(message.sample, (x, y, pressure, t) => seen.push([x, y, pressure, t]));
+  eachInkSample(message.sample, (x, y, pressure, t) =>
+    seen.push([x, y, pressure, t]),
+  );
   assert.deepEqual(seen, [
     [1200, 3400, 200, 16],
     [1210, 3408, 210, 24],
@@ -98,7 +101,11 @@ test("a flushed batch carries x, y, pressure and t in that order", () => {
 test("an empty frame posts nothing at all", () => {
   const { messages, writer } = recorder("clone");
   writer.flush("samples", header);
-  assert.equal(messages.length, 0, "a frame where the pen did not move costs no message");
+  assert.equal(
+    messages.length,
+    0,
+    "a frame where the pen did not move costs no message",
+  );
 });
 
 test("transferring detaches the buffer the worker was given", () => {
@@ -107,8 +114,16 @@ test("transferring detaches the buffer the worker was given", () => {
   writer.flush("samples", header);
 
   const handedOff = writer.lastHandedOff!;
-  assert.equal(handedOff.byteLength, 0, "the view the worker was handed is detached");
-  assert.equal(messages[0]!.transfer.length, 1, "and its buffer travelled with the message");
+  assert.equal(
+    handedOff.byteLength,
+    0,
+    "the view the worker was handed is detached",
+  );
+  assert.equal(
+    messages[0]!.transfer.length,
+    1,
+    "and its buffer travelled with the message",
+  );
   assert.ok(writer.usable, "the writer immediately took a buffer it does own");
   assert.notEqual(
     writer.current.buffer,
@@ -125,9 +140,17 @@ test("the pool refuses to re-issue a buffer that is still detached", () => {
   structuredClone(transferred, { transfer: [transferred] });
   assert.equal(buffer.byteLength, 0, "the sender's view is neutered");
   pool.release(buffer);
-  assert.equal(pool.available, 0, "detached memory is dropped rather than pooled");
+  assert.equal(
+    pool.available,
+    0,
+    "detached memory is dropped rather than pooled",
+  );
   const next = pool.acquire(8);
-  assert.notEqual(next.buffer, transferred, "and the pool hands out live memory");
+  assert.notEqual(
+    next.buffer,
+    transferred,
+    "and the pool hands out live memory",
+  );
   assert.ok(next.byteLength > 0);
 });
 

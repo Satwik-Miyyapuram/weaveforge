@@ -140,8 +140,9 @@ export class InkPenGate {
   palmReason(event: PenGateEvent): PalmReason | null {
     if (event.pointerType !== "touch") return null;
     if (contactAreaMm2(event) > PALM_CONTACT_AREA_MM2) return "area";
-    const penRecently = this.lastPenDownAt !== Number.NEGATIVE_INFINITY
-      && Math.abs(event.t - this.lastPenDownAt) <= PALM_PEN_GRACE_MS;
+    const penRecently =
+      this.lastPenDownAt !== Number.NEGATIVE_INFINITY &&
+      Math.abs(event.t - this.lastPenDownAt) <= PALM_PEN_GRACE_MS;
     if (
       penRecently &&
       this.isHandQuadrant(event.clientX ?? 0, event.clientY ?? 0, event.bounds)
@@ -184,7 +185,11 @@ export class InkPenGate {
   begin(event: PenGateEvent): PenClaim {
     const decision = this.decide(event);
 
-    if (event.pointerType === "pen" && this.activeId !== null && this.activeIsTouch) {
+    if (
+      event.pointerType === "pen" &&
+      this.activeId !== null &&
+      this.activeIsTouch
+    ) {
       const cancelled = [this.activeId];
       this.release();
       this.deferred.delete(cancelled[0]!);
@@ -192,9 +197,14 @@ export class InkPenGate {
       return { decision, cancelled };
     }
 
-    if (event.pointerType === "touch" && this.activeId !== null && this.activeIsTouch) {
+    if (
+      event.pointerType === "touch" &&
+      this.activeId !== null &&
+      this.activeIsTouch
+    ) {
       const cancelled: number[] = [];
-      if (event.t - this.activeStartedAt <= PALM_SECOND_TOUCH_MS) cancelled.push(this.activeId);
+      if (event.t - this.activeStartedAt <= PALM_SECOND_TOUCH_MS)
+        cancelled.push(this.activeId);
       this.release();
       return { decision: "ignore", cancelled };
     }
@@ -218,7 +228,10 @@ export class InkPenGate {
     this.activeOrigin = { x: event.clientX ?? 0, y: event.clientY ?? 0 };
     this.activeBounds = event.bounds;
     if (decision === "defer") {
-      this.deferred.set(event.pointerId, { x: event.clientX ?? 0, y: event.clientY ?? 0 });
+      this.deferred.set(event.pointerId, {
+        x: event.clientX ?? 0,
+        y: event.clientY ?? 0,
+      });
     }
   }
 
@@ -238,7 +251,8 @@ export class InkPenGate {
       this.release();
       return "ignore";
     }
-    if (Math.hypot(at.x - origin.x, at.y - origin.y) > TOUCH_MOVE_SLOP_PX) return "draw";
+    if (Math.hypot(at.x - origin.x, at.y - origin.y) > TOUCH_MOVE_SLOP_PX)
+      return "draw";
     this.release();
     return "ignore";
   }
@@ -279,13 +293,16 @@ export class InkPenGate {
     const x = clientX - bounds.left;
     const y = clientY - bounds.top;
     const lowerHalf = y > bounds.height / 2;
-    const handSide = this.handedness === "right" ? x > bounds.width / 2 : x < bounds.width / 2;
+    const handSide =
+      this.handedness === "right" ? x > bounds.width / 2 : x < bounds.width / 2;
     return lowerHalf && handSide;
   }
 }
 
 /** A contact's area in mm², from the CSS pixels a `PointerEvent` reports. */
-export function contactAreaMm2(event: Pick<PenGateEvent, "width" | "height">): number {
+export function contactAreaMm2(
+  event: Pick<PenGateEvent, "width" | "height">,
+): number {
   const width = event.width ?? 0;
   const height = event.height ?? 0;
   if (!(width > 0) || !(height > 0)) return 0;

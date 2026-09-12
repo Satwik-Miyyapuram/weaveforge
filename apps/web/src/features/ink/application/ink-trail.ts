@@ -38,7 +38,9 @@ export interface InkTrailStyle {
 /** `navigator`, as far as the trail reads it. */
 export interface InkNavigatorLike {
   ink?: {
-    requestPresenter(param?: { presentationArea?: Element }): Promise<InkPresenterLike>;
+    requestPresenter(param?: {
+      presentationArea?: Element;
+    }): Promise<InkPresenterLike>;
   };
 }
 
@@ -57,7 +59,8 @@ export async function requestInkPresenter(
   if (!ink || typeof ink.requestPresenter !== "function") return null;
   try {
     const presenter = await ink.requestPresenter({ presentationArea: area });
-    if (!presenter || typeof presenter.updateInkTrailStartPoint !== "function") return null;
+    if (!presenter || typeof presenter.updateInkTrailStartPoint !== "function")
+      return null;
     return presenter;
   } catch {
     return null;
@@ -78,7 +81,8 @@ export function trailDiameterPx(width: number, pageWidthPx: number): number {
 /** The trail's colour for a palette name: the renderer's own sRGB, as CSS. */
 export function trailColour(colour: InkColour, alpha = 1): string {
   const [r, g, b] = INK_RENDER_COLOURS[colour] ?? INK_RENDER_COLOURS.text;
-  const channel = (value: number) => Math.round(Math.max(0, Math.min(1, value)) * 255);
+  const channel = (value: number) =>
+    Math.round(Math.max(0, Math.min(1, value)) * 255);
   return alpha >= 1
     ? `rgb(${channel(r)}, ${channel(g)}, ${channel(b)})`
     : `rgba(${channel(r)}, ${channel(g)}, ${channel(b)}, ${alpha})`;

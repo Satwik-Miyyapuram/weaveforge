@@ -22,12 +22,20 @@ import type { InkChunkStore } from "@/features/ink/application/ink-chunk-store";
 import { inkRecogniserCandidates } from "@/features/ink/application/recognisers";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 
+/** The slice of the vault's asset store a page background needs. */
+export interface InkAssetStore {
+  upload(ownerId: string, blob: Blob, ext: string): Promise<string>;
+  fetchBlob(path: string): Promise<Blob>;
+}
+
 export class InkFacade {
   private selected: Promise<InkRecogniser | null> | null = null;
 
   constructor(
     private readonly deps: {
       chunks: InkChunkStore;
+      /** Where a page background (an inserted PDF page, §4.8) is kept: the vault's attachments. */
+      assets: InkAssetStore;
       bridge: () => DesktopBridge | null;
       /** The opt-in, read when a recogniser is first asked for. */
       myScript: () => Promise<MyScriptOptions | undefined>;
@@ -38,6 +46,10 @@ export class InkFacade {
 
   get chunks(): InkChunkStore {
     return this.deps.chunks;
+  }
+
+  get assets(): InkAssetStore {
+    return this.deps.assets;
   }
 
   /** Every engine this build knows of, available or not, for the settings panel. */

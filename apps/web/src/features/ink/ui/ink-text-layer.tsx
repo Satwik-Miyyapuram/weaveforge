@@ -35,7 +35,13 @@ export function lineClass(line: RecognisedLine): string {
   return isUnsureLine(line) ? "ink-line ink-line-unsure" : "ink-line";
 }
 
-export function InkTextLayer({ lines, confidence, progress, unavailable, onAccept }: InkTextLayerProps) {
+export function InkTextLayer({
+  lines,
+  confidence,
+  progress,
+  unavailable,
+  onAccept,
+}: InkTextLayerProps) {
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
 
@@ -51,7 +57,10 @@ export function InkTextLayer({ lines, confidence, progress, unavailable, onAccep
 
   const accept = (index: number, text: string) => {
     setEditing(null);
-    if (text.trim() !== (lines[index]?.text ?? "").trim() || (lines[index]?.conf ?? 0) < 1) {
+    if (
+      text.trim() !== (lines[index]?.text ?? "").trim() ||
+      (lines[index]?.conf ?? 0) < 1
+    ) {
       onAccept(index, text.trim());
     }
   };
@@ -59,13 +68,16 @@ export function InkTextLayer({ lines, confidence, progress, unavailable, onAccep
   return (
     <div className="ink-text" aria-label="Recognised text">
       <h4>
-        Text layer <span className="ink-conf">{progress ?? `${Math.round(confidence * 100)} %`}</span>
+        Text layer{" "}
+        <span className="ink-conf">
+          {progress ?? `${Math.round(confidence * 100)} %`}
+        </span>
       </h4>
       {unavailable ? <p className="ink-empty">{unavailable}</p> : null}
       {lines.length === 0 ? (
         <p className="ink-empty">
-          Nothing recognised on this page yet. Recognise it to make the note searchable and
-          linkable.
+          Nothing recognised on this page yet. Recognise it to make the note
+          searchable and linkable.
         </p>
       ) : (
         lines.map((line, index) =>

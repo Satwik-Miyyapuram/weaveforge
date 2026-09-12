@@ -554,6 +554,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     }),
     ink: new InkFacade({
       chunks: inkChunkStore,
+      assets: vaultAssetStore,
       bridge: desktop,
       myScript: async () => {
         const settings = await backend.manageSettings.get();

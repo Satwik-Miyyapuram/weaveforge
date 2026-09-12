@@ -76,7 +76,12 @@ export type InkWorkerMessage =
       delegating?: boolean;
     }
   | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload }
-  | { type: "samples"; header: InkStrokeHeader; sample: InkSamplePayload; predicted?: boolean }
+  | {
+      type: "samples";
+      header: InkStrokeHeader;
+      sample: InkSamplePayload;
+      predicted?: boolean;
+    }
   | { type: "stroke-end"; header: InkStrokeHeader; sample: InkSamplePayload }
   | { type: "samples-returned"; buffers: ArrayBuffer[] }
   | { type: "viewport"; transform: InkViewportTransform }
@@ -95,12 +100,23 @@ export type InkWorkerMessage =
       chunk: Uint8Array | null;
     }
   /** Erase along a swept segment, in page units. */
-  | { type: "erase"; from: { x: number; y: number }; to: { x: number; y: number } }
+  | {
+      type: "erase";
+      from: { x: number; y: number };
+      to: { x: number; y: number };
+    }
   /** Undo or redo one erase, by the stroke indices it took. */
   | { type: "undo" }
   | { type: "redo" }
   /** Render the page to a PNG at `scale`. */
   | { type: "export-page"; requestId: number; scale: number }
+  /**
+   * The current page's background image — an inserted PDF page's raster
+   * (§4.8) — or `null` for none. Sent by the host after every `load-page`,
+   * since the image lives in the vault and the host is what can fetch it. The
+   * bitmap is transferred; the worker owns it from here.
+   */
+  | { type: "set-background"; image: ImageBitmap | null }
   /**
    * Pack the page into a chunk, exactly as the sidecar stores it.
    *
@@ -146,20 +162,44 @@ export interface InkViewportTransform {
 export type InkWorkerEvent =
   | { type: "ready"; backend: "webgl2" | "canvas2d" | "none" }
   | { type: "frame"; frame: number; strokeId: number }
-  | { type: "stroke-committed"; header: InkStrokeHeader; points: Float32Array; pressures: Uint8Array }
+  | {
+      type: "stroke-committed";
+      header: InkStrokeHeader;
+      points: Float32Array;
+      pressures: Uint8Array;
+    }
   | { type: "samples-returned"; buffers: ArrayBuffer[] }
   /** What the worker is doing, for the status bar: counts and the backend. */
-  | { type: "page-state"; pageIndex: number; strokes: number; segments: number; backend: string }
+  | {
+      type: "page-state";
+      pageIndex: number;
+      strokes: number;
+      segments: number;
+      backend: string;
+      /** The page's size in 0.1 mm: an inserted PDF page keeps its own aspect. */
+      width: number;
+      height: number;
+    }
   /** The strokes an erase removed, so the screen can undo it. */
   | { type: "erased"; indices: number[] }
   /** A PNG for `export-page`, as an encoded blob. */
   | { type: "exported"; requestId: number; png: Blob | null }
   /** The chunk for `save-page`, or `null` when the page has no live strokes. */
-  | { type: "page-saved"; requestId: number; pageIndex: number; bytes: Uint8Array | null; strokes: number }
+  | {
+      type: "page-saved";
+      requestId: number;
+      pageIndex: number;
+      bytes: Uint8Array | null;
+      strokes: number;
+    }
   /** The page as a model, for `page-model`. */
   | { type: "page-model"; requestId: number; pageIndex: number; page: InkPage }
   /** What the lasso took: stroke indices and their union bounds, `[]` when nothing. */
-  | { type: "selected"; indices: number[]; bounds: [number, number, number, number] | null }
+  | {
+      type: "selected";
+      indices: number[];
+      bounds: [number, number, number, number] | null;
+    }
   /** The page's undo depth changed, so the bar can enable its buttons. */
   | { type: "history"; undo: number; redo: number }
   | { type: "context-lost" }
@@ -220,7 +260,8 @@ export class InkSamplePool {
    * be written, which is the failure this class exists to prevent.
    */
   release(buffer: Float32Array | ArrayBufferLike): void {
-    const candidate = buffer instanceof Float32Array ? buffer : safeView(buffer);
+    const candidate =
+      buffer instanceof Float32Array ? buffer : safeView(buffer);
     if (!candidate || candidate.length === 0) return;
     if (this.free.length >= this.capacity) return;
     this.free.push(candidate);
@@ -293,9 +334,17 @@ export class InkSampleWriter {
    * detached memory does nothing at all, so the only visible symptom would be a
    * stroke missing its tail.
    */
-  push(x: number, y: number, pressure: number, t: number, header: InkStrokeHeader): void {
+  push(
+    x: number,
+    y: number,
+    pressure: number,
+    t: number,
+    header: InkStrokeHeader,
+  ): void {
     if (this.buffer.length === 0) {
-      throw new Error("ink: wrote a sample into a buffer that was transferred to the worker");
+      throw new Error(
+        "ink: wrote a sample into a buffer that was transferred to the worker",
+      );
     }
     if (this.used >= (this.options.capacity ?? INK_SAMPLE_CAPACITY)) {
       this.flush("samples", header);
@@ -330,7 +379,9 @@ export class InkSampleWriter {
     // went out in earlier batches, or the stroke would never be committed.
     if (this.used === 0 && kind !== "stroke-end") return;
     if (this.buffer.length === 0) {
-      throw new Error("ink: flushed a buffer that was transferred to the worker");
+      throw new Error(
+        "ink: flushed a buffer that was transferred to the worker",
+      );
     }
 
     const payload: InkSamplePayload = { buffer: this.buffer, count: this.used };
@@ -338,7 +389,9 @@ export class InkSampleWriter {
     // typed array's `.buffer` can be is a `SharedArrayBuffer`, which needs
     // COOP/COEP headers this app does not send (§6.2.13).
     const transfer =
-      this.options.mode === "transfer" ? [this.buffer.buffer as ArrayBuffer] : [];
+      this.options.mode === "transfer"
+        ? [this.buffer.buffer as ArrayBuffer]
+        : [];
     this.options.post(
       kind === "samples"
         ? { type: kind, header, sample: payload, predicted }

@@ -24,7 +24,11 @@ import {
 
 test("a zero-length segment becomes a dot, not a degenerate quad", () => {
   const dot = capsuleHalfExtent(500, 500, 500, 500, 3, 1);
-  assert.equal(dot.degenerate, true, "the caller can tell it had no direction to work with");
+  assert.equal(
+    dot.degenerate,
+    true,
+    "the caller can tell it had no direction to work with",
+  );
   assert.equal(dot.length, 0);
   assert.equal(dot.halfWidth, 4, "the nib plus the margin, both ways");
   assert.equal(dot.halfHeight, 4);
@@ -54,7 +58,10 @@ test("the AA margin is one device pixel, which is the overdraw lever", () => {
   assert.equal(INK_AA_MARGIN_PX, 1);
   const tight = capsuleHalfExtent(0, 0, 100, 0, 3, INK_AA_MARGIN_PX);
   const loose = capsuleHalfExtent(0, 0, 100, 0, 3, 4);
-  assert.ok(loose.halfHeight > tight.halfHeight, "a bigger margin is a bigger quad");
+  assert.ok(
+    loose.halfHeight > tight.halfHeight,
+    "a bigger margin is a bigger quad",
+  );
   // §11.3.9's numbers: the margin is what makes adjacent quads overlap, so it is
   // paid for on every segment. This is the assertion that the lever is where the
   // code says it is.
@@ -73,10 +80,22 @@ test("the packer writes one instance per segment, in the layout the shader reads
     },
     out,
   );
-  assert.equal(written, INK_INSTANCE_FLOATS * 2, "three points are two segments");
-  assert.deepEqual(Array.from(out.subarray(0, 6)), [0, 5, 10, 5, 3, 3], "A.xy, B.xy, rA, rB");
+  assert.equal(
+    written,
+    INK_INSTANCE_FLOATS * 2,
+    "three points are two segments",
+  );
+  assert.deepEqual(
+    Array.from(out.subarray(0, 6)),
+    [0, 5, 10, 5, 3, 3],
+    "A.xy, B.xy, rA, rB",
+  );
   assert.deepEqual(Array.from(out.subarray(6, 12)), [10, 5, 20, 15, 3, 3]);
-  assert.deepEqual(Array.from(out.subarray(12)).every((value) => value === 0), true, "and nothing past it");
+  assert.deepEqual(
+    Array.from(out.subarray(12)).every((value) => value === 0),
+    true,
+    "and nothing past it",
+  );
 });
 
 test("a stroke with one point has no segments, and packs to nothing", () => {
@@ -100,7 +119,9 @@ test("packing from a point onward appends only the new segments (D6)", () => {
   const points = 8;
   const out = new Float32Array(INK_INSTANCE_FLOATS * points);
   const stroke = {
-    x: Float32Array.from(Array.from({ length: points }, (_unused, i) => i * 10)),
+    x: Float32Array.from(
+      Array.from({ length: points }, (_unused, i) => i * 10),
+    ),
     y: Float32Array.from(Array.from({ length: points }, () => 0)),
     pressure: Uint8Array.from(Array.from({ length: points }, () => 200)),
     width: 6,
@@ -109,25 +130,61 @@ test("packing from a point onward appends only the new segments (D6)", () => {
   const first = packStrokeInstances(stroke, out, { from: 0 });
   assert.equal(first, INK_INSTANCE_FLOATS * (points - 1));
   const grown = packStrokeInstances(stroke, out, { from: points - 2 });
-  assert.equal(grown, INK_INSTANCE_FLOATS * 1, "only the last segment is repacked");
+  assert.equal(
+    grown,
+    INK_INSTANCE_FLOATS * 1,
+    "only the last segment is repacked",
+  );
 });
 
 test("a fixed-width tool does not taper, whatever the pressure says", () => {
   // A highlighter is a marker: a 6 mm nib that narrowed with pressure would not be
   // one, and a snapped shape has no hand behind it at all.
   const fixed = { width: 60, variableWidth: false } as const;
-  assert.equal(radiusAt({ ...fixed, x: Float32Array.from([0, 0]), y: Float32Array.from([0, 0]), pressure: Uint8Array.from([10, 255]) }, 0), 30);
-  assert.equal(radiusAt({ ...fixed, x: Float32Array.from([0, 0]), y: Float32Array.from([0, 0]), pressure: Uint8Array.from([10, 255]) }, 1), 30);
+  assert.equal(
+    radiusAt(
+      {
+        ...fixed,
+        x: Float32Array.from([0, 0]),
+        y: Float32Array.from([0, 0]),
+        pressure: Uint8Array.from([10, 255]),
+      },
+      0,
+    ),
+    30,
+  );
+  assert.equal(
+    radiusAt(
+      {
+        ...fixed,
+        x: Float32Array.from([0, 0]),
+        y: Float32Array.from([0, 0]),
+        pressure: Uint8Array.from([10, 255]),
+      },
+      1,
+    ),
+    30,
+  );
 });
 
 test("pressure widens a pen, and a device with none keeps its width", () => {
   const base = { width: 6, variableWidth: true } as const;
   const light = radiusAt(
-    { ...base, x: Float32Array.from([0, 1]), y: Float32Array.from([0, 0]), pressure: Uint8Array.from([30, 30]) },
+    {
+      ...base,
+      x: Float32Array.from([0, 1]),
+      y: Float32Array.from([0, 0]),
+      pressure: Uint8Array.from([30, 30]),
+    },
     0,
   );
   const heavy = radiusAt(
-    { ...base, x: Float32Array.from([0, 1]), y: Float32Array.from([0, 0]), pressure: Uint8Array.from([255, 255]) },
+    {
+      ...base,
+      x: Float32Array.from([0, 1]),
+      y: Float32Array.from([0, 0]),
+      pressure: Uint8Array.from([255, 255]),
+    },
     0,
   );
   assert.ok(heavy > light, `a press is wider: ${heavy} against ${light}`);
@@ -144,5 +201,8 @@ test("pressure widens a pen, and a device with none keeps its width", () => {
     },
     1,
   );
-  assert.ok(Math.abs(none - 3) < 1e-6, "no pressure channel and no movement means the base radius");
+  assert.ok(
+    Math.abs(none - 3) < 1e-6,
+    "no pressure channel and no movement means the base radius",
+  );
 });

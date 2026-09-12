@@ -384,7 +384,8 @@ export interface ArrowGeometry {
 }
 
 /** Any fitted primitive, discriminated by `kind`. */
-export type SnapGeometry = LineGeometry | RectGeometry | EllipseGeometry | ArrowGeometry;
+export type SnapGeometry =
+  LineGeometry | RectGeometry | EllipseGeometry | ArrowGeometry;
 
 /**
  * One fitted candidate: what it is, how well it fits, and how sure that makes us.
@@ -480,7 +481,10 @@ export function snapBounds(points: readonly SnapPoint[]): SnapBounds | null {
  * because the whole module's contract is that the snapped mark starts and stops
  * where the pen did.
  */
-export function resamplePath(path: SnapPath, options: ResampleOptions = {}): SnapPoint[] {
+export function resamplePath(
+  path: SnapPath,
+  options: ResampleOptions = {},
+): SnapPoint[] {
   const spacing = Math.max(0, options.minSpacing ?? SHAPE_RESAMPLE_SPACING);
   const points = snapPoints(path);
   if (points.length <= 2 || spacing <= 0) return points;
@@ -488,7 +492,8 @@ export function resamplePath(path: SnapPath, options: ResampleOptions = {}): Sna
   for (let i = 1; i < points.length - 1; i += 1) {
     const point = points[i]!;
     const last = kept[kept.length - 1]!;
-    if (Math.hypot(point[0] - last[0], point[1] - last[1]) >= spacing) kept.push(point);
+    if (Math.hypot(point[0] - last[0], point[1] - last[1]) >= spacing)
+      kept.push(point);
   }
   const end = points[points.length - 1]!;
   const last = kept[kept.length - 1]!;
@@ -500,7 +505,10 @@ export function resamplePath(path: SnapPath, options: ResampleOptions = {}): Sna
 export function pathLength(points: readonly SnapPoint[]): number {
   let total = 0;
   for (let i = 1; i < points.length; i += 1) {
-    total += Math.hypot(points[i]![0] - points[i - 1]![0], points[i]![1] - points[i - 1]![1]);
+    total += Math.hypot(
+      points[i]![0] - points[i - 1]![0],
+      points[i]![1] - points[i - 1]![1],
+    );
   }
   return total;
 }
@@ -581,8 +589,12 @@ function principalAxis(points: readonly SnapPoint[]): {
   // radius is √2, but it is the curve's own business, so the conversion belongs
   // in the ellipse fit, which knows what it is measuring, and not in a helper
   // that is also used to find a line's direction.
-  const major = Math.sqrt(Math.max(0, sxx * cos * cos + 2 * sxy * cos * sin + syy * sin * sin));
-  const minor = Math.sqrt(Math.max(0, sxx * sin * sin - 2 * sxy * cos * sin + syy * cos * cos));
+  const major = Math.sqrt(
+    Math.max(0, sxx * cos * cos + 2 * sxy * cos * sin + syy * sin * sin),
+  );
+  const minor = Math.sqrt(
+    Math.max(0, sxx * sin * sin - 2 * sxy * cos * sin + syy * cos * cos),
+  );
   return { cx, cy, dirX: cos, dirY: sin, major, minor };
 }
 
@@ -605,7 +617,10 @@ function principalAxis(points: readonly SnapPoint[]): {
  * fitted line: the mark straightens without the ends creeping, which is the
  * contract at the top of this module.
  */
-export function fitLine(path: SnapPath, options: ResampleOptions = {}): ShapeFit<LineGeometry> | null {
+export function fitLine(
+  path: SnapPath,
+  options: ResampleOptions = {},
+): ShapeFit<LineGeometry> | null {
   const points = resamplePath(path, options);
   if (points.length < SHAPE_MIN_POINTS) return null;
   const bounds = snapBounds(points);
@@ -639,7 +654,10 @@ export function fitLine(path: SnapPath, options: ResampleOptions = {}): ShapeFit
   if (backtrack > LINE_BACKTRACK_LIMIT * span) return null;
   if (worstCos < LINE_MIN_SEGMENT_COS) return null;
 
-  const error = meanDeviation(points, (x, y) => Math.abs((x - cx) * -dirY + (y - cy) * dirX)) / span;
+  const error =
+    meanDeviation(points, (x, y) =>
+      Math.abs((x - cx) * -dirY + (y - cy) * dirX),
+    ) / span;
   if (error > LINE_ERROR_LIMIT) return null;
 
   const at = (point: SnapPoint): SnapPoint => {
@@ -652,7 +670,12 @@ export function fitLine(path: SnapPath, options: ResampleOptions = {}): ShapeFit
     shape: "line",
     error,
     confidence: confidenceOf(error, LINE_ERROR_LIMIT),
-    geometry: { kind: "line", start, end, length: Math.hypot(end[0] - start[0], end[1] - start[1]) },
+    geometry: {
+      kind: "line",
+      start,
+      end,
+      length: Math.hypot(end[0] - start[0], end[1] - start[1]),
+    },
   };
 }
 
@@ -714,7 +737,10 @@ function confidenceOf(error: number, limit: number): number {
  * what separates a rough box from a rough circle: a circle tracks its box's
  * sides but visits no corner.
  */
-export function fitRect(path: SnapPath, options: ResampleOptions = {}): ShapeFit<RectGeometry> | null {
+export function fitRect(
+  path: SnapPath,
+  options: ResampleOptions = {},
+): ShapeFit<RectGeometry> | null {
   const points = resamplePath(path, options);
   if (points.length < 4) return null;
   const bounds = snapBounds(points);
@@ -724,7 +750,11 @@ export function fitRect(path: SnapPath, options: ResampleOptions = {}): ShapeFit
 
   const first = points[0]!;
   const last = points[points.length - 1]!;
-  if (Math.hypot(last[0] - first[0], last[1] - first[1]) > CLOSED_GAP_LIMIT * span) return null;
+  if (
+    Math.hypot(last[0] - first[0], last[1] - first[1]) >
+    CLOSED_GAP_LIMIT * span
+  )
+    return null;
   if (pathLength(points) < RECT_MIN_PERIMETER_RATIO * span) return null;
 
   const box = minimumAreaBox(points);
@@ -738,7 +768,8 @@ export function fitRect(path: SnapPath, options: ResampleOptions = {}): ShapeFit
   // height of zero and four corners on top of each other, and its outline passes
   // through every sample — a perfect fit of a shape nobody drew. A square sits
   // at 1.0 and the flattest thing worth calling a box is about 1:4.
-  if (Math.min(width, height) / Math.max(width, height) < RECT_MIN_MINOR_RATIO) return null;
+  if (Math.min(width, height) / Math.max(width, height) < RECT_MIN_MINOR_RATIO)
+    return null;
 
   // Mean distance to the box outline, measured *in the box's own frame* so a
   // corner that overshot costs how far it overshot. The larger of the two signed
@@ -803,14 +834,23 @@ export function fitRect(path: SnapPath, options: ResampleOptions = {}): ShapeFit
   const corners: SnapPoint[] = [];
   for (let i = 0; i < rawCorners.length; i += 1) {
     const offset = clockwise ? i : -i;
-    corners.push(rawCorners[(startIndex + offset + rawCorners.length) % rawCorners.length]!);
+    corners.push(
+      rawCorners[
+        (startIndex + offset + rawCorners.length) % rawCorners.length
+      ]!,
+    );
   }
 
   return {
     shape: "rect",
     error,
     confidence: confidenceOf(error, RECT_BAND_LIMIT),
-    geometry: { kind: "rect", corners, closed: true, rotationDegrees: normaliseAxisDegrees(angle) },
+    geometry: {
+      kind: "rect",
+      corners,
+      closed: true,
+      rotationDegrees: normaliseAxisDegrees(angle),
+    },
   };
 }
 
@@ -845,7 +885,12 @@ function minimumAreaBox(points: readonly SnapPoint[]): {
 } | null {
   const candidates: number[] = [];
   for (let i = 1; i < points.length; i += 1) {
-    candidates.push(Math.atan2(points[i]![1] - points[i - 1]![1], points[i]![0] - points[i - 1]![0]));
+    candidates.push(
+      Math.atan2(
+        points[i]![1] - points[i - 1]![1],
+        points[i]![0] - points[i - 1]![0],
+      ),
+    );
   }
   if (candidates.length === 0) return null;
 
@@ -869,7 +914,17 @@ function minimumAreaBox(points: readonly SnapPoint[]): {
       if (v < minV) minV = v;
       if (v > maxV) maxV = v;
     }
-    return { ux, uy, vx, vy, minU, maxU, minV, maxV, area: (maxU - minU) * (maxV - minV) };
+    return {
+      ux,
+      uy,
+      vx,
+      vy,
+      minU,
+      maxU,
+      minV,
+      maxV,
+      area: (maxU - minU) * (maxV - minV),
+    };
   };
 
   // Score every candidate, keep the tightest, then refine it on each side by a
@@ -983,7 +1038,11 @@ export function fitEllipse(
 
   const first = points[0]!;
   const last = points[points.length - 1]!;
-  if (Math.hypot(last[0] - first[0], last[1] - first[1]) > ELLIPSE_GAP_LIMIT * span) return null;
+  if (
+    Math.hypot(last[0] - first[0], last[1] - first[1]) >
+    ELLIPSE_GAP_LIMIT * span
+  )
+    return null;
 
   const { cx, cy, dirX, dirY, major, minor } = principalAxis(points);
   if (major <= 0 || minor <= 0) return null;
@@ -1129,7 +1188,9 @@ export function fitArrow(
   // That is what makes this an arrow and not a mark that simply wanders.
   const tip = points[tipIndex]!;
   const head = points.slice(tipIndex + 1);
-  const headReach = Math.max(...head.map(([x, y]) => Math.hypot(x - start[0], y - start[1])));
+  const headReach = Math.max(
+    ...head.map(([x, y]) => Math.hypot(x - start[0], y - start[1])),
+  );
   if (headReach > farthest * ARROW_MAX_HEAD_RATIO) {
     return null;
   }
@@ -1143,7 +1204,9 @@ export function fitArrow(
   const shaft = points.slice(0, tipIndex + 1);
   const { cx, cy, dirX, dirY } = principalAxis(shaft);
   const shaftError =
-    meanDeviation(shaft, (x, y) => Math.abs((x - cx) * -dirY + (y - cy) * dirX)) / farthest;
+    meanDeviation(shaft, (x, y) =>
+      Math.abs((x - cx) * -dirY + (y - cy) * dirX),
+    ) / farthest;
   if (shaftError > ARROW_SHAFT_ERROR_LIMIT) return null;
 
   // eslint-disable-next-line no-console
@@ -1187,7 +1250,11 @@ export function fitArrow(
 
   const opening = openingDegrees(tip, firstBarb, secondBarb);
   // eslint-disable-next-line no-console
-  if (opening < ARROW_MIN_OPENING_DEGREES || opening > ARROW_MAX_OPENING_DEGREES) return null;
+  if (
+    opening < ARROW_MIN_OPENING_DEGREES ||
+    opening > ARROW_MAX_OPENING_DEGREES
+  )
+    return null;
 
   return {
     shape: "arrow",
@@ -1222,7 +1289,10 @@ function openingDegrees(tip: SnapPoint, a: SnapPoint, b: SnapPoint): number {
  * ---------------------------------------------------------------------- */
 
 /** Every primitive's fit, in one pass, for a caller that wants to explain itself. */
-export function fitAllShapes(path: SnapPath, options: ResampleOptions = {}): ShapeFits {
+export function fitAllShapes(
+  path: SnapPath,
+  options: ResampleOptions = {},
+): ShapeFits {
   return {
     line: fitLine(path, options),
     rect: fitRect(path, options),
@@ -1260,7 +1330,10 @@ export function recogniseShape(
   const fits = fitAllShapes(path, options);
   const candidates: ShapeFit[] = [];
   if (fits.line) candidates.push(fits.line);
-  if (fits.rect && fits.rect.geometry.rotationDegrees <= RECT_TILT_LIMIT_DEGREES) {
+  if (
+    fits.rect &&
+    fits.rect.geometry.rotationDegrees <= RECT_TILT_LIMIT_DEGREES
+  ) {
     candidates.push(fits.rect);
   }
   if (fits.ellipse) candidates.push(fits.ellipse);
@@ -1280,7 +1353,8 @@ export function recogniseShape(
   }
 
   const beatsRival =
-    secondBest === Infinity || best.error <= secondBest * (1 - SHAPE_ACCEPT_MARGIN);
+    secondBest === Infinity ||
+    best.error <= secondBest * (1 - SHAPE_ACCEPT_MARGIN);
   if (!beatsRival || best.confidence < SHAPE_MIN_CONFIDENCE) {
     return { shape: "none", fit: null, fits };
   }

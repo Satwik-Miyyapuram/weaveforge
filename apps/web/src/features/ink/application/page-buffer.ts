@@ -75,7 +75,11 @@ export function boundsOf(x: Float32Array, y: Float32Array): InkBounds {
 }
 
 /** Whether two bounding boxes overlap at all, `slack` growing one of them. */
-export function boundsIntersect(a: InkBounds, b: InkBounds, slack = 0): boolean {
+export function boundsIntersect(
+  a: InkBounds,
+  b: InkBounds,
+  slack = 0,
+): boolean {
   return (
     a[0] - slack <= b[2] + slack &&
     a[2] + slack >= b[0] - slack &&
@@ -91,7 +95,12 @@ export function boundsContain(
   y: number,
   slack = 0,
 ): boolean {
-  return x >= box[0] - slack && x <= box[2] + slack && y >= box[1] - slack && y <= box[3] + slack;
+  return (
+    x >= box[0] - slack &&
+    x <= box[2] + slack &&
+    y >= box[1] - slack &&
+    y <= box[3] + slack
+  );
 }
 
 /** A stroke as it arrives from the pen: absolute points, before simplification. */
@@ -161,7 +170,8 @@ export class InkPageBuffer {
   /** Strokes still alive. */
   get liveCount(): number {
     let count = 0;
-    for (let i = 0; i < this.alive.length; i += 1) if (this.alive[i]) count += 1;
+    for (let i = 0; i < this.alive.length; i += 1)
+      if (this.alive[i]) count += 1;
     return count;
   }
 
@@ -218,14 +228,16 @@ export class InkPageBuffer {
 
   /** Mark a stroke dead. O(1), no allocation, no index rebuild (§6.2.4). */
   erase(index: number): boolean {
-    if (index < 0 || index >= this.alive.length || !this.alive[index]) return false;
+    if (index < 0 || index >= this.alive.length || !this.alive[index])
+      return false;
     this.alive[index] = 0;
     return true;
   }
 
   /** Bring an erased stroke back, for undo. */
   restore(index: number): boolean {
-    if (index < 0 || index >= this.alive.length || this.alive[index]) return false;
+    if (index < 0 || index >= this.alive.length || this.alive[index])
+      return false;
     this.alive[index] = 1;
     return true;
   }
@@ -284,7 +296,9 @@ export class InkPageBuffer {
  * bounding box, and no simplification — where "simplify before committing" lives
  * is the worker, per §4.4.
  */
-export function toGeometry(stroke: IncomingStroke | InkStroke): InkStrokeGeometry {
+export function toGeometry(
+  stroke: IncomingStroke | InkStroke,
+): InkStrokeGeometry {
   const count = Math.floor(stroke.points.length / 2);
   const x = new Float32Array(count);
   const y = new Float32Array(count);
@@ -293,9 +307,10 @@ export function toGeometry(stroke: IncomingStroke | InkStroke): InkStrokeGeometr
     x[i] = stroke.points[i * 2] ?? 0;
     y[i] = stroke.points[i * 2 + 1] ?? 0;
     const reported = stroke.pressures?.[i];
-    pressure[i] = typeof reported === "number" && Number.isFinite(reported)
-      ? Math.max(0, Math.min(255, Math.round(reported)))
-      : 0;
+    pressure[i] =
+      typeof reported === "number" && Number.isFinite(reported)
+        ? Math.max(0, Math.min(255, Math.round(reported)))
+        : 0;
   }
   return {
     x,

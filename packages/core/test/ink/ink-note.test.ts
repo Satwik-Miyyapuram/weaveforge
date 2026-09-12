@@ -18,6 +18,9 @@ import {
   blankInkPage,
   clampInkPageSize,
   defaultInkNoteMeta,
+  inkAttachmentIndex,
+  inkPageBackground,
+  withInkPageBackground,
   inkChunkPath,
   inkPageMarker,
   inkPageOverBudget,
@@ -314,4 +317,27 @@ test("the mirror lifts the header into frontmatter and folds it back on import",
   assert.equal(parsed?.type, "vault_page");
   assert.deepEqual(readInkNoteBody(parsed!.body).meta, meta);
   assert.equal(readInkNoteBody(parsed!.body).text, "hello");
+});
+
+test("a page's background is the first-line image ref, and survives a text replacement", () => {
+  assert.equal(inkPageBackground(""), null);
+  assert.equal(inkPageBackground("hello\n![page background](vault:u/p/a.png)"), null, "not first line");
+  assert.equal(inkPageBackground("![figure](vault:u/p/a.png)"), null, "not a background");
+  const withBg = withInkPageBackground("first line\nsecond", "u/p/a.png");
+  assert.equal(withBg, "![page background](vault:u/p/a.png)\n\nfirst line\nsecond");
+  assert.equal(inkPageBackground(withBg), "u/p/a.png");
+  // Recognition replaces the text; re-applying keeps exactly one line, first.
+  const again = withInkPageBackground(withInkPageBackground(withBg, "u/p/b.png"), "u/p/b.png");
+  assert.equal(again.split("\n").filter((l) => l.startsWith("![page background]")).length, 1);
+  assert.equal(inkPageBackground(again), "u/p/b.png");
+  assert.equal(withInkPageBackground(withBg, null), "first line\nsecond");
+  assert.equal(withInkPageBackground("", "u/p/c.png"), "![page background](vault:u/p/c.png)");
+});
+
+test("the chunk's attachment index is the ref's position among the body's vault images", () => {
+  const body = "![x](vault:u/p/a.png)\n\n<!-- page 2 -->\n\n![page background](vault:u/p/b.png)\n![x](vault:u/p/a.png)";
+  assert.equal(inkAttachmentIndex(body, "u/p/a.png"), 1);
+  assert.equal(inkAttachmentIndex(body, "u/p/b.png"), 2);
+  assert.equal(inkAttachmentIndex(body, "u/p/none.png"), 0);
+  assert.equal(inkAttachmentIndex(body, null), 0);
 });

@@ -8,14 +8,22 @@ import assert from "node:assert/strict";
 
 import { decodeInkChunk, pageFromChunk } from "@weaveforge/core";
 
-import type { InkStrokeHeader, InkWorkerEvent, InkWorkerMessage } from "../application/capture-protocol";
+import type {
+  InkStrokeHeader,
+  InkWorkerEvent,
+  InkWorkerMessage,
+} from "../application/capture-protocol";
 import { INK_SAMPLE_STRIDE } from "../application/capture-protocol";
 
 type Listener = (event: { data: InkWorkerMessage }) => void;
 
 const posted: InkWorkerEvent[] = [];
 let listener: Listener | null = null;
-let pointInPolygon: (px: number, py: number, polygon: readonly number[]) => boolean;
+let pointInPolygon: (
+  px: number,
+  py: number,
+  polygon: readonly number[],
+) => boolean;
 
 before(async () => {
   (globalThis as { self?: unknown }).self = {
@@ -35,11 +43,18 @@ function send(message: InkWorkerMessage): void {
   listener({ data: message });
 }
 
-function events<T extends InkWorkerEvent["type"]>(type: T): Extract<InkWorkerEvent, { type: T }>[] {
-  return posted.filter((event) => event.type === type) as Extract<InkWorkerEvent, { type: T }>[];
+function events<T extends InkWorkerEvent["type"]>(
+  type: T,
+): Extract<InkWorkerEvent, { type: T }>[] {
+  return posted.filter((event) => event.type === type) as Extract<
+    InkWorkerEvent,
+    { type: T }
+  >[];
 }
 
-function last<T extends InkWorkerEvent["type"]>(type: T): Extract<InkWorkerEvent, { type: T }> {
+function last<T extends InkWorkerEvent["type"]>(
+  type: T,
+): Extract<InkWorkerEvent, { type: T }> {
   const all = events(type);
   assert.ok(all.length > 0, `a ${type} event was posted`);
   return all[all.length - 1]!;
@@ -58,7 +73,11 @@ const header = (tool: InkStrokeHeader["tool"] = "pen"): InkStrokeHeader => ({
 });
 
 /** Send one whole stroke in a single batch. */
-function stroke(samples: Float32Array, count: number, tool: InkStrokeHeader["tool"] = "pen"): void {
+function stroke(
+  samples: Float32Array,
+  count: number,
+  tool: InkStrokeHeader["tool"] = "pen",
+): void {
   strokeId += 1;
   const h = header(tool);
   const empty = { buffer: new Float32Array(0), count: 0 };
@@ -67,7 +86,12 @@ function stroke(samples: Float32Array, count: number, tool: InkStrokeHeader["too
 }
 
 /** Draw one stroke as a straight line from (x0, y) rightwards. */
-function draw(x0: number, y: number, count = 6, tool: InkStrokeHeader["tool"] = "pen"): void {
+function draw(
+  x0: number,
+  y: number,
+  count = 6,
+  tool: InkStrokeHeader["tool"] = "pen",
+): void {
   const samples = new Float32Array(count * INK_SAMPLE_STRIDE);
   for (let i = 0; i < count; i += 1) {
     samples[i * INK_SAMPLE_STRIDE] = x0 + i * 30;
@@ -80,7 +104,15 @@ function draw(x0: number, y: number, count = 6, tool: InkStrokeHeader["tool"] = 
 
 function fresh(): void {
   posted.length = 0;
-  send({ type: "init", canvas: null, width: 400, height: 600, dpr: 1, mode: "clone", codec: "identity" });
+  send({
+    type: "init",
+    canvas: null,
+    width: 400,
+    height: 600,
+    dpr: 1,
+    mode: "clone",
+    codec: "identity",
+  });
   send({ type: "load-page", pageIndex: 0, chunk: null });
 }
 
@@ -120,14 +152,22 @@ test("a lasso selects strokes mostly inside its loop, and the selection moves an
   send({ type: "move-selection", dx: 0, dy: 400 });
   assert.equal(last("history").undo, 3);
   send({ type: "lasso", polygon: [0, 400, 400, 400, 400, 500, 0, 500] });
-  assert.deepEqual(last("selected").indices, [0], "the moved stroke is found at its new place");
+  assert.deepEqual(
+    last("selected").indices,
+    [0],
+    "the moved stroke is found at its new place",
+  );
   send({ type: "delete-selection" });
   assert.equal(last("page-state").strokes, 1);
   send({ type: "undo" });
   assert.equal(last("page-state").strokes, 2);
   send({ type: "undo" }); // the move
   send({ type: "lasso", polygon: [0, 0, 400, 0, 400, 100, 0, 100] });
-  assert.deepEqual(last("selected").indices, [0], "undoing the move puts it back");
+  assert.deepEqual(
+    last("selected").indices,
+    [0],
+    "undoing the move puts it back",
+  );
 });
 
 test("save-page packs the page and load-page brings it back", async () => {
@@ -182,7 +222,8 @@ test("the shape tool snaps a rectangle-ish scribble to a rectangle", () => {
   for (let i = 0; i + 1 < corners.length; i += 1) {
     const [ax, ay] = corners[i]!;
     const [bx, by] = corners[i + 1]!;
-    for (let t = 0; t < 1; t += 0.1) points.push(ax! + (bx! - ax!) * t, ay! + (by! - ay!) * t);
+    for (let t = 0; t < 1; t += 0.1)
+      points.push(ax! + (bx! - ax!) * t, ay! + (by! - ay!) * t);
   }
   const count = points.length / 2;
   const samples = new Float32Array(count * INK_SAMPLE_STRIDE);
@@ -196,7 +237,10 @@ test("the shape tool snaps a rectangle-ish scribble to a rectangle", () => {
   send({ type: "page-model", requestId: 1 });
   const fitted = last("page-model").page.strokes[0]!;
   assert.equal(fitted.shape, "rect");
-  assert.ok(fitted.points.length <= 12, "the fitted rectangle is corners, not the scribble");
+  assert.ok(
+    fitted.points.length <= 12,
+    "the fitted rectangle is corners, not the scribble",
+  );
 });
 
 test("pointInPolygon follows the even-odd rule", () => {
