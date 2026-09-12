@@ -259,11 +259,15 @@ export class PenCaptureSession {
 
   /** The pointer came up: hand the stroke to the worker. */
   pointerUp(event: PenPointerEvent): void {
-    if (!this.active || event.pointerId !== this.pointerId) return;
-    this.consume(event, false, false, true);
-    const header = this.header!;
-    this.deps.writer.flush("stroke-end", header);
-    this.clear();
+    if (this.active && event.pointerId === this.pointerId) {
+      this.consume(event, false, false, true);
+      const header = this.header!;
+      this.deps.writer.flush("stroke-end", header);
+      this.clear();
+    }
+    // The gate's claim is released whether or not a stroke was running: a
+    // pointer that was cancelled before its first sample landed, or that never
+    // began a stroke, must not keep every later pen out.
     this.deps.gate.end(event.pointerId);
   }
 
@@ -338,11 +342,18 @@ export class PenCaptureSession {
     const projected = this.deps.project(event.clientX ?? 0, event.clientY ?? 0);
     if (!projected) return false;
 
+    // A coalesced or predicted event is the platform's own `PointerEvent`,
+    // which carries `timeStamp`, not `t`; a `NaN` here would poison the
+    // filter's `dt` and every sample after it.
+    const t = Number.isFinite(event.t)
+      ? event.t
+      : ((event as unknown as { timeStamp?: number }).timeStamp ??
+        (typeof performance === "undefined" ? Date.now() : performance.now()));
     const sample = this.deps.filter.filter({
       x: projected.x,
       y: projected.y,
       pressure: event.pressure ?? 0,
-      t: event.t,
+      t,
     });
     const width = nibWidth(header.width, sample.pressure, sample.velocity);
     // The trail is told where to start *before* the sample is posted, and with
@@ -531,13 +542,31 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   const poolRef = useRef<InkSamplePool>(new InkSamplePool({ capacity: 4 }));
   const deferTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * Messages sent before the worker exists. The presenter is asked for before
+   * the worker starts (§6.2.6) and the answer is a promise, so the host's mount
+   * effects — `load-page`, `viewport`, `resize` — would otherwise land on a
+   * `null` worker and vanish; the page would then render at the renderer's
+   * default transform, with most of it outside the clip volume.
+   */
+  const pendingRef = useRef<
+    { message: InkWorkerMessage; transfer: Transferable[] }[]
+  >([]);
+  const post = useCallback(
+    (message: InkWorkerMessage, transfer: Transferable[] = []) => {
+      const worker = workerRef.current;
+      if (worker) worker.postMessage(message, transfer);
+      else pendingRef.current.push({ message, transfer });
+    },
+    [],
+  );
+
   const sessionRef = useRef<PenCaptureSession | null>(null);
   if (!sessionRef.current) {
     const writer = new InkSampleWriter({
       pool: poolRef.current,
       mode: transferMode(),
-      post: (message, transfer) =>
-        workerRef.current?.postMessage(message, transfer),
+      post: (message, transfer) => post(message, transfer ?? []),
     });
     sessionRef.current = new PenCaptureSession({
       gate: gateRef.current,
@@ -680,6 +709,11 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         },
         offscreen ? [offscreen] : [],
       );
+      // Everything the host said while the worker did not exist, in order.
+      const pending = pendingRef.current;
+      pendingRef.current = [];
+      for (const entry of pending)
+        worker.postMessage(entry.message, entry.transfer);
 
       dispose = () => {
         worker.removeEventListener("message", onMessage);
@@ -687,6 +721,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         worker.terminate();
         workerRef.current = null;
         presenterRef.current = null;
+        pendingRef.current = [];
       };
     };
 
@@ -754,6 +789,10 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       }
 
       if (claim.decision === "draw") {
+        // Without this Chromium on Windows treats a pen-down as the start of a
+        // platform gesture, revokes the capture a few pixels in and sends
+        // `pointercancel`; the stroke then dies with one or two samples.
+        event.preventDefault();
         event.currentTarget.setPointerCapture?.(event.pointerId);
         return;
       }
@@ -778,7 +817,10 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
 
   const onPointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      sessionRef.current!.pointerRawUpdate(toGateEvent(event));
+      const session = sessionRef.current!;
+      // A deferred touch keeps its default so the browser can still scroll.
+      if (session.active) event.preventDefault();
+      session.pointerRawUpdate(toGateEvent(event));
     },
     [toGateEvent],
   );
@@ -789,13 +831,19 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         clearTimeout(deferTimer.current);
         deferTimer.current = null;
       }
-      sessionRef.current!.pointerUp(toGateEvent(event));
+      const session = sessionRef.current!;
+      if (session.active) event.preventDefault();
+      session.pointerUp(toGateEvent(event));
     },
     [toGateEvent],
   );
 
   const onPointerCancel = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (deferTimer.current) {
+        clearTimeout(deferTimer.current);
+        deferTimer.current = null;
+      }
       sessionRef.current!.pointerUp(toGateEvent(event));
     },
     [toGateEvent],
@@ -827,12 +875,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     [onPointerDown, onPointerMove, onPointerUp, onPointerCancel],
   );
 
-  const send = useCallback(
-    (message: InkWorkerMessage, transfer: Transferable[] = []) => {
-      workerRef.current?.postMessage(message, transfer);
-    },
-    [],
-  );
+  const send = post;
 
   return {
     penSeen,
