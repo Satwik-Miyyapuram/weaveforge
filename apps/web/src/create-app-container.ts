@@ -7,7 +7,6 @@
 
 import {
   AddLogEntryUseCase,
-  AddPaperUseCase,
   ImportPaperUseCase,
   AddRelationUseCase,
   CheckCitationAlertsUseCase,
@@ -41,6 +40,9 @@ import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-meta
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
 import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
+// Adding a paper also asks for its PDF, so a paper imported after the folder
+// was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
+import { PrefetchingAddPaperUseCase } from "@/features/papers/application/prefetch-paper-pdf.use-case";
 import { LoadPapersScreenUseCase } from "@/features/papers/application/load-papers-screen.use-case";
 import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/load-experiments-screen.use-case";
 import { LoadVaultScreenUseCase } from "@/features/vault/application/load-vault-screen.use-case";
@@ -198,7 +200,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     ids: uuidIds,
   });
 
-  const addPaper = new AddPaperUseCase({
+  const addPaper = new PrefetchingAddPaperUseCase({
     repository: paperRepository,
     clock: systemClock,
     ids: uuidIds,

@@ -13,6 +13,8 @@
  * nib is the tool's (§6.3).
  */
 
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
 import {
   INK_COLOURS,
   INK_PEN_WIDTHS,
@@ -76,7 +78,17 @@ export interface InkBarProps {
   onPenOnly: (value: boolean) => void;
   onHand: (value: InkHand) => void;
   onRecognise: () => void;
-  onExport: () => void;
+  /**
+   * The three ways out of a page, behind one button: the browser's own print
+   * dialog (which is also "save as PDF"), the page as a high-resolution PNG,
+   * and the page as vector SVG.
+   *
+   * There is no screenshot button: the operating system already takes
+   * screenshots, and what a page of ink is for is being printed.
+   */
+  onPrint: () => void;
+  onExportPng: () => void;
+  onExportSvg?: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onAddPage: () => void;
@@ -211,7 +223,9 @@ export function InkBar({
   onPenOnly,
   onHand,
   onRecognise,
-  onExport,
+  onPrint,
+  onExportPng,
+  onExportSvg,
   onUndo,
   onRedo,
   onAddPage,
@@ -224,6 +238,61 @@ export function InkBar({
   onDeleteSelection,
   onCopyAsText,
 }: InkBarProps) {
+  /**
+   * Whether the print menu is open. The only state the bar holds, and it is
+   * about the bar rather than the document: nothing behind it is read.
+   */
+  const [printMenu, setPrintMenu] = useState(false);
+  const printMenuRef = useRef<HTMLDivElement>(null);
+  const printListRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!printMenu) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!printMenuRef.current?.contains(event.target as Node)) setPrintMenu(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPrintMenu(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [printMenu]);
+
+  /**
+   * Keep the open menu inside the toolbar's own box.
+   *
+   * The bar wraps, so the print button is at the left end of a row on a narrow
+   * pane and at the right end of one on a wide one — a fixed `left` or `right`
+   * therefore hangs the list off the edge about half the time, and the pane
+   * clips it (`overflow: hidden`, so a floating menu cannot escape it). Measured
+   * rather than guessed, before the paint, and clamped to the bar rather than to
+   * the window because the bar is what the clipping ancestor is sized to.
+   */
+  useLayoutEffect(() => {
+    if (!printMenu) return;
+    const list = printListRef.current;
+    const bar = list?.closest(".ink-bar");
+    if (!list || !bar) return;
+    const box = list.getBoundingClientRect();
+    const bounds = bar.getBoundingClientRect();
+    const margin = 8;
+    let shift = 0;
+    if (box.left < bounds.left + margin) shift = bounds.left + margin - box.left;
+    else if (box.right > bounds.right - margin) {
+      shift = bounds.right - margin - box.right;
+    }
+    list.style.setProperty("--ink-menu-shift", `${Math.round(shift)}px`);
+  }, [printMenu]);
+
+  /** Close the menu, then run what was chosen. */
+  const choose = (run: () => void) => () => {
+    setPrintMenu(false);
+    run();
+  };
+
   return (
     <div className="ink-bar" role="toolbar" aria-label="Ink tools">
       {/* 1. Drawing Tools Segmented Pill */}
@@ -470,9 +539,12 @@ export function InkBar({
             strokeLinejoin="round"
             aria-hidden="true"
           >
-            <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-            <circle cx="9" cy="9" r="2" />
+            {/* An image with a plus on its corner, so it cannot be mistaken
+                for the print button, which used to share this picture. */}
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" />
             <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+            <circle cx="9" cy="9" r="2" />
+            <path d="M16 5h6M19 2v6" />
           </svg>
         </button>
       ) : null}
@@ -556,30 +628,71 @@ export function InkBar({
         <span>{busy ? (progress ?? "Recognising…") : "Recognise"}</span>
       </button>
 
-      {/* 7. Export PNG */}
-      <button
-        type="button"
-        className="ink-tool ink-tool-icon-only"
-        onClick={onExport}
-        title="Export page PNG (⌘⇧E)"
-        aria-label="Export page PNG"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      {/* 7. Print: the page on paper, as a PNG, or as SVG */}
+      <div className="ink-menu" ref={printMenuRef}>
+        <button
+          type="button"
+          className="ink-tool ink-tool-icon-only"
+          onClick={() => setPrintMenu((open) => !open)}
+          aria-haspopup="menu"
+          aria-expanded={printMenu}
+          title="Print or export this page (⌘⇧P)"
+          aria-label="Print or export this page"
         >
-          <rect width="18" height="18" x="3" y="3" rx="2" />
-          <circle cx="9" cy="9" r="2" />
-          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-        </svg>
-      </button>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M6 9V3h12v6" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" rx="1" />
+          </svg>
+        </button>
+        {printMenu ? (
+          <div
+            className="ink-menu-list"
+            role="menu"
+            aria-label="Print or export"
+            ref={printListRef}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="ink-menu-item"
+              onClick={choose(onPrint)}
+            >
+              Print or save as PDF
+              <kbd>⌘⇧P</kbd>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="ink-menu-item"
+              onClick={choose(onExportPng)}
+            >
+              Full-page PNG
+              <kbd>⌘⇧E</kbd>
+            </button>
+            {onExportSvg ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="ink-menu-item"
+                onClick={choose(onExportSvg)}
+              >
+                Vector SVG
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       {/* 8. Text Layer Toggle */}
       {onToggleTextLayer ? (

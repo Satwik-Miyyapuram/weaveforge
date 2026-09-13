@@ -117,8 +117,13 @@ export type InkWorkerMessage =
    * (§4.8) — or `null` for none. Sent by the host after every `load-page`,
    * since the image lives in the vault and the host is what can fetch it. The
    * bitmap is transferred; the worker owns it from here.
+   *
+   * `index` is the same attachment's 1-based position in the body
+   * (`inkAttachmentIndex`), which the chunk header carries. The worker keeps
+   * it on the page so a save that follows — the first stroke drawn over the
+   * image — writes the index back instead of zeroing it.
    */
-  | { type: "set-background"; image: ImageBitmap | null }
+  | { type: "set-background"; image: ImageBitmap | null; index?: number }
   /** The theme's ink colours, read off the document by the host (§6.1). */
   | { type: "palette"; colours: InkPalette }
   /**

@@ -50,6 +50,9 @@ import {
   type InkWorkerEvent,
   type InkWorkerMessage,
 } from "../application/capture-protocol";
+// The codec lives with the rest of the chunk plumbing rather than here: the
+// host writes a page's chunk too, when its background changes (§4.8).
+import { inkChunkCodec } from "../application/ink-chunk-codec";
 import {
   InkPageBuffer,
   boundsOf,
@@ -146,61 +149,6 @@ const scope = self as unknown as DedicatedWorkerGlobalScope;
 
 function post(event: InkWorkerEvent, transfer: Transferable[] = []): void {
   scope.postMessage(event, transfer);
-}
-
-/**
- * The codec a chunk is decoded with.
- *
- * `deflate-raw` through `CompressionStream`, which every Chromium and Firefox has
- * and Safari 16.4+ does; brotli is **not** reachable from the web at all
- * (`CompressionStream` does not expose it, §4.3), which is why the desktop build
- * passes its own. `identity` is for a page small enough to have been stored raw.
- *
- * Absent `CompressionStream` the worker falls back to identity, which decodes an
- * uncompressed chunk correctly and refuses a compressed one with the container's
- * own error rather than silently producing nothing.
- */
-function makeCodec(
-  name: "identity" | "deflate-raw" | undefined,
-): InkChunkCodec | null {
-  if (name !== "deflate-raw") return null;
-  if (
-    typeof CompressionStream !== "function" ||
-    typeof DecompressionStream !== "function"
-  )
-    return null;
-  return {
-    id: "deflate-raw",
-    compress: async (bytes) =>
-      pipeThrough(new CompressionStream("deflate-raw"), bytes),
-    decompress: async (bytes) =>
-      pipeThrough(new DecompressionStream("deflate-raw"), bytes),
-  };
-}
-
-/** Push bytes through a transform stream and collect what comes out. */
-async function pipeThrough(
-  stream: GenericTransformStream,
-  bytes: Uint8Array,
-): Promise<Uint8Array> {
-  const writer = stream.writable.getWriter();
-  void writer.write(bytes);
-  void writer.close();
-  const chunks: Uint8Array[] = [];
-  const reader = stream.readable.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value as Uint8Array);
-  }
-  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const out = new Uint8Array(total);
-  let at = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, at);
-    at += chunk.length;
-  }
-  return out;
 }
 
 /**
@@ -786,7 +734,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         state.height = message.height;
         state.dpr = message.dpr;
         state.mode = message.mode;
-        state.codec = makeCodec(message.codec);
+        state.codec = inkChunkCodec(message.codec);
         // The path decides the context attributes, and they are immutable after the
         // first `getContext` (§6.2.8) — so this is decided once, by whether the
         // presenter is delegating, and a presenter that appears later means a new
@@ -925,18 +873,38 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         state.background?.close?.();
         state.background = message.image;
         state.renderer?.setBackground(message.image);
-
+        // The image is the *rendering* of §4.8; the buffer carries the
+        // attachment index the chunk header mirrors, so a later save — a
+        // stroke drawn over the image, say — writes it back rather than
+        // clearing it.
+        if (typeof message.index === "number") {
+          state.buffer.setBackgroundIndex(message.index);
+        }
         break;
       }
       case "export-page": {
-        void state.renderer
-          ?.capture(message.scale)
+        const renderer = state.renderer;
+        // A worker with no renderer still has to answer: the host is holding a
+        // promise on this request id, and silence would hang the print and PNG
+        // buttons for the rest of the session rather than reporting that there
+        // is nothing to draw with.
+        if (!renderer) {
+          post({ type: "exported", requestId: message.requestId, png: null });
+          break;
+        }
+        void renderer
+          .capture(message.scale)
           .then((png) =>
             post({ type: "exported", requestId: message.requestId, png }),
           )
-          .catch(() =>
-            post({ type: "exported", requestId: message.requestId, png: null }),
-          );
+          .catch((error: unknown) => {
+            // Said out loud rather than swallowed: a null PNG with no reason is
+            // a button that does nothing.
+            console.error(
+              `ink: the export failed — ${error instanceof Error ? error.message : String(error)}`,
+            );
+            post({ type: "exported", requestId: message.requestId, png: null });
+          });
         break;
       }
       case "resize": {

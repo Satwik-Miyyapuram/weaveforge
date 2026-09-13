@@ -47,19 +47,24 @@ const pause = (ms: number, signal?: AbortSignal) =>
 export async function downloadLibraryPdfs(
   options: DownloadOptions = {},
 ): Promise<DownloadProgress> {
-  const cache = getReaderPdfByteCache();
-  const container = getContainer();
-  const snapshot = await container.workspace.snapshot();
-  const papers = snapshot.papers;
   const progress: DownloadProgress = {
     done: 0,
-    total: papers.length,
+    total: 0,
     fetched: 0,
     skipped: 0,
   };
-  // Only pre-download library PDFs when a workspace folder is open (desktop / app setup).
-  // In online web mode, PDFs are strictly fetched on demand when opened.
-  if (!cache || !activeWorkspaceFs()) return progress;
+  // A folder is the whole reason this walk exists, so a session without one is
+  // over before it costs anything: no container read, no cache, no network.
+  // Online web mode fetches a paper's PDF when the paper is opened, and never
+  // in the background — background bulk fetching is what exhausts a browser's
+  // storage quota and somebody else's bandwidth for papers nobody opened.
+  if (!activeWorkspaceFs()) return progress;
+  const cache = getReaderPdfByteCache();
+  if (!cache) return progress;
+  const container = getContainer();
+  const snapshot = await container.workspace.snapshot();
+  const papers = snapshot.papers;
+  progress.total = papers.length;
   const pauseMs = options.pauseMs ?? DOWNLOAD_PAUSE_MS;
   for (const paper of papers) {
     if (options.signal?.aborted) break;
@@ -117,7 +122,13 @@ export function downloadLibraryPdfsOnce(): void {
 }
 
 /**
- * Pre-download a single paper's PDF when added or imported in desktop mode.
+ * One paper's PDF into the folder, awaited.
+ *
+ * The same rung of the ladder the bulk walk uses, for one paper: what the
+ * store already holds is left alone, and what it does not is resolved and
+ * fetched. Answers whether the folder now holds it — a paper whose source
+ * cannot be resolved is a `false`, not an error, since the reader resolves it
+ * again on open.
  */
 export async function downloadPaperPdf(paperId: string): Promise<boolean> {
   if (!activeWorkspaceFs()) return false;
@@ -145,5 +156,20 @@ export async function downloadPaperPdf(paperId: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * The same, for a caller that has a paper id and nothing to wait for.
+ *
+ * The bulk walk happens when a folder is adopted; a paper imported afterwards
+ * — a local Zotero pull, a DOI resolved from the add form — would otherwise
+ * wait for the next adoption to reach the disk. It is called from the add
+ * use-case, so every path that creates a paper is covered. In a session with
+ * no folder it is nothing at all, which is what keeps the web build on demand.
+ */
+export function queuePaperPdfDownload(paperId: string): void {
+  void downloadPaperPdf(paperId).catch(() => {
+    // Best-effort: the reader resolves the paper's source on open regardless.
+  });
 }
 

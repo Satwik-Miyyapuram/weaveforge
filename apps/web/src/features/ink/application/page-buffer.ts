@@ -134,6 +134,16 @@ export class InkPageBuffer {
   private alive: Uint8Array = new Uint8Array(0);
   /** Strokes ever added, dead ones included. Monotonic, so indices are stable. */
   private added = 0;
+  /**
+   * The page's background as the chunk header records it: the 1-based index of
+   * the attachment in the note's body, or 0 for none (§4.3, §4.8).
+   *
+   * It is a field rather than a constant because the host can change a page's
+   * image while the page is loaded, and the next save has to write the new
+   * index — the strokes are the only thing a save is *about*, not the only
+   * thing it writes.
+   */
+  private background = 0;
 
   constructor(page: InkPage) {
     const size = { width: page.width, height: page.height };
@@ -141,7 +151,20 @@ export class InkPageBuffer {
     this.height = size.height || INK_A4_HEIGHT;
     this.paper = page.paper;
     this.lines = page.lines;
+    this.background = page.background ?? 0;
     for (const stroke of page.strokes) this.append(stroke);
+  }
+
+  /** The attachment index the page would be saved with. */
+  get backgroundIndex(): number {
+    return this.background;
+  }
+
+  /** Set it, clamped to the byte the chunk header holds. */
+  setBackgroundIndex(index: number): void {
+    this.background = Number.isFinite(index)
+      ? Math.max(0, Math.min(255, Math.round(index)))
+      : 0;
   }
 
   /**
@@ -156,7 +179,7 @@ export class InkPageBuffer {
       width: this.width,
       height: this.height,
       paper: this.paper,
-      background: 0,
+      background: this.background,
       strokes: this.liveStrokes().map(fromGeometry),
       lines: [...this.lines],
     };
