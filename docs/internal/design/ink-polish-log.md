@@ -42,6 +42,12 @@ were tuning, not architecture.
 | `0ec436e` | Inserted pages came in at the PDF's own aspect, so printing would scale | Page size was taken from the source | Every inserted page is placed on a white A4 sheet, fit and centred; images insert the same way |
 | `88fc7e3` | A paper in the workspace had no way to show its PDF; the reader route duplicated the shell | The reader was one screen, not a component | `PaperPdfPane` is the reader's paper half; a paper tab has a third mode, PDF, and a "Load PDF…" button writes the user's own file into the workspace byte cache |
 | `0876071` | Adding a paper offline failed: `malformed array literal: "[]"` | Every array was JSON-encoded, wrong for `text[]` columns | Array columns are named per table and encoded as `{"a","b"}`; jsonb arrays stay JSON |
+| `3a68c43` | A page could not hold a picture: no way to add one, and no way to make a page out of one | The background was drawn by the renderer but nothing wrote it — the text layer and the chunk had no field for it, and the chunk was only ever built by a worker that did not hold the page being changed | The page's background is an attachment on line 1 of its text layer (`![page background](vault:…)`) plus an index in the chunk; the host re-encodes the chunk on the main thread (`pageChunkWithBackground`) because the target page may not be in the worker; the codec moves to `application/ink-chunk-codec.ts` so both sides agree on the bytes. Add, `Ctrl+V`, drop, and "insert page from file" — the last asking replace-or-new-page when the page already has one |
+| `3a68c43` | A background index read from the wrong byte, and page 2 of a two-image note written as 1 | The chunk body starts at byte 16, so `bytes[21]` is a header byte; and the index was assumed to be per page | Decode to read it. The index is the page's *place among the note's image refs* — page 1 is 1, page 2 is 2 — which is what the renderer resolves against |
+| `3a68c43` | Inserting a PDF or image a second time did nothing | pdf.js detaches the `ArrayBuffer` it is given, so the cached bytes were empty on the next call | Each `getDocument` gets a copy (same fix as `4bbc681`, applied to the page path) |
+| `449d83d` | A screenshot button, and one export button that always made a PNG | — | The screenshot button is gone (the OS does this) and the export button is a menu: the print dialog, which is also "save as PDF"; a full-page PNG at 2× (4200×5940, ~508 dpi on A4); and a vector SVG whose strokes stay geometry and whose background is embedded as a data URL |
+| `449d83d` | The print/export menu opened off the left edge of the pane, invisible and unclickable | The bar wraps, so the button sits at the left end of a row on a narrow pane, and `right: 0` hung the 200 px list past the edge — where `.ink-wrap { overflow: hidden }` clipped it. Visible to a query engine, so only a real pointer finds it | Measured on open and clamped to the bar's own box (`--ink-menu-shift`), before paint |
+| `449d83d` | Print and PNG did nothing at all in a worker with no renderer, for the rest of the session | `state.renderer?.capture()` short-circuits to silence, so the promise behind the button never settled; the failure path also swallowed its reason | `export-page` always answers, and logs why when a capture fails |
 
 ## 3. How it was verified without a hand on the pen
 
@@ -59,6 +65,17 @@ well: `mkpen.mjs` writes a sample list, `pen.ps1` injects it through
 `InjectSyntheticPointerInput` with pressure, so Windows Ink itself delivers
 the events — the same path a Surface Pen takes — and the screenshots were
 cropped and read back for seams, doubled alpha and a blank canvas.
+
+For the page image and the export menu, `apps/web/scripts/ink-image-cdp.mjs`
+mounts the real `InkHost` in a throwaway page over HTTP (the worker needs a
+real origin for `import.meta.url`), drives Chromium over CDP, and asserts
+against the model *and* the pixels: the text layer, the vault bytes, the
+decoded chunk's background index, and — reading the PNGs back in the page —
+the sheet showing the picture's blue (37,99,235) on paper, and the 2× export
+carrying both the image and the stroke (479 near-black pixels, against 0 on
+the ink-free page with the same picture, which is what makes the count mean
+something). 20/20 checks; `--probe-menu` dumps the menu's geometry and hit
+test, which is how the off-screen bug above was found.
 
 ## 4. Still open
 
