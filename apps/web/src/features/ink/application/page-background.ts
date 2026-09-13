@@ -7,9 +7,24 @@
  * shape is not stretched to fit: it is scaled to sit inside the sheet,
  * centred, on white. The placement is a pure function so a test can check it
  * without a canvas.
+ *
+ * The other half of the same subject is here too: the chunk a page is written
+ * with when its background changes (§4.8's mirror of the text layer's
+ * `![page background](vault:…)` in the sidecar's header) and the clipboard
+ * payload a pasted screenshot arrives in.
  */
 
-import { INK_A4_HEIGHT, INK_A4_WIDTH } from "@weaveforge/core";
+import {
+  INK_A4_HEIGHT,
+  INK_A4_WIDTH,
+  blankInkPage,
+  clampInkPageSize,
+  decodeInkChunk,
+  encodeInkChunk,
+  pageFromChunk,
+  type InkChunkCodec,
+  type InkPaper,
+} from "@weaveforge/core";
 
 import {
   createCanvas,
@@ -103,4 +118,108 @@ async function composeOnSheet(
   const box = placeOnSheet(width, height);
   context.drawImage(source, box.x, box.y, box.width, box.height);
   return toPngBlob(sheet);
+}
+
+/* -------------------------------------------------------------------------
+ * The same fact in the sidecar's header
+ * ---------------------------------------------------------------------- */
+
+export interface PageBackgroundChunkOptions {
+  /**
+   * The 1-based attachment index for the page, or `0` for none — what
+   * `inkAttachmentIndex` answers for the body the text layer made.
+   */
+  background: number;
+  /** The page's paper, kept as the chunk had it. */
+  paper: InkPaper;
+  /**
+   * The sheet to open with when the page has no chunk yet, in 0.1 mm. An
+   * inserted PDF page keeps its own aspect ratio, so this is the page's size
+   * and not always A4.
+   */
+  size?: { width: number; height: number };
+  /** The codec the page's chunk is stored with; identity when absent. */
+  codec?: InkChunkCodec;
+}
+
+/**
+ * A page's chunk with its background set — strokes, lines and paper kept.
+ *
+ * The page's geometry comes from the chunk it already has, decoded and packed
+ * again through core, so a background change cannot disturb a stroke: the only
+ * field this decides is `background`. A page with no chunk yet is a blank one
+ * at `size` (A4 when the caller does not say), which is the page an inserted
+ * image becomes.
+ *
+ * This runs on the main thread on purpose. It is a background change — an
+ * upload, a re-raster and a prompt already stand in front of it — and never
+ * the pen path, which is the only place §6.2.2 forbids the work.
+ */
+export async function pageChunkWithBackground(
+  chunk: Uint8Array | null,
+  options: PageBackgroundChunkOptions,
+): Promise<Uint8Array> {
+  const { background, paper, size, codec } = options;
+  const page = chunk
+    ? pageFromChunk(await decodeInkChunk(chunk, codec))
+    : {
+        ...blankInkPage(paper),
+        ...clampInkPageSize(
+          size?.width ?? INK_A4_WIDTH,
+          size?.height ?? INK_A4_HEIGHT,
+        ),
+      };
+  return encodeInkChunk(
+    {
+      ...page,
+      paper,
+      background: Number.isFinite(background)
+        ? Math.max(0, Math.min(255, Math.round(background)))
+        : 0,
+    },
+    codec,
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * A screenshot, pasted
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The clipboard payload this reads: the item list of a `paste` event.
+ *
+ * A structural type rather than `DataTransfer` so a test can hand it a plain
+ * object — Node has no `DataTransfer` — and so the host can pass the event's
+ * `clipboardData` without a cast.
+ */
+export interface ClipboardPayloadLike {
+  readonly items: ArrayLike<{
+    readonly kind: string;
+    readonly type: string;
+    getAsFile(): File | null;
+  }>;
+}
+
+/**
+ * The first image a clipboard payload carries, or `null`.
+ *
+ * A screenshot arrives as an item whose `kind` is `"file"` and whose type is an
+ * image MIME — `image/png` from the Windows snipping tool and from Chromium's
+ * own copy, `image/jpeg` from a phone — and `getAsFile()` is what turns it into
+ * something the page raster can read. Text pasted into the note editor has no
+ * such item, which is how the two pastes stay apart.
+ */
+export function imageFileFromClipboard(
+  data: ClipboardPayloadLike | null | undefined,
+): File | null {
+  const items = data?.items;
+  if (!items) return null;
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    if (!item || item.kind !== "file") continue;
+    if (!item.type.startsWith("image/")) continue;
+    const file = item.getAsFile();
+    if (file) return file;
+  }
+  return null;
 }

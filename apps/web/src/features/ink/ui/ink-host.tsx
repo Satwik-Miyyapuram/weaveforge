@@ -38,6 +38,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { blobToDataUrl, downloadBlob, printBlob } from "@/lib/blob-output";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
@@ -86,8 +87,16 @@ import {
   type InkChunkStore,
   type InkStoredPage,
 } from "../application/ink-chunk-store";
+import { availableInkChunkCodec } from "../application/ink-chunk-codec";
+import { inkPageSvg } from "../application/ink-svg";
 import { pdfPageCount } from "../application/pdf-page-raster";
-import { isPageSource, isPdf, pageBackgroundFromFile } from "../application/page-background";
+import {
+  imageFileFromClipboard,
+  isPageSource,
+  isPdf,
+  pageBackgroundFromFile,
+  pageChunkWithBackground,
+} from "../application/page-background";
 import {
   acceptLine,
   recognisePage,
@@ -129,6 +138,15 @@ export interface InkHostProps {
 
 /** How long after the last stroke the page is written. */
 export const INK_SAVE_DELAY_MS = 1200;
+
+/**
+ * Pixels per 0.1 mm unit in an exported or printed page.
+ *
+ * 2 is 508 dpi on A4 — enough that a printed page has no visible raster, and
+ * what the PNG export has always used. The print path spends the same raster
+ * rather than the DOM, so paper and file match stroke for stroke.
+ */
+export const PNG_EXPORT_SCALE = 2;
 
 /** The message the text column shows where no engine can run. */
 export const INK_NO_ENGINE_MESSAGE =
@@ -225,6 +243,22 @@ export function InkHost({
   });
   /** What the file input is for: a PDF whose page becomes a new page here. */
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * What the second file input is for: an image for a page (§4.8) — the one
+   * being looked at, or a page of its own when the one being looked at already
+   * has an image and the user asked to keep it.
+   */
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  /** The answer that picker is waiting for: this page, or one of its own. */
+  const imageTargetRef = useRef<"current" | "new">("current");
+  /**
+   * The pane, focused on a pointer-down. A `paste` goes to the focused element
+   * and a canvas is not one, so the wrap takes focus itself — which is also
+   * what keeps a screenshot pasted into the note editor out of here.
+   */
+  const wrapRef = useRef<HTMLDivElement>(null);
+  /** The current page's background attachment, for the bar's two buttons. */
+  const [backgroundPath, setBackgroundPath] = useState<string | null>(null);
   const [inserting, setInserting] = useState(false);
   /** The header, as it will be written back. */
   const metaRef = useRef<InkNoteMeta>(readInkNoteBody(body).meta);
@@ -443,28 +477,45 @@ export function InkHost({
       send({ type: "save-page", requestId });
     });
   }, [send]);
-  const requestExport = useCallback(() => {
-    return new Promise<Blob | null>((resolve) => {
-      const requestId = ++requestSeq.current;
-      pendingExport.current.set(requestId, resolve);
-      send({ type: "export-page", requestId, scale: 2 });
-    });
-  }, [send]);
+  const requestExport = useCallback(
+    (scale: number = PNG_EXPORT_SCALE) => {
+      return new Promise<Blob | null>((resolve) => {
+        const requestId = ++requestSeq.current;
+        pendingExport.current.set(requestId, resolve);
+        send({ type: "export-page", requestId, scale });
+      });
+    },
+    [send],
+  );
 
-  /** The body as the header and text layer now stand. */
-  const saveBody = useCallback(async () => {
-    const pages = pagesRef.current;
-    if (!pages || !onSave) return;
+  /**
+   * The header and the body as they now stand.
+   *
+   * One function rather than two because the body is read for two things that
+   * must agree: what gets saved, and the attachment index a page's chunk
+   * carries (§4.8) — the index counts the `vault:` refs in this body, so a
+   * body built anywhere else would count a different one.
+   */
+  const noteBody = useCallback((): { meta: InkNoteMeta; body: string } => {
+    const pages = pagesRef.current ?? [];
     const meta: InkNoteMeta = {
       ...metaRef.current,
       pages: pages.length,
       pageOrder: pages.map((entry) => entry.chunkId),
     };
+    return {
+      meta,
+      body: writeInkNoteBody(meta, joinInkTextLayer(textPagesRef.current)),
+    };
+  }, []);
+
+  /** The body as the header and text layer now stand. */
+  const saveBody = useCallback(async () => {
+    if (!pagesRef.current || !onSave) return;
+    const { meta, body: next } = noteBody();
     metaRef.current = meta;
-    await onSave(
-      writeInkNoteBody(meta, joinInkTextLayer(textPagesRef.current)),
-    );
-  }, [onSave]);
+    await onSave(next);
+  }, [noteBody, onSave]);
 
   /** Write the current page's chunk, then the body. */
   const persist = useCallback(async () => {
@@ -506,13 +557,16 @@ export function InkHost({
   /**
    * The page's background (§4.8): the attachment its text layer names on its
    * first line, fetched and decoded here, handed to the worker as a bitmap.
-   * The worker draws it under the strokes on screen and in an export. A page
-   * without one clears the last page's.
+   * The worker draws it under the strokes on screen and in an export, and is
+   * told the attachment's index too, so the page it saves keeps the mirror the
+   * chunk header carries. A page without one clears the last page's.
    */
   useEffect(() => {
     if (pageCount === 0) return;
     const path = inkPageBackground(textPagesRef.current[pageIndex] ?? "");
-    send({ type: "set-background", image: null });
+    const index = inkAttachmentIndex(noteBody().body, path);
+    setBackgroundPath(path);
+    send({ type: "set-background", image: null, index });
     if (!path) return;
     let live = true;
     void deps.assets
@@ -523,7 +577,7 @@ export function InkHost({
           image.close();
           return;
         }
-        send({ type: "set-background", image }, [image]);
+        send({ type: "set-background", image, index }, [image]);
       })
       .catch(() => {
         // A missing attachment is a page without its background, not a broken note.
@@ -532,7 +586,7 @@ export function InkHost({
       live = false;
     };
     // `pageCount` is in the list so the effect runs once the sidecar has answered.
-  }, [deps.assets, pageCount, pageIndex, send]);
+  }, [deps.assets, noteBody, pageCount, pageIndex, send]);
 
   /**
    * Tell the worker which page we are on, hand it the bytes, and read its line
@@ -803,21 +857,59 @@ export function InkHost({
   );
 
   /**
-   * Export the page as a PNG.
+   * The page as a PNG download, the page on paper, and the page as vectors.
    *
-   * The blob comes back from the worker's offscreen target, never from a readback
-   * of the live canvas (§6.2.12), and lands as a download named for the note.
+   * The blob comes back from the worker's offscreen target, never from a
+   * readback of the live canvas (§6.2.12). Printing goes through the same
+   * raster rather than through the DOM, because what the user sees is a
+   * *window* onto the sheet — the canvas is the size of the viewport, not the
+   * page (§6.2.14) — so printing the screen would crop the page to whatever
+   * happened to be scrolled into view.
    */
-  const onExport = useCallback(async () => {
-    const png = await requestExport();
+  const onExportPng = useCallback(async () => {
+    const png = await requestExport(PNG_EXPORT_SCALE);
     if (!png) return;
-    const url = URL.createObjectURL(png);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${noteId}-page-${pageIndex + 1}.png`;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadBlob(png, `${noteId}-page-${pageIndex + 1}.png`);
   }, [noteId, pageIndex, requestExport]);
+
+  const onPrint = useCallback(async () => {
+    const png = await requestExport(PNG_EXPORT_SCALE);
+    if (!png) return;
+    printBlob(
+      png,
+      `${noteId}-page-${pageIndex + 1}`,
+      `${noteId} — page ${pageIndex + 1}`,
+    );
+  }, [noteId, pageIndex, requestExport]);
+
+  /**
+   * The page as SVG: the strokes themselves, not a picture of them.
+   *
+   * The model comes from the worker (it owns the geometry) and the background
+   * comes from the vault, as a data URL — a blob URL would not survive the file
+   * being saved and opened again.
+   */
+  const onExportSvg = useCallback(async () => {
+    const page = await requestModel();
+    const path = inkPageBackground(textPagesRef.current[pageIndex] ?? "");
+    let backgroundDataUrl: string | null = null;
+    if (path) {
+      try {
+        backgroundDataUrl = await blobToDataUrl(await deps.assets.fetchBlob(path));
+      } catch {
+        // A missing attachment is a page without its background (as above).
+      }
+    }
+    const svg = inkPageSvg(page, {
+      palette,
+      backgroundDataUrl,
+      title: `${noteId} — page ${pageIndex + 1}`,
+    });
+    downloadBlob(
+      new Blob([svg], { type: "image/svg+xml" }),
+      `${noteId}-page-${pageIndex + 1}.svg`,
+    );
+  }, [deps.assets, noteId, pageIndex, palette, requestModel]);
 
   const goToPage = useCallback(
     (index: number) => {
@@ -827,10 +919,17 @@ export function InkHost({
     [flushSave, pageCount],
   );
 
-  /** A new blank page after the last, in the note's order. */
-  const onAddPage = useCallback(() => {
+  /**
+   * A new blank page after the last, in the note's order, and the index it
+   * landed at.
+   *
+   * The index is returned rather than read back from `pageIndex` because
+   * `setPageIndex` has not been applied when the caller continues: a caller
+   * that means to fill the new page has to name it.
+   */
+  const appendPage = useCallback((): number => {
     const pages = pagesRef.current;
-    if (!pages) return;
+    if (!pages) return Math.max(0, pageCount - 1);
     flushSave();
     pages.push({
       chunkId: newInkChunkId(),
@@ -840,8 +939,178 @@ export function InkHost({
     textPagesRef.current.push("");
     setPageCount(pages.length);
     setPageIndex(pages.length - 1);
+    return pages.length - 1;
+  }, [flushSave, pageCount]);
+
+  /** A new blank page after the last, in the note's order. */
+  const onAddPage = useCallback(() => {
+    appendPage();
     void saveBody();
-  }, [flushSave, saveBody]);
+  }, [appendPage, saveBody]);
+
+  /**
+   * Write a page's chunk with its background index, strokes and lines kept
+   * (§4.8).
+   *
+   * The text layer says which attachment a page shows; the chunk header
+   * mirrors it for a reader that has only the sidecar. This is that second
+   * half, done here rather than through a save because a save is about the
+   * page the worker holds, while the page whose image changed may be any page
+   * of the note — including one with no strokes and so no chunk of its own.
+   */
+  const writePageBackgroundChunk = useCallback(
+    async (targetIndex: number, background: number) => {
+      const pages = pagesRef.current;
+      const target = pages?.[targetIndex];
+      if (!pages || !target) return;
+      const bytes = await pageChunkWithBackground(target.chunk, {
+        background,
+        paper: target.paper,
+        // A page with no chunk yet is a blank one on this sheet; the sheet in
+        // front of the user is the honest answer for the page in front of them.
+        size:
+          targetIndex === pageIndex
+            ? { width: pageSize.width, height: pageSize.height }
+            : undefined,
+        codec: availableInkChunkCodec(),
+      });
+      await deps.chunks.write(noteId, target.chunkId, bytes);
+      target.chunk = bytes;
+    },
+    [deps.chunks, noteId, pageIndex, pageSize.height, pageSize.width],
+  );
+
+  /**
+   * Put an image on a page (§4.8): the page in front of the user unless one is
+   * named.
+   *
+   * The file is laid on the A4 sheet, uploaded as this note's attachment, named
+   * on that page's first text-layer line, and its index written into the page's
+   * chunk header — so the vault's image bookkeeping and a reader holding only
+   * the sidecar both see it. An image on a page that already has one replaces
+   * it, which is why the bar asks before calling this.
+   */
+  const onSetPageBackground = useCallback(
+    async (file: File, targetPageIndex?: number) => {
+      const pages = pagesRef.current;
+      if (!pages || inserting) return;
+      if (!isPageSource(file)) {
+        setUnavailable(`${file.name} is not a PDF or an image.`);
+        return;
+      }
+      const target = Math.max(
+        0,
+        Math.min(targetPageIndex ?? pageIndex, pages.length - 1),
+      );
+      setInserting(true);
+      try {
+        let number = 1;
+        if (isPdf(file)) {
+          const count = await pdfPageCount(await file.arrayBuffer());
+          if (count > 1) {
+            const answer = window.prompt(
+              `Which page of ${file.name}? (1–${count})`,
+              "1",
+            );
+            if (answer === null) return;
+            number = Number.parseInt(answer, 10);
+            if (!Number.isFinite(number) || number < 1 || number > count)
+              return;
+          }
+        }
+        const png = await pageBackgroundFromFile(file, number);
+        const path = await deps.assets.upload(noteId, png, "png");
+        // The text layer first: the body is what the attachment index counts.
+        textPagesRef.current = textPagesRef.current.map((text, index) =>
+          index === target ? withInkPageBackground(text, path) : text,
+        );
+        const background = inkAttachmentIndex(noteBody().body, path);
+        await writePageBackgroundChunk(target, background);
+        if (target === pageIndex) {
+          // The worker draws it now, and is told the index so the next save —
+          // the first stroke over the image — writes the same mirror back.
+          const image = await createImageBitmap(png);
+          send({ type: "set-background", image, index: background }, [image]);
+          setBackgroundPath(path);
+        }
+        scheduleSave();
+      } catch (error) {
+        setUnavailable(
+          `The image could not be added: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        setInserting(false);
+      }
+    },
+    [
+      deps.assets,
+      inserting,
+      noteBody,
+      noteId,
+      pageIndex,
+      scheduleSave,
+      send,
+      writePageBackgroundChunk,
+    ],
+  );
+
+  /** Take a page's image off, in the text layer and in the chunk (§4.8). */
+  const onRemovePageBackground = useCallback(
+    async (targetPageIndex?: number) => {
+      const pages = pagesRef.current;
+      if (!pages) return;
+      const target = Math.max(
+        0,
+        Math.min(targetPageIndex ?? pageIndex, pages.length - 1),
+      );
+      if (!inkPageBackground(textPagesRef.current[target] ?? "")) return;
+      textPagesRef.current = textPagesRef.current.map((text, index) =>
+        index === target ? withInkPageBackground(text, null) : text,
+      );
+      await writePageBackgroundChunk(target, 0);
+      if (target === pageIndex) {
+        send({ type: "set-background", image: null, index: 0 });
+        setBackgroundPath(null);
+      }
+      scheduleSave();
+    },
+    [pageIndex, scheduleSave, send, writePageBackgroundChunk],
+  );
+
+  /**
+   * The bar's image button: pick a file, for this page or for a new one.
+   *
+   * A page has one background (§4.8), so a page that already has one asks
+   * first: replacing is what the button is for, and a page of its own is the
+   * answer that loses nothing. The answer is read in the input's handler,
+   * which is the only place it has to survive.
+   */
+  const onAddImageToCurrentPage = useCallback(() => {
+    let target: "current" | "new" = "current";
+    if (backgroundPath) {
+      target = window.confirm(
+        "This page already has an image.\n\nOK replaces it. Cancel keeps it and adds the image to a new page.",
+      )
+        ? "current"
+        : "new";
+    }
+    imageTargetRef.current = target;
+    imageInputRef.current?.click();
+  }, [backgroundPath]);
+
+  /** The file the image picker produced, on the page the button chose. */
+  const onImageFile = useCallback(
+    (file: File) => {
+      if (imageTargetRef.current === "new") {
+        // The page is made first, so the note's order and the text layer grow
+        // together and the image lands on the page it made.
+        void onSetPageBackground(file, appendPage());
+        return;
+      }
+      void onSetPageBackground(file);
+    },
+    [appendPage, onSetPageBackground],
+  );
 
   /**
    * A PDF's page or an image as a new page (§4.8): laid on an A4 sheet
@@ -945,7 +1214,10 @@ export function InkHost({
     }
   }, [requestModel, selection]);
 
-  /** The keyboard, per §6.5: tools, undo, recognise, export, the selection. */
+  /**
+   * The keyboard, per §6.5: tools, undo, recognise, print and export, the
+   * selection. A bare `p` is still the pen — only the shifted form prints.
+   */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -959,9 +1231,15 @@ export function InkHost({
         } else if (event.shiftKey && key === "r") {
           event.preventDefault();
           void recognise();
+        } else if (event.shiftKey && key === "p") {
+          event.preventDefault();
+          void onPrint();
         } else if (event.shiftKey && key === "e") {
           event.preventDefault();
-          void onExport();
+          void onExportPng();
+        } else if (event.shiftKey && key === "g") {
+          event.preventDefault();
+          void onExportSvg();
         }
         return;
       }
@@ -1021,7 +1299,9 @@ export function InkHost({
   }, [
     onColourChange,
     onDeleteSelection,
-    onExport,
+    onExportPng,
+    onExportSvg,
+    onPrint,
     recognise,
     scheduleSave,
     selection.length,
@@ -1070,20 +1350,70 @@ export function InkHost({
     scheduleSave();
   }, [scheduleSave, send]);
 
+  /**
+   * A pasted screenshot (§4.8).
+   *
+   * The listener is on the window because a `paste` goes to the focused element
+   * and a canvas does not take focus; the wrap is what takes it, on a
+   * pointer-down, which is also what keeps a paste aimed at the note editor
+   * away from here — text pasted there carries no image item, and the active
+   * element is not inside this pane. A field inside this pane — a correction in
+   * the text column — is the user pasting *text*, and keeps its own paste.
+   */
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      )
+        return;
+      const wrap = wrapRef.current;
+      if (!wrap || !wrap.contains(document.activeElement)) return;
+      const file = imageFileFromClipboard(event.clipboardData);
+      if (!file) return;
+      event.preventDefault();
+      void onSetPageBackground(file);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [onSetPageBackground]);
+
   const lines: readonly RecognisedLine[] = recognised?.lines ?? [];
   const confidence = recognised?.confidence ?? 0;
 
   return (
-    <div className={`ink-wrap${showTextLayer ? "" : " ink-text-hidden"}`}>
+    <div
+      ref={wrapRef}
+      className={`ink-wrap${showTextLayer ? "" : " ink-text-hidden"}`}
+      // Focusable but not a tab stop: the pane takes focus when it is clicked,
+      // which is what a paste is aimed at and what the keyboard shortcuts above
+      // already assume.
+      tabIndex={-1}
+      onPointerDownCapture={() => wrapRef.current?.focus({ preventScroll: true })}
+    >
       <input
         ref={pdfInputRef}
         type="file"
         accept="application/pdf,.pdf,image/*"
         hidden
+        data-ink-page-input=""
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (file) void onInsertPage(file);
+        }}
+      />
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*,application/pdf,.pdf"
+        hidden
+        data-ink-image-input=""
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) onImageFile(file);
         }}
       />
       <InkBar
@@ -1121,10 +1451,15 @@ export function InkHost({
         onPenOnly={pen.setPenOnly}
         onHand={setHand}
         onRecognise={() => void recognise()}
-        onExport={() => void onExport()}
+        onPrint={() => void onPrint()}
+        onExportPng={() => void onExportPng()}
+        onExportSvg={() => void onExportSvg()}
         onUndo={onUndo}
         onRedo={onRedo}
         onAddPage={onAddPage}
+        onAddImage={onAddImageToCurrentPage}
+        hasPageBackground={Boolean(backgroundPath)}
+        onRemovePageBackground={() => void onRemovePageBackground()}
         onInsertPage={() => pdfInputRef.current?.click()}
         onPrevPage={() => goToPage(pageIndex - 1)}
         onNextPage={() => goToPage(pageIndex + 1)}
@@ -1152,6 +1487,9 @@ export function InkHost({
           penSeen={pen.penSeen}
           onPan={onPan}
           onPinch={onPinch}
+          // A file dropped on the sheet is an image for the page under it, not
+          // a new page: the sheet is the page the user is pointing at.
+          onDropFile={(file) => void onSetPageBackground(file)}
         />
       </div>
       <InkTextLayer

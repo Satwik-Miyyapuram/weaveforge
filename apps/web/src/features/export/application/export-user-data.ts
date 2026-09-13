@@ -6,6 +6,9 @@ import {
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { downloadBlob } from "@/lib/blob-output";
+
+export { downloadBlob };
 
 function jsonFile(value: unknown): Uint8Array {
   return strToU8(JSON.stringify(value, null, 2));
@@ -195,18 +198,6 @@ async function exportUserData(): Promise<Blob> {
   const copy = new Uint8Array(zipped.byteLength);
   copy.set(zipped);
   return new Blob([copy.buffer], { type: "application/zip" });
-}
-
-/** Triggers a browser download of a blob under the given filename. */
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 /** Convenience: build + download the export as `weaveforge-export-{date}.zip`. */
