@@ -63,6 +63,6 @@
     "build:desktop": "npm run build --workspace @weaveforge/desktop"
   },
   "devDependencies": {
-    "supabase": "^2.109.1"
+    "supabase": "^2.117.0"
   }
 }
