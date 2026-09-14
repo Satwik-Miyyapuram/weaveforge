@@ -658,8 +658,31 @@ export class WebglInkRenderer implements InkRenderer {
       gl.uniform1f(this.haloUniform, 0);
     };
 
-    // The highlighter first, so the ink is drawn over it and stays its own
-    // colour, which is what a real highlighter under a pen line looks like.
+    // The halo sits under the selected strokes wherever they are drawn, so it
+    // goes first in either order.
+    drawSelectedHalo();
+
+    // The opaque strokes first, straight to the target. A batch with nothing
+    // selected is one draw; otherwise its records go one by one, the selected
+    // ones shifted.
+    for (const batch of this.batches.values()) {
+      if (batch.highlighter || batch.used === 0) continue;
+      if (!selecting || !batch.records.some(isSelected)) {
+        drawn += this.drawBatch(batch);
+      } else {
+        for (const record of batch.records) {
+          const held = isSelected(record);
+          if (held) gl.uniform2f(this.shiftUniform, this.shift.x, this.shift.y);
+          drawn += this.drawBatch(batch, undefined, record.offset, record.count);
+          if (held) gl.uniform2f(this.shiftUniform, 0, 0);
+        }
+      }
+      segments += batch.used;
+    }
+
+    // The highlighter over the ink, translucent: the way a real highlighter
+    // colours *over* writing it was laid on — the pen line stays legible
+    // through the tint, rather than the highlighter vanishing under it.
     // Translucent "over" rather than multiply: the canvas is transparent and
     // the paper is under it in CSS, so there is nothing here for a multiply
     // to darken.
@@ -682,7 +705,6 @@ export class WebglInkRenderer implements InkRenderer {
     const highlighter = [...this.batches.values()].filter(
       (batch) => batch.highlighter && batch.used > 0,
     );
-    drawSelectedHalo();
     if (highlighter.length > 0) {
       gl.enable(gl.STENCIL_TEST);
       let k = 0;
@@ -715,24 +737,6 @@ export class WebglInkRenderer implements InkRenderer {
       }
       gl.disable(gl.STENCIL_TEST);
       gl.uniform1i(this.coverageUniform, 0);
-    }
-
-    // Then the opaque strokes, straight to the target. A batch with nothing
-    // selected is one draw; otherwise its records go one by one, the selected
-    // ones shifted.
-    for (const batch of this.batches.values()) {
-      if (batch.highlighter || batch.used === 0) continue;
-      if (!selecting || !batch.records.some(isSelected)) {
-        drawn += this.drawBatch(batch);
-      } else {
-        for (const record of batch.records) {
-          const held = isSelected(record);
-          if (held) gl.uniform2f(this.shiftUniform, this.shift.x, this.shift.y);
-          drawn += this.drawBatch(batch, undefined, record.offset, record.count);
-          if (held) gl.uniform2f(this.shiftUniform, 0, 0);
-        }
-      }
-      segments += batch.used;
     }
 
     this.stats = {

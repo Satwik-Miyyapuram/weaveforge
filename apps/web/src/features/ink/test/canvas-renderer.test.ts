@@ -72,7 +72,7 @@ function page(tools: ("pen" | "highlighter")[]) {
   return model;
 }
 
-test("it draws highlighters under pen strokes, one fill each, and the live stroke last", () => {
+test("it draws highlighters over pen strokes, one fill each, and the live stroke last", () => {
   const { canvas, calls, fills } = recordingCanvas();
   const renderer = new CanvasInkRenderer({ canvas });
   const buffer = new InkPageBuffer(page(["highlighter", "pen"]));
@@ -81,9 +81,11 @@ test("it draws highlighters under pen strokes, one fill each, and the live strok
   assert.equal(canvas.width, 800);
   renderer.setStrokes(buffer.allStrokes());
   renderer.draw();
+  // The pen's opaque fill lands first, then the translucent highlighter over
+  // it — the fill order is the paint order on a canvas.
   assert.deepEqual(fills, [
-    cssInkColour("accent", HIGHLIGHTER_ALPHA),
     cssInkColour("text"),
+    cssInkColour("accent", HIGHLIGHTER_ALPHA),
   ]);
   assert.ok(
     calls.some((call) => call.name === "clearRect"),

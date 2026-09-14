@@ -272,8 +272,9 @@ export class CanvasInkRenderer implements InkRenderer {
         context.restore();
       }
     }
-    // Highlighters first at 35 %, then pen strokes over them: the WebGL order.
-    for (const pass of ["highlighter", "pen"] as const) {
+    // Pen strokes first, then highlighters over them at 35 %: the WebGL order,
+    // which is the real highlighter's — it tints what is already on the paper.
+    for (const pass of ["pen", "highlighter"] as const) {
       for (const index of this.order) {
         const stroke = this.strokes.get(index);
         if (!stroke) continue;

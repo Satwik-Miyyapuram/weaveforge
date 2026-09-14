@@ -59,7 +59,7 @@ test("a stroke is one path, round-capped, at its own width and colour", () => {
   assert.match(svg, /stroke="rgb\(255, 0, 0\)"/);
 });
 
-test("a highlighter keeps its alpha and is drawn under the pen", () => {
+test("a highlighter keeps its alpha and is drawn over the pen", () => {
   const svg = inkPageSvg(
     pageWith(
       makeInkStroke({
@@ -73,7 +73,10 @@ test("a highlighter keeps its alpha and is drawn under the pen", () => {
   assert.match(svg, new RegExp(`stroke-opacity="${HIGHLIGHTER_ALPHA}"`));
   const highlighter = svg.indexOf('stroke-opacity="0.35"');
   const pen = svg.indexOf("M30 30L40 40");
-  assert.ok(highlighter >= 0 && pen > highlighter, "the pen draws over the highlighter");
+  // A highlighter tints writing it was laid on: the pen's path is written
+  // first and the tinted band after it, which is what "over" means in SVG
+  // document order.
+  assert.ok(highlighter >= 0 && pen >= 0 && pen < highlighter, "the highlighter draws over the pen");
 });
 
 test("a page with an image embeds it; a page without one has no image", () => {

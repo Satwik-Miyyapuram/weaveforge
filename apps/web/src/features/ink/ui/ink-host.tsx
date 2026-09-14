@@ -90,6 +90,7 @@ import {
 } from "../application/ink-chunk-store";
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import { pdfPageCount } from "../application/pdf-page-raster";
+import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
 import {
   imageFileFromClipboard,
   isPageSource,
@@ -104,6 +105,7 @@ import {
   type RecognisedPage,
 } from "../application/recognise-page";
 import { InkBar, nibForTool, type InkBarTool } from "./ink-bar";
+import { InkGhostPage } from "./ink-ghost-page";
 import { InkPage } from "./ink-page";
 import { InkTextLayer } from "./ink-text-layer";
 import { PNG_EXPORT_SCALE, usePageExport } from "./use-page-export";
@@ -266,14 +268,15 @@ export function InkHost({
   /**
    * A question the host is asking, and the code waiting on the answer.
    *
-   * Both questions are mid-flow — a multi-page PDF has to say which page before
-   * it can be rasterised — so they are held as a promise the asking code awaits,
-   * which keeps the flow linear instead of splitting each one across a state
-   * machine. `null` means the question was dismissed and the flow stops.
+   * Both questions are mid-flow — a multi-page PDF has to say which pages
+   * before it can be rasterised — so they are held as a promise the asking
+   * code awaits, which keeps the flow linear instead of splitting each one
+   * across a state machine. `null` means the question was dismissed and the
+   * flow stops.
    */
   const [pageAsk, setPageAsk] = useState<{
     count: number;
-    resolve: (page: number | null) => void;
+    resolve: (pages: number[] | null) => void;
   } | null>(null);
   /** Whether the "this page already has an image" question is open. */
   const [replaceAsk, setReplaceAsk] = useState(false);
@@ -323,6 +326,59 @@ export function InkHost({
     chunk: null,
     paper: metaRef.current.paper,
   };
+
+  /**
+   * The rail's ghost images: one blob URL per non-live page that has a
+   * background, fetched once and kept until the note closes. A ghost is only
+   * looked at, so a failure costs a blank ghost rather than a broken flow —
+   * the page's image is still on its chunk when the page is reached.
+   */
+  const [ghostImages, setGhostImages] = useState<ReadonlyMap<number, string>>(
+    new Map(),
+  );
+  // The blobs outlive every render: one cleanup for the note's lifetime, not
+  // per page, because a ghost map entry's URL is never re-created.
+  const ghostImagesRef = useRef(ghostImages);
+  ghostImagesRef.current = ghostImages;
+  useEffect(
+    () => () => {
+      for (const url of ghostImagesRef.current.values()) URL.revokeObjectURL(url);
+    },
+    [],
+  );
+  useEffect(() => {
+    let live = true;
+    const missing: [number, string][] = [];
+    for (let index = 0; index < pageCount; index += 1) {
+      if (index === pageIndex) continue;
+      if (ghostImages.has(index)) continue;
+      const path = inkPageBackground(textPagesRef.current[index] ?? "");
+      if (path) missing.push([index, path]);
+    }
+    if (missing.length === 0) return;
+    void Promise.all(
+      missing.map(async ([index, path]) => {
+        try {
+          const blob = await deps.assets.fetchBlob(path);
+          return [index, URL.createObjectURL(blob)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((entries) => {
+      if (!live) return;
+      const next = new Map(ghostImages);
+      for (const entry of entries) if (entry) next.set(entry[0], entry[1]);
+      setGhostImages(next);
+    });
+    return () => {
+      live = false;
+    };
+    // The pages and the active index are what it depends on: the text layer's
+    // own length is `pageCount`, and its per-page paths are stable once a
+    // page has its image.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deps.assets, pageCount, pageIndex]);
 
   /**
    * Client coordinates to page units. The one projection everything shares.
@@ -710,6 +766,67 @@ export function InkHost({
     // was just resized to them.
   }, [pen.backend, scale, send, view, pageSize, pageIndex]);
 
+  /**
+   * The rail's scroll watcher: scrolling past the live page's own slot
+   * reaches for the next or the previous page, which is what makes the note
+   * one continuous scroll rather than a page that must be stepped.
+   *
+   * The trigger is the live sheet's *centre*, not its edge: half a page of
+   * travel, so a stroke that starts near the bottom of one page and continues
+   * onto the ghost below stays on this page until the pen is genuinely past
+   * the middle of the next. And a mid-flight stroke is never interrupted: the
+   * worker is drawing it, and a page change would commit half a word.
+   */
+  const flipAnchor = useRef<{ centerY: number } | null>(null);
+  const flipping = useRef(false);
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const sheet = sheetRef.current;
+    if (!scroller || !sheet || pageCount < 2) return;
+    const onScroll = () => {
+      if (flipping.current) return;
+      if (pen.session.active) return;
+      const scrollerBox = scroller.getBoundingClientRect();
+      const sheetBox = sheet.getBoundingClientRect();
+      // Where the sheet's middle sits in the pane, 0 at the pane's own top.
+      const relative = (sheetBox.top + sheetBox.bottom) / 2 - scrollerBox.top;
+      const towards = Math.sign(scrollerBox.height / 2 - relative);
+      // Half the pane's height of travel before the page flips, and only
+      // when there is a page to flip to.
+      if (Math.abs(scrollerBox.height / 2 - relative) < scrollerBox.height / 2) return;
+      const next = pageIndex + (towards > 0 ? 1 : -1);
+      if (next < 0 || next >= pageCount) return;
+      // The anchor keeps the live page where the scroll left it: the slot it
+      // moves into is the one being looked at, and its own height may differ.
+      flipAnchor.current = { centerY: relative };
+      flipping.current = true;
+      flushSave();
+      setPageIndex(next);
+    };
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, [flushSave, pageCount, pageIndex, pen.session]);
+
+  /**
+   * After a scroll-triggered flip, put the newly-live sheet back where the
+   * scroll was: its slot is the one being looked at, so the sheet's middle
+   * returns to the same band of the pane and the scroll does not jump to the
+   * top of the new page the way a stepped page change does.
+   */
+  useEffect(() => {
+    if (!flipping.current) return;
+    const anchor = flipAnchor.current;
+    const scroller = scrollRef.current;
+    const sheet = sheetRef.current;
+    flipping.current = false;
+    flipAnchor.current = null;
+    if (!anchor || !scroller || !sheet) return;
+    const scrollerBox = scroller.getBoundingClientRect();
+    const sheetBox = sheet.getBoundingClientRect();
+    const relative = (sheetBox.top + sheetBox.bottom) / 2 - scrollerBox.top;
+    scroller.scrollTop += relative - anchor.centerY;
+  }, [pageIndex]);
+
   /** Measure the pane, so the fit is the container's and not a guess. */
   useEffect(() => {
     const element = scrollRef.current;
@@ -972,23 +1089,25 @@ export function InkHost({
   );
 
   /**
-   * Which page of a multi-page PDF to use, as a promise.
+   * Which pages of a multi-page PDF to use, as a promise.
    *
    * The app's own dialog, not `window.prompt`: the system one ignores the theme
-   * and covers the page it is asking about on a phone. `null` is the dismissal,
-   * which every caller treats as "do nothing".
+   * and covers the page it is asking about on a phone. The answer is a list —
+   * "all", or "1,3-5" — so a whole paper can come over as its own pages in
+   * one ask; `null` is the dismissal, which every caller treats as "do
+   * nothing".
    */
-  const askPdfPage = useCallback(
+  const askPdfPages = useCallback(
     (count: number) =>
-      new Promise<number | null>((resolve) => setPageAsk({ count, resolve })),
+      new Promise<number[] | null>((resolve) => setPageAsk({ count, resolve })),
     [],
   );
   /** The answer to the picker's question, and the code waiting on it. */
-  const answerPdfPage = useCallback(
-    (page: number | null) => {
+  const answerPdfPages = useCallback(
+    (pages: number[] | null) => {
       const ask = pageAsk;
       setPageAsk(null);
-      ask?.resolve(page);
+      ask?.resolve(pages);
     },
     [pageAsk],
   );
@@ -1021,9 +1140,12 @@ export function InkHost({
         if (isPdf(file)) {
           const count = await pdfPageCount(await file.arrayBuffer());
           if (count > 1) {
-            const answer = await askPdfPage(count);
-            if (answer === null) return;
-            number = answer;
+            const answer = await askPdfPages(count);
+            // A page image is one page: the first of what was asked, because a
+            // caller that answered a list here was reaching for "insert pages",
+            // not "add an image" — and a dismissal stops the flow.
+            if (answer === null || answer.length === 0) return;
+            number = answer[0]!;
           }
         }
         const png = await pageBackgroundFromFile(file, number);
@@ -1056,7 +1178,7 @@ export function InkHost({
       }
     },
     [
-      askPdfPage,
+      askPdfPages,
       deps.assets,
       inserting,
       noteBody,
@@ -1131,11 +1253,13 @@ export function InkHost({
   );
 
   /**
-   * A PDF's page or an image as a new page (§4.8): laid on an A4 sheet
-   * (the PDF page rasterised with the reader's pdf.js), uploaded to the vault
-   * as this note's attachment, named on the new page's first text-layer line,
-   * mirrored in the chunk header as the attachment index. The page is A4
-   * whatever the source's shape, so the note prints as drawn.
+   * A PDF's pages or an image as new pages (§4.8): each one laid on an A4
+   * sheet (a PDF page rasterised with the reader's pdf.js), uploaded to the
+   * vault as this note's attachment, named on that page's first text-layer
+   * line, mirrored in its chunk header as the attachment index. Every page
+   * becomes a page of its own, in the order the pages were asked for — "all",
+   * or a list like "1,3-5" — so a whole paper comes over in one ask. Each
+   * page is A4 whatever the source's shape, so the note prints as drawn.
    */
   const onInsertPage = useCallback(
     async (file: File) => {
@@ -1147,38 +1271,44 @@ export function InkHost({
       }
       setInserting(true);
       try {
-        let number = 1;
+        let numbers = [1];
         if (isPdf(file)) {
           const count = await pdfPageCount(await file.arrayBuffer());
           if (count > 1) {
-            const answer = await askPdfPage(count);
-            if (answer === null) return;
-            number = answer;
+            const answer = await askPdfPages(count);
+            if (answer === null || answer.length === 0) return;
+            numbers = answer;
           }
         }
-        const png = await pageBackgroundFromFile(file, number);
-        const path = await deps.assets.upload(noteId, png, "png");
+        // One page per import: rasterised, uploaded, its own chunk and its own
+        // first text-layer line. The attachment index counts the body, so the
+        // text layer grows before each index is read — which is what makes a
+        // later page's index different from an earlier one's.
         const size = clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT);
-        const text = withInkPageBackground("", path);
-        const nextTextPages = [...textPagesRef.current, text];
-        const body = writeInkNoteBody(
-          metaRef.current,
-          joinInkTextLayer(nextTextPages),
-        );
-        const chunkId = newInkChunkId();
-        const chunk = await encodeInkChunk({
-          ...blankInkPage(metaRef.current.paper),
-          width: size.width,
-          height: size.height,
-          background: inkAttachmentIndex(body, path),
-        });
-        await deps.chunks.write(noteId, chunkId, chunk);
-        flushSave();
-        pages.push({ chunkId, chunk, paper: metaRef.current.paper });
-        textPagesRef.current = nextTextPages;
-        setPageCount(pages.length);
-        setPageIndex(pages.length - 1);
-        await saveBody();
+        for (const number of numbers) {
+          const png = await pageBackgroundFromFile(file, number);
+          const path = await deps.assets.upload(noteId, png, "png");
+          const text = withInkPageBackground("", path);
+          const nextTextPages = [...textPagesRef.current, text];
+          const body = writeInkNoteBody(
+            metaRef.current,
+            joinInkTextLayer(nextTextPages),
+          );
+          const chunkId = newInkChunkId();
+          const chunk = await encodeInkChunk({
+            ...blankInkPage(metaRef.current.paper),
+            width: size.width,
+            height: size.height,
+            background: inkAttachmentIndex(body, path),
+          });
+          await deps.chunks.write(noteId, chunkId, chunk);
+          flushSave();
+          pages.push({ chunkId, chunk, paper: metaRef.current.paper });
+          textPagesRef.current = nextTextPages;
+          setPageCount(pages.length);
+          setPageIndex(pages.length - 1);
+          await saveBody();
+        }
       } catch (error) {
         setUnavailable(
           `The page could not be inserted: ${error instanceof Error ? error.message : String(error)}`,
@@ -1187,7 +1317,7 @@ export function InkHost({
         setInserting(false);
       }
     },
-    [askPdfPage, deps.assets, deps.chunks, flushSave, inserting, noteId, saveBody],
+    [askPdfPages, deps.assets, deps.chunks, flushSave, inserting, noteId, saveBody],
   );
 
   const onLasso = useCallback(
@@ -1480,6 +1610,24 @@ export function InkHost({
         onCopyAsText={() => void onCopyAsText()}
       />
       <div className="ink-page-scroll" ref={scrollRef}>
+        {/*
+          The rail: every page of the note in one column, so the note is one
+          scroll rather than a step. Only the page being written on is live —
+          its canvas and its worker — and the ghosts above and below it are
+          inert boxes of the page's own size, paper and background image, so
+          the scroll lands where the next page will be. Reaching a ghost is
+          what flips the note to it (the scroll watcher above).
+        */}
+        {Array.from({ length: pageIndex }, (_, index) => (
+          <InkGhostPage
+            key={`ghost-${index}`}
+            index={index}
+            pageSize={pageSize}
+            scale={scale}
+            paper={pagesRef.current?.[index]?.paper ?? page.paper}
+            backgroundUrl={ghostImages.get(index) ?? null}
+          />
+        ))}
         <InkPage
           pageIndex={pageIndex}
           pageSize={pageSize}
@@ -1504,6 +1652,19 @@ export function InkHost({
           // a new page: the sheet is the page the user is pointing at.
           onDropFile={(file) => void onSetPageBackground(file)}
         />
+        {Array.from({ length: Math.max(0, pageCount - pageIndex - 1) }, (_, i) => {
+          const index = pageIndex + 1 + i;
+          return (
+            <InkGhostPage
+              key={`ghost-${index}`}
+              index={index}
+              pageSize={pageSize}
+              scale={scale}
+              paper={pagesRef.current?.[index]?.paper ?? page.paper}
+              backgroundUrl={ghostImages.get(index) ?? null}
+            />
+          );
+        })}
       </div>
       <InkTextLayer
         lines={lines}
@@ -1527,20 +1688,14 @@ export function InkHost({
       ) : null}
       {pageAsk ? (
         <PromptDialog
-          title="Which page?"
-          body={`This PDF has ${pageAsk.count} pages. Only the page you name is used.`}
-          label="Page number"
-          initialValue="1"
-          inputType="number"
-          confirmLabel="Use this page"
-          validate={(value) => {
-            const page = Number.parseInt(value, 10);
-            return Number.isFinite(page) && page >= 1 && page <= pageAsk.count
-              ? null
-              : `Enter a page between 1 and ${pageAsk.count}.`;
-          }}
-          onConfirm={(value) => answerPdfPage(Number.parseInt(value, 10))}
-          onClose={() => answerPdfPage(null)}
+          title="Which pages?"
+          body={`This PDF has ${pageAsk.count} pages. Each one imported becomes a page of its own.`}
+          label="Pages (a number, a list like 1,3-5, or all)"
+          initialValue="all"
+          confirmLabel="Import these pages"
+          validate={(value) => pageListProblem(value, pageAsk.count)}
+          onConfirm={(value) => answerPdfPages(selectedPdfPages(value, pageAsk.count))}
+          onClose={() => answerPdfPages(null)}
         />
       ) : null}
     </div>

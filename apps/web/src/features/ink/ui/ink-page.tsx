@@ -18,6 +18,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
+import { isPenEraserPointer } from "../application/eraser-tip";
 import type { InkBarTool } from "./ink-bar";
 
 export interface InkPageProps {
@@ -255,10 +256,17 @@ export function InkPage({
     [],
   );
 
+  const erasing = useRef(false);
+
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchDown(event)) return;
-      if (tool === "eraser") {
+      // The pen's back tip erases whatever the bar says (eraser-tip.ts): the
+      // decision is made once, here, and the sweep keeps it to the end.
+      const erase =
+        tool === "eraser" || (tool !== "lasso" && isPenEraserPointer(event));
+      erasing.current = erase;
+      if (erase) {
         const at = project(event.clientX, event.clientY);
         if (!at) return;
         lastErase.current = at;
@@ -297,7 +305,7 @@ export function InkPage({
   const onPointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchMove(event)) return;
-      if (tool === "eraser") {
+      if (erasing.current) {
         if (!lastErase.current) return;
         event.preventDefault();
         const at = project(event.clientX, event.clientY);
@@ -342,7 +350,8 @@ export function InkPage({
   const onPointerUp = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchUp(event)) return;
-      if (tool === "eraser") {
+      if (erasing.current) {
+        erasing.current = false;
         lastErase.current = null;
         releasePointer(event);
         return;

@@ -1637,6 +1637,34 @@
   background-size: 100% 24px;
 }
 
+/*
+ * The rail's ghosts: the page above and below the live one, in a continuous
+ * scroll. A ghost is the sheet's own paper and image with none of the
+ * machinery — inert, dimmed a hair so the eye finds the writing page, and
+ * showing its number where a tab would.
+ */
+.ink-ghost {
+  display: flex;
+}
+.ink-ghost .ink-ghost-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+.ink-ghost .ink-ghost-label {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 10px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
 .ink-text {
   min-height: 0;
   overflow-y: auto;

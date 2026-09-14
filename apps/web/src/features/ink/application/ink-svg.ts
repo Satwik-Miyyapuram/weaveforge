@@ -94,9 +94,10 @@ export function inkPageSvg(page: InkPage, options: InkSvgOptions = {}): string {
     );
   }
 
-  // The highlighter first, so the pen reads over it — the same order the
-  // renderers draw in, and the same reason.
-  for (const pass of ["highlighter", "pen"] as const) {
+  // The pen first, the highlighter over it — the same order the renderers
+  // draw in, and the same reason: a highlighter tints writing it was laid
+  // on, and the pen stays legible through the tint.
+  for (const pass of ["pen", "highlighter"] as const) {
     const group: string[] = [];
     for (const stroke of page.strokes ?? []) {
       const highlighter = stroke.tool === "highlighter";
