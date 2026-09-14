@@ -23,6 +23,13 @@
 .vault-backlinks__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .vault-backlinks__list .link-btn { padding: 4px 0; text-align: left; color: var(--accent); }
 .markdown .md-image { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; }
+/* A figure's column placement (§markdown-figure-alt): the image is content
+   the text wraps around, which float is, and a centered one stands alone
+   between its margins the way a figure in a book does. A crop is clip-path,
+   set inline with the width, and needs no rule here. */
+.markdown img.md-figure-left { float: left; margin: 6px 16px 8px 0; }
+.markdown img.md-figure-right { float: right; margin: 6px 0 8px 16px; }
+.markdown img.md-figure-center { display: block; margin: 10px auto; float: none; }
 .markdown .math-display { overflow-x: auto; margin: 12px 0; padding: 4px 0; }
 .markdown blockquote { margin: 10px 0; padding: 4px 12px; border-left: 3px solid var(--line); color: var(--muted); }
 /* Obsidian-style callouts: [!note] / [!warning] / [!tip] etc. */

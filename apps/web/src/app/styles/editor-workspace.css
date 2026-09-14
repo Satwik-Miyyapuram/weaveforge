@@ -910,6 +910,31 @@
   text-align: end;
 }
 
+/* The sides and the crop: the two placements a slider cannot say. The sides
+   are one of three, so buttons; the crop is four numbers, so typed — the
+   mouse cannot tell a 3% inset from a 4% one and a number can. */
+.image-size-sides {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px;
+}
+.image-size-side.is-on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.image-size-crop {
+  width: 7rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--elev);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
 .workspace-error {
   grid-column: 1 / -1;
   padding: 0.4rem 0.75rem;

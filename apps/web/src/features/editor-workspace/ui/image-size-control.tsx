@@ -2,28 +2,34 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
-import { setImageWidth } from "@/lib/markdown-image-width";
+import {
+  parseImagePlacement,
+  setImagePlacement,
+} from "@/lib/markdown-image-width";
+import type { MdAlign, MdCrop } from "@/lib/markdown-figure-alt";
 
 /**
- * Resizing a picture from the read view.
+ * Placing a picture from the read view.
  *
  * A click on a rendered image opens a small control under it: a slider for
- * the width as a share of the column, and a reset. The slider previews on the
- * image itself as it moves and writes `![alt|NN%](…)` into the source when it
- * is let go — the same suffix the renderer reads, so the picture stays that
- * size in every view and in any other tool that reads the note.
+ * the width as a share of the column, buttons for its side, and a crop as
+ * four typed insets. The slider previews on the image itself as it moves; a
+ * side moves it at once; a crop previews when its four numbers parse. Every
+ * change writes `![alt left c=0,0,10,10|NN%]` into the source in one write —
+ * the same tokens the renderer reads, so the picture keeps its placement in
+ * every view and in any other tool that reads the note.
  *
- * Which reference to rewrite is found by alt text and position, because by the
- * time a picture is on screen its target is a blob URL that says nothing about
- * the markdown behind it (`markdown-image-width.ts`).
+ * Which reference to rewrite is found by alt text and position, because by
+ * the time a picture is on screen its target is a blob URL that says nothing
+ * about the markdown behind it (`markdown-image-width.ts`).
  */
 
 interface Target {
   img: HTMLImageElement;
   alt: string;
   ordinal: number;
-  /** The width the slider started at, so Escape can put it back. */
-  initial: number;
+  /** The placement the control started at, so Escape can put it back. */
+  placement: { crop?: MdCrop; align?: MdAlign; initial: number };
 }
 
 /** A percentage from an image's current rendered width against its column. */
@@ -45,11 +51,16 @@ export function ImageSizeControl({
 }) {
   const [target, setTarget] = useState<Target | null>(null);
   const [percent, setPercent] = useState(100);
+  const [cropText, setCropText] = useState("");
   const hostRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback((restore: boolean) => {
     setTarget((current) => {
-      if (current && restore) current.img.style.width = current.initial < 100 ? `${current.initial}%` : "";
+      if (current && restore) {
+        current.img.style.width =
+          current.placement.initial < 100 ? `${current.placement.initial}%` : "";
+        current.img.style.clipPath = "";
+      }
       return null;
     });
   }, []);
@@ -69,10 +80,24 @@ export function ImageSizeControl({
       ).filter((img) => (img.dataset.mdAlt ?? img.alt) === alt);
       const ordinal = siblings.indexOf(el);
       const initial = currentPercent(el);
-      setTarget({ img: el, alt, ordinal, initial });
+      // The placement the source carries, read back out of the body the way
+      // the renderer read it: the alt as the source wrote it.
+      const raw = rawAltFor(body, alt, ordinal);
+      const parsed = raw ? parseImagePlacement(raw) : { alt };
+      setTarget({
+        img: el,
+        alt,
+        ordinal,
+        placement: {
+          crop: parsed.crop,
+          align: parsed.align,
+          initial,
+        },
+      });
       setPercent(initial);
+      setCropText(parsed.crop ? parsed.crop.join(", ") : "");
     },
-    [close, onSave],
+    [body, close, onSave],
   );
 
   // Escape puts the picture back; a body change from elsewhere drops a stale
@@ -95,12 +120,47 @@ export function ImageSizeControl({
     if (target) target.img.style.width = `${next}%`;
   };
 
-  const commit = (next: number | null) => {
+  /** A crop preview: the clip-path the renderer writes, live on the picture. */
+  const previewCrop = (text: string) => {
+    setCropText(text);
+    if (!target) return;
+    const parts = text.split(",").map((part) => Number(part.trim()));
+    if (
+      parts.length !== 4 ||
+      parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)
+    ) {
+      target.img.style.clipPath = "";
+      return;
+    }
+    target.img.style.clipPath = `inset(${parts[1]}% ${parts[2]}% ${parts[3]}% ${parts[0]}%)`;
+  };
+
+  const commit = (next: {
+    width?: number | null;
+    crop?: MdCrop | null;
+    align?: MdAlign | null;
+  }) => {
     if (!target || !onSave) return;
-    const width = next === null || next >= 100 ? null : `${next}%`;
-    const rewritten = setImageWidth(body, target.alt, target.ordinal, width);
+    const width =
+      next.width === undefined
+        ? target.placement.initial < 100
+          ? `${percent}%`
+          : null
+        : next.width === null || next.width >= 100
+          ? null
+          : `${next.width}%`;
+    const crop =
+      next.crop !== undefined
+        ? next.crop
+        : (cropParts(cropText) as MdCrop | null);
+    const rewritten = setImagePlacement(body, target.alt, target.ordinal, {
+      crop,
+      align: next.align !== undefined ? next.align : target.placement.align ?? null,
+      width,
+    });
     if (rewritten !== body) void onSave(rewritten);
-    if (next === null) target.img.style.width = "";
+    if (!crop) target.img.style.clipPath = "";
+    if (!width || width === "100%") target.img.style.width = "";
     setTarget(null);
   };
 
@@ -127,18 +187,73 @@ export function ImageSizeControl({
               value={percent}
               aria-label="Image width, percent of column"
               onChange={(event) => preview(Number(event.target.value))}
-              onPointerUp={() => commit(percent)}
+              onPointerUp={() => commit({})}
               onKeyUp={(event) => {
-                if (event.key === "Enter") commit(percent);
+                if (event.key === "Enter") commit({});
               }}
             />
             <span className="image-size-value">{percent}%</span>
           </label>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => commit(null)}>
+          <div className="image-size-sides" role="group" aria-label="Image side">
+            {(["left", "center", "right"] as const).map((side) => (
+              <button
+                key={side}
+                type="button"
+                className={`btn btn-ghost btn-sm image-size-side${
+                  target.placement.align === side ? " is-on" : ""
+                }`}
+                onClick={() => commit({ align: side })}
+              >
+                {side}
+              </button>
+            ))}
+          </div>
+          <label className="image-size-label">
+            Crop
+            <input
+              type="text"
+              className="image-size-crop"
+              value={cropText}
+              placeholder="l, t, r, b"
+              aria-label="Crop, percentages off each edge: left, top, right, bottom"
+              onChange={(event) => previewCrop(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commit({ crop: cropParts(cropText) as MdCrop | null });
+                }
+              }}
+              onBlur={() => previewCrop(cropText)}
+            />
+          </label>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => commit({ width: null, crop: null, align: null })}>
             Reset
           </button>
         </div>
       ) : null}
     </div>
   );
+}
+
+/** The alt text of the `ordinal`-th image whose bare alt is `alt`, as written. */
+function rawAltFor(body: string, alt: string, ordinal: number): string | null {
+  let seen = 0;
+  for (const match of body.matchAll(/!\[([^\]]*)\]\(([^\s)]+)\)/g)) {
+    const raw = match[1] ?? "";
+    if (parseImagePlacement(raw).alt !== alt) continue;
+    if (seen++ === ordinal) return raw;
+  }
+  return null;
+}
+
+/** Four crop insets out of the text field, or `null` when they do not parse. */
+function cropParts(text: string): [number, number, number, number] | null {
+  const parts = text.split(",").map((part) => Math.round(Number(part.trim())));
+  if (
+    parts.length !== 4 ||
+    parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)
+  ) {
+    return null;
+  }
+  return parts as [number, number, number, number];
 }

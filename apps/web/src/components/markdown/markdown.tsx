@@ -1,5 +1,5 @@
 import { renderToString } from "katex";
-import { parseImageAlt } from "@/lib/markdown-image-width";
+import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
 
 /**
  * Minimal markdown-to-HTML for prose blocks (headings, lists, inline). Fenced
@@ -69,15 +69,27 @@ function formatText(s: string): string {
       /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
       (_m, rawAlt: string, src: string) => {
         // Captures here are already HTML-escaped; only quote-escape for attrs.
-        // A `|50%` suffix on the alt is a display width, not a description
-        // (see `markdown-image-width.ts`); it becomes a style and the bare alt
-        // is kept on a data attribute so the read view's resize control can
-        // find the reference it came from.
-        const { alt, width } = parseImageAlt(rawAlt);
+        // A `|50%` suffix on the alt is a display width, `c=` a crop and a
+        // trailing `left|right|center` a column placement
+        // (§markdown-figure-alt) — all placement, not description, so they
+        // become style and class while the bare alt is kept on a data
+        // attribute for the read view's image control to find the
+        // reference they came from.
+        const { alt, width, crop, align } = parseMdImageAlt(rawAlt);
         const safeAlt = alt.replace(/"/g, "&quot;");
         const safeSrc = src.replace(/"/g, "&quot;");
-        const style = width ? ` style="width:${width}"` : "";
-        return `<img src="${safeSrc}" alt="${safeAlt}" data-md-alt="${safeAlt}" class="md-image" loading="lazy"${style} />`;
+        const styles: string[] = [];
+        if (width) styles.push(`width:${width}`);
+        // A crop as CSS: the image keeps its box and the clipped edges fall
+        // outside it, which is what an inset clip-path does — geometry, not
+        // bytes (the ink figure renders the same idea with a wrapper, because
+        // a page's figure is a positioned box; text needs no wrapper).
+        if (crop) {
+          styles.push(`clip-path:inset(${crop[1]}% ${crop[2]}% ${crop[3]}% ${crop[0]}%)`);
+        }
+        const style = styles.length ? ` style="${styles.join(";")}"` : "";
+        const alignClass = align ? ` md-figure-${align}` : "";
+        return `<img src="${safeSrc}" alt="${safeAlt}" data-md-alt="${safeAlt}" class="md-image${alignClass}" loading="lazy"${style} />`;
       },
     )
     .replace(
