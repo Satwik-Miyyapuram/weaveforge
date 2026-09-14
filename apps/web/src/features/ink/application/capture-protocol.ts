@@ -110,8 +110,13 @@ export type InkWorkerMessage =
   /** Undo or redo one erase, by the stroke indices it took. */
   | { type: "undo" }
   | { type: "redo" }
-  /** Render the page to a PNG at `scale`. */
-  | { type: "export-page"; requestId: number; scale: number }
+  /**
+   * Render the page to a PNG at `scale`. `transparent` omits the sheet of
+   * white behind the ink: the caller is composing the page over the paper
+   * itself — figures first, then this — because figures are DOM the worker
+   * does not know about.
+   */
+  | { type: "export-page"; requestId: number; scale: number; transparent?: boolean }
   /**
    * The current page's background image — an inserted PDF page's raster
    * (§4.8) — or `null` for none. Sent by the host after every `load-page`,

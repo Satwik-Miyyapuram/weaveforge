@@ -107,3 +107,42 @@ test("a title with markup in it cannot escape its element", () => {
   assert.match(svg, /<title>a&lt;b &amp; &quot;c&quot;<\/title>/);
 });
 
+test("figures embed under the strokes, and a crop clips rather than stretches", () => {
+  const page = pageWith(
+    makeInkStroke({ points: [10, 10, 20, 20], pressures: [] }),
+  );
+  const svg = inkPageSvg(page, {
+    figures: [
+      { path: "a.png", x: 100, y: 200, w: 500, h: 400, dataUrl: "data:image/webp;base64,AAAA" },
+      {
+        path: "b.png",
+        x: 700,
+        y: 200,
+        w: 500,
+        h: 400,
+        crop: [10, 0, 10, 0],
+        dataUrl: "data:image/webp;base64,BBBB",
+      },
+    ],
+  });
+  // Both figures are embedded as data URLs, never links.
+  assert.match(svg, /xlink:href="data:image\/webp;base64,AAAA"/);
+  assert.match(svg, /xlink:href="data:image\/webp;base64,BBBB"/);
+  // An uncropped figure is drawn at exactly its own box.
+  assert.match(
+    svg,
+    /<image x="100" y="200" width="500" height="400" preserveAspectRatio="none"/,
+  );
+  // A cropped figure is enlarged into a clip: keepX = 0.8, so a 500-unit box
+  // draws 625 wide and sits 62.5 left of the box — the crop shows the middle.
+  assert.match(svg, /<image x="637.5" y="200" width="625" height="400"/);
+  assert.match(
+    svg,
+    /<clipPath id="figure-clip-700-200-500-400"><rect x="700" y="200" width="500" height="400"/,
+  );
+  // The writing goes over the pasted photo, as on the sheet.
+  const figure = svg.indexOf("<image x=");
+  const stroke = svg.indexOf("<path ");
+  assert.ok(figure >= 0 && stroke > figure, "the strokes are written over the figures");
+});
+

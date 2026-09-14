@@ -105,6 +105,16 @@ export {
 } from "./ink-note.js";
 
 export {
+  FIGURE_ALT,
+  type FigureGeometry,
+  parseFigureTokens,
+  formatFigureTokens,
+  inkPageFigures,
+  withInkPageFigures,
+  figureAltFor,
+} from "./figure.js";
+
+export {
   INK_CHUNK_MAGIC,
   INK_CHUNK_VERSION,
   INK_CHUNK_FLAG_COMPRESSED,

@@ -187,7 +187,7 @@ export class CanvasInkRenderer implements InkRenderer {
     this.paint(context, this.transform, this.width, this.height, false);
   }
 
-  async capture(scale: number): Promise<Blob | null> {
+  async capture(scale: number, transparent = false): Promise<Blob | null> {
     const width = Math.max(1, Math.round(this.pageWidth * scale));
     const height = Math.max(1, Math.round(this.pageHeight * scale));
     const target = this.createCanvas(width, height);
@@ -198,7 +198,9 @@ export class CanvasInkRenderer implements InkRenderer {
       { scale, offsetX: 0, offsetY: 0, devicePixelRatio: 1 },
       width,
       height,
-      true,
+      // White paper behind the ink, unless the caller is composing the page
+      // over the paper itself (figures first, then this).
+      !transparent,
     );
     return target.convertToBlob({ type: "image/png" });
   }

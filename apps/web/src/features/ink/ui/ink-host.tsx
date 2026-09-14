@@ -38,7 +38,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PromptDialog } from "@/components/prompt-dialog";
 import {
   INK_A4_HEIGHT,
@@ -49,12 +48,15 @@ import {
   encodeInkChunk,
   inkAttachmentIndex,
   inkPageBackground,
+  inkPageFigures,
   joinInkTextLayer,
   newInkChunkId,
   readInkNoteBody,
   splitInkTextLayer,
   withInkPageBackground,
+  withInkPageFigures,
   writeInkNoteBody,
+  type FigureGeometry,
   type InkColour,
   type InkHand,
   type InkNoteMeta,
@@ -92,7 +94,9 @@ import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import { pdfPageCount } from "../application/pdf-page-raster";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
 import {
+  figureImageFromFile,
   imageFileFromClipboard,
+  imageSize,
   isPageSource,
   isPdf,
   pageBackgroundFromFile,
@@ -105,6 +109,11 @@ import {
   type RecognisedPage,
 } from "../application/recognise-page";
 import { InkBar, nibForTool, type InkBarTool } from "./ink-bar";
+import {
+  InkFigures,
+  InkFigureControls,
+  figureBoxForAspect,
+} from "./ink-figures";
 import { InkGhostPage } from "./ink-ghost-page";
 import { InkPage } from "./ink-page";
 import { InkTextLayer } from "./ink-text-layer";
@@ -257,14 +266,8 @@ export function InkHost({
   });
   /** What the file input is for: a PDF whose page becomes a new page here. */
   const pdfInputRef = useRef<HTMLInputElement>(null);
-  /**
-   * What the second file input is for: an image for a page (§4.8) — the one
-   * being looked at, or a page of its own when the one being looked at already
-   * has an image and the user asked to keep it.
-   */
+  /** What the second file input is for: an image for this page, as a figure. */
   const imageInputRef = useRef<HTMLInputElement>(null);
-  /** The answer that picker is waiting for: this page, or one of its own. */
-  const imageTargetRef = useRef<"current" | "new">("current");
   /**
    * A question the host is asking, and the code waiting on the answer.
    *
@@ -278,8 +281,6 @@ export function InkHost({
     count: number;
     resolve: (pages: number[] | null) => void;
   } | null>(null);
-  /** Whether the "this page already has an image" question is open. */
-  const [replaceAsk, setReplaceAsk] = useState(false);
   /**
    * The pane, focused on a pointer-down. A `paste` goes to the focused element
    * and a canvas is not one, so the wrap takes focus itself — which is also
@@ -560,11 +561,11 @@ export function InkHost({
     });
   }, [send]);
   const requestExport = useCallback(
-    (scale: number = PNG_EXPORT_SCALE) => {
+    (scale: number = PNG_EXPORT_SCALE, transparent = false) => {
       return new Promise<Blob | null>((resolve) => {
         const requestId = ++requestSeq.current;
         pendingExport.current.set(requestId, resolve);
-        send({ type: "export-page", requestId, scale });
+        send({ type: "export-page", requestId, scale, transparent });
       });
     },
     [send],
@@ -637,6 +638,37 @@ export function InkHost({
   }, [deps.chunks, noteId]);
 
   /**
+   * The figures on the page being looked at (§figure): images placed on the
+   * paper, as many as wanted, moved and resized by hand. The text layer is
+   * the model — `withInkPageFigures` reads and writes the block — and this
+   * state is only its mirror for rendering, kept in step on every page change
+   * and every drag's end.
+   */
+  const [figures, setFigures] = useState<readonly FigureGeometry[]>([]);
+  const [figureUrls, setFigureUrls] = useState<ReadonlyMap<string, string>>(
+    new Map(),
+  );
+  const figuresRef = useRef<readonly FigureGeometry[]>([]);
+  figuresRef.current = figures;
+  /**
+   * The figure whose controls are open, by index into `figures` — `null`
+   * when none are. The controls are the only figure DOM above the canvas,
+   * because they are the only part that takes its own pointer events.
+   */
+  const [figureControls, setFigureControls] = useState<number | null>(null);
+
+  /** A figure's placement changed: write the block back and save. */
+  const onFiguresChange = useCallback(
+    (next: readonly FigureGeometry[]) => {
+      setFigures(next);
+      const text = textPagesRef.current[pageIndexRef.current] ?? "";
+      textPagesRef.current[pageIndexRef.current] = withInkPageFigures(text, next);
+      scheduleSave();
+    },
+    [scheduleSave],
+  );
+
+  /**
    * The page's background (§4.8): the attachment its text layer names on its
    * first line, fetched and decoded here, handed to the worker as a bitmap.
    * The worker draws it under the strokes on screen and in an export, and is
@@ -669,6 +701,20 @@ export function InkHost({
     };
     // `pageCount` is in the list so the effect runs once the sidecar has answered.
   }, [deps.assets, noteBody, pageCount, pageIndex, send]);
+
+  /**
+   * The page's figures, read out of its text layer when the page changes
+   * (§figure). The text layer is the model; this state is the render's copy,
+   * replaced wholesale on a page change and written back by
+   * `onFiguresChange` on every drag's end — never edited in place, so the two
+   * cannot drift apart.
+   */
+  useEffect(() => {
+    setFigures(inkPageFigures(textPagesRef.current[pageIndex] ?? ""));
+    // The controls belong to a figure of *this* page; its index is not one
+    // of the next page's, so the page change closes them.
+    setFigureControls(null);
+  }, [pageIndex]);
 
   /**
    * Tell the worker which page we are on, hand it the bytes, and read its line
@@ -946,10 +992,12 @@ export function InkHost({
     (result: RecognisedPage, replace: boolean) => {
       if (replace) send({ type: "replace-page", page: result.page });
       setRecognised(result);
-      // Recognition replaces the page's text; the background line is the host's.
-      textPagesRef.current[pageIndex] = withInkPageBackground(
-        result.text,
-        inkPageBackground(textPagesRef.current[pageIndex] ?? ""),
+      // Recognition replaces the page's text; the background line and the
+      // figures are the host's, so both are re-applied over the new text.
+      const was = textPagesRef.current[pageIndex] ?? "";
+      textPagesRef.current[pageIndex] = withInkPageFigures(
+        withInkPageBackground(result.text, inkPageBackground(was)),
+        inkPageFigures(was),
       );
       metaRef.current = {
         ...metaRef.current,
@@ -1015,6 +1063,7 @@ export function InkHost({
     noteId,
     pageIndex,
     textPages: textPagesRef,
+    pageSize,
     palette,
     fetchBlob: deps.assets.fetchBlob,
   });
@@ -1215,41 +1264,107 @@ export function InkHost({
   );
 
   /**
-   * The bar's image button: pick a file, for this page or for a new one.
-   *
-   * A page has one background (§4.8), so a page that already has one asks
-   * first: replacing is what the button is for, and a page of its own is the
-   * answer that loses nothing. The answer is read in the input's handler, which
-   * is the only place it has to survive.
+   * The figures' images, fetched once per path. A blob URL per figure path is
+   * kept for the page being looked at; ghosts and other pages fetch their own
+   * when they are looked at, and a URL already here is not fetched again.
    */
-  const onAddImageToCurrentPage = useCallback(() => {
-    if (backgroundPath) {
-      setReplaceAsk(true);
-      return;
-    }
-    imageTargetRef.current = "current";
-    imageInputRef.current?.click();
-  }, [backgroundPath]);
+  useEffect(() => {
+    let live = true;
+    const missing = [...new Set(figures.map((figure) => figure.path))].filter(
+      (path) => !figureUrls.has(path),
+    );
+    if (missing.length === 0) return;
+    void Promise.all(
+      missing.map(async (path) => {
+        try {
+          const blob = await deps.assets.fetchBlob(path);
+          return [path, URL.createObjectURL(blob)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((entries) => {
+      if (!live) return;
+      const next = new Map(figureUrls);
+      for (const entry of entries) if (entry) next.set(entry[0], entry[1]);
+      setFigureUrls(next);
+    });
+    return () => {
+      live = false;
+    };
+    // The URLs themselves are what has been fetched; only new paths matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deps.assets, figures]);
 
-  /** The answer to that question: replace this page's image, or make a page. */
-  const answerReplace = useCallback((replace: boolean) => {
-    setReplaceAsk(false);
-    imageTargetRef.current = replace ? "current" : "new";
+  /**
+   * Put an image on the page as a figure: a placed box, not the page's
+   * background. Any number may sit on one page — that is the point — and the
+   * first box is the image's own aspect at half the page's width, centred:
+   * the drop or the paste lands wherever the pointer was, and the bar's button
+   * lands in the middle.
+   *
+   * A PDF still goes to the background, because a PDF's raster *is* a page;
+   * an image is content on one.
+   */
+  const onAddFigure = useCallback(
+    async (file: File, at?: { x: number; y: number }) => {
+      if (isPdf(file)) {
+        void onSetPageBackground(file);
+        return;
+      }
+      if (!isPageSource(file)) {
+        setUnavailable(`${file.name} is not a PDF or an image.`);
+        return;
+      }
+      setInserting(true);
+      try {
+        const [attachment, size] = await Promise.all([
+          figureImageFromFile(file),
+          imageSize(file),
+        ]);
+        // The extension follows the bytes: WebP where the browser made one,
+        // PNG where it answered with one, never a name the bytes contradict.
+        const path = await deps.assets.upload(
+          noteId,
+          attachment.blob,
+          attachment.ext,
+        );
+        const box = figureBoxForAspect(
+          size.width / Math.max(1, size.height),
+          at ?? { x: pageSize.width / 2, y: pageSize.height / 2 },
+          pageSize,
+        );
+        const next = [...figuresRef.current, { ...box, path }];
+        onFiguresChange(next);
+      } catch (error) {
+        setUnavailable(
+          `The image could not be added: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        setInserting(false);
+      }
+    },
+    [
+      deps.assets,
+      noteId,
+      onFiguresChange,
+      onSetPageBackground,
+      pageSize,
+      setUnavailable,
+    ],
+  );
+
+  /** The bar's image button: a figure, of which a page may hold any number. */
+  const onAddImageToCurrentPage = useCallback(() => {
     imageInputRef.current?.click();
   }, []);
 
-  /** The file the image picker produced, on the page the button chose. */
+  /** The file the image picker produced: a figure on the page it was picked for. */
   const onImageFile = useCallback(
     (file: File) => {
-      if (imageTargetRef.current === "new") {
-        // The page is made first, so the note's order and the text layer grow
-        // together and the image lands on the page it made.
-        void onSetPageBackground(file, appendPage());
-        return;
-      }
-      void onSetPageBackground(file);
+      void onAddFigure(file);
     },
-    [appendPage, onSetPageBackground],
+    [onAddFigure],
   );
 
   /**
@@ -1502,6 +1617,9 @@ export function InkHost({
    * away from here — text pasted there carries no image item, and the active
    * element is not inside this pane. A field inside this pane — a correction in
    * the text column — is the user pasting *text*, and keeps its own paste.
+   *
+   * An image pastes as a figure: a pasted screenshot is content on the page,
+   * not the page, and a page may already have figures worth keeping.
    */
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
@@ -1516,11 +1634,11 @@ export function InkHost({
       const file = imageFileFromClipboard(event.clipboardData);
       if (!file) return;
       event.preventDefault();
-      void onSetPageBackground(file);
+      void onAddFigure(file);
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [onSetPageBackground]);
+  }, [onAddFigure]);
 
   const lines: readonly RecognisedLine[] = recognised?.lines ?? [];
   const confidence = recognised?.confidence ?? 0;
@@ -1648,10 +1766,52 @@ export function InkHost({
           penSeen={pen.penSeen}
           onPan={onPan}
           onPinch={onPinch}
-          // A file dropped on the sheet is an image for the page under it, not
-          // a new page: the sheet is the page the user is pointing at.
-          onDropFile={(file) => void onSetPageBackground(file)}
+          // A file dropped on the sheet lands where it was dropped: an image
+          // becomes a figure at the pointer, a PDF still becomes the page's
+          // background, because its raster is a page.
+          onDropFile={(file, at) => void onAddFigure(file, at ?? undefined)}
+          figures={figures}
+          onFigureChange={(index, geometry) => {
+            // The surface reports a placement; the text layer is the model.
+            const next = figuresRef.current.map((one, i) =>
+              i === index ? { ...one, ...geometry } : one,
+            );
+            onFiguresChange(next);
+          }}
+          onFigureActivate={(index) => setFigureControls(index)}
+          below={
+            <InkFigures
+              figures={figures}
+              scale={scale}
+              imageUrls={figureUrls}
+              activeIndex={figureControls}
+            />
+          }
         />
+        {figureControls !== null && figures[figureControls] ? (
+          <InkFigureControls
+            figure={figures[figureControls]}
+            box={{
+              left: figures[figureControls].x * scale,
+              top: figures[figureControls].y * scale,
+              width: figures[figureControls].w * scale,
+              height: figures[figureControls].h * scale,
+            }}
+            onCrop={(crop) => {
+              const next = figuresRef.current.map((one, i) =>
+                i === figureControls ? { ...one, crop } : one,
+              );
+              onFiguresChange(next);
+            }}
+            onRemove={() => {
+              onFiguresChange(
+                figuresRef.current.filter((_, i) => i !== figureControls),
+              );
+              setFigureControls(null);
+            }}
+            onClose={() => setFigureControls(null)}
+          />
+        ) : null}
         {Array.from({ length: Math.max(0, pageCount - pageIndex - 1) }, (_, i) => {
           const index = pageIndex + 1 + i;
           return (
@@ -1673,19 +1833,9 @@ export function InkHost({
         unavailable={unavailable}
         onAccept={onAccept}
       />
-      {/* Both ask about a file that is already chosen, so they are portaled
-          dialogs rather than browser ones: themed, and above the pane either
-          way. Escape and the backdrop take the answer that changes nothing. */}
-      {replaceAsk ? (
-        <ConfirmDialog
-          title="This page already has an image"
-          body="Replacing keeps the old file in the vault but stops showing it here."
-          confirmLabel="Replace it"
-          cancelLabel="Add to a new page"
-          onConfirm={() => answerReplace(true)}
-          onClose={() => answerReplace(false)}
-        />
-      ) : null}
+      {/* The page-list question is the only one left standing at the pane's
+          edge: an image is a figure now, of which a page may hold any number,
+          so there is no replace-or-new-page question to ask about one. */}
       {pageAsk ? (
         <PromptDialog
           title="Which pages?"

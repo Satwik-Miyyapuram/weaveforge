@@ -30,6 +30,7 @@ import {
   createCanvas,
   renderPdfPage,
   toPngBlob,
+  toWebpBlob,
 } from "./pdf-page-raster";
 
 /** The sheet's raster: A4 at 200 dpi, 1654 × 2339. */
@@ -100,6 +101,53 @@ export async function pageBackgroundFromFile(
   const image = await createImageBitmap(file);
   try {
     return await composeOnSheet(image, image.width, image.height);
+  } finally {
+    image.close();
+  }
+}
+
+/**
+ * An image file as an attachment of its *own* size — a figure, not a page.
+ *
+ * A page background is composed onto an A4 sheet because it is the page; a
+ * figure is content placed *on* a page, so its bytes keep the image's own
+ * shape and size and the placement is the note's text (§figure).
+ *
+ * The encoding is WebP where the browser can make one — half to two-thirds
+ * of PNG for the photos and screenshots that get pasted in — and PNG where it
+ * cannot. Safari's canvas answers a WebP request with PNG bytes, so the
+ * extension follows what the bytes really are, never the request. Quality
+ * 0.9 lossy is fine here: a figure sits on the page like a photograph pasted
+ * in a notebook, it is not the layer the pen writes over.
+ */
+export async function figureImageFromFile(
+  file: File,
+): Promise<{ blob: Blob; ext: "webp" | "png" }> {
+  if (isPdf(file)) throw new Error("A PDF is a page, not a figure.");
+  if (typeof createImageBitmap !== "function")
+    throw new Error("Images cannot be decoded here.");
+  const image = await createImageBitmap(file);
+  try {
+    const canvas = createCanvas(image.width, image.height);
+    const context = canvas.getContext("2d") as CanvasRenderingContext2D | null;
+    if (!context) throw new Error("A 2D context could not be created for the image.");
+    context.drawImage(image, 0, 0);
+    const { blob, type } = await toWebpBlob(canvas);
+    return { blob, ext: type === "image/webp" ? "webp" : "png" };
+  } finally {
+    image.close();
+  }
+}
+
+/**
+ * An image file's pixel size, for a figure's first box: the placement is
+ * chosen from the image's own aspect, so a portrait photo does not land in a
+ * landscape frame.
+ */
+export async function imageSize(file: File): Promise<{ width: number; height: number }> {
+  const image = await createImageBitmap(file);
+  try {
+    return { width: image.width, height: image.height };
   } finally {
     image.close();
   }

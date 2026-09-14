@@ -23,6 +23,7 @@ import {
   decodeInkChunk,
   defaultInkNoteMeta,
   inkPageBackground,
+  inkPageFigures,
   joinInkTextLayer,
   pageFromChunk,
   readInkNoteBody,
@@ -139,8 +140,18 @@ interface InkHarness {
   pages(): string[];
   /** The `vault:` path page `index`'s background is, or null. */
   backgroundPath(index?: number): string | null;
+  /** The figures page `index` places, geometry and all. */
+  figures(index?: number): {
+    path: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  }[];
   /** What is in the vault: path, byte length and MIME type. */
   vault(): { path: string; size: number; type: string }[];
+  /** One vault entry's bytes, for a test that wants to decode as the app does. */
+  fetchBlobFor(path: string): Promise<Blob>;
   /** The chunk ids the store holds. */
   chunkIds(): Promise<string[]>;
   /** One chunk's bytes as base64, addressed by its page index. */
@@ -174,12 +185,17 @@ window.inkHarness = {
   pages: () => splitInkTextLayer(readInkNoteBody(body).text),
   backgroundPath: (index = 0) =>
     inkPageBackground(splitInkTextLayer(readInkNoteBody(body).text)[index] ?? ""),
+  figures: (index = 0) =>
+    inkPageFigures(splitInkTextLayer(readInkNoteBody(body).text)[index] ?? "").map(
+      ({ path, x, y, w, h }) => ({ path, x, y, w, h }),
+    ),
   vault: () =>
     [...vault.entries()].map(([path, blob]) => ({
       path,
       size: blob.size,
       type: blob.type,
     })),
+  fetchBlobFor: (path: string) => deps.assets.fetchBlob(path),
   chunkIds: async () => {
     const order = readInkNoteBody(body).meta.pageOrder;
     const present = await chunks.list(NOTE_ID);

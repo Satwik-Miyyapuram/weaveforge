@@ -18,6 +18,7 @@
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
+  type FigureGeometry,
   type InkColour,
   type InkPage,
   type InkStroke,
@@ -30,6 +31,12 @@ import {
   type InkPalette,
 } from "../render/ink-palette";
 
+/** A figure as the SVG export needs it: its placement and its pixels. */
+export interface InkSvgFigure extends FigureGeometry {
+  /** The image as a data URL; a blob URL would not survive the file being reopened. */
+  dataUrl: string;
+}
+
 export interface InkSvgOptions {
   /** Ink colours, from the live theme; the light defaults otherwise. */
   palette?: InkPalette;
@@ -38,6 +45,11 @@ export interface InkSvgOptions {
    * null. A blob URL would not survive the file being saved and reopened.
    */
   backgroundDataUrl?: string | null;
+  /**
+   * The page's figures — images placed on the paper — as data URLs, drawn
+   * under the strokes the way the sheet draws them (§figure).
+   */
+  figures?: readonly InkSvgFigure[];
   /** What the file is called in a viewer's title bar. */
   title?: string;
 }
@@ -91,6 +103,29 @@ export function inkPageSvg(page: InkPage, options: InkSvgOptions = {}): string {
       `<image x="0" y="0" width="${num(width)}" height="${num(height)}" ` +
         `preserveAspectRatio="xMidYMid meet" ` +
         `xlink:href="${escapeXml(options.backgroundDataUrl)}"/>`,
+    );
+  }
+
+  // The figures, under the strokes: the same order the sheet draws them
+  // (§figure). A crop is a clip at the figure's box with the image enlarged
+  // into it — the same arithmetic the DOM uses, in SVG's own units.
+  for (const figure of options.figures ?? []) {
+    const crop = figure.crop ?? [0, 0, 0, 0];
+    const keepX = Math.max(0.01, 1 - (crop[0] + crop[2]) / 100);
+    const keepY = Math.max(0.01, 1 - (crop[1] + crop[3]) / 100);
+    const drawW = figure.w / keepX;
+    const drawH = figure.h / keepY;
+    const drawX = figure.x - (crop[0] / 100) * drawW;
+    const drawY = figure.y - (crop[1] / 100) * drawH;
+    const clipId = `figure-clip-${num(figure.x)}-${num(figure.y)}-${num(figure.w)}-${num(figure.h)}`;
+    parts.push(
+      `<clipPath id="${clipId}"><rect x="${num(figure.x)}" y="${num(figure.y)}" ` +
+        `width="${num(figure.w)}" height="${num(figure.h)}"/></clipPath>`,
+    );
+    parts.push(
+      `<g clip-path="url(#${clipId})"><image x="${num(drawX)}" y="${num(drawY)}" ` +
+        `width="${num(drawW)}" height="${num(drawH)}" ` +
+        `preserveAspectRatio="none" xlink:href="${escapeXml(figure.dataUrl)}"/></g>`,
     );
   }
 

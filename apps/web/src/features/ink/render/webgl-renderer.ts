@@ -576,14 +576,20 @@ export class WebglInkRenderer implements InkRenderer {
   /**
    * One frame into a target: the screen (transparent, the CSS paper shows
    * through) or an export framebuffer (opaque white, a PNG has no paper under
-   * it).
+   * it — unless the caller is composing the page over the paper itself, when
+   * `transparent` keeps the framebuffer clear the way the screen is, because
+   * figures are DOM the worker does not know about and the sheet's white
+   * would cover them).
    */
-  private render(framebuffer: WebGLFramebuffer | null): void {
+  private render(
+    framebuffer: WebGLFramebuffer | null,
+    transparent = false,
+  ): void {
     const gl = this.gl;
     if (this.lost) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.viewport(0, 0, this.width, this.height);
-    if (framebuffer) gl.clearColor(1, 1, 1, 1);
+    if (framebuffer && !transparent) gl.clearColor(1, 1, 1, 1);
     else gl.clearColor(0, 0, 0, 0);
     // The stencil is cleared every frame, not just when the highlighter is used:
     // a stale bit would silently refuse the first highlighter fragment of the next
@@ -748,7 +754,7 @@ export class WebglInkRenderer implements InkRenderer {
     };
   }
 
-  async capture(scale: number): Promise<Blob | null> {
+  async capture(scale: number, transparent = false): Promise<Blob | null> {
     const gl = this.gl;
     if (this.lost) return null;
     const width = Math.max(1, Math.round(this.pageWidth * scale));
@@ -764,7 +770,7 @@ export class WebglInkRenderer implements InkRenderer {
       this.transform = { scale, offsetX: 0, offsetY: 0, devicePixelRatio: 1 };
       this.width = width;
       this.height = height;
-      this.render(target.framebuffer);
+      this.render(target.framebuffer, transparent);
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     } finally {
       this.transform = wasTransform;

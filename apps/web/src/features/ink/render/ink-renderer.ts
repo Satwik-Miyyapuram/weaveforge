@@ -143,8 +143,13 @@ export interface InkRenderer {
    * from the drawing surface is what `preserveDrawingBuffer` costs, and Chromium
    * demotes a Canvas 2D surface it sees read from. The returned blob is the only
    * thing that leaves.
+   *
+   * `transparent` omits the sheet of white behind the ink: the caller is
+   * composing the page over the paper itself — figures first, then this —
+   * because figures are DOM the worker does not know about, and the sheet's
+   * white would cover them.
    */
-  capture(scale: number): Promise<Blob | null>;
+  capture(scale: number, transparent?: boolean): Promise<Blob | null>;
   /** Everything the renderer holds, released. */
   dispose(): void;
 }

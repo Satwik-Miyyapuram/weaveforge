@@ -98,3 +98,35 @@ export function toPngBlob(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<
     }, "image/png");
   });
 }
+
+/**
+ * A WebP blob for content that is looked at rather than re-composed: figures,
+ * not page rasters. WebP at quality 0.9 is half to two-thirds the size of PNG
+ * for photos and screenshots, which is most of what gets pasted onto a page.
+ *
+ * Chromium's canvas cannot encode *lossless* WebP, so this is lossy — which
+ * is why a page background, the layer pen strokes are written over and the
+ * note prints from, stays PNG: a lossy artefact would sit under every stroke.
+ * A figure sits *on* the page like a photograph pasted in a notebook, and a
+ * q=0.9 WebP of one is indistinguishable in place at half the bytes.
+ *
+ * The blob is verified rather than trusted: Safari's canvas answers a WebP
+ * request with a PNG blob, and a `.webp` name on PNG bytes is a note that
+ * some reader, somewhere, refuses to open. When the answer is not WebP, the
+ * caller is told so through the returned type and names the file honestly.
+ */
+export async function toWebpBlob(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+): Promise<{ blob: Blob; type: "image/webp" | "image/png" }> {
+  const want = "image/webp";
+  const blob =
+    "convertToBlob" in canvas
+      ? await canvas.convertToBlob({ type: want, quality: 0.9 })
+      : await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, want, 0.9),
+        );
+  if (!blob) throw new Error("The image could not be encoded.");
+  // A browser that cannot encode WebP falls back to PNG silently; the name
+  // must follow the bytes, not the request.
+  return { blob, type: blob.type === want ? want : "image/png" };
+}

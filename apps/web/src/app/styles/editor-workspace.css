@@ -1620,6 +1620,9 @@
   position: sticky;
   top: 0;
   left: 0;
+  /* Above the figures under it (z 0), below the lasso overlay (z 2): the
+     writing goes over a pasted image, and the selection UI over both. */
+  z-index: 1;
   background: transparent;
   touch-action: none;
 }
@@ -1663,6 +1666,83 @@
   background: color-mix(in srgb, var(--bg) 65%, transparent);
   border-radius: 999px;
   padding: 1px 8px;
+}
+
+/*
+ * Figures: images placed on the page, under the canvas so the writing goes
+ * over them (§figure). The layer itself is a positioned box the size of the
+ * sheet; each figure is a box in page units scaled to the sheet, so a zoom
+ * moves a figure exactly as it moves the ink.
+ */
+.ink-figures {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.ink-figure {
+  pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
+  border-radius: 2px;
+}
+.ink-figure.is-active {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
+}
+.ink-figure-pending {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--faint) 14%, transparent),
+    color-mix(in srgb, var(--faint) 14%, transparent) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+/* The corners: dots where the page's own corner hit-test looks, so the eye
+   finds what the hand is about to drag. Always drawn — 8 px of border
+   against paper, quieter than the figure's own shadow. */
+.ink-figure-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  opacity: 0.7;
+}
+/* The active figure's controls: a small toolbar above the canvas — the one
+   figure DOM that takes its own pointer events — parked at the figure's own
+   top-left. */
+.ink-figure-popover {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 22%);
+}
+.ink-figure-button {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--faint);
+  padding: 1px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.ink-figure-button:hover {
+  background: color-mix(in srgb, var(--faint) 10%, transparent);
+}
+.ink-figure-button-remove:hover {
+  background: color-mix(in srgb, #b33 14%, transparent);
+  color: #b33;
 }
 
 .ink-text {

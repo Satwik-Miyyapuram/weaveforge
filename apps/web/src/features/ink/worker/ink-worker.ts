@@ -893,7 +893,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
           break;
         }
         void renderer
-          .capture(message.scale)
+          .capture(message.scale, message.transparent === true)
           .then((png) =>
             post({ type: "exported", requestId: message.requestId, png }),
           )

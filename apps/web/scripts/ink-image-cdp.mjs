@@ -7,12 +7,19 @@
  * launches Chromium with a debugging port, and drives it through CDP.
  *
  * What it proves, end to end and in pixels:
- *   1. "Add image" on a fresh page puts the picture on page 1 — the text layer
- *      names it, the chunk carries its attachment index, the vault has the bytes,
- *      and the canvas draws it (screenshot).
- *   2. A paste and a drag-and-drop do the same thing as the button.
- *   3. Ink draws *over* the image and the strokes survive a re-encode.
- *   4. The print menu's PNG and SVG both come out of a real download, at A4.
+ *   1. "Add image" puts a *figure* on page 1 — the text layer carries its
+ *      geometry, the vault has the bytes (WebP where the browser makes one),
+ *      and the sheet draws it (screenshot). A page may hold any number.
+ *   2. A paste and a drag-and-drop add figures rather than replacing anything.
+ *   3. Ink draws *over* the figures and they all survive the stroke's save.
+ *   4. "Insert page" still makes a page whose background is the image, because
+ *      a PDF raster is a page — and its chunk index counts the figures too.
+ *   5. The print menu's PNG and SVG both come out of a real download, at A4,
+ *      with the figures composed in — a pasted photo must not vanish from
+ *      the printed note.
+ *   6. The figure is content: dragged, corner-resized with its aspect held,
+ *      cropped by insets in the app's own dialog, and removable — every one
+ *      a write to the note's text.
  *
  * Run: node scripts/ink-image-cdp.mjs [--headed] [--keep]
  * Screenshots land in `local-dev/ink-image-cdp/`.
@@ -302,6 +309,7 @@ console.log(`test image: ${(imageBytes.length / 1024).toFixed(1)} KB\n`);
 const state = () =>
   page.evaluate(() => ({
     backgroundPath: window.inkHarness.backgroundPath(0),
+    figures: window.inkHarness.figures(0).length,
     pages: window.inkHarness.pages().length,
     vault: window.inkHarness.vault(),
     uploads: window.inkHarness.uploadCount(),
@@ -321,7 +329,7 @@ await page.setInputFiles("[data-ink-image-input]", {
   buffer: imageBytes,
 });
 await page.waitForFunction(
-  () => window.inkHarness.backgroundPath(0) !== null,
+  () => window.inkHarness.figures(0).length === 1,
   null,
   { timeout: 20_000 },
 );
@@ -330,9 +338,9 @@ await page.waitForTimeout(600);
 
 const afterButton = await state();
 check(
-  "the page's text layer names the image",
-  afterButton.backgroundPath !== null &&
-    afterButton.firstLine.startsWith("![page background](vault:"),
+  "the page's text layer places the image as a figure",
+  afterButton.firstLine.startsWith("![figure x=") &&
+    afterButton.firstLine.includes("(vault:"),
   afterButton.firstLine,
 );
 check(
@@ -341,35 +349,37 @@ check(
   afterButton.vault.map((v) => `${v.path} ${v.size}B`).join(", "),
 );
 check(
-  "the text layer survived the save with the image on it",
-  afterButton.saves > 0,
+  "the figure is uploaded as WebP where the browser can make one",
+  afterButton.vault[0].path.endsWith(".webp") || afterButton.vault[0].path.endsWith(".png"),
+  `${afterButton.vault[0].path} (${afterButton.vault[0].type})`,
 );
 
 // And the thing the user actually asked for: is the picture *on the page*?
 // Read back out of the editor's own pixels rather than assumed from the model.
-// The sheet is a box inside a viewport screenshot, so its box is measured and
-// the probe points are real screen coordinates.
+// The figure's box is measured, and the probes are its own coordinates: the
+// test image's blue band starts at 9% of its height, so 25% down the box is
+// blue and 2% is the paper above the band.
 const sheetShot = await snap("after-add-image");
-const sheetBox = await page.locator(".ink-sheet").boundingBox();
-const sheetPixels = await probePng(
+const figureBox = await page.locator(".ink-figure").first().boundingBox();
+const figurePixels = await probePng(
   sheetShot,
-  sheetBox
+  figureBox
     ? [
-        [sheetBox.x + sheetBox.width / 2, sheetBox.y + sheetBox.height * 0.34],
-        [sheetBox.x + sheetBox.width / 2, sheetBox.y + sheetBox.height * 0.02],
+        [figureBox.x + figureBox.width / 2, figureBox.y + figureBox.height * 0.25],
+        [figureBox.x + figureBox.width / 2, figureBox.y + figureBox.height * 0.02],
       ]
     : [],
 );
 check(
   "the image is painted on the sheet where the picture's blue band is",
   Boolean(
-    sheetBox && isBlue(sheetPixels.points[0]) && !isBlue(sheetPixels.points[1]),
+    figureBox && isBlue(figurePixels.points[0]) && !isBlue(figurePixels.points[1]),
   ),
-  sheetBox
-    ? `sheet at ${Math.round(sheetBox.x)},${Math.round(sheetBox.y)} ` +
-        `${Math.round(sheetBox.width)}×${Math.round(sheetBox.height)}: ` +
-        `mid-blue ${sheetPixels.points[0]}, top ${sheetPixels.points[1]}`
-    : "no sheet",
+  figureBox
+    ? `figure at ${Math.round(figureBox.x)},${Math.round(figureBox.y)} ` +
+        `${Math.round(figureBox.width)}×${Math.round(figureBox.height)}: ` +
+        `mid-blue ${figurePixels.points[0]}, top ${figurePixels.points[1]}`
+    : "no figure on the sheet",
 );
 
 /* ------------------------------------------------ 2. paste and drag-and-drop */
@@ -394,16 +404,16 @@ await page.evaluate(async (base64) => {
   );
 }, imageBase64);
 await page.waitForFunction(
-  () => window.inkHarness.uploadCount() >= 2,
+  () => window.inkHarness.figures(0).length === 2,
   null,
   { timeout: 20_000 },
 );
 await page.evaluate(() => window.inkHarness.settled());
 const afterPaste = await state();
 check(
-  "a pasted screenshot becomes the page image",
-  afterPaste.uploads === 2 && afterPaste.backgroundPath !== null,
-  `uploads: ${afterPaste.uploads}`,
+  "a pasted screenshot becomes a second figure on the same page",
+  afterPaste.figures === 2 && afterPaste.uploads === 2,
+  `figures: ${afterPaste.figures}, uploads: ${afterPaste.uploads}`,
 );
 
 const beforeDrop = await page.evaluate(() => window.inkHarness.uploadCount());
@@ -413,25 +423,53 @@ await page.evaluate(async (base64) => {
   const data = new DataTransfer();
   data.items.add(file);
   const sheet = document.querySelector(".ink-sheet");
+  const box = sheet?.getBoundingClientRect();
+  // Where the hand would drop it: the sheet's own middle, in client
+  // coordinates, because a drop without coordinates lands at 0,0 of the
+  // client and the page's projection has to be told where it went.
+  const at = {
+    clientX: box ? box.left + box.width / 2 : 400,
+    clientY: box ? box.top + box.height / 2 : 500,
+  };
   sheet?.dispatchEvent(
-    new DragEvent("dragover", { dataTransfer: data, bubbles: true, cancelable: true }),
+    new DragEvent("dragover", {
+      ...at,
+      dataTransfer: data,
+      bubbles: true,
+      cancelable: true,
+    }),
   );
   sheet?.dispatchEvent(
-    new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }),
+    new DragEvent("drop", {
+      ...at,
+      dataTransfer: data,
+      bubbles: true,
+      cancelable: true,
+    }),
   );
 }, imageBase64);
-await page.waitForFunction(
-  (before) => window.inkHarness.uploadCount() > before,
-  beforeDrop,
-  { timeout: 20_000 },
-);
+try {
+  await page.waitForFunction(
+    () => window.inkHarness.figures(0).length === 3,
+    null,
+    { timeout: 20_000 },
+  );
+} catch {
+  const diagnosed = await page.evaluate(() => ({
+    problems: window.inkHarness.problems(),
+    uploads: window.inkHarness.uploadCount(),
+    firstLines: window.inkHarness.pages()[0]?.split("\n").slice(0, 4),
+  }));
+  console.log("  [drop never landed]", JSON.stringify(diagnosed, null, 2));
+  throw new Error("the drop did not become a figure");
+}
 await page.evaluate(() => window.inkHarness.settled());
 await page.waitForTimeout(600);
 const afterDrop = await state();
 check(
-  "an image dropped on the sheet lands on the page",
-  afterDrop.uploads === beforeDrop + 1,
-  `uploads: ${afterDrop.uploads}`,
+  "an image dropped on the sheet becomes a third figure, not a replacement",
+  afterDrop.figures === 3 && afterDrop.uploads === beforeDrop + 1,
+  `figures: ${afterDrop.figures}, uploads: ${afterDrop.uploads}`,
 );
 await snap("after-drop");
 
@@ -452,13 +490,13 @@ await page.evaluate(() => window.inkHarness.settled());
 await page.waitForTimeout(600);
 const afterInk = await page.evaluate(async () => ({
   saves: window.inkHarness.saves.length,
-  chunkBackground: await window.inkHarness.chunkBackground(0),
   chunkBytes: (await window.inkHarness.chunkBase64(0))?.length ?? 0,
+  figures: window.inkHarness.figures(0).length,
 }));
 check(
-  "a stroke over the image keeps the chunk's background index",
-  afterInk.chunkBackground === 1,
-  `chunk background byte: ${afterInk.chunkBackground}`,
+  "a stroke over the figures leaves every figure where it was",
+  afterInk.figures === 3,
+  `figures: ${afterInk.figures}`,
 );
 check("the page's chunk was written", afterInk.chunkBytes > 0);
 await snap("ink-over-image");
@@ -491,10 +529,11 @@ check(
   `${beforeInsert} → ${inserted.pages} pages, page 2 background: ${inserted.onNewPage}`,
 );
 check(
-  "and page 2's own chunk carries the note's second attachment",
+  "and page 2's own chunk carries the note's latest attachment",
   // The index is the page's place among the *note's* image refs, not a per-page
-  // flag (§4.8): page 1's background is the first, page 2's the second.
-  inserted.chunkBackground === 2,
+  // flag (§4.8): page 1's three figures came first, so page 2's background is
+  // the fourth `vault:` ref in the body.
+  inserted.chunkBackground === 4,
   `page 2 chunk background index: ${inserted.chunkBackground}`,
 );
 await snap("inserted-page");
@@ -624,20 +663,59 @@ async function download(label, timeoutMs = 180_000) {
 }
 
 let png = null;
+// What the compose is about to see, from the harness's own model: the figures
+// on the page being exported, and whether their bytes decode in this browser.
+const composeInput = await page.evaluate(async () => {
+  const figures = window.inkHarness.figures(0);
+  const vault = window.inkHarness.vault();
+  const decode = await Promise.all(
+    vault.map(async (entry) => {
+      try {
+        const blob = await window.inkHarness.fetchBlobFor(entry.path);
+        const bitmap = await createImageBitmap(blob);
+        const size = `${bitmap.width}x${bitmap.height}`;
+        bitmap.close();
+        return `${entry.path} decodes (${size})`;
+      } catch (error) {
+        return `${entry.path} FAILED: ${String(error)}`;
+      }
+    }),
+  );
+  return { figures, decode };
+});
+console.log(
+  `  [compose input] ${composeInput.figures.length} figures: ` +
+    composeInput.figures.map((f) => `${f.path}@${f.x},${f.y}`).join(", "),
+);
+console.log(`  [compose input] ${composeInput.decode.join("; ")}`);
 try {
   png = await download(/Full-page PNG/);
 } catch (error) {
   console.log(`  [no PNG] ${String(error).split("\n")[0]}`);
 }
-// A page at 2× is 4200×5940: the middle of the picture's blue band, and paper
-// well above it, in pixels of the export itself.
-const PAGE_PROBE = [
+// A page at 2× is 4200×5940. The blue probe sits inside a figure's own band:
+// 25 % down the figure is blue (the band starts at 9 % of the image), and the
+// paper above it is white. Page 2's background has its band at a third.
+const firstFigure = await page.evaluate(() => window.inkHarness.figures(0)[0]);
+const pageOneProbe = firstFigure
+  ? [
+      [
+        Math.round((firstFigure.x + firstFigure.w / 2) * 2),
+        Math.round((firstFigure.y + firstFigure.h * 0.25) * 2),
+      ],
+      [2100, Math.round(5940 * 0.02)],
+    ]
+  : [
+      [2100, Math.round(5940 * 0.5)],
+      [2100, Math.round(5940 * 0.02)],
+    ];
+const pageTwoProbe = [
   [2100, Math.round(5940 * 0.34)],
   [2100, Math.round(5940 * 0.02)],
 ];
-const pageOnePixels = png ? await probePng(png.saved, PAGE_PROBE) : null;
+const pageOnePixels = png ? await probePng(png.saved, pageOneProbe) : null;
 const pageTwoPixels = pageTwoPng
-  ? await probePng(pageTwoPng.saved, PAGE_PROBE)
+  ? await probePng(pageTwoPng.saved, pageTwoProbe)
   : null;
 check(
   "the PNG is the whole A4 page at 2× (508 dpi)",
@@ -686,13 +764,15 @@ try {
 }
 const svgText = svg ? fs.readFileSync(svg.saved, "utf8") : "";
 check(
-  "the SVG is vector strokes with the image embedded",
+  "the SVG is vector strokes with the figures embedded",
   svgText.includes("<svg") &&
     /<path d="M/.test(svgText) &&
-    svgText.includes('xlink:href="data:image/png;base64,'),
+    /xlink:href="data:image\/(webp|png);base64,/.test(svgText) &&
+    svgText.includes("<clipPath"),
   svg
     ? `${(svgText.length / 1024).toFixed(0)} KB, ` +
-        `${(svgText.match(/<path /g) ?? []).length} paths → ${svg.name}`
+        `${(svgText.match(/<path /g) ?? []).length} paths, ` +
+        `${(svgText.match(/<clipPath /g) ?? []).length} figures → ${svg.name}`
     : "nothing was downloaded",
 );
 
@@ -731,153 +811,191 @@ check(
   printDoc ? `${printDoc.length} bytes of print HTML` : "no print frame",
 );
 
-/* ------------------------------------------- 6. the replace question, in-app */
+/* ------------------------------------ 6. moving, resizing, cropping, removing */
 
-// The page already has an image, so the bar has to ask. It has to ask in the
-// app's own dialog — `window.confirm` ignores the theme and covers the page on
-// a phone — and each answer has to do what it says: one keeps the image that is
-// there and puts the new one on a page of its own, the other replaces it.
-//
-// A page that has an image says so in the bar's own words: the button becomes
-// "Change page image", which is the button this step is about.
-console.log("\n6. Replacing an image asks first, in the app's own dialog");
-const changeButton = page.getByRole("button", { name: "Change page image" });
-check(
-  "a page with an image offers to change it",
-  (await changeButton.count()) === 1,
-);
-const pagesBefore = await page.evaluate(() => window.inkHarness.pages().length);
-const uploadsBefore = await page.evaluate(() => window.inkHarness.uploadCount());
-const firstPath = await page.evaluate(() => window.inkHarness.backgroundPath(0));
-
-await changeButton.click();
-const replaceDialog = page.getByRole("dialog", {
-  name: "This page already has an image",
+// A figure is content on the page, so it is handled like content: dragged by
+// the body, resized by a corner (the aspect holds unless Shift is held),
+// cropped by insets in a dialog, and removable. Every one of these is a write
+// to the note's text — the geometry in the alt — so what is asserted is the
+// saved model and the pixels both.
+console.log("\n6. Moving, resizing and cropping a figure");
+// The export step above already came back to page 1; go there only if the
+// reader is somewhere else, because the button is honestly disabled there.
+const onPageOne = await page.evaluate(() => {
+  const shown = document.querySelector(".ink-page-count")?.textContent?.trim();
+  return shown?.startsWith("1 /") ?? true;
 });
-await replaceDialog.waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
-check(
-  "the page that has an image makes the button ask before it replaces it",
-  (await replaceDialog.count()) === 1,
-);
-check(
-  "and the question is the app's own dialog, not the OS one",
-  (await page.locator(".modal-backdrop .modal").count()) >= 1,
-);
-
-const keepButton = page.getByRole("button", { name: "Add to a new page" });
-check("one answer is a page of its own", (await keepButton.count()) === 1);
-await keepButton.click();
-await page.setInputFiles("[data-ink-image-input]", {
-  name: "second-figure.png",
-  mimeType: "image/png",
-  buffer: imageBytes,
-});
-await page
-  .waitForFunction(
-    (count) => window.inkHarness.pages().length === count + 1,
-    pagesBefore,
-    { timeout: 20_000 },
-  )
-  .catch(() => undefined);
+if (!onPageOne) {
+  await page.getByRole("button", { name: "Previous page" }).click();
+}
 await page.evaluate(() => window.inkHarness.settled());
+await page.waitForTimeout(600);
 
-const kept = await page.evaluate(
-  (count) => ({
-    pages: window.inkHarness.pages().length,
-    onOldPage: window.inkHarness.backgroundPath(0),
-    onNewPage: window.inkHarness.backgroundPath(count),
-    uploads: window.inkHarness.uploadCount(),
-  }),
-  pagesBefore,
-);
-// Where the reader ended up, which is the page the next two checks are about.
-const shownPage = (await page.locator(".ink-page-count").textContent())?.trim();
-const here = Number(shownPage?.split("/")[0]?.trim() ?? "1") - 1;
-
+const beforeMove = await page.evaluate(() => {
+  // The figures land nearly stacked, so the one a gesture reaches is the one
+  // on top: the last of the page's own order.
+  const all = window.inkHarness.figures(0);
+  return all[all.length - 1];
+});
+const figureHandle = page.locator(".ink-figure").last();
+const moveBox = await figureHandle.boundingBox();
 check(
-  "the answer that keeps it puts the new image on a page of its own",
-  kept.pages === pagesBefore + 1 &&
-    kept.onNewPage !== null &&
-    kept.onOldPage === firstPath,
-  `${pagesBefore} → ${kept.pages} pages, page 1 still ${kept.onOldPage}, page ${kept.pages} ${kept.onNewPage}`,
+  "the figures came back with the page",
+  Boolean(beforeMove && moveBox),
+  beforeMove
+    ? `topmost figure at ${beforeMove.x},${beforeMove.y} ${beforeMove.w}×${beforeMove.h}`
+    : "no figures",
 );
+if (moveBox) {
+  await page.mouse.move(moveBox.x + moveBox.width / 2, moveBox.y + moveBox.height / 2);
+  await page.mouse.down();
+  // Straight down by 150 px: the box follows, the page's own geometry says so.
+  for (let i = 1; i <= 10; i += 1) {
+    await page.mouse.move(
+      moveBox.x + moveBox.width / 2,
+      moveBox.y + moveBox.height / 2 + (150 * i) / 10,
+      { steps: 2 },
+    );
+  }
+  await page.mouse.up();
+  // The write is debounced (§the host's save), so the move is *polled for*
+  // in the saved model rather than read once after a guessed delay.
+  await page.waitForFunction(
+    () => {
+      const all = window.inkHarness.figures(0);
+      const moved = all[all.length - 1];
+      return Boolean(moved && moved.y > 1150);
+    },
+    null,
+    { timeout: 20_000 },
+  );
+}
+const afterMove = await page.evaluate(() => {
+  const all = window.inkHarness.figures(0);
+  return all[all.length - 1];
+});
 check(
-  "and the file went to the vault rather than replacing anything",
-  kept.uploads === uploadsBefore + 1,
-  `uploads ${uploadsBefore} → ${kept.uploads}`,
-);
-
-// Recorded is not drawn. The new page is the one on screen, so the picture has
-// to be *on* it: the same probe the first step used, on the page the answer
-// just made.
-const keptShot = await snap("after-keep-image");
-const keptBox = await page.locator(".ink-sheet").boundingBox();
-const keptPixels = await probePng(
-  keptShot,
-  keptBox
-    ? [
-        [keptBox.x + keptBox.width / 2, keptBox.y + keptBox.height * 0.34],
-        [keptBox.x + keptBox.width / 2, keptBox.y + keptBox.height * 0.02],
-      ]
-    : [],
-);
-check(
-  "the page the answer made draws the image, not just records it",
+  "a drag of the body moves the figure, in the note's own units",
   Boolean(
-    keptBox && isBlue(keptPixels.points[0]) && !isBlue(keptPixels.points[1]),
+    beforeMove &&
+      afterMove &&
+      Math.abs(afterMove.x - beforeMove.x) < 30 &&
+      afterMove.y - beforeMove.y > 100,
   ),
-  keptBox
-    ? `page ${here + 1} (${shownPage}): mid-blue ${keptPixels.points[0]}, top ${keptPixels.points[1]}`
-    : "no sheet",
+  beforeMove && afterMove
+    ? `y ${beforeMove.y} → ${afterMove.y} (x ${beforeMove.x} → ${afterMove.x})`
+    : "no figure to move",
 );
 
-// Now the other answer, on the page the reader is looking at — the new page,
-// which the answer above has just given an image. This answer replaces.
-//
-// The bar saying so is itself the check: an image put on the page that was made
-// for it has to reach the bar, or the page in front of the user looks blank and
-// offers to add an image it already has.
-check(
-  "the page the answer made offers to change its image, not to add one",
-  (await changeButton.count()) === 1 && (await addButton.count()) === 0,
-  `on ${shownPage}`,
-);
-const replacePages = await page.evaluate(() => window.inkHarness.pages().length);
-const beforeReplace = await page.evaluate((i) => window.inkHarness.backgroundPath(i), here);
-await changeButton.click();
-await page.getByRole("button", { name: "Replace it" }).click();
-await page.setInputFiles("[data-ink-image-input]", {
-  name: "replacement.png",
-  mimeType: "image/png",
-  buffer: imageBytes,
+// Resize: the south-east corner grows the box, aspect held.
+const beforeResize = await page.evaluate(() => {
+  const all = window.inkHarness.figures(0);
+  return all[all.length - 1];
 });
-await page
-  .waitForFunction(
-    (before) => window.inkHarness.backgroundPath(before.index) !== before.path,
-    { index: here, path: beforeReplace },
+const resizeBox = await figureHandle.boundingBox();
+if (resizeBox) {
+  const corner = {
+    x: resizeBox.x + resizeBox.width - 3,
+    y: resizeBox.y + resizeBox.height - 3,
+  };
+  await page.mouse.move(corner.x, corner.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i += 1) {
+    await page.mouse.move(corner.x + (120 * i) / 10, corner.y + (90 * i) / 10, {
+      steps: 2,
+    });
+  }
+  await page.mouse.up();
+  // Poll the debounced save, the same as the move above.
+  await page.waitForFunction(
+    () => {
+      const all = window.inkHarness.figures(0);
+      const grown = all[all.length - 1];
+      return Boolean(grown && grown.w > 1150);
+    },
+    null,
     { timeout: 20_000 },
-  )
-  .catch(() => undefined);
-await page.evaluate(() => window.inkHarness.settled());
-
-const replaced = await page.evaluate(
-  (i) => ({
-    pages: window.inkHarness.pages().length,
-    path: window.inkHarness.backgroundPath(i),
-  }),
-  here,
-);
+  );
+}
+const afterResize = await page.evaluate(() => {
+  const all = window.inkHarness.figures(0);
+  return all[all.length - 1];
+});
 check(
-  "the answer that replaces does it on the same page, adding no page",
-  replaced.pages === replacePages &&
-    replaced.path !== null &&
-    replaced.path !== beforeReplace &&
-    replaced.path !== firstPath,
-  `${replacePages} pages, page ${here + 1} ${beforeReplace} → ${replaced.path}`,
+  "a corner drag grows the figure with its aspect held",
+  Boolean(
+    beforeResize &&
+      afterResize &&
+      afterResize.w > beforeResize.w + 100 &&
+      afterResize.h > beforeResize.h + 70 &&
+      Math.abs(
+        afterResize.w / afterResize.h - beforeResize.w / beforeResize.h,
+      ) < 0.05,
+  ),
+  beforeResize && afterResize
+    ? `${beforeResize.w}×${beforeResize.h} → ${afterResize.w}×${afterResize.h} (aspect ${(beforeResize.w / beforeResize.h).toFixed(2)} → ${(afterResize.w / afterResize.h).toFixed(2)})`
+    : "no figure to resize",
 );
 
-await snap("replace-dialog");
+// Crop: a double-click on the figure opens its controls — the two things a
+// gesture cannot say live there — and the dialog takes four insets as
+// percentages while the bytes stay.
+const controlsBox = await figureHandle.boundingBox();
+if (controlsBox) {
+  await page.mouse.dblclick(
+    controlsBox.x + controlsBox.width / 2,
+    controlsBox.y + controlsBox.height / 2,
+  );
+}
+const popover = page.getByRole("toolbar", { name: "This image" });
+check(
+  "a double-click opens the figure's controls",
+  (await popover.count()) === 1,
+);
+await popover.getByRole("button", { name: "Crop" }).click();
+const cropDialog = page.getByRole("dialog", { name: "Crop this image" });
+check(
+  "the crop is the app's own dialog",
+  (await cropDialog.count()) === 1,
+);
+await cropDialog
+  .getByRole("textbox")
+  .fill("10, 10, 10, 10");
+await cropDialog.getByRole("button", { name: "Crop it" }).click();
+await page.waitForFunction(
+  () => /c=10,10,10,10/.test(window.inkHarness.pages()[0] ?? ""),
+  null,
+  { timeout: 10_000 },
+);
+await page.evaluate(() => window.inkHarness.settled());
+check(
+  "the crop is geometry in the note, not new bytes",
+  (await page.evaluate(() => window.inkHarness.uploadCount())) ===
+    (await page.evaluate(() => window.inkHarness.figures(0).length)) + 1,
+  `uploads: ${await page.evaluate(() => window.inkHarness.uploadCount())}`,
+);
+await snap("after-crop");
 
+// Remove: from the same controls, and the text layer says it is gone.
+const removeBox = await figureHandle.boundingBox();
+if (removeBox) {
+  await page.mouse.dblclick(
+    removeBox.x + removeBox.width / 2,
+    removeBox.y + removeBox.height / 2,
+  );
+}
+await popover.getByRole("button", { name: "Remove" }).click();
+await page.waitForFunction(
+  () => window.inkHarness.figures(0).length === 2,
+  null,
+  { timeout: 10_000 },
+);
+await page.evaluate(() => window.inkHarness.settled());
+check(
+  "removing a figure leaves the others where they are",
+  (await page.evaluate(() => window.inkHarness.figures(0).length)) === 2,
+  `${await page.evaluate(() => window.inkHarness.figures(0).length)} figures left`,
+);
 await snap("final");
 
 /* -------------------------------------------------------------------- report */

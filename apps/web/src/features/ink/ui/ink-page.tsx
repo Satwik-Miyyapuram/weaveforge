@@ -19,7 +19,11 @@
 import { useCallback, useRef, useState } from "react";
 
 import { isPenEraserPointer } from "../application/eraser-tip";
+import type { FigureGeometry } from "@weaveforge/core";
 import type { InkBarTool } from "./ink-bar";
+
+/** A figure's corner, for the resize hit-test. */
+type FigureCorner = "nw" | "ne" | "se" | "sw";
 
 export interface InkPageProps {
   pageIndex: number;
@@ -76,8 +80,35 @@ export interface InkPageProps {
   onPan?: (dx: number, dy: number) => void;
   /** Two fingers moved apart or together: zoom by factor about clientX, clientY */
   onPinch?: (factor: number, clientX: number, clientY: number) => void;
-  /** A file (image or PDF) dropped directly onto the page surface. */
-  onDropFile?: (file: File) => void;
+  /**
+   * A file (image or PDF) dropped directly onto the page surface, with where
+   * it landed in page units — an image becomes a figure *there*, rather than
+   * the middle its button lands on. `null` when the point is off the page.
+   */
+  onDropFile?: (file: File, at: { x: number; y: number } | null) => void;
+  /**
+   * Content under the canvas and over the paper: the page's figures, placed
+   * images the writing goes over (§figure). The canvas is transparent except
+   * for its strokes, so what this draws shows through wherever there is no
+   * ink — a figure is a photograph pasted in, not a layer of the page.
+   */
+  below?: React.ReactNode;
+  /**
+   * The page's figures' boxes, in page units — the same array the `below`
+   * layer renders, as geometry for this surface's own hit-testing. The
+   * canvas is the pointer's surface, so figures are reached through it: a
+   * mouse down inside a box is a figure drag, on its corner a resize, and a
+   * double-click opens the figure's controls. The pen draws over a figure
+   * as over any paper — a pen over a photograph is a note.
+   */
+  figures?: readonly FigureGeometry[];
+  /** A figure drag moved or resized figure `index`: write it to the note. */
+  onFigureChange?: (
+    index: number,
+    geometry: Pick<FigureGeometry, "x" | "y" | "w" | "h">,
+  ) => void;
+  /** A double-click inside figure `index`: open its controls. */
+  onFigureActivate?: (index: number) => void;
 }
 
 /** The eraser's cursor: a ring the size of a fingertip, hot spot at its centre. */
@@ -140,6 +171,10 @@ export function InkPage({
   onPan,
   onPinch,
   onDropFile,
+  below,
+  figures = [],
+  onFigureChange,
+  onFigureActivate,
 }: InkPageProps) {
   /** The last erase position, so a sweep is one segment per move and not a point. */
   const lastErase = useRef<{ x: number; y: number } | null>(null);
@@ -156,6 +191,20 @@ export function InkPage({
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
     null,
   );
+  /**
+   * A figure drag in progress, by the figure's index and its corner — `null`
+   * corner is a move. The `from` point and box are where the gesture began,
+   * so each move is a placement against the origin rather than a delta of
+   * deltas. The pen never starts one of these: it draws (a pen over a
+   * photograph is a note), and this is the mouse's and the trackpad's path.
+   */
+  const figureDrag = useRef<{
+    index: number;
+    corner: FigureCorner | null;
+    from: { x: number; y: number };
+    box: { x: number; y: number; w: number; h: number };
+    aspect: number;
+  } | null>(null);
   /**
    * Fingers on the surface. One finger pans when touch is not drawing — a pen
    * has been seen, or the guard is up — and two fingers always pinch, whatever
@@ -258,6 +307,43 @@ export function InkPage({
 
   const erasing = useRef(false);
 
+  /**
+   * The figure a pointer-down at `at` is over, and which corner — the corner
+   * test runs first because a corner is inside the box too. Corners are in
+   * CSS pixels (12, about the smallest a hand can own) converted to page
+   * units, and generous: a hit is `corner + slack`, half the corner again.
+   */
+  const figureAt = useCallback(
+    (at: { x: number; y: number }):
+      | { index: number; corner: FigureCorner | null }
+      | null => {
+      const slack = 18 / scale;
+      const hit = 12 / scale + slack;
+      for (let index = figures.length - 1; index >= 0; index -= 1) {
+        const one = figures[index];
+        if (!one) continue;
+        const nw = Math.hypot(at.x - one.x, at.y - one.y) <= hit;
+        const ne = Math.hypot(at.x - (one.x + one.w), at.y - one.y) <= hit;
+        const se =
+          Math.hypot(at.x - (one.x + one.w), at.y - (one.y + one.h)) <= hit;
+        const sw = Math.hypot(at.x - one.x, at.y - (one.y + one.h)) <= hit;
+        if (nw || ne || se || sw) {
+          return { index, corner: nw ? "nw" : ne ? "ne" : se ? "se" : "sw" };
+        }
+        if (
+          at.x >= one.x &&
+          at.x <= one.x + one.w &&
+          at.y >= one.y &&
+          at.y <= one.y + one.h
+        ) {
+          return { index, corner: null };
+        }
+      }
+      return null;
+    },
+    [figures, scale],
+  );
+
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchDown(event)) return;
@@ -273,6 +359,31 @@ export function InkPage({
         claimPointer(event);
         onErase(at, at);
         return;
+      }
+      // A mouse over a figure reaches the figure, not the ink: the lasso is
+      // a region the *user* chose, so it keeps the pointer even over a
+      // photograph, but with a writing tool the mouse drags the figure —
+      // the same division of labour as the pen (notes) and the hand (paper).
+      if (
+        event.pointerType === "mouse" &&
+        tool !== "lasso" &&
+        !event.altKey &&
+        onFigureChange
+      ) {
+        const at = project(event.clientX, event.clientY);
+        const hit = at !== null ? figureAt(at) : null;
+        const one = hit ? figures[hit.index] : undefined;
+        if (hit && at && one) {
+          claimPointer(event);
+          figureDrag.current = {
+            index: hit.index,
+            corner: hit.corner,
+            from: at,
+            box: { x: one.x, y: one.y, w: one.w, h: one.h },
+            aspect: one.w / Math.max(1, one.h),
+          };
+          return;
+        }
       }
       if (tool === "lasso") {
         const at = project(event.clientX, event.clientY);
@@ -292,7 +403,10 @@ export function InkPage({
       penHandlers.onPointerDown(event);
     },
     [
+      figureAt,
+      figures,
       onErase,
+      onFigureChange,
       penHandlers,
       project,
       publishLasso,
@@ -317,6 +431,71 @@ export function InkPage({
         lastErase.current = at;
         return;
       }
+      const held = figureDrag.current;
+      if (held) {
+        event.preventDefault();
+        const at = project(event.clientX, event.clientY);
+        if (!at) return;
+        const dx = at.x - held.from.x;
+        const dy = at.y - held.from.y;
+        if (held.corner === null) {
+          // A move keeps the box and goes where the pointer goes, clamped to
+          // the paper: a drag off the edge parks the figure against it rather
+          // than losing it beyond the page.
+          onFigureChange?.(held.index, {
+            x: Math.round(
+              Math.min(
+                Math.max(held.box.x + dx, -held.box.w / 2),
+                pageSize.width - held.box.w / 2,
+              ),
+            ),
+            y: Math.round(
+              Math.min(
+                Math.max(held.box.y + dy, -held.box.h / 2),
+                pageSize.height - held.box.h / 2,
+              ),
+            ),
+            w: held.box.w,
+            h: held.box.h,
+          });
+          return;
+        }
+        // A corner resize: the opposite corner holds still and the dragged one
+        // follows the pointer. The aspect the image came with holds too — a
+        // photo does not become a different photo by being resized — unless
+        // Shift is held, which is a deliberate distortion. When the aspect
+        // holds, whichever axis the pointer moved further along wins and the
+        // other follows, so the corner never lags the hand.
+        const signX = held.corner === "ne" || held.corner === "se" ? 1 : -1;
+        const signY = held.corner === "se" || held.corner === "sw" ? 1 : -1;
+        const growW = held.box.w + signX * dx;
+        const growH = held.box.h + signY * dy;
+        let w = Math.max(30, Math.round(growW));
+        let h = Math.max(30, Math.round(growH));
+        if (!event.shiftKey) {
+          const movedW = Math.abs(growW - held.box.w) / Math.max(1, held.box.w);
+          const movedH = Math.abs(growH - held.box.h) / Math.max(1, held.box.h);
+          if (movedW >= movedH) {
+            w = Math.max(30, Math.round(growW));
+            h = Math.max(30, Math.round(w / held.aspect));
+          } else {
+            h = Math.max(30, Math.round(growH));
+            w = Math.max(30, Math.round(h * held.aspect));
+          }
+        }
+        // The opposite corner is the anchor: the dragged side is the one that
+        // moves, the far edge stays where the figure began.
+        const x =
+          held.corner === "nw" || held.corner === "sw"
+            ? held.box.x + held.box.w - w
+            : held.box.x;
+        const y =
+          held.corner === "nw" || held.corner === "ne"
+            ? held.box.y + held.box.h - h
+            : held.box.y;
+        onFigureChange?.(held.index, { x: Math.round(x), y: Math.round(y), w, h });
+        return;
+      }
       if (tool === "lasso") {
         event.preventDefault();
         const at = project(event.clientX, event.clientY);
@@ -339,6 +518,9 @@ export function InkPage({
     [
       onDragSelection,
       onErase,
+      onFigureChange,
+      pageSize.height,
+      pageSize.width,
       penHandlers,
       project,
       publishLasso,
@@ -350,6 +532,14 @@ export function InkPage({
   const onPointerUp = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchUp(event)) return;
+      if (figureDrag.current) {
+        // The move already wrote each placement as it happened; all that is
+        // left is to let go. `onFigureChange`'s writes are the note's own
+        // schedule, not this surface's.
+        figureDrag.current = null;
+        releasePointer(event);
+        return;
+      }
       if (erasing.current) {
         erasing.current = false;
         lastErase.current = null;
@@ -423,9 +613,11 @@ export function InkPage({
           e.preventDefault();
           setIsDragOver(false);
           const file = e.dataTransfer.files?.[0];
-          if (file && onDropFile) onDropFile(file);
+          if (file && onDropFile)
+            onDropFile(file, project(e.clientX, e.clientY));
         }}
       >
+      {below}
       {/*
         `touch-action: none` ensures the browser never attempts to interpret drawing
         gestures as scrolling or panning, preventing Chromium from dispatching pointercancel
@@ -446,6 +638,13 @@ export function InkPage({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onDoubleClick={(event) => {
+          // The double-click is the figure's controls: a click the figure
+          // can receive, because a single one is a drag the page routes.
+          const at = project(event.clientX, event.clientY);
+          const hit = at !== null ? figureAt(at) : null;
+          if (hit) onFigureActivate?.(hit.index);
+        }}
         onContextMenu={(event) => event.preventDefault()}
         aria-label={`Ink page ${pageIndex + 1}, drawing surface`}
         role="img"
