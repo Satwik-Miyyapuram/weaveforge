@@ -6,10 +6,12 @@
  * `segment.ts` the line grouping, `recognise.ts` the engine contract, and
  * `width.ts` the nib arithmetic in 0.1 mm. Nothing here imports an engine, a
  * canvas or a codec: what a runtime supplies — brotli or deflate, Windows Ink or
- * a stroke model — is injected at the call site. `myscript.ts` is the one engine
+ * a stroke model — is injected at the call site. `myscript/` is the one engine
  * that *is* here, and it is exported as policy rather than as an engine: the opt-in
  * gate, the request/response mapping and the maths-to-LaTeX conversion, with the
  * key injected by the caller and no network call of its own (§5.2, §7 step 10).
+ * Its pieces — vocabulary, request, response, LaTeX, engine — are its own
+ * folder, split along the same lines.
  */
 
 export {
@@ -194,4 +196,4 @@ export {
   type MyScriptExportResponse,
   type MyScriptLatex,
   type MyScriptRecogniser,
-} from "./myscript.js";
+} from "./myscript/index.js";

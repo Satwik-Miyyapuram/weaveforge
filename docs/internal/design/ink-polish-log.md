@@ -48,6 +48,8 @@ were tuning, not architecture.
 | `449d83d` | A screenshot button, and one export button that always made a PNG | — | The screenshot button is gone (the OS does this) and the export button is a menu: the print dialog, which is also "save as PDF"; a full-page PNG at 2× (4200×5940, ~508 dpi on A4); and a vector SVG whose strokes stay geometry and whose background is embedded as a data URL |
 | `449d83d` | The print/export menu opened off the left edge of the pane, invisible and unclickable | The bar wraps, so the button sits at the left end of a row on a narrow pane, and `right: 0` hung the 200 px list past the edge — where `.ink-wrap { overflow: hidden }` clipped it. Visible to a query engine, so only a real pointer finds it | Measured on open and clamped to the bar's own box (`--ink-menu-shift`), before paint |
 | `449d83d` | Print and PNG did nothing at all in a worker with no renderer, for the rest of the session | `state.renderer?.capture()` short-circuits to silence, so the promise behind the button never settled; the failure path also swallowed its reason | `export-page` always answers, and logs why when a capture fails |
+| `39bd398` | Both image questions were the OS's: `window.confirm` for replace-or-new-page, `window.prompt` for which page of a PDF | A system dialog ignores the theme and, on a phone, covers the page it is asking about — `check:ui` had been failing on exactly this | The app's `ConfirmDialog` for the replace question (with "Add to a new page" as its second answer, so the destructive side is the one that needs the deliberate press) and a new `PromptDialog` for the page number, validated against the PDF's own count |
+| `39bd398` | "Add to a new page" saved the image and never showed it: the new page drew blank and its bar offered to add an image it already had | The upload's awaits outlive the render that started them, so the `pageIndex` the callback closed over was stale and the "is this the page on screen" comparison came out false — the worker was never told and `backgroundPath` was never set | A `pageIndexRef` answers that question live, in both the add and the remove path. The harness proves it from pixels: the picture's blue on the new page's sheet, and the bar saying "Change page image" |
 
 ## 3. How it was verified without a hand on the pen
 
@@ -74,8 +76,15 @@ decoded chunk's background index, and — reading the PNGs back in the page —
 the sheet showing the picture's blue (37,99,235) on paper, and the 2× export
 carrying both the image and the stroke (479 near-black pixels, against 0 on
 the ink-free page with the same picture, which is what makes the count mean
-something). 20/20 checks; `--probe-menu` dumps the menu's geometry and hit
-test, which is how the off-screen bug above was found.
+something). `--probe-menu` dumps the menu's geometry and hit test, which is how
+the off-screen bug above was found.
+
+Its last step is the replace-or-new-page question, and it is the one that
+found the bug below: the harness asks in the bar (which renames its image
+button to "Change page image" once a page has one), takes each answer in turn,
+and checks the page the reader ends up on — its stored path, the bar's own
+words, and the picture's blue on its sheet (29 checks in all). An answer that
+is only *recorded* and never drawn passes a model assertion and fails that one.
 
 ## 4. Still open
 
@@ -83,3 +92,21 @@ test, which is how the off-screen bug above was found.
   not reproduced this session.
 - Android build not exercised against a stylus.
 - Step 10 UI (Convert to LaTeX) still greyed.
+- `check:hygiene` fails on eight files over the 800-line cap. Seven were
+  already over it at `3a68c43` — `apps/desktop/src/main.ts` (1038),
+  `apps/web/src/features/editor-workspace/ui/explorer-panel.tsx` (895),
+  `apps/web/src/features/ink/application/shape-snap.ts` (1426),
+  `apps/web/src/features/ink/application/use-pen-capture.ts` (953),
+  `apps/web/src/features/ink/render/webgl-renderer.ts` (1137),
+  `apps/web/src/features/ink/worker/ink-worker.ts` (950), and
+  `packages/core/src/ink/myscript/` — the old 835-line `myscript.ts`, since
+  split into `vocabulary.ts` (112), `request.ts` (169), `response.ts` (240),
+  `latex.ts` (51) and `engine.ts` (183) behind an `index.ts` that carries the
+  module's banner — while `ink-host.tsx` (1571) grew
+  past it again with this work, having started at 1188. The export pipeline has
+  been lifted out to `apps/web/src/features/ink/ui/use-page-export.ts`; the rest
+  of the host is the page/image flows, recognition, save scheduling and the
+  render tree, and splitting it is a design job on the component that holds
+  every ref in the editor, not a move. It needs deciding per file: split, or an
+  `OVERSIZED_ALLOWED` entry with a reason. See `docs/building/dev.md` § Source
+  hygiene.

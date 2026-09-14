@@ -34,7 +34,7 @@ import {
   myScriptRequestBody,
   type MyScriptExportResponse,
   type MyScriptFetch,
-} from "../../src/ink/myscript.js";
+} from "../../src/ink/myscript/index.js";
 
 /** The hints every call in this file passes; vocabulary is deliberately non-empty. */
 const HINTS: InkRecognitionHints = { vocabulary: ["Graph-prior module", "VGAE"], lang: "en" };
