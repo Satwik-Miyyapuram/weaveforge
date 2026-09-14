@@ -10,6 +10,7 @@ import {
   canRename,
   creatableUnder,
   creationTarget,
+  draftIcon,
   draftPlaceholder,
   dropParentId,
   rootKey,
@@ -46,6 +47,19 @@ export interface ExplorerSelection {
 /** One row plus the position it sits at in the panel's single flat list. */
 interface PaintedRow extends VisibleRow {
   index: number;
+}
+
+/**
+ * The glyph a draft row shows while it is being named.
+ *
+ * A folder keeps the explorer's own folder glyph — that is what a grouping row
+ * draws — and everything else takes the same handle the tree gives the kind the
+ * row will become, so a draft does not look like a different species than the
+ * row it turns into. Which handle is a decision the create table owns.
+ */
+function DraftIcon({ kind }: { kind: CreateKind }) {
+  const name = draftIcon(kind);
+  return name === "folder" ? <FolderIcon /> : <NavIcon name={name} />;
 }
 
 /**
@@ -207,7 +221,9 @@ export function ExplorerPanel({
       if (under) {
         const root = rootOf(under);
         if (!root) return;
-        onDraft?.({ kind, root, parentId: under.kind === "folder" ? null : (under.id ?? null) });
+        // The same question a drop asks: a new row lands where a dragged one
+        // would, so the parent id comes from the same helper.
+        onDraft?.({ kind, root, parentId: dropParentId(under) });
         return;
       }
       onDraft?.({ kind, ...creationTarget(kind, activeDoc) });
@@ -721,19 +737,7 @@ export function ExplorerPanel({
                           >
                             <span className="explorer-twisty" aria-hidden="true" />
                             <span className="explorer-icon" aria-hidden="true">
-                              {draft.kind === "folder" ? (
-                                <FolderIcon />
-                              ) : (
-                                <NavIcon
-                                  name={
-                                    draft.kind === "ink"
-                                      ? "ink"
-                                      : draft.kind === "section"
-                                        ? "doc"
-                                        : "notes"
-                                  }
-                                />
-                              )}
+                              <DraftIcon kind={draft.kind} />
                             </span>
                             <InlineTitle
                               className="explorer-label"

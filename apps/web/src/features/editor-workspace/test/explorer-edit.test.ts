@@ -5,7 +5,10 @@ import {
   canDrop,
   canRename,
   creatableUnder,
+  creationKindFor,
   creationTarget,
+  draftIcon,
+  draftMakes,
   dropParentId,
   rootKey,
   rootOf,
@@ -99,4 +102,31 @@ test("drop: same root only, never onto itself or its own descendant", () => {
   assert.equal(canDrop(s2, find(roots, "report")), true);
   assert.equal(dropParentId(find(roots, "notes")), null);
   assert.equal(dropParentId(n1), "n1");
+});
+
+test("new file: the kind is the table's answer for the document on screen", () => {
+  // A section is in the outline, so the new file made from it is a section; a
+  // note makes a note. Anything belonging to no root — a paper, or nothing open
+  // at all — lands at the top of Notes, and the first kind Notes takes is a note.
+  assert.equal(creationKindFor({ kind: "report_section" }), "section");
+  assert.equal(creationKindFor({ kind: "vault_page" }), "note");
+  assert.equal(creationKindFor({ kind: "ink_page" }), "note");
+  assert.equal(creationKindFor({ kind: "paper" }), "note");
+  assert.equal(creationKindFor(undefined), "note");
+});
+
+test("a draft of each kind: what it writes into, and whether it opens", () => {
+  assert.deepEqual(draftMakes("note"), { ink: false, opens: true });
+  assert.deepEqual(draftMakes("ink"), { ink: true, opens: true });
+  assert.deepEqual(draftMakes("section"), { ink: false, opens: true });
+  // A folder is made and left closed: there is nothing to write into a folder,
+  // and opening one would open a grouping row rather than a document.
+  assert.deepEqual(draftMakes("folder"), { ink: false, opens: false });
+});
+
+test("a draft row wears the icon of the kind it will become", () => {
+  assert.equal(draftIcon("note"), "notes");
+  assert.equal(draftIcon("ink"), "ink");
+  assert.equal(draftIcon("folder"), "folder");
+  assert.equal(draftIcon("section"), "doc");
 });

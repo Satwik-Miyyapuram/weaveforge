@@ -1,10 +1,10 @@
 /**
  * A PDF page as a page background (§4.8): one page rasterised to a PNG the
- * vault keeps as an attachment. The reader's pdf.js is reused so the bundle
- * is fetched once, on either feature's first use.
+ * vault keeps as an attachment. `lib/pdf-lib` is the shared loader, so the
+ * bundle is fetched once on either feature's first use.
  */
 
-import { loadPdfLib } from "@/features/reader/ui/pdf-reader/pdf-document";
+import { loadPdfLib } from "@/lib/pdf-lib";
 
 export interface RasterisedPdfPage {
   blob: Blob;

@@ -38,7 +38,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { blobToDataUrl, downloadBlob, printBlob } from "@/lib/blob-output";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PromptDialog } from "@/components/prompt-dialog";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
@@ -88,7 +89,6 @@ import {
   type InkStoredPage,
 } from "../application/ink-chunk-store";
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
-import { inkPageSvg } from "../application/ink-svg";
 import { pdfPageCount } from "../application/pdf-page-raster";
 import {
   imageFileFromClipboard,
@@ -106,6 +106,14 @@ import {
 import { InkBar, nibForTool, type InkBarTool } from "./ink-bar";
 import { InkPage } from "./ink-page";
 import { InkTextLayer } from "./ink-text-layer";
+import { PNG_EXPORT_SCALE, usePageExport } from "./use-page-export";
+
+/**
+ * Pixels per 0.1 mm unit in an exported or printed page, re-exported because
+ * this module was where callers have always found it; the export pipeline that
+ * spends it lives in `./use-page-export`.
+ */
+export { PNG_EXPORT_SCALE };
 
 /** A page as the host holds it: the sidecar's view of it. */
 export type InkHostPage = InkStoredPage;
@@ -138,15 +146,6 @@ export interface InkHostProps {
 
 /** How long after the last stroke the page is written. */
 export const INK_SAVE_DELAY_MS = 1200;
-
-/**
- * Pixels per 0.1 mm unit in an exported or printed page.
- *
- * 2 is 508 dpi on A4 — enough that a printed page has no visible raster, and
- * what the PNG export has always used. The print path spends the same raster
- * rather than the DOM, so paper and file match stroke for stroke.
- */
-export const PNG_EXPORT_SCALE = 2;
 
 /** The message the text column shows where no engine can run. */
 export const INK_NO_ENGINE_MESSAGE =
@@ -200,6 +199,19 @@ export function InkHost({
   onSave,
 }: InkHostProps) {
   const [pageIndex, setPageIndex] = useState(initialPage);
+  /**
+   * The page on screen, for a flow that takes several awaits to finish.
+   *
+   * Putting an image on a page means uploading it first, and by the time the
+   * upload resolves the reader may be looking at the page the flow just made —
+   * so a callback that finished later cannot ask the `pageIndex` it closed over.
+   * This is that question with a live answer: it decides whether the page the
+   * work was for is still the one in front of the user.
+   */
+  const pageIndexRef = useRef(pageIndex);
+  useEffect(() => {
+    pageIndexRef.current = pageIndex;
+  }, [pageIndex]);
   const [tool, setTool] = useState<InkBarTool | "shape">("pen");
   const [penColour, setPenColour] = useState<InkColour>("text");
   const [highlighterColour, setHighlighterColour] = useState<InkColour>("warn");
@@ -251,6 +263,20 @@ export function InkHost({
   const imageInputRef = useRef<HTMLInputElement>(null);
   /** The answer that picker is waiting for: this page, or one of its own. */
   const imageTargetRef = useRef<"current" | "new">("current");
+  /**
+   * A question the host is asking, and the code waiting on the answer.
+   *
+   * Both questions are mid-flow — a multi-page PDF has to say which page before
+   * it can be rasterised — so they are held as a promise the asking code awaits,
+   * which keeps the flow linear instead of splitting each one across a state
+   * machine. `null` means the question was dismissed and the flow stops.
+   */
+  const [pageAsk, setPageAsk] = useState<{
+    count: number;
+    resolve: (page: number | null) => void;
+  } | null>(null);
+  /** Whether the "this page already has an image" question is open. */
+  const [replaceAsk, setReplaceAsk] = useState(false);
   /**
    * The pane, focused on a pointer-down. A `paste` goes to the focused element
    * and a canvas is not one, so the wrap takes focus itself — which is also
@@ -866,50 +892,15 @@ export function InkHost({
    * page (§6.2.14) — so printing the screen would crop the page to whatever
    * happened to be scrolled into view.
    */
-  const onExportPng = useCallback(async () => {
-    const png = await requestExport(PNG_EXPORT_SCALE);
-    if (!png) return;
-    downloadBlob(png, `${noteId}-page-${pageIndex + 1}.png`);
-  }, [noteId, pageIndex, requestExport]);
-
-  const onPrint = useCallback(async () => {
-    const png = await requestExport(PNG_EXPORT_SCALE);
-    if (!png) return;
-    printBlob(
-      png,
-      `${noteId}-page-${pageIndex + 1}`,
-      `${noteId} — page ${pageIndex + 1}`,
-    );
-  }, [noteId, pageIndex, requestExport]);
-
-  /**
-   * The page as SVG: the strokes themselves, not a picture of them.
-   *
-   * The model comes from the worker (it owns the geometry) and the background
-   * comes from the vault, as a data URL — a blob URL would not survive the file
-   * being saved and opened again.
-   */
-  const onExportSvg = useCallback(async () => {
-    const page = await requestModel();
-    const path = inkPageBackground(textPagesRef.current[pageIndex] ?? "");
-    let backgroundDataUrl: string | null = null;
-    if (path) {
-      try {
-        backgroundDataUrl = await blobToDataUrl(await deps.assets.fetchBlob(path));
-      } catch {
-        // A missing attachment is a page without its background (as above).
-      }
-    }
-    const svg = inkPageSvg(page, {
-      palette,
-      backgroundDataUrl,
-      title: `${noteId} — page ${pageIndex + 1}`,
-    });
-    downloadBlob(
-      new Blob([svg], { type: "image/svg+xml" }),
-      `${noteId}-page-${pageIndex + 1}.svg`,
-    );
-  }, [deps.assets, noteId, pageIndex, palette, requestModel]);
+  const { onExportPng, onPrint, onExportSvg } = usePageExport({
+    requestExport,
+    requestModel,
+    noteId,
+    pageIndex,
+    textPages: textPagesRef,
+    palette,
+    fetchBlob: deps.assets.fetchBlob,
+  });
 
   const goToPage = useCallback(
     (index: number) => {
@@ -969,7 +960,7 @@ export function InkHost({
         // A page with no chunk yet is a blank one on this sheet; the sheet in
         // front of the user is the honest answer for the page in front of them.
         size:
-          targetIndex === pageIndex
+          targetIndex === pageIndexRef.current
             ? { width: pageSize.width, height: pageSize.height }
             : undefined,
         codec: availableInkChunkCodec(),
@@ -977,7 +968,29 @@ export function InkHost({
       await deps.chunks.write(noteId, target.chunkId, bytes);
       target.chunk = bytes;
     },
-    [deps.chunks, noteId, pageIndex, pageSize.height, pageSize.width],
+    [deps.chunks, noteId, pageSize.height, pageSize.width],
+  );
+
+  /**
+   * Which page of a multi-page PDF to use, as a promise.
+   *
+   * The app's own dialog, not `window.prompt`: the system one ignores the theme
+   * and covers the page it is asking about on a phone. `null` is the dismissal,
+   * which every caller treats as "do nothing".
+   */
+  const askPdfPage = useCallback(
+    (count: number) =>
+      new Promise<number | null>((resolve) => setPageAsk({ count, resolve })),
+    [],
+  );
+  /** The answer to the picker's question, and the code waiting on it. */
+  const answerPdfPage = useCallback(
+    (page: number | null) => {
+      const ask = pageAsk;
+      setPageAsk(null);
+      ask?.resolve(page);
+    },
+    [pageAsk],
   );
 
   /**
@@ -1000,7 +1013,7 @@ export function InkHost({
       }
       const target = Math.max(
         0,
-        Math.min(targetPageIndex ?? pageIndex, pages.length - 1),
+        Math.min(targetPageIndex ?? pageIndexRef.current, pages.length - 1),
       );
       setInserting(true);
       try {
@@ -1008,14 +1021,9 @@ export function InkHost({
         if (isPdf(file)) {
           const count = await pdfPageCount(await file.arrayBuffer());
           if (count > 1) {
-            const answer = window.prompt(
-              `Which page of ${file.name}? (1–${count})`,
-              "1",
-            );
+            const answer = await askPdfPage(count);
             if (answer === null) return;
-            number = Number.parseInt(answer, 10);
-            if (!Number.isFinite(number) || number < 1 || number > count)
-              return;
+            number = answer;
           }
         }
         const png = await pageBackgroundFromFile(file, number);
@@ -1026,7 +1034,12 @@ export function InkHost({
         );
         const background = inkAttachmentIndex(noteBody().body, path);
         await writePageBackgroundChunk(target, background);
-        if (target === pageIndex) {
+        // The page the work was for is still the one on screen, whichever page
+        // the user was on when the click started: a page made for a new image
+        // is being looked at by now and has to be told, because nothing else
+        // will — the page-change effect read this page's text layer before this
+        // write got to it, so it saw a page with no image on it.
+        if (target === pageIndexRef.current) {
           // The worker draws it now, and is told the index so the next save —
           // the first stroke over the image — writes the same mirror back.
           const image = await createImageBitmap(png);
@@ -1043,11 +1056,11 @@ export function InkHost({
       }
     },
     [
+      askPdfPage,
       deps.assets,
       inserting,
       noteBody,
       noteId,
-      pageIndex,
       scheduleSave,
       send,
       writePageBackgroundChunk,
@@ -1061,20 +1074,22 @@ export function InkHost({
       if (!pages) return;
       const target = Math.max(
         0,
-        Math.min(targetPageIndex ?? pageIndex, pages.length - 1),
+        Math.min(targetPageIndex ?? pageIndexRef.current, pages.length - 1),
       );
       if (!inkPageBackground(textPagesRef.current[target] ?? "")) return;
       textPagesRef.current = textPagesRef.current.map((text, index) =>
         index === target ? withInkPageBackground(text, null) : text,
       );
       await writePageBackgroundChunk(target, 0);
-      if (target === pageIndex) {
+      // Only if the reader is still on that page: the chunk write above is an
+      // await, so the page losing its image may be behind them by now.
+      if (target === pageIndexRef.current) {
         send({ type: "set-background", image: null, index: 0 });
         setBackgroundPath(null);
       }
       scheduleSave();
     },
-    [pageIndex, scheduleSave, send, writePageBackgroundChunk],
+    [scheduleSave, send, writePageBackgroundChunk],
   );
 
   /**
@@ -1082,21 +1097,24 @@ export function InkHost({
    *
    * A page has one background (§4.8), so a page that already has one asks
    * first: replacing is what the button is for, and a page of its own is the
-   * answer that loses nothing. The answer is read in the input's handler,
-   * which is the only place it has to survive.
+   * answer that loses nothing. The answer is read in the input's handler, which
+   * is the only place it has to survive.
    */
   const onAddImageToCurrentPage = useCallback(() => {
-    let target: "current" | "new" = "current";
     if (backgroundPath) {
-      target = window.confirm(
-        "This page already has an image.\n\nOK replaces it. Cancel keeps it and adds the image to a new page.",
-      )
-        ? "current"
-        : "new";
+      setReplaceAsk(true);
+      return;
     }
-    imageTargetRef.current = target;
+    imageTargetRef.current = "current";
     imageInputRef.current?.click();
   }, [backgroundPath]);
+
+  /** The answer to that question: replace this page's image, or make a page. */
+  const answerReplace = useCallback((replace: boolean) => {
+    setReplaceAsk(false);
+    imageTargetRef.current = replace ? "current" : "new";
+    imageInputRef.current?.click();
+  }, []);
 
   /** The file the image picker produced, on the page the button chose. */
   const onImageFile = useCallback(
@@ -1133,14 +1151,9 @@ export function InkHost({
         if (isPdf(file)) {
           const count = await pdfPageCount(await file.arrayBuffer());
           if (count > 1) {
-            const answer = window.prompt(
-              `Which page of ${file.name}? (1–${count})`,
-              "1",
-            );
+            const answer = await askPdfPage(count);
             if (answer === null) return;
-            number = Number.parseInt(answer, 10);
-            if (!Number.isFinite(number) || number < 1 || number > count)
-              return;
+            number = answer;
           }
         }
         const png = await pageBackgroundFromFile(file, number);
@@ -1174,7 +1187,7 @@ export function InkHost({
         setInserting(false);
       }
     },
-    [deps.assets, deps.chunks, flushSave, inserting, noteId, saveBody],
+    [askPdfPage, deps.assets, deps.chunks, flushSave, inserting, noteId, saveBody],
   );
 
   const onLasso = useCallback(
@@ -1499,6 +1512,37 @@ export function InkHost({
         unavailable={unavailable}
         onAccept={onAccept}
       />
+      {/* Both ask about a file that is already chosen, so they are portaled
+          dialogs rather than browser ones: themed, and above the pane either
+          way. Escape and the backdrop take the answer that changes nothing. */}
+      {replaceAsk ? (
+        <ConfirmDialog
+          title="This page already has an image"
+          body="Replacing keeps the old file in the vault but stops showing it here."
+          confirmLabel="Replace it"
+          cancelLabel="Add to a new page"
+          onConfirm={() => answerReplace(true)}
+          onClose={() => answerReplace(false)}
+        />
+      ) : null}
+      {pageAsk ? (
+        <PromptDialog
+          title="Which page?"
+          body={`This PDF has ${pageAsk.count} pages. Only the page you name is used.`}
+          label="Page number"
+          initialValue="1"
+          inputType="number"
+          confirmLabel="Use this page"
+          validate={(value) => {
+            const page = Number.parseInt(value, 10);
+            return Number.isFinite(page) && page >= 1 && page <= pageAsk.count
+              ? null
+              : `Enter a page between 1 and ${pageAsk.count}.`;
+          }}
+          onConfirm={(value) => answerPdfPage(Number.parseInt(value, 10))}
+          onClose={() => answerPdfPage(null)}
+        />
+      ) : null}
     </div>
   );
 }

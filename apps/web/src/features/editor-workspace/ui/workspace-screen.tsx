@@ -53,12 +53,12 @@ import {
 import type { ExplorerSection } from "../application/explorer-state";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
-import { creationTarget, type Draft } from "../application/explorer-edit";
+import { creationKindFor, creationTarget, draftMakes, type Draft } from "../application/explorer-edit";
 import { readHidden, writeHidden } from "../application/explorer-state";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { isCreatableKind, isDocumentKind, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
+import { isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 
 interface Document {
@@ -457,9 +457,10 @@ export function WorkspaceScreen() {
         apply(openTab(layout, { kind: "report_section", id: section.id }));
         return;
       }
+      const makes = draftMakes(target.kind);
       await createNote(
-        { title, parentId: target.parentId ?? undefined, ink: target.kind === "ink" },
-        { open: target.kind !== "folder" },
+        { title, parentId: target.parentId ?? undefined, ink: makes.ink },
+        { open: makes.opens },
       );
     },
     [apply, createNote, layout, reload],
@@ -468,7 +469,10 @@ export function WorkspaceScreen() {
   const renameNode = useCallback(
     async (node: WorkspaceTreeNode, title: string) => {
       if (!node.id) return;
-      if (node.kind === "report_section") {
+      // Which surface owns this kind is the table's answer, not a condition
+      // here: a section is renamed by the report, every other document by the
+      // vault (§3.3).
+      if (kindOwner(node.kind) === "report") {
         await getContainer().report.manageReportSection.setTitle(node.id, title);
       } else {
         await getContainer().vault.manageVaultPage.update(node.id, { title });
@@ -481,7 +485,7 @@ export function WorkspaceScreen() {
   const moveNode = useCallback(
     async (node: WorkspaceTreeNode, parentId: string | null) => {
       if (!node.id) return;
-      if (node.kind === "report_section") {
+      if (kindOwner(node.kind) === "report") {
         await getContainer().report.manageReportSection.setParent(node.id, parentId);
       } else {
         await getContainer().vault.manageVaultPage.update(node.id, { parentId });
@@ -603,9 +607,10 @@ export function WorkspaceScreen() {
       if (command === "toggle-explorer") return toggleExplorer();
       if (command === "new-note") {
         // Into the folder of the document on screen when it is a note or a
-        // section; otherwise the top of Notes. Never Papers.
+        // section; otherwise the top of Notes. Never Papers. Which kind that is
+        // comes from the create table, so a new root states its own default.
         const doc = activeDocRef.current;
-        const kind = doc?.kind === "report_section" ? "section" : "note";
+        const kind = creationKindFor(doc);
         setDraft({ kind, ...creationTarget(kind, doc) });
         return;
       }

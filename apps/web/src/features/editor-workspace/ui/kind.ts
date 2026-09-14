@@ -53,6 +53,19 @@ export interface KindMeta {
   /** Status-bar segments for this kind, in paint order. */
   segments: readonly SegmentKey[];
   /**
+   * Whether this kind has a PDF of its own — the pane's third mode. True for a
+   * paper, whose PDF sits beside its source; false everywhere else, where a
+   * `pdf` mode means Edit. Asked from here so the pane's mode buttons and the
+   * document host cannot disagree about which kinds have one.
+   */
+  pdf: boolean;
+  /**
+   * Which surface owns a document's title and its place in the tree. Sections
+   * belong to the report, every other document to the vault. The screen asks
+   * this instead of naming a kind, so a new kind states its owner in its row.
+   */
+  owner: "vault" | "report";
+  /**
    * Whether a row of this kind is a *document* — something with an id that can
    * be opened, saved and counted — as opposed to a grouping row. The explorer
    * asks this instead of comparing against `"folder"` by name, and an Outline
@@ -97,6 +110,8 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: null,
     document: "text",
     segments: [],
+    pdf: false,
+    owner: "vault",
     documentRow: false,
     memberOrder: null,
     linkGroup: null,
@@ -108,6 +123,8 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".note.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    pdf: false,
+    owner: "vault",
     documentRow: true,
     // Papers first, then notes; `10` and `20` leave room for a kind between.
     memberOrder: 20,
@@ -122,6 +139,8 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".ink.md",
     document: "ink",
     segments: INK_SEGMENTS,
+    pdf: false,
+    owner: "vault",
     documentRow: true,
     // A note, so it sorts with the other notes inside a reading list.
     memberOrder: 20,
@@ -137,6 +156,9 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".paper.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    // The one kind with a PDF of its own: the reader's pane, in place (§3.9).
+    pdf: true,
+    owner: "vault",
     documentRow: true,
     memberOrder: 10,
     linkGroup: "papers",
@@ -148,6 +170,8 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".list.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    pdf: false,
+    owner: "vault",
     documentRow: true,
     memberOrder: null,
     linkGroup: null,
@@ -159,6 +183,9 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".report.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    pdf: false,
+    // Renamed and re-parented through the report's own use case, not the vault's.
+    owner: "report",
     documentRow: true,
     memberOrder: null,
     linkGroup: "sections",
@@ -170,6 +197,8 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".experiment.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    pdf: false,
+    owner: "vault",
     documentRow: true,
     memberOrder: null,
     linkGroup: null,
@@ -181,6 +210,8 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".milestone.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    pdf: false,
+    owner: "vault",
     documentRow: true,
     memberOrder: null,
     linkGroup: null,
@@ -192,6 +223,8 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     suffix: ".log.md",
     document: "text",
     segments: TEXT_SEGMENTS,
+    pdf: false,
+    owner: "vault",
     documentRow: true,
     memberOrder: null,
     linkGroup: null,
@@ -218,6 +251,23 @@ export function kindIcon(kind: string): string {
  */
 export function isDocumentKind(kind: string): boolean {
   return kindMeta(kind).documentRow;
+}
+
+/**
+ * Whether the pane should offer a PDF mode for this kind.
+ *
+ * The pane's mode buttons and the host's renderer both ask this, so a kind
+ * cannot end up with a button that shows nothing or a mode nobody can reach:
+ * the answer is one row in the table rather than the same `kind === "paper"`
+ * written twice.
+ */
+export function hasPdfView(kind: string): boolean {
+  return kindMeta(kind).pdf;
+}
+
+/** Which surface owns a row's title and its place in the tree. */
+export function kindOwner(kind: string): KindMeta["owner"] {
+  return kindMeta(kind).owner;
 }
 
 /** Papers before notes inside a reading list, by the table's own ordering. */

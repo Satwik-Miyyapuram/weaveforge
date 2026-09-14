@@ -168,7 +168,7 @@ export function flattenTree(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeN
  * `kind.ts`'s `isDocumentKind`, which answers for a kind string coming from a
  * tab or a palette row, and which has to know about ink's heading rows too.
  */
-export function isDocumentNode(node: WorkspaceTreeNode): boolean {
+export function isDocumentNode(node: Pick<WorkspaceTreeNode, "kind">): boolean {
   return node.kind !== "folder";
 }
 

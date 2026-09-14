@@ -731,6 +731,153 @@ check(
   printDoc ? `${printDoc.length} bytes of print HTML` : "no print frame",
 );
 
+/* ------------------------------------------- 6. the replace question, in-app */
+
+// The page already has an image, so the bar has to ask. It has to ask in the
+// app's own dialog — `window.confirm` ignores the theme and covers the page on
+// a phone — and each answer has to do what it says: one keeps the image that is
+// there and puts the new one on a page of its own, the other replaces it.
+//
+// A page that has an image says so in the bar's own words: the button becomes
+// "Change page image", which is the button this step is about.
+console.log("\n6. Replacing an image asks first, in the app's own dialog");
+const changeButton = page.getByRole("button", { name: "Change page image" });
+check(
+  "a page with an image offers to change it",
+  (await changeButton.count()) === 1,
+);
+const pagesBefore = await page.evaluate(() => window.inkHarness.pages().length);
+const uploadsBefore = await page.evaluate(() => window.inkHarness.uploadCount());
+const firstPath = await page.evaluate(() => window.inkHarness.backgroundPath(0));
+
+await changeButton.click();
+const replaceDialog = page.getByRole("dialog", {
+  name: "This page already has an image",
+});
+await replaceDialog.waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
+check(
+  "the page that has an image makes the button ask before it replaces it",
+  (await replaceDialog.count()) === 1,
+);
+check(
+  "and the question is the app's own dialog, not the OS one",
+  (await page.locator(".modal-backdrop .modal").count()) >= 1,
+);
+
+const keepButton = page.getByRole("button", { name: "Add to a new page" });
+check("one answer is a page of its own", (await keepButton.count()) === 1);
+await keepButton.click();
+await page.setInputFiles("[data-ink-image-input]", {
+  name: "second-figure.png",
+  mimeType: "image/png",
+  buffer: imageBytes,
+});
+await page
+  .waitForFunction(
+    (count) => window.inkHarness.pages().length === count + 1,
+    pagesBefore,
+    { timeout: 20_000 },
+  )
+  .catch(() => undefined);
+await page.evaluate(() => window.inkHarness.settled());
+
+const kept = await page.evaluate(
+  (count) => ({
+    pages: window.inkHarness.pages().length,
+    onOldPage: window.inkHarness.backgroundPath(0),
+    onNewPage: window.inkHarness.backgroundPath(count),
+    uploads: window.inkHarness.uploadCount(),
+  }),
+  pagesBefore,
+);
+// Where the reader ended up, which is the page the next two checks are about.
+const shownPage = (await page.locator(".ink-page-count").textContent())?.trim();
+const here = Number(shownPage?.split("/")[0]?.trim() ?? "1") - 1;
+
+check(
+  "the answer that keeps it puts the new image on a page of its own",
+  kept.pages === pagesBefore + 1 &&
+    kept.onNewPage !== null &&
+    kept.onOldPage === firstPath,
+  `${pagesBefore} → ${kept.pages} pages, page 1 still ${kept.onOldPage}, page ${kept.pages} ${kept.onNewPage}`,
+);
+check(
+  "and the file went to the vault rather than replacing anything",
+  kept.uploads === uploadsBefore + 1,
+  `uploads ${uploadsBefore} → ${kept.uploads}`,
+);
+
+// Recorded is not drawn. The new page is the one on screen, so the picture has
+// to be *on* it: the same probe the first step used, on the page the answer
+// just made.
+const keptShot = await snap("after-keep-image");
+const keptBox = await page.locator(".ink-sheet").boundingBox();
+const keptPixels = await probePng(
+  keptShot,
+  keptBox
+    ? [
+        [keptBox.x + keptBox.width / 2, keptBox.y + keptBox.height * 0.34],
+        [keptBox.x + keptBox.width / 2, keptBox.y + keptBox.height * 0.02],
+      ]
+    : [],
+);
+check(
+  "the page the answer made draws the image, not just records it",
+  Boolean(
+    keptBox && isBlue(keptPixels.points[0]) && !isBlue(keptPixels.points[1]),
+  ),
+  keptBox
+    ? `page ${here + 1} (${shownPage}): mid-blue ${keptPixels.points[0]}, top ${keptPixels.points[1]}`
+    : "no sheet",
+);
+
+// Now the other answer, on the page the reader is looking at — the new page,
+// which the answer above has just given an image. This answer replaces.
+//
+// The bar saying so is itself the check: an image put on the page that was made
+// for it has to reach the bar, or the page in front of the user looks blank and
+// offers to add an image it already has.
+check(
+  "the page the answer made offers to change its image, not to add one",
+  (await changeButton.count()) === 1 && (await addButton.count()) === 0,
+  `on ${shownPage}`,
+);
+const replacePages = await page.evaluate(() => window.inkHarness.pages().length);
+const beforeReplace = await page.evaluate((i) => window.inkHarness.backgroundPath(i), here);
+await changeButton.click();
+await page.getByRole("button", { name: "Replace it" }).click();
+await page.setInputFiles("[data-ink-image-input]", {
+  name: "replacement.png",
+  mimeType: "image/png",
+  buffer: imageBytes,
+});
+await page
+  .waitForFunction(
+    (before) => window.inkHarness.backgroundPath(before.index) !== before.path,
+    { index: here, path: beforeReplace },
+    { timeout: 20_000 },
+  )
+  .catch(() => undefined);
+await page.evaluate(() => window.inkHarness.settled());
+
+const replaced = await page.evaluate(
+  (i) => ({
+    pages: window.inkHarness.pages().length,
+    path: window.inkHarness.backgroundPath(i),
+  }),
+  here,
+);
+check(
+  "the answer that replaces does it on the same page, adding no page",
+  replaced.pages === replacePages &&
+    replaced.path !== null &&
+    replaced.path !== beforeReplace &&
+    replaced.path !== firstPath,
+  `${replacePages} pages, page ${here + 1} ${beforeReplace} → ${replaced.path}`,
+);
+
+await snap("replace-dialog");
+
 await snap("final");
 
 /* -------------------------------------------------------------------- report */

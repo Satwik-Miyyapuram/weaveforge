@@ -7,7 +7,8 @@ import type {
   ReaderAnnotation,
 } from "@weaveforge/core";
 
-export type PdfLib = typeof import("pdfjs-dist");
+export type { PdfLib } from "@/lib/pdf-lib";
+import type { PdfLib } from "@/lib/pdf-lib";
 
 export type PdfDocument = Awaited<ReturnType<PdfLib["getDocument"]>["promise"]>;
 

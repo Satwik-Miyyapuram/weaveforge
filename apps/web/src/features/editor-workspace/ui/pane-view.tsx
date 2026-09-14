@@ -18,7 +18,7 @@ import {
   type TabRef,
 } from "../application/pane-tree";
 import { Breadcrumbs } from "./breadcrumbs";
-import { kindIcon, kindSuffix, kindTintClass } from "./kind";
+import { hasPdfView, kindIcon, kindSuffix, kindTintClass } from "./kind";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -232,7 +232,7 @@ function PaneLeafView({
               >
                 Read
               </button>
-              {showing.kind === "paper" ? (
+              {hasPdfView(showing.kind) ? (
                 <button
                   type="button"
                   className={`pane-mode-btn${editing === "pdf" ? " is-on" : ""}`}

@@ -10,7 +10,7 @@
 
 import { ENTITY_DIRS } from "@weaveforge/core";
 
-import type { WorkspaceTreeNode } from "./workspace-tree";
+import { isDocumentNode, type WorkspaceTreeNode } from "./workspace-tree";
 
 /** The kinds a draft row can make. */
 export type CreateKind = "note" | "ink" | "folder" | "section";
@@ -29,11 +29,14 @@ const ROOT_OF_KIND: Record<string, EditableRoot> = {
   report_section: "report",
 };
 
-/** The kinds each root's rows may be given as children. */
-const CREATABLE: Record<EditableRoot, readonly CreateKind[]> = {
+/** The kinds each root's rows may be given as children; the first is the default. */
+const CREATABLE: Record<EditableRoot, readonly [CreateKind, ...CreateKind[]]> = {
   notes: ["note", "ink", "folder"],
   report: ["section"],
 };
+
+/** Where a "new file" lands when the document on screen belongs to no root. */
+const DEFAULT_ROOT: EditableRoot = "notes";
 
 /** The key of a root's row in the tree. */
 export function rootKey(root: EditableRoot): string {
@@ -62,9 +65,29 @@ export function creatableUnder(node: Pick<WorkspaceTreeNode, "key" | "kind" | "i
   return root ? CREATABLE[root] : [];
 }
 
+/** The root a *kind* belongs to — the kind-only half of `rootOf`. */
+export function rootOfKind(kind: string): EditableRoot | null {
+  return ROOT_OF_KIND[kind] ?? null;
+}
+
+/**
+ * The kind the "new file" gestures make while `active` is the document on
+ * screen: a note beside a note, a section beside a section, and Notes' own
+ * first kind when the document lives under no editable root — a paper, a list,
+ * or nothing at all.
+ *
+ * Read out of `CREATABLE` rather than written as a condition, so "what does
+ * `⌘N` make here" has one answer per root and a root that gains a default kind
+ * changes it in the table above.
+ */
+export function creationKindFor(active: { kind: string } | undefined): CreateKind {
+  const root = active ? rootOfKind(active.kind) : null;
+  return CREATABLE[root ?? DEFAULT_ROOT][0];
+}
+
 /** Whether a row can be renamed in place: any note or section, never a root or a paper. */
 export function canRename(node: Pick<WorkspaceTreeNode, "key" | "kind" | "id" | "isMember" | "headingLevel">): boolean {
-  return Boolean(node.id) && rootOf(node) !== null && node.kind !== "folder";
+  return Boolean(node.id) && rootOf(node) !== null && isDocumentNode(node);
 }
 
 /**
@@ -98,13 +121,13 @@ export function canDrop(
   const root = rootOf(source);
   if (!root || !source.id || rootOf(target) !== root) return false;
   if (target.key === source.key) return false;
-  if (target.kind !== "folder" && !target.id) return false;
+  if (isDocumentNode(target) && !target.id) return false;
   return !isDescendant(source, target);
 }
 
 /** The parent id a drop on `target` gives: `null` for the root row. */
 export function dropParentId(target: WorkspaceTreeNode): string | null {
-  return target.kind === "folder" ? null : (target.id ?? null);
+  return isDocumentNode(target) ? (target.id ?? null) : null;
 }
 
 function isDescendant(ancestor: WorkspaceTreeNode, node: WorkspaceTreeNode): boolean {
@@ -126,6 +149,41 @@ export function draftPlaceholder(kind: CreateKind): string {
     case "section":
       return "Section title";
   }
+}
+
+/**
+ * The icon handle a draft row shows while it is being named.
+ *
+ * A draft is not a tree row yet, so it has no `kind.ts` row to ask; the handles
+ * are the same ones the tree uses, which is what keeps the new row from looking
+ * like a different species than the row it will become.
+ */
+const DRAFT_ICON: Record<CreateKind, string> = {
+  note: "notes",
+  ink: "ink",
+  folder: "folder",
+  section: "doc",
+};
+
+export function draftIcon(kind: CreateKind): string {
+  return DRAFT_ICON[kind];
+}
+
+/**
+ * What a draft of each kind turns into, for the two questions the screen asks
+ * while making one: whether the note is handwritten, and whether it is opened
+ * once it exists. A folder is neither — it is made and left closed, because
+ * nobody writes into a folder.
+ */
+const DRAFT_MAKES: Record<CreateKind, { ink: boolean; opens: boolean }> = {
+  note: { ink: false, opens: true },
+  ink: { ink: true, opens: true },
+  folder: { ink: false, opens: false },
+  section: { ink: false, opens: true },
+};
+
+export function draftMakes(kind: CreateKind): { ink: boolean; opens: boolean } {
+  return DRAFT_MAKES[kind];
 }
 
 /** The MIME type explorer rows drag as. */

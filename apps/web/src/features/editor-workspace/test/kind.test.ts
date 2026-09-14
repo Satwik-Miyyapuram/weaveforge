@@ -8,8 +8,10 @@ import {
   KINDS,
   documentKind,
   documentSuffix,
+  hasPdfView,
   isDocumentKind,
   kindIcon,
+  kindOwner,
   kindSuffix,
   kindTintClass,
   labelledTitle,
@@ -80,6 +82,25 @@ test("PDF is a paper's third mode; on anything else it means Edit", () => {
   assert.equal(rendererFor("paper", "pdf"), "pdf");
   assert.equal(rendererFor("vault_page", "pdf"), "editor");
   assert.equal(rendererFor("ink_page", "pdf"), "ink");
+});
+
+test("the table says which kinds have a PDF to look at", () => {
+  // A paper is a PDF; a note is text that may quote one, and a section is this
+  // app's own prose. Only the row that says so gets the third mode button.
+  assert.equal(hasPdfView("paper"), true);
+  assert.equal(hasPdfView("vault_page"), false);
+  assert.equal(hasPdfView("ink_page"), false);
+  assert.equal(hasPdfView("report_section"), false);
+  assert.equal(hasPdfView("something_new"), false);
+});
+
+test("the table says which surface renames and moves a kind", () => {
+  // The outline and the vault are separate stores with separate use cases, so
+  // which one a row belongs to is a row's fact, not a condition at the call.
+  assert.equal(kindOwner("report_section"), "report");
+  assert.equal(kindOwner("vault_page"), "vault");
+  assert.equal(kindOwner("ink_page"), "vault");
+  assert.equal(kindOwner("paper"), "vault");
 });
 
 test("an unknown kind is safe in both modes", () => {

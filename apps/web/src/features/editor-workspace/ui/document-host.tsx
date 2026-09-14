@@ -40,7 +40,7 @@ import { editorImageUpload } from "@/lib/editor-image-upload";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { DocumentMode, TabRef } from "../application/pane-tree";
 import { ImageSizeControl } from "./image-size-control";
-import { documentKind } from "./kind";
+import { documentKind, hasPdfView } from "./kind";
 
 /** What the active renderer tells the pane about itself. */
 export interface DocumentMetrics {
@@ -105,7 +105,7 @@ export type RendererName = "editor" | "markdown" | "ink" | "pdf";
 export function rendererFor(kind: string, mode: DocumentMode): RendererName {
   if (documentKind(kind) === "ink") return "ink";
   // Only a paper has a PDF; the mode on any other kind means Edit.
-  if (mode === "pdf") return kind === "paper" ? "pdf" : "editor";
+  if (mode === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
   return mode === "read" ? "markdown" : "editor";
 }
 
