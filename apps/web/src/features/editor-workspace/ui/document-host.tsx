@@ -19,7 +19,7 @@
  * is one more row there and one more case here when it lands.
  */
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { vaultImageMarkdown } from "@weaveforge/core";
 
@@ -41,6 +41,7 @@ import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { DocumentMode, TabRef } from "../application/pane-tree";
 import { ImageSizeControl } from "./image-size-control";
 import { documentKind, hasPdfView } from "./kind";
+import { LivePreview, useMdPreviewMode } from "./md-live-preview";
 
 /** What the active renderer tells the pane about itself. */
 export interface DocumentMetrics {
@@ -208,6 +209,24 @@ export function DocumentHost({
     };
   }, []);
 
+  // The live text, kept here as well as reported, because the preview below
+  // reads it: a preview of the last save is a preview of half a minute ago.
+  const liveRef = useRef<string | null>(null);
+  const [liveBody, setLiveBody] = useState<string | null>(null);
+  const liveWatch = onMetrics
+    ? useCallback((view: EditorView) => {
+        const inner = watch(view);
+        const onInput = () => setLiveBody(view.state.doc.toString());
+        onInput();
+        view.dom.addEventListener("input", onInput);
+        return () => {
+          view.dom.removeEventListener("input", onInput);
+          inner?.();
+        };
+      }, [watch])
+    : undefined;
+  const [previewMode, choosePreview] = useMdPreviewMode();
+
   const imagePaste = useMemo<ImagePasteConfig | undefined>(() => {
     const store = imageStore(tab.kind, tab.id);
     if (!store) return undefined;
@@ -293,16 +312,46 @@ export function DocumentHost({
     );
   }
 
+  // The live preview's renderer: the read view's own, reused so a preview and
+  // a read never disagree about what a document means (§3.3's table again —
+  // one place, one decision per kind).
+  const renderPreview = useCallback(
+    (text: string) =>
+      tab.kind === "paper" ? (
+        <PaperMarkdown body={text} className="document-read-body" />
+      ) : tab.kind === "report_section" ? (
+        <ReportSectionMarkdown body={text} className="document-read-body" />
+      ) : (
+        <VaultMarkdown
+          body={text}
+          className="document-read-body"
+          notes={links?.notes ?? []}
+          papers={links?.papers ?? []}
+          sections={links?.sections ?? []}
+          onCreateNote={onCreateNote}
+        />
+      ),
+    [tab.kind, links, onCreateNote],
+  );
+
   return (
-    <CollabBodyHost
-      resourceType={tab.kind}
-      resourceId={tab.id}
-      initialBody={body}
-      onSave={onSave}
-      markdownEditing={markdownEditing}
-      editorClassName="workspace-editor"
-      onViewCreated={onMetrics ? watch : undefined}
-      handleRef={handleRef}
-    />
+    <LivePreview
+      mode={previewMode}
+      onModeChange={choosePreview}
+      liveBody={liveBody}
+      savedBody={body}
+      preview={renderPreview}
+    >
+      <CollabBodyHost
+        resourceType={tab.kind}
+        resourceId={tab.id}
+        initialBody={body}
+        onSave={onSave}
+        markdownEditing={markdownEditing}
+        editorClassName="workspace-editor"
+        onViewCreated={liveWatch ?? watch}
+        handleRef={handleRef}
+      />
+    </LivePreview>
   );
 }

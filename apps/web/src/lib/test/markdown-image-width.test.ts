@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { parseImageAlt, setImageWidth, withImageWidth } from "../markdown-image-width";
+import { parseImageAlt, setImagePlacement, setImageWidth, withImageWidth } from "../markdown-image-width";
 
 test("a `|NN%` suffix is a width; a bare alt is not", () => {
   assert.deepEqual(parseImageAlt("Figure 1|40%"), { alt: "Figure 1", width: "40%" });
@@ -25,4 +25,24 @@ test("setImageWidth rewrites the nth image with that alt and nothing else", () =
   assert.equal(setImageWidth(out, "a", 1, null), body);
   // An ordinal past the last match leaves the body alone.
   assert.equal(setImageWidth(body, "a", 5, "50%"), body);
+});
+
+test("setImagePlacement replaces a placement, it does not stack beside it", () => {
+  const body = "![photo right c=0,0,10,10|40%](x.png)";
+  // A new side replaces the old one; the crop and width it did not mention
+  // are kept, because one click is one idea.
+  assert.equal(
+    setImagePlacement(body, "photo", 0, { align: "left" }),
+    "![photo left c=0,0,10,10|40%](x.png)",
+  );
+  // A new crop replaces the insets and keeps the rest.
+  assert.equal(
+    setImagePlacement(body, "photo", 0, { crop: [5, 5, 5, 5] }),
+    "![photo right c=5,5,5,5|40%](x.png)",
+  );
+  // Reset clears all three.
+  assert.equal(
+    setImagePlacement(body, "photo", 0, { align: null, crop: null, width: null }),
+    "![photo](x.png)",
+  );
 });

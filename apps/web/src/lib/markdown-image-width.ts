@@ -76,12 +76,24 @@ export function parseImagePlacement(raw: string): {
   return parseMdImageAlt(raw);
 }
 
-/** The alt text for a figure's own text plus its placement, all three. */
+/**
+ * The alt text for a figure's own text plus its placement, all three.
+ *
+ * A field the placement does not mention keeps what the alt already carries:
+ * a side click is one idea, and it must not drop the crop the picture has.
+ * `null` is the explicit clear — "take this off" — which is how the reset
+ * button says it.
+ */
 export function withImagePlacement(
-  alt: string,
+  raw: string,
   placement: { crop?: MdCrop | null; align?: MdAlign | null; width?: string | null },
 ): string {
-  return withMdImageAlt(alt, placement);
+  const current = parseMdImageAlt(raw);
+  return withMdImageAlt(current.alt, {
+    crop: placement.crop === undefined ? current.crop ?? null : placement.crop,
+    align: placement.align === undefined ? current.align ?? null : placement.align,
+    width: placement.width === undefined ? current.width ?? null : placement.width,
+  });
 }
 
 /**

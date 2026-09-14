@@ -1237,6 +1237,99 @@
   height: 100%;
 }
 
+/* Live preview while editing (§md-live-preview): the editor and the read
+   view's own renderer, side by side or stacked, the person's choice. The
+   editor keeps the whole height it had — a preview never takes space away
+   from the writing, it takes the half it is given. */
+.md-live {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.md-live--side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+.md-live--below {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}
+.md-live-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+.md-live--off .md-live-editor,
+.md-live:not(.md-live--side, .md-live--below) .md-live-editor {
+  flex: 1;
+}
+.md-live-editor .workspace-editor {
+  flex: 1;
+  min-height: 0;
+}
+.md-live-pane {
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+.md-live--below .md-live-pane {
+  border-left: none;
+  border-top: 1px solid var(--border);
+}
+/* The pane's rendered body keeps the reading measure; the editor's half is
+   already the writing measure. */
+.md-live-pane .document-read-body {
+  padding: 24px 30px 100px;
+}
+
+/* The choice: three small states, told apart by words. It sits at the top
+   of the editor's own half, out of the text's way, and it is the same in
+   both layouts. */
+.md-live-choice {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.md-live-choice-label {
+  margin-right: 4px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.64rem;
+}
+.md-live-option {
+  padding: 1px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.md-live-option:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--faint) 10%, transparent);
+}
+.md-live-option.is-on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 /* The rendered view is prose, so it gets the reading measure rather than the
    full width of a maximised window. */
 .document-read-body {
