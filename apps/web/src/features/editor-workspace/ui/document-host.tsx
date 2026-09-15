@@ -211,20 +211,23 @@ export function DocumentHost({
 
   // The live text, kept here as well as reported, because the preview below
   // reads it: a preview of the last save is a preview of half a minute ago.
-  const liveRef = useRef<string | null>(null);
   const [liveBody, setLiveBody] = useState<string | null>(null);
-  const liveWatch = onMetrics
-    ? useCallback((view: EditorView) => {
-        const inner = watch(view);
-        const onInput = () => setLiveBody(view.state.doc.toString());
-        onInput();
-        view.dom.addEventListener("input", onInput);
-        return () => {
-          view.dom.removeEventListener("input", onInput);
-          inner?.();
-        };
-      }, [watch])
-    : undefined;
+  const metricsAsked = Boolean(onMetrics);
+  const liveWatch = useCallback(
+    (view: EditorView) => {
+      // The metrics report runs only where the pane asked for one; the live
+      // text is always kept, because the preview is always one toggle away.
+      const inner = metricsAsked ? watch(view) : undefined;
+      const onInput = () => setLiveBody(view.state.doc.toString());
+      onInput();
+      view.dom.addEventListener("input", onInput);
+      return () => {
+        view.dom.removeEventListener("input", onInput);
+        inner?.();
+      };
+    },
+    [metricsAsked, watch],
+  );
   const [previewMode, choosePreview] = useMdPreviewMode();
 
   const imagePaste = useMemo<ImagePasteConfig | undefined>(() => {
@@ -267,55 +270,13 @@ export function DocumentHost({
 
   const renderer = rendererFor(tab.kind, mode);
 
-  if (renderer === "ink") {
-    // The one case §3.3 reserved, and the only place this screen mentions ink.
-    //
-    // The sidecar is not loaded here: this component is handed a body and a save
-    // callback by the pane, and an ink note's strokes live beside the note rather
-    // than in it (§4.6). `InkHost` therefore starts on the text layer the body
-    // already holds and asks the container's ink facade for its pages itself,
-    // which keeps the reading of `.ink/<id>/` in the feature that owns the format.
-    return <InkHost noteId={tab.id} body={body} deps={getContainer().ink} onSave={onSave} />;
-  }
-
-  if (renderer === "pdf") {
-    // The reader's paper half, in the tab. The route is the same component
-    // with a header around it; the PDF is not loaded twice.
-    return <PaperPdfPane paperId={tab.id} />;
-  }
-
-  if (renderer === "markdown") {
-    // A paper or a section reads through its own screen's renderer, which is
-    // where its image prefix resolves; a note reads through the vault's, which
-    // is the one that takes this screen's link lists and can create a note.
-    const read =
-      tab.kind === "paper" ? (
-        <PaperMarkdown body={body} className="document-read-body" />
-      ) : tab.kind === "report_section" ? (
-        <ReportSectionMarkdown body={body} className="document-read-body" />
-      ) : (
-        <VaultMarkdown
-          body={body}
-          className="document-read-body"
-          notes={links?.notes ?? []}
-          papers={links?.papers ?? []}
-          sections={links?.sections ?? []}
-          onCreateNote={onCreateNote}
-        />
-      );
-    return (
-      <div className="document-read" onClickCapture={onReadClick}>
-        <ImageSizeControl body={body} onSave={onSave}>
-          {read}
-        </ImageSizeControl>
-      </div>
-    );
-  }
-
-  // The live preview's renderer: the read view's own, reused so a preview and
-  // a read never disagree about what a document means (§3.3's table again —
-  // one place, one decision per kind).
-  const renderPreview = useCallback(
+  // The read view's renderer, per kind, shared by Read mode and the live
+  // preview so the two never disagree about what a document means (§3.3's
+  // table again — one place, one decision per kind). A paper and a section
+  // read through their own screen's renderer, which is where their image
+  // prefix resolves; a note reads through the vault's, which is the one that
+  // takes this screen's link lists and can create a note.
+  const renderMarkdown = useCallback(
     (text: string) =>
       tab.kind === "paper" ? (
         <PaperMarkdown body={text} className="document-read-body" />
@@ -334,13 +295,40 @@ export function DocumentHost({
     [tab.kind, links, onCreateNote],
   );
 
+  if (renderer === "ink") {
+    // The one case §3.3 reserved, and the only place this screen mentions ink.
+    //
+    // The sidecar is not loaded here: this component is handed a body and a save
+    // callback by the pane, and an ink note's strokes live beside the note rather
+    // than in it (§4.6). `InkHost` therefore starts on the text layer the body
+    // already holds and asks the container's ink facade for its pages itself,
+    // which keeps the reading of `.ink/<id>/` in the feature that owns the format.
+    return <InkHost noteId={tab.id} body={body} deps={getContainer().ink} onSave={onSave} />;
+  }
+
+  if (renderer === "pdf") {
+    // The reader's paper half, in the tab. The route is the same component
+    // with a header around it; the PDF is not loaded twice.
+    return <PaperPdfPane paperId={tab.id} />;
+  }
+
+  if (renderer === "markdown") {
+    return (
+      <div className="document-read" onClickCapture={onReadClick}>
+        <ImageSizeControl body={body} onSave={onSave}>
+          {renderMarkdown(body)}
+        </ImageSizeControl>
+      </div>
+    );
+  }
+
   return (
     <LivePreview
       mode={previewMode}
       onModeChange={choosePreview}
       liveBody={liveBody}
       savedBody={body}
-      preview={renderPreview}
+      preview={renderMarkdown}
     >
       <CollabBodyHost
         resourceType={tab.kind}
@@ -349,7 +337,7 @@ export function DocumentHost({
         onSave={onSave}
         markdownEditing={markdownEditing}
         editorClassName="workspace-editor"
-        onViewCreated={liveWatch ?? watch}
+        onViewCreated={liveWatch}
         handleRef={handleRef}
       />
     </LivePreview>
