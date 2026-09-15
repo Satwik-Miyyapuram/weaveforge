@@ -38,6 +38,14 @@ import {
   type WorkspaceTreeNode,
 } from "../application/workspace-tree";
 import { documentSuffix, isDocumentKind, kindIcon, kindIconClass } from "./kind";
+import {
+  CloseGlyph,
+  DraftIcon,
+  HideGlyph,
+  InlineTitle,
+  RefreshGlyph,
+  messageOf,
+} from "./explorer-glyphs";
 
 export interface ExplorerSelection {
   kind: TreeNodeKind;
@@ -47,19 +55,6 @@ export interface ExplorerSelection {
 /** One row plus the position it sits at in the panel's single flat list. */
 interface PaintedRow extends VisibleRow {
   index: number;
-}
-
-/**
- * The glyph a draft row shows while it is being named.
- *
- * A folder keeps the explorer's own folder glyph — that is what a grouping row
- * draws — and everything else takes the same handle the tree gives the kind the
- * row will become, so a draft does not look like a different species than the
- * row it turns into. Which handle is a decision the create table owns.
- */
-function DraftIcon({ kind }: { kind: CreateKind }) {
-  const name = draftIcon(kind);
-  return name === "folder" ? <FolderIcon /> : <NavIcon name={name} />;
 }
 
 /**
@@ -778,117 +773,3 @@ export function ExplorerPanel({
   );
 }
 
-/**
- * The text box a draft or a rename types into. Enter submits, Escape cancels,
- * and leaving it submits what is there — VS Code's rule, so a click elsewhere
- * after typing a name does not throw the name away.
- */
-function InlineTitle({
-  className,
-  initial,
-  placeholder,
-  onSubmit,
-  onCancel,
-}: {
-  className: string;
-  initial: string;
-  placeholder: string;
-  onSubmit: (title: string) => void | Promise<void>;
-  onCancel: () => void;
-}) {
-  const [value, setValue] = useState(initial);
-  const ref = useRef<HTMLInputElement>(null);
-  const done = useRef(false);
-  useEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
-  }, []);
-  const finish = (submit: boolean) => {
-    if (done.current) return;
-    done.current = true;
-    if (submit) void onSubmit(value);
-    else onCancel();
-  };
-  return (
-    <input
-      ref={ref}
-      type="text"
-      className={`${className} explorer-inline-title`}
-      value={value}
-      placeholder={placeholder}
-      aria-label={placeholder}
-      onChange={(event) => setValue(event.target.value)}
-      onClick={(event) => event.stopPropagation()}
-      onBlur={() => finish(true)}
-      onKeyDown={(event) => {
-        event.stopPropagation();
-        if (event.key === "Enter") {
-          event.preventDefault();
-          finish(true);
-        } else if (event.key === "Escape") {
-          event.preventDefault();
-          finish(false);
-        }
-      }}
-    />
-  );
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function HideGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="15"
-      height="15"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M9 4v16" />
-    </svg>
-  );
-}
-
-function CloseGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="11"
-      height="11"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="M6 6l12 12M18 6 6 18" />
-    </svg>
-  );
-}
-
-function RefreshGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="15"
-      height="15"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 12a8 8 0 1 1-2.3-5.6" />
-      <path d="M20 4v4h-4" />
-    </svg>
-  );
-}
