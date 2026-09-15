@@ -56,137 +56,39 @@ import {
 } from "./ink-renderer";
 
 import {
+  BACKGROUND_FRAGMENT_SHADER,
+  BACKGROUND_VERTEX_SHADER,
+  CORNERS,
+  FRAGMENT_SHADER,
+  VERTEX_SHADER,
+} from "./webgl-shaders";
+import {
+  ensureCaptureTarget,
+  releaseCaptureTarget,
+  type CaptureTarget,
+} from "./webgl-offscreen";
+import { InkBatches } from "./webgl-batches";
+import { linkProgram, supportsWebglInk } from "./webgl-support";
+
+import {
   INK_RENDER_COLOURS,
   type InkPalette,
   type InkRgb,
 } from "./ink-palette";
 export { INK_RENDER_COLOURS } from "./ink-palette";
 
-/** The palette's order, so a stroke's colour name becomes a shader index. */
-const PALETTE: readonly InkColour[] = [
-  "text",
-  "accent",
-  "warn",
-  "good",
-  "info",
-  "danger",
-];
-
-export const VERTEX_SHADER = `#version 300 es
-in vec2 corner;          // unit quad: (0,-1) (1,-1) (1,1) (0,-1) (1,1) (0,1)
-in vec4 seg;             // A.xy, B.xy in page units
-in vec2 radius;          // rA, rB in page units, per instance
-in vec4 neighbours;      // prevA.xy, nextB.xy: the capsules either side
-in vec2 neighbourRadius; // prevRA, nextRB; negative when there is no neighbour
-uniform vec2 pageSize;   // device pixels, for normalising
-uniform vec4 camera;     // scale·dpr, offsetX·dpr, offsetY·dpr (device px), unused
-uniform float margin;    // the AA margin in page units
-uniform vec2 shift;      // page units: where a dragged selection is shown
-uniform float halo;      // page units added to every radius: the selection halo
-out vec2 vPage;
-// Per-instance constants travel \`flat\`: interpolating a constant across a
-// triangle is not guaranteed bit-exact, and the neighbour tie-break below
-// compares distances computed from these in two different instances.
-flat out vec2 vA;
-flat out vec2 vB;
-flat out vec2 vRadius;
-flat out vec4 vNeighbours;
-flat out vec2 vNeighbourRadius;
-flat out float vMargin;
-void main() {
-  vec2 a = seg.xy + shift;
-  vec2 b = seg.zw + shift;
-  vec2 r = radius + vec2(halo);
-  vMargin = margin;
-  vec2 d = b - a;
-  float len = length(d);
-  vec2 dir = len > 0.0001 ? d / len : vec2(1.0, 0.0);
-  vec2 normal = vec2(-dir.y, dir.x);
-  // Not "half": a reserved word in GLSL ES, which ANGLE on Direct3D rejects.
-  float extent = max(r.x, r.y) + margin;
-  // The quad covers the segment plus the nib and the AA margin, on every side:
-  // across it for the body, and *past both ends* for the caps. Without the
-  // end extension the quad stops flat at A and B, so a stroke's ends are
-  // squared off and the outside of every bend has a wedge no instance covers,
-  // which shows as a speckle of pinholes along a curve.
-  vec2 along = dir * (len * corner.x + extent * (2.0 * corner.x - 1.0));
-  vec2 across = normal * extent * corner.y;
-  vec2 page = a + along + across;
-  vPage = page;
-  vA = a;
-  vB = b;
-  vRadius = r;
-  vNeighbours = neighbours + shift.xyxy;
-  // A negative neighbour radius means "no neighbour"; the halo must not turn it positive.
-  vNeighbourRadius = vec2(
-    neighbourRadius.x >= 0.0 ? neighbourRadius.x + halo : neighbourRadius.x,
-    neighbourRadius.y >= 0.0 ? neighbourRadius.y + halo : neighbourRadius.y);
-  // Page units → clip space. Y is flipped: page y grows downward, clip y upward.
-  vec2 scaled = page * camera.x + vec2(camera.y, camera.z);
-  vec2 unit = scaled / pageSize;
-  gl_Position = vec4(unit.x * 2.0 - 1.0, 1.0 - unit.y * 2.0, 0.0, 1.0);
-}`;
-
-export const FRAGMENT_SHADER = `#version 300 es
-precision highp float;
-in vec2 vPage;
-flat in vec2 vA;
-flat in vec2 vB;
-flat in vec2 vRadius;
-flat in vec4 vNeighbours;
-flat in vec2 vNeighbourRadius;
-flat in float vMargin;
-uniform vec4 inkColour;   // rgb + alpha
-uniform float feather;    // AA width in page units
-// 0: every fragment. 1: only fully covered fragments. 2: only the AA edge.
-// The highlighter is drawn in two passes through the stencil (see render()).
-uniform int coverage;
-out vec4 outColour;
-// Signed distance to a capsule whose radius runs from ra at a to rb at b:
-// negative inside, zero on the edge.
-float capsule(vec2 p, vec2 a, vec2 b, float ra, float rb) {
-  vec2 pa = p - a;
-  vec2 ba = b - a;
-  // A degenerate segment — a dot — has no direction to project onto. Guarding the
-  // division is what makes the plan's "zero-length segment renders a round dot"
-  // true rather than a NaN.
-  float denom = max(dot(ba, ba), 0.0001);
-  float t = clamp(dot(pa, ba) / denom, 0.0, 1.0);
-  return length(pa - ba * t) - mix(ra, rb, t);
-}
-void main() {
-  float sd = capsule(vPage, vA, vB, vRadius.x, vRadius.y);
-  // Adjacent capsules overlap, and a pixel in both their edges would be blended
-  // twice. So a fragment belongs to whichever capsule it is nearest, and the
-  // others discard it. The two instances see the pixel through different
-  // quads, so \`vPage\` — and with it every distance — can differ by an ulp
-  // between them. An exact tie-break would then let both discard the same
-  // pixel, which is a white pinhole in the middle of the ink. So a capsule only
-  // yields when the neighbour is nearer by a clear margin; inside that margin
-  // both draw, and the double blend is confined to a band far narrower than a
-  // pixel.
-  const float tie = 0.01;
-  if (vNeighbourRadius.x >= 0.0) {
-    float before = capsule(vPage, vNeighbours.xy, vA, vNeighbourRadius.x, vRadius.x);
-    if (before < sd - tie) discard;
-  }
-  if (vNeighbourRadius.y >= 0.0) {
-    float after = capsule(vPage, vB, vNeighbours.zw, vRadius.y, vNeighbourRadius.y);
-    if (after < sd - tie) discard;
-  }
-  // The edge ramps over one device pixel, centred on the outline: half a pixel
-  // either side. A wider ramp reads as a pale border around the ink.
-  float fw = max(fwidth(sd), feather) * 0.5;
-  float alpha = 1.0 - smoothstep(-fw, fw, sd);
-  if (alpha <= 0.0) discard;
-  if (coverage == 1 && alpha < 1.0) discard;
-  if (coverage == 2 && alpha >= 1.0) discard;
-  // Premultiplied: the blend is ONE / ONE_MINUS_SRC_ALPHA.
-  float a = inkColour.a * alpha;
-  outColour = vec4(inkColour.rgb * a, a);
-}`;
-
-const CORNERS = new Float32Array([0, -1, 1, -1, 1, 1, 0, -1, 1, 1, 0, 1]);
+/**
+ * The shaders and the capability probe, still found here: `webgl-renderer`
+ * is the door the worker, the barrel and the shader test have always
+ * imported through, and they are its pieces.
+ */
+export {
+  BACKGROUND_FRAGMENT_SHADER,
+  BACKGROUND_VERTEX_SHADER,
+  FRAGMENT_SHADER,
+  VERTEX_SHADER,
+} from "./webgl-shaders";
+export { supportsWebglInk } from "./webgl-support";
 
 /** One colour's geometry, resident in its own buffers so a draw is one call. */
 interface Batch {
@@ -201,43 +103,6 @@ interface Batch {
   capacity: number;
   used: number;
 }
-
-/** An offscreen render target for export, with its own depth-stencil attachment. */
-interface CaptureTarget {
-  framebuffer: WebGLFramebuffer;
-  texture: WebGLTexture;
-  depthStencil: WebGLRenderbuffer | null;
-  width: number;
-  height: number;
-}
-/**
- * The background pass: the page image as one textured quad over the page rect,
- * through the same camera as the strokes. `corner` is the stroke quad's unit
- * geometry reused — x in [0,1], y in [-1,1] — mapped onto the page.
- */
-export const BACKGROUND_VERTEX_SHADER = `#version 300 es
-in vec2 corner;
-uniform vec2 pageSize;   // device pixels
-uniform vec4 camera;     // scale·dpr, offsetX·dpr, offsetY·dpr (device px), unused
-uniform vec2 pageDims;   // page width and height in page units
-out vec2 vUv;
-void main() {
-  vec2 uv = vec2(corner.x, (corner.y + 1.0) * 0.5);
-  vUv = uv;
-  vec2 page = uv * pageDims;
-  vec2 scaled = page * camera.x + vec2(camera.y, camera.z);
-  vec2 unit = scaled / pageSize;
-  gl_Position = vec4(unit.x * 2.0 - 1.0, 1.0 - unit.y * 2.0, 0.0, 1.0);
-}`;
-
-export const BACKGROUND_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-in vec2 vUv;
-uniform sampler2D image;
-out vec4 outColour;
-void main() {
-  outColour = texture(image, vUv);
-}`;
 
 export interface WebglInkRendererOptions {
   canvas: OffscreenCanvas | HTMLCanvasElement;
@@ -288,7 +153,8 @@ export class WebglInkRenderer implements InkRenderer {
   private readonly backgroundImageUniform: WebGLUniformLocation | null;
   private background: InkBackgroundImage | null = null;
   private backgroundTexture: WebGLTexture | null = null;
-  private readonly batches = new Map<string, Batch>();
+  /** The batches, created in the constructor once the GL and program exist. */
+  private readonly batchPool: InkBatches;
   private readonly onLifecycle:
     ((state: "lost" | "restored") => void) | undefined;
 
@@ -350,6 +216,15 @@ export class WebglInkRenderer implements InkRenderer {
     this.marginUniform = gl.getUniformLocation(this.program, "margin");
     this.shiftUniform = gl.getUniformLocation(this.program, "shift");
     this.haloUniform = gl.getUniformLocation(this.program, "halo");
+
+    this.batchPool = new InkBatches({
+      gl,
+      program: this.program,
+      colourUniform: this.colourUniform,
+      // By function, not by value: `setPalette` reassigns `this.palette`, and
+      // the pool must read the one in force when it draws.
+      palette: () => this.palette,
+    });
 
     this.backgroundProgram = linkProgram(
       gl,
@@ -439,7 +314,7 @@ export class WebglInkRenderer implements InkRenderer {
   }
 
   setStrokes(strokes: readonly (InkStrokeGeometry | null)[]): void {
-    this.clearBatches();
+    this.batchPool.clear();
     this.nextStroke = 0;
     strokes.forEach((stroke, index) => {
       if (stroke) this.appendStroke(stroke, index);
@@ -449,7 +324,7 @@ export class WebglInkRenderer implements InkRenderer {
 
   appendStroke(stroke: InkStrokeGeometry, index = this.nextStroke): void {
     this.nextStroke = index + 1;
-    const batch = this.batchFor(
+    const batch = this.batchPool.batchFor(
       stroke.colour,
       usesHighlighterPass(stroke.tool),
     );
@@ -458,7 +333,7 @@ export class WebglInkRenderer implements InkRenderer {
     );
     if (segments === 0) return;
     const offset = batch.used;
-    this.ensureBatchCapacity(batch, offset + segments);
+    this.batchPool.ensureCapacity(batch, offset + segments);
     const written = packStrokeInstances(
       {
         x: stroke.x,
@@ -472,11 +347,11 @@ export class WebglInkRenderer implements InkRenderer {
     if (written === 0) return;
     batch.records.push({ stroke: index, offset, count: segments });
     batch.used = offset + segments;
-    this.uploadBatch(batch, offset, segments);
+    this.batchPool.upload(batch, offset, segments);
   }
 
   removeStroke(index: number): void {
-    for (const batch of this.batches.values()) {
+    for (const batch of this.batchPool.all()) {
       const at = batch.records.findIndex((record) => record.stroke === index);
       if (at < 0) continue;
       const removed = batch.records[at]!;
@@ -495,7 +370,7 @@ export class WebglInkRenderer implements InkRenderer {
         );
         for (const record of batch.records)
           if (record.offset >= tailFrom) record.offset -= removed.count;
-        this.uploadBatch(batch, removed.offset, tailCount);
+        this.batchPool.upload(batch, removed.offset, tailCount);
       }
       batch.records.splice(at, 1);
       batch.used -= removed.count;
@@ -527,7 +402,7 @@ export class WebglInkRenderer implements InkRenderer {
       return;
     }
     const colour = stroke.header.colour;
-    const batch = this.batchFor(
+    const batch = this.batchPool.batchFor(
       colour,
       usesHighlighterPass(stroke.header.tool),
       true,
@@ -542,7 +417,7 @@ export class WebglInkRenderer implements InkRenderer {
     }
     this.live = stroke;
     this.liveBatch = batch;
-    this.ensureBatchCapacity(batch, strokeInstanceCount(points));
+    this.batchPool.ensureCapacity(batch, strokeInstanceCount(points));
     // Re-pack from two segments before the newest: the sample that just landed
     // sets the tangent the previous segment curves with, a predicted tail that
     // was replaced rather than extended changes the last few outright, and the
@@ -563,7 +438,7 @@ export class WebglInkRenderer implements InkRenderer {
     );
     if (written > 0) {
       const count = written / INK_INSTANCE_FLOATS;
-      this.uploadBatch(batch, from, count);
+      this.batchPool.upload(batch, from, count);
       this.livePacked += count / INK_SEGMENT_SUBDIVISIONS;
     }
     batch.used = this.livePacked * INK_SEGMENT_SUBDIVISIONS;
@@ -650,10 +525,10 @@ export class WebglInkRenderer implements InkRenderer {
       for (const coverage of [1, 2] as const) {
         gl.stencilOp(gl.KEEP, gl.KEEP, coverage === 1 ? gl.INCR : gl.KEEP);
         gl.uniform1i(this.coverageUniform, coverage);
-        for (const batch of this.batches.values()) {
+        for (const batch of this.batchPool.all()) {
           for (const record of batch.records) {
             if (!isSelected(record)) continue;
-            this.drawBatch(batch, 0.3, record.offset, record.count, accent);
+            this.batchPool.draw(batch, 0.3, record.offset, record.count, accent);
           }
         }
       }
@@ -671,15 +546,15 @@ export class WebglInkRenderer implements InkRenderer {
     // The opaque strokes first, straight to the target. A batch with nothing
     // selected is one draw; otherwise its records go one by one, the selected
     // ones shifted.
-    for (const batch of this.batches.values()) {
+    for (const batch of this.batchPool.all()) {
       if (batch.highlighter || batch.used === 0) continue;
       if (!selecting || !batch.records.some(isSelected)) {
-        drawn += this.drawBatch(batch);
+        drawn += this.batchPool.draw(batch);
       } else {
         for (const record of batch.records) {
           const held = isSelected(record);
           if (held) gl.uniform2f(this.shiftUniform, this.shift.x, this.shift.y);
-          drawn += this.drawBatch(batch, undefined, record.offset, record.count);
+          drawn += this.batchPool.draw(batch, undefined, record.offset, record.count);
           if (held) gl.uniform2f(this.shiftUniform, 0, 0);
         }
       }
@@ -708,7 +583,7 @@ export class WebglInkRenderer implements InkRenderer {
     // hairline across the band. So the fully covered fragments go first and
     // claim their pixels; the edge fragments follow and are let through only
     // where no full fragment landed, which is the true outline of the union.
-    const highlighter = [...this.batches.values()].filter(
+    const highlighter = [...this.batchPool.all()].filter(
       (batch) => batch.highlighter && batch.used > 0,
     );
     if (highlighter.length > 0) {
@@ -733,10 +608,10 @@ export class WebglInkRenderer implements InkRenderer {
           gl.stencilFunc(gl.GREATER, k, 0xff);
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
           gl.uniform1i(this.coverageUniform, 1);
-          drawn += this.drawBatch(batch, 0.35, offset, count);
+          drawn += this.batchPool.draw(batch, 0.35, offset, count);
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
           gl.uniform1i(this.coverageUniform, 2);
-          this.drawBatch(batch, 0.35, offset, count);
+          this.batchPool.draw(batch, 0.35, offset, count);
           if (held) gl.uniform2f(this.shiftUniform, 0, 0);
         }
         segments += batch.used;
@@ -747,7 +622,7 @@ export class WebglInkRenderer implements InkRenderer {
 
     this.stats = {
       backend: "webgl2",
-      strokes: this.batches.size,
+      strokes: this.batchPool.size,
       segments,
       drawn,
       marginPx: INK_AA_MARGIN_PX,
@@ -800,10 +675,10 @@ export class WebglInkRenderer implements InkRenderer {
 
   dispose(): void {
     const gl = this.gl;
-    for (const batch of this.batches.values()) {
+    for (const batch of this.batchPool.all()) {
       if (batch.buffer) gl.deleteBuffer(batch.buffer);
     }
-    this.batches.clear();
+    this.batchPool.dispose();
     this.releaseTarget();
     if (this.backgroundTexture) gl.deleteTexture(this.backgroundTexture);
     this.backgroundTexture = null;
@@ -869,215 +744,22 @@ export class WebglInkRenderer implements InkRenderer {
     this.backgroundTexture = texture;
   }
 
-  /* ----------------------------------------------------------------------- */
-
-  /** The batch a colour and pass belong to. */
-  private batchFor(
-    colour: InkColour,
-    highlighter: boolean,
-    live = false,
-  ): Batch {
-    const key = `${live ? "live:" : ""}${highlighter ? "hl" : "pen"}:${colour}`;
-    const existing = this.batches.get(key);
-    if (existing) return existing;
-    const batch: Batch = {
-      colour,
-      highlighter,
-      data: new Float32Array(INK_INSTANCE_FLOATS * 512),
-      records: [],
-      buffer: this.gl.createBuffer(),
-      capacity: 512,
-      used: 0,
-    };
-    this.batches.set(key, batch);
-    return batch;
-  }
-
-  private clearBatches(): void {
-    for (const [key, batch] of [...this.batches.entries()]) {
-      if (key.startsWith("live:")) continue;
-      batch.records = [];
-      batch.used = 0;
-    }
-  }
-
-  /** Grow a batch's CPU-side array to hold `segments`, doubling as it goes. */
-  private ensureBatchCapacity(batch: Batch, segments: number): void {
-    if (segments <= batch.capacity) return;
-    let capacity = batch.capacity;
-    while (capacity < segments) capacity *= 2;
-    const grown = new Float32Array(capacity * INK_INSTANCE_FLOATS);
-    grown.set(batch.data);
-    batch.data = grown;
-    batch.capacity = capacity;
-  }
-
-  /** Push one range of a batch to the GPU. */
-  private uploadBatch(batch: Batch, offset: number, count: number): void {
-    const gl = this.gl;
-    if (!batch.buffer || count <= 0) return;
-    gl.bindBuffer(gl.ARRAY_BUFFER, batch.buffer);
-    const required = batch.capacity * INK_INSTANCE_FLOATS * 4;
-    const current = gl.getBufferParameter(
-      gl.ARRAY_BUFFER,
-      gl.BUFFER_SIZE,
-    ) as number;
-    if (!current || current < required) {
-      // Grow the GPU buffer: the whole array goes up once, and every later upload
-      // is a `bufferSubData` of the new segments.
-      gl.bufferData(gl.ARRAY_BUFFER, batch.data, gl.DYNAMIC_DRAW);
-      return;
-    }
-    gl.bufferSubData(
-      gl.ARRAY_BUFFER,
-      offset * INK_INSTANCE_FLOATS * 4,
-      batch.data.subarray(
-        offset * INK_INSTANCE_FLOATS,
-        (offset + count) * INK_INSTANCE_FLOATS,
-      ),
-    );
-  }
-
-  /** One instanced draw call for a batch, and the instances it covered. */
-  private drawBatch(
-    batch: Batch,
-    alphaOverride?: number,
-    first = 0,
-    count = batch.used - first,
-    colourOverride?: InkRgb,
-  ): number {
-    const gl = this.gl;
-    if (!batch.buffer || count <= 0) return 0;
-    const base = first * INK_INSTANCE_FLOATS * 4;
-    gl.bindBuffer(gl.ARRAY_BUFFER, batch.buffer);
-    const segmentLocation = gl.getAttribLocation(this.program, "seg");
-    gl.enableVertexAttribArray(segmentLocation);
-    gl.vertexAttribPointer(
-      segmentLocation,
-      4,
-      gl.FLOAT,
-      false,
-      INK_INSTANCE_FLOATS * 4,
-      base + 0,
-    );
-    gl.vertexAttribDivisor(segmentLocation, 1);
-    const radiusLocation = gl.getAttribLocation(this.program, "radius");
-    gl.enableVertexAttribArray(radiusLocation);
-    gl.vertexAttribPointer(
-      radiusLocation,
-      2,
-      gl.FLOAT,
-      false,
-      INK_INSTANCE_FLOATS * 4,
-      base + 16,
-    );
-    gl.vertexAttribDivisor(radiusLocation, 1);
-    const neighbourLocation = gl.getAttribLocation(this.program, "neighbours");
-    gl.enableVertexAttribArray(neighbourLocation);
-    gl.vertexAttribPointer(
-      neighbourLocation,
-      4,
-      gl.FLOAT,
-      false,
-      INK_INSTANCE_FLOATS * 4,
-      base + 24,
-    );
-    gl.vertexAttribDivisor(neighbourLocation, 1);
-    const neighbourRadiusLocation = gl.getAttribLocation(
-      this.program,
-      "neighbourRadius",
-    );
-    gl.enableVertexAttribArray(neighbourRadiusLocation);
-    gl.vertexAttribPointer(
-      neighbourRadiusLocation,
-      2,
-      gl.FLOAT,
-      false,
-      INK_INSTANCE_FLOATS * 4,
-      base + 40,
-    );
-    gl.vertexAttribDivisor(neighbourRadiusLocation, 1);
-
-    const rgb =
-      colourOverride ?? this.palette[batch.colour] ?? this.palette.text;
-    const alpha = alphaOverride ?? (batch.highlighter ? 0.35 : 1);
-    gl.uniform4f(this.colourUniform, rgb[0], rgb[1], rgb[2], alpha);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
-    return count;
-  }
 
   /** The offscreen target export renders into, reused between exports. */
   private releaseTarget(): void {
-    if (!this.target) return;
-    const gl = this.gl;
-    gl.deleteFramebuffer(this.target.framebuffer);
-    gl.deleteTexture(this.target.texture);
-    if (this.target.depthStencil)
-      gl.deleteRenderbuffer(this.target.depthStencil);
+    releaseCaptureTarget(this.gl, this.target);
     this.target = null;
   }
 
   private ensureTarget(width: number, height: number): CaptureTarget {
-    const gl = this.gl;
-    if (
-      this.target &&
-      this.target.width === width &&
-      this.target.height === height
-    )
-      return this.target;
-    if (this.target) {
-      gl.deleteFramebuffer(this.target.framebuffer);
-      gl.deleteTexture(this.target.texture);
-      if (this.target.depthStencil)
-        gl.deleteRenderbuffer(this.target.depthStencil);
-    }
-    const texture = gl.createTexture();
-    const framebuffer = gl.createFramebuffer();
-    if (!texture || !framebuffer)
-      throw new Error("ink: could not create the export target");
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      width,
-      height,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      null,
-    );
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      gl.COLOR_ATTACHMENT0,
-      gl.TEXTURE_2D,
-      texture,
-      0,
-    );
-    // A colour-only target has no stencil, and the highlighter pass would silently
-    // fail to dedupe (§6.2.3). The export path draws highlighters through the same
-    // shader, so it needs one too.
-    const depthStencil = gl.createRenderbuffer();
-    gl.bindRenderbuffer(gl.RENDERBUFFER, depthStencil);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL, width, height);
-    gl.framebufferRenderbuffer(
-      gl.FRAMEBUFFER,
-      gl.DEPTH_STENCIL_ATTACHMENT,
-      gl.RENDERBUFFER,
-      depthStencil,
-    );
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    this.target = { framebuffer, texture, depthStencil, width, height };
+    this.target = ensureCaptureTarget(this.gl, this.target, width, height);
     return this.target;
   }
 
   /** Re-upload everything, after a context restore. */
   private uploadAll(): void {
-    for (const batch of this.batches.values()) {
-      if (batch.used > 0) this.uploadBatch(batch, 0, batch.used);
+    for (const batch of this.batchPool.all()) {
+      if (batch.used > 0) this.batchPool.upload(batch, 0, batch.used);
     }
     // The texture died with the context; the image did not.
     this.backgroundTexture = null;
@@ -1085,62 +767,3 @@ export class WebglInkRenderer implements InkRenderer {
   }
 }
 
-/** Compile and link a program, or throw with the driver's own log. */
-function linkProgram(
-  gl: WebGL2RenderingContext,
-  vertex: string,
-  fragment: string,
-): WebGLProgram {
-  const build = (type: number, source: string): WebGLShader => {
-    const shader = gl.createShader(type);
-    if (!shader) throw new Error("ink: could not create a shader");
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const log = gl.getShaderInfoLog(shader);
-      gl.deleteShader(shader);
-      throw new Error(`ink: shader failed to compile: ${log ?? "no log"}`);
-    }
-    return shader;
-  };
-  const program = gl.createProgram();
-  if (!program) throw new Error("ink: could not create a program");
-  const vertexShader = build(gl.VERTEX_SHADER, vertex);
-  const fragmentShader = build(gl.FRAGMENT_SHADER, fragment);
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  gl.deleteShader(vertexShader);
-  gl.deleteShader(fragmentShader);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const log = gl.getProgramInfoLog(program);
-    gl.deleteProgram(program);
-    throw new Error(`ink: program failed to link: ${log ?? "no log"}`);
-  }
-  return program;
-}
-
-/**
- * Whether this runtime can run the WebGL2 renderer at all.
- *
- * Probed on a scratch canvas, never on the one the renderer will draw to: a
- * canvas keeps the first context it hands out, attributes and all, so a probe
- * with the defaults on the real canvas would leave the renderer a context
- * with no stencil — and the highlighter's dedupe would silently become a
- * plain translucent overdraw, seams at every capsule and darker crossings.
- */
-export function supportsWebglInk(
-  canvas: OffscreenCanvas | HTMLCanvasElement,
-): boolean {
-  try {
-    const scratch =
-      typeof OffscreenCanvas === "function"
-        ? new OffscreenCanvas(1, 1)
-        : canvas instanceof HTMLCanvasElement
-          ? canvas.ownerDocument.createElement("canvas")
-          : canvas;
-    return Boolean(scratch.getContext("webgl2"));
-  } catch {
-    return false;
-  }
-}
