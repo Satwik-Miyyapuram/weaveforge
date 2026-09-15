@@ -95,7 +95,8 @@ is only *recorded* and never drawn passes a model assertion and fails that one.
 - `check:hygiene` fails on eight files over the 800-line cap. Seven were
   already over it at `3a68c43` — `apps/desktop/src/main.ts` (1038),
   `apps/web/src/features/editor-workspace/ui/explorer-panel.tsx` (895),
-  `apps/web/src/features/ink/application/shape-snap.ts` (1426),
+  `apps/web/src/features/ink/application/shape-snap/` (then one 1426-line
+  `shape-snap.ts`, since split),
   `apps/web/src/features/ink/application/use-pen-capture.ts` (953),
   `apps/web/src/features/ink/render/webgl-renderer.ts` (1137),
   `apps/web/src/features/ink/worker/ink-worker.ts` (950), and
