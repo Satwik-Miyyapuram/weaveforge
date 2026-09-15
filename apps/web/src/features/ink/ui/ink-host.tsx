@@ -79,18 +79,8 @@ import {
   type InkStoredPage,
 } from "../application/ink-chunk-store";
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
-import { pdfPageCount } from "../application/pdf-page-raster";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
-import {
-  figureImageFromFile,
-  imageFileFromClipboard,
-  imageSize,
-  isPageSource,
-  isPdf,
-  pageBackgroundFromFile,
-  pageChunkWithBackground,
-} from "../application/page-background";
-import { InkBar, nibForTool, type InkBarTool } from "./ink-bar";
+import { InkBar, type InkBarTool } from "./ink-bar";
 import { InkFigures, InkFigureControls } from "./ink-figures";
 import { fitScale, selectedText } from "./ink-page-math";
 import { InkPage } from "./ink-page";

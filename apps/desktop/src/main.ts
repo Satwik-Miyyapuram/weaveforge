@@ -38,21 +38,12 @@ import {
   type RememberRoot,
   writeVaultFile,
 } from "./vault-handlers";
-import { safeWorkspacePath } from "@weaveforge/core";
-import {
-  LOCAL_API_HOST,
-  LOCAL_API_PORT,
-  newLocalApiToken,
-  startLocalApi,
-  type LocalApi,
-} from "./local-api-server";
+import { registerMainInk } from "./main-ink";
+import { registerMainLocalApi } from "./main-local-api";
+import { registerMainUpdateOffer } from "./main-update-offer";
+import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
 import { compileTex, probeTex, type TexSourceFile } from "./tex";
-import {
-  createInkRecogniser,
-  type InkHapticsMessage,
-  type InkRecognitionRequest,
-} from "./ink-recogniser";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { SecretStore } from "./secret-store";
 import { handleOverleafRead } from "./overleaf-source";
@@ -63,7 +54,6 @@ import {
 } from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
-import { createVaultWatch, type VaultWatch } from "./vault-watch";
 import { PreferenceStore } from "./preference-store";
 import { fetchReleases, findUpdate } from "./update-check";
 import { installMenu, routeTo } from "./app-menu";
@@ -271,6 +261,15 @@ async function openExternally(url: string): Promise<void> {
 }
 
 /**
+ * The newer-installer offer (§main-update-offer): shown over the window on a
+ * completed sign-in, silent everywhere else.
+ */
+const offerUpdate = registerMainUpdateOffer({
+  mainWindow: () => mainWindow,
+  openExternally,
+});
+
+/**
  * Hands a finished sign-in to the page that started it.
  *
  * The query string is passed along as it arrived and is not read here. What is
@@ -287,83 +286,6 @@ function deliverSignIn(query: string): void {
   window.focus();
   window.webContents.send(CHANNELS.signIn, query);
   void offerUpdate();
-}
-
-/**
- * Offer the newer installer.
- *
- * Deliberately not awaited by its callers: the window is already open and
- * usable while this happens, and if GitHub is slow or unreachable the reader
- * never finds out there was a question. `showMessageBox` is used rather than
- * something inside the page because the page is the *web app* — it is served
- * from a server that knows nothing about which shell is asking, and putting
- * this in it would mean browser readers being told to update an app they do
- * not have.
- *
- * It runs on a completed sign-in and nowhere else. Not at launch: an app that
- * opens a dialog every time it opens is an app people learn to dismiss without
- * reading, and the notice would be spent on the launches where nothing has
- * changed. Signing in is the moment the shell's own machinery has just been
- * exercised — the loopback listener, the preload channel that carries the
- * result — so it is both the moment a reader on a stale build most needs to
- * hear it and the moment they are most likely to act. Between sign-ins the
- * same fact is a dot on the Updates section in settings, which is there to be
- * noticed rather than answered.
- *
- * It does not remember having asked: a dismissed dialog does not make a stale
- * shell less stale.
- */
-let offering = false;
-
-async function offerUpdate({ tellWhenCurrent = false } = {}): Promise<void> {
-  // In development the version is whatever is in package.json and the "update"
-  // would be the release the source is ahead of.
-  if ((!app.isPackaged && !tellWhenCurrent) || offering) return;
-
-  offering = true;
-  try {
-    const update = await findUpdate({
-      currentVersion: app.getVersion(),
-      fetchReleases,
-    }).catch(() => null);
-    // Silence is right for the check on launch and wrong for one the reader
-    // asked for: a menu entry that does nothing visible reads as broken.
-    if (!update) {
-      if (tellWhenCurrent && mainWindow && !mainWindow.isDestroyed()) {
-        await dialog.showMessageBox(mainWindow, {
-          type: "info",
-          title: "Up to date",
-          message: `WeaveForge ${app.getVersion()} is the newest version.`,
-          detail:
-            "If you are offline, this only means no newer version could be reached.",
-          buttons: ["OK"],
-          noLink: true,
-        });
-      }
-      return;
-    }
-
-    const window = mainWindow;
-    if (!window || window.isDestroyed()) return;
-    const { response } = await dialog.showMessageBox(window, {
-      type: "info",
-      title: "Update available",
-      message: `WeaveForge ${update.version} is available.`,
-      detail:
-        `You are running ${app.getVersion()}. The app itself updates from the web, so this ` +
-        "only affects the desktop window — signing in, links, and file handling. " +
-        "Downloading opens the release page in your browser.",
-      buttons: ["Download", "Later"],
-      defaultId: 0,
-      cancelId: 1,
-      noLink: true,
-    });
-    if (response === 0) await openExternally(update.url);
-  } finally {
-    // The guard is against two dialogs at once — a launch check and the
-    // sign-in that lands seconds later — not against asking again.
-    offering = false;
-  }
 }
 
 // Thin on purpose: what these do lives in `handlers.ts`, which the tests can
@@ -567,6 +489,14 @@ ipc.handle(CHANNELS.dbReset, () => localDb.reset());
  */
 const vault = newVaultSession();
 
+/**
+ * The folder's watcher (§main-vault-watch): tells the window when somebody
+ * else touches the chosen folder, and folds the app's own writes away.
+ */
+const vaultWatcher = registerMainVaultWatch({
+  mainWindow: () => mainWindow,
+});
+
 /** The chosen folder outlives the process, so the app comes back to it. */
 const rememberRoot: RememberRoot = (root) => {
   void preferenceStore().write("vault-root", root);
@@ -582,7 +512,7 @@ void preferenceStore()
   .then((result) =>
     result.ok ? restoreRoot(vault, result.value, rememberRoot) : null,
   )
-  .then((root) => (root ? startWatchingVault(root.path) : null))
+  .then((root) => (root ? vaultWatcher.start(root.path) : null))
   .catch(() => null);
 
 /**
@@ -608,7 +538,7 @@ async function chooseWorkspaceFolder() {
     result.canceled ? null : (result.filePaths[0] ?? null),
     rememberRoot,
   );
-  if (adopted.ok && adopted.value) startWatchingVault(adopted.value.path);
+  if (adopted.ok && adopted.value) vaultWatcher.start(adopted.value.path);
   return adopted;
 }
 
@@ -616,7 +546,7 @@ ipc.handle(CHANNELS.vaultChoose, () => chooseWorkspaceFolder());
 
 ipc.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
 ipc.handle(CHANNELS.vaultForget, () => {
-  stopWatchingVault();
+  vaultWatcher.stop();
   return forgetRoot(vault, rememberRoot);
 });
 ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) =>
@@ -628,7 +558,7 @@ ipc.handle(
     // Said before the write rather than after: the filesystem event can arrive
     // while the write is still returning, and an echo that beats its own note
     // would be reported as somebody else's change.
-    if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
+    if (typeof at === "string") vaultWatcher.noteSelfWrite(at);
     return writeVaultFile(vault, at, contents);
   },
 );
@@ -639,142 +569,22 @@ ipc.handle(CHANNELS.vaultStat, (_event, at: unknown) =>
   statVaultFile(vault, at),
 );
 ipc.handle(CHANNELS.vaultRemove, async (_event, at: unknown) => {
-  if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
+  if (typeof at === "string") vaultWatcher.noteSelfWrite(at);
   return removeVaultFile(vault, at);
 });
-/**
- * The local HTTP surface, off until somebody switches it on.
- *
- * The token is read from the keychain per request rather than held here, so
- * revoking it takes effect immediately, and a token that was never generated
- * reads as an empty string -- which `routeLocalRequest` refuses outright.
- */
-let localApi: LocalApi | null = null;
-
-async function localApiToken(): Promise<string> {
-  const stored = await secretStore().read("local-api-token");
-  return stored.ok && stored.value ? stored.value : "";
-}
-
-const LOCAL_API_URL = `http://${LOCAL_API_HOST}:${LOCAL_API_PORT}`;
 
 /**
- * Ask the window to rank a word search by meaning.
- *
- * The encoder is in the renderer -- it is a WebAssembly model in a worker, and
- * there is one of it, loaded when somebody turned semantic search on. So the
- * server asks, and takes silence for an answer: no window, no encoder, or a
- * window that takes too long all mean "keep the order you have", which is a
- * worse ranking and never a failed tool call.
+ * The local HTTP surface (§main-local-api), off until somebody switches it
+ * on: the token, the semantic ranking, and the two IPC handlers that say
+ * whether the door is open.
  */
-const RANK_TIMEOUT_MS = 4_000;
-let nextRankId = 1;
-const pendingRanks = new Map<number, (order: string[] | null) => void>();
-
-ipc.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown) => {
-  if (typeof id !== "number") return;
-  const waiting = pendingRanks.get(id);
-  if (!waiting) return;
-  pendingRanks.delete(id);
-  waiting(
-    Array.isArray(order)
-      ? (order as string[]).filter((name) => typeof name === "string")
-      : null,
-  );
-});
-
-function rankSemantically(
-  query: string,
-  candidates: readonly string[],
-): Promise<string[] | null> {
-  const window = mainWindow;
-  if (!window || window.isDestroyed() || candidates.length < 2)
-    return Promise.resolve(null);
-
-  const id = nextRankId++;
-  return new Promise<string[] | null>((resolve) => {
-    const finish = (order: string[] | null) => {
-      clearTimeout(timer);
-      resolve(order);
-    };
-    const timer = setTimeout(() => {
-      pendingRanks.delete(id);
-      resolve(null);
-    }, RANK_TIMEOUT_MS);
-    pendingRanks.set(id, finish);
-    window.webContents.send(CHANNELS.semanticRank, id, query, [...candidates]);
-  });
-}
-
-async function startLocalApiIfEnabled(): Promise<string | undefined> {
-  if (localApi) return undefined;
-  try {
-    localApi = await startLocalApi(
-      vault,
-      () => cachedToken,
-      (sql, params) => localDb.query(sql, params),
-      rankSemantically,
-    );
-    return undefined;
-  } catch (error) {
-    // The usual reason is another program on the port -- Obsidian's own REST
-    // plugin, most likely. Reported rather than retried: two things answering
-    // on one port is not something to resolve behind the user's back.
-    return error instanceof Error
-      ? error.message
-      : "The port is not available.";
-  }
-}
-
-/** Read once per start and per token change, because a socket cannot await. */
-let cachedToken = "";
-
-async function resumeLocalApi(): Promise<void> {
-  const enabled = await preferenceStore().read("local-api");
-  if (!enabled.ok || enabled.value !== true) return;
-  cachedToken = await localApiToken();
-  if (!cachedToken) return;
-  await startLocalApiIfEnabled();
-}
-
-ipc.handle(CHANNELS.localApiState, async () => {
-  const enabled = await preferenceStore().read("local-api");
-  return {
-    ok: true,
-    value: {
-      enabled: localApi !== null && enabled.ok && enabled.value === true,
-      url: LOCAL_API_URL,
-    },
-  };
-});
-
-ipc.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
-  if (enabled !== true) {
-    await preferenceStore().write("local-api", false);
-    await secretStore().clear("local-api-token");
-    cachedToken = "";
-    await localApi?.close();
-    localApi = null;
-    return { ok: true, value: { enabled: false, url: LOCAL_API_URL } };
-  }
-
-  // A new token every time it is switched on. Reusing the old one would mean
-  // that switching the door off and on again leaves the same keys working.
-  const token = newLocalApiToken();
-  const kept = await secretStore().write("local-api-token", token);
-  if (!kept.ok) return { ok: false, message: kept.message };
-  cachedToken = token;
-  await preferenceStore().write("local-api", true);
-  const reason = await startLocalApiIfEnabled();
-  return {
-    ok: true,
-    value: {
-      enabled: localApi !== null,
-      url: LOCAL_API_URL,
-      token,
-      ...(reason ? { reason } : {}),
-    },
-  };
+const localApiDoor = registerMainLocalApi({
+  ipc,
+  vault,
+  localDb,
+  mainWindow: () => mainWindow,
+  preferenceStore,
+  secretStore,
 });
 
 ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
@@ -796,67 +606,10 @@ ipc.handle(CHANNELS.texProbe, async () => {
 });
 
 /**
- * The handwriting helper, started on the first probe and kept for the session.
- *
- * Made lazily so a machine without the helper — every non-Windows build — never
- * pays for a spawn attempt until the page asks, and the answer to `available`
- * is then a plain `false` rather than a rejection.
+ * The handwriting helper's door (§main-ink): started on the first probe,
+ * kept for the session, absent rather than rejected where there is none.
  */
-let inkRecogniser: ReturnType<typeof createInkRecogniser> | null = null;
-const inkHelper = () => (inkRecogniser ??= createInkRecogniser());
-
-ipc.handle(CHANNELS.inkAvailable, async () => {
-  try {
-    return { ok: true, value: await inkHelper().available() };
-  } catch {
-    return { ok: true, value: false };
-  }
-});
-
-ipc.handle(CHANNELS.inkHapticsAvailable, async () => {
-  try {
-    return { ok: true, value: await inkHelper().hapticsAvailable() };
-  } catch {
-    return { ok: true, value: false };
-  }
-});
-
-ipc.on(CHANNELS.inkHaptics, (_event, message: unknown) => {
-  const body = message as Partial<InkHapticsMessage> | null;
-  if (!body || typeof body.type !== "string") return;
-  if (body.type === "update") {
-    const pressure = Number((body as { pressure?: unknown }).pressure);
-    const velocity = Number((body as { velocity?: unknown }).velocity);
-    if (!Number.isFinite(pressure) || !Number.isFinite(velocity)) return;
-    inkRecogniser?.haptics({ type: "update", pressure, velocity });
-  } else if (body.type === "tool") {
-    const tool = (body as { tool?: unknown }).tool;
-    if (typeof tool === "string") inkRecogniser?.haptics({ type: "tool", tool: tool.slice(0, 32) });
-  } else if (body.type === "stop") {
-    inkRecogniser?.haptics({ type: "stop" });
-  }
-});
-
-ipc.handle(CHANNELS.inkRecognise, async (_event, request: unknown) => {
-  const body = request as Partial<InkRecognitionRequest> | null;
-  if (!body || !Array.isArray(body.lines)) {
-    return { ok: false, message: "That is not a page to recognise." };
-  }
-  try {
-    return {
-      ok: true,
-      value: await inkHelper().recognise(body as InkRecognitionRequest),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "The handwriting recogniser did not answer.",
-    };
-  }
-});
+const mainInk = registerMainInk({ ipc });
 
 ipc.handle(
   CHANNELS.texCompile,
@@ -892,54 +645,6 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
   return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
 
-/**
- * Watch the chosen folder, and tell the window when somebody else touches it.
- *
- * `fs.watch` recursively is supported on Windows and macOS and not on Linux,
- * and there is no third-party watcher in this app's dependencies to fall back
- * to. A platform that cannot watch simply does not, and the folder stays as
- * manual as it was before -- the alternative, pulling in a native watcher, is
- * a compiled dependency in an installer for a feature that is a convenience.
- */
-let vaultWatch: VaultWatch | null = null;
-let vaultWatcher: fs.FSWatcher | null = null;
-
-function stopWatchingVault(): void {
-  vaultWatch?.stop();
-  vaultWatch = null;
-  vaultWatcher?.close();
-  vaultWatcher = null;
-}
-
-function startWatchingVault(root: string): void {
-  stopWatchingVault();
-  vaultWatch = createVaultWatch({
-    onChange: (paths) =>
-      mainWindow?.webContents.send(CHANNELS.vaultChanged, paths),
-    // The same folding the writer does, so a write matches its own echo. A
-    // path this refuses is one no write could have produced, and is left as it
-    // came: it is somebody else's file either way.
-    normalize: (at) => {
-      try {
-        return safeWorkspacePath(at);
-      } catch {
-        return at;
-      }
-    },
-  });
-  try {
-    vaultWatcher = fs.watch(root, { recursive: true }, (_event, name) => {
-      if (!name) return;
-      vaultWatch?.saw(name.toString().split(path.sep).join("/"));
-    });
-    // A watch that fails later -- an unplugged drive -- must not take the
-    // process with it. The folder is still readable when it comes back.
-    vaultWatcher.on("error", () => stopWatchingVault());
-  } catch {
-    // Recursive watching is unavailable here. Nothing else changes.
-    stopWatchingVault();
-  }
-}
 
 /**
  * The one thing `will-quit` waits for, and it is not allowed to wait forever.
@@ -956,7 +661,7 @@ function startWatchingVault(root: string): void {
  * power button.
  */
 app.on("will-quit", (event) => {
-  inkRecogniser?.dispose();
+  mainInk.dispose();
   event.preventDefault();
   runBoundedQuit({ cleanup: () => localDb.close(), exit: () => app.exit(0) });
 });
@@ -999,7 +704,7 @@ if (!app.requestSingleInstanceLock()) {
     // Taken back up only if it was switched on and there is still a token to
     // present. A door left open in the settings with its key thrown away
     // stays shut.
-    void resumeLocalApi();
+    void localApiDoor.resume();
     createWindow();
     // Updates are fetched in the background and installed only when the reader
     // says so -- see `auto-update.ts` for why quitting is not consent on an
@@ -1025,8 +730,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on("will-quit", () => {
     loopback?.close();
     loopback = null;
-    void localApi?.close();
-    localApi = null;
+    void localApiDoor.close();
   });
 
   app.on("window-all-closed", () => {
@@ -1035,3 +739,4 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform !== "darwin") app.quit();
   });
 }
+
