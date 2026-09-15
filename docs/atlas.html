@@ -542,9 +542,9 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>129,370</b><span>web app lines</span></div>
+      <div class="fact"><b>129,385</b><span>web app lines</span></div>
       <div class="fact"><b>41,980</b><span>core lines</span></div>
-      <div class="fact"><b>9,555</b><span>desktop lines</span></div>
+      <div class="fact"><b>9,728</b><span>desktop lines</span></div>
       <div class="fact"><b>2,883</b><span>python sdk</span></div>
       <div class="fact"><b>129</b><span>migrations</span></div>
       <div class="fact"><b>30</b><span>web features</span></div>
@@ -669,7 +669,7 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>129,370 lines</i>
+├── <b>apps/web/src/</b>                 <i>129,385 lines</i>
 │   ├── <u>app/</u>                      <i>26 pages + 35 API routes</i>
 │   ├── <u>features/</u>                 <i>30 slices — core's 18 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: supabase | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>9,555 lines, 30 files, main + preload only</i>
+├── <b>apps/desktop/src/</b>              <i>9,728 lines, 34 files, main + preload only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
