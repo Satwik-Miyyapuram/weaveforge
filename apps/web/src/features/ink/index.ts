@@ -121,15 +121,15 @@ export {
 
 export {
   InkHost,
-  INK_NO_ENGINE_MESSAGE,
-  INK_SAVE_DELAY_MS,
-  fitScale,
-  headerForTool,
-  selectedText,
   type InkHostDeps,
   type InkHostPage,
   type InkHostProps,
 } from "./ui/ink-host";
+export { fitScale, headerForTool, selectedText } from "./ui/ink-page-math";
+export {
+  INK_NO_ENGINE_MESSAGE,
+} from "./ui/use-ink-recognition";
+export { INK_SAVE_DELAY_MS } from "./ui/use-ink-note-store";
 export {
   InkTextLayer,
   lineClass,
