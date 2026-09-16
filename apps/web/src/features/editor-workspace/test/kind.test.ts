@@ -8,6 +8,7 @@ import {
   KINDS,
   documentKind,
   documentSuffix,
+  hasInkView,
   hasPdfView,
   isDocumentKind,
   kindIcon,
@@ -92,6 +93,15 @@ test("the table says which kinds have a PDF to look at", () => {
   assert.equal(hasPdfView("ink_page"), false);
   assert.equal(hasPdfView("report_section"), false);
   assert.equal(hasPdfView("something_new"), false);
+});
+
+test("the table says which kinds have an Ink canvas to draw on", () => {
+  assert.equal(hasInkView("vault_page"), true);
+  assert.equal(hasInkView("ink_page"), true);
+  assert.equal(hasInkView("paper"), false);
+  assert.equal(hasInkView("report_section"), false);
+  assert.equal(hasInkView("something_new"), false);
+  assert.equal(rendererFor("vault_page", "ink"), "ink");
 });
 
 test("the table says which surface renames and moves a kind", () => {

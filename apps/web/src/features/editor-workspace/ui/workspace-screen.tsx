@@ -642,6 +642,8 @@ export function WorkspaceScreen() {
 
   const activeDoc = activeKeyOf ? byKey.get(activeKeyOf) : undefined;
   activeDocRef.current = activeDoc;
+  const activeTab = activeTabRef(layout);
+  const activeMode = activeTab ? tabMode(activeTab) : undefined;
   const activeMetrics = activeKeyOf ? metrics[activeKeyOf] : undefined;
   const activeBody = activeMetrics?.text ?? activeDoc?.body ?? "";
   const stats = bodyStats(activeBody);
@@ -723,7 +725,7 @@ export function WorkspaceScreen() {
       />
       <StatusBar
         save={saveState({ pending, dirty })}
-        segments={activeDoc ? segmentsFor(activeDoc.kind) : []}
+        segments={activeDoc ? segmentsFor(activeMode === "ink" ? "ink_page" : activeDoc.kind) : []}
         values={values}
       />
       {error ? <p className="error workspace-error">{error}</p> : null}

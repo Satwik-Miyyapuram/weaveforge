@@ -18,7 +18,7 @@ import {
   type TabRef,
 } from "../application/pane-tree";
 import { Breadcrumbs } from "./breadcrumbs";
-import { hasPdfView, kindIcon, kindSuffix, kindTintClass } from "./kind";
+import { hasInkView, hasPdfView, kindIcon, kindSuffix, kindTintClass } from "./kind";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -137,9 +137,6 @@ function PaneLeafView({
   const focused = layout.focusedPaneId === leaf.id;
   const showing = activeTab(leaf);
   const editing = showing ? tabMode(showing) : "edit";
-  // An ink note has one view and its own bar for insertion: Edit / Read and
-  // the image tool would be two controls that do nothing.
-  const singleView = showing?.kind === "ink_page";
   const peerNames = showing ? (peers?.(showing) ?? []) : [];
   const crumbs = showing ? (crumbsFor?.(showing) ?? []) : [];
 
@@ -207,12 +204,11 @@ function PaneLeafView({
         })}
         </div>
         <div className="pane-tab-actions">
-          {showing && editing === "edit" && !singleView && renderTools ? (
+          {showing && editing === "edit" && renderTools ? (
             <span className="pane-tools">{renderTools(showing)}</span>
           ) : null}
-          {leaf.tabs.length > 0 && showing && !singleView ? (
-            // Edit / Read, per tab. Two segments rather than a toggle button so
-            // the current mode is readable without hovering.
+          {leaf.tabs.length > 0 && showing ? (
+            // Edit / Read / Ink / PDF, per tab.
             <div className="pane-mode" role="group" aria-label="Document mode">
               <button
                 type="button"
@@ -232,6 +228,17 @@ function PaneLeafView({
               >
                 Read
               </button>
+              {hasInkView(showing.kind) ? (
+                <button
+                  type="button"
+                  className={`pane-mode-btn${editing === "ink" ? " is-on" : ""}`}
+                  aria-pressed={editing === "ink"}
+                  title="Ink canvas"
+                  onClick={() => onSetMode(leaf.id, leaf.activeIndex, "ink")}
+                >
+                  Ink
+                </button>
+              ) : null}
               {hasPdfView(showing.kind) ? (
                 <button
                   type="button"

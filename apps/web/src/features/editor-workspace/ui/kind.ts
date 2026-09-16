@@ -60,6 +60,11 @@ export interface KindMeta {
    */
   pdf: boolean;
   /**
+   * Whether this kind supports an Ink mode — handwritten drawing. True for notes
+   * (`vault_page` and `ink_page`), false everywhere else.
+   */
+  ink: boolean;
+  /**
    * Which surface owns a document's title and its place in the tree. Sections
    * belong to the report, every other document to the vault. The screen asks
    * this instead of naming a kind, so a new kind states its owner in its row.
@@ -111,6 +116,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "text",
     segments: [],
     pdf: false,
+    ink: false,
     owner: "vault",
     documentRow: false,
     memberOrder: null,
@@ -124,6 +130,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "text",
     segments: TEXT_SEGMENTS,
     pdf: false,
+    ink: true,
     owner: "vault",
     documentRow: true,
     // Papers first, then notes; `10` and `20` leave room for a kind between.
@@ -140,6 +147,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "ink",
     segments: INK_SEGMENTS,
     pdf: false,
+    ink: true,
     owner: "vault",
     documentRow: true,
     // A note, so it sorts with the other notes inside a reading list.
@@ -158,6 +166,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: TEXT_SEGMENTS,
     // The one kind with a PDF of its own: the reader's pane, in place (§3.9).
     pdf: true,
+    ink: false,
     owner: "vault",
     documentRow: true,
     memberOrder: 10,
@@ -171,6 +180,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "text",
     segments: TEXT_SEGMENTS,
     pdf: false,
+    ink: false,
     owner: "vault",
     documentRow: true,
     memberOrder: null,
@@ -184,6 +194,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "text",
     segments: TEXT_SEGMENTS,
     pdf: false,
+    ink: false,
     // Renamed and re-parented through the report's own use case, not the vault's.
     owner: "report",
     documentRow: true,
@@ -198,6 +209,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "text",
     segments: TEXT_SEGMENTS,
     pdf: false,
+    ink: false,
     owner: "vault",
     documentRow: true,
     memberOrder: null,
@@ -211,6 +223,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "text",
     segments: TEXT_SEGMENTS,
     pdf: false,
+    ink: false,
     owner: "vault",
     documentRow: true,
     memberOrder: null,
@@ -224,6 +237,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "text",
     segments: TEXT_SEGMENTS,
     pdf: false,
+    ink: false,
     owner: "vault",
     documentRow: true,
     memberOrder: null,
@@ -263,6 +277,15 @@ export function isDocumentKind(kind: string): boolean {
  */
 export function hasPdfView(kind: string): boolean {
   return kindMeta(kind).pdf;
+}
+
+/**
+ * Whether the pane should offer an Ink mode for this kind.
+ *
+ * True for notes (`vault_page` and `ink_page`), false everywhere else.
+ */
+export function hasInkView(kind: string): boolean {
+  return kindMeta(kind).ink;
 }
 
 /** Which surface owns a row's title and its place in the tree. */

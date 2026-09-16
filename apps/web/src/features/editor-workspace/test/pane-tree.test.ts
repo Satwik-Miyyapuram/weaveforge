@@ -198,6 +198,7 @@ test("closing the only tab of the focused pane falls back to the pane that is le
 
 test("a tab that predates modes reads as Edit, which is what it was", () => {
   assert.equal(tabMode(A), "edit");
+  assert.equal(tabMode({ kind: "ink_page", id: "i" }), "ink");
 });
 
 test("setMode touches only the addressed tab", () => {
