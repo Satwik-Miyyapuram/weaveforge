@@ -125,6 +125,7 @@ export {
   type InkHostPage,
   type InkHostProps,
 } from "./ui/ink-host";
+export { InkReader, type InkReaderProps } from "./ui/ink-reader";
 export { fitScale, headerForTool, selectedText } from "./ui/ink-page-math";
 export {
   INK_NO_ENGINE_MESSAGE,

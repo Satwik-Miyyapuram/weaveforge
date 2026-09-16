@@ -31,7 +31,7 @@ import { CollabBodyHost } from "@/features/collab";
 // sibling only through its index (CONTRIBUTING.md § SOLID). A paper's
 // `paperimg:` and a section's `reportimg:` resolve here because the resolvers
 // are theirs, not because this screen learned the prefixes.
-import { InkHost } from "@/features/ink";
+import { InkHost, InkReader } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
 import { PaperPdfPane } from "@/features/reader";
 import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
@@ -93,8 +93,8 @@ export function cursorAt(view: EditorView): { line: number; col: number } {
   return { line: line.number, col: head - line.from + 1 };
 }
 
-/** Which of the three renderers a (kind, mode) pair means. */
-export type RendererName = "editor" | "markdown" | "ink" | "pdf";
+/** Which of the renderers a (kind, mode) pair means. */
+export type RendererName = "editor" | "markdown" | "ink" | "pdf" | "ink_reader";
 
 /**
  * The whole decision, as data.
@@ -107,7 +107,10 @@ export function rendererFor(kind: string, mode: DocumentMode): RendererName {
   if (mode === "ink") return hasInkView(kind) ? "ink" : "editor";
   // Only a paper has a PDF; the mode on any other kind means Edit.
   if (mode === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
-  return mode === "read" ? "markdown" : "editor";
+  if (mode === "read") {
+    return documentKind(kind) === "ink" ? "ink_reader" : "markdown";
+  }
+  return "editor";
 }
 
 /** Whether Edit / Read applies to a kind. */
@@ -308,6 +311,10 @@ export function DocumentHost({
     // already holds and asks the container's ink facade for its pages itself,
     // which keeps the reading of `.ink/<id>/` in the feature that owns the format.
     return <InkHost noteId={tab.id} body={body} deps={getContainer().ink} onSave={onSave} />;
+  }
+
+  if (renderer === "ink_reader") {
+    return <InkReader noteId={tab.id} body={body} deps={getContainer().ink} />;
   }
 
   if (renderer === "pdf") {

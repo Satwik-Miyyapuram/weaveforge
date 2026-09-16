@@ -60,7 +60,7 @@ function num(value: number): string {
 }
 
 /** One stroke's centreline as a path, or `null` for a stroke with no points. */
-function strokePath(stroke: InkStroke): string | null {
+export function strokePath(stroke: InkStroke): string | null {
   const points = stroke.points;
   if (points.length < 2) return null;
   let out = `M${num(points[0]!)} ${num(points[1]!)}`;

@@ -62,7 +62,11 @@ export async function requestInkPresenter(
   const ink = nav?.ink;
   if (!ink || typeof ink.requestPresenter !== "function") return null;
   try {
-    const presenter = await ink.requestPresenter({ presentationArea: area });
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 500));
+    const presenter = await Promise.race([
+      ink.requestPresenter({ presentationArea: area }),
+      timeout,
+    ]);
     if (!presenter || typeof presenter.updateInkTrailStartPoint !== "function")
       return null;
     return presenter;

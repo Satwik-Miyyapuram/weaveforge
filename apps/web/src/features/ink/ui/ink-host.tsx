@@ -88,6 +88,7 @@ import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
 import { InkRail } from "./ink-rail";
 import { InkTextLayer } from "./ink-text-layer";
+import { useDecodedStrokes } from "./use-decoded-strokes";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkFigureUrls } from "./use-ink-figure-urls";
 import { useInkLayout } from "./use-ink-layout";
@@ -218,6 +219,11 @@ export function InkHost({
     textPagesRef,
     pageCount,
     pageIndex,
+  });
+  const strokesMap = useDecodedStrokes({
+    pages: pagesRef.current,
+    activePageIndex: pageIndex,
+    strokesCount: strokes,
   });
 
   /**
@@ -673,12 +679,7 @@ export function InkHost({
         onDeleteSelection={onDeleteSelection}
         onCopyAsText={() => void onCopyAsText()}
       />
-      {/*
-        The rail (§ink-rail): every page of the note in one column, so the
-        note is one scroll rather than a step. Only the page being written on
-        is live; the ghosts above and below it are inert boxes, and reaching
-        one is what flips the note to it.
-      */}
+      {/* The rail: continuous multi-page scroll with background active page switching. */}
       <InkRail
         scrollRef={scrollRef}
         pageIndex={pageIndex}
@@ -688,6 +689,10 @@ export function InkHost({
         paper={page.paper}
         pages={pagesRef.current}
         ghosts={ghostImages}
+        strokesMap={strokesMap}
+        textPages={textPagesRef.current}
+        figureUrls={figureUrls}
+        palette={palette}
       >
         <InkPage
           pageIndex={pageIndex}

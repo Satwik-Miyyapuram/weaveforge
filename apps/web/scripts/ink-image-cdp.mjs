@@ -280,7 +280,17 @@ try {
 }
 // The worker comes up asynchronously; the bar is only interactive once it has,
 // and the backend line says which renderer it chose.
-await page.waitForTimeout(1500);
+await page
+  .waitForFunction(
+    () => {
+      const el = document.querySelector(".ink-readout");
+      const b = el?.getAttribute("data-backend");
+      return b && b !== "starting";
+    },
+    null,
+    { timeout: 15_000 },
+  )
+  .catch(() => {});
 const backend = await page
   .locator(".ink-readout")
   .first()

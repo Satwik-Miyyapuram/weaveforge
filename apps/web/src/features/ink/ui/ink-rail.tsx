@@ -10,9 +10,13 @@
  * Reaching a ghost is what flips the note to it (the host's scroll watcher).
  */
 
-import { InkFigures, InkFigureControls } from "./ink-figures";
+import { Fragment } from "react";
+import type { InkStroke } from "@weaveforge/core";
+import { inkPageFigures } from "@weaveforge/core";
+import type { InkPalette } from "../render/ink-palette";
 import { InkGhostPage } from "./ink-ghost-page";
-import { InkPage } from "./ink-page";
+import { InkPageStatic } from "./ink-page-static";
+import { pureInkPageText } from "./ink-sheet-underlay";
 
 /** What the rail needs from the host. */
 export interface InkRailProps {
@@ -32,41 +36,83 @@ export interface InkRailProps {
   pages: readonly { paper: string }[] | null;
   /** A ghost's background, by page index. */
   ghosts: ReadonlyMap<number, string>;
+  /** Decoded strokes for note pages, so adjacent pages render their ink. */
+  strokesMap?: ReadonlyMap<number, readonly InkStroke[]>;
+  /** Text pages for the note, for text underlay and figure metadata. */
+  textPages?: readonly string[] | null;
+  /** Figure blob URLs by path. */
+  figureUrls?: ReadonlyMap<string, string>;
+  /** Theme palette. */
+  palette?: InkPalette;
   /** Everything else the live page needs, as the page component takes it. */
   children: React.ReactNode;
 }
 
 export function InkRail(props: InkRailProps) {
-  const { pageIndex, pageCount, pageSize, scale, paper, pages, ghosts } = props;
+  const {
+    scrollRef,
+    pageIndex,
+    pageCount,
+    pageSize,
+    scale,
+    paper,
+    pages,
+    ghosts,
+    strokesMap,
+    textPages,
+    figureUrls,
+    palette,
+    children,
+  } = props;
+
+  const total = Math.max(1, pageCount);
+
   return (
-    <div className="ink-page-scroll" ref={props.scrollRef}>
-      {Array.from({ length: pageIndex }, (_, index) => (
-        <InkGhostPage
-          key={`ghost-${index}`}
-          index={index}
-          pageSize={pageSize}
-          scale={scale}
-          paper={pages?.[index]?.paper ?? paper}
-          backgroundUrl={ghosts.get(index) ?? null}
-        />
-      ))}
-      {props.children}
-      {Array.from(
-        { length: Math.max(0, pageCount - pageIndex - 1) },
-        (_, i) => {
-          const index = pageIndex + 1 + i;
+    <div className="ink-page-scroll" ref={scrollRef}>
+      {Array.from({ length: total }, (_, index) => {
+        if (index === pageIndex) {
+          return <Fragment key={`page-${index}`}>{children}</Fragment>;
+        }
+
+        const isAdjacent = Math.abs(index - pageIndex) === 1;
+        const pageStrokes = strokesMap?.get(index);
+        const pageText = textPages?.[index] ?? "";
+        const pureText = pageText ? pureInkPageText(pageText) : "";
+        const pageFigures = pageText ? inkPageFigures(pageText) : undefined;
+        const hasContent =
+          (pageStrokes && pageStrokes.length > 0) ||
+          pureText.length > 0 ||
+          (pageFigures && pageFigures.length > 0);
+
+        if (isAdjacent || hasContent) {
           return (
-            <InkGhostPage
-              key={`ghost-${index}`}
+            <InkPageStatic
+              key={`page-${index}`}
               index={index}
               pageSize={pageSize}
               scale={scale}
               paper={pages?.[index]?.paper ?? paper}
               backgroundUrl={ghosts.get(index) ?? null}
+              figures={pageFigures}
+              figureUrls={figureUrls}
+              pureText={pureText}
+              strokes={pageStrokes}
+              palette={palette}
             />
           );
-        },
-      )}
+        }
+
+        return (
+          <InkGhostPage
+            key={`page-${index}`}
+            index={index}
+            pageSize={pageSize}
+            scale={scale}
+            paper={pages?.[index]?.paper ?? paper}
+            backgroundUrl={ghosts.get(index) ?? null}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -76,7 +76,7 @@ test("a text document in edit mode is the shipped editor, in read mode markdown"
 
 test("an ink note can be viewed in edit, read and ink modes", () => {
   assert.equal(rendererFor("ink_page", "edit"), "editor");
-  assert.equal(rendererFor("ink_page", "read"), "markdown");
+  assert.equal(rendererFor("ink_page", "read"), "ink_reader");
   assert.equal(rendererFor("ink_page", "ink"), "ink");
 });
 

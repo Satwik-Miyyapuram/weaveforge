@@ -151,58 +151,59 @@ export function useInkLayout(deps: InkLayoutDeps) {
    * the middle of the next. And a mid-flight stroke is never interrupted: the
    * worker is drawing it, and a page change would commit half a word.
    */
-  const flipAnchor = useRef<{ centerY: number } | null>(null);
-  const flipping = useRef(false);
+  const scrollPageIndexRef = useRef<number | null>(null);
   useEffect(() => {
     const scroller = scrollRef.current;
-    const sheet = sheetRef.current;
-    if (!scroller || !sheet || pageCount < 2) return;
+    if (!scroller || pageCount < 2) return;
     const onScroll = () => {
-      if (flipping.current) return;
       if (deps.sessionActive()) return;
       const scrollerBox = scroller.getBoundingClientRect();
-      const sheetBox = sheet.getBoundingClientRect();
-      // Where the sheet's middle sits in the pane, 0 at the pane's own top.
-      const relative = (sheetBox.top + sheetBox.bottom) / 2 - scrollerBox.top;
-      const towards = Math.sign(scrollerBox.height / 2 - relative);
-      // Half the pane's height of travel before the page flips, and only
-      // when there is a page to flip to.
-      if (Math.abs(scrollerBox.height / 2 - relative) < scrollerBox.height / 2) return;
-      const next = pageIndex + (towards > 0 ? 1 : -1);
-      if (next < 0 || next >= pageCount) return;
-      // The anchor keeps the live page where the scroll left it: the slot it
-      // moves into is the one being looked at, and its own height may differ.
-      flipAnchor.current = { centerY: relative };
-      flipping.current = true;
-      flushSave();
-      setPageIndex(next);
+      const scrollerCenterY = scrollerBox.top + scrollerBox.height / 2;
+      const pageElements = scroller.querySelectorAll<HTMLElement>(".ink-page");
+      if (pageElements.length === 0) return;
+
+      let bestIndex = pageIndex;
+      let minDistance = Infinity;
+
+      pageElements.forEach((el, idx) => {
+        const box = el.getBoundingClientRect();
+        const pageCenterY = (box.top + box.bottom) / 2;
+        const dist = Math.abs(pageCenterY - scrollerCenterY);
+        const attr = el.getAttribute("data-page") ?? el.getAttribute("data-ghost");
+        const parsedIdx = attr !== null ? parseInt(attr, 10) : idx;
+        const pageIdx = !isNaN(parsedIdx) ? parsedIdx : idx;
+        if (dist < minDistance) {
+          minDistance = dist;
+          bestIndex = pageIdx;
+        }
+      });
+
+      if (bestIndex !== pageIndex && bestIndex >= 0 && bestIndex < pageCount) {
+        scrollPageIndexRef.current = bestIndex;
+        flushSave();
+        setPageIndex(bestIndex);
+      }
     };
     scroller.addEventListener("scroll", onScroll, { passive: true });
     return () => scroller.removeEventListener("scroll", onScroll);
-    // `sessionActive` reads the session live, so the session itself is not one.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flushSave, pageCount, pageIndex, setPageIndex, deps.sessionActive]);
 
   /**
-   * After a scroll-triggered flip, put the newly-live sheet back where the
-   * scroll was: its slot is the one being looked at, so the sheet's middle
-   * returns to the same band of the pane and the scroll does not jump to the
-   * top of the new page the way a stepped page change does.
+   * When pageIndex changes programmatically (e.g. clicking Next/Prev page in toolbar),
+   * scroll the target page into view smoothly. If the change was triggered by continuous
+   * scrolling, no scroll adjustment is needed.
    */
   useEffect(() => {
-    if (!flipping.current) return;
-    const anchor = flipAnchor.current;
+    if (scrollPageIndexRef.current === pageIndex) {
+      scrollPageIndexRef.current = null;
+      return;
+    }
     const scroller = scrollRef.current;
-    const sheet = sheetRef.current;
-    flipping.current = false;
-    flipAnchor.current = null;
-    if (!anchor || !scroller || !sheet) return;
-    const scrollerBox = scroller.getBoundingClientRect();
-    const sheetBox = sheet.getBoundingClientRect();
-    const relative = (sheetBox.top + sheetBox.bottom) / 2 - scrollerBox.top;
-    scroller.scrollTop += relative - anchor.centerY;
-    // The refs are read live; the page index is what changed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!scroller) return;
+    const target = scroller.querySelector<HTMLElement>(`[data-page="${pageIndex}"]`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   }, [pageIndex]);
 
   /** Measure the pane, so the fit is the container's and not a guess. */
