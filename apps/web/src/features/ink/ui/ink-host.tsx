@@ -281,7 +281,7 @@ export function InkHost({
       setStrokes((count) => count + 1);
       scheduleSave();
     },
-    haptics: deps.haptics,
+    haptics: deps.haptics?.bind(deps),
   });
 
   const { send } = pen;
@@ -318,8 +318,8 @@ export function InkHost({
    * the pen hook owns.
    */
   const recognition = useInkRecognition({
-    recogniser: deps.recogniser,
-    hints: deps.hints,
+    recogniser: deps.recogniser.bind(deps),
+    hints: deps.hints.bind(deps),
     requestModel,
     sendReplace: (page) => send({ type: "replace-page", page }),
     metaRef,
