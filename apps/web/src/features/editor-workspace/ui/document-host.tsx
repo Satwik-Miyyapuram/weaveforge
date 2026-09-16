@@ -19,7 +19,7 @@
  * is one more row there and one more case here when it lands.
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { vaultImageMarkdown } from "@weaveforge/core";
 
@@ -212,7 +212,10 @@ export function DocumentHost({
 
   // The live text, kept here as well as reported, because the preview below
   // reads it: a preview of the last save is a preview of half a minute ago.
-  const [liveBody, setLiveBody] = useState<string | null>(null);
+  const [liveBody, setLiveBody] = useState<string | null>(body || null);
+  useEffect(() => {
+    setLiveBody(body || null);
+  }, [body]);
   const metricsAsked = Boolean(onMetrics);
   const liveWatch = useCallback(
     (view: EditorView) => {

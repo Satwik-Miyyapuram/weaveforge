@@ -82,7 +82,9 @@ import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
 import { InkBar, type InkBarTool } from "./ink-bar";
 import { InkFigures, InkFigureControls } from "./ink-figures";
-import { fitScale, selectedText } from "./ink-page-math";
+import { fitScale } from "./ink-page-math";
+import { InkSheetTextUnderlay, pureInkPageText } from "./ink-sheet-underlay";
+import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
 import { InkRail } from "./ink-rail";
 import { InkTextLayer } from "./ink-text-layer";
@@ -516,42 +518,20 @@ export function InkHost({
     [onAddFigure],
   );
 
-  const onLasso = useCallback(
-    (path: readonly number[]) => {
-      send({ type: "lasso", polygon: [...path] });
-    },
-    [send],
-  );
-
-  /** The selection moved by `dx, dy`: the worker translates it, the box follows. */
-  const onMoveSelection = useCallback(
-    (dx: number, dy: number) => {
-      send({ type: "move-selection", dx, dy });
-      if (dx === 0 && dy === 0) return;
-      setSelectionBounds((b) =>
-        b ? [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy] : b,
-      );
-      scheduleSave();
-    },
-    [scheduleSave, send, setSelectionBounds],
-  );
-  /** The selection is being dragged: the worker shows it shifted, nothing moves yet. */
-  const onDragSelection = useCallback(
-    (dx: number, dy: number) => send({ type: "drag-selection", dx, dy }),
-    [send],
-  );
-  const onDeleteSelection = useCallback(() => {
-    send({ type: "delete-selection" });
-    setSelection([]);
-    scheduleSave();
-  }, [scheduleSave, send, setSelection]);
-  const onCopyAsText = useCallback(async () => {
-    const model = await requestModel();
-    const text = selectedText(model, selection);
-    if (text && typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(text);
-    }
-  }, [requestModel, selection]);
+  const {
+    onLasso,
+    onMoveSelection,
+    onDragSelection,
+    onDeleteSelection,
+    onCopyAsText,
+  } = useInkSelection({
+    send,
+    scheduleSave,
+    selection,
+    setSelection,
+    setSelectionBounds,
+    requestModel,
+  });
 
   /**
    * The keyboard and the wheel (§use-ink-shortcuts): tools, undo, recognise,
@@ -599,6 +579,12 @@ export function InkHost({
     send({ type: "redo" });
     scheduleSave();
   }, [scheduleSave, send]);
+
+  const currentPageRawText = textPagesRef.current?.[pageIndex] ?? "";
+  const pureText = useMemo(
+    () => pureInkPageText(currentPageRawText),
+    [currentPageRawText],
+  );
 
   const lines: readonly RecognisedLine[] = recognised?.lines ?? [];
   const confidence = recognised?.confidence ?? 0;
@@ -737,12 +723,15 @@ export function InkHost({
           }}
           onFigureActivate={(index) => setFigureControls(index)}
           below={
-            <InkFigures
-              figures={figures}
-              scale={scale}
-              imageUrls={figureUrls}
-              activeIndex={figureControls}
-            />
+            <>
+              <InkSheetTextUnderlay text={pureText} scale={scale} />
+              <InkFigures
+                figures={figures}
+                scale={scale}
+                imageUrls={figureUrls}
+                activeIndex={figureControls}
+              />
+            </>
           }
         />
         {figureControls !== null && figures[figureControls] ? (
@@ -776,6 +765,7 @@ export function InkHost({
         progress={progress}
         unavailable={unavailable}
         onAccept={onAccept}
+        rawText={pureText}
       />
       {/* The page-list question is the only one left standing at the pane's
           edge: an image is a figure now, of which a page may hold any number,

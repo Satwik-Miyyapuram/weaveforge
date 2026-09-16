@@ -27,6 +27,8 @@ export interface InkTextLayerProps {
   /** Why no engine can run here, when that is the case. */
   unavailable: string | null;
   onAccept: (index: number, text: string) => void;
+  /** The raw markdown/note text on this page, when available. */
+  rawText?: string;
 }
 
 /** The class a line renders with: unsure lines are dotted, accepted ones plain. */
@@ -41,6 +43,7 @@ export function InkTextLayer({
   progress,
   unavailable,
   onAccept,
+  rawText,
 }: InkTextLayerProps) {
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
@@ -75,10 +78,20 @@ export function InkTextLayer({
       </h4>
       {unavailable ? <p className="ink-empty">{unavailable}</p> : null}
       {lines.length === 0 ? (
-        <p className="ink-empty">
-          Nothing recognised on this page yet. Recognise it to make the note
-          searchable and linkable.
-        </p>
+        rawText?.trim() ? (
+          <div className="ink-text-raw" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {rawText.trim().split(/\r?\n\r?\n+/).map((para, index) => (
+              <p key={index} className="ink-line ink-line-sure" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                {para}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="ink-empty">
+            Nothing recognised on this page yet. Recognise it to make the note
+            searchable and linkable.
+          </p>
+        )
       ) : (
         lines.map((line, index) =>
           editing === index ? (

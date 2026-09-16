@@ -702,10 +702,10 @@ export function InkBar({
           onClick={onToggleTextLayer}
           aria-pressed={showTextLayer}
           title={
-            showTextLayer ? "Hide recognized text" : "Show recognized text"
+            showTextLayer ? "Hide text layer" : "Show text layer"
           }
           aria-label={
-            showTextLayer ? "Hide recognized text" : "Show recognized text"
+            showTextLayer ? "Hide text layer" : "Show text layer"
           }
         >
           <svg

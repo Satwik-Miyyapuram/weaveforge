@@ -144,6 +144,7 @@ export function CollaborativeMarkdownEditor({
         seedIfEmpty(doc, initialBody);
         lastSaved.current = yText.toString();
         ready.current = true;
+        host.dispatchEvent(new Event("input", { bubbles: true }));
       },
       onError: (stage, detail) => setTransportError(`${stage}: ${detail}`),
       onConnected: () => setTransportError(null),
@@ -164,13 +165,19 @@ export function CollaborativeMarkdownEditor({
     awareness.on("change", syncPeers);
     syncPeers();
 
-    const onYText = () => scheduleSave(yText.toString());
+    const onYText = () => {
+      scheduleSave(yText.toString());
+      host.dispatchEvent(new Event("input", { bubbles: true }));
+    };
     yText.observe(onYText);
 
     const state = EditorState.create({
       doc: yText.toString(),
       extensions: [
         ...(extraExtensions ?? [lineNumbers(), markdown(), keymap.of(defaultKeymap), EditorView.lineWrapping]),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) host.dispatchEvent(new Event("input", { bubbles: true }));
+        }),
         // After the caller's stack, so the Yjs binding owns the document and
         // the undo history it installs wins over a plain `history()`.
         yCollab(yText, awareness),

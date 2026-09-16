@@ -77,7 +77,7 @@ export function LivePreview({
         role="complementary"
         aria-label="Preview, rendered as you type"
       >
-        {preview(liveBody ?? savedBody)}
+        {preview(liveBody?.trim() ? liveBody : savedBody)}
       </div>
     </div>
   );

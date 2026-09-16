@@ -954,6 +954,7 @@ check(
 );
 await popover.getByRole("button", { name: "Crop" }).click();
 const cropDialog = page.getByRole("dialog", { name: "Crop this image" });
+await cropDialog.waitFor({ state: "visible", timeout: 5000 });
 check(
   "the crop is the app's own dialog",
   (await cropDialog.count()) === 1,
