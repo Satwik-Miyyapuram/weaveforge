@@ -74,15 +74,16 @@ test("a text document in edit mode is the shipped editor, in read mode markdown"
   assert.equal(rendererFor("paper", "read"), "markdown");
 });
 
-test("an ink note has one mode, so both of the tab's modes reach the ink renderer", () => {
-  assert.equal(rendererFor("ink_page", "edit"), "ink");
-  assert.equal(rendererFor("ink_page", "read"), "ink");
+test("an ink note can be viewed in edit, read and ink modes", () => {
+  assert.equal(rendererFor("ink_page", "edit"), "editor");
+  assert.equal(rendererFor("ink_page", "read"), "markdown");
+  assert.equal(rendererFor("ink_page", "ink"), "ink");
 });
 
 test("PDF is a paper's third mode; on anything else it means Edit", () => {
   assert.equal(rendererFor("paper", "pdf"), "pdf");
   assert.equal(rendererFor("vault_page", "pdf"), "editor");
-  assert.equal(rendererFor("ink_page", "pdf"), "ink");
+  assert.equal(rendererFor("ink_page", "pdf"), "editor");
 });
 
 test("the table says which kinds have a PDF to look at", () => {
@@ -122,7 +123,7 @@ test("Edit / Read applies to text kinds only", () => {
   assert.equal(supportsEditMode("paper"), true);
   assert.equal(supportsEditMode("vault_page"), true);
   assert.equal(supportsEditMode("something_new"), true, "an unknown kind is text, so it has both modes");
-  assert.equal(supportsEditMode("ink_page"), false, "ink has one mode: its own");
+  assert.equal(supportsEditMode("ink_page"), true, "ink notes support edit mode");
 });
 
 test("the status bar segments a kind declares are the text ones", () => {

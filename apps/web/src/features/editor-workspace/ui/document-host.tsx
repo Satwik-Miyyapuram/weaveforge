@@ -105,15 +105,14 @@ export type RendererName = "editor" | "markdown" | "ink" | "pdf";
  */
 export function rendererFor(kind: string, mode: DocumentMode): RendererName {
   if (mode === "ink") return hasInkView(kind) ? "ink" : "editor";
-  if (documentKind(kind) === "ink") return "ink";
   // Only a paper has a PDF; the mode on any other kind means Edit.
   if (mode === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
   return mode === "read" ? "markdown" : "editor";
 }
 
-/** Whether Edit / Read applies to a kind. Ink has one mode (§3.3). */
+/** Whether Edit / Read applies to a kind. */
 export function supportsEditMode(kind: string): boolean {
-  return documentKind(kind) === "text";
+  return documentKind(kind) === "text" || hasInkView(kind);
 }
 
 type ImageStore = Pick<Parameters<typeof editorImageUpload>[0], "store" | "toMarkdown">;
@@ -128,6 +127,7 @@ type ImageStore = Pick<Parameters<typeof editorImageUpload>[0], "store" | "toMar
 function imageStore(kind: string, id: string): ImageStore | null {
   switch (kind) {
     case "vault_page":
+    case "ink_page":
       return {
         store: (blob, ext) => getContainer().vault.uploadAsset(id, blob, ext),
         toMarkdown: vaultImageMarkdown,
