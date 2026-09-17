@@ -1,8 +1,16 @@
 "use client";
 
+import { useEffect, useMemo, useRef } from "react";
+import { renderMarkdownPlain } from "@/components/markdown/markdown";
+import { upgradeMermaidFences } from "@/lib/mermaid-render";
+
 /**
  * Text underlay for an ink page: renders the note's markdown/text content
  * directly on the paper sheet under the transparent ink drawing canvas.
+ *
+ * The text is rendered as markdown (headings, lists, math, tables, fenced
+ * code) through the same renderer Read mode uses for prose, so an ink note
+ * reads the same on the sheet as it does in the reader.
  *
  * `pointer-events: none` and `user-select: none` ensure that all pointer events
  * (stylus, touch, mouse) pass cleanly to the ink canvas so freehand writing,
@@ -24,10 +32,25 @@ export function InkSheetTextUnderlay({
   text: string;
   scale: number;
 }) {
-  if (!text.trim()) return null;
+  const html = useMemo(() => (text.trim() ? renderMarkdownPlain(text) : ""), [text]);
+  // One object per html string: React resets innerHTML whenever it sees a
+  // new `dangerouslySetInnerHTML` object, and the host re-renders on every
+  // pointer frame, which would wipe the mermaid upgrade below straight away.
+  const markup = useMemo(() => ({ __html: html }), [html]);
+  const ref = useRef<HTMLDivElement>(null);
+  // Mermaid fences upgrade to diagrams after paint; the sync render above
+  // already shows their source, so a note without one pays nothing.
+  useEffect(() => {
+    const root = ref.current;
+    if (!root || !root.querySelector('pre[data-lang="mermaid"]')) return;
+    const mode = document.documentElement.dataset.mode === "dark" ? "dark" : "light";
+    void upgradeMermaidFences(root, mode);
+  }, [html]);
+  if (!html) return null;
   return (
     <div
-      className="ink-sheet-text-underlay"
+      ref={ref}
+      className="ink-sheet-text-underlay markdown"
       style={{
         position: "absolute",
         top: 0,
@@ -42,13 +65,11 @@ export function InkSheetTextUnderlay({
         userSelect: "none",
         zIndex: 0,
         overflow: "hidden",
-        whiteSpace: "pre-wrap",
         wordBreak: "break-word",
         opacity: 0.88,
       }}
-    >
-      {text}
-    </div>
+      dangerouslySetInnerHTML={markup}
+    />
   );
 }
 

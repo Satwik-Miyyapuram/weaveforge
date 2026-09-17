@@ -147,6 +147,13 @@ export const CHANNELS = {
    */
   inkHapticsAvailable: "weaveforge:ink-haptics-available",
   inkHaptics: "weaveforge:ink-haptics",
+  /**
+   * The workspace's focus mode (`⌘⇧F`) reaching the window: the page hides
+   * its own chrome, and asks here for the window's — the menu bar and the
+   * title bar — to go with it, and to come back. `send`, not `invoke`: a
+   * flag, and nothing answers it.
+   */
+  windowFocus: "weaveforge:window-focus",
 } as const;
 
 /**

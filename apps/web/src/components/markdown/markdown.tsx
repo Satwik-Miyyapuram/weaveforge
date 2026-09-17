@@ -358,6 +358,32 @@ export function Markdown({ children, className }: { children: string; className?
 
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
+/**
+ * Synchronous full render: prose through `renderProseMarkdown`, fenced code as
+ * a plain escaped `<pre>` (no Shiki). For surfaces that must render in one
+ * pass with no async highlight round trip, such as the ink sheet's text layer.
+ */
+export function renderMarkdownPlain(md: string, resolve?: WikilinkResolver): string {
+  const parts: string[] = [];
+  let lastIndex = 0;
+  FENCE_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = FENCE_RE.exec(md)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), resolve));
+    }
+    const info = (match[1] ?? "").trim();
+    const lang = info.split(/\s+/)[0] ?? "";
+    const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
+    parts.push(`<pre class="md-code"${langAttr}><code>${escapeHtml(match[2] ?? "")}</code></pre>`);
+    lastIndex = FENCE_RE.lastIndex;
+  }
+  if (lastIndex < md.length) {
+    parts.push(renderProseMarkdown(md.slice(lastIndex), resolve));
+  }
+  return parts.join("");
+}
+
 /** Split markdown into prose and fenced-code segments for Shiki display. */
 export async function renderMarkdownWithShiki(
   md: string,

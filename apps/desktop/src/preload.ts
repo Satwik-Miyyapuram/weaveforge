@@ -85,6 +85,7 @@ const bridge: DesktopBridge = {
   inkHapticsAvailable: () => call<boolean>(CHANNELS.inkHapticsAvailable),
   // `send`, not `invoke`: per sample, and nothing to wait for.
   inkHaptics: (message: DesktopInkHaptics) => ipcRenderer.send(CHANNELS.inkHaptics, message),
+  setWindowFocus: (on: boolean) => ipcRenderer.send(CHANNELS.windowFocus, on === true),
   compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),

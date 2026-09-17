@@ -330,6 +330,16 @@ async function writeWhole(
   await rename(draft, file);
 }
 
+ipc.on(CHANNELS.windowFocus, (_event, on: unknown) => {
+  const window = mainWindow;
+  if (!window || window.isDestroyed()) return;
+  const focus = on === true;
+  // The menu bar is hidden rather than removed: the accelerators on it (the
+  // chord that leaves focus mode among them) keep working while it is away.
+  window.setMenuBarVisibility(!focus);
+  window.setFullScreen(focus);
+});
+
 ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) =>
   preferenceStore().read(name),
 );

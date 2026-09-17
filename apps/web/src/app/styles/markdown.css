@@ -273,4 +273,6 @@
 }
 
 /* Org setup + invite codes */
-.org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }
+.org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }.markdown .md-mermaid { margin: 12px 0; overflow-x: auto; }
+.markdown .md-mermaid svg { max-width: 100%; height: auto; }
+.markdown .md-mermaid-error { border-left: 3px solid var(--danger, #c33); }

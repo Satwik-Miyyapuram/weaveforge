@@ -6,6 +6,7 @@ import { extractHashtags, normalizeTitleKey } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandleRef } from "@/components/editor-handle";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { isHydratedPage, noteBodyText } from "@/lib/page-text";
@@ -121,8 +122,11 @@ export function WorkspaceScreen() {
     const root = document.documentElement;
     if (focus) root.dataset.workspaceFocus = "";
     else delete root.dataset.workspaceFocus;
+    // The desktop shell's own chrome — menu bar, title bar — goes with it.
+    desktop()?.setWindowFocus?.(focus);
     return () => {
       delete root.dataset.workspaceFocus;
+      desktop()?.setWindowFocus?.(false);
     };
   }, [focus]);
   // The chord handler is bound once; it reads the document on screen through

@@ -595,7 +595,16 @@
   align-items: center;
 }
 
-.workspace-shell.is-focus .ink-bar .ink-swatches { padding: 4px 2px; }
+/* Targets for a pen held mid-air, not a mouse: 36px buttons, 26px swatches,
+   and a little more air between them. */
+.workspace-shell.is-focus .ink-bar .ink-tool,
+.workspace-shell.is-focus .ink-bar .ink-page-pill .ink-tool { width: 36px; height: 36px; }
+.workspace-shell.is-focus .ink-bar .ink-tool svg { width: 18px; height: 18px; }
+.workspace-shell.is-focus .ink-bar .ink-bar-group,
+.workspace-shell.is-focus .ink-bar .ink-page-pill { gap: 4px; padding: 3px; border-radius: 10px; }
+.workspace-shell.is-focus .ink-bar .ink-swatches { gap: 9px; padding: 8px 5px; }
+.workspace-shell.is-focus .ink-bar .ink-swatch { width: 26px; height: 26px; }
+.workspace-shell.is-focus .ink-bar .ink-page-count { font-size: 0.8rem; padding: 2px 0; }
 .workspace-shell.is-focus .ink-bar .ink-menu { justify-content: center; }
 
 /* The list opens beside the palette, not under it — hung from the button's
@@ -2303,3 +2312,30 @@
 }
 
 
+
+/* Ink sheet text layer: rendered markdown under the ink. Blocks keep the
+   underlay's line rhythm (one row per source line, roughly) so the page flow
+   estimate in ink-text-flow stays close to what is drawn. */
+.ink-sheet-text-underlay { max-width: none; }
+.ink-sheet-text-underlay > * { margin: 0; }
+.ink-sheet-text-underlay h3,
+.ink-sheet-text-underlay h4,
+.ink-sheet-text-underlay h5 { margin: 0; line-height: 1.6; }
+.ink-sheet-text-underlay h3 { font-size: 1.35em; }
+.ink-sheet-text-underlay h4 { font-size: 1.18em; }
+.ink-sheet-text-underlay h5 { font-size: 1.05em; }
+.ink-sheet-text-underlay ul,
+.ink-sheet-text-underlay ol { margin: 0; padding-left: 1.4em; }
+.ink-sheet-text-underlay .md-code {
+  margin: 0;
+  padding: 0.2em 0.6em;
+  font-size: 0.9em;
+  line-height: 1.6;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ink-sheet-text-underlay .math-display { margin: 0; padding: 0; }
+.ink-sheet-text-underlay .md-table { margin: 0; }
+.ink-sheet-text-underlay .md-code code { background: none; padding: 0; font-size: inherit; }

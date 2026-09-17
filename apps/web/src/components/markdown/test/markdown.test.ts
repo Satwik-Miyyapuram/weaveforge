@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderProseMarkdown } from "@/components/markdown/markdown";
+import { renderMarkdownPlain, renderProseMarkdown } from "@/components/markdown/markdown";
 
 test("renders inline and display equations locally", () => {
   const inline = renderProseMarkdown("The latent is $z = \\mu + \\sigma\\epsilon$.");
@@ -61,4 +61,12 @@ test("links a root-relative target in the same tab, and leaves a bare file name 
   assert.match(html, /<a href="\/docs\/paste">paste<\/a>/);
   assert.doesNotMatch(html, /href="other\.md"/);
   assert.match(html, /\[other\]\(other\.md\)/);
+});
+
+test("renderMarkdownPlain renders prose around a fence and escapes the code", () => {
+  const html = renderMarkdownPlain("## Title\n\n```ts\nconst a = 1 < 2;\n```\n\n- item");
+
+  assert.match(html, /<h4[^>]*>Title<\/h4>/);
+  assert.match(html, /<pre class="md-code" data-lang="ts"><code>const a = 1 &lt; 2;\n<\/code><\/pre>/);
+  assert.match(html, /<ul><li>item<\/li><\/ul>/);
 });

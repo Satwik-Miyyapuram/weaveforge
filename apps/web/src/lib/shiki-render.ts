@@ -1,5 +1,6 @@
 import { createHighlighterCore, type HighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+import { isMermaidFence, renderMermaidBlock } from "@/lib/mermaid-render";
 
 export type ColorMode = "light" | "dark";
 
@@ -58,6 +59,7 @@ export async function highlightCodeBlock(
   info: string,
   mode: ColorMode,
 ): Promise<string> {
+  if (isMermaidFence(info)) return renderMermaidBlock(code, mode);
   const highlighter = await getHighlighter();
   const lang = await resolveLang(highlighter, info);
   return highlighter.codeToHtml(code.replace(/\n$/, ""), {
