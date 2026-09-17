@@ -44,17 +44,33 @@ export class MetadataResolver {
   }
 
   async resolve(ref: PaperRef): Promise<PaperMetadata> {
+    const { metadata } = await this.resolveWithSource(ref);
+    return metadata;
+  }
+
+  /**
+   * Resolution with the answering source's id. Identifier refs keep their
+   * original semantics (first supporting source, errors surface); a
+   * bibliographic search tries each provider in order — S2, then OpenAlex —
+   * and only fails when no provider matches.
+   */
+  async resolveWithSource(ref: PaperRef): Promise<{ metadata: PaperMetadata; sourceId: string }> {
     const sources = this.sources.filter((s) => s.supports(ref));
     if (!sources.length) {
       throw new MetadataResolutionError(
         `No metadata source supports reference of kind "${ref.kind}".`,
       );
     }
-    // Identifier lookups retain their original error semantics; bibliographic
-    // searches try the next provider when a match is unavailable.
-    if (ref.kind !== "bibliographic") return sources[0]!.fetch(ref);
+    if (ref.kind !== "bibliographic") {
+      const source = sources[0]!;
+      return { metadata: await source.fetch(ref), sourceId: source.id };
+    }
     for (const source of sources) {
-      try { return await source.fetch(ref); } catch { /* try the next search provider */ }
+      try {
+        return { metadata: await source.fetch(ref), sourceId: source.id };
+      } catch {
+        /* try the next search provider */
+      }
     }
     throw new MetadataResolutionError("No bibliographic metadata match found.");
   }
