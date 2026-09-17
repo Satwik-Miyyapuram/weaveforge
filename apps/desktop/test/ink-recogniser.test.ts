@@ -16,6 +16,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
+import path from "node:path";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
@@ -94,13 +95,15 @@ test("the helper's path is per platform and per architecture, or null", () => {
     null,
     "there is no Windows Ink off Windows",
   );
+  // Joined with the host's separator: the path is built for the machine the
+  // test runs on, which is a Linux runner as often as a Windows desk.
   assert.equal(
     inkRecogniserPath({ platform: "win32", arch: "arm64", root: "C:\\app" }),
-    "C:\\app\\native\\ink-recogniser\\win-arm64\\ink-recogniser.exe",
+    path.join("C:\\app", "native", "ink-recogniser", "win-arm64", "ink-recogniser.exe"),
   );
   assert.equal(
     inkRecogniserPath({ platform: "win32", arch: "x64", root: "C:\\app" }),
-    "C:\\app\\native\\ink-recogniser\\win-x64\\ink-recogniser.exe",
+    path.join("C:\\app", "native", "ink-recogniser", "win-x64", "ink-recogniser.exe"),
   );
   assert.equal(inkRecogniserPath({ platform: "win32", arch: "ia32", root: "C:\\app" }), null);
 });
