@@ -17,7 +17,7 @@
     "smoke": "node scripts/build.mjs && node scripts/smoke.mjs"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^26.5.1",
     "@weaveforge/core": "*",
     "electron": "33.4.11",
     "electron-builder": "^25.1.8",
