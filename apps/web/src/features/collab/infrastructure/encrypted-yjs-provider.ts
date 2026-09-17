@@ -233,7 +233,11 @@ export class EncryptedYjsProvider {
     if (this.persistTimer) clearTimeout(this.persistTimer);
     if (this.opts.awareness && this.awarenessHandler) {
       this.opts.awareness.off("update", this.awarenessHandler);
-      removeAwarenessStates(this.opts.awareness, [this.opts.doc.clientID], this);
+      try {
+        removeAwarenessStates(this.opts.awareness, [this.opts.doc.clientID], this);
+      } catch (err) {
+        this.opts.onError?.("awareness", formatError(err));
+      }
     }
 
     // Leave the channel *before* the awaits below, in this method's synchronous
@@ -246,11 +250,22 @@ export class EncryptedYjsProvider {
     // `unsubscribe`, not `removeChannel`: the latter drops the channel from the
     // client's registry, and supabase-js disconnects the shared socket once the
     // registry empties — taking the project-wide invalidation channel with it.
-    void this.channel?.unsubscribe();
+    //
+    // Nothing awaits `destroy()` — React's cleanup fires it and moves on — so
+    // a rejection here is an unhandled one. Offline, both the leave and the
+    // closing persist reject (the socket is closed, the fetch fails), and each
+    // logged "Uncaught (in promise)" on every exit from Edit mode. They are
+    // reported through `onError` instead: the row body has its own save, so
+    // the failure is worth a notice, not a crash.
+    this.channel?.unsubscribe().catch((err) => this.opts.onError?.("leave", formatError(err)));
 
     // Forced: `destroyed` is already true above, and this is the flush that
     // carries the last few seconds of typing into the log.
-    await this.persistTail(true);
-    await this.maybeCompact();
+    try {
+      await this.persistTail(true);
+      await this.maybeCompact();
+    } catch (err) {
+      this.opts.onError?.("persist", formatError(err));
+    }
   }
 }

@@ -161,6 +161,30 @@ function handleStyle(handle: FigureHandle): React.CSSProperties {
   return style;
 }
 
+/** The eight resize handles on a frame, wired to one drag lifecycle. */
+function FrameHandles({
+  begin,
+  move,
+  end,
+}: {
+  begin: (event: React.PointerEvent, handle: FigureHandle) => void;
+  move: (event: React.PointerEvent) => void;
+  end: (event: React.PointerEvent) => void;
+}) {
+  return FIGURE_HANDLES.map((handle) => (
+    <span
+      key={handle}
+      className="ink-figure-handle"
+      data-handle={handle}
+      style={handleStyle(handle)}
+      onPointerDown={(event) => begin(event, handle)}
+      onPointerMove={move}
+      onPointerUp={end}
+      onPointerCancel={end}
+    />
+  ));
+}
+
 /** A pointer drag's lifecycle on a frame or a handle, shared by both tools. */
 function useFrameDrag(
   scale: number,
@@ -448,18 +472,7 @@ export function InkFigureEditor({
         onKeyDown={onKeyDown}
         onDoubleClick={() => setCropping(true)}
       >
-        {FIGURE_HANDLES.map((handle) => (
-          <span
-            key={handle}
-            className="ink-figure-handle"
-            data-handle={handle}
-            style={handleStyle(handle)}
-            onPointerDown={(event) => begin(event, handle)}
-            onPointerMove={move}
-            onPointerUp={end}
-            onPointerCancel={end}
-          />
-        ))}
+        <FrameHandles begin={begin} move={move} end={end} />
       </div>
       <div
         ref={popoverRef}
@@ -649,18 +662,7 @@ function InkFigureCropTool({
             />
           ) : null}
         </div>
-        {FIGURE_HANDLES.map((handle) => (
-          <span
-            key={handle}
-            className="ink-figure-handle"
-            data-handle={handle}
-            style={handleStyle(handle)}
-            onPointerDown={(event) => begin(event, handle)}
-            onPointerMove={move}
-            onPointerUp={end}
-            onPointerCancel={end}
-          />
-        ))}
+        <FrameHandles begin={begin} move={move} end={end} />
       </div>
       <div
         ref={popoverRef}
