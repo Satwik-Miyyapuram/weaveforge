@@ -70,13 +70,20 @@ textarea:focus,
 /* Shared chevron: flip = popover/select, expand = tree rows. */
 .chev { display: inline-flex; align-items: center; justify-content: center; flex: none; opacity: 0.55; }
 .chev svg { display: block; transition: transform 0.15s ease; }
+/* The glyph is a down-chevron. `flip` turns it over when its popover is open;
+   `expand` starts pointing right and turns down when the row is open, so the
+   turn is the animation. */
+.chev-flip.open svg { transform: rotate(180deg); }
+.chev-expand svg { transform: rotate(-90deg); }
+.chev-expand.open svg,
+details[open] > summary .chev-expand svg { transform: rotate(0deg); }
 
 @keyframes menu-in {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }
   to   { opacity: 1; transform: none; }
 }
 .custom-select-menu {
-  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: var(--z-popover);
   min-width: 100%; max-width: 100%;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
   box-shadow: var(--shadow); padding: 6px; display: grid; gap: 2px;
@@ -89,11 +96,12 @@ textarea:focus,
    inline style; `max-width` keeps a long option list on screen. */
 .custom-select-menu--fixed {
   position: fixed; top: auto; left: auto;
-  /* Above .modal-backdrop (10000). Modal portals to <body> and so does this
-     menu, so the two are siblings in the same stacking context and compared
-     directly — at any lower value every dropdown inside a dialog paints behind
-     it. The menu exists only while open, so outranking the backdrop is safe. */
-  z-index: 10050;
+  /* Above .modal-backdrop, which is `var(--z-modal)`. Modal portals to <body>
+     and so does this menu, so the two are siblings in the same stacking context
+     and compared directly — at any lower value every dropdown inside a dialog
+     paints behind it. The menu exists only while open, so outranking the
+     backdrop is safe. */
+  z-index: var(--z-menu);
   max-width: min(92vw, 26rem);
 }
 /* Flip above the trigger when there isn't room below. */
@@ -269,13 +277,57 @@ label.mp-row input[type="checkbox"]:disabled,
   cursor: not-allowed;
 }
 
+/*
+ * The primary action.
+ *
+ * `display: inline-flex` is load-bearing, not cosmetic. `transform` does not
+ * apply to a non-replaced inline element and `<a>` is inline by default, so
+ * without it `:active { transform: translateY(1px) }` — the press feedback —
+ * was a silent no-op on every anchor wearing this class (the pitch header's
+ * call to action among them). `.btn-secondary` has declared it since it
+ * shipped, with a comment noting that links wear that class too; the more
+ * prominent of the two did not. `gap` also only applies to a flex box, so the
+ * icon+label pairs this class is used with had no gap either.
+ *
+ * `justify-self` is gone: it is a grid layout property, and baking it into the
+ * component meant the button could not be centred or placed in a flex row
+ * without an override. Call sites that want it in a grid ask for it.
+ */
 .btn-primary {
-  justify-self: end; border: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: none; cursor: pointer;
   padding: 9px 16px; border-radius: 9px; font: inherit; font-weight: 600;
+  text-decoration: none;
   color: var(--accent-fg); background: var(--accent);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: transform 0.06s ease, filter 0.15s, box-shadow 0.15s;
+  transition: transform var(--dur-fast) ease, background var(--dur-base), box-shadow var(--dur-base);
 }
-.btn-primary:hover { filter: brightness(0.94); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+/* Hover darkens `--accent` itself through the palette's own alias rather than
+   applying `filter: brightness()` to the whole element: `filter` also dims
+   `--accent-fg` and the inset highlight, and it mixes toward black regardless
+   of the theme. See `--accent-hover` in themes/common.css. */
+.btn-primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
 .btn-primary:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
 .btn-primary:disabled { opacity: 0.6; cursor: default; }
+.btn-primary svg { width: var(--icon-size); height: var(--icon-size); flex: none; }
+
+/*
+ * The one container that wanted the old `justify-self: end`.
+ *
+ * `justify-self` only applies to a grid item, so of the places a primary
+ * button sits the declaration was honoured in exactly one shape: a button that
+ * is a direct child of `.add-form`, the add/edit forms, which are a
+ * single-column grid. Everywhere else the button's parent is a flex row —
+ * `.head-row`, `.form-foot`, `.card-foot`, `.ai-access-modal-actions` — where
+ * the property did nothing, and those rows already push it to the end with
+ * `justify-content: flex-end`.
+ *
+ * So the alignment moves to the container that means it. Same visual result as
+ * the old component rule, with the layout decision where the layout lives.
+ */
+.add-form > .btn-primary {
+  justify-self: end;
+}

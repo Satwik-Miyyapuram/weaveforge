@@ -11,7 +11,10 @@ Settings → Folder is where all of this lives.
 
 One directory per kind of thing — `notes/`, `papers/`, `reading-lists/`,
 `report/`, `experiments/`, `plan/`, `logbook/` — plus `assets/` for images and
-a `.weaveforge/` directory holding the mirror's own bookkeeping.
+a `.weaveforge/` directory holding the mirror's own bookkeeping. On the desktop
+that directory also holds `db-backups/`: compressed copies of the app's local
+database, which is how a reinstall gets everything back — see
+[the desktop app](desktop.md#where-it-lives-and-what-happens-if-it-breaks).
 
 Every file carries a `weaveforge-id` in its frontmatter. **That id is the
 identity, and the filename is not.** Rename a note in Finder and it stays the

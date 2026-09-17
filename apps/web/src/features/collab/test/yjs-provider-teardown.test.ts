@@ -187,3 +187,50 @@ test("provider: solo opens no channel and broadcasts nothing", async () => {
     `solo must still write the log; saw ${JSON.stringify(h.order)}`,
   );
 });
+
+test("provider: a failed final persist and leave never escape destroy", async () => {
+  // Offline desktop: leaving Edit mode ran `void provider.destroy()`, the
+  // closing `append` rejected (no network), and the channel's `unsubscribe`
+  // rejected with it. Both surfaced as "Uncaught (in promise)" — nothing
+  // awaited them — for a page whose row body had already been saved.
+  const h = harness();
+  h.crdtStore.append = async () => {
+    h.order.push("append:reject");
+    throw new Error("fetch failed");
+  };
+  h.channel.unsubscribe = async () => {
+    h.order.push("unsubscribe:reject");
+    throw new Error("socket closed");
+  };
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const errors: string[] = [];
+    const doc = new Y.Doc();
+    const provider = new EncryptedYjsProvider({
+      doc,
+      db: h.db as never,
+      crdtStore: h.crdtStore as never,
+      resourceType: "vault_page",
+      resourceId: "abc",
+      projectId: "p1",
+      authorId: "u1",
+      onError: (stage, message) => errors.push(`${stage}: ${message}`),
+    });
+    doc.getText("body").insert(0, "typed offline");
+
+    await provider.destroy();
+    await new Promise((r) => setTimeout(r, 20));
+
+    assert.deepEqual(unhandled, []);
+    assert.ok(h.order.includes("append:reject"));
+    assert.ok(h.order.includes("unsubscribe:reject"));
+    assert.ok(
+      errors.some((e) => e.startsWith("persist: ")),
+      `the failed flush is reported, not swallowed silently; saw ${JSON.stringify(errors)}`,
+    );
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+});

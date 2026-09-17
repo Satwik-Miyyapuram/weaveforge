@@ -9,9 +9,19 @@ const FETCH_TTL_S = 300;
  * Writes pass straight through to the inner store; the additions are the read
  * side, which fetches the bytes and wraps them in a Blob whose content type is
  * guessed from the path when the caller does not know it.
+ *
+ * A store that can already read its own bytes — the local one, whose "signed
+ * URL" is a data URL because there is no server to sign anything — is asked
+ * directly. Fetching a data URL is a round trip through base64 for nothing,
+ * and the desktop shell's content-security policy refuses it outright, which
+ * is how every picture in an offline copy came back as a broken image.
  */
 export class FetchingBlobStore implements IBlobFetcher {
-  constructor(private readonly inner: IBlobStore) {}
+  private readonly reader: IBlobFetcher | null;
+
+  constructor(private readonly inner: IBlobStore) {
+    this.reader = isFetcher(inner) ? inner : null;
+  }
 
   upload(bucket: string, path: string, blob: Blob, contentType?: string): Promise<void> {
     return this.inner.upload(bucket, path, blob, contentType);
@@ -26,6 +36,7 @@ export class FetchingBlobStore implements IBlobFetcher {
   }
 
   async fetchBytes(bucket: string, path: string): Promise<Uint8Array> {
+    if (this.reader) return this.reader.fetchBytes(bucket, path);
     const [url] = await this.inner.signedUrls(bucket, [path], FETCH_TTL_S);
     if (!url) throw new Error(`Blob not found: ${bucket}/${path}`);
     const res = await fetch(url);
@@ -34,6 +45,7 @@ export class FetchingBlobStore implements IBlobFetcher {
   }
 
   async fetchBlob(bucket: string, path: string, fallbackContentType?: string): Promise<Blob> {
+    if (this.reader) return this.reader.fetchBlob(bucket, path, fallbackContentType);
     const bytes = await this.fetchBytes(bucket, path);
     const type = fallbackContentType ?? guessBlobContentType(path);
     return new Blob([bytes.slice()], { type });
@@ -44,6 +56,7 @@ export class FetchingBlobStore implements IBlobFetcher {
     paths: readonly string[],
     fallbackContentType?: string,
   ): Promise<Map<string, Blob>> {
+    if (this.reader) return this.reader.fetchBlobs(bucket, paths, fallbackContentType);
     const out = new Map<string, Blob>();
     if (paths.length === 0) return out;
     const urls = await this.inner.signedUrls(bucket, [...paths], FETCH_TTL_S);
@@ -64,4 +77,13 @@ export class FetchingBlobStore implements IBlobFetcher {
     );
     return out;
   }
+}
+
+function isFetcher(store: IBlobStore): store is IBlobFetcher {
+  const candidate = store as Partial<IBlobFetcher>;
+  return (
+    typeof candidate.fetchBytes === "function" &&
+    typeof candidate.fetchBlob === "function" &&
+    typeof candidate.fetchBlobs === "function"
+  );
 }

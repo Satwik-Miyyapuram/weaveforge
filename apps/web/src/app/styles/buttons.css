@@ -1,12 +1,43 @@
-.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: 1.6rem; margin: 18px 0 2px; letter-spacing: -0.01em; }
+/* `text-wrap: balance` so a two-line screen title breaks evenly rather than
+   leaving one word on the second line. It was pitch-only before this. */
+.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: 1.6rem; margin: 18px 0 2px; letter-spacing: -0.01em; text-wrap: balance; }
 /* Code/monospace surfaces adopt IBM Plex Mono. */
 code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono); }
 .head-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .screen-head:empty { display: none; }
+/* Destructive primary. Same shape as `.btn-primary` — a decision reads as one
+   control group — but the side that discards something is coloured for it.
+   Pairs with `.btn-secondary.danger`, which is the lighter form. */
+.btn-primary.btn-danger { background: var(--danger); color: var(--accent-fg); }
+.btn-primary.btn-danger:hover { background: color-mix(in srgb, var(--danger) 88%, var(--ink)); }
+
+/* Confirmation dialogs: one sentence, then the two choices. */
+.confirm-dialog-body { margin: 0 0 18px; font-size: 0.9rem; line-height: 1.6; }
+.confirm-dialog-actions {
+  display: flex; align-items: center; justify-content: flex-end; gap: 9px;
+  padding-top: 14px; border-top: 1px solid var(--line);
+}
+
+/* A dialog that asks for a value rather than a yes: one labelled field between
+   the sentence and the choices. */
+.prompt-dialog-field { display: block; margin: 0 0 4px; }
+.prompt-dialog-field > span {
+  display: block; margin-bottom: 6px;
+  font-size: 0.78rem; font-weight: 600; color: var(--muted);
+}
+.prompt-dialog-field input {
+  width: 100%; font: inherit; font-size: 0.9rem;
+  color: var(--text); background: var(--surface2);
+  border: 1px solid var(--border-strong); border-radius: 9px;
+  padding: 9px 11px;
+}
+.prompt-dialog-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 .btn-secondary {
   cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
   color: var(--text); background: transparent; border: 1px solid var(--border-strong);
-  padding: 8px 14px; border-radius: 9px; transition: background 0.15s, border-color 0.15s;
+  padding: 8px 14px; border-radius: 9px;
+  transition: background var(--dur-base), border-color var(--dur-base);
   /* Links wear this class too (reader, AI review) — a button that underlines
      itself does not read as a button. */
   display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
@@ -21,7 +52,7 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 .btn-ghost {
   cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
   color: var(--muted); background: transparent; border: none; padding: 8px 10px;
-  border-radius: 9px; transition: color 0.15s, background 0.15s;
+  border-radius: 9px; transition: color var(--dur-base), background var(--dur-base);
 }
 .btn-ghost:hover { color: var(--ink); background: var(--surface2); }
 .btn-ghost:disabled { opacity: 0.6; cursor: default; }

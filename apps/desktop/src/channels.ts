@@ -55,7 +55,19 @@ export const CHANNELS = {
    * behind a breakpoint. Each call is its own transaction on the far side, with
    * the role and the claim set inside it — see `local-db.ts`.
    */
-  dbQuery: "weaveforge:db-query",
+  dbQuery: "weaveforge:db-query",
+  /**
+   * Whether the local database opened, and where it lives; and the one way
+   * out when it did not.
+   *
+   * A data directory that a crash or a force-quit left half-written cannot be
+   * opened by any later boot, and the page would otherwise be showing an
+   * Emscripten abort with a Reload button that reloads into the same abort.
+   * `dbReset` moves that directory aside — never deletes it — and is refused
+   * while the database is healthy. See `local-db-host.ts`.
+   */
+  dbState: "weaveforge:db-state",
+  dbReset: "weaveforge:db-reset",
   /**
    * The workspace folder: choose one, ask which one is chosen, read and write
    * inside it. What may be chosen and how a path is kept inside the root is
@@ -120,6 +132,28 @@ export const CHANNELS = {
    * account gets the feature without the page ever holding the credential.
    */
   overleafRead: "weaveforge:overleaf-read",
+  /**
+   * The Windows Ink recogniser: whether the helper is present, and one page's
+   * lines through it. The helper is a process this side starts and keeps
+   * (`ink-recogniser.ts`); the page sends stroke trajectories and gets text
+   * back, and nothing leaves the machine.
+   */
+  inkAvailable: "weaveforge:ink-available",
+  inkRecognise: "weaveforge:ink-recognise",
+  /**
+   * The pen's haptics (ink-native-bridges.md §4), through the same helper.
+   * `inkHaptics` is `send`, not `invoke`: it carries a sample at up to 120 Hz
+   * and nothing answers it.
+   */
+  inkHapticsAvailable: "weaveforge:ink-haptics-available",
+  inkHaptics: "weaveforge:ink-haptics",
+  /**
+   * The workspace's focus mode (`⌘⇧F`) reaching the window: the page hides
+   * its own chrome, and asks here for the window's — the menu bar and the
+   * title bar — to go with it, and to come back. `send`, not `invoke`: a
+   * flag, and nothing answers it.
+   */
+  windowFocus: "weaveforge:window-focus",
 } as const;
 
 /**

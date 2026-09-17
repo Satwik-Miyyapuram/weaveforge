@@ -160,3 +160,6 @@
 .signout:hover { color: var(--ink); border-color: var(--accent); }
 
 .auth-loading { padding: 32px 0; }
+
+/* Ink: the engine list, in the selector's order. */
+.settings-engine-list { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; }

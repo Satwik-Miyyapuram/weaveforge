@@ -1,24 +1,18 @@
 /** Loading pdf.js, and reading text and outline out of a document. */
 import { isEditableReaderTarget, type PdfLocus } from "@weaveforge/core";
 import type { ReaderOutlineItem } from "../reader-outline";
-import type { PdfDocument, PdfLib, PageText, TextItemGeometry } from "./types";
+import type { PdfDocument, PageText, TextItemGeometry } from "./types";
+
+/**
+ * Re-exported rather than defined here: the loader is shared with the ink
+ * editor's page backgrounds, and it lives in `lib` so neither feature has to
+ * import the other's `ui/`.
+ */
+export { loadPdfLib, type PdfLib } from "@/lib/pdf-lib";
 
 /** Per-page resolve must ignore document-scoped position offsets. */
 export function pageScopedLocus(locus: PdfLocus): PdfLocus {
   return { quote: locus.quote };
-}
-
-/** The pdf.js bundle is a megabyte; it is fetched once, on the first open. */
-let pdfLibPromise: Promise<PdfLib> | null = null;
-
-export async function loadPdfLib(): Promise<PdfLib> {
-  if (!pdfLibPromise) {
-    pdfLibPromise = import("pdfjs-dist").then((lib) => {
-      lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-      return lib;
-    });
-  }
-  return pdfLibPromise;
 }
 
 export function buildPageText(items: readonly { str: string; hasEOL?: boolean }[]): PageText {

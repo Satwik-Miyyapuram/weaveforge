@@ -70,6 +70,11 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
               type="button"
               style={{ color: "#ffb4a8" }}
               onClick={() => {
+                // `window.confirm` is deliberate here, and this is the other
+                // place that keeps it: this boundary replaces the whole
+                // document, so it cannot rely on the component tree that draws
+                // the app's own modal — that tree is what may have failed.
+                // Everywhere else uses `components/confirm-dialog.tsx`.
                 if (!window.confirm("Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.")) return;
                 resetAppData();
               }}

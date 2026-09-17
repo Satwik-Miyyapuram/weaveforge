@@ -11,8 +11,9 @@
     "start": "electron .",
     "typecheck": "tsc --noEmit",
     "build:web": "node scripts/build-web.mjs",
-    "package": "node scripts/build.mjs && node scripts/build-web.mjs && electron-builder",
+    "package": "node scripts/build.mjs && node scripts/build-web.mjs && npm run build:ink && electron-builder",
     "test": "node --import tsx --test test/*.test.ts",
+    "build:ink": "node scripts/build-ink-recogniser.mjs",
     "smoke": "node scripts/build.mjs && node scripts/smoke.mjs"
   },
   "devDependencies": {
@@ -30,6 +31,12 @@
     "files": [
       "dist/**",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "native/ink-recogniser/${os}-${arch}",
+        "to": "native/ink-recogniser/${os}-${arch}"
+      }
     ],
     "directories": {
       "output": "release"

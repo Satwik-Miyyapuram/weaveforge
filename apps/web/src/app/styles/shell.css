@@ -49,6 +49,34 @@
   transition: padding-left var(--layout-duration) var(--layout-ease);
 }
 
+/*
+ * Skip to content.
+ *
+ * Off-screen rather than `display: none` — a hidden element is not focusable,
+ * so the link could never be reached. It slides in on focus and sits above the
+ * nav, which is the thing it exists to skip. `base.css` already provides the
+ * `:focus-visible` ring, so it is visible the moment it is reached.
+ */
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  z-index: var(--z-toast);
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 0 0 10px 0;
+  background: var(--elev);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
 .mobile-only {
   display: flex;
   justify-content: space-between;
@@ -138,7 +166,7 @@
 .proj-menu {
   /* Matches .header-menu, its sibling in the same row. At 20 it tied with the
      sticky .sub-nav and lost on DOM order, so the tabs painted through it. */
-  position: absolute; top: 110%; left: 0; z-index: 60; min-width: 220px;
+  position: absolute; top: 110%; left: 0; z-index: var(--z-popover); min-width: 220px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
   box-shadow: var(--shadow); padding: 6px; display: grid; gap: 2px;
 }
@@ -165,7 +193,14 @@
 .vault-title-readonly h2 { margin: 0; font-size: 1.25rem; }
 .project-dot { width: 11px; height: 11px; border-radius: 999px; flex: none; display: inline-block; }
 .project-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 10px; }
-.project-card { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+/* A project row is a `<button>` inside its `<li>`. Reset the UA button chrome
+   so it sits exactly as the old clickable list item did, and keep the card
+   surface (`.card`) underneath. It is a full-width row rather than a shrink-to
+   -fit button, because the row is the target. */
+.project-card {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  width: 100%; text-align: start; font: inherit; color: var(--ink);
+}
 .project-card:hover { border-color: var(--accent); }
 .project-name { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
 
@@ -184,7 +219,7 @@
 }
 .header-overflow-btn:hover { background: var(--surface2); }
 .header-menu {
-  position: absolute; z-index: 60; top: calc(100% + 8px); right: 0; min-width: 210px;
+  position: absolute; z-index: var(--z-popover); top: calc(100% + 8px); right: 0; min-width: 210px;
   background: var(--elev); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22); padding: 6px; display: grid; gap: 2px;
 }
@@ -214,3 +249,26 @@
    looked identical at all three control sizes. */
 .header-link svg, .signout svg { width: var(--icon-size); height: var(--icon-size); flex: none; }
 .header-link:hover { color: var(--accent-ink); background: var(--hover); }
+
+/*
+ * Full-bleed chrome on `/workspace`.
+ *
+ * The desktop block in `nav.css` gives `.app-shell` a fluid gutter and the
+ * layout a `--nav-inset` left padding so content clears the 216px sidebar.
+ * The editor is not a page inside that frame — it is the frame: the nav rail,
+ * its own explorer and panes that must reach the window's edges on all four
+ * sides. Both declarations are therefore zeroed on this route only, and every
+ * other route keeps them exactly as they were.
+ *
+ * These rules are unsuffixed rather than inside the ≥900px block on purpose:
+ * the failure they fix (`styles/editor-workspace.css` sizing its height from a
+ * horizontal token) was caused by a desktop-only padding leaking into a height
+ * calculation, and a bare zero cannot leak.
+ */
+.layout.has-nav.editor-route {
+  padding-left: 0;
+}
+
+.layout.editor-route .app-shell {
+  padding: 0;
+}

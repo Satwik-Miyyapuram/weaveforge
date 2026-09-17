@@ -42,6 +42,13 @@ export interface CollabMarkdownEditing {
    * CodeMirror into its own bundle.
    */
   imagePaste?: ImagePasteConfig;
+  /** `#tag` completions: every tag the project already uses. */
+  tags?: readonly string[];
+  /**
+   * Called when a `[[title]]` completion names a note that does not exist and
+   * the person picks "Create note". Absent on a surface that cannot create.
+   */
+  onCreateNote?: (title: string, opts?: { open?: boolean }) => void;
 }
 
 export function CollabBodyHost({
@@ -115,6 +122,10 @@ export function CollabBodyHost({
   const pasteSettingsRef = usePasteSettingsRef();
   const imagePasteRef = useRef(markdownEditing?.imagePaste);
   imagePasteRef.current = markdownEditing?.imagePaste;
+  const tagsRef = useRef<readonly string[]>(markdownEditing?.tags ?? []);
+  tagsRef.current = markdownEditing?.tags ?? [];
+  const createNoteRef = useRef(markdownEditing?.onCreateNote);
+  createNoteRef.current = markdownEditing?.onCreateNote;
   const placeholder = markdownEditing?.placeholder;
 
   const markdownExtensions = useMemo(
@@ -127,6 +138,8 @@ export function CollabBodyHost({
             editableCompartment: editableCompartment.current,
             themeCompartment: themeCompartment.current,
             pasteSettingsRef,
+            tagsRef,
+            createNoteRef,
             imagePaste: markdownEditing.imagePaste
               ? {
                   upload: (file) => imagePasteRef.current!.upload(file),

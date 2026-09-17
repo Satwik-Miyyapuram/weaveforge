@@ -1,6 +1,14 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  net,
+  protocol,
+  session,
+  shell,
+} from "electron";
 import fs from "node:fs";
-import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -12,7 +20,10 @@ import {
   resolveAppFile,
 } from "./app-protocol";
 import type { LocalClient } from "./local-db";
+import { LocalDbBackups, readBackup } from "./local-db-backup";
 import { LocalDbHost } from "./local-db-host";
+import { applyDeferredMove, moveAside } from "./local-db-reset";
+import { readHomeConfig, writeHomeConfig } from "./home-config";
 import {
   adoptRoot,
   currentRoot,
@@ -27,24 +38,27 @@ import {
   type RememberRoot,
   writeVaultFile,
 } from "./vault-handlers";
-import { safeWorkspacePath } from "@weaveforge/core";
-import { LOCAL_API_HOST, LOCAL_API_PORT, newLocalApiToken, startLocalApi, type LocalApi } from "./local-api-server";
+import { registerMainInk } from "./main-ink";
+import { registerMainLocalApi } from "./main-local-api";
+import { registerMainUpdateOffer } from "./main-update-offer";
+import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
 import { compileTex, probeTex, type TexSourceFile } from "./tex";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
-import { SecretStore } from "./secret-store";
 import { handleOverleafRead } from "./overleaf-source";
-import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
+import {
+  handleFetchImage,
+  handleFetchTitle,
+  mayOpenExternally,
+} from "./handlers";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
-import { createVaultWatch, type VaultWatch } from "./vault-watch";
-import { PreferenceStore } from "./preference-store";
+import { preferenceStore, secretStore } from "./main-stores";
 import { fetchReleases, findUpdate } from "./update-check";
 import { installMenu, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
 import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
 import { runBoundedQuit } from "./quit";
-import { temporaryName } from "./write-queue";
 
 /**
  * The desktop shell.
@@ -96,7 +110,8 @@ const bundled = fs.existsSync(path.join(BUNDLE, "index.html"));
  * dev server is how this is developed.
  */
 const APP_URL =
-  process.env.WEAVEFORGE_URL ?? (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
+  process.env.WEAVEFORGE_URL ??
+  (bundled ? `${BUNDLE_ORIGIN}/` : __DEFAULT_APP_URL__);
 const APP_ORIGIN = originOf(APP_URL);
 
 /**
@@ -119,6 +134,67 @@ const DOCS_URL = "https://www.weaveforge.org/docs/";
 
 let mainWindow: BrowserWindow | null = null;
 let loopback: import("node:http").Server | null = null;
+
+/*
+ * Memory (docs/internal/design/memory-optimization.md, tiers 1 and 2).
+ *
+ * Every switch must be appended before `whenReady`; Chromium reads them when
+ * it starts its subprocesses. The V8 cap applies to every renderer and worker
+ * isolate. 512 MB rather than the note's 256: the encoder worker's JS heap
+ * and a large vault's search index both live under it, and an isolate that
+ * hits the cap is killed outright, which costs far more than the difference.
+ */
+app.commandLine.appendSwitch(
+  "js-flags",
+  "--max-old-space-size=512 --optimize-for-size",
+);
+app.commandLine.appendSwitch("disable-speech-api");
+app.commandLine.appendSwitch("disable-print-preview");
+app.commandLine.appendSwitch(
+  "disable-features",
+  [
+    "Translate",
+    "AutofillServerCommunication",
+    "CalculateNativeWinOcclusion",
+    "MediaRouter",
+    "OptimizationHints",
+  ].join(","),
+);
+app.commandLine.appendSwitch("force-color-profile", "srgb");
+app.commandLine.appendSwitch("max-active-webgl-contexts", "4");
+
+/** How long a blurred window sits before its working set is trimmed. */
+const IDLE_TRIM_MS = 180_000;
+let idleTrim: NodeJS.Timeout | null = null;
+
+/**
+ * Hand inactive pages back to Windows. `process.trimWorkingSet` is Electron's
+ * own binding over `EmptyWorkingSet`; it drops the cached pages the OS would
+ * otherwise keep resident for lack of pressure, and the next focus faults them
+ * back in without a visible stall. A no-op elsewhere.
+ */
+function trimProcessMemory(): void {
+  if (process.platform !== "win32") return;
+  const trim = (process as unknown as { trimWorkingSet?: () => void })
+    .trimWorkingSet;
+  try {
+    trim?.();
+  } catch {
+    // Not fatal: the working set is merely left as it was.
+  }
+}
+
+function registerMemoryTrimming(window: BrowserWindow): void {
+  window.on("minimize", trimProcessMemory);
+  window.on("blur", () => {
+    if (idleTrim) clearTimeout(idleTrim);
+    idleTrim = setTimeout(trimProcessMemory, IDLE_TRIM_MS);
+  });
+  window.on("focus", () => {
+    if (idleTrim) clearTimeout(idleTrim);
+    idleTrim = null;
+  });
+}
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -150,6 +226,7 @@ function createWindow(): void {
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;
   });
+  registerMemoryTrimming(window);
 
   void window.loadURL(APP_URL);
 
@@ -182,6 +259,15 @@ async function openExternally(url: string): Promise<void> {
 }
 
 /**
+ * The newer-installer offer (§main-update-offer): shown over the window on a
+ * completed sign-in, silent everywhere else.
+ */
+const offerUpdate = registerMainUpdateOffer({
+  mainWindow: () => mainWindow,
+  openExternally,
+});
+
+/**
  * Hands a finished sign-in to the page that started it.
  *
  * The query string is passed along as it arrived and is not read here. What is
@@ -200,122 +286,31 @@ function deliverSignIn(query: string): void {
   void offerUpdate();
 }
 
-/**
- * Offer the newer installer.
- *
- * Deliberately not awaited by its callers: the window is already open and
- * usable while this happens, and if GitHub is slow or unreachable the reader
- * never finds out there was a question. `showMessageBox` is used rather than
- * something inside the page because the page is the *web app* — it is served
- * from a server that knows nothing about which shell is asking, and putting
- * this in it would mean browser readers being told to update an app they do
- * not have.
- *
- * It runs on a completed sign-in and nowhere else. Not at launch: an app that
- * opens a dialog every time it opens is an app people learn to dismiss without
- * reading, and the notice would be spent on the launches where nothing has
- * changed. Signing in is the moment the shell's own machinery has just been
- * exercised — the loopback listener, the preload channel that carries the
- * result — so it is both the moment a reader on a stale build most needs to
- * hear it and the moment they are most likely to act. Between sign-ins the
- * same fact is a dot on the Updates section in settings, which is there to be
- * noticed rather than answered.
- *
- * It does not remember having asked: a dismissed dialog does not make a stale
- * shell less stale.
- */
-let offering = false;
-
-async function offerUpdate({ tellWhenCurrent = false } = {}): Promise<void> {
-  // In development the version is whatever is in package.json and the "update"
-  // would be the release the source is ahead of.
-  if ((!app.isPackaged && !tellWhenCurrent) || offering) return;
-
-  offering = true;
-  try {
-    const update = await findUpdate({ currentVersion: app.getVersion(), fetchReleases }).catch(() => null);
-    // Silence is right for the check on launch and wrong for one the reader
-    // asked for: a menu entry that does nothing visible reads as broken.
-    if (!update) {
-      if (tellWhenCurrent && mainWindow && !mainWindow.isDestroyed()) {
-        await dialog.showMessageBox(mainWindow, {
-          type: "info",
-          title: "Up to date",
-          message: `WeaveForge ${app.getVersion()} is the newest version.`,
-          detail: "If you are offline, this only means no newer version could be reached.",
-          buttons: ["OK"],
-          noLink: true,
-        });
-      }
-      return;
-    }
-
-    const window = mainWindow;
-    if (!window || window.isDestroyed()) return;
-    const { response } = await dialog.showMessageBox(window, {
-      type: "info",
-      title: "Update available",
-      message: `WeaveForge ${update.version} is available.`,
-      detail:
-        `You are running ${app.getVersion()}. The app itself updates from the web, so this ` +
-        "only affects the desktop window — signing in, links, and file handling. " +
-        "Downloading opens the release page in your browser.",
-      buttons: ["Download", "Later"],
-      defaultId: 0,
-      cancelId: 1,
-      noLink: true,
-    });
-    if (response === 0) await openExternally(update.url);
-  } finally {
-    // The guard is against two dialogs at once — a launch check and the
-    // sign-in that lands seconds later — not against asking again.
-    offering = false;
-  }
-}
-
 // Thin on purpose: what these do lives in `handlers.ts`, which the tests can
 // reach without an Electron app running.
-/**
- * The shell's settings file, opened on each call.
- *
- * A factory rather than a value because `getPath` needs an app that is ready,
- * and this module is evaluated before that. Reading the file per call also
- * means a second window — or a second instance that lost the lock race — never
- * writes back a copy it read minutes ago.
- */
-function preferenceStore(): PreferenceStore {
-  const file = path.join(app.getPath("userData"), "preferences.json");
-  return new PreferenceStore({
-    read: () => fs.promises.readFile(file, "utf8").catch(() => null),
-    write: (contents) => writeWhole(file, contents),
-  });
-}
+ipc.on(CHANNELS.windowFocus, (_event, on: unknown) => {
+  const window = mainWindow;
+  if (!window || window.isDestroyed()) return;
+  const focus = on === true;
+  // The menu bar is hidden rather than removed: the accelerators on it (the
+  // chord that leaves focus mode among them) keep working while it is away.
+  window.setMenuBarVisibility(!focus);
+  window.setFullScreen(focus);
+});
 
-/**
- * Written beside and renamed over: a crash mid-write leaves the old file, not
- * half of the new one. These two files are read at every start.
- *
- * The draft's name is unique per write rather than per process, which the pid
- * alone is not: two writes in this process picked the same name, so the loser's
- * rename published the winner's bytes and one of the two changes disappeared.
- * `temporaryName` has the counter and the random suffix; the queue in
- * `write-queue.ts` is what keeps two writes from overlapping in the first
- * place, and this is the belt to that pair of braces — a draft left behind by a
- * killed process must not be one a later write can collide with either.
- */
-async function writeWhole(file: string, contents: string, mode?: number): Promise<void> {
-  const draft = `${file}.${temporaryName()}`;
-  await writeFile(draft, contents, { encoding: "utf8", mode });
-  await rename(draft, file);
-}
-
-ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) => preferenceStore().read(name));
+ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) =>
+  preferenceStore().read(name),
+);
 ipc.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
   preferenceStore().write(name, value),
 );
 
-ipc.handle(CHANNELS.fetchTitle, (_event, url: unknown) => handleFetchTitle(url));
-ipc.handle(CHANNELS.fetchImage, (_event, url: unknown) => handleFetchImage(url));
+ipc.handle(CHANNELS.fetchTitle, (_event, url: unknown) =>
+  handleFetchTitle(url),
+);
+ipc.handle(CHANNELS.fetchImage, (_event, url: unknown) =>
+  handleFetchImage(url),
+);
 // The settings panel asking, rather than the shell announcing. A failure is
 // null and not an error: a settings section that cannot reach GitHub should
 // say it does not know, not turn red.
@@ -336,7 +331,12 @@ if (bundled) {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: APP_SCHEME,
-      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+      },
     },
   ]);
 }
@@ -355,11 +355,16 @@ function serveBundle(): void {
     // `app://models/...` is the encoder's weights, cached on the disk so the
     // feature keeps working with the network unplugged.
     if (host === MODEL_HOST) {
-      return serveModelFile(path.join(app.getPath("userData"), "models"), request.url);
+      return serveModelFile(
+        path.join(app.getPath("userData"), "models"),
+        request.url,
+      );
     }
     if (host !== APP_HOST) return new Response(null, { status: 404 });
 
-    const file = resolveAppFile(BUNDLE, request.url, (candidate) => fs.existsSync(candidate));
+    const file = resolveAppFile(BUNDLE, request.url, (candidate) =>
+      fs.existsSync(candidate),
+    );
     if (!file) return new Response(null, { status: 404 });
 
     const response = await net.fetch(pathToFileURL(file).toString());
@@ -370,31 +375,22 @@ function serveBundle(): void {
   });
 }
 
-/**
- * The keychain, wired to `safeStorage` and one file in the app's own data
- * directory.
- *
- * The path is resolved lazily rather than at module load: `getPath` needs a
- * ready app, and this module is evaluated before `whenReady`. Nothing readable
- * is written — see `secret-store.ts` for what the file contains and what
- * happens on a machine with no keychain backend.
- */
-function secretStore(): SecretStore {
-  const file = path.join(app.getPath("userData"), "secrets.json");
-  return new SecretStore(safeStorage, {
-    read: () => readFile(file, "utf8").catch(() => null),
-    write: (contents) => writeWhole(file, contents, 0o600),
-  });
-}
-
-ipc.handle(CHANNELS.secretRead, (_event, name: unknown) => secretStore().read(name));
+ipc.handle(CHANNELS.secretRead, (_event, name: unknown) =>
+  secretStore().read(name),
+);
 ipc.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
   secretStore().write(name, value),
 );
-ipc.handle(CHANNELS.secretClear, (_event, name: unknown) => secretStore().clear(name));
+ipc.handle(CHANNELS.secretClear, (_event, name: unknown) =>
+  secretStore().clear(name),
+);
 
-ipc.handle(CHANNELS.overleafRead, (_event, projectId: unknown, entryFile: unknown) =>
-  handleOverleafRead(projectId, entryFile, () => secretStore().read("overleaf-token")),
+ipc.handle(
+  CHANNELS.overleafRead,
+  (_event, projectId: unknown, entryFile: unknown) =>
+    handleOverleafRead(projectId, entryFile, () =>
+      secretStore().read("overleaf-token"),
+    ),
 );
 
 /**
@@ -403,19 +399,98 @@ ipc.handle(CHANNELS.overleafRead, (_event, projectId: unknown, entryFile: unknow
  * PGlite is imported here and nowhere else, and lazily: it is a WASM Postgres,
  * and an app that stays online for its whole life should never pay to load it.
  */
-const localDb = new LocalDbHost({
-  migrations: [path.join(__dirname, "migrations"), path.join(__dirname, "migrations-local")],
-  open: async () => {
-    const { PGlite } = await import("@electric-sql/pglite");
-    const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
-    const dataDir = path.join(app.getPath("userData"), "local-db");
-    return (await PGlite.create({ dataDir, extensions: { pgcrypto } })) as unknown as LocalClient;
+const localDbDir = path.join(app.getPath("userData"), "local-db");
+
+/**
+ * Copies of the database, under the app's directory and under the workspace
+ * folder's `.weaveforge/` when there is one; see `local-db-backup.ts`. Taken
+ * every so often while something has changed, and on the way out.
+ */
+const BACKUP_EVERY_MS = 10 * 60 * 1000;
+const localDbBackups = new LocalDbBackups({
+  dirs: () => {
+    const dirs = [path.join(app.getPath("userData"), "local-db-backups")];
+    const root = vault.root?.path;
+    if (root) dirs.push(path.join(root, ".weaveforge", "db-backups"));
+    return dirs;
   },
 });
+
+/** Start the engine on `localDbDir`, from a backup's bytes when given some. */
+async function openEngine(loadDataDir?: Blob): Promise<LocalClient> {
+  const { PGlite } = await import("@electric-sql/pglite");
+  const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
+  return (await PGlite.create({
+    dataDir: localDbDir,
+    extensions: { pgcrypto },
+    ...(loadDataDir ? { loadDataDir } : {}),
+  })) as unknown as LocalClient;
+}
+
+const localDb = new LocalDbHost({
+  migrations: [
+    path.join(__dirname, "migrations"),
+    path.join(__dirname, "migrations-local"),
+  ],
+  dataDir: localDbDir,
+  open: async () => {
+    // A reset the previous run could only write down; see `local-db-reset.ts`.
+    applyDeferredMove(localDbDir);
+    // The folder's backups are only findable once the folder is known, and
+    // the folder is taken up in the background at boot.
+    await rootRestored;
+    // No database at all -- a fresh install, or a reset -- but a backup: the
+    // backup is what the person had, so it is what they get back.
+    if (!fs.existsSync(localDbDir)) {
+      const latest = await localDbBackups.latest();
+      if (latest) {
+        console.log(`[local-db] no database; restoring from ${latest}`);
+        return openEngine(await readBackup(latest));
+      }
+    }
+    return openEngine();
+  },
+  recover: async (cause) => {
+    const latest = await localDbBackups.latest();
+    if (!latest) return null;
+    console.warn(`[local-db] open failed (${String(cause)}); restoring from ${latest}`);
+    // The engine that failed may still hold the directory. When it does, the
+    // move waits for a process that has never opened it -- this one,
+    // relaunched -- and that boot finds no directory and restores (above).
+    if ((await moveAside(localDbDir)) === "deferred") {
+      app.relaunch();
+      app.exit(0);
+      return null;
+    }
+    return { client: await openEngine(await readBackup(latest)), from: latest };
+  },
+  discard: async () => {
+    // As in `recover`, for the button on the page.
+    if ((await moveAside(localDbDir)) === "deferred") {
+      app.relaunch();
+      app.exit(0);
+    }
+  },
+});
+
+/** Write a backup if anything changed; never throws, never opens the database. */
+async function backUpLocalDb(): Promise<void> {
+  try {
+    const blob = await localDb.snapshot();
+    if (!blob) return;
+    const written = await localDbBackups.take({ dumpDataDir: async () => blob });
+    if (written.length > 0) console.log(`[local-db] backed up to ${written.join(", ")}`);
+  } catch (error) {
+    console.warn(`[local-db] backup failed: ${String(error)}`);
+  }
+}
+setInterval(() => void backUpLocalDb(), BACKUP_EVERY_MS).unref();
 
 ipc.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
   localDb.query(sql, params),
 );
+ipc.handle(CHANNELS.dbState, () => ({ ok: true, value: localDb.state() }));
+ipc.handle(CHANNELS.dbReset, () => localDb.reset());
 
 /**
  * The workspace folder.
@@ -427,21 +502,43 @@ ipc.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
  */
 const vault = newVaultSession();
 
-/** The chosen folder outlives the process, so the app comes back to it. */
+/**
+ * The folder's watcher (§main-vault-watch): tells the window when somebody
+ * else touches the chosen folder, and folds the app's own writes away.
+ */
+const vaultWatcher = registerMainVaultWatch({
+  mainWindow: () => mainWindow,
+});
+
+/**
+ * The chosen folder outlives the process, so the app comes back to it -- and
+ * outlives the app's directory too (`home-config.ts`), so a reinstall does.
+ */
 const rememberRoot: RememberRoot = (root) => {
   void preferenceStore().write("vault-root", root);
+  void writeHomeConfig(app.getPath("home"), { vaultRoot: root });
 };
 
 /**
  * Take up last run's folder, re-verified. Deliberately not awaited at startup:
  * the window should not wait on a disk that may be a disconnected network
- * share, and the renderer asks for the root when it needs it anyway.
+ * share, and the renderer asks for the root when it needs it anyway. Only the
+ * database open waits for it (it wants the folder's backups), and that is
+ * lazy too.
+ *
+ * The preference first; the home config only when there is none, which is
+ * what a fresh install looks like.
  */
-void preferenceStore()
+const rootRestored: Promise<void> = preferenceStore()
   .read("vault-root")
-  .then((result) => (result.ok ? restoreRoot(vault, result.value, rememberRoot) : null))
-  .then((root) => (root ? startWatchingVault(root.path) : null))
-  .catch(() => null);
+  .then(async (result) => {
+    if (result.ok && typeof result.value === "string" && result.value) return result.value;
+    return (await readHomeConfig(app.getPath("home"))).vaultRoot;
+  })
+  .then((remembered) => restoreRoot(vault, remembered, rememberRoot))
+  .then((root) => (root ? vaultWatcher.start(root.path) : null))
+  .catch(() => null)
+  .then(() => undefined);
 
 /**
  * Ask for a workspace folder and adopt what comes back.
@@ -457,14 +554,16 @@ async function chooseWorkspaceFolder() {
         title: "Choose a folder for your workspace",
         properties: ["openDirectory", "createDirectory"],
       })
-    : await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
+    : await dialog.showOpenDialog({
+        properties: ["openDirectory", "createDirectory"],
+      });
   // A dismissed dialog is the user declining, not a failure.
   const adopted = await adoptRoot(
     vault,
     result.canceled ? null : (result.filePaths[0] ?? null),
     rememberRoot,
   );
-  if (adopted.ok && adopted.value) startWatchingVault(adopted.value.path);
+  if (adopted.ok && adopted.value) vaultWatcher.start(adopted.value.path);
   return adopted;
 }
 
@@ -472,138 +571,45 @@ ipc.handle(CHANNELS.vaultChoose, () => chooseWorkspaceFolder());
 
 ipc.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
 ipc.handle(CHANNELS.vaultForget, () => {
-  stopWatchingVault();
+  vaultWatcher.stop();
   return forgetRoot(vault, rememberRoot);
 });
-ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) => readVaultFile(vault, at));
-ipc.handle(CHANNELS.vaultWrite, async (_event, at: unknown, contents: unknown) => {
-  // Said before the write rather than after: the filesystem event can arrive
-  // while the write is still returning, and an echo that beats its own note
-  // would be reported as somebody else's change.
-  if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
-  return writeVaultFile(vault, at, contents);
-});
-ipc.handle(CHANNELS.vaultList, (_event, at: unknown) => listVaultFiles(vault, at));
-ipc.handle(CHANNELS.vaultStat, (_event, at: unknown) => statVaultFile(vault, at));
+ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) =>
+  readVaultFile(vault, at),
+);
+ipc.handle(
+  CHANNELS.vaultWrite,
+  async (_event, at: unknown, contents: unknown) => {
+    // Said before the write rather than after: the filesystem event can arrive
+    // while the write is still returning, and an echo that beats its own note
+    // would be reported as somebody else's change.
+    if (typeof at === "string") vaultWatcher.noteSelfWrite(at);
+    return writeVaultFile(vault, at, contents);
+  },
+);
+ipc.handle(CHANNELS.vaultList, (_event, at: unknown) =>
+  listVaultFiles(vault, at),
+);
+ipc.handle(CHANNELS.vaultStat, (_event, at: unknown) =>
+  statVaultFile(vault, at),
+);
 ipc.handle(CHANNELS.vaultRemove, async (_event, at: unknown) => {
-  if (typeof at === "string") vaultWatch?.noteSelfWrite(at);
+  if (typeof at === "string") vaultWatcher.noteSelfWrite(at);
   return removeVaultFile(vault, at);
 });
-/**
- * The local HTTP surface, off until somebody switches it on.
- *
- * The token is read from the keychain per request rather than held here, so
- * revoking it takes effect immediately, and a token that was never generated
- * reads as an empty string -- which `routeLocalRequest` refuses outright.
- */
-let localApi: LocalApi | null = null;
-
-async function localApiToken(): Promise<string> {
-  const stored = await secretStore().read("local-api-token");
-  return stored.ok && stored.value ? stored.value : "";
-}
-
-const LOCAL_API_URL = `http://${LOCAL_API_HOST}:${LOCAL_API_PORT}`;
 
 /**
- * Ask the window to rank a word search by meaning.
- *
- * The encoder is in the renderer -- it is a WebAssembly model in a worker, and
- * there is one of it, loaded when somebody turned semantic search on. So the
- * server asks, and takes silence for an answer: no window, no encoder, or a
- * window that takes too long all mean "keep the order you have", which is a
- * worse ranking and never a failed tool call.
+ * The local HTTP surface (§main-local-api), off until somebody switches it
+ * on: the token, the semantic ranking, and the two IPC handlers that say
+ * whether the door is open.
  */
-const RANK_TIMEOUT_MS = 4_000;
-let nextRankId = 1;
-const pendingRanks = new Map<number, (order: string[] | null) => void>();
-
-ipc.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown) => {
-  if (typeof id !== "number") return;
-  const waiting = pendingRanks.get(id);
-  if (!waiting) return;
-  pendingRanks.delete(id);
-  waiting(Array.isArray(order) ? (order as string[]).filter((name) => typeof name === "string") : null);
-});
-
-function rankSemantically(query: string, candidates: readonly string[]): Promise<string[] | null> {
-  const window = mainWindow;
-  if (!window || window.isDestroyed() || candidates.length < 2) return Promise.resolve(null);
-
-  const id = nextRankId++;
-  return new Promise<string[] | null>((resolve) => {
-    const finish = (order: string[] | null) => {
-      clearTimeout(timer);
-      resolve(order);
-    };
-    const timer = setTimeout(() => {
-      pendingRanks.delete(id);
-      resolve(null);
-    }, RANK_TIMEOUT_MS);
-    pendingRanks.set(id, finish);
-    window.webContents.send(CHANNELS.semanticRank, id, query, [...candidates]);
-  });
-}
-
-async function startLocalApiIfEnabled(): Promise<string | undefined> {
-  if (localApi) return undefined;
-  try {
-    localApi = await startLocalApi(
-      vault,
-      () => cachedToken,
-      (sql, params) => localDb.query(sql, params),
-      rankSemantically,
-    );
-    return undefined;
-  } catch (error) {
-    // The usual reason is another program on the port -- Obsidian's own REST
-    // plugin, most likely. Reported rather than retried: two things answering
-    // on one port is not something to resolve behind the user's back.
-    return error instanceof Error ? error.message : "The port is not available.";
-  }
-}
-
-/** Read once per start and per token change, because a socket cannot await. */
-let cachedToken = "";
-
-async function resumeLocalApi(): Promise<void> {
-  const enabled = await preferenceStore().read("local-api");
-  if (!enabled.ok || enabled.value !== true) return;
-  cachedToken = await localApiToken();
-  if (!cachedToken) return;
-  await startLocalApiIfEnabled();
-}
-
-ipc.handle(CHANNELS.localApiState, async () => {
-  const enabled = await preferenceStore().read("local-api");
-  return {
-    ok: true,
-    value: { enabled: localApi !== null && enabled.ok && enabled.value === true, url: LOCAL_API_URL },
-  };
-});
-
-ipc.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
-  if (enabled !== true) {
-    await preferenceStore().write("local-api", false);
-    await secretStore().clear("local-api-token");
-    cachedToken = "";
-    await localApi?.close();
-    localApi = null;
-    return { ok: true, value: { enabled: false, url: LOCAL_API_URL } };
-  }
-
-  // A new token every time it is switched on. Reusing the old one would mean
-  // that switching the door off and on again leaves the same keys working.
-  const token = newLocalApiToken();
-  const kept = await secretStore().write("local-api-token", token);
-  if (!kept.ok) return { ok: false, message: kept.message };
-  cachedToken = token;
-  await preferenceStore().write("local-api", true);
-  const reason = await startLocalApiIfEnabled();
-  return {
-    ok: true,
-    value: { enabled: localApi !== null, url: LOCAL_API_URL, token, ...(reason ? { reason } : {}) },
-  };
+const localApiDoor = registerMainLocalApi({
+  ipc,
+  vault,
+  localDb,
+  mainWindow: () => mainWindow,
+  preferenceStore,
+  secretStore,
 });
 
 ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
@@ -624,22 +630,37 @@ ipc.handle(CHANNELS.texProbe, async () => {
   return { ok: true, value: await probeTex() };
 });
 
-ipc.handle(CHANNELS.texCompile, async (_event, files: unknown, entryFile: unknown) => {
-  // The page names the files; `compileTex` refuses any path that would leave
-  // the temporary directory it makes, so nothing here is written near the
-  // reader's own work.
-  if (!Array.isArray(files) || typeof entryFile !== "string") {
-    return { ok: false, message: "That is not a project to compile." };
-  }
-  try {
-    return { ok: true, value: await compileTex(files as TexSourceFile[], entryFile) };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "The compile could not be started.",
-    };
-  }
-});
+/**
+ * The handwriting helper's door (§main-ink): started on the first probe,
+ * kept for the session, absent rather than rejected where there is none.
+ */
+const mainInk = registerMainInk({ ipc });
+
+ipc.handle(
+  CHANNELS.texCompile,
+  async (_event, files: unknown, entryFile: unknown) => {
+    // The page names the files; `compileTex` refuses any path that would leave
+    // the temporary directory it makes, so nothing here is written near the
+    // reader's own work.
+    if (!Array.isArray(files) || typeof entryFile !== "string") {
+      return { ok: false, message: "That is not a project to compile." };
+    }
+    try {
+      return {
+        ok: true,
+        value: await compileTex(files as TexSourceFile[], entryFile),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "The compile could not be started.",
+      };
+    }
+  },
+);
 
 ipc.handle(CHANNELS.vaultCommit, async () => {
   // The setting is read here rather than sent by the renderer: a window that
@@ -649,53 +670,6 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
   return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
 
-/**
- * Watch the chosen folder, and tell the window when somebody else touches it.
- *
- * `fs.watch` recursively is supported on Windows and macOS and not on Linux,
- * and there is no third-party watcher in this app's dependencies to fall back
- * to. A platform that cannot watch simply does not, and the folder stays as
- * manual as it was before -- the alternative, pulling in a native watcher, is
- * a compiled dependency in an installer for a feature that is a convenience.
- */
-let vaultWatch: VaultWatch | null = null;
-let vaultWatcher: fs.FSWatcher | null = null;
-
-function stopWatchingVault(): void {
-  vaultWatch?.stop();
-  vaultWatch = null;
-  vaultWatcher?.close();
-  vaultWatcher = null;
-}
-
-function startWatchingVault(root: string): void {
-  stopWatchingVault();
-  vaultWatch = createVaultWatch({
-    onChange: (paths) => mainWindow?.webContents.send(CHANNELS.vaultChanged, paths),
-    // The same folding the writer does, so a write matches its own echo. A
-    // path this refuses is one no write could have produced, and is left as it
-    // came: it is somebody else's file either way.
-    normalize: (at) => {
-      try {
-        return safeWorkspacePath(at);
-      } catch {
-        return at;
-      }
-    },
-  });
-  try {
-    vaultWatcher = fs.watch(root, { recursive: true }, (_event, name) => {
-      if (!name) return;
-      vaultWatch?.saw(name.toString().split(path.sep).join("/"));
-    });
-    // A watch that fails later -- an unplugged drive -- must not take the
-    // process with it. The folder is still readable when it comes back.
-    vaultWatcher.on("error", () => stopWatchingVault());
-  } catch {
-    // Recursive watching is unavailable here. Nothing else changes.
-    stopWatchingVault();
-  }
-}
 
 /**
  * The one thing `will-quit` waits for, and it is not allowed to wait forever.
@@ -707,14 +681,23 @@ function startWatchingVault(root: string): void {
  * neither returns nor exits stays alive with no window: invisible, holding the
  * single-instance lock, so every later launch raises a window that is not there
  * and quits. That is a machine that appears to have stopped running the app
- * until somebody opens Task Manager. `quit.ts` has the bound; three seconds is
- * longer than any healthy close and short enough that nobody reaches for the
- * power button.
+ * until somebody opens Task Manager. `quit.ts` has the bound; it is longer
+ * than any healthy close *and* the backup that now precedes it, and short
+ * enough that nobody reaches for the power button.
  */
 app.on("will-quit", (event) => {
+  mainInk.dispose();
   event.preventDefault();
-  runBoundedQuit({ cleanup: () => localDb.close(), exit: () => app.exit(0) });
+  runBoundedQuit({
+    // A last copy first, then the close: the copy is what survives a close
+    // that does not finish, and both are inside the bound.
+    cleanup: () => backUpLocalDb().then(() => localDb.close()),
+    exit: () => app.exit(0),
+  });
 });
+
+// Disable Chromium history navigation gestures (swiping back/forward across the screen)
+app.commandLine.appendSwitch("overscroll-history-navigation", "0");
 
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
@@ -731,6 +714,19 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // Rewrite CORS headers for remote API calls from packaged custom app:// scheme
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
+      if (details.url.includes("weaveforge.org")) {
+        responseHeaders["access-control-allow-origin"] = ["*"];
+        responseHeaders["access-control-allow-headers"] = ["*"];
+        responseHeaders["access-control-allow-methods"] = [
+          "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+        ];
+      }
+      callback({ responseHeaders });
+    });
+
     if (bundled) serveBundle();
     // Started before the window, so a sign-in cannot come back to a port that
     // is not listening yet.
@@ -738,14 +734,15 @@ if (!app.requestSingleInstanceLock()) {
     // Taken back up only if it was switched on and there is still a token to
     // present. A door left open in the settings with its key thrown away
     // stays shut.
-    void resumeLocalApi();
+    void localApiDoor.resume();
     createWindow();
     // Updates are fetched in the background and installed only when the reader
     // says so -- see `auto-update.ts` for why quitting is not consent on an
     // unsigned build. The older check-and-tell path stays for the menu entry
     // and for builds with no feed behind them.
     void realUpdater().then((updater) => {
-      if (updater) startAutoUpdate({ updater, window: () => mainWindow, enabled: true });
+      if (updater)
+        startAutoUpdate({ updater, window: () => mainWindow, enabled: true });
     });
     installMenu({
       chooseFolder: async () => {
@@ -763,8 +760,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on("will-quit", () => {
     loopback?.close();
     loopback = null;
-    void localApi?.close();
-    localApi = null;
+    void localApiDoor.close();
   });
 
   app.on("window-all-closed", () => {
@@ -773,3 +769,4 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform !== "darwin") app.quit();
   });
 }
+

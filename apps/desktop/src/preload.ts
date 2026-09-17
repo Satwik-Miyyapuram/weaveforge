@@ -2,7 +2,11 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   DesktopBridge,
   DesktopCommitResult,
+  DesktopInkHaptics,
+  DesktopInkRequest,
+  DesktopInkResult,
   DesktopLocalApi,
+  DesktopLocalDbState,
   DesktopOverleafSource,
   DesktopPreferenceValue,
   DesktopUpdate,
@@ -52,6 +56,10 @@ const bridge: DesktopBridge = {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },
   queryLocalDb: (sql, params) => call<unknown[]>(CHANNELS.dbQuery, sql, params),
+  localDbState: () => call<DesktopLocalDbState>(CHANNELS.dbState),
+  resetLocalDb: async () => {
+    await call<null>(CHANNELS.dbReset);
+  },
   chooseVaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultChoose),
   vaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultRoot),
   forgetVaultRoot: async () => {
@@ -72,6 +80,12 @@ const bridge: DesktopBridge = {
   readOverleafProject: (projectId, entryFile) =>
     call<DesktopOverleafSource>(CHANNELS.overleafRead, projectId, entryFile),
   probeTex: () => call<DesktopTexTool | null>(CHANNELS.texProbe),
+  inkAvailable: () => call<boolean>(CHANNELS.inkAvailable),
+  inkRecognise: (request: DesktopInkRequest) => call<DesktopInkResult>(CHANNELS.inkRecognise, request),
+  inkHapticsAvailable: () => call<boolean>(CHANNELS.inkHapticsAvailable),
+  // `send`, not `invoke`: per sample, and nothing to wait for.
+  inkHaptics: (message: DesktopInkHaptics) => ipcRenderer.send(CHANNELS.inkHaptics, message),
+  setWindowFocus: (on: boolean) => ipcRenderer.send(CHANNELS.windowFocus, on === true),
   compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),

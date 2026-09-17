@@ -26,6 +26,8 @@ import { NoteCard, noteBodyText, isHydratedPage } from "./note-card";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
 import { ListTagFilters } from "@/components/list-tag-filters";
+import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 
@@ -470,9 +472,35 @@ export function VaultScreen() {
             <RelatedPanel seedKind="note" seedId={selected.id} />
           </div>
         ) : ownedNotes.length === 0 && pinnedPages.length === 0 ? (
-          <div className="empty"><p>No notes yet — use “+ Note” to create or import one.</p></div>
+          <EmptyState
+            variant="first-run"
+            icon={<NavIcon name="notes" />}
+            title="No notes yet"
+            body="Notes are where the reading becomes yours: the derivation you worked through, the paragraph you will still want to quote in eight months. Link them with [[ ]] and they join the graph."
+            action={
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => { setComposeMode("new"); setComposeOpen(true); }}
+              >
+                + Note
+              </button>
+            }
+          />
         ) : visibleCount === 0 ? (
-          <div className="empty"><p>No notes match the filter.</p></div>
+          <EmptyState
+            variant="no-results"
+            body="No notes match the filter."
+            action={
+              <ClearFiltersButton
+                onClear={() => {
+                  setSearch("");
+                  setListFilter([]);
+                  setTagFilter([]);
+                }}
+              />
+            }
+          />
         ) : (
           <>
             {visibleOwned.length > 0 && (

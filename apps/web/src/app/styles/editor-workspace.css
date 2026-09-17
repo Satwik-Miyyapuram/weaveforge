@@ -4,11 +4,23 @@
  * app, and coloured only through theme tokens — no hex values live here.
  */
 
+.workspace-shell {
+  /* 260px: wide enough for a title plus its kind icon, narrow enough that the
+     document keeps the window. The rail beside it is `--nav-rail-width` (nav.css). */
+  --workspace-explorer: 260px;
+}
+
 .explorer-panel {
-  overflow: auto;
-  padding-block: 0.4rem;
   background: var(--surface);
   border-inline-end: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Spans both rows of the shell: the explorer is full height, and the status
+     bar belongs to the document column, not to this one. */
+  grid-row: 1 / -1;
+  grid-column: 1;
 }
 
 .explorer-tree {
@@ -18,21 +30,29 @@
 }
 
 .explorer-row {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding-block: 0.18rem;
-  padding-inline-end: 0.4rem;
-  border-radius: 6px;
+  gap: 6px;
+  height: 25px;
+  padding-inline-end: 8px;
   color: var(--text);
-  font-size: 0.86rem;
-  line-height: 1.5;
-  cursor: default;
+  font-size: 0.845rem;
+  /* The row has an `onClick`. It is a control, and it has to look like one.
+     It carried the UA's arrow cursor, which made the most-clicked thing in the
+     screen — the tree — read as static text. */
+  cursor: pointer;
   user-select: none;
+  transition: background 0.1s;
 }
 
 .explorer-row:hover {
   background: var(--surface2);
+}
+
+.explorer-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .explorer-row.is-active {
@@ -40,16 +60,331 @@
   color: var(--accent);
 }
 
+/* The active row is marked by a 2px accent rule on its leading edge, so the
+   document you are looking at is unambiguous at a glance. */
+.explorer-row.is-active::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: var(--accent);
+}
+
+/* A member row of a reading list: the same document, seen through a list.
+   Dimmed rather than hidden, because it *is* the same file. */
+.explorer-row.is-member {
+  color: var(--muted);
+}
+
+.explorer-row.is-member .explorer-label {
+  font-weight: 400;
+}
+
+.explorer-row.is-inherited {
+  color: var(--faint);
+  font-style: italic;
+}
+
+/*
+ * Indentation guides: one 1px rule per depth, drawn from the row's own left
+ * edge. A reading list nests four deep and the tree is unreadable without them.
+ */
+.explorer-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.explorer-row:hover .explorer-guide,
+.explorer-row.is-active .explorer-guide {
+  background: var(--border-strong);
+}
+
 .explorer-twisty,
 .explorer-icon {
   flex: none;
-  width: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.95rem;
   text-align: center;
   color: var(--faint);
 }
 
+.explorer-icon .nav-icon,
+.explorer-icon .vicon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+/* The per-kind tint (see ui/kind.ts). The colour lives here, not in the code. */
+.explorer-icon.kind-tint-info,
+.pane-tab-icon.kind-tint-info { color: var(--s-info); }
+.explorer-icon.kind-tint-warn,
+.pane-tab-icon.kind-tint-warn { color: var(--s-warn); }
+.explorer-icon.kind-tint-accent,
+.pane-tab-icon.kind-tint-accent { color: var(--accent); }
+.explorer-icon.kind-tint-good,
+.pane-tab-icon.kind-tint-good { color: var(--s-good); }
+.explorer-icon.kind-tint-danger,
+.pane-tab-icon.kind-tint-danger { color: var(--s-danger); }
+
 .explorer-row.is-active .explorer-icon {
   color: inherit;
+}
+
+/*
+ * The kind suffix. Shown on hover, focus and selection only: the icon and its
+ * tint already say the kind, and 260px is too narrow to spend eight repeated
+ * characters per row. It never truncates — the title does, which is why this
+ * is `flex: none`.
+ */
+.explorer-ext {
+  flex: none;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68em;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.explorer-row:hover .explorer-ext,
+.explorer-row:focus-visible .explorer-ext,
+.explorer-row.is-active .explorer-ext {
+  opacity: 1;
+}
+
+/* On a pointer that cannot hover the suffix would never appear at all. */
+@media (hover: none) {
+  .explorer-ext { opacity: 1; }
+}
+
+/* Git status ticks — the one place a user notices a note changed elsewhere. */
+.explorer-git {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.explorer-git.is-modified { color: var(--s-warn); }
+.explorer-git.is-untracked { color: var(--s-good); }
+
+/* An Outline row's heading level, where a file row would show its suffix. */
+.explorer-heading-level {
+  flex: none;
+  margin-inline-start: 2px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+/* "In 2 lists" on a Files row: membership is discoverable without opening the
+   Reading lists section, and the tooltip carries the names. */
+.explorer-in-lists {
+  display: none;
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+.explorer-row:hover .explorer-in-lists,
+.explorer-row.is-active .explorer-in-lists {
+  display: inline;
+}
+
+/* -------------------------------------------------------------------------
+   Explorer header: title, filter and actions (§3.5)
+   ---------------------------------------------------------------------- */
+
+.explorer-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  height: 36px;
+  padding: 0 6px 0 12px;
+}
+
+.explorer-title {
+  margin-inline-end: auto;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.explorer-search {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 0 8px 8px;
+}
+
+.explorer-filter {
+  width: 100%;
+  padding: 6px 24px 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.explorer-filter::placeholder { color: var(--faint); }
+
+.explorer-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.explorer-filter-clear {
+  position: absolute;
+  inset-inline-end: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+}
+
+.explorer-filter-clear:hover { background: var(--surface2); color: var(--text); }
+
+.explorer-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+}
+
+.explorer-action {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.explorer-action:hover { background: var(--surface2); color: var(--text); }
+.explorer-action .nav-icon { width: 16px; height: 16px; }
+.explorer-action .vicon { width: 15px; height: 15px; }
+
+/* The scroll container. Sections stack from the top and the last one takes the
+   remaining height, so a long Files list scrolls instead of pushing Reading
+   lists off the bottom of the panel. */
+.explorer-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-block-end: 14px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+/* -------------------------------------------------------------------------
+   Explorer sections (§3.1)
+   ---------------------------------------------------------------------- */
+
+.explorer-section {
+  flex: none;
+  border-block-start: 1px solid var(--border);
+}
+
+.explorer-section:first-child { border-block-start: none; }
+.explorer-section:last-child { flex: 1 1 auto; min-height: 0; }
+
+.explorer-section-head {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px 0 6px;
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-sticky);
+  background: var(--surface);
+}
+
+.explorer-section-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+}
+
+.explorer-section-toggle:hover { color: var(--text); }
+.explorer-section-toggle .chev { display: grid; place-items: center; width: 14px; height: 14px; }
+.explorer-section-toggle .chev svg { width: 12px; height: 12px; }
+
+.explorer-section-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.explorer-section-count {
+  margin-inline-start: auto;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.explorer-section-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The last section scrolls on its own, so the sections above it stay put. */
+.explorer-section:last-child > .explorer-section-rows {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.explorer-section-empty {
+  padding: 4px 10px 6px;
+  font-size: 0.78rem;
 }
 
 .explorer-label {
@@ -95,12 +430,31 @@
   color: var(--accent);
 }
 
-/* The shell: explorer on the left, panes filling what is left of the viewport. */
+/*
+ * The shell: explorer on the left, panes filling what is left of the window.
+ *
+ * `height: 100dvh`, not `calc(100dvh - var(--nav-inset))`. `--nav-inset` is the
+ * app shell's *horizontal* inset — 232px on desktop, the width of the labelled
+ * sidebar — so subtracting it here sized the editor's height by the sidebar's
+ * width. On a 1440x900 window the space actually available to this screen,
+ * after the shell's top padding, the sub-nav strip and the bottom padding, is
+ * about `100dvh - 130px`, so the panes came up ~100px short and the leftover
+ * painted as page background. On `/workspace` the shell is full-bleed and the
+ * primary nav is a rail (`.editor-route` in shell.css/nav.css), so there
+ * is no vertical chrome to subtract and no magic number to keep in step.
+ */
 .workspace-shell {
   display: grid;
-  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-  height: calc(100dvh - var(--nav-inset, 0px));
+  grid-template-columns: var(--workspace-explorer) minmax(0, 1fr);
+  position: relative;
+  /* Row 1 is the document column (breadcrumbs live inside each pane), row 2 is
+     the status bar, which belongs under the document rather than under the
+     explorer — that is where the prototype puts it, and where the eye looks
+     for the state of the file it is editing. */
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100dvh;
   min-height: 0;
+  overflow: hidden;
 }
 
 .pane-root,
@@ -111,8 +465,246 @@
   min-height: 0;
 }
 
+/* `⌘B`: the explorer's column goes to nothing and a handle at the edge brings
+   it back. The document keeps every pixel — the point of hiding it. */
+.workspace-shell.is-explorer-hidden {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.workspace-shell.is-explorer-hidden .explorer-panel {
+  display: none;
+}
+
+.explorer-show {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 36px;
+  border: 0;
+  border-inline-end: 1px solid var(--border);
+  border-block-end: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.explorer-show:hover { color: var(--text); background: var(--surface2); }
+
+/* The strip's first tab starts past the handle, or the two overlap. */
+.workspace-shell.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
+.workspace-shell.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
+  padding-inline-start: 24px;
+}
+
+/* `⌘⇧F`, focus: the document and nothing else. The explorer, the tab strip,
+   the crumbs and the status bar all go; the primary nav rail goes too, from
+   nav.css, off the same flag on `<html>`. One control stays — a corner button
+   to come back — because a shortcut nobody can see is a trap. The ink toolbar
+   belongs to the document, not the chrome, and stays. */
+.workspace-shell.is-focus {
+  grid-template-columns: 0 minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 0;
+}
+
+.workspace-shell.is-focus .explorer-panel,
+.workspace-shell.is-focus .explorer-show,
+.workspace-shell.is-focus .pane-tabs,
+.workspace-shell.is-focus .breadcrumbs,
+.workspace-shell.is-focus .status-bar {
+  display: none;
+}
+
+.focus-exit {
+  position: absolute;
+  inset-block-start: 6px;
+  /* Clear of the overlay scrollbar's 12px track, and above it: a thumb
+     parked at the top of a scrolled page must not sit over the way out. */
+  inset-inline-end: 16px;
+  z-index: 11;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.focus-exit:hover,
+.focus-exit:focus-visible { color: var(--text); opacity: 1; }
+
+/* The exit sits over the top-right corner; a bar that reaches it (the
+   editor's mode strip) leaves it room. */
+.workspace-shell.is-focus .md-live-choice { padding-inline-end: 44px; }
+
+@media (pointer: coarse) {
+  .focus-exit { width: 36px; height: 36px; opacity: 0.8; }
+  .workspace-shell.is-focus .md-live-choice { padding-inline-end: 52px; }
+}
+
+/* Ink in focus, OneNote's way: the toolbar row goes, and what a hand needs
+   mid-stroke — tools, colours, nibs, undo, the page, the paper — floats as a
+   narrow palette down the left edge with the paper running full-bleed behind
+   it. Everything else on the bar (export, recognise, the readout, the wrist
+   guard…) is chrome for later and hides; the fold handle shrinks the palette
+   to its tools. */
+.workspace-shell.is-focus .ink-bar {
+  position: absolute;
+  inset-inline-start: 10px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 6px;
+  width: max-content;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
+}
+
+.workspace-shell.is-focus .ink-bar > :not(.ink-bar-collapse):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper) {
+  display: none;
+}
+
+.workspace-shell.is-focus .ink-bar[data-collapsed] > :not(.ink-bar-collapse):not(.ink-bar-tools) {
+  display: none;
+}
+
+.ink-bar-collapse { display: none; }
+.workspace-shell.is-focus .ink-bar-collapse { display: inline-flex; align-self: center; }
+
+.workspace-shell.is-focus .ink-bar .ink-bar-group,
+.workspace-shell.is-focus .ink-bar .ink-swatches,
+.workspace-shell.is-focus .ink-bar .ink-page-pill {
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Targets for a pen held mid-air, not a mouse: 36px buttons, 26px swatches,
+   and a little more air between them. */
+.workspace-shell.is-focus .ink-bar .ink-tool,
+.workspace-shell.is-focus .ink-bar .ink-page-pill .ink-tool { width: 36px; height: 36px; }
+.workspace-shell.is-focus .ink-bar .ink-tool svg { width: 18px; height: 18px; }
+.workspace-shell.is-focus .ink-bar .ink-bar-group,
+.workspace-shell.is-focus .ink-bar .ink-page-pill { gap: 4px; padding: 3px; border-radius: 10px; }
+.workspace-shell.is-focus .ink-bar .ink-swatches { gap: 9px; padding: 8px 5px; }
+.workspace-shell.is-focus .ink-bar .ink-swatch { width: 26px; height: 26px; }
+.workspace-shell.is-focus .ink-bar .ink-page-count {
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0;
+  font-size: 0.8rem;
+  line-height: 1.1;
+}
+.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
+.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-now { font-weight: 700; color: var(--text); }
+.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-total {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid var(--border-strong);
+  font-size: 0.7rem;
+}
+.workspace-shell.is-focus .ink-bar .ink-menu { justify-content: center; }
+
+/* The list opens beside the palette, not under it — hung from the button's
+   bottom, since the paper menu is the palette's last item — and nothing
+   clamps it to the (now narrow) bar. */
+.workspace-shell.is-focus .ink-bar .ink-menu-list {
+  top: auto;
+  bottom: 0;
+  right: auto;
+  left: calc(100% + 8px);
+  transform: none;
+}
+
+/* Hover actions on a row, VS Code's way: hidden until the row is under the
+   pointer, then the same 22px squares the head uses. */
+.explorer-row-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  margin-inline-start: auto;
+  opacity: 0;
+}
+
+.explorer-row:hover .explorer-row-actions,
+.explorer-row:focus-within .explorer-row-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .explorer-row-actions { opacity: 1; }
+}
+
+.explorer-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.explorer-row-action:hover { background: var(--surface3, var(--border)); color: var(--text); }
+.explorer-row-action .nav-icon { width: 14px; height: 14px; }
+.explorer-row-action .vicon { width: 13px; height: 13px; }
+
+/* A draft row or a rename: the label is a text box, in the row's own type. */
+.explorer-row.is-draft { cursor: default; }
+
+.explorer-inline-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 21px;
+  padding: 0 4px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.explorer-problem {
+  padding-block: 2px 4px;
+  padding-inline-end: 8px;
+  color: var(--danger, #c0392b);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+/* Where a drag may land. */
+.explorer-row.is-drop-target {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  background: var(--accent-soft);
+}
+
 .pane-root {
   flex: 1;
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .pane-split-row {
@@ -164,73 +756,316 @@
   border-block-end-color: var(--accent);
 }
 
+/* Two columns: the tabs scroll in the first, the actions sit still in the
+   second. They used to share one scrolling row, so the buttons walked off
+   the right edge with the tabs. */
 .pane-tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  flex: none;
   align-items: stretch;
-  gap: 1px;
-  overflow-x: auto;
+  height: 36px;
   background: var(--surface);
   border-block-end: 1px solid var(--border);
 }
 
-.pane-tab {
+.pane-tab-scroll {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  max-width: 14rem;
-  padding: 0.3rem 0.5rem;
-  background: var(--surface2);
-  color: var(--muted);
-  font-size: 0.8rem;
-  white-space: nowrap;
-  cursor: default;
+  align-items: stretch;
+  min-width: 0;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
+.pane-tab-scroll::-webkit-scrollbar { display: none; }
+
+/* -------------------------------------------------------------------------
+   Tabs (§3.6)
+   ---------------------------------------------------------------------- */
+
+.pane-tab {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  max-width: 200px;
+  min-width: 0;
+  padding: 0 11px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.815rem;
+  white-space: nowrap;
+  border-inline-end: 1px solid var(--border);
+  /* A tab is clicked to switch documents: it has to answer the pointer. */
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.pane-tab:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+/* The active document is marked by a 2px accent rule on the tab's top edge and
+   lifted onto the document's own background. */
 .pane-tab.is-active {
   background: var(--bg);
   color: var(--text);
-  box-shadow: inset 0 2px 0 var(--accent);
 }
+
+.pane-tab.is-active::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.pane-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.pane-tab-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--faint);
+}
+
+.pane-tab-icon .nav-icon { width: 14px; height: 14px; }
+
+.pane-tab.is-active .pane-tab-icon { color: inherit; }
+
+/* The suffix always shows here: two tabs can share a title, and the tab is the
+   one place the path is gone entirely (§3.2). */
+.pane-tab-ext {
+  flex: none;
+  margin-inline-start: -3px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68em;
+  letter-spacing: -0.01em;
+}
+
+.pane-tab.is-active .pane-tab-ext { opacity: 0.75; }
 
 .pane-tab-label {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.pane-tab-close,
-.pane-action {
+/* -------------------------------------------------------------------------
+   Presence in the strip (§3.6)
+   ---------------------------------------------------------------------- */
+
+.pane-peers {
+  display: flex;
+  align-items: center;
+  margin-inline-end: 6px;
+}
+
+.pane-peer {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-inline-start: -6px;
+  border: 1.5px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.pane-peer:first-child { margin-inline-start: 0; }
+
+/* -------------------------------------------------------------------------
+   Edit / Read, per tab (§3.9)
+   ---------------------------------------------------------------------- */
+
+.pane-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-inline-end: 4px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.pane-mode-btn {
+  padding: 2px 7px;
   border: none;
+  border-radius: 4px;
   background: transparent;
-  color: var(--faint);
-  font-size: 0.85rem;
-  line-height: 1;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.pane-tab-close:hover,
-.pane-action:hover {
+.pane-mode-btn:hover { color: var(--text); background: var(--surface2); }
+
+.pane-mode-btn.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The close control lives in a 16px slot that is the dirty dot until the tab
+   is hovered — the standard gesture, and it takes the permanent `×` off every
+   tab. */
+.pane-tab-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.pane-tab:hover .pane-tab-close,
+.pane-tab.is-active .pane-tab-close,
+.pane-tab-close:focus-visible {
+  opacity: 1;
+}
+
+.pane-tab-close:hover {
+  background: var(--surface2);
   color: var(--text);
+}
+
+.pane-action {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.pane-action:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.pane-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .pane-tab-actions {
   display: flex;
-  gap: 0.15rem;
-  margin-inline-start: auto;
-  padding-inline: 0.35rem;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  padding-inline: 7px;
+  border-inline-start: 1px solid var(--border);
 }
 
-.pane-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+/* The pane's toolbar for a tab in Edit mode: the image button, before the
+   mode switch. Same icon button the note screen uses, so no new size here. */
+.pane-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-inline-end: 4px;
+  padding-inline-end: 5px;
+  border-inline-end: 1px solid var(--border);
 }
 
-.pane-document {
-  height: 100%;
+.pane-tools .entity-icon-btn {
+  width: 26px;
+  height: 26px;
 }
 
-.pane-empty {
-  padding: 1.25rem;
+/* Resizing a picture from the read view. The host is the positioning context
+   so the control sits under the picture and scrolls with the document. */
+.image-size-host {
+  position: relative;
+}
+
+.document-read img.md-image {
+  cursor: pointer;
+}
+
+.image-size {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 0.8rem;
+}
+
+.image-size-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+}
+
+.image-size-label input[type="range"] {
+  width: 9rem;
+  accent-color: var(--accent);
+}
+
+.image-size-value {
+  min-width: 3ch;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* The sides and the crop: the two placements a slider cannot say. The sides
+   are one of three, so buttons; the crop is four numbers, so typed — the
+   mouse cannot tell a 3% inset from a 4% one and a number can. */
+.image-size-sides {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px;
+}
+.image-size-side.is-on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.image-size-crop {
+  width: 7rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--elev);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
 }
 
 .workspace-error {
@@ -287,12 +1122,60 @@
   background: transparent;
   color: var(--text);
   text-align: start;
-  cursor: default;
+  /* A result is a `<button>`. It was styled as a static row. */
+  cursor: pointer;
 }
+
+.quick-open-result:hover { background: var(--surface2); }
 
 .quick-open-result.is-active {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* The kind column, so Notes, Papers, Lists and Report hits do not interleave
+   without saying which is which. */
+.quick-open-kind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--faint);
+}
+
+.quick-open-title {
+  flex: none;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.quick-open-result.is-active .quick-open-title { color: inherit; }
+
+.quick-open-kind .nav-icon { width: 14px; height: 14px; }
+.quick-open-result.is-active .quick-open-kind { color: inherit; }
+
+.quick-open-group {
+  margin: 0;
+  padding: 0.35rem 0.5rem 0.15rem;
+  color: var(--faint);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.quick-open-group-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The characters the scorer matched. `matched` has been computed since the
+   palette shipped and was never rendered; this is what makes a fuzzy match
+   legible rather than mystifying. */
+.quick-open-path mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 2px;
 }
 
 .quick-open-path {
@@ -305,4 +1188,1219 @@
 
 .quick-open-empty {
   padding: 0.75rem;
+}
+
+/* -------------------------------------------------------------------------
+   Breadcrumbs (§3.4, step 6)
+   ---------------------------------------------------------------------- */
+
+.breadcrumbs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg);
+  border-block-end: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 0.73rem;
+  white-space: nowrap;
+}
+
+.breadcrumbs::-webkit-scrollbar { display: none; }
+
+.breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.breadcrumb-btn,
+.breadcrumb-current {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.breadcrumb-btn:hover { background: var(--surface2); color: var(--text); }
+
+/* The last crumb is where you already are, so it is the one crumb that is not
+   a control: it renders as a plain span, takes no focus and answers no click.
+   It keeps the arrow cursor deliberately — the rule that a clickable row must
+   show a pointer is about rows that can be clicked. */
+.breadcrumb-current {
+  color: var(--muted);
+  font-weight: 500;
+  cursor: default;
+}
+
+.breadcrumb-ext {
+  margin-inline-start: 1px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+/* The chevron points down by default; a crumb separator points right. */
+.breadcrumb-sep {
+  display: inline-flex;
+  flex: none;
+  color: var(--faint);
+  opacity: 0.55;
+}
+
+.breadcrumb-sep .chev svg {
+  width: 12px;
+  height: 12px;
+  transform: rotate(-90deg);
+}
+
+/* -------------------------------------------------------------------------
+   The document and its empty state (§3.4, §3.8, step 6)
+   ---------------------------------------------------------------------- */
+
+.pane-body-wrap {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.pane-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  /* The gutter is always there, so a document growing past the fold does
+     not reflow its own text by the scrollbar's width. */
+  scrollbar-gutter: stable;
+}
+
+.pane-document {
+  height: 100%;
+}
+
+/* -------------------------------------------------------------------------
+   The composed empty state (§3.8)
+   ---------------------------------------------------------------------- */
+
+.pane-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+  padding: 34px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.pane-empty-mark {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-block-end: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--faint);
+}
+
+.pane-empty-mark .nav-icon { width: 26px; height: 26px; }
+
+.pane-empty-title {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pane-empty-line {
+  max-width: 44ch;
+  margin: 0;
+  font-size: 0.845rem;
+  line-height: 1.62;
+}
+
+.pane-shortcuts {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 8px 20px;
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: start;
+}
+
+/* `display: contents` so the two halves of a row are the grid's own children
+   and the keycaps line up in a column. */
+.pane-shortcut { display: contents; }
+
+.pane-shortcut dt {
+  display: flex;
+  justify-self: end;
+  gap: 3px;
+}
+
+.pane-shortcut dd { margin: 0; }
+
+.pane-shortcut kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.document-read {
+  height: 100%;
+}
+
+/* Live preview while editing (§md-live-preview): the editor and the read
+   view's own renderer, side by side or stacked, the person's choice. The
+   editor keeps the whole height it had — a preview never takes space away
+   from the writing, it takes the half it is given. */
+.md-live {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.md-live--side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+.md-live--below {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}
+.md-live-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+.md-live--off .md-live-editor,
+.md-live:not(.md-live--side, .md-live--below) .md-live-editor {
+  flex: 1;
+}
+.md-live-editor .workspace-editor {
+  flex: 1;
+  min-height: 0;
+}
+.md-live-pane {
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+.md-live--below .md-live-pane {
+  border-left: none;
+  border-top: 1px solid var(--border);
+}
+/* The pane's rendered body keeps the reading measure; the editor's half is
+   already the writing measure. */
+.md-live-pane .document-read-body {
+  padding: 24px 30px 100px;
+}
+
+/* The choice: three small states, told apart by words. It sits at the top
+   of the editor's own half, out of the text's way, and it is the same in
+   both layouts. */
+.md-live-choice {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.md-live-choice-label {
+  margin-right: 4px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.64rem;
+}
+.md-live-option {
+  padding: 1px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.md-live-option:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--faint) 10%, transparent);
+}
+.md-live-option.is-on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* The rendered view is prose, so it gets the reading measure rather than the
+   full width of a maximised window. */
+.document-read-body {
+  max-width: var(--content-measure);
+  margin-inline: auto;
+  padding: 40px 44px 150px;
+}
+
+/* A paper's PDF mode: the reader's paper half filling the pane, with its
+   one tool — "Load PDF…" — in the corner rather than in a header row. */
+.paper-pdf-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 8px;
+}
+.paper-pdf-pane .reader-main { flex: 1; min-height: 0; }
+.paper-pdf-pane .empty-state { margin: auto; }
+.paper-pdf-pane-tools {
+  position: absolute;
+  right: 20px;
+  bottom: 16px;
+  z-index: 2;
+}
+
+/* -------------------------------------------------------------------------
+   The status bar (§3.4, step 2)
+   ---------------------------------------------------------------------- */
+
+.status-bar {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 26px;
+  padding: 0 5px;
+  overflow: hidden;
+  background: var(--surface2);
+  border-block-start: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.status-bar > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.status-bar-save { color: var(--muted); }
+.status-bar.is-saved .status-bar-save { color: var(--s-good); }
+.status-bar.is-unsaved .status-bar-save { color: var(--s-warn); }
+
+.status-bar-check { width: 12px; height: 12px; }
+
+/* The in-progress mark is a dot, not a spinner: at 26px a rotating glyph is
+   noise, and the label already says the state. */
+.status-bar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-bar-spacer { flex: 1; }
+
+.status-bar-segment {
+  font-variant-numeric: tabular-nums;
+}
+
+.status-bar-segment[data-segment="cursor"],
+.status-bar-segment[data-segment="words"],
+.status-bar-segment[data-segment="chars"] {
+  font-family: var(--font-mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explorer-row,
+  .pane-tab,
+  .pane-mode-btn,
+  .breadcrumb-btn,
+  .explorer-action {
+    transition: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * The ink note (§6.1)
+ *
+ * The grid is the plan's: the bar across the top spanning both columns, the page
+ * on the left, the recognised text layer on the right at the minimap column's
+ * width so a split pane lines up. The text column hides below 1100px, which is
+ * where the editor workspace already drops its right-hand panes.
+ *
+ * Two rules here are load-bearing rather than cosmetic. The canvas is the topmost
+ * element inside `.ink-page-scroll` and nothing is painted over it: a translucent
+ * `desynchronized` canvas with DOM above it silently loses the low-latency path
+ * (§6.1). And `.ink-canvas` gets `display: block`, because an inline canvas in a
+ * scrolling container leaves a baseline gap that shows as the page drifting.
+ * ------------------------------------------------------------------------ */
+
+.ink-wrap {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 248px;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ink-wrap.ink-text-hidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ink-wrap.ink-text-hidden .ink-text {
+  display: none;
+}
+
+.ink-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  scrollbar-width: none;
+}
+
+.ink-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.ink-bar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--chip);
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.ink-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.ink-tool:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.ink-tool[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.ink-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ink-tool-icon-only {
+  width: 28px;
+  padding: 0;
+}
+
+.ink-tool-hand {
+  font-size: 0.74rem;
+  padding: 0 8px;
+}
+
+.ink-action-recognise {
+  padding: 0 10px;
+}
+
+.ink-nib-dot {
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ink-swatches {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+}
+
+.ink-page-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--chip);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  padding: 0 4px;
+}
+
+.ink-page-pill .ink-tool {
+  height: 24px;
+  width: 24px;
+  padding: 0;
+}
+
+.ink-page-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 4px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ink-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* The print menu: the button sits in the bar, the list floats under it. */
+.ink-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ink-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 200px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--panel, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 22%);
+  /* The bar wraps, so the button can be at either end of a row; the shift is
+     measured on open and keeps the list inside the bar's own box, which is the
+     box `overflow: hidden` clips to. */
+  transform: translateX(var(--ink-menu-shift, 0px));
+}
+
+.ink-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ink-menu-item:hover,
+.ink-menu-item:focus-visible {
+  background: var(--chip);
+}
+
+.ink-menu-item kbd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.ink-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ink-swatch:hover {
+  transform: scale(1.18);
+}
+
+.ink-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+  transform: scale(1.1);
+}
+
+.ink-swatch-text { background: var(--text); }
+.ink-swatch-accent { background: var(--accent); }
+.ink-swatch-warn { background: var(--s-warn); }
+.ink-swatch-good { background: var(--s-good); }
+.ink-swatch-info { background: var(--s-info); }
+.ink-swatch-danger { background: var(--s-danger); }
+
+.ink-pen-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ink-bar-spacer { flex: 1 1 auto; }
+
+.ink-readout {
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.ink-rail-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/*
+ * The scroller is the slots' positioning context: the live layer's `top` is a
+ * slot's own `offsetTop`, which is measured against this box.
+ *
+ * Native scrollbars are hidden here (`scrollbar-width: none`) so that content
+ * overflow never reserves layout gutter width or changes `clientWidth`. This
+ * prevents ResizeObserver layout shifts and screen jumps when scrollbars appear.
+ * An overlay scrollbar floats on top instead.
+ */
+.ink-page-scroll {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  --ink-scroll-pad: 18px;
+  padding: var(--ink-scroll-pad) 0;
+  background: var(--bg);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ink-page-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Overlay scrollbar: floats above content without taking layout width, so appearing
+ * or disappearing never causes horizontal jumps or ResizeObserver scale shifts.
+ */
+.overlay-scrollbar-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  pointer-events: auto;
+  z-index: 10;
+  user-select: none;
+}
+
+/* The window's own (`WindowScrollbar`): over the viewport, above everything. */
+.overlay-scrollbar-track.overlay-scrollbar-window {
+  position: fixed;
+  z-index: 1000;
+}
+
+.overlay-scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  right: 3px;
+  width: 6px;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  opacity: 0;
+  pointer-events: auto;
+  cursor: default;
+  transition: opacity 0.25s ease, width 0.15s ease, background 0.15s ease;
+}
+
+.overlay-scrollbar-track.is-visible .overlay-scrollbar-thumb,
+.overlay-scrollbar-track:hover .overlay-scrollbar-thumb {
+  opacity: 1;
+}
+
+.overlay-scrollbar-track:hover .overlay-scrollbar-thumb,
+.overlay-scrollbar-thumb:active {
+  width: 8px;
+  background: var(--scrollbar-thumb-hover);
+}
+
+
+/*
+ * The live layer: the one copy of the page being written on, rendered once
+ * and moved over the current slot on a flip. It must never remount — the
+ * canvas inside it was transferred to the worker (`transferControlToOffscreen`)
+ * exactly once, and a remount would orphan that transfer and blank the page.
+ * Out of flow so the slots alone decide the scroll height; above the static
+ * slots so the live canvas draws over the static rendering of the same page.
+ * Its box is exactly the current slot's, so it takes the pointer exactly
+ * where the live page always did — including the figure controls, which are
+ * the layer's other children and sit above the canvas on purpose.
+ */
+.ink-live-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Its box is the scroller's content box, set by the rail. */
+  z-index: 2;
+}
+
+/*
+ * The rail's static slots are inert: the live layer's canvas covers the whole
+ * pane, so the pointer never reaches them — but a mouse that did would start
+ * a text selection on the underlay or a drag on a figure, which is the
+ * "grab" a reader saw at a page boundary. Wheel and touch scrolling still
+ * reach the scroller through them.
+ */
+.ink-rail-container .ink-page-scroll > .ink-page {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The live page fills the layer, so the canvas's dock has the whole scroll
+   to stick through. The sheet sits at its slot, centred like the slots are. */
+.ink-page.ink-page-live {
+  display: block;
+  height: 100%;
+}
+.ink-page-row {
+  display: flex;
+  justify-content: safe center;
+  margin-top: var(--ink-slot-top, 0px);
+}
+/* The dock: zero height, sticky to the pane's top, so the canvas inside it
+   sits over whatever part of the scroll is on screen. */
+.ink-canvas-dock {
+  position: sticky;
+  /* Sticky measures from the scroller's content box, so the rail's padding
+     would leave a strip at the top uncovered; pull the dock up by it. */
+  top: calc(-1 * var(--ink-scroll-pad, 0px));
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  z-index: 1;
+}
+
+.ink-page {
+  position: relative;
+  display: flex;
+  /* `safe`: a sheet wider than the pane starts at its left edge, not off it. */
+  justify-content: safe center;
+}
+
+/*
+ * The sheet is the page's full box, and what scrolls. Paper is its
+ * background; the canvas inside it is only as big as the pane and sticks to
+ * the pane's corner as the sheet scrolls beneath it, so the compositor is
+ * never asked for a page-sized surface and a pan does not re-tile the page.
+ */
+.ink-sheet {
+  position: relative;
+  flex: none;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  background: var(--surface);
+  transition: outline 0.15s ease;
+}
+.ink-sheet.is-drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+/* The lasso and the selection box, drawn over the canvas in page units. */
+.ink-overlay {
+  position: absolute;
+  inset: 0;
+  /* Over the canvas (z 1 in its dock): the selection UI is drawn on top. */
+  z-index: 2;
+  pointer-events: none;
+  overflow: visible;
+}
+.ink-lasso {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+}
+.ink-selection {
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+/* The ink surface: the topmost thing in the page area, and never drawn over. */
+.ink-canvas {
+  display: block;
+  /* Above the figures under it (z 0), below the figure popover (z 3): the
+     writing goes over a pasted image, and the figure's controls over both. */
+  z-index: 1;
+  background: transparent;
+  touch-action: none;
+}
+
+/* Paper is a CSS background, so it costs no storage (§6.2.12). */
+.ink-sheet.paper-blank { background: var(--surface); }
+.ink-sheet.paper-dotted {
+  background-color: var(--surface);
+  background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+/* Ruled and wide paper take their pitch from the sheet's text rows
+   (`--ink-rule`, set inline from INK_UNDERLAY), so the rendered markdown
+   sits on the lines; wide is one and a half rows. The first rule falls on
+   the text's top padding. */
+.ink-sheet.paper-ruled {
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--border) 1px, transparent 1px);
+  background-size: 100% var(--ink-rule, 24px);
+  background-position: 0 var(--ink-rule-offset, 0px);
+}
+.ink-sheet.paper-grid {
+  background-color: var(--surface);
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.ink-sheet.paper-wide {
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--border-strong) 1px, transparent 1px);
+  background-size: 100% calc(var(--ink-rule, 24px) * 1.5);
+  background-position: 0 var(--ink-rule-offset, 0px);
+}
+
+/* The layout menu's thumbnails: the same papers, at a tenth of the pitch. */
+.ink-paper-preview {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background-color: var(--surface);
+  flex-shrink: 0;
+}
+.ink-paper-preview.paper-dotted {
+  background-image: radial-gradient(var(--muted) 0.7px, transparent 0.8px);
+  background-size: 4px 4px;
+}
+.ink-paper-preview.paper-ruled {
+  background-image: linear-gradient(var(--muted) 1px, transparent 1px);
+  background-size: 100% 4px;
+}
+.ink-paper-preview.paper-grid {
+  background-image:
+    linear-gradient(var(--muted) 1px, transparent 1px),
+    linear-gradient(90deg, var(--muted) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+.ink-paper-preview.paper-wide {
+  background-image: linear-gradient(var(--muted) 1px, transparent 1px);
+  background-size: 100% 6px;
+}
+.ink-menu-paper .ink-menu-item { justify-content: flex-start; gap: 8px; }
+.ink-menu-item[aria-checked="true"] { font-weight: 600; }
+
+/*
+ * The rail's ghosts: the page above and below the live one, in a continuous
+ * scroll. A ghost is the sheet's own paper and image with none of the
+ * machinery — inert, dimmed a hair so the eye finds the writing page, and
+ * showing its number where a tab would.
+ */
+.ink-ghost {
+  display: flex;
+}
+/* Read mode: the page's images are not things to drag off the sheet, and
+   only the text underlay is there to select. */
+.ink-reader .ink-sheet img,
+.ink-reader .ink-sheet svg {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* The page's background image, on a ghost and on a static page alike: the
+   sheet's cover, laid under the text and the figures. Absolute, so the static
+   page's underlay is not pushed below it — and sized to the sheet, or a
+   scanned page at its own pixels widens the scroller and the live layer
+   with it, which slides the live sheet off its slot. */
+.ink-sheet .ink-ghost-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+.ink-ghost .ink-ghost-label,
+.ink-reader .ink-ghost-label {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 10px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+/*
+ * Figures: images placed on the page, under the canvas so the writing goes
+ * over them (§figure). The layer itself is a positioned box the size of the
+ * sheet; each figure is a box in page units scaled to the sheet, so a zoom
+ * moves a figure exactly as it moves the ink.
+ */
+.ink-figures {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.ink-figure {
+  pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
+  border-radius: 2px;
+}
+.ink-figure.is-active {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
+}
+.ink-figure-pending {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--faint) 14%, transparent),
+    color-mix(in srgb, var(--faint) 14%, transparent) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+/* The corners: dots where the page's own corner hit-test looks, so the eye
+   finds what the hand is about to drag. Always drawn — 8 px of border
+   against paper, quieter than the figure's own shadow. */
+/* The selected figure's editor: over the canvas (z 1 in its dock), and
+   transparent to the pointer except for the frame, its handles and the bar. */
+.ink-figure-editor {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.ink-figure-frame {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: auto;
+  cursor: move;
+  touch-action: none;
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
+}
+.ink-figure-frame:focus-visible {
+  outline-width: 2px;
+}
+.ink-figure-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  pointer-events: auto;
+  touch-action: none;
+}
+/* Handles at right/bottom are placed by their far edge; undo the margin. */
+.ink-figure-handle[data-handle="ne"],
+.ink-figure-handle[data-handle="e"],
+.ink-figure-handle[data-handle="se"] {
+  margin-left: 0;
+  margin-right: -6px;
+}
+.ink-figure-handle[data-handle="sw"],
+.ink-figure-handle[data-handle="s"],
+.ink-figure-handle[data-handle="se"] {
+  margin-top: 0;
+  margin-bottom: -6px;
+}
+@media (pointer: coarse) {
+  .ink-figure-handle {
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+  }
+  .ink-figure-handle[data-handle="ne"],
+  .ink-figure-handle[data-handle="e"],
+  .ink-figure-handle[data-handle="se"] {
+    margin-left: 0;
+    margin-right: -9px;
+  }
+  .ink-figure-handle[data-handle="sw"],
+  .ink-figure-handle[data-handle="s"],
+  .ink-figure-handle[data-handle="se"] {
+    margin-top: 0;
+    margin-bottom: -9px;
+  }
+}
+/* The crop tool: the whole picture dimmed under a bright kept rectangle. */
+.ink-figure-editor.is-cropping::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) 35%, transparent);
+}
+.ink-figure-crop-full {
+  position: absolute;
+  opacity: 0.35;
+}
+.ink-figure-crop-full img {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+.ink-figure-crop-kept {
+  background: var(--surface);
+  outline-style: dashed;
+}
+.ink-figure-crop-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.ink-figure-crop-kept img {
+  position: absolute;
+  max-width: none;
+  object-fit: fill;
+  pointer-events: none;
+}
+.ink-figure-popover {
+  position: absolute;
+  z-index: 3;
+  pointer-events: auto;
+  white-space: nowrap;
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 22%);
+}
+.ink-figure-button {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--faint);
+  padding: 1px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.ink-figure-button:hover {
+  background: color-mix(in srgb, var(--faint) 10%, transparent);
+}
+.ink-figure-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: none;
+}
+.ink-figure-sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 3px;
+  background: var(--border);
+}
+.ink-figure-hint {
+  font-size: 0.68rem;
+  color: var(--faint);
+  padding: 0 6px;
+}
+.ink-figure-button-remove:hover {
+  background: color-mix(in srgb, #b33 14%, transparent);
+  color: #b33;
+}
+
+.ink-text {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 12px 14px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.ink-text h4 {
+  display: flex;
+  align-items: center;
+  margin: 0 0 10px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ink-text h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
+.ink-text p { margin: 0 0 10px; }
+.ink-text .ink-empty { color: var(--faint); }
+/* A line is a paragraph; unsure ones are dotted (§5.4), accepted ones plain. */
+.ink-text .ink-line { cursor: text; border-radius: 4px; padding: 2px 4px; margin: 0 -4px 8px; }
+.ink-text .ink-line:hover { background: var(--chip); }
+.ink-text .ink-line-unsure { border-bottom: 1px dotted var(--s-warn); }
+.ink-text .ink-line-sure { color: var(--text); }
+.ink-line-edit { margin: 0 0 10px; display: grid; gap: 6px; }
+.ink-line-edit .themed-input { width: 100%; }
+.ink-alternatives { display: flex; flex-wrap: wrap; gap: 4px; }
+
+@media (max-width: 1100px) {
+  .ink-wrap { grid-template-columns: minmax(0, 1fr); }
+  .ink-text { display: none; }
+}
+
+
+
+/* Ink sheet text layer: rendered markdown under the ink. Blocks keep the
+   underlay's line rhythm (one row per source line, roughly) so the page flow
+   estimate in ink-text-flow stays close to what is drawn. */
+.ink-sheet-text-underlay { max-width: none; }
+/* `.ink-sheet` in the selector outranks markdown.css's own block margins. */
+.ink-sheet .ink-sheet-text-underlay :is(p, ul, ol, li, h3, h4, h5, pre, table, blockquote, .callout, .math-display, .md-mermaid) {
+  margin: 0;
+}
+.ink-sheet .ink-sheet-text-underlay :is(p, li) { line-height: var(--ink-rule, 1.6em); }
+.ink-sheet-text-underlay h3,
+.ink-sheet-text-underlay h4,
+.ink-sheet-text-underlay h5 { margin: 0; line-height: var(--ink-rule, 1.6em); }
+.ink-sheet-text-underlay h3 { font-size: 1.35em; }
+.ink-sheet-text-underlay h4 { font-size: 1.18em; }
+.ink-sheet-text-underlay h5 { font-size: 1.05em; }
+.ink-sheet-text-underlay ul,
+.ink-sheet-text-underlay ol { margin: 0; padding-left: 1.4em; }
+.ink-sheet-text-underlay .md-code {
+  margin: 0;
+  padding: 0 0.6em;
+  font-size: 0.9em;
+  line-height: 1.6;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ink-sheet-text-underlay .math-display { margin: 0; padding: 0; }
+/* Mermaid measures its labels in a scratch element at the document's 16 px,
+   then the SVG inherited the sheet's larger font: boxes sized for one size,
+   text drawn at another, and the labels spilled out of their nodes. The
+   diagram keeps the size it was measured at and is zoomed as a whole to the
+   sheet's text, so geometry and letters scale together. */
+.ink-sheet-text-underlay .md-mermaid {
+  font-size: 16px;
+  line-height: normal;
+  zoom: var(--ink-diagram-zoom, 1);
+}
+/* Mermaid's HTML labels are `<p>` in a foreignObject sized for a 16 px line;
+   the sheet's rule-height paragraphs pushed the text below that box. */
+.ink-sheet .ink-sheet-text-underlay .md-mermaid :is(p, li, span) {
+  line-height: normal;
+  font-size: inherit;
+  margin: 0;
+  padding: 0;
+}
+.ink-sheet-text-underlay .md-table { margin: 0; }
+.ink-sheet-text-underlay .md-code code { background: none; padding: 0; font-size: inherit; }
+
+/* -------------------------------------------------------------------------
+ * Print preview: the page's print document in a frame, before the dialog.
+ * ------------------------------------------------------------------------- */
+.modal:has(.ink-print-preview) { width: min(960px, 100%); }
+.ink-print-preview { display: grid; gap: 12px; }
+.ink-print-preview-frame {
+  width: 100%;
+  height: min(72vh, 1000px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #e9e9e9;
 }

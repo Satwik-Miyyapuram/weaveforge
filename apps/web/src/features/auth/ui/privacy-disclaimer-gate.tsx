@@ -17,6 +17,14 @@ import {
   shouldShowWorkspaceLoader,
 } from "./privacy-disclaimer-readiness";
 import { useCapability } from "@/deployment/capabilities";
+import {
+  desktop,
+  type DesktopLocalDbState,
+} from "@/lib/desktop/desktop-bridge";
+import {
+  isLocalMode,
+  setLocalMode,
+} from "@/backend/providers/local/local-identity";
 
 /**
  * Blocks the app until the user accepts the org/privacy disclaimer once.
@@ -24,12 +32,17 @@ import { useCapability } from "@/deployment/capabilities";
  * is ready, even when startup is served from the localStorage cache on cold reopen
  * (TabBar / ProjectProvider call getContainer() synchronously on render).
  */
-export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode }) {
+export function PrivacyDisclaimerGate({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // Gate on the disclaimer decision, not the org/profile bundle. `gateReady`
   // is known from cache (returning users) or after the settings read (cold),
   // long before profile/org data lands — and the screens do not need that data
   // to render, so holding them for it is pure waiting.
-  const { gateReady, needsPrivacyAccept, settingsError, refreshProfile } = useStartup();
+  const { gateReady, needsPrivacyAccept, settingsError, refreshProfile } =
+    useStartup();
   // Every paragraph of the disclaimer is about somebody else being able to read
   // the data: the operator, the database, a share. On a copy whose database is
   // a file on this disk there is no such person, so there is nothing to
@@ -120,7 +133,8 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
   // the same unreachable API and reports the same failure, with no way out.
   if (settingsError) return <StartupFailure message={settingsError} />;
 
-  if (!needsAccept && !containerReady && error) return <StartupFailure message={error} />;
+  if (!needsAccept && !containerReady && error)
+    return <StartupFailure message={error} />;
 
   return (
     <>
@@ -133,7 +147,9 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
               ))}
             </ul>
             <details className="privacy-disclaimer-full">
-              <summary>Read the full privacy and data-protection details</summary>
+              <summary>
+                Read the full privacy and data-protection details
+              </summary>
               {PRIVACY_DISCLAIMER_PARAGRAPHS.map((p) => (
                 <p key={p} className="muted">
                   {p}
@@ -141,7 +157,12 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
               ))}
             </details>
             {error && <FormError>{error}</FormError>}
-            <button type="button" className="btn-primary" disabled={busy} onClick={() => void accept()}>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => void accept()}
+            >
               {busy ? "Saving…" : "I understand — continue"}
             </button>
           </div>
@@ -160,18 +181,133 @@ export function PrivacyDisclaimerGate({ children }: { children: React.ReactNode 
 
 /** A dead end the user can act on: what went wrong, and a way to try again. */
 function StartupFailure({ message }: { message: string }) {
+  const broken = useLocalDbFailure();
   return (
-    <main className="app-shell" style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}>
-      <h1 style={{ fontSize: "1.25rem", marginBottom: 8 }}>Couldn’t start the app</h1>
-      <FormError>{message}</FormError>
+    <main
+      className="app-shell"
+      style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}
+    >
+      <h1 style={{ fontSize: "1.25rem", marginBottom: 8 }}>
+        Couldn’t start the app
+      </h1>
+      {broken ? (
+        <LocalDbRecovery state={broken} />
+      ) : (
+        <FormError>{message}</FormError>
+      )}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+        <button
+          type="button"
+          className={broken ? "btn-secondary" : "btn-primary"}
+          onClick={() => window.location.reload()}
+        >
+          Reload
+        </button>
+        {desktop() && !isLocalMode() ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setLocalMode(true);
+              window.location.reload();
+            }}
+          >
+            Work on this computer (offline)
+          </button>
+        ) : null}
+      </div>
+    </main>
+  );
+}
+
+/**
+ * Whether the failure on screen is the local database refusing to open.
+ *
+ * Asked of the shell rather than inferred from the message: the message is an
+ * Emscripten abort or a Postgres error, neither of which names the database as
+ * the thing that failed. Only meaningful on the desktop, working on this
+ * computer — anywhere else there is no local database to have failed.
+ */
+function useLocalDbFailure(): DesktopLocalDbState | null {
+  const [state, setState] = useState<DesktopLocalDbState | null>(null);
+  useEffect(() => {
+    const shell = desktop();
+    if (!shell || !isLocalMode()) return;
+    let cancelled = false;
+    shell
+      .localDbState()
+      .then((s) => {
+        if (!cancelled && s.failure) setState(s);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return state;
+}
+
+/**
+ * The way out of a database that cannot be opened.
+ *
+ * The old directory is moved beside itself, never deleted, and the page says
+ * so with the path — because the one thing a person needs to know before
+ * pressing this is that nothing is being thrown away. The shell may relaunch
+ * to finish the move (Windows will not rename a directory the failed engine
+ * still holds), which is why the button does not promise to return.
+ */
+function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const reset = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await desktop()?.resetLocalDb();
+      window.location.reload();
+    } catch (err) {
+      setError(formatError(err));
+      setBusy(false);
+    }
+  }, []);
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      <p>
+        The app’s own database on this computer could not be opened. This
+        happens when a previous run was interrupted while writing to it.
+      </p>
+      <p className="muted">
+        The app keeps copies of the database (under{" "}
+        <code>local-db-backups</code> beside it, and in the workspace folder’s{" "}
+        <code>.weaveforge/db-backups</code>) and restores the newest one by
+        itself; you see this only when there was none to restore from.
+      </p>
+      <p className="muted" style={{ wordBreak: "break-all" }}>
+        {state.dataDir}
+      </p>
+      <details>
+        <summary className="muted">Technical detail</summary>
+        <p
+          className="muted"
+          style={{ fontFamily: "var(--font-mono)", fontSize: "0.85em" }}
+        >
+          {state.failure}
+        </p>
+      </details>
+      <p>
+        Starting fresh moves the old database aside as{" "}
+        <code>local-db.broken-…</code> in the same folder — nothing is deleted —
+        and opens a new, empty one.
+      </p>
+      {error && <FormError>{error}</FormError>}
       <button
         type="button"
         className="btn-primary"
-        style={{ marginTop: 16 }}
-        onClick={() => window.location.reload()}
+        disabled={busy}
+        onClick={() => void reset()}
       >
-        Reload
+        {busy ? "Moving aside…" : "Start with a fresh database"}
       </button>
-    </main>
+    </div>
   );
 }

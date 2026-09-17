@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createLocalClient, type LocalQuery } from "../pglite-client";
+import { createLocalClient, pgArray, type LocalQuery } from "../pglite-client";
 
 /** Records what would have run, and answers with whatever the test supplies. */
 function recorder(rows: unknown[] = []): { run: LocalQuery; seen: { sql: string; params: unknown[] }[] } {
@@ -108,4 +108,15 @@ test("a function call goes through with named arguments", async () => {
   const reply = await createLocalClient(run).rpc("resolve_share_link", { p_token: "t" });
   assert.equal(reply.data, "ok");
   assert.equal(seen[0]?.sql, 'select * from "resolve_share_link"("p_token" => $1)');
+});
+
+test("a text[] column takes an array literal; a jsonb column takes JSON", async () => {
+  const { run, seen } = recorder([{ id: "1" }]);
+  await createLocalClient(run)
+    .from("papers")
+    .insert({ id: "1", authors: ["Ada", 'Bo "B"'], tags: [], metadata: { list: ["x"] } });
+  assert.deepEqual(seen[0]?.params, ["1", '{"Ada","Bo \\"B\\""}', "{}", '{"list":["x"]}']);
+  await createLocalClient(run).from("papers").update({ tags: ["a"] }).eq("id", "1");
+  assert.equal(seen[1]?.params[0], '{"a"}');
+  assert.equal(pgArray(["a\\b"]), '{"a\\\\b"}');
 });

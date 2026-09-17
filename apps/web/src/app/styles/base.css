@@ -29,6 +29,34 @@
   --font: var(--font-sans, var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   --font-serif: var(--font-plex-serif), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Transition durations, so a press reads as a press everywhere. 60ms was
+     below the threshold at which one is legible, and it was half the value of
+     the control sitting beside it in the same form. */
+  --dur-fast: 150ms;
+  --dur-base: 150ms;
+
+  /*
+   * The stacking ladder.
+   *
+   * Only layers that can actually meet belong here: things portalled to
+   * <body>, and fixed overlays that take over a screen. A `z-index` inside a
+   * positioned component is *local* ordering — a tab indicator behind its own
+   * label, a PDF text layer under the marks drawn over it — and turning one of
+   * those into `var(--z-sticky)` would lift it out of its component and stack
+   * it against the whole page. Those stay literals, next to the comment that
+   * explains why they are ordered the way they are.
+   *
+   * Each rung says what lives there, so the next layer to be added has an
+   * obvious level rather than a number to invent.
+   */
+  --z-sticky: 20;    /* the sub-tab strip; sticky screen headers */
+  --z-nav: 30;       /* the primary nav, sidebar or bottom bar */
+  --z-popover: 60;   /* menus, sheets and selects anchored to a control */
+  --z-overlay: 80;   /* full-screen takeovers: focus mode, jump-to, drawers */
+  --z-modal: 10000;  /* .modal-backdrop, portalled to <body> */
+  --z-menu: 10050;   /* a select portalled to <body>, above the modal it opened from */
+  --z-toast: 10100;  /* toasts, above everything */
 }
 
 /* Each density also moves --icon-size. Without that only the button *box*
@@ -94,9 +122,12 @@ html, body { margin: 0; padding: 0; }
     background-color: var(--press);
   }
 }
-/* Single scroll container with a permanently reserved scrollbar gutter, so
-   switching tabs (short → tall content) doesn't shift the layout sideways. */
-html { overflow-x: hidden; overflow-y: scroll; scrollbar-gutter: stable; }
+/* Single scroll container. Its native scrollbar is hidden and an overlay one
+   floats over the viewport instead (`WindowScrollbar`), so switching tabs
+   (short → tall content) never shifts the layout sideways and nothing sits
+   there while the page fits. */
+html { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
 body {
   /* Fill the viewport even when a screen is short.
 
@@ -125,8 +156,7 @@ body,
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-}
-*::-webkit-scrollbar {
+}*::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
@@ -189,6 +219,22 @@ body,
   .commit-item, .graph-wrap, .progress-card, .empty { animation: none; }
 }
 
+/*
+ * Anchor jumps, smoothed.
+ *
+ * Every in-page link in the product was a hard cut: the pitch header's ten
+ * section links and the hero's audience chips jump across a page about ten
+ * screens tall, immediately after the scrollytelling has taught the reader that
+ * this page moves smoothly. Guarded by the motion preference rather than set
+ * unconditionally — this codebase treats that preference as binding in three
+ * other places, and an unguarded smooth scroll would be the one rule that
+ * ignores it. (`scroll-margin-top` on `.scene` already keeps a jumped-to
+ * heading clear of the sticky pitch header.)
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
 /* Shared easing when crossing the mobile ↔ desktop breakpoint (900px). */
 :root {
   --layout-ease: cubic-bezier(0.4, 0, 0.2, 1);
@@ -212,7 +258,7 @@ body,
 .sub-nav {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: var(--z-sticky);
   display: flex; gap: 2px; margin: 18px 0 4px; padding: 3px;
   background: color-mix(in srgb, var(--surface2) 72%, transparent);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -223,7 +269,8 @@ body,
   width: 100%; overflow-x: auto; scrollbar-width: none;
 }
 .sub-nav::-webkit-scrollbar { display: none; }
-/* Sliding tile behind the active tab. */
+/* Sliding tile behind the active tab. Local ordering — the tile sits behind
+   its own label, and the 0/1 pair is scoped to `.sub-nav`. */
 .sub-tab-indicator {
   position: absolute; top: 3px; bottom: 3px; left: 0; z-index: 0;
   border-radius: 7px;

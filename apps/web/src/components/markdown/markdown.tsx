@@ -1,19 +1,12 @@
 import { renderToString } from "katex";
+import { escapeHtml as escapeAttr } from "@/lib/escape-html";
+import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
 
 /**
  * Minimal markdown-to-HTML for prose blocks (headings, lists, inline). Fenced
  * code blocks are handled separately by Shiki in display mode.
  */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s).replace(/"/g, "&quot;");
-}
+const escapeHtml = escapeAttr;
 
 /** Slug for heading anchor ids (so `[[Note#Heading]]` can target them). */
 function headingSlug(text: string): string {
@@ -66,11 +59,29 @@ function formatText(s: string): string {
     .replace(/\b_([^_]+)_\b/g, "<em>$1</em>")
     .replace(
       /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
-      (_m, alt: string, src: string) => {
+      (_m, rawAlt: string, src: string) => {
         // Captures here are already HTML-escaped; only quote-escape for attrs.
+        // A `|50%` suffix on the alt is a display width, `c=` a crop and a
+        // trailing `left|right|center` a column placement
+        // (§markdown-figure-alt) — all placement, not description, so they
+        // become style and class while the bare alt is kept on a data
+        // attribute for the read view's image control to find the
+        // reference they came from.
+        const { alt, width, crop, align } = parseMdImageAlt(rawAlt);
         const safeAlt = alt.replace(/"/g, "&quot;");
         const safeSrc = src.replace(/"/g, "&quot;");
-        return `<img src="${safeSrc}" alt="${safeAlt}" class="md-image" loading="lazy" />`;
+        const styles: string[] = [];
+        if (width) styles.push(`width:${width}`);
+        // A crop as CSS: the image keeps its box and the clipped edges fall
+        // outside it, which is what an inset clip-path does — geometry, not
+        // bytes (the ink figure renders the same idea with a wrapper, because
+        // a page's figure is a positioned box; text needs no wrapper).
+        if (crop) {
+          styles.push(`clip-path:inset(${crop[1]}% ${crop[2]}% ${crop[3]}% ${crop[0]}%)`);
+        }
+        const style = styles.length ? ` style="${styles.join(";")}"` : "";
+        const alignClass = align ? ` md-figure-${align}` : "";
+        return `<img src="${safeSrc}" alt="${safeAlt}" data-md-alt="${safeAlt}" class="md-image${alignClass}" loading="lazy"${style} />`;
       },
     )
     .replace(
@@ -338,6 +349,32 @@ export function Markdown({ children, className }: { children: string; className?
 }
 
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;
+
+/**
+ * Synchronous full render: prose through `renderProseMarkdown`, fenced code as
+ * a plain escaped `<pre>` (no Shiki). For surfaces that must render in one
+ * pass with no async highlight round trip, such as the ink sheet's text layer.
+ */
+export function renderMarkdownPlain(md: string, resolve?: WikilinkResolver): string {
+  const parts: string[] = [];
+  let lastIndex = 0;
+  FENCE_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = FENCE_RE.exec(md)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), resolve));
+    }
+    const info = (match[1] ?? "").trim();
+    const lang = info.split(/\s+/)[0] ?? "";
+    const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
+    parts.push(`<pre class="md-code"${langAttr}><code>${escapeHtml(match[2] ?? "")}</code></pre>`);
+    lastIndex = FENCE_RE.lastIndex;
+  }
+  if (lastIndex < md.length) {
+    parts.push(renderProseMarkdown(md.slice(lastIndex), resolve));
+  }
+  return parts.join("");
+}
 
 /** Split markdown into prose and fenced-code segments for Shiki display. */
 export async function renderMarkdownWithShiki(

@@ -1,5 +1,8 @@
 import type { EmbedRequest, IEmbedder } from "@weaveforge/core";
-import type { EmbedWorkerRequest, EmbedWorkerResponse } from "./embedding-worker";
+import type {
+  EmbedWorkerRequest,
+  EmbedWorkerResponse,
+} from "./embedding-worker";
 
 /**
  * `IEmbedder` over the encoder worker.
@@ -20,6 +23,13 @@ export interface WorkerEmbedderOptions {
 
 const DEFAULT_MODEL = "Xenova/all-MiniLM-L6-v2";
 
+/**
+ * How long the encoder sits unused before its worker is stopped. The weights
+ * are 80–120 MB of WASM heap that nothing else can reclaim; the browser's HTTP
+ * cache keeps the download, so the next `embed` pays only the model's start.
+ */
+const IDLE_EVICT_MS = 5 * 60_000;
+
 export class WorkerEmbedder implements IEmbedder {
   readonly id: string;
   dimensions = 0;
@@ -27,9 +37,13 @@ export class WorkerEmbedder implements IEmbedder {
   private worker: Worker | null = null;
   private nextId = 1;
   private ready: Promise<void> | null = null;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly pending = new Map<
     number,
-    { resolve: (value: EmbedWorkerResponse) => void; reject: (error: Error) => void }
+    {
+      resolve: (value: EmbedWorkerResponse) => void;
+      reject: (error: Error) => void;
+    }
   >();
 
   constructor(private readonly options: WorkerEmbedderOptions = {}) {
@@ -54,51 +68,79 @@ export class WorkerEmbedder implements IEmbedder {
 
   async embed(request: EmbedRequest): Promise<Float32Array[]> {
     if (request.texts.length === 0) return [];
-    await this.load();
-
-    const response = await this.send({
-      type: "embed",
-      texts: [...request.texts],
-      kind: request.kind,
-    });
-    if (response.type !== "vectors") throw new Error("The encoder returned no vectors.");
-    return response.vectors;
+    this.holdIdle();
+    try {
+      await this.load();
+      const response = await this.send({
+        type: "embed",
+        texts: [...request.texts],
+        kind: request.kind,
+      });
+      if (response.type !== "vectors")
+        throw new Error("The encoder returned no vectors.");
+      return response.vectors;
+    } finally {
+      this.scheduleIdle();
+    }
   }
 
   /** Release the model's memory; the next `load()` fetches from the HTTP cache. */
   dispose(): void {
+    this.holdIdle();
     this.worker?.terminate();
     this.worker = null;
     this.ready = null;
-    for (const { reject } of this.pending.values()) reject(new Error("The encoder was stopped."));
+    for (const { reject } of this.pending.values())
+      reject(new Error("The encoder was stopped."));
     this.pending.clear();
+  }
+
+  /** No eviction while a request is in flight. */
+  private holdIdle(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+  }
+
+  /** Eviction after the quiet period, unless another request comes first. */
+  private scheduleIdle(): void {
+    this.holdIdle();
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      if (this.pending.size === 0) this.dispose();
+    }, IDLE_EVICT_MS);
   }
 
   private async start(): Promise<void> {
     this.worker = new Worker(new URL("./embedding-worker.ts", import.meta.url));
-    this.worker.addEventListener("message", (event: MessageEvent<EmbedWorkerResponse>) => {
-      const message = event.data;
-      if (message.type === "progress") {
-        this.options.onProgress?.(message.loaded, message.total);
-        return;
-      }
-      const waiter = this.pending.get(message.id);
-      if (!waiter) return;
-      this.pending.delete(message.id);
-      if (message.type === "error") waiter.reject(new Error(message.message));
-      else waiter.resolve(message);
-    });
+    this.worker.addEventListener(
+      "message",
+      (event: MessageEvent<EmbedWorkerResponse>) => {
+        const message = event.data;
+        if (message.type === "progress") {
+          this.options.onProgress?.(message.loaded, message.total);
+          return;
+        }
+        const waiter = this.pending.get(message.id);
+        if (!waiter) return;
+        this.pending.delete(message.id);
+        if (message.type === "error") waiter.reject(new Error(message.message));
+        else waiter.resolve(message);
+      },
+    );
 
     const response = await this.send({
       type: "load",
       model: this.options.model ?? DEFAULT_MODEL,
       host: this.options.host ?? cachedWeightHost(),
     });
-    if (response.type !== "ready") throw new Error("The encoder failed to start.");
+    if (response.type !== "ready")
+      throw new Error("The encoder failed to start.");
     this.dimensions = response.dimensions;
   }
 
-  private send(request: Omit<EmbedWorkerRequest, "id">): Promise<EmbedWorkerResponse> {
+  private send(
+    request: Omit<EmbedWorkerRequest, "id">,
+  ): Promise<EmbedWorkerResponse> {
     const worker = this.worker;
     if (!worker) throw new Error("The encoder is not running.");
 
@@ -124,5 +166,7 @@ export function supportsLocalEmbedding(): boolean {
  * encoder library's own default host.
  */
 function cachedWeightHost(): string | undefined {
-  return typeof location !== "undefined" && location.protocol === "app:" ? "app://models" : undefined;
+  return typeof location !== "undefined" && location.protocol === "app:"
+    ? "app://models"
+    : undefined;
 }

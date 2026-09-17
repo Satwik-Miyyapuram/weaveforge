@@ -79,6 +79,7 @@ export function TabBar({
           href={homeNavItem.path}
           className={`nav-link nav-home${homeActive ? " active" : ""}`}
           aria-current={homeActive ? "page" : undefined}
+          title={collapsed ? homeNavItem.label : undefined}
           onPointerEnter={() => warmPath(homeNavItem.path)}
         >
           <NavIcon name={homeNavItem.icon} />
@@ -88,7 +89,12 @@ export function TabBar({
             undiscoverable and unreachable on a phone. It sits in the nav rather
             than in a header because the nav is the one surface present on every
             screen and at every breakpoint. */}
-        <button type="button" className="nav-link nav-search" onClick={openSearchPalette}>
+        <button
+          type="button"
+          className="nav-link nav-search"
+          title={collapsed ? "Search" : undefined}
+          onClick={openSearchPalette}
+        >
           <NavIcon name="search" />
           <span className="nav-label">Search</span>
         </button>
@@ -100,6 +106,7 @@ export function TabBar({
               href={group.items[0]?.path ?? "/"}
               className={active ? "nav-link active" : "nav-link"}
               aria-current={active ? "page" : undefined}
+              title={collapsed ? group.label : undefined}
               onPointerEnter={() => warmPath(group.items[0]?.path ?? "/")}
             >
               <NavIcon name={group.icon} />
@@ -109,6 +116,10 @@ export function TabBar({
         })}
       </div>
       {breakpoint === "desktop" && (
+        // The same block whether the sidebar is wide or a rail. Collapsing
+        // hides the labels, the brand name and the switchers in CSS and leaves
+        // the icons; it does not swap in a different set of controls, which is
+        // what made the rail read as a different app from the sidebar.
         <div className="desktop-only nav-bottom">
           <div className="app-brand">
             <WeaveForgeLogo className="app-logo" />

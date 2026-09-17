@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   activateTab,
   activeTab,
+  activeTabKey,
+  activeTabRef,
   closeTab,
   emptyLayout,
   focusPane,
@@ -12,7 +14,11 @@ import {
   openTab,
   pruneLayout,
   setRatio,
+  setTabMode,
   splitPane,
+  tabAt,
+  tabMode,
+  toggleTabModeAt,
   type PaneLayout,
   type PaneSplit,
 } from "../application/pane-tree";
@@ -152,4 +158,96 @@ test("pruning clamps an active index that pointed past the survivors", () => {
 
   const pruned = pruneLayout(layout, (tab) => tab.id === "a");
   assert.deepEqual(activeTab(leaves(pruned.root)[0]!), A);
+});
+
+/* -------------------------------------------------------------------------
+ * Which document is "on", and its mode (D3, §3.9)
+ * ---------------------------------------------------------------------- */
+
+test("the active key is the focused pane's active tab, not the leftmost tab", () => {
+  let layout = openTab(openTab(emptyLayout(), A), B);
+  layout = openTab(layout, A);
+  layout = activateTab(layout, "pane-1", 1);
+
+  assert.equal(activeTabKey(layout), "vault_page:b");
+  assert.deepEqual(activeTabRef(layout), B);
+});
+
+test("the active key follows the focused pane across a split", () => {
+  const layout = splitPane(openTab(openTab(emptyLayout(), A), B), "pane-1", "row", "pane-2");
+
+  // The split carried the pane's active tab across and focused the new pane.
+  assert.equal(layout.focusedPaneId, "pane-2");
+  assert.equal(activeTabKey(layout), "vault_page:b");
+
+  const back = focusPane(layout, "pane-1");
+  assert.equal(activeTabKey(back), "vault_page:b", "pane-1 still has its own active tab");
+  assert.equal(activeTabKey(activateTab(back, "pane-1", 0)), "vault_page:a");
+});
+
+test("a layout with nothing open has no active key rather than an empty one", () => {
+  assert.equal(activeTabKey(emptyLayout()), undefined);
+  assert.equal(activeTabRef(emptyLayout()), undefined);
+});
+
+test("closing the only tab of the focused pane falls back to the pane that is left", () => {
+  const layout = splitPane(openTab(emptyLayout(), A), "pane-1", "row", "pane-2");
+  const emptied = closeTab(layout, "pane-2", 0);
+  assert.equal(activeTabKey(emptied), "vault_page:a");
+});
+
+test("a tab that predates modes reads as Edit, which is what it was", () => {
+  assert.equal(tabMode(A), "edit");
+  assert.equal(tabMode({ kind: "ink_page", id: "i" }), "ink");
+});
+
+test("setMode touches only the addressed tab", () => {
+  const layout = openTab(openTab(emptyLayout(), A), B);
+  const next = setTabMode(layout, A, "read");
+
+  assert.equal(tabMode(leaves(next.root)[0]!.tabs[0]!), "read");
+  assert.equal(tabMode(leaves(next.root)[0]!.tabs[1]!), "edit");
+});
+
+test("a mode belongs to the document, so it applies in every pane showing it", () => {
+  const layout = splitPane(openTab(emptyLayout(), A), "pane-1", "row", "pane-2");
+  const next = setTabMode(layout, A, "read");
+
+  for (const leaf of leaves(next.root)) {
+    assert.equal(tabMode(leaf.tabs[0]!), "read");
+  }
+});
+
+test("toggling by position flips and flips back, reading the live mode", () => {
+  const layout = openTab(emptyLayout(), A);
+  const read = toggleTabModeAt(layout, "pane-1", 0);
+  assert.equal(tabMode(leaves(read.root)[0]!.tabs[0]!), "read");
+
+  // The second press is the one that matters: addressing by a `TabRef` captured
+  // at render time would re-read `edit` and do nothing.
+  const edit = toggleTabModeAt(read, "pane-1", 0);
+  assert.equal(tabMode(leaves(edit.root)[0]!.tabs[0]!), "edit");
+});
+
+test("toggling a position that is not there changes nothing", () => {
+  const layout = openTab(emptyLayout(), A);
+  assert.equal(toggleTabModeAt(layout, "pane-1", 7), layout);
+  assert.equal(toggleTabModeAt(layout, "pane-gone", 0), layout);
+});
+
+test("setting the mode a document is already in returns the same layout", () => {
+  const layout = openTab(emptyLayout(), A);
+  assert.equal(setTabMode(layout, A, "edit"), layout);
+});
+
+test("setting a mode on a tab that is not open changes nothing", () => {
+  const layout = openTab(emptyLayout(), A);
+  assert.equal(setTabMode(layout, B, "read"), layout);
+});
+
+test("the mode survives closing and reopening the same document", () => {
+  const opened = setTabMode(openTab(emptyLayout(), A), A, "read");
+  const closed = closeTab(opened, "pane-1", 0);
+  const reopened = openTab(closed, tabAt(opened, "pane-1", 0)!);
+  assert.equal(tabMode(leaves(reopened.root)[0]!.tabs[0]!), "read");
 });

@@ -20,6 +20,7 @@ import {
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { downloadLibraryPdfsOnce } from "@/features/reader/application/download-library-pdfs";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
@@ -60,6 +61,15 @@ import {
 
 let activeFs: IWorkspaceFs | null = null;
 let activeGit: IWorkspaceGit = new NoOpWorkspaceGit();
+
+/**
+ * The open folder's filesystem, for a feature that keeps files beside the
+ * mirror rather than in it — the ink sidecar is the one so far. `null` while
+ * no folder is open, and the caller is expected to have somewhere else to go.
+ */
+export function activeWorkspaceFs(): IWorkspaceFs | null {
+  return activeFs;
+}
 
 
 
@@ -133,6 +143,9 @@ export async function chooseDesktopFolder(options: {
   // question, and must not be read as switching it off.
   if (!options.reuse) await bridge.writePreference("vault-git", options.git);
   watchForChanges();
+  // The folder is where the desktop copy keeps its PDFs; fill it in the
+  // background so the papers open from disk, offline included.
+  downloadLibraryPdfsOnce();
   return true;
 }
 

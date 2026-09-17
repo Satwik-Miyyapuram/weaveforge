@@ -1,3 +1,6 @@
+/* Long-form prose: `pretty` rather than `balance`, because what shows up in a
+   paragraph is not an uneven first line but an orphaned last word. */
+.markdown { text-wrap: pretty; }
 .markdown h3, .markdown h4, .markdown h5 { margin: 10px 0 4px; letter-spacing: -0.01em; }
 .markdown ul, .markdown ol { margin: 6px 0; padding-left: 20px; }
 .markdown ol { list-style: decimal; }
@@ -20,6 +23,13 @@
 .vault-backlinks__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .vault-backlinks__list .link-btn { padding: 4px 0; text-align: left; color: var(--accent); }
 .markdown .md-image { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; }
+/* A figure's column placement (§markdown-figure-alt): the image is content
+   the text wraps around, which float is, and a centered one stands alone
+   between its margins the way a figure in a book does. A crop is clip-path,
+   set inline with the width, and needs no rule here. */
+.markdown img.md-figure-left { float: left; margin: 6px 16px 8px 0; }
+.markdown img.md-figure-right { float: right; margin: 6px 0 8px 16px; }
+.markdown img.md-figure-center { display: block; margin: 10px auto; float: none; }
 .markdown .math-display { overflow-x: auto; margin: 12px 0; padding: 4px 0; }
 .markdown blockquote { margin: 10px 0; padding: 4px 12px; border-left: 3px solid var(--line); color: var(--muted); }
 /* Obsidian-style callouts: [!note] / [!warning] / [!tip] etc. */
@@ -263,4 +273,6 @@
 }
 
 /* Org setup + invite codes */
-.org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }
+.org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }.markdown .md-mermaid { margin: 12px 0; overflow-x: auto; }
+.markdown .md-mermaid svg { max-width: 100%; height: auto; }
+.markdown .md-mermaid-error { border-left: 3px solid var(--danger, #c33); }

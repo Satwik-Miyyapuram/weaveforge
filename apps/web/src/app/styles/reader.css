@@ -114,7 +114,10 @@
   .pdf-reader-outline, .pdf-reader-sidebar { max-height: 40dvh; }
 }
 .pdf-reader-outline {
-  overflow: auto; max-height: calc(100vh - 300px);
+  /* `vh` then `dvh`, the fallback pair base.css uses on `body` — a cap inside a
+     scroll container rather than a fixed panel, but the collapsing address bar
+     made it taller than the visible viewport just the same. */
+  overflow: auto; max-height: calc(100vh - 300px); max-height: calc(100dvh - 300px);
   padding: 8px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--surface); font-size: 0.85rem;
 }
@@ -242,7 +245,7 @@
   .reader-main--split { grid-template-columns: 1fr; }
 }
 .pdf-reader-sidebar {
-  overflow: auto; max-height: calc(100vh - 300px);
+  overflow: auto; max-height: calc(100vh - 300px); max-height: calc(100dvh - 300px);
   padding: 8px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--surface); font-size: 0.85rem;
 }

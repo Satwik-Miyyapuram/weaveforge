@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { runBoundedQuit, type QuitTimers } from "../src/quit";
+import { QUIT_TIMEOUT_MS, runBoundedQuit, type QuitTimers } from "../src/quit";
 
 /**
  * The quit that is not allowed to hang.
@@ -56,7 +56,7 @@ test("quit: cleanup that finishes exits at once, and the fallback is cancelled",
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(exits, 1);
-  assert.deepEqual(timers.armed, [3_000], "the bound is armed before the cleanup runs");
+  assert.deepEqual(timers.armed, [QUIT_TIMEOUT_MS], "the bound is armed before the cleanup runs");
   assert.equal(timers.cancelled, 1, "a timer left armed could exit a process that already left");
 
   // The fallback arriving late must not exit twice.

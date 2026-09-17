@@ -70,6 +70,18 @@ apps/web/public/swe-worker*
 # pdf.js worker (copied from pdfjs-dist by scripts/copy-pdf-worker.mjs)
 apps/web/public/pdf.worker.min.mjs
 
+# --- the Windows Ink recogniser helper -------------------------------------
+#
+# The helper is C# source in `apps/desktop/native/ink-recogniser/`; what is
+# ignored is what `dotnet` produces — `bin/` and `obj/` for a local build, and
+# `win-<arch>/` for the two published self-contained executables
+# (`scripts/build-ink-recogniser.mjs`, ~14 MB each). Those are packaging inputs,
+# rebuilt by the build rather than reviewed, and a 14 MB binary in the history of
+# a source repository is not something a later commit can take back.
+apps/desktop/native/ink-recogniser/bin/
+apps/desktop/native/ink-recogniser/obj/
+apps/desktop/native/ink-recogniser/win-*/
+
 # python
 __pycache__/
 *.py[cod]

@@ -1,5 +1,7 @@
 import { LOCAL_USER_ID } from "@weaveforge/core";
 
+import { decodeBytea } from "@/lib/bytea";
+
 /**
  * A PostgREST-shaped client over the local database.
  *
@@ -66,6 +68,27 @@ function projection(columns: string): string {
     .join(", ");
 }
 
+const BYTEA_HEX = /^\\x(?:[0-9a-fA-F]{2})*$/;
+
+/**
+ * The `text[]` columns in the schema. Every other column that takes an array
+ * is `jsonb`, and the two want different spellings: `{"a","b"}` for the one,
+ * `["a","b"]` for the other. A value cannot tell them apart — `[]` written to
+ * `papers.authors` was "malformed array literal" and no paper could be added
+ * — so the array columns are named here, from the migrations.
+ */
+export const ARRAY_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  papers: ["authors", "tags"],
+  reader_annotations: ["tags"],
+  citation_alert_tracks: ["seen_citing_ids"],
+  api_tokens: ["scopes"],
+};
+
+/** A Postgres array literal, each element quoted with `"` and `\` escaped. */
+export function pgArray(values: readonly unknown[]): string {
+  return `{${values.map((v) => `"${String(v).replace(/(["\\])/g, "\\$1")}"`).join(",")}}`;
+}
+
 /**
  * A value on its way into a statement.
  *
@@ -73,9 +96,23 @@ function projection(columns: string): string {
  * text and is coerced by the column it lands in — an unknown-typed parameter
  * takes the target's type, which is exactly what a `jsonb` column wants.
  */
-function encode(value: unknown): string | number | boolean | null {
+function encode(
+  value: unknown,
+  column?: { table: string; name: string },
+): string | number | boolean | Uint8Array | null {
   if (value === null || value === undefined) return null;
+  if (Array.isArray(value) && column && ARRAY_COLUMNS[column.table]?.includes(column.name)) {
+    return pgArray(value);
+  }
   if (value instanceof Date) return value.toISOString();
+  // PostgREST takes bytea as `\x`-hex text, which is how every repository
+  // writes it (`encodeBytea`). PGlite types each parameter from the column it
+  // lands in and wants bytes, not their spelling, for a bytea one — the CRDT
+  // log's every append failed with "Invalid input for bytea type" — so the
+  // spelling is turned back into bytes here. A text column holding a string
+  // that is `\x` and hex digits and nothing else would be misread, and no
+  // column holds one.
+  if (typeof value === "string" && BYTEA_HEX.test(value)) return decodeBytea(value);
   if (typeof value === "object") return JSON.stringify(value);
   if (typeof value === "bigint") return Number(value);
   return value as string | number | boolean;
@@ -100,8 +137,8 @@ class Builder<T> implements PromiseLike<Reply<T>> {
     private readonly run: LocalQuery,
   ) {}
 
-  private hold(value: unknown): string {
-    this.params.push(encode(value));
+  private hold(value: unknown, column?: string): string {
+    this.params.push(encode(value, column ? { table: this.table, name: column } : undefined));
     return `$${this.params.length}`;
   }
 
@@ -279,7 +316,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
       for (let i = 0; i < this.wheres.length; i += 1) {
         this.wheres[i] = (this.wheres[i] as string).replace(/\$(\d+)/g, (_, d) => `$${Number(d) + shift}`);
       }
-      this.params.unshift(...entries.map(([, v]) => encode(v)));
+      this.params.unshift(...entries.map(([c, v]) => encode(v, { table: this.table, name: c })));
       const sets = entries.map(([c], i) => `${ident(c)} = $${i + 1}`);
       return `update ${table} set ${sets.join(", ")}${this.whereClause()}${this.back()}`;
     }
@@ -290,7 +327,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
     // column's default, and so does a null here for the columns that have one.
     const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
     const values = rows
-      .map((row) => `(${columns.map((c) => this.hold(row[c] ?? null)).join(", ")})`)
+      .map((row) => `(${columns.map((c) => this.hold(row[c] ?? null, c)).join(", ")})`)
       .join(", ");
     const head = `insert into ${table} (${columns.map(ident).join(", ")}) values ${values}`;
     if (mutation.verb === "insert") return `${head}${this.back()}`;

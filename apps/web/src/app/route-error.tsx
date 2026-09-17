@@ -109,6 +109,12 @@ export function RouteError({
           type="button"
           className="btn-secondary danger"
           onClick={() => {
+            // `window.confirm` is deliberate here, and this is one of the two
+            // places in the product that keeps it. An error boundary may be
+            // rendering because the component tree that draws the app's own
+            // modal is what failed, so the confirmation has to depend on
+            // nothing that could be the thing that broke. Everywhere else uses
+            // `components/confirm-dialog.tsx`.
             if (!window.confirm("Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.")) return;
             resetAppData();
           }}

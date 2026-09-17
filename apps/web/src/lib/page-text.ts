@@ -34,5 +34,11 @@ export function noteBodyText(page: VaultPageSummary | VaultPage): string {
  * the first save would then write that emptiness back over the note.
  */
 export function isHydratedPage(page: VaultPageSummary | VaultPage): page is VaultPage {
-  return "body" in page;
+  // `"body" in page` alone is not enough: the repositories' `listSummaries`
+  // rows carry `body: ""` beside their `bodyPreview` (`toSummaryDomain`), so
+  // the property test alone called every summary hydrated and no tab ever
+  // fetched its full text. A preview is the mark of a summary — `VaultPage`
+  // keeps it empty on a full page precisely so this can tell them apart.
+  if (!("body" in page) || typeof page.body !== "string") return false;
+  return !("bodyPreview" in page && page.bodyPreview);
 }

@@ -27,6 +27,13 @@ export interface DesktopImage {
   url: string;
 }
 
+export interface DesktopLocalDbState {
+  failure: string | null;
+  dataDir: string;
+  /** The backup this run's database was rebuilt from, when it was. */
+  restoredFrom?: string | null;
+}
+
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
@@ -94,7 +101,10 @@ export interface DesktopBridge {
   readPreference(name: DesktopPreferenceName): Promise<DesktopPreferenceValue>;
 
   /** Keeps one. Writing null forgets it. */
-  writePreference(name: DesktopPreferenceName, value: DesktopPreferenceValue): Promise<void>;
+  writePreference(
+    name: DesktopPreferenceName,
+    value: DesktopPreferenceValue,
+  ): Promise<void>;
 
   /**
    * The operating system's keychain, for the few credentials worth keeping.
@@ -125,7 +135,22 @@ export interface DesktopBridge {
    * is a process the browser does not have. Each call is its own transaction on
    * the far side, so nothing here can hold a connection open.
    */
-  queryLocalDb(sql: string, params?: readonly (string | number | boolean | null)[]): Promise<unknown[]>;
+  queryLocalDb(
+    sql: string,
+    params?: readonly (string | number | boolean | null | Uint8Array)[],
+  ): Promise<unknown[]>;
+
+  /**
+   * Whether the local database could be opened, and where it lives.
+   *
+   * `failure` is `null` until an open has failed. When it is set, every
+   * `queryLocalDb` is failing for the same reason, and `resetLocalDb` is the
+   * way out: it moves the data directory aside (never deletes it) so the next
+   * query starts a fresh one. Refused while the database is healthy. The shell
+   * may relaunch itself to complete the move; the promise then never settles.
+   */
+  localDbState(): Promise<DesktopLocalDbState>;
+  resetLocalDb(): Promise<void>;
 
   /**
    * The workspace folder on disk: the same markdown the export produces, but
@@ -195,7 +220,10 @@ export interface DesktopBridge {
    * should say.
    */
   onSemanticRank(
-    cb: (query: string, candidates: string[]) => Promise<string[] | null> | string[] | null,
+    cb: (
+      query: string,
+      candidates: string[],
+    ) => Promise<string[] | null> | string[] | null,
   ): () => void;
   compileTex(
     files: readonly { path: string; content: string }[],
@@ -214,7 +242,62 @@ export interface DesktopBridge {
    * Requires a token to have been kept under `overleaf-token`; without one
    * this rejects, and the caller's recourse is to ask for it again.
    */
-  readOverleafProject(projectId: string, entryFile: string): Promise<DesktopOverleafSource>;
+  readOverleafProject(
+    projectId: string,
+    entryFile: string,
+  ): Promise<DesktopOverleafSource>;
+
+  /**
+   * The operating system's handwriting recogniser, where there is one.
+   *
+   * Windows ships `InkAnalyzer` with its language models installed; the shell
+   * reaches it through a helper executable over stdio (§5.2). `inkAvailable`
+   * probes the helper once and caches a yes; `inkRecognise` sends one page's
+   * lines as stroke trajectories and gets text back. Nothing leaves the
+   * machine, which is what lets this be the preferred engine.
+   *
+   * A browser has no equivalent: Chromium's handwriting API was verified absent
+   * even on Windows, so the web build's engine is the in-worker model instead.
+   */
+  inkAvailable(): Promise<boolean>;
+  inkRecognise(request: DesktopInkRequest): Promise<DesktopInkResult>;
+
+  /**
+   * The pen's own haptics (ink-native-bridges.md §4): a Surface Slim Pen 2
+   * vibrates like graphite on paper, driven per sample from pressure and speed.
+   * `inkHapticsAvailable` is the OS having the API; whether the pen in the hand
+   * has an actuator is only known once it is on the glass, so a yes means the
+   * samples are worth sending. `inkHaptics` never answers.
+   */
+  inkHapticsAvailable(): Promise<boolean>;
+  inkHaptics(message: DesktopInkHaptics): void;
+
+  /**
+   * Focus mode (`⌘⇧F`) at the window's level: on, the menu bar and the
+   * title bar go and the window fills the screen; off, they come back. A
+   * browser has its own full-screen key and this is a no-op there. Optional
+   * because an installed shell may predate it.
+   */
+  setWindowFocus?(on: boolean): void;
+}
+
+/** One message to the pen's actuator: velocity in CSS px/ms, pressure in [0, 1]. */
+export type DesktopInkHaptics =
+  | { type: "tool"; tool: "pen" | "highlighter" | "eraser" }
+  | { type: "update"; pressure: number; velocity: number }
+  | { type: "stop" };
+
+/** One page's lines for the recogniser: flat `[x, y, pressure, …]` per stroke. */
+export interface DesktopInkRequest {
+  lines: { strokes: number[][] }[];
+  vocabulary?: string[];
+  lang?: string;
+}
+
+export interface DesktopInkResult {
+  engine: string;
+  lines: { text: string; confidence: number; alternatives?: string[] }[];
+  ms: number;
 }
 
 /** One Overleaf checkout, flattened for the wire. */
@@ -294,15 +377,12 @@ export interface DesktopVaultEntry {
 }
 
 /** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */
-export type DesktopSecretName = "ai-provider" | "local-api-token" | "overleaf-token";
+export type DesktopSecretName =
+  "ai-provider" | "local-api-token" | "overleaf-token";
 
 /** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
 export type DesktopPreferenceName =
-  | "sync-offer-shown"
-  | "sync-target"
-  | "vault-root"
-  | "vault-git"
-  | "local-api";
+  "sync-offer-shown" | "sync-target" | "vault-root" | "vault-git" | "local-api";
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {

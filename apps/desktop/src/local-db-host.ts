@@ -15,15 +15,23 @@ import type { IpcResult } from "./channels";
  */
 
 const OPEN_FAILED = "The local database could not be opened.";
+const HEALTHY = "The local database opened normally; there is nothing to reset.";
 const BAD_QUERY = "A query is a string of SQL and a list of plain values.";
 
-/** What a parameter may be. Anything else is a structured clone away from a lie. */
-type Param = string | number | boolean | null;
+/**
+ * What a parameter may be. Anything else is a structured clone away from a
+ * lie. Bytes are in: a bytea column (the CRDT log) takes nothing else, and the
+ * structured clone carries a `Uint8Array` across whole.
+ */
+type Param = string | number | boolean | null | Uint8Array;
 
 function validParams(value: unknown): value is Param[] {
   return (
     Array.isArray(value) &&
-    value.every((p) => p === null || ["string", "number", "boolean"].includes(typeof p))
+    value.every(
+      (p) =>
+        p === null || p instanceof Uint8Array || ["string", "number", "boolean"].includes(typeof p),
+    )
   );
 }
 
@@ -48,10 +56,58 @@ export interface LocalDbHostOptions {
    * the directory's name and the file's name together.
    */
   migrations: readonly string[];
+  /** Where the data lives. Reported to the page, so a person can find it. */
+  dataDir: string;
+  /**
+   * Move the data directory out of the way so the next open starts fresh.
+   *
+   * Injected, like `open`, because how a directory is moved is the shell's
+   * business — on Windows a failed engine can still hold handles, and the move
+   * may have to wait for a relaunch. Whatever it does, it must never delete:
+   * the directory being moved is somebody's data, unreadable or not.
+   */
+  discard: () => Promise<void>;
+  /**
+   * A second chance when `open` throws: an engine built from a backup, and
+   * where the backup came from — or `null` when there is none to build from.
+   * Injected like the rest, because finding and loading a backup is the
+   * shell's business; what happens here is only that it is tried before the
+   * failure is shown to anybody.
+   */
+  recover?: (cause: unknown) => Promise<{ client: LocalClient; from: string } | null>;
+}
+
+/** What the page can know about the database without querying it. */
+export interface LocalDbState {
+  /** Why the last open failed, or `null` if it has not failed. */
+  failure: string | null;
+  dataDir: string;
+  /** The backup this run's database was rebuilt from, when it was. */
+  restoredFrom: string | null;
+}
+
+/** Whether a statement can change anything; a backup is only worth taking after one. */
+function writes(sql: string): boolean {
+  return !/^\s*(select|with|show|explain)\b/i.test(sql);
+}
+
+/** An open that failed, told apart from a query that did. */
+class OpenError extends Error {
+  constructor(cause: unknown) {
+    super(`${OPEN_FAILED} ${cause instanceof Error ? cause.message : String(cause)}`);
+  }
 }
 
 export class LocalDbHost {
   private opening: Promise<LocalDatabase> | undefined;
+  /**
+   * The last open failure, kept so `state()` can report it and `reset()` can
+   * refuse to touch a database that never failed. Cleared by a reset.
+   */
+  private failure: string | undefined;
+  private restoredFrom: string | undefined;
+  /** Whether anything may have changed since the last `snapshot()`. */
+  private dirty = false;
 
   constructor(private readonly options: LocalDbHostOptions) {}
 
@@ -64,7 +120,14 @@ export class LocalDbHost {
       // fighting the first for the same files.
       let client: LocalClient | undefined;
       try {
-        client = await this.options.open();
+        try {
+          client = await this.options.open();
+        } catch (cause) {
+          const recovered = await this.options.recover?.(cause);
+          if (!recovered) throw cause;
+          client = recovered.client;
+          this.restoredFrom = recovered.from;
+        }
         const db = new LocalDatabase(client);
         const migrations = this.options.migrations.flatMap((dir) =>
           readMigrations(dir).map((m) => ({ ...m, name: `${path.basename(dir)}/${m.name}` })),
@@ -80,7 +143,9 @@ export class LocalDbHost {
         // the original throw is re-raised below either way.
         if (client) await client.close().catch(() => undefined);
         this.opening = undefined;
-        throw error;
+        const failed = new OpenError(error);
+        this.failure = failed.message;
+        throw failed;
       }
     })();
     return this.opening;
@@ -101,9 +166,52 @@ export class LocalDbHost {
     try {
       const db = await this.database();
       const { rows } = await db.query<unknown>(sql, (params as Param[] | undefined) ?? []);
+      if (writes(sql)) this.dirty = true;
       return { ok: true, value: rows };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : OPEN_FAILED };
+    }
+  }
+
+  state(): LocalDbState {
+    return {
+      failure: this.failure ?? null,
+      dataDir: this.options.dataDir,
+      restoredFrom: this.restoredFrom ?? null,
+    };
+  }
+
+  /**
+   * A copy of the database if it is open and has changed since the last one;
+   * `null` otherwise. Never opens: a backup of a database nobody has used is
+   * a backup of nothing. The change flag is cleared once the dump is made,
+   * so a dump that fails leaves the next call to try again.
+   */
+  async snapshot(): Promise<Blob | null> {
+    if (!this.opening || !this.dirty) return null;
+    const db = await this.opening.catch(() => undefined);
+    const blob = await db?.dump();
+    if (blob) this.dirty = false;
+    return blob ?? null;
+  }
+
+  /**
+   * Move the unopenable database aside, so the next query starts a new one.
+   *
+   * Refused unless an open has actually failed: a page that could reset a
+   * working database would be a page that could make a person's data
+   * disappear from the app with one call. The failure is cleared only once
+   * the move succeeded, so a move that fails leaves the button where it was
+   * and the person can try again after reading why.
+   */
+  async reset(): Promise<IpcResult<null>> {
+    if (this.failure === undefined) return { ok: false, message: HEALTHY };
+    try {
+      await this.options.discard();
+      this.failure = undefined;
+      return { ok: true, value: null };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
     }
   }
 

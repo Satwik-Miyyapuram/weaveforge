@@ -1,6 +1,6 @@
 # Desktop editor workspace
 
-**Status:** built and shipped; reachable as Library → Editor in the desktop build (`editor-workspace` module, `desktopOnly`).
+**Status:** built and shipped; reachable as Library → Editor in the desktop build (`editor-workspace` module, `desktopOnly`). Since redesigned — the icon rail, full-bleed shell, explorer sections, per-tab Edit/Read and status bar from [`design/editor-workspace-redesign.md`](../../design/editor-workspace-redesign.md) shipped as steps 0–8 of that plan's §5 (commits `8883b70`, `888690e`, `3954765`, `3e3d962`, `72d62ca`). Step 9, the optional Problems/Output panel, was deliberately not built.
 **Question it answers:** the writing in WeaveForge is spread across three
 screens — vault notes, a paper's notes field, report sections — and each is a
 single-document page. Can the desktop app give that writing one workspace,

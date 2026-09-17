@@ -116,6 +116,12 @@ const securityHeaders = [
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       "connect-src 'self' https: wss:",
+      // The ink worker. Without this the CSP falls back through `child-src` to
+      // `script-src`, which has no `blob:` — so a bundler that emits the worker
+      // from a blob URL makes **ink work on desktop and fail on the web**, which
+      // is the most confusing shape a bug can take. The desktop shell already
+      // allows it (`apps/desktop/src/app-protocol.ts`); this is the web half.
+      "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

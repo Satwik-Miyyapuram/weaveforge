@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Windows Ink recogniser, as a helper process (ink-notes-plan.md §5.3).
+
+    `net9.0-windows10.0.19041.0` is the target framework that brings the Windows
+    SDK projections with it, which is what makes `Windows.UI.Input.Inking.Analysis`
+    reachable from plain C# without a UWP app or the Windows App SDK. Nothing here
+    is WinUI: the program is a console app that speaks JSON on stdio.
+
+    A helper executable rather than a native addon, deliberately: ~100 lines of
+    C# against the OS's own recogniser, no Electron ABI coupling, no
+    rebuild-per-Electron-bump, and a crash in the recogniser kills this process
+    rather than the app. It is also the only form of this that a CI runner can
+    test without Electron.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!--
+      22000, not 19041: the pen haptics waveforms (`PencilContinuous` and its
+      kin, PenHapticsEngine.cs) are Windows 11 API. The program still runs on
+      17763 — every 22000 member is behind an `ApiInformation` check.
+    -->
+    <TargetFramework>net9.0-windows10.0.22000.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ink-recogniser</AssemblyName>
+    <RootNamespace>WeaveForge.InkRecogniser</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Self-contained and trimmed: the target machine may have no .NET at all, and
+      this is shipped inside an Electron app rather than installed. Trimming is on
+      because nothing here reflects over types; `PublishTrimmed` with the Windows
+      SDK projections is verified by the build script, not assumed.
+    -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- CSWinRT generates the projections for the WinRT types this uses. -->
+    <WindowsSdkPackageVersion>10.0.22000.57</WindowsSdkPackageVersion>
+  </PropertyGroup>
+
+</Project>

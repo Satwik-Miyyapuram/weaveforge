@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { commandForChord, isTypingTarget } from "../application/keybindings";
+import { chordFor, commandForChord, isTypingTarget, shortcutTable } from "../application/keybindings";
 
 test("Ctrl and Cmd mean the same thing, because both keyboards exist", () => {
   assert.equal(commandForChord({ key: "p", ctrlKey: true }), "quick-open");
@@ -14,6 +14,39 @@ test("the shell's four gestures are bound and nothing else is", () => {
   assert.equal(commandForChord({ key: "Tab", ctrlKey: true }), "next-tab");
   assert.equal(commandForChord({ key: "Tab", ctrlKey: true, shiftKey: true }), "previous-tab");
   assert.equal(commandForChord({ key: "q", ctrlKey: true }), null);
+});
+
+test("⌘E toggles the document between Edit and Read", () => {
+  assert.equal(commandForChord({ key: "e", metaKey: true }), "toggle-mode");
+  assert.equal(commandForChord({ key: "E", ctrlKey: true }), "toggle-mode");
+  assert.equal(commandForChord({ key: "e" }), null);
+});
+
+test("⌘N asks for a new note", () => {
+  assert.equal(commandForChord({ key: "n", metaKey: true }), "new-note");
+  assert.equal(commandForChord({ key: "N", ctrlKey: true }), "new-note");
+  assert.equal(commandForChord({ key: "b", metaKey: true }), "toggle-explorer");
+  assert.equal(commandForChord({ key: "F", metaKey: true, shiftKey: true }), "toggle-focus");
+  assert.equal(commandForChord({ key: "f", ctrlKey: true }), null);
+  assert.equal(commandForChord({ key: "n" }), null);
+});
+
+test("the shortcut table lists every command exactly once", () => {
+  const table = shortcutTable();
+  const commands = Object.keys(table);
+  assert.equal(new Set(commands).size, commands.length);
+  // Everything `commandForChord` can return must have a printable chord, or the
+  // empty state's grid would silently omit a command the shell accepts.
+  for (const command of ["quick-open", "toggle-mode", "split-right", "close-tab", "next-tab", "previous-tab"]) {
+    assert.ok(table[command as keyof typeof table], `${command} has no chord`);
+  }
+});
+
+test("a printed chord round-trips through the chord parser", () => {
+  assert.equal(chordFor("quick-open"), "⌘P");
+  assert.equal(chordFor("toggle-mode"), "⌘E");
+  assert.equal(chordFor("close-tab"), "⌘W");
+  assert.equal(chordFor("split-right"), "⌘\\");
 });
 
 test("an unmodified key is a keystroke, not a command", () => {

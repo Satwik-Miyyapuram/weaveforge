@@ -149,18 +149,24 @@ function perpendicularDistance(
 }
 
 /**
- * Ramer–Douglas–Peucker over a flat point list.
+ * The indices {@link simplifyInkPath} would keep, rather than the points.
  *
- * Iterative rather than recursive: a 4,000-point stroke recursing per point can
- * exhaust the stack in a browser, and losing the whole annotation to a
- * RangeError is a far worse outcome than a slightly larger stroke.
+ * Ink notes need this and the reader does not: a note's stroke carries a
+ * pressure per point, and a point that survives for its *shape* is not the same
+ * set as a point that must survive for its *pressure* (§4.4 of the ink plan).
+ * Recovering the indices by matching coordinates back afterwards would be
+ * ambiguous the moment a stroke crosses itself, so the simplification returns
+ * them directly and `simplifyInkPath` is the coordinate view of the same pass.
  */
-export function simplifyInkPath(
+export function simplifyPathIndices(
   path: readonly number[],
   tolerance = INK_SIMPLIFY_TOLERANCE,
 ): number[] {
   const count = Math.floor(path.length / 2);
-  if (count <= 2 || tolerance <= 0) return [...path].slice(0, count * 2);
+  if (count <= 0) return [];
+  if (count <= 2 || tolerance <= 0) {
+    return Array.from({ length: count }, (_unused, index) => index);
+  }
 
   const keep = new Uint8Array(count);
   keep[0] = 1;
@@ -191,7 +197,25 @@ export function simplifyInkPath(
 
   const out: number[] = [];
   for (let i = 0; i < count; i++) {
-    if (keep[i]) out.push(path[i * 2]!, path[i * 2 + 1]!);
+    if (keep[i]) out.push(i);
+  }
+  return out;
+}
+
+/**
+ * Ramer–Douglas–Peucker over a flat point list.
+ *
+ * Iterative rather than recursive: a 4,000-point stroke recursing per point can
+ * exhaust the stack in a browser, and losing the whole annotation to a
+ * RangeError is a far worse outcome than a slightly larger stroke.
+ */
+export function simplifyInkPath(
+  path: readonly number[],
+  tolerance = INK_SIMPLIFY_TOLERANCE,
+): number[] {
+  const out: number[] = [];
+  for (const index of simplifyPathIndices(path, tolerance)) {
+    out.push(path[index * 2]!, path[index * 2 + 1]!);
   }
   return out;
 }

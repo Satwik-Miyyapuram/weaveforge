@@ -8,6 +8,8 @@ import { useProject } from "./project-provider";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
+import { EmptyState } from "@/components/empty-state";
+import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
@@ -57,21 +59,39 @@ export function ProjectsScreen() {
       {loading && <ScreenLoader status="Loading projects…" />}
 
       {!loading && projects.length === 0 && (
-        <div className="empty">
-          <p>No projects yet. Use “New project” to create your first one.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<WeaveForgeLogo className="app-logo" />}
+          title="No projects yet"
+          body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
+          action={
+            <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+              + New project
+            </button>
+          }
+        />
       )}
 
       {!loading && projects.length > 0 && (
         <ul className="project-list">
           {projects.map((p) => (
-            <li
-              key={p.id}
-              className="card project-card"
-              onClick={() => setProject(p.id)}
-            >
-              <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
-              <span className="project-name">{p.name}</span>
+            <li key={p.id}>
+              {/*
+               * A real `<button>`, not a `<li>` with an `onClick`. This is the
+               * first screen a signed-in user with no project sees, and the
+               * clickable list item could not be reached by keyboard or
+               * activated with Enter or Space — no `role`, no `tabIndex`, no
+               * key handler. A button gets the role, the focus ring and both
+               * activation keys for free.
+               */}
+              <button
+                type="button"
+                className="card project-card"
+                onClick={() => setProject(p.id)}
+              >
+                <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
+                <span className="project-name">{p.name}</span>
+              </button>
             </li>
           ))}
         </ul>

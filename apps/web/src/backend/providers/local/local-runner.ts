@@ -15,7 +15,7 @@ import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
  * and the server's PostgREST path able to run the same SQL.
  */
 
-export type LocalParam = string | number | boolean | null;
+export type LocalParam = string | number | boolean | null | Uint8Array;
 
 /** The identity is not passed from here; see `local-db-host.ts` for why. */
 export class LocalRunner {

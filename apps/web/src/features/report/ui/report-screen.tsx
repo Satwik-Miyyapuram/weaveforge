@@ -15,6 +15,8 @@ import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/s
 import { AddSectionForm, type ReportParentOption } from "./add-section-form";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { EntityCard } from "@/components/entity-card";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
@@ -262,9 +264,21 @@ export function ReportScreen() {
 
       {error && <FormError>{error}</FormError>}
       {!error && tree.length === 0 && pinnedSections.length === 0 && (
-        <div className="empty">
-          <p>No sections yet. Use “+ Report” to sketch your outline.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="doc" />}
+          title="No sections yet"
+          body="The report is the outline your thesis gets written into. Add the sections you already know — introduction, method, results — and the notes and runs you have made start having somewhere to go."
+          action={
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setComposeOpen(true)}
+            >
+              + Section
+            </button>
+          }
+        />
       )}
 
       {tree.length > 0 && (

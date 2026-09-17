@@ -13,6 +13,7 @@ export const WORKSPACE_META_DIR = ".weaveforge";
 
 export type WorkspaceEntityType =
   | "vault_page"
+  | "ink_page"
   | "paper"
   | "reading_list"
   | "report_section"
@@ -23,6 +24,10 @@ export type WorkspaceEntityType =
 /** Top-level directory per entity type. */
 export const ENTITY_DIRS: Record<WorkspaceEntityType, string> = {
   vault_page: "notes",
+  // An ink note is a note: it lives in the same tree, reads in the same pane and
+  // resolves `[[links]]` against the same table. Only its body differs — the
+  // strokes are beside it in `.ink/<id>/`, never in the markdown (§4.6).
+  ink_page: "notes",
   paper: "papers",
   reading_list: "reading-lists",
   report_section: "report",
@@ -46,6 +51,9 @@ export const ENTITY_DIRS: Record<WorkspaceEntityType, string> = {
  */
 export const KIND_SUFFIX: Record<WorkspaceEntityType, string> = {
   vault_page: "note",
+  // `.ink.md`: the note is still markdown — the text layer is the body, and the
+  // strokes are per-page binary chunks in the `.ink/<id>/` sidecar (§4.1).
+  ink_page: "ink",
   paper: "paper",
   reading_list: "list",
   report_section: "report",
@@ -179,6 +187,19 @@ export function logPath(id: string, entryDate: string): string {
 
 /** Assets live in one tree so a body's relative links resolve from anywhere. */
 export const ASSET_DIR = "assets";
+
+/** Where a paper's PDF is kept in the folder: `papers/pdf/<paperId>.pdf`. */
+export const PAPER_PDF_DIR = `${ENTITY_DIRS.paper}/pdf`;
+
+/**
+ * The folder's copy of a paper's PDF. A desktop copy with a folder open keeps
+ * every PDF it has fetched here — the folder is the user's, syncs and goes
+ * under git like the notes do, and reads back with no network — where a
+ * browser has only its own cache and fetches again when that is gone.
+ */
+export function paperPdfPath(paperId: string): string {
+  return `${PAPER_PDF_DIR}/${paperId}.pdf`;
+}
 
 /**
  * Where a stored blob lands in the folder.
