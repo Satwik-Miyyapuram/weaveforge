@@ -30,6 +30,20 @@
         "3011"
       ],
       "port": 3011
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "apps/web",
+        "--",
+        "-p",
+        "3012"
+      ],
+      "port": 3012
     }
   ]
 }

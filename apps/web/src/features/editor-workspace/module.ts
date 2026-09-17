@@ -1,9 +1,10 @@
 import type { FeatureModule } from "@weaveforge/core";
 
 /**
- * The split-pane editor. Desktop only: a browser tab cannot give up Ctrl-W
- * and Ctrl-P, and the served build would otherwise carry a nav entry to a
- * screen that only explains why it is not there.
+ * The split-pane editor, in both builds. A browser tab keeps Ctrl-W and
+ * Ctrl-N for itself (they close the tab and open a window before the page
+ * sees them), so on the web those two commands are reached from the strip
+ * and the explorer; everything else the workspace does works the same.
  */
 export const editorWorkspaceModule: FeatureModule = {
   id: "editor-workspace",
@@ -11,5 +12,4 @@ export const editorWorkspaceModule: FeatureModule = {
   navGroup: "library",
   navItems: [{ key: "editor-workspace", label: "Editor", path: "/workspace", icon: "pencil" }],
   routes: [{ path: "/workspace", component: "editor-workspace/WorkspaceScreen" }],
-  desktopOnly: true,
 };

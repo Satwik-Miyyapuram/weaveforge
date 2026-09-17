@@ -17,12 +17,27 @@ import { upgradeMermaidFences } from "@/lib/mermaid-render";
  * highlighting and drawing work seamlessly over the text.
  */
 
-/** The underlay's geometry, shared with the text flow (§ink-text-flow). */
+/**
+ * The underlay's geometry, shared with the text flow (§ink-text-flow).
+ *
+ * Every length is a page length — 0.1 mm units, scaled to the screen — not a
+ * screen length. The font used to be `max(12, 15·scale)` px: at fit-width
+ * that is 12 px, about 3 mm on the paper, and it did not grow with zoom
+ * until 80 %. Handwriting with the default 0.3 mm pen is 4–5 mm tall, so what
+ * was written could never be the size of the text beside it, and a page held
+ * a different number of rows at every zoom. 4.8 mm type on a 7.2 mm pitch is
+ * college-ruled paper written with a fine-liner: the text, the ruling and the
+ * ink all live on the page, and zoom only magnifies.
+ */
 export const INK_UNDERLAY = {
-  padY: (scale: number) => Math.round(48 * scale),
-  padX: (scale: number) => Math.round(56 * scale),
-  fontSize: (scale: number) => Math.max(12, Math.round(15 * scale)),
-  lineHeight: 1.6,
+  /** Top and bottom margin, 12 mm. */
+  padY: (scale: number) => 120 * scale,
+  /** Left and right margin, 15 mm. */
+  padX: (scale: number) => 150 * scale,
+  /** 4.8 mm — about 13.5 pt on paper, the height of a 0.3 mm pen's writing. */
+  fontSize: (scale: number) => 48 * scale,
+  /** 4.8 mm × 1.5 = 7.2 mm, the pitch of college-ruled paper. */
+  lineHeight: 1.5,
 };
 
 /**

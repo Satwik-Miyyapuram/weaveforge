@@ -19,18 +19,20 @@
 export const INK_WIDTH_UNITS_PER_MM = 10;
 
 /**
- * The three pen widths the ink bar offers, in 0.1 mm: 0.5, 1.0 and 1.6 mm.
- *
- * These are the *rendered* widths at a pen's rest pressure, and they are wider
- * than the nib sizes a stationery catalogue would print for the same look: a
- * 0.5 mm gel pen leaves a line nearer 1 mm because ink spreads, and every
- * note-taking app that looks "like a pen" draws it that wide. The first
- * revision offered 0.3 / 0.6 / 1.0 and read as a hairline on the device.
+ * The pen widths the ink bar offers, in 0.1 mm: 0.1, 0.3, 0.5 and 0.7 mm —
+ * the nib sizes a stationery catalogue prints, so a person who writes with a
+ * 0.3 gets the line they know. They are the rendered width at rest pressure;
+ * pressure and speed move it either way from there (below).
  */
-export const INK_PEN_WIDTHS = [5, 10, 16] as const;
+export const INK_PEN_WIDTHS = [1, 3, 5, 7] as const;
 
-/** The default pen, and the width a stroke with no usable one falls back to. */
-export const INK_PEN_WIDTH = 10;
+/**
+ * The default pen, 0.3 mm — the fine-liner most handwriting is done with —
+ * and the width a stroke with no usable one falls back to. The sheet's text
+ * is sized to match it: 4.8 mm type on a 7.2 mm pitch is what a 0.3 mm pen
+ * writes on college-ruled paper (`INK_UNDERLAY`).
+ */
+export const INK_PEN_WIDTH = 3;
 
 /** Highlighter nib: 6 mm, the width the plan and the prototype both name. */
 export const INK_HIGHLIGHTER_WIDTH = 60;

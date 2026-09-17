@@ -34,7 +34,7 @@ test("the app itself is all still there", async () => {
   }
 });
 
-test("the editor workspace is a desktop screen, so the desktop build lists it", async () => {
+test("the editor workspace is in the desktop build", async () => {
   const registry = await offlineRegistry();
   const ids = registry.allModules.map((module) => module.id);
   for (const id of ["editor-workspace"]) {

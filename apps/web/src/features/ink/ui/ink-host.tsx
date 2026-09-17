@@ -42,15 +42,12 @@ import {
   inkAttachmentIndex,
   inkPageBackground,
   inkPageFigures,
-  reorderFigures,
   joinInkTextLayer,
   newInkChunkId,
   readInkNoteBody,
   splitInkTextLayer,
   withInkPageBackground,
-  withInkPageFigures,
   writeInkNoteBody,
-  type FigureGeometry,
   type InkColour,
   type InkHand,
   type InkPaper,
@@ -83,7 +80,7 @@ import {
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
 import { InkBar, type InkBarTool } from "./ink-bar";
-import { InkFigures, InkFigureEditor } from "./ink-figures";
+import { InkFigures } from "./ink-figures";
 import { fitScale } from "./ink-page-math";
 import { InkSheetTextUnderlay, pureInkPageText } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
@@ -94,6 +91,7 @@ import { useFlowedTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkFigureUrls } from "./use-ink-figure-urls";
+import { InkActiveFigureEditor, useInkFigures } from "./use-ink-figures";
 import { useInkLayout } from "./use-ink-layout";
 import { useInkNativeOverlay } from "./use-ink-native-overlay";
 import { useInkNoteStore } from "./use-ink-note-store";
@@ -366,33 +364,10 @@ export function InkHost({
   const { recognised, recognising, progress, unavailable, setUnavailable } =
     recognition;
 
-  /**
-   * The figures on the page being looked at (§figure): images placed on the
-   * paper, as many as wanted, moved and resized by hand. The text layer is
-   * the model — `withInkPageFigures` reads and writes the block — and this
-   * state is only its mirror for rendering, kept in step on every page change
-   * and every drag's end.
-   */
-  const [figures, setFigures] = useState<readonly FigureGeometry[]>([]);
-  const figuresRef = useRef<readonly FigureGeometry[]>([]);
-  figuresRef.current = figures;
-  /**
-   * The figure whose controls are open, by index into `figures` — `null`
-   * when none are. The controls are the only figure DOM above the canvas,
-   * because they are the only part that takes its own pointer events.
-   */
-  const [figureControls, setFigureControls] = useState<number | null>(null);
-
-  /** A figure's placement changed: write the block back and save. */
-  const onFiguresChange = useCallback(
-    (next: readonly FigureGeometry[]) => {
-      setFigures(next);
-      const text = textPagesRef.current[pageIndexRef.current] ?? "";
-      textPagesRef.current[pageIndexRef.current] = withInkPageFigures(text, next);
-      scheduleSave();
-    },
-    [scheduleSave],
-  );
+  /** The page's figures (§use-ink-figures): the text layer's block, mirrored. */
+  const figureState = useInkFigures({ textPagesRef, pageIndexRef, scheduleSave });
+  const { figures, figuresRef, setFigures, figureControls, setFigureControls } = figureState;
+  const { onFiguresChange, onFigureChange } = figureState;
 
   /**
    * Page media (§use-ink-page-media): a page's background and its figures,
@@ -763,13 +738,7 @@ export function InkHost({
           onDropFile={(file, at) => void onAddFigure(file, at ?? undefined)}
           figures={figures}
           editingFigure={figureControls}
-          onFigureChange={(index, geometry) => {
-            // The surface reports a placement; the text layer is the model.
-            const next = figuresRef.current.map((one, i) =>
-              i === index ? { ...one, ...geometry } : one,
-            );
-            onFiguresChange(next);
-          }}
+          onFigureChange={onFigureChange}
           onFigureActivate={(index) => setFigureControls(index)}
           ensurePage={ensurePageAt}
           penActive={penSessionActive}
@@ -785,40 +754,12 @@ export function InkHost({
             </>
           }
           above={
-            figureControls !== null && figures[figureControls] ? (
-              <InkFigureEditor
-                figure={figures[figureControls]}
-                index={figureControls}
-                count={figures.length}
-                scale={scale}
-                pageSize={pageSize}
-                imageUrl={figureUrls.get(figures[figureControls].path)}
-                onChange={(next) => {
-                  const next_ = figuresRef.current.map((one, i) => {
-                    if (i !== figureControls) return one;
-                    const { crop, ...box } = next;
-                    return crop ? { ...one, ...box, crop } : { path: one.path, ...box };
-                  });
-                  onFiguresChange(next_);
-                }}
-                onReorder={(step) => {
-                  // The block's order is the paint order: moving the line
-                  // moves the picture, and the editor follows it to its new
-                  // index.
-                  const next = reorderFigures(figuresRef.current, figureControls, step);
-                  const moved = next.indexOf(figuresRef.current[figureControls]!);
-                  onFiguresChange(next);
-                  setFigureControls(moved);
-                }}
-                onRemove={() => {
-                  onFiguresChange(
-                    figuresRef.current.filter((_, i) => i !== figureControls),
-                  );
-                  setFigureControls(null);
-                }}
-                onClose={() => setFigureControls(null)}
-              />
-            ) : null
+            <InkActiveFigureEditor
+              state={figureState}
+              scale={scale}
+              pageSize={pageSize}
+              imageUrls={figureUrls}
+            />
           }
         />
       </InkRail>
