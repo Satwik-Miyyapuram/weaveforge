@@ -112,6 +112,7 @@ export {
   inkPageFigures,
   withInkPageFigures,
   figureAltFor,
+  figureImageFrame,
   type FigureOrderStep,
   type FigureHandle,
   FIGURE_HANDLES,

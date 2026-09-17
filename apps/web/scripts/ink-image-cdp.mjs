@@ -24,187 +24,19 @@
  * Run: node scripts/ink-image-cdp.mjs [--headed] [--keep]
  * Screenshots land in `local-dev/ink-image-cdp/`.
  */
-import { spawn } from "node:child_process";
-import { createServer } from "node:http";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-import { build } from "esbuild";
-import { chromium } from "@playwright/test";
+import { startInkHarness } from "./lib/ink-cdp-harness.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, "..");
-const SHOTS = path.resolve(ROOT, "..", "local-dev", "ink-image-cdp");
-const HEADED = process.argv.includes("--headed");
-
-/* ------------------------------------------------------------------ bundling */
-
-const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "weaveforge-ink-"));
-fs.mkdirSync(path.join(outDir, "worker"), { recursive: true });
-
-await build({
-  entryPoints: [path.join(ROOT, "e2e/fixtures/ink-harness.tsx")],
-  bundle: true,
-  outfile: path.join(outDir, "bundle.js"),
-  // ESM, not IIFE: the host builds its worker from
-  // `new URL("../worker/ink-worker.ts", import.meta.url)`, which only resolves
-  // against a real module URL.
-  format: "esm",
-  platform: "browser",
-  target: "es2022",
-  jsx: "automatic",
-  alias: { "@": path.join(ROOT, "src") },
-  loader: { ".css": "css" },
-  logLevel: "warning",
+const { page, origin, snap, check, finish } = await startInkHarness({
+  name: "ink-image-cdp",
+  title: "ink",
+  paneHeight: 1180,
+  port: 9333,
+  viewportHeight: 1240,
 });
-
-await build({
-  entryPoints: [path.join(ROOT, "src/features/ink/worker/ink-worker.ts")],
-  bundle: true,
-  // Named exactly as the host asks for it, and a classic worker because that is
-  // how the host constructs it.
-  outfile: path.join(outDir, "worker", "ink-worker.ts"),
-  format: "iife",
-  platform: "browser",
-  target: "es2022",
-  logLevel: "warning",
-});
-
-fs.writeFileSync(
-  path.join(outDir, "index.html"),
-  `<!doctype html><meta charset="utf-8"><title>ink</title>` +
-    `<link rel="stylesheet" href="/bundle.css">` +
-    `<style>html,body{margin:0;background:#f4f4f5}` +
-    `#ink{width:900px;height:1180px;margin:0 auto}</style>` +
-    `<div id="ink"></div><script type="module" src="/bundle.js"></script>`,
-);
-
-/* -------------------------------------------------------------------- serving */
-
-const server = createServer((req, res) => {
-  const name = (req.url ?? "/").split("?")[0];
-  if (name === "/favicon.ico") {
-    // Chrome asks for one anyway; a 404 here is noise in the console report.
-    res.writeHead(204);
-    res.end();
-    return;
-  }
-  const file =
-    name === "/" ? path.join(outDir, "index.html") : path.join(outDir, name);
-  if (!file.startsWith(outDir) || !fs.existsSync(file)) {
-    res.writeHead(404);
-    res.end("not found");
-    return;
-  }
-  // Typed by what the file is, not by the URL: `/` is the HTML, and the worker
-  // is served from a path ending in `.ts` even though it is plain JavaScript by
-  // then.
-  res.writeHead(200, {
-    "Content-Type": file.endsWith(".html")
-      ? "text/html"
-      : file.endsWith(".css")
-        ? "text/css"
-        : "text/javascript",
-  });
-  res.end(fs.readFileSync(file));
-});
-await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
-
-/* ------------------------------------------------------------------- browser */
-
-const PORT = 9333 + (process.pid % 200);
-const chrome = spawn(
-  chromium.executablePath(),
-  [
-    HEADED ? "--headless=false" : "--headless=new",
-    `--remote-debugging-port=${PORT}`,
-    `--user-data-dir=${path.join(outDir, "profile")}`,
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--disable-gpu",
-    "--enable-unsafe-swiftshader",
-    "--window-size=1000,1240",
-    "about:blank",
-  ],
-  { stdio: "ignore" },
-);
-
-/** Wait for the debugging endpoint, then attach over CDP. */
-async function debuggerUrl() {
-  for (let i = 0; i < 100; i += 1) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${PORT}/json/version`);
-      if (response.ok) return (await response.json()).webSocketDebuggerUrl;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new Error("Chromium never opened its debugging port");
-}
-
-const endpoint = await debuggerUrl();
-const browser = await chromium.connectOverCDP(endpoint);
-const context = browser.contexts()[0] ?? (await browser.newContext());
-const page = context.pages()[0] ?? (await context.newPage());
-await page.setViewportSize({ width: 1000, height: 1240 });
-
-const problems = [];
-page.on("pageerror", (error) => {
-  problems.push(`pageerror: ${error.message}`);
-  console.log(`  [pageerror] ${error.message}`);
-});
-page.on("console", (message) => {
-  if (message.type() !== "error") return;
-  problems.push(`console: ${message.text()}`);
-  console.log(`  [console] ${message.text().slice(0, 300)}`);
-});
-page.on("requestfailed", (request) => {
-  console.log(`  [requestfailed] ${request.url()} ${request.failure()?.errorText}`);
-});
-page.on("response", (response) => {
-  if (response.status() >= 400) {
-    console.log(`  [http ${response.status()}] ${response.url()}`);
-  }
-});
-
-fs.mkdirSync(SHOTS, { recursive: true });
-let shot = 0;
-async function snap(label) {
-  shot += 1;
-  const file = path.join(SHOTS, `${String(shot).padStart(2, "0")}-${label}.png`);
-  await page.screenshot({ path: file });
-  console.log(`   screenshot → ${path.relative(ROOT, file)}`);
-  return file;
-}
-
-/**
- * Put everything down. Windows keeps a handle on the browser profile for a
- * moment after the process is killed, so a failed delete is a retry rather
- * than a crash at the end of an otherwise passing run.
- */
-async function cleanUp() {
-  await browser.close().catch(() => undefined);
-  chrome.kill();
-  server.close();
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    try {
-      fs.rmSync(outDir, { recursive: true, force: true });
-      return;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-  }
-}
-
-const results = [];
-function check(label, ok, detail = "") {
-  results.push({ label, ok });
-  console.log(` ${ok ? "PASS" : "FAIL"}  ${label}${detail ? ` — ${detail}` : ""}`);
-}
+const SHOTS = path.resolve(import.meta.dirname, "..", "..", "local-dev", "ink-image-cdp");
 
 /**
  * What a PNG actually looks like, read in the browser.
@@ -563,8 +395,10 @@ const pageTwoPng = await download(/Full-page PNG/).catch((error) => {
 await page.getByRole("button", { name: "Previous page" }).click();
 await page.evaluate(() => window.inkHarness.settled());
 await page.waitForTimeout(600);
-const onPage = (await page.locator(".ink-page-count").textContent())?.trim();
-check("the reader can go back to the page with ink on it", onPage === "1 / 2", onPage);
+// The counter is three spans (page, separator, total), so its text is read
+// without the whitespace the layout puts between them.
+const onPage = (await page.locator(".ink-page-count").textContent())?.replace(/\s+/g, "");
+check("the reader can go back to the page with ink on it", onPage === "1/2", onPage);
 await page.getByRole("button", { name: "Print or export this page" }).click();
 const menu = page.getByRole("menu", { name: "Print or export" });
 check("the print menu opens", await menu.isVisible().catch(() => false));
@@ -711,8 +545,10 @@ try {
 const firstFigure = await page.evaluate(() => window.inkHarness.figures(0)[0]);
 const pageOneProbe = firstFigure
   ? [
+      // A fifth of the way in, not the centre: the stroke of step 3 peaks
+      // through the middle of the band, and the probe wants the paint under it.
       [
-        Math.round((firstFigure.x + firstFigure.w / 2) * 2),
+        Math.round((firstFigure.x + firstFigure.w * 0.2) * 2),
         Math.round((firstFigure.y + firstFigure.h * 0.25) * 2),
       ],
       [2100, Math.round(5940 * 0.02)],
@@ -788,40 +624,31 @@ check(
     : "nothing was downloaded",
 );
 
-// Print has no file to hand back, so what is watched for is the A4 print
-// document the button builds. A MutationObserver is installed first, because a
-// headless browser may fire `afterprint` the moment it prints and take the
-// frame back down again.
-await page.evaluate(() => {
-  window.__printFrame = null;
-  const observer = new MutationObserver((records) => {
-    for (const record of records) {
-      for (const node of record.addedNodes) {
-        if (node instanceof HTMLIFrameElement && node.srcdoc) {
-          window.__printFrame = node.srcdoc;
-        }
-      }
-    }
-  });
-  observer.observe(document.body, { childList: true });
-});
+// Print has no file to hand back: it opens the preview, a frame holding the
+// print document — the sheet rebuilt for paper (§ink-print) — with the print
+// button beside it. What is asserted is that every layer is in the document:
+// the paper at A4, the figure as an embedded picture, and the ink raster.
 await openMenu();
 await page
   .getByRole("menuitem", { name: /Print or save as PDF/ })
   .click({ timeout: 15_000 });
-// The print document is built from the same 2× raster, so it lands on the same
-// slow path a headless GPU takes to render it.
-await page
-  .waitForFunction(() => window.__printFrame !== null, null, { timeout: 180_000 })
-  .catch(() => undefined);
-const printDoc = await page.evaluate(() => window.__printFrame);
+// The document carries the same 2× raster, so it lands on the same slow path
+// a headless GPU takes to render it.
+const printFrame = page.locator(".ink-print-preview-frame");
+await printFrame.waitFor({ timeout: 180_000 }).catch(() => undefined);
+const printDoc = await printFrame.getAttribute("srcdoc").catch(() => null);
 check(
-  "Print builds an A4 print document with the page in it",
+  "Print previews an A4 print document with every layer of the page in it",
   typeof printDoc === "string" &&
-    printDoc.includes("@page{size:A4;margin:0}") &&
-    printDoc.includes("<img src=\"blob:"),
-  printDoc ? `${printDoc.length} bytes of print HTML` : "no print frame",
+    printDoc.includes("@page { size: 210mm 297mm; margin: 0; }") &&
+    printDoc.includes('class="ink-sheet paper-') &&
+    printDoc.includes('class="ink-figure"') &&
+    printDoc.includes('class="ink-print-ink" src="data:image/png;base64,'),
+  printDoc ? `${printDoc.length} bytes of print HTML` : "no print preview",
 );
+await snap("print-preview");
+await page.getByRole("button", { name: "Close", exact: true }).first().click();
+await page.locator(".ink-print-preview-frame").waitFor({ state: "detached", timeout: 5_000 });
 
 /* ------------------------------------ 6. moving, resizing, cropping, removing */
 
@@ -834,8 +661,8 @@ console.log("\n6. Moving, resizing and cropping a figure");
 // The export step above already came back to page 1; go there only if the
 // reader is somewhere else, because the button is honestly disabled there.
 const onPageOne = await page.evaluate(() => {
-  const shown = document.querySelector(".ink-page-count")?.textContent?.trim();
-  return shown?.startsWith("1 /") ?? true;
+  const shown = document.querySelector(".ink-page-count")?.textContent?.replace(/\s+/g, "");
+  return shown?.startsWith("1/") ?? true;
 });
 if (!onPageOne) {
   await page.getByRole("button", { name: "Previous page" }).click();
@@ -949,9 +776,10 @@ check(
     : "no figure to resize",
 );
 
-// Crop: a double-click on the figure opens its controls — the two things a
-// gesture cannot say live there — and the dialog takes four insets as
-// percentages while the bytes stay.
+// Crop: a double-click on the figure opens its controls — a second one, on
+// the frame of an active figure, goes straight to cropping — and the crop is
+// the frame's own handles: the kept rectangle, dragged in, then applied. The
+// bytes stay; what changes is the figure's geometry in the note.
 const controlsBox = await figureHandle.boundingBox();
 if (controlsBox) {
   await page.mouse.dblclick(
@@ -959,24 +787,32 @@ if (controlsBox) {
     controlsBox.y + controlsBox.height / 2,
   );
 }
-const popover = page.getByRole("toolbar", { name: "This image" });
-check(
-  "a double-click opens the figure's controls",
-  (await popover.count()) === 1,
-);
-await popover.getByRole("button", { name: "Crop" }).click();
-const cropDialog = page.getByRole("dialog", { name: "Crop this image" });
-await cropDialog.waitFor({ state: "visible", timeout: 5000 });
-check(
-  "the crop is the app's own dialog",
-  (await cropDialog.count()) === 1,
-);
-await cropDialog
-  .getByRole("textbox")
-  .fill("10, 10, 10, 10");
-await cropDialog.getByRole("button", { name: "Crop it" }).click();
+// Exact: "Crop this image" is a toolbar too, and the name match is a substring.
+const popover = page.getByRole("toolbar", { name: "This image", exact: true });
+const cropFrame = page.getByRole("group", { name: "Crop: the part of the image to keep" });
+if (await popover.isVisible().catch(() => false)) {
+  await popover.getByRole("button", { name: "Crop", exact: true }).click({ timeout: 5000 });
+}
+await cropFrame.waitFor({ state: "visible", timeout: 5000 });
+check("a double-click opens the figure's controls, and Crop is the frame's handles", true);
+const keptBox = await cropFrame.boundingBox();
+if (keptBox) {
+  // The north-west handle, dragged a tenth of the way in on both axes.
+  const from = { x: keptBox.x, y: keptBox.y };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i += 1) {
+    await page.mouse.move(
+      from.x + (keptBox.width * 0.1 * i) / 10,
+      from.y + (keptBox.height * 0.1 * i) / 10,
+      { steps: 2 },
+    );
+  }
+  await page.mouse.up();
+}
+await page.getByRole("toolbar", { name: "Crop this image" }).getByRole("button", { name: "Apply" }).click();
 await page.waitForFunction(
-  () => /c=10,10,10,10/.test(window.inkHarness.pages()[0] ?? ""),
+  () => /c=\d+(\.\d+)?,\d+(\.\d+)?,0,0/.test(window.inkHarness.pages()[0] ?? ""),
   null,
   { timeout: 10_000 },
 );
@@ -989,13 +825,16 @@ check(
 );
 await snap("after-crop");
 
-// Remove: from the same controls, and the text layer says it is gone.
-const removeBox = await figureHandle.boundingBox();
-if (removeBox) {
-  await page.mouse.dblclick(
-    removeBox.x + removeBox.width / 2,
-    removeBox.y + removeBox.height / 2,
-  );
+// Remove: from the same controls, and the text layer says it is gone. The
+// figure is still the active one after its crop, so its toolbar is up.
+if (!(await popover.isVisible().catch(() => false))) {
+  const removeBox = await figureHandle.boundingBox();
+  if (removeBox) {
+    await page.mouse.dblclick(
+      removeBox.x + removeBox.width / 2,
+      removeBox.y + removeBox.height / 2,
+    );
+  }
 }
 await popover.getByRole("button", { name: "Remove" }).click();
 await page.waitForFunction(
@@ -1013,36 +852,4 @@ await snap("final");
 
 /* -------------------------------------------------------------------- report */
 
-const harness = await page.evaluate(() => ({
-  worker: window.inkHarness.worker(),
-  problems: window.inkHarness.problems(),
-  backend: document.querySelector(".ink-readout")?.getAttribute("data-backend"),
-}));
-console.log("\n=== the page's own account of itself ===");
-console.log(`  renderer: ${harness.backend}`);
-console.log(
-  `  worker: created ${harness.worker.created}, ${harness.worker.messages} messages, ` +
-    `${harness.worker.errors} errors${harness.worker.url ? ` (${harness.worker.url})` : ""}`,
-);
-console.log(
-  harness.problems.length === 0
-    ? "  nothing reported broken"
-    : harness.problems.map((p) => `  ${p}`).join("\n"),
-);
-
-console.log("\n=== console/page errors ===");
-console.log(problems.length === 0 ? "  none" : problems.map((p) => `  ${p}`).join("\n"));
-
-const failed = results.filter((r) => !r.ok);
-console.log(
-  `\n${results.length - failed.length}/${results.length} checks passed` +
-    (failed.length ? ` — failed: ${failed.map((f) => f.label).join("; ")}` : ""),
-);
-
-if (!process.argv.includes("--keep")) {
-  await cleanUp();
-} else {
-  console.log(`\nkept: browser on :${PORT}, server on ${origin}, bundles in ${outDir}`);
-}
-
-process.exit(failed.length === 0 ? 0 : 1);
+await finish(`  renderer: ${backend}`);

@@ -59,7 +59,7 @@ import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph, PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
+import { hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 
 interface Document {
@@ -372,7 +372,7 @@ export function WorkspaceScreen() {
       // 320-character preview would overwrite the note with it — a loss the
       // store cannot undo — so the door is barred here as well.
       const doc = documentsRef.current?.find((d) => d.kind === tab.kind && d.id === tab.id);
-      if ((tab.kind === "vault_page" || tab.kind === "ink_page") && doc && !doc.hydrated) {
+      if (hasLazyBody(tab.kind) && doc && !doc.hydrated) {
         setError("This note is still loading; the edit was not saved.");
         return;
       }
@@ -393,7 +393,7 @@ export function WorkspaceScreen() {
         };
         await writers[tab.kind]?.(tab.id, body);
         setDirty(false);
-        if (tab.kind === "vault_page" || tab.kind === "ink_page") hydratedRef.current.set(tab.id, body);
+        if (hasLazyBody(tab.kind)) hydratedRef.current.set(tab.id, body);
         setDocuments((current) =>
           (current ?? []).map((doc) =>
             doc.kind === tab.kind && doc.id === tab.id ? { ...doc, body, hydrated: true } : doc,

@@ -24,6 +24,7 @@ import {
   type InkStroke,
 } from "@weaveforge/core";
 
+import { escapeHtml } from "@/lib/escape-html";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import {
   INK_RENDER_COLOURS,
@@ -92,7 +93,7 @@ export function inkPageSvg(page: InkPage, options: InkSvgOptions = {}): string {
       `width="${num(width / 10)}mm" height="${num(height / 10)}mm" ` +
       `viewBox="0 0 ${num(width)} ${num(height)}">`,
   );
-  parts.push(`<title>${escapeXml(title)}</title>`);
+  parts.push(`<title>${escapeHtml(title)}</title>`);
   // A page is a sheet of paper: the export is white behind everything, so a
   // viewer with a dark canvas still shows what the page looks like on paper.
   parts.push(
@@ -102,7 +103,7 @@ export function inkPageSvg(page: InkPage, options: InkSvgOptions = {}): string {
     parts.push(
       `<image x="0" y="0" width="${num(width)}" height="${num(height)}" ` +
         `preserveAspectRatio="xMidYMid meet" ` +
-        `xlink:href="${escapeXml(options.backgroundDataUrl)}"/>`,
+        `xlink:href="${escapeHtml(options.backgroundDataUrl)}"/>`,
     );
   }
 
@@ -125,7 +126,7 @@ export function inkPageSvg(page: InkPage, options: InkSvgOptions = {}): string {
     parts.push(
       `<g clip-path="url(#${clipId})"><image x="${num(drawX)}" y="${num(drawY)}" ` +
         `width="${num(drawW)}" height="${num(drawH)}" ` +
-        `preserveAspectRatio="none" xlink:href="${escapeXml(figure.dataUrl)}"/></g>`,
+        `preserveAspectRatio="none" xlink:href="${escapeHtml(figure.dataUrl)}"/></g>`,
     );
   }
 
@@ -144,7 +145,7 @@ export function inkPageSvg(page: InkPage, options: InkSvgOptions = {}): string {
         (stroke.colour ?? "text") as InkColour,
       );
       group.push(
-        `<path d="${d}" fill="none" stroke="${escapeXml(colour)}" ` +
+        `<path d="${d}" fill="none" stroke="${escapeHtml(colour)}" ` +
           `stroke-width="${num(stroke.width)}" stroke-linecap="round" ` +
           `stroke-linejoin="round"` +
           (highlighter ? ` stroke-opacity="${HIGHLIGHTER_ALPHA}"` : "") +
@@ -158,10 +159,3 @@ export function inkPageSvg(page: InkPage, options: InkSvgOptions = {}): string {
   return `${parts.join("\n")}\n`;
 }
 
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}

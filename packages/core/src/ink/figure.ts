@@ -289,6 +289,27 @@ export function uncroppedFigureBox(figure: Omit<FigureGeometry, "path">): {
 }
 
 /**
+ * Where the whole picture sits inside the figure's frame, as percentages of
+ * the frame: the frame clips, and the picture is enlarged and shifted so the
+ * cropped-out edges fall outside it. What the sheet and the print both draw
+ * a figure with, so a crop looks the same on paper as on screen.
+ */
+export function figureImageFrame(figure: Omit<FigureGeometry, "path">): {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+} {
+  const full = uncroppedFigureBox(figure);
+  return {
+    left: ((full.x - figure.x) / figure.w) * 100,
+    top: ((full.y - figure.y) / figure.h) * 100,
+    width: (full.w / figure.w) * 100,
+    height: (full.h / figure.h) * 100,
+  };
+}
+
+/**
  * A figure re-cropped to `kept`, a rectangle inside the uncropped image
  * `full`: the box becomes `kept` — what stays visible stays where it was on
  * the page — and the insets are what lies outside it, as percentages of the

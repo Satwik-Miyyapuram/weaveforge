@@ -104,6 +104,7 @@ import { useInkPrefs } from "./use-ink-prefs";
 import { useInkShortcuts } from "./use-ink-shortcuts";
 import { useInkWorkerRpc } from "./use-ink-worker-rpc";
 import { useInkRecognition } from "./use-ink-recognition";
+import { InkPrintPreview } from "./ink-print-preview";
 import { usePageExport } from "./use-page-export";
 import type {
   InkHostDeps,
@@ -169,6 +170,8 @@ export function InkHost({
   const textPagesRef = useRef<string[]>(
     splitInkTextLayer(readInkNoteBody(body).text),
   );
+  /** The current page's flowed text, for the print (assigned in render below). */
+  const pageTextRef = useRef("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   /**
@@ -516,7 +519,7 @@ export function InkHost({
    * page (§6.2.14) — so printing the screen would crop the page to whatever
    * happened to be scrolled into view.
    */
-  const { onExportPng, onPrint, onExportSvg } = usePageExport({
+  const { onExportPng, onPrint, onExportSvg, printDoc, closePrint } = usePageExport({
     requestExport,
     requestModel,
     noteId,
@@ -525,6 +528,9 @@ export function InkHost({
     pageSize,
     palette,
     fetchBlob: deps.assets.fetchBlob,
+    pageText: pageTextRef,
+    scale,
+    paper,
   });
 
   /**
@@ -624,6 +630,7 @@ export function InkHost({
     if (flowedText.length > pageCount) ensurePageCount(flowedText.length);
   }, [ensurePageCount, flowedText.length, pageCount]);
   const pureText = flowedText[pageIndex] ?? "";
+  pageTextRef.current = pureText;
 
   const lines: readonly RecognisedLine[] = recognised?.lines ?? [];
   const confidence = recognised?.confidence ?? 0;
@@ -837,6 +844,9 @@ export function InkHost({
           onConfirm={(value) => answerPdfPages(selectedPdfPages(value, pageAsk.count))}
           onClose={() => answerPdfPages(null)}
         />
+      ) : null}
+      {printDoc ? (
+        <InkPrintPreview html={printDoc.html} title={printDoc.title} onClose={closePrint} />
       ) : null}
     </div>
   );

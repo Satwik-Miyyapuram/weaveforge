@@ -1,20 +1,12 @@
 import { renderToString } from "katex";
+import { escapeHtml as escapeAttr } from "@/lib/escape-html";
 import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
 
 /**
  * Minimal markdown-to-HTML for prose blocks (headings, lists, inline). Fenced
  * code blocks are handled separately by Shiki in display mode.
  */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s).replace(/"/g, "&quot;");
-}
+const escapeHtml = escapeAttr;
 
 /** Slug for heading anchor ids (so `[[Note#Heading]]` can target them). */
 function headingSlug(text: string): string {

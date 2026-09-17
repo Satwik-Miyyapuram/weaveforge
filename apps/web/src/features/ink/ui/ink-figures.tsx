@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FIGURE_HANDLES,
   cropFigureTo,
+  figureImageFrame,
   resizeFigureBox,
   uncroppedFigureBox,
   type FigureGeometry,
@@ -62,15 +63,11 @@ export function InkFigures({
     <div className="ink-figures" aria-hidden="true">
       {figures.map((one, index) => {
         const url = imageUrls.get(one.path);
-        const crop = one.crop ?? [0, 0, 0, 0];
         // A crop hides part of the image without touching the box: the
         // frame keeps its place and size, and the picture inside it is
         // enlarged so the cropped-out edges fall outside the frame — the
-        // wrapper clips. The scale factor is the reciprocal of the fraction
-        // of the image that remains, so what fills the frame is exactly the
-        // un-cropped middle.
-        const keepX = Math.max(0.01, 1 - (crop[0] + crop[2]) / 100);
-        const keepY = Math.max(0.01, 1 - (crop[1] + crop[3]) / 100);
+        // wrapper clips (§figureImageFrame).
+        const frame = figureImageFrame(one);
         const active = activeIndex === index;
         return (
           <div
@@ -93,10 +90,10 @@ export function InkFigures({
                   draggable={false}
                   style={{
                     position: "absolute",
-                    width: `${(100 / keepX).toFixed(3)}%`,
-                    height: `${(100 / keepY).toFixed(3)}%`,
-                    left: `${(crop[0] / keepX).toFixed(3)}%`,
-                    top: `${(crop[1] / keepY).toFixed(3)}%`,
+                    width: `${frame.width.toFixed(3)}%`,
+                    height: `${frame.height.toFixed(3)}%`,
+                    left: `${frame.left.toFixed(3)}%`,
+                    top: `${frame.top.toFixed(3)}%`,
                     objectFit: "fill",
                   }}
                 />

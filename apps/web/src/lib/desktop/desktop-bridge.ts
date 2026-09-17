@@ -279,14 +279,6 @@ export interface DesktopBridge {
    * because an installed shell may predate it.
    */
   setWindowFocus?(on: boolean): void;
-
-  /**
-   * A print preview of one rendered page (a PNG data URL). The desktop has no
-   * print preview of its own, so it opens a window that shows the page and
-   * carries the print button; a browser prints through its own preview and
-   * does not need this. Optional because an installed shell may predate it.
-   */
-  printPreview?(dataUrl: string, title: string): Promise<void>;
 }
 
 /** One message to the pen's actuator: velocity in CSS px/ms, pressure in [0, 1]. */

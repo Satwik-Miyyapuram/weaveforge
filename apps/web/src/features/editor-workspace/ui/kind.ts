@@ -65,6 +65,12 @@ export interface KindMeta {
    */
   ink: boolean;
   /**
+   * Whether the kind's body arrives as a preview first and in full later, so
+   * an editor must wait for the full one before it may save (true for notes,
+   * whose bodies can be long; false for the kinds loaded whole).
+   */
+  lazyBody: boolean;
+  /**
    * Which surface owns a document's title and its place in the tree. Sections
    * belong to the report, every other document to the vault. The screen asks
    * this instead of naming a kind, so a new kind states its owner in its row.
@@ -117,6 +123,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: [],
     pdf: false,
     ink: false,
+    lazyBody: false,
     owner: "vault",
     documentRow: false,
     memberOrder: null,
@@ -131,6 +138,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: TEXT_SEGMENTS,
     pdf: false,
     ink: true,
+    lazyBody: true,
     owner: "vault",
     documentRow: true,
     // Papers first, then notes; `10` and `20` leave room for a kind between.
@@ -148,6 +156,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: INK_SEGMENTS,
     pdf: false,
     ink: true,
+    lazyBody: true,
     owner: "vault",
     documentRow: true,
     // A note, so it sorts with the other notes inside a reading list.
@@ -167,6 +176,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     // The one kind with a PDF of its own: the reader's pane, in place (§3.9).
     pdf: true,
     ink: false,
+    lazyBody: false,
     owner: "vault",
     documentRow: true,
     memberOrder: 10,
@@ -181,6 +191,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: TEXT_SEGMENTS,
     pdf: false,
     ink: false,
+    lazyBody: false,
     owner: "vault",
     documentRow: true,
     memberOrder: null,
@@ -195,6 +206,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: TEXT_SEGMENTS,
     pdf: false,
     ink: false,
+    lazyBody: false,
     // Renamed and re-parented through the report's own use case, not the vault's.
     owner: "report",
     documentRow: true,
@@ -210,6 +222,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: TEXT_SEGMENTS,
     pdf: false,
     ink: false,
+    lazyBody: false,
     owner: "vault",
     documentRow: true,
     memberOrder: null,
@@ -224,6 +237,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: TEXT_SEGMENTS,
     pdf: false,
     ink: false,
+    lazyBody: false,
     owner: "vault",
     documentRow: true,
     memberOrder: null,
@@ -238,6 +252,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     segments: TEXT_SEGMENTS,
     pdf: false,
     ink: false,
+    lazyBody: false,
     owner: "vault",
     documentRow: true,
     memberOrder: null,
@@ -286,6 +301,11 @@ export function hasPdfView(kind: string): boolean {
  */
 export function hasInkView(kind: string): boolean {
   return kindMeta(kind).ink;
+}
+
+/** Whether a kind's body is hydrated after its preview, and must be before a save. */
+export function hasLazyBody(kind: string): boolean {
+  return kindMeta(kind).lazyBody;
 }
 
 /** Which surface owns a row's title and its place in the tree. */

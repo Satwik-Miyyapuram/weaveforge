@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   inkPageBackground,
   inkPageFigures,
@@ -8,17 +8,23 @@ import {
   type InkPage as InkPageModel,
 } from "@weaveforge/core";
 
-import { blobToDataUrl, downloadBlob, printBlob } from "@/lib/blob-output";
-import { desktop } from "@/lib/desktop/desktop-bridge";
+import { blobToDataUrl, downloadBlob } from "@/lib/blob-output";
+import { renderMarkdownPlain } from "@/components/markdown/markdown";
+import {
+  documentStyleSheets,
+  inkPrintDocument,
+  type InkPrintFigure,
+} from "../application/ink-print";
 import { inkPageSvg, type InkSvgFigure } from "../application/ink-svg";
 import type { InkPalette } from "../render/ink-palette";
+import { INK_UNDERLAY, inkSheetRuleStyle } from "./ink-sheet-underlay";
 
 /**
  * Pixels per 0.1 mm unit in an exported or printed page.
  *
  * 2 is 508 dpi on A4 — enough that a printed page has no visible raster, and
- * what the PNG export has always used. The print path spends the same raster
- * rather than the DOM, so paper and file match stroke for stroke.
+ * what the PNG export has always used. The print lays the same raster over
+ * the sheet's text, so paper and file match stroke for stroke.
  */
 export const PNG_EXPORT_SCALE = 2;
 
@@ -44,6 +50,18 @@ export interface PageExportDeps {
   palette: InkPalette;
   /** The vault, for the background bytes a vector export embeds. */
   fetchBlob: (path: string) => Promise<Blob>;
+  /** The current page's flowed text, which the print sets under the ink. */
+  pageText: { readonly current: string };
+  /** Pixels per page unit the sheet is laid out at, which the print keeps. */
+  scale: number;
+  /** The paper the sheet is drawn on (`paper-${paper}`). */
+  paper: string;
+}
+
+/** A print waiting in its preview: the document and its title. */
+export interface PendingPrint {
+  html: string;
+  title: string;
 }
 
 /**
@@ -118,16 +136,15 @@ async function composeWithFigures(
 }
 
 /**
- * Getting the current page out of the editor: the print dialog, a full-page
+ * Getting the current page out of the editor: the print preview, a full-page
  * PNG, and the page as vector SVG.
  *
  * Out of the host because none of it is about the drawing surface — it is three
  * readers of state the host already holds, and each one ends in a file rather
- * than in the pane. The two that produce pixels go through the worker's raster
- * rather than through the DOM, because what the user sees is a *window* onto the
- * sheet — the canvas is the size of the viewport, not the page (§6.2.14) — so
- * printing the screen would crop the page to whatever happened to be scrolled
- * into view.
+ * than in the pane. The pixels come from the worker's raster rather than from
+ * the DOM, because what the user sees is a *window* onto the sheet — the
+ * canvas is the size of the viewport, not the page (§6.2.14) — so printing the
+ * screen would crop the page to whatever happened to be scrolled into view.
  */
 export function usePageExport(deps: PageExportDeps) {
   const {
@@ -139,12 +156,14 @@ export function usePageExport(deps: PageExportDeps) {
     pageSize,
     palette,
     fetchBlob,
+    pageText,
+    scale,
+    paper,
   } = deps;
   const fileBase = `${noteId}-page-${pageIndex + 1}`;
 
   /**
-   * The worker's raster with the page's figures composed in — the print and
-   * the PNG both spend this, so a pasted photo is in both or neither. The
+   * The worker's raster with the page's figures composed in, for the PNG. The
    * raster is asked for transparent whenever there is a figure to compose:
    * the compose draws the paper itself, and an opaque raster would cover the
    * figures with its own sheet of white.
@@ -168,19 +187,65 @@ export function usePageExport(deps: PageExportDeps) {
     downloadBlob(png, `${fileBase}.png`);
   }, [composedExport, fileBase]);
 
+  const [printDoc, setPrintDoc] = useState<PendingPrint | null>(null);
+  const closePrint = useCallback(() => setPrintDoc(null), []);
+
+  /**
+   * The page for paper: every layer of the sheet, not the raster alone.
+   *
+   * The text is the underlay's own markup where the sheet is on screen (so a
+   * Mermaid diagram already upgraded prints as the diagram), or the markdown
+   * rendered afresh where it is not; the figures and the ink are embedded as
+   * data URLs so the document needs no vault. The ink is asked for
+   * transparent, which still carries the page's background image: only the
+   * white is left out, and the print document lays its own paper down.
+   */
   const onPrint = useCallback(async () => {
-    const png = await composedExport();
-    if (!png) return;
-    const title = `${noteId} — page ${pageIndex + 1}`;
-    // The desktop shows the page in a preview window of its own before the
-    // system dialog; a browser has a preview built into `print()`.
-    const preview = desktop()?.printPreview;
-    if (preview) {
-      await preview(await blobToDataUrl(png), title);
-      return;
+    const text = pageText.current;
+    // `data-page` is the 0-based index; the live page and its static slot
+    // both carry it, and the live one is the one whose fences have upgraded.
+    const live =
+      document.querySelector<HTMLElement>(
+        `.ink-page-live[data-page="${pageIndex}"] .ink-sheet-text-underlay`,
+      ) ??
+      document.querySelector<HTMLElement>(
+        `.ink-page[data-page="${pageIndex}"] .ink-sheet-text-underlay`,
+      );
+    const underlayHtml = live?.innerHTML ?? (text.trim() ? renderMarkdownPlain(text) : "");
+    // The figures are in the page's own text layer, not in the flowed prose,
+    // which is the text with its figure lines already taken out.
+    const figures: InkPrintFigure[] = [];
+    for (const figure of inkPageFigures(textPages.current[pageIndex] ?? "")) {
+      try {
+        const { path, ...geometry } = figure;
+        figures.push({ ...geometry, url: await blobToDataUrl(await fetchBlob(path)) });
+      } catch {
+        // A missing attachment is a figure the page does not draw.
+      }
     }
-    printBlob(png, fileBase, title);
-  }, [composedExport, fileBase, noteId, pageIndex]);
+    const ink = await requestExport(PNG_EXPORT_SCALE, true);
+    const title = `${noteId} — page ${pageIndex + 1}`;
+    setPrintDoc({
+      title,
+      html: inkPrintDocument({
+        title,
+        pageSize,
+        scale,
+        paper,
+        underlayHtml,
+        underlay: {
+          padX: INK_UNDERLAY.padX(scale),
+          padY: INK_UNDERLAY.padY(scale),
+          fontSize: INK_UNDERLAY.fontSize(scale),
+          lineHeight: INK_UNDERLAY.lineHeight,
+        },
+        rule: inkSheetRuleStyle(scale),
+        figures,
+        inkUrl: ink ? await blobToDataUrl(ink) : null,
+        styleSheets: documentStyleSheets(document),
+      }),
+    });
+  }, [fetchBlob, noteId, pageIndex, pageSize, pageText, paper, requestExport, scale, textPages]);
 
   /**
    * The page as SVG: the strokes themselves, not a picture of them.
@@ -224,5 +289,5 @@ export function usePageExport(deps: PageExportDeps) {
     downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `${fileBase}.svg`);
   }, [fetchBlob, fileBase, noteId, pageIndex, palette, requestModel, textPages]);
 
-  return { onExportPng, onPrint, onExportSvg };
+  return { onExportPng, onPrint, onExportSvg, printDoc, closePrint };
 }

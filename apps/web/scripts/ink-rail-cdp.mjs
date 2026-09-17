@@ -21,165 +21,17 @@
  * Run: node scripts/ink-rail-cdp.mjs [--headed] [--keep]
  * Screenshots land in `local-dev/ink-rail-cdp/`.
  */
-import { spawn } from "node:child_process";
-import { createServer } from "node:http";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-import { build } from "esbuild";
-import { chromium } from "@playwright/test";
-
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, "..");
-const SHOTS = path.resolve(ROOT, "..", "local-dev", "ink-rail-cdp");
-const HEADED = process.argv.includes("--headed");
-
-/* ------------------------------------------------------------------ bundling */
-
-const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "weaveforge-ink-rail-"));
-fs.mkdirSync(path.join(outDir, "worker"), { recursive: true });
-
-await build({
-  entryPoints: [path.join(ROOT, "e2e/fixtures/ink-harness.tsx")],
-  bundle: true,
-  outfile: path.join(outDir, "bundle.js"),
-  format: "esm",
-  platform: "browser",
-  target: "es2022",
-  jsx: "automatic",
-  alias: { "@": path.join(ROOT, "src") },
-  loader: { ".css": "css" },
-  logLevel: "warning",
-});
-await build({
-  entryPoints: [path.join(ROOT, "src/features/ink/worker/ink-worker.ts")],
-  bundle: true,
-  outfile: path.join(outDir, "worker", "ink-worker.ts"),
-  format: "iife",
-  platform: "browser",
-  target: "es2022",
-  logLevel: "warning",
-});
+import { startInkHarness } from "./lib/ink-cdp-harness.mjs";
 
 // A pane shorter than a page: 900 wide fits an A4 sheet ~1240 tall, so a
 // 700 px pane always has a boundary within one page of scroll.
-fs.writeFileSync(
-  path.join(outDir, "index.html"),
-  `<!doctype html><meta charset="utf-8"><title>ink rail</title>` +
-    `<link rel="stylesheet" href="/bundle.css">` +
-    `<style>html,body{margin:0;background:#f4f4f5}` +
-    `#ink{width:900px;height:700px;margin:0 auto}</style>` +
-    `<div id="ink"></div><script type="module" src="/bundle.js"></script>`,
-);
-
-/* -------------------------------------------------------------------- serving */
-
-const server = createServer((req, res) => {
-  const name = (req.url ?? "/").split("?")[0];
-  if (name === "/favicon.ico") {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
-  const file =
-    name === "/" ? path.join(outDir, "index.html") : path.join(outDir, name);
-  if (!file.startsWith(outDir) || !fs.existsSync(file)) {
-    res.writeHead(404);
-    res.end("not found");
-    return;
-  }
-  res.writeHead(200, {
-    "Content-Type": file.endsWith(".html")
-      ? "text/html"
-      : file.endsWith(".css")
-        ? "text/css"
-        : "text/javascript",
-  });
-  res.end(fs.readFileSync(file));
+const { page, origin, snap, check, finish } = await startInkHarness({
+  name: "ink-rail-cdp",
+  title: "ink rail",
+  paneHeight: 700,
+  port: 9533,
+  viewportHeight: 760,
 });
-await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
-
-/* ------------------------------------------------------------------- browser */
-
-const PORT = 9533 + (process.pid % 200);
-const chrome = spawn(
-  chromium.executablePath(),
-  [
-    HEADED ? "--headless=false" : "--headless=new",
-    `--remote-debugging-port=${PORT}`,
-    `--user-data-dir=${path.join(outDir, "profile")}`,
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--disable-gpu",
-    "--enable-unsafe-swiftshader",
-    "--window-size=1000,760",
-    "about:blank",
-  ],
-  { stdio: "ignore" },
-);
-
-async function debuggerUrl() {
-  for (let i = 0; i < 100; i += 1) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${PORT}/json/version`);
-      if (response.ok) return (await response.json()).webSocketDebuggerUrl;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new Error("Chromium never opened its debugging port");
-}
-
-const endpoint = await debuggerUrl();
-const browser = await chromium.connectOverCDP(endpoint);
-const context = browser.contexts()[0] ?? (await browser.newContext());
-const page = context.pages()[0] ?? (await context.newPage());
-await page.setViewportSize({ width: 1000, height: 760 });
-
-const problems = [];
-page.on("pageerror", (error) => {
-  problems.push(`pageerror: ${error.message}`);
-  console.log(`  [pageerror] ${error.message}`);
-});
-page.on("console", (message) => {
-  if (message.type() !== "error") return;
-  problems.push(`console: ${message.text()}`);
-  console.log(`  [console] ${message.text().slice(0, 300)}`);
-});
-
-fs.mkdirSync(SHOTS, { recursive: true });
-let shot = 0;
-async function snap(label) {
-  shot += 1;
-  const file = path.join(SHOTS, `${String(shot).padStart(2, "0")}-${label}.png`);
-  await page.screenshot({ path: file });
-  console.log(`   screenshot → ${path.relative(ROOT, file)}`);
-  return file;
-}
-
-async function cleanUp() {
-  await browser.close().catch(() => undefined);
-  chrome.kill();
-  server.close();
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    try {
-      fs.rmSync(outDir, { recursive: true, force: true });
-      return;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-  }
-}
-
-const results = [];
-function check(label, ok, detail = "") {
-  results.push({ label, ok });
-  console.log(` ${ok ? "PASS" : "FAIL"}  ${label}${detail ? ` — ${detail}` : ""}`);
-}
 
 /* ---------------------------------------------------------------------- boot */
 
@@ -523,31 +375,4 @@ check("thumb hides after idle", hidden === false);
 
 /* -------------------------------------------------------------------- report */
 
-const harness = await page.evaluate(() => ({
-  worker: window.inkHarness.worker(),
-  problems: window.inkHarness.problems(),
-}));
-console.log("\n=== the page's own account of itself ===");
-console.log(
-  `  worker: created ${harness.worker.created}, ${harness.worker.messages} messages, ${harness.worker.errors} errors`,
-);
-console.log(
-  harness.problems.length === 0
-    ? "  nothing reported broken"
-    : harness.problems.map((p) => `  ${p}`).join("\n"),
-);
-console.log("\n=== console/page errors ===");
-console.log(problems.length === 0 ? "  none" : problems.map((p) => `  ${p}`).join("\n"));
-
-const failed = results.filter((f) => !f.ok);
-console.log(
-  `\n${results.length - failed.length}/${results.length} checks passed` +
-    (failed.length ? ` — failed: ${failed.map((f) => f.label).join("; ")}` : ""),
-);
-
-if (!process.argv.includes("--keep")) {
-  await cleanUp();
-} else {
-  console.log(`\nkept: browser on :${PORT}, server on ${origin}, bundles in ${outDir}`);
-}
-process.exit(failed.length === 0 ? 0 : 1);
+await finish();
