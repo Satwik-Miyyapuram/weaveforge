@@ -154,6 +154,13 @@ export const CHANNELS = {
    * flag, and nothing answers it.
    */
   windowFocus: "weaveforge:window-focus",
+  /**
+   * Printing a rendered page: Electron has no print preview of its own
+   * (`window.print()` goes straight to the system dialog), so the page hands
+   * the picture here and a preview window of the app's own shows it, with the
+   * print button on it. `invoke`: answered once the window is up.
+   */
+  printPreview: "weaveforge:print-preview",
 } as const;
 
 /**

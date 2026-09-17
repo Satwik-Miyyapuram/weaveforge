@@ -41,6 +41,7 @@ import {
   writeVaultFile,
 } from "./vault-handlers";
 import { registerMainInk } from "./main-ink";
+import { registerPrintPreview } from "./print-preview";
 import { registerMainLocalApi } from "./main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
@@ -694,6 +695,7 @@ ipc.handle(CHANNELS.texProbe, async () => {
  * kept for the session, absent rather than rejected where there is none.
  */
 const mainInk = registerMainInk({ ipc });
+registerPrintPreview({ ipc, parent: () => mainWindow });
 
 ipc.handle(
   CHANNELS.texCompile,

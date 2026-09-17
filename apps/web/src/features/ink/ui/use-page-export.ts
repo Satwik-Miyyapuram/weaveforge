@@ -9,6 +9,7 @@ import {
 } from "@weaveforge/core";
 
 import { blobToDataUrl, downloadBlob, printBlob } from "@/lib/blob-output";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { inkPageSvg, type InkSvgFigure } from "../application/ink-svg";
 import type { InkPalette } from "../render/ink-palette";
 
@@ -170,7 +171,15 @@ export function usePageExport(deps: PageExportDeps) {
   const onPrint = useCallback(async () => {
     const png = await composedExport();
     if (!png) return;
-    printBlob(png, fileBase, `${noteId} — page ${pageIndex + 1}`);
+    const title = `${noteId} — page ${pageIndex + 1}`;
+    // The desktop shows the page in a preview window of its own before the
+    // system dialog; a browser has a preview built into `print()`.
+    const preview = desktop()?.printPreview;
+    if (preview) {
+      await preview(await blobToDataUrl(png), title);
+      return;
+    }
+    printBlob(png, fileBase, title);
   }, [composedExport, fileBase, noteId, pageIndex]);
 
   /**
