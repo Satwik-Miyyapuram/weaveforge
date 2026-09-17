@@ -2371,6 +2371,24 @@
   word-break: break-word;
 }
 .ink-sheet-text-underlay .math-display { margin: 0; padding: 0; }
+/* Mermaid measures its labels in a scratch element at the document's 16 px,
+   then the SVG inherited the sheet's larger font: boxes sized for one size,
+   text drawn at another, and the labels spilled out of their nodes. The
+   diagram keeps the size it was measured at and is zoomed as a whole to the
+   sheet's text, so geometry and letters scale together. */
+.ink-sheet-text-underlay .md-mermaid {
+  font-size: 16px;
+  line-height: normal;
+  zoom: var(--ink-diagram-zoom, 1);
+}
+/* Mermaid's HTML labels are `<p>` in a foreignObject sized for a 16 px line;
+   the sheet's rule-height paragraphs pushed the text below that box. */
+.ink-sheet .ink-sheet-text-underlay .md-mermaid :is(p, li, span) {
+  line-height: normal;
+  font-size: inherit;
+  margin: 0;
+  padding: 0;
+}
 .ink-sheet-text-underlay .md-table { margin: 0; }
 .ink-sheet-text-underlay .md-code code { background: none; padding: 0; font-size: inherit; }
 

@@ -54,6 +54,15 @@ export function inkSheetRuleStyle(scale: number): Record<`--${string}`, string> 
   };
 }
 
+/**
+ * Mermaid lays a diagram out at the document's 16 px (see the `.md-mermaid`
+ * rule in editor-workspace.css); this is the whole-diagram zoom that brings it
+ * to the sheet's text size.
+ */
+export function diagramZoom(fontSize: number): Record<"--ink-diagram-zoom", string> {
+  return { "--ink-diagram-zoom": (fontSize / 16).toFixed(4) };
+}
+
 export function InkSheetTextUnderlay({
   text,
   scale,
@@ -89,6 +98,7 @@ export function InkSheetTextUnderlay({
         padding: `${INK_UNDERLAY.padY(scale)}px ${INK_UNDERLAY.padX(scale)}px`,
         fontSize: `${INK_UNDERLAY.fontSize(scale)}px`,
         lineHeight: INK_UNDERLAY.lineHeight,
+        ...diagramZoom(INK_UNDERLAY.fontSize(scale)),
         color: "var(--text)",
         pointerEvents: "none",
         userSelect: "none",

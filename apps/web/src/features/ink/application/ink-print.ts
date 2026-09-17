@@ -85,7 +85,7 @@ export function inkPrintDocument(doc: InkPrintDocument): string {
     ? `<img class="ink-print-ink" src="${escapeHtml(doc.inkUrl)}" alt="" style="position:absolute;inset:0;width:100%;height:100%">`
     : "";
   const underlay = doc.underlayHtml
-    ? `<div class="ink-sheet-text-underlay markdown" style="position:absolute;inset:0;padding:${doc.underlay.padY}px ${doc.underlay.padX}px;font-size:${doc.underlay.fontSize}px;line-height:${doc.underlay.lineHeight};color:var(--text);overflow:hidden;word-break:break-word;opacity:0.88">${doc.underlayHtml}</div>`
+    ? `<div class="ink-sheet-text-underlay markdown" style="position:absolute;inset:0;padding:${doc.underlay.padY}px ${doc.underlay.padX}px;font-size:${doc.underlay.fontSize}px;line-height:${doc.underlay.lineHeight};--ink-diagram-zoom:${(doc.underlay.fontSize / 16).toFixed(4)};color:var(--text);overflow:hidden;word-break:break-word;opacity:0.88">${doc.underlayHtml}</div>`
     : "";
   return `<!doctype html>
 <html data-mode="light">
