@@ -1,3 +1,5 @@
+import { fetchSemanticScholar } from "@/lib/semantic-scholar-fetch";
+
 import type { CitationCandidate, ICitationSource, PaperRef } from "@weaveforge/core";
 
 /**
@@ -132,11 +134,7 @@ export class SemanticScholarCitationSource implements ICitationSource {
         `?fields=externalIds&limit=1000&offset=${offset}`;
       // S2 is aggressively rate-limited (~1 req/s); retry 429s with backoff
       // before giving up, so batch auto-linking doesn't fail on a transient cap.
-      let res = await this.fetchFn(url, init);
-      for (let attempt = 0; res.status === 429 && attempt < 3; attempt++) {
-        await delay(1000 * (attempt + 1));
-        res = await this.fetchFn(url, init);
-      }
+      const res = await fetchSemanticScholar(this.fetchFn, url, init);
       if (!res.ok) {
         throw new Error(
           `Semantic Scholar request failed: ${res.status} ${res.statusText}`,
@@ -169,11 +167,7 @@ export class SemanticScholarCitationSource implements ICitationSource {
       const url =
         `${this.baseUrl}/paper/${encodeURIComponent(s2Id(ref))}/citations` +
         `?fields=paperId,title,authors,year,url,citationCount,contexts,intents,isInfluential&limit=1000&offset=${offset}`;
-      let res = await this.fetchFn(url, init);
-      for (let attempt = 0; res.status === 429 && attempt < 3; attempt++) {
-        await delay(1000 * (attempt + 1));
-        res = await this.fetchFn(url, init);
-      }
+      const res = await fetchSemanticScholar(this.fetchFn, url, init);
       if (!res.ok) {
         throw new Error(`Semantic Scholar citations failed: ${res.status} ${res.statusText}`);
       }
@@ -234,11 +228,7 @@ export class SemanticScholarCitationSource implements ICitationSource {
         body: JSON.stringify({ ids: chunk.map(s2Id) }),
       };
       const url = `${this.baseUrl}/paper/batch?fields=references.externalIds`;
-      let res = await this.fetchFn(url, init);
-      for (let attempt = 0; res.status === 429 && attempt < 3; attempt++) {
-        await delay(1000 * (attempt + 1));
-        res = await this.fetchFn(url, init);
-      }
+      const res = await fetchSemanticScholar(this.fetchFn, url, init);
       if (!res.ok) {
         throw new Error(`Semantic Scholar batch failed: ${res.status} ${res.statusText}`);
       }
@@ -265,8 +255,4 @@ export class SemanticScholarCitationSource implements ICitationSource {
     }
     return out;
   }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

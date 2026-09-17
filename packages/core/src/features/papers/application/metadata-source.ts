@@ -14,7 +14,8 @@ export type PaperRef =
   | { kind: "arxiv"; value: string }
   | { kind: "doi"; value: string }
   | { kind: "zotero"; value: string }
-  | { kind: "url"; value: string };
+  | { kind: "url"; value: string }
+  | { kind: "bibliographic"; value: string; hints?: { title?: string; year?: number; firstAuthor?: string } };
 
 /** Metadata returned by a source, shaped to feed `createPaper`. */
 export type PaperMetadata = NewPaperInput;
@@ -43,12 +44,18 @@ export class MetadataResolver {
   }
 
   async resolve(ref: PaperRef): Promise<PaperMetadata> {
-    const source = this.sources.find((s) => s.supports(ref));
-    if (!source) {
+    const sources = this.sources.filter((s) => s.supports(ref));
+    if (!sources.length) {
       throw new MetadataResolutionError(
         `No metadata source supports reference of kind "${ref.kind}".`,
       );
     }
-    return source.fetch(ref);
+    // Identifier lookups retain their original error semantics; bibliographic
+    // searches try the next provider when a match is unavailable.
+    if (ref.kind !== "bibliographic") return sources[0]!.fetch(ref);
+    for (const source of sources) {
+      try { return await source.fetch(ref); } catch { /* try the next search provider */ }
+    }
+    throw new MetadataResolutionError("No bibliographic metadata match found.");
   }
 }

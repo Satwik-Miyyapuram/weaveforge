@@ -36,6 +36,8 @@ import {
   appendPaperNote,
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
+import { SemanticScholarMetadataSource } from "@/features/papers/infrastructure/semantic-scholar-metadata-source";
+import { OpenAlexMetadataSource } from "@/features/papers/infrastructure/openalex-metadata-source";
 import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-metadata-source";
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";

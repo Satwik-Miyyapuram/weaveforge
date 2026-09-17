@@ -74,7 +74,7 @@ export class ImportPaperUseCase {
   async fromRef(input: PaperRef, status?: PaperStatus): Promise<Paper> {
     // Whatever the picker said, resolve what was actually pasted: an abs page,
     // a PDF link and a bare id are all the same paper.
-    const ref = parsePaperRef(input.kind, input.value);
+    const ref = input.kind === "bibliographic" ? input : parsePaperRef(input.kind, input.value);
     const metadata = await this.resolver.resolve(ref);
     // Ensure the originating id is recorded for future dedupe.
     if (ref.kind === "arxiv" && !metadata.arxivId) metadata.arxivId = ref.value;
