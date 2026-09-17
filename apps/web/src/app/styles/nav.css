@@ -253,6 +253,13 @@ button.nav-link {
   .layout.editor-route .nav { background: var(--surface); }
 }
 
+/* Workspace focus (`⌘⇧F`, editor-workspace.css): the rail goes with the rest
+   of the chrome. The flag sits on `<html>` because the workspace screen is a
+   child of the layout and cannot class its parent. Unsuffixed, like the
+   zeroing in shell.css, so it holds at every width. */
+html[data-workspace-focus] .layout.has-nav.editor-route { padding-left: 0; }
+html[data-workspace-focus] .layout.editor-route .nav { display: none; }
+
 @media (prefers-reduced-motion: reduce) {
   .nav,
   .nav-link,

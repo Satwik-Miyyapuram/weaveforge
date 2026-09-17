@@ -162,7 +162,7 @@ test("local-db-host: a failed open is reported as such, and reset moves aside", 
     },
   });
 
-  assert.deepEqual(host.state(), { failure: null, dataDir: "/nowhere/local-db" });
+  assert.deepEqual(host.state(), { failure: null, dataDir: "/nowhere/local-db", restoredFrom: null });
 
   const first = await host.query("select 1", []);
   assert.equal(first.ok, false);
@@ -216,4 +216,72 @@ test("local-db-host: a reset whose move fails keeps the failure for a retry", as
   assert.equal(reset.ok, false);
   assert.match((reset as { message: string }).message, /EACCES/);
   assert.match(host.state().failure ?? "", /Aborted/);
+});
+
+test("local-db-host: an open that fails is retried from a backup, and says so", async () => {
+  const healthy = stub();
+  const host = new LocalDbHost({
+    open: async () => {
+      throw new Error("could not locate a valid checkpoint record");
+    },
+    recover: async () => ({ client: healthy.client, from: "/backups/local-db-1.tar.gz" }),
+    migrations: NO_MIGRATIONS,
+    ...ELSEWHERE,
+  });
+
+  assert.equal((await host.query("select 1", [])).ok, true);
+  assert.deepEqual(host.state(), {
+    failure: null,
+    dataDir: ELSEWHERE.dataDir,
+    restoredFrom: "/backups/local-db-1.tar.gz",
+  });
+});
+
+test("local-db-host: with no backup to recover from, the open failure is the one reported", async () => {
+  let asked = 0;
+  const host = new LocalDbHost({
+    open: async () => {
+      throw new Error("no checkpoint");
+    },
+    recover: async () => {
+      asked += 1;
+      return null;
+    },
+    migrations: NO_MIGRATIONS,
+    ...ELSEWHERE,
+  });
+
+  const answer = await host.query("select 1", []);
+  assert.equal(answer.ok, false);
+  assert.equal(asked, 1);
+  assert.match(host.state().failure ?? "", /no checkpoint/);
+  assert.equal(host.state().restoredFrom, null);
+});
+
+test("local-db-host: a snapshot is taken only after a write, and only once per change", async () => {
+  const dumps: string[] = [];
+  const client: LocalClient = {
+    ...stub().client,
+    async dumpDataDir() {
+      dumps.push("dump");
+      return new Blob(["bytes"]);
+    },
+  };
+  const host = new LocalDbHost({ open: async () => client, migrations: NO_MIGRATIONS, ...ELSEWHERE });
+
+  assert.equal(await host.snapshot(), null, "never opens the database to back it up");
+  await host.query("select 1", []);
+  assert.equal(await host.snapshot(), null, "a read changes nothing worth copying");
+  await host.query("insert into t values (1)", []);
+  assert.ok(await host.snapshot());
+  assert.equal(await host.snapshot(), null, "nothing changed since");
+  await host.query("  UPDATE t set x = 2", []);
+  assert.ok(await host.snapshot());
+  assert.equal(dumps.length, 2);
+});
+
+test("local-db-host: a client that cannot dump is simply never backed up", async () => {
+  const host = new LocalDbHost({ open: async () => stub().client, migrations: NO_MIGRATIONS, ...ELSEWHERE });
+  await host.query("insert into t values (1)", []);
+  assert.equal(await host.snapshot(), null);
 });

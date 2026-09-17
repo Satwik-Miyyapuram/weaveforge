@@ -9,7 +9,8 @@
  * and every scroll costs one message, not a page-sized re-raster (§6.2.1).
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import { backingRatio } from "../render/ink-renderer";
@@ -36,7 +37,7 @@ export interface InkLayoutDeps {
   /** How many pages the note has. */
   pageCount: number;
   /** Flush a pending save before a page flips. */
-  flushSave: () => void;
+  flushSave: (force?: boolean) => void;
   /** The page index, set when the scroll reaches past a slot. */
   setPageIndex: (next: number) => void;
   /** The pane's width, kept by the host. */
@@ -145,11 +146,16 @@ export function useInkLayout(deps: InkLayoutDeps) {
    * reaches for the next or the previous page, which is what makes the note
    * one continuous scroll rather than a page that must be stepped.
    *
-   * The trigger is the live sheet's *centre*, not its edge: half a page of
-   * travel, so a stroke that starts near the bottom of one page and continues
-   * onto the ghost below stays on this page until the pen is genuinely past
-   * the middle of the next. And a mid-flight stroke is never interrupted: the
-   * worker is drawing it, and a page change would commit half a word.
+   * The trigger is the page's *centre*, not its edge: half a page of travel,
+   * so a stroke that starts near the bottom of one page and continues onto
+   * the next stays on this page until the pen is genuinely past the middle of
+   * the next. And a mid-flight stroke is never interrupted: the worker is
+   * drawing it, and a page change would commit half a word.
+   *
+   * The flip itself is cheap by construction (§ink-rail): the slots never
+   * move, the layer just repositions over the new slot, and the worker loads
+   * the new page's bytes into the canvas it already holds — no scroll offset
+   * correction, no blank flash, no rebuild.
    */
   const scrollPageIndexRef = useRef<number | null>(null);
   useEffect(() => {
@@ -159,22 +165,27 @@ export function useInkLayout(deps: InkLayoutDeps) {
       if (deps.sessionActive()) return;
       const scrollerBox = scroller.getBoundingClientRect();
       const scrollerCenterY = scrollerBox.top + scrollerBox.height / 2;
-      const pageElements = scroller.querySelectorAll<HTMLElement>(".ink-page");
+      // Only the slots — direct children of the scroller. Static slots carry
+      // `data-page`, placeholder slots carry `data-ghost`; both name their page
+      // index. The live layer's own copy of the current page is a deeper
+      // descendant, so `:scope >` skips it and no page is measured twice.
+      const pageElements =
+        scroller.querySelectorAll<HTMLElement>(":scope > .ink-page");
       if (pageElements.length === 0) return;
 
       let bestIndex = pageIndex;
       let minDistance = Infinity;
 
-      pageElements.forEach((el, idx) => {
+      pageElements.forEach((el) => {
         const box = el.getBoundingClientRect();
         const pageCenterY = (box.top + box.bottom) / 2;
         const dist = Math.abs(pageCenterY - scrollerCenterY);
-        const attr = el.getAttribute("data-page") ?? el.getAttribute("data-ghost");
-        const parsedIdx = attr !== null ? parseInt(attr, 10) : idx;
-        const pageIdx = !isNaN(parsedIdx) ? parsedIdx : idx;
-        if (dist < minDistance) {
+        const attr =
+          el.getAttribute("data-page") ?? el.getAttribute("data-ghost");
+        const parsedIdx = attr !== null ? parseInt(attr, 10) : NaN;
+        if (!isNaN(parsedIdx) && dist < minDistance) {
           minDistance = dist;
-          bestIndex = pageIdx;
+          bestIndex = parsedIdx;
         }
       });
 
@@ -186,7 +197,8 @@ export function useInkLayout(deps: InkLayoutDeps) {
     };
     scroller.addEventListener("scroll", onScroll, { passive: true });
     return () => scroller.removeEventListener("scroll", onScroll);
-  }, [flushSave, pageCount, pageIndex, setPageIndex, deps.sessionActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flushSave, pageCount, pageIndex, scrollRef, setPageIndex]);
 
   /**
    * When pageIndex changes programmatically (e.g. clicking Next/Prev page in toolbar),
@@ -200,11 +212,78 @@ export function useInkLayout(deps: InkLayoutDeps) {
     }
     const scroller = scrollRef.current;
     if (!scroller) return;
-    const target = scroller.querySelector<HTMLElement>(`[data-page="${pageIndex}"]`);
+    // A slot, not the layer's copy: ghost slots carry `data-ghost`, so fall
+    // back to it when the page being scrolled to has no static slot yet.
+    const target =
+      scroller.querySelector<HTMLElement>(
+        `:scope > .ink-page[data-page="${pageIndex}"]`,
+      ) ??
+      scroller.querySelector<HTMLElement>(
+        `:scope > .ink-page[data-ghost="${pageIndex}"]`,
+      );
     if (target) {
       target.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [pageIndex]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageIndex, scrollRef]);
+
+  /**
+   * The page under a client point, by the slots: the one whose box holds
+   * `clientY`, or — between pages — the nearer one. `null` off the rail.
+   */
+  const pageAt = useCallback(
+    (clientY: number): number | null => {
+      const scroller = scrollRef.current;
+      if (!scroller) return null;
+      const slots = scroller.querySelectorAll<HTMLElement>(":scope > .ink-page");
+      let best: number | null = null;
+      let minDistance = Infinity;
+      slots.forEach((el) => {
+        const attr = el.getAttribute("data-page") ?? el.getAttribute("data-ghost");
+        const index = attr !== null ? parseInt(attr, 10) : NaN;
+        if (Number.isNaN(index)) return;
+        const box = el.getBoundingClientRect();
+        const distance =
+          clientY < box.top
+            ? box.top - clientY
+            : clientY > box.bottom
+              ? clientY - box.bottom
+              : 0;
+        if (distance < minDistance) {
+          minDistance = distance;
+          best = index;
+        }
+      });
+      return best;
+    },
+    [scrollRef],
+  );
+
+  /**
+   * Make the page under the pointer the live one, *now*: the canvas covers
+   * the whole pane, so a pen can come down on the next page's visible part.
+   * The flip is flushed synchronously — the render, the rail's placement of
+   * the sheet, and the `load-page` the lifecycle effect posts all land before
+   * this returns — so the stroke that follows in the same handler projects
+   * against the right sheet and reaches the worker after the page it belongs
+   * to. No scroll: the reader put the pen where the page already is.
+   */
+  const ensurePageAt = useCallback(
+    (_clientX: number, clientY: number): boolean => {
+      const target = pageAt(clientY);
+      if (target === null || target === pageIndex) return false;
+      if (target < 0 || target >= pageCount) return false;
+      if (deps.sessionActive()) return false;
+      scrollPageIndexRef.current = target;
+      // Forced: the half-stroke the split just ended is in the worker's
+      // buffer but its commit has not come back yet, so nothing is scheduled.
+      flushSave(true);
+      flushSync(() => setPageIndex(target));
+      return true;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [flushSave, pageAt, pageCount, pageIndex, setPageIndex],
+  );
 
   /** Measure the pane, so the fit is the container's and not a guess. */
   useEffect(() => {
@@ -226,4 +305,6 @@ export function useInkLayout(deps: InkLayoutDeps) {
     // the observer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  return { ensurePageAt };
 }

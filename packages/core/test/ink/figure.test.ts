@@ -4,6 +4,10 @@ import test from "node:test";
 import {
   FIGURE_ALT,
   figureAltFor,
+  cropFigureTo,
+  reorderFigures,
+  resizeFigureBox,
+  uncroppedFigureBox,
   formatFigureTokens,
   inkPageFigures,
   parseFigureTokens,
@@ -106,4 +110,41 @@ test("figureAltFor reads a path's alt from a whole body", () => {
   assert.equal(figureAltFor(body, "f.png"), "figure x=1 y=2 w=3 h=4");
   assert.equal(figureAltFor(body, "p.png"), null);
   assert.equal(figureAltFor(body, "missing.png"), null);
+});
+
+test("figure: z-order steps move within the block and stop at the ends", () => {
+  const abc = ["a", "b", "c"];
+  assert.deepEqual(reorderFigures(abc, 0, "front"), ["b", "c", "a"]);
+  assert.deepEqual(reorderFigures(abc, 2, "back"), ["c", "a", "b"]);
+  assert.deepEqual(reorderFigures(abc, 0, "forward"), ["b", "a", "c"]);
+  assert.deepEqual(reorderFigures(abc, 2, "forward"), abc);
+  assert.deepEqual(reorderFigures(abc, 0, "backward"), abc);
+  assert.deepEqual(reorderFigures(abc, 1, "backward"), ["b", "a", "c"]);
+  assert.deepEqual(reorderFigures(abc, 7, "front"), abc);
+});
+
+test("figure: an edge handle moves one side, a corner keeps the aspect", () => {
+  const box = { x: 100, y: 100, w: 400, h: 200 };
+  assert.deepEqual(resizeFigureBox(box, "e", 50, 999), { x: 100, y: 100, w: 450, h: 200 });
+  assert.deepEqual(resizeFigureBox(box, "n", 999, -50), { x: 100, y: 50, w: 400, h: 250 });
+  // South-east by +100 on x: the width wins, the height follows at 2:1.
+  assert.deepEqual(resizeFigureBox(box, "se", 100, 10), { x: 100, y: 100, w: 500, h: 250 });
+  // North-west anchors the far corner.
+  assert.deepEqual(resizeFigureBox(box, "nw", -100, 0), { x: 0, y: 50, w: 500, h: 250 });
+  // Free: a corner becomes a distortion.
+  assert.deepEqual(resizeFigureBox(box, "se", 100, 10, { free: true }), { x: 100, y: 100, w: 500, h: 210 });
+  // Nothing shrinks below the minimum.
+  assert.deepEqual(resizeFigureBox(box, "w", 1000, 0, { free: true }).w, 30);
+});
+
+test("figure: the uncropped box and a crop inside it round-trip", () => {
+  const figure = { x: 100, y: 100, w: 400, h: 200 };
+  assert.deepEqual(uncroppedFigureBox(figure), figure);
+  // Keep the right half: the box shrinks to it, the left inset is 50 %.
+  const half = cropFigureTo(figure, { x: 300, y: 100, w: 200, h: 200 });
+  assert.deepEqual(half, { x: 300, y: 100, w: 200, h: 200, crop: [50, 0, 0, 0] });
+  // Lifting the crop puts the whole picture back where it was.
+  assert.deepEqual(uncroppedFigureBox(half), figure);
+  // Keeping everything clears the token.
+  assert.equal("crop" in cropFigureTo(figure, figure), false);
 });

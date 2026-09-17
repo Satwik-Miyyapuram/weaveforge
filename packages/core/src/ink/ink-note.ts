@@ -431,7 +431,25 @@ export function readInkNoteBody(body: string): { meta: InkNoteMeta; text: string
     const value = token.slice(eq + 1);
     record[key] = key === INK_KEYS.pageOrder ? value.split(",").filter(Boolean) : value;
   }
-  return { meta: readInkNoteMeta(record), text: body.slice(match[0].length) };
+  return { meta: readInkNoteMeta(record), text: stripStrayHeaders(body.slice(match[0].length)) };
+}
+
+/**
+ * A header line that is not the first line is not metadata, it is damage: an
+ * earlier build once wrote the header over a body that already had one, and a
+ * cut-off copy (no `-->`) can be left at the top of the text layer, where the
+ * reader would show it as page 1's text. Only the header line is metadata;
+ * whatever else leads the text is dropped here so the next save heals the note.
+ */
+const STRAY_HEADER_LINE = /^<!--\s*weaveforge-ink\b[^\n]*(?:\r?\n|$)/;
+
+function stripStrayHeaders(text: string): string {
+  let out = text;
+  for (;;) {
+    const next = out.replace(STRAY_HEADER_LINE, "");
+    if (next === out) return out;
+    out = next;
+  }
 }
 
 /** Join ink metadata and a text layer back into the body the database keeps. */

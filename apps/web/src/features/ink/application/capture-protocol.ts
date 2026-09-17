@@ -223,6 +223,8 @@ export type InkWorkerEvent =
   | { type: "history"; undo: number; redo: number }
   | { type: "context-lost" }
   | { type: "context-restored"; backend: "webgl2" | "canvas2d" | "none" }
+  /** The last thing the worker says: every save it had in flight has gone out. */
+  | { type: "disposed" }
   | { type: "error"; message: string };
 
 /** How a flushed buffer reaches the worker. */

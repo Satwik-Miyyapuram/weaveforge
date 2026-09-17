@@ -112,6 +112,13 @@ export {
   inkPageFigures,
   withInkPageFigures,
   figureAltFor,
+  type FigureOrderStep,
+  type FigureHandle,
+  FIGURE_HANDLES,
+  reorderFigures,
+  resizeFigureBox,
+  uncroppedFigureBox,
+  cropFigureTo,
 } from "./figure.js";
 
 export {

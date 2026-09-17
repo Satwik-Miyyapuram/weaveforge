@@ -19,7 +19,14 @@
  * — so the timeout can be tested without waiting for it.
  */
 
-export const QUIT_TIMEOUT_MS = 3_000;
+/**
+ * Fifteen seconds, not three: since `local-db-backup.ts` the shutdown also
+ * writes the database out whole, and gzipping a few hundred megabytes of
+ * data directory is a handful of seconds on a laptop. A close cut short by
+ * the bound is the one thing this exists to make survivable, so the bound
+ * has to be longer than the copy that makes it so.
+ */
+export const QUIT_TIMEOUT_MS = 15_000;
 
 /**
  * The timers this needs, as a parameter rather than globals.

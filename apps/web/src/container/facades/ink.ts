@@ -35,6 +35,7 @@ export interface InkAssetStore {
 export class InkFacade {
   private selected: Promise<InkRecogniser | null> | null = null;
   private hapticsProbe: Promise<PenHaptics | null> | null = null;
+  private boundAssets: InkAssetStore | null = null;
 
   constructor(
     private readonly deps: {
@@ -53,8 +54,21 @@ export class InkFacade {
     return this.deps.chunks;
   }
 
+  /**
+   * The store's methods, bound: the host hands `assets.fetchBlob` to hooks
+   * as a bare function, and a class method called without its receiver
+   * loses `this.blobs` (the same trap 7c63a64 closed for the recogniser).
+   * Built once, so a hook keyed on the function does not refetch per render.
+   */
   get assets(): InkAssetStore {
-    return this.deps.assets;
+    if (!this.boundAssets) {
+      const store = this.deps.assets;
+      this.boundAssets = {
+        upload: store.upload.bind(store),
+        fetchBlob: store.fetchBlob.bind(store),
+      };
+    }
+    return this.boundAssets;
   }
 
   /** Every engine this build knows of, available or not, for the settings panel. */

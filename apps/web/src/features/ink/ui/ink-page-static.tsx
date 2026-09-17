@@ -80,6 +80,7 @@ export function InkPageStatic({
             className="ink-ghost-image"
             src={backgroundUrl}
             alt=""
+            draggable={false}
             onError={onLoadError}
           />
         ) : null}

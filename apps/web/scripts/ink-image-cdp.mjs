@@ -432,7 +432,9 @@ await page.evaluate(async (base64) => {
   const file = new File([bytes], "dropped.png", { type: "image/png" });
   const data = new DataTransfer();
   data.items.add(file);
-  const sheet = document.querySelector(".ink-sheet");
+  // The *live* sheet, inside the rail's live layer — the first `.ink-sheet` in
+  // the DOM is a static slot's, which takes no drop.
+  const sheet = document.querySelector(".ink-live-layer .ink-sheet");
   const box = sheet?.getBoundingClientRect();
   // Where the hand would drop it: the sheet's own middle, in client
   // coordinates, because a drop without coordinates lands at 0,0 of the

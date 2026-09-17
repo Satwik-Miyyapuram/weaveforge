@@ -440,9 +440,18 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         worker.postMessage(entry.message, entry.transfer);
 
       dispose = () => {
-        worker.removeEventListener("message", onMessage);
+        // Not terminated on the spot: the host flushes its pending save just
+        // before this runs, and that save is still being encoded over there.
+        // The listener stays so the `page-saved` it produces still lands; the
+        // worker closes itself after it, and is terminated here as a backstop.
         worker.postMessage({ type: "dispose" });
-        worker.terminate();
+        const backstop = setTimeout(() => worker.terminate(), 5000);
+        worker.addEventListener("message", (event: MessageEvent<InkWorkerEvent>) => {
+          if (event.data.type !== "disposed") return;
+          clearTimeout(backstop);
+          worker.removeEventListener("message", onMessage);
+          worker.terminate();
+        });
         workerRef.current = null;
         presenterRef.current = null;
         pendingRef.current = [];

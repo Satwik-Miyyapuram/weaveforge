@@ -130,6 +130,32 @@ What this covers and what it costs:
 There is a fuller table of what does and does not survive the network being
 unplugged in [How WeaveForge is put together](../building/architecture-map.md#offline-precisely).
 
+### Where it lives, and what happens if it breaks
+
+The database is a directory, `local-db`, under the app's own data directory
+(`%APPDATA%\@weaveforge\desktop` on Windows, `~/Library/Application Support/
+@weaveforge/desktop` on macOS). A run that is cut off at the wrong moment — a
+force-quit, a crash, the power — can leave that directory in a state no later
+start can open. Three things stand between that and losing your notes:
+
+- **Copies.** Every ten minutes while something has changed, and again when
+  the app quits, the whole database is written out as a compressed archive to
+  `local-db-backups/` beside it — and, when a workspace folder is chosen, to
+  `.weaveforge/db-backups/` inside that folder too. The newest three are kept
+  in each place. The workspace folder is yours, not the app's: uninstalling
+  does not touch it.
+- **Restoring by itself.** When the database will not open, the broken
+  directory is moved aside as `local-db.broken-<time>` (never deleted) and the
+  newest copy is loaded into a fresh one, without asking. You lose at most what
+  changed since that copy. The *Couldn't start the app* screen with *Start with
+  a fresh database* appears only when there was no copy to restore from.
+- **Finding the way back after a reinstall.** The workspace folder's path is
+  also written to `~/.weaveforge/desktop.json`, a small file outside the app's
+  directory. A fresh install with nothing of its own reads it, takes the folder
+  up again, and — finding no database — restores the newest copy from the
+  folder's `.weaveforge/db-backups/`. Choose the same folder and everything
+  comes back.
+
 ### Training scripts write into it too
 
 The local HTTP API also answers the Python SDK's routes, so a run logged from a

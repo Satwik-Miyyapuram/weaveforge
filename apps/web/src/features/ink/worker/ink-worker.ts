@@ -117,6 +117,8 @@ const state = {
   frame: 0,
   running: false,
   disposed: false,
+  /** Saves still encoding; `dispose` waits for them so none is lost. */
+  saving: new Set<Promise<void>>(),
   live: null as LiveStroke | null,
   pageIndex: 0,
   buffer: new InkPageBuffer({
@@ -461,14 +463,18 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
       case "redo":
         redo(state, post);
         break;
-      case "save-page":
-        void savePage(state, message.requestId, post).catch((error: unknown) =>
-          post({
-            type: "error",
-            message: error instanceof Error ? error.message : String(error),
-          }),
-        );
+      case "save-page": {
+        const saving = savePage(state, message.requestId, post)
+          .catch((error: unknown) =>
+            post({
+              type: "error",
+              message: error instanceof Error ? error.message : String(error),
+            }),
+          )
+          .finally(() => state.saving.delete(saving));
+        state.saving.add(saving);
         break;
+      }
       case "page-model":
         post({
           type: "page-model",
@@ -531,7 +537,12 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         state.returns.length = 0;
         state.renderer?.dispose();
         state.renderer = null;
-        scope.close();
+        // A save the host flushed on its way out is still encoding here; the
+        // worker closes only once it has been posted, and says so.
+        void Promise.allSettled([...state.saving]).then(() => {
+          post({ type: "disposed" });
+          scope.close();
+        });
         break;
       }
     }

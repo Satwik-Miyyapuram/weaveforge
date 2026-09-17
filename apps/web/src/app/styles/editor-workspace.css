@@ -303,6 +303,7 @@
   min-height: 0;
   padding-block-end: 14px;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 /* -------------------------------------------------------------------------
@@ -378,6 +379,7 @@
 .explorer-section:last-child > .explorer-section-rows {
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .explorer-section-empty {
@@ -497,6 +499,57 @@
 .workspace-shell.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
 .workspace-shell.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
   padding-inline-start: 24px;
+}
+
+/* `⌘⇧F`, focus: the document and nothing else. The explorer, the tab strip,
+   the crumbs and the status bar all go; the primary nav rail goes too, from
+   nav.css, off the same flag on `<html>`. One control stays — a corner button
+   to come back — because a shortcut nobody can see is a trap. The ink toolbar
+   belongs to the document, not the chrome, and stays. */
+.workspace-shell.is-focus {
+  grid-template-columns: 0 minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 0;
+}
+
+.workspace-shell.is-focus .explorer-panel,
+.workspace-shell.is-focus .explorer-show,
+.workspace-shell.is-focus .pane-tabs,
+.workspace-shell.is-focus .breadcrumbs,
+.workspace-shell.is-focus .status-bar {
+  display: none;
+}
+
+.focus-exit {
+  position: absolute;
+  inset-block-start: 6px;
+  inset-inline-end: 6px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.focus-exit:hover,
+.focus-exit:focus-visible { color: var(--text); opacity: 1; }
+
+/* The exit sits over the top-right corner; a bar that reaches it (the ink
+   bar's status readout, the editor's mode strip) leaves it room. */
+.workspace-shell.is-focus .ink-bar,
+.workspace-shell.is-focus .md-live-choice { padding-inline-end: 44px; }
+
+@media (pointer: coarse) {
+  .focus-exit { width: 36px; height: 36px; opacity: 0.8; }
+  .workspace-shell.is-focus .ink-bar,
+  .workspace-shell.is-focus .md-live-choice { padding-inline-end: 52px; }
 }
 
 /* Hover actions on a row, VS Code's way: hidden until the row is under the
@@ -1144,6 +1197,9 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  /* The gutter is always there, so a document growing past the fold does
+     not reflow its own text by the scrollbar's width. */
+  scrollbar-gutter: stable;
 }
 
 .pane-document {
@@ -1278,6 +1334,7 @@
   min-height: 0;
   min-width: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border-left: 1px solid var(--border);
   background: var(--surface);
 }
@@ -1678,11 +1735,142 @@
   white-space: nowrap;
 }
 
-.ink-page-scroll {
+.ink-rail-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  overflow: auto;
-  padding: 18px 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/*
+ * The scroller is the slots' positioning context: the live layer's `top` is a
+ * slot's own `offsetTop`, which is measured against this box.
+ *
+ * Native scrollbars are hidden here (`scrollbar-width: none`) so that content
+ * overflow never reserves layout gutter width or changes `clientWidth`. This
+ * prevents ResizeObserver layout shifts and screen jumps when scrollbars appear.
+ * An overlay scrollbar floats on top instead.
+ */
+.ink-page-scroll {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  --ink-scroll-pad: 18px;
+  padding: var(--ink-scroll-pad) 0;
   background: var(--bg);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ink-page-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Overlay scrollbar: floats above content without taking layout width, so appearing
+ * or disappearing never causes horizontal jumps or ResizeObserver scale shifts.
+ */
+.overlay-scrollbar-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  pointer-events: auto;
+  z-index: 10;
+  user-select: none;
+}
+
+/* The window's own (`WindowScrollbar`): over the viewport, above everything. */
+.overlay-scrollbar-track.overlay-scrollbar-window {
+  position: fixed;
+  z-index: 1000;
+}
+
+.overlay-scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  right: 3px;
+  width: 6px;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  opacity: 0;
+  pointer-events: auto;
+  cursor: default;
+  transition: opacity 0.25s ease, width 0.15s ease, background 0.15s ease;
+}
+
+.overlay-scrollbar-track.is-visible .overlay-scrollbar-thumb,
+.overlay-scrollbar-track:hover .overlay-scrollbar-thumb {
+  opacity: 1;
+}
+
+.overlay-scrollbar-track:hover .overlay-scrollbar-thumb,
+.overlay-scrollbar-thumb:active {
+  width: 8px;
+  background: var(--scrollbar-thumb-hover);
+}
+
+
+/*
+ * The live layer: the one copy of the page being written on, rendered once
+ * and moved over the current slot on a flip. It must never remount — the
+ * canvas inside it was transferred to the worker (`transferControlToOffscreen`)
+ * exactly once, and a remount would orphan that transfer and blank the page.
+ * Out of flow so the slots alone decide the scroll height; above the static
+ * slots so the live canvas draws over the static rendering of the same page.
+ * Its box is exactly the current slot's, so it takes the pointer exactly
+ * where the live page always did — including the figure controls, which are
+ * the layer's other children and sit above the canvas on purpose.
+ */
+.ink-live-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Its box is the scroller's content box, set by the rail. */
+  z-index: 2;
+}
+
+/*
+ * The rail's static slots are inert: the live layer's canvas covers the whole
+ * pane, so the pointer never reaches them — but a mouse that did would start
+ * a text selection on the underlay or a drag on a figure, which is the
+ * "grab" a reader saw at a page boundary. Wheel and touch scrolling still
+ * reach the scroller through them.
+ */
+.ink-rail-container .ink-page-scroll > .ink-page {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The live page fills the layer, so the canvas's dock has the whole scroll
+   to stick through. The sheet sits at its slot, centred like the slots are. */
+.ink-page.ink-page-live {
+  display: block;
+  height: 100%;
+}
+.ink-page-row {
+  display: flex;
+  justify-content: safe center;
+  margin-top: var(--ink-slot-top, 0px);
+}
+/* The dock: zero height, sticky to the pane's top, so the canvas inside it
+   sits over whatever part of the scroll is on screen. */
+.ink-canvas-dock {
+  position: sticky;
+  /* Sticky measures from the scroller's content box, so the rail's padding
+     would leave a strip at the top uncovered; pull the dock up by it. */
+  top: calc(-1 * var(--ink-scroll-pad, 0px));
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  z-index: 1;
 }
 
 .ink-page {
@@ -1715,6 +1903,8 @@
 .ink-overlay {
   position: absolute;
   inset: 0;
+  /* Over the canvas (z 1 in its dock): the selection UI is drawn on top. */
+  z-index: 2;
   pointer-events: none;
   overflow: visible;
 }
@@ -1735,11 +1925,8 @@
 /* The ink surface: the topmost thing in the page area, and never drawn over. */
 .ink-canvas {
   display: block;
-  position: sticky;
-  top: 0;
-  left: 0;
-  /* Above the figures under it (z 0), below the lasso overlay (z 2): the
-     writing goes over a pasted image, and the selection UI over both. */
+  /* Above the figures under it (z 0), below the figure popover (z 3): the
+     writing goes over a pasted image, and the figure's controls over both. */
   z-index: 1;
   background: transparent;
   touch-action: none;
@@ -1767,6 +1954,14 @@
 .ink-ghost {
   display: flex;
 }
+/* Read mode: the page's images are not things to drag off the sheet, and
+   only the text underlay is there to select. */
+.ink-reader .ink-sheet img,
+.ink-reader .ink-sheet svg {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 .ink-ghost .ink-ghost-image {
   width: 100%;
   height: 100%;
@@ -1774,7 +1969,8 @@
   display: block;
   pointer-events: none;
 }
-.ink-ghost .ink-ghost-label {
+.ink-ghost .ink-ghost-label,
+.ink-reader .ink-ghost-label {
   position: absolute;
   top: 8px;
   inset-inline-end: 10px;
@@ -1822,21 +2018,107 @@
 /* The corners: dots where the page's own corner hit-test looks, so the eye
    finds what the hand is about to drag. Always drawn — 8 px of border
    against paper, quieter than the figure's own shadow. */
-.ink-figure-dot {
+/* The selected figure's editor: over the canvas (z 1 in its dock), and
+   transparent to the pointer except for the frame, its handles and the bar. */
+.ink-figure-editor {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1.5px solid var(--border-strong);
-  background: var(--surface);
-  opacity: 0.7;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
 }
-/* The active figure's controls: a small toolbar above the canvas — the one
-   figure DOM that takes its own pointer events — parked at the figure's own
-   top-left. */
+.ink-figure-frame {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: auto;
+  cursor: move;
+  touch-action: none;
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
+}
+.ink-figure-frame:focus-visible {
+  outline-width: 2px;
+}
+.ink-figure-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  pointer-events: auto;
+  touch-action: none;
+}
+/* Handles at right/bottom are placed by their far edge; undo the margin. */
+.ink-figure-handle[data-handle="ne"],
+.ink-figure-handle[data-handle="e"],
+.ink-figure-handle[data-handle="se"] {
+  margin-left: 0;
+  margin-right: -6px;
+}
+.ink-figure-handle[data-handle="sw"],
+.ink-figure-handle[data-handle="s"],
+.ink-figure-handle[data-handle="se"] {
+  margin-top: 0;
+  margin-bottom: -6px;
+}
+@media (pointer: coarse) {
+  .ink-figure-handle {
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+  }
+  .ink-figure-handle[data-handle="ne"],
+  .ink-figure-handle[data-handle="e"],
+  .ink-figure-handle[data-handle="se"] {
+    margin-left: 0;
+    margin-right: -9px;
+  }
+  .ink-figure-handle[data-handle="sw"],
+  .ink-figure-handle[data-handle="s"],
+  .ink-figure-handle[data-handle="se"] {
+    margin-top: 0;
+    margin-bottom: -9px;
+  }
+}
+/* The crop tool: the whole picture dimmed under a bright kept rectangle. */
+.ink-figure-editor.is-cropping::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) 35%, transparent);
+}
+.ink-figure-crop-full {
+  position: absolute;
+  opacity: 0.35;
+}
+.ink-figure-crop-full img {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+.ink-figure-crop-kept {
+  background: var(--surface);
+  outline-style: dashed;
+}
+.ink-figure-crop-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.ink-figure-crop-kept img {
+  position: absolute;
+  max-width: none;
+  object-fit: fill;
+  pointer-events: none;
+}
 .ink-figure-popover {
   position: absolute;
   z-index: 3;
+  pointer-events: auto;
+  white-space: nowrap;
+  align-items: center;
   display: flex;
   gap: 2px;
   padding: 3px;
@@ -1858,6 +2140,22 @@
 .ink-figure-button:hover {
   background: color-mix(in srgb, var(--faint) 10%, transparent);
 }
+.ink-figure-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: none;
+}
+.ink-figure-sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 3px;
+  background: var(--border);
+}
+.ink-figure-hint {
+  font-size: 0.68rem;
+  color: var(--faint);
+  padding: 0 6px;
+}
 .ink-figure-button-remove:hover {
   background: color-mix(in srgb, #b33 14%, transparent);
   color: #b33;
@@ -1866,6 +2164,7 @@
 .ink-text {
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 12px 14px;
   border-left: 1px solid var(--border);
   background: var(--surface);

@@ -42,6 +42,7 @@ import {
   inkAttachmentIndex,
   inkPageBackground,
   inkPageFigures,
+  reorderFigures,
   joinInkTextLayer,
   newInkChunkId,
   readInkNoteBody,
@@ -81,13 +82,14 @@ import {
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
 import { InkBar, type InkBarTool } from "./ink-bar";
-import { InkFigures, InkFigureControls } from "./ink-figures";
+import { InkFigures, InkFigureEditor } from "./ink-figures";
 import { fitScale } from "./ink-page-math";
 import { InkSheetTextUnderlay, pureInkPageText } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
 import { InkRail } from "./ink-rail";
 import { InkTextLayer } from "./ink-text-layer";
+import { useFlowedTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkFigureUrls } from "./use-ink-figure-urls";
@@ -220,12 +222,6 @@ export function InkHost({
     pageCount,
     pageIndex,
   });
-  const strokesMap = useDecodedStrokes({
-    pages: pagesRef.current,
-    activePageIndex: pageIndex,
-    strokesCount: strokes,
-  });
-
   /**
    * Client coordinates to page units. The one projection everything shares.
    * Against the sheet, not the canvas: the canvas is only the visible part.
@@ -251,6 +247,8 @@ export function InkHost({
     saveBody,
     scheduleSave,
     flushSave,
+    chunkVersion,
+    ensurePageCount,
     onAddPage,
     goToPage,
   } = useInkNoteStore({
@@ -266,6 +264,17 @@ export function InkHost({
       setPageCount,
       setPageIndex,
     });
+
+  /**
+   * The rail's static slots draw from the chunks; `chunkVersion` is what
+   * tells them a page just written has new ink, since the list is a ref.
+   */
+  const strokesMap = useDecodedStrokes({
+    pages: pagesRef.current,
+    version: chunkVersion,
+    activePageIndex: pageIndex,
+    strokesCount: strokes,
+  });
 
   /**
    * The pen (§use-ink-pen): capture, haptics, and the one worker door it
@@ -440,7 +449,7 @@ export function InkHost({
    * the theme, the worker's viewport told where the page is, the pane
    * measured, and the rail's scroll watched for a page flip.
    */
-  useInkLayout({
+  const { ensurePageAt } = useInkLayout({
     send,
     backend: pen.backend,
     canvasRef,
@@ -586,11 +595,19 @@ export function InkHost({
     scheduleSave();
   }, [scheduleSave, send]);
 
-  const currentPageRawText = textPagesRef.current?.[pageIndex] ?? "";
-  const pureText = useMemo(
-    () => pureInkPageText(currentPageRawText),
-    [currentPageRawText],
+  // The text as shown: each page's own text, flowed on to the next where it
+  // does not fit (§ink-text-flow). Pages it runs past are made real, so the
+  // pen can land on them.
+  const pureTextPages = useMemo(
+    () => textPagesRef.current.map((text) => pureInkPageText(text)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [textPagesRef.current.join("␞"), pageCount],
   );
+  const flowedText = useFlowedTextPages(pureTextPages, pageSize, scale);
+  useEffect(() => {
+    if (flowedText.length > pageCount) ensurePageCount(flowedText.length);
+  }, [ensurePageCount, flowedText.length, pageCount]);
+  const pureText = flowedText[pageIndex] ?? "";
 
   const lines: readonly RecognisedLine[] = recognised?.lines ?? [];
   const confidence = recognised?.confidence ?? 0;
@@ -691,6 +708,7 @@ export function InkHost({
         ghosts={ghostImages}
         strokesMap={strokesMap}
         textPages={textPagesRef.current}
+        flowedText={flowedText}
         figureUrls={figureUrls}
         palette={palette}
       >
@@ -719,6 +737,7 @@ export function InkHost({
           // background, because its raster is a page.
           onDropFile={(file, at) => void onAddFigure(file, at ?? undefined)}
           figures={figures}
+          editingFigure={figureControls}
           onFigureChange={(index, geometry) => {
             // The surface reports a placement; the text layer is the model.
             const next = figuresRef.current.map((one, i) =>
@@ -727,6 +746,8 @@ export function InkHost({
             onFiguresChange(next);
           }}
           onFigureActivate={(index) => setFigureControls(index)}
+          ensurePage={ensurePageAt}
+          penActive={penSessionActive}
           below={
             <>
               <InkSheetTextUnderlay text={pureText} scale={scale} />
@@ -738,31 +759,43 @@ export function InkHost({
               />
             </>
           }
+          above={
+            figureControls !== null && figures[figureControls] ? (
+              <InkFigureEditor
+                figure={figures[figureControls]}
+                index={figureControls}
+                count={figures.length}
+                scale={scale}
+                pageSize={pageSize}
+                imageUrl={figureUrls.get(figures[figureControls].path)}
+                onChange={(next) => {
+                  const next_ = figuresRef.current.map((one, i) => {
+                    if (i !== figureControls) return one;
+                    const { crop, ...box } = next;
+                    return crop ? { ...one, ...box, crop } : { path: one.path, ...box };
+                  });
+                  onFiguresChange(next_);
+                }}
+                onReorder={(step) => {
+                  // The block's order is the paint order: moving the line
+                  // moves the picture, and the editor follows it to its new
+                  // index.
+                  const next = reorderFigures(figuresRef.current, figureControls, step);
+                  const moved = next.indexOf(figuresRef.current[figureControls]!);
+                  onFiguresChange(next);
+                  setFigureControls(moved);
+                }}
+                onRemove={() => {
+                  onFiguresChange(
+                    figuresRef.current.filter((_, i) => i !== figureControls),
+                  );
+                  setFigureControls(null);
+                }}
+                onClose={() => setFigureControls(null)}
+              />
+            ) : null
+          }
         />
-        {figureControls !== null && figures[figureControls] ? (
-          <InkFigureControls
-            figure={figures[figureControls]}
-            box={{
-              left: figures[figureControls].x * scale,
-              top: figures[figureControls].y * scale,
-              width: figures[figureControls].w * scale,
-              height: figures[figureControls].h * scale,
-            }}
-            onCrop={(crop) => {
-              const next = figuresRef.current.map((one, i) =>
-                i === figureControls ? { ...one, crop } : one,
-              );
-              onFiguresChange(next);
-            }}
-            onRemove={() => {
-              onFiguresChange(
-                figuresRef.current.filter((_, i) => i !== figureControls),
-              );
-              setFigureControls(null);
-            }}
-            onClose={() => setFigureControls(null)}
-          />
-        ) : null}
       </InkRail>
       <InkTextLayer
         lines={lines}

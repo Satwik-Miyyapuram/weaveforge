@@ -15,7 +15,8 @@ export type WorkspaceCommand =
   | "previous-tab"
   | "toggle-mode"
   | "new-note"
-  | "toggle-explorer";
+  | "toggle-explorer"
+  | "toggle-focus";
 
 export interface KeyChord {
   key: string;
@@ -44,6 +45,9 @@ export function commandForChord(chord: KeyChord): WorkspaceCommand | null {
   if (key === "n" && !chord.shiftKey) return "new-note";
   // `⌘B` is VS Code's "toggle side bar"; the explorer is the side bar here.
   if (key === "b" && !chord.shiftKey) return "toggle-explorer";
+  // `⌘⇧F`: the document alone — no rail, no explorer, no strip, no status
+  // bar. For a hand on a pen the chrome is inches of page it cannot write on.
+  if (key === "f" && chord.shiftKey) return "toggle-focus";
   if (key === "\\") return "split-right";
   if (key === "w") return "close-tab";
   if (key === "tab") return chord.shiftKey ? "previous-tab" : "next-tab";
@@ -66,6 +70,7 @@ const CHORDS: Record<WorkspaceCommand, string> = {
   "toggle-mode": "⌘E",
   "new-note": "⌘N",
   "toggle-explorer": "⌘B",
+  "toggle-focus": "⌘⇧F",
   "split-right": "⌘\\",
   "close-tab": "⌘W",
   "next-tab": "⌘⇥",

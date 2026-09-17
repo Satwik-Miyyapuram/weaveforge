@@ -22,8 +22,10 @@ import {
   resolveAppFile,
 } from "./app-protocol";
 import type { LocalClient } from "./local-db";
+import { LocalDbBackups, readBackup } from "./local-db-backup";
 import { LocalDbHost } from "./local-db-host";
 import { applyDeferredMove, moveAside } from "./local-db-reset";
+import { readHomeConfig, writeHomeConfig } from "./home-config";
 import {
   adoptRoot,
   currentRoot,
@@ -447,6 +449,33 @@ ipc.handle(
  * and an app that stays online for its whole life should never pay to load it.
  */
 const localDbDir = path.join(app.getPath("userData"), "local-db");
+
+/**
+ * Copies of the database, under the app's directory and under the workspace
+ * folder's `.weaveforge/` when there is one; see `local-db-backup.ts`. Taken
+ * every so often while something has changed, and on the way out.
+ */
+const BACKUP_EVERY_MS = 10 * 60 * 1000;
+const localDbBackups = new LocalDbBackups({
+  dirs: () => {
+    const dirs = [path.join(app.getPath("userData"), "local-db-backups")];
+    const root = vault.root?.path;
+    if (root) dirs.push(path.join(root, ".weaveforge", "db-backups"));
+    return dirs;
+  },
+});
+
+/** Start the engine on `localDbDir`, from a backup's bytes when given some. */
+async function openEngine(loadDataDir?: Blob): Promise<LocalClient> {
+  const { PGlite } = await import("@electric-sql/pglite");
+  const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
+  return (await PGlite.create({
+    dataDir: localDbDir,
+    extensions: { pgcrypto },
+    ...(loadDataDir ? { loadDataDir } : {}),
+  })) as unknown as LocalClient;
+}
+
 const localDb = new LocalDbHost({
   migrations: [
     path.join(__dirname, "migrations"),
@@ -454,24 +483,57 @@ const localDb = new LocalDbHost({
   ],
   dataDir: localDbDir,
   open: async () => {
-    const { PGlite } = await import("@electric-sql/pglite");
-    const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
     // A reset the previous run could only write down; see `local-db-reset.ts`.
     applyDeferredMove(localDbDir);
-    return (await PGlite.create({
-      dataDir: localDbDir,
-      extensions: { pgcrypto },
-    })) as unknown as LocalClient;
+    // The folder's backups are only findable once the folder is known, and
+    // the folder is taken up in the background at boot.
+    await rootRestored;
+    // No database at all -- a fresh install, or a reset -- but a backup: the
+    // backup is what the person had, so it is what they get back.
+    if (!fs.existsSync(localDbDir)) {
+      const latest = await localDbBackups.latest();
+      if (latest) {
+        console.log(`[local-db] no database; restoring from ${latest}`);
+        return openEngine(await readBackup(latest));
+      }
+    }
+    return openEngine();
+  },
+  recover: async (cause) => {
+    const latest = await localDbBackups.latest();
+    if (!latest) return null;
+    console.warn(`[local-db] open failed (${String(cause)}); restoring from ${latest}`);
+    // The engine that failed may still hold the directory. When it does, the
+    // move waits for a process that has never opened it -- this one,
+    // relaunched -- and that boot finds no directory and restores (above).
+    if ((await moveAside(localDbDir)) === "deferred") {
+      app.relaunch();
+      app.exit(0);
+      return null;
+    }
+    return { client: await openEngine(await readBackup(latest)), from: latest };
   },
   discard: async () => {
-    // The engine that failed may still hold the directory. When it does, the
-    // move waits for a process that has never opened it — this one, relaunched.
+    // As in `recover`, for the button on the page.
     if ((await moveAside(localDbDir)) === "deferred") {
       app.relaunch();
       app.exit(0);
     }
   },
 });
+
+/** Write a backup if anything changed; never throws, never opens the database. */
+async function backUpLocalDb(): Promise<void> {
+  try {
+    const blob = await localDb.snapshot();
+    if (!blob) return;
+    const written = await localDbBackups.take({ dumpDataDir: async () => blob });
+    if (written.length > 0) console.log(`[local-db] backed up to ${written.join(", ")}`);
+  } catch (error) {
+    console.warn(`[local-db] backup failed: ${String(error)}`);
+  }
+}
+setInterval(() => void backUpLocalDb(), BACKUP_EVERY_MS).unref();
 
 ipc.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
   localDb.query(sql, params),
@@ -497,23 +559,35 @@ const vaultWatcher = registerMainVaultWatch({
   mainWindow: () => mainWindow,
 });
 
-/** The chosen folder outlives the process, so the app comes back to it. */
+/**
+ * The chosen folder outlives the process, so the app comes back to it -- and
+ * outlives the app's directory too (`home-config.ts`), so a reinstall does.
+ */
 const rememberRoot: RememberRoot = (root) => {
   void preferenceStore().write("vault-root", root);
+  void writeHomeConfig(app.getPath("home"), { vaultRoot: root });
 };
 
 /**
  * Take up last run's folder, re-verified. Deliberately not awaited at startup:
  * the window should not wait on a disk that may be a disconnected network
- * share, and the renderer asks for the root when it needs it anyway.
+ * share, and the renderer asks for the root when it needs it anyway. Only the
+ * database open waits for it (it wants the folder's backups), and that is
+ * lazy too.
+ *
+ * The preference first; the home config only when there is none, which is
+ * what a fresh install looks like.
  */
-void preferenceStore()
+const rootRestored: Promise<void> = preferenceStore()
   .read("vault-root")
-  .then((result) =>
-    result.ok ? restoreRoot(vault, result.value, rememberRoot) : null,
-  )
+  .then(async (result) => {
+    if (result.ok && typeof result.value === "string" && result.value) return result.value;
+    return (await readHomeConfig(app.getPath("home"))).vaultRoot;
+  })
+  .then((remembered) => restoreRoot(vault, remembered, rememberRoot))
   .then((root) => (root ? vaultWatcher.start(root.path) : null))
-  .catch(() => null);
+  .catch(() => null)
+  .then(() => undefined);
 
 /**
  * Ask for a workspace folder and adopt what comes back.
@@ -656,14 +730,19 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
  * neither returns nor exits stays alive with no window: invisible, holding the
  * single-instance lock, so every later launch raises a window that is not there
  * and quits. That is a machine that appears to have stopped running the app
- * until somebody opens Task Manager. `quit.ts` has the bound; three seconds is
- * longer than any healthy close and short enough that nobody reaches for the
- * power button.
+ * until somebody opens Task Manager. `quit.ts` has the bound; it is longer
+ * than any healthy close *and* the backup that now precedes it, and short
+ * enough that nobody reaches for the power button.
  */
 app.on("will-quit", (event) => {
   mainInk.dispose();
   event.preventDefault();
-  runBoundedQuit({ cleanup: () => localDb.close(), exit: () => app.exit(0) });
+  runBoundedQuit({
+    // A last copy first, then the close: the copy is what survives a close
+    // that does not finish, and both are inside the bound.
+    cleanup: () => backUpLocalDb().then(() => localDb.close()),
+    exit: () => app.exit(0),
+  });
 });
 
 // Disable Chromium history navigation gestures (swiping back/forward across the screen)

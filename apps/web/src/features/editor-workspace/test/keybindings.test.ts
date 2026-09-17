@@ -26,6 +26,8 @@ test("⌘N asks for a new note", () => {
   assert.equal(commandForChord({ key: "n", metaKey: true }), "new-note");
   assert.equal(commandForChord({ key: "N", ctrlKey: true }), "new-note");
   assert.equal(commandForChord({ key: "b", metaKey: true }), "toggle-explorer");
+  assert.equal(commandForChord({ key: "F", metaKey: true, shiftKey: true }), "toggle-focus");
+  assert.equal(commandForChord({ key: "f", ctrlKey: true }), null);
   assert.equal(commandForChord({ key: "n" }), null);
 });
 

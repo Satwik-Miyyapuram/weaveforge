@@ -286,6 +286,16 @@ test("the body header round-trips the ink metadata and leaves the text layer alo
   assert.equal(read.text, "first page\n\n<!-- page 2 -->\n\nsecond\n");
 });
 
+test("a stray header line at the top of the text layer is damage, not text", () => {
+  const meta = { ...defaultInkNoteMeta(), pageOrder: ["01JABCDEFGHJKMNPQRSTVWXYZ0"] };
+  const cutOff = "<!-- weaveforge-ink ink-pages=9 ink-paper=blank ink-page-order=01M2B9Q6KR";
+  const read = readInkNoteBody(writeInkNoteBody(meta, `${cutOff}\n<!-- weaveforge-ink ink-pages=1 -->\nhello\n`));
+  assert.deepEqual(read.meta, meta);
+  assert.equal(read.text, "hello\n");
+  // A body whose text is only the damage reads as empty, and saves clean.
+  assert.equal(readInkNoteBody(writeInkNoteBody(meta, cutOff)).text, "");
+});
+
 test("a plain body reads as an empty ink note, which is what a note never inked is", () => {
   const read = readInkNoteBody("just words");
   assert.deepEqual(read.meta, defaultInkNoteMeta());

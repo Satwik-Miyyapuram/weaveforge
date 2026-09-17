@@ -276,6 +276,12 @@ function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
         The app’s own database on this computer could not be opened. This
         happens when a previous run was interrupted while writing to it.
       </p>
+      <p className="muted">
+        The app keeps copies of the database (under{" "}
+        <code>local-db-backups</code> beside it, and in the workspace folder’s{" "}
+        <code>.weaveforge/db-backups</code>) and restores the newest one by
+        itself; you see this only when there was none to restore from.
+      </p>
       <p className="muted" style={{ wordBreak: "break-all" }}>
         {state.dataDir}
       </p>

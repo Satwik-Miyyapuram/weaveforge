@@ -20,6 +20,11 @@ export interface LocalClient {
   query<T>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
   transaction<T>(fn: (tx: LocalTransaction) => Promise<T>): Promise<T>;
   close(): Promise<void>;
+  /**
+   * The whole data directory as a tarball, for a backup (`local-db-backup.ts`).
+   * Optional: a client that cannot is simply never backed up.
+   */
+  dumpDataDir?(compression: "gzip"): Promise<Blob>;
 }
 
 export interface LocalTransaction {
@@ -101,6 +106,11 @@ export class LocalDatabase {
       `insert into auth.users (id, email) values ($1, $2) on conflict (id) do nothing`,
       [LOCAL_USER_ID, "local@weaveforge.invalid"],
     );
+  }
+
+  /** A copy of everything, or `null` from a client that cannot make one. */
+  async dump(): Promise<Blob | null> {
+    return this.client.dumpDataDir ? this.client.dumpDataDir("gzip") : null;
   }
 
   async close(): Promise<void> {

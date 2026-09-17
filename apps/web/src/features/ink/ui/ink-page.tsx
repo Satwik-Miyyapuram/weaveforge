@@ -102,13 +102,38 @@ export interface InkPageProps {
    * as over any paper — a pen over a photograph is a note.
    */
   figures?: readonly FigureGeometry[];
+  /**
+   * The figure whose editor is open, if any. Its frame sits over the canvas
+   * and owns every pointer on it, so the canvas leaves that figure alone: a
+   * drag that slipped past the frame must not move the picture under the
+   * tool that is editing it.
+   */
+  editingFigure?: number | null;
   /** A figure drag moved or resized figure `index`: write it to the note. */
   onFigureChange?: (
     index: number,
     geometry: Pick<FigureGeometry, "x" | "y" | "w" | "h">,
   ) => void;
-  /** A double-click inside figure `index`: open its controls. */
-  onFigureActivate?: (index: number) => void;
+  /**
+   * A click inside figure `index` selects it: open its editor. A pointer
+   * down anywhere else on the page is `null`: whatever was selected is not.
+   */
+  onFigureActivate?: (index: number | null) => void;
+  /**
+   * Content over the canvas: the selected figure's editor (§ink-figures),
+   * which takes its own pointer events from any pointer.
+   */
+  above?: React.ReactNode;
+  /**
+   * The canvas covers the whole pane, not just the live sheet, so a pointer
+   * can land on a neighbouring page's visible part. Called first on every
+   * down: the host makes the page under `clientX, clientY` the live one —
+   * synchronously, so the stroke that follows lands on it — and answers
+   * whether it did. A pen that comes down between pages keeps the live page.
+   */
+  ensurePage?: (clientX: number, clientY: number) => boolean;
+  /** Whether a pen stroke is in flight, for the boundary split below. */
+  penActive?: () => boolean;
 }
 
 /** The eraser's cursor: a ring the size of a fingertip, hot spot at its centre. */
@@ -175,6 +200,10 @@ export function InkPage({
   figures = [],
   onFigureChange,
   onFigureActivate,
+  editingFigure = null,
+  above,
+  ensurePage,
+  penActive,
 }: InkPageProps) {
   /** The last erase position, so a sweep is one segment per move and not a point. */
   const lastErase = useRef<{ x: number; y: number } | null>(null);
@@ -216,8 +245,11 @@ export function InkPage({
 
   const width = Math.max(1, Math.round(pageSize.width * scale));
   const height = Math.max(1, Math.round(pageSize.height * scale));
-  const viewWidth = Math.max(1, Math.round(Math.min(width, view.width)));
-  const viewHeight = Math.max(1, Math.round(Math.min(height, view.height)));
+  // The whole pane, not the sheet's part of it: the canvas is docked to the
+  // scroller's viewport (see the render below), so the neighbouring pages'
+  // visible parts are its surface too.
+  const viewWidth = Math.max(1, Math.round(view.width));
+  const viewHeight = Math.max(1, Math.round(view.height));
   const fingerPans = penOnly || penSeen;
 
   /** One overlay update per frame, however fast the pointer reports. */
@@ -306,6 +338,8 @@ export function InkPage({
   );
 
   const erasing = useRef(false);
+  /** A finger that landed on a figure and selected it: nothing to draw. */
+  const figureTap = useRef(false);
 
   /**
    * The figure a pointer-down at `at` is over, and which corner — the corner
@@ -321,7 +355,7 @@ export function InkPage({
       const hit = 12 / scale + slack;
       for (let index = figures.length - 1; index >= 0; index -= 1) {
         const one = figures[index];
-        if (!one) continue;
+        if (!one || index === editingFigure) continue;
         const nw = Math.hypot(at.x - one.x, at.y - one.y) <= hit;
         const ne = Math.hypot(at.x - (one.x + one.w), at.y - one.y) <= hit;
         const se =
@@ -341,12 +375,39 @@ export function InkPage({
       }
       return null;
     },
-    [figures, scale],
+    [editingFigure, figures, scale],
+  );
+
+  /** Whether the stroke in flight has already been split at the sheet's edge. */
+  const offSheet = useRef(false);
+
+  /** The same pointer event with its `clientY` moved to `y`. */
+  const atY = (
+    event: React.PointerEvent<HTMLCanvasElement>,
+    y: number,
+  ): React.PointerEvent<HTMLCanvasElement> =>
+    // The synthetic event is a plain object, so a prototype-chained copy
+    // works; the native one is not (its getters reject a foreign `this`),
+    // and the capture reads the up sample's position from the synthetic one.
+    Object.create(event, { clientY: { value: y } }) as React.PointerEvent<HTMLCanvasElement>;
+
+  /** Whether `clientY` is above or below the live sheet's box. */
+  const leftSheet = useCallback(
+    (clientY: number): boolean => {
+      const box = sheetRef.current?.getBoundingClientRect();
+      if (!box) return false;
+      return clientY < box.top || clientY > box.bottom;
+    },
+    [sheetRef],
   );
 
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchDown(event)) return;
+      offSheet.current = false;
+      // Before anything projects: the page under the pointer becomes the live
+      // one, so `project` below measures the sheet that is about to be drawn on.
+      ensurePage?.(event.clientX, event.clientY);
       // The pen's back tip erases whatever the bar says (eraser-tip.ts): the
       // decision is made once, here, and the sweep keeps it to the end.
       const erase =
@@ -375,6 +436,8 @@ export function InkPage({
         const one = hit ? figures[hit.index] : undefined;
         if (hit && at && one) {
           claimPointer(event);
+          // Selecting is the click; the drag that may follow is a bonus.
+          onFigureActivate?.(hit.index);
           figureDrag.current = {
             index: hit.index,
             corner: hit.corner,
@@ -403,9 +466,11 @@ export function InkPage({
       penHandlers.onPointerDown(event);
     },
     [
+      ensurePage,
       figureAt,
       figures,
       onErase,
+      onFigureActivate,
       onFigureChange,
       penHandlers,
       project,
@@ -419,6 +484,7 @@ export function InkPage({
   const onPointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchMove(event)) return;
+      if (figureTap.current) return;
       if (erasing.current) {
         if (!lastErase.current) return;
         event.preventDefault();
@@ -513,9 +579,35 @@ export function InkPage({
         publishLasso();
         return;
       }
+      // A stroke that runs off the live sheet onto the next page is split at
+      // the edge: it ends here, the page under the pen becomes the live one,
+      // and a new stroke begins on it from the same sample. Otherwise the tail
+      // is stored past the page's edge, drawn by the live canvas and clipped by
+      // every other view of the page — the ink "vanishes" on scroll.
+      // Tried once per exit: in the gap between pages, or past the last
+      // page, there is nothing to flip to and the stroke carries on as it was.
+      if (penActive?.() && ensurePage && leftSheet(event.clientY)) {
+        if (!offSheet.current) {
+          offSheet.current = true;
+          // The stroke ends on the edge, not where the pen already is: the
+          // sample that crossed is the first one off the page.
+          const box = sheetRef.current!.getBoundingClientRect();
+          const edgeY = Math.min(Math.max(event.clientY, box.top), box.bottom);
+          penHandlers.onPointerUp(atY(event, edgeY));
+          ensurePage(event.clientX, event.clientY);
+          penHandlers.onPointerDown(event);
+          return;
+        }
+      } else {
+        offSheet.current = false;
+      }
       penHandlers.onPointerMove(event);
     },
     [
+      ensurePage,
+      leftSheet,
+      penActive,
+      sheetRef,
       onDragSelection,
       onErase,
       onFigureChange,
@@ -532,6 +624,11 @@ export function InkPage({
   const onPointerUp = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchUp(event)) return;
+      if (figureTap.current) {
+        figureTap.current = false;
+        releasePointer(event);
+        return;
+      }
       if (figureDrag.current) {
         // The move already wrote each placement as it happened; all that is
         // left is to let go. `onFigureChange`'s writes are the note's own
@@ -588,12 +685,53 @@ export function InkPage({
 
   return (
     <div
-      className="ink-page"
+      className="ink-page ink-page-live"
       data-page={pageIndex}
       onTouchStart={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}
       onTouchEnd={(e) => e.stopPropagation()}
     >
+      {/*
+        The canvas's dock: sticky at the top of the rail's full-height live
+        layer, so the canvas covers the pane wherever the scroll is — over
+        this sheet, the gap, and the next page's visible part alike. A pen
+        that lands anywhere in the pane lands on the canvas, never on the
+        static ink beneath, where the browser would read a pen-down as the
+        start of a scroll. `touch-action: none` ensures the browser never
+        attempts to interpret drawing gestures as scrolling or panning,
+        preventing Chromium from dispatching pointercancel and dropping ink
+        strokes (§3.3).
+      */}
+      <div className="ink-canvas-dock">
+        <canvas
+          ref={canvasRef}
+          className="ink-canvas"
+          style={{
+            width: `${viewWidth}px`,
+            height: `${viewHeight}px`,
+            touchAction: "none",
+            cursor,
+          }}
+          width={viewWidth}
+          height={viewHeight}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onDoubleClick={(event) => {
+            // The double-click is the figure's controls: a click the figure
+            // can receive, because a single one is a drag the page routes.
+            const at = project(event.clientX, event.clientY);
+            const hit = at !== null ? figureAt(at) : null;
+            if (hit) onFigureActivate?.(hit.index);
+          }}
+          onContextMenu={(event) => event.preventDefault()}
+          aria-label={`Ink page ${pageIndex + 1}, drawing surface`}
+          role="img"
+        />
+      </div>
+      {/* The sheet, at its slot: `--ink-slot-top` is set by the rail. */}
+      <div className="ink-page-row">
       <div
         ref={sheetRef}
         className={`ink-sheet paper-${paper}${isDragOver ? " is-drag-over" : ""}`}
@@ -618,37 +756,7 @@ export function InkPage({
         }}
       >
       {below}
-      {/*
-        `touch-action: none` ensures the browser never attempts to interpret drawing
-        gestures as scrolling or panning, preventing Chromium from dispatching pointercancel
-        and dropping ink strokes (§3.3).
-      */}
-      <canvas
-        ref={canvasRef}
-        className="ink-canvas"
-        style={{
-          width: `${viewWidth}px`,
-          height: `${viewHeight}px`,
-          touchAction: "none",
-          cursor,
-        }}
-        width={viewWidth}
-        height={viewHeight}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onDoubleClick={(event) => {
-          // The double-click is the figure's controls: a click the figure
-          // can receive, because a single one is a drag the page routes.
-          const at = project(event.clientX, event.clientY);
-          const hit = at !== null ? figureAt(at) : null;
-          if (hit) onFigureActivate?.(hit.index);
-        }}
-        onContextMenu={(event) => event.preventDefault()}
-        aria-label={`Ink page ${pageIndex + 1}, drawing surface`}
-        role="img"
-      />
+      {above}
       {(lassoPath || box) && (
         <svg
           className="ink-overlay"
@@ -678,6 +786,7 @@ export function InkPage({
           )}
         </svg>
       )}
+      </div>
       </div>
     </div>
   );

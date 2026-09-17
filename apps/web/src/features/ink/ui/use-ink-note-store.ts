@@ -13,7 +13,9 @@
  * so a body built anywhere else would count a different one.
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { awaitInkWrites, trackInkWrite } from "../application/ink-pending-writes";
 import {
   joinInkTextLayer,
   newInkChunkId,
@@ -100,6 +102,11 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     await onSave(next);
   }, [noteBody, onSave, metaRef, pagesRef]);
 
+  /**
+   * Bumped after each chunk write. The page list is a ref, so a written chunk
+   * changes nothing React can see; the rail's static slots decode from this.
+   */
+  const [chunkVersion, setChunkVersion] = useState(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** The save is late and coalesced: one write after the last stroke settles. */
   const persistRef = useRef<() => Promise<void>>(async () => {});
@@ -116,28 +123,42 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     const pages = pagesRef.current;
     const current = pages?.[pageIndex];
     if (!pages || !current) return;
-    const bytes = await requestSave();
-    if (bytes) {
-      await chunks.write(noteId, current.chunkId, bytes);
-      current.chunk = bytes;
-    }
-    await saveBody();
+    const write = (async () => {
+      const bytes = await requestSave();
+      if (bytes) {
+        await chunks.write(noteId, current.chunkId, bytes);
+        current.chunk = bytes;
+        setChunkVersion((v) => v + 1);
+      }
+      await saveBody();
+    })();
+    // Registered so whatever reads this note next waits for it (§ink-pending-writes).
+    trackInkWrite(noteId, write);
+    await write;
   }, [chunks, noteId, pageIndex, requestSave, saveBody, pagesRef]);
   persistRef.current = persist;
 
-  /** Flush a pending save before the page changes or the host goes away. */
-  const flushSave = useCallback(() => {
-    if (!saveTimer.current) return;
-    clearTimeout(saveTimer.current);
+  /**
+   * Flush a pending save before the page changes or the host goes away.
+   *
+   * `force` writes even with nothing scheduled: a stroke split at a page
+   * edge has posted its `stroke-end` but the worker has not yet answered with
+   * `stroke-committed`, so the save it would schedule is not there to flush.
+   */
+  const flushSave = useCallback((force = false) => {
+    if (!saveTimer.current && !force) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = null;
     void persistRef.current();
   }, []);
-  useEffect(() => flushSave, [flushSave]);
+  useEffect(() => () => flushSave(), [flushSave]);
 
   /** Load the sidecar once; a note with nothing written gets one blank page. */
   useEffect(() => {
     let live = true;
-    void loadInkPages(chunks, noteId, metaRef.current).then((pages) => {
+    void awaitInkWrites(noteId)
+      .then(() => loadInkPages(chunks, noteId, metaRef.current))
+      .then((pages) => {
       if (!live) return;
       pagesRef.current = pages;
       setPageCount(pages.length);
@@ -171,6 +192,31 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     return pages.length - 1;
   }, [flushSave, metaRef, pageCount, pagesRef, setPageCount, setPageIndex, textPagesRef]);
 
+  /**
+   * Blank pages after the last until the note has `count`, staying put.
+   *
+   * The text flow (§ink-text-flow) is what asks: text that runs past the last
+   * page is shown on pages the note does not have yet, and a page the reader
+   * can see is a page the pen can land on, so it is made real.
+   */
+  const ensurePageCount = useCallback(
+    (count: number) => {
+      const pages = pagesRef.current;
+      if (!pages || pages.length >= count) return;
+      while (pages.length < count) {
+        pages.push({
+          chunkId: newInkChunkId(),
+          chunk: null,
+          paper: metaRef.current.paper,
+        });
+        textPagesRef.current.push("");
+      }
+      setPageCount(pages.length);
+      void saveBody();
+    },
+    [metaRef, pagesRef, saveBody, setPageCount, textPagesRef],
+  );
+
   /** A new blank page after the last, in the note's order. */
   const onAddPage = useCallback(() => {
     appendPage();
@@ -191,7 +237,9 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     saveBody,
     scheduleSave,
     flushSave,
+    chunkVersion,
     appendPage,
+    ensurePageCount,
     onAddPage,
     goToPage,
   };

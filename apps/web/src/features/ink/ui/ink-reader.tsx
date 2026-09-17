@@ -19,14 +19,17 @@ import {
   splitInkTextLayer,
 } from "@weaveforge/core";
 import { loadInkPages, type InkStoredPage } from "../application/ink-chunk-store";
+import { awaitInkWrites } from "../application/ink-pending-writes";
 import { INK_RENDER_COLOURS, readThemePalette, type InkPalette } from "../render/ink-palette";
 import type { InkHostDeps } from "./ink-host-types";
 import { fitScale } from "./ink-page-math";
 import { InkPageStatic } from "./ink-page-static";
 import { pureInkPageText } from "./ink-sheet-underlay";
+import { useFlowedTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkFigureUrls } from "./use-ink-figure-urls";
+import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 
 export interface InkReaderProps {
   noteId: string;
@@ -58,13 +61,16 @@ export function InkReader({ noteId, body, deps }: InkReaderProps) {
     [containerWidth, pageSize.width, zoom],
   );
 
-  // Load stored chunk pages for the note.
+  // Load stored chunk pages for the note — after the host that may have just
+  // unmounted has finished writing its last save.
   useEffect(() => {
     let live = true;
-    void loadInkPages(deps.chunks, noteId, meta).then((loaded) => {
-      if (!live) return;
-      setPages(loaded);
-    });
+    void awaitInkWrites(noteId)
+      .then(() => loadInkPages(deps.chunks, noteId, meta))
+      .then((loaded) => {
+        if (!live) return;
+        setPages(loaded);
+      });
     return () => {
       live = false;
     };
@@ -79,7 +85,14 @@ export function InkReader({ noteId, body, deps }: InkReaderProps) {
   // Track text layers and background images for each page.
   const textPagesRef = useRef(textPages);
   textPagesRef.current = textPages;
-  const pageCount = Math.max(pages?.length ?? 1, textPages.length);
+  // Shown flowed, as the ink editor shows it (§ink-text-flow): what runs
+  // past a page's foot continues on the next, and past the last, on new ones.
+  const pureTextPages = useMemo(
+    () => textPages.map((text) => pureInkPageText(text)),
+    [textPages],
+  );
+  const flowedText = useFlowedTextPages(pureTextPages, pageSize, scale);
+  const pageCount = Math.max(pages?.length ?? 1, textPages.length, flowedText.length);
 
   const ghosts = useGhostImages({
     fetchBlob: deps.assets.fetchBlob,
@@ -195,29 +208,32 @@ export function InkReader({ noteId, body, deps }: InkReaderProps) {
           </button>
         </div>
       </div>
-      <div
-        className="ink-page-scroll"
-        ref={scrollRef}
-        style={{ flex: 1, minHeight: 0, overflow: "auto" }}
-      >
-        {Array.from({ length: pageCount }, (_, index) => {
-          const pageFigures = inkPageFigures(textPages[index] ?? "");
-          return (
-            <InkPageStatic
-              key={`read-page-${index}`}
-              index={index}
-              pageSize={pageSize}
-              scale={scale}
-              paper={pages?.[index]?.paper ?? meta.paper ?? "blank"}
-              backgroundUrl={ghosts.get(index) ?? null}
-              figures={pageFigures}
-              figureUrls={figureUrls}
-              pureText={pureInkPageText(textPages[index] ?? "")}
-              strokes={strokesMap.get(index)}
-              palette={palette}
-            />
-          );
-        })}
+      <div style={{ position: "relative", flex: 1, minHeight: 0, width: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div
+          className="ink-page-scroll"
+          ref={scrollRef}
+          style={{ flex: 1, minHeight: 0 }}
+        >
+          {Array.from({ length: pageCount }, (_, index) => {
+            const pageFigures = inkPageFigures(textPages[index] ?? "");
+            return (
+              <InkPageStatic
+                key={`read-page-${index}`}
+                index={index}
+                pageSize={pageSize}
+                scale={scale}
+                paper={pages?.[index]?.paper ?? meta.paper ?? "blank"}
+                backgroundUrl={ghosts.get(index) ?? null}
+                figures={pageFigures}
+                figureUrls={figureUrls}
+                pureText={flowedText[index] ?? ""}
+                strokes={strokesMap.get(index)}
+                palette={palette}
+              />
+            );
+          })}
+        </div>
+        <OverlayScrollbar scrollRef={scrollRef} />
       </div>
     </div>
   );

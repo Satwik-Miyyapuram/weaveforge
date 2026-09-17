@@ -108,17 +108,22 @@ const saves: string[] = [];
 let body = writeInkNoteBody(defaultInkNoteMeta(), joinInkTextLayer([""]));
 
 const root = createRoot(document.getElementById("ink")!);
-root.render(
-  <InkHost
-    noteId={NOTE_ID}
-    body={body}
-    deps={deps}
-    onSave={async (next) => {
-      body = next;
-      saves.push(next);
-    }}
-  />,
-);
+/** Mount the host afresh over the same store, as a mode switch does. */
+function mount() {
+  root.render(
+    <InkHost
+      key={Date.now()}
+      noteId={NOTE_ID}
+      body={body}
+      deps={deps}
+      onSave={async (next) => {
+        body = next;
+        saves.push(next);
+      }}
+    />,
+  );
+}
+mount();
 
 /** A byte array as base64, for crossing the CDP boundary as JSON. */
 function toBase64(bytes: Uint8Array): string {
@@ -158,6 +163,12 @@ interface InkHarness {
   chunkBase64(index: number): Promise<string | null>;
   /** The header byte a page's chunk carries for its background (§4.8). */
   chunkBackground(index: number): Promise<number | null>;
+  /** How many strokes page `index`'s chunk holds; `null` for no chunk yet. */
+  strokeCount(index: number): Promise<number | null>;
+  /** The lowest point of any stroke on page `index`, in page units. */
+  maxY(index: number): Promise<number | null>;
+  /** Unmount the host and mount a new one, as switching Ink → Read → Ink does. */
+  remount(): void;
   uploadCount(): number;
   /** Whether the host's worker came up, and how talkative it has been. */
   worker(): typeof workerStats;
@@ -221,6 +232,33 @@ window.inkHarness = {
       await decodeInkChunk(bytes, availableInkChunkCodec()),
     );
     return page.background;
+  },
+  strokeCount: async (index) => {
+    const ids = await window.inkHarness.chunkIds();
+    const id = ids[index];
+    if (!id) return null;
+    const bytes = await chunkOf(id);
+    if (!bytes) return null;
+    return pageFromChunk(
+      await decodeInkChunk(bytes, availableInkChunkCodec()),
+    ).strokes.length;
+  },
+  maxY: async (index) => {
+    const ids = await window.inkHarness.chunkIds();
+    const id = ids[index];
+    if (!id) return null;
+    const bytes = await chunkOf(id);
+    if (!bytes) return null;
+    const page = pageFromChunk(await decodeInkChunk(bytes, availableInkChunkCodec()));
+    let max = 0;
+    for (const stroke of page.strokes) {
+      for (let i = 1; i < stroke.points.length; i += 2) max = Math.max(max, stroke.points[i]!);
+    }
+    return max;
+  },
+  remount: () => {
+    root.render(null);
+    mount();
   },
   uploadCount: () => uploadCount,
   worker: () => workerStats,

@@ -5,6 +5,7 @@ import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { AppShell } from "./app-shell";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
+import { WindowScrollbar } from "@/components/window-scrollbar";
 import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ClientRuntimeRecovery } from "@/components/client-runtime-recovery";
@@ -57,6 +58,7 @@ export default function RootLayout({
         <ReactiveMotion />
         <ServiceWorkerRegister />
         <ClientRuntimeRecovery />
+        <WindowScrollbar />
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>

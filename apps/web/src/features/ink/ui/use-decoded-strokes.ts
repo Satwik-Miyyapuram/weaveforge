@@ -7,6 +7,8 @@ import type { InkStoredPage } from "../application/ink-chunk-store";
 
 export interface UseDecodedStrokesOptions {
   pages: readonly InkStoredPage[] | null;
+  /** Bumped when a page's chunk is rewritten in place; the list stays the same. */
+  version?: number;
   activePageIndex: number;
   activeModel?: InkPage | null;
   strokesCount?: number;
@@ -20,6 +22,7 @@ export interface UseDecodedStrokesOptions {
  */
 export function useDecodedStrokes({
   pages,
+  version = 0,
   activePageIndex,
   activeModel,
   strokesCount,
@@ -27,7 +30,9 @@ export function useDecodedStrokes({
   const [strokesMap, setStrokesMap] = useState<ReadonlyMap<number, readonly InkStroke[]>>(
     new Map(),
   );
-  const cacheRef = useRef(new Map<string, readonly InkStroke[]>());
+  // Keyed by the bytes themselves: a rewritten chunk is a new array, and two
+  // saves of the same length are not the same page.
+  const cacheRef = useRef(new WeakMap<Uint8Array, readonly InkStroke[]>());
 
   // Decode chunks when `pages` changes.
   useEffect(() => {
@@ -38,14 +43,13 @@ export function useDecodedStrokes({
     void Promise.all(
       pages.map(async (entry, index) => {
         if (!entry.chunk) return { index, strokes: [] as readonly InkStroke[] };
-        const key = `${entry.chunkId}:${entry.chunk.length}`;
-        const cached = cacheRef.current.get(key);
+        const cached = cacheRef.current.get(entry.chunk);
         if (cached) return { index, strokes: cached };
         try {
           const decoded = await decodeInkChunk(entry.chunk, codec);
           const page = pageFromChunk(decoded);
           const strokes = page.strokes ?? [];
-          cacheRef.current.set(key, strokes);
+          cacheRef.current.set(entry.chunk, strokes);
           return { index, strokes };
         } catch {
           return { index, strokes: [] as readonly InkStroke[] };
@@ -65,7 +69,7 @@ export function useDecodedStrokes({
     return () => {
       cancelled = true;
     };
-  }, [pages]);
+  }, [pages, version]);
 
   // Keep active page's strokes in sync when activeModel changes.
   useEffect(() => {

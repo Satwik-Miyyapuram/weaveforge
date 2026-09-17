@@ -8,7 +8,7 @@ import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandleRef } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
-import { noteBodyText } from "@/lib/page-text";
+import { isHydratedPage, noteBodyText } from "@/lib/page-text";
 import { defaultInkNoteMeta, isInkNoteBody, writeInkNoteBody } from "@weaveforge/core";
 
 /** Which kind a note's body makes it: an ink note announces itself in its header (§4.1). */
@@ -55,7 +55,7 @@ import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
 import { creationKindFor, creationTarget, draftMakes, type Draft } from "../application/explorer-edit";
 import { readHidden, writeHidden } from "../application/explorer-state";
-import { PaneView, openTabs } from "./pane-view";
+import { FocusGlyph, PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
 import { isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
@@ -66,6 +66,15 @@ interface Document {
   id: string;
   title: string;
   body: string;
+  /**
+   * Whether `body` is the whole document. A note arrives from `vault.flat` as
+   * a summary whose `bodyPreview` is the first 320 characters — enough to index
+   * and to label, not enough to edit: an ink note's figure lines and page
+   * breaks sit past that cut, and a save from a preview would write the
+   * truncation over the note. A tab hydrates its document before mounting an
+   * editor on it.
+   */
+  hydrated: boolean;
   /** Where the document sits, for the breadcrumbs. */
   path: string;
   /** A note's folder; the tree nests notes by parent. */
@@ -102,6 +111,20 @@ export function WorkspaceScreen() {
   // `⌘N` chord and the panel's own buttons start the same thing.
   const [draft, setDraft] = useState<Draft | null>(null);
   const [explorerHidden, setExplorerHidden] = useState(false);
+  // Focus: the document and nothing else. Per session, not per device — a
+  // window that reopens with every control hidden looks broken, not focused.
+  const [focus, setFocus] = useState(false);
+  const toggleFocus = useCallback(() => setFocus((current) => !current), []);
+  // The primary nav rail lives outside this screen (app-shell), so the flag is
+  // also put on the root element for nav.css to read.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (focus) root.dataset.workspaceFocus = "";
+    else delete root.dataset.workspaceFocus;
+    return () => {
+      delete root.dataset.workspaceFocus;
+    };
+  }, [focus]);
   // The chord handler is bound once; it reads the document on screen through
   // a ref rather than closing over a stale one.
   const activeDocRef = useRef<Document | undefined>(undefined);
@@ -135,6 +158,10 @@ export function WorkspaceScreen() {
   // A write that failed leaves the document dirty — "Saved" would be a lie.
   const [dirty, setDirty] = useState(false);
   const pendingRef = useRef(0);
+  // Full note bodies fetched so far, by id, so a reload does not throw them
+  // away; and the fetches in flight, so a tab rendered twice asks once.
+  const hydratedRef = useRef(new Map<string, string>());
+  const hydratingRef = useRef(new Set<string>());
   const reload = useCallback(async () => {
     const container = getContainer();
     const [vault, papers, report, lists] = await Promise.all([
@@ -147,19 +174,28 @@ export function WorkspaceScreen() {
     const paperRows = papers?.papers ?? [];
     const sectionRows = report?.flat ?? [];
     const listRows = lists?.lists ?? [];
+    // A reload rebuilds the set from summaries; a note already hydrated keeps
+    // its full body as long as the summary still describes it — the preview
+    // is the body's head, so a body that changed underneath shows as a
+    // preview that no longer matches, and the tab hydrates again.
+    const previous = hydratedRef.current;
     const loaded: Document[] = [
       ...vault.flat.map((page) => {
         // `vault.flat` holds summaries, which have no `body` — reading one off
         // them was always `undefined`, so every note in the workspace was
         // indexed with an empty body. `noteBodyText` prefers the full body when
         // the entry has been hydrated and falls back to the preview otherwise.
-        const body = noteBodyText(page);
+        const summary = noteBodyText(page);
+        const kept = previous.get(page.id);
+        const keep = kept !== undefined && !isHydratedPage(page) && kept.startsWith(summary);
+        const body = keep ? kept : summary;
         const kind = noteKind(body);
         return {
           kind,
           id: page.id,
           title: page.title,
           body,
+          hydrated: keep || isHydratedPage(page),
           path: `notes/${page.title || "Untitled"}.${kind === "ink_page" ? "ink" : "note"}.md`,
           parentId: page.parentId ?? undefined,
         };
@@ -169,6 +205,7 @@ export function WorkspaceScreen() {
         id: paper.id,
         title: paper.title,
         body: paper.summary ?? "",
+        hydrated: true,
         path: `papers/${paper.title || "Untitled"}.paper.md`,
         tags: paper.tags,
       })),
@@ -177,6 +214,7 @@ export function WorkspaceScreen() {
         id: section.id,
         title: section.title,
         body: section.notes ?? "",
+        hydrated: true,
         path: `report/${section.title || "Untitled"}.report.md`,
       })),
     ];
@@ -320,8 +358,20 @@ export function WorkspaceScreen() {
     [byKey],
   );
 
+  const documentsRef = useRef(documents);
+  documentsRef.current = documents;
+
   const save = useCallback(
     async (tab: TabRef, body: string) => {
+      // A body may only go back to the store once the full one has come in.
+      // The editor is not mounted before that, but an editor that saved the
+      // 320-character preview would overwrite the note with it — a loss the
+      // store cannot undo — so the door is barred here as well.
+      const doc = documentsRef.current?.find((d) => d.kind === tab.kind && d.id === tab.id);
+      if ((tab.kind === "vault_page" || tab.kind === "ink_page") && doc && !doc.hydrated) {
+        setError("This note is still loading; the edit was not saved.");
+        return;
+      }
       const container = getContainer();
       pendingRef.current += 1;
       setPending(pendingRef.current);
@@ -339,9 +389,10 @@ export function WorkspaceScreen() {
         };
         await writers[tab.kind]?.(tab.id, body);
         setDirty(false);
+        if (tab.kind === "vault_page" || tab.kind === "ink_page") hydratedRef.current.set(tab.id, body);
         setDocuments((current) =>
           (current ?? []).map((doc) =>
-            doc.kind === tab.kind && doc.id === tab.id ? { ...doc, body } : doc,
+            doc.kind === tab.kind && doc.id === tab.id ? { ...doc, body, hydrated: true } : doc,
           ),
         );
       } catch (err) {
@@ -502,11 +553,35 @@ export function WorkspaceScreen() {
     [createNote],
   );
 
+  // Fetch a note's full body the first time a tab needs it. The summary the
+  // set was built from is a preview; an editor seeded from it would save the
+  // cut back over the note.
+  const hydrate = useCallback((tab: TabRef) => {
+    if (hydratingRef.current.has(tab.id)) return;
+    hydratingRef.current.add(tab.id);
+    void getContainer()
+      .vault.getPage(tab.id)
+      .then((page) => {
+        if (!page) return;
+        hydratedRef.current.set(tab.id, page.body);
+        setDocuments((current) =>
+          (current ?? []).map((doc) =>
+            doc.id === tab.id && doc.kind === tab.kind
+              ? { ...doc, body: page.body, hydrated: true }
+              : doc,
+          ),
+        );
+      })
+      .catch((err) => setError(formatError(err)))
+      .finally(() => hydratingRef.current.delete(tab.id));
+  }, []);
+
   const renderDocument = useCallback(
     (tab: TabRef) => {
       const key = tabKey(tab);
       const doc = byKey.get(key);
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
+      if (!doc.hydrated) return <HydratingDocument tab={tab} hydrate={hydrate} />;
       return (
         <DocumentHost
           tab={tab}
@@ -524,7 +599,7 @@ export function WorkspaceScreen() {
         />
       );
     },
-    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor],
+    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate],
   );
 
   // The pane's toolbar, for a tab in Edit mode: the same image button the
@@ -605,6 +680,7 @@ export function WorkspaceScreen() {
 
       if (command === "quick-open") return setPaletteOpen(true);
       if (command === "toggle-explorer") return toggleExplorer();
+      if (command === "toggle-focus") return toggleFocus();
       if (command === "new-note") {
         // Into the folder of the document on screen when it is a note or a
         // section; otherwise the top of Notes. Never Papers. Which kind that is
@@ -635,7 +711,7 @@ export function WorkspaceScreen() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [apply, toggleExplorer]);
+  }, [apply, toggleExplorer, toggleFocus]);
 
   if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <p className="muted">Loading workspace…</p>;
@@ -662,7 +738,20 @@ export function WorkspaceScreen() {
     : {};
 
   return (
-    <div className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}`}>
+    <div
+      className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}${focus ? " is-focus" : ""}`}
+    >
+      {focus ? (
+        <button
+          type="button"
+          className="focus-exit"
+          title="Exit focus (⌘⇧F)"
+          aria-label="Exit focus"
+          onClick={toggleFocus}
+        >
+          <FocusGlyph on />
+        </button>
+      ) : null}
       {explorerHidden ? (
         <button
           type="button"
@@ -715,6 +804,7 @@ export function WorkspaceScreen() {
         onClose={(paneId, index) => apply(closeTab(layout, paneId, index))}
         onFocus={(paneId) => apply(focusPane(layout, paneId))}
         onSplit={(paneId, direction) => apply(splitPane(layout, paneId, direction))}
+        onToggleFocus={toggleFocus}
         onDropTab={(from, toPaneId) => apply(moveTab(layout, from, toPaneId))}
         onRatio={(split: PaneSplit, ratio) => apply(setRatio(layout, split, ratio))}
         onToggleMode={(paneId, index) => apply(toggleTabModeAt(layout, paneId, index))}
@@ -738,4 +828,16 @@ export function WorkspaceScreen() {
       ) : null}
     </div>
   );
+}
+
+/**
+ * What a tab shows while its note's full body is on the way. Asking from an
+ * effect rather than during render keeps the fetch off the render path and
+ * runs it once per mount.
+ */
+function HydratingDocument({ tab, hydrate }: { tab: TabRef; hydrate: (tab: TabRef) => void }) {
+  useEffect(() => {
+    hydrate(tab);
+  }, [tab, hydrate]);
+  return <p className="muted">Loading…</p>;
 }

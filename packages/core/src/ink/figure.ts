@@ -191,3 +191,125 @@ export function figureAltFor(body: string, path: string): string | null {
   }
   return null;
 }
+
+/** Where a figure moves in the page's stacking order. */
+export type FigureOrderStep = "front" | "forward" | "backward" | "back";
+
+/**
+ * The figures with the one at `index` moved: the block's order is the paint
+ * order, so "front" is the end of the array and "back" its start. A step
+ * that cannot be taken (the top one, forward) leaves the order as it is.
+ */
+export function reorderFigures<T>(
+  figures: readonly T[],
+  index: number,
+  step: FigureOrderStep,
+): T[] {
+  const next = [...figures];
+  const one = next[index];
+  if (one === undefined || index < 0) return next;
+  const to =
+    step === "front"
+      ? next.length - 1
+      : step === "back"
+        ? 0
+        : step === "forward"
+          ? Math.min(next.length - 1, index + 1)
+          : Math.max(0, index - 1);
+  if (to === index) return next;
+  next.splice(index, 1);
+  next.splice(to, 0, one);
+  return next;
+}
+
+/** A handle on a figure's box: a corner or an edge. */
+export type FigureHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+/** The handles a box shows, in reading order. */
+export const FIGURE_HANDLES: readonly FigureHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+
+/**
+ * A box resized by dragging `handle` by (`dx`, `dy`) in page units. The
+ * opposite side holds still. A corner keeps the box's aspect unless `free`,
+ * because a photo does not become a different photo by being resized; an
+ * edge only ever moves its own side, so it is free by nature. No side gets
+ * shorter than `min`.
+ */
+export function resizeFigureBox(
+  box: { x: number; y: number; w: number; h: number },
+  handle: FigureHandle,
+  dx: number,
+  dy: number,
+  options: { free?: boolean; min?: number } = {},
+): { x: number; y: number; w: number; h: number } {
+  const min = options.min ?? 30;
+  const west = handle.includes("w");
+  const north = handle.includes("n");
+  const horizontal = handle !== "n" && handle !== "s";
+  const vertical = handle !== "e" && handle !== "w";
+  const growW = horizontal ? box.w + (west ? -dx : dx) : box.w;
+  const growH = vertical ? box.h + (north ? -dy : dy) : box.h;
+  let w = Math.max(min, growW);
+  let h = Math.max(min, growH);
+  if (horizontal && vertical && !options.free) {
+    // A corner drag: whichever axis the hand moved further along wins and
+    // the other follows, so the corner never lags the pointer.
+    const aspect = box.w / Math.max(1, box.h);
+    const movedW = Math.abs(growW - box.w) / Math.max(1, box.w);
+    const movedH = Math.abs(growH - box.h) / Math.max(1, box.h);
+    if (movedW >= movedH) h = Math.max(min, w / aspect);
+    else w = Math.max(min, h * aspect);
+  }
+  return {
+    x: Math.round(west ? box.x + box.w - w : box.x),
+    y: Math.round(north ? box.y + box.h - h : box.y),
+    w: Math.round(w),
+    h: Math.round(h),
+  };
+}
+
+/**
+ * The rectangle the whole image would occupy if the figure's crop were
+ * lifted: the box is the kept middle, so the full picture extends past it by
+ * each inset's share. The crop tool draws this and lets the kept rectangle be
+ * chosen inside it.
+ */
+export function uncroppedFigureBox(figure: Omit<FigureGeometry, "path">): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
+  const [l, t, r, b] = figure.crop ?? [0, 0, 0, 0];
+  const keepX = Math.max(1, 100 - l - r) / 100;
+  const keepY = Math.max(1, 100 - t - b) / 100;
+  const w = figure.w / keepX;
+  const h = figure.h / keepY;
+  return { x: figure.x - w * (l / 100), y: figure.y - h * (t / 100), w, h };
+}
+
+/**
+ * A figure re-cropped to `kept`, a rectangle inside the uncropped image
+ * `full`: the box becomes `kept` — what stays visible stays where it was on
+ * the page — and the insets are what lies outside it, as percentages of the
+ * whole picture. A crop that keeps everything clears the token.
+ */
+export function cropFigureTo(
+  full: { x: number; y: number; w: number; h: number },
+  kept: { x: number; y: number; w: number; h: number },
+): Pick<FigureGeometry, "x" | "y" | "w" | "h" | "crop"> {
+  const pct = (part: number, whole: number) =>
+    Math.min(99, Math.max(0, Math.round((part / Math.max(1, whole)) * 1000) / 10));
+  const l = pct(kept.x - full.x, full.w);
+  const t = pct(kept.y - full.y, full.h);
+  const r = pct(full.x + full.w - (kept.x + kept.w), full.w);
+  const b = pct(full.y + full.h - (kept.y + kept.h), full.h);
+  const box = {
+    x: Math.round(kept.x),
+    y: Math.round(kept.y),
+    w: Math.max(1, Math.round(kept.w)),
+    h: Math.max(1, Math.round(kept.h)),
+  };
+  if (l === 0 && t === 0 && r === 0 && b === 0) return box;
+  return { ...box, crop: [l, t, r, b] };
+}

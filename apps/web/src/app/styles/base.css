@@ -122,9 +122,12 @@ html, body { margin: 0; padding: 0; }
     background-color: var(--press);
   }
 }
-/* Single scroll container with a permanently reserved scrollbar gutter, so
-   switching tabs (short → tall content) doesn't shift the layout sideways. */
-html { overflow-x: hidden; overflow-y: scroll; scrollbar-gutter: stable; }
+/* Single scroll container. Its native scrollbar is hidden and an overlay one
+   floats over the viewport instead (`WindowScrollbar`), so switching tabs
+   (short → tall content) never shifts the layout sideways and nothing sits
+   there while the page fits. */
+html { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
 body {
   /* Fill the viewport even when a screen is short.
 

@@ -30,6 +30,8 @@ export interface DesktopImage {
 export interface DesktopLocalDbState {
   failure: string | null;
   dataDir: string;
+  /** The backup this run's database was rebuilt from, when it was. */
+  restoredFrom?: string | null;
 }
 
 export interface DesktopBridge {
