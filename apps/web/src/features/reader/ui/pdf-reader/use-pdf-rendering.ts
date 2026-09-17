@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { outlineFromText, type OutlineTextItem } from "@weaveforge/core";
+
 import type {
   DocumentPageText,
   ReaderContainerSize,
@@ -214,18 +216,34 @@ useEffect(() => {
       setPdf(doc);
       setNumPages(doc.numPages);
 
+      let detected: ReaderOutlineItem[] = [];
+      let bookmarks: ReaderOutlineItem[] | null = null;
+      const publishOutline = () => {
+        if (!cancelled && bookmarks !== null) setOutline(bookmarks.length ? bookmarks : detected);
+      };
       // Extract text for search + outline (best-effort; never blocks rendering).
       void (async () => {
         try {
           const texts: DocumentPageText[] = [];
+          const outlinePages: OutlineTextItem[][] = [];
           for (let n = 1; n <= doc.numPages; n++) {
             if (cancelled) return;
             const p = await doc.getPage(n);
             const content = await p.getTextContent();
             const items = textItemsFromContent(content);
             texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
+            outlinePages.push(items.map((item) => ({
+              str: item.str,
+              fontSize: Math.hypot(item.transform[2] ?? 0, item.transform[3] ?? 0),
+              fontName: item.fontName ? content.styles[item.fontName]?.fontFamily ?? item.fontName : undefined,
+              x: item.transform[4] ?? 0,
+              y: item.transform[5] ?? 0,
+              page: n,
+            })));
           }
           if (cancelled) return;
+          detected = outlineFromText(outlinePages);
+          publishOutline();
           setPageTexts(texts);
           // Keep the text so this document stays searchable after the reader
           // closes. Piggybacks on the pass above — no extra fetch or parse.
@@ -250,9 +268,11 @@ useEffect(() => {
         try {
           const raw = await doc.getOutline();
           if (cancelled) return;
-          setOutline(await mapOutline(doc, raw ?? []));
+          bookmarks = await mapOutline(doc, raw ?? []);
+          publishOutline();
         } catch {
-          if (!cancelled) setOutline([]);
+          bookmarks = [];
+          publishOutline();
         }
       })();
     } catch (err) {

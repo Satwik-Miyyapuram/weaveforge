@@ -615,7 +615,7 @@ export function PdfReader({
             aria-pressed={showOutline}
             onClick={() => setShowOutline((v) => !v)}
           >
-            Outline
+            {outline.some((item) => item.y !== undefined) ? "Sections (detected)" : "Outline"}
           </button>
           <button
             type="button"
