@@ -16,7 +16,7 @@ import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { INK_RENDER_COLOURS, paletteCss, type InkPalette } from "../render/ink-palette";
 import { strokePath } from "../application/ink-svg";
 import { InkFigures } from "./ink-figures";
-import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
+import { InkSheetTextUnderlay, inkSheetRuleStyle } from "./ink-sheet-underlay";
 
 export interface InkPageStaticProps {
   /** 0-based page index. */
@@ -73,7 +73,7 @@ export function InkPageStatic({
     <div className="ink-page" data-page={index}>
       <div
         className={`ink-sheet paper-${paper}`}
-        style={{ width: `${width}px`, height: `${height}px`, position: "relative" }}
+        style={{ width: `${width}px`, height: `${height}px`, position: "relative", ...inkSheetRuleStyle(scale) }}
       >
         {backgroundUrl ? (
           <img

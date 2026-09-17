@@ -21,6 +21,7 @@ import { useCallback, useRef, useState } from "react";
 import { isPenEraserPointer } from "../application/eraser-tip";
 import type { FigureGeometry } from "@weaveforge/core";
 import type { InkBarTool } from "./ink-bar";
+import { inkSheetRuleStyle } from "./ink-sheet-underlay";
 
 /** A figure's corner, for the resize hit-test. */
 type FigureCorner = "nw" | "ne" | "se" | "sw";
@@ -735,7 +736,7 @@ export function InkPage({
       <div
         ref={sheetRef}
         className={`ink-sheet paper-${paper}${isDragOver ? " is-drag-over" : ""}`}
-        style={{ width: `${width}px`, height: `${height}px` }}
+        style={{ width: `${width}px`, height: `${height}px`, ...inkSheetRuleStyle(scale) }}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes("Files")) {
             e.preventDefault();

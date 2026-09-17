@@ -604,7 +604,21 @@
 .workspace-shell.is-focus .ink-bar .ink-page-pill { gap: 4px; padding: 3px; border-radius: 10px; }
 .workspace-shell.is-focus .ink-bar .ink-swatches { gap: 9px; padding: 8px 5px; }
 .workspace-shell.is-focus .ink-bar .ink-swatch { width: 26px; height: 26px; }
-.workspace-shell.is-focus .ink-bar .ink-page-count { font-size: 0.8rem; padding: 2px 0; }
+.workspace-shell.is-focus .ink-bar .ink-page-count {
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0;
+  font-size: 0.8rem;
+  line-height: 1.1;
+}
+.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
+.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-now { font-weight: 700; color: var(--text); }
+.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-total {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid var(--border-strong);
+  font-size: 0.7rem;
+}
 .workspace-shell.is-focus .ink-bar .ink-menu { justify-content: center; }
 
 /* The list opens beside the palette, not under it — hung from the button's
@@ -1687,6 +1701,9 @@
 }
 
 .ink-page-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   padding: 0 4px;
   font-weight: 500;
   white-space: nowrap;
@@ -2006,10 +2023,15 @@
   background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
   background-size: 16px 16px;
 }
+/* Ruled and wide paper take their pitch from the sheet's text rows
+   (`--ink-rule`, set inline from INK_UNDERLAY), so the rendered markdown
+   sits on the lines; wide is one and a half rows. The first rule falls on
+   the text's top padding. */
 .ink-sheet.paper-ruled {
   background-color: var(--surface);
   background-image: linear-gradient(var(--border) 1px, transparent 1px);
-  background-size: 100% 24px;
+  background-size: 100% var(--ink-rule, 24px);
+  background-position: 0 var(--ink-rule-offset, 0px);
 }
 .ink-sheet.paper-grid {
   background-color: var(--surface);
@@ -2021,7 +2043,8 @@
 .ink-sheet.paper-wide {
   background-color: var(--surface);
   background-image: linear-gradient(var(--border-strong) 1px, transparent 1px);
-  background-size: 100% 36px;
+  background-size: 100% calc(var(--ink-rule, 24px) * 1.5);
+  background-position: 0 var(--ink-rule-offset, 0px);
 }
 
 /* The layout menu's thumbnails: the same papers, at a tenth of the pitch. */
@@ -2317,10 +2340,14 @@
    underlay's line rhythm (one row per source line, roughly) so the page flow
    estimate in ink-text-flow stays close to what is drawn. */
 .ink-sheet-text-underlay { max-width: none; }
-.ink-sheet-text-underlay > * { margin: 0; }
+/* `.ink-sheet` in the selector outranks markdown.css's own block margins. */
+.ink-sheet .ink-sheet-text-underlay :is(p, ul, ol, li, h3, h4, h5, pre, table, blockquote, .callout, .math-display, .md-mermaid) {
+  margin: 0;
+}
+.ink-sheet .ink-sheet-text-underlay :is(p, li) { line-height: var(--ink-rule, 1.6em); }
 .ink-sheet-text-underlay h3,
 .ink-sheet-text-underlay h4,
-.ink-sheet-text-underlay h5 { margin: 0; line-height: 1.6; }
+.ink-sheet-text-underlay h5 { margin: 0; line-height: var(--ink-rule, 1.6em); }
 .ink-sheet-text-underlay h3 { font-size: 1.35em; }
 .ink-sheet-text-underlay h4 { font-size: 1.18em; }
 .ink-sheet-text-underlay h5 { font-size: 1.05em; }
@@ -2328,7 +2355,7 @@
 .ink-sheet-text-underlay ol { margin: 0; padding-left: 1.4em; }
 .ink-sheet-text-underlay .md-code {
   margin: 0;
-  padding: 0.2em 0.6em;
+  padding: 0 0.6em;
   font-size: 0.9em;
   line-height: 1.6;
   border-radius: 6px;

@@ -525,8 +525,10 @@ export function InkBar({
             <path d="m15 18-6-6 6-6" />
           </svg>
         </button>
-        <span className="ink-page-count">
-          {page} / {pages}
+        <span className="ink-page-count" aria-label={`Page ${page} of ${pages}`}>
+          <span className="ink-page-now">{page}</span>
+          <span className="ink-page-sep" aria-hidden="true">/</span>
+          <span className="ink-page-total">{pages}</span>
         </span>
         <button
           type="button"

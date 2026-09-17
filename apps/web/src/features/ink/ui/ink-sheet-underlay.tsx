@@ -25,6 +25,20 @@ export const INK_UNDERLAY = {
   lineHeight: 1.6,
 };
 
+/**
+ * The sheet's ruling, as CSS variables: one rule per text row, the first one
+ * on the underlay's top padding, so ruled and wide paper line up with the
+ * rendered markdown at every zoom (the CSS pitch is read by `.paper-ruled`
+ * and `.paper-wide`).
+ */
+export function inkSheetRuleStyle(scale: number): Record<`--${string}`, string> {
+  const row = INK_UNDERLAY.fontSize(scale) * INK_UNDERLAY.lineHeight;
+  return {
+    "--ink-rule": `${row}px`,
+    "--ink-rule-offset": `${INK_UNDERLAY.padY(scale)}px`,
+  };
+}
+
 export function InkSheetTextUnderlay({
   text,
   scale,
