@@ -20,6 +20,8 @@ import {
   INK_PEN_WIDTHS,
   INK_HIGHLIGHTER_WIDTH,
   type InkHand,
+  INK_PAPERS,
+  type InkPaper,
 } from "@weaveforge/core";
 
 /** The tools the bar offers, in the order the plan's sketch draws them. */
@@ -57,6 +59,8 @@ export interface InkBarProps {
   penOnly: boolean;
   /** Which hand writes; the palm quadrant rule reads it (§3.3). */
   hand: InkHand;
+  /** The note's paper (§6.2.12); the layout menu shows and sets it. */
+  paper: InkPaper;
   /** Whether the OS is drawing the wet tail (§6.2.6), for the readout. */
   delegating?: boolean;
   penSeen: boolean;
@@ -77,6 +81,7 @@ export interface InkBarProps {
   onWidth: (width: number) => void;
   onPenOnly: (value: boolean) => void;
   onHand: (value: InkHand) => void;
+  onPaper: (value: InkPaper) => void;
   onRecognise: () => void;
   /**
    * The three ways out of a page, behind one button: the browser's own print
@@ -197,6 +202,22 @@ function toolIcon(tool: InkBarTool) {
   }
 }
 
+/** The paper's name on the layout menu. */
+function paperLabel(paper: InkPaper): string {
+  switch (paper) {
+    case "blank":
+      return "Blank";
+    case "dotted":
+      return "Dotted";
+    case "ruled":
+      return "Ruled";
+    case "grid":
+      return "Grid";
+    case "wide":
+      return "Wide ruled";
+  }
+}
+
 export function InkBar({
   tool,
   colour,
@@ -207,6 +228,7 @@ export function InkBar({
   recognised,
   penOnly,
   hand,
+  paper,
   delegating,
   penSeen,
   backend,
@@ -222,6 +244,7 @@ export function InkBar({
   onWidth,
   onPenOnly,
   onHand,
+  onPaper,
   onRecognise,
   onPrint,
   onExportPng,
@@ -239,19 +262,27 @@ export function InkBar({
   onCopyAsText,
 }: InkBarProps) {
   /**
-   * Whether the print menu is open. The only state the bar holds, and it is
+   * Which menu is open, print or paper — at most one. The bar's own state,
    * about the bar rather than the document: nothing behind it is read.
    */
-  const [printMenu, setPrintMenu] = useState(false);
+  const [menu, setMenu] = useState<"print" | "paper" | null>(null);
+  const printMenu = menu === "print";
+  const paperMenu = menu === "paper";
   const printMenuRef = useRef<HTMLDivElement>(null);
   const printListRef = useRef<HTMLDivElement>(null);
+  /**
+   * Folded, in focus mode: the palette shrinks to the tools and its own
+   * handle, OneNote's way, so the paper is all there is until a hand wants
+   * more. Outside focus the handle is hidden and the flag does nothing.
+   */
+  const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
-    if (!printMenu) return;
+    if (!menu) return;
     const onPointerDown = (event: MouseEvent) => {
-      if (!printMenuRef.current?.contains(event.target as Node)) setPrintMenu(false);
+      if (!printMenuRef.current?.contains(event.target as Node)) setMenu(null);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPrintMenu(false);
+      if (event.key === "Escape") setMenu(null);
     };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -259,7 +290,7 @@ export function InkBar({
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [printMenu]);
+  }, [menu]);
 
   /**
    * Keep the open menu inside the toolbar's own box.
@@ -272,7 +303,7 @@ export function InkBar({
    * the window because the bar is what the clipping ancestor is sized to.
    */
   useLayoutEffect(() => {
-    if (!printMenu) return;
+    if (!menu) return;
     const list = printListRef.current;
     const bar = list?.closest(".ink-bar");
     if (!list || !bar) return;
@@ -285,16 +316,45 @@ export function InkBar({
       shift = bounds.right - margin - box.right;
     }
     list.style.setProperty("--ink-menu-shift", `${Math.round(shift)}px`);
-  }, [printMenu]);
+  }, [menu]);
 
   /** Close the menu, then run what was chosen. */
   const choose = (run: () => void) => () => {
-    setPrintMenu(false);
+    setMenu(null);
     run();
   };
 
   return (
-    <div className="ink-bar" role="toolbar" aria-label="Ink tools">
+    <div
+      className="ink-bar"
+      role="toolbar"
+      aria-label="Ink tools"
+      data-collapsed={collapsed || undefined}
+    >
+      {/* 0. Fold handle: focus mode only (CSS), the palette's own chevron */}
+      <button
+        type="button"
+        className="ink-tool ink-tool-icon-only ink-bar-collapse"
+        onClick={() => setCollapsed((was) => !was)}
+        aria-expanded={!collapsed}
+        title={collapsed ? "Show all tools" : "Fold the tools away"}
+        aria-label={collapsed ? "Show all tools" : "Fold the tools away"}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          {collapsed ? <path d="M9 6l6 6-6 6" /> : <path d="M15 6l-6 6 6 6" />}
+        </svg>
+      </button>
+
       {/* 1. Drawing Tools Segmented Pill */}
       <div
         className="ink-bar-group ink-bar-tools"
@@ -629,11 +689,11 @@ export function InkBar({
       </button>
 
       {/* 7. Print: the page on paper, as a PNG, or as SVG */}
-      <div className="ink-menu" ref={printMenuRef}>
+      <div className="ink-menu" ref={printMenu ? printMenuRef : undefined}>
         <button
           type="button"
           className="ink-tool ink-tool-icon-only"
-          onClick={() => setPrintMenu((open) => !open)}
+          onClick={() => setMenu((was) => (was === "print" ? null : "print"))}
           aria-haspopup="menu"
           aria-expanded={printMenu}
           title="Print or export this page (⌘⇧P)"
@@ -690,6 +750,43 @@ export function InkBar({
                 Vector SVG
               </button>
             ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      {/* 7b. Page layout: the paper under the ink */}
+      <div className="ink-menu ink-menu-paper" ref={paperMenu ? printMenuRef : undefined}>
+        <button
+          type="button"
+          className="ink-tool ink-tool-icon-only"
+          onClick={() => setMenu((was) => (was === "paper" ? null : "paper"))}
+          aria-haspopup="menu"
+          aria-expanded={paperMenu}
+          title={`Page layout: ${paperLabel(paper)}`}
+          aria-label={`Page layout: ${paperLabel(paper)}`}
+        >
+          <span className={`ink-paper-preview paper-${paper}`} aria-hidden="true" />
+        </button>
+        {paperMenu ? (
+          <div
+            className="ink-menu-list"
+            role="menu"
+            aria-label="Page layout"
+            ref={printListRef}
+          >
+            {INK_PAPERS.map((entry) => (
+              <button
+                key={entry}
+                type="button"
+                role="menuitemradio"
+                aria-checked={paper === entry}
+                className="ink-menu-item"
+                onClick={choose(() => onPaper(entry))}
+              >
+                <span className={`ink-paper-preview paper-${entry}`} aria-hidden="true" />
+                {paperLabel(entry)}
+              </button>
+            ))}
           </div>
         ) : null}
       </div>

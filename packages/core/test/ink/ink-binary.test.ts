@@ -37,7 +37,7 @@ import {
   chunkStrokePoints,
   pageFromChunk,
 } from "../../src/ink/ink-chunk-read.js";
-import { makeInkStroke, packInkStroke, type InkPage } from "../../src/ink/ink-note.js";
+import { INK_PAPERS, makeInkStroke, packInkStroke, type InkPage } from "../../src/ink/ink-note.js";
 
 /** Brotli at quality 5, the knee §4.3 pins. */
 const brotliQ5: InkChunkCodec = {
@@ -252,6 +252,17 @@ test("a page round-trips through the container byte for byte", () => {
     Buffer.from(body),
     "re-encoding a decoded page must produce identical bytes",
   );
+});
+
+test("every paper, the newer grid and wide ones included, keeps its name across the wire", () => {
+  for (const paper of INK_PAPERS) {
+    const page = { ...smallPage(), paper };
+    const back = pageFromChunk(decodeInkChunkBody(encodeInkChunkBody(page)));
+    assert.equal(back.paper, paper);
+  }
+  // The papers are an enum by position, so the list only ever grows at the
+  // end: an older reader meeting a newer index falls back to blank.
+  assert.deepEqual(INK_PAPERS.slice(0, 3), ["blank", "dotted", "ruled"]);
 });
 
 test("every field survives the round trip, names and all", () => {

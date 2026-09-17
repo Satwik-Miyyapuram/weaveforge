@@ -53,6 +53,7 @@ import {
   type FigureGeometry,
   type InkColour,
   type InkHand,
+  type InkPaper,
   type InkNoteMeta,
   type InkPage as InkPageModel,
   type InkRecogniser,
@@ -163,6 +164,7 @@ export function InkHost({
   const metaRef = useRef<InkNoteMeta>(readInkNoteBody(body).meta);
   /** The writing hand, mirrored into state so the bar and the gate follow it. */
   const [hand, setHandState] = useState<InkHand>(metaRef.current.hand);
+  const [paper, setPaperState] = useState<InkPaper>(metaRef.current.paper);
   /** The text layer's pages, for the body (§4.2). */
   const textPagesRef = useRef<string[]>(
     splitInkTextLayer(readInkNoteBody(body).text),
@@ -316,6 +318,20 @@ export function InkHost({
   const penSessionActive = useCallback(
     () => penSessionRef.current.active,
     [],
+  );
+
+  /**
+   * The paper is the note's too (§6.2.12): every stored page carries a copy,
+   * so the pages already loaded take the new one before the sheet re-renders.
+   */
+  const setPaper = useCallback(
+    (next: InkPaper) => {
+      metaRef.current = { ...metaRef.current, paper: next };
+      for (const stored of pagesRef.current ?? []) stored.paper = next;
+      setPaperState(next);
+      scheduleSave();
+    },
+    [scheduleSave],
   );
 
   /** The hand is the note's (§4.1), so changing it is a save. */
@@ -680,6 +696,8 @@ export function InkHost({
         }}
         onPenOnly={pen.setPenOnly}
         onHand={setHand}
+        paper={paper}
+        onPaper={setPaper}
         onRecognise={() => void recognise()}
         onPrint={() => void onPrint()}
         onExportPng={() => void onExportPng()}

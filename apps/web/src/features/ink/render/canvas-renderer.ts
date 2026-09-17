@@ -65,8 +65,9 @@ export interface CanvasInkRendererOptions {
 
 export const HIGHLIGHTER_ALPHA = 0.35;
 
-/** Paper rulings in 0.1 mm: lines every 8 mm, dots and grid every 5 mm (§6.1). */
+/** Paper rulings in 0.1 mm: lines every 8 mm (12 mm wide), dots and grid every 5 mm (§6.1). */
 export const PAPER_RULED_PITCH = 80;
+export const PAPER_WIDE_PITCH = 120;
 export const PAPER_GRID_PITCH = 50;
 
 export function cssInkColour(
@@ -382,9 +383,9 @@ export function paintPaper(
     context.lineTo(x1, y1);
     context.stroke();
   };
-  if (paper === "ruled") {
-    for (let yy = PAPER_RULED_PITCH; yy < pageHeight; yy += PAPER_RULED_PITCH)
-      rule(0, yy, pageWidth, yy);
+  if (paper === "ruled" || paper === "wide") {
+    const pitch = paper === "wide" ? PAPER_WIDE_PITCH : PAPER_RULED_PITCH;
+    for (let yy = pitch; yy < pageHeight; yy += pitch) rule(0, yy, pageWidth, yy);
   } else if (paper === "grid") {
     for (let yy = PAPER_GRID_PITCH; yy < pageHeight; yy += PAPER_GRID_PITCH)
       rule(0, yy, pageWidth, yy);

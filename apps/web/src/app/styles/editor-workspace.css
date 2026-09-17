@@ -522,8 +522,10 @@
 .focus-exit {
   position: absolute;
   inset-block-start: 6px;
-  inset-inline-end: 6px;
-  z-index: 4;
+  /* Clear of the overlay scrollbar's 12px track, and above it: a thumb
+     parked at the top of a scrolled page must not sit over the way out. */
+  inset-inline-end: 16px;
+  z-index: 11;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -541,15 +543,70 @@
 .focus-exit:hover,
 .focus-exit:focus-visible { color: var(--text); opacity: 1; }
 
-/* The exit sits over the top-right corner; a bar that reaches it (the ink
-   bar's status readout, the editor's mode strip) leaves it room. */
-.workspace-shell.is-focus .ink-bar,
+/* The exit sits over the top-right corner; a bar that reaches it (the
+   editor's mode strip) leaves it room. */
 .workspace-shell.is-focus .md-live-choice { padding-inline-end: 44px; }
 
 @media (pointer: coarse) {
   .focus-exit { width: 36px; height: 36px; opacity: 0.8; }
-  .workspace-shell.is-focus .ink-bar,
   .workspace-shell.is-focus .md-live-choice { padding-inline-end: 52px; }
+}
+
+/* Ink in focus, OneNote's way: the toolbar row goes, and what a hand needs
+   mid-stroke — tools, colours, nibs, undo, the page, the paper — floats as a
+   narrow palette down the left edge with the paper running full-bleed behind
+   it. Everything else on the bar (export, recognise, the readout, the wrist
+   guard…) is chrome for later and hides; the fold handle shrinks the palette
+   to its tools. */
+.workspace-shell.is-focus .ink-bar {
+  position: absolute;
+  inset-inline-start: 10px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 6px;
+  width: max-content;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
+}
+
+.workspace-shell.is-focus .ink-bar > :not(.ink-bar-collapse):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper) {
+  display: none;
+}
+
+.workspace-shell.is-focus .ink-bar[data-collapsed] > :not(.ink-bar-collapse):not(.ink-bar-tools) {
+  display: none;
+}
+
+.ink-bar-collapse { display: none; }
+.workspace-shell.is-focus .ink-bar-collapse { display: inline-flex; align-self: center; }
+
+.workspace-shell.is-focus .ink-bar .ink-bar-group,
+.workspace-shell.is-focus .ink-bar .ink-swatches,
+.workspace-shell.is-focus .ink-bar .ink-page-pill {
+  flex-direction: column;
+  align-items: center;
+}
+
+.workspace-shell.is-focus .ink-bar .ink-swatches { padding: 4px 2px; }
+.workspace-shell.is-focus .ink-bar .ink-menu { justify-content: center; }
+
+/* The list opens beside the palette, not under it — hung from the button's
+   bottom, since the paper menu is the palette's last item — and nothing
+   clamps it to the (now narrow) bar. */
+.workspace-shell.is-focus .ink-bar .ink-menu-list {
+  top: auto;
+  bottom: 0;
+  right: auto;
+  left: calc(100% + 8px);
+  transform: none;
 }
 
 /* Hover actions on a row, VS Code's way: hidden until the row is under the
@@ -1495,6 +1552,7 @@
  * ------------------------------------------------------------------------ */
 
 .ink-wrap {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 248px;
   grid-template-rows: auto minmax(0, 1fr);
@@ -1944,6 +2002,49 @@
   background-image: linear-gradient(var(--border) 1px, transparent 1px);
   background-size: 100% 24px;
 }
+.ink-sheet.paper-grid {
+  background-color: var(--surface);
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.ink-sheet.paper-wide {
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--border-strong) 1px, transparent 1px);
+  background-size: 100% 36px;
+}
+
+/* The layout menu's thumbnails: the same papers, at a tenth of the pitch. */
+.ink-paper-preview {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background-color: var(--surface);
+  flex-shrink: 0;
+}
+.ink-paper-preview.paper-dotted {
+  background-image: radial-gradient(var(--muted) 0.7px, transparent 0.8px);
+  background-size: 4px 4px;
+}
+.ink-paper-preview.paper-ruled {
+  background-image: linear-gradient(var(--muted) 1px, transparent 1px);
+  background-size: 100% 4px;
+}
+.ink-paper-preview.paper-grid {
+  background-image:
+    linear-gradient(var(--muted) 1px, transparent 1px),
+    linear-gradient(90deg, var(--muted) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+.ink-paper-preview.paper-wide {
+  background-image: linear-gradient(var(--muted) 1px, transparent 1px);
+  background-size: 100% 6px;
+}
+.ink-menu-paper .ink-menu-item { justify-content: flex-start; gap: 8px; }
+.ink-menu-item[aria-checked="true"] { font-weight: 600; }
 
 /*
  * The rail's ghosts: the page above and below the live one, in a continuous

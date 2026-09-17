@@ -48,8 +48,13 @@ export type InkTool = (typeof INK_TOOLS)[number];
 export const INK_COLOURS = ["text", "accent", "warn", "good", "info", "danger"] as const;
 export type InkColour = (typeof INK_COLOURS)[number];
 
-/** Page backgrounds. Painted from CSS tokens; nothing about them is stored. */
-export const INK_PAPERS = ["blank", "dotted", "ruled"] as const;
+/**
+ * Page backgrounds. Painted from CSS tokens; nothing about them is stored.
+ * The order is the binary enum (`ink-binary` byte 20), so new papers go on
+ * the end: an older reader that meets an index past its own list falls back
+ * to blank rather than misreading the page.
+ */
+export const INK_PAPERS = ["blank", "dotted", "ruled", "grid", "wide"] as const;
 export type InkPaper = (typeof INK_PAPERS)[number];
 
 /** An optional snapped shape replacing a stroke's freehand path. */
