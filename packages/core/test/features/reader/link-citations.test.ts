@@ -71,3 +71,25 @@ test("link boxes map to the characters under them under the page-text convention
   assert.equal(text(items).slice(hits[0]!.start, hits[0]!.end), "2");
   assert.deepEqual(hits[0]!.refIndexes, [2]);
 });
+
+test("three links over one `[38, 2, 9]` item give three separate citations", () => {
+  const item: PageTextItem = { str: "[38, 2, 9].", transform: [10, 0, 0, 10, 143.87, 420.55], width: 39.01, height: 10, hasEOL: true };
+  const list = parseReferenceList([
+    lines(["References", ...Array.from({ length: 40 }, (_, i) => `[${i + 1}] Author ${i + 1}. 2000. Title ${i + 1}. Venue.`)]),
+  ]);
+  const at = (i: number) => list[i - 1]!.y + 1;
+  const links: PdfLink[] = [
+    { rect: [146.19, 419.45, 158.14, 428.3], dest: { page: 3, x: 40, y: at(38) } },
+    { rect: [161.13, 419.55, 168.1, 428.3], dest: { page: 3, x: 40, y: at(2) } },
+    { rect: [171.09, 419.33, 178.07, 428.3], dest: { page: 3, x: 40, y: at(9) } },
+  ];
+  const hits = linkCitationMentions({ number: 1, items: [item] }, links, list);
+  assert.deepEqual(
+    hits.map((h) => [item.str.slice(h.start, h.end), h.refIndexes]),
+    [
+      ["38", [38]],
+      ["2", [2]],
+      ["9", [9]],
+    ],
+  );
+});

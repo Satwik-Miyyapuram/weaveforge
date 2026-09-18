@@ -79,10 +79,10 @@ export function linkCitationMentions(
   if (!citing.length) return out;
   // Offsets and boxes for every item, once.
   const rows: { start: number; end: number; rect: number[]; item: PageTextItem }[] = [];
-  let offset = 0;
+  let text = "";
   for (const item of page.items) {
-    const start = offset;
-    offset += item.str.length + (item.hasEOL ? 1 : 0);
+    const start = text.length;
+    text += item.str + (item.hasEOL ? "\n" : "");
     const rect = itemToRect(item);
     if (rect && item.str.trim()) rows.push({ start, end: start + item.str.length, rect, item });
   }
@@ -99,13 +99,21 @@ export function linkCitationMentions(
       // A box that grazes the edge of a neighbouring item by less than half a
       // glyph is not over it; hyperref's boxes stop a hair past the digits.
       if (overlapX(link.rect, row.rect) < Math.min(2, (w / len) * 0.5)) continue;
-      // Which characters of this item the box covers, by proportion.
-      const from = w > 0 ? Math.max(0, Math.floor(((link.rect[0] - row.rect[0]!) / w) * len)) : 0;
-      const to = w > 0 ? Math.min(len, Math.ceil(((link.rect[2] - row.rect[0]!) / w) * len)) : len;
+      // Which characters of this item the box covers, by proportion, each
+      // edge snapped to the nearest glyph boundary. Glyphs are not all one
+      // width, so the span is trimmed below rather than trusted.
+      const from = w > 0 ? Math.max(0, Math.round(((link.rect[0] - row.rect[0]!) / w) * len)) : 0;
+      const to = w > 0 ? Math.min(len, Math.round(((link.rect[2] - row.rect[0]!) / w) * len)) : len;
       if (to <= from) continue;
       start = Math.min(start, row.start + from);
       end = Math.max(end, row.start + to);
     }
+    // `[38, 2, 9]` is one text item under three links; a box's proportional
+    // span can take a neighbour's comma or bracket with it, and then the
+    // next link would look like a duplicate of this one. Only the citation
+    // itself is kept; the caller widens to the brackets when they are its own.
+    while (start < end && /[\s,;[\]()]/.test(text[start]!)) start++;
+    while (end > start && /[\s,;[\]()]/.test(text[end - 1]!)) end--;
     if (end <= start) continue;
     if (!out.some((m) => start < m.end && end > m.start)) {
       out.push({ page: page.number, start, end, refIndexes: [ref.index] });
