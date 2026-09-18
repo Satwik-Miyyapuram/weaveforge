@@ -333,10 +333,13 @@
   display: grid; gap: 4px; margin-bottom: 8px;
 }
 .pdf-reader-sidebar-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+/* Explicit colour and font: an unstyled button takes the UA's `buttontext`,
+   which under the desktop shell's dark native theme is white — the quote of
+   every highlight vanished into the light card. */
 .pdf-reader-sidebar-item {
   display: flex; gap: 8px; width: 100%; text-align: left;
   background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px;
-  cursor: pointer;
+  cursor: pointer; color: var(--text); font: inherit;
 }
 .pdf-reader-sidebar-item.is-selected { border-color: var(--accent); background: var(--surface-alt); }
 .pdf-reader-sidebar-swatch { width: 4px; border-radius: 2px; flex: none; }
