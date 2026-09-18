@@ -10,7 +10,33 @@ type MermaidModule = typeof import("mermaid")["default"];
 
 let mermaidPromise: Promise<MermaidModule> | null = null;
 let initialisedMode: ColorMode | null = null;
-let counter = 0;
+
+/**
+ * An id for a diagram from its source, so the same fence renders to the same
+ * markup every time. A running counter made each render a different string,
+ * which made React rewrite the body — and kill any link mid-click — whenever
+ * a note with a diagram re-rendered for a reason that changed nothing.
+ */
+function diagramId(code: string): string {
+  let hash = 0;
+  for (let i = 0; i < code.length; i++) hash = (hash * 31 + code.charCodeAt(i)) | 0;
+  return `wf-mermaid-${(hash >>> 0).toString(36)}`;
+}
+
+/**
+ * Mermaid rejects `(`, `)` and `|` inside an unquoted `[label]` or `{label}`,
+ * and a note about a VAE writes `Q[q(z|x)]` without thinking twice. Such a
+ * label is quoted before it goes to the parser, which is what the author
+ * meant; a label already quoted, or a shape whose brackets carry meaning
+ * (`[(cylinder)]`, `[[subroutine]]`, `[/parallelogram/]`), is left alone.
+ */
+export function quoteAwkwardLabels(code: string): string {
+  return code.replace(/([[{])([^[\]{}"\n]*?)([\]}])/g, (match, open: string, label: string, close: string) => {
+    if (!/[()|]/.test(label) || /^[(/\\]/.test(label) || /[(/\\]$/.test(label)) return match;
+    if ((open === "[" && close !== "]") || (open === "{" && close !== "}")) return match;
+    return `${open}"${label.replace(/"/g, "#quot;")}"${close}`;
+  });
+}
 
 function getMermaid(mode: ColorMode): Promise<MermaidModule> {
   if (!mermaidPromise) {
@@ -51,8 +77,8 @@ export async function renderMermaidBlock(code: string, mode: ColorMode): Promise
   }
   try {
     const mermaid = await getMermaid(mode);
-    counter += 1;
-    const { svg } = await mermaid.render(`wf-mermaid-${counter}`, code.trim());
+    const source = quoteAwkwardLabels(code.trim());
+    const { svg } = await mermaid.render(diagramId(source), source);
     return `<div class="md-mermaid">${svg}</div>`;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

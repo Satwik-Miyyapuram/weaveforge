@@ -297,8 +297,11 @@ export class PapersFacade {
   }
 
   fetchImageBlobs(paths: readonly string[]) {
-    const many = this.deps.images.fetchBlobs;
-    if (many) return many(paths);
+    // Called on the store, not as a detached function: the bucket store's
+    // `fetchBlobs` reads `this.blobs`, and unbound it threw on every note
+    // with two or more pictures.
+    const images = this.deps.images;
+    if (images.fetchBlobs) return images.fetchBlobs(paths);
     return Promise.all(paths.map((p) => this.deps.images.fetchBlob(p))).then((blobs) => {
       const out = new Map<string, Blob>();
       paths.forEach((p, i) => {

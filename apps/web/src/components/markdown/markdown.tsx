@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { renderToString } from "katex";
 import { escapeHtml as escapeAttr } from "@/lib/escape-html";
 import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
@@ -359,12 +360,10 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
 
 /** Simple synchronous renderer (logbook, paper summaries — no Shiki). */
 export function Markdown({ children, className }: { children: string; className?: string }) {
-  return (
-    <div
-      className={className ? `markdown ${className}` : "markdown"}
-      dangerouslySetInnerHTML={{ __html: renderProseMarkdown(children) }}
-    />
-  );
+  // One object per text, for the reason `ShikiMarkdown` gives: a fresh object
+  // makes React rewrite the body, and a rewrite mid-click loses the click.
+  const markup = useMemo(() => ({ __html: renderProseMarkdown(children) }), [children]);
+  return <div className={className ? `markdown ${className}` : "markdown"} dangerouslySetInnerHTML={markup} />;
 }
 
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;

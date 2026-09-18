@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { highlightCodeBlock, type ColorMode } from "@/lib/shiki-render";
 import { renderMarkdownWithShiki, renderProseMarkdown, type WikilinkResolver } from "@/components/markdown/markdown";
 
@@ -43,12 +43,20 @@ export function ShikiMarkdown({
     [children, resolveWikilink],
   );
   const [html, setHtml] = useState<string | null>(null);
+  // What the current `html` was rendered from. A resolver handed down as a
+  // new closure re-runs the effect without changing the text; dropping to the
+  // fallback in between rewrote the whole body on every pane focus, and a
+  // link whose node died between mousedown and mouseup never got its click.
+  const rendered = useRef<{ children: string; mode: ColorMode } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setHtml(null);
+    const current = rendered.current;
+    if (!current || current.children !== children || current.mode !== mode) setHtml(null);
     void renderMarkdownWithShiki(children, mode, highlightCodeBlock, resolveWikilink).then((next) => {
-      if (!cancelled) setHtml(next);
+      if (cancelled) return;
+      rendered.current = { children, mode };
+      setHtml(next);
     });
     return () => {
       cancelled = true;
@@ -56,12 +64,19 @@ export function ShikiMarkdown({
   }, [children, mode, resolveWikilink]);
 
   const cls = className ? `markdown shiki-markdown ${className}` : "markdown shiki-markdown";
+  // One object per html string. React resets innerHTML whenever it is handed
+  // a new `dangerouslySetInnerHTML` object, same text or not, so an inline
+  // literal rewrote every read body on each re-render of the screen — a pane
+  // focus on mousedown was enough — and the link under the pointer was gone
+  // before mouseup, so no click ever fired.
+  const current = html ?? fallbackHtml;
+  const markup = useMemo(() => ({ __html: current }), [current]);
 
   return (
     <div
       className={cls}
       aria-busy={html === null}
-      dangerouslySetInnerHTML={{ __html: html ?? fallbackHtml }}
+      dangerouslySetInnerHTML={markup}
     />
   );
 }
