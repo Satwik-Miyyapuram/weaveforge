@@ -88,7 +88,11 @@ export function findCitationMentions(
       add(match.index!, match.index! + match[0].length, matchAuthor(match[0]));
     }
   }
-  if (numeric && refs.some((ref) => ref.label)) {
+  // Superscript numbers only where the page cites no other way: a paper that
+  // writes `[13]` does not also cite by superscript, and reading every small
+  // digit on such a page as a citation turned the `1` of `h_{t-1}` and the
+  // exponents in a FLOPs table into forty phantom links.
+  if (numeric && !out.length && refs.some((ref) => ref.label)) {
     let cursor = 0;
     for (const item of page.items) {
       if (!item.str) continue;

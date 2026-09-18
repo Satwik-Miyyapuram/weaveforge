@@ -264,11 +264,14 @@ useEffect(() => {
             const items = textItemsFromContent(content);
             texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
             itemsByPage.set(n, items);
-            // The document's own links (a publisher's clickable citations)
-            // take precedence over ours, so their rects are kept to defer to.
+            // The document's own outbound links take precedence over ours, so
+            // their rects are kept to defer to. Only links with a URL count:
+            // an internal `/Dest` link (hyperref's jump from `[13]` to the
+            // bibliography, on every arXiv PDF) is not rendered by this reader
+            // at all, so deferring to it left every citation dead.
             try {
               const rects = (await p.getAnnotations())
-                .filter((a) => a.subtype === "Link" && Array.isArray(a.rect))
+                .filter((a) => a.subtype === "Link" && Array.isArray(a.rect) && typeof a.url === "string" && a.url)
                 .map((a) => a.rect as [number, number, number, number]);
               if (rects.length) links.set(n, rects);
             } catch {

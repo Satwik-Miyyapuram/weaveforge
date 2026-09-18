@@ -55,6 +55,14 @@ test("superscripts retain offsets and only resolve numbered lists", () => {
   assert.deepEqual(findCitationMentions({ number: 1, text: "Text2", items }, refs.map((ref) => ({ ...ref, label: undefined })), 10), []);
 });
 
+test("a page that cites in brackets reads no small digit as a superscript citation", () => {
+  const refs = parseReferenceList(numbered);
+  const items = lines(["See [1] and h", "1"]);
+  items[1]!.fontSize = 7;
+  const found = findCitationMentions({ number: 1, text: "See [1] and h1", items }, refs, 10);
+  assert.deepEqual(found, [{ page: 1, start: 4, end: 7, refIndexes: [1] }]);
+});
+
 test("figure and equation mentions resolve to first targets", () => {
   const pages = [{ number: 1, text: "See Fig. 2 and Eq. (3)", items: lines(["See Fig. 2 and Eq. (3)"], 1) },
     { number: 2, text: "Figure 2 A caption", items: [...lines(["Figure 2 A caption"], 2), { ...lines(["(3)"], 2, 500)[0]!, y: 300 }] }];
