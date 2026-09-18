@@ -66,6 +66,11 @@ import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePagePointer } from "./use-page-pointer";
+import { useReaderReferences } from "./use-reader-references";
+import { ReferencePopoverHost } from "./reference-popover-host";
+import { ReferenceOverlay } from "../reference-overlay";
+import { ReferencesPanel } from "../references-panel";
+import { buildLocusLink } from "../../application/build-locus-link";
 
 import type {
   DraftShape,
@@ -111,6 +116,8 @@ export function PdfReader({
   const rootRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const [showOutline, setShowOutline] = useState(false);
+  const [showReferences, setShowReferences] = useState(false);
+  const [flashPage, setFlashPage] = useState<number | null>(null);
   const [spread, setSpread] = useState(false);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [createTool, setCreateTool] = useState<ReaderCreateTool>("select");
@@ -185,6 +192,8 @@ export function PdfReader({
     pageSize,
     containerSize,
     pageTexts,
+    pageItems,
+    linkRects,
     outline,
     error,
     openUrl,
@@ -235,6 +244,24 @@ export function PdfReader({
     removeLocal,
     saveAnchor,
   });
+
+  const flashCaption = useCallback((target: { page: number; y: number }) => {
+    setFlashPage(target.page);
+    window.setTimeout(() => setFlashPage((p) => (p === target.page ? null : p)), 1600);
+  }, []);
+  const refs = useReaderReferences({
+    pageItems,
+    linkRects,
+    outline,
+    contentHash,
+    paperId,
+    setPage: viewport.setPage,
+    onFigureTarget: flashCaption,
+  });
+  useEffect(() => {
+    if (showReferences) refs.resolveAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when the tab opens or the index changes, not per resolution
+  }, [showReferences, refs.index]);
 
 
   const matchOnPage = useCallback(
@@ -625,6 +652,22 @@ export function PdfReader({
           >
             Two-page
           </button>
+          <button
+            type="button"
+            className={`btn-secondary btn-sm${refs.enabled ? " is-active" : ""}`}
+            aria-pressed={refs.enabled}
+            onClick={refs.toggle}
+          >
+            Link citations
+          </button>
+          <button
+            type="button"
+            className={`btn-secondary btn-sm${showReferences ? " is-active" : ""}`}
+            aria-pressed={showReferences}
+            onClick={() => setShowReferences((v) => !v)}
+          >
+            References{refs.index.references.length ? ` (${refs.index.references.length})` : ""}
+          </button>
         </div>
         {canCreate && (
           <div className="pdf-reader-group">
@@ -693,10 +736,25 @@ export function PdfReader({
           showOutline || annotations.length > 0 || canCreate ? " pdf-reader-body--outline" : ""
         }`}
       >
-        {(showOutline || annotations.length > 0 || canCreate) && (
+        {(showOutline || showReferences || annotations.length > 0 || canCreate) && (
           <div className="pdf-reader-side">
             {showOutline && (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
+            )}
+            {showReferences && (
+              <ReferencesPanel
+                references={refs.index.references}
+                resolutions={refs.resolutions}
+                pageNumber={viewport.page}
+                loading={pageItems.size < numPages}
+                parseFailed={pageItems.size >= numPages && refs.index.references.length === 0}
+                onJumpToMention={(ref) => {
+                  for (const [n, hits] of refs.index.mentionsByPage) {
+                    if (hits.some((hit) => hit.refIndexes.includes(ref.index))) { viewport.setPage(n); return; }
+                  }
+                  viewport.setPage(ref.page);
+                }}
+              />
             )}
             {(annotations.length > 0 || canCreate) && (
               <AnnotationSidebar
@@ -735,7 +793,7 @@ export function PdfReader({
                 createTool !== "select" && canCreate ? " pdf-reader-page--draw" : ""
               }${createTool === "erase" && canCreate ? " pdf-reader-page--erase" : ""}${
                 penSeen ? " pdf-reader-page--pen" : ""
-              }`}
+              }${flashPage === n ? " pdf-reader-flash" : ""}`}
               data-page={n}
               key={n}
               onPointerDown={(e) => onPagePointerDown(n, e)}
@@ -757,6 +815,14 @@ export function PdfReader({
                   onSelect={selectAnnotation}
                 />
               )}
+              {pageSize && refs.enabled && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
+                <ReferenceOverlay
+                  mentions={refs.index.mentionsByPage.get(n)!}
+                  items={pageItems.get(n)!}
+                  projection={pageProjection(n)}
+                  onOpen={refs.openMention}
+                />
+              )}
               {pageSize && draftShape?.pageNumber === n && (
                 <DraftShapeOverlay
                   shape={draftShape}
@@ -768,6 +834,10 @@ export function PdfReader({
           ))}
         </div>
       </div>
+      <ReferencePopoverHost
+        refs={refs}
+        onOpenInReader={(id) => { window.location.assign(buildLocusLink({ paperId: id })); }}
+      />
       {pendingNote && (
         <TextBoxComposer
           title="Sticky note"
