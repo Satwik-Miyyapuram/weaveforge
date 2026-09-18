@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Paper, PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
@@ -67,9 +67,41 @@ export function PaperCardThumbs({ paper }: { paper: PaperSummary | Paper }) {
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|avif)(\?|#|$)/i;
 
-/** First-N image thumbnails for an experiment card, from its artifact URLs. */
+/**
+ * First-N image thumbnails for an experiment card, from its artifact entries.
+ *
+ * An entry is either a hosted link or a storage path (`{userId}/{expId}/…`)
+ * that only the artifact store can turn into something an `<img>` can load —
+ * on the web a signed URL, on this computer a data URL. Rendered as-is, a
+ * path resolved against the page and every SDK-logged figure was a broken
+ * tile, so the paths are resolved here the way the detail view does.
+ */
 export function ExperimentCardThumbs({ artifacts }: { artifacts: readonly string[] }) {
-  const images = artifacts.filter((u) => IMAGE_EXT.test(u));
-  if (images.length === 0) return null;
-  return <CardThumbs urls={images.slice(0, MAX_THUMBS)} total={images.length} />;
+  const images = useMemo(() => artifacts.filter((u) => IMAGE_EXT.test(u)), [artifacts]);
+  const shown = useMemo(() => images.slice(0, MAX_THUMBS), [images]);
+  const [urls, setUrls] = useState<(string | null)[]>([]);
+  const key = shown.join("\u0000");
+  useEffect(() => {
+    let cancelled = false;
+    if (shown.length === 0) {
+      setUrls([]);
+      return;
+    }
+    setUrls(shown.map(() => null));
+    void getContainer()
+      .experiments.artifactViewUrls(shown)
+      .then((resolved) => {
+        if (!cancelled) setUrls(resolved);
+      })
+      .catch(() => {
+        // Leave the placeholders rather than draw a broken image.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // `key` stands in for the array, as in the detail panel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  if (shown.length === 0) return null;
+  return <CardThumbs urls={urls.length ? urls : shown.map(() => null)} total={images.length} />;
 }

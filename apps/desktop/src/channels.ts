@@ -81,6 +81,14 @@ export const CHANNELS = {
   vaultForget: "weaveforge:vault-forget",
   vaultRead: "weaveforge:vault-read",
   vaultWrite: "weaveforge:vault-write",
+  /**
+   * The same two, for bytes. Text goes over `vaultRead`/`vaultWrite` as a
+   * string; a PDF decoded as UTF-8 and re-encoded is not the same file, so
+   * blobs cross as `Uint8Array` (structured clone carries them intact) and
+   * get their own, larger cap.
+   */
+  vaultReadBytes: "weaveforge:vault-read-bytes",
+  vaultWriteBytes: "weaveforge:vault-write-bytes",
   vaultList: "weaveforge:vault-list",
   vaultStat: "weaveforge:vault-stat",
   vaultRemove: "weaveforge:vault-remove",

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate PNG charts for showcase seed data.
 
-Writes files to scripts/assets/showcase/ (or --out-dir). Safe to re-run.
+Writes files to apps/web/public/showcase/ (or --out-dir). Safe to re-run.
 
     python scripts/generate-showcase-charts.py
 """
@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_OUT = ROOT / "assets" / "showcase"
+DEFAULT_OUT = ROOT.parent / "apps" / "web" / "public" / "showcase"
 
 PALETTE = {
     "ink": "#2c3e50",

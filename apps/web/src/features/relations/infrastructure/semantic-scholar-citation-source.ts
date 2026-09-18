@@ -1,4 +1,4 @@
-import { fetchSemanticScholar } from "@/lib/semantic-scholar-fetch";
+import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
 
 import type { CitationCandidate, ICitationSource, PaperRef } from "@weaveforge/core";
 
@@ -111,7 +111,8 @@ export class SemanticScholarCitationSource implements ICitationSource {
     // Wrap so `fetch` keeps its global `this` binding (a bare reference throws
     // "Illegal invocation" in the browser when called as a method).
     private readonly fetchFn: typeof fetch = (...args) => fetch(...args),
-    private readonly baseUrl = "https://api.semanticscholar.org/graph/v1",
+    // Resolved per call: the desktop shell relays the API (see `semanticScholarUrl`).
+    private readonly baseUrl?: string,
     // Optional S2 API key (from user settings); raises the rate limit and is
     // sent only from the unlocked browser directly to Semantic Scholar.
     private readonly apiKey: () => Promise<string | undefined> = async () => undefined,
@@ -119,6 +120,10 @@ export class SemanticScholarCitationSource implements ICitationSource {
 
   supports(ref: PaperRef): boolean {
     return ref.kind === "arxiv" || ref.kind === "doi";
+  }
+
+  private base(): string {
+    return this.baseUrl ?? semanticScholarUrl("graph/v1");
   }
 
   async references(ref: PaperRef): Promise<PaperRef[]> {
@@ -130,7 +135,7 @@ export class SemanticScholarCitationSource implements ICitationSource {
 
     do {
       const url =
-        `${this.baseUrl}/paper/${encodeURIComponent(s2Id(ref))}/references` +
+        `${this.base()}/paper/${encodeURIComponent(s2Id(ref))}/references` +
         `?fields=externalIds&limit=1000&offset=${offset}`;
       // S2 is aggressively rate-limited (~1 req/s); retry 429s with backoff
       // before giving up, so batch auto-linking doesn't fail on a transient cap.
@@ -165,7 +170,7 @@ export class SemanticScholarCitationSource implements ICitationSource {
 
     do {
       const url =
-        `${this.baseUrl}/paper/${encodeURIComponent(s2Id(ref))}/citations` +
+        `${this.base()}/paper/${encodeURIComponent(s2Id(ref))}/citations` +
         `?fields=paperId,title,authors,year,url,citationCount,contexts,intents,isInfluential&limit=1000&offset=${offset}`;
       const res = await fetchSemanticScholar(this.fetchFn, url, init);
       if (!res.ok) {
@@ -227,7 +232,7 @@ export class SemanticScholarCitationSource implements ICitationSource {
         },
         body: JSON.stringify({ ids: chunk.map(s2Id) }),
       };
-      const url = `${this.baseUrl}/paper/batch?fields=references.externalIds`;
+      const url = `${this.base()}/paper/batch?fields=references.externalIds`;
       const res = await fetchSemanticScholar(this.fetchFn, url, init);
       if (!res.ok) {
         throw new Error(`Semantic Scholar batch failed: ${res.status} ${res.statusText}`);

@@ -12,9 +12,12 @@ import {
   WorkspacePdfStore,
 } from "../infrastructure/workspace-pdf-store";
 import { resolvePaperPdfSource, paperToPdfSourcePaper } from "./resolve-paper-pdf-source";
+import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { pdfProxyNeedsToken } from "./pdf-download-consent";
 import { proxiedPdfUrl } from "./sanitize-reader-url";
 
-const CACHE_CAP = 32;
+const CACHE_CAP = 64;
 let sharedCache: IPdfByteCache | null = null;
 
 /**
@@ -39,6 +42,25 @@ export function getReaderPdfByteCache(): IPdfByteCache | undefined {
 
 export function isCachePdfUrl(url: string): boolean {
   return url.startsWith("cache://");
+}
+
+/** A URL the reader answers from this app's own store, with no network hop. */
+export function isStoredPdfUrl(url: string): boolean {
+  return url.startsWith("blob:") || isCachePdfUrl(url);
+}
+
+/**
+ * The bytes behind a `cache://` URL, for pdf.js to take as `data`.
+ *
+ * The bundled app cannot go through a blob URL: on its `app://` origin a
+ * `blob:` fetch fails with status 0, from the page and from pdf.js alike, so
+ * the reader is handed the URL unmaterialised and asks here instead.
+ */
+export async function readStoredPdfBytes(url: string): Promise<ArrayBuffer | null> {
+  const cache = getReaderPdfByteCache();
+  if (!cache || !isCachePdfUrl(url)) return null;
+  const bytes = await cache.get(decodeURIComponent(url.slice("cache://".length)));
+  return bytes && bytes.byteLength > 0 ? bytes : null;
 }
 
 async function materializeCachePdfUrl(
@@ -83,6 +105,10 @@ export async function resolvePaperPdfSourceForReader(
   const resolution = await resolvePaperPdfSource(paper, cache);
   if (!resolution.ok) return resolution;
 
+  // The desktop shell's origin cannot fetch a blob URL; its reader takes the
+  // `cache://` URL as it is and reads the bytes itself (`readStoredPdfBytes`).
+  if (isCachePdfUrl(resolution.hit.url) && cache && desktop()) return resolution;
+
   if (isCachePdfUrl(resolution.hit.url) && cache) {
     const blobUrl = await materializeCachePdfUrl(resolution.hit.url, cache);
     if (!blobUrl) return { ok: false, reason: "no_source" };
@@ -94,10 +120,12 @@ export async function resolvePaperPdfSourceForReader(
     };
   }
 
-  // Best-effort: seed cache from a successful remote resolve.
+  // Best-effort: seed cache from a successful remote resolve. Not from the
+  // no-account copy, which asks first and then fetches on purpose — see
+  // `downloadPaperPdfToCache`.
   const remote =
     /^https?:\/\//i.test(resolution.hit.url) || resolution.hit.url.startsWith("/");
-  if (cache && paper.id && remote) {
+  if (cache && paper.id && remote && !isLocalMode()) {
     void seedCacheFromUrl(cache, paper.id, resolution.hit.url);
   }
 
@@ -123,7 +151,7 @@ export async function fetchPdfBytesForCache(
   if (!target.startsWith("/")) return null;
 
   const headers: Record<string, string> = {};
-  if (target.startsWith("/api/pdf-proxy?")) {
+  if (target.startsWith("/api/pdf-proxy?") && pdfProxyNeedsToken()) {
     const token = await getAccessToken();
     if (!token) return null;
     headers.Authorization = `Bearer ${token}`;
@@ -132,6 +160,20 @@ export async function fetchPdfBytesForCache(
   if (!res.ok) return null;
   const bytes = await res.arrayBuffer();
   return bytes.byteLength > 0 ? bytes : null;
+}
+
+/**
+ * Fetch a paper's PDF into the cache on request — the no-account copy's way
+ * of getting a document, after the person has said yes. False when the
+ * source did not answer with a PDF.
+ */
+export async function downloadPaperPdfToCache(paperId: string, url: string): Promise<boolean> {
+  const cache = getReaderPdfByteCache();
+  if (!cache) return false;
+  const bytes = await fetchPdfBytesForCache(url);
+  if (!bytes) return false;
+  await cache.set(paperId, bytes);
+  return true;
 }
 
 async function seedCacheFromUrl(cache: IPdfByteCache, key: string, url: string): Promise<void> {

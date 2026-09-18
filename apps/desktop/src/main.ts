@@ -30,12 +30,14 @@ import {
   forgetRoot,
   listVaultFiles,
   newVaultSession,
+  readVaultBytes,
   readVaultFile,
   commitVaultFolder,
   removeVaultFile,
   restoreRoot,
   statVaultFile,
   type RememberRoot,
+  writeVaultBytes,
   writeVaultFile,
 } from "./vault-handlers";
 import { registerMainInk } from "./main-ink";
@@ -51,6 +53,8 @@ import {
   handleFetchTitle,
   mayOpenExternally,
 } from "./handlers";
+import { isPdfProxyRequest, proxyPdf } from "./pdf-proxy";
+import { isSemanticScholarProxyRequest, proxySemanticScholar } from "./semantic-scholar-proxy";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
 import { preferenceStore, secretStore } from "./main-stores";
@@ -361,6 +365,10 @@ function serveBundle(): void {
       );
     }
     if (host !== APP_HOST) return new Response(null, { status: 404 });
+    // The reader's PDF proxy, which the web app has as a server route.
+    if (isPdfProxyRequest(request.url)) return proxyPdf(request.url, net.fetch);
+    // Semantic Scholar, relayed so a throttled call is a 429 and not a CORS error.
+    if (isSemanticScholarProxyRequest(request.url)) return proxySemanticScholar(request, net.fetch);
 
     const file = resolveAppFile(BUNDLE, request.url, (candidate) =>
       fs.existsSync(candidate),
@@ -418,11 +426,20 @@ const localDbBackups = new LocalDbBackups({
 
 /** Start the engine on `localDbDir`, from a backup's bytes when given some. */
 async function openEngine(loadDataDir?: Blob): Promise<LocalClient> {
-  const { PGlite } = await import("@electric-sql/pglite");
+  const { PGlite, types } = await import("@electric-sql/pglite");
   const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
   return (await PGlite.create({
     dataDir: localDbDir,
     extensions: { pgcrypto },
+    // Rows cross to the renderer shaped as PostgREST would send them, and the
+    // repositories were written against that: a `date` is its `YYYY-MM-DD`
+    // text and a timestamp is ISO text. PGlite's default turns both into
+    // `Date` objects, which survive the bridge -- and a logbook entry's day
+    // rendered as one was React's "objects are not valid as a child".
+    parsers: {
+      [types.DATE]: (x) => x,
+      [types.TIMESTAMPTZ]: (x) => new Date(x).toISOString(),
+    },
     ...(loadDataDir ? { loadDataDir } : {}),
   })) as unknown as LocalClient;
 }
@@ -585,6 +602,16 @@ ipc.handle(
     // would be reported as somebody else's change.
     if (typeof at === "string") vaultWatcher.noteSelfWrite(at);
     return writeVaultFile(vault, at, contents);
+  },
+);
+ipc.handle(CHANNELS.vaultReadBytes, (_event, at: unknown) =>
+  readVaultBytes(vault, at),
+);
+ipc.handle(
+  CHANNELS.vaultWriteBytes,
+  async (_event, at: unknown, bytes: unknown) => {
+    if (typeof at === "string") vaultWatcher.noteSelfWrite(at);
+    return writeVaultBytes(vault, at, bytes);
   },
 );
 ipc.handle(CHANNELS.vaultList, (_event, at: unknown) =>

@@ -10,6 +10,8 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
+import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { loadLocalDemoWorkspace } from "@/features/showcase/application/load-local-demo";
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
@@ -19,8 +21,9 @@ export function ProjectsScreen() {
   const { projects, loading, setProject, refresh } = useProject();
   const [name, setName] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const local = isLocalMode();
 
-  const { busy, error, setError, submit: create } = useSubmit(async () => {
+  const { busy, error, submit: create } = useSubmit(async () => {
     const p = await getContainer().projects.manageProject.create({ name });
     await refresh();
     setName("");
@@ -28,11 +31,27 @@ export function ProjectsScreen() {
     setProject(p.id);
   });
 
+  // The no-account copy starts empty. A filled workspace shows what every
+  // screen looks like without the visitor first entering thirty papers.
+  const { busy: demoBusy, error: demoError, submit: loadDemo } = useSubmit(async () => {
+    const { projectId } = await loadLocalDemoWorkspace();
+    await refresh();
+    setProject(projectId);
+  });
+  const demoButton = local ? (
+    <button type="button" className="btn-secondary" disabled={demoBusy} onClick={() => void loadDemo()}>
+      {demoBusy ? "Loading demo…" : "Load demo workspace"}
+    </button>
+  ) : null;
+
   return (
     <section className="screen">
       <ScreenHead>
+        {demoButton}
         <button className="btn-primary" onClick={() => setAddOpen(true)}>+ New project</button>
       </ScreenHead>
+
+      {demoError && <FormError>{demoError}</FormError>}
 
       {addOpen && (
         <Modal title="New project" onClose={() => setAddOpen(false)}>
@@ -65,9 +84,12 @@ export function ProjectsScreen() {
           title="No projects yet"
           body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
           action={
-            <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
-              + New project
-            </button>
+            <>
+              <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+                + New project
+              </button>
+              {demoButton}
+            </>
           }
         />
       )}

@@ -3,6 +3,7 @@
  * Filters out items already in the local library (by DOI / arXiv / title).
  */
 import { normalizeDoi, normalizeTitleKey, type PaperSummary } from "@weaveforge/core";
+import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
 
 export type RelatedPaperHit = {
   title: string;
@@ -83,16 +84,6 @@ function isLocal(hit: RelatedPaperHit, keys: ReturnType<typeof localKeys>): bool
   return false;
 }
 
-async function s2Fetch(url: string, apiKey?: string): Promise<Response> {
-  const init = apiKey ? { headers: { "x-api-key": apiKey } } : undefined;
-  let res = await fetch(url, init);
-  for (let attempt = 0; res.status === 429 && attempt < 3; attempt++) {
-    await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
-    res = await fetch(url, init);
-  }
-  return res;
-}
-
 const S2_FIELDS = "title,authors,year,externalIds,url,abstract,citationCount";
 
 /**
@@ -120,9 +111,9 @@ export async function fetchRelatedPapers(
   }
 
   const recUrl =
-    `https://api.semanticscholar.org/recommendations/v1/papers/forpaper/` +
+    semanticScholarUrl("recommendations/v1/papers/forpaper/") +
     `${encodeURIComponent(paperId)}?fields=${S2_FIELDS}&limit=${limit + 5}`;
-  const recRes = await s2Fetch(recUrl, apiKey);
+  const recRes = await fetchSemanticScholar(fetch, recUrl, apiKey ? { headers: { "x-api-key": apiKey } } : undefined);
   const out: RelatedPaperHit[] = [];
 
   if (recRes.ok) {
@@ -137,9 +128,9 @@ export async function fetchRelatedPapers(
 
   // Fallback: references with richer fields
   const refUrl =
-    `https://api.semanticscholar.org/graph/v1/paper/${encodeURIComponent(paperId)}/references` +
+    semanticScholarUrl(`graph/v1/paper/${encodeURIComponent(paperId)}/references`) +
     `?fields=citedPaper.title,citedPaper.authors,citedPaper.year,citedPaper.externalIds,citedPaper.url,citedPaper.abstract,citedPaper.citationCount&limit=50`;
-  const refRes = await s2Fetch(refUrl, apiKey);
+  const refRes = await fetchSemanticScholar(fetch, refUrl, apiKey ? { headers: { "x-api-key": apiKey } } : undefined);
   if (!refRes.ok && out.length === 0) {
     throw new Error(`Semantic Scholar request failed: ${refRes.status}`);
   }

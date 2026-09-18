@@ -26,7 +26,7 @@ export const semanticScholarCitationManifest: CitationIntegrationManifest = {
     return [
       new SemanticScholarCitationSource(
         undefined,
-        "https://api.semanticscholar.org/graph/v1",
+        undefined,
         () => readCred("semantic-scholar", "apiKey"),
       ),
     ];

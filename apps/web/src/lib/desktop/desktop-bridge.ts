@@ -174,6 +174,9 @@ export interface DesktopBridge {
   /** Read one file, or null when it is not there yet. */
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;
+  /** The same pair for bytes (PDFs), which must not pass through a text decode. */
+  readVaultBytes(path: string): Promise<Uint8Array | null>;
+  writeVaultBytes(path: string, bytes: Uint8Array): Promise<void>;
   /** One level of a directory, `""` for the root. */
   listVaultFiles(path?: string): Promise<DesktopVaultEntry[]>;
   /** One entry, or null when it is not there. */
