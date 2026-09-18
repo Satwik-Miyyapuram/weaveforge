@@ -57,6 +57,8 @@ export interface PaperPdfPaneProps {
   aside?: React.ReactNode;
   /** Whether "Load PDF…" is offered. On for a paper. */
   allowLoad?: boolean;
+  /** Open with the pen rail up — the workspace's Ink mode for a paper. */
+  inkRail?: boolean;
 }
 
 export function PaperPdfPane({
@@ -69,6 +71,7 @@ export function PaperPdfPane({
   onAnnotations,
   aside,
   allowLoad = true,
+  inkRail = false,
 }: PaperPdfPaneProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(paperId ? null : pdfFromParam);
   const [pdfRevokeUrl, setPdfRevokeUrl] = useState<string | null>(null);
@@ -382,6 +385,7 @@ export function PaperPdfPane({
             }}
             onActivity={(kind, message) => activityRef.current?.(kind, message)}
             onSourceFailure={handleSourceFailure}
+            inkRail={inkRail}
           />
           {aside}
         </div>

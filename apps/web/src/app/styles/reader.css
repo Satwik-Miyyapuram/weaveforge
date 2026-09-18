@@ -385,3 +385,17 @@
    it is a theme dimension, not a border treatment. */
 .metric-chip,
 .proj-chip { border-radius: var(--radius-pill); }
+
+/* The pen rail: the ink note's controls (`.ink-tool`, `.ink-swatch`) on the
+   reader's second strip, so a hand that knows one surface knows the other. */
+.pdf-pen-rail { gap: 6px; }
+.pdf-pen-rail .ink-swatches { gap: 5px; padding: 0 2px; }
+.pdf-pen-rail-more {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; overflow: hidden;
+  border: 1.5px dashed var(--border-strong); cursor: pointer; flex-shrink: 0;
+}
+.pdf-pen-rail-more input[type="color"] {
+  width: 32px; height: 32px; margin: -6px; padding: 0; border: 0; background: none;
+  cursor: pointer;
+}

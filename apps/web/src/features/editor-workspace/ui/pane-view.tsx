@@ -243,12 +243,12 @@ function PaneLeafView({
               >
                 Read
               </button>
-              {hasInkView(showing.kind) ? (
+              {hasInkView(showing.kind) || hasPdfView(showing.kind) ? (
                 <button
                   type="button"
                   className={`pane-mode-btn${editing === "ink" ? " is-on" : ""}`}
                   aria-pressed={editing === "ink"}
-                  title="Ink canvas"
+                  title={hasInkView(showing.kind) ? "Ink canvas" : "Write on the PDF"}
                   onClick={() => onSetMode(leaf.id, leaf.activeIndex, "ink")}
                 >
                   Ink

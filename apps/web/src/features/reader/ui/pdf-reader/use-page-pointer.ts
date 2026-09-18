@@ -40,6 +40,8 @@ export interface PagePointerDeps {
   canCreate: boolean;
   createTool: ReaderCreateTool;
   createColor: string;
+  /** Pen nib in PDF points, before pressure. Defaults to `INK_DEFAULT_WIDTH`. */
+  inkWidth?: number;
   selectedAnnId: string | null;
   pageSize: ReaderPageSize | null;
   scale: number;
@@ -90,6 +92,7 @@ export function usePagePointer({
   canCreate,
   createTool,
   createColor,
+  inkWidth = INK_DEFAULT_WIDTH,
   selectedAnnId,
   pageSize,
   scale,
@@ -363,10 +366,12 @@ export function usePagePointer({
     });
   }
 
+  /** The nib before pressure: the highlighter's is fixed, the pen's is chosen. */
+  const nibBase = createTool === "highlighter" ? HIGHLIGHTER_WIDTH : inkWidth;
+
   /** Nib width for a fresh stroke: the tool's base, scaled by pen pressure. */
   function inkWidthForEvent(event: React.PointerEvent): number {
-    const base = createTool === "highlighter" ? HIGHLIGHTER_WIDTH : INK_DEFAULT_WIDTH;
-    return inkWidthForPressure(event.pressure, base);
+    return inkWidthForPressure(event.pressure, nibBase);
   }
 
   function onPagePointerDown(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
@@ -516,10 +521,7 @@ export function usePagePointer({
           pageNumber,
           pageHeight,
           path,
-          width: inkWidthForPressure(
-            meanPressure(pressures),
-            createTool === "highlighter" ? HIGHLIGHTER_WIDTH : INK_DEFAULT_WIDTH,
-          ),
+          width: inkWidthForPressure(meanPressure(pressures), nibBase),
         });
       }
       return;

@@ -49,7 +49,7 @@ import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph, PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
+import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 
 function store(): Storage | undefined {
@@ -636,7 +636,11 @@ export function WorkspaceScreen() {
       />
       <StatusBar
         save={saveState({ pending, dirty })}
-        segments={activeDoc ? segmentsFor(activeMode === "ink" ? "ink_page" : activeDoc.kind) : []}
+        segments={
+          activeDoc
+            ? segmentsFor(activeMode === "ink" && hasInkView(activeDoc.kind) ? "ink_page" : activeDoc.kind)
+            : []
+        }
         values={values}
       />
       {error ? <p className="error workspace-error">{error}</p> : null}

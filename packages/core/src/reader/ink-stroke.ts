@@ -22,6 +22,8 @@
  * Zotero's `annotationPosition.paths`.
  */
 
+import { INK_PEN_WIDTHS, INK_WIDTH_UNITS_PER_MM } from "../ink/width.js";
+
 /**
  * Minimum gap between consecutive captured points, in PDF units (≈ points).
  *
@@ -58,8 +60,32 @@ export const INK_MAX_PATHS_PER_ANNOTATION = 64;
 const INK_GROUP_WINDOW_MS = 2_000;
 
 export const INK_DEFAULT_WIDTH = 2;
-const INK_MIN_WIDTH = 0.75;
+/**
+ * The finest nib the pen rail offers is 0.1 mm (`INK_NIB_WIDTHS_PT[0]`, 0.28 pt),
+ * so the floor sits under it rather than silently thickening that nib to 0.75.
+ */
+const INK_MIN_WIDTH = 0.25;
 const INK_MAX_WIDTH = 24;
+
+/** Points per millimetre: PDF user space is 72 per inch, 25.4 mm to the inch. */
+const PT_PER_MM = 72 / 25.4;
+
+/**
+ * The pen rail's four nibs, in PDF points, derived from the ink note's set
+ * (`ink/width.ts`, in 0.1 mm) so a 0.3 mm pen on a PDF is the same line as a
+ * 0.3 mm pen on an ink note and the two sets cannot drift apart:
+ * 0.28 / 0.85 / 1.42 / 1.98 pt.
+ */
+export const INK_NIB_WIDTHS_PT: readonly number[] = INK_PEN_WIDTHS.map(
+  (tenths) => Math.round((tenths / INK_WIDTH_UNITS_PER_MM) * PT_PER_MM * 100) / 100,
+);
+
+/**
+ * The rail's default nib, 0.5 mm. One step up from the ink note's 0.3 mm
+ * (`INK_PEN_WIDTH`): a page of 10 pt type is read at a smaller scale than a
+ * sheet of ruled paper, and 0.3 mm on it reads as a hairline.
+ */
+export const INK_NIB_DEFAULT_PT: number = INK_NIB_WIDTHS_PT[2] ?? INK_DEFAULT_WIDTH;
 
 /** Nib width of the highlighter tool, in PDF units. */
 export const HIGHLIGHTER_WIDTH = 14;

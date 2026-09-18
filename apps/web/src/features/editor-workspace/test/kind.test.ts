@@ -86,6 +86,11 @@ test("PDF is a paper's third mode; on anything else it means Edit", () => {
   assert.equal(rendererFor("ink_page", "pdf"), "editor");
 });
 
+test("Ink on a paper is the PDF with the pen rail up, not an ink canvas", () => {
+  assert.equal(rendererFor("paper", "ink"), "pdf_ink");
+  assert.equal(rendererFor("report_section", "ink"), "editor");
+});
+
 test("the table says which kinds have a PDF to look at", () => {
   // A paper is a PDF; a note is text that may quote one, and a section is this
   // app's own prose. Only the row that says so gets the third mode button.

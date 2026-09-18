@@ -66,6 +66,9 @@ import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePagePointer } from "./use-page-pointer";
+import { useInkUndo } from "./use-ink-undo";
+import { usePenPrefs } from "./use-pen-prefs";
+import { PenRail } from "./pen-rail";
 import { useReaderReferences } from "./use-reader-references";
 import { ReferencePopoverHost } from "./reference-popover-host";
 import { ReferenceOverlay } from "../reference-overlay";
@@ -112,6 +115,7 @@ export function PdfReader({
   onAnnotationsChange,
   onActivity,
   onSourceFailure,
+  inkRail = false,
 }: PdfReaderProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
@@ -120,8 +124,15 @@ export function PdfReader({
   const [flashPage, setFlashPage] = useState<number | null>(null);
   const [spread, setSpread] = useState(false);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
-  const [createTool, setCreateTool] = useState<ReaderCreateTool>("select");
-  const [createColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
+  const [pickedTool, setCreateTool] = useState<ReaderCreateTool>("select");
+  const [pickedColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
+  // The pen rail, once up, is the tool picker: what it holds is what draws.
+  // Its choices persist per user (`usePenPrefs`), the toolbar's do not.
+  const [penOpen, setPenOpen] = useState(inkRail);
+  useEffect(() => setPenOpen(inkRail), [inkRail]);
+  const pen = usePenPrefs();
+  const createTool: ReaderCreateTool = penOpen ? pen.prefs.tool : pickedTool;
+  const createColor = penOpen ? pen.prefs.color : pickedColor;
   const [pendingCreate, setPendingCreate] = useState<{
     pageNumber: number;
     quote: string;
@@ -133,16 +144,7 @@ export function PdfReader({
     annotations,
   );
   const darkPdf = useDarkPdf();
-  const {
-    annError,
-    setAnnError,
-    createBusy,
-    persistDraft,
-    updateLocal,
-    removeLocal,
-    pinLocal,
-    saveAnchor,
-  } = useAnnotationActions({
+  const actions = useAnnotationActions({
     paperId,
     onAnnotationsChange,
     onActivity,
@@ -151,6 +153,12 @@ export function PdfReader({
     setSelectedAnnId,
     clearPendingCreate,
   });
+  const { annError, setAnnError, createBusy, updateLocal, pinLocal } = actions;
+  // Stroke writes go through the undo stack while the rail is up; the
+  // wrapped writes are the raw ones otherwise, so nothing else changes.
+  const inkUndo = useInkUndo(actions, annotations, penOpen);
+  const { persistDraft, removeLocal, saveAnchor, reset: resetInkUndo } = inkUndo;
+  useEffect(() => resetInkUndo(), [url, resetInkUndo]);
 
   /** Stable identity so a memoised page overlay is not re-rendered by a new closure. */
   const selectAnnotation = useCallback((id: string) => setSelectedAnnId(id), []);
@@ -233,6 +241,7 @@ export function PdfReader({
     canCreate,
     createTool,
     createColor,
+    inkWidth: pen.prefs.nib,
     selectedAnnId,
     pageSize,
     scale,
@@ -452,6 +461,16 @@ export function PdfReader({
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
 
   function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back
+    // the last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back.
+    if (penOpen && (event.ctrlKey || event.metaKey) && !isEditableTarget(event.target)) {
+      const key = event.key.toLowerCase();
+      if (key === "z" || key === "y") {
+        event.preventDefault();
+        void (key === "y" || event.shiftKey ? inkUndo.redo() : inkUndo.undo());
+        return;
+      }
+    }
     // Delete the selected annotation from the page itself. Deleting was only
     // reachable by finding the same annotation again in the sidebar list.
     if (
@@ -670,6 +689,19 @@ export function PdfReader({
           </button>
         </div>
         {canCreate && (
+          <button
+            type="button"
+            className={`btn-secondary btn-sm${penOpen ? " is-active" : ""}`}
+            aria-pressed={penOpen}
+            onClick={() => {
+              endInkGroup();
+              setPenOpen((v) => !v);
+            }}
+          >
+            Pen
+          </button>
+        )}
+        {canCreate && !penOpen && (
           <div className="pdf-reader-group">
             <Select
               className="pdf-reader-tool-select"
@@ -705,6 +737,34 @@ export function PdfReader({
           </div>
         )}
         </div>
+        {canCreate && penOpen && (
+          <PenRail
+            tool={pen.prefs.tool}
+            color={pen.prefs.color}
+            nib={pen.prefs.nib}
+            recent={pen.prefs.recent}
+            canUndo={inkUndo.canUndo}
+            canRedo={inkUndo.canRedo}
+            onTool={(tool) => {
+              endInkGroup();
+              pen.setTool(tool);
+            }}
+            onColor={(color) => {
+              endInkGroup();
+              pen.setColor(color);
+            }}
+            onNib={(nib) => {
+              endInkGroup();
+              pen.setNib(nib);
+            }}
+            onUndo={() => void inkUndo.undo()}
+            onRedo={() => void inkUndo.redo()}
+            onClose={() => {
+              endInkGroup();
+              setPenOpen(false);
+            }}
+          />
+        )}
       </div>
       {/* Both rectangle tools look identical while dragging, so say which one
           is armed and what releasing will do. */}
