@@ -1,10 +1,7 @@
 "use client";
 
-export interface ReaderOutlineItem {
-  title: string;
-  pageNumber: number | null;
-  items?: ReaderOutlineItem[];
-}
+import type { ReaderOutlineItem } from "@weaveforge/core";
+export type { ReaderOutlineItem } from "@weaveforge/core";
 
 interface ReaderOutlineProps {
   items: ReaderOutlineItem[];

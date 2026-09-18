@@ -36,6 +36,11 @@ import {
   appendPaperNote,
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
+import { SemanticScholarMetadataSource } from "@/features/papers/infrastructure/semantic-scholar-metadata-source";
+import { OpenAlexMetadataSource } from "@/features/papers/infrastructure/openalex-metadata-source";
+import { ReferenceLookupService } from "@/features/reader/application/reference-lookup";
+import { createReferenceActions } from "@/features/reader/application/reference-actions";
+import { IdbReferenceLookupCache } from "@/features/reader/infrastructure/reference-lookup-cache";
 import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-metadata-source";
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
@@ -75,6 +80,7 @@ import {
   AuthFacade,
   SyncFacade,
   ReadingListsFacade,
+  ReaderReferencesFacade,
   WorkspaceFacade,
   CollabFacade,
   InkFacade,
@@ -232,6 +238,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     ...(wiredIntegrations.bibliographyMetadataSource
       ? [wiredIntegrations.bibliographyMetadataSource]
       : []),
+    // Title-only lookups for the reader's citation popover. Semantic Scholar
+    // first (its match endpoint is built for this), OpenAlex as the fallback.
+    // The key is read at call time: it is only decryptable after unlock.
+    new SemanticScholarMetadataSource(undefined, undefined, () =>
+      createCredentialReader(backend.manageSettings)("semantic-scholar", "apiKey"),
+    ),
+    new OpenAlexMetadataSource(),
     new UrlMetadataSource(),
   ]);
   const importPaper = new ImportPaperUseCase(resolver, addPaper);
@@ -271,6 +284,17 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     repository: backend.paperRelationRepository,
     clock: systemClock,
     ids: uuidIds,
+  });
+
+  const readerReferences = new ReaderReferencesFacade({
+    lookup: new ReferenceLookupService(resolver, paperRepository, new IdbReferenceLookupCache()),
+    actions: createReferenceActions({
+      importPaper,
+      addPaper,
+      lists: manageReadingList,
+      relations: addRelation,
+    }),
+    listReadingLists: () => readingListRepository.list(),
   });
   const citationSources = wireCitationSources({
     manageSettings: backend.manageSettings,
@@ -675,6 +699,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       git: gitRead,
       manageExperiment,
     }),
+    readerReferences,
     readingLists: new ReadingListsFacade({
       load: loadReadingListsScreen,
       lists: readingListRepository,

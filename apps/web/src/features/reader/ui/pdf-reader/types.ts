@@ -52,6 +52,7 @@ export interface PendingTextBox {
 export interface TextItemGeometry {
   str: string;
   hasEOL?: boolean;
+  fontName?: string;
   transform: number[];
   width: number;
   height: number;

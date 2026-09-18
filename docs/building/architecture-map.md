@@ -53,6 +53,8 @@ no outbound request at boot, and these work with the network unplugged:
 | The workspace editor — panes, explorer, quick open | Yes | Pane layout, tree and fuzzy match are client logic; the documents are rows in the local database |
 | Experiments, and training scripts logging into them | Yes | The loopback API answers the SDK's own routes |
 | The MCP server | Yes | Same database, same rows |
+| Reading a PDF — outline, citation links, figure links | Yes | Parsed from the text layer on the client; the reference list and in-text mentions are found by core's parsers |
+| The citation popover's record — title, venue, DOI | No | Looked up on arXiv, Crossref, Semantic Scholar and OpenAlex, then cached for thirty days keyed by the text's fingerprint |
 | Linking and editing an Overleaf report | Yes | The token sits in the keychain; the row is an ordinary row |
 | Opening an Overleaf report's contents | No | It is a clone from overleaf.com — offline means no server of ours, not no Overleaf |
 | Attachments logged from a training script | No | Blobs, and the loopback API only runs SQL |
@@ -87,8 +89,8 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 
 | Where | Size | What lives there |
 | --- | --- | --- |
-| `packages/core` | 42,218 lines | Domain and application logic shared by every surface |
-| `apps/web` | 134,564 lines | The app itself: screens, features, API routes, backend wiring |
+| `packages/core` | 43,030 lines | Domain and application logic shared by every surface |
+| `apps/web` | 136,703 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/desktop` | 10,298 lines | The Electron shell — what only an installed app can do |
 | `apps/pitch` | 824 lines | The public site and this documentation |
 | `python/weaveforge` | 2,883 lines | The SDK training scripts import |
@@ -96,7 +98,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `supabase/migrations` | 130 files | The schema, as an ordered sequence |
 | `docs` | 76 files | Documentation, this page included |
 
-**192,148 lines of code in all**, across 1,728 source files.
+**195,099 lines of code in all**, across 1,758 source files.
 
 <!-- /generated:code-map -->
 

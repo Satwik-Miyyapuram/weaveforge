@@ -529,3 +529,13 @@
   background: var(--accent);
   vertical-align: 3px;
 }
+
+/* A page the reader just jumped to for a figure: a brief tint so the eye lands. */
+@keyframes pdf-reader-flash {
+  from { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--accent) 22%, transparent); }
+  to { box-shadow: inset 0 0 0 999px transparent; }
+}
+.pdf-reader-flash { animation: pdf-reader-flash 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .pdf-reader-flash { animation: none; }
+}

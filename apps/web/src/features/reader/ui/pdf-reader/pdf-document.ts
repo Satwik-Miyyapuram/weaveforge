@@ -35,6 +35,7 @@ export function textItemsFromContent(content: { items: readonly unknown[] }): Te
       {
         str: it.str,
         hasEOL: Boolean((raw as { hasEOL?: boolean }).hasEOL),
+        fontName: it.fontName,
         transform: it.transform,
         width: typeof it.width === "number" ? it.width : 0,
         height: typeof it.height === "number" ? it.height : 0,

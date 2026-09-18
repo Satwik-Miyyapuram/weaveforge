@@ -9,7 +9,7 @@ import { useSubmit } from "@/lib/hooks/use-submit";
 import { FormError } from "@/components/form-error";
 
 
-type RefKind = PaperRef["kind"]; // "arxiv" | "doi" | "zotero"
+type RefKind = Exclude<PaperRef["kind"], "bibliographic">;
 
 const REF_LABELS: Record<RefKind, string> = {
   url: "URL",
@@ -114,7 +114,7 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
             placeholder={REF_PLACEHOLDERS[refKind]}
             aria-describedby={detected ? "refValueHint" : undefined}
           />
-          {detected && (
+          {detected && detected.kind !== "bibliographic" && (
             <p id="refValueHint" className="muted field-hint">
               Recognized as {DETECTED_LABELS[detected.kind]}
               {detected.kind !== "url" ? ` — ${detected.value}` : ""}
