@@ -24,6 +24,7 @@ export * from "./projects";
 export * from "./auth";
 export * from "./sync";
 export * from "./reading-lists";
+export * from "./reader-references";
 export * from "./workspace";
 export * from "./ink";
 
@@ -46,6 +47,7 @@ import type { ProjectsFacade } from "./projects";
 import type { AuthFacade } from "./auth";
 import type { SyncFacade } from "./sync";
 import type { ReadingListsFacade } from "./reading-lists";
+import type { ReaderReferencesFacade } from "./reader-references";
 import type { WorkspaceFacade } from "./workspace";
 import type { InkFacade } from "./ink";
 
@@ -71,6 +73,7 @@ export interface AppContainer {
   collab: CollabFacade;
   sync: SyncFacade;
   readingLists: ReadingListsFacade;
+  readerReferences: ReaderReferencesFacade;
   workspace: WorkspaceFacade;
   ink: InkFacade;
   search: import("@/features/search/application/workspace-search").WorkspaceSearch;

@@ -17,7 +17,7 @@ function kindOf(value: string): FigureMention["kind"] {
 }
 
 export function findFigureMentions(
-  pages: readonly { number: number; text: string; items: OutlineTextItem[] }[],
+  pages: readonly { number: number; text: string; items: readonly OutlineTextItem[] }[],
   outline: readonly ReaderOutlineItem[] = outlineFromText(pages.map((page) => page.items)),
 ): FigureMention[] {
   const targets = new Map<string, { page: number; y: number }>();
@@ -47,6 +47,10 @@ export function findFigureMentions(
     const kind = kindOf(match[1]!);
     const target = targets.get(`${kind}:${match[2]!.toLowerCase()}`);
     if (!target) return [];
+    // The caption itself — "Figure 2: ..." at the head of a line — is the
+    // target, not a link to it.
+    const atLineStart = match.index === 0 || page.text[match.index! - 1] === "\n";
+    if (atLineStart && /^[:.]/.test(page.text.slice(match.index! + match[0].length))) return [];
     return [{ page: page.number, start: match.index!, end: match.index! + match[0].length, kind, target }];
   }));
 }

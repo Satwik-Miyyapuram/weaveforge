@@ -18,7 +18,7 @@ import {
 } from "../../application/sanitize-reader-url";
 import { useReaderViewport, type ReaderViewportApi } from "../use-reader-viewport";
 import type { ReaderOutlineItem } from "../reader-outline";
-import type { JumpState, PdfDocument, PdfLib, PdfReaderProps, RenderTask } from "./types";
+import type { JumpState, PdfDocument, PdfLib, PdfReaderProps, RenderTask, TextItemGeometry } from "./types";
 import {
   buildPageText,
   loadPdfLib,
@@ -49,6 +49,14 @@ export interface PdfRendering {
   pageSize: ReaderPageSize | null;
   containerSize: ReaderContainerSize | null;
   pageTexts: DocumentPageText[];
+  /**
+   * Text runs of every page, indexed by page number, once extraction is done.
+   * Unlike `pageGeometries` this covers pages that have not been rendered, so
+   * the citation index and its overlay can be built for the whole document.
+   */
+  pageItems: Map<number, TextItemGeometry[]>;
+  /** Rects of the document's own `/Link` annotations per page, PDF user space. */
+  linkRects: Map<number, [number, number, number, number][]>;
   outline: ReaderOutlineItem[];
   error: string | null;
   /** The url actually handed to pdf.js, or null when it was refused. */
@@ -95,6 +103,8 @@ export function usePdfRendering({
   const [pageSize, setPageSize] = useState<ReaderPageSize | null>(null);
   const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
   const [pageTexts, setPageTexts] = useState<DocumentPageText[]>([]);
+  const [pageItems, setPageItems] = useState<Map<number, TextItemGeometry[]>>(() => new Map());
+  const [linkRects, setLinkRects] = useState<Map<number, [number, number, number, number][]>>(() => new Map());
   const [outline, setOutline] = useState<ReaderOutlineItem[]>([]);
   const pageGeometries = useRef(new Map<number, PageTextGeometry>());
   const suppressPageScroll = useRef(false);
@@ -173,6 +183,8 @@ useEffect(() => {
   setNumPages(0);
   setPageSize(null);
   setPageTexts([]);
+  setPageItems(new Map());
+  setLinkRects(new Map());
   setOutline([]);
   setJump({ status: locus ? "searching" : "idle" });
 
@@ -226,12 +238,25 @@ useEffect(() => {
         try {
           const texts: DocumentPageText[] = [];
           const outlinePages: OutlineTextItem[][] = [];
+          const itemsByPage = new Map<number, TextItemGeometry[]>();
+          const links = new Map<number, [number, number, number, number][]>();
           for (let n = 1; n <= doc.numPages; n++) {
             if (cancelled) return;
             const p = await doc.getPage(n);
             const content = await p.getTextContent();
             const items = textItemsFromContent(content);
             texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
+            itemsByPage.set(n, items);
+            // The document's own links (a publisher's clickable citations)
+            // take precedence over ours, so their rects are kept to defer to.
+            try {
+              const rects = (await p.getAnnotations())
+                .filter((a) => a.subtype === "Link" && Array.isArray(a.rect))
+                .map((a) => a.rect as [number, number, number, number]);
+              if (rects.length) links.set(n, rects);
+            } catch {
+              /* a page whose annotations will not load simply has none */
+            }
             outlinePages.push(items.map((item) => ({
               str: item.str,
               fontSize: Math.hypot(item.transform[2] ?? 0, item.transform[3] ?? 0),
@@ -245,6 +270,8 @@ useEffect(() => {
           detected = outlineFromText(outlinePages);
           publishOutline();
           setPageTexts(texts);
+          setPageItems(itemsByPage);
+          setLinkRects(links);
           // Keep the text so this document stays searchable after the reader
           // closes. Piggybacks on the pass above — no extra fetch or parse.
           if (paperId) {
@@ -433,6 +460,8 @@ const renderPage = useCallback(
     pageSize,
     containerSize,
     pageTexts,
+    pageItems,
+    linkRects,
     outline,
     error,
     safeUrl,

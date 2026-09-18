@@ -12,17 +12,19 @@ export interface ReferenceLookupCache {
 }
 
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const CACHE_SCHEMA = 2;
+const CACHE_SCHEMA = 3;
 
-function cacheKey(paperId: string, refIndex: number): string {
-  return `v${CACHE_SCHEMA}:${paperId}:ref:${refIndex}`;
+function cacheKey(documentKey: string, refIndex: number): string {
+  return `v${CACHE_SCHEMA}:${documentKey}:ref:${refIndex}`;
 }
 
 /**
  * Resolves parsed bibliography entries to metadata. Identifier lookups
  * (DOI/arXiv) go straight to the resolver; author/title-only entries search
  * Semantic Scholar then OpenAlex through it. Results are cached per
- * (paperId, refIndex) with a 30-day TTL and lazily stamped with time.
+ * (documentKey, refIndex) with a 30-day TTL and lazily stamped with time. The
+ * document key is the text layer's fingerprint rather than the paper id, so
+ * two copies of one paper — or a re-upload — share one set of lookups.
  */
 export class ReferenceLookupService {
   private readonly memory = new Map<string, { at: number; value: ResolvedReference }>();
@@ -34,15 +36,20 @@ export class ReferenceLookupService {
     private readonly now: () => number = () => Date.now(),
   ) {}
 
-  resolve(paperId: string, ref: ParsedReference): Promise<ResolvedReference> {
-    const key = cacheKey(paperId, ref.index);
+  resolve(documentKey: string, ref: ParsedReference): Promise<ResolvedReference> {
+    const key = cacheKey(documentKey, ref.index);
     const hit = this.memory.get(key);
     if (hit && this.now() - hit.at < CACHE_TTL_MS) return Promise.resolve(hit.value);
     return (async () => {
       const cached = await this.cache?.get(key);
       if (cached) {
-        this.memory.set(key, { at: this.now(), value: cached });
-        return cached;
+        // Whether the paper is in the library is a fact about this workspace,
+        // not the reference, so it is re-read rather than trusted from disk.
+        const value = cached.status === "resolved"
+          ? { ...cached, inLibrary: await this.findInLibrary(cached.metadata) }
+          : cached;
+        this.memory.set(key, { at: this.now(), value });
+        return value;
       }
       const value = await this.lookup(ref);
       this.memory.set(key, { at: this.now(), value });
@@ -61,14 +68,17 @@ export class ReferenceLookupService {
             ? { kind: "arxiv", value: ref.arxivId }
             : { kind: "bibliographic", value: ref.title!, hints: { title: ref.title!, year: ref.year, firstAuthor: ref.authors[0] } },
       );
-      const inLibrary = (metadata.doi
-        ? await this.papers.findByDoi(metadata.doi)
-        : metadata.arxivId
-          ? await this.papers.findByArxivId(metadata.arxivId)
-          : null) ?? undefined;
-      return { status: "resolved", metadata, inLibrary, sourceId };
+      return { status: "resolved", metadata, inLibrary: await this.findInLibrary(metadata), sourceId };
     } catch {
       return { status: "unresolved" };
     }
+  }
+
+  private async findInLibrary(metadata: PaperMetadata): Promise<Paper | undefined> {
+    return (metadata.doi
+      ? await this.papers.findByDoi(metadata.doi)
+      : metadata.arxivId
+        ? await this.papers.findByArxivId(metadata.arxivId)
+        : null) ?? undefined;
   }
 }

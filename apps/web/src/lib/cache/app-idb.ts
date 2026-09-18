@@ -12,9 +12,11 @@ export const SCREEN_STORE = "screens";
 export const SEARCH_STORE = "search";
 export const PDF_TEXT_STORE = "pdftext";
 export const VECTOR_STORE = "vectors";
+/** Reference-lookup results per document text fingerprint; see reference-lookup-cache.ts. */
+export const REFERENCE_STORE = "references";
 
 /** v1: screens. v2: search index. v3: PDF page text. v4: passage vectors. */
-const APP_DB_VERSION = 4;
+const APP_DB_VERSION = 5;
 
 export function openAppDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -26,6 +28,7 @@ export function openAppDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(SEARCH_STORE)) db.createObjectStore(SEARCH_STORE);
       if (!db.objectStoreNames.contains(PDF_TEXT_STORE)) db.createObjectStore(PDF_TEXT_STORE);
       if (!db.objectStoreNames.contains(VECTOR_STORE)) db.createObjectStore(VECTOR_STORE);
+      if (!db.objectStoreNames.contains(REFERENCE_STORE)) db.createObjectStore(REFERENCE_STORE);
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);

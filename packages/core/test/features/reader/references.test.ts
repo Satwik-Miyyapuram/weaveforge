@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseReferenceList, findCitationMentions, findFigureMentions, isBibliographicMatch, bibliographicTitleSimilarity as titleSimilarity, type OutlineTextItem } from "../../../src/features/reader/index.js";
+import { parseReferenceList, findCitationMentions, detectCitationStyle, findFigureMentions, isBibliographicMatch, bibliographicTitleSimilarity as titleSimilarity, type OutlineTextItem } from "../../../src/features/reader/index.js";
 
 function lines(texts: string[], page = 3, x = 40): OutlineTextItem[] {
   return texts.map((str, i) => ({ str, page, x, y: 700 - i * 15, fontSize: 10 }));
@@ -69,4 +69,46 @@ test("title scorer enforces title and year thresholds", () => {
   assert.equal(isBibliographicMatch({ title: "A useful method", year: 2020 }, { title: "A useful method", year: 2021 }), true);
   assert.equal(isBibliographicMatch({ title: "A useful method", year: 2020 }, { title: "A useful method", year: 2022 }), false);
   assert.equal(isBibliographicMatch({ title: "A useful method" }, { title: "A completely different method" }), false);
+});
+
+test("finds an unlabelled bibliography as a numbered run in the last third", () => {
+  const body = (page: number) => lines(["Body prose about things.", "More body prose."], page);
+  const pages = [body(1), body(2), body(3), body(4), lines([
+    "1 Smith J. 2019. A method. In Proceedings.",
+    "continued line",
+    "2. Lee A. 2020. Another method. In Proceedings.",
+    "(3) Jones J. 2021. A third method. JMLR.",
+  ], 5)];
+  const refs = parseReferenceList(pages);
+  assert.deepEqual(refs.map((ref) => ref.index), [1, 2, 3]);
+  assert.equal(refs[0]?.year, 2019);
+  assert.deepEqual(refs.map((ref) => ref.label), ["1", "2.", "(3)"]);
+  // A numbered list in prose, earlier in the document, is not a bibliography.
+  const early = [lines(["1 Smith J. 2019.", "2. Lee A. 2020.", "3. Jones J. 2021."], 1), body(2), body(3), body(4), body(5), body(6)];
+  assert.deepEqual(parseReferenceList(early), []);
+  // `12.5 mm` never reads as entry twelve.
+  const decimals = [body(1), lines(["1 Smith J. 2019. A method.", "12.5 mm long", "2 Lee A. 2020. B.", "3 Jones J. 2021. C."], 2)];
+  assert.equal(parseReferenceList(decimals).length, 3);
+});
+
+test("detects the citation style by tally and limits the search to it", () => {
+  assert.equal(detectCitationStyle(["see [1] and [2, 3]", "then [4]"]), "numeric");
+  assert.equal(detectCitationStyle(["see (Smith 2019) and (Lee et al. 2020)"]), "author-year");
+  assert.equal(detectCitationStyle(["see [1] [2] [3] (Smith 2019) (Lee 2020) (Jones 2021) (Doe 2022)"]), "both");
+  assert.equal(detectCitationStyle(["no citations here (2019)"]), null);
+  const refs = parseReferenceList(numbered);
+  const page = { number: 1, text: "Smith (2019) showed [1].", items: [] };
+  assert.equal(findCitationMentions(page, refs, 10, "numeric").length, 1);
+  assert.equal(findCitationMentions(page, refs, 10, "author-year").length, 1);
+  assert.equal(findCitationMentions(page, refs, 10, "both").length, 2);
+  assert.equal(findCitationMentions(page, refs, 10, null).length, 0);
+});
+
+test("a caption line is a target, not a mention of itself", () => {
+  const pages = [
+    { number: 1, text: "As Figure 1 shows.", items: lines(["As Figure 1 shows."], 1) },
+    { number: 2, text: "Figure 1: The thing.\nFigure 1 is above.", items: lines(["Figure 1: The thing.", "Figure 1 is above."], 2) },
+  ];
+  const mentions = findFigureMentions(pages, []);
+  assert.deepEqual(mentions.map((m) => [m.page, m.start]), [[1, 3], [2, 21]]);
 });

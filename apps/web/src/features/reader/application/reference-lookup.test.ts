@@ -55,7 +55,7 @@ test("reports unresolved when every source fails", async () => {
   assert.equal((await service.resolve("p1", ref({ title: "Missing" }))).status, "unresolved");
 });
 
-test("caches per (paperId, refIndex) and reports library presence", async () => {
+test("caches per (documentKey, refIndex) and reports library presence", async () => {
   const store = new Map<string, ResolvedReference>();
   const seen: string[] = [];
   const cache: ReferenceLookupCache = {
@@ -71,7 +71,7 @@ test("caches per (paperId, refIndex) and reports library presence", async () => 
   );
   const first = await service.resolve("p1", ref({ index: 7, title: "T", doi: "10.1/fallback" }));
   await service.resolve("p1", ref({ index: 7, title: "T", doi: "10.1/fallback" }));
-  assert.deepEqual(seen, ["v2:p1:ref:7"]);
+  assert.deepEqual(seen, ["v3:p1:ref:7"]);
   assert.equal(first.status, "resolved");
   assert.equal(first.inLibrary?.id, "lib-1");
 });
