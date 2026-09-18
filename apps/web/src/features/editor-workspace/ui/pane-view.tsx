@@ -18,7 +18,15 @@ import {
   type TabRef,
 } from "../application/pane-tree";
 import { Breadcrumbs } from "./breadcrumbs";
-import { hasInkView, hasPdfView, kindIcon, kindSuffix, kindTintClass } from "./kind";
+import { kindIcon, kindSuffix, kindTintClass, modesFor } from "./kind";
+
+const MODE_LABELS: Record<DocumentMode, string> = { edit: "Edit", read: "Read", ink: "Ink", pdf: "PDF" };
+const MODE_TITLES: Record<DocumentMode, string> = {
+  edit: "Edit source (⌘E)",
+  read: "Read view (⌘E)",
+  ink: "Ink — write by hand",
+  pdf: "The paper's PDF",
+};
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -225,46 +233,18 @@ function PaneLeafView({
           {leaf.tabs.length > 0 && showing ? (
             // Edit / Read / Ink / PDF, per tab.
             <div className="pane-mode" role="group" aria-label="Document mode">
-              <button
-                type="button"
-                className={`pane-mode-btn${editing === "edit" ? " is-on" : ""}`}
-                aria-pressed={editing === "edit"}
-                title="Edit source (⌘E)"
-                onClick={() => onSetMode(leaf.id, leaf.activeIndex, "edit")}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className={`pane-mode-btn${editing === "read" ? " is-on" : ""}`}
-                aria-pressed={editing === "read"}
-                title="Read view (⌘E)"
-                onClick={() => onSetMode(leaf.id, leaf.activeIndex, "read")}
-              >
-                Read
-              </button>
-              {hasInkView(showing.kind) ? (
+              {modesFor(showing.kind).map((mode) => (
                 <button
+                  key={mode}
                   type="button"
-                  className={`pane-mode-btn${editing === "ink" ? " is-on" : ""}`}
-                  aria-pressed={editing === "ink"}
-                  title="Ink canvas"
-                  onClick={() => onSetMode(leaf.id, leaf.activeIndex, "ink")}
+                  className={`pane-mode-btn${editing === mode ? " is-on" : ""}`}
+                  aria-pressed={editing === mode}
+                  title={MODE_TITLES[mode]}
+                  onClick={() => onSetMode(leaf.id, leaf.activeIndex, mode)}
                 >
-                  Ink
+                  {MODE_LABELS[mode]}
                 </button>
-              ) : null}
-              {hasPdfView(showing.kind) ? (
-                <button
-                  type="button"
-                  className={`pane-mode-btn${editing === "pdf" ? " is-on" : ""}`}
-                  aria-pressed={editing === "pdf"}
-                  title="The paper's PDF"
-                  onClick={() => onSetMode(leaf.id, leaf.activeIndex, "pdf")}
-                >
-                  PDF
-                </button>
-              ) : null}
+              ))}
             </div>
           ) : null}
           {peerNames.length > 0 ? (

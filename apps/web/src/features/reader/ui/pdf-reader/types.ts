@@ -90,6 +90,11 @@ export interface PdfReaderProps {
    * open, so the owner can evict it and retry from the network.
    */
   onSourceFailure?: (failedUrl: string) => void;
+  /**
+   * Open with the pen rail up: the paper tab's Ink mode. The reader keeps its
+   * own toggle, so this is the starting state, not a lock.
+   */
+  inkRail?: boolean;
 }
 
 export interface JumpState {

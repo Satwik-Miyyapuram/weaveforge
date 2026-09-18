@@ -1,11 +1,18 @@
 import { outlineFromText, outlineTextLines, type OutlineTextItem, type ReaderOutlineItem } from "./outline-from-text.js";
 
+export interface FigureTarget {
+  page: number;
+  y: number;
+  x?: number;
+  height?: number;
+}
+
 export interface FigureMention {
   page: number;
   start: number;
   end: number;
   kind: "figure" | "table" | "equation" | "section" | "algorithm";
-  target: { page: number; y: number };
+  target: FigureTarget;
 }
 
 function kindOf(value: string): FigureMention["kind"] {
@@ -20,19 +27,19 @@ export function findFigureMentions(
   pages: readonly { number: number; text: string; items: readonly OutlineTextItem[] }[],
   outline: readonly ReaderOutlineItem[] = outlineFromText(pages.map((page) => page.items)),
 ): FigureMention[] {
-  const targets = new Map<string, { page: number; y: number }>();
-  const put = (key: string, page: number, y: number) => {
-    if (!targets.has(key)) targets.set(key, { page, y });
+  const targets = new Map<string, FigureTarget>();
+  const put = (key: string, page: number, y: number, x?: number, height?: number) => {
+    if (!targets.has(key)) targets.set(key, { page, y, ...(x != null ? { x } : {}), ...(height != null ? { height } : {}) });
   };
   for (const page of pages) {
     const right = Math.max(...page.items.map((item) => item.x));
     for (const line of outlineTextLines([page.items])) {
       const caption = /^(Figure|Fig\.|Table|Algorithm)\s+(\d+[a-z]?)\b/i.exec(line.str);
-      if (caption) put(`${kindOf(caption[1]!)}:${caption[2]!.toLowerCase()}`, page.number, line.y);
+      if (caption) put(`${kindOf(caption[1]!)}:${caption[2]!.toLowerCase()}`, page.number, line.y, line.x, line.fontSize);
     }
     for (const item of page.items) {
       const equation = /^\((\d+[a-z]?)\)$/.exec(item.str.trim());
-      if (equation && item.x >= right - 20) put(`equation:${equation[1]}`, page.number, item.y);
+      if (equation && item.x >= right - 20) put(`equation:${equation[1]}`, page.number, item.y, item.x, item.fontSize);
     }
   }
   const sections = (nodes: readonly ReaderOutlineItem[]) => {

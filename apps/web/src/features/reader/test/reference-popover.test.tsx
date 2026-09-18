@@ -13,6 +13,8 @@ const entry = {
   label: "[12]",
   raw: "Vaswani et al. Attention is all you need. NeurIPS, 2017.",
   page: 9,
+  x: 40,
+  y: 600,
   authors: ["Vaswani"],
   year: 2017,
   title: "Attention is all you need",

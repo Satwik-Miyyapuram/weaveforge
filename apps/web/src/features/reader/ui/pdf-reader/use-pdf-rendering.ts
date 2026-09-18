@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { outlineFromText, type OutlineTextItem } from "@weaveforge/core";
+import { outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
 
 import type {
   DocumentPageText,
@@ -45,6 +45,11 @@ export interface PdfRenderingDeps {
   initialPage: number;
   onSourceFailure: PdfReaderProps["onSourceFailure"];
   setJump: (state: JumpState) => void;
+  /**
+   * How much of the container's width a page may take when fitting: 1, or
+   * 0.5 while the pen's writing margin sits beside every page.
+   */
+  pageShare?: number;
 }
 
 export interface PdfRendering {
@@ -62,7 +67,8 @@ export interface PdfRendering {
    */
   pageItems: Map<number, TextItemGeometry[]>;
   /** Rects of the document's own `/Link` annotations per page, PDF user space. */
-  linkRects: Map<number, [number, number, number, number][]>;
+  /** The document's own `/Link` annotations, by 1-based page, destinations resolved. */
+  pageLinks: Map<number, PdfLink[]>;
   outline: ReaderOutlineItem[];
   error: string | null;
   /** The url actually handed to pdf.js, or null when it was refused. */
@@ -91,6 +97,35 @@ export interface PdfRendering {
  * Splitting them would mean publishing those refs to be co-ordinated from
  * outside, which is how they would fall out of step.
  */
+/**
+ * A pdf.js destination — a name to look up, or an explicit array — as a
+ * 1-based page and the point it names when it is `/XYZ` (the only kind that
+ * carries one). Anything unresolvable is `null`.
+ */
+async function resolveDestination(
+  doc: PdfDocument,
+  dest: unknown,
+): Promise<{ page: number; x?: number; y?: number } | null> {
+  try {
+    const explicit = typeof dest === "string" ? await doc.getDestination(dest) : dest;
+    if (!Array.isArray(explicit) || !explicit.length) return null;
+    const [ref, kind, x, y] = explicit as [unknown, { name?: string } | undefined, unknown, unknown];
+    const page =
+      typeof ref === "number" ? ref + 1 : ref && typeof ref === "object" ? (await doc.getPageIndex(ref as never)) + 1 : null;
+    if (!page) return null;
+    if (kind?.name === "XYZ") {
+      return {
+        page,
+        ...(typeof x === "number" ? { x } : {}),
+        ...(typeof y === "number" ? { y } : {}),
+      };
+    }
+    return { page };
+  } catch {
+    return null;
+  }
+}
+
 export function usePdfRendering({
   url,
   originalUrl,
@@ -101,6 +136,7 @@ export function usePdfRendering({
   initialPage,
   onSourceFailure,
   setJump,
+  pageShare = 1,
 }: PdfRenderingDeps): PdfRendering {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PdfDocument | null>(null);
@@ -110,7 +146,7 @@ export function usePdfRendering({
   const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
   const [pageTexts, setPageTexts] = useState<DocumentPageText[]>([]);
   const [pageItems, setPageItems] = useState<Map<number, TextItemGeometry[]>>(() => new Map());
-  const [linkRects, setLinkRects] = useState<Map<number, [number, number, number, number][]>>(() => new Map());
+  const [pageLinks, setPageLinks] = useState<Map<number, PdfLink[]>>(() => new Map());
   const [outline, setOutline] = useState<ReaderOutlineItem[]>([]);
   const pageGeometries = useRef(new Map<number, PageTextGeometry>());
   const suppressPageScroll = useRef(false);
@@ -161,7 +197,7 @@ useEffect(() => {
   if (!host || typeof ResizeObserver === "undefined") return;
   const measure = () => {
     setContainerSize({
-      width: Math.max(1, host.clientWidth),
+      width: Math.max(1, host.clientWidth * pageShare),
       height: Math.max(1, host.clientHeight),
     });
   };
@@ -169,7 +205,7 @@ useEffect(() => {
   const observer = new ResizeObserver(measure);
   observer.observe(host);
   return () => observer.disconnect();
-}, [pdf]);
+}, [pdf, pageShare]);
 
 useEffect(() => {
   let cancelled = false;
@@ -192,7 +228,7 @@ useEffect(() => {
   setPageSize(null);
   setPageTexts([]);
   setPageItems(new Map());
-  setLinkRects(new Map());
+  setPageLinks(new Map());
   setOutline([]);
   setJump({ status: locus ? "searching" : "idle" });
 
@@ -256,7 +292,7 @@ useEffect(() => {
           const texts: DocumentPageText[] = [];
           const outlinePages: OutlineTextItem[][] = [];
           const itemsByPage = new Map<number, TextItemGeometry[]>();
-          const links = new Map<number, [number, number, number, number][]>();
+          const links = new Map<number, PdfLink[]>();
           for (let n = 1; n <= doc.numPages; n++) {
             if (cancelled) return;
             const p = await doc.getPage(n);
@@ -264,13 +300,25 @@ useEffect(() => {
             const items = textItemsFromContent(content);
             texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
             itemsByPage.set(n, items);
-            // The document's own links (a publisher's clickable citations)
-            // take precedence over ours, so their rects are kept to defer to.
+            // The document's own links, two ways. A URL link is left to the
+            // document (its rect defers ours). An internal `/Dest` link is
+            // what hyperref writes over every `[13]` on an arXiv PDF, naming
+            // the entry it cites, so its destination is resolved here to a
+            // page and point and becomes the citation itself — exact where a
+            // regex over the text layer guesses.
             try {
-              const rects = (await p.getAnnotations())
-                .filter((a) => a.subtype === "Link" && Array.isArray(a.rect))
-                .map((a) => a.rect as [number, number, number, number]);
-              if (rects.length) links.set(n, rects);
+              const found: PdfLink[] = [];
+              for (const a of await p.getAnnotations()) {
+                if (a.subtype !== "Link" || !Array.isArray(a.rect) || a.rect.length < 4) continue;
+                const rect = a.rect.slice(0, 4) as [number, number, number, number];
+                if (typeof a.url === "string" && a.url) {
+                  found.push({ rect, url: a.url });
+                  continue;
+                }
+                const dest = await resolveDestination(doc, a.dest);
+                if (dest) found.push({ rect, dest });
+              }
+              if (found.length) links.set(n, found);
             } catch {
               /* a page whose annotations will not load simply has none */
             }
@@ -288,7 +336,7 @@ useEffect(() => {
           publishOutline();
           setPageTexts(texts);
           setPageItems(itemsByPage);
-          setLinkRects(links);
+          setPageLinks(links);
           // Keep the text so this document stays searchable after the reader
           // closes. Piggybacks on the pass above — no extra fetch or parse.
           if (paperId) {
@@ -478,7 +526,7 @@ const renderPage = useCallback(
     containerSize,
     pageTexts,
     pageItems,
-    linkRects,
+    pageLinks,
     outline,
     error,
     safeUrl,

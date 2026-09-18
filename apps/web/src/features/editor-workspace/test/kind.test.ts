@@ -19,6 +19,8 @@ import {
   linkGroupOf,
   memberRank,
   segmentsFor,
+  defaultModeFor,
+  modesFor,
 } from "../ui/kind";
 import { rendererFor, supportsEditMode } from "../ui/document-host";
 
@@ -80,16 +82,35 @@ test("an ink note can be viewed in edit, read and ink modes", () => {
   assert.equal(rendererFor("ink_page", "ink"), "ink");
 });
 
-test("PDF is a paper's third mode; on anything else it means Edit", () => {
-  assert.equal(rendererFor("paper", "pdf"), "pdf");
+test("the PDF row is the reader in every mode; PDF on anything else means Edit", () => {
+  assert.equal(rendererFor("paper_pdf", "pdf"), "pdf");
+  assert.equal(rendererFor("paper_pdf", "edit"), "pdf");
+  assert.equal(rendererFor("paper_pdf", "read"), "pdf");
+  assert.equal(rendererFor("paper", "pdf"), "editor");
   assert.equal(rendererFor("vault_page", "pdf"), "editor");
   assert.equal(rendererFor("ink_page", "pdf"), "editor");
 });
 
+test("Ink on the PDF row is the PDF with the pen rail up; on a paper's notes an ink canvas", () => {
+  assert.equal(rendererFor("paper_pdf", "ink"), "pdf_ink");
+  assert.equal(rendererFor("paper", "ink"), "ink");
+  assert.equal(rendererFor("report_section", "ink"), "editor");
+});
+
+test("a kind's modes come from the table: PDF and Ink for the PDF row, Edit/Read(/Ink) for text", () => {
+  assert.deepEqual(modesFor("paper_pdf"), ["pdf", "ink"]);
+  assert.deepEqual(modesFor("paper"), ["edit", "read", "ink"]);
+  assert.deepEqual(modesFor("vault_page"), ["edit", "read", "ink"]);
+  assert.deepEqual(modesFor("report_section"), ["edit", "read"]);
+  assert.equal(defaultModeFor("paper_pdf"), "pdf");
+  assert.equal(defaultModeFor("paper"), "edit");
+});
+
 test("the table says which kinds have a PDF to look at", () => {
-  // A paper is a PDF; a note is text that may quote one, and a section is this
-  // app's own prose. Only the row that says so gets the third mode button.
-  assert.equal(hasPdfView("paper"), true);
+  // The PDF row is a PDF; a paper's notes, a note and a section are text.
+  // Only the row that says so gets the reader.
+  assert.equal(hasPdfView("paper_pdf"), true);
+  assert.equal(hasPdfView("paper"), false);
   assert.equal(hasPdfView("vault_page"), false);
   assert.equal(hasPdfView("ink_page"), false);
   assert.equal(hasPdfView("report_section"), false);
@@ -99,7 +120,8 @@ test("the table says which kinds have a PDF to look at", () => {
 test("the table says which kinds have an Ink canvas to draw on", () => {
   assert.equal(hasInkView("vault_page"), true);
   assert.equal(hasInkView("ink_page"), true);
-  assert.equal(hasInkView("paper"), false);
+  assert.equal(hasInkView("paper"), true);
+  assert.equal(hasInkView("paper_pdf"), false);
   assert.equal(hasInkView("report_section"), false);
   assert.equal(hasInkView("something_new"), false);
   assert.equal(rendererFor("vault_page", "ink"), "ink");

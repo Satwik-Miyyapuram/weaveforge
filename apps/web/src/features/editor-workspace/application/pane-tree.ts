@@ -223,9 +223,14 @@ export function activeTabKey(layout: PaneLayout): string | undefined {
   return tab ? tabKey(tab) : undefined;
 }
 
-/** The mode a tab is in. Anything that predates modes was and is Edit; an ink note defaults to Ink. */
+/**
+ * The mode a tab is in. Anything that predates modes was and is Edit; an ink
+ * note defaults to Ink and a PDF row to the reader. The two literals are the
+ * kinds whose default is not Edit; `ui/kind.ts`'s `defaultModeFor` is the same
+ * answer for the screen, which cannot be asked from here without the UI layer.
+ */
 export function tabMode(tab: TabRef): DocumentMode {
-  return tab.mode ?? (tab.kind === "ink_page" ? "ink" : "edit");
+  return tab.mode ?? (tab.kind === "ink_page" ? "ink" : tab.kind === "paper_pdf" ? "pdf" : "edit");
 }
 
 /** The tab at a pane-and-index, or `undefined` when either is gone. */

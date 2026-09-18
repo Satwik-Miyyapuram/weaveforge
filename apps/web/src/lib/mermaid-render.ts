@@ -10,7 +10,33 @@ type MermaidModule = typeof import("mermaid")["default"];
 
 let mermaidPromise: Promise<MermaidModule> | null = null;
 let initialisedMode: ColorMode | null = null;
-let counter = 0;
+
+/**
+ * An id for a diagram from its source, so the same fence renders to the same
+ * markup every time. A running counter made each render a different string,
+ * which made React rewrite the body — and kill any link mid-click — whenever
+ * a note with a diagram re-rendered for a reason that changed nothing.
+ */
+function diagramId(code: string): string {
+  let hash = 0;
+  for (let i = 0; i < code.length; i++) hash = (hash * 31 + code.charCodeAt(i)) | 0;
+  return `wf-mermaid-${(hash >>> 0).toString(36)}`;
+}
+
+/**
+ * Mermaid rejects `(`, `)` and `|` inside an unquoted `[label]` or `{label}`,
+ * and a note about a VAE writes `Q[q(z|x)]` without thinking twice. Such a
+ * label is quoted before it goes to the parser, which is what the author
+ * meant; a label already quoted, or a shape whose brackets carry meaning
+ * (`[(cylinder)]`, `[[subroutine]]`, `[/parallelogram/]`), is left alone.
+ */
+export function quoteAwkwardLabels(code: string): string {
+  return code.replace(/([[{])([^[\]{}"\n]*?)([\]}])/g, (match, open: string, label: string, close: string) => {
+    if (!/[()|]/.test(label) || /^[(/\\]/.test(label) || /[(/\\]$/.test(label)) return match;
+    if ((open === "[" && close !== "]") || (open === "{" && close !== "}")) return match;
+    return `${open}"${label.replace(/"/g, "#quot;")}"${close}`;
+  });
+}
 
 function getMermaid(mode: ColorMode): Promise<MermaidModule> {
   if (!mermaidPromise) {
@@ -51,12 +77,15 @@ export async function renderMermaidBlock(code: string, mode: ColorMode): Promise
   }
   try {
     const mermaid = await getMermaid(mode);
-    counter += 1;
-    const { svg } = await mermaid.render(`wf-mermaid-${counter}`, code.trim());
+    const source = quoteAwkwardLabels(code.trim());
+    const { svg } = await mermaid.render(diagramId(source), source);
     return `<div class="md-mermaid">${svg}</div>`;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return `<pre class="md-code md-mermaid-error" data-lang="mermaid" title="${escapeHtml(message).replace(/"/g, "&quot;")}"><code>${escapeHtml(code)}</code></pre>`;
+    // The message is shown, not tucked into a tooltip: a diagram that comes
+    // back as its own source with nothing said looks like a renderer that
+    // did not run, when it is a typo on line 3.
+    return `<div class="md-mermaid md-mermaid-error"><pre class="md-code" data-lang="mermaid"><code>${escapeHtml(code)}</code></pre><p class="md-mermaid-message">Mermaid: ${escapeHtml(message)}</p></div>`;
   }
 }
 
@@ -65,7 +94,7 @@ export async function renderMermaidBlock(code: string, mode: ColorMode): Promise
  * `renderMarkdownPlain` emits them) into a rendered diagram in place.
  */
 export async function upgradeMermaidFences(root: HTMLElement, mode: ColorMode): Promise<void> {
-  const fences = Array.from(root.querySelectorAll<HTMLPreElement>('pre[data-lang="mermaid"]:not(.md-mermaid-error)'));
+  const fences = Array.from(root.querySelectorAll<HTMLPreElement>('pre[data-lang="mermaid"]:not(.md-mermaid-error > pre)'));
   for (const fence of fences) {
     const code = fence.textContent ?? "";
     const html = await renderMermaidBlock(code, mode);

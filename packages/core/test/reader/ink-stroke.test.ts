@@ -7,6 +7,8 @@ import {
   HIGHLIGHTER_MIN_WIDTH,
   INK_DEFAULT_WIDTH,
   INK_MAX_POINTS,
+  INK_NIB_DEFAULT_PT,
+  INK_NIB_WIDTHS_PT,
   inkPathJsonSize,
   inkPathsBounds,
   inkPathsHitTest,
@@ -112,8 +114,17 @@ test("inkWidthForPressure separates a pen from a mouse", () => {
 
 test("clampInkWidth keeps a stroke drawable", () => {
   assert.equal(clampInkWidth(Number.NaN), INK_DEFAULT_WIDTH);
-  assert.equal(clampInkWidth(0), 0.75);
+  assert.equal(clampInkWidth(0), 0.25);
   assert.equal(clampInkWidth(1_000), 24);
+});
+
+test("INK_NIB_WIDTHS_PT is the ink note's nib set, in points", () => {
+  // 0.1 / 0.3 / 0.5 / 0.7 mm at 72 pt per inch.
+  assert.deepEqual(INK_NIB_WIDTHS_PT, [0.28, 0.85, 1.42, 1.98]);
+  assert.equal(INK_NIB_DEFAULT_PT, 1.42, "the default is the 0.5 mm pen");
+  for (const nib of INK_NIB_WIDTHS_PT) {
+    assert.equal(clampInkWidth(nib), nib, `${nib} pt must survive the clamp`);
+  }
 });
 
 test("meanPressure ignores samples from devices that report nothing", () => {

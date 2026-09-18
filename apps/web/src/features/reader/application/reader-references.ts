@@ -21,14 +21,17 @@ import {
   detectCitationStyle,
   findCitationMentions,
   findFigureMentions,
+  linkCitationMentions,
   parseReferenceList,
+  type CitationMention,
   type OutlineTextItem,
   type PageTextItem,
   type ParsedReference,
+  type PdfLink,
   type ReaderOutlineItem,
   textFingerprint,
 } from "@weaveforge/core";
-import { pageTextFromItems } from "./reference-locate";
+import { locateMention, pageTextFromItems, type PdfRect } from "./reference-locate";
 
 /** A clickable thing found in the page text. */
 export interface MentionHit {
@@ -43,7 +46,7 @@ export interface MentionHit {
   /** Reference-list indexes this mention points at, for citations. */
   refIndexes: number[];
   /** Where a figure/table/equation mention jumps to, for figures. */
-  target?: { page: number; y: number };
+  target?: import("@weaveforge/core").FigureTarget;
 }
 
 export interface ReaderReferenceIndex {
@@ -66,6 +69,12 @@ export interface ReferencePage {
   /** 1-based. */
   pageNumber: number;
   items: readonly PageTextItem[];
+  /**
+   * The page's own `/Link` annotations. Internal ones name the entry they
+   * cite and are the first source of mentions; URL ones are the document's
+   * to handle, and no mention of ours may sit on one.
+   */
+  links?: readonly PdfLink[];
 }
 
 const EMPTY_INDEX: ReaderReferenceIndex = {
@@ -100,6 +109,62 @@ function mentionLabel(text: string, start: number, end: number): string {
   return raw.length > 60 ? `${raw.slice(0, 57)}…` : raw;
 }
 
+function overlaps(a: PdfRect, b: PdfRect): boolean {
+  const [ax0, ay0, ax1, ay1] = [Math.min(a[0], a[2]), Math.min(a[1], a[3]), Math.max(a[0], a[2]), Math.max(a[1], a[3])];
+  const [bx0, by0, bx1, by1] = [Math.min(b[0], b[2]), Math.min(b[1], b[3]), Math.max(b[0], b[2]), Math.max(b[1], b[3])];
+  return ax0 < bx1 && bx0 < ax1 && ay0 < by1 && by0 < ay1;
+}
+
+/**
+ * A link's span widened to the brackets around it, so a link that hyperref
+ * drew over the `16` of `[16]` — and a `5` of `[5, 2, 35]` — is painted with
+ * its punctuation and reads as the printed citation.
+ */
+function widenToBrackets(text: string, start: number, end: number): [number, number] {
+  let s = start;
+  let e = end;
+  while (s > 0 && /[\s]/.test(text[s - 1]!)) s--;
+  while (e < text.length && /[\s]/.test(text[e]!)) e++;
+  if (text[s - 1] === "[" && text[e] === "]") return [s - 1, e + 1];
+  return [start, end];
+}
+
+/**
+ * The page's citations: those its own links name, exactly, and then those a
+ * pattern finds in whatever text the links leave uncovered. On a hyperref
+ * PDF the first pass finds everything and the second nothing new; on a
+ * scanned-and-OCRed one the first pass is empty and the second is all there
+ * is. A mention that sits on a URL link is dropped — the document's link is
+ * what the person clicks, and painting ours over it would steal the click.
+ */
+function pageCitations(
+  page: { number: number; text: string; items: readonly OutlineTextItem[] },
+  raw: ReferencePage,
+  references: readonly ParsedReference[],
+  body: number,
+  style: ReturnType<typeof detectCitationStyle>,
+): CitationMention[] {
+  const links = raw.links ?? [];
+  const out: CitationMention[] = linkCitationMentions(
+    { number: page.number, items: raw.items },
+    links,
+    references,
+  ).map((mention) => {
+    const [start, end] = widenToBrackets(page.text, mention.start, mention.end);
+    return { ...mention, start, end };
+  });
+  const urlRects = links.filter((link) => link.url).map((link) => link.rect);
+  for (const mention of findCitationMentions(page, references, body, style)) {
+    if (out.some((hit) => hit.start < mention.end && hit.end > mention.start)) continue;
+    if (urlRects.length) {
+      const { bounds } = locateMention(raw.items, mention.start, mention.end);
+      if (bounds && urlRects.some((rect) => overlaps(rect, bounds))) continue;
+    }
+    out.push(mention);
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+
 export function buildReferenceIndex(
   pages: readonly ReferencePage[],
   outline: readonly ReaderOutlineItem[] = [],
@@ -131,10 +196,10 @@ export function buildReferenceIndex(
   }
 
   const mentionsByPage = new Map<number, MentionHit[]>();
-  for (const page of outlinePages) {
+  for (const [i, page] of outlinePages.entries()) {
     const hits: MentionHit[] = [];
 
-    for (const mention of findCitationMentions(page, references, body, style)) {
+    for (const mention of pageCitations(page, pages[i]!, references, body, style)) {
       // The list's own labels (`[12]`, `12.`) are how the bibliography prints
       // them; an author-year list has none, and there the printed mention is
       // the only honest label.

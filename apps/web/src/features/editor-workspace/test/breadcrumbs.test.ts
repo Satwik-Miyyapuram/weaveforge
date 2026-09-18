@@ -30,11 +30,15 @@ test("crumbs for a deep note are its whole folder chain", () => {
   assert.equal(crumbs[crumbs.length - 1]!.current, true);
 });
 
-test("crumbs for a paper are the root and the paper", () => {
+test("crumbs for a paper's notes are the root, the paper and the file", () => {
   const crumbs = breadcrumbs({ kind: "paper", id: "p1" }, files());
   assert.deepEqual(
     crumbs.map((crumb) => crumb.label),
-    ["Files", "Papers", "Attention"],
+    ["Files", "Papers", "Attention", "Notes"],
+  );
+  assert.deepEqual(
+    breadcrumbs({ kind: "paper_pdf", id: "p1" }, files()).map((crumb) => crumb.label),
+    ["Files", "Papers", "Attention", "PDF"],
   );
 });
 

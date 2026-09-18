@@ -95,14 +95,20 @@ test("a paper with no note is listed and flagged, never hidden", () => {
     ],
   });
 
+  // Each paper is a grouping row with two files under it: the PDF, then the
+  // notes. The flag sits on the notes row, which is the one it is about.
   assert.deepEqual(
-    papers.children.map((node) => [node.label, node.missingNote ?? false]),
+    papers.children.map((node) => [node.label, node.kind, node.children.map((c) => `${c.kind}:${c.label}`)]),
     [
-      ["Attention Is All You Need", false],
-      ["Batch Norm", true],
+      ["Attention Is All You Need", "folder", ["paper_pdf:PDF", "paper:Notes"]],
+      ["Batch Norm", "folder", ["paper_pdf:PDF", "paper:Notes"]],
     ],
   );
-  assert.match(papers.children[0]!.path, /^papers\/.*\.paper\.md$/);
+  const [pdf, notes] = papers.children[1]!.children;
+  assert.equal(pdf!.missingNote, undefined);
+  assert.equal(notes!.missingNote, true);
+  assert.match(pdf!.path, /^papers\/.*\.pdf$/);
+  assert.match(notes!.path, /^papers\/.*\.paper\.md$/);
 });
 
 test("an untitled entity gets a label rather than an empty row", () => {
@@ -123,7 +129,7 @@ test("flattening drops the folders and keeps every document, depth-first", () =>
 
   assert.deepEqual(
     flattenTree(tree).map((node) => node.key),
-    ["vault_page:a", "vault_page:b", "paper:p1", "report_section:s1"],
+    ["vault_page:a", "vault_page:b", "paper_pdf:p1", "paper:p1", "report_section:s1"],
   );
 });
 
@@ -252,11 +258,12 @@ test("quick open never lists a member row, which would be the same document twic
   const lists = buildListsTree(LISTS);
   const indexed = [...flattenTree(files), ...flattenTree(lists)];
 
-  // Files contributes the paper once; the two member rows in Reading lists
-  // contribute nothing, because they are the same file seen through a list.
+  // Files contributes the paper's two files once each; the two member rows in
+  // Reading lists contribute nothing, because they are the same paper seen
+  // through a list.
   assert.deepEqual(
     indexed.filter((node) => node.id === "p1").map((node) => node.key),
-    ["paper:p1"],
+    ["paper_pdf:p1", "paper:p1"],
   );
   // The list rows themselves are documents and are still indexed.
   assert.equal(indexed.filter((node) => node.kind === "reading_list").length, 3);

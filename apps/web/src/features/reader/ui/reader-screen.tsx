@@ -166,6 +166,7 @@ export function ReaderScreen() {
           onActivity={logActivity}
           onTitle={setTitle}
           onAnnotations={setAnnotations}
+          inkRail={params.get("pen") === "1"}
           aside={
             pane ? (
               <ReaderSplitPanel

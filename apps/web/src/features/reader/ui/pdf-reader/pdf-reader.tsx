@@ -27,7 +27,9 @@ import {
   type ReaderContainerSize,
   type ReaderPageSize,
   type DocumentPageText,
+  type DocumentSearchMatch,
   type ReaderAnnotationType,
+  type FigureTarget,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
@@ -60,15 +62,22 @@ import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { Select } from "@/components/select";
-import { DraftShapeOverlay, SafeExternalLink, TextBoxComposer } from "./overlays";
+import { ColourMenu } from "@/components/colour-menu";
+import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
+import { layoutMarginNotes } from "../../application/margin-notes";
 import { useAnnotationContext } from "./use-annotation-context";
 import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePagePointer } from "./use-page-pointer";
+import { useInkUndo } from "./use-ink-undo";
+import { usePenPrefs } from "./use-pen-prefs";
+import { PenRail } from "./pen-rail";
 import { useReaderReferences } from "./use-reader-references";
 import { ReferencePopoverHost } from "./reference-popover-host";
 import { ReferenceOverlay } from "../reference-overlay";
+import { FindMarks, FindOverlay } from "../find-overlay";
+import { findMarks } from "../../application/find-marks";
 import { ReferencesPanel } from "../references-panel";
 import { buildLocusLink } from "../../application/build-locus-link";
 
@@ -112,16 +121,26 @@ export function PdfReader({
   onAnnotationsChange,
   onActivity,
   onSourceFailure,
+  inkRail = false,
 }: PdfReaderProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const [showOutline, setShowOutline] = useState(false);
   const [showReferences, setShowReferences] = useState(false);
+  const [find, setFind] = useState<{ matches: DocumentSearchMatch[]; active: number }>({ matches: [], active: -1 });
   const [flashPage, setFlashPage] = useState<number | null>(null);
+  const [captionTarget, setCaptionTarget] = useState<FigureTarget | null>(null);
   const [spread, setSpread] = useState(false);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
-  const [createTool, setCreateTool] = useState<ReaderCreateTool>("select");
-  const [createColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
+  const [pickedTool, setCreateTool] = useState<ReaderCreateTool>("select");
+  const [pickedColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
+  // The pen rail, once up, is the tool picker: what it holds is what draws.
+  // Its choices persist per user (`usePenPrefs`), the toolbar's do not.
+  const [penOpen, setPenOpen] = useState(inkRail);
+  useEffect(() => setPenOpen(inkRail), [inkRail]);
+  const pen = usePenPrefs();
+  const createTool: ReaderCreateTool = penOpen ? pen.prefs.tool : pickedTool;
+  const createColor = penOpen ? pen.prefs.color : pickedColor;
   const [pendingCreate, setPendingCreate] = useState<{
     pageNumber: number;
     quote: string;
@@ -133,16 +152,7 @@ export function PdfReader({
     annotations,
   );
   const darkPdf = useDarkPdf();
-  const {
-    annError,
-    setAnnError,
-    createBusy,
-    persistDraft,
-    updateLocal,
-    removeLocal,
-    pinLocal,
-    saveAnchor,
-  } = useAnnotationActions({
+  const actions = useAnnotationActions({
     paperId,
     onAnnotationsChange,
     onActivity,
@@ -151,6 +161,12 @@ export function PdfReader({
     setSelectedAnnId,
     clearPendingCreate,
   });
+  const { annError, setAnnError, createBusy, updateLocal, pinLocal } = actions;
+  // Stroke writes go through the undo stack while the rail is up; the
+  // wrapped writes are the raw ones otherwise, so nothing else changes.
+  const inkUndo = useInkUndo(actions, annotations, penOpen);
+  const { persistDraft, removeLocal, saveAnchor, reset: resetInkUndo } = inkUndo;
+  useEffect(() => resetInkUndo(), [url, resetInkUndo]);
 
   /** Stable identity so a memoised page overlay is not re-rendered by a new closure. */
   const selectAnnotation = useCallback((id: string) => setSelectedAnnId(id), []);
@@ -164,6 +180,13 @@ export function PdfReader({
    * to where the pointer has it. Applying the offset at paint time keeps a move
    * at display rate without rewriting the annotation list on every frame.
    */
+  /** The writing margin is as wide as the page it sits beside, on screen. */
+  function marginWidth(pageNumber: number): number {
+    const p = pageProjection(pageNumber);
+    const across = p.rotation % 180 === 0 ? p.pageWidth : p.pageHeight;
+    return Math.floor(across * p.scale);
+  }
+
   function pageAnnotations(pageNumber: number): ReaderAnnotation[] {
     const list = annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS;
     if (!movePreview) return list;
@@ -193,7 +216,7 @@ export function PdfReader({
     containerSize,
     pageTexts,
     pageItems,
-    linkRects,
+    pageLinks,
     outline,
     error,
     openUrl,
@@ -211,6 +234,7 @@ export function PdfReader({
     initialPage: typeof page === "number" ? page + 1 : 1,
     onSourceFailure,
     setJump,
+    pageShare: penOpen ? 0.5 : 1,
   });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
@@ -233,6 +257,7 @@ export function PdfReader({
     canCreate,
     createTool,
     createColor,
+    inkWidth: pen.prefs.nib,
     selectedAnnId,
     pageSize,
     scale,
@@ -245,23 +270,44 @@ export function PdfReader({
     saveAnchor,
   });
 
-  const flashCaption = useCallback((target: { page: number; y: number }) => {
+  const onFigureTarget = useCallback((target: FigureTarget) => {
+    setCaptionTarget(target);
     setFlashPage(target.page);
-    window.setTimeout(() => setFlashPage((p) => (p === target.page ? null : p)), 1600);
-  }, []);
+    const host = containerRef.current?.querySelector<HTMLDivElement>(`[data-page="${target.page}"]`);
+    if (host && containerRef.current) {
+      if (typeof target.y === "number") {
+        const pageHeight = pageGeometries.current.get(target.page)?.pageHeight ?? pageSize?.height ?? 792;
+        const screenY = (pageHeight - target.y) * scale;
+        const container = containerRef.current;
+        container.scrollTo({
+          top: host.offsetTop + screenY - container.clientHeight / 3,
+          behavior: "smooth",
+        });
+      } else {
+        host.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+    window.setTimeout(() => {
+      setCaptionTarget((cur) => (cur === target ? null : cur));
+      setFlashPage((p) => (p === target.page ? null : p));
+    }, 2200);
+  }, [scale, pageSize, containerRef, pageGeometries]);
   const refs = useReaderReferences({
     pageItems,
-    linkRects,
+    pageLinks,
     outline,
     contentHash,
     paperId,
     setPage: viewport.setPage,
-    onFigureTarget: flashCaption,
+    onFigureTarget,
   });
   useEffect(() => {
-    if (showReferences) refs.resolveAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when the tab opens or the index changes, not per resolution
-  }, [showReferences, refs.index]);
+    if (showReferences) {
+      refs.startPrefetch();
+    } else {
+      refs.stopPrefetch();
+    }
+  }, [showReferences, refs]);
 
 
   const matchOnPage = useCallback(
@@ -452,6 +498,16 @@ export function PdfReader({
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
 
   function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back
+    // the last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back.
+    if (penOpen && (event.ctrlKey || event.metaKey) && !isEditableTarget(event.target)) {
+      const key = event.key.toLowerCase();
+      if (key === "z" || key === "y") {
+        event.preventDefault();
+        void (key === "y" || event.shiftKey ? inkUndo.redo() : inkUndo.undo());
+        return;
+      }
+    }
     // Delete the selected annotation from the page itself. Deleting was only
     // reachable by finding the same annotation again in the sidebar list.
     if (
@@ -634,6 +690,7 @@ export function PdfReader({
           onJump={(match) => {
             viewport.setPage(match.pageIndex + 1);
           }}
+          onMatches={(matches, active) => setFind({ matches, active })}
         />
         <div className="pdf-reader-group">
           <button
@@ -670,6 +727,19 @@ export function PdfReader({
           </button>
         </div>
         {canCreate && (
+          <button
+            type="button"
+            className={`btn-secondary btn-sm${penOpen ? " is-active" : ""}`}
+            aria-pressed={penOpen}
+            onClick={() => {
+              endInkGroup();
+              setPenOpen((v) => !v);
+            }}
+          >
+            Pen
+          </button>
+        )}
+        {canCreate && !penOpen && (
           <div className="pdf-reader-group">
             <Select
               className="pdf-reader-tool-select"
@@ -692,19 +762,47 @@ export function PdfReader({
               <option value="image">Clip a region</option>
               <option value="text">Write a note</option>
             </Select>
-            <input
-              type="color"
-              className="pdf-reader-color-input"
-              aria-label="Annotation colour"
+            <ColourMenu
               value={createColor}
-              onChange={(e) => {
+              palette={READER_ANNOTATION_COLORS}
+              recent={pen.prefs.recent}
+              ariaLabel="Annotation colour"
+              onChange={(colour) => {
                 endInkGroup();
-                setCreateColor(e.target.value);
+                setCreateColor(colour);
               }}
             />
           </div>
         )}
         </div>
+        {canCreate && penOpen && (
+          <PenRail
+            tool={pen.prefs.tool}
+            color={pen.prefs.color}
+            nib={pen.prefs.nib}
+            recent={pen.prefs.recent}
+            canUndo={inkUndo.canUndo}
+            canRedo={inkUndo.canRedo}
+            onTool={(tool) => {
+              endInkGroup();
+              pen.setTool(tool);
+            }}
+            onColor={(color) => {
+              endInkGroup();
+              pen.setColor(color);
+            }}
+            onNib={(nib) => {
+              endInkGroup();
+              pen.setNib(nib);
+            }}
+            onUndo={() => void inkUndo.undo()}
+            onRedo={() => void inkUndo.redo()}
+            onClose={() => {
+              endInkGroup();
+              setPenOpen(false);
+            }}
+          />
+        )}
       </div>
       {/* Both rectangle tools look identical while dragging, so say which one
           is armed and what releasing will do. */}
@@ -781,6 +879,18 @@ export function PdfReader({
             )}
           </div>
         )}
+        {/* The scrollbar ticks sit on a wrapper, not inside the scroller, so
+            they stay put while the pages move. */}
+        <div className="pdf-reader-scroll-wrap">
+        <FindMarks
+          marks={findMarks(
+            find.matches,
+            numPages,
+            (n) => pageItems.get(n),
+            (n) => pageGeometries.current.get(n)?.pageHeight ?? pageSize?.height ?? 0,
+          )}
+          active={find.active}
+        />
         <div
           className={`pdf-reader-scroll${spread ? " pdf-reader-scroll--spread" : ""}`}
           ref={containerRef}
@@ -796,12 +906,23 @@ export function PdfReader({
               }${flashPage === n ? " pdf-reader-flash" : ""}`}
               data-page={n}
               key={n}
+              // The pen gets a page-wide blank strip beside each page to write
+              // on; the strip is the host's margin so the row stays centred.
+              style={penOpen && pageSize ? { marginRight: `${marginWidth(n)}px` } : undefined}
               onPointerDown={(e) => onPagePointerDown(n, e)}
               onPointerMove={onPagePointerMove}
               onPointerUp={(e) => onPagePointerUp(n, e)}
               onPointerCancel={(e) => onPagePointerUp(n, e)}
             >
               <canvas />
+              {penOpen && pageSize && (
+                <PageMargin
+                  notes={layoutMarginNotes(pageAnnotations(n), pageProjection(n))}
+                  width={marginWidth(n)}
+                  selectedId={selectedAnnId}
+                  onSelect={selectAnnotation}
+                />
+              )}
               {pageSize && (
                 <AnnotationOverlay
                   annotations={pageAnnotations(n)}
@@ -815,12 +936,33 @@ export function PdfReader({
                   onSelect={selectAnnotation}
                 />
               )}
+              {pageSize && find.matches.length > 0 && pageItems.has(n) && (
+                <FindOverlay
+                  matches={find.matches}
+                  active={find.active}
+                  pageIndex={n - 1}
+                  items={pageItems.get(n)!}
+                  projection={pageProjection(n)}
+                />
+              )}
               {pageSize && refs.enabled && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
                 <ReferenceOverlay
                   mentions={refs.index.mentionsByPage.get(n)!}
                   items={pageItems.get(n)!}
                   projection={pageProjection(n)}
                   onOpen={refs.openMention}
+                  onPrefetch={refs.prefetchMention}
+                />
+              )}
+              {captionTarget?.page === n && typeof captionTarget.y === "number" && (
+                <div
+                  className="pdf-reader-caption-target"
+                  style={{
+                    left: typeof captionTarget.x === "number" ? `${captionTarget.x * scale}px` : "5%",
+                    top: `${((pageGeometries.current.get(n)?.pageHeight ?? pageSize?.height ?? 792) - captionTarget.y) * scale}px`,
+                    width: typeof captionTarget.x === "number" ? "90%" : "90%",
+                    height: `${Math.max((captionTarget.height ?? 18) * scale, 24)}px`,
+                  }}
                 />
               )}
               {pageSize && draftShape?.pageNumber === n && (
@@ -832,6 +974,7 @@ export function PdfReader({
               )}
             </div>
           ))}
+        </div>
         </div>
       </div>
       <ReferencePopoverHost

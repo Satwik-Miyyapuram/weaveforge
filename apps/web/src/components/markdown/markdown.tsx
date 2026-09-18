@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { renderToString } from "katex";
 import { escapeHtml as escapeAttr } from "@/lib/escape-html";
 import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
@@ -84,13 +85,32 @@ function formatText(s: string): string {
         return `<img src="${safeSrc}" alt="${safeAlt}" data-md-alt="${safeAlt}" class="md-image${alignClass}" loading="lazy"${style} />`;
       },
     )
+    // The target may hold one level of parentheses of its own
+    // (`…/wiki/Foo_(bar)`), so a `)` only ends the link once they balance.
     .replace(
-      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      /\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g,
       (_m, label: string, href: string) => {
         const safeHref = href.replace(/"/g, "&quot;");
         return `<a href="${safeHref}" target="_blank" rel="noreferrer">${label}</a>`;
       },
     )
+    // `<https://…>` and a bare `https://…` are links too — notes are full of
+    // pasted addresses that nobody wraps in brackets. Anything already inside a
+    // tag (an `href`, an `src`, a label that is itself a URL) is left alone by
+    // the lookbehind; trailing sentence punctuation stays outside the link.
+    .replace(/&lt;(https?:\/\/[^\s&<>]+)&gt;/g, (_m, href: string) => {
+      return `<a href="${href}" target="_blank" rel="noreferrer">${href}</a>`;
+    })
+    .replace(/(?<![="'>\w/])(https?:\/\/[^\s<]+)/g, (m: string) => {
+      let url = m;
+      let tail = "";
+      while (/[.,;:!?)]$/.test(url)) {
+        if (url.endsWith(")") && (url.match(/\(/g)?.length ?? 0) >= (url.match(/\)/g)?.length ?? 0)) break;
+        tail = url.slice(-1) + tail;
+        url = url.slice(0, -1);
+      }
+      return `<a href="${url}" target="_blank" rel="noreferrer">${url}</a>${tail}`;
+    })
     // A root-relative target stays in the app, so it gets no new tab. Only a
     // leading slash qualifies: `foo.md` beside the file means nothing once the
     // text is on a route, and is left as plain text rather than guessed at.
@@ -340,12 +360,10 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
 
 /** Simple synchronous renderer (logbook, paper summaries — no Shiki). */
 export function Markdown({ children, className }: { children: string; className?: string }) {
-  return (
-    <div
-      className={className ? `markdown ${className}` : "markdown"}
-      dangerouslySetInnerHTML={{ __html: renderProseMarkdown(children) }}
-    />
-  );
+  // One object per text, for the reason `ShikiMarkdown` gives: a fresh object
+  // makes React rewrite the body, and a rewrite mid-click loses the click.
+  const markup = useMemo(() => ({ __html: renderProseMarkdown(children) }), [children]);
+  return <div className={className ? `markdown ${className}` : "markdown"} dangerouslySetInnerHTML={markup} />;
 }
 
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { NavIcon } from "@/app/nav-icon";
-import { groupResults, quickOpenResults } from "../application/quick-open";
+import { groupResults, quickOpenResults, titleOf } from "../application/quick-open";
 import type { WorkspaceTreeNode } from "../application/workspace-tree";
 import { kindIcon } from "./kind";
 
@@ -108,7 +108,7 @@ export function QuickOpenDialog({
                           <span className="quick-open-kind" aria-hidden="true">
                             <NavIcon name={kindIcon(result.node.kind)} />
                           </span>
-                          <span className="quick-open-title">{result.node.label}</span>
+                          <span className="quick-open-title">{titleOf(result.node)}</span>
                           {/* The path is the match target, so the characters
                               that matched are the ones worth marking. The
                               scorer has computed these indices since the

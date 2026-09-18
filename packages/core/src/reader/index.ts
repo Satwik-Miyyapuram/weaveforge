@@ -111,10 +111,23 @@ export {
   INK_MAX_POINTS,
   INK_MAX_PATHS_PER_ANNOTATION,
   INK_DEFAULT_WIDTH,
+  INK_NIB_WIDTHS_PT,
+  INK_NIB_DEFAULT_PT,
   HIGHLIGHTER_WIDTH,
   HIGHLIGHTER_MIN_WIDTH,
   type InkGroupCandidate,
 } from "./ink-stroke.js";
+export {
+  EMPTY_INK_UNDO,
+  INK_UNDO_LIMIT,
+  pushInkUndo,
+  takeInkUndo,
+  takeInkRedo,
+  renameInkUndoId,
+  refreshInkUndoAnnotation,
+  type InkUndoEntry,
+  type InkUndoState,
+} from "./ink-undo.js";
 export {
   pdfPointToScreen,
   screenPointToPdf,

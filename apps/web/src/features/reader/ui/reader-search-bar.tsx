@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   findDocumentMatches,
   nextMatchIndex,
@@ -11,12 +11,18 @@ import {
 interface ReaderSearchBarProps {
   pages: DocumentPageText[];
   onJump: (match: DocumentSearchMatch) => void;
+  /** Every match and the stepped-to one, so the pages can paint them. */
+  onMatches?: (matches: DocumentSearchMatch[], active: number) => void;
 }
 
-export function ReaderSearchBar({ pages, onJump }: ReaderSearchBarProps) {
+export function ReaderSearchBar({ pages, onJump, onMatches }: ReaderSearchBarProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(-1);
   const matches = useMemo(() => findDocumentMatches(pages, query), [pages, query]);
+  useEffect(() => {
+    onMatches?.(matches, active);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, active]);
 
   function jump(direction: 1 | -1) {
     if (matches.length === 0) return;

@@ -5,6 +5,7 @@ import { pdfPointToScreen, pdfRectToScreenBox, type PageProjection } from "@weav
 import { sanitizePdfUrl } from "../../application/sanitize-reader-url";
 import { Modal } from "@/components/modal";
 import type { DraftShape } from "./types";
+import type { MarginNote } from "../../application/margin-notes";
 
 export function SafeExternalLink({ href, children }: { href: string; children: ReactNode }) {
   const safe = sanitizePdfUrl(href);
@@ -140,5 +141,44 @@ export function TextBoxComposer({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * The writing margin beside a page while the pen is out: a page-wide blank
+ * strip to the right that ink can run onto, with the page's comments laid
+ * down it level with the marks they belong to. The strip itself lets the
+ * pointer through so a stroke starting on it reaches the page host; only the
+ * cards catch a tap.
+ */
+export function PageMargin({
+  notes,
+  width,
+  selectedId,
+  onSelect,
+}: {
+  notes: readonly MarginNote[];
+  width: number;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="pdf-reader-page-margin" style={{ width: `${width}px` }} aria-label="Writing margin">
+      {notes.map((note) => (
+        <button
+          type="button"
+          key={note.annotation.id}
+          className={`pdf-reader-margin-note${selectedId === note.annotation.id ? " is-selected" : ""}`}
+          style={{ top: `${note.top}px`, borderLeftColor: note.annotation.color }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => onSelect(note.annotation.id)}
+        >
+          {note.annotation.text && (
+            <span className="pdf-reader-margin-note-quote">{note.annotation.text}</span>
+          )}
+          <span className="pdf-reader-margin-note-comment">{note.annotation.comment}</span>
+        </button>
+      ))}
+    </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   groupResults,
   quickOpenResults,
   scoreMatch,
+  titleOf,
   type QuickOpenResult,
 } from "../application/quick-open";
 import { buildWorkspaceTree, flattenTree } from "../application/workspace-tree";
@@ -21,7 +22,7 @@ const DOCUMENTS = flattenTree(
   }),
 );
 
-const rank = (query: string) => quickOpenResults(DOCUMENTS, query).map((r) => r.node.label);
+const rank = (query: string) => quickOpenResults(DOCUMENTS, query).map((r) => titleOf(r.node));
 
 test("a subsequence matches — you never have to type the whole name", () => {
   assert.equal(rank("bsl")[0], "Baselines");
@@ -30,11 +31,11 @@ test("a subsequence matches — you never have to type the whole name", () => {
 
 test("a prefix beats a match scattered across the name", () => {
   const results = quickOpenResults(DOCUMENTS, "bat");
-  assert.equal(results[0]!.node.label, "Batch Normalization");
+  assert.equal(titleOf(results[0]!.node), "Batch Normalization");
   // "Baselines" also contains b-a-t in order, so this is a ranking test, not a
   // filtering one: both match and the tighter one has to win.
   assert.equal(
-    results.some((r) => r.node.label === "Baselines"),
+    results.some((r) => titleOf(r.node) === "Baselines"),
     true,
   );
 });
@@ -80,7 +81,7 @@ test("results group under the explorer's root order, not by score", () => {
   const groups = groupResults(quickOpenResults(DOCUMENTS, "a"));
   assert.deepEqual(
     groups.map((group) => group.label),
-    ["Notes", "Papers", "Report"],
+    ["Notes", "Papers", "PDFs", "Report"],
   );
 });
 
@@ -100,7 +101,7 @@ test("a group with no hits is left out rather than shown empty", () => {
   const groups = groupResults(quickOpenResults(DOCUMENTS, "batch"));
   assert.deepEqual(
     groups.map((group) => group.kind),
-    ["paper"],
+    ["paper", "paper_pdf"],
   );
 });
 

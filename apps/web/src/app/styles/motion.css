@@ -539,3 +539,32 @@
 @media (prefers-reduced-motion: reduce) {
   .pdf-reader-flash { animation: none; }
 }
+
+/* A caption or figure target pulse indicator when jumping to a figure/table */
+@keyframes pdf-reader-target-pulse {
+  0% {
+    outline: 3px solid var(--accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+    background-color: color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+  70% {
+    outline: 2px solid var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
+    background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  100% {
+    outline: 2px solid transparent;
+    box-shadow: 0 0 0 0 transparent;
+    background-color: transparent;
+  }
+}
+.pdf-reader-caption-target {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 4px;
+  z-index: 15;
+  animation: pdf-reader-target-pulse 2.2s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdf-reader-caption-target { animation: none; outline: 2px solid var(--accent); }
+}

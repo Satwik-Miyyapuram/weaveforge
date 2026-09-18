@@ -94,7 +94,7 @@ export function cursorAt(view: EditorView): { line: number; col: number } {
 }
 
 /** Which of the renderers a (kind, mode) pair means. */
-export type RendererName = "editor" | "markdown" | "ink" | "pdf" | "ink_reader";
+export type RendererName = "editor" | "markdown" | "ink" | "pdf" | "pdf_ink" | "ink_reader";
 
 /**
  * The whole decision, as data.
@@ -104,9 +104,14 @@ export type RendererName = "editor" | "markdown" | "ink" | "pdf" | "ink_reader";
  * screen that knows a kind and a mode can interact.
  */
 export function rendererFor(kind: string, mode: DocumentMode): RendererName {
-  if (mode === "ink") return hasInkView(kind) ? "ink" : "editor";
-  // Only a paper has a PDF; the mode on any other kind means Edit.
-  if (mode === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
+  // Ink on a paper is the PDF with the pen rail up — same reader, same
+  // annotations, not a separate canvas.
+  if (mode === "ink") {
+    return hasInkView(kind) ? "ink" : hasPdfView(kind) ? "pdf_ink" : "editor";
+  }
+  // Only a PDF row has a PDF, and it has nothing else: every other mode on it
+  // is the reader. The mode on any other kind means Edit.
+  if (mode === "pdf" || documentKind(kind) === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
   if (mode === "read") {
     return documentKind(kind) === "ink" ? "ink_reader" : "markdown";
   }
@@ -317,10 +322,10 @@ export function DocumentHost({
     return <InkReader noteId={tab.id} body={body} deps={getContainer().ink} />;
   }
 
-  if (renderer === "pdf") {
+  if (renderer === "pdf" || renderer === "pdf_ink") {
     // The reader's paper half, in the tab. The route is the same component
     // with a header around it; the PDF is not loaded twice.
-    return <PaperPdfPane paperId={tab.id} />;
+    return <PaperPdfPane paperId={tab.id} inkRail={renderer === "pdf_ink"} />;
   }
 
   if (renderer === "markdown") {

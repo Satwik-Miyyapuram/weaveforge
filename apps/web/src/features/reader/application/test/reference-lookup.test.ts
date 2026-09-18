@@ -21,7 +21,7 @@ class FakeSource implements IMetadataSource {
 }
 
 const ref = (fields: Partial<ParsedReference> = {}): ParsedReference =>
-  ({ index: 1, raw: "raw", page: 3, authors: [], ...fields });
+  ({ index: 1, raw: "raw", page: 3, x: 40, y: 600, authors: [], ...fields });
 
 function makeService(overrides: { cache?: ReferenceLookupCache } = {}) {
   const first = new FakeSource("first", () => paper({ title: "First result" }));
