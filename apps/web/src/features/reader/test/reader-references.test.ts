@@ -50,7 +50,7 @@ test("a figure mention carries the caption's page and y as its target", () => {
   const figures = (index.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "figure");
   assert.equal(figures.length, 1);
   assert.equal(figures[0]?.label, "Fig. 2");
-  assert.deepEqual(figures[0]?.target, { page: 2, y: 640 });
+  assert.deepEqual(figures[0]?.target, { page: 2, x: 72, y: 640, height: 10 });
 });
 
 test("nothing inside the bibliography links back to itself, and quiet pages are absent", () => {
@@ -69,4 +69,31 @@ test("a document with no reference list yields no mentions and no crash", () => 
   assert.deepEqual(result.references, []);
   assert.equal(result.mentionsByPage.size, 0);
   assert.equal(buildReferenceIndex([], []).fingerprint, "");
+});
+
+test("a hyperref link over the digits of `[2 ]` is the citation, widened to its brackets", () => {
+  // pdf.js splits a linked bracket into `[`, the digits, a zero-width space
+  // and `]`, so the pattern alone reads `[2 ]` and the link names the entry.
+  const linked: ReferencePage[] = [
+    {
+      pageNumber: 1,
+      items: [
+        run("BERT [", { y: 700, eol: false }),
+        run("2", { x: 102, y: 700, eol: false }),
+        run(" ", { x: 107, y: 700, eol: false }),
+        run("] and a URL", { x: 107, y: 700 }),
+        ...Array.from({ length: 8 }, (_, i) => prose(676 - i * 12)),
+      ],
+      links: [
+        { rect: [101, 699, 108, 710], dest: { page: 3, x: 72, y: 674 } },
+        { rect: [140, 699, 180, 710], url: "https://example.org" },
+      ],
+    },
+    pages[1]!,
+    pages[2]!,
+  ];
+  const citations = (buildReferenceIndex(linked, []).mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "citation");
+  assert.equal(citations.length, 1);
+  assert.deepEqual(citations[0]?.refIndexes, [2]);
+  assert.deepEqual([citations[0]!.start, citations[0]!.end], [5, 9]);
 });

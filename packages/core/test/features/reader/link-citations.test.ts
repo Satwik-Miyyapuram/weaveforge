@@ -1,0 +1,73 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  findCitationMentions,
+  linkCitationMentions,
+  parseReferenceList,
+  referenceForDestination,
+  type OutlineTextItem,
+  type PdfLink,
+} from "../../../src/features/reader/index.js";
+import type { PageTextItem } from "../../../src/reader/index.js";
+
+function lines(texts: string[], page = 3, x = 40): OutlineTextItem[] {
+  return texts.map((str, i) => ({ str, page, x, y: 700 - i * 15, fontSize: 10 }));
+}
+const refs = parseReferenceList([
+  lines([
+    "References",
+    "[1] Vaswani, Ashish and Shazeer, Noam. 2017. Attention is all you need. In NeurIPS.",
+    "[2] Hochreiter, Sepp and Schmidhuber, Jürgen. 1997. Long short-term memory. Neural Computation.",
+    "[3] van der Maaten, Laurens et al. 2008. Visualizing data using t-SNE. JMLR.",
+  ]),
+]);
+const text = (items: PageTextItem[]) => items.map((i) => i.str + (i.hasEOL ? "\n" : "")).join("");
+
+test("brackets tolerate the zero-width space pdf.js inserts and a line break", () => {
+  const page = { number: 1, text: "As shown in [2 ] and [1,\n3] but not [0, 1] or [10 mm].", items: [] };
+  const hits = findCitationMentions(page, refs, 10, "numeric");
+  assert.deepEqual(
+    hits.map((h) => [page.text.slice(h.start, h.end), h.refIndexes]),
+    [
+      ["[2 ]", [2]],
+      ["[1,\n3]", [1, 3]],
+    ],
+  );
+});
+
+test("author-year handles et al. variants, ampersands, particles and lead-ins", () => {
+  const body =
+    "LSTMs (Hochreiter & Schmidhuber, 1997) and t-SNE (see van der Maaten et al 2008; Vaswani and Shazeer, 2017, p. 3). " +
+    "Hochreiter and colleagues (1997) agree.";
+  const hits = findCitationMentions({ number: 1, text: body, items: [] }, refs, 10, "author-year");
+  assert.deepEqual(
+    hits.map((h) => h.refIndexes),
+    [[2], [3, 1], [2]],
+  );
+});
+
+test("a destination resolves to the entry at or just below it, in its column", () => {
+  assert.equal(referenceForDestination({ page: 3, x: 40, y: 688 }, refs)?.index, 1);
+  assert.equal(referenceForDestination({ page: 3, x: 40, y: 672 }, refs)?.index, 2);
+  assert.equal(referenceForDestination({ page: 3, x: 40, y: 657 }, refs)?.index, 3);
+  assert.equal(referenceForDestination({ page: 4 }, refs), null);
+});
+
+test("link boxes map to the characters under them under the page-text convention", () => {
+  const item = (str: string, x: number, w: number, hasEOL = false): PageTextItem => ({
+    str,
+    transform: [10, 0, 0, 10, x, 500],
+    width: w,
+    height: 10,
+    hasEOL,
+  });
+  const items = [item("memory [", 100, 40, true), item("2", 140, 5), item(" ", 145, 0), item("] and", 145, 25)];
+  const links: PdfLink[] = [
+    { rect: [139, 498, 146, 510], dest: { page: 3, x: 40, y: 672 } },
+    { rect: [300, 498, 310, 510], url: "https://example.org" },
+  ];
+  const hits = linkCitationMentions({ number: 1, items }, links, refs);
+  assert.equal(hits.length, 1);
+  assert.equal(text(items).slice(hits[0]!.start, hits[0]!.end), "2");
+  assert.deepEqual(hits[0]!.refIndexes, [2]);
+});

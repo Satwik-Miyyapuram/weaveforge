@@ -9,14 +9,14 @@
  * native picker between a person and a different colour, which on a tablet
  * is long enough to lose the thought they wanted to write down.
  *
- * It borrows the ink note's glyphs and classes (`ink-bar-glyphs`, `.ink-tool`,
+ * It borrows the ink note's glyphs and classes (`ink-tool-icons`, `.ink-tool`,
  * `.ink-swatch`, `.ink-nib-dot`) so the two surfaces look like one product;
  * it does not borrow the `InkBar` component, whose props are the ink note's
  * whole state.
  */
 
 import { INK_NIB_WIDTHS_PT, INK_PEN_WIDTHS } from "@weaveforge/core";
-import { toolIcon } from "@/features/ink/ui/ink-bar-glyphs";
+import { toolIcon } from "@/components/ink-tool-icons";
 import { READER_ANNOTATION_COLORS } from "../../application/reader-annotation-helpers";
 import { PEN_RAIL_TOOLS, type PenRailTool } from "./use-pen-prefs";
 

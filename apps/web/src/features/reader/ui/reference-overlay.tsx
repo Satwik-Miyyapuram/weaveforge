@@ -17,6 +17,7 @@ interface ReferenceOverlayProps {
   items: readonly PageTextItem[];
   projection: PageProjection;
   onOpen: (hit: MentionHit, anchor: DOMRectLike) => void;
+  onPrefetch?: (hit: MentionHit) => void;
 }
 
 interface DOMRectLike {
@@ -45,7 +46,7 @@ interface PlacedMention {
  * depends on and the component is memoised on its props, exactly like
  * `AnnotationOverlay` — a re-render must not re-project untouched pages.
  */
-function ReferenceOverlayInner({ mentions, items, projection, onOpen }: ReferenceOverlayProps) {
+function ReferenceOverlayInner({ mentions, items, projection, onOpen, onPrefetch }: ReferenceOverlayProps) {
   const placed = useMemo<PlacedMention[]>(() => {
     const out: PlacedMention[] = [];
     for (const hit of mentions) {
@@ -88,6 +89,7 @@ function ReferenceOverlayInner({ mentions, items, projection, onOpen }: Referenc
           title={hit.label}
           style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
           onClick={() => onOpen(hit, box)}
+          onPointerEnter={() => onPrefetch?.(hit)}
         >
           {segments.map((segment, i) => (
             <span

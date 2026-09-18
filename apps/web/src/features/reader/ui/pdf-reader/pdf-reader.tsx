@@ -28,6 +28,7 @@ import {
   type ReaderPageSize,
   type DocumentPageText,
   type ReaderAnnotationType,
+  type FigureTarget,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
@@ -122,6 +123,7 @@ export function PdfReader({
   const [showOutline, setShowOutline] = useState(false);
   const [showReferences, setShowReferences] = useState(false);
   const [flashPage, setFlashPage] = useState<number | null>(null);
+  const [captionTarget, setCaptionTarget] = useState<FigureTarget | null>(null);
   const [spread, setSpread] = useState(false);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [pickedTool, setCreateTool] = useState<ReaderCreateTool>("select");
@@ -201,7 +203,7 @@ export function PdfReader({
     containerSize,
     pageTexts,
     pageItems,
-    linkRects,
+    pageLinks,
     outline,
     error,
     openUrl,
@@ -254,23 +256,44 @@ export function PdfReader({
     saveAnchor,
   });
 
-  const flashCaption = useCallback((target: { page: number; y: number }) => {
+  const onFigureTarget = useCallback((target: FigureTarget) => {
+    setCaptionTarget(target);
     setFlashPage(target.page);
-    window.setTimeout(() => setFlashPage((p) => (p === target.page ? null : p)), 1600);
-  }, []);
+    const host = containerRef.current?.querySelector<HTMLDivElement>(`[data-page="${target.page}"]`);
+    if (host && containerRef.current) {
+      if (typeof target.y === "number") {
+        const pageHeight = pageGeometries.current.get(target.page)?.pageHeight ?? pageSize?.height ?? 792;
+        const screenY = (pageHeight - target.y) * scale;
+        const container = containerRef.current;
+        container.scrollTo({
+          top: host.offsetTop + screenY - container.clientHeight / 3,
+          behavior: "smooth",
+        });
+      } else {
+        host.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+    window.setTimeout(() => {
+      setCaptionTarget((cur) => (cur === target ? null : cur));
+      setFlashPage((p) => (p === target.page ? null : p));
+    }, 2200);
+  }, [scale, pageSize, containerRef, pageGeometries]);
   const refs = useReaderReferences({
     pageItems,
-    linkRects,
+    pageLinks,
     outline,
     contentHash,
     paperId,
     setPage: viewport.setPage,
-    onFigureTarget: flashCaption,
+    onFigureTarget,
   });
   useEffect(() => {
-    if (showReferences) refs.resolveAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when the tab opens or the index changes, not per resolution
-  }, [showReferences, refs.index]);
+    if (showReferences) {
+      refs.startPrefetch();
+    } else {
+      refs.stopPrefetch();
+    }
+  }, [showReferences, refs]);
 
 
   const matchOnPage = useCallback(
@@ -881,6 +904,18 @@ export function PdfReader({
                   items={pageItems.get(n)!}
                   projection={pageProjection(n)}
                   onOpen={refs.openMention}
+                  onPrefetch={refs.prefetchMention}
+                />
+              )}
+              {captionTarget?.page === n && typeof captionTarget.y === "number" && (
+                <div
+                  className="pdf-reader-caption-target"
+                  style={{
+                    left: typeof captionTarget.x === "number" ? `${captionTarget.x * scale}px` : "5%",
+                    top: `${((pageGeometries.current.get(n)?.pageHeight ?? pageSize?.height ?? 792) - captionTarget.y) * scale}px`,
+                    width: typeof captionTarget.x === "number" ? "90%" : "90%",
+                    height: `${Math.max((captionTarget.height ?? 18) * scale, 24)}px`,
+                  }}
                 />
               )}
               {pageSize && draftShape?.pageNumber === n && (

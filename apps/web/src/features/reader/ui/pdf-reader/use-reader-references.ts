@@ -1,16 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PageTextItem, ParsedReference, ReaderOutlineItem, ReadingList } from "@weaveforge/core";
+import type { PageTextItem, ParsedReference, PdfLink, ReaderOutlineItem, ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import {
-  buildReferenceIndex,
   type MentionHit,
   type ReaderReferenceIndex,
 } from "../../application/reader-references";
-import { locateMention, type PdfRect } from "../../application/reference-locate";
 import type { ResolvedReference } from "../../application/reference-lookup";
 import type { AnchorBox } from "../reference-popover-layer";
+import { useDocumentAnalyzer } from "./use-document-analyzer";
 
 const LINK_CITATIONS_KEY = "weaveforge.reader.linkCitations";
 
@@ -22,12 +21,6 @@ function readLinkCitations(): boolean {
   }
 }
 
-function overlaps(a: PdfRect, b: PdfRect): boolean {
-  const [ax0, ay0, ax1, ay1] = [Math.min(a[0], a[2]), Math.min(a[1], a[3]), Math.max(a[0], a[2]), Math.max(a[1], a[3])];
-  const [bx0, by0, bx1, by1] = [Math.min(b[0], b[2]), Math.min(b[1], b[3]), Math.max(b[0], b[2]), Math.max(b[1], b[3])];
-  return ax0 < bx1 && bx0 < ax1 && ay0 < by1 && by0 < ay1;
-}
-
 export interface OpenMention {
   hit: MentionHit;
   entry: ParsedReference;
@@ -36,7 +29,7 @@ export interface OpenMention {
 
 export interface UseReaderReferencesInput {
   pageItems: ReadonlyMap<number, readonly PageTextItem[]>;
-  linkRects: ReadonlyMap<number, readonly PdfRect[]>;
+  pageLinks: ReadonlyMap<number, readonly PdfLink[]>;
   outline: readonly ReaderOutlineItem[];
   /** Falls back to this when the text layer yields no fingerprint. */
   contentHash: string;
@@ -49,11 +42,11 @@ export interface UseReaderReferencesInput {
 /**
  * Everything the reader needs to link citations: the index built from the
  * text layer, which mention is open, what each reference resolved to, and
- * the popover's actions. Mentions that sit on one of the PDF's own `/Link`
- * annotations are dropped — the document's link wins over our guess.
+ * the popover's actions. The document's own `/Link` annotations go into the
+ * index: internal ones are citations, URL ones are the document's to keep.
  */
 export function useReaderReferences(input: UseReaderReferencesInput) {
-  const { pageItems, linkRects, outline, contentHash, paperId, setPage, onFigureTarget } = input;
+  const { pageItems, pageLinks, outline, contentHash, paperId, setPage, onFigureTarget } = input;
   const [enabled, setEnabled] = useState(true);
   useEffect(() => { setEnabled(readLinkCitations()); }, []);
   const toggle = useCallback(() => {
@@ -63,24 +56,16 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     });
   }, []);
 
-  const index = useMemo<ReaderReferenceIndex>(() => {
-    const pages = [...pageItems].map(([pageNumber, items]) => ({ pageNumber, items }));
-    const built = buildReferenceIndex(pages, outline);
-    if (!linkRects.size) return built;
-    const mentionsByPage = new Map<number, MentionHit[]>();
-    for (const [pageNumber, hits] of built.mentionsByPage) {
-      const links = linkRects.get(pageNumber);
-      const items = pageItems.get(pageNumber) ?? [];
-      const kept = links?.length
-        ? hits.filter((hit) => {
-          const { bounds } = locateMention(items, hit.start, hit.end);
-          return !bounds || !links.some((link) => overlaps(link, bounds));
-        })
-        : hits;
-      if (kept.length) mentionsByPage.set(pageNumber, kept);
-    }
-    return { ...built, mentionsByPage };
-  }, [pageItems, linkRects, outline]);
+  const referencePages = useMemo(
+    () => [...pageItems].map(([pageNumber, items]) => ({ pageNumber, items, links: pageLinks.get(pageNumber) ?? [] })),
+    [pageItems, pageLinks],
+  );
+  const { index, progress: analysisProgress, isAnalyzing } = useDocumentAnalyzer({
+    pages: referencePages,
+    outline,
+    enabled,
+  });
+
   const documentKey = index.fingerprint || contentHash;
 
   const [open, setOpen] = useState<OpenMention | null>(null);
@@ -89,12 +74,30 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   const [linked, setLinked] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<string | null>(null);
   const inflight = useRef(new Set<number>());
+  const queueRef = useRef<ParsedReference[]>([]);
+  const queueActiveRef = useRef(false);
+  const queueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setResolutions(new Map());
     setOpen(null);
     inflight.current.clear();
+    queueRef.current = [];
+    queueActiveRef.current = false;
+    if (queueTimerRef.current) {
+      clearTimeout(queueTimerRef.current);
+      queueTimerRef.current = null;
+    }
   }, [documentKey]);
+
+  useEffect(() => {
+    return () => {
+      if (queueTimerRef.current) {
+        clearTimeout(queueTimerRef.current);
+        queueTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const setResolution = useCallback((refIndex: number, value: ResolvedReference) => {
     setResolutions((prev) => {
@@ -114,6 +117,64 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
       .finally(() => inflight.current.delete(entry.index));
   }, [documentKey, setResolution]);
 
+  const processQueue = useCallback(() => {
+    if (!queueActiveRef.current) return;
+    while (queueRef.current.length > 0) {
+      const next = queueRef.current.shift()!;
+      if (resolutions.has(next.index) || inflight.current.has(next.index)) {
+        continue;
+      }
+      inflight.current.add(next.index);
+      setResolution(next.index, { status: "pending" });
+      const startedAt = Date.now();
+      getContainer().readerReferences.resolve(documentKey, next)
+        .then((value) => setResolution(next.index, value))
+        .catch(() => setResolution(next.index, { status: "unresolved" }))
+        .finally(() => {
+          inflight.current.delete(next.index);
+          if (queueActiveRef.current && queueRef.current.length > 0) {
+            const elapsed = Date.now() - startedAt;
+            const waitTime = Math.max(100, 1000 - elapsed);
+            queueTimerRef.current = setTimeout(() => {
+              queueTimerRef.current = null;
+              processQueue();
+            }, waitTime);
+          }
+        });
+      return;
+    }
+  }, [documentKey, resolutions, setResolution]);
+
+  const startPrefetch = useCallback(() => {
+    queueActiveRef.current = true;
+    const toQueue = index.references.filter(
+      (entry) => !resolutions.has(entry.index) && !inflight.current.has(entry.index) && !queueRef.current.some((q) => q.index === entry.index)
+    );
+    if (toQueue.length > 0) {
+      queueRef.current.push(...toQueue);
+      if (!queueTimerRef.current && inflight.current.size === 0) {
+        processQueue();
+      }
+    }
+  }, [index.references, resolutions, processQueue]);
+
+  const stopPrefetch = useCallback(() => {
+    queueActiveRef.current = false;
+    queueRef.current = [];
+    if (queueTimerRef.current) {
+      clearTimeout(queueTimerRef.current);
+      queueTimerRef.current = null;
+    }
+  }, []);
+
+  const prefetchMention = useCallback((hit: MentionHit) => {
+    if (hit.kind === "figure") return;
+    const entry = hit.refIndexes.map((i) => index.byIndex.get(i)).find(Boolean);
+    if (entry && !resolutions.has(entry.index) && !inflight.current.has(entry.index)) {
+      resolve(entry);
+    }
+  }, [index.byIndex, resolutions, resolve]);
+
   const openMention = useCallback((hit: MentionHit, anchor: AnchorBox | null) => {
     if (hit.kind === "figure") {
       if (hit.target) {
@@ -132,12 +193,14 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
 
   const close = useCallback(() => { setOpen(null); setNotice(null); }, []);
 
-  /** Resolve every entry the sidebar shows, once, in bibliography order. */
-  const resolveAll = useCallback(() => {
-    for (const entry of index.references) {
-      if (!resolutions.has(entry.index)) resolve(entry);
+  /** Lazy prefetch bibliography entries with rate limiting */
+  const resolveAll = useCallback((enable = true) => {
+    if (enable) {
+      startPrefetch();
+    } else {
+      stopPrefetch();
     }
-  }, [index, resolutions, resolve]);
+  }, [startPrefetch, stopPrefetch]);
 
   const facade = () => getContainer().readerReferences;
   const fail = (err: unknown) => setNotice(err instanceof Error ? err.message : String(err));
@@ -185,9 +248,14 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     close,
     resolutions,
     resolveAll,
+    startPrefetch,
+    stopPrefetch,
+    prefetchMention,
     lists,
     linked,
     notice,
     actions,
+    analysisProgress,
+    isAnalyzing,
   };
 }
