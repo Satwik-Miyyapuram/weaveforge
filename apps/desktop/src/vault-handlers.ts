@@ -35,6 +35,11 @@ const BAD_ARGUMENT = "That is not a path this folder can hold.";
  * asserts the refusal should not have to repeat it to mean anything.
  */
 export const MAX_VAULT_BYTES = 8 * 1024 * 1024;
+/**
+ * The cap for bytes, which are PDFs: the same 80 MiB the reader's proxy will
+ * hand over, so nothing the proxy accepts is then refused a place on disk.
+ */
+export const MAX_VAULT_BLOB_BYTES = 80 * 1024 * 1024;
 
 /** Said when a file is too big to cross, on both sides of the bridge. */
 const TOO_LARGE = `That file is too large to open here (over ${MAX_VAULT_BYTES / (1024 * 1024)} MB).`;
@@ -120,6 +125,40 @@ export async function readVaultFile(
     // A missing file is a `null`, not a failure — callers ask about files that
     // may not exist yet. Anything else is a refusal with its reason.
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ok: true, value: null };
+    return { ok: false, message: messageOf(error) };
+  }
+}
+
+export async function readVaultBytes(
+  session: VaultSession,
+  relative: unknown,
+): Promise<IpcResult<Uint8Array | null>> {
+  if (!session.fs) return { ok: false, message: NO_ROOT };
+  if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
+  try {
+    const stat = await session.fs.stat(relative);
+    if (stat && stat.size > MAX_VAULT_BLOB_BYTES) return { ok: false, message: TOO_LARGE };
+    return { ok: true, value: await session.fs.readFile(relative) };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ok: true, value: null };
+    return { ok: false, message: messageOf(error) };
+  }
+}
+
+export async function writeVaultBytes(
+  session: VaultSession,
+  relative: unknown,
+  bytes: unknown,
+): Promise<IpcResult<null>> {
+  if (!session.fs) return { ok: false, message: NO_ROOT };
+  if (typeof relative !== "string" || !(bytes instanceof Uint8Array)) {
+    return { ok: false, message: BAD_ARGUMENT };
+  }
+  if (bytes.byteLength > MAX_VAULT_BLOB_BYTES) return { ok: false, message: TOO_LARGE };
+  try {
+    await session.fs.writeFile(relative, bytes);
+    return { ok: true, value: null };
+  } catch (error) {
     return { ok: false, message: messageOf(error) };
   }
 }

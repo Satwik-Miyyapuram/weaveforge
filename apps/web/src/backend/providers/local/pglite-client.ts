@@ -84,6 +84,16 @@ export const ARRAY_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   api_tokens: ["scopes"],
 };
 
+/**
+ * The `jsonb` columns that hold scalars as well as objects. A string or
+ * number written as itself reads as a bare token, not JSON — a select field
+ * set to `core` was "invalid input syntax for type json" — so values bound
+ * for these columns always travel as JSON text.
+ */
+export const JSON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  paper_field_values: ["value"],
+};
+
 /** A Postgres array literal, each element quoted with `"` and `\` escaped. */
 export function pgArray(values: readonly unknown[]): string {
   return `{${values.map((v) => `"${String(v).replace(/(["\\])/g, "\\$1")}"`).join(",")}}`;
@@ -104,6 +114,7 @@ function encode(
   if (Array.isArray(value) && column && ARRAY_COLUMNS[column.table]?.includes(column.name)) {
     return pgArray(value);
   }
+  if (column && JSON_COLUMNS[column.table]?.includes(column.name)) return JSON.stringify(value);
   if (value instanceof Date) return value.toISOString();
   // PostgREST takes bytea as `\x`-hex text, which is how every repository
   // writes it (`encodeBytea`). PGlite types each parameter from the column it

@@ -22,10 +22,18 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
 import { proxiedPdfUrl } from "../application/sanitize-reader-url";
 import {
+  downloadPaperPdfToCache,
+  isStoredPdfUrl,
   evictReaderPdfCache,
   getReaderPdfByteCache,
   resolvePaperPdfSourceForReader,
 } from "../application/resolve-paper-pdf-for-reader";
+import {
+  pdfDownloadNeedsConsent,
+  pdfDownloadRemembered,
+  rememberPdfDownload,
+} from "../application/pdf-download-consent";
+import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
 import { mergeReaderAnnotations } from "../application/merge-reader-annotations";
@@ -78,6 +86,16 @@ export function PaperPdfPane({
   const [quotationTypes, setQuotationTypes] = useState<Map<string, QuotationType>>(new Map());
   const [loading, setLoading] = useState(Boolean(paperId));
   const [error, setError] = useState<string | null>(null);
+  /**
+   * A publisher URL the ladder resolved for the no-account copy, held until
+   * the person says to fetch it. Nothing leaves this computer before that.
+   */
+  const [pendingDownload, setPendingDownload] = useState<string | null>(null);
+  // The paper a fetch already ran for. A store that takes the bytes but does
+  // not answer with them next time round would otherwise fetch forever.
+  const fetchedFor = useRef<string | null>(null);
+  const [rememberChoice, setRememberChoice] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef(onActivity);
   activityRef.current = onActivity;
@@ -88,6 +106,7 @@ export function PaperPdfPane({
   useEffect(() => {
     setError(null);
     setTitle(null);
+    setPendingDownload(null);
     // Drop the previous paper's annotations before loading the next one.
     // Without this they stay mounted over the new PDF at the old paper's
     // coordinates, and survive indefinitely if the new load fails.
@@ -152,7 +171,18 @@ export function PaperPdfPane({
         } catch {
           if (!cancelled) setQuotationTypes(new Map());
         }
-        if (resolution.ok) {
+        if (resolution.ok && isLocalMode() && !isStoredPdfUrl(resolution.hit.url)) {
+          // The no-account copy fetches into its own store, on request, and
+          // then opens from there — so the paper is on disk for next time and
+          // nothing is fetched behind the person's back.
+          if (fetchedFor.current === paper.id) {
+            setError("The PDF was fetched but could not be kept on this computer.");
+          } else if (pdfDownloadRemembered()) {
+            await fetchPending(paper.id, resolution.hit.url);
+          } else {
+            setPendingDownload(resolution.hit.url);
+          }
+        } else if (resolution.ok) {
           setPdfUrl(resolution.hit.url);
           if ("revokeUrl" in resolution && resolution.revokeUrl) {
             revokeOnCancel = resolution.revokeUrl;
@@ -176,6 +206,36 @@ export function PaperPdfPane({
     };
   }, [paperId, pdfFromParam, cacheSkippedFor, generation]);
 
+  /** Fetch a publisher's PDF into the store, then run the ladder again. */
+  async function fetchPending(id: string, url: string) {
+    setDownloading(true);
+    try {
+      const host = new URL(url).hostname;
+      const ok = await downloadPaperPdfToCache(id, url);
+      fetchedFor.current = id;
+      if (!ok) {
+        setError(`${host} did not answer with a PDF for this paper.`);
+        return;
+      }
+      activityRef.current?.("reader", `Fetched the PDF from ${host}; it is kept on this computer.`);
+      setPendingDownload(null);
+      // Loading again before the ladder re-runs: the effect only sets it on
+      // its next pass, and the frame in between would say "Nothing to show".
+      setLoading(true);
+      setGeneration((n) => n + 1);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  function acceptDownload() {
+    if (!paperId || !pendingDownload) return;
+    if (rememberChoice) rememberPdfDownload(true);
+    void fetchPending(paperId, pendingDownload);
+  }
+
   /**
    * A cached copy pdf.js refused to open. Drop it and re-run the ladder without
    * the cache tier, which resolves the paper's real PDF URL.
@@ -189,7 +249,7 @@ export function PaperPdfPane({
   function handleSourceFailure(failedUrl: string) {
     if (!paperId) return;
     activityRef.current?.("reader", "Cached PDF could not be opened — refetching the original.");
-    URL.revokeObjectURL(failedUrl);
+    if (failedUrl.startsWith("blob:")) URL.revokeObjectURL(failedUrl);
     setPdfRevokeUrl(null);
     void evictReaderPdfCache(paperId);
     setCacheSkippedFor(paperId);
@@ -246,7 +306,37 @@ export function PaperPdfPane({
           }}
         />
       ) : null}
-      {loading && <ScreenLoader status="Resolving source…" />}
+      {downloading ? (
+        <ScreenLoader status="Fetching PDF…" />
+      ) : (
+        loading && <ScreenLoader status="Resolving source…" />
+      )}
+      {!loading && !downloading && !error && pendingDownload && (
+        <div className="card empty-state">
+          <h2>PDF not on this computer</h2>
+          <p>
+            Fetch it from {new URL(pendingDownload).hostname}? It is kept here afterwards, so
+            the paper opens offline from then on.
+          </p>
+          <div className="empty-actions">
+            <button type="button" className="btn-primary" onClick={acceptDownload}>
+              Fetch PDF
+            </button>
+            {loadButton}
+          </div>
+          {pdfDownloadNeedsConsent() && (
+            <label className="field-inline">
+              <input
+                type="checkbox"
+                className="themed-check"
+                checked={rememberChoice}
+                onChange={(event) => setRememberChoice(event.target.checked)}
+              />
+              <span>Do not ask again — fetch PDFs whenever I open a paper</span>
+            </label>
+          )}
+        </div>
+      )}
       {!loading && error && (
         <div className="card empty-state">
           <h2>Cannot open this source</h2>
@@ -254,7 +344,7 @@ export function PaperPdfPane({
           {loadButton}
         </div>
       )}
-      {!loading && !error && !pdfUrl && (
+      {!loading && !error && !pdfUrl && !pendingDownload && !downloading && (
         <div className="card empty-state">
           <h2>Nothing to show</h2>
           <p>No PDF was provided for this locus.</p>
@@ -278,7 +368,7 @@ export function PaperPdfPane({
         <div className={`reader-main${aside ? " reader-main--split" : ""}`}>
           <PdfReader
             key={pdfUrl}
-            url={pdfUrl.startsWith("blob:") ? pdfUrl : proxiedPdfUrl(pdfUrl)}
+            url={isStoredPdfUrl(pdfUrl) ? pdfUrl : proxiedPdfUrl(pdfUrl)}
             originalUrl={pdfUrl}
             locus={locus}
             page={page}

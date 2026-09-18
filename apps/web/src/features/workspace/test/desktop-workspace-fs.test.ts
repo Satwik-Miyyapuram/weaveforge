@@ -20,6 +20,14 @@ function bridgeOver(fs: MemoryWorkspaceFs): VaultFileBridge {
       if (dir) await fs.mkdirp(dir);
       await fs.writeFile(path, contents);
     },
+    async readVaultBytes(path) {
+      return fs.readFile(path).catch(() => null);
+    },
+    async writeVaultBytes(path, bytes) {
+      const dir = path.split("/").slice(0, -1).join("/");
+      if (dir) await fs.mkdirp(dir);
+      await fs.writeFile(path, bytes);
+    },
     async listVaultFiles(path) {
       return fs.list(path ?? "");
     },
@@ -47,6 +55,11 @@ test("bytes survive the trip in both directions", async () => {
   const fs = adapter();
   await fs.writeFile("notes/two.note.md", new TextEncoder().encode("héllo"));
   assert.deepEqual(await fs.readFile("notes/two.note.md"), new TextEncoder().encode("héllo"));
+  // Not valid UTF-8: a PDF's compressed streams are like this, and would not
+  // come back the same through a text channel.
+  const binary = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe, 0x80, 0x00, 0xc3]);
+  await fs.writeFile("papers/pdf/x.pdf", binary);
+  assert.deepEqual(await fs.readFile("papers/pdf/x.pdf"), binary);
 });
 
 test("a missing file throws on read and stats as null", async () => {

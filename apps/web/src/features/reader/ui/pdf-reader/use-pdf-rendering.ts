@@ -16,6 +16,12 @@ import {
   isAllowedPdfProxyUrl,
   isReaderObjectUrl,
 } from "../../application/sanitize-reader-url";
+import { pdfProxyNeedsToken } from "../../application/pdf-download-consent";
+import {
+  isCachePdfUrl,
+  isStoredPdfUrl,
+  readStoredPdfBytes,
+} from "../../application/resolve-paper-pdf-for-reader";
 import { useReaderViewport, type ReaderViewportApi } from "../use-reader-viewport";
 import type { ReaderOutlineItem } from "../reader-outline";
 import type { JumpState, PdfDocument, PdfLib, PdfReaderProps, RenderTask, TextItemGeometry } from "./types";
@@ -127,6 +133,8 @@ const safeUrl = (() => {
   }
   // Bytes this app already cached and materialised — see isReaderObjectUrl.
   if (isReaderObjectUrl(url)) return url;
+  // The same bytes, still in the store: the desktop reader takes them as data.
+  if (isCachePdfUrl(url)) return url;
   return sanitizePdfUrl(url);
 })();
 const openUrl = (() => {
@@ -198,7 +206,7 @@ useEffect(() => {
       const lib = await loadPdfLib();
       if (cancelled) return;
       const httpHeaders: Record<string, string> = {};
-      if (safeUrl.startsWith("/api/pdf-proxy?")) {
+      if (safeUrl.startsWith("/api/pdf-proxy?") && pdfProxyNeedsToken()) {
         const accessToken = await getContainer().auth.auth.getAccessToken();
         if (!accessToken) {
           if (!cancelled) setError("Sign in to open this PDF in the reader.");
@@ -206,8 +214,17 @@ useEffect(() => {
         }
         httpHeaders.Authorization = `Bearer ${accessToken}`;
       }
+      let source: { url: string } | { data: Uint8Array };
+      if (isCachePdfUrl(safeUrl)) {
+        const stored = await readStoredPdfBytes(safeUrl);
+        if (!stored) throw new Error("The stored copy of this PDF is missing.");
+        source = { data: new Uint8Array(stored) };
+      } else {
+        source = { url: safeUrl };
+      }
+      if (cancelled) return;
       task = lib.getDocument({
-        url: safeUrl,
+        ...source,
         isEvalSupported: false,
         ...(Object.keys(httpHeaders).length ? { httpHeaders, withCredentials: false } : {}),
       });
@@ -307,7 +324,7 @@ useEffect(() => {
       // A cached copy that will not open is recoverable: the screen can drop
       // it and refetch from the network. Offer that before showing an error,
       // so a bad cache entry is not a dead end.
-      if (isReaderObjectUrl(safeUrl) && onSourceFailure) {
+      if ((isReaderObjectUrl(safeUrl) || isCachePdfUrl(safeUrl)) && onSourceFailure) {
         onSourceFailure(safeUrl);
         return;
       }

@@ -12,10 +12,12 @@ import {
   forgetRoot,
   listVaultFiles,
   newVaultSession,
+  readVaultBytes,
   readVaultFile,
   removeVaultFile,
   restoreRoot,
   statVaultFile,
+  writeVaultBytes,
   writeVaultFile,
 } from "../src/vault-handlers";
 
@@ -104,6 +106,17 @@ test("listing gives one level, walking gives every file", async () => {
   const walked: string[] = [];
   for await (const entry of fs.walk("")) walked.push(entry.path);
   assert.deepEqual(walked.sort(), ["notes/a.note.md", "notes/deep/b.note.md"]);
+});
+
+test("bytes go through the byte channel unchanged", async () => {
+  const session = newVaultSession();
+  await adoptRoot(session, await tempDir());
+  // Not UTF-8, on purpose: the text channel could not carry this back intact.
+  const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe, 0x80, 0x00]);
+  assert.deepEqual(await writeVaultBytes(session, "papers/pdf/x.pdf", bytes), { ok: true, value: null });
+  assert.deepEqual(await readVaultBytes(session, "papers/pdf/x.pdf"), { ok: true, value: bytes });
+  assert.deepEqual(await readVaultBytes(session, "papers/pdf/gone.pdf"), { ok: true, value: null });
+  assert.equal((await writeVaultBytes(session, "papers/pdf/y.pdf", "text")).ok, false);
 });
 
 test("stat answers null for what is not there", async () => {

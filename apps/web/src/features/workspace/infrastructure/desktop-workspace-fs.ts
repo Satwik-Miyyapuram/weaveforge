@@ -21,12 +21,11 @@ import {
  * process boundary would be anyway.
  */
 
-const decoder = new TextDecoder();
-const encoder = new TextEncoder();
-
 export interface VaultFileBridge {
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;
+  readVaultBytes(path: string): Promise<Uint8Array | null>;
+  writeVaultBytes(path: string, bytes: Uint8Array): Promise<void>;
   listVaultFiles(path?: string): Promise<
     readonly { path: string; kind: "file" | "dir"; size: number; modifiedAt: string }[]
   >;
@@ -48,12 +47,17 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   }
 
   async readFile(path: string): Promise<Uint8Array> {
-    return encoder.encode(await this.readText(path));
+    const bytes = await this.bridge.readVaultBytes(safeWorkspacePath(path));
+    if (bytes === null) throw new Error(`ENOENT: ${path}`);
+    return bytes;
   }
 
+  // Bytes and text take different channels: a PDF put through the text one
+  // would be decoded as UTF-8 on the way and would not be the same file.
   async writeFile(path: string, data: Uint8Array | string): Promise<void> {
-    const contents = typeof data === "string" ? data : decoder.decode(data);
-    await this.bridge.writeVaultFile(safeWorkspacePath(path), contents);
+    const at = safeWorkspacePath(path);
+    if (typeof data === "string") await this.bridge.writeVaultFile(at, data);
+    else await this.bridge.writeVaultBytes(at, data);
   }
 
   async remove(path: string): Promise<void> {
