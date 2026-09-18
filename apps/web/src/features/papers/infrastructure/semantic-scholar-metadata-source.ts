@@ -1,5 +1,5 @@
 import { isBibliographicMatch, normalizeDoi, normalizeArxivId, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
-import { fetchSemanticScholar } from "@/lib/semantic-scholar-fetch";
+import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
 
 interface MatchPaper {
   title?: string;
@@ -17,7 +17,8 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
 
   constructor(
     private readonly fetchFn: typeof fetch = (...args) => fetch(...args),
-    private readonly baseUrl = "https://api.semanticscholar.org/graph/v1",
+    // Resolved per call: the desktop shell relays the API (see `semanticScholarUrl`).
+    private readonly baseUrl?: string,
     private readonly apiKey: () => Promise<string | undefined> = async () => undefined,
   ) {}
 
@@ -28,7 +29,7 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
     const query = ref.hints?.title ?? ref.value;
     const params = new URLSearchParams({ query, fields: "title,authors,year,venue,externalIds,openAccessPdf,citationCount" });
     const key = await this.apiKey();
-    const response = await fetchSemanticScholar(this.fetchFn, `${this.baseUrl}/paper/search/match?${params}`, key ? { headers: { "x-api-key": key } } : undefined);
+    const response = await fetchSemanticScholar(this.fetchFn, `${this.baseUrl ?? semanticScholarUrl("graph/v1")}/paper/search/match?${params}`, key ? { headers: { "x-api-key": key } } : undefined);
     if (!response.ok) throw new Error(`Semantic Scholar metadata failed: ${response.status}`);
     const body = await response.json() as { data?: MatchPaper[] };
     for (const paper of body.data ?? []) {
