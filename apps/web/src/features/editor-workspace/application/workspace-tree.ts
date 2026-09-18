@@ -21,7 +21,11 @@ import {
   type WorkspaceEntityType,
 } from "@weaveforge/core";
 
-export type TreeNodeKind = WorkspaceEntityType | "folder";
+/**
+ * The entity kinds plus two of the tree's own: `folder` for a grouping row and
+ * `paper_pdf` for a paper's PDF, which is a row and a tab but not a core entity.
+ */
+export type TreeNodeKind = WorkspaceEntityType | "folder" | "paper_pdf";
 
 export interface WorkspaceTreeNode {
   /** Stable across renames — `${kind}:${id}` for entities, the path for roots. */
@@ -30,6 +34,12 @@ export interface WorkspaceTreeNode {
   /** Absent on a folder, which is a grouping rather than a document. */
   id?: string;
   label: string;
+  /**
+   * The entity's title where the row's label is not it: a paper's two files
+   * are labelled `PDF` and `Notes` under the paper's row, and quick open
+   * still lists and ranks them by the paper.
+   */
+  title?: string;
   /** The mirrored path, shown as a tooltip and matched by quick open. */
   path: string;
   children: WorkspaceTreeNode[];
@@ -119,16 +129,42 @@ function nestedRoot(
 }
 
 export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode[] {
+  // A paper is two files under one row: its PDF and its notes. The row itself
+  // is a grouping, so nothing can be made under it and neither file is hidden
+  // behind a mode button. The files say what they are; the row says which
+  // paper, so the two are told apart at a glance and the crumbs do not repeat.
   const papers: WorkspaceTreeNode[] = input.papers
-    .map((paper) => ({
-      key: `paper:${paper.id}`,
-      kind: "paper" as const,
-      id: paper.id,
-      label: paper.title.trim() || "Untitled",
-      path: flatPath("paper", paper.id, paper.title),
-      children: [],
-      ...(paper.hasNote ? {} : { missingNote: true }),
-    }))
+    .map((paper) => {
+      const label = paper.title.trim() || "Untitled";
+      const notesPath = flatPath("paper", paper.id, paper.title);
+      return {
+        key: `papers/${paper.id}`,
+        kind: "folder" as const,
+        label,
+        path: notesPath.replace(/\.paper\.md$/, ""),
+        children: [
+          {
+            key: `paper_pdf:${paper.id}`,
+            kind: "paper_pdf" as const,
+            id: paper.id,
+            label: "PDF",
+            title: label,
+            path: notesPath.replace(/\.paper\.md$/, ".pdf"),
+            children: [],
+          },
+          {
+            key: `paper:${paper.id}`,
+            kind: "paper" as const,
+            id: paper.id,
+            label: "Notes",
+            title: label,
+            path: notesPath,
+            children: [],
+            ...(paper.hasNote ? {} : { missingNote: true }),
+          },
+        ],
+      };
+    })
     .sort(byLabel);
 
   return [

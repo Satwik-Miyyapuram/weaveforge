@@ -27,6 +27,7 @@ import {
   type ReaderContainerSize,
   type ReaderPageSize,
   type DocumentPageText,
+  type DocumentSearchMatch,
   type ReaderAnnotationType,
   type FigureTarget,
 } from "@weaveforge/core";
@@ -61,7 +62,9 @@ import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { Select } from "@/components/select";
-import { DraftShapeOverlay, SafeExternalLink, TextBoxComposer } from "./overlays";
+import { ColourMenu } from "@/components/colour-menu";
+import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
+import { layoutMarginNotes } from "../../application/margin-notes";
 import { useAnnotationContext } from "./use-annotation-context";
 import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
@@ -73,6 +76,8 @@ import { PenRail } from "./pen-rail";
 import { useReaderReferences } from "./use-reader-references";
 import { ReferencePopoverHost } from "./reference-popover-host";
 import { ReferenceOverlay } from "../reference-overlay";
+import { FindMarks, FindOverlay } from "../find-overlay";
+import { findMarks } from "../../application/find-marks";
 import { ReferencesPanel } from "../references-panel";
 import { buildLocusLink } from "../../application/build-locus-link";
 
@@ -122,6 +127,7 @@ export function PdfReader({
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const [showOutline, setShowOutline] = useState(false);
   const [showReferences, setShowReferences] = useState(false);
+  const [find, setFind] = useState<{ matches: DocumentSearchMatch[]; active: number }>({ matches: [], active: -1 });
   const [flashPage, setFlashPage] = useState<number | null>(null);
   const [captionTarget, setCaptionTarget] = useState<FigureTarget | null>(null);
   const [spread, setSpread] = useState(false);
@@ -174,6 +180,13 @@ export function PdfReader({
    * to where the pointer has it. Applying the offset at paint time keeps a move
    * at display rate without rewriting the annotation list on every frame.
    */
+  /** The writing margin is as wide as the page it sits beside, on screen. */
+  function marginWidth(pageNumber: number): number {
+    const p = pageProjection(pageNumber);
+    const across = p.rotation % 180 === 0 ? p.pageWidth : p.pageHeight;
+    return Math.floor(across * p.scale);
+  }
+
   function pageAnnotations(pageNumber: number): ReaderAnnotation[] {
     const list = annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS;
     if (!movePreview) return list;
@@ -221,6 +234,7 @@ export function PdfReader({
     initialPage: typeof page === "number" ? page + 1 : 1,
     onSourceFailure,
     setJump,
+    pageShare: penOpen ? 0.5 : 1,
   });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
@@ -676,6 +690,7 @@ export function PdfReader({
           onJump={(match) => {
             viewport.setPage(match.pageIndex + 1);
           }}
+          onMatches={(matches, active) => setFind({ matches, active })}
         />
         <div className="pdf-reader-group">
           <button
@@ -747,14 +762,14 @@ export function PdfReader({
               <option value="image">Clip a region</option>
               <option value="text">Write a note</option>
             </Select>
-            <input
-              type="color"
-              className="pdf-reader-color-input"
-              aria-label="Annotation colour"
+            <ColourMenu
               value={createColor}
-              onChange={(e) => {
+              palette={READER_ANNOTATION_COLORS}
+              recent={pen.prefs.recent}
+              ariaLabel="Annotation colour"
+              onChange={(colour) => {
                 endInkGroup();
-                setCreateColor(e.target.value);
+                setCreateColor(colour);
               }}
             />
           </div>
@@ -864,6 +879,18 @@ export function PdfReader({
             )}
           </div>
         )}
+        {/* The scrollbar ticks sit on a wrapper, not inside the scroller, so
+            they stay put while the pages move. */}
+        <div className="pdf-reader-scroll-wrap">
+        <FindMarks
+          marks={findMarks(
+            find.matches,
+            numPages,
+            (n) => pageItems.get(n),
+            (n) => pageGeometries.current.get(n)?.pageHeight ?? pageSize?.height ?? 0,
+          )}
+          active={find.active}
+        />
         <div
           className={`pdf-reader-scroll${spread ? " pdf-reader-scroll--spread" : ""}`}
           ref={containerRef}
@@ -879,12 +906,23 @@ export function PdfReader({
               }${flashPage === n ? " pdf-reader-flash" : ""}`}
               data-page={n}
               key={n}
+              // The pen gets a page-wide blank strip beside each page to write
+              // on; the strip is the host's margin so the row stays centred.
+              style={penOpen && pageSize ? { marginRight: `${marginWidth(n)}px` } : undefined}
               onPointerDown={(e) => onPagePointerDown(n, e)}
               onPointerMove={onPagePointerMove}
               onPointerUp={(e) => onPagePointerUp(n, e)}
               onPointerCancel={(e) => onPagePointerUp(n, e)}
             >
               <canvas />
+              {penOpen && pageSize && (
+                <PageMargin
+                  notes={layoutMarginNotes(pageAnnotations(n), pageProjection(n))}
+                  width={marginWidth(n)}
+                  selectedId={selectedAnnId}
+                  onSelect={selectAnnotation}
+                />
+              )}
               {pageSize && (
                 <AnnotationOverlay
                   annotations={pageAnnotations(n)}
@@ -896,6 +934,15 @@ export function PdfReader({
                   pageWidth={pageGeometries.current.get(n)?.pageWidth ?? pageSize.width}
                   selectedId={selectedAnnId}
                   onSelect={selectAnnotation}
+                />
+              )}
+              {pageSize && find.matches.length > 0 && pageItems.has(n) && (
+                <FindOverlay
+                  matches={find.matches}
+                  active={find.active}
+                  pageIndex={n - 1}
+                  items={pageItems.get(n)!}
+                  projection={pageProjection(n)}
                 />
               )}
               {pageSize && refs.enabled && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
@@ -927,6 +974,7 @@ export function PdfReader({
               )}
             </div>
           ))}
+        </div>
         </div>
       </div>
       <ReferencePopoverHost

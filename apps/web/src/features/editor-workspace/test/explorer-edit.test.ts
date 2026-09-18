@@ -46,15 +46,17 @@ function findOr(nodes: readonly WorkspaceTreeNode[], key: string): WorkspaceTree
   }
 }
 
-test("rules: Notes takes notes, ink and folders; Report takes sections; Papers takes nothing", () => {
+test("rules: Notes takes notes and folders; Report takes sections; Papers takes nothing", () => {
   const roots = tree();
-  assert.deepEqual(creatableUnder(find(roots, rootKey("notes"))), ["note", "ink", "folder"]);
-  assert.deepEqual(creatableUnder(find(roots, "vault_page:n2")), ["note", "ink", "folder"]);
-  assert.deepEqual(creatableUnder(find(roots, "ink_page:n3")), ["note", "ink", "folder"]);
+  assert.deepEqual(creatableUnder(find(roots, rootKey("notes"))), ["note", "folder"]);
+  assert.deepEqual(creatableUnder(find(roots, "vault_page:n2")), ["note", "folder"]);
+  assert.deepEqual(creatableUnder(find(roots, "ink_page:n3")), ["note", "folder"]);
   assert.deepEqual(creatableUnder(find(roots, rootKey("report"))), ["section"]);
   assert.deepEqual(creatableUnder(find(roots, "report_section:s2")), ["section"]);
   assert.deepEqual(creatableUnder(find(roots, "papers")), []);
   assert.deepEqual(creatableUnder(find(roots, "paper:p1")), []);
+  assert.deepEqual(creatableUnder({ key: "paper_pdf:p1", kind: "paper_pdf" }), []);
+  assert.deepEqual(creatableUnder({ key: "papers/p1", kind: "folder" }), []);
 });
 
 test("rename: notes and sections, never roots or papers", () => {
@@ -70,10 +72,6 @@ test("creation target: the active note's folder, else the Notes root; a paper ne
   assert.deepEqual(creationTarget("note", { kind: "vault_page", id: "n2", parentId: "n1" }), {
     root: "notes",
     parentId: "n1",
-  });
-  assert.deepEqual(creationTarget("ink", { kind: "ink_page", id: "n3", parentId: "n2" }), {
-    root: "notes",
-    parentId: "n2",
   });
   assert.deepEqual(creationTarget("note", { kind: "paper", id: "p1" }), { root: "notes", parentId: null });
   assert.deepEqual(creationTarget("note", { kind: "report_section", id: "s1" }), {
@@ -117,7 +115,6 @@ test("new file: the kind is the table's answer for the document on screen", () =
 
 test("a draft of each kind: what it writes into, and whether it opens", () => {
   assert.deepEqual(draftMakes("note"), { ink: false, opens: true });
-  assert.deepEqual(draftMakes("ink"), { ink: true, opens: true });
   assert.deepEqual(draftMakes("section"), { ink: false, opens: true });
   // A folder is made and left closed: there is nothing to write into a folder,
   // and opening one would open a grouping row rather than a document.
@@ -126,7 +123,6 @@ test("a draft of each kind: what it writes into, and whether it opens", () => {
 
 test("a draft row wears the icon of the kind it will become", () => {
   assert.equal(draftIcon("note"), "notes");
-  assert.equal(draftIcon("ink"), "ink");
   assert.equal(draftIcon("folder"), "folder");
   assert.equal(draftIcon("section"), "doc");
 });

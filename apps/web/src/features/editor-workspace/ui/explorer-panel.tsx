@@ -405,15 +405,6 @@ export function ExplorerPanel({
               <button
                 type="button"
                 className="explorer-action"
-                title="New ink note"
-                aria-label="New ink note"
-                onClick={() => startDraft("ink")}
-              >
-                <NavIcon name="ink" />
-              </button>
-              <button
-                type="button"
-                className="explorer-action"
                 title="New folder"
                 aria-label="New folder"
                 onClick={() => startDraft("folder")}

@@ -1,7 +1,7 @@
 /**
  * What the explorer may create, rename and move, and where.
  *
- * The rules are per root: Notes takes notes, ink notes and folders (a folder
+ * The rules are per root: Notes takes notes and folders (a folder
  * *is* a note with children); Report takes sections and nothing nested by
  * hand; Papers takes nothing — a paper arrives through import. They live here
  * as data rather than as conditions scattered through the panel, so the
@@ -13,7 +13,7 @@ import { ENTITY_DIRS } from "@weaveforge/core";
 import { isDocumentNode, type WorkspaceTreeNode } from "./workspace-tree";
 
 /** The kinds a draft row can make. */
-export type CreateKind = "note" | "ink" | "folder" | "section";
+export type CreateKind = "note" | "folder" | "section";
 
 /** Which root a row belongs to, or none for a list or outline row. */
 export type EditableRoot = "notes" | "report";
@@ -31,7 +31,7 @@ const ROOT_OF_KIND: Record<string, EditableRoot> = {
 
 /** The kinds each root's rows may be given as children; the first is the default. */
 const CREATABLE: Record<EditableRoot, readonly [CreateKind, ...CreateKind[]]> = {
-  notes: ["note", "ink", "folder"],
+  notes: ["note", "folder"],
   report: ["section"],
 };
 
@@ -142,8 +142,6 @@ export function draftPlaceholder(kind: CreateKind): string {
   switch (kind) {
     case "note":
       return "Note title";
-    case "ink":
-      return "Ink note title";
     case "folder":
       return "Folder name";
     case "section":
@@ -160,7 +158,6 @@ export function draftPlaceholder(kind: CreateKind): string {
  */
 const DRAFT_ICON: Record<CreateKind, string> = {
   note: "notes",
-  ink: "ink",
   folder: "folder",
   section: "doc",
 };
@@ -177,7 +174,6 @@ export function draftIcon(kind: CreateKind): string {
  */
 const DRAFT_MAKES: Record<CreateKind, { ink: boolean; opens: boolean }> = {
   note: { ink: false, opens: true },
-  ink: { ink: true, opens: true },
   folder: { ink: false, opens: false },
   section: { ink: false, opens: true },
 };

@@ -22,9 +22,15 @@ import {
   type WorkspaceTreeNode,
 } from "./workspace-tree";
 
-/** Which kind a note's body makes it: an ink note announces itself in its header (§4.1). */
-export const noteKind = (body: string): "vault_page" | "ink_page" =>
-  isInkNoteBody(body) ? "ink_page" : "vault_page";
+/**
+ * A note is one kind whatever its body holds: a note with ink in its header
+ * (§4.1) opens in Ink mode rather than being a second kind with a second
+ * suffix. `ink_page` stays in the kind table for tabs saved before this.
+ */
+export const noteKind = (_body: string): "vault_page" => "vault_page";
+
+/** Whether a note's body says it is written in ink, so its tab opens in Ink mode. */
+export const noteOpensInInk = (body: string): boolean => isInkNoteBody(body);
 export interface Document {
   kind: string;
   id: string;
@@ -95,19 +101,32 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
         title: page.title,
         body,
         hydrated: keep || isHydratedPage(page),
-        path: `notes/${page.title || "Untitled"}.${kind === "ink_page" ? "ink" : "note"}.md`,
+        path: `notes/${page.title || "Untitled"}.note.md`,
         parentId: page.parentId ?? undefined,
       };
     }),
-    ...paperRows.map((paper) => ({
-      kind: "paper",
-      id: paper.id,
-      title: paper.title,
-      body: paper.summary ?? "",
-      hydrated: true,
-      path: `papers/${paper.title || "Untitled"}.paper.md`,
-      tags: paper.tags,
-    })),
+    // Two documents per paper: its notes and its PDF. The PDF row has no body
+    // of its own — the reader fetches the file by the paper's id.
+    ...paperRows.flatMap((paper) => [
+      {
+        kind: "paper",
+        id: paper.id,
+        title: paper.title,
+        body: paper.summary ?? "",
+        hydrated: true,
+        path: `papers/${paper.title || "Untitled"}.paper.md`,
+        tags: paper.tags,
+      },
+      {
+        kind: "paper_pdf",
+        id: paper.id,
+        title: paper.title,
+        body: "",
+        hydrated: true,
+        path: `papers/${paper.title || "Untitled"}.pdf`,
+        tags: paper.tags,
+      },
+    ]),
     ...sectionRows.map((section) => ({
       kind: "report_section",
       id: section.id,

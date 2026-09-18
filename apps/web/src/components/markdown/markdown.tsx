@@ -84,13 +84,32 @@ function formatText(s: string): string {
         return `<img src="${safeSrc}" alt="${safeAlt}" data-md-alt="${safeAlt}" class="md-image${alignClass}" loading="lazy"${style} />`;
       },
     )
+    // The target may hold one level of parentheses of its own
+    // (`…/wiki/Foo_(bar)`), so a `)` only ends the link once they balance.
     .replace(
-      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      /\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g,
       (_m, label: string, href: string) => {
         const safeHref = href.replace(/"/g, "&quot;");
         return `<a href="${safeHref}" target="_blank" rel="noreferrer">${label}</a>`;
       },
     )
+    // `<https://…>` and a bare `https://…` are links too — notes are full of
+    // pasted addresses that nobody wraps in brackets. Anything already inside a
+    // tag (an `href`, an `src`, a label that is itself a URL) is left alone by
+    // the lookbehind; trailing sentence punctuation stays outside the link.
+    .replace(/&lt;(https?:\/\/[^\s&<>]+)&gt;/g, (_m, href: string) => {
+      return `<a href="${href}" target="_blank" rel="noreferrer">${href}</a>`;
+    })
+    .replace(/(?<![="'>\w/])(https?:\/\/[^\s<]+)/g, (m: string) => {
+      let url = m;
+      let tail = "";
+      while (/[.,;:!?)]$/.test(url)) {
+        if (url.endsWith(")") && (url.match(/\(/g)?.length ?? 0) >= (url.match(/\)/g)?.length ?? 0)) break;
+        tail = url.slice(-1) + tail;
+        url = url.slice(0, -1);
+      }
+      return `<a href="${url}" target="_blank" rel="noreferrer">${url}</a>${tail}`;
+    })
     // A root-relative target stays in the app, so it gets no new tab. Only a
     // leading slash qualifies: `foo.md` beside the file means nothing once the
     // text is on a route, and is left as plain text rather than guessed at.

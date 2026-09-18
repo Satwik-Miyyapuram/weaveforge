@@ -1,5 +1,7 @@
 "use client";
 
+import { ColourMenu } from "@/components/colour-menu";
+
 /**
  * The pen rail: one strip with everything a hand holding a stylus needs.
  *
@@ -122,20 +124,13 @@ export function PenRail({
             onClick={() => onColor(entry)}
           />
         ))}
-        <label className="pdf-pen-rail-more" title="Other colour">
-          <input
-            type="color"
-            value={color}
-            list="pdf-pen-rail-palette"
-            aria-label="Other colour"
-            onChange={(e) => onColor(e.target.value)}
-          />
-          <datalist id="pdf-pen-rail-palette">
-            {READER_ANNOTATION_COLORS.map((entry) => (
-              <option key={entry} value={entry} />
-            ))}
-          </datalist>
-        </label>
+        <ColourMenu
+          value={color}
+          palette={READER_ANNOTATION_COLORS}
+          recent={recent}
+          ariaLabel="Other colour"
+          onChange={onColor}
+        />
       </div>
 
       <span className="ink-sep" aria-hidden="true" />

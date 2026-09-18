@@ -56,7 +56,10 @@ export async function renderMermaidBlock(code: string, mode: ColorMode): Promise
     return `<div class="md-mermaid">${svg}</div>`;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return `<pre class="md-code md-mermaid-error" data-lang="mermaid" title="${escapeHtml(message).replace(/"/g, "&quot;")}"><code>${escapeHtml(code)}</code></pre>`;
+    // The message is shown, not tucked into a tooltip: a diagram that comes
+    // back as its own source with nothing said looks like a renderer that
+    // did not run, when it is a typo on line 3.
+    return `<div class="md-mermaid md-mermaid-error"><pre class="md-code" data-lang="mermaid"><code>${escapeHtml(code)}</code></pre><p class="md-mermaid-message">Mermaid: ${escapeHtml(message)}</p></div>`;
   }
 }
 
@@ -65,7 +68,7 @@ export async function renderMermaidBlock(code: string, mode: ColorMode): Promise
  * `renderMarkdownPlain` emits them) into a rendered diagram in place.
  */
 export async function upgradeMermaidFences(root: HTMLElement, mode: ColorMode): Promise<void> {
-  const fences = Array.from(root.querySelectorAll<HTMLPreElement>('pre[data-lang="mermaid"]:not(.md-mermaid-error)'));
+  const fences = Array.from(root.querySelectorAll<HTMLPreElement>('pre[data-lang="mermaid"]:not(.md-mermaid-error > pre)'));
   for (const fence of fences) {
     const code = fence.textContent ?? "";
     const html = await renderMermaidBlock(code, mode);

@@ -109,8 +109,9 @@ export function rendererFor(kind: string, mode: DocumentMode): RendererName {
   if (mode === "ink") {
     return hasInkView(kind) ? "ink" : hasPdfView(kind) ? "pdf_ink" : "editor";
   }
-  // Only a paper has a PDF; the mode on any other kind means Edit.
-  if (mode === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
+  // Only a PDF row has a PDF, and it has nothing else: every other mode on it
+  // is the reader. The mode on any other kind means Edit.
+  if (mode === "pdf" || documentKind(kind) === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
   if (mode === "read") {
     return documentKind(kind) === "ink" ? "ink_reader" : "markdown";
   }

@@ -45,6 +45,11 @@ export interface PdfRenderingDeps {
   initialPage: number;
   onSourceFailure: PdfReaderProps["onSourceFailure"];
   setJump: (state: JumpState) => void;
+  /**
+   * How much of the container's width a page may take when fitting: 1, or
+   * 0.5 while the pen's writing margin sits beside every page.
+   */
+  pageShare?: number;
 }
 
 export interface PdfRendering {
@@ -131,6 +136,7 @@ export function usePdfRendering({
   initialPage,
   onSourceFailure,
   setJump,
+  pageShare = 1,
 }: PdfRenderingDeps): PdfRendering {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PdfDocument | null>(null);
@@ -191,7 +197,7 @@ useEffect(() => {
   if (!host || typeof ResizeObserver === "undefined") return;
   const measure = () => {
     setContainerSize({
-      width: Math.max(1, host.clientWidth),
+      width: Math.max(1, host.clientWidth * pageShare),
       height: Math.max(1, host.clientHeight),
     });
   };
@@ -199,7 +205,7 @@ useEffect(() => {
   const observer = new ResizeObserver(measure);
   observer.observe(host);
   return () => observer.disconnect();
-}, [pdf]);
+}, [pdf, pageShare]);
 
 useEffect(() => {
   let cancelled = false;

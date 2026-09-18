@@ -14,7 +14,7 @@ import { defaultInkNoteMeta, writeInkNoteBody } from "@weaveforge/core";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
-import { loadWorkspace, noteKind, type Document } from "../application/workspace-load";
+import { loadWorkspace, noteOpensInInk, type Document } from "../application/workspace-load";
 import { bodyStats, formatCount, formatCursor } from "../application/document-stats";
 import { breadcrumbs } from "../application/breadcrumbs";
 import { outlineRows } from "../application/outline";
@@ -592,9 +592,13 @@ export function WorkspaceScreen() {
         activeKey={activeKeyOf}
         activeDoc={activeDoc}
         listNames={membership}
-        onOpen={(selection) =>
-          apply(openTab(layout, { kind: selection.kind, id: selection.id }))
-        }
+        onOpen={(selection) => {
+          // A note written in ink opens in Ink; its body says so (§4.1). The
+          // tab remembers the mode after that.
+          const doc = (documents ?? []).find((d) => d.kind === selection.kind && d.id === selection.id);
+          const ink = doc && hasInkView(selection.kind) && noteOpensInInk(doc.body);
+          apply(openTab(layout, { kind: selection.kind, id: selection.id, ...(ink ? { mode: "ink" as const } : {}) }));
+        }}
         onStartNote={(paperId) => {
           // The paper document exists for every paper (it is the summary), so
           // "start note" is simply opening that tab — the same call the row's

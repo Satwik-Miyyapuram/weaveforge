@@ -21,6 +21,7 @@
 
 import { KIND_SUFFIX } from "@weaveforge/core";
 
+import type { DocumentMode } from "../application/pane-tree";
 import type { TreeNodeKind } from "../application/workspace-tree";
 import type { SegmentKey } from "./status-bar";
 
@@ -28,6 +29,7 @@ export const KINDS: readonly TreeNodeKind[] = [
   "vault_page",
   "ink_page",
   "paper",
+  "paper_pdf",
   "reading_list",
   "report_section",
   "experiment",
@@ -48,8 +50,8 @@ export interface KindMeta {
   tint: KindTint;
   /** The `.md` suffix the UI appends, or `null` where there is no file. */
   suffix: string | null;
-  /** What the pane mounts for this kind. `text` is the shipped editor. */
-  document: "text" | "ink";
+  /** What the pane mounts for this kind. `text` is the shipped editor; `pdf` the reader. */
+  document: "text" | "ink" | "pdf";
   /** Status-bar segments for this kind, in paint order. */
   segments: readonly SegmentKey[];
   /**
@@ -167,20 +169,40 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     // drawn on — and it can hold other notes, so it counts as a folder too.
     creatable: true,
   },
+  // A paper's notes: text with an Ink mode, like any note. The PDF is the
+  // sibling row below, so the two are two tabs rather than one tab with four
+  // modes.
   paper: {
     icon: "book",
     tint: "warn",
     suffix: ".paper.md",
     document: "text",
     segments: TEXT_SEGMENTS,
-    // The one kind with a PDF of its own: the reader's pane, in place (§3.9).
-    pdf: true,
-    ink: false,
+    pdf: false,
+    ink: true,
     lazyBody: false,
     owner: "vault",
     documentRow: true,
     memberOrder: 10,
     linkGroup: "papers",
+    creatable: false,
+  },
+  // The paper's PDF, as its own row and tab: the reader's pane in place, with
+  // the pen rail as its Ink mode. It is not a core entity — the id is the
+  // paper's — so it has no file of its own beyond the PDF the paper carries.
+  paper_pdf: {
+    icon: "book",
+    tint: "danger",
+    suffix: ".pdf",
+    document: "pdf",
+    segments: [],
+    pdf: true,
+    ink: false,
+    lazyBody: false,
+    owner: "vault",
+    documentRow: true,
+    memberOrder: null,
+    linkGroup: null,
     creatable: false,
   },
   reading_list: {
@@ -368,6 +390,22 @@ export function kindSuffix(kind: string): string | null {
 /** The suffix for a kind that is definitely not a folder. */
 export function documentSuffix(kind: string): string {
   return kindSuffix(kind) ?? "";
+}
+
+/**
+ * The modes a tab of this kind offers, in button order. A PDF row has the
+ * reader and the pen; everything else edits and reads, with Ink where the
+ * table says so.
+ */
+export function modesFor(kind: string): readonly DocumentMode[] {
+  const meta = kindMeta(kind);
+  if (meta.document === "pdf") return ["pdf", "ink"];
+  return meta.ink ? ["edit", "read", "ink"] : ["edit", "read"];
+}
+
+/** The mode a fresh tab of this kind opens in. */
+export function defaultModeFor(kind: string): DocumentMode {
+  return modesFor(kind)[0]!;
 }
 
 /** Which renderer a kind mounts. */

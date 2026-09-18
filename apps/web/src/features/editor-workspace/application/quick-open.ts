@@ -76,6 +76,9 @@ export function scoreMatch(text: string, query: string): { score: number; matche
 
 const MAX_RESULTS = 40;
 
+/** What a row is called in the palette: the entity's title, which its label may not be. */
+export const titleOf = (node: Pick<WorkspaceTreeNode, "label" | "title">): string => node.title ?? node.label;
+
 /**
  * Rank documents against a query.
  *
@@ -93,7 +96,7 @@ export function quickOpenResults(
 
   for (const node of documents) {
     const byPath = scoreMatch(node.path, trimmed);
-    const byTitle = scoreMatch(node.label, trimmed);
+    const byTitle = scoreMatch(titleOf(node), trimmed);
     if (!byPath && !byTitle) continue;
     // A title hit is worth slightly more than the same hit inside a directory
     // name, which is otherwise easy to match by accident.
@@ -106,7 +109,7 @@ export function quickOpenResults(
     });
   }
 
-  results.sort((a, b) => b.score - a.score || a.node.label.localeCompare(b.node.label));
+  results.sort((a, b) => b.score - a.score || titleOf(a.node).localeCompare(titleOf(b.node)));
   return results.slice(0, MAX_RESULTS);
 }
 
@@ -127,8 +130,8 @@ export interface QuickOpenGroup {
  */
 const GROUP_ORDER: readonly { kind: string; label: string }[] = [
   { kind: "vault_page", label: "Notes" },
-  { kind: "ink_page", label: "Ink notes" },
   { kind: "paper", label: "Papers" },
+  { kind: "paper_pdf", label: "PDFs" },
   { kind: "reading_list", label: "Reading lists" },
   { kind: "report_section", label: "Report" },
 ];

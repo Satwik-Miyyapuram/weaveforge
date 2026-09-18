@@ -17,6 +17,7 @@ export function Popover({
   align = "left",
   ariaLabel,
   iconOnly = false,
+  triggerClassName = "btn-secondary",
   children,
 }: {
   label: React.ReactNode;
@@ -26,7 +27,10 @@ export function Popover({
   ariaLabel?: string;
   /** Compact icon trigger — hides the caret. */
   iconOnly?: boolean;
-  children: React.ReactNode;
+  /** Extra class on the trigger, for a trigger that is a swatch rather than a button. */
+  triggerClassName?: string;
+  /** The panel, or a function of `close` when picking something should shut it. */
+  children: React.ReactNode | ((close: () => void) => React.ReactNode);
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -103,7 +107,7 @@ export function Popover({
       <button
         ref={triggerRef}
         type="button"
-        className={`btn-secondary popover-trigger${open ? " on" : ""}${iconOnly ? " popover-trigger--icon" : ""}`}
+        className={`${triggerClassName} popover-trigger${open ? " on" : ""}${iconOnly ? " popover-trigger--icon" : ""}`}
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -124,7 +128,7 @@ export function Popover({
           tabIndex={-1}
           style={panelPos}
         >
-          {children}
+          {typeof children === "function" ? children(() => setOpen(false)) : children}
         </div>
       )}
     </div>

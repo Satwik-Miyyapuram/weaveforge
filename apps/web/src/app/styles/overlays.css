@@ -162,3 +162,24 @@
 
 /* Experiment artifacts (figures uploaded to the experiment-artifacts bucket) */
 .artifacts { display: grid; gap: 12px; }
+/* Colour menu (§colour-menu): a swatch that opens the palette. The trigger is
+   the swatch itself, sized like every other swatch, so nothing is clipped. */
+.colour-menu-trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%;
+  background: none; cursor: pointer;
+}
+.colour-menu-trigger .colour-menu-current { width: 20px; height: 20px; }
+.colour-menu-trigger.on .colour-menu-current,
+.colour-menu-trigger:hover .colour-menu-current { transform: scale(1.1); }
+.popover-panel .colour-menu { display: grid; gap: 8px; padding: 2px; min-width: 0; }
+.colour-menu-row { display: grid; grid-template-columns: repeat(6, 24px); gap: 8px; }
+.colour-menu-row .ink-swatch { width: 24px; height: 24px; }
+.colour-menu-custom {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 0.8rem; color: var(--muted); cursor: pointer;
+  border-top: 1px solid var(--line); padding-top: 8px;
+}
+.colour-menu-custom input[type="color"] {
+  width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer;
+}

@@ -174,7 +174,7 @@ test("the filter matches the mirrored path as well as the label", () => {
   const rows = visibleRows(nestedTree(), expandAll(nestedTree()));
   const { rows: kept } = filterRows(rows, ".paper.md");
   assert.deepEqual(
-    kept.filter((row) => row.node.kind === "paper").map((row) => row.node.label),
+    kept.filter((row) => row.node.kind === "paper").map((row) => row.node.title),
     ["β-VAE"],
   );
 });

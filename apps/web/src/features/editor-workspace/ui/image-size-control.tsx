@@ -141,14 +141,11 @@ export function ImageSizeControl({
     align?: MdAlign | null;
   }) => {
     if (!target || !onSave) return;
-    const width =
-      next.width === undefined
-        ? target.placement.initial < 100
-          ? `${percent}%`
-          : null
-        : next.width === null || next.width >= 100
-          ? null
-          : `${next.width}%`;
+    // The slider's value is what the user set, whatever the picture started
+    // at; a full-width picture dragged to 40% used to snap back because the
+    // starting width decided whether the drag counted.
+    const chosen = next.width === undefined ? percent : next.width;
+    const width = chosen === null || chosen >= 100 ? null : `${chosen}%`;
     const crop =
       next.crop !== undefined
         ? next.crop
