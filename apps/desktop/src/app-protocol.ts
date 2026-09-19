@@ -23,15 +23,18 @@ export const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
 /**
  * The file a request path asks for, or null if it asks for nothing we have.
  *
- * `exists` is passed in rather than read from `fs` so the rules can be tested
- * against a made-up bundle. The candidates follow the export's own shape: it is
- * built with `trailingSlash`, so a directory holds an `index.html`, and older
- * links without the slash should still land rather than 404.
+ * `isFile` is passed in rather than read from `fs` so the rules can be tested
+ * against a made-up bundle. It must answer for files only: `/reader` names the
+ * `reader/` folder before it names `reader/index.html`, and a folder handed to
+ * the fetch that serves the answer throws instead of 404ing. The candidates
+ * follow the export's own shape: it is built with `trailingSlash`, so a
+ * directory holds an `index.html`, and older links without the slash should
+ * still land rather than 404.
  */
 export function resolveAppFile(
   root: string,
   requestUrl: string,
-  exists: (file: string) => boolean,
+  isFile: (file: string) => boolean,
 ): string | null {
   let pathname: string;
   try {
@@ -60,7 +63,7 @@ export function resolveAppFile(
     ? [path.join(joined, "index.html")]
     : [joined, `${joined}.html`, path.join(joined, "index.html")];
 
-  return candidates.find((file) => exists(file)) ?? null;
+  return candidates.find((file) => isFile(file)) ?? null;
 }
 
 /**
