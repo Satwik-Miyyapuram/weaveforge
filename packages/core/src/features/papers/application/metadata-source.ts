@@ -38,9 +38,17 @@ export class MetadataResolutionError extends WeaveForgeError {
 
 export class MetadataResolver {
   private readonly sources: readonly IMetadataSource[];
+  private readonly cascadeIdentifiers: boolean;
 
-  constructor(sources: readonly IMetadataSource[]) {
+  /**
+   * `cascadeIdentifiers` — used by the reader's lookup — lets an identifier
+   * ref fall through the provider list when the first provider fails (DOI not
+   * in Semantic Scholar → Crossref), instead of surfacing the first error.
+   * The add-paper flow keeps the strict first-source semantics.
+   */
+  constructor(sources: readonly IMetadataSource[], cascadeIdentifiers = false) {
     this.sources = sources;
+    this.cascadeIdentifiers = cascadeIdentifiers;
   }
 
   async resolve(ref: PaperRef): Promise<PaperMetadata> {
@@ -50,9 +58,9 @@ export class MetadataResolver {
 
   /**
    * Resolution with the answering source's id. Identifier refs keep their
-   * original semantics (first supporting source, errors surface); a
-   * bibliographic search tries each provider in order — S2, then OpenAlex —
-   * and only fails when no provider matches.
+   * original semantics (first supporting source, errors surface) unless the
+   * resolver was built to cascade them; a bibliographic search tries each
+   * provider in order and only fails when no provider matches.
    */
   async resolveWithSource(ref: PaperRef): Promise<{ metadata: PaperMetadata; sourceId: string }> {
     const sources = this.sources.filter((s) => s.supports(ref));
@@ -61,7 +69,7 @@ export class MetadataResolver {
         `No metadata source supports reference of kind "${ref.kind}".`,
       );
     }
-    if (ref.kind !== "bibliographic") {
+    if (ref.kind !== "bibliographic" && !this.cascadeIdentifiers) {
       const source = sources[0]!;
       return { metadata: await source.fetch(ref), sourceId: source.id };
     }
@@ -69,9 +77,9 @@ export class MetadataResolver {
       try {
         return { metadata: await source.fetch(ref), sourceId: source.id };
       } catch {
-        /* try the next search provider */
+        /* try the next provider */
       }
     }
-    throw new MetadataResolutionError("No bibliographic metadata match found.");
+    throw new MetadataResolutionError(`No metadata source resolved the ${ref.kind} reference.`);
   }
 }

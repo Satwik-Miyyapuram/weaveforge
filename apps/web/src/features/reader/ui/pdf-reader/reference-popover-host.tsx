@@ -43,6 +43,7 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
         onAddManually={() => void actions.addManually(entry)}
         onJumpToEntry={() => actions.jumpToEntry(entry)}
         alreadyLinked={paper ? linked.has(paper.id) : false}
+        confidence={open.confidence}
       />
       {picking && (
         <div className="pdf-reader-ref-actions">

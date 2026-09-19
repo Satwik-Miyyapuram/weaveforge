@@ -1,21 +1,7 @@
 import { itemToRect, type PageTextItem } from "../../reader/selection-to-anchor.js";
-import type { CitationMention } from "./find-citation-mentions.js";
-import type { ParsedReference } from "./parse-reference-list.js";
+import type { CitationMention, ParsedReference, PdfLink } from "./analysis/analysis-types.js";
 
-/**
- * A `/Link` annotation as the reader sees it: the box it covers on the page
- * (PDF user space, `[x1, y1, x2, y2]`) and where it goes — a URL, or a place
- * in this document. LaTeX (hyperref, natbib) writes one of these over every
- * citation, pointing at the entry in the reference list; that is the signal
- * the Google Scholar reader uses before it looks at any text, and the reason
- * its links land on `[16]` when a regex over `[16 ]` does not.
- */
-export interface PdfLink {
-  rect: [number, number, number, number];
-  url?: string;
-  /** 1-based page and the point the destination names, if it names one. */
-  dest?: { page: number; x?: number; y?: number };
-}
+export type { PdfLink };
 
 /**
  * The reference entry a link destination lands on: the entry on that page
@@ -55,29 +41,27 @@ function overlapY(a: readonly number[], b: readonly number[]): number {
   return Math.min(a[3]!, b[3]!) - Math.max(a[1]!, b[1]!);
 }
 
+export interface CoveredTextSpan {
+  link: PdfLink;
+  /** Offsets into the page-text convention string, trimmed of separators. */
+  start: number;
+  end: number;
+}
+
 /**
- * Citation mentions from a page's links: for each link that resolves to an
- * entry, the span of page text under its box. Offsets follow the reader's
- * page-text convention — items concatenated, a newline after each `hasEOL`
- * item — so they line up with what `findCitationMentions` produces and with
- * the overlay that draws them.
- *
- * A text item under the box contributes the part of itself the box covers,
- * proportionally by character; a link that covers the `16` of `[16]` gives
- * `16`, and the caller widens to the brackets if it wants them. Links that
- * cover no text (an empty box, a figure) give nothing. Adjacent links in one
- * bracket (`[5, 2, 35]` is three links) stay separate mentions, each with its
- * own entry, which is what the popover wants.
+ * The text spans a set of link boxes covers, under the page-text convention
+ * (items concatenated, a newline after each `hasEOL` item). A text item under
+ * a box contributes the part of itself the box covers, proportionally by
+ * character; a link that covers the `16` of `[16]` gives `16`. Adjacent
+ * links in one bracket (`[5, 2, 35]` is three links) keep separate spans.
+ * `[38, 2, 9]` is one text item under three links; a box's proportional span
+ * can take a neighbour's comma or bracket with it, so edges are trimmed of
+ * separators and the caller widens back to brackets that belong to the span.
  */
-export function linkCitationMentions(
+export function coveredTextSpans(
   page: { number: number; items: readonly PageTextItem[] },
   links: readonly PdfLink[],
-  refs: readonly ParsedReference[],
-): CitationMention[] {
-  const out: CitationMention[] = [];
-  const citing = links.filter((link) => link.dest && !link.url);
-  if (!citing.length) return out;
-  // Offsets and boxes for every item, once.
+): { spans: CoveredTextSpan[]; text: string } {
   const rows: { start: number; end: number; rect: number[]; item: PageTextItem }[] = [];
   let text = "";
   for (const item of page.items) {
@@ -86,9 +70,8 @@ export function linkCitationMentions(
     const rect = itemToRect(item);
     if (rect && item.str.trim()) rows.push({ start, end: start + item.str.length, rect, item });
   }
-  for (const link of citing) {
-    const ref = referenceForDestination(link.dest!, refs);
-    if (!ref) continue;
+  const spans: CoveredTextSpan[] = [];
+  for (const link of links) {
     let start = Number.POSITIVE_INFINITY;
     let end = -1;
     for (const row of rows) {
@@ -108,15 +91,44 @@ export function linkCitationMentions(
       start = Math.min(start, row.start + from);
       end = Math.max(end, row.start + to);
     }
-    // `[38, 2, 9]` is one text item under three links; a box's proportional
-    // span can take a neighbour's comma or bracket with it, and then the
-    // next link would look like a duplicate of this one. Only the citation
-    // itself is kept; the caller widens to the brackets when they are its own.
-    while (start < end && /[\s,;[\]()]/.test(text[start]!)) start++;
-    while (end > start && /[\s,;[\]()]/.test(text[end - 1]!)) end--;
-    if (end <= start) continue;
+    while (start < end && /[\s,;[()\]]/.test(text[start]!)) start++;
+    while (end > start && /[\s,;[()\]]/.test(text[end - 1]!)) end--;
+    if (end > start) spans.push({ link, start, end });
+  }
+  return { spans, text };
+}
+
+/**
+ * Citation mentions from a page's links: for each internal link that resolves
+ * to an entry, the span of page text under its box. The document's own links
+ * are authoritative — a LaTeX PDF has a real `/Link` over `[16]`, and that is
+ * trusted before any regex parsing. Links that cover no text (an empty box, a
+ * figure) give nothing; each mention carries its source and full confidence.
+ */
+export function linkCitationMentions(
+  page: { number: number; items: readonly PageTextItem[] },
+  links: readonly PdfLink[],
+  refs: readonly ParsedReference[],
+): CitationMention[] {
+  const citing = links.filter((link) => link.dest && !link.url);
+  if (!citing.length) return [];
+  const { spans, text } = coveredTextSpans(page, citing);
+  const out: CitationMention[] = [];
+  for (const { link, start, end } of spans) {
+    const ref = referenceForDestination(link.dest!, refs);
+    if (!ref) continue;
     if (!out.some((m) => start < m.end && end > m.start)) {
-      out.push({ page: page.number, start, end, refIndexes: [ref.index] });
+      out.push({
+        id: `c:${page.number}:${start}-${end}`,
+        page: page.number,
+        start,
+        end,
+        text: text.slice(start, end),
+        rects: [],
+        referenceIndexes: [ref.index],
+        source: "internal-pdf-link",
+        confidence: 1,
+      });
     }
   }
   return out.sort((a, b) => a.start - b.start);

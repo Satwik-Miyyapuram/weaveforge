@@ -25,6 +25,8 @@ export interface OpenMention {
   hit: MentionHit;
   entry: ParsedReference;
   anchor: AnchorBox | null;
+  /** How much the analyzer trusted this citation match (0–1). */
+  confidence?: number;
 }
 
 export interface UseReaderReferencesInput {
@@ -60,7 +62,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     () => [...pageItems].map(([pageNumber, items]) => ({ pageNumber, items, links: pageLinks.get(pageNumber) ?? [] })),
     [pageItems, pageLinks],
   );
-  const { index, progress: analysisProgress, isAnalyzing } = useDocumentAnalyzer({
+  const { index, analysis, progress: analysisProgress, isAnalyzing } = useDocumentAnalyzer({
     pages: referencePages,
     outline,
     enabled,
@@ -186,7 +188,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     const entry = hit.refIndexes.map((i) => index.byIndex.get(i)).find(Boolean);
     if (!entry) return;
     setNotice(null);
-    setOpen({ hit, entry, anchor });
+    setOpen({ hit, entry, anchor, confidence: hit.confidence });
     const current = resolutions.get(entry.index);
     if (!current || current.status === "pending") resolve(entry);
   }, [index, resolutions, resolve, setPage, onFigureTarget]);
@@ -243,6 +245,8 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     enabled,
     toggle,
     index,
+    /** The structured document analysis: sections, entries, citations, figures. */
+    analysis,
     open,
     openMention,
     close,

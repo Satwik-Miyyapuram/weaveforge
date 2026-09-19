@@ -71,7 +71,7 @@ test("caches per (documentKey, refIndex) and reports library presence", async ()
   );
   const first = await service.resolve("p1", ref({ index: 7, title: "T", doi: "10.1/fallback" }));
   await service.resolve("p1", ref({ index: 7, title: "T", doi: "10.1/fallback" }));
-  assert.deepEqual(seen, ["v3:p1:ref:7"]);
+  assert.deepEqual(seen, ["v4:p1:ref:7"]);
   assert.equal(first.status, "resolved");
   assert.equal(first.inLibrary?.id, "lib-1");
 });

@@ -42,8 +42,10 @@ test("finds numeric ranges, author-year lists and narrative mentions without fal
   const refs = parseReferenceList(numbered);
   const text = "[1–3] [1, 3] [10 mm] [0, 1] (2019) (Smith 2019; Lee 2020) Smith et al. (2019)";
   const found = findCitationMentions({ number: 1, text, items: [] }, refs, 10);
-  assert.deepEqual(found.map((m) => m.refIndexes), [[1, 2, 3], [1, 3], [1, 2], [1]]);
-  assert.equal(text.slice(found[3]!.start, found[3]!.end), "Smith et al. (2019)");
+  assert.deepEqual(found.map((m) => m.referenceIndexes), [[1, 2, 3], [1, 3], [1, 2], [1]]);
+  assert.equal(found[3]!.text, "Smith et al. (2019)");
+  assert.equal(found[0]!.source, "numeric");
+  assert.equal(found[3]!.source, "author-year");
   assert.deepEqual(findCitationMentions({ number: 3, text, items: [] }, refs, 10), []);
 });
 
@@ -51,7 +53,10 @@ test("superscripts retain offsets and only resolve numbered lists", () => {
   const refs = parseReferenceList(numbered);
   const items = lines(["Text", "2"]);
   items[1]!.fontSize = 7;
-  assert.deepEqual(findCitationMentions({ number: 1, text: "Text2", items }, refs, 10), [{ page: 1, start: 4, end: 5, refIndexes: [2] }]);
+  const shape = (m: ReturnType<typeof findCitationMentions>[number]) =>
+    ({ page: m.page, start: m.start, end: m.end, referenceIndexes: m.referenceIndexes, source: m.source });
+  assert.deepEqual(findCitationMentions({ number: 1, text: "Text2", items }, refs, 10).map(shape),
+    [{ page: 1, start: 4, end: 5, referenceIndexes: [2], source: "superscript" }]);
   assert.deepEqual(findCitationMentions({ number: 1, text: "Text2", items }, refs.map((ref) => ({ ...ref, label: undefined })), 10), []);
 });
 
@@ -60,7 +65,7 @@ test("a page that cites in brackets reads no small digit as a superscript citati
   const items = lines(["See [1] and h", "1"]);
   items[1]!.fontSize = 7;
   const found = findCitationMentions({ number: 1, text: "See [1] and h1", items }, refs, 10);
-  assert.deepEqual(found, [{ page: 1, start: 4, end: 7, refIndexes: [1] }]);
+  assert.deepEqual(found.map((m) => [m.start, m.end, m.referenceIndexes, m.source]), [[4, 7, [1], "numeric"]]);
 });
 
 test("figure and equation mentions resolve to first targets", () => {

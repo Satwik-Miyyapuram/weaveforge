@@ -232,6 +232,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   });
   const { bibliography, notifications, logSync, gitRead } = wiredIntegrations.registry;
 
+  // The key is read at call time: it is only decryptable after unlock.
+  const semanticScholarSource = new SemanticScholarMetadataSource(undefined, undefined, () =>
+    createCredentialReader(backend.manageSettings)("semantic-scholar", "apiKey"),
+  );
+  const openAlexSource = new OpenAlexMetadataSource();
+
   const resolver = new MetadataResolver([
     new ArxivMetadataSource(undefined, "/api/arxiv"),
     new CrossrefMetadataSource(),
@@ -240,14 +246,21 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       : []),
     // Title-only lookups for the reader's citation popover. Semantic Scholar
     // first (its match endpoint is built for this), OpenAlex as the fallback.
-    // The key is read at call time: it is only decryptable after unlock.
-    new SemanticScholarMetadataSource(undefined, undefined, () =>
-      createCredentialReader(backend.manageSettings)("semantic-scholar", "apiKey"),
-    ),
-    new OpenAlexMetadataSource(),
+    semanticScholarSource,
+    openAlexSource,
     new UrlMetadataSource(),
   ]);
   const importPaper = new ImportPaperUseCase(resolver, addPaper);
+
+  // The reader's citation lookup: Semantic Scholar is the first provider for
+  // DOI, arXiv and title+author+year alike, with OpenAlex/Crossref behind it.
+  // Desktop requests reach the API through #242's relay (see
+  // `semanticScholarUrl`), not a second direct network path. Identifier refs
+  // cascade so a DOI Semantic Scholar does not know still lands in Crossref.
+  const readerResolver = new MetadataResolver(
+    [semanticScholarSource, openAlexSource, new CrossrefMetadataSource(), new ArxivMetadataSource(undefined, "/api/arxiv")],
+    true,
+  );
 
   const addLogEntry = new AddLogEntryUseCase({
     repository: logEntryRepository,
@@ -287,7 +300,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   });
 
   const readerReferences = new ReaderReferencesFacade({
-    lookup: new ReferenceLookupService(resolver, paperRepository, new IdbReferenceLookupCache()),
+    lookup: new ReferenceLookupService(readerResolver, paperRepository, new IdbReferenceLookupCache()),
     actions: createReferenceActions({
       importPaper,
       addPaper,
