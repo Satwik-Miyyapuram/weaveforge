@@ -158,6 +158,8 @@ export function usePdfRendering({
   /** Each page's pdf.js text layer, so a re-render can cancel the last one. */
   const textLayers = useRef(new Map<number, TextLayer>());
   const renderGeneration = useRef(0);
+  /** The document the container was last measured for at once, not settled. */
+  const measuredFor = useRef<unknown>(null);
 
   // The viewport fits to the page size this hook measures, and the render
   // scale it produces is what the next render pass draws at. Reading it from
@@ -207,10 +209,32 @@ useEffect(() => {
       height: Math.max(1, host.clientHeight),
     });
   };
-  measure();
-  const observer = new ResizeObserver(measure);
+  // The shell animates its width when the pen rail opens or the nav folds;
+  // every frame of that is a resize, and every new width would otherwise
+  // throw away the canvases and repaint every page. Wait for the size to
+  // settle and re-render once at the final width. The first measure after a
+  // load is taken at once so the pages appear without delay; a share change
+  // comes with the same animation, so it waits like a resize does.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let last = { width: host.clientWidth, height: host.clientHeight };
+  if (measuredFor.current !== pdf) {
+    measuredFor.current = pdf;
+    measure();
+  } else {
+    timer = setTimeout(measure, 160);
+  }
+  const observer = new ResizeObserver(() => {
+    const next = { width: host.clientWidth, height: host.clientHeight };
+    if (next.width === last.width && next.height === last.height) return;
+    last = next;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(measure, 160);
+  });
   observer.observe(host);
-  return () => observer.disconnect();
+  return () => {
+    observer.disconnect();
+    if (timer) clearTimeout(timer);
+  };
 }, [pdf, pageShare]);
 
 useEffect(() => {

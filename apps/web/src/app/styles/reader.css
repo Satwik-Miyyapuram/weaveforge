@@ -124,7 +124,13 @@
 }
 .pdf-reader-search .btn-secondary { white-space: nowrap; }
 .pdf-reader-search-count { font-size: 0.8rem; min-width: 3rem; }
-.pdf-reader-body { display: grid; gap: 8px; min-height: 0; }
+/* One column that never grows with its content. A grid's auto track has a
+ * min-content floor, so the pen's page-plus-margin row (`max-content`) would
+ * widen the scroller, the fit-to-width measure would read the wider box, the
+ * page would render bigger, and so on — a loop that repainted every page a
+ * dozen times while it settled. minmax(0, 1fr) pins the column to the space
+ * it is given; the scroller's own overflow reaches anything wider. */
+.pdf-reader-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-height: 0; min-width: 0; }
 .pdf-reader-body--outline {
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
 }
@@ -521,7 +527,7 @@
   background: color-mix(in srgb, var(--accent) 45%, transparent);
   outline: 2px solid var(--accent); outline-offset: 1px;
 }
-.pdf-reader-scroll-wrap { position: relative; min-height: 0; display: flex; flex-direction: column; }
+.pdf-reader-scroll-wrap { position: relative; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .pdf-reader-scroll-wrap > .pdf-reader-scroll { flex: 1 1 auto; min-height: 0; }
 .pdf-reader-find-marks {
   position: absolute; top: 12px; bottom: 12px; right: 2px; width: 10px;
