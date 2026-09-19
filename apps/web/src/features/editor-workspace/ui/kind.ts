@@ -19,7 +19,7 @@
  * learns a new word.
  */
 
-import { KIND_SUFFIX } from "@weaveforge/core";
+import { isInkNoteBody, KIND_SUFFIX } from "@weaveforge/core";
 
 import type { DocumentMode } from "../application/pane-tree";
 import type { TreeNodeKind } from "../application/workspace-tree";
@@ -406,6 +406,26 @@ export function modesFor(kind: string): readonly DocumentMode[] {
 /** The mode a fresh tab of this kind opens in. */
 export function defaultModeFor(kind: string): DocumentMode {
   return modesFor(kind)[0]!;
+}
+
+/**
+ * The mode an *existing* document opens in, which is Read rather than Edit.
+ *
+ * Reading is what opening a document means: Edit is a deliberate step, and a
+ * tab that lands you in a caret invites an accidental keystroke into someone's
+ * note. Two exceptions, both of them the point of the document:
+ *
+ *   - a note whose body carries ink opens on the sheet it was written on, since
+ *     the writing is the content;
+ *   - a kind with no Read of its own (a folder, a reading list) keeps whatever
+ *     mode it does have, which is Edit.
+ *
+ * A *new* note is not this function's caller: creating one opens in Edit, so
+ * there is somewhere to type the thing you just named.
+ */
+export function openModeFor(kind: string, body: string): DocumentMode {
+  if (!modesFor(kind).includes("read")) return defaultModeFor(kind);
+  return isInkNoteBody(body) ? "ink" : "read";
 }
 
 /** Which renderer a kind mounts. */

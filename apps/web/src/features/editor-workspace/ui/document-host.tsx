@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
-import { vaultImageMarkdown } from "@weaveforge/core";
+import { isInkNoteBody, vaultImageMarkdown } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
@@ -102,8 +102,15 @@ export type RendererName = "editor" | "markdown" | "ink" | "pdf" | "pdf_ink" | "
  * Pulled out of the component so it is testable without a DOM: this is the
  * switch the design's §3.3 table describes, and it is the only place in the
  * screen that knows a kind and a mode can interact.
+ *
+ * `body` is what makes Read mode honest for a note that carries ink. One note
+ * kind holds both — you type in Edit, you draw over it in Ink — so its Read
+ * mode is the *same sheet* with the pen put down, not the markdown view. Asking
+ * `documentKind` alone answered "text" for every note, so Read dropped the
+ * strokes, the figures and the diagrams and showed prose only, which is a
+ * different document from the one Ink was drawing on.
  */
-export function rendererFor(kind: string, mode: DocumentMode): RendererName {
+export function rendererFor(kind: string, mode: DocumentMode, body = ""): RendererName {
   // Ink on a paper is the PDF with the pen rail up — same reader, same
   // annotations, not a separate canvas.
   if (mode === "ink") {
@@ -113,7 +120,11 @@ export function rendererFor(kind: string, mode: DocumentMode): RendererName {
   // is the reader. The mode on any other kind means Edit.
   if (mode === "pdf" || documentKind(kind) === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
   if (mode === "read") {
-    return documentKind(kind) === "ink" ? "ink_reader" : "markdown";
+    // A note written in ink is read as the sheet it was written on. A note
+    // with no ink in it stays prose, which is what it is.
+    return documentKind(kind) === "ink" || (hasInkView(kind) && isInkNoteBody(body))
+      ? "ink_reader"
+      : "markdown";
   }
   return "editor";
 }
@@ -280,7 +291,7 @@ export function DocumentHost({
     [onOpenLink],
   );
 
-  const renderer = rendererFor(tab.kind, mode);
+  const renderer = rendererFor(tab.kind, mode, body);
 
   // The read view's renderer, per kind, shared by Read mode and the live
   // preview so the two never disagree about what a document means (§3.3's
@@ -307,6 +318,12 @@ export function DocumentHost({
     [tab.kind, links, onCreateNote],
   );
 
+  // A paper's own Notes tab is also an ink sheet (§paper), and its images are
+  // `paperimg:` blobs behind the papers facade, so the sheet is told which
+  // paper it belongs to. For any other note the id is the note's own and means
+  // nothing to a paper lookup, so it is not passed.
+  const sheetPaperId = tab.kind === "paper" ? tab.id : null;
+
   if (renderer === "ink") {
     // The one case §3.3 reserved, and the only place this screen mentions ink.
     //
@@ -315,11 +332,24 @@ export function DocumentHost({
     // than in it (§4.6). `InkHost` therefore starts on the text layer the body
     // already holds and asks the container's ink facade for its pages itself,
     // which keeps the reading of `.ink/<id>/` in the feature that owns the format.
-    return <InkHost noteId={tab.id} body={body} deps={getContainer().ink} onSave={onSave} />;
+    return (
+      <InkHost
+        noteId={tab.id}
+        body={body}
+        deps={getContainer().ink}
+        onSave={onSave}
+        paperId={sheetPaperId}
+      />
+    );
   }
 
   if (renderer === "ink_reader") {
-    return <InkReader noteId={tab.id} body={body} deps={getContainer().ink} />;
+    // Read mode of an ink note: the same sheet as Ink with the pen down, so
+    // everything drawn on it — strokes, figures, diagrams, images — is there
+    // to read. It takes no `onSave`: there is nothing to edit.
+    return (
+      <InkReader noteId={tab.id} body={body} deps={getContainer().ink} paperId={sheetPaperId} />
+    );
   }
 
   if (renderer === "pdf" || renderer === "pdf_ink") {

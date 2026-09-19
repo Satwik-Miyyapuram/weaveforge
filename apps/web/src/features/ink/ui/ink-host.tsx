@@ -90,7 +90,7 @@ import { InkTextLayer } from "./ink-text-layer";
 import { useFlowedTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
 import { useGhostImages } from "./use-ghost-images";
-import { useInkFigureUrls } from "./use-ink-figure-urls";
+import { useInkSheetImages } from "./use-ink-sheet-images";
 import { InkActiveFigureEditor, useInkFigures } from "./use-ink-figures";
 import { useInkLayout } from "./use-ink-layout";
 import { useInkNativeOverlay } from "./use-ink-native-overlay";
@@ -104,11 +104,7 @@ import { useInkWorkerRpc } from "./use-ink-worker-rpc";
 import { useInkRecognition } from "./use-ink-recognition";
 import { InkPrintPreview } from "./ink-print-preview";
 import { usePageExport } from "./use-page-export";
-import type {
-  InkHostDeps,
-  InkHostPage,
-  InkHostProps,
-} from "./ink-host-types";
+import type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 
 export type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 
@@ -118,6 +114,7 @@ export function InkHost({
   deps,
   initialPage = 0,
   onSave,
+  paperId = null,
 }: InkHostProps) {
   const [pageIndex, setPageIndex] = useState(initialPage);
   /**
@@ -508,13 +505,16 @@ export function InkHost({
     paper,
   });
 
-  /**
-   * The figures' images, fetched once per path (§use-ink-figure-urls): a
-   * blob URL per figure path, kept for the page being looked at.
-   */
-  const figureUrls = useInkFigureUrls({
-    fetchBlob: deps.assets.fetchBlob,
+  // Both image layers of the sheet, resolved by the one module that knows both
+  // stores: the figures placed on the page, and the inline images the text
+  // layer's markdown pass renders (`paperimg:` is a paper's figure, and a
+  // paper's Notes tab is the same sheet).
+  const { figureUrls, resolveImageSrc } = useInkSheetImages({
     figures,
+    pages: textPagesRef,
+    key: textPagesRef.current.join("␞"),
+    deps,
+    paperId,
   });
 
   /** The bar's image button: a figure, of which a page may hold any number. */
@@ -710,6 +710,7 @@ export function InkHost({
         textPages={textPagesRef.current}
         flowedText={flowedText}
         figureUrls={figureUrls}
+        resolveImageSrc={resolveImageSrc}
         palette={palette}
       >
         <InkPage
@@ -744,7 +745,11 @@ export function InkHost({
           penActive={penSessionActive}
           below={
             <>
-              <InkSheetTextUnderlay text={pureText} scale={scale} />
+              <InkSheetTextUnderlay
+                text={pureText}
+                scale={scale}
+                resolveImageSrc={resolveImageSrc}
+              />
               <InkFigures
                 figures={figures}
                 scale={scale}

@@ -105,10 +105,21 @@ function round(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-/** One figure line, as a page's text layer carries it. */
-const FIGURE_LINE = /^!\[\s*figure\b([^\]]*)\]\(vault:([^)\s]+)\)$/;
-/** Any image ref at all, so a figure's line can be found and replaced. */
-const ANY_IMAGE = /!\[[^\]]*\]\(vault:([^)\s]+)\)/g;
+/**
+ * One figure line, as a page's text layer carries it.
+ *
+ * The scheme is dropped and the path kept bare, because that is what the
+ * figure's image is addressed by everywhere else. A paper's Notes sheet writes
+ * its own figures as `paperimg:`; which store that path belongs to is the
+ * caller's question, not this parser's.
+ */
+const FIGURE_LINE = /^!\[\s*figure\b([^\]]*)\]\((?:vault:|paperimg:)([^)\s]+)\)$/;
+/**
+ * Any image ref at all, so a figure's line can be found and replaced. This one
+ * is *not* anchored, so it has exactly one capture group or the resolver that
+ * reads a body by path would start matching the scheme.
+ */
+const ANY_IMAGE = /!\[[^\]]*\]\((?:vault:|paperimg:)([^)\s]+)\)/g;
 
 /**
  * The figures a page's text layer places, in the order their lines appear.
@@ -165,6 +176,7 @@ export function withInkPageFigures(
     )
     .map((figure) => {
       const alt = `${FIGURE_ALT} ${formatFigureTokens(figure)}`;
+      // A figure's path is bare; the vault scheme is the writer's.
       return `![${alt}](vault:${figure.path})`;
     });
   const rest =

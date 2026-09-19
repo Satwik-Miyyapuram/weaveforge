@@ -29,15 +29,26 @@ import { useFlowedTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkFigureUrls } from "./use-ink-figure-urls";
+import {
+  inkSheetImageFetchBlob,
+  useInkSheetImageUrls,
+  useStableResolver,
+} from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 
 export interface InkReaderProps {
   noteId: string;
   body: string;
   deps: InkHostDeps;
+  /**
+   * The paper this note belongs to, when the sheet is a paper's Notes tab.
+   * Its figures are `paperimg:` blobs behind the papers facade, and without
+   * the id there is nothing those paths could resolve to.
+   */
+  paperId?: string | null;
 }
 
-export function InkReader({ noteId, body, deps }: InkReaderProps) {
+export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(800);
   const [zoom, setZoom] = useState(1);
@@ -108,9 +119,15 @@ export function InkReader({ noteId, body, deps }: InkReaderProps) {
   );
 
   const figureUrls = useInkFigureUrls({
-    fetchBlob: deps.assets.fetchBlob,
+    fetchBlob: (path) => inkSheetImageFetchBlob(path, deps, paperId),
     figures: allFigures,
   });
+
+  // Inline images in the underlay text: `vault:` and, on a paper's Notes tab,
+  // `paperimg:`. The identity is stable so a landing fetch does not re-run the
+  // underlay's markdown pass and throw its mermaid diagrams away.
+  const sheetImages = useInkSheetImageUrls(parsed.text, paperId);
+  const resolveImageSrc = useStableResolver(sheetImages.resolveImageSrc);
 
   // Measure container width for responsive scaling.
   useEffect(() => {
@@ -227,6 +244,7 @@ export function InkReader({ noteId, body, deps }: InkReaderProps) {
                 figures={pageFigures}
                 figureUrls={figureUrls}
                 pureText={flowedText[index] ?? ""}
+                resolveImageSrc={resolveImageSrc}
                 strokes={strokesMap.get(index)}
                 palette={palette}
               />

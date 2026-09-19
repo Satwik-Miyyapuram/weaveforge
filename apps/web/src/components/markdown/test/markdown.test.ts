@@ -70,3 +70,38 @@ test("renderMarkdownPlain renders prose around a fence and escapes the code", ()
   assert.match(html, /<pre class="md-code" data-lang="ts"><code>const a = 1 &lt; 2;\n<\/code><\/pre>/);
   assert.match(html, /<ul><li>item<\/li><\/ul>/);
 });
+
+test("an image reference is rendered whatever store it names", () => {
+  // The sheet's text layer renders through this one plain pass, and a paper
+  // note's figure is `paperimg:` — not a URL the browser can fetch, so the
+  // prefix was simply not matched and the image came out as its own markdown
+  // source. All four prefixes a note may carry become an `<img>`; making the
+  // src fetchable is the caller's `resolveImageSrc`.
+  const html = renderMarkdownPlain(
+    [
+      "![a](vault:u/p/a.png)",
+      "![b](paperimg:u/p/b.png)",
+      "![c](reportimg:u/p/c.png)",
+      "![d](https://example.test/d.png)",
+    ].join("\n\n"),
+  );
+  assert.equal((html.match(/<img /g) ?? []).length, 4);
+  assert.match(html, /src="paperimg:u\/p\/b\.png"/);
+  assert.doesNotMatch(html, /!\[b\]/);
+});
+
+test("resolveImageSrc rewrites a src, and a null answer drops the reference", () => {
+  const asked: string[] = [];
+  const html = renderMarkdownPlain("![a](paperimg:u/p/a.png)\n\n![b](paperimg:u/p/gone.png)", {
+    resolveImageSrc: (src) => {
+      asked.push(src);
+      return src.endsWith("a.png") ? "blob:resolved" : null;
+    },
+  });
+
+  assert.deepEqual(asked, ["paperimg:u/p/a.png", "paperimg:u/p/gone.png"]);
+  assert.match(html, /src="blob:resolved"/);
+  // The one that could not be fetched is gone, not a broken image.
+  assert.doesNotMatch(html, /gone\.png/);
+  assert.equal((html.match(/<img /g) ?? []).length, 1);
+});
