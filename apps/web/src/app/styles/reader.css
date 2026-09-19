@@ -85,6 +85,38 @@
   /* Less page chrome above the document, and room for the bottom tab bar. */
   .pdf-reader-scroll { max-height: calc(100dvh - 210px); padding: 8px; gap: 10px; }
 }
+/* `⌘⇧F`, focus: the paper and nothing else, the workspace's way. The reader
+   lifts out of whatever hosts it — the reader screen, a workspace tab — and
+   fills the window, so the host's headers, nav and split panes all go without
+   each host needing its own rule. The toolbar rows, the outline and the
+   annotation list go too. The pen rail belongs to the document, not the
+   chrome, and stays. One control remains — the corner exit — because a
+   shortcut nobody can see is a trap. */
+.pdf-reader.is-focus {
+  position: fixed; inset: 0; z-index: 50;
+  gap: 0; padding: 0;
+  background: var(--surface-alt);
+}
+.pdf-reader.is-focus .pdf-reader-chrome {
+  border: 0; border-radius: 0; background: transparent;
+}
+.pdf-reader.is-focus .pdf-reader-chrome > :not(.pdf-pen-rail),
+.pdf-reader.is-focus .pdf-reader-side,
+.pdf-reader.is-focus .pdf-reader-tool-hint,
+.pdf-reader.is-focus .pdf-reader-banner {
+  display: none;
+}
+.pdf-reader.is-focus .pdf-pen-rail { border-top: 0; padding-inline-end: 52px; }
+.pdf-reader.is-focus .pdf-reader-body { flex: 1; grid-template-columns: minmax(0, 1fr); }
+.pdf-reader.is-focus .pdf-reader-scroll-wrap { flex: 1; }
+.pdf-reader.is-focus .pdf-reader-scroll {
+  flex: 1; max-height: none; border-radius: 0; padding: 24px 12px;
+}
+.pdf-reader-focus-btn { flex: none; padding-inline: 8px; }
+/* The corner exit sits above the reader's own chrome. `.focus-exit` itself
+   is styled with the workspace's (editor-workspace.css). */
+.pdf-reader.is-focus > .focus-exit { position: fixed; z-index: 51; }
+
 /* One page and, while the pen is out, the writing strip beside it.
    The row — not the page box — is the drawing surface, because the strip sits
    past the page's right edge and a pointer that lands there must still reach

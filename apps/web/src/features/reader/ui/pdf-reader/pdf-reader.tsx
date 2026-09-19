@@ -62,6 +62,7 @@ import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { Select } from "@/components/select";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ColourMenu } from "@/components/colour-menu";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
 import { layoutMarginNotes } from "../../application/margin-notes";
@@ -108,6 +109,18 @@ import {
   textItemsFromContent,
 } from "./pdf-document";
 
+/** The workspace's focus glyph: corners pointing in (on) or out (off). */
+function FocusGlyph({ on }: { on: boolean }) {
+  const d = on
+    ? "M9 3H4v5M15 3h5v5M9 21H4v-5M15 21h5v-5"
+    : "M4 8V3h5M20 8V3h-5M4 16v5h5M20 16v5h-5";
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+
 export function PdfReader({
   url,
   originalUrl,
@@ -148,6 +161,22 @@ export function PdfReader({
    * pick things *with*, so the list it picks from has to stay.
    */
   const penFocused = penOpen && pen.prefs.tool !== "select";
+  // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
+  // session, not persisted — a reader that reopens with every control hidden
+  // looks broken, not focused.
+  const [focus, setFocus] = useState(false);
+  const toggleFocus = useCallback(() => setFocus((current) => !current), []);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (focus) root.dataset.readerFocus = "";
+    else delete root.dataset.readerFocus;
+    // The desktop shell's own chrome — menu bar, title bar — goes with it.
+    desktop()?.setWindowFocus?.(focus);
+    return () => {
+      delete root.dataset.readerFocus;
+      desktop()?.setWindowFocus?.(false);
+    };
+  }, [focus]);
   const [pendingCreate, setPendingCreate] = useState<{
     pageNumber: number;
     quote: string;
@@ -505,6 +534,18 @@ export function PdfReader({
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
 
   function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    // Focus toggles on the workspace's chord, and Escape is always the way
+    // out: a mode with every control hidden must answer the key everyone tries.
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      toggleFocus();
+      return;
+    }
+    if (event.key === "Escape" && focus && !isEditableTarget(event.target)) {
+      event.preventDefault();
+      setFocus(false);
+      return;
+    }
     // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back
     // the last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back.
     if (penOpen && (event.ctrlKey || event.metaKey) && !isEditableTarget(event.target)) {
@@ -657,7 +698,7 @@ export function PdfReader({
 
   return (
     <div
-      className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}`}
+      className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}${focus ? " is-focus" : ""}`}
       ref={rootRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -672,6 +713,17 @@ export function PdfReader({
         } as CSSProperties
       }
     >
+      {focus && (
+        <button
+          type="button"
+          className="focus-exit"
+          title="Exit focus (⌘⇧F)"
+          aria-label="Exit focus"
+          onClick={toggleFocus}
+        >
+          <FocusGlyph on />
+        </button>
+      )}
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">
           {jump.status === "searching" && "Locating the cited passage…"}
@@ -743,6 +795,15 @@ export function PdfReader({
             </button>
           )}
         </div>
+        <button
+          type="button"
+          className="btn-secondary btn-sm pdf-reader-focus-btn"
+          title="Focus (⌘⇧F)"
+          aria-label="Focus"
+          onClick={toggleFocus}
+        >
+          <FocusGlyph on={false} />
+        </button>
         {canCreate && (
           <button
             type="button"
