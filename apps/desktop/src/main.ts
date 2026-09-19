@@ -368,8 +368,10 @@ function serveBundle(): void {
     const relayed = answerRelay(request, net.fetch);
     if (relayed) return relayed;
 
+    // A file, not merely a path: `/reader` names the `reader/` folder before
+    // it names `reader/index.html`, and a folder handed to net.fetch throws.
     const file = resolveAppFile(BUNDLE, request.url, (candidate) =>
-      fs.existsSync(candidate),
+      fs.statSync(candidate, { throwIfNoEntry: false })?.isFile() ?? false,
     );
     if (!file) return new Response(null, { status: 404 });
 

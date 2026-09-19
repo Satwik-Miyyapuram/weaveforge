@@ -154,6 +154,12 @@ export function resolvePaperPdfUrl(input: {
   arxivId?: string | null;
   /** @deprecated Ignored until storage-backed PDFs are wired; kept for call-site stability. */
   pdfPath?: string | null;
+  /**
+   * The open-access copy a metadata source reported (Semantic Scholar's
+   * `openAccessPdf`). A paper added from a reference list often has only a
+   * DOI and a landing page; this is the one direct PDF link it carries.
+   */
+  openAccessPdf?: string | null;
 }): string | null {
   void input.pdfPath;
   const fromArxivId = input.arxivId?.trim();
@@ -161,7 +167,12 @@ export function resolvePaperPdfUrl(input: {
     const id = fromArxivId.replace(/^arxiv:/i, "");
     return sanitizePdfUrl(`https://arxiv.org/pdf/${id}`);
   }
-  const raw = input.url?.trim();
+  return pdfUrlFromLink(input.openAccessPdf) ?? pdfUrlFromLink(input.url);
+}
+
+/** A stored link as a PDF URL pdf.js may open, or null for a landing page. */
+function pdfUrlFromLink(link: string | null | undefined): string | null {
+  const raw = link?.trim();
   if (!raw) return null;
   // arXiv abs → pdf
   const abs = /^https?:\/\/(?:www\.)?arxiv\.org\/abs\/([^?#\s]+)/i.exec(raw);

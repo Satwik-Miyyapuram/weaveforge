@@ -2,7 +2,7 @@ import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
-import { WorkspaceSearch } from "@/features/search/application/workspace-search";
+import { WorkspaceSearch, collapseToEntities } from "@/features/search/application/workspace-search";
 
 /**
  * `WorkspaceSearch` reaches IndexedDB for the PDF text store and the index
@@ -317,4 +317,47 @@ test("detaching the semantic arm restores keyword-only results", async () => {
     (await search.searchHybrid("attention", { limit: 10 })).map((h) => h.id),
     search.search("attention", { limit: 10 }).map((h) => h.id),
   );
+});
+
+test("collapseToEntities folds a paper's pages onto the paper and drops the seed", () => {
+  const hit = (id: string, kind: "paper" | "pdf", entityId: string, score: number) =>
+    ({ id, kind, entityId, score, title: entityId, href: "/", terms: [] }) as const;
+  const folded = collapseToEntities(
+    [
+      hit("pdf:seed#0", "pdf", "seed", 9),
+      hit("pdf:a#3", "pdf", "a", 5),
+      hit("pdf:a#1", "pdf", "a", 4),
+      hit("paper:b", "paper", "b", 3),
+      hit("paper:a", "paper", "a", 2),
+      hit("pdf:b#0", "pdf", "b", 6),
+    ],
+    { entityId: "seed" },
+  );
+  // One row per entity, linked to the entity's own document, ranked by the
+  // best score any of its documents earned.
+  assert.deepEqual(folded, [
+    { id: "paper:b", score: 6 },
+    { id: "paper:a", score: 5 },
+  ]);
+});
+
+test("collapseToEntities keeps the best page when the paper itself is not indexed", () => {
+  const hit = (id: string, entityId: string, score: number) =>
+    ({ id, kind: "pdf" as const, entityId, score, title: entityId, href: "/", terms: [] }) as const;
+  const folded = collapseToEntities([hit("pdf:a#2", "a", 1), hit("pdf:a#0", "a", 7)], { entityId: "x" });
+  assert.deepEqual(folded, [{ id: "pdf:a#2", score: 7 }]);
+});
+
+test("collapseToEntities sends a page to its paper's document even when the paper did not match", () => {
+  const hit = (id: string, entityId: string, score: number) =>
+    ({ id, kind: "pdf" as const, entityId, score, title: entityId, href: "/", terms: [] }) as const;
+  const folded = collapseToEntities(
+    [hit("pdf:a#4", "a", 3), hit("pdf:b#0", "b", 2)],
+    { entityId: "x" },
+    (page) => (page.entityId === "a" ? "paper:a" : null),
+  );
+  assert.deepEqual(folded, [
+    { id: "paper:a", score: 3 },
+    { id: "pdf:b#0", score: 2 },
+  ]);
 });
