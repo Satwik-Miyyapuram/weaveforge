@@ -229,6 +229,11 @@
   background: var(--reader-select-color, Highlight);
 }
 .pdf-reader-textlayer br::selection { background: transparent; }
+/* pdf.js `TextLayer` measures glyphs on a canvas it appends to <body>. Its
+   own stylesheet hides it; ours is scoped, so without this rule the inline
+   canvas left a 24px line box under the layout and the whole page gained a
+   second scrollbar once a PDF had been opened. */
+body > canvas.hiddenCanvasElement { display: none; }
 /* Where a page's links are measured against a throwaway layout, off screen.
    The host inside is a bare `.pdf-text-content` (pdf.js's own class), not a
    `.pdf-reader-textlayer`, so it needs the same layout rules: without them the
