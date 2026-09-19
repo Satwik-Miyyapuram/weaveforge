@@ -109,7 +109,9 @@ export function PopoverLayer({ anchorKey, anchor, onRequestClose, children }: Po
       'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])',
     );
     (first ?? panel)?.focus();
-    return () => restoreRef.current?.focus?.();
+    // `preventScroll`: closing from "Jump to entry" scrolls the reader away,
+    // and refocusing the cite link would drag it straight back.
+    return () => restoreRef.current?.focus?.({ preventScroll: true });
   }, []);
 
   useEffect(() => {
