@@ -25,6 +25,21 @@ interface WikilinkResolution {
 }
 export type WikilinkResolver = (target: string, heading?: string) => WikilinkResolution;
 
+/**
+ * The extra lookups a caller may hand the renderer beyond wikilinks.
+ *
+ * `resolveImageSrc` exists because an image reference in a note is not always a
+ * URL the browser can fetch: a paper note writes `paperimg:<path>` and the bytes
+ * behind it come from encrypted storage, so the caller — which knows how to
+ * fetch them — resolves the src before render. It returns `null` for an asset it
+ * cannot resolve, which drops the reference rather than leaving a broken image.
+ */
+export interface MarkdownRenderOptions {
+  resolveWikilink?: WikilinkResolver;
+  /** `paperimg:`/`vault:` src → a fetchable URL, or null to drop the image. */
+  resolveImageSrc?: (src: string) => string | null;
+}
+
 /** Render one `[[inner]]` (inner already stripped of the brackets) to an anchor. */
 function renderWikilink(inner: string, resolve: WikilinkResolver): string {
   const pipe = inner.indexOf("|");
@@ -50,7 +65,7 @@ function renderWikilink(inner: string, resolve: WikilinkResolver): string {
   return `<a class="${cls}" href="${escapeAttr(href)}" data-wikilink="1"${create}>${escapeHtml(label)}</a>`;
 }
 
-function formatText(s: string): string {
+function formatText(s: string, options?: MarkdownRenderOptions): string {
   // Escape the whole string once for text nodes, then rebuild media/links with
   // attribute escaping applied to the *raw* captures (escapeAttr includes &quot;
   // and re-runs & → &amp; — so do not pass already-escaped strings into it).
@@ -59,7 +74,13 @@ function formatText(s: string): string {
     .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
     .replace(/\b_([^_]+)_\b/g, "<em>$1</em>")
     .replace(
-      /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
+      // Every prefix an image reference may carry. `paperimg:` is a paper
+      // note's figure and `reportimg:` a report section's; both were missing
+      // here, so on the ink sheet — the one surface that renders through this
+      // plain pass — those images came out as their own markdown source while
+      // the same note showed them in Read mode. Which of them the caller can
+      // actually fetch is `resolveImageSrc`'s answer, not this regex's.
+      /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|paperimg:[^\s)]+|reportimg:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
       (_m, rawAlt: string, src: string) => {
         // Captures here are already HTML-escaped; only quote-escape for attrs.
         // A `|50%` suffix on the alt is a display width, `c=` a crop and a
@@ -70,7 +91,15 @@ function formatText(s: string): string {
         // reference they came from.
         const { alt, width, crop, align } = parseMdImageAlt(rawAlt);
         const safeAlt = alt.replace(/"/g, "&quot;");
-        const safeSrc = src.replace(/"/g, "&quot;");
+        // The resolver is handed the src the regex captured. It answers with a
+        // fetchable URL, or null for an asset this note cannot reach — in which
+        // case the reference is dropped rather than left as a broken image.
+        // `??` would be wrong here: it maps that deliberate null back onto the
+        // raw src, which is exactly the broken image the resolver refused.
+        const resolver = options?.resolveImageSrc;
+        const resolvedSrc = resolver ? resolver(src) : src;
+        if (resolvedSrc == null) return "";
+        const safeSrc = resolvedSrc.replace(/"/g, "&quot;");
         const styles: string[] = [];
         if (width) styles.push(`width:${width}`);
         // A crop as CSS: the image keeps its box and the clipped edges fall
@@ -144,11 +173,12 @@ function closingDollar(s: string, from: number): number {
 }
 
 /** Render inline Markdown while treating code, URLs, and escaped dollars as text. */
-function inline(s: string, resolve?: WikilinkResolver): string {
+function inline(s: string, options?: MarkdownRenderOptions): string {
+  const resolve = options?.resolveWikilink;
   const out: string[] = [];
   let text = "";
   const flush = () => {
-    if (text) out.push(formatText(text));
+    if (text) out.push(formatText(text, options));
     text = "";
   };
 
@@ -233,10 +263,10 @@ function alignClass(cell: string): string {
   return "";
 }
 
-function renderTable(rows: readonly string[], resolve?: WikilinkResolver): string {
+function renderTable(rows: readonly string[], options?: MarkdownRenderOptions): string {
   const header = splitRow(rows[0]!);
   const aligns = splitRow(rows[1]!).map(alignClass);
-  const head = header.map((cell, i) => `<th${aligns[i] ?? ""}>${inline(cell, resolve)}</th>`).join("");
+  const head = header.map((cell, i) => `<th${aligns[i] ?? ""}>${inline(cell, options)}</th>`).join("");
   const body = rows
     .slice(2)
     .map((row) => {
@@ -244,7 +274,7 @@ function renderTable(rows: readonly string[], resolve?: WikilinkResolver): strin
       // spreadsheet should not take the rows around it down with it.
       const cells = splitRow(row);
       const tds = header
-        .map((_, i) => `<td${aligns[i] ?? ""}>${inline(cells[i] ?? "", resolve)}</td>`)
+        .map((_, i) => `<td${aligns[i] ?? ""}>${inline(cells[i] ?? "", options)}</td>`)
         .join("");
       return `<tr>${tds}</tr>`;
     })
@@ -253,7 +283,7 @@ function renderTable(rows: readonly string[], resolve?: WikilinkResolver): strin
 }
 
 /** Render markdown prose (no fenced code blocks) to HTML. */
-export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): string {
+export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions): string {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let listTag: "ul" | "ol" | null = null;
@@ -305,13 +335,13 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
         const title = callout[2]!.trim() || `${type[0]!.toUpperCase()}${type.slice(1)}`;
         const bodyLines = quoteLines.slice(1);
         const body = bodyLines.some((l) => l.trim())
-          ? `<div class="callout-body">${renderProseMarkdown(bodyLines.join("\n"), resolve)}</div>`
+          ? `<div class="callout-body">${renderProseMarkdown(bodyLines.join("\n"), options)}</div>`
           : "";
         out.push(
           `<div class="callout callout--${escapeAttr(type)}"><div class="callout-title">${escapeHtml(title)}</div>${body}</div>`,
         );
       } else {
-        out.push(`<blockquote>${renderProseMarkdown(quoteLines.join("\n"), resolve)}</blockquote>`);
+        out.push(`<blockquote>${renderProseMarkdown(quoteLines.join("\n"), options)}</blockquote>`);
       }
       continue;
     }
@@ -321,7 +351,7 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
       closeList();
       let end = index + 2;
       while (end < lines.length && lines[end]!.trim().startsWith("|")) end += 1;
-      out.push(renderTable(lines.slice(index, end), resolve));
+      out.push(renderTable(lines.slice(index, end), options));
       index = end - 1;
       continue;
     }
@@ -332,13 +362,13 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
     if (h) {
       closeList();
       const level = h[1]!.length;
-      out.push(`<h${level + 2} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, resolve)}</h${level + 2}>`);
+      out.push(`<h${level + 2} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, options)}</h${level + 2}>`);
     } else if (li) {
       openList("ul");
-      out.push(`<li>${inline(li[1]!, resolve)}</li>`);
+      out.push(`<li>${inline(li[1]!, options)}</li>`);
     } else if (oli) {
       openList("ol");
-      out.push(`<li>${inline(oli[1]!, resolve)}</li>`);
+      out.push(`<li>${inline(oli[1]!, options)}</li>`);
     } else if (line.trim() === "") {
       closeList();
     } else {
@@ -348,9 +378,9 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
       if (blockMatch) {
         const text = blockMatch[1]!;
         const blockId = blockMatch[2]!;
-        out.push(`<p id="^${escapeAttr(blockId)}">${inline(text, resolve)}</p>`);
+        out.push(`<p id="^${escapeAttr(blockId)}">${inline(text, options)}</p>`);
       } else {
-        out.push(`<p>${inline(line, resolve)}</p>`);
+        out.push(`<p>${inline(line, options)}</p>`);
       }
     }
   }
@@ -369,27 +399,39 @@ export function Markdown({ children, className }: { children: string; className?
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
 /**
+ * A fresh matcher per render. A `g` regex keeps its position on the regex
+ * object, and the Shiki pass awaits between matches — so two renders in
+ * flight at once (a note opened from a link renders its preview, then its
+ * full body a moment later) each reset and advanced the other's cursor. The
+ * first came back with its prose pushed twice: the note, rendered twice over,
+ * one copy under the other.
+ */
+function fenceMatcher(): RegExp {
+  return new RegExp(FENCE_RE.source, FENCE_RE.flags);
+}
+
+/**
  * Synchronous full render: prose through `renderProseMarkdown`, fenced code as
  * a plain escaped `<pre>` (no Shiki). For surfaces that must render in one
  * pass with no async highlight round trip, such as the ink sheet's text layer.
  */
-export function renderMarkdownPlain(md: string, resolve?: WikilinkResolver): string {
+export function renderMarkdownPlain(md: string, options?: MarkdownRenderOptions): string {
   const parts: string[] = [];
   let lastIndex = 0;
-  FENCE_RE.lastIndex = 0;
+  const fence = fenceMatcher();
   let match: RegExpExecArray | null;
-  while ((match = FENCE_RE.exec(md)) !== null) {
+  while ((match = fence.exec(md)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), resolve));
+      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
     }
     const info = (match[1] ?? "").trim();
     const lang = info.split(/\s+/)[0] ?? "";
     const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
     parts.push(`<pre class="md-code"${langAttr}><code>${escapeHtml(match[2] ?? "")}</code></pre>`);
-    lastIndex = FENCE_RE.lastIndex;
+    lastIndex = fence.lastIndex;
   }
   if (lastIndex < md.length) {
-    parts.push(renderProseMarkdown(md.slice(lastIndex), resolve));
+    parts.push(renderProseMarkdown(md.slice(lastIndex), options));
   }
   return parts.join("");
 }
@@ -399,21 +441,21 @@ export async function renderMarkdownWithShiki(
   md: string,
   mode: "light" | "dark",
   highlight: (code: string, info: string, mode: "light" | "dark") => Promise<string>,
-  resolve?: WikilinkResolver,
+  options?: MarkdownRenderOptions,
 ): Promise<string> {
   const parts: string[] = [];
   let lastIndex = 0;
-  FENCE_RE.lastIndex = 0;
+  const fence = fenceMatcher();
   let match: RegExpExecArray | null;
-  while ((match = FENCE_RE.exec(md)) !== null) {
+  while ((match = fence.exec(md)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), resolve));
+      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
     }
     parts.push(await highlight(match[2] ?? "", match[1] ?? "", mode));
-    lastIndex = FENCE_RE.lastIndex;
+    lastIndex = fence.lastIndex;
   }
   if (lastIndex < md.length) {
-    parts.push(renderProseMarkdown(md.slice(lastIndex), resolve));
+    parts.push(renderProseMarkdown(md.slice(lastIndex), options));
   }
   return parts.join("");
 }

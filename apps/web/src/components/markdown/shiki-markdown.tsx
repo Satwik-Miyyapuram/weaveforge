@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { highlightCodeBlock, type ColorMode } from "@/lib/shiki-render";
-import { renderMarkdownWithShiki, renderProseMarkdown, type WikilinkResolver } from "@/components/markdown/markdown";
+import { renderMarkdownWithShiki, renderProseMarkdown, type MarkdownRenderOptions, type WikilinkResolver } from "@/components/markdown/markdown";
 
 function readColorMode(): ColorMode {
   if (typeof document === "undefined") return "light";
@@ -32,15 +32,22 @@ export function ShikiMarkdown({
   children,
   className,
   resolveWikilink,
+  resolveImageSrc,
 }: {
   children: string;
   className?: string;
   resolveWikilink?: WikilinkResolver;
+  /** `paperimg:`/`vault:` src → a fetchable URL, or null to drop the image. */
+  resolveImageSrc?: MarkdownRenderOptions["resolveImageSrc"];
 }) {
   const mode = useColorMode();
+  const options = useMemo<MarkdownRenderOptions>(
+    () => ({ resolveWikilink, resolveImageSrc }),
+    [resolveWikilink, resolveImageSrc],
+  );
   const fallbackHtml = useMemo(
-    () => renderProseMarkdown(children, resolveWikilink),
-    [children, resolveWikilink],
+    () => renderProseMarkdown(children, options),
+    [children, options],
   );
   const [html, setHtml] = useState<string | null>(null);
   // What the current `html` was rendered from. A resolver handed down as a
@@ -53,7 +60,7 @@ export function ShikiMarkdown({
     let cancelled = false;
     const current = rendered.current;
     if (!current || current.children !== children || current.mode !== mode) setHtml(null);
-    void renderMarkdownWithShiki(children, mode, highlightCodeBlock, resolveWikilink).then((next) => {
+    void renderMarkdownWithShiki(children, mode, highlightCodeBlock, options).then((next) => {
       if (cancelled) return;
       rendered.current = { children, mode };
       setHtml(next);
@@ -61,7 +68,7 @@ export function ShikiMarkdown({
     return () => {
       cancelled = true;
     };
-  }, [children, mode, resolveWikilink]);
+  }, [children, mode, options]);
 
   const cls = className ? `markdown shiki-markdown ${className}` : "markdown shiki-markdown";
   // One object per html string. React resets innerHTML whenever it is handed

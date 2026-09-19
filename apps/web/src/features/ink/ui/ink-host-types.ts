@@ -38,4 +38,12 @@ export interface InkHostProps {
   initialPage?: number;
   /** Where the body goes when a page, the order or the text layer changes. */
   onSave?: (body: string) => Promise<void>;
+  /**
+   * The paper this note belongs to, when the sheet is a paper's Notes tab.
+   *
+   * Its figures and inline images are `paperimg:` blobs behind the papers
+   * facade rather than the vault's attachments, so without the id the sheet can
+   * fetch none of them.
+   */
+  paperId?: string | null;
 }

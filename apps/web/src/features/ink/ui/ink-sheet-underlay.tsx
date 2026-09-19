@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
 import { upgradeMermaidFences } from "@/lib/mermaid-render";
 
@@ -66,17 +66,31 @@ export function diagramZoom(fontSize: number): Record<"--ink-diagram-zoom", stri
 export function InkSheetTextUnderlay({
   text,
   scale,
+  resolveImageSrc,
 }: {
   text: string;
   scale: number;
+  /**
+   * `vault:`/`paperimg:` src → a fetchable URL, or null to drop the image.
+   *
+   * The sheet is the only surface that renders through the plain synchronous
+   * pass, and that pass cannot fetch anything itself. Without a resolver the
+   * image prefixes it does not know (`paperimg:` on a paper's Notes) came out
+   * as their own markdown source — the note showed a line of text where Read
+   * mode showed a figure. The identity must be stable: see `useStableResolver`.
+   */
+  resolveImageSrc?: (src: string) => string | null;
 }) {
-  const html = useMemo(() => (text.trim() ? renderMarkdownPlain(text) : ""), [text]);
-  // One object per html string: React resets innerHTML whenever it sees a
-  // new `dangerouslySetInnerHTML` object, and the host re-renders on every
-  // pointer frame, which would wipe the mermaid upgrade below straight away.
+  const html = useMemo(
+    () =>
+      text.trim()
+        ? renderMarkdownPlain(text, resolveImageSrc ? { resolveImageSrc } : undefined)
+        : "",
+    [text, resolveImageSrc],
+  );
+  const ref = useRef<HTMLDivElement | null>(null);
   const markup = useMemo(() => ({ __html: html }), [html]);
-  const ref = useRef<HTMLDivElement>(null);
-  // Mermaid fences upgrade to diagrams after paint; the sync render above
+  // Mermaid fences upgrade to diagrams after paint; the sync pass above
   // already shows their source, so a note without one pays nothing.
   useEffect(() => {
     const root = ref.current;
@@ -87,6 +101,12 @@ export function InkSheetTextUnderlay({
   if (!html) return null;
   return (
     <div
+      // Keyed by the html string, so a later pass is a *new* element rather
+      // than a reconciliation of the old one. An image's src changes when its
+      // blob lands, and React applies `innerHTML` by node identity: without
+      // the key the second pass left the raw `paperimg:` reference in place and
+      // the figure stayed missing while Read mode showed it.
+      key={html}
       ref={ref}
       className="ink-sheet-text-underlay markdown"
       style={{
@@ -112,10 +132,17 @@ export function InkSheetTextUnderlay({
   );
 }
 
-/** Extract human text from a page, excluding background and figure lines. */
+/**
+ * Extract human text from a page, excluding background and figure lines.
+ *
+ * Both schemes are matched. A paper's Notes sheet writes its figures as
+ * `paperimg:`, and a filter that only knew `vault:` let those lines through —
+ * so the figure appeared twice: once placed, and once as its own markdown
+ * source under the text.
+ */
 export function pureInkPageText(text: string): string {
-  const BACKGROUND = /^!\[page background\]\(vault:([^)\s]+)\)$/;
-  const FIGURE = /^!\[figure ([^\]]*)\]\(vault:([^)\s]+)\)$/;
+  const BACKGROUND = /^!\[page background\]\((?:vault:|paperimg:)[^)\s]+\)$/;
+  const FIGURE = /^!\[figure ([^\]]*)\]\((?:vault:|paperimg:)[^)\s]+\)$/;
   return text
     .split(/\r?\n/)
     .filter((line) => !BACKGROUND.test(line.trim()) && !FIGURE.test(line.trim()))

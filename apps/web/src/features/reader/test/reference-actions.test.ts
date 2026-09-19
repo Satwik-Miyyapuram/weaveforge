@@ -18,12 +18,11 @@ const entry = {
 interface Calls {
   refs: { ref: PaperRef; status?: PaperStatus }[];
   relations: NewPaperRelationInput[];
-  listItems: { listId: string; paperId: string }[];
   manual: NewPaperInput[];
 }
 
 function makeActions(paper: Partial<Paper> = {}) {
-  const calls: Calls = { refs: [], relations: [], listItems: [], manual: [] };
+  const calls: Calls = { refs: [], relations: [], manual: [] };
   const actions = createReferenceActions({
     importPaper: {
       async fromRef(ref, status) {
@@ -35,11 +34,6 @@ function makeActions(paper: Partial<Paper> = {}) {
       async addManual(input) {
         calls.manual.push(input);
         return { id: "new-paper", title: input.title } as Paper;
-      },
-    },
-    lists: {
-      async addPaperToList(listId, paperId) {
-        calls.listItems.push({ listId, paperId });
       },
     },
     relations: {
@@ -90,10 +84,12 @@ test("read later imports the reference as to_read, not as unread junk", async ()
   assert.equal(calls.refs[0]?.ref.kind, "bibliographic");
 });
 
-test("add to list imports the paper first, then links it to the list", async () => {
+test("add to library imports the reference with the library's default status", async () => {
   const { actions, calls } = makeActions();
-  await actions.addToList(entry, "list-9");
-  assert.deepEqual(calls.listItems, [{ listId: "list-9", paperId: "new-paper" }]);
+  const paper = await actions.addToLibrary(entry);
+  assert.equal(paper.id, "new-paper");
+  assert.equal(calls.refs[0]?.status, undefined);
+  assert.equal(calls.refs[0]?.ref.kind, "bibliographic");
 });
 
 test("add manually never invents fields the entry did not carry", () => {

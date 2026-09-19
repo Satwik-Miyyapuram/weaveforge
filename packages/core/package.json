@@ -28,6 +28,10 @@
     "./org-crypto": {
       "types": "./dist/features/org/domain/invite-code-crypto.d.ts",
       "default": "./dist/features/org/domain/invite-code-crypto.js"
+    },
+    "./reader-analysis": {
+      "types": "./dist/features/reader/analysis/index.d.ts",
+      "default": "./dist/features/reader/analysis/index.js"
     }
   },
   "scripts": {

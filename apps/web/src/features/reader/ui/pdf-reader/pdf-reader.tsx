@@ -62,6 +62,7 @@ import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { Select } from "@/components/select";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ColourMenu } from "@/components/colour-menu";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
 import { layoutMarginNotes } from "../../application/margin-notes";
@@ -75,7 +76,7 @@ import { usePenPrefs } from "./use-pen-prefs";
 import { PenRail } from "./pen-rail";
 import { useReaderReferences } from "./use-reader-references";
 import { ReferencePopoverHost } from "./reference-popover-host";
-import { ReferenceOverlay } from "../reference-overlay";
+import { CitationTextLayer } from "./citation-text-layer";
 import { FindMarks, FindOverlay } from "../find-overlay";
 import { findMarks } from "../../application/find-marks";
 import { ReferencesPanel } from "../references-panel";
@@ -107,6 +108,18 @@ import {
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
+
+/** The workspace's focus glyph: corners pointing in (on) or out (off). */
+function FocusGlyph({ on }: { on: boolean }) {
+  const d = on
+    ? "M9 3H4v5M15 3h5v5M9 21H4v-5M15 21h5v-5"
+    : "M4 8V3h5M20 8V3h-5M4 16v5h5M20 16v5h-5";
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
 
 export function PdfReader({
   url,
@@ -141,6 +154,29 @@ export function PdfReader({
   const pen = usePenPrefs();
   const createTool: ReaderCreateTool = penOpen ? pen.prefs.tool : pickedTool;
   const createColor = penOpen ? pen.prefs.color : pickedColor;
+  /**
+   * Writing is a full-width activity, so a drawing tool puts the reader in
+   * focus: the outline, the references and the annotation list all stand down
+   * and the paper gets the room. Select is the exception — it is the tool you
+   * pick things *with*, so the list it picks from has to stay.
+   */
+  const penFocused = penOpen && pen.prefs.tool !== "select";
+  // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
+  // session, not persisted — a reader that reopens with every control hidden
+  // looks broken, not focused.
+  const [focus, setFocus] = useState(false);
+  const toggleFocus = useCallback(() => setFocus((current) => !current), []);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (focus) root.dataset.readerFocus = "";
+    else delete root.dataset.readerFocus;
+    // The desktop shell's own chrome — menu bar, title bar — goes with it.
+    desktop()?.setWindowFocus?.(focus);
+    return () => {
+      delete root.dataset.readerFocus;
+      desktop()?.setWindowFocus?.(false);
+    };
+  }, [focus]);
   const [pendingCreate, setPendingCreate] = useState<{
     pageNumber: number;
     quote: string;
@@ -269,6 +305,14 @@ export function PdfReader({
     removeLocal,
     saveAnchor,
   });
+
+  const unpaintedPageSize = (size: ReaderPageSize, at: number, turn: number) => {
+    const sideways = turn % 180 !== 0;
+    return {
+      minWidth: `${Math.floor((sideways ? size.height : size.width) * at)}px`,
+      minHeight: `${Math.floor((sideways ? size.width : size.height) * at)}px`,
+    };
+  };
 
   const onFigureTarget = useCallback((target: FigureTarget) => {
     setCaptionTarget(target);
@@ -498,6 +542,18 @@ export function PdfReader({
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
 
   function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    // Focus toggles on the workspace's chord, and Escape is always the way
+    // out: a mode with every control hidden must answer the key everyone tries.
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      toggleFocus();
+      return;
+    }
+    if (event.key === "Escape" && focus && !isEditableTarget(event.target)) {
+      event.preventDefault();
+      setFocus(false);
+      return;
+    }
     // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back
     // the last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back.
     if (penOpen && (event.ctrlKey || event.metaKey) && !isEditableTarget(event.target)) {
@@ -650,7 +706,7 @@ export function PdfReader({
 
   return (
     <div
-      className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}`}
+      className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}${focus ? " is-focus" : ""}`}
       ref={rootRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -665,6 +721,17 @@ export function PdfReader({
         } as CSSProperties
       }
     >
+      {focus && (
+        <button
+          type="button"
+          className="focus-exit"
+          title="Exit focus (⌘⇧F)"
+          aria-label="Exit focus"
+          onClick={toggleFocus}
+        >
+          <FocusGlyph on />
+        </button>
+      )}
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">
           {jump.status === "searching" && "Locating the cited passage…"}
@@ -693,14 +760,20 @@ export function PdfReader({
           onMatches={(matches, active) => setFind({ matches, active })}
         />
         <div className="pdf-reader-group">
-          <button
-            type="button"
-            className={`btn-secondary btn-sm${showOutline ? " is-active" : ""}`}
-            aria-pressed={showOutline}
-            onClick={() => setShowOutline((v) => !v)}
-          >
-            {outline.some((item) => item.y !== undefined) ? "Sections (detected)" : "Outline"}
-          </button>
+          {/* Outline, citations and references all live in the side column the
+              pen's focus hides, so their toggles stand down with it rather than
+              offering a switch that would appear to do nothing. Two-page and
+              the search bar stay: they are the page's own controls. */}
+          {!penFocused && (
+            <button
+              type="button"
+              className={`btn-secondary btn-sm${showOutline ? " is-active" : ""}`}
+              aria-pressed={showOutline}
+              onClick={() => setShowOutline((v) => !v)}
+            >
+              {outline.some((item) => item.y !== undefined) ? "Sections (detected)" : "Outline"}
+            </button>
+          )}
           <button
             type="button"
             className={`btn-secondary btn-sm${spread ? " is-active" : ""}`}
@@ -709,23 +782,36 @@ export function PdfReader({
           >
             Two-page
           </button>
-          <button
-            type="button"
-            className={`btn-secondary btn-sm${refs.enabled ? " is-active" : ""}`}
-            aria-pressed={refs.enabled}
-            onClick={refs.toggle}
-          >
-            Link citations
-          </button>
-          <button
-            type="button"
-            className={`btn-secondary btn-sm${showReferences ? " is-active" : ""}`}
-            aria-pressed={showReferences}
-            onClick={() => setShowReferences((v) => !v)}
-          >
-            References{refs.index.references.length ? ` (${refs.index.references.length})` : ""}
-          </button>
+          {!penFocused && (
+            <button
+              type="button"
+              className={`btn-secondary btn-sm${refs.enabled ? " is-active" : ""}`}
+              aria-pressed={refs.enabled}
+              onClick={refs.toggle}
+            >
+              Link citations
+            </button>
+          )}
+          {!penFocused && (
+            <button
+              type="button"
+              className={`btn-secondary btn-sm${showReferences ? " is-active" : ""}`}
+              aria-pressed={showReferences}
+              onClick={() => setShowReferences((v) => !v)}
+            >
+              References{refs.index.references.length ? ` (${refs.index.references.length})` : ""}
+            </button>
+          )}
         </div>
+        <button
+          type="button"
+          className="btn-secondary btn-sm pdf-reader-focus-btn"
+          title="Focus (⌘⇧F)"
+          aria-label="Focus"
+          onClick={toggleFocus}
+        >
+          <FocusGlyph on={false} />
+        </button>
         {canCreate && (
           <button
             type="button"
@@ -831,10 +917,12 @@ export function PdfReader({
       )}
       <div
         className={`pdf-reader-body${
-          showOutline || annotations.length > 0 || canCreate ? " pdf-reader-body--outline" : ""
+          !penFocused && (showOutline || annotations.length > 0 || canCreate)
+            ? " pdf-reader-body--outline"
+            : ""
         }`}
       >
-        {(showOutline || showReferences || annotations.length > 0 || canCreate) && (
+        {!penFocused && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
           <div className="pdf-reader-side">
             {showOutline && (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
@@ -847,10 +935,21 @@ export function PdfReader({
                 loading={pageItems.size < numPages}
                 parseFailed={pageItems.size >= numPages && refs.index.references.length === 0}
                 onJumpToMention={(ref) => {
+                  // Land on the first mention itself, not just its page: the
+                  // page-only jump did nothing when the mention was on the
+                  // page already shown, and left the reader hunting otherwise.
                   for (const [n, hits] of refs.index.mentionsByPage) {
-                    if (hits.some((hit) => hit.refIndexes.includes(ref.index))) { viewport.setPage(n); return; }
+                    const hit = hits.find((candidate) => candidate.refIndexes.includes(ref.index));
+                    if (!hit) continue;
+                    const [x1, y1, , y2] = hit.rects?.[0] ?? [];
+                    if (x1 != null && y1 != null && y2 != null) {
+                      onFigureTarget({ page: n, x: x1, y: y2, height: y2 - y1 });
+                    } else {
+                      onFigureTarget({ page: n, y: 0 });
+                    }
+                    return;
                   }
-                  viewport.setPage(ref.page);
+                  onFigureTarget({ page: ref.page, x: ref.x, y: ref.y });
                 }}
               />
             )}
@@ -898,40 +997,66 @@ export function PdfReader({
         >
           {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
           {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
+            // One row per page: the page itself, plus the blank strip the pen
+            // writes beside it. The row — not the page box — is the drawing
+            // surface. The strip is a sibling of the page, and the page box
+            // ends where it begins, so a pointerdown in the strip never reached
+            // the page's own `onPointerDown`: a stroke that began there was
+            // never captured, saved or painted, while the same stroke starting
+            // on the page worked. `screenToPdf` still measures the page box, so
+            // the coordinates land where they always did.
             <div
-              className={`pdf-reader-page${
-                createTool !== "select" && canCreate ? " pdf-reader-page--draw" : ""
-              }${createTool === "erase" && canCreate ? " pdf-reader-page--erase" : ""}${
-                penSeen ? " pdf-reader-page--pen" : ""
-              }${flashPage === n ? " pdf-reader-flash" : ""}`}
+              className="pdf-reader-page-row"
               data-page={n}
               key={n}
-              // The pen gets a page-wide blank strip beside each page to write
-              // on; the strip is the host's margin so the row stays centred.
-              style={penOpen && pageSize ? { marginRight: `${marginWidth(n)}px` } : undefined}
               onPointerDown={(e) => onPagePointerDown(n, e)}
               onPointerMove={onPagePointerMove}
               onPointerUp={(e) => onPagePointerUp(n, e)}
               onPointerCancel={(e) => onPagePointerUp(n, e)}
             >
-              <canvas />
+              <div
+                className={`pdf-reader-page${
+                  createTool !== "select" && canCreate ? " pdf-reader-page--draw" : ""
+                }${createTool === "erase" && canCreate ? " pdf-reader-page--erase" : ""}${
+                  penSeen ? " pdf-reader-page--pen" : ""
+                }${flashPage === n ? " pdf-reader-flash" : ""}`}
+                // A page not yet painted takes the document's page size, so a
+                // jump to page 11 lands on page 11: with the CSS placeholder,
+                // every unpainted page between here and there was a short
+                // strip that grew as it scrolled into view, and the scroll
+                // came up pages short of its target.
+                style={pageSize && !pageGeometries.current.has(n) ? unpaintedPageSize(pageSize, scale, rotation) : undefined}
+              >
+                <canvas />
+                {pageSize && (
+                  <AnnotationOverlay
+                    annotations={pageAnnotations(n)}
+                    contentHash={contentHash}
+                    pageNumber={n}
+                    scale={scale}
+                    rotation={rotation}
+                    pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
+                    pageWidth={pageGeometries.current.get(n)?.pageWidth ?? pageSize.width}
+                    selectedId={selectedAnnId}
+                    onSelect={selectAnnotation}
+                  />
+                )}
+                {/* Inside the page, because it decorates the page's own text
+                    layer rather than painting a sibling layer over it. */}
+                {pageSize && refs.enabled && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
+                  <CitationTextLayer
+                    mentions={refs.index.mentionsByPage.get(n)!}
+                    items={pageItems.get(n)!}
+                    onOpen={refs.openMention}
+                    onPrefetch={refs.prefetchMention}
+                    selectedKey={refs.open?.hit.key ?? null}
+                  />
+                )}
+              </div>
               {penOpen && pageSize && (
                 <PageMargin
                   notes={layoutMarginNotes(pageAnnotations(n), pageProjection(n))}
                   width={marginWidth(n)}
-                  selectedId={selectedAnnId}
-                  onSelect={selectAnnotation}
-                />
-              )}
-              {pageSize && (
-                <AnnotationOverlay
-                  annotations={pageAnnotations(n)}
-                  contentHash={contentHash}
-                  pageNumber={n}
-                  scale={scale}
-                  rotation={rotation}
-                  pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
-                  pageWidth={pageGeometries.current.get(n)?.pageWidth ?? pageSize.width}
                   selectedId={selectedAnnId}
                   onSelect={selectAnnotation}
                 />
@@ -943,15 +1068,6 @@ export function PdfReader({
                   pageIndex={n - 1}
                   items={pageItems.get(n)!}
                   projection={pageProjection(n)}
-                />
-              )}
-              {pageSize && refs.enabled && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
-                <ReferenceOverlay
-                  mentions={refs.index.mentionsByPage.get(n)!}
-                  items={pageItems.get(n)!}
-                  projection={pageProjection(n)}
-                  onOpen={refs.openMention}
-                  onPrefetch={refs.prefetchMention}
                 />
               )}
               {captionTarget?.page === n && typeof captionTarget.y === "number" && (

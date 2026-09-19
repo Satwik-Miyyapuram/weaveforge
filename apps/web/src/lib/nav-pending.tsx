@@ -81,7 +81,16 @@ export function NavPendingProvider({ children }: { children: React.ReactNode }) 
       if (!(anchor instanceof HTMLAnchorElement)) return;
       const dest = isInternalNavLink(anchor, pathnameRef.current);
       if (!dest) return;
-      beginNavigation(dest);
+      // Decided after the click has been dispatched, not before: a screen may
+      // claim the link for itself (the workspace opens `/notes?page=…` as a
+      // tab) and prevent the default, and this listener, on the document in
+      // the capture phase, runs before any of that. Showing the overlay
+      // regardless left a route-level "Loading…" over a workspace that never
+      // navigated, until the 12s timeout gave up.
+      setTimeout(() => {
+        if (event.defaultPrevented) return;
+        beginNavigation(dest);
+      }, 0);
     }
 
     document.addEventListener("click", onClick, true);

@@ -49,7 +49,6 @@ export function VaultScreen() {
   const [tagFilter, setTagFilter] = usePersistedState<string[]>("thesis.notes.tags", []);
   const [search, setSearch] = usePersistedState<string>("thesis.notes.search", "");
   const appliedPageFromUrl = useRef<string | null>(null);
-  const hydratedPageIds = useRef(new Set<string>());
   const { setPushed, consumePushed } = useDetailPushFlag();
   const goBackToList = useDetailBack("/notes", "page", consumePushed);
 
@@ -148,26 +147,25 @@ export function VaultScreen() {
       appliedPageFromUrl.current = null;
       return;
     }
-    if (hydratedPageIds.current.has(selectedId)) {
-      appliedPageFromUrl.current = selectedId;
-      return;
-    }
     const existing = flat.find((p) => p.id === selectedId);
     // A hydrated entry is one that carries a `body` at all — including an empty
     // one, which is a real note, not a summary. Testing the value instead would
     // re-fetch every empty note forever.
     if (existing && isHydratedPage(existing)) {
-      hydratedPageIds.current.add(selectedId);
       appliedPageFromUrl.current = selectedId;
       return;
     }
-
+    // No "already hydrated" set here: the screen revalidates after a cached
+    // paint, and that fresh list is summaries again. A set that remembered the
+    // page as done left the summary in place and the note sat on "Opening
+    // note…" for good — which is what a link into `/notes?page=` from another
+    // screen hit every time. The repository caches the row, so asking again is
+    // a lookup, not a round trip.
     let cancelled = false;
     void getContainer()
       .vault.getPage(selectedId)
       .then((p) => {
         if (cancelled || !p) return;
-        hydratedPageIds.current.add(selectedId);
         appliedPageFromUrl.current = selectedId;
         upsertFlatPage(p);
       });

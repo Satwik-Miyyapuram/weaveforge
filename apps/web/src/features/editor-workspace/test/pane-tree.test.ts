@@ -9,6 +9,7 @@ import {
   closeTab,
   emptyLayout,
   focusPane,
+  hydrateTabModes,
   leaves,
   moveTab,
   openTab,
@@ -201,6 +202,29 @@ test("a tab that predates modes reads as Edit, which is what it was", () => {
   assert.equal(tabMode({ kind: "ink_page", id: "i" }), "ink");
 });
 
+test("hydrateTabModes stamps the opening mode on tabs that were never switched", () => {
+  const layout = openTab(openTab(emptyLayout(), A), B);
+  const next = hydrateTabModes(layout, (tab) => (tab.id === "a" ? "read" : "edit"));
+
+  const tabs = leaves(next.root)[0]!.tabs;
+  assert.equal(tabs[0]!.mode, "read");
+  assert.equal(tabs[1]!.mode, "edit");
+});
+
+test("hydrateTabModes leaves a mode the user chose alone", () => {
+  // Switched to Edit by hand last session: that is a decision, and a reload
+  // must not quietly undo it back to the document's opening mode.
+  const chosen = setTabMode(openTab(emptyLayout(), A), A, "edit");
+  const next = hydrateTabModes(chosen, () => "read");
+
+  assert.equal(leaves(next.root)[0]!.tabs[0]!.mode, "edit");
+});
+
+test("hydrateTabModes returns the same layout when there is nothing to stamp", () => {
+  const layout = setTabMode(openTab(emptyLayout(), A), A, "read");
+  assert.equal(hydrateTabModes(layout, () => "edit"), layout);
+});
+
 test("setMode touches only the addressed tab", () => {
   const layout = openTab(openTab(emptyLayout(), A), B);
   const next = setTabMode(layout, A, "read");
@@ -236,8 +260,22 @@ test("toggling a position that is not there changes nothing", () => {
 });
 
 test("setting the mode a document is already in returns the same layout", () => {
+  // Read once, so the mode is on the tab rather than merely implied by the
+  // default — a second call for the same mode is then a genuine no-op.
+  const layout = setTabMode(openTab(emptyLayout(), A), A, "read");
+  assert.equal(setTabMode(layout, A, "read"), layout);
+});
+
+test("choosing Edit on a default tab records the choice", () => {
+  // `tabMode` reads a mode-less tab as Edit, but nobody has chosen that yet: it
+  // has to be written down, or an opening mode would override the choice on the
+  // next load and the Edit button would look dead.
   const layout = openTab(emptyLayout(), A);
-  assert.equal(setTabMode(layout, A, "edit"), layout);
+  const chosen = setTabMode(layout, A, "edit");
+  assert.notEqual(chosen, layout);
+  assert.equal(leaves(chosen.root)[0]!.tabs[0]!.mode, "edit");
+  // And it is idempotent from there.
+  assert.equal(setTabMode(chosen, A, "edit"), chosen);
 });
 
 test("setting a mode on a tab that is not open changes nothing", () => {

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
+import type { TextLayer } from "pdfjs-dist";
+import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 
 import type {
   DocumentPageText,
@@ -153,7 +155,11 @@ export function usePdfRendering({
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
+  /** Each page's pdf.js text layer, so a re-render can cancel the last one. */
+  const textLayers = useRef(new Map<number, TextLayer>());
   const renderGeneration = useRef(0);
+  /** The document the container was last measured for at once, not settled. */
+  const measuredFor = useRef<unknown>(null);
 
   // The viewport fits to the page size this hook measures, and the render
   // scale it produces is what the next render pass draws at. Reading it from
@@ -190,6 +196,8 @@ const cancelRenderTasks = useCallback(() => {
     }
   }
   renderTasks.current.clear();
+  for (const layer of textLayers.current.values()) layer.cancel();
+  textLayers.current.clear();
 }, []);
 
 useEffect(() => {
@@ -201,10 +209,32 @@ useEffect(() => {
       height: Math.max(1, host.clientHeight),
     });
   };
-  measure();
-  const observer = new ResizeObserver(measure);
+  // The shell animates its width when the pen rail opens or the nav folds;
+  // every frame of that is a resize, and every new width would otherwise
+  // throw away the canvases and repaint every page. Wait for the size to
+  // settle and re-render once at the final width. The first measure after a
+  // load is taken at once so the pages appear without delay; a share change
+  // comes with the same animation, so it waits like a resize does.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let last = { width: host.clientWidth, height: host.clientHeight };
+  if (measuredFor.current !== pdf) {
+    measuredFor.current = pdf;
+    measure();
+  } else {
+    timer = setTimeout(measure, 160);
+  }
+  const observer = new ResizeObserver(() => {
+    const next = { width: host.clientWidth, height: host.clientHeight };
+    if (next.width === last.width && next.height === last.height) return;
+    last = next;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(measure, 160);
+  });
   observer.observe(host);
-  return () => observer.disconnect();
+  return () => {
+    observer.disconnect();
+    if (timer) clearTimeout(timer);
+  };
 }, [pdf, pageShare]);
 
 useEffect(() => {
@@ -293,12 +323,25 @@ useEffect(() => {
           const outlinePages: OutlineTextItem[][] = [];
           const itemsByPage = new Map<number, TextItemGeometry[]>();
           const links = new Map<number, PdfLink[]>();
-          for (let n = 1; n <= doc.numPages; n++) {
-            if (cancelled) return;
+          // Named destinations recur: every `[13]` in a paper points at the
+          // same `cite.smith2013`, and each resolution is a round trip to the
+          // pdf.js worker. Resolve each name once.
+          const destinations = new Map<string, Promise<{ page: number; x?: number; y?: number } | null>>();
+          const resolveNamed = (dest: unknown) => {
+            if (typeof dest !== "string") return resolveDestination(doc, dest);
+            let pending = destinations.get(dest);
+            if (!pending) {
+              pending = resolveDestination(doc, dest);
+              destinations.set(dest, pending);
+            }
+            return pending;
+          };
+          const extractPage = async (n: number) => {
             const p = await doc.getPage(n);
             const content = await p.getTextContent();
+            if (cancelled) return;
             const items = textItemsFromContent(content);
-            texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
+            texts[n - 1] = { pageIndex: n - 1, text: buildPageText(items).text };
             itemsByPage.set(n, items);
             // The document's own links, two ways. A URL link is left to the
             // document (its rect defers ours). An internal `/Dest` link is
@@ -315,21 +358,49 @@ useEffect(() => {
                   found.push({ rect, url: a.url });
                   continue;
                 }
-                const dest = await resolveDestination(doc, a.dest);
-                if (dest) found.push({ rect, dest });
+                const dest = await resolveNamed(a.dest);
+                // The name too: `cite.kingma2014` says what the link is even
+                // when the point it resolves to lands nowhere in the list.
+                const destName = typeof a.dest === "string" ? a.dest : undefined;
+                if (dest || destName) found.push({ rect, ...(dest ? { dest } : {}), ...(destName ? { destName } : {}) });
               }
-              if (found.length) links.set(n, found);
+              if (found.length && !cancelled) {
+                // Which characters each box covers, measured in the rendered
+                // layout. A page that will not lay out keeps its unmeasured
+                // links; the analysis then estimates from the run widths.
+                let measured = found;
+                try {
+                  measured = await measurePdfLinks(
+                    lib,
+                    content,
+                    p.getViewport({ scale: 1, rotation: 0 }),
+                    items,
+                    found,
+                  );
+                } catch {
+                  /* estimate instead */
+                }
+                links.set(n, measured);
+              }
             } catch {
               /* a page whose annotations will not load simply has none */
             }
-            outlinePages.push(items.map((item) => ({
+            outlinePages[n - 1] = items.map((item) => ({
               str: item.str,
               fontSize: Math.hypot(item.transform[2] ?? 0, item.transform[3] ?? 0),
               fontName: item.fontName ? content.styles[item.fontName]?.fontFamily ?? item.fontName : undefined,
               x: item.transform[4] ?? 0,
               y: item.transform[5] ?? 0,
               page: n,
-            })));
+            }));
+          };
+          // Pages are independent, and the pdf.js worker serves them
+          // concurrently, so they are extracted together rather than one at
+          // a time; the results are keyed by page so order never matters.
+          await Promise.all(Array.from({ length: doc.numPages }, (_, i) => extractPage(i + 1)));
+          for (let n = 1; n <= doc.numPages; n++) {
+            texts[n - 1] ??= { pageIndex: n - 1, text: "" };
+            outlinePages[n - 1] ??= [];
           }
           if (cancelled) return;
           detected = outlineFromText(outlinePages);
@@ -432,8 +503,12 @@ const renderPage = useCallback(
         canvas.height = Math.floor(viewport.height * ratio);
         canvas.style.width = `${Math.floor(viewport.width)}px`;
         canvas.style.height = `${Math.floor(viewport.height)}px`;
-        host.style.width = `${Math.floor(viewport.width)}px`;
-        host.style.height = `${Math.floor(viewport.height)}px`;
+        // The *page box* takes the rendered size, not the found host: the host
+        // is the page's row (§pdf-reader), which also holds the pen's writing
+        // strip and must be free to be wider than the page it contains.
+        const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
+        pageBox.style.width = `${Math.floor(viewport.width)}px`;
+        pageBox.style.height = `${Math.floor(viewport.height)}px`;
         ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
         const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
         renderTasks.current.set(pageNumber, renderTask);
@@ -455,13 +530,13 @@ const renderPage = useCallback(
           textLayer.className = "pdf-reader-textlayer";
           host.appendChild(textLayer);
         }
+        textLayers.current.get(pageNumber)?.cancel();
+        textLayers.current.delete(pageNumber);
         textLayer.replaceChildren();
-        textLayer.style.width = `${Math.floor(viewport.width)}px`;
-        textLayer.style.height = `${Math.floor(viewport.height)}px`;
         const content = await pdfPage.getTextContent();
+        if (generation !== renderGeneration.current) return;
         const lib = await loadPdfLib();
         const geometryItems: import("@weaveforge/core").PageTextItem[] = [];
-        let itemIndex = 0;
         for (const raw of content.items) {
           const it = raw as {
             str?: string;
@@ -478,21 +553,24 @@ const renderPage = useCallback(
             height: typeof it.height === "number" ? it.height : 0,
             hasEOL: Boolean(it.hasEOL),
           });
-          const tx = lib.Util.transform(viewport.transform, it.transform);
-          const fontHeight = Math.hypot(tx[2]!, tx[3]!) || (it.height ?? 0) * scale;
-          const width = (it.width ?? 0) * scale;
-          const span = document.createElement("span");
-          span.textContent = it.str;
-          span.setAttribute("data-item-index", String(itemIndex));
-          span.style.position = "absolute";
-          span.style.whiteSpace = "pre";
-          span.style.left = `${tx[4]!}px`;
-          span.style.top = `${tx[5]! - fontHeight}px`;
-          span.style.fontSize = `${Math.max(fontHeight, 1)}px`;
-          span.style.width = `${Math.max(width, 1)}px`;
-          textLayer.appendChild(span);
-          itemIndex += 1;
         }
+        // PDF.js lays the runs out itself — measured against their fonts, so
+        // the invisible text sits over the glyphs and a selection covers the
+        // words it looks like it covers. Hand-placing spans from the transform
+        // was a second layout that never quite agreed with the first.
+        const layer = createPdfTextLayer(lib, textLayer, content, viewport);
+        textLayers.current.set(pageNumber, layer);
+        await layer.render();
+        if (generation !== renderGeneration.current || textLayers.current.get(pageNumber) !== layer) return;
+        if (
+          layer.textDivs.length !== geometryItems.length ||
+          layer.textContentItemsStr.some((str, i) => str !== geometryItems[i]?.str)
+        ) {
+          throw new Error("PDF text item mapping changed.");
+        }
+        // The item index is what selection and citation decoration key on;
+        // `textDivs` is in item order, one per run with text.
+        layer.textDivs.forEach((div, index) => div.setAttribute("data-item-index", String(index)));
         const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
         pageGeometries.current.set(pageNumber, {
           pageIndex: pageNumber - 1,

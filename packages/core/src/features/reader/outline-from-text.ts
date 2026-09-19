@@ -112,6 +112,53 @@ function normalise(str: string): string {
   return str.toLowerCase().replace(/\s+/g, " ").replace(/\d+/g, "#");
 }
 
+/** A set of lines that print the same text, digits masked, within a fifth of their length. */
+export interface RecurringGroup<T> {
+  key: string;
+  pages: Set<number>;
+  members: T[];
+}
+
+/**
+ * Group lines by (near-)identical text. Exact keys are found in a map, and the
+ * edit-distance search is confined to lines that begin with the same two characters
+ * and are within the edit limit in length. Comparing every line against every
+ * group was quadratic in the document — a 14-page paper spent most of a second
+ * here alone, on both the outline and the analysis.
+ */
+export function groupRecurringLines<T>(
+  lines: readonly T[],
+  textOf: (line: T) => string,
+  pageOf: (line: T) => number,
+): RecurringGroup<T>[] {
+  const groups: RecurringGroup<T>[] = [];
+  const exact = new Map<string, RecurringGroup<T>>();
+  const buckets = new Map<string, RecurringGroup<T>[]>();
+  for (const line of lines) {
+    const key = normalise(textOf(line));
+    if (key.length < 4) continue;
+    const limit = Math.floor(Math.min(key.length, 80) * 0.2);
+    const bucketKey = key.slice(0, 2);
+    let group = exact.get(key);
+    if (!group) {
+      group = (buckets.get(bucketKey) ?? []).find(
+        (g) => Math.abs(g.key.length - key.length) <= limit && levenshtein(g.key, key, limit) <= limit,
+      );
+    }
+    if (!group) {
+      group = { key, pages: new Set(), members: [] };
+      groups.push(group);
+      exact.set(key, group);
+      const bucket = buckets.get(bucketKey);
+      if (bucket) bucket.push(group);
+      else buckets.set(bucketKey, [group]);
+    }
+    group.pages.add(pageOf(line));
+    group.members.push(line);
+  }
+  return groups;
+}
+
 /**
  * Lines that appear (near-)verbatim on three or more pages: running heads,
  * footers, journal banners. "Near" is an edit distance within a fifth of the
@@ -119,26 +166,8 @@ function normalise(str: string): string {
  * the same head once page numbers are masked.
  */
 function runningHeads(lines: readonly OutlineTextItem[]): Set<OutlineTextItem> {
-  const groups: { key: string; pages: Set<number>; members: OutlineTextItem[] }[] = [];
-  for (const line of lines) {
-    const key = normalise(line.str);
-    if (key.length < 4) continue;
-    const limit = Math.floor(Math.min(key.length, 80) * 0.2);
-    let group = groups.find((g) => g.key === key);
-    if (!group) {
-      group = groups.find(
-        (g) => Math.abs(g.key.length - key.length) <= limit && levenshtein(g.key, key, limit) <= limit,
-      );
-    }
-    if (!group) {
-      group = { key, pages: new Set(), members: [] };
-      groups.push(group);
-    }
-    group.pages.add(line.page);
-    group.members.push(line);
-  }
   const heads = new Set<OutlineTextItem>();
-  for (const group of groups) {
+  for (const group of groupRecurringLines(lines, (line) => line.str, (line) => line.page)) {
     if (group.pages.size >= 3) for (const member of group.members) heads.add(member);
   }
   return heads;

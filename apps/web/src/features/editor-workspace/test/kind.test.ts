@@ -21,6 +21,7 @@ import {
   segmentsFor,
   defaultModeFor,
   modesFor,
+  openModeFor,
 } from "../ui/kind";
 import { rendererFor, supportsEditMode } from "../ui/document-host";
 
@@ -104,6 +105,24 @@ test("a kind's modes come from the table: PDF and Ink for the PDF row, Edit/Read
   assert.deepEqual(modesFor("report_section"), ["edit", "read"]);
   assert.equal(defaultModeFor("paper_pdf"), "pdf");
   assert.equal(defaultModeFor("paper"), "edit");
+});
+
+test("opening a document reads it; only ink and Read-less kinds differ", () => {
+  const plain = "## A note\n\nJust prose.";
+  const ink = "<!-- weaveforge-ink ink-pages=1 ink-paper=blank -->\n\n# Heading";
+
+  // Reading is what opening means. Edit is a deliberate step, so a tab that
+  // lands you in a text caret is never where a document opens.
+  assert.equal(openModeFor("vault_page", plain), "read");
+  assert.equal(openModeFor("paper", plain), "read");
+  assert.equal(openModeFor("report_section", plain), "read");
+  // A note carrying ink opens on the sheet the ink was written on.
+  assert.equal(openModeFor("vault_page", ink), "ink");
+  assert.equal(openModeFor("paper", ink), "ink");
+  // A PDF row opens in the reader; a kind with no Read at all keeps its first
+  // mode, because there is nowhere else for it to go.
+  assert.equal(openModeFor("paper_pdf", ""), "pdf");
+  assert.equal(modesFor("paper_pdf").includes("read"), false);
 });
 
 test("the table says which kinds have a PDF to look at", () => {

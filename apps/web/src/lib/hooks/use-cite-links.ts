@@ -167,15 +167,21 @@ export function useWikilinkClick(
   const router = useRouter();
   return useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
-      const anchor = (event.target as HTMLElement).closest("a[data-wikilink]");
-      if (!anchor) return;
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey) return;
+      const anchor = (event.target as HTMLElement).closest("a[href]");
+      if (!anchor || anchor.getAttribute("target")) return;
+      const href = anchor.getAttribute("href") ?? "";
+      const wikilink = anchor.hasAttribute("data-wikilink");
+      // A root-relative `[label](/notes?page=…)` is an in-app link like a
+      // wikilink; through the router it is a route change, left to the
+      // browser it is a full reload.
+      if (!wikilink && !href.startsWith("/")) return;
       event.preventDefault();
       const create = anchor.getAttribute("data-create");
       if (create != null) {
         onCreateNote?.(create);
         return;
       }
-      const href = anchor.getAttribute("href");
       if (href && href !== "#") router.push(href);
     },
     [router, onCreateNote],

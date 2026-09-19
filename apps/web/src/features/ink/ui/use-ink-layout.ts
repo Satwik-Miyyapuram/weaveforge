@@ -201,11 +201,22 @@ export function useInkLayout(deps: InkLayoutDeps) {
   }, [flushSave, pageCount, pageIndex, scrollRef, setPageIndex]);
 
   /**
-   * When pageIndex changes programmatically (e.g. clicking Next/Prev page in toolbar),
-   * scroll the target page into view smoothly. If the change was triggered by continuous
-   * scrolling, no scroll adjustment is needed.
+   * When pageIndex changes programmatically (e.g. clicking Next/Prev page in
+   * toolbar), scroll the target page into view smoothly. If the change was
+   * triggered by continuous scrolling, no scroll adjustment is needed.
+   *
+   * The first run is skipped: a note opens on page 1, and scrolling "to" it
+   * meant the rail jumped on the way in — with `behavior: "smooth"` the page
+   * visibly slid down the pane the moment Ink mode was entered. The open
+   * position is the top of the rail, which is where page 1 already is.
    */
+  const centredOnceRef = useRef(false);
   useEffect(() => {
+    if (!centredOnceRef.current) {
+      centredOnceRef.current = true;
+      scrollPageIndexRef.current = null;
+      return;
+    }
     if (scrollPageIndexRef.current === pageIndex) {
       scrollPageIndexRef.current = null;
       return;
