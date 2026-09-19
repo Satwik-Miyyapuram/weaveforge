@@ -150,8 +150,10 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Theme-coherent scrollbars (Firefox + WebKit). Sub-nav hides its own below. */
-html,
+/* Theme-coherent scrollbars (Firefox + WebKit). Sub-nav hides its own below.
+   `html` is deliberately not listed: naming it here set `scrollbar-width: thin`
+   after the `none` above at equal specificity, and the native page scrollbar
+   came back beside the overlay one on every screen. */
 body,
 * {
   scrollbar-width: thin;
