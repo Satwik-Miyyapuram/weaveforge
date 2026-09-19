@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PageTextItem, ParsedReference, PdfLink, ReaderOutlineItem, ReadingList } from "@weaveforge/core";
+import type { PageTextItem, ParsedReference, PdfLink, ReaderOutlineItem } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import {
   type MentionHit,
@@ -72,7 +72,6 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
 
   const [open, setOpen] = useState<OpenMention | null>(null);
   const [resolutions, setResolutions] = useState<Map<number, ResolvedReference>>(() => new Map());
-  const [lists, setLists] = useState<ReadingList[] | null>(null);
   const [linked, setLinked] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<string | null>(null);
   const inflight = useRef(new Set<number>());
@@ -223,9 +222,8 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
       facade().actions.readLater(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Saved to read later"); }).catch(fail),
     addManually: (entry: ParsedReference) =>
       facade().actions.addManually(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Added to library"); }).catch(fail),
-    addToList: (entry: ParsedReference, listId: string) =>
-      facade().actions.addToList(entry, listId).then((paper) => { markInLibrary(entry, paper); setNotice("Added to list"); }).catch(fail),
-    loadLists: () => facade().readingLists().then(setLists).catch(fail),
+    addToLibrary: (entry: ParsedReference) =>
+      facade().actions.addToLibrary(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Added to library"); }).catch(fail),
     linkPapers: (citedId: string) => {
       if (!paperId) return Promise.resolve();
       return facade().actions.linkPapers(paperId, citedId)
@@ -264,7 +262,6 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     startPrefetch,
     stopPrefetch,
     prefetchMention,
-    lists,
     linked,
     notice,
     actions,

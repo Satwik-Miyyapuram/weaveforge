@@ -21,7 +21,6 @@ export interface ReferenceActionDeps {
   importPaper: { fromRef(ref: PaperRef, status?: PaperStatus): Promise<Paper> };
   /** Adds a paper from fields the user typed. */
   addPaper: { addManual(input: NewPaperInput): Promise<Paper> };
-  lists: { addPaperToList(listId: string, paperId: string, note?: string): Promise<unknown> };
   relations: { add(input: NewPaperRelationInput): Promise<unknown> };
 }
 
@@ -67,15 +66,12 @@ export function createReferenceActions(deps: ReferenceActionDeps) {
       deps.importPaper.fromRef(referenceRef(entry), "to_read"),
 
     /**
-     * Add to a chosen reading list. The paper is imported first, because a list
-     * item points at a paper row and the popover may be looking at one we have
-     * never seen.
+     * Put the cited paper on the shelf with the library's default status. The
+     * popover is a footnote, not a triage tool: choosing a reading list from
+     * here was a detour, and lists remain a library-side action.
      */
-    async addToList(entry: ParsedReference, listId: string): Promise<Paper> {
-      const paper = await deps.importPaper.fromRef(referenceRef(entry), "to_read");
-      await deps.lists.addPaperToList(listId, paper.id);
-      return paper;
-    },
+    addToLibrary: (entry: ParsedReference): Promise<Paper> =>
+      deps.importPaper.fromRef(referenceRef(entry)),
 
     /** Unresolved entry: no metadata anywhere, so add what the text gives us. */
     addManually: (entry: ParsedReference): Promise<Paper> =>

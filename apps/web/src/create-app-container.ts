@@ -304,10 +304,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     actions: createReferenceActions({
       importPaper,
       addPaper,
-      lists: manageReadingList,
       relations: addRelation,
     }),
-    listReadingLists: () => readingListRepository.list(),
   });
   const citationSources = wireCitationSources({
     manageSettings: backend.manageSettings,

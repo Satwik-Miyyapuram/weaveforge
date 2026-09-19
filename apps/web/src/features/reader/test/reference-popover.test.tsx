@@ -37,7 +37,7 @@ function renderPopover(overrides: Partial<ReferencePopoverProps> = {}): string {
         resolution: resolved,
         onClose: noop,
         onReadLater: noop,
-        onAddToList: noop,
+        onAddToLibrary: noop,
         onOpenInReader: noop,
         onLinkPapers: noop,
         onCite: noop,
@@ -54,11 +54,11 @@ function renderPopover(overrides: Partial<ReferencePopoverProps> = {}): string {
   return text;
 }
 
-test("State A: resolved but not in library offers Read later, list, and cite", () => {
+test("State A: resolved but not in library offers Read later, add to library, and cite", () => {
   const text = renderPopover();
   assert.match(text, /Attention is all you need/);
   assert.match(text, /Read later/);
-  assert.match(text, /Add to list/);
+  assert.match(text, /Add to library/);
   assert.match(text, /Cite/);
   // Library-only affordances must not appear before the paper is in the library.
   assert.doesNotMatch(text, /In library/);
@@ -72,7 +72,7 @@ test("State B: in-library papers expose open and link actions instead of add act
   assert.match(text, /Open in reader/);
   assert.match(text, /Link papers/);
   assert.doesNotMatch(text, /Read later/);
-  assert.doesNotMatch(text, /Add to list/);
+  assert.doesNotMatch(text, /Add to library/);
 });
 
 test("State B: an existing cites relation hides Link papers", () => {

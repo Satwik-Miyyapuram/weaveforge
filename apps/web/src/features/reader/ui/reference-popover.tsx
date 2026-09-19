@@ -8,7 +8,7 @@ export interface ReferencePopoverProps {
   resolution: ResolvedReference;
   onClose: () => void;
   onReadLater?: () => void;
-  onAddToList?: () => void;
+  onAddToLibrary?: () => void;
   onOpenInReader?: () => void;
   onLinkPapers?: () => void;
   onCite?: () => void;
@@ -62,7 +62,7 @@ export function ReferencePopover(props: ReferencePopoverProps) {
       <div className="pdf-reader-ref-actions">
         {resolution.status === "resolved" && (paper
           ? <>{action("Open in reader", props.onOpenInReader)}{!props.alreadyLinked && action("Link papers", props.onLinkPapers)}</>
-          : <>{action("Read later", props.onReadLater)}{action("Add to list", props.onAddToList)}</>)}
+          : <>{action("Read later", props.onReadLater)}{action("Add to library", props.onAddToLibrary)}</>)}
         {resolution.status === "resolved" && action("Cite", props.onCite)}
         {resolution.status === "unresolved" && action("Add manually", props.onAddManually)}
         {action("Jump to entry", props.onJumpToEntry)}
