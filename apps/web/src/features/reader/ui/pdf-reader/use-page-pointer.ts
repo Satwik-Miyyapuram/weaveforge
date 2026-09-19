@@ -223,9 +223,26 @@ export function usePagePointer({
     };
   }
 
-  function screenToPdf(pageHost: HTMLElement, clientX: number, clientY: number) {
-    const rect = pageHost.getBoundingClientRect();
-    const pageNumber = Number(pageHost.dataset.page);
+  /**
+   * The rendered page box inside a page's row.
+   *
+   * The handlers sit on the row (§pdf-reader), because the row's right half is
+   * the pen's writing strip and a pointer that lands there must still be
+   * measured against the page — the strip is not part of the page. The page box
+   * is therefore found inside the row rather than being the event target, and
+   * every coordinate below is relative to it.
+   */
+  function pageBoxOf(row: Element): HTMLElement {
+    return (
+      row.querySelector<HTMLElement>(".pdf-reader-page") ??
+      row.querySelector<HTMLElement>("canvas")?.parentElement ??
+      (row as HTMLElement)
+    );
+  }
+
+  function screenToPdf(row: Element, clientX: number, clientY: number) {
+    const rect = pageBoxOf(row).getBoundingClientRect();
+    const pageNumber = Number((row as HTMLElement).dataset.page);
     // Rotation is part of the mapping, not a reason to refuse to draw: the
     // create tools used to switch off entirely at 90/180/270, which is exactly
     // the orientation a scanned landscape page is read in.
@@ -252,7 +269,10 @@ export function usePagePointer({
       height: event.nativeEvent.height,
       clientX: event.clientX,
       clientY: event.clientY,
-      bounds: event.currentTarget.getBoundingClientRect(),
+      // The quadrant rule asks where the writing hand rests, so its box must be
+      // the page the hand is on — not the row, whose right half is the strip
+      // that exists precisely to be written on.
+      bounds: pageBoxOf(event.currentTarget).getBoundingClientRect(),
       t: event.timeStamp,
     });
     if (decision === "ignore") return false;

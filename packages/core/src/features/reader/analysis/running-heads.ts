@@ -11,6 +11,7 @@
  */
 
 import { levenshtein } from "../outline-from-text.js";
+import { STRUCTURAL_HEADING } from "./reference-section.js";
 import type { TextLine } from "./line-reconstruction.js";
 
 /** Fraction of each page's text extent, on every side, treated as margin. */
@@ -47,7 +48,16 @@ export function furnitureLines(lines: readonly TextLine[]): Set<TextLine> {
     group.members.push(line);
   }
   for (const group of groups) {
-    if (group.pages.size >= 3) for (const member of group.members) furniture.add(member);
+    if (group.pages.size < 3) continue;
+    for (const member of group.members) {
+      // A heading is not furniture however many pages it recurs on. This is the
+      // other half of the same bug the margin band had: a paper that prints a
+      // "References" heading in the appendix as well as the main text repeated
+      // it on enough pages for the recurrence rule, and `findReferenceSection`
+      // refuses a heading that is furniture.
+      if (STRUCTURAL_HEADING.test(member.text)) continue;
+      furniture.add(member);
+    }
   }
 
   // Margin bands: within the outer 6% of a page's extent, drop bare page
@@ -86,6 +96,15 @@ export function furnitureLines(lines: readonly TextLine[]): Set<TextLine> {
       furniture.add(line);
       continue;
     }
+    // A band line that recurs is usually a running head — but a *heading* is
+    // not furniture, however often it appears and wherever it sits. The
+    // bibliography's own heading is the case that matters: it starts at the
+    // page's left margin, so it counts as "in the band", and one paper with a
+    // reference section in the appendix repeats it, which was enough to delete
+    // it. With it went the whole list: `findReferenceSection` refuses a heading
+    // that is furniture, so the document looked like it had no bibliography at
+    // all. Structural headings are recognised here and never dropped.
+    if (STRUCTURAL_HEADING.test(line.text)) continue;
     if ((bandPages.get(normalise(line.text))?.size ?? 0) >= 2) furniture.add(line);
   }
   return furniture;

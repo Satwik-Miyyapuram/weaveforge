@@ -34,6 +34,18 @@ export interface MentionHit {
   label: string;
   /** Reference-list indexes this mention points at, for citations. */
   refIndexes: number[];
+  /**
+   * `[x1, y1, x2, y2]` PDF user-space rects the analyzer resolved for this
+   * mention, one per text run it covers.
+   *
+   * These are the analysis's own geometry — the rects a hyperref `/Dest`
+   * link's annotation carried, or the rects the text-span matcher built from
+   * the runs it crossed. Carrying them here means the overlay paints what the
+   * analysis found instead of re-deriving a position from character offsets,
+   * which is what dropped mentions whose offsets landed on a zero-width run.
+   * Empty only when nothing could be resolved; the overlay then falls back.
+   */
+  rects?: number[][];
   /** Where a figure/table/equation mention jumps to, for figures. */
   target?: import("@weaveforge/core").FigureTarget;
   /** How this citation was found, and how much to trust it. */
@@ -128,6 +140,7 @@ export function indexFromAnalysis(
       end: citation.end,
       label: labels.join(", ") || mentionLabel(text, citation.start, citation.end),
       refIndexes: citation.referenceIndexes,
+      ...(citation.rects?.length ? { rects: citation.rects } : {}),
       source: citation.source,
       confidence: citation.confidence,
     });

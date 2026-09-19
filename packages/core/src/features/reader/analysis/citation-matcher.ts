@@ -93,6 +93,15 @@ function overlapsRects(a: readonly number[], b: readonly number[]): boolean {
 }
 
 /**
+ * Longest span a mention may cover, in characters.
+ *
+ * The longest real citation is nothing like this: `(Kingma & Welling (2014);
+ * Rezende et al. (2014); Rezende & Mohamed (2015))` is about 70. A hundred
+ * leaves room for one more clause and stops anything paragraph-shaped.
+ */
+const MAX_MENTION_CHARS = 100;
+
+/**
  * One page's citations: what its own links name, exactly, and then what the
  * patterns find in whatever text the links leave uncovered. On a hyperref
  * PDF the first pass finds everything; on an OCR'd one the patterns are all
@@ -111,6 +120,20 @@ export function matchPageCitations(
     page.links ?? [],
     references,
   ).citations;
+  /*
+   * A citation is a phrase, so a mention that covers a paragraph is not one.
+   *
+   * `analyzePageLinks` reads a link's span from the runs its box touches, and a
+   * box that straddles a line boundary can be read as touching the runs above
+   * and below — which stretches the span across everything between them. The
+   * measured `[3, 4, 5]` case was 1 541 characters, wide enough that painting it
+   * put a rule across the whole page. Whatever produced that, the pattern
+   * finders below are the honest answer for a span this long, so the mention is
+   * dropped here and rediscovered by them (or not at all) rather than painted.
+   */
+  const tooLong = MAX_MENTION_CHARS;
+  const plausible = out.filter((mention) => mention.end - mention.start <= tooLong);
+
   const urlRects = (page.links ?? []).filter((link) => link.url).map((link) => link.rect);
   for (const mention of findCitationMentions(
     { number: page.number, text: page.text, items: page.outlineItems },
@@ -118,13 +141,14 @@ export function matchPageCitations(
     bodyFontSize,
     style,
   )) {
-    if (out.some((hit) => hit.start < mention.end && hit.end > mention.start)) continue;
+    if (plausible.some((hit) => hit.start < mention.end && hit.end > mention.start)) continue;
+    if (mention.end - mention.start > tooLong) continue;
     const rects = mentionRects(page.items, mention.start, mention.end);
     if (urlRects.length && rects.some((rect) => urlRects.some((url) => overlapsRects(rect, url)))) continue;
-    out.push({ ...mention, rects });
+    plausible.push({ ...mention, rects });
   }
-  for (const mention of out) {
+  for (const mention of plausible) {
     if (!mention.rects.length) mention.rects = mentionRects(page.items, mention.start, mention.end);
   }
-  return out.sort((a, b) => a.start - b.start);
+  return plausible.sort((a, b) => a.start - b.start);
 }

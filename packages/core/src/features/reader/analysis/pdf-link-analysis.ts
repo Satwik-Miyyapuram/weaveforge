@@ -10,7 +10,7 @@
  * no mention of ours is ever painted over one.
  */
 
-import type { PageTextItem } from "../../../reader/selection-to-anchor.js";
+import { itemToRect, type PageTextItem } from "../../../reader/selection-to-anchor.js";
 import { coveredTextSpans, linkCitationMentions } from "../link-citations.js";
 import type { CitationMention, ParsedReference, PdfLink } from "./analysis-types.js";
 
@@ -33,6 +33,46 @@ export function widenToBrackets(text: string, start: number, end: number): [numb
 function labelOf(text: string): number | null {
   const match = /^[\[(]?(\d{1,3})[\])]?\.?$/.exec(text.trim());
   return match ? Number(match[1]) : null;
+}
+
+/**
+ * A mention's geometry, from the text it covers and nothing else.
+ *
+ * Built *before* the span is widened back to its brackets, and for a link
+ * inside a group — hyperref draws one box per number, so `[3, 4, 5]` is three
+ * links — from that link's own number only. Widening first and then measuring
+ * gave every number in the group the whole group's box, so the underline for
+ * `[3]` was drawn across `[3, 4, 5]`, displaced from the bracket it named.
+ */
+function rectsOf(
+  items: readonly PageTextItem[],
+  start: number,
+  end: number,
+): [number, number, number, number][] {
+  const rects: [number, number, number, number][] = [];
+  let cursor = 0;
+  for (const item of items) {
+    const itemStart = cursor;
+    const itemEnd = cursor + item.str.length;
+    cursor = itemEnd + (item.hasEOL ? 1 : 0);
+    if (itemEnd <= start || itemStart >= end) continue;
+    const rect = itemToRect(item, Math.max(0, start - itemStart), Math.min(item.str.length, end - itemStart));
+    if (!rect || rect[2]! <= rect[0]! || rect[3]! <= rect[1]!) continue;
+    // Clamped to the item's own box. `itemToRect` interpolates across the item's
+    // width from pdf.js's reported `width`, and on a page where the text layer
+    // under-reports it — a justified line of one giant item — the interpolated
+    // rect came back a whole page wide while the characters under this span sat
+    // in a few glyphs of it. That is what drew one mention's underline across
+    // the full width of page 1 instead of under its two citations.
+    const box = itemToRect(item);
+    rects.push([
+      Math.max(rect[0]!, box?.[0] ?? rect[0]!),
+      Math.max(rect[1]!, box?.[1] ?? rect[1]!),
+      Math.min(rect[2]!, box?.[2] ?? rect[2]!),
+      Math.min(rect[3]!, box?.[3] ?? rect[3]!),
+    ]);
+  }
+  return rects.filter((rect) => rect[2]! > rect[0]! && rect[3]! > rect[1]!);
 }
 
 export interface PageLinkAnalysis {
@@ -58,12 +98,20 @@ export function analyzePageLinks(
   const internal = links.filter((link) => link.dest && !link.url);
   if (!internal.length || !refs.length) return { citations: [], urlRects };
 
-  // 1. Destinations are authoritative: the link names the entry.
+  // 1. Destinations are authoritative: the link names the entry. The mention
+  // keeps the geometry of the number the link actually covered; only its text
+  // span is widened, so the label reads as the printed `[16]`.
   const resolved = linkCitationMentions({ number: page.number, items: page.items }, links, refs);
   const citations: CitationMention[] = resolved.map((mention) => {
     const [start, end] = widenToBrackets(page.text, mention.start, mention.end);
-    if (start === mention.start && end === mention.end) return mention;
-    return { ...mention, id: `c:${page.number}:${start}-${end}`, start, end, text: page.text.slice(start, end) };
+    return {
+      ...mention,
+      id: `c:${page.number}:${start}-${end}`,
+      start,
+      end,
+      text: page.text.slice(start, end),
+      rects: mention.rects.length ? mention.rects : rectsOf(page.items, mention.start, mention.end),
+    };
   });
 
   // 2. Native link text/geometry: internal links the destinations did not
@@ -86,7 +134,9 @@ export function analyzePageLinks(
       start: ws,
       end: we,
       text: text.slice(ws, we),
-      rects: [],
+      // This link's own covered span, not the widened one: the underline is
+      // under the number, and the brackets only shape the label.
+      rects: rectsOf(page.items, start, end),
       referenceIndexes: [ref.index],
       source: "internal-pdf-link",
       confidence: 0.85,

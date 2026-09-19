@@ -542,8 +542,8 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>140,759</b><span>web app lines</span></div>
-      <div class="fact"><b>43,622</b><span>core lines</span></div>
+      <div class="fact"><b>142,384</b><span>web app lines</span></div>
+      <div class="fact"><b>45,835</b><span>core lines</span></div>
       <div class="fact"><b>10,731</b><span>desktop lines</span></div>
       <div class="fact"><b>2,883</b><span>python sdk</span></div>
       <div class="fact"><b>129</b><span>migrations</span></div>
@@ -656,7 +656,7 @@ flowchart TB
 
       <div class="tree">
 <pre><b>weaveforge/</b>
-├── <b>packages/core/src/</b>            <i>43,622 lines — the only place rules live</i>
+├── <b>packages/core/src/</b>            <i>45,835 lines — the only place rules live</i>
 │   ├── <u>features/</u>                 <i>19 slices: papers, experiments, plan, report,</i>
 │   │                              <i>logbook, library, vault, wiki, org, sharing,</i>
 │   │                              <i>collab, tags, relations, reading-lists,</i>
@@ -669,8 +669,8 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>140,759 lines</i>
-│   ├── <u>app/</u>                      <i>26 pages + 35 API routes</i>
+├── <b>apps/web/src/</b>                 <i>142,384 lines</i>
+│   ├── <u>app/</u>                      <i>26 pages + 36 API routes</i>
 │   ├── <u>features/</u>                 <i>31 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
 │   │                              <i>auth, search, export, overleaf, reader, startup,</i>
@@ -908,7 +908,7 @@ sequenceDiagram
 </pre>
       </div>
 
-      <h3>The 35 API routes, by why they exist</h3>
+      <h3>The 36 API routes, by why they exist</h3>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Group</th><th>Routes</th><th>Reason it is not a direct query</th></tr></thead>

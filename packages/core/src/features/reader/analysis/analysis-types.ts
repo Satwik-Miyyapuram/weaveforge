@@ -28,6 +28,13 @@ export interface PdfLink {
   url?: string;
   /** 1-based page and the point the destination names, if it names one. */
   dest?: { page: number; x?: number; y?: number };
+  /**
+   * The page-text offsets the link's box covers, measured character by
+   * character in the rendered text layer (DOM `Range` rectangles) rather than
+   * estimated by dividing a run's width by its length. Absent when the
+   * caller could not measure; the estimate is then the fallback.
+   */
+  textRanges?: { start: number; end: number }[];
 }
 
 /** One page handed to the analyzer. */

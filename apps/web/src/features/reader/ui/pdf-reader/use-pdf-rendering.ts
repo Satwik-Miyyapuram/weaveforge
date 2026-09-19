@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
+import type { TextLayer } from "pdfjs-dist";
+import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 
 import type {
   DocumentPageText,
@@ -153,6 +155,8 @@ export function usePdfRendering({
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
   const renderTasks = useRef(new Map<number, RenderTask>());
+  /** Each page's pdf.js text layer, so a re-render can cancel the last one. */
+  const textLayers = useRef(new Map<number, TextLayer>());
   const renderGeneration = useRef(0);
 
   // The viewport fits to the page size this hook measures, and the render
@@ -190,6 +194,8 @@ const cancelRenderTasks = useCallback(() => {
     }
   }
   renderTasks.current.clear();
+  for (const layer of textLayers.current.values()) layer.cancel();
+  textLayers.current.clear();
 }, []);
 
 useEffect(() => {
@@ -318,7 +324,24 @@ useEffect(() => {
                 const dest = await resolveDestination(doc, a.dest);
                 if (dest) found.push({ rect, dest });
               }
-              if (found.length) links.set(n, found);
+              if (found.length) {
+                // Which characters each box covers, measured in the rendered
+                // layout. A page that will not lay out keeps its unmeasured
+                // links; the analysis then estimates from the run widths.
+                let measured = found;
+                try {
+                  measured = await measurePdfLinks(
+                    lib,
+                    content,
+                    p.getViewport({ scale: 1, rotation: 0 }),
+                    items,
+                    found,
+                  );
+                } catch {
+                  /* estimate instead */
+                }
+                links.set(n, measured);
+              }
             } catch {
               /* a page whose annotations will not load simply has none */
             }
@@ -432,8 +455,12 @@ const renderPage = useCallback(
         canvas.height = Math.floor(viewport.height * ratio);
         canvas.style.width = `${Math.floor(viewport.width)}px`;
         canvas.style.height = `${Math.floor(viewport.height)}px`;
-        host.style.width = `${Math.floor(viewport.width)}px`;
-        host.style.height = `${Math.floor(viewport.height)}px`;
+        // The *page box* takes the rendered size, not the found host: the host
+        // is the page's row (§pdf-reader), which also holds the pen's writing
+        // strip and must be free to be wider than the page it contains.
+        const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
+        pageBox.style.width = `${Math.floor(viewport.width)}px`;
+        pageBox.style.height = `${Math.floor(viewport.height)}px`;
         ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
         const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
         renderTasks.current.set(pageNumber, renderTask);
@@ -455,13 +482,13 @@ const renderPage = useCallback(
           textLayer.className = "pdf-reader-textlayer";
           host.appendChild(textLayer);
         }
+        textLayers.current.get(pageNumber)?.cancel();
+        textLayers.current.delete(pageNumber);
         textLayer.replaceChildren();
-        textLayer.style.width = `${Math.floor(viewport.width)}px`;
-        textLayer.style.height = `${Math.floor(viewport.height)}px`;
         const content = await pdfPage.getTextContent();
+        if (generation !== renderGeneration.current) return;
         const lib = await loadPdfLib();
         const geometryItems: import("@weaveforge/core").PageTextItem[] = [];
-        let itemIndex = 0;
         for (const raw of content.items) {
           const it = raw as {
             str?: string;
@@ -478,21 +505,24 @@ const renderPage = useCallback(
             height: typeof it.height === "number" ? it.height : 0,
             hasEOL: Boolean(it.hasEOL),
           });
-          const tx = lib.Util.transform(viewport.transform, it.transform);
-          const fontHeight = Math.hypot(tx[2]!, tx[3]!) || (it.height ?? 0) * scale;
-          const width = (it.width ?? 0) * scale;
-          const span = document.createElement("span");
-          span.textContent = it.str;
-          span.setAttribute("data-item-index", String(itemIndex));
-          span.style.position = "absolute";
-          span.style.whiteSpace = "pre";
-          span.style.left = `${tx[4]!}px`;
-          span.style.top = `${tx[5]! - fontHeight}px`;
-          span.style.fontSize = `${Math.max(fontHeight, 1)}px`;
-          span.style.width = `${Math.max(width, 1)}px`;
-          textLayer.appendChild(span);
-          itemIndex += 1;
         }
+        // PDF.js lays the runs out itself — measured against their fonts, so
+        // the invisible text sits over the glyphs and a selection covers the
+        // words it looks like it covers. Hand-placing spans from the transform
+        // was a second layout that never quite agreed with the first.
+        const layer = createPdfTextLayer(lib, textLayer, content, viewport);
+        textLayers.current.set(pageNumber, layer);
+        await layer.render();
+        if (generation !== renderGeneration.current || textLayers.current.get(pageNumber) !== layer) return;
+        if (
+          layer.textDivs.length !== geometryItems.length ||
+          layer.textContentItemsStr.some((str, i) => str !== geometryItems[i]?.str)
+        ) {
+          throw new Error("PDF text item mapping changed.");
+        }
+        // The item index is what selection and citation decoration key on;
+        // `textDivs` is in item order, one per run with text.
+        layer.textDivs.forEach((div, index) => div.setAttribute("data-item-index", String(index)));
         const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
         pageGeometries.current.set(pageNumber, {
           pageIndex: pageNumber - 1,

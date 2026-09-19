@@ -85,6 +85,22 @@
   /* Less page chrome above the document, and room for the bottom tab bar. */
   .pdf-reader-scroll { max-height: calc(100dvh - 210px); padding: 8px; gap: 10px; }
 }
+/* One page and, while the pen is out, the writing strip beside it.
+   The row — not the page box — is the drawing surface, because the strip sits
+   past the page's right edge and a pointer that lands there must still reach
+   the handlers. `position: relative` is the containing block for the page, the
+   strip and every overlay, all of which are positioned against the page. */
+.pdf-reader-page-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex: none;
+  /* The scroller centres its column, so the row would otherwise be squeezed to
+     the container's width and the strip — the second item — would collapse to
+     nothing. The row is as wide as its page and its strip together, and
+     `overflow: auto` on the scroller still reaches the rest when zoomed. */
+  width: max-content;
+}
 .pdf-reader-page {
   position: relative;
   background: #fff;
@@ -133,26 +149,89 @@
   flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start;
 }
 .pdf-reader-textlayer {
-  position: absolute; inset: 0; overflow: hidden; line-height: 1;
+  position: absolute; inset: 0; overflow: clip; line-height: 1;
+  text-align: initial;
   opacity: 0.25; mix-blend-mode: multiply; pointer-events: auto;
+  text-size-adjust: none; -webkit-text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
   /* The text layer is appended to the page after React renders the annotation
      overlay, so without this it painted on top and ate every tap aimed at a
      highlight. It must stay below the marks it sits behind. */
   z-index: 1;
 }
-.pdf-reader-textlayer > span {
+/* Scoped pdf.js text-layer rules (Mozilla, Apache-2.0 `web/pdf_viewer.css`).
+   pdf.js's own `TextLayer` lays the runs out — position, font size and the
+   scaleX that fits each run to its glyphs — and these are the rules that
+   layout assumes. Nothing here places text; see `pdf-text-layer.ts`. */
+.pdf-reader-textlayer :is(span, br) {
+  color: transparent;
   position: absolute;
   white-space: pre;
-  transform-origin: 0% 0%;
-  color: transparent;
   cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+  -webkit-user-select: text;
 }
+.pdf-reader-textlayer > :not(.markedContent),
+.pdf-reader-textlayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+}
+.pdf-reader-textlayer span.markedContent { top: 0; height: 0; }
+.pdf-reader-textlayer span[role="img"] { user-select: none; cursor: default; }
+.pdf-reader-textlayer[data-main-rotation="90"] { transform: rotate(90deg) translateY(-100%); }
+.pdf-reader-textlayer[data-main-rotation="180"] { transform: rotate(180deg) translate(-100%, -100%); }
+.pdf-reader-textlayer[data-main-rotation="270"] { transform: rotate(270deg) translateX(-100%); }
 /* Dragging across text is the highlight's live preview, so paint the selection
    in the colour the highlight will be rather than the browser's default. The
    layer already multiplies over the page, so the swatch colour reads true. */
-.pdf-reader-textlayer > span::selection {
+.pdf-reader-textlayer ::selection {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
   background: var(--reader-select-color, Highlight);
 }
+.pdf-reader-textlayer br::selection { background: transparent; }
+/* Where a page's links are measured against a throwaway layout, off screen. */
+.pdf-measure-shell {
+  position: fixed; left: -100000px; top: 0;
+  visibility: hidden; pointer-events: none;
+}
+/* A citation mention, an anchor inside the text layer's own span rather than a
+   box over the page. The words stay exactly where PDF.js put them — only the
+   span's contents are split — so the rule is under the glyphs by construction
+   and a selection across the mention still copies the citation.
+
+   The text itself is invisible (the span above sets `color: transparent`), so
+   the anchor shows only its underline. That is deliberate: the page's own
+   rendering is what the reader reads; this is a marker on top of it, like the
+   extension's. */
+.pdf-reader-textlayer span > a.pdf-reader-cite {
+  position: static;
+  display: inline;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--reader-cite-color, #2563eb);
+  text-decoration-thickness: 0.065em;
+  text-underline-offset: 0.12em;
+  /* Underline the whole phrase, gaps included: skipping ink would break the
+     rule at every descender and read as several underlines. */
+  text-decoration-skip-ink: none;
+  cursor: pointer;
+  user-select: text;
+  -webkit-user-select: text;
+  transition: background 120ms ease;
+}
+.pdf-reader-textlayer span > a.pdf-reader-cite:is(.is-open, .is-hovered) {
+  background: color-mix(in srgb, var(--reader-cite-color, #2563eb) 12%, transparent);
+}
+.pdf-reader-textlayer span > a.pdf-reader-cite:focus-visible {
+  outline: 1px solid var(--reader-cite-color, #2563eb);
+  outline-offset: 2px;
+}
+/* The marker exists only to find the page element. It must not be a box. */
+.pdf-reader-cite-marker { display: none; }
 .pdf-reader-side { display: grid; gap: 8px; align-content: start; }
 .pdf-reader-ann-layer {
   position: absolute; inset: 0; pointer-events: none;
@@ -215,47 +294,24 @@
 }
 .pdf-reader-sidebar-pin { display: grid; gap: 2px; font-size: 0.85rem; }
 .pdf-reader-page--draw { touch-action: none; cursor: crosshair; }
+/* The row is the drawing surface (see `.pdf-reader-page-row`), so the tool's
+   touch-action and cursor belong on it: the strip inherits neither from the
+   page box beside it, and a finger landing there would otherwise scroll the
+   document instead of drawing. */
+.pdf-reader-page-row:has(.pdf-reader-page--draw) { touch-action: none; cursor: crosshair; }
 .pdf-reader-page--draw .pdf-reader-textlayer { pointer-events: none; }
 /* Once a stylus is in use, touch is not drawing (palm rejection), so give
    finger scrolling back instead of freezing the document under a drawing tool. */
 .pdf-reader-page--draw.pdf-reader-page--pen { touch-action: pan-x pan-y; }
+.pdf-reader-page-row:has(.pdf-reader-page--draw.pdf-reader-page--pen) { touch-action: pan-x pan-y; }
 .pdf-reader-page--erase { cursor: cell; }
+.pdf-reader-page-row:has(.pdf-reader-page--erase) { cursor: cell; }
 /* While erasing, a click must reach the page, not the ink it is rubbing out. */
 .pdf-reader-page--erase .pdf-reader-ann-layer * { pointer-events: none; }
 .pdf-reader--dark .pdf-reader-page canvas {
   filter: var(--pdf-dark-filter, invert(1) hue-rotate(180deg));
 }
 .pdf-reader--dark .pdf-reader-ann { mix-blend-mode: screen; }
-/* Citation and figure mentions found in the page text.
-   Above the annotation layer (2) so a citation is never buried under a
-   highlight, and above the page canvas — the dark-mode filter is applied to the
-   canvas element alone, so these colours are not inverted along with the page.
-   The layer itself is transparent to pointer events, so text selection still
-   works everywhere a mention was not painted. */
-.pdf-reader-ref-layer {
-  position: absolute; inset: 0; pointer-events: none;
-  z-index: 3;
-}
-.pdf-reader-ref-link {
-  position: absolute; pointer-events: auto; padding: 0; border: none;
-  background: none; cursor: pointer; border-radius: 2px;
-}
-/* The band is drawn rather than a background on the button, so a mention that
-   wraps a line break paints as two runs under the words instead of one box
-   swallowing the gap between them. */
-.pdf-reader-ref-underline {
-  position: absolute; display: block; border-radius: 2px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-.pdf-reader-ref-link[data-kind="figure"] .pdf-reader-ref-underline {
-  background: none;
-  border-bottom: 1px dotted color-mix(in srgb, var(--accent) 70%, transparent);
-}
-.pdf-reader-ref-link:hover .pdf-reader-ref-underline,
-.pdf-reader-ref-link:focus-visible .pdf-reader-ref-underline {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-}
-.pdf-reader-ref-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Mirrors `.popover-panel` — same surface, border and radius — because it is
    the same kind of thing: an anchored panel over the page. Depth comes from the
    borderless L3 list in surfaces.css. */
@@ -400,11 +456,14 @@
 .pdf-pen-rail .ink-swatches { gap: 5px; padding: 0 2px; }
 
 /* The writing margin (§pen-margin): a page-wide strip to the right of each
-   page while the pen is out. It is drawn as part of the page host's margin so
-   the row stays centred; ink runs onto it because the host's pointer handlers
-   and the annotation SVG (overflow: visible) both extend past the canvas. */
+   page while the pen is out. It is a sibling of the page box inside the page's
+   row and takes its width from the inline style, so the row is page + strip and
+   stays centred as one. It used to be absolutely positioned past the page's
+   right edge, which put it outside every hit box — writing on it did nothing,
+   because the page's own pointer handlers never saw the press.
+   `pointer-events: none` still lets a stroke through to the row's handlers. */
 .pdf-reader-page-margin {
-  position: absolute; top: 0; left: 100%; height: 100%;
+  position: relative; align-self: stretch; height: auto;
   background: var(--surface-alt, #f6f6f4);
   background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--line, #e3e3e0) 27px 28px);
   border-left: 1px dashed var(--line, #d8d8d4);

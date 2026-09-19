@@ -74,7 +74,18 @@ export function coveredTextSpans(
   for (const link of links) {
     let start = Number.POSITIVE_INFINITY;
     let end = -1;
-    for (const row of rows) {
+    // A link measured against the rendered text layer says exactly which
+    // characters sit under its box, so the proportional estimate below is only
+    // for a link nobody measured.
+    const measured = (link.textRanges ?? []).filter(
+      (range) => Number.isInteger(range.start) && Number.isInteger(range.end) &&
+        range.start >= 0 && range.end > range.start && range.end <= text.length,
+    );
+    for (const range of measured) {
+      start = Math.min(start, range.start);
+      end = Math.max(end, range.end);
+    }
+    for (const row of measured.length ? [] : rows) {
       const h = row.rect[3]! - row.rect[1]!;
       if (overlapY(link.rect, row.rect) < Math.min(h, link.rect[3] - link.rect[1]) * 0.4) continue;
       const w = row.rect[2]! - row.rect[0]!;

@@ -93,3 +93,16 @@ test("three links over one `[38, 2, 9]` item give three separate citations", () 
     ],
   );
 });
+
+test("a link measured against the rendered layout keeps its measured characters over the width estimate", () => {
+  // One wide run whose reported width is far off: the proportional estimate
+  // would land the box on the wrong digits, the measured range says `2`.
+  const items: PageTextItem[] = [
+    { str: "as shown in [1, 2, 3] here", transform: [10, 0, 0, 10, 50, 700], width: 60, height: 10, hasEOL: true },
+  ];
+  const links: PdfLink[] = [
+    { rect: [50, 698, 52, 710], dest: { page: 3, x: 40, y: 672 }, textRanges: [{ start: 16, end: 17 }] },
+  ];
+  const hits = linkCitationMentions({ number: 1, items }, links, refs);
+  assert.deepEqual(hits.map((h) => [text(items).slice(h.start, h.end), h.referenceIndexes]), [["2", [2]]]);
+});

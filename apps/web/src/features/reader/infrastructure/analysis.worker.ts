@@ -12,7 +12,12 @@
  * crosses `postMessage` as-is.
  */
 
-import { analyzePdfDocument, type DocumentAnalysis, type PdfLink, type ReaderOutlineItem } from "@weaveforge/core";
+import {
+  analyzePdfDocument,
+  type DocumentAnalysis,
+  type PdfLink,
+  type ReaderOutlineItem,
+} from "@weaveforge/core/reader-analysis";
 import type { ReferencePage } from "../application/reader-references";
 
 export interface AnalysisWorkerPage extends ReferencePage {
