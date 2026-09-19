@@ -12,6 +12,7 @@ import {
   analyzePdfDocument,
   outlineItemOf,
   bodyFontSize,
+  mentionRects,
   type CitationSource,
   type DocumentAnalysis,
   type OutlineTextItem,
@@ -103,6 +104,42 @@ function mentionLabel(text: string, start: number, end: number): string {
   return raw.length > 60 ? `${raw.slice(0, 57)}…` : raw;
 }
 
+type Citation = DocumentAnalysis["citations"][number];
+
+/**
+ * `[2, 3, 4]` is one printed span but three papers. When every entry the
+ * cluster cites is printed as its own number, the mention is cut into one
+ * hit per number, so the reader hovers and opens each paper on its own. A
+ * range (`[2–4]`) prints only its ends and stays one mention, listing all
+ * three in its popover.
+ */
+function splitNumericCluster(
+  citation: Citation,
+  text: string,
+  items: readonly PageTextItem[],
+): Pick<Citation, "id" | "start" | "end" | "referenceIndexes" | "rects">[] {
+  const indexes = citation.referenceIndexes;
+  if (indexes.length < 2) return [citation];
+  const span = text.slice(citation.start, citation.end);
+  if (/\d\s*[-–—]\s*\d/.test(span)) return [citation];
+  const parts: Pick<Citation, "id" | "start" | "end" | "referenceIndexes" | "rects">[] = [];
+  const numbers = [...span.matchAll(/\d+/g)];
+  for (const index of indexes) {
+    const match = numbers.find((candidate) => Number(candidate[0]) === index);
+    if (!match) return [citation];
+    const start = citation.start + match.index;
+    const end = start + match[0].length;
+    parts.push({
+      id: `${citation.id}:${index}`,
+      start,
+      end,
+      referenceIndexes: [index],
+      rects: mentionRects(items, start, end),
+    });
+  }
+  return parts;
+}
+
 /**
  * Shape a completed analysis into the overlay's index. Pure and synchronous,
  * so the worker path (which returns the analysis as plain arrays) and the
@@ -127,23 +164,26 @@ export function indexFromAnalysis(
 
   for (const citation of analysis.citations) {
     const text = texts.get(citation.page) ?? "";
-    // The list's own labels (`[12]`, `12.`) are how the bibliography prints
-    // them; an author-year list has none, and there the printed mention is
-    // the only honest label.
-    const labels = citation.referenceIndexes
-      .map((index) => byIndex.get(index)?.label)
-      .filter((label): label is string => Boolean(label));
-    hitsFor(citation.page).push({
-      key: citation.id,
-      kind: "citation",
-      start: citation.start,
-      end: citation.end,
-      label: labels.join(", ") || mentionLabel(text, citation.start, citation.end),
-      refIndexes: citation.referenceIndexes,
-      ...(citation.rects?.length ? { rects: citation.rects } : {}),
-      source: citation.source,
-      confidence: citation.confidence,
-    });
+    const page = pages.find((candidate) => candidate.pageNumber === citation.page);
+    for (const part of splitNumericCluster(citation, text, page?.items ?? [])) {
+      // The list's own labels (`[12]`, `12.`) are how the bibliography prints
+      // them; an author-year list has none, and there the printed mention is
+      // the only honest label.
+      const labels = part.referenceIndexes
+        .map((index) => byIndex.get(index)?.label)
+        .filter((label): label is string => Boolean(label));
+      hitsFor(citation.page).push({
+        key: part.id,
+        kind: "citation",
+        start: part.start,
+        end: part.end,
+        label: labels.join(", ") || mentionLabel(text, part.start, part.end),
+        refIndexes: part.referenceIndexes,
+        ...(part.rects?.length ? { rects: part.rects } : {}),
+        source: citation.source,
+        confidence: citation.confidence,
+      });
+    }
   }
 
   for (const figure of analysis.figures) {

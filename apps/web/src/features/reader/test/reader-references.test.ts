@@ -97,3 +97,25 @@ test("a hyperref link over the digits of `[2 ]` is the citation, widened to its 
   assert.deepEqual(citations[0]?.refIndexes, [2]);
   assert.deepEqual([citations[0]!.start, citations[0]!.end], [5, 9]);
 });
+
+test("a `[1, 2, 3]` cluster is one mention per number; a `[1–3]` range stays one", () => {
+  const cluster = buildReferenceIndex([
+    { pageNumber: 1, items: [run("Prior work [1, 2, 3] shows this.", { y: 700 }), ...Array.from({ length: 8 }, (_, i) => prose(688 - i * 12))] },
+    pages[2]!,
+  ], []);
+  const hits = (cluster.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "citation");
+  assert.deepEqual(hits.map((hit) => hit.refIndexes), [[1], [2], [3]]);
+  assert.deepEqual(hits.map((hit) => hit.label), ["[1]", "[2]", "[3]"]);
+  const text = "Prior work [1, 2, 3] shows this.";
+  assert.deepEqual(hits.map((hit) => text.slice(hit.start, hit.end)), ["1", "2", "3"]);
+  assert.equal(new Set(hits.map((hit) => hit.key)).size, 3);
+  assert.ok(hits.every((hit) => hit.rects?.length));
+
+  const range = buildReferenceIndex([
+    { pageNumber: 1, items: [run("Prior work [1–3] shows this.", { y: 700 }), ...Array.from({ length: 8 }, (_, i) => prose(688 - i * 12))] },
+    pages[2]!,
+  ], []);
+  const ranged = (range.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "citation");
+  assert.equal(ranged.length, 1);
+  assert.deepEqual(ranged[0]?.refIndexes, [1, 2, 3]);
+});

@@ -17,20 +17,41 @@ interface ReferencePopoverHostProps {
  * presentational popover so that component stays free of container access.
  */
 export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverHostProps) {
-  const { open, close, resolutions, actions, lists, linked, notice } = refs;
+  const { open, close, resolutions, actions, lists, linked, notice, index } = refs;
   const [picking, setPicking] = useState(false);
   const [listId, setListId] = useState("");
-  useEffect(() => { setPicking(false); }, [open?.hit.key]);
+  // A range like `[2–4]` is one printed mention citing several entries; the
+  // popover shows one at a time and lets the reader switch between them.
+  const [chosen, setChosen] = useState<number | null>(null);
+  useEffect(() => { setPicking(false); setChosen(null); }, [open?.hit.key]);
   useEffect(() => {
     if (picking && lists === null) void actions.loadLists();
     if (picking && lists?.length && !listId) setListId(lists[0]!.id);
   }, [picking, lists, listId, actions]);
   if (!open) return null;
-  const { entry, hit, anchor } = open;
+  const { hit, anchor } = open;
+  const cited = hit.refIndexes.map((i) => index.byIndex.get(i)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+  const entry = (chosen != null && cited.find((e) => e.index === chosen)) || open.entry;
   const resolution = resolutions.get(entry.index) ?? { status: "pending" as const };
   const paper = resolution.status === "resolved" ? resolution.inLibrary : undefined;
   return (
     <PopoverLayer anchorKey={hit.key} anchor={anchor} onRequestClose={close}>
+      {cited.length > 1 && (
+        <div className="pdf-reader-ref-actions pdf-reader-ref-cluster" role="tablist" aria-label="Cited entries">
+          {cited.map((e) => (
+            <button
+              key={e.index}
+              type="button"
+              role="tab"
+              aria-selected={e.index === entry.index}
+              className={`pdf-reader-ref-action${e.index === entry.index ? " is-active" : ""}`}
+              onClick={() => setChosen(e.index)}
+            >
+              {e.label ?? `[${e.index}]`}
+            </button>
+          ))}
+        </div>
+      )}
       <ReferencePopover
         entry={entry}
         resolution={resolution}

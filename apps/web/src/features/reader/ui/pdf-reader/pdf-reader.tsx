@@ -935,10 +935,21 @@ export function PdfReader({
                 loading={pageItems.size < numPages}
                 parseFailed={pageItems.size >= numPages && refs.index.references.length === 0}
                 onJumpToMention={(ref) => {
+                  // Land on the first mention itself, not just its page: the
+                  // page-only jump did nothing when the mention was on the
+                  // page already shown, and left the reader hunting otherwise.
                   for (const [n, hits] of refs.index.mentionsByPage) {
-                    if (hits.some((hit) => hit.refIndexes.includes(ref.index))) { viewport.setPage(n); return; }
+                    const hit = hits.find((candidate) => candidate.refIndexes.includes(ref.index));
+                    if (!hit) continue;
+                    const [x1, y1, , y2] = hit.rects?.[0] ?? [];
+                    if (x1 != null && y1 != null && y2 != null) {
+                      onFigureTarget({ page: n, x: x1, y: y2, height: y2 - y1 });
+                    } else {
+                      onFigureTarget({ page: n, y: 0 });
+                    }
+                    return;
                   }
-                  viewport.setPage(ref.page);
+                  onFigureTarget({ page: ref.page, x: ref.x, y: ref.y });
                 }}
               />
             )}

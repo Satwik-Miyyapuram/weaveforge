@@ -397,6 +397,9 @@ body > canvas.hiddenCanvasElement { display: none; }
   color: var(--accent); cursor: pointer; text-decoration: none;
 }
 .pdf-reader-ref-action:hover { text-decoration: underline; }
+/* The entry switcher a range citation shows above its details. */
+.pdf-reader-ref-cluster { padding: 6px 10px 0; }
+.pdf-reader-ref-cluster .is-active { font-weight: 600; text-decoration: underline; }
 .pdf-reader-ref-picker { gap: 6px; }
 .pdf-reader-ref-picker select { font-size: 0.8rem; }
 .pdf-reader-ref-pill {
