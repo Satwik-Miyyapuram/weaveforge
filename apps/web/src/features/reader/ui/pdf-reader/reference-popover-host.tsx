@@ -46,7 +46,7 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
         confidence={open.confidence}
       />
       {picking && (
-        <div className="pdf-reader-ref-actions">
+        <div className="pdf-reader-ref-actions pdf-reader-ref-picker">
           {lists === null ? (
             <span role="status">Loading lists…</span>
           ) : lists.length === 0 ? (
@@ -62,7 +62,7 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
               </Select>
               <button
                 type="button"
-                className="btn-primary"
+                className="pdf-reader-ref-action"
                 disabled={!listId}
                 onClick={() => { void actions.addToList(entry, listId); setPicking(false); }}
               >
@@ -72,7 +72,7 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
           )}
         </div>
       )}
-      {notice && <p role="status" className="pdf-reader-ref-pill">{notice}</p>}
+      {notice && <p role="status" className="pdf-reader-ref-skeleton">{notice}</p>}
     </PopoverLayer>
   );
 }
