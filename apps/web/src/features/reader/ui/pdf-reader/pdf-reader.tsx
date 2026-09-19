@@ -306,6 +306,14 @@ export function PdfReader({
     saveAnchor,
   });
 
+  const unpaintedPageSize = (size: ReaderPageSize, at: number, turn: number) => {
+    const sideways = turn % 180 !== 0;
+    return {
+      minWidth: `${Math.floor((sideways ? size.height : size.width) * at)}px`,
+      minHeight: `${Math.floor((sideways ? size.width : size.height) * at)}px`,
+    };
+  };
+
   const onFigureTarget = useCallback((target: FigureTarget) => {
     setCaptionTarget(target);
     setFlashPage(target.page);
@@ -1001,6 +1009,12 @@ export function PdfReader({
                 }${createTool === "erase" && canCreate ? " pdf-reader-page--erase" : ""}${
                   penSeen ? " pdf-reader-page--pen" : ""
                 }${flashPage === n ? " pdf-reader-flash" : ""}`}
+                // A page not yet painted takes the document's page size, so a
+                // jump to page 11 lands on page 11: with the CSS placeholder,
+                // every unpainted page between here and there was a short
+                // strip that grew as it scrolled into view, and the scroll
+                // came up pages short of its target.
+                style={pageSize && !pageGeometries.current.has(n) ? unpaintedPageSize(pageSize, scale, rotation) : undefined}
               >
                 <canvas />
                 {pageSize && (

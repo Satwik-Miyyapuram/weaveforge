@@ -238,8 +238,17 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         : entry.raw;
       return navigator.clipboard?.writeText(text).then(() => setNotice("Citation copied")).catch(fail) ?? Promise.resolve();
     },
-    jumpToEntry: (entry: ParsedReference) => { setPage(entry.page); setOpen(null); },
-  }), [markInLibrary, paperId, setPage]);
+    jumpToEntry: (entry: ParsedReference) => {
+      // The entry carries its first line's position; landing on the page
+      // alone leaves the reader hunting through a two-column bibliography.
+      // The target scroll is the only scroll: setting the page as well queues
+      // a scroll to the page top that overrides it, and the page tracker
+      // follows the scroll on its own.
+      setOpen(null);
+      if (onFigureTarget) onFigureTarget({ page: entry.page, x: entry.x, y: entry.y });
+      else setPage(entry.page);
+    },
+  }), [markInLibrary, paperId, setPage, onFigureTarget]);
 
   return {
     enabled,
