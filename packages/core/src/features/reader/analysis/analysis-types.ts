@@ -35,6 +35,8 @@ export interface PdfLink {
    * caller could not measure; the estimate is then the fallback.
    */
   textRanges?: { start: number; end: number }[];
+  /** The named destination (`cite.kingma2014`), when the link has one. */
+  destName?: string;
 }
 
 /** One page handed to the analyzer. */
@@ -86,6 +88,16 @@ export interface CitationMention {
   source: CitationSource;
   /** 1 for a link-named entry, lower for pattern and fuzzy matches. */
   confidence: number;
+  target?: PdfLink["dest"];
+  destinationName?: string;
+  nativeRects?: number[][];
+  spanSource?: "text" | "annotation";
+}
+
+export interface PageTextRange {
+  page: number;
+  start: number;
+  end: number;
 }
 
 /**
@@ -106,6 +118,7 @@ export interface ParsedReference {
   end?: number;
   authors: string[];
   year?: number;
+  yearSuffix?: string;
   title?: string;
   venue?: string;
   doi?: string;

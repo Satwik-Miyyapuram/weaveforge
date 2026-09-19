@@ -1,27 +1,21 @@
 /**
- * Match citations, in priority order, and map them back to real PDF
- * rectangles.
+ * Match one page's citations and map them back to real PDF rectangles.
  *
- * The priority is the one a Scholar-style reader uses:
- *
- *   1. internal PDF destinations — the document's own `/Dest` links;
- *   2. native link text/geometry — an internal link whose destination the
- *      list does not answer, but whose printed text names an entry's label;
- *   3. numeric bracket citations (`[12]`, `[3, 8–10]`);
- *   4. superscript citations (Vancouver);
- *   5. author-year citations ("Smith et al. 2019");
- *   6. a fallback fuzzy author-year pass, flagged with low confidence.
- *
- * Steps 1–2 come from `pdf-link-analysis`, 3–6 from `findCitationMentions`;
- * `matchPageCitations` merges them so a span the links own is never re-claimed
- * by a pattern, and paints every mention with the page rects it covers.
+ * The pipeline is the reference Scholar reader's, ported verbatim: the text
+ * candidates (`[12]`, "Smith et al. 2019") are the mentions, the document's
+ * own internal links only *support* them, and what the links name that no
+ * candidate claims is coalesced with its neighbours. That is what keeps an
+ * author-year citation hyperref set as two boxes — `Kingma & Welling` and
+ * `(2014)` — one citation rather than two.
  */
 
 import { itemToRect, type PageTextItem } from "../../../reader/selection-to-anchor.js";
-import type { CitationMention, ParsedReference } from "./analysis-types.js";
-import { findCitationMentions, type CitationStyle } from "../find-citation-mentions.js";
+import type { CitationMention, PageTextRange, ParsedReference, PdfLink } from "./analysis-types.js";
+import type { CitationStyle } from "../find-citation-mentions.js";
 import type { OutlineTextItem } from "../outline-from-text.js";
-import { analyzePageLinks } from "./pdf-link-analysis.js";
+import { nativeCitationMentions } from "./pdf-links.js";
+import { findPatternCitationMentions } from "./citations.js";
+import { assemblePageCitations } from "./citation-assembly.js";
 
 export interface PageCitationInput {
   number: number;
@@ -30,7 +24,7 @@ export interface PageCitationInput {
   items: readonly PageTextItem[];
   /** The same runs as outline items, for the pattern finder. */
   outlineItems: readonly OutlineTextItem[];
-  links?: readonly import("./analysis-types.js").PdfLink[];
+  links?: readonly PdfLink[];
 }
 
 /**
@@ -86,69 +80,27 @@ export function looksLikeSuperscriptStyle(
   return hits >= 2;
 }
 
-function overlapsRects(a: readonly number[], b: readonly number[]): boolean {
-  const [ax0, ay0, ax1, ay1] = [Math.min(a[0]!, a[2]!), Math.min(a[1]!, a[3]!), Math.max(a[0]!, a[2]!), Math.max(a[1]!, a[3]!)];
-  const [bx0, by0, bx1, by1] = [Math.min(b[0]!, b[2]!), Math.min(b[1]!, b[3]!), Math.max(b[0]!, b[2]!), Math.max(b[1]!, b[3]!)];
-  return ax0 < bx1 && bx0 < ax1 && ay0 < by1 && by0 < ay1;
-}
-
 /**
- * Longest span a mention may cover, in characters.
- *
- * The longest real citation is nothing like this: `(Kingma & Welling (2014);
- * Rezende et al. (2014); Rezende & Mohamed (2015))` is about 70. A hundred
- * leaves room for one more clause and stops anything paragraph-shaped.
- */
-const MAX_MENTION_CHARS = 100;
-
-/**
- * One page's citations: what its own links name, exactly, and then what the
- * patterns find in whatever text the links leave uncovered. On a hyperref
- * PDF the first pass finds everything; on an OCR'd one the patterns are all
- * there is. A pattern mention under a URL link is dropped — the document's
- * link is what the person clicks, and painting ours over it would steal the
- * click. Every mention leaves with its rects filled in.
+ * One page's citations, as the reference reader assembles them: the native
+ * links read as support, the pattern finder's mentions, and the two combined
+ * over the text candidates. `referenceRanges` are the bibliography's own
+ * spans, where nothing is a citation.
  */
 export function matchPageCitations(
   page: PageCitationInput,
   references: readonly ParsedReference[],
-  bodyFontSize: number,
+  _bodyFontSize: number,
   style: CitationStyle | null,
+  referenceRanges: readonly PageTextRange[] = [],
 ): CitationMention[] {
-  const out = analyzePageLinks(
-    { number: page.number, text: page.text, items: page.items },
-    page.links ?? [],
+  const analyzePage = { pageNumber: page.number, items: page.items, links: page.links ?? [] };
+  const native = nativeCitationMentions(analyzePage, references, referenceRanges);
+  const patterns = findPatternCitationMentions(
+    { number: page.number, items: page.items, text: page.text },
     references,
-  ).citations;
-  /*
-   * A citation is a phrase, so a mention that covers a paragraph is not one.
-   *
-   * `analyzePageLinks` reads a link's span from the runs its box touches, and a
-   * box that straddles a line boundary can be read as touching the runs above
-   * and below — which stretches the span across everything between them. The
-   * measured `[3, 4, 5]` case was 1 541 characters, wide enough that painting it
-   * put a rule across the whole page. Whatever produced that, the pattern
-   * finders below are the honest answer for a span this long, so the mention is
-   * dropped here and rediscovered by them (or not at all) rather than painted.
-   */
-  const tooLong = MAX_MENTION_CHARS;
-  const plausible = out.filter((mention) => mention.end - mention.start <= tooLong);
-
-  const urlRects = (page.links ?? []).filter((link) => link.url).map((link) => link.rect);
-  for (const mention of findCitationMentions(
-    { number: page.number, text: page.text, items: page.outlineItems },
-    references,
-    bodyFontSize,
     style,
-  )) {
-    if (plausible.some((hit) => hit.start < mention.end && hit.end > mention.start)) continue;
-    if (mention.end - mention.start > tooLong) continue;
-    const rects = mentionRects(page.items, mention.start, mention.end);
-    if (urlRects.length && rects.some((rect) => urlRects.some((url) => overlapsRects(rect, url)))) continue;
-    plausible.push({ ...mention, rects });
-  }
-  for (const mention of plausible) {
-    if (!mention.rects.length) mention.rects = mentionRects(page.items, mention.start, mention.end);
-  }
-  return plausible.sort((a, b) => a.start - b.start);
+    "fixed",
+    referenceRanges,
+  );
+  return assemblePageCitations(analyzePage, native, patterns, referenceRanges);
 }

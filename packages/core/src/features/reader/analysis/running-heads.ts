@@ -10,7 +10,7 @@
  * text layer does not carry.
  */
 
-import { levenshtein } from "../outline-from-text.js";
+import { groupRecurringLines } from "../outline-from-text.js";
 import { STRUCTURAL_HEADING } from "./reference-section.js";
 import type { TextLine } from "./line-reconstruction.js";
 
@@ -29,24 +29,7 @@ function normalise(str: string): string {
  */
 export function furnitureLines(lines: readonly TextLine[]): Set<TextLine> {
   const furniture = new Set<TextLine>();
-  const groups: { key: string; pages: Set<number>; members: TextLine[] }[] = [];
-  for (const line of lines) {
-    const key = normalise(line.text);
-    if (key.length < 4) continue;
-    const limit = Math.floor(Math.min(key.length, 80) * 0.2);
-    let group = groups.find((g) => g.key === key);
-    if (!group) {
-      group = groups.find(
-        (g) => Math.abs(g.key.length - key.length) <= limit && levenshtein(g.key, key, limit) <= limit,
-      );
-    }
-    if (!group) {
-      group = { key, pages: new Set(), members: [] };
-      groups.push(group);
-    }
-    group.pages.add(line.page);
-    group.members.push(line);
-  }
+  const groups = groupRecurringLines(lines, (line) => line.text, (line) => line.page);
   for (const group of groups) {
     if (group.pages.size < 3) continue;
     for (const member of group.members) {

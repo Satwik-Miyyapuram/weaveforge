@@ -90,8 +90,10 @@ test("State C: unresolved entries offer Scholar and manual add, never an empty p
   assert.match(text, /Jump to entry/);
 });
 
-test("Pending: a skeleton with a disabled action, never an empty popover", () => {
+test("Pending: the document's own entry shows at once while the lookup runs", () => {
   const text = renderPopover({ resolution: { status: "pending" } });
   assert.match(text, /pdf-reader-ref-skeleton/);
-  assert.match(text, /"disabled":true/);
+  assert.match(text, /Attention is all you need/);
+  assert.match(text, /scholar\.google\.com\/scholar\?q=/);
+  assert.match(text, /Jump to entry/);
 });

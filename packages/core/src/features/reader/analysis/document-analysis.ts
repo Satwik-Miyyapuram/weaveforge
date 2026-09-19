@@ -28,8 +28,23 @@ import type {
   CitationMention,
   DocumentAnalysis,
   PageAnalysis,
+  PageTextRange,
   ParsedReference,
 } from "./analysis-types.js";
+
+/** The span of the page text each page's bibliography lines cover. */
+function rangesOf(lines: readonly TextLine[]): PageTextRange[] {
+  const ranges = new Map<number, PageTextRange>();
+  for (const line of lines) {
+    const old = ranges.get(line.page);
+    ranges.set(line.page, {
+      page: line.page,
+      start: Math.min(old?.start ?? Infinity, line.start),
+      end: Math.max(old?.end ?? 0, line.end),
+    });
+  }
+  return [...ranges.values()];
+}
 
 /** pdf.js transform → the outline parsers' item, font size from the matrix. */
 export function outlineItemOf(item: AnalyzePdfPage["items"][number], page: number): OutlineTextItem {
@@ -92,9 +107,9 @@ export function analyzePdfDocument(
     pageCount: pages.length,
     furniture,
   });
-  const references: ParsedReference[] = span
-    ? parseBibliography(ordered.slice(span.start, span.end))
-    : [];
+  const referenceLines = span ? ordered.slice(span.start, span.end) : [];
+  const references: ParsedReference[] = parseBibliography(referenceLines);
+  const referenceRanges = rangesOf(referenceLines);
 
   // Style is decided over the whole body once, so a stray "(Smith 2019)" in
   // a numeric paper — or a "[3]" in an author-year one — is never painted as
@@ -125,6 +140,7 @@ export function analyzePdfDocument(
         references,
         body,
         style,
+        referenceRanges,
       ),
     );
     pageAnalyses.push({

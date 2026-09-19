@@ -36,4 +36,14 @@ export {
   type PageCitationInput,
 } from "./analysis/citation-matcher.js";
 export { analyzePageLinks, widenToBrackets, type PageLinkAnalysis } from "./analysis/pdf-link-analysis.js";
+export { nativeCitationMentions, isCitationDestination } from "./analysis/pdf-links.js";
+export { assemblePageCitations, coalesceMentions } from "./analysis/citation-assembly.js";
+export {
+  findCitationCandidates,
+  findPatternCitationMentions,
+  matchAuthorYearText,
+  inReferenceList,
+  type CitationCandidate as CitationTextCandidate,
+} from "./analysis/citations.js";
+export { searchTextFromItems, originalRange, stripInvisible, surnameKey } from "./analysis/citation-text.js";
 export { analyzePdfDocument, outlineItemOf } from "./analysis/document-analysis.js";

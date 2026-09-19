@@ -299,12 +299,25 @@ useEffect(() => {
           const outlinePages: OutlineTextItem[][] = [];
           const itemsByPage = new Map<number, TextItemGeometry[]>();
           const links = new Map<number, PdfLink[]>();
-          for (let n = 1; n <= doc.numPages; n++) {
-            if (cancelled) return;
+          // Named destinations recur: every `[13]` in a paper points at the
+          // same `cite.smith2013`, and each resolution is a round trip to the
+          // pdf.js worker. Resolve each name once.
+          const destinations = new Map<string, Promise<{ page: number; x?: number; y?: number } | null>>();
+          const resolveNamed = (dest: unknown) => {
+            if (typeof dest !== "string") return resolveDestination(doc, dest);
+            let pending = destinations.get(dest);
+            if (!pending) {
+              pending = resolveDestination(doc, dest);
+              destinations.set(dest, pending);
+            }
+            return pending;
+          };
+          const extractPage = async (n: number) => {
             const p = await doc.getPage(n);
             const content = await p.getTextContent();
+            if (cancelled) return;
             const items = textItemsFromContent(content);
-            texts.push({ pageIndex: n - 1, text: buildPageText(items).text });
+            texts[n - 1] = { pageIndex: n - 1, text: buildPageText(items).text };
             itemsByPage.set(n, items);
             // The document's own links, two ways. A URL link is left to the
             // document (its rect defers ours). An internal `/Dest` link is
@@ -321,10 +334,13 @@ useEffect(() => {
                   found.push({ rect, url: a.url });
                   continue;
                 }
-                const dest = await resolveDestination(doc, a.dest);
-                if (dest) found.push({ rect, dest });
+                const dest = await resolveNamed(a.dest);
+                // The name too: `cite.kingma2014` says what the link is even
+                // when the point it resolves to lands nowhere in the list.
+                const destName = typeof a.dest === "string" ? a.dest : undefined;
+                if (dest || destName) found.push({ rect, ...(dest ? { dest } : {}), ...(destName ? { destName } : {}) });
               }
-              if (found.length) {
+              if (found.length && !cancelled) {
                 // Which characters each box covers, measured in the rendered
                 // layout. A page that will not lay out keeps its unmeasured
                 // links; the analysis then estimates from the run widths.
@@ -345,14 +361,22 @@ useEffect(() => {
             } catch {
               /* a page whose annotations will not load simply has none */
             }
-            outlinePages.push(items.map((item) => ({
+            outlinePages[n - 1] = items.map((item) => ({
               str: item.str,
               fontSize: Math.hypot(item.transform[2] ?? 0, item.transform[3] ?? 0),
               fontName: item.fontName ? content.styles[item.fontName]?.fontFamily ?? item.fontName : undefined,
               x: item.transform[4] ?? 0,
               y: item.transform[5] ?? 0,
               page: n,
-            })));
+            }));
+          };
+          // Pages are independent, and the pdf.js worker serves them
+          // concurrently, so they are extracted together rather than one at
+          // a time; the results are keyed by page so order never matters.
+          await Promise.all(Array.from({ length: doc.numPages }, (_, i) => extractPage(i + 1)));
+          for (let n = 1; n <= doc.numPages; n++) {
+            texts[n - 1] ??= { pageIndex: n - 1, text: "" };
+            outlinePages[n - 1] ??= [];
           }
           if (cancelled) return;
           detected = outlineFromText(outlinePages);

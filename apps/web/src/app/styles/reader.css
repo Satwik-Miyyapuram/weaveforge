@@ -191,11 +191,23 @@
   background: var(--reader-select-color, Highlight);
 }
 .pdf-reader-textlayer br::selection { background: transparent; }
-/* Where a page's links are measured against a throwaway layout, off screen. */
+/* Where a page's links are measured against a throwaway layout, off screen.
+   The host inside is a bare `.pdf-text-content` (pdf.js's own class), not a
+   `.pdf-reader-textlayer`, so it needs the same layout rules: without them the
+   spans flow like a paragraph and every measured glyph rectangle is wrong. */
 .pdf-measure-shell {
   position: fixed; left: -100000px; top: 0;
   visibility: hidden; pointer-events: none;
 }
+.pdf-measure-shell .pdf-text-content {
+  position: absolute; inset: 0; overflow: clip; line-height: 1;
+  text-align: initial; text-size-adjust: none; -webkit-text-size-adjust: none;
+  transform-origin: 0 0;
+}
+.pdf-measure-shell .pdf-text-content :is(span, br) {
+  position: absolute; white-space: pre; transform-origin: 0% 0%;
+}
+.pdf-measure-shell .pdf-text-content span.markedContent { top: 0; height: 0; }
 /* A citation mention, an anchor inside the text layer's own span rather than a
    box over the page. The words stay exactly where PDF.js put them — only the
    span's contents are split — so the rule is under the glyphs by construction

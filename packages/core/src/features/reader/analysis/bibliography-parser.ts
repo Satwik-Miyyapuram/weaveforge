@@ -174,8 +174,11 @@ export function parseBibliographyEntry(
   const arxivId = /(?:arXiv:\s*)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[A-Z]{2})?\/\d{7}(?:v\d+)?)/i.exec(text)?.[1];
   const url = /https?:\/\/[^\s"<>]+/i.exec(text)?.[0]?.replace(/[.,;)]+$/, "");
 
-  const yearMatches = [...text.matchAll(/\b((?:19|20)\d\d)[a-z]?\b/g)];
+  const yearMatches = [...text.matchAll(/\b((?:19|20)\d\d)([a-z]?)\b/g)];
   let year = yearMatches[0]?.[1] ? Number(yearMatches[0][1]) : undefined;
+  /** `2014a` — the letter that tells two same-year entries apart. */
+  const suffixOf = (match: RegExpMatchArray | undefined) => match?.[2] || undefined;
+  let yearSuffix = suffixOf(yearMatches[0]);
 
   let authors: string[] = [];
   let title: string | undefined;
@@ -200,19 +203,23 @@ export function parseBibliographyEntry(
     const authorText = text.slice(0, quote.index).replace(/[,.:\s]+$/, "");
     authors = extractAuthors(authorText);
     venue = extractVenue(text.slice(quote.index + quote[0].length));
-    const lastYear = yearMatches[yearMatches.length - 1]?.[1];
-    return { ...base, authors, year: lastYear ? Number(lastYear) : year, title: cleanTitle(title), venue };
+    const last = yearMatches[yearMatches.length - 1];
+    return {
+      ...base, authors, year: last ? Number(last[1]) : year, yearSuffix: last ? suffixOf(last) : yearSuffix,
+      title: cleanTitle(title), venue,
+    };
   }
 
   // 2. Early year (APA / Harvard): "Surname, A. (2019). Title."
-  const earlyYearMatch = text.match(/^([^\d]{3,120}?)[\s,]*[\(\[]?((?:19|20)\d\d)[a-z]?[\)\]]?[.:]\s+(.+)$/);
+  const earlyYearMatch = text.match(/^([^\d]{3,120}?)[\s,]*[\(\[]?((?:19|20)\d\d)([a-z]?)[\)\]]?[.:]\s+(.+)$/);
   if (earlyYearMatch) {
     authors = extractAuthors(earlyYearMatch[1]!);
     year = Number(earlyYearMatch[2]);
-    const afterYear = earlyYearMatch[3]!;
+    yearSuffix = earlyYearMatch[3] || undefined;
+    const afterYear = earlyYearMatch[4]!;
     title = afterYear.split(/\.\s+(?=[A-Z0-9"“]|In\s|in\s)|\.\s*$/)[0];
     venue = extractVenue(afterYear.slice(title?.length ?? 0));
-    return { ...base, authors, year, title: cleanTitle(title), venue };
+    return { ...base, authors, year, yearSuffix, title: cleanTitle(title), venue };
   }
 
   // 3. Late year / conference form. Cut the venue clause off first.
@@ -245,12 +252,13 @@ export function parseBibliographyEntry(
 
   if (title) title = title.split(/\.\s+(?=[A-Z]|In\s|in\s)|\.\s*$/)[0];
   venue = extractVenue(text.slice((title ? text.indexOf(title) + title.length : 0)));
-  const lastYear = yearMatches[yearMatches.length - 1]?.[1];
+  const last = yearMatches[yearMatches.length - 1];
 
   return {
     ...base,
     authors,
-    year: lastYear ? Number(lastYear) : year,
+    year: last ? Number(last[1]) : year,
+    yearSuffix: last ? suffixOf(last) : yearSuffix,
     title: cleanTitle(title),
     venue,
   };

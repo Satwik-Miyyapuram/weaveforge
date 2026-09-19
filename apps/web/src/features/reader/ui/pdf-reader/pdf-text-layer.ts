@@ -74,7 +74,7 @@ export function measureLinkTextRanges(
   });
   const glyphCache = new Map<number, { start: number; end: number; box: DOMRect }[]>();
   return links.map((link) => {
-    if (link.url || !link.dest) return link;
+    if (link.url || (!link.dest && !link.destName)) return link;
     const projected = viewport.convertToViewportRectangle(link.rect);
     const box = {
       left: origin.left + Math.min(projected[0]!, projected[2]!),

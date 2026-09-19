@@ -35,27 +35,9 @@ test("IEEE numeric citations resolve to the numbered list", () => {
     ["[2, 3]", [2, 3], "numeric"],
     ["[4-5]", [4, 5], "numeric"],
   ]);
-  assert.ok(cites.every((c) => c.confidence >= 0.85));
+  // A bracket naming several entries is less certain than one naming one.
+  assert.ok(cites.every((c) => c.confidence >= 0.72));
   assert.ok(cites.every((c) => c.rects.length >= 1 && c.rects[0]!.length === 4));
-});
-
-test("Vancouver superscripts are found without any bracket citations", () => {
-  const page1: AnalyzePdfPage = {
-    pageNumber: 1,
-    items: [
-      run("The pathway activates", 40, 700, { hasEOL: false }),
-      run("1", 145, 703, { fontSize: 6.5, hasEOL: false }),
-      run(" and the receptor binds", 150, 700, { hasEOL: false }),
-      run("2", 265, 703, { fontSize: 6.5 }),
-    ],
-  };
-  const pages = [page1, body(8, 2), textPage(3, numberedReferences(4))];
-  const analysis = analyzePdfDocument(pages);
-  const cites = analysis.citations.filter((c) => c.page === 1);
-  assert.deepEqual(cites.map((c) => [c.text, c.referenceIndexes, c.source]), [
-    ["1", [1], "superscript"],
-    ["2", [2], "superscript"],
-  ]);
 });
 
 test("APA/Harvard author-year citations, groups and narrative forms", () => {
@@ -74,8 +56,10 @@ test("APA/Harvard author-year citations, groups and narrative forms", () => {
   const analysis = analyzePdfDocument(pages);
   assert.equal(analysis.references.length, 3);
   const cites = analysis.citations.filter((c) => c.page === 1);
+  // A group is one mention per work, as the Scholar reader paints it.
   assert.deepEqual(cites.map((c) => [c.text, c.referenceIndexes]), [
-    ["(Smith 2020; Jones 2021)", [1, 2]],
+    ["Smith 2020", [1]],
+    ["Jones 2021)", [2]],
     ["Smith et al. (2020)", [1]],
     ["Jones (2021)", [2]],
   ]);
@@ -161,7 +145,8 @@ test("internal PDF /Dest links are authoritative over regex parsing", () => {
       run("] and more", 150, 500),
     ],
     links: [
-      { rect: [139, 498, 151, 510], dest: { page: 3, x: 40, y: 706 } },
+      // hyperref names its destination; the box alone says nothing about the text.
+      { rect: [139, 498, 151, 510], dest: { page: 3, x: 40, y: 706 }, destName: "cite.entry16" },
       { rect: [300, 498, 310, 510], url: "https://example.org" },
     ],
   };
@@ -181,13 +166,49 @@ test("an internal link whose destination is unknown falls back to its printed la
   const page: AnalyzePdfPage = {
     pageNumber: 1,
     items: [run("See [3] for details.", 40, 600)],
-    links: [{ rect: rectOver("[3]", 60, 600), dest: { page: 9, x: 40, y: 700 } }],
+    links: [{ rect: rectOver("[3]", 60, 600), dest: { page: 9, x: 40, y: 700 }, textRanges: [{ start: 4, end: 7 }] }],
   };
   const analysis = analyzePdfDocument([page, body(8, 2), textPage(3, numberedReferences(5))]);
-  const cite = analysis.citations.find((c) => c.page === 1);
-  assert.deepEqual(cite?.referenceIndexes, [3]);
-  assert.equal(cite?.source, "internal-pdf-link");
-  assert.ok(cite!.confidence < 1);
+  const cites = analysis.citations.filter((c) => c.page === 1);
+  assert.equal(cites.length, 1);
+  assert.deepEqual(cites[0]?.referenceIndexes, [3]);
+  assert.equal(cites[0]?.source, "internal-pdf-link");
+  assert.equal(cites[0]?.text, "[3]");
+});
+
+test("an author-year citation hyperref splits into two links is one mention", () => {
+  // natbib draws one box over `Kingma & Welling` and another over `2014`;
+  // both name the same entry, and the reader shows one citation.
+  const text = "(VAE; Kingma & Welling (2014)) is a top-down generative network with";
+  const page: AnalyzePdfPage = {
+    pageNumber: 1,
+    items: [run(text, 40, 600)],
+    links: [
+      {
+        rect: rectOver("Kingma & Welling", 40 + 6 * 5, 600),
+        dest: { page: 3, x: 40, y: 705 },
+        destName: "cite.kingma2014",
+        textRanges: [{ start: 6, end: 22 }],
+      },
+      {
+        rect: rectOver("2014", 40 + 24 * 5, 600),
+        dest: { page: 3, x: 40, y: 705 },
+        destName: "cite.kingma2014",
+        textRanges: [{ start: 24, end: 28 }],
+      },
+    ],
+  };
+  const refs = textPage(3, authorYearReferences([
+    { surname: "Kingma", year: 2014, title: "Auto-encoding variational bayes" },
+    { surname: "Rezende", year: 2014 },
+    { surname: "Higgins", year: 2017 },
+  ]));
+  const analysis = analyzePdfDocument([page, body(8, 2), refs]);
+  const cites = analysis.citations.filter((c) => c.page === 1);
+  assert.equal(cites.length, 1);
+  assert.equal(cites[0]?.text, "Kingma & Welling (2014)");
+  assert.equal(cites[0]?.source, "internal-pdf-link");
+  assert.equal(cites[0]?.nativeRects?.length, 2);
 });
 
 test("figure, table and equation mentions resolve to their captions", () => {

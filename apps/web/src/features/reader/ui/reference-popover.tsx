@@ -42,10 +42,25 @@ export function ReferencePopover(props: ReferencePopoverProps) {
         </p>
       )}
       {resolution.status === "pending" ? (
-        <div title={entry.raw}>
-          <div className="pdf-reader-ref-skeleton" role="status">Looking up reference…</div>
-          {action("Read later", undefined, true)}
-          {action("Add to list")}
+        // The entry the document printed is known the instant the citation is
+        // clicked; only the online metadata is still on its way. Show what is
+        // known now and let the lookup enrich it, rather than hiding the entry
+        // behind a skeleton for as long as the network takes.
+        <div>
+          {entry.title ? (
+            <>
+              <h3>{entry.title}</h3>
+              <p>{[entry.authors.join(", "), entry.year, entry.venue].filter(Boolean).join(" · ")}</p>
+            </>
+          ) : (
+            <p className="pdf-reader-ref-raw">{entry.raw}</p>
+          )}
+          <p className="pdf-reader-ref-skeleton" role="status">Looking up online…</p>
+          <div className="pdf-reader-ref-actions">
+            <a className="btn-primary" href={semanticScholar} target="_blank" rel="noopener noreferrer">Semantic Scholar ↗</a>
+            <a className="btn-secondary" href={scholar} target="_blank" rel="noopener noreferrer">Scholar ↗</a>
+          </div>
+          {action("Jump to entry", props.onJumpToEntry)}
         </div>
       ) : resolution.status === "unresolved" ? (
         <div>
