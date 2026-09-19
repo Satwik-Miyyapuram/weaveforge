@@ -325,35 +325,37 @@
 }
 .pdf-reader--dark .pdf-reader-ann { mix-blend-mode: screen; }
 /* Minimal: a footnote-sized card — title, one metadata line, one row of quiet
-   text actions. Same surface as `.popover-panel`. */
+   text actions. Same surface as `.popover-panel`; every colour is a theme
+   token so it reads the same on the light, dark and high-contrast themes. */
 .pdf-reader-ref-popover {
   position: fixed; z-index: 60;
-  width: 300px; max-width: calc(100vw - 24px);
-  display: grid; gap: 6px; padding: 10px 12px;
-  background: var(--elev); border: 1px solid var(--border); border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  font-size: 0.8rem; line-height: 1.35;
+  width: 320px; max-width: calc(100vw - 24px);
+  display: grid; gap: 6px; padding: 12px 14px;
+  background: var(--elev); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  font-size: 0.875rem; line-height: 1.4;
   margin: 0;
 }
-.pdf-reader-ref-body { position: relative; display: grid; gap: 4px; padding-right: 18px; }
+.pdf-reader-ref-body { position: relative; display: grid; gap: 4px; padding-right: 20px; }
 .pdf-reader-ref-close {
-  position: absolute; top: -4px; right: -6px;
-  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px;
-  background: transparent; color: var(--muted); font-size: 1rem; line-height: 1; cursor: pointer;
+  position: absolute; top: -4px; right: -8px;
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: var(--muted); font-size: 1.1rem; line-height: 1; cursor: pointer;
 }
-.pdf-reader-ref-close:hover { background: var(--surface); color: var(--fg); }
-.pdf-reader-ref-popover h3 { margin: 0; font-size: 0.85rem; font-weight: 500; line-height: 1.3; }
-.pdf-reader-ref-popover p { margin: 0; color: var(--muted); }
+.pdf-reader-ref-close:hover { background: var(--surface); color: var(--text); }
+.pdf-reader-ref-popover h3 { margin: 0; font-size: 0.925rem; font-weight: 600; line-height: 1.3; color: var(--text); }
+.pdf-reader-ref-popover p { margin: 0; color: var(--text); opacity: 0.85; }
 .pdf-reader-ref-raw { max-height: 4.5rem; overflow: auto; }
-.pdf-reader-ref-skeleton { color: var(--muted); font-size: 0.75rem; }
-.pdf-reader-ref-actions { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; margin-top: 2px; }
+.pdf-reader-ref-skeleton { color: var(--muted); font-size: 0.8rem; }
+.pdf-reader-ref-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin-top: 4px; }
 .pdf-reader-ref-action {
-  padding: 0; border: 0; background: none; font: inherit; font-size: 0.75rem;
+  padding: 0; border: 0; background: none; font: inherit; font-size: 0.825rem; font-weight: 500;
   color: var(--accent); cursor: pointer; text-decoration: none;
 }
 .pdf-reader-ref-action:hover { text-decoration: underline; }
 .pdf-reader-ref-picker { gap: 6px; }
-.pdf-reader-ref-picker select { font-size: 0.75rem; }
+.pdf-reader-ref-picker select { font-size: 0.8rem; }
 .pdf-reader-ref-pill {
   display: inline-block; padding: 1px 8px; border-radius: var(--radius-pill);
   background: var(--st-positive-bg); color: var(--st-positive-fg);

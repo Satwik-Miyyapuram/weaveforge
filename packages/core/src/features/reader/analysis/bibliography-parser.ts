@@ -140,12 +140,16 @@ function extractAuthors(text: string): string[] {
  * preprint"). Kept conservative — a wrong venue is worse than none.
  */
 export function extractVenue(afterTitle: string): string | undefined {
+  // The year and page numbers belong to the entry, not the venue name.
+  const tidy = (venue: string) => venue.trim()
+    .replace(/\s*,\s*(?:(?:19|20)\d{2}[a-z]?|pp?\.?\s*[\d–-]+)\s*$/, "")
+    .replace(/\s+,/g, ",").replace(/[.,]+$/, "").trim();
   const inMatch = /\bIn\s+(.{3,90}?)(?:\.|,\s*\d{4}|$)/i.exec(afterTitle);
-  if (inMatch && VENUE_WORDS.test(inMatch[1]!)) return inMatch[1]!.trim().replace(/[.,]+$/, "");
+  if (inMatch && VENUE_WORDS.test(inMatch[1]!)) return tidy(inMatch[1]!);
   for (const segment of afterTitle.split(/\.\s+/)) {
     const trimmed = segment.trim().replace(/[.,]+$/, "");
     if (trimmed.length >= 3 && trimmed.length <= 90 && VENUE_WORDS.test(trimmed) && !/^\d+$/.test(trimmed)) {
-      return trimmed;
+      return tidy(trimmed);
     }
   }
   return undefined;
@@ -228,10 +232,12 @@ export function parseBibliographyEntry(
   if (inMatch !== -1) preVenue = text.slice(0, inMatch);
 
   const etAlMatch = preVenue.match(/^(.+?\bet\s+al\.?)[,.:\s]+(.+)$/i);
+  // The last author's initials may run on ("Welling, M. J."); the final dot
+  // is the one that closes the author list, so it is left for the ". " below.
   const andMatch = !etAlMatch &&
-    preVenue.match(/^(.+?\b(?:and|&)\s+(?:(?:[A-Z]\.\s*)+[\p{L}'’\-]+|[\p{L}'’\-]+(?:,\s+[A-Z]\.)?))\.\s+([\p{Lu}].+)$/u);
+    preVenue.match(/^(.+?\b(?:and|&)\s+(?:(?:[A-Z]\.\s*)+[\p{L}'’\-]+|[\p{L}'’\-]+(?:,\s+(?:[A-Z]\.\s*)*[A-Z])?))\.\s+([\p{Lu}].+)$/u);
   const authorListMatch = !etAlMatch && !andMatch &&
-    preVenue.match(/^((?:[\p{L}'’\-]+,\s+[A-Z]\.\s*,?\s*)+)\s*([\p{Lu}].+)$/u);
+    preVenue.match(/^((?:[\p{L}'’\-]+,\s+(?:[A-Z]\.\s*)+,?\s*)+)\s*([\p{Lu}].+)$/u);
   const dotMatch = !etAlMatch && !andMatch && !authorListMatch &&
     preVenue.match(/^([^\n.]{3,100}\.)\s+([\p{Lu}].+)$/u);
   if (etAlMatch) {

@@ -22,6 +22,21 @@ test("splits numbered references and extracts identifiers, title, year and surna
   assert.equal(refs[2]?.title, "A quoted title");
 });
 
+test("multi-initial author lists keep the title whole", () => {
+  const refs = parseReferenceList([lines([
+    "References",
+    "Kingma, D. P. and Welling, M. Auto-Encoding Variational Bayes. In ICLR, 2014.",
+    "Burda, Y., Grosse, R. B., and Salakhutdinov, R. Importance weighted autoencoders. In ICLR, 2016.",
+    "Rezende, D. J., Mohamed, S., and Wierstra, D. Stochastic backpropagation. In ICML, 2014.",
+  ])]);
+  assert.equal(refs.length, 3);
+  assert.deepEqual(refs[0]?.authors, ["Kingma", "Welling"]);
+  assert.equal(refs[0]?.title, "Auto-Encoding Variational Bayes");
+  assert.equal(refs[0]?.venue, "ICLR");
+  assert.equal(refs[1]?.title, "Importance weighted autoencoders");
+  assert.equal(refs[2]?.title, "Stochastic backpropagation");
+});
+
 test("uses the last bibliography heading, joins hyphens and stops at Appendix", () => {
   const input = [lines(["References", "Contents", "References", '[1] Smith. 2019. “Hyphen-', 'ated title”.', '[2] Lee. 2020. “Second”.', '[3] Jones. 2021. “Third”.', "Appendix", "[4] Not a reference."])];
   const refs = parseReferenceList(input);
