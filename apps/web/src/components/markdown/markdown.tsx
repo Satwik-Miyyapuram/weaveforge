@@ -399,6 +399,18 @@ export function Markdown({ children, className }: { children: string; className?
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
 /**
+ * A fresh matcher per render. A `g` regex keeps its position on the regex
+ * object, and the Shiki pass awaits between matches — so two renders in
+ * flight at once (a note opened from a link renders its preview, then its
+ * full body a moment later) each reset and advanced the other's cursor. The
+ * first came back with its prose pushed twice: the note, rendered twice over,
+ * one copy under the other.
+ */
+function fenceMatcher(): RegExp {
+  return new RegExp(FENCE_RE.source, FENCE_RE.flags);
+}
+
+/**
  * Synchronous full render: prose through `renderProseMarkdown`, fenced code as
  * a plain escaped `<pre>` (no Shiki). For surfaces that must render in one
  * pass with no async highlight round trip, such as the ink sheet's text layer.
@@ -406,9 +418,9 @@ const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 export function renderMarkdownPlain(md: string, options?: MarkdownRenderOptions): string {
   const parts: string[] = [];
   let lastIndex = 0;
-  FENCE_RE.lastIndex = 0;
+  const fence = fenceMatcher();
   let match: RegExpExecArray | null;
-  while ((match = FENCE_RE.exec(md)) !== null) {
+  while ((match = fence.exec(md)) !== null) {
     if (match.index > lastIndex) {
       parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
     }
@@ -416,7 +428,7 @@ export function renderMarkdownPlain(md: string, options?: MarkdownRenderOptions)
     const lang = info.split(/\s+/)[0] ?? "";
     const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
     parts.push(`<pre class="md-code"${langAttr}><code>${escapeHtml(match[2] ?? "")}</code></pre>`);
-    lastIndex = FENCE_RE.lastIndex;
+    lastIndex = fence.lastIndex;
   }
   if (lastIndex < md.length) {
     parts.push(renderProseMarkdown(md.slice(lastIndex), options));
@@ -433,14 +445,14 @@ export async function renderMarkdownWithShiki(
 ): Promise<string> {
   const parts: string[] = [];
   let lastIndex = 0;
-  FENCE_RE.lastIndex = 0;
+  const fence = fenceMatcher();
   let match: RegExpExecArray | null;
-  while ((match = FENCE_RE.exec(md)) !== null) {
+  while ((match = fence.exec(md)) !== null) {
     if (match.index > lastIndex) {
       parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
     }
     parts.push(await highlight(match[2] ?? "", match[1] ?? "", mode));
-    lastIndex = FENCE_RE.lastIndex;
+    lastIndex = fence.lastIndex;
   }
   if (lastIndex < md.length) {
     parts.push(renderProseMarkdown(md.slice(lastIndex), options));

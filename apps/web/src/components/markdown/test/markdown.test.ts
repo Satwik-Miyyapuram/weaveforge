@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderMarkdownPlain, renderProseMarkdown } from "@/components/markdown/markdown";
+import { renderMarkdownPlain, renderMarkdownWithShiki, renderProseMarkdown } from "@/components/markdown/markdown";
 
 test("renders inline and display equations locally", () => {
   const inline = renderProseMarkdown("The latent is $z = \\mu + \\sigma\\epsilon$.");
@@ -104,4 +104,26 @@ test("resolveImageSrc rewrites a src, and a null answer drops the reference", ()
   // The one that could not be fetched is gone, not a broken image.
   assert.doesNotMatch(html, /gone\.png/);
   assert.equal((html.match(/<img /g) ?? []).length, 1);
+});
+
+test("two Shiki renders in flight do not share a fence cursor", async () => {
+  // A note opened from a link renders its preview and, a moment later, its
+  // full body. Both passes await the highlighter between fences; a shared
+  // global regex let each reset the other's position, and the first pass
+  // came back with its prose twice.
+  const fence = "```";
+  const short = ["# Head", "", `${fence}mermaid`, "A-->B", fence, "", "tail"].join("\n");
+  const long = [short, "", "## More", "", `${fence}js`, "x", fence, "", "end"].join("\n");
+  const slow = async (code: string, info: string) => {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    return `<pre data-lang="${info}">${code}</pre>`;
+  };
+  const [a, b] = await Promise.all([
+    renderMarkdownWithShiki(short, "light", slow),
+    renderMarkdownWithShiki(long, "light", slow),
+  ]);
+  assert.equal((a.match(/Head/g) ?? []).length, 1);
+  assert.equal((a.match(/tail/g) ?? []).length, 1);
+  assert.equal((b.match(/Head/g) ?? []).length, 1);
+  assert.equal((b.match(/<pre /g) ?? []).length, 2);
 });

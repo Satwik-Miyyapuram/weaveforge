@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { EditorView } from "@codemirror/view";
 import { isInkNoteBody, vaultImageMarkdown } from "@weaveforge/core";
 
@@ -277,18 +278,30 @@ export function DocumentHost({
   // right on their screens and wrong here, where the target is a tab. Caught
   // in the capture phase, before that handler runs, and only for a link that
   // resolved: an unresolved one carries `data-create` and is theirs.
+  // A plain `[label](/notes?page=…)` is the same link without the wikilink
+  // mark; left to the browser it is a full navigation, and the workspace
+  // reloads for a document one tab away. Any in-app target opens as a tab;
+  // any other root-relative one goes through the router, never the browser.
+  const router = useRouter();
   const onReadClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!onOpenLink) return;
-      const anchor = (event.target as HTMLElement).closest("a[data-wikilink]");
-      if (!anchor || anchor.hasAttribute("data-create")) return;
-      const target = tabForHref(anchor.getAttribute("href"));
-      if (!target) return;
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey) return;
+      const anchor = (event.target as HTMLElement).closest("a[href]");
+      if (!anchor || anchor.hasAttribute("data-create") || anchor.getAttribute("target")) return;
+      const href = anchor.getAttribute("href") ?? "";
+      if (!href.startsWith("/")) return;
+      const target = tabForHref(href);
+      if (target && onOpenLink) {
+        event.preventDefault();
+        event.stopPropagation();
+        onOpenLink(target);
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
-      onOpenLink(target);
+      router.push(href);
     },
-    [onOpenLink],
+    [onOpenLink, router],
   );
 
   const renderer = rendererFor(tab.kind, mode, body);
