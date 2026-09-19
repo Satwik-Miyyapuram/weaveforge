@@ -374,7 +374,13 @@ export function DocumentHost({
       onModeChange={choosePreview}
       liveBody={liveBody}
       savedBody={body}
-      preview={renderMarkdown}
+      // The live preview is a read view too: a wikilink clicked there opens
+      // the target's tab, not the vault route the renderer would push.
+      preview={(text) => (
+        <div className="md-live-read" onClickCapture={onReadClick}>
+          {renderMarkdown(text)}
+        </div>
+      )}
     >
       <CollabBodyHost
         resourceType={tab.kind}
