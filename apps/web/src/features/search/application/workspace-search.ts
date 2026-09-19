@@ -36,6 +36,43 @@ import { persistSearchIndex } from "../infrastructure/index-cache-policy";
  * The index is a projection of the database, not of the optional folder mirror,
  * so search works for everyone regardless of whether the folder is enabled.
  */
+/**
+ * Fold hits onto the entity they belong to: a PDF's pages are indexed one
+ * document each, so a similar paper came back as the same title four times.
+ * A page is stood in for by the paper's own document when `entityDoc` finds
+ * one — the paper page, not page 9 of its PDF, is where "related" should
+ * land. The seed's entity is dropped: its own pages are the closest match to
+ * its title, and nobody needs to be told that.
+ */
+export function collapseToEntities(
+  hits: readonly SearchHit[],
+  seed: Pick<SearchHit, "entityId">,
+  entityDoc: (hit: SearchHit) => string | null = () => null,
+): { id: string; score: number }[] {
+  const best = new Map<string, { id: string; score: number; isEntityDoc: boolean }>();
+  for (const hit of hits) {
+    if (hit.entityId === seed.entityId) continue;
+    const owner = hit.kind === "pdf" ? entityDoc(hit) : null;
+    const isEntityDoc = hit.kind !== "pdf" || owner !== null;
+    const current = best.get(hit.entityId);
+    if (!current) {
+      best.set(hit.entityId, { id: owner ?? hit.id, score: hit.score, isEntityDoc });
+      continue;
+    }
+    // Keep the entity's own document as the link target, but let the score be
+    // the best any of its documents earned so ranking is not skewed by a
+    // page happening to outscore the paper record.
+    current.score = Math.max(current.score, hit.score);
+    if (isEntityDoc && !current.isEntityDoc) {
+      current.id = owner ?? hit.id;
+      current.isEntityDoc = true;
+    }
+  }
+  return [...best.values()]
+    .sort((a, b) => b.score - a.score)
+    .map(({ id, score }) => ({ id, score }));
+}
+
 export class WorkspaceSearch {
   private index: IWorkspaceSearchIndex | null = null;
   private building: Promise<IWorkspaceSearchIndex> | null = null;
@@ -370,13 +407,17 @@ export class WorkspaceSearch {
     return findRelated(seedId, {
       graph: this.graph,
       // More-like-this: search the seed's own title, which is the one piece of
-      // its text available without holding the corpus in memory here.
+      // its text available without holding the corpus in memory here. The id
+      // is `kind:uuid`, so the title has to come from the index — searching
+      // the uuid matched hex fragments of random PDF pages.
       lexical: (id, max) => {
-        const title = id.split(":").slice(1).join(":");
-        return index
-          .search(title, { limit: max + 1 })
-          .filter((hit) => hit.id !== id)
-          .map((hit) => ({ id: hit.id, score: hit.score }));
+        const seed = index.hitById(id);
+        if (!seed) return [];
+        return collapseToEntities(
+          index.search(seed.title, { limit: max * 8 }),
+          seed,
+          (hit) => index.hitById(`paper:${hit.entityId}`)?.id ?? null,
+        ).slice(0, max);
       },
     }, limit);
   }

@@ -83,9 +83,11 @@ export function PaperNote({
       url: paper.url,
       arxivId: paper.arxivId,
       pdfPath: paper.pdfPath,
+      openAccessPdf:
+        typeof paper.metadata?.["openAccessPdf"] === "string" ? paper.metadata["openAccessPdf"] : null,
     });
     return pdfUrl ? buildLocusLink({ paperId: paper.id }) : null;
-  }, [paper.id, paper.url, paper.arxivId, paper.pdfPath]);
+  }, [paper.id, paper.url, paper.arxivId, paper.pdfPath, paper.metadata]);
 
   async function changeStatus(status: PaperStatus) {
     setBusy(true);

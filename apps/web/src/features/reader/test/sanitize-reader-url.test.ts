@@ -140,3 +140,25 @@ test("a paper with no url and no identifier is not readable", () => {
   assert.equal(resolvePaperPdfUrl({}), null);
   assert.equal(resolvePaperPdfUrl({ url: "   " }), null);
 });
+
+test("resolvePaperPdfUrl falls back to the reported open-access copy when the landing page is HTML", () => {
+  // A paper added from a reference list: DOI, Semantic Scholar landing page,
+  // and the open-access link S2 reported. Only the last is a PDF.
+  assert.equal(
+    resolvePaperPdfUrl({
+      url: "https://www.semanticscholar.org/paper/abc",
+      openAccessPdf: "https://arxiv.org/pdf/1207.0580v1",
+    }),
+    "https://arxiv.org/pdf/1207.0580v1",
+  );
+  // An arXiv id still wins; an HTML or http open-access link is skipped.
+  assert.equal(
+    resolvePaperPdfUrl({ arxivId: "1706.03762", openAccessPdf: "https://example.com/x.pdf" }),
+    "https://arxiv.org/pdf/1706.03762",
+  );
+  assert.equal(
+    resolvePaperPdfUrl({ url: "https://example.com/landing", openAccessPdf: "http://dl.acm.org/ft_gateway.cfm?id=1&type=pdf" }),
+    null,
+  );
+  assert.equal(resolvePaperPdfUrl({ openAccessPdf: "" }), null);
+});
