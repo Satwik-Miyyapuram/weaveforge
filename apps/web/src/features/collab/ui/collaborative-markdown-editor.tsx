@@ -87,15 +87,6 @@ export function CollaborativeMarkdownEditor({
   const [peers, setPeers] = useState<string[]>([]);
   const [transportError, setTransportError] = useState<string | null>(null);
 
-  const scheduleSave = useCallback((body: string) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (!shouldPersistBody({ ready: ready.current, next: body, lastSaved: lastSaved.current })) return;
-    pendingBody.current = body;
-    saveTimer.current = setTimeout(() => {
-      void flushBody();
-    }, SAVE_MS);
-  }, []);
-
   /**
    * Write the pending body now, and resolve only once it is durable.
    *
@@ -108,6 +99,10 @@ export function CollaborativeMarkdownEditor({
    * `false` means the save did not land. The logbook rejects an empty body, and
    * a network save can fail; in either case compaction is deferred rather than
    * deleting rows whose content the server never received.
+   *
+   * Declared before `scheduleSave`, which calls it: a `const` arrow function is
+   * in its temporal dead zone until this line runs, so a schedule that fired
+   * before it would have thrown rather than saved.
    */
   const flushBody = useCallback(async (): Promise<boolean> => {
     if (saveTimer.current) {
@@ -128,6 +123,18 @@ export function CollaborativeMarkdownEditor({
       return false;
     }
   }, []);
+
+  const scheduleSave = useCallback(
+    (body: string) => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (!shouldPersistBody({ ready: ready.current, next: body, lastSaved: lastSaved.current })) return;
+      pendingBody.current = body;
+      saveTimer.current = setTimeout(() => {
+        void flushBody();
+      }, SAVE_MS);
+    },
+    [flushBody],
+  );
 
   // Kept out of the editor effect: the display name arrives after the profile
   // loads, and listing it as a dependency tore the whole CodeMirror/Yjs stack

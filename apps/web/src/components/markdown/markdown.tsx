@@ -1,7 +1,13 @@
-import { useMemo } from "react";
-import { renderToString } from "katex";
+import { useEffect, useMemo, useState } from "react";
 import { escapeHtml as escapeAttr } from "@/lib/escape-html";
 import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
+import {
+  containsMath,
+  loadedMathRenderer,
+  loadMathRenderer,
+  mathPlaceholder,
+  type MathRenderer,
+} from "./math-renderer";
 
 /**
  * Minimal markdown-to-HTML for prose blocks (headings, lists, inline). Fenced
@@ -38,6 +44,14 @@ export interface MarkdownRenderOptions {
   resolveWikilink?: WikilinkResolver;
   /** `paperimg:`/`vault:` src → a fetchable URL, or null to drop the image. */
   resolveImageSrc?: (src: string) => string | null;
+  /**
+   * The maths renderer to use, when the caller has one.
+   *
+   * Left undefined in the app: `renderMath` falls back to the lazily-loaded KaTeX
+   * and emits a placeholder until it arrives. A test passes one so that what maths
+   * renders *as* can be asserted without loading KaTeX or standing up a DOM.
+   */
+  mathRenderer?: MathRenderer | null;
 }
 
 /** Render one `[[inner]]` (inner already stripped of the brackets) to an anchor. */
@@ -149,8 +163,22 @@ function formatText(s: string, options?: MarkdownRenderOptions): string {
     });
 }
 
-function renderMath(source: string, displayMode: boolean): string {
-  return renderToString(source, {
+/**
+ * One formula: rendered if KaTeX is in memory, a placeholder if it is not.
+ *
+ * Still synchronous, deliberately. This runs inside a string builder that four
+ * screens call, and making it async would change the contract of all of them;
+ * `Markdown` re-renders when the chunk lands, which is what turns the placeholder
+ * into the formula.
+ */
+function renderMath(source: string, displayMode: boolean, renderer?: MathRenderer | null): string {
+  // `undefined` means "use whatever is loaded", an explicit `null` means "render
+  // the placeholder". The distinction matters because the loaded renderer is
+  // module-level state: a caller that wants the not-yet-loaded path cannot say so
+  // by passing nothing.
+  const katex = renderer === undefined ? loadedMathRenderer() : renderer;
+  if (!katex) return mathPlaceholder(source, displayMode, escapeHtml);
+  return katex.renderToString(source, {
     displayMode,
     throwOnError: false,
     // Never allow TeX commands to introduce links, HTML, or external content.
@@ -225,7 +253,7 @@ function inline(s: string, options?: MarkdownRenderOptions): string {
       const source = end === -1 ? "" : s.slice(index + 1, end);
       if (source && !source.includes("\n")) {
         flush();
-        out.push(renderMath(source, false));
+        out.push(renderMath(source, false, options?.mathRenderer));
         index = end;
         continue;
       }
@@ -307,14 +335,14 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
     const singleLineDisplay = /^\$\$([\s\S]+)\$\$$/.exec(trimmed);
     if (singleLineDisplay) {
       closeList();
-      out.push(`<div class="math-display">${renderMath(singleLineDisplay[1]!, true)}</div>`);
+      out.push(`<div class="math-display">${renderMath(singleLineDisplay[1]!, true, options?.mathRenderer)}</div>`);
       continue;
     }
     if (trimmed === "$$") {
       const closing = lines.findIndex((candidate, candidateIndex) => candidateIndex > index && candidate.trim() === "$$");
       if (closing !== -1) {
         closeList();
-        out.push(`<div class="math-display">${renderMath(lines.slice(index + 1, closing).join("\n"), true)}</div>`);
+        out.push(`<div class="math-display">${renderMath(lines.slice(index + 1, closing).join("\n"), true, options?.mathRenderer)}</div>`);
         index = closing;
         continue;
       }
@@ -389,10 +417,48 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
 }
 
 /** Simple synchronous renderer (logbook, paper summaries — no Shiki). */
-export function Markdown({ children, className }: { children: string; className?: string }) {
+export function Markdown({
+  children,
+  className,
+  options,
+}: {
+  children: string;
+  className?: string;
+  options?: MarkdownRenderOptions;
+}) {
+  // Maths is rendered on the second pass: the first emits placeholders, this
+  // effect fetches KaTeX — only if the text contains any — and the state change
+  // re-renders with the real thing. That is what keeps 75 KB of KaTeX out of the
+  // six routes this component is reachable from; see `math-renderer`.
+  const [mathReady, setMathReady] = useState(() => loadedMathRenderer() !== null);
+
+  useEffect(() => {
+    if (mathReady || !containsMath(children)) return;
+    let cancelled = false;
+    void loadMathRenderer()
+      .then(() => {
+        if (!cancelled) setMathReady(true);
+      })
+      // A chunk that will not load is not something the reader can act on: the
+      // placeholder stays, showing the TeX they wrote.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [children, mathReady]);
+
   // One object per text, for the reason `ShikiMarkdown` gives: a fresh object
   // makes React rewrite the body, and a rewrite mid-click loses the click.
-  const markup = useMemo(() => ({ __html: renderProseMarkdown(children) }), [children]);
+  //
+  // The renderer is chosen here rather than left to `renderMath`'s fallback, so
+  // that `mathReady` is a dependency the render genuinely reads. Reaching for the
+  // module-level cache inside the memo would behave the same and leave the
+  // dependency invisible — to a reader and to the lint rule both.
+  const markup = useMemo(() => {
+    const chosen =
+      options?.mathRenderer !== undefined ? options.mathRenderer : mathReady ? loadedMathRenderer() : null;
+    return { __html: renderProseMarkdown(children, { ...options, mathRenderer: chosen }) };
+  }, [children, options, mathReady]);
   return <div className={className ? `markdown ${className}` : "markdown"} dangerouslySetInnerHTML={markup} />;
 }
 
@@ -443,6 +509,14 @@ export async function renderMarkdownWithShiki(
   highlight: (code: string, info: string, mode: "light" | "dark") => Promise<string>,
   options?: MarkdownRenderOptions,
 ): Promise<string> {
+  // This path is already async, so it can wait for KaTeX instead of leaving
+  // placeholders: the reader asked for a rendered document, and the chunk is
+  // already being fetched by then on any surface with maths in it. Only when
+  // there is maths, and only when the caller did not bring its own renderer.
+  if (!options?.mathRenderer && containsMath(md)) {
+    await loadMathRenderer().catch(() => undefined);
+  }
+
   const parts: string[] = [];
   let lastIndex = 0;
   const fence = fenceMatcher();

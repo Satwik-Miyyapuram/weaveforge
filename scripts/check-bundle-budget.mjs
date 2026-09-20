@@ -37,25 +37,33 @@ const buildDir = path.join(root, "apps/web/.next");
  * because the question a failure should prompt is "why did this route get a new
  * dependency", not "what number makes it pass".
  *
- * What the first run measured, and what it says about `WF-P07`:
+ * ## What the measurements have said so far
  *
- *   * `/reader` is **207 KB** and `/graph` 342 KB — pdf.js and the force graph
- *     are already behind dynamic imports. That is the half of the finding the
- *     audit could not confirm, and the lazy boundaries held.
- *   * The heavy routes are the *list* screens: `/papers` 483 KB, `/report` 475,
- *     `/notes` 467, `/settings` 372. They pull their features in eagerly, and
- *     `components/markdown/markdown.tsx` — which statically imports `katex` — is
- *     loaded by four route modules (report, logbook, ai-review, ink). That is the
- *     lead for the next pass: dynamic-import the renderer, or split the plain
- *     one from the maths one.
+ * **The first run** partly refuted `WF-P07`: `/reader` was 207 KB and `/graph`
+ * 342 KB, so pdf.js and the force graph were already behind dynamic imports — the
+ * half of that finding the audit could not confirm.
+ *
+ * **The second run** found the real thing, and it was bigger than the import graph
+ * suggested: `components/markdown/markdown.tsx` imported KaTeX at module scope, so
+ * **six routes** carried a **75 KB gzipped** chunk of it in first-load JS —
+ * `/papers` (483 KB), `/report` and `/report/overleaf` (475), `/notes` (467),
+ * `/log` (291), `/ai-review` (287). Maths now loads on demand, from
+ * `components/markdown/math-renderer.ts`, and only when the text contains a
+ * delimiter the renderer actually recognises, so a prose-only screen never fetches
+ * it. `/papers` is **409 KB** — 74 KB lighter, about 15% — and no route carries
+ * KaTeX eagerly.
+ *
+ * `/papers` at 409 KB is still heavy and is the next question; the remaining
+ * chunks are not dominated by anything this script can name, which means the next
+ * step is the bundle analyser rather than another grep.
  */
 const ROUTE_BUDGET_KB = 340;
 
 /** Routes already above the default, at their measured size plus a little. */
 const ROUTE_ALLOWANCES_KB = {
-  "/papers": 500,
-  "/report": 490,
-  "/notes": 480,
+  "/papers": 425,
+  "/report": 415,
+  "/notes": 405,
   "/settings": 385,
   "/graph": 355,
 };
