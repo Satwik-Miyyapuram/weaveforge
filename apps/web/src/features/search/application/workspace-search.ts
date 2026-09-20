@@ -10,24 +10,26 @@ import {
   toAnnotationSearchDocs,
   toPdfSearchDocs,
   toSearchDocs,
+  type IWorkspaceSearchIndex,
   type GraphDensity,
   type PdfIndexSource,
   type RelatedResult,
-  type WikiGraph,
-  type IWorkspaceSearchIndex,
   type SearchDoc,
   type SearchHit,
-  type SearchKind,
   type SearchQueryOptions,
   type SearchSettings,
+  type WikiGraph,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { applySearchSettings, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import type { SemanticIndex } from "./semantic-index";
 import { idbGetSearchIndex, idbSetSearchIndex } from "../infrastructure/search-index-idb";
-import { loadPdfTexts, removePdfTexts } from "../infrastructure/pdf-text-store";
 import { buildIndexInWorker, supportsIndexWorker } from "../infrastructure/index-builder";
 import { persistSearchIndex } from "../infrastructure/index-cache-policy";
+import { SearchIndexState } from "./search-index-state";
+import { projectSearchDocuments } from "./search-projection";
+import { pruneMissingPaperTexts } from "./pdf-text-pruning";
+import { collapseToEntities } from "./collapse-to-entities";
 
 /**
  * Owns the lifecycle of the workspace search index: build from a snapshot,
@@ -35,59 +37,27 @@ import { persistSearchIndex } from "../infrastructure/index-cache-policy";
  *
  * The index is a projection of the database, not of the optional folder mirror,
  * so search works for everyone regardless of whether the folder is enabled.
+ *
+ * What is left here is the lifecycle and the queries. The four things this class
+ * also used to hold live beside it now: the projection
+ * (`search-projection.ts`), the extracted-text pruning (`pdf-text-pruning.ts`),
+ * the fields and their transitions (`search-index-state.ts`), and the
+ * related-document helper (`collapse-to-entities.ts`).
  */
-/**
- * Fold hits onto the entity they belong to: a PDF's pages are indexed one
- * document each, so a similar paper came back as the same title four times.
- * A page is stood in for by the paper's own document when `entityDoc` finds
- * one — the paper page, not page 9 of its PDF, is where "related" should
- * land. The seed's entity is dropped: its own pages are the closest match to
- * its title, and nobody needs to be told that.
- */
-export function collapseToEntities(
-  hits: readonly SearchHit[],
-  seed: Pick<SearchHit, "entityId">,
-  entityDoc: (hit: SearchHit) => string | null = () => null,
-): { id: string; score: number }[] {
-  const best = new Map<string, { id: string; score: number; isEntityDoc: boolean }>();
-  for (const hit of hits) {
-    if (hit.entityId === seed.entityId) continue;
-    const owner = hit.kind === "pdf" ? entityDoc(hit) : null;
-    const isEntityDoc = hit.kind !== "pdf" || owner !== null;
-    const current = best.get(hit.entityId);
-    if (!current) {
-      best.set(hit.entityId, { id: owner ?? hit.id, score: hit.score, isEntityDoc });
-      continue;
-    }
-    // Keep the entity's own document as the link target, but let the score be
-    // the best any of its documents earned so ranking is not skewed by a
-    // page happening to outscore the paper record.
-    current.score = Math.max(current.score, hit.score);
-    if (isEntityDoc && !current.isEntityDoc) {
-      current.id = owner ?? hit.id;
-      current.isEntityDoc = true;
-    }
-  }
-  return [...best.values()]
-    .sort((a, b) => b.score - a.score)
-    .map(({ id, score }) => ({ id, score }));
-}
-
 export class WorkspaceSearch {
-  private index: IWorkspaceSearchIndex | null = null;
+  /**
+   * The index and what it was built from.
+   *
+   * Gathered into one object because the invariant that matters is about their
+   * relationship — a kind stays marked stale until a refresh that *read*
+   * successfully has replaced its documents — and that invariant is now
+   * testable without a snapshot, a worker or IndexedDB.
+   */
+  private readonly state = new SearchIndexState();
   private building: Promise<IWorkspaceSearchIndex> | null = null;
   private settings: SearchSettings | undefined;
-  private graph: WikiGraph | null = null;
-  private density: GraphDensity | null = null;
-  private documentCount = 0;
-  /** Kinds whose documents no longer match the database. */
-  private readonly stale = new Set<SearchKind>();
   /** The optional semantic arm; null unless the user turned it on. */
   private semantic: SemanticIndex | null = null;
-  /** Pages held per paper, so a re-extraction knows what to retract. */
-  private pdfPageCounts = new Map<string, number>();
-  /** Extracted PDF text for the live papers, read once per build. */
-  private pdfTexts: readonly PdfIndexSource[] = [];
 
   constructor(
     private readonly deps: {
@@ -103,7 +73,7 @@ export class WorkspaceSearch {
   ) {}
 
   get ready(): boolean {
-    return this.index !== null;
+    return this.state.ready;
   }
 
   /**
@@ -111,15 +81,15 @@ export class WorkspaceSearch {
    * screen mounting at once must not each tokenize the whole corpus.
    */
   async ensure(): Promise<IWorkspaceSearchIndex> {
-    if (this.index) {
+    if (this.state.index) {
       await this.refreshStale();
-      return this.index;
+      return this.state.index;
     }
     if (this.building) return this.building;
 
     this.building = this.build()
       .then((index) => {
-        this.index = index;
+        this.state.adopt(index, this.state.documentCount);
         return index;
       })
       .finally(() => {
@@ -141,10 +111,12 @@ export class WorkspaceSearch {
     const snapshot = await this.deps.snapshot();
     // The graph is needed on this side regardless: it drives the related-panel
     // cascade, not only ranking, and it is cheap next to tokenizing.
-    this.graph = buildWikiGraph(snapshot);
-    this.density = graphDensity(this.graph);
+    this.state.graph = buildWikiGraph(snapshot);
+    this.state.density = graphDensity(this.state.graph);
 
-    await this.prunePdfTextForMissingPapers(projectId, snapshot);
+    const pruned = await pruneMissingPaperTexts(projectId, snapshot);
+    this.state.pdfTexts = pruned.texts;
+    this.state.pdfPageCounts = pruned.pageCounts;
 
     // Try the cache before building anything. Its revision has to match the
     // corpus, which means projecting to compute one — cheap next to the build,
@@ -155,7 +127,7 @@ export class WorkspaceSearch {
     if (cached) {
       const restored = miniSearchIndexFactory.load(cached, revision);
       if (restored) {
-        this.documentCount = docs.length;
+        this.state.documentCount = docs.length;
         applySearchSettings(restored, this.settings);
         return restored;
       }
@@ -170,7 +142,7 @@ export class WorkspaceSearch {
       }
     }
 
-    this.documentCount = docs.length;
+    this.state.documentCount = docs.length;
     const index = buildSearchIndex(docs, revision, this.settings);
     void persistSearchIndex(projectId, () => index.serialize(), docs.length);
     return index;
@@ -193,62 +165,30 @@ export class WorkspaceSearch {
     if (!index) throw new Error("The built index could not be rehydrated.");
 
     applySearchSettings(index, this.settings);
-    this.documentCount = built.documentCount;
-    this.pdfPageCounts = new Map(built.pdfPageCounts);
+    this.state.documentCount = built.documentCount;
+    this.state.pdfPageCounts = new Map(built.pdfPageCounts);
     void persistSearchIndex(projectId, () => built.serialized, built.documentCount);
     return index;
   }
 
-  /** Project the snapshot the same way the worker does, for the cache check. */
+  /** Project the snapshot the same way the worker does. See `projectSearchDocuments`. */
   private projectDocuments(snapshot: WorkspaceSnapshot): SearchDoc[] {
-    const degrees = this.graph ? graphDegrees(this.graph) : new Map<string, number>();
-    const paperTitles = new Map(snapshot.papers.map((paper) => [paper.id, paper.title]));
-    return [
-      ...toSearchDocs(snapshot, degrees),
-      ...toPdfSearchDocs(this.pdfTexts, degrees),
-      ...toAnnotationSearchDocs(snapshot.readerAnnotations, paperTitles, degrees),
-    ];
-  }
-
-  /**
-   * Extracted text for papers that no longer exist.
-   *
-   * Nothing deletes it when a paper goes, so the store outlives the library and
-   * would answer searches with hits that open a reader for a missing paper.
-   */
-  private async prunePdfTextForMissingPapers(
-    projectId: string | null,
-    snapshot: WorkspaceSnapshot,
-  ): Promise<void> {
-    const stored = await loadPdfTexts(projectId);
-    const paperIds = new Set(snapshot.papers.map((paper) => paper.id));
-    const live = stored.filter((source) => paperIds.has(source.paperId));
-    this.pdfTexts = live;
-    this.pdfPageCounts = new Map(live.map((source) => [source.paperId, source.pages.length]));
-
-    const orphans = stored.filter((source) => !paperIds.has(source.paperId));
-    if (orphans.length) await removePdfTexts(projectId, orphans.map((source) => source.paperId));
+    return projectSearchDocuments({
+      snapshot,
+      graph: this.state.graph,
+      pdfTexts: this.state.pdfTexts,
+    });
   }
 
   /**
    * A write happened; note which kinds it can have changed.
    *
-   * Marking rather than rebuilding, for two reasons. A save should not pay for
-   * re-tokenizing the corpus while the user waits, and a burst of writes — an
-   * import, a bulk tag edit — should cost one refresh rather than one each.
    * The work happens on the next `ensure()`, which is what every screen calls
-   * before it searches.
+   * before it searches. An unmapped resource type distrusts the whole index —
+   * see `SearchIndexState.markStale`.
    */
   markStale(resourceType: string | undefined): void {
-    if (!this.index) return;
-    const kinds = KINDS_FOR_RESOURCE[resourceType ?? ""];
-    if (!kinds) {
-      // An unmapped write could have touched anything; the honest response is
-      // to distrust the whole index rather than guess at a subset.
-      this.invalidate();
-      return;
-    }
-    for (const kind of kinds) this.stale.add(kind);
+    this.state.markStale(resourceType);
   }
 
   /**
@@ -261,19 +201,18 @@ export class WorkspaceSearch {
    * editing a note.
    */
   private async refreshStale(): Promise<void> {
-    const index = this.index;
-    if (!index || this.stale.size === 0) return;
-
-    const kinds = [...this.stale];
+    const index = this.state.index;
+    const kinds = this.state.pendingStale();
+    if (!index || kinds.length === 0) return;
 
     const snapshot = await this.deps.snapshot();
     // Links change with notes and papers, so the graph is rebuilt whenever one
     // of those is stale — degrees are a ranking input for every kind.
     if (kinds.some((kind) => kind === "note" || kind === "paper")) {
-      this.graph = buildWikiGraph(snapshot);
-      this.density = graphDensity(this.graph);
+      this.state.graph = buildWikiGraph(snapshot);
+      this.state.density = graphDensity(this.state.graph);
     }
-    const degrees = this.graph ? graphDegrees(this.graph) : new Map<string, number>();
+    const degrees = this.state.graph ? graphDegrees(this.state.graph) : new Map<string, number>();
 
     const wanted = new Set(kinds);
     const fresh = [
@@ -290,15 +229,11 @@ export class WorkspaceSearch {
     const before = index.idsOfKind(kinds);
     index.remove(before);
     index.add(fresh);
-    this.documentCount += fresh.length - before.length;
+    this.state.documentCount += fresh.length - before.length;
 
-    // Cleared last, and only the kinds actually refreshed. Clearing up front —
-    // where this used to be — meant a snapshot read that rejected lost them
-    // permanently: the index kept serving the old rows for those kinds, nothing
-    // was marked stale any more, and no later `ensure()` had any reason to look.
-    // Deleting per kind rather than clearing also keeps a write that lands
-    // *during* the refresh marked, so it is picked up by the next one.
-    for (const kind of kinds) this.stale.delete(kind);
+    // Last, and only the kinds actually refreshed — the whole point of the pair
+    // of calls. See `SearchIndexState.settleStale`.
+    this.state.settleStale(kinds);
   }
 
   /**
@@ -310,12 +245,13 @@ export class WorkspaceSearch {
    * showing a raw uuid.
    */
   hitById(id: string): SearchHit | null {
-    return this.index?.hitById(id) ?? null;
+    return this.state.index?.hitById(id) ?? null;
   }
 
   /** Synchronous query; returns nothing until the index is ready. */
   search(query: string, options?: SearchQueryOptions): readonly SearchHit[] {
-    return this.index ? this.index.search(query, options) : [];
+    const index = this.state.index;
+    return index ? index.search(query, options) : [];
   }
 
   /**
@@ -388,7 +324,7 @@ export class WorkspaceSearch {
     const vectorHits = nearest.flatMap((hit) => {
       const existing = known.get(hit.id);
       if (existing) return [existing];
-      const rebuilt = this.index?.hitById(hit.id);
+      const rebuilt = this.state.index?.hitById(hit.id);
       return rebuilt ? [rebuilt] : [];
     });
 
@@ -407,7 +343,7 @@ export class WorkspaceSearch {
    */
   setSettings(settings: SearchSettings | undefined): void {
     this.settings = settings;
-    if (this.index) applySearchSettings(this.index, settings);
+    if (this.state.index) applySearchSettings(this.state.index, settings);
   }
 
   /**
@@ -416,10 +352,10 @@ export class WorkspaceSearch {
    * thin result instead of leaving it puzzling.
    */
   related(seedId: string, limit = 8): RelatedResult[] {
-    if (!this.graph || !this.index) return [];
-    const index = this.index;
+    if (!this.state.graph || !this.state.index) return [];
+    const index = this.state.index;
     return findRelated(seedId, {
-      graph: this.graph,
+      graph: this.state.graph,
       // More-like-this: search the seed's own title, which is the one piece of
       // its text available without holding the corpus in memory here. The id
       // is `kind:uuid`, so the title has to come from the index — searching
@@ -438,7 +374,7 @@ export class WorkspaceSearch {
 
   /** The link graph behind ranking and related-document lookup. */
   get wikiGraph(): WikiGraph | null {
-    return this.graph;
+    return this.state.graph;
   }
 
   /**
@@ -447,7 +383,7 @@ export class WorkspaceSearch {
    * the workspace rather than a bug.
    */
   get graphStats(): GraphDensity | null {
-    return this.density;
+    return this.state.density;
   }
 
   /**
@@ -464,22 +400,22 @@ export class WorkspaceSearch {
    * produce a cache entry that is honestly labelled.
    */
   indexPdf(source: PdfIndexSource): void {
-    if (!this.index) return;
+    if (!this.state.index) return;
 
-    const previous = this.pdfPageCounts.get(source.paperId) ?? 0;
+    const previous = this.state.pdfPageCounts.get(source.paperId) ?? 0;
     // Ids are generated for every page slot: pages too short to index were
     // never added, and removing an id that is not there is a no-op.
-    this.index.remove(pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
+    this.state.index.remove(pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
 
-    const degrees = this.graph ? graphDegrees(this.graph) : undefined;
+    const degrees = this.state.graph ? graphDegrees(this.state.graph) : undefined;
     const docs = toPdfSearchDocs([source], degrees);
-    this.index.add(docs);
-    this.pdfPageCounts.set(source.paperId, source.pages.length);
+    this.state.index.add(docs);
+    this.state.pdfPageCounts.set(source.paperId, source.pages.length);
     // Recorded as well as indexed, so that a re-projection reproduces what the
     // index holds: without it, text indexed here would be missing from the
     // semantic arm's corpus until the next full build read it back from storage.
-    this.pdfTexts = [...this.pdfTexts.filter((s) => s.paperId !== source.paperId), source];
-    this.documentCount = this.documentCount - previous + docs.length;
+    this.state.pdfTexts = [...this.state.pdfTexts.filter((s) => s.paperId !== source.paperId), source];
+    this.state.documentCount = this.state.documentCount - previous + docs.length;
   }
 
   /**
@@ -491,52 +427,12 @@ export class WorkspaceSearch {
    * whether to stop indexing whole PDFs.
    */
   get corpusSize(): { documents: number; large: boolean } {
-    return { documents: this.documentCount, large: this.documentCount > LARGE_CORPUS_WARNING };
+    const documents = this.state.documentCount;
+    return { documents, large: documents > LARGE_CORPUS_WARNING };
   }
 
   /** Drop the in-memory index so the next `ensure()` rebuilds it. */
   invalidate(): void {
-    this.index = null;
-    this.graph = null;
-    this.density = null;
-    this.documentCount = 0;
-    this.pdfPageCounts = new Map();
-    this.stale.clear();
+    this.state.forget();
   }
 }
-
-/**
- * Which search kinds a write to a repository can change.
- *
- * Deliberately narrow. A note edit cannot change a milestone, and treating
- * every write as "rebuild everything" is what made adding one note cost the
- * whole corpus. Resource types absent here fall back to a full rebuild rather
- * than a guess — see `markStale`.
- *
- * `pdf` is in no entry: page documents are projected from extracted text, not
- * from a repository row, and are refreshed by `indexPdf` when a document is
- * read. Renaming a paper leaves its page documents showing the old title until
- * the next full build — a property of where that title is stored, not of this
- * map.
- */
-const KINDS_FOR_RESOURCE: Record<string, readonly SearchKind[] | undefined> = {
-  paper: ["paper", "annotation"],
-  vault_page: ["note"],
-  reading_list: ["list"],
-  reading_list_item: [],
-  report_section: ["section"],
-  experiment: ["experiment"],
-  milestone: ["milestone"],
-  log_entry: ["log"],
-  // Relations and tags change how documents rank, not what they say.
-  paper_relation: ["paper", "note"],
-  tag: ["paper"],
-  paper_tag: ["paper"],
-  // Writes that cannot affect any indexed field.
-  comment: [],
-  share: [],
-  library_pin: [],
-  citation_alert_track: [],
-  dashboard_layout: [],
-  graph_settings: [],
-};

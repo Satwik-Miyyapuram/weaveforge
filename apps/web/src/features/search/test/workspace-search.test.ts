@@ -1,8 +1,9 @@
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
-import { WorkspaceSearch, collapseToEntities } from "@/features/search/application/workspace-search";
+import type { PdfIndexSource, SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
+import { WorkspaceSearch } from "@/features/search/application/workspace-search";
+import { collapseToEntities } from "@/features/search/application/collapse-to-entities";
 
 /**
  * `WorkspaceSearch` reaches IndexedDB for the PDF text store and the index
@@ -451,7 +452,7 @@ test("collapseToEntities sends a page to its paper's document even when the pape
   const folded = collapseToEntities(
     [hit("pdf:a#4", "a", 3), hit("pdf:b#0", "b", 2)],
     { entityId: "x" },
-    (page) => (page.entityId === "a" ? "paper:a" : null),
+    (page: SearchHit) => (page.entityId === "a" ? "paper:a" : null),
   );
   assert.deepEqual(folded, [
     { id: "paper:a", score: 3 },
