@@ -421,8 +421,8 @@ Every one of the 88 findings is assigned to exactly one phase below, and the cou
 | 4 — contracts & types | 10 | 9 | **done** |
 | 5 — lifecycle & memory | 7 | 7 | **done** |
 | 6 — structural decomposition | 7 (+`PERF-04`) | 7 (+1 latent bug) | **done** |
-| 7 — guardrails, hardening, docs | 8 | 6 | **in progress** — the gates and the docs corrections landed; `SEC-02`/`SEC-05`/`SEC-06`, the bundle budget and the CI list remain |
-| 8 — decisions | 10 | 1 (plus 7 refuted / won't-fix recorded) | open questions |
+| 7 — guardrails, hardening, docs | 8 | 6 | **done** |
+| 8 — decisions | 10 | 1 (plus 7 refuted / won't-fix recorded) | open questions — the only phase left |
 
 Phase 1 carries the most findings because so many of them are one-file changes; Phase 0 carries none, but it is why the rest are verifiable at all.
 
@@ -572,33 +572,36 @@ Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
 Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
-### Phase 7 — what has landed so far
+### Phase 7 — what landed
 
 | Item | How it was closed |
 |---|---|
-| Facade size ceiling | `check:solid` now measures each facade's members and constructor dependencies **with the TypeScript parser** and fails past a per-file limit. `PapersFacade` had reached 39 members and nothing stopped it one method at a time; `ai-assistant.ts` is at 39 today, so its limit is its current size — a ratchet that may only come down. The first draft of this rule counted indentation and read `dashboard.ts` as one member and twenty-two dependencies |
+| Facade size ceiling | `check:solid` measures each facade's members and constructor dependencies **with the TypeScript parser** and fails past a per-file limit. `PapersFacade` had reached 39 members with nothing to stop it one method at a time; `ai-assistant.ts` is at 39 today, so its limit is its current size — a ratchet that may only come down. The first draft counted indentation and read `dashboard.ts` as one member and twenty-two dependencies |
 | `select("*")` rule | `check:dry` bans a starred projection in any adapter. Its first run found **45 sites across 17 adapters** — the house style, not one finding. Eighteen are fixed; the rest are a counted ratchet (see the debt note below) |
-| Docs: the E2EE claim | `README.md` said no migration removes the E2EE key tables. `0099_drop_e2ee_schema.sql` drops all seven, and has since it was written |
-| Docs: the migration table | `supabase/migrations/README.md` stopped at `0094` while the chain runs to `0131`. Every migration from `0095` is in the table now |
-| Docs: what the chain is for | The same README described this folder as "your hosted Supabase project". The deployment is **self-hosted Postgres + PostgREST + Realtime on OCI with MinIO blobs** — this chain is the database in both cases, with `migrations-self-hosted-postgres/` applied first on OCI, and Supabase Auth issuing the tokens either way |
-| Docs: migration numbers | `_shared.ts` cited "0072 and 0130" for the scope-filtering RPCs; `resolve_api_token` gained its filter and `api_token_scopes()` was created in **0129** |
-| `ARCH-04` rule and widened gate roots | Landed in Phase 4, and they are what this item asked for |
-| Registry-consistency test | Landed in Phase 4 (`lib/test/screens.test.ts`) |
+| CI gate parity | `check:ci-parity` closes the list written twice. CI runs the gates as separate steps so a PR can see which rule rejected it, which means the list lives in `ci.yml` and in `check:boundaries`; the failure mode is one-directional and silent — a gate in the script and not the workflow stops gating merges with a green build. Scoped to the `id: gate_*` steps, because `check:deployment-surface` and `check:release-drafts` deliberately run after the build and need a token and the network. It found its own step missing on the first run |
+| Bundle budget | `check-bundle-budget.mjs` measures every route's first-load JS from `.next/app-build-manifest.json` and fails past a per-route ratchet, as a CI step after the build and in `check:all`. What it measured is in the script's header: `/reader` is 207 KB and `/graph` 342 KB — **pdf.js and the force graph are already behind dynamic imports**, the half of `WF-P07` the audit could not confirm. The heavy routes are the list screens (`/papers` 483 KB, `/report` 475, `/notes` 467), and the lead is concrete: `components/markdown/markdown.tsx` statically imports `katex` and is loaded by four route modules |
+| `SEC-05` / `WF-B09` | The connect is pinned. `pinnedRequest` dials the vetted IP while presenting the hostname as TLS SNI, as the `Host` header and as the certificate name, and supplies a `lookup` returning the same address; redirect hops resolve, check and pin again. Node's `http`/`https`, not `undici`, because this module is shared with the Electron main process where a dispatcher is not guaranteed. Tests assert the pinned address, because the old `stubFetch` could not |
+| `SEC-06` | A per-user token bucket on `/api/fetch-url?as=image`: twenty in a burst, one refilled every two seconds. Per process, which suffices because the deployment serves the web app from one; multi-instance would need the counter in Postgres. **The streaming variant stays undone on purpose** — it removes the server-side copy and not the client's, and costs the exact `Content-Length` header |
+| `SEC-02` | The allowlist had already been trimmed (Phase 1): no `3000`, no `5000`. `docs/SECURITY.md` now says what the policy is and where an operator extends it |
+| `BUG-18` | **Not "already covered"** — a failed index build still set `ready` in a `.finally`, so every caller took the ranked path, got an empty result set, and lost its substring fallback with no retry. It flips only on success now. The hook takes an injected container and schedules with `globalThis`, which is what made the failure branch reachable only in production |
+| `BUG-02` | Already fixed in Phase 1: the effect depends on `[cacheKey, screen]` and reads `loadRef.current()`, so an inline closure no longer re-issues the load |
+| Docs corrections | The E2EE claim (`0099` drops all seven tables — it said no migration did), the migration table stopping at `0094` while the chain runs to `0131`, `_shared.ts`'s migration numbers (`0129`, not `0130`), this folder's description of itself, and the same class elsewhere: `README.md`'s prerequisites, setup steps, `0001…0117` and "900+ tests"; `docs/running/backend.md`'s "today the default is Supabase"; `docs/running/storage/README.md`'s "default today" and "Phase 1 target" |
+| `ARCH-04` rule, widened gate roots, registry test | Landed in Phase 4, which is what those items asked for |
 
-**Debt taken on, counted rather than hidden.** Twenty-seven `select("*")` sites remain across sixteen adapters, listed by file and count in `check-dry.mjs`. They are the reads whose row type is named by a mapper a few lines away rather than at the call, so each needs a person; the gate now forbids a new one and forbids any of those counts rising.
+**Debt taken on, counted rather than hidden.** Twenty-seven `select("*")` sites remain across sixteen adapters, listed by file and count in `check-dry.mjs`. They are the reads whose row type is named by a mapper a few lines away rather than at the call, so each needs a person; the gate forbids a new one and forbids any of those counts rising.
 
-**Two corrections the deployment reality forced.** `0131`'s comment and the OCI compose both compare row caps against "the hosted Supabase platform's 1000" — true as a comparison, and on the self-hosted stack `db-max-rows` is deliberately unset (unlimited), which is why the metric reads were made correct under *either* setting rather than tuned to one. And the removal of `signedImageUrls` stands: presigning is alive for vault assets, experiment artifacts and the batched route, and the paper editors reach it *through* `fetchImageBlobs`, which mints the URL and fetches through it.
+**The deployment reality, checked rather than assumed.** The stack is self-hosted Postgres + PostgREST + Realtime on OCI with MinIO blobs, and Supabase Auth issuing the tokens. Where a code default really is still `supabase` — the blob provider with no env set, the PostgREST backend *provider id* — the docs now say so and distinguish it from what the deployment runs, instead of pretending a default changed.
 
-After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests and a real `next build`:
+After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests, a real `next build` and the bundle budget:
 
-| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Phase 4 | After Phase 5 | After Phase 6 |
-|---|---|---|---|---|---|---|---|
-| core | 1214 | 1231 | 1239 | 1248 | 1247 | 1247 | 1267 |
-| web | 1428 | 1439 | 1439 | 1466 | 1474 | 1487 | 1510 |
-| pglite integration | 20 | 20 | 20 | 20 | 20 | 20 | 20 |
-| desktop | 237 | 237 | 237 | 237 | 237 | 237 | 237 |
-| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
-| files the boundary gates search | 675 | 675 | 676 | 677 | 702 | 702 | 705 |
+| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Phase 4 | After Phase 5 | After Phase 6 | After Phase 7 |
+|---|---|---|---|---|---|---|---|---|
+| core | 1214 | 1231 | 1239 | 1248 | 1247 | 1247 | 1267 | 1267 |
+| web | 1428 | 1439 | 1439 | 1466 | 1474 | 1487 | 1510 | 1523 |
+| pglite integration | 20 | 20 | 20 | 20 | 20 | 20 | 20 | 20 |
+| desktop | 237 | 237 | 237 | 237 | 237 | 237 | 237 | 237 |
+| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
+| files the boundary gates search | 675 | 675 | 676 | 677 | 702 | 702 | 705 | 713 |
 
 Core goes 1248 → 1247 because one test moved out of it: `describeRejection`'s completeness assertion now lives beside the prose it checks.
 

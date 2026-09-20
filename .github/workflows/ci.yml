@@ -220,6 +220,12 @@ jobs:
       - name: Deployment surface
         run: npm run check:deployment-surface
 
+      # Also after the build, and for the same reason: it measures the chunks the
+      # build produced. What it catches is a route that quietly grew an eager
+      # dependency — WF-P07's finding, which nothing measured before this.
+      - name: Bundle budget
+        run: npm run bundle:budget
+
       # A desktop release left as a draft is invisible to every installed copy,
       # and nothing about the app says so — it simply reports no update. This
       # is the only place that would notice.
