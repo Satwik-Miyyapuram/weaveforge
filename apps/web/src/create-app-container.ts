@@ -95,6 +95,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, systemClock, uuidIds } from "@/lib/system";
 import {
+  clearProjectCacheHooks,
   configureProjectCacheHooks,
   ProjectLwwInvalidator,
   setActiveProjectIdForCache,
@@ -113,6 +114,16 @@ import { closeFolder } from "@/features/workspace/application/workspace-folder";
 export interface CreatedAppContainer {
   container: AppContainer;
   projectLww: ProjectLwwInvalidator;
+  /**
+   * Release everything this container registered.
+   *
+   * `bootstrap.ts` builds a container per configuration, and the previous one is
+   * replaced the moment the backend or storage provider changes. Without this,
+   * each generation left behind: two dozen repository-cache registrations, its
+   * session-reset hook (so a later sign-out ran every generation's), and a
+   * joined private realtime channel.
+   */
+  dispose: () => void;
 }
 
 export async function createAppContainer(): Promise<CreatedAppContainer> {
@@ -140,34 +151,27 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // through this hook, and the search index has to hear about them or an edit
   // stays invisible to search until the next reload.
   let search: WorkspaceSearch | null = null;
+  /**
+   * Everything this call registers, so the container can take it all back.
+   *
+   * Declared before the hooks below, because registering is what fills it: the
+   * 24 repository caches register inside `wireBackend`, and the session-reset
+   * hook is added once the container is built.
+   */
+  const disposers: Array<() => void> = [];
   configureProjectCacheHooks({
     onWrite: (resourceType) => {
       projectLww.notifyPeers(resourceType);
       search?.markStale(resourceType);
     },
-    register: (cache) => projectLww.registerCache(cache),
+    // The cache used to be handed to the invalidator, which held it in a Set
+    // nothing ever read. What matters is the way back out.
+    register: (_cache, dispose) => disposers.push(dispose),
   });
   const backend = wireBackend(readBackendConfig(), projectContext, pid);
   if ("db" in backend) {
     projectLww.watch(backend.db, pid());
   }
-
-  registerSessionReset(() => {
-    projectContext.projectId = null;
-    workspace.resetSnapshotBaseline();
-    // The search index is a copy of the previous user's workspace — note titles,
-    // note bodies, paper abstracts — held in memory for the life of the tab. The
-    // container is not torn down on sign-out and the index has no owner check, so
-    // without this the next person at this browser can rank-search the last
-    // person's notes until something happens to rebuild it. Dropping it here
-    // costs one rebuild on the next sign-in.
-    search?.invalidate();
-    // The API key lives only in memory, but "only in memory" has to include
-    // "not across a sign-out" — the next person at this browser is not the one
-    // who typed it.
-    clearActiveProvider();
-    closeFolder();
-  });
 
   const crdtUpdateStore = new SupabaseCrdtUpdateStore(backend.db);
   const crdtSnapshotStore = new CrdtSnapshotStore(backend.db);
@@ -535,6 +539,44 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   });
 
   /**
+   * What a sign-out clears, registered *after* everything it reaches.
+   *
+   * It used to be registered near the top of this function, closing over
+   * `workspace` — declared a few hundred lines below it. That worked only
+   * because the span between them is straight-line synchronous code, so no reset
+   * could fire in the window; the hazard is real even though the crash is not
+   * reachable, and the fix is free. Registering it once `workspace` exists also
+   * puts the hook next to the things it clears.
+   *
+   * The returned disposer goes in `disposers`, so a container that is replaced
+   * takes its hook with it rather than leaving one generation per rebuild
+   * holding the old closures alive.
+   */
+  disposers.push(
+    registerSessionReset(() => {
+      projectContext.projectId = null;
+      workspace.resetSnapshotBaseline();
+      // The search index is a copy of the previous user's workspace — note
+      // titles, note bodies, paper abstracts — held in memory for the life of
+      // the tab. The container is not torn down on sign-out and the index has no
+      // owner check, so without this the next person at this browser can
+      // rank-search the last person's notes until something happens to rebuild
+      // it. Dropping it here costs one rebuild on the next sign-in.
+      search?.invalidate();
+      // The API key lives only in memory, but "only in memory" has to include
+      // "not across a sign-out" — the next person at this browser is not the one
+      // who typed it.
+      clearActiveProvider();
+      closeFolder();
+      // Leave the project's realtime channel. The reset nulls the project id but
+      // nothing told the invalidator, so the private channel for the previous
+      // project stayed joined until the next `watch()` — which, for a session
+      // that ends here, never came.
+      projectLww.dispose();
+    }),
+  );
+
+  /**
    * The AI tool surface, as the deployment configured it.
    *
    * A tool allowlist may only ever narrow. Two states mean "no tools" — the
@@ -746,5 +788,21 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     integrationConfig: wiredIntegrations.config,
   };
 
-  return { container, projectLww };
+  /**
+   * Release this container: its repository-cache registrations, its session-reset
+   * hook, its realtime channel, and the module-level hooks it installed.
+   *
+   * `clearProjectCacheHooks()` matters as much as the rest: those slots are
+   * module-level and single-valued, so a container that is disposed without
+   * clearing them leaves the *next* container's writes being reported to this
+   * one's invalidator.
+   */
+  const dispose = () => {
+    clearProjectCacheHooks();
+    for (const release of disposers) release();
+    disposers.length = 0;
+    projectLww.dispose();
+  };
+
+  return { container, projectLww, dispose };
 }
