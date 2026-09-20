@@ -18,7 +18,13 @@ import type { OutboxEntry } from "./outbox";
  */
 export type SendOutcome =
   | { status: "accepted" }
-  | { status: "conflict"; serverVersion: number }
+  /**
+   * The server has a version this op was not based on. `serverVersion` is
+   * `null` when the transport could not read it — unknown, and kept unknown
+   * rather than defaulted to 0, because this value is what the next attempt
+   * guards on.
+   */
+  | { status: "conflict"; serverVersion: number | null }
   | { status: "refused"; reason: string }
   | { status: "offline" };
 

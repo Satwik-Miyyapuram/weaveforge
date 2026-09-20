@@ -16,8 +16,15 @@ import type { SendOutcome, SyncTransport } from "./sync-ports";
 
 export interface PumpResult {
   sent: number;
-  /** Ops the server says it has a newer version of, for the merge step. */
-  conflicts: { entry: OutboxEntry; serverVersion: number }[];
+  /**
+   * Ops the server says it has a newer version of, for the merge step.
+   *
+   * `null` when the transport could not read which version the server holds.
+   * That is a different fact from "version 0", and it must stay different all
+   * the way to the conflict row: a fabricated 0 comes back as the next
+   * attempt's `baseVersion` and produces a guard no row can satisfy.
+   */
+  conflicts: { entry: OutboxEntry; serverVersion: number | null }[];
   /** Why the run stopped early, if it did. */
   stoppedBecause: "offline" | null;
 }
@@ -53,7 +60,12 @@ export class OutboxPump {
         await this.conflicts?.open(entry, outcome.serverVersion);
         // Held, not dropped: the merge decides what happens to it, and until
         // then it is still work this device has not delivered.
-        await this.outbox.fail(entry.opId, `Newer version ${outcome.serverVersion} on the server.`);
+        await this.outbox.fail(
+          entry.opId,
+          outcome.serverVersion == null
+            ? "A newer version on the server."
+            : `Newer version ${outcome.serverVersion} on the server.`,
+        );
         continue;
       }
       await this.outbox.fail(entry.opId, outcome.reason);
