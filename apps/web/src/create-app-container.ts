@@ -67,6 +67,8 @@ import { wireBackend } from "@/backend/wire-backend";
 import { readBackendConfig } from "@/backend/config";
 import {
   PapersFacade,
+  PaperFieldsFacade,
+  ZoteroFacade,
   GraphFacade,
   PlanFacade,
   LogbookFacade,
@@ -570,9 +572,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     papers: new PapersFacade({
       load: loadPapersScreen,
       deletePaper,
-      bibliography,
-      pushToZotero,
-      importLocalZotero,
       papers: paperRepository,
       manageTags,
       updatePaper,
@@ -583,6 +582,16 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       annotationPins: backend.annotationPinRepository,
       annotationQuotationTypes: backend.annotationQuotationTypeRepository,
       readerAnnotations: backend.readerAnnotationRepository,
+      reportSections: reportSectionRepository,
+    }),
+    paperFields: new PaperFieldsFacade({ paperFields: managePaperFields }),
+    zotero: new ZoteroFacade({
+      bibliography,
+      pushToZotero,
+      importLocalZotero,
+      readerAnnotations: backend.readerAnnotationRepository,
+      papers: paperRepository,
+      manageTags,
       // Read at call time, not at wiring time: the key is only decryptable
       // once the user has unlocked, which is after the container is built.
       zoteroCredentials: async () => {
@@ -591,8 +600,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
         const library = await read("zotero", "library");
         return { ...(apiKey ? { apiKey } : {}), ...(library ? { library } : {}) };
       },
-      paperFields: managePaperFields,
-      reportSections: reportSectionRepository,
     }),
     graph: new GraphFacade({
       papers: paperRepository,

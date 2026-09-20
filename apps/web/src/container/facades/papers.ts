@@ -3,40 +3,38 @@ import type {
   CheckCitationAlertsUseCase,
   IAnnotationPinRepository,
   IAnnotationQuotationTypeRepository,
-  IBibliographyIntegration,
   ImportPaperUseCase,
   IPaperRepository,
   IReaderAnnotationSink,
   IReaderAnnotationSource,
   IReportSectionRepository,
-  ManagePaperFieldsUseCase,
   ManageTagsUseCase,
   NewReaderAnnotation,
   Paper,
-  PaperFieldKind,
-  PaperFieldRollupAgg,
-  PaperFieldValueData,
   QuotationType,
   ReaderAnnotationPatch,
-  PushPaperToZoteroUseCase,
   UpdatePaperUseCase,
 } from "@weaveforge/core";
 import type { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
-import type { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
 import type { LoadPapersScreenUseCase, PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
 import type { IPaperImageStore } from "@/features/papers/domain/zotero";
-import { applyBibliographyAnnotations } from "@/integrations/providers/zotero/bibliography-integration";
 
+/**
+ * Papers: the shelf, the cards, the images, and the reader's annotations on them.
+ *
+ * It used to be four concerns in one class — 39 public members and 16
+ * constructor dependencies, which is what the boundary gate now watches for.
+ * Custom fields went to `PaperFieldsFacade` and everything Zotero to
+ * `ZoteroFacade`; what remains is the paper itself and the things attached to
+ * it. `signedImageUrls` was deleted rather than moved: no caller ever had one,
+ * because the note and paper editors read blobs (`fetchImageBlobs`) instead of
+ * presigned URLs.
+ */
 export class PapersFacade {
   constructor(
     private readonly deps: {
       load: LoadPapersScreenUseCase;
       deletePaper: DeletePaperUseCase;
-      bibliography: IBibliographyIntegration;
-      /** The one push-to-Zotero rule, shared with the AI proposal executor. */
-      pushToZotero: PushPaperToZoteroUseCase;
-      /** The local-Zotero workflow, with the desktop bridge it needs injected. */
-      importLocalZotero: ImportLocalZoteroUseCase;
       papers: IPaperRepository;
       manageTags: ManageTagsUseCase;
       updatePaper: UpdatePaperUseCase;
@@ -48,9 +46,6 @@ export class PapersFacade {
       annotationQuotationTypes: IAnnotationQuotationTypeRepository;
       readerAnnotations: IReaderAnnotationSource &
         IReaderAnnotationSink;
-      /** Zotero API key + library, read at call time (post-unlock). */
-      zoteroCredentials: import("@/features/papers/infrastructure/zotero-metadata-source").ZoteroCredentialsProvider;
-      paperFields: ManagePaperFieldsUseCase;
       reportSections: IReportSectionRepository;
     },
   ) {}
@@ -59,40 +54,8 @@ export class PapersFacade {
     return this.deps.load.execute();
   }
 
-  async syncBibliography() {
-    const library = await this.deps.bibliography.syncLibrary();
-    const byPaper = await this.deps.bibliography.pullAnnotations();
-    const annotations = await applyBibliographyAnnotations(
-      byPaper,
-      this.deps.papers,
-      this.deps.manageTags,
-    );
-    return { library, annotations };
-  }
-
-  /**
-   * The Zotero running on this computer. See `ImportLocalZoteroUseCase` — the
-   * workflow lives there so it can be driven with a bridge a test supplies,
-   * rather than only with an Electron shell on the other side.
-   */
-  importLocalZotero() {
-    return this.deps.importLocalZotero.execute();
-  }
-
   deletePaper(paper: Paper) {
     return this.deps.deletePaper.execute(paper);
-  }
-
-  /**
-   * Push a freshly added paper to the bibliography manager.
-   *
-   * Best-effort, and the rule lives in core now: it was written out here and
-   * again as a callback in the composition root, and the two had drifted on what
-   * a failure means. The outcome is deliberately ignored here — the paper is
-   * already saved, and this is a convenience.
-   */
-  async autoPush(paper: Paper) {
-    await this.deps.pushToZotero.execute(paper);
   }
 
   getPaper(id: string) {
@@ -191,89 +154,17 @@ export class PapersFacade {
     return this.deps.readerAnnotations.remove(id);
   }
 
-  /**
-   * R5 dry-run: build Zotero write payloads without calling the live API.
-   * Kept as a separate entry point so "show me what would happen" can never be
-   * a mistyped argument away from actually writing.
-   */
-  async dryRunZoteroAnnotationWriteBack(paperId: string, parentItemKey: string) {
-    const { DryRunZoteroAnnotationWriteBack } = await import("@weaveforge/core");
-    const anns = await this.deps.readerAnnotations.list(paperId);
-    const client = new DryRunZoteroAnnotationWriteBack();
-    return client.push(parentItemKey, anns);
-  }
-
-  /**
-   * R5 live push — writes this paper's local annotations into Zotero.
-   *
-   * `parentItemKey` is the **attachment** key (the stored PDF), not the
-   * bibliographic item. Updates carry a version guard, so an annotation edited
-   * in Zotero since the last sync returns `conflict` rather than being
-   * overwritten. Callers must confirm with the user first; this mutates a real
-   * library and nothing here asks twice.
-   */
-  async pushAnnotationsToZotero(paperId: string, parentItemKey: string) {
-    const { ZoteroApiAnnotationWriteBack } = await import(
-      "@/features/reader/infrastructure/zotero-annotation-write-back"
-    );
-    const anns = await this.deps.readerAnnotations.list(paperId);
-    const local = anns.filter((a) => a.origin === "local");
-    const client = new ZoteroApiAnnotationWriteBack(this.deps.zoteroCredentials);
-    return client.push(parentItemKey, local, { live: true });
-  }
-
   listReportSections() {
     return this.deps.reportSections.list();
   }
 
-  listPaperFieldDefs() {
-    return this.deps.paperFields.listDefs();
-  }
 
-  listPaperFieldValuesForPaper(paperId: string) {
-    return this.deps.paperFields.listValuesForPaper(paperId);
-  }
 
-  listPaperFieldValuesForProject() {
-    return this.deps.paperFields.listValuesForProject();
-  }
 
-  definePaperField(input: {
-    name: string;
-    kind: PaperFieldKind;
-    options?: string[];
-    rollup?: {
-      relationFieldId: string;
-      agg: PaperFieldRollupAgg;
-      sourceFieldId?: string;
-    };
-  }) {
-    return this.deps.paperFields.define(input);
-  }
 
-  renamePaperField(fieldId: string, name: string) {
-    return this.deps.paperFields.rename(fieldId, name);
-  }
 
-  updatePaperFieldOptions(fieldId: string, options: string[]) {
-    return this.deps.paperFields.updateOptions(fieldId, options);
-  }
 
-  removePaperField(fieldId: string) {
-    return this.deps.paperFields.remove(fieldId);
-  }
 
-  setPaperFieldValue(
-    paperId: string,
-    fieldId: string,
-    value: PaperFieldValueData | null,
-  ) {
-    return this.deps.paperFields.setValue(paperId, fieldId, value);
-  }
-
-  signedImageUrls(paths: string[]) {
-    return this.deps.images.signedUrls(paths);
-  }
 
   fetchImageBlob(path: string) {
     return this.deps.images.fetchBlob(path);
