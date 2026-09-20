@@ -199,6 +199,10 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
     }
 
     if (!response.ok) {
+      // Same reason as the redirect path above: nothing here will read this
+      // body, and leaving it unread holds a socket open for every 403, 404 and
+      // 5xx until the pool or the garbage collector gets to it.
+      await response.body?.cancel().catch(() => {});
       const hint =
         response.status === 403
           ? "the site blocked automated access"
