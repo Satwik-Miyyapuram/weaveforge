@@ -11,7 +11,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import type { Experiment } from "@weaveforge/core";
+import type {
+  Experiment,
+  IExperimentActivityReader,
+  IMetricHistoryReader,
+} from "@weaveforge/core";
 import { ExperimentsFacade } from "../facades/experiments";
 import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 
@@ -50,9 +54,14 @@ function harness(data: ExperimentsScreenData, options: { lastActivity?: Map<stri
     } as never,
     experiments: {} as never,
     papers: {} as never,
+    // Typed as the two ports the facade depends on, with no `as never` escape:
+    // the facade draws curves and asks when a run last logged, and it does not
+    // write one. If this dependency were widened back to include the writer,
+    // this object would stop compiling — which is the whole point of the split.
     metrics: {
       latestActivityAt: async () => options.lastActivity ?? new Map<string, number>(),
-    } as never,
+      history: async () => [],
+    } satisfies IMetricHistoryReader & IExperimentActivityReader,
     manageExperiment: {
       setStatus: async (id: string, status: string) => {
         // A real write takes a round trip; yielding lets a second caller

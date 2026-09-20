@@ -1,7 +1,11 @@
 import type { ManageExperimentUseCase } from "@weaveforge/core";
 import { isStaleRunningExperiment, mapLimit, STALE_RUNNING_MS } from "@weaveforge/core";
 import type { LoadExperimentsScreenUseCase, ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
-import type { IMetricRepository, MetricPoint } from "@weaveforge/core";
+import type {
+  IExperimentActivityReader,
+  IMetricHistoryReader,
+  MetricPoint,
+} from "@weaveforge/core";
 
 /**
  * How many stale runs are asked to change status at once.
@@ -33,7 +37,11 @@ export class ExperimentsFacade {
       load: LoadExperimentsScreenUseCase;
       experiments: import("@weaveforge/core").IExperimentRepository;
       papers: import("@weaveforge/core").IPaperRepository;
-      metrics: IMetricRepository;
+      // The two reads this facade makes, as the two ports they are: it draws
+      // curves and it asks when a run last logged. It never writes a metric, so
+      // it does not depend on the writer — which is what kept the aggregate
+      // read on an interface shaped like a row store.
+      metrics: IMetricHistoryReader & IExperimentActivityReader;
       manageExperiment: ManageExperimentUseCase;
       artifacts: import("@/features/experiments/infrastructure/experiment-artifact-store").ExperimentArtifactStore;
     },
