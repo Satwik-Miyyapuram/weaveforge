@@ -386,11 +386,12 @@ us to:
 | **The `select("*")` sweep** | **Finish it** | All 45 sites named, and the `check:dry` baseline deleted so the rule is a plain ban rather than a ratchet |
 | **The bundle lead** | **Dynamic-import `katex`** | `components/markdown/markdown.tsx` is loaded by four route modules and statically imports `katex`; the maths renderer moves behind a dynamic import (or the plain renderer splits from the maths one) |
 
-**Work still open from these decisions:** the outbox loop itself — `cycle()` has no
-production caller yet, and its token is live now, so the loop is what remains — the
-error-report affordance, and the bundle change. **Done so far:** the CRDT
-compaction and its body barrier (D1), the merged trees (D3), the `select("*")`
-sweep, and the records above.
+**Work still open from these decisions:** the error-report affordance, and nothing
+else. **Done:** the CRDT compaction and its body barrier (D1), the outbox loop with
+a live token (D2), the merged trees (D3), the `select("*")` sweep, the records
+above, and the bundle change — which was worth more than the import graph
+suggested. Six routes were carrying **75 KB** of KaTeX in first-load JS; `/papers`
+is 409 KB now instead of 483, and the ratchet is set to the new numbers.
 
 **D1, as built — three things the tests settled that the plan could not.**
 
