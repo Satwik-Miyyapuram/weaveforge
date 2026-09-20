@@ -10,6 +10,7 @@ import {
 
 import { blobToDataUrl, downloadBlob } from "@/lib/blob-output";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
+import { containsMath, loadMathRenderer } from "@/components/markdown/math-renderer";
 import {
   documentStyleSheets,
   inkPrintDocument,
@@ -211,6 +212,14 @@ export function usePageExport(deps: PageExportDeps) {
       document.querySelector<HTMLElement>(
         `.ink-page[data-page="${pageIndex}"] .ink-sheet-text-underlay`,
       );
+    // The live underlay is preferred, and it has already waited for KaTeX. The
+    // fallback renders the markdown afresh for a page that is not on screen, and
+    // maths there would come out as the placeholder unless the renderer is in
+    // memory — so it is fetched first when the text has any. This callback is
+    // already async, so waiting costs nothing visible.
+    if (!live && text.trim() && containsMath(text)) {
+      await loadMathRenderer().catch(() => undefined);
+    }
     const underlayHtml = live?.innerHTML ?? (text.trim() ? renderMarkdownPlain(text) : "");
     // The figures are in the page's own text layer, not in the flowed prose,
     // which is the text with its figure lines already taken out.

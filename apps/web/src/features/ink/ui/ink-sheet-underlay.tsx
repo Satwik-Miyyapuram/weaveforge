@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
+import { containsMath, loadedMathRenderer, loadMathRenderer } from "@/components/markdown/math-renderer";
 import { upgradeMermaidFences } from "@/lib/mermaid-render";
 
 /**
@@ -81,13 +82,36 @@ export function InkSheetTextUnderlay({
    */
   resolveImageSrc?: (src: string) => string | null;
 }) {
-  const html = useMemo(
-    () =>
-      text.trim()
-        ? renderMarkdownPlain(text, resolveImageSrc ? { resolveImageSrc } : undefined)
-        : "",
-    [text, resolveImageSrc],
-  );
+  // KaTeX is loaded on demand (see `components/markdown/math-renderer`), so a note
+  // with maths paints placeholders on the first pass and the formula once the
+  // chunk lands. This underlay renders once and would otherwise never re-render —
+  // keeping the raw TeX on the paper for as long as the sheet is open, and in the
+  // exported image with it.
+  const [mathReady, setMathReady] = useState(false);
+  useEffect(() => {
+    if (mathReady || !containsMath(text)) return;
+    let cancelled = false;
+    void loadMathRenderer()
+      .then(() => {
+        if (!cancelled) setMathReady(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [text, mathReady]);
+
+  const html = useMemo(() => {
+    if (!text.trim()) return "";
+    // The renderer is chosen here rather than left to `renderPlainMarkdown`'s own
+    // fallback, so `mathReady` is a dependency this render genuinely reads —
+    // reaching for the module-level cache instead would behave identically and
+    // leave the dependency invisible to a reader and to the lint rule.
+    return renderMarkdownPlain(text, {
+      ...(resolveImageSrc ? { resolveImageSrc } : {}),
+      mathRenderer: mathReady ? loadedMathRenderer() : null,
+    });
+  }, [text, resolveImageSrc, mathReady]);
   const ref = useRef<HTMLDivElement | null>(null);
   const markup = useMemo(() => ({ __html: html }), [html]);
   // Mermaid fences upgrade to diagrams after paint; the sync pass above
