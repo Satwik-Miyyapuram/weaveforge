@@ -48,19 +48,14 @@ set search_path = public, pg_temp
 as $$
 declare
   v_table   text;
+  v_exists  integer;
   v_upto    bigint;
   v_deleted integer;
 begin
-  -- The guard. `security definer` means the writes below bypass RLS, so this is
-  -- the only thing standing between a commenter and the shared watermark.
-  if not can_edit_resource(p_resource_type, p_resource_id) then
-    raise exception 'Not permitted to compact %.', p_resource_type
-      using errcode = '42501';
-  end if;
-
   -- The entity tables that carry a watermark (migration 0042). An explicit case
-  -- rather than a dynamic lookup: the table name is interpolated into DDL below,
-  -- and an allowlist is the only shape that cannot be talked into another table.
+  -- rather than a dynamic lookup: the table name is interpolated into the
+  -- statements below, and an allowlist is the only shape that cannot be talked
+  -- into naming another table.
   v_table := case p_resource_type
     when 'vault_page'     then 'vault_pages'
     when 'report_section' then 'report_sections'
@@ -70,6 +65,28 @@ begin
   if v_table is null then
     raise exception 'Unknown CRDT resource type %.', p_resource_type
       using errcode = '22023';
+  end if;
+
+  -- Existence *before* permission, and the order is load-bearing: for a resource
+  -- that is gone, `can_edit_resource` is false for everybody, so asking it first
+  -- turns "this document was deleted" into "you may not compact it" — and a
+  -- client closing a deleted document would log a security refusal every time.
+  -- This function had them the other way round until the test for a missing
+  -- resource showed what the client actually received.
+  execute format('select 1 from %I where id = $1', v_table)
+  into v_exists
+  using p_resource_id;
+
+  if v_exists is null then
+    raise exception 'No % row to compact.', p_resource_type
+      using errcode = 'P0002';
+  end if;
+
+  -- The guard. `security definer` means the writes below bypass RLS, so this is
+  -- the only thing standing between a commenter and the shared watermark.
+  if not can_edit_resource(p_resource_type, p_resource_id) then
+    raise exception 'Not permitted to compact %.', p_resource_type
+      using errcode = '42501';
   end if;
 
   -- Forwards only, in the same statement, so two clients compacting at once
