@@ -4,31 +4,21 @@ import {
   ManageVaultPageUseCase,
   VaultPageValidationError,
   type VaultPage,
-  type VaultPageTreeNode,
-  type IVaultPageRepository,
 } from "../../../src/index.js";
+import { InMemoryVaultPageRepository } from "../../../src/testing/in-memory-vault-page-repository.js";
 
-class InMemoryVaultRepo implements IVaultPageRepository {
-  readonly rows = new Map<string, VaultPage>();
-  async getById(id: string) {
-    return this.rows.get(id) ?? null;
-  }
-  async list() {
-    return [...this.rows.values()];
-  }
-  async save(p: VaultPage) {
-    this.rows.set(p.id, p);
-  }
-  async delete(id: string) {
-    this.rows.delete(id);
-  }
-  async getTree(): Promise<VaultPageTreeNode[]> {
-    return [];
-  }
-}
-
+/**
+ * The shipped in-memory repository, not a hand-rolled one.
+ *
+ * This test used to define its own `implements IVaultPageRepository` fake. That
+ * is fine while the port is stable and quietly wrong the moment a method becomes
+ * required: core's tests are not type-checked, so a fake missing
+ * `listSummaries` compiled and then threw at runtime — six tests at once, with a
+ * `TypeError` naming an internal field. The real double cannot drift like that,
+ * and it is the same object the contract suite checks.
+ */
 function makeUseCase() {
-  const repo = new InMemoryVaultRepo();
+  const repo = new InMemoryVaultPageRepository();
   let n = 0;
   const uc = new ManageVaultPageUseCase({
     repository: repo,

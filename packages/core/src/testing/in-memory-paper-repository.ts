@@ -6,7 +6,12 @@
  * substitutability via the shared contract test suite.
  */
 
-import { normalizeDoi, type Paper, type PaperFilter } from "../features/papers/domain/paper.js";
+import {
+  normalizeDoi,
+  type Paper,
+  type PaperFilter,
+  type PaperSummary,
+} from "../features/papers/domain/paper.js";
 import type { IPaperRepository } from "../features/papers/domain/paper-repository.js";
 
 export class InMemoryPaperRepository implements IPaperRepository {
@@ -14,6 +19,19 @@ export class InMemoryPaperRepository implements IPaperRepository {
 
   async getById(id: string): Promise<Paper | null> {
     return this.store.get(id) ?? null;
+  }
+
+  /**
+   * The card projection.
+   *
+   * This store holds whole papers and has no cheaper read, so it returns them —
+   * which the type allows, because a `Paper` satisfies `PaperSummary`. What it
+   * may not do is claim the caller can rely on the abstract: the return type
+   * says otherwise, and that is the point of it being required rather than a
+   * fallback each caller writes for itself.
+   */
+  async listSummaries(): Promise<PaperSummary[]> {
+    return this.list();
   }
 
   async list(filter?: PaperFilter): Promise<Paper[]> {

@@ -50,7 +50,10 @@ export class LoadVaultScreenUseCase {
 
   async execute(): Promise<VaultScreenData> {
     const [owned, lists, pins, shares] = await Promise.all([
-      this.deps.pages.listSummaries?.() ?? this.deps.pages.list(),
+      // Required on the port; see `IPaperRepository.listSummaries` for why the
+      // call-site fallback is gone. `ownedIds` below is derived from this, so a
+      // wider read would not have changed the answer — only the payload.
+      this.deps.pages.listSummaries(),
       this.deps.lists.list(),
       this.deps.pins?.listForProject() ?? Promise.resolve([]),
       this.deps.shares?.listSharedWithMe("vault_page") ?? Promise.resolve([]),

@@ -446,14 +446,14 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   });
 
   const prefetchProject = new PrefetchProjectUseCase({
-    listPapers: () => paperRepository.listSummaries?.() ?? paperRepository.list(),
+    listPapers: () => paperRepository.listSummaries(),
     listLogEntries: () => logEntryRepository.list(),
     listReportSections: () => reportSectionRepository.list(),
     listReadingLists: () => readingListRepository.list(),
     getRelationGraph: () => backend.paperRelationRepository.getGraph(),
     listExperiments: () => experimentRepository.list(),
     listMilestones: () => (pid() ? milestoneRepository.list() : Promise.resolve([])),
-    listVaultPages: () => vaultPageRepository.listSummaries?.() ?? vaultPageRepository.list(),
+    listVaultPages: () => vaultPageRepository.listSummaries(),
     listTags: () => backend.tagRepository.listWithCounts(),
     listPins: () => backend.libraryPinRepository.listForProject(),
   });
@@ -617,8 +617,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       },
       vocabulary: async () => {
         const [pages, papers] = await Promise.all([
-          vaultPageRepository.listSummaries?.() ?? vaultPageRepository.list(),
-          paperRepository.listSummaries?.() ?? paperRepository.list(),
+          // Titles only — the projection is the right read, now that the port
+          // requires it rather than leaving each caller a fallback to write.
+          vaultPageRepository.listSummaries(),
+          paperRepository.listSummaries(),
         ]);
         return [pages.map((page) => page.title), papers.map((paper) => paper.title)];
       },

@@ -37,7 +37,10 @@ export class LoadPapersScreenUseCase {
 
   async execute(): Promise<PapersScreenData> {
     const [papers, lists, pins, shares] = await Promise.all([
-      this.deps.papers.listSummaries?.() ?? this.deps.papers.list(),
+      // The card projection, required on the port. The `?? list()` fallback that
+      // stood here is what pulled every abstract and metadata bag into a list
+      // render, on the screens that paint neither.
+      this.deps.papers.listSummaries(),
       this.deps.lists.list(),
       this.deps.pins?.listForProject() ?? Promise.resolve([]),
       this.deps.shares?.listSharedWithMe("paper") ?? Promise.resolve([]),

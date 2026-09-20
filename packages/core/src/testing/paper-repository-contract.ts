@@ -112,16 +112,11 @@ export function runPaperRepositoryContract(
   // `listSummaries` was omitted from every contract suite, so nothing checked
   // what a screen actually paints from — and the reviewer's point is that it is
   // precisely the *lossy* method, the one where a mistake is invisible. It is
-  // optional on the port, so the two shapes are asserted separately instead of
-  // one being skipped silently.
-  test(`[${label}] listSummaries, when present, covers every saved paper`, async () => {
+  // now required on the port, so the branches that used to record its absence
+  // are gone: an implementation without it does not compile, and one that
+  // returns `list()` is saying so itself.
+  test(`[${label}] listSummaries covers every saved paper`, async () => {
     const repo = makeRepo();
-    if (!repo.listSummaries) {
-      // Not an error: the port allows the fallback. Asserting it here keeps the
-      // absence a recorded fact rather than a suite that quietly did less.
-      assert.equal(repo.listSummaries, undefined);
-      return;
-    }
     await repo.save(samplePaper({ id: "a" }));
     await repo.save(samplePaper({ id: "b", status: "read" }));
     const summaries = await repo.listSummaries();
@@ -134,7 +129,6 @@ export function runPaperRepositoryContract(
 
   test(`[${label}] listSummaries keeps the identity a card paints`, async () => {
     const repo = makeRepo();
-    if (!repo.listSummaries) return;
     const paper = samplePaper({ id: "a", title: "Latent Diffusion" });
     await repo.save(paper);
     const [summary] = await repo.listSummaries();
@@ -153,7 +147,6 @@ export function runPaperRepositoryContract(
     // fields, and if it carries a lossy field at all it must carry the real
     // value, never a placeholder that reads as "the user cleared this".
     const repo = makeRepo();
-    if (!repo.listSummaries) return;
     const paper = samplePaper({
       id: "a",
       abstract: "We introduce…",
