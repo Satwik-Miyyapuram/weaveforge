@@ -1,5 +1,13 @@
 # Redesign audit — what could change
 
+> **Status: actioned.** Every finding below was re-read against the code at
+> `071490b` and worked in
+> [`redesign-audit-fixes.md`](redesign-audit-fixes.md), which records what was
+> already fixed and then verified, what was still broken, what §5's unmeasured
+> contrast gap turned out to contain, and which of the instructions below are
+> wrong as written. Read that file for the current state; this one is the
+> point-in-time audit it was made from, and its findings are not maintained.
+
 **Suggestions only. No application code was modified to produce this document.**
 
 A design audit of the three front ends — the app (`apps/web`), the public pitch
