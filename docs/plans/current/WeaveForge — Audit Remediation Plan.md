@@ -418,7 +418,7 @@ Every one of the 88 findings is assigned to exactly one phase below, and the cou
 | 1 — correctness, integrity, security | 15 | 30 | **done** |
 | 2 — lexical extractor | 1 (9 fixes) | 9 | **done** |
 | 3 — read path, DB, hot paths | 8 | 19 | **done** |
-| 4 — contracts & types | 10 | 9 | not started |
+| 4 — contracts & types | 10 | 9 | **done** |
 | 5 — lifecycle & memory | 7 | 7 | not started |
 | 6 — structural decomposition | 7 | 7 | not started |
 | 7 — guardrails, hardening, docs | 8 | 6 | not started |
@@ -506,16 +506,39 @@ One rewrite of `packages/core/src/features/ai-assistant/domain/lexical-concept-e
 
 **Deviation, recorded:** `PERF-04`'s projection cannot be narrowed to the three columns the audit proposed. The port promises a `Paper` and a dedupe hit is handed straight back to the caller as the paper it found, so fewer columns behind a wider type is the same lie `listSummaries` used to tell. The lookup now uses the full list projection; a narrower port for the citation-linking caller is the real fix and belongs with Phase 4's contract work.
 
+### Phase 4 — what landed
+
+| Item | Finding | How it was closed |
+|---|---|---|
+| Required card projections | ARCH-02 | `listSummaries` is required on both ports; the six web fallbacks and the seventh in core are gone, along with two contract suites' "when present" branches |
+| Dead batch-fetch branch | ARCH-05 | `fetchBlobs` is required on the port; the fallback was unreachable |
+| Screen registry | ARCH-12 | `SCREEN_IDS`, seeded from the ten real cache keys; the invalidation map is typed by it, the prefetch switch is exhaustive over it, and `/report/overleaf` is finally a screen |
+| Injected adapters in one place | ARCH-13 | `randomBytes` joined the clock and the id generator, in `lib/system.ts` rather than a directory about papers |
+| Inline core type imports | ARCH-04 | 95 across 40 files hoisted to top-level `import type`; a `check-dry` rule keeps them out, and both boundary gates now search `container/**` |
+| Metric port split | WF-C04 | Writer, history reader and activity reader, composed for the adapters; the facade depends on the two readers, and its test fails to compile if that widens back |
+| Cache policy and entry | ARCH-15, MEM-05 | Two freshness numbers in one module with the distinction written down; one cache entry type, with `fetchedAt` required so a caller says which moment it means |
+| Prose out of the policy module | WF-C09 | The reason codes stay in core as the contract; the sentences live beside the fetch that shows them |
+| `ARCH-07`, `BUG-07`, `BUG-08` | — | Closed in Phase 3, where the papers repository was already open |
+
+**Two decisions worth recording.**
+
+**The audit's ESLint rule is the wrong enforcement for `ARCH-04`.** `@typescript-eslint/consistent-type-imports` is not enabled by `next/core-web-vitals`, and switching it on flags *every* value import used only as a type across the whole app — a hundred-plus unrelated files, leaving `lint` red for a preference this finding is not about. The gate bans the pattern the finding names (`import("@weaveforge/core").X`) and nothing else; a type query against a lazy-loaded sibling module is the local convention there. The more valuable half of the item was the second one: both boundary gates now search `apps/web/src/container`, so the ~70 files that wire the features together are no longer the only ones no rule looks at (677 files searched before, 702 after).
+
+**The `PERF-04` narrow port is deferred, deliberately.** What the finding asked for is fixed: the four dedupe lookups no longer `select("*")`, and `listSummaries` no longer claims to be a full paper. What remains is an *addition* — a narrower lookup returning just the identity and status, for the two citation-linking callers that read nothing else — and it is a new API rather than a defect. It belongs with the structural work in Phase 6, where those callers are being touched anyway, and where a benchmark can show what the columns cost.
+
 Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
 After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests and a real `next build`:
 
-| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 |
-|---|---|---|---|---|
-| core | 1214 | 1231 | 1239 | 1248 |
-| web | 1428 | 1439 | 1439 | 1466 |
-| pglite integration | 20 | 20 | 20 | 20 |
-| desktop | 237 | 237 | 237 | 237 |
-| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
+| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Phase 4 |
+|---|---|---|---|---|---|
+| core | 1214 | 1231 | 1239 | 1248 | 1247 |
+| web | 1428 | 1439 | 1439 | 1466 | 1474 |
+| pglite integration | 20 | 20 | 20 | 20 | 20 |
+| desktop | 237 | 237 | 237 | 237 | 237 |
+| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
+| files the boundary gates search | 675 | 675 | 676 | 677 | 702 |
+
+Core goes 1248 → 1247 because one test moved out of it: `describeRejection`'s completeness assertion now lives beside the prose it checks.
 
 One thing it needs: `npm run docs:generate`, because the generated line counts in `docs/building/architecture-map.md` move with every source commit — including the commits that fix things. That is why `check:all` was red before any of this work started.
