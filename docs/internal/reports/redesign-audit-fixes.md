@@ -470,17 +470,31 @@ Run on this checkout, at the end of the work.
 | Gate blindness | re-introduced the violation in a `.ts` file | `FAIL: OS confirmation dialog … use-annotation-actions.ts:184`; removed, gate passes |
 | R13 grep | `grep -rn "0\.06s\|0\.15s\|150ms\|60ms" apps/web/src/app/styles` | Four lines, all in the `base.css` token block — no declaration carries a literal press duration |
 | R13 ramp | resolved the `--rm-*` `calc()` chain through postcss | `150 / 262.5 / 525` ms at `--motion-scale: 1`; `300 / 525 / 1050` at `2` — one setting reaches all three |
+| CI | `build-and-test` on PR #246 | Pass in 8m35s — core, web, **desktop**, schema/RLS and **Chromium editor-paste** suites, typechecks, all eight gates as separate steps, lint, `Build Web App`, `Deployment surface`. `dco`, `python-sdk` and Vercel pass too |
 
 Two things deliberately not claimed:
 
-- **No rendered verification.** `next build` cannot run here (`next/font` has no
-  route to Google Fonts in this sandbox), so R3's `og:image` tag, R1's sheet at
-  1024px and 390px, and R13's "same feel" are all reasoned from source and
-  pinned by tests rather than screenshotted. The audit's §5 called this out as
-  its own limit; it is still one.
-- **Desktop and integration suites not run.** Nothing in this pass touches
-  `apps/desktop`, `packages/core` or the schema. `npm run check:all` was not run
-  in full for that reason.
+- **No rendered verification, and what CI did close.** `next build` cannot run
+  in this sandbox (`next/font` has no route to Google Fonts), so nothing here
+  was checked against a rendered page while it was being written. CI's
+  `build-and-test` job has since run the real thing and passed: `Build Web App`
+  compiled both layouts, so R3's `Metadata` is not merely type-correct but
+  build-correct, and `Deployment surface` passed behind it. What is still unseen
+  is the emitted tag itself — the Vercel preview answers with "Protected
+  Deployment" and this sandbox cannot reach it, nor the job log, which is served
+  from Azure blob storage over an egress path that is blocked here. So R1's
+  sheet at 1024px and 390px and R13's "same feel" remain reasoned from source
+  and pinned by tests rather than screenshotted. The audit's §5 called this out
+  as its own limit; the part of it that was a sandbox limit is now closed by CI,
+  and the part that was never verifiable from here still is not.
+- **The suites this sandbox could not run, CI ran.** Nothing in this pass
+  touches `apps/desktop`, `packages/core` or the schema, and locally only
+  `test:web` (1428) and `test:core` (1214) were run — `npm run check:all` was
+  not, because the desktop and editor-paste suites need an Electron download
+  and a Chromium install that this environment blocks. CI ran both, plus the
+  schema and RLS tests, and all four passed. `check:all` is therefore satisfied
+  by the job rather than by this checkout, which is the stronger of the two
+  places to satisfy it.
 
 ## 5. Files touched
 
