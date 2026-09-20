@@ -19,3 +19,4 @@ export * from "./application/add-paper.use-case.js";
 export * from "./application/update-paper.use-case.js";
 export * from "./application/manage-paper-fields.use-case.js";
 export * from "./application/compute-rollup.js";
+export * from "./application/push-paper-to-zotero.use-case.js";

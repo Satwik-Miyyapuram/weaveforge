@@ -34,6 +34,7 @@ import {
   RemoveRelationUseCase,
   CompactCrdtLogUseCase,
   AppendPaperNoteUseCase,
+  PushPaperToZoteroUseCase,
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
 import type { AiToolName } from "@weaveforge/core";
@@ -389,6 +390,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     papers: paperRepository,
     clock: systemClock,
   });
+  // One push rule, shared with `PapersFacade.autoPush`: it used to be written out
+  // in both places, and the copies disagreed about what a failed push means.
+  const pushToZotero = new PushPaperToZoteroUseCase({
+    papers: paperRepository,
+    bibliography,
+  });
   const aiProposalExecutors = new AiProposalExecutorRegistry(
     GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY
       ? GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY({
@@ -399,14 +406,14 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
           updatePaper,
           paperFields: managePaperFields,
           addPaper,
+          // The outcome is dropped on purpose. This executor's contract is
+          // accepted-or-conflicted, and a Zotero push that failed is neither: the
+          // paper *was* added, so "conflicted" would be a lie and a throw would
+          // report failure for a write that landed. A failed push is survivable —
+          // the paper simply has no item behind it — and the outcome is there for
+          // a caller that wants to say so.
           pushZotero: async (paper) => {
-            if (paper.metadata?.zoteroKey) return;
-            const key = await bibliography.pushPaper(paper);
-            if (key)
-              await paperRepository.save({
-                ...paper,
-                metadata: { ...paper.metadata, zoteroKey: key },
-              });
+            await pushToZotero.execute(paper);
           },
           lists: manageReadingList,
           relations: addRelation,
@@ -556,6 +563,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       load: loadPapersScreen,
       deletePaper,
       bibliography,
+      pushToZotero,
       papers: paperRepository,
       manageTags,
       updatePaper,

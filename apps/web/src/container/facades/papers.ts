@@ -18,6 +18,7 @@ import type {
   PaperFieldValueData,
   QuotationType,
   ReaderAnnotationPatch,
+  PushPaperToZoteroUseCase,
   UpdatePaperUseCase,
 } from "@weaveforge/core";
 import type { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
@@ -31,6 +32,8 @@ export class PapersFacade {
       load: LoadPapersScreenUseCase;
       deletePaper: DeletePaperUseCase;
       bibliography: IBibliographyIntegration;
+      /** The one push-to-Zotero rule, shared with the AI proposal executor. */
+      pushToZotero: PushPaperToZoteroUseCase;
       papers: IPaperRepository;
       manageTags: ManageTagsUseCase;
       updatePaper: UpdatePaperUseCase;
@@ -109,16 +112,16 @@ export class PapersFacade {
     return this.deps.deletePaper.execute(paper);
   }
 
+  /**
+   * Push a freshly added paper to the bibliography manager.
+   *
+   * Best-effort, and the rule lives in core now: it was written out here and
+   * again as a callback in the composition root, and the two had drifted on what
+   * a failure means. The outcome is deliberately ignored here — the paper is
+   * already saved, and this is a convenience.
+   */
   async autoPush(paper: Paper) {
-    if (paper.metadata?.zoteroKey) return;
-    try {
-      const key = await this.deps.bibliography.pushPaper(paper);
-      if (key) {
-        await this.deps.papers.save({ ...paper, metadata: { ...paper.metadata, zoteroKey: key } });
-      }
-    } catch {
-      /* best-effort */
-    }
+    await this.deps.pushToZotero.execute(paper);
   }
 
   getPaper(id: string) {
