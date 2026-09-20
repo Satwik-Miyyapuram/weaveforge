@@ -7,6 +7,7 @@ import {
 import { idbGetScreenCache, idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
 import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
 import { formatError } from "@/lib/format-error";
+import type { ScreenId } from "@/lib/screens";
 
 /**
  * Load screen data with stale-while-revalidate: show cached payload instantly on
@@ -26,7 +27,15 @@ import { formatError } from "@/lib/format-error";
  *     restore would always observe a newer counter and drop every payload it
  *     read — silently disabling the offline restore this hook exists for.
  */
-export function useScreenData<T>(screen: string, load: () => Promise<T>) {
+/**
+ * Load screen data with stale-while-revalidate: show cached payload instantly on
+ * remount, refresh in the background.
+ *
+ * `screen` is a {@link ScreenId} rather than a string because it *is* a cache
+ * key: a misspelt one is not an error anywhere, it is a screen whose data is
+ * never cleared on a write and never warmed on a hover.
+ */
+export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
   const { current } = useProject();
   const projectId = current?.id ?? null;
   const cacheKey = screenCacheKey(projectId, screen);

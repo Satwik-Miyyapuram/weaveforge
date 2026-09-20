@@ -1,7 +1,8 @@
 import { hasScreenCacheData, screenCacheKey } from "@/lib/cache/screen-cache";
+import type { ScreenId } from "@/lib/screens";
 
 /** Top-level list screens keyed for {@link useScreenData} cache lookups. */
-const ROUTE_SCREENS: readonly { prefix: string; screen: string }[] = [
+const ROUTE_SCREENS: readonly { prefix: string; screen: ScreenId }[] = [
   { prefix: "/papers", screen: "papers" },
   { prefix: "/notes", screen: "vault" },
   { prefix: "/graph", screen: "graph" },
@@ -10,6 +11,11 @@ const ROUTE_SCREENS: readonly { prefix: string; screen: string }[] = [
   { prefix: "/plan", screen: "plan" },
   { prefix: "/log", screen: "logbook" },
   { prefix: "/report", screen: "report" },
+  // Its own cache key and its own route. Without this entry the tab warmed
+  // nothing on hover and the nav overlay covered a screen that had data.
+  // `EXACT_SCREENS` is consulted before the prefix scan, so the `/report` entry
+  // above cannot swallow this one.
+  { prefix: "/report/overleaf", screen: "report-overleaf" },
   { prefix: "/shared", screen: "shared-with-me" },
 ];
 
@@ -23,7 +29,7 @@ const ROUTE_SCREENS: readonly { prefix: string; screen: string }[] = [
 const EXACT_SCREENS = new Map(ROUTE_SCREENS.map(({ prefix, screen }) => [prefix, screen]));
 
 /** Screen cache id for a pathname, or null for detail/settings routes. */
-export function screenForPath(pathname: string): string | null {
+export function screenForPath(pathname: string): ScreenId | null {
   // Cut the query and fragment without allocating an array, let alone running a
   // regex: `indexOf` answers it, and `-1` means "not there".
   const query = pathname.indexOf("?");
