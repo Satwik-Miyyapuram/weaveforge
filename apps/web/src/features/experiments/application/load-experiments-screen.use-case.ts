@@ -1,4 +1,9 @@
-import type { Experiment, IExperimentRepository, IShareRepository } from "@weaveforge/core";
+import type {
+  Experiment,
+  IExperimentRepository,
+  ILibraryPinRepository,
+  IShareRepository,
+} from "@weaveforge/core";
 import { mergePinnedScreenData } from "@weaveforge/core";
 
 export interface ExperimentsScreenData {
@@ -11,7 +16,7 @@ export class LoadExperimentsScreenUseCase {
   constructor(
     private readonly deps: {
       experiments: IExperimentRepository;
-      pins?: import("@weaveforge/core").ILibraryPinRepository;
+      pins?: ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

@@ -1,4 +1,7 @@
-import type { AiAccessSettings } from "@weaveforge/core";
+import type {
+  AiAccessSettings,
+  AiEvidence,
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
@@ -296,7 +299,7 @@ async function buildPaperEvidence(
     quoteSuffix?: string;
     page?: number;
   },
-): Promise<import("@weaveforge/core").AiEvidence[]> {
+): Promise<AiEvidence[]> {
   const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId: input.sourceId });
   if (!doc?.text) {
     throw new Error("sourceId was provided but no excerpt could be resolved for evidence.");

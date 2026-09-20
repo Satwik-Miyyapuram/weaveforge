@@ -1,4 +1,5 @@
 import type {
+  ILibraryPinRepository,
   IReadingListItemRepository,
   IReadingListRepository,
   IShareRepository,
@@ -43,7 +44,7 @@ export class LoadVaultScreenUseCase {
       pages: IVaultPageRepository;
       lists: IReadingListRepository;
       listItems: IReadingListItemRepository;
-      pins?: import("@weaveforge/core").ILibraryPinRepository;
+      pins?: ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

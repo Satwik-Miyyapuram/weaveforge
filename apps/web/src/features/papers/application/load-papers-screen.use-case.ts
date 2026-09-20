@@ -1,7 +1,8 @@
 import type {
+  ILibraryPinRepository,
+  IPaperRepository,
   IReadingListItemRepository,
   IReadingListRepository,
-  IPaperRepository,
   IShareRepository,
   PaperSummary,
   ReadingList,
@@ -30,7 +31,7 @@ export class LoadPapersScreenUseCase {
       papers: IPaperRepository;
       lists: IReadingListRepository;
       listItems: IReadingListItemRepository;
-      pins?: import("@weaveforge/core").ILibraryPinRepository;
+      pins?: ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

@@ -31,6 +31,7 @@ import {
   type ReaderAnnotationType,
   type FigureTarget,
 } from "@weaveforge/core";
+import type { TextSelectionRange } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
 import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
@@ -180,7 +181,7 @@ export function PdfReader({
   const [pendingCreate, setPendingCreate] = useState<{
     pageNumber: number;
     quote: string;
-    selection: import("@weaveforge/core").TextSelectionRange;
+    selection: TextSelectionRange;
   } | null>(null);
   const clearPendingCreate = useCallback(() => setPendingCreate(null), []);
   const { reportSections, pinsByKey, applyPin, backlinkHits } = useAnnotationContext(

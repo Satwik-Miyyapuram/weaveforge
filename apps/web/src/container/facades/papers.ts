@@ -1,14 +1,23 @@
 import type {
   AddPaperUseCase,
   CheckCitationAlertsUseCase,
+  IAnnotationPinRepository,
+  IAnnotationQuotationTypeRepository,
   IBibliographyIntegration,
   ImportPaperUseCase,
-  ManageTagsUseCase,
+  IPaperRepository,
+  IReaderAnnotationSink,
+  IReaderAnnotationSource,
+  IReportSectionRepository,
   ManagePaperFieldsUseCase,
+  ManageTagsUseCase,
+  NewReaderAnnotation,
   Paper,
   PaperFieldKind,
   PaperFieldRollupAgg,
   PaperFieldValueData,
+  QuotationType,
+  ReaderAnnotationPatch,
   UpdatePaperUseCase,
 } from "@weaveforge/core";
 import type { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
@@ -22,21 +31,21 @@ export class PapersFacade {
       load: LoadPapersScreenUseCase;
       deletePaper: DeletePaperUseCase;
       bibliography: IBibliographyIntegration;
-      papers: import("@weaveforge/core").IPaperRepository;
+      papers: IPaperRepository;
       manageTags: ManageTagsUseCase;
       updatePaper: UpdatePaperUseCase;
       importPaper: ImportPaperUseCase;
       addPaper: AddPaperUseCase;
       images: IPaperImageStore;
       citationAlerts: CheckCitationAlertsUseCase;
-      annotationPins: import("@weaveforge/core").IAnnotationPinRepository;
-      annotationQuotationTypes: import("@weaveforge/core").IAnnotationQuotationTypeRepository;
-      readerAnnotations: import("@weaveforge/core").IReaderAnnotationSource &
-        import("@weaveforge/core").IReaderAnnotationSink;
+      annotationPins: IAnnotationPinRepository;
+      annotationQuotationTypes: IAnnotationQuotationTypeRepository;
+      readerAnnotations: IReaderAnnotationSource &
+        IReaderAnnotationSink;
       /** Zotero API key + library, read at call time (post-unlock). */
       zoteroCredentials: import("@/features/papers/infrastructure/zotero-metadata-source").ZoteroCredentialsProvider;
       paperFields: ManagePaperFieldsUseCase;
-      reportSections: import("@weaveforge/core").IReportSectionRepository;
+      reportSections: IReportSectionRepository;
     },
   ) {}
 
@@ -173,7 +182,7 @@ export class PapersFacade {
   async setAnnotationQuotationType(
     paperId: string,
     annotationKey: string,
-    quotationType: import("@weaveforge/core").QuotationType | null,
+    quotationType: QuotationType | null,
   ) {
     if (!quotationType) {
       await this.deps.annotationQuotationTypes.remove(paperId, annotationKey);
@@ -192,14 +201,14 @@ export class PapersFacade {
 
   createReaderAnnotation(
     paperId: string,
-    draft: import("@weaveforge/core").NewReaderAnnotation,
+    draft: NewReaderAnnotation,
   ) {
     return this.deps.readerAnnotations.create(paperId, draft);
   }
 
   updateReaderAnnotation(
     id: string,
-    patch: import("@weaveforge/core").ReaderAnnotationPatch,
+    patch: ReaderAnnotationPatch,
   ) {
     return this.deps.readerAnnotations.update(id, patch);
   }

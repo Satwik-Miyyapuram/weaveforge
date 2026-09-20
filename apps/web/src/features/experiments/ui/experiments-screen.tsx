@@ -65,7 +65,7 @@ export function ExperimentsScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const items = data?.experiments ?? emptyArray<import("@weaveforge/core").Experiment>();
+  const items = data?.experiments ?? emptyArray<Experiment>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
 

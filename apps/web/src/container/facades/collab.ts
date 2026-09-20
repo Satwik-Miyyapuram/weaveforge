@@ -1,13 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CollabSnapshotHelpers, CollabSession } from "@/features/collab/application/collab-session";
-import type { ICrdtUpdateStore, ICurrentUserProvider } from "@weaveforge/core";
+import type {
+  CompactCrdtLogUseCase,
+  ICrdtUpdateStore,
+  ICurrentUserProvider,
+} from "@weaveforge/core";
 
 export class CollabFacade {
   constructor(
     private readonly inner: {
       crdtStore: ICrdtUpdateStore;
       crdtSnapshotStore: import("@/features/collab/infrastructure/crdt-snapshot-store").CrdtSnapshotStore;
-      compactCrdtLog: import("@weaveforge/core").CompactCrdtLogUseCase;
+      compactCrdtLog: CompactCrdtLogUseCase;
       db: SupabaseClient;
       session: ICurrentUserProvider;
       projectId: () => string | null;

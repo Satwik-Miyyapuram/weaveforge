@@ -1,4 +1,8 @@
-import type { ManageExperimentUseCase } from "@weaveforge/core";
+import type {
+  IExperimentRepository,
+  IPaperRepository,
+  ManageExperimentUseCase,
+} from "@weaveforge/core";
 import { isStaleRunningExperiment, mapLimit, STALE_RUNNING_MS } from "@weaveforge/core";
 import type { LoadExperimentsScreenUseCase, ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 import type {
@@ -35,8 +39,8 @@ export class ExperimentsFacade {
   constructor(
     private readonly deps: {
       load: LoadExperimentsScreenUseCase;
-      experiments: import("@weaveforge/core").IExperimentRepository;
-      papers: import("@weaveforge/core").IPaperRepository;
+      experiments: IExperimentRepository;
+      papers: IPaperRepository;
       // The two reads this facade makes, as the two ports they are: it draws
       // curves and it asks when a run last logged. It never writes a metric, so
       // it does not depend on the writer — which is what kept the aggregate

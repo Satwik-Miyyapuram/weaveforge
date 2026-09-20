@@ -1,4 +1,8 @@
-import type { IBibliographyIntegration, ManageSettingsUseCase } from "@weaveforge/core";
+import type {
+  BibliographyCredentials,
+  IBibliographyIntegration,
+  ManageSettingsUseCase,
+} from "@weaveforge/core";
 import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import { formatError, readJsonBody } from "@/lib/format-error";
@@ -75,7 +79,7 @@ export class SettingsFacade {
    * the provider falls back to whatever is stored.
    */
   listBibliographyCollections(
-    credentials?: import("@weaveforge/core").BibliographyCredentials,
+    credentials?: BibliographyCredentials,
   ) {
     return this.deps.bibliography.listCollections(credentials);
   }

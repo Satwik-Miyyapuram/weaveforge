@@ -1,4 +1,18 @@
-import type { Experiment, ILogEntryRepository, LogEntry, Milestone, Paper, ReadingList, VaultPage } from "@weaveforge/core";
+import type {
+  AiEvidence,
+  Experiment,
+  IExperimentRepository,
+  ILogEntryRepository,
+  IMilestoneRepository,
+  IPaperRepository,
+  IReadingListRepository,
+  IVaultPageRepository,
+  LogEntry,
+  Milestone,
+  Paper,
+  ReadingList,
+  VaultPage,
+} from "@weaveforge/core";
 import {
   AI_TOOL_NAMES,
   AiAccessPolicy,
@@ -78,12 +92,12 @@ export class AiAssistantFacade {
 
   constructor(
     private readonly deps: {
-      papers: import("@weaveforge/core").IPaperRepository;
-      vaultPages: import("@weaveforge/core").IVaultPageRepository;
-      readingLists: import("@weaveforge/core").IReadingListRepository;
+      papers: IPaperRepository;
+      vaultPages: IVaultPageRepository;
+      readingLists: IReadingListRepository;
       logEntries: ILogEntryRepository;
-      experiments: import("@weaveforge/core").IExperimentRepository;
-      milestones: import("@weaveforge/core").IMilestoneRepository;
+      experiments: IExperimentRepository;
+      milestones: IMilestoneRepository;
       proposals: IAiProposalStore;
       isEncryptionUnlocked: () => boolean;
       newId: () => string;
@@ -293,7 +307,7 @@ export class AiAssistantFacade {
   async proposeDraft(input: {
     sessionId: string; settings: AiAccessSettings; kind: AiProposalKind; tool: AiToolName;
     content: string; payload: Record<string, unknown>; resourceId?: string; resourceType?: AiResourceType;
-    expectedRevision?: string; evidence?: readonly import("@weaveforge/core").AiEvidence[];
+    expectedRevision?: string; evidence?: readonly AiEvidence[];
   }): Promise<{ status: "requires_review"; proposalId: string; kind: AiProposalKind; message: string }> {
     const session = this.requireActiveSession(input.sessionId);
     const proposal = await this.createProposal.execute({
@@ -381,13 +395,13 @@ export class AiAssistantFacade {
   private sourceText(
     source: AiWorkspaceSource,
     indexes: {
-      papers: Map<string, import("@weaveforge/core").Paper>;
-      vaultPages: Map<string, import("@weaveforge/core").VaultPage>;
-      readingLists: Map<string, import("@weaveforge/core").ReadingList>;
-      logEntries: Map<string, import("@weaveforge/core").LogEntry>;
-      experiments: Map<string, import("@weaveforge/core").Experiment>;
-      milestones: Map<string, import("@weaveforge/core").Milestone>;
-      zoteroEntries: Map<string, { paper: import("@weaveforge/core").Paper; entry: StoredZoteroEntry }>;
+      papers: Map<string, Paper>;
+      vaultPages: Map<string, VaultPage>;
+      readingLists: Map<string, ReadingList>;
+      logEntries: Map<string, LogEntry>;
+      experiments: Map<string, Experiment>;
+      milestones: Map<string, Milestone>;
+      zoteroEntries: Map<string, { paper: Paper; entry: StoredZoteroEntry }>;
     },
   ): string | null {
     const paper = indexes.papers.get(source.resourceId);
@@ -410,7 +424,7 @@ export class AiAssistantFacade {
     return null;
   }
 
-  private zoteroEntries(paper: import("@weaveforge/core").Paper): StoredZoteroEntry[] {
+  private zoteroEntries(paper: Paper): StoredZoteroEntry[] {
     const entries = paper.metadata?.["annotations"];
     return Array.isArray(entries) ? entries.filter((entry): entry is StoredZoteroEntry =>
       Boolean(entry) && typeof entry === "object" && (typeof entry.text === "string" || typeof entry.comment === "string"),

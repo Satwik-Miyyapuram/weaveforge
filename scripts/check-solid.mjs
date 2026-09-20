@@ -31,7 +31,12 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
  * is handed to the search as-is; see scripts/lib/search.mjs for why the paths
  * travel as data rather than on a command line.
  */
-const featureFiles = trackedFiles(root, ["apps/web/src/features"]);
+const featureFiles = trackedFiles(root, [
+  "apps/web/src/features",
+  // The composition root and its facades — the same reason as `check-dry.mjs`:
+  // the rules were blind to the files that wire the features together.
+  "apps/web/src/container",
+]);
 
 const search = (pattern, glob) =>
   searchLines({ root, files: featureFiles, pattern, glob });

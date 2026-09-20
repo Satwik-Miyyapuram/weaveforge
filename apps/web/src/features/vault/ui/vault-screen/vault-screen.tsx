@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   bodyLinksTo, extractHashtags, normalizeTitleKey,
   type VaultPage, type VaultPageSummary } from "@weaveforge/core";
+import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -80,8 +81,8 @@ export function VaultScreen() {
   // through `noteBodyText`/`isHydratedPage` instead of silently yielding
   // `undefined` (review-2 F6).
   const flat =
-    data?.flat ?? emptyArray<import("@weaveforge/core").VaultPageSummary | VaultPage>();
-  const lists = data?.lists ?? emptyArray<import("@weaveforge/core").ReadingList>();
+    data?.flat ?? emptyArray<VaultPageSummary | VaultPage>();
+  const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const vaultCanComment = data?.vaultCanComment ?? emptyMap<string, boolean>();

@@ -1,5 +1,12 @@
 import type {
   AddRelationUseCase,
+  IPaperRelationRepository,
+  IPaperRepository,
+  IReadingListItemRepository,
+  IReadingListRepository,
+  IReportSectionRepository,
+  ITagRepository,
+  IVaultPageRepository,
   LinkCitationsUseCase,
   ManageTagsUseCase,
   Paper,
@@ -13,7 +20,7 @@ import type { RemoveRelationUseCase } from "@weaveforge/core";
 
 export interface GraphScreenData {
   papers: Paper[];
-  notes: import("@weaveforge/core").VaultPage[];
+  notes: VaultPage[];
   sections: ReportSection[];
   relations: PaperRelation[];
   lists: ReadingList[];
@@ -23,17 +30,17 @@ export interface GraphScreenData {
 export class GraphFacade {
   constructor(
     private readonly deps: {
-      papers: import("@weaveforge/core").IPaperRepository;
-      notes: import("@weaveforge/core").IVaultPageRepository;
-      sections: import("@weaveforge/core").IReportSectionRepository;
-      relations: import("@weaveforge/core").IPaperRelationRepository;
-      lists: import("@weaveforge/core").IReadingListRepository;
-      listItems: import("@weaveforge/core").IReadingListItemRepository;
+      papers: IPaperRepository;
+      notes: IVaultPageRepository;
+      sections: IReportSectionRepository;
+      relations: IPaperRelationRepository;
+      lists: IReadingListRepository;
+      listItems: IReadingListItemRepository;
       addRelation: AddRelationUseCase;
       linkCitations: LinkCitationsUseCase;
       removeRelation: RemoveRelationUseCase;
       manageTags: ManageTagsUseCase;
-      tags: import("@weaveforge/core").ITagRepository;
+      tags: ITagRepository;
       settings: IGraphSettingsRepository;
     },
   ) {}

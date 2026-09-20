@@ -89,7 +89,7 @@ export class WorkspaceSearch {
   /** The projection the index was built from, kept for the semantic arm. */
   private docs: readonly SearchDoc[] = [];
   /** Extracted PDF text for the live papers, read once per build. */
-  private pdfTexts: readonly import("@weaveforge/core").PdfIndexSource[] = [];
+  private pdfTexts: readonly PdfIndexSource[] = [];
 
   constructor(
     private readonly deps: {

@@ -7,7 +7,11 @@ import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { AiAssistantFacade } from "@/container/facades";
-import type { AiAccessSettings, AiWriteProposal } from "@weaveforge/core";
+import type {
+  AiAccessSettings,
+  AiWriteProposal,
+  Paper,
+} from "@weaveforge/core";
 import { handleRelayBatch } from "../mcp-browser-relay";
 
 /**
@@ -37,7 +41,7 @@ const PAPER = {
   id: "paper-1", title: "Attention", authors: ["A"], year: 2017, venue: "NeurIPS",
   abstract: "Transformers replace recurrence with attention entirely.",
   status: "reading", tags: [], summary: "The note body already on the paper.",
-} as unknown as import("@weaveforge/core").Paper;
+} as unknown as Paper;
 
 const settings: AiAccessSettings = {
   enabled: true,

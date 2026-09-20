@@ -1,3 +1,4 @@
+import type { Paper } from "@weaveforge/core";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
@@ -80,7 +81,7 @@ test("the local library's items become papers, and only reads leave the page", a
     authors: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-  } as unknown as import("@weaveforge/core").Paper;
+  } as unknown as Paper;
   const seen: string[] = [];
   const added: string[] = [];
   const pulled = await localZoteroLibrary(

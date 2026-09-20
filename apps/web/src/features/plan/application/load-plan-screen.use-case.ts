@@ -1,8 +1,9 @@
 import type {
   Experiment,
+  IExperimentRepository,
+  ILibraryPinRepository,
   IMilestoneRepository,
   IPaperRepository,
-  IExperimentRepository,
   IShareRepository,
   Milestone,
   Paper,
@@ -23,7 +24,7 @@ export class LoadPlanScreenUseCase {
       milestones: IMilestoneRepository;
       papers: IPaperRepository;
       experiments: IExperimentRepository;
-      pins?: import("@weaveforge/core").ILibraryPinRepository;
+      pins?: ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}

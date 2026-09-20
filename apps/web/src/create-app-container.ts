@@ -36,6 +36,7 @@ import {
   appendPaperNote,
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
+import type { AiToolName } from "@weaveforge/core";
 import { SemanticScholarMetadataSource } from "@/features/papers/infrastructure/semantic-scholar-metadata-source";
 import { OpenAlexMetadataSource } from "@/features/papers/infrastructure/openalex-metadata-source";
 import { ReferenceLookupService } from "@/features/reader/application/reference-lookup";
@@ -545,7 +546,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
    */
   const allowedAiTools = (
     GENERATED_MCP_ENABLED ? GENERATED_MCP_TOOL_NAMES : []
-  ) as readonly import("@weaveforge/core").AiToolName[];
+  ) as readonly AiToolName[];
 
   const container: AppContainer = {
     integrations: { bibliography, notifications, logSync, gitRead },

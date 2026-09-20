@@ -1,4 +1,8 @@
-import type { WeaveForgeConfig, WeaveForgePlugin } from "@weaveforge/core";
+import type {
+  FeatureModule,
+  WeaveForgeConfig,
+  WeaveForgePlugin,
+} from "@weaveforge/core";
 import type { IntegrationManifest } from "@/integrations/manifests/types";
 import { GENERATED_BUILTIN_INTEGRATION_MANIFESTS } from "@/deployment/generated-registry";
 import { buildManifestRegistry, type IntegrationManifestRegistry } from "@/integrations/manifests/types";
@@ -12,7 +16,7 @@ export interface WebWeaveForgePlugin extends WeaveForgePlugin {
 export interface ResolvedAppConfig {
   readonly plugins: readonly WebWeaveForgePlugin[];
   readonly integrationManifests: IntegrationManifestRegistry;
-  readonly pluginModules: readonly import("@weaveforge/core").FeatureModule[];
+  readonly pluginModules: readonly FeatureModule[];
   /** Undefined means all built-in feature modules are enabled. */
   readonly enabledBuiltinFeatureIds?: readonly string[];
 }

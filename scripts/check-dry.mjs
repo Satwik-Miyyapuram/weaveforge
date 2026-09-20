@@ -18,7 +18,14 @@ import { searchLines, searchedWith, trackedFiles } from "./lib/search.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const featureFiles = trackedFiles(root, ["apps/web/src/features"]);
+const featureFiles = trackedFiles(root, [
+  "apps/web/src/features",
+  // The composition root and its facades. Not a feature, but the same rules
+  // apply — and until this was added, every rule below was blind to the ~70
+  // files that wire the features together, which is where several of them
+  // (a facade's real dependency list) matter most.
+  "apps/web/src/container",
+]);
 
 const search = (pattern, glob) =>
   searchLines({ root, files: featureFiles, pattern, glob });
@@ -148,6 +155,28 @@ if (strayKindBranches.length) {
     "FAIL: per-kind branch outside the kind table — add a column to ui/kind.ts instead:",
   );
   for (const line of strayKindBranches) console.error(`  ${line}`);
+  failed = true;
+}
+
+/**
+ * Types declared inline as `import("@weaveforge/core").X`.
+ *
+ * A class's real dependency list has to be readable at the top of the file.
+ * Declaring types inline — sometimes twice for the same name, in a file that
+ * already imports nine other types normally — turns reviewing a constructor into
+ * parsing dynamic-import expressions, and spells one concept two ways in one
+ * file. Hoisting them costs nothing at runtime: a type-only import erases.
+ *
+ * Only the core specifier is banned. A type query against a sibling module
+ * (`import("@/features/…/thing").Thing`) is left alone on purpose: those are
+ * mostly lazy-loaded modules, where the inline form is the local convention.
+ */
+const inlineCoreTypes = search('import\\("@weaveforge/core"\\)\\.', "**/*.{ts,tsx}");
+if (inlineCoreTypes.length) {
+  console.error(
+    'FAIL: types declared inline as import("@weaveforge/core").X — hoist them into a top-level import type:',
+  );
+  for (const line of inlineCoreTypes) console.error(`  ${line}`);
   failed = true;
 }
 

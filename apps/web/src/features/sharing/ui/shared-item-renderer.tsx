@@ -1,5 +1,6 @@
 "use client";
 
+import type { Paper } from "@weaveforge/core";
 import Link from "next/link";
 import { CommentsToggle } from "@/features/sharing/ui/comments-toggle";
 import { SharedPaperImages } from "@/features/sharing/ui/shared-paper-images";
@@ -144,7 +145,7 @@ function SharedPaperCard({
   ownerName,
   ownerId,
 }: {
-  paper: import("@weaveforge/core").Paper;
+  paper: Paper;
   href: string;
   ownerName: string;
   ownerId: string;
