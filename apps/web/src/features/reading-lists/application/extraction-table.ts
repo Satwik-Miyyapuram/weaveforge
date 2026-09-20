@@ -1,5 +1,5 @@
 import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue, PaperFieldValueData } from "@weaveforge/core";
-import { computeRollup } from "@weaveforge/core";
+import { computeRollupFromIndex, createValueIndex } from "@weaveforge/core";
 
 export type ExtractionColumnId = "title" | "year" | "status" | `field:${string}`;
 
@@ -87,21 +87,40 @@ export function emptyCellPaperIds(
     .map((row) => row.paper.id);
 }
 
+/**
+ * One paper's cells: its stored values, plus every rollup column computed.
+ *
+ * Both indexes are built once per table and passed in. This function used to
+ * scan *every* project value to find this paper's (O(values) per row, so
+ * quadratic in the table) and `computeRollup` built a fresh index per cell on
+ * top of that. Fixing the rollup alone would have left the table quadratic.
+ */
 function valueMapForPaper(
   paperId: string,
-  allValues: readonly PaperFieldValue[],
+  valuesByPaper: Map<string, Map<string, PaperFieldValueData>>,
+  valuesByKey: Map<string, PaperFieldValue>,
   defs: readonly PaperFieldDef[] = [],
 ): Map<string, PaperFieldValueData> {
-  const map = new Map<string, PaperFieldValueData>();
-  for (const row of allValues) {
-    if (row.paperId === paperId) map.set(row.fieldId, row.value);
-  }
+  const map = new Map(valuesByPaper.get(paperId) ?? []);
   for (const def of defs) {
     if (def.kind !== "rollup") continue;
-    const computed = computeRollup(paperId, def, defs, allValues);
+    const computed = computeRollupFromIndex(paperId, def, defs, valuesByKey);
     if (computed != null) map.set(def.id, computed);
   }
   return map;
+}
+
+/** Values grouped by paper, so a row's own values are a lookup. */
+function valuesByPaperIndex(
+  allValues: readonly PaperFieldValue[],
+): Map<string, Map<string, PaperFieldValueData>> {
+  const byPaper = new Map<string, Map<string, PaperFieldValueData>>();
+  for (const row of allValues) {
+    const forPaper = byPaper.get(row.paperId) ?? new Map<string, PaperFieldValueData>();
+    forPaper.set(row.fieldId, row.value);
+    byPaper.set(row.paperId, forPaper);
+  }
+  return byPaper;
 }
 
 /** Unique papers in list order; ignores vault notes. */
@@ -112,6 +131,9 @@ export function flattenPaperRows(
   defs: readonly PaperFieldDef[] = [],
 ): ExtractionRow[] {
   const byId = new Map(papers.map((p) => [p.id, p]));
+  // Hoisted out of the row loop: neither index depends on the paper.
+  const valuesByPaper = valuesByPaperIndex(allValues);
+  const valuesByKey = createValueIndex(allValues);
   const seen = new Set<string>();
   const rows: ExtractionRow[] = [];
   for (const id of paperIds) {
@@ -119,7 +141,7 @@ export function flattenPaperRows(
     seen.add(id);
     const paper = byId.get(id);
     if (!paper) continue;
-    rows.push({ paper, values: valueMapForPaper(id, allValues, defs) });
+    rows.push({ paper, values: valueMapForPaper(id, valuesByPaper, valuesByKey, defs) });
   }
   return rows;
 }

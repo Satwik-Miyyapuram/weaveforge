@@ -25,14 +25,23 @@ function valueKey(paperId: string, fieldId: string): string {
  * Index every value by `(paperId, fieldId)`.
  *
  * `values` is the whole project's field values, loaded once by the caller, and
- * this module is called once per row *per rollup column* — a linear `find` per
- * lookup made a table of N rows against M values cost O(N × M) per column.
- * Building the map once per call makes each lookup constant time.
+ * this is the expensive part of a rollup: a linear `find` per lookup made a
+ * table of N rows against M values cost O(N × M) per column.
+ *
+ * Exported, and separate from the computation, because the index is a pure
+ * function of `values` — which does not change between the cells of one render.
+ * Building it inside `computeRollup` fixed the lookup and left the same problem
+ * one level up: the module's own comment says it is called once per row *per
+ * rollup column*, so a 500-paper table with three rollup columns built the same
+ * index 1 500 times. Callers rendering a table build it once and pass it to
+ * {@link computeRollupFromIndex}.
  *
  * First value wins, matching the `Array.prototype.find` this replaces: a
  * duplicate `(paperId, fieldId)` row behaves exactly as it did before.
  */
-function indexValues(values: readonly PaperFieldValue[]): Map<string, PaperFieldValue> {
+export function createValueIndex(
+  values: readonly PaperFieldValue[],
+): Map<string, PaperFieldValue> {
   const index = new Map<string, PaperFieldValue>();
   for (const value of values) {
     const key = valueKey(value.paperId, value.fieldId);
@@ -41,11 +50,17 @@ function indexValues(values: readonly PaperFieldValue[]): Map<string, PaperField
   return index;
 }
 
-export function computeRollup(
+/**
+ * A rollup computed from a value index the caller built once.
+ *
+ * This is what a table calls. {@link computeRollup} is the same computation for
+ * a caller that has one cell to fill and would rather not think about indexes.
+ */
+export function computeRollupFromIndex(
   paperId: string,
   rollupDef: PaperFieldDef,
   defs: readonly PaperFieldDef[],
-  values: readonly PaperFieldValue[],
+  byKey: Map<string, PaperFieldValue>,
 ): PaperFieldValueData | null {
   if (rollupDef.kind !== "rollup") return null;
   const config = parseRollupOptions(rollupDef.options);
@@ -54,7 +69,6 @@ export function computeRollup(
   const relationDef = defs.find((d) => d.id === config.relationFieldId);
   if (!relationDef || relationDef.kind !== "relation") return null;
 
-  const byKey = indexValues(values);
   const relationValue = byKey.get(valueKey(paperId, relationDef.id))?.value;
   const relatedIds = Array.isArray(relationValue) ? relationValue : [];
 
@@ -87,4 +101,19 @@ export function computeRollup(
   if (numbers.length === 0) return null;
   if (config.agg === "sum") return numbers.reduce((a, b) => a + b, 0);
   return numbers.reduce((a, b) => a + b, 0) / numbers.length;
+}
+
+/**
+ * One rollup, for a caller that has the project's values in hand.
+ *
+ * Builds the index per call, so it costs O(values) each time: use
+ * {@link computeRollupFromIndex} when filling more than one cell.
+ */
+export function computeRollup(
+  paperId: string,
+  rollupDef: PaperFieldDef,
+  defs: readonly PaperFieldDef[],
+  values: readonly PaperFieldValue[],
+): PaperFieldValueData | null {
+  return computeRollupFromIndex(paperId, rollupDef, defs, createValueIndex(values));
 }
