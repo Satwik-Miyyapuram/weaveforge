@@ -43,3 +43,10 @@ Apply every file in [`supabase/migrations/`](../../supabase/migrations/), then
 [`supabase/migrations-self-hosted-postgres/`](../../supabase/migrations-self-hosted-postgres/).
 `0025` creates a minimal `auth.users` stub with **RLS enabled** and **no
 policies**; sync user ids from Supabase via service role or direct postgres.
+
+## Scheduled maintenance
+
+Two jobs are deployment configuration rather than application code, and one of
+them has to run or the chunk archive stays empty: see
+[`metrics-maintenance.md`](metrics-maintenance.md) for the commands, a
+suggested cron schedule, and the queries that show whether it is working.
