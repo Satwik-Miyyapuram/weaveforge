@@ -63,4 +63,109 @@ export function runMetricRepositoryContract(
     assert.equal(e1.length, 1);
     assert.equal(e1[0]?.experimentId, "e1");
   });
+
+  // `latestActivityAt` decides whether a live run is still alive — the
+  // experiments screen marks a run with no recent activity as abandoned — and it
+  // had no contract case at all, so a fake could satisfy this suite with any
+  // read-model behaviour it liked.
+
+  test(`[${label}] latest activity is the newest clock per experiment`, async () => {
+    const repo = makeRepo();
+    await repo.append([
+      pt({ experimentId: "e1", step: 1, wallTime: "2026-01-01T10:00:00.000Z" }),
+      pt({ experimentId: "e1", step: 2, wallTime: "2026-01-01T12:00:00.000Z" }),
+      pt({ experimentId: "e2", step: 1, wallTime: "2026-01-01T11:00:00.000Z" }),
+    ]);
+
+    const activity = await repo.latestActivityAt(["e1", "e2"]);
+
+    assert.equal(activity.get("e1"), Date.parse("2026-01-01T12:00:00.000Z"));
+    assert.equal(activity.get("e2"), Date.parse("2026-01-01T11:00:00.000Z"));
+  });
+
+  test(`[${label}] an experiment with no clock is absent, not zero`, async () => {
+    // `0` would read as a timestamp in 1970 and so as "idle since the epoch";
+    // absent is the only spelling the caller understands as "no activity".
+    const repo = makeRepo();
+    await repo.append([pt({ experimentId: "e1", step: 1 })]);
+
+    const activity = await repo.latestActivityAt(["e1", "never"]);
+
+    assert.equal(activity.has("e1"), false);
+    assert.equal(activity.has("never"), false);
+  });
+
+  test(`[${label}] latest activity ignores experiments not asked about`, async () => {
+    const repo = makeRepo();
+    await repo.append([
+      pt({ experimentId: "e1", step: 1, wallTime: "2026-01-01T10:00:00.000Z" }),
+      pt({ experimentId: "e2", step: 1, wallTime: "2026-01-01T11:00:00.000Z" }),
+    ]);
+
+    const activity = await repo.latestActivityAt(["e1"]);
+
+    assert.deepEqual([...activity.keys()], ["e1"]);
+  });
+
+  // A chart is a few hundred pixels wide and a long run stores tens of
+  // thousands of points per metric, so `history` takes a budget. These cases
+  // are what keep the two implementations reducing the same way.
+
+  test(`[${label}] a budget below the series length reduces it to about that`, async () => {
+    const repo = makeRepo();
+    await repo.append(
+      Array.from({ length: 200 }, (_, step) => pt({ metric: "loss", step, value: step })),
+    );
+
+    const reduced = await repo.history("e1", "loss", { maxPoints: 10 });
+
+    assert.ok(reduced.length >= 10 && reduced.length <= 12, `got ${reduced.length} points`);
+  });
+
+  test(`[${label}] a reduced series keeps its first and last sample`, async () => {
+    // Losing either endpoint is the one reduction a reader misreads: the curve
+    // looks like it started later, or stopped earlier, than the run did.
+    const repo = makeRepo();
+    await repo.append(
+      Array.from({ length: 200 }, (_, step) => pt({ metric: "loss", step, value: step })),
+    );
+
+    const reduced = await repo.history("e1", "loss", { maxPoints: 10 });
+
+    assert.equal(reduced[0]?.step, 0);
+    assert.equal(reduced.at(-1)?.step, 199);
+    assert.deepEqual(
+      reduced.map((p) => p.step),
+      [...reduced.map((p) => p.step)].sort((a, b) => a - b),
+      "the order is still step-ascending",
+    );
+  });
+
+  test(`[${label}] a series under the budget is returned whole`, async () => {
+    const repo = makeRepo();
+    await repo.append(
+      Array.from({ length: 20 }, (_, step) => pt({ metric: "loss", step, value: step })),
+    );
+
+    const all = await repo.history("e1", "loss", { maxPoints: 100 });
+
+    assert.equal(all.length, 20, "below the budget nothing is dropped");
+  });
+
+  test(`[${label}] a budget applies per metric, not across them`, async () => {
+    // One budget for the whole result would starve the metric that sorts
+    // second: the chart overlays them, and each needs its own resolution.
+    const repo = makeRepo();
+    for (const metric of ["loss", "acc"]) {
+      await repo.append(
+        Array.from({ length: 200 }, (_, step) => pt({ metric, step, value: step })),
+      );
+    }
+
+    const reduced = await repo.history("e1", undefined, { maxPoints: 10 });
+
+    assert.ok(reduced.filter((p) => p.metric === "loss").length >= 10);
+    assert.ok(reduced.filter((p) => p.metric === "acc").length >= 10);
+    assert.ok(reduced.length <= 24, `got ${reduced.length} points in total`);
+  });
 }
