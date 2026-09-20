@@ -420,7 +420,7 @@ Every one of the 88 findings is assigned to exactly one phase below, and the cou
 | 3 — read path, DB, hot paths | 8 | 19 | **done** |
 | 4 — contracts & types | 10 | 9 | **done** |
 | 5 — lifecycle & memory | 7 | 7 | **done** |
-| 6 — structural decomposition | 7 | 6 (+1 latent bug) | **`ARCH-11`'s split outstanding** |
+| 6 — structural decomposition | 7 (+`PERF-04`) | 7 (+1 latent bug) | **done** |
 | 7 — guardrails, hardening, docs | 8 | 6 | not started |
 | 8 — decisions | 10 | 1 (plus 7 refuted / won't-fix recorded) | open questions |
 
@@ -558,18 +558,17 @@ Baseline: `npm run test:core` → 1214 pass / 0 fail.
 | The local-Zotero import | ARCH-06 | An application-layer use case with the desktop bridge injected, so the branch a browser user hits is testable without Electron |
 | One auth flow | ARCH-10 | Both surfaces now share the mint → verify → answer sequence. The relay surface answered 503 for *every* failure, so a bug of ours reached clients as "try again later"; one policy now (503 only for a missing JWT secret), and one refusal wording per surface |
 | One pinned-screen preamble | ARCH-01 | `loadPinnedScreenData` takes the resource type once instead of six screens spelling it twice, and `buildListMembership` replaces the map built by hand in four places |
-
 | The `PapersFacade` split | ARCH-03 | Four concerns became three classes: custom fields to `PaperFieldsFacade`, everything Zotero to `ZoteroFacade`. The audit's 69-call-site estimate was the *whole* facade's surface — the two extracted slices have ten call sites between them, across four files |
-
-**What is left, and why it is one item rather than three.**
-
-**`ARCH-11`'s decomposition** is the only Phase 6 item outstanding: four extractions out of `WorkspaceSearch` — the projection, the PDF pruner, an index-state value object, and the ranking helper. Its *bug* (the staleness set cleared before the snapshot) is fixed; what remains is navigation for the next reader, and it wants one coherent pass rather than being interleaved with behaviour changes.
+| `WorkspaceSearch`'s four pieces | ARCH-11 | The projection, the extracted-text pruning, the stale/index state and the related-document helper are four modules beside a 438-line class (was 542). The state object is where the class's one real bug lived, and its invariant is now testable without a snapshot, a worker or IndexedDB |
+| The narrow identity port | `PERF-04` | `IPaperIdentityLookup` — `{ id, title, status }`, three columns, for the citation linker and the reader's reference panel. Both were reading less than they were given: the linker reads only the id |
 
 **Three decisions taken while doing this phase, recorded here rather than in a commit message.**
 
 1. **`signedImageUrls` is deleted, not moved.** Nothing has ever called it: the note and paper editors read blobs (`fetchImageBlobs`). The two Zotero entry points are *kept* — the live one is the only path to a documented capability — but they moved into `ZoteroFacade` with a test that asserts on the requests, because the audit's own patch for them dropped `{ live: true }` (BUG-09).
 2. **The facade dep-count gate is not shipped yet.** The plan put it in Phase 7 for this split, and it cannot be written as the line-counting regex the other gates use: anonymous types inside method signatures read as dependencies (the count for `ai-assistant.ts` comes out at 51 that way), and a count taken only inside the constructor's `deps` block would fail that file immediately — which is a second refactor, not a gate. The gate and that facade belong together, in Phase 7.
-3. **`PERF-04`'s narrow lookup port stays deferred**, with the reasoning in Phase 4: an addition rather than a defect, and its benefit is unmeasured. It is a candidate for Phase 7's benchmark work.
+3. **`PERF-04`'s port did not narrow the whole reader chain, and that was checked rather than assumed.** `ResolvedReference.inLibrary` was typed `Paper`, so narrowing it meant confirming that nothing read more than the identity: the popover and the panel read `.status`, and the one place that spreads `title`/`authors`/`year` builds its resolution from a *freshly added* paper, not from this lookup. A `Paper` still satisfies `PaperIdentity`, so those paths were untouched.
+
+**One recurring cost worth naming.** Hand-rolled test fakes of `IPaperRepository` have now broken twice on a port change (`manage-vault-page` in Phase 4, `manage-relations` here), both times at runtime rather than compile time, because core's tests are not type-checked. Both were replaced with the shipped in-memory repository. If a third appears, the fix is to type-check core's tests rather than to write another fake.
 
 Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
@@ -577,8 +576,8 @@ After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typeche
 
 | Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Phase 4 | After Phase 5 | After Phase 6 |
 |---|---|---|---|---|---|---|---|
-| core | 1214 | 1231 | 1239 | 1248 | 1247 | 1247 | 1265 |
-| web | 1428 | 1439 | 1439 | 1466 | 1474 | 1487 | 1498 |
+| core | 1214 | 1231 | 1239 | 1248 | 1247 | 1247 | 1267 |
+| web | 1428 | 1439 | 1439 | 1466 | 1474 | 1487 | 1510 |
 | pglite integration | 20 | 20 | 20 | 20 | 20 | 20 | 20 |
 | desktop | 237 | 237 | 237 | 237 | 237 | 237 | 237 |
 | python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
