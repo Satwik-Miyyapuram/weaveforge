@@ -55,6 +55,11 @@ export function InkGhostPage({
           // The sheet's cover: `object-fit: contain` keeps the same placement
           // the live page's background draws with (`placeOnSheet`), so the
           // ghost does not jump when the page becomes live.
+          //
+          // A plain `<img>`: `backgroundUrl` is a `blob:` URL from
+          // `use-ghost-images.ts`, made and revoked in this tab, which the
+          // `next/image` optimizer has no route for.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             className="ink-ghost-image"
             src={backgroundUrl}

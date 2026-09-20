@@ -12,12 +12,12 @@
   --accent: #c23b7d;
   --accent-fg: #ffffff;
   --accent-soft: #fbcfe8;
-  --s-neutral: #a78bfa;  --s-neutral-bg: #ede9fe;
-  --s-info: #38bdf8;     --s-info-bg: #e0f2fe;
-  --s-good: #4ade80;     --s-good-bg: #dcfce7;
-  --s-warn: #fbbf24;     --s-warn-bg: #fef3c7;
-  --s-danger: #fb7185;   --s-danger-bg: #ffe4e6;
-  --s-mute: #c4b5fd;     --s-mute-bg: #f3e8ff;
+  --s-neutral: #7245f7;  --s-neutral-bg: #ede9fe;
+  --s-info: #0674a5;     --s-info-bg: #e0f2fe;
+  --s-good: #18813e;     --s-good-bg: #dcfce7;
+  --s-warn: #906803;     --s-warn-bg: #fef3c7;
+  --s-danger: #d50624;   --s-danger-bg: #ffe4e6;
+  --s-mute: #6d47fa;     --s-mute-bg: #f3e8ff;
   --sel-ring: rgba(236, 72, 153, 0.18);
   --shadow:
     0 2px 10px rgba(244, 114, 182, 0.10),

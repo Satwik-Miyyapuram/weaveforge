@@ -61,8 +61,8 @@ const RULES = [
   },
   {
     name: "OS confirmation dialog",
-    pattern: /window\.(confirm|prompt)\(/g,
-    use: "<ConfirmDialog> from @/components/confirm-dialog",
+    pattern: /window\.(confirm|prompt|alert)\(/g,
+    use: "<ConfirmDialog> from @/components/confirm-dialog, or <PromptDialog> from @/components/prompt-dialog when it takes text",
     why: "a system dialog ignores the theme and, on a phone, covers the page it is asking about",
     // The two error boundaries are the deliberate exception: they may be
     // rendering because the component tree that draws the app's own modal is
@@ -84,13 +84,24 @@ const RULES = [
   },
 ];
 
-/** Every .tsx file under the UI paths. */
+/**
+ * Every `.ts` and `.tsx` file under the UI paths.
+ *
+ * `.ts` as well, not only the files that can hold JSX. Most of the rules below
+ * are about markup and can only match a `.tsx`, but one of them is not: an OS
+ * dialog lives wherever the code that asks the question lives, and in the reader
+ * that was a hook — `features/reader/ui/pdf-reader/use-annotation-actions.ts`.
+ * Scanning `.tsx` alone meant the one gate written for that rule could not see
+ * the one call site that broke it, so an unstyled `window.confirm` shipped back
+ * into the product *after* the design audit that found the last three had been
+ * closed. A gate that cannot see the file the violation is in is not a gate.
+ */
 function collect(dir, out = []) {
   for (const entry of readdirSync(dir)) {
     const full = path.join(dir, entry);
     if (statSync(full).isDirectory()) {
       collect(full, out);
-    } else if (entry.endsWith(".tsx")) {
+    } else if (entry.endsWith(".tsx") || entry.endsWith(".ts")) {
       out.push(full);
     }
   }

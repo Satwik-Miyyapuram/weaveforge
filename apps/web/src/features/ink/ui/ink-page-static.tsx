@@ -83,6 +83,10 @@ export function InkPageStatic({
         style={{ width: `${width}px`, height: `${height}px`, position: "relative", ...inkSheetRuleStyle(scale) }}
       >
         {backgroundUrl ? (
+          // A plain `<img>`: `backgroundUrl` is a `blob:` URL from
+          // `use-ink-sheet-images.ts`, made and revoked in this tab, which the
+          // `next/image` optimizer has no route for.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             className="ink-ghost-image"
             src={backgroundUrl}

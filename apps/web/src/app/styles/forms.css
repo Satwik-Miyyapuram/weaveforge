@@ -18,7 +18,7 @@ input,
 textarea {
   width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
   background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
-  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none; transition: border-color var(--dur-base), box-shadow var(--dur-base);
 }
 textarea { resize: vertical; }
 
@@ -57,7 +57,7 @@ textarea:focus,
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
   background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
-  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none; transition: border-color var(--dur-base), box-shadow var(--dur-base);
   cursor: pointer; text-align: left;
 }
 .custom-select-button:disabled { opacity: 0.6; cursor: default; }
@@ -69,7 +69,7 @@ textarea:focus,
 
 /* Shared chevron: flip = popover/select, expand = tree rows. */
 .chev { display: inline-flex; align-items: center; justify-content: center; flex: none; opacity: 0.55; }
-.chev svg { display: block; transition: transform 0.15s ease; }
+.chev svg { display: block; transition: transform var(--dur-base) ease; }
 /* The glyph is a down-chevron. `flip` turns it over when its popover is open;
    `expand` starts pointing right and turns down when the row is open, so the
    turn is the animation. */
@@ -233,7 +233,7 @@ label.mp-row input[type="checkbox"],
   cursor: pointer;
   position: relative;
   vertical-align: middle;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: background var(--dur-base) ease, border-color var(--dur-base) ease, box-shadow var(--dur-base) ease;
 }
 label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
 input[type="checkbox"].themed-check:hover:not(:checked),

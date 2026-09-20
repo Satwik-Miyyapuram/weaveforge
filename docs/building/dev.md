@@ -218,14 +218,18 @@ These tests run in `check:all` and on every PR.
 
 | Required check | What it runs |
 |----------------|--------------|
-| **build-and-test** | `npm run build:core`, core + web + desktop tests, schema and RLS tests (which now include the schema invariants: every `public` table has RLS, every RLS table has a policy, every `security definer` function pins `search_path`, no definer function is anon-executable outside its allowlist), typecheck, the seven boundary gates as **separate steps** plus an aggregate step that fails the job if any did not pass, lint, Next.js build, `check:deployment-surface` |
+| **build-and-test** | `npm run build:core`, core + web + desktop tests, schema and RLS tests (which now include the schema invariants: every `public` table has RLS, every RLS table has a policy, every `security definer` function pins `search_path`, no definer function is anon-executable outside its allowlist), typecheck, the eight boundary gates as **separate steps** plus an aggregate step that fails the job if any did not pass, lint, Next.js build, `check:deployment-surface` |
 | **python-sdk** | ruff, mypy, pytest |
 | **dco** | [`scripts/check-dco.sh`](../../scripts/check-dco.sh) and its Node twin [`scripts/check-dco.mjs`](../../scripts/check-dco.mjs) — every commit the PR adds carries a `Signed-off-by:` line naming its own author. Bot commits are exempt (GitHub's `<name>[bot]@users.noreply.github.com` convention), because a sign-off certifies the author and Dependabot cannot write one — without it every dependency PR would block on this required check. CI runs both scripts, so the two cannot drift; the `.mjs` is the copy a Windows contributor can run: `npm run check:dco -- origin/main HEAD`. Commit with `git commit -s`; sign off a branch already written with `git rebase --signoff origin/main`. Reads only what the PR adds, so the unsigned history before the check is not its business. |
 
 The gates `check:boundaries` runs, read from `package.json` rather than
 remembered:
 
+<<<<<<< HEAD
 CI runs these as **separate steps** rather than through `check:boundaries`, so each gate names itself in the job log and a second broken rule is visible in the same run instead of waiting behind the first. An aggregate step fails the job if any gate did not pass, so the job is still red on a failure. That makes this list a second copy of `check:boundaries`, and `check:ci-parity` is the gate that keeps the two identical — a gate added to one and not the other used to stop gating merges, silently, with a green build. `check:boundaries` itself is unchanged and remains the fast local pre-PR pass.
+=======
+CI runs these eight as **separate steps** rather than through `check:boundaries`, so each gate names itself in the job log and a second broken rule is visible in the same run instead of waiting behind the first. An aggregate step fails the job if any gate did not pass, so the job is still red on a failure. `check:boundaries` itself is unchanged and remains the fast local pre-PR pass — but it is now a second copy of this list, so a gate added there must be added to [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) too.
+>>>>>>> origin/main
 
 <!-- generated:boundary-checks -->
 
@@ -237,6 +241,7 @@ CI runs these as **separate steps** rather than through `check:boundaries`, so e
 | `npm run check:dry` | `node scripts/check-dry.mjs` |
 | `npm run check:api-route-tests` | `node scripts/check-api-route-tests.mjs` |
 | `npm run check:ui` | `node scripts/check-ui-consistency.mjs` |
+| `npm run check:contrast` | `npm run check:contrast --workspace @weaveforge/web` |
 | `npm run check:hygiene` | `node scripts/check-hygiene.mjs` |
 | `npm run check:mcp-plugin` | `node scripts/check-mcp-plugin.mjs` |
 | `npm run check:docs` | `node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check` |

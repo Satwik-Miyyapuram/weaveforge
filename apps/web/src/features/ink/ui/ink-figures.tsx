@@ -84,6 +84,16 @@ export function InkFigures({
           >
             {url ? (
               <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+                {/* A plain `<img>`, in all three places this file draws one.
+                    `next/image` cannot serve these: the `src` is a `blob:` URL
+                    this app created itself (`use-ink-figure-urls.ts`) and
+                    revokes itself, and the image optimizer has no route for one
+                    — it would 400 on a URL that only exists in this tab's
+                    memory. The element is also placed and scaled in ink space
+                    by the style beside it, which the wrapper `next/image` adds
+                    would sit between it and the sheet. Same reasoning as
+                    `components/card-thumbs.tsx`. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={url}
                   alt=""
@@ -628,6 +638,8 @@ function InkFigureCropTool({
       {/* The whole picture, dimmed, where it would sit uncropped. */}
       <div className="ink-figure-crop-full" style={fullPx}>
         {imageUrl ? (
+          // A `blob:` URL of our own making — see the note at the first `<img>`.
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUrl} alt="" draggable={false} />
         ) : (
           <div className="ink-figure-pending" />
@@ -649,6 +661,8 @@ function InkFigureCropTool({
         {/* The clip is its own box so the handles on the edges are not cut. */}
         <div className="ink-figure-crop-clip">
           {imageUrl ? (
+            // A `blob:` URL of our own making — see the note at the first `<img>`.
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
               alt=""

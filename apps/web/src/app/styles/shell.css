@@ -145,7 +145,7 @@
   background: none; border: none; cursor: pointer; color: var(--ink);
   padding: 8px; border-radius: 999px;
   align-items: center; justify-content: center;
-  transition: background 0.15s;
+  transition: background var(--dur-base);
   align-self: flex-start;
   margin-bottom: 8px;
 }
@@ -240,7 +240,7 @@
 .header-link {
   display: inline-flex; align-items: center; gap: 6px;
   text-decoration: none; color: var(--muted); font-size: 0.78rem; font-weight: 500;
-  padding: 5px 10px; border-radius: 999px; transition: color 0.15s, background 0.15s;
+  padding: 5px 10px; border-radius: 999px; transition: color var(--dur-base), background var(--dur-base);
   /* Reset UA button chrome (theme-toggle uses this class on a <button>). */
   background: none; border: none; cursor: pointer; font-family: inherit;
 }

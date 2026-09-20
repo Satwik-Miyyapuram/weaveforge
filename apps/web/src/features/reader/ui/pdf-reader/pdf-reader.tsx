@@ -65,6 +65,7 @@ import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { Select } from "@/components/select";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ColourMenu } from "@/components/colour-menu";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
 import { layoutMarginNotes } from "../../application/margin-notes";
 import { useAnnotationContext } from "./use-annotation-context";
@@ -198,7 +199,16 @@ export function PdfReader({
     setSelectedAnnId,
     clearPendingCreate,
   });
-  const { annError, setAnnError, createBusy, updateLocal, pinLocal } = actions;
+  const {
+    annError,
+    setAnnError,
+    createBusy,
+    updateLocal,
+    pinLocal,
+    askRemove,
+    pendingRemove,
+    clearPendingRemove,
+  } = actions;
   // Stroke writes go through the undo stack while the rail is up; the
   // wrapped writes are the raw ones otherwise, so nothing else changes.
   const inkUndo = useInkUndo(actions, annotations, penOpen);
@@ -576,7 +586,10 @@ export function PdfReader({
       const selected = annotations.find((a) => a.id === selectedAnnId);
       if (selected?.origin === "local") {
         event.preventDefault();
-        void removeLocal(selectedAnnId);
+        // Ask first, and let the reader draw the question: a keypress is easy
+        // to make by accident, and `ConfirmDialog` is the app's own dialog
+        // rather than the OS one this used to raise.
+        askRemove(selectedAnnId);
         return;
       }
     }
@@ -704,6 +717,15 @@ export function PdfReader({
       </div>
     );
   }
+
+  /**
+   * The mark the delete dialog is asking about, so the question can name it.
+   * Looked up rather than stored: the list is the truth about what exists, and
+   * a copy in state could describe a mark that has already gone.
+   */
+  const removeTarget = pendingRemove
+    ? annotations.find((a) => a.id === pendingRemove)
+    : undefined;
 
   return (
     <div
@@ -967,7 +989,7 @@ export function PdfReader({
                   selectedAnnId ? backlinksForAnnotation(backlinkHits, selectedAnnId) : []
                 }
                 onUpdateLocal={updateLocal}
-                onRemoveLocal={removeLocal}
+                onRemoveLocal={askRemove}
                 onPinLocal={pinLocal}
                 onSelect={(id) => {
                   setSelectedAnnId(id);
@@ -1136,6 +1158,31 @@ export function PdfReader({
           }}
         />
       )}
+      {/* The delete the app draws, in place of the `window.confirm` the write
+          hook used to raise. Only the paths a person chooses arrive here — the
+          sidebar's Delete and the Delete key on a selected mark. The eraser and
+          ink undo call `removeLocal` directly: a dialog per stroke would make
+          rubbing out a word unusable, and both are already deliberate. */}
+      {pendingRemove ? (
+        <ConfirmDialog
+          title="Delete this annotation?"
+          body={
+            removeTarget
+              ? `This ${removeTarget.type} mark${
+                  removeTarget.comment ? " and the note on it" : ""
+                } will be deleted from this paper.`
+              : "This mark will be deleted from this paper."
+          }
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => {
+            const id = pendingRemove;
+            clearPendingRemove();
+            void removeLocal(id);
+          }}
+          onClose={clearPendingRemove}
+        />
+      ) : null}
     </div>
   );
 }
