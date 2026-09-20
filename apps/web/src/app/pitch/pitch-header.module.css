@@ -109,6 +109,12 @@
   text-decoration: none;
   font-size: 0.95rem;
 }
+/* The sheet stays in the document while it is closed — `aria-controls` on the
+   button is an IDREF and has to resolve — and is hidden with the `hidden`
+   attribute. `display: grid` above is an author declaration and would beat the
+   UA's `[hidden] { display: none }`, so the attribute needs its own rule or the
+   closed sheet would be an open one. */
+.sectionsSheet[hidden] { display: none; }
 .sectionsSheet a:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
 .sectionsSheet a[aria-current="true"] { color: var(--accent); background: var(--accent-soft); font-weight: 500; }
 
