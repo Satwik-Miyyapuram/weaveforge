@@ -37,6 +37,14 @@ export interface FakeIndexedDb {
   readonly pending: number;
   /** How many times the database has been opened — the connection-count check. */
   readonly opens: number;
+  /** How many times a handle was closed, by `close()` or by a version change. */
+  readonly closes: number;
+  /**
+   * Fire `versionchange` on the open handle, as another tab opening a newer
+   * version would. The handle is expected to close itself and stop being handed
+   * out.
+   */
+  versionChange: () => void;
   /** Put a value straight into a store, as an earlier session would have. */
   seed: (store: string, key: string, value: unknown) => void;
   /** Make this the global `indexedDB`. */
@@ -48,6 +56,9 @@ export function createFakeIndexedDb(): FakeIndexedDb {
   const stores = new Map<string, Rows>();
   const queued: (() => void)[] = [];
   let opens = 0;
+  let closes = 0;
+  let onVersionChange: (() => void) | null = null;
+  let onClose: (() => void) | null = null;
 
   const rowsFor = (store: string): Rows => {
     const existing = stores.get(store);
@@ -78,6 +89,22 @@ export function createFakeIndexedDb(): FakeIndexedDb {
     createObjectStore: (name: string) => {
       rowsFor(name);
       return {};
+    },
+    /** Assignable so the module under test can install its handlers. */
+    get onversionchange() {
+      return onVersionChange;
+    },
+    set onversionchange(handler: (() => void) | null) {
+      onVersionChange = handler;
+    },
+    get onclose() {
+      return onClose;
+    },
+    set onclose(handler: (() => void) | null) {
+      onClose = handler;
+    },
+    close: () => {
+      closes += 1;
     },
     transaction(name: string) {
       const rows = rowsFor(name);
@@ -145,6 +172,12 @@ export function createFakeIndexedDb(): FakeIndexedDb {
     },
     get opens() {
       return opens;
+    },
+    get closes() {
+      return closes;
+    },
+    versionChange: () => {
+      onVersionChange?.();
     },
     seed: (store, key, value) => {
       rowsFor(store).set(key, value);
