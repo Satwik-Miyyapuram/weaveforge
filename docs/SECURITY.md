@@ -53,8 +53,18 @@ What it does:
   against the private, loopback, link-local, and cloud-metadata ranges — for
   both IPv4 and IPv6, including the `::ffff:` mapped forms. The check is on
   addresses, not on names, so a hostname that points at `127.0.0.1` is refused.
-- Redirects are followed manually, one hop at a time, with the same check
-  repeated on each. A redirect is a second URL the visitor never showed you.
+- The request is then **dialled to the address that was checked**. The URL's
+  hostname carries no traffic decision: it is presented as TLS SNI, as the `Host`
+  header, and as the name the certificate is verified against, while the socket
+  goes to the IP the guard approved. Resolving a name and handing the name to
+  `fetch` would leave a second DNS answer between the check and the connect, which
+  is how a name that looks public at check time connects to `169.254.169.254` at
+  request time (DNS rebinding). There is no second resolution here, and
+  `pinnedRequest` supplies a `lookup` that returns the same pinned address if
+  anything downstream asks again.
+- Redirects are followed manually, one hop at a time, with the full pipeline —
+  shape, resolve, check, pin — repeated on each. A redirect is a second URL the
+  visitor never showed you.
 - Responses are capped (512 KB for a title, 12 MB for an image) and read
   incrementally, so a stream with no end is not a way to exhaust memory.
 - **Both browser-facing routes require a token** — `/api/fetch-url` and
@@ -70,13 +80,14 @@ What it does:
   what the server declared rather than sniffed from the bytes. SVG is refused
   outright — it is a script carrier.
 
-**Known residual risk.** There is a window between the check and the connect: a
-name can resolve to a public address when it is checked and to a private one
-when the request is made (DNS rebinding). Closing it needs a custom agent that
-dials the address already validated. The window is small, every hop is
-re-checked, and every response is capped, which together make this a much poorer
-target than an unguarded fetch — but it is not zero, and it is the next thing to
-do here.
+**Residual risk, and what it is not.** The check-to-connect window is closed by
+the pinned connect above; the remaining exposure is ordinary for an outbound
+fetcher, and is bounded rather than eliminated: an image paste still buffers its
+payload on the server before returning it (an authenticated caller can spend our
+memory and someone else's bandwidth, which is what the token requirement and the
+size caps bound), and a redirect chain is followed up to four hops, each of which
+is a request we make on the visitor's behalf. Both are the reason the size caps
+and the per-route token requirement are not optional.
 
 Users can turn both paste lookups off in Settings → Paste; with them off, no
 paste rule contacts anything outside the workspace.

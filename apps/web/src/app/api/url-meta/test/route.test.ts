@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GET } from "../route";
 import { resolveUrlMetadata } from "../_meta";
-import { stubFetch } from "@/lib/test/stub-fetch";
+import { stubFetch, stubOutboundFetch } from "@/lib/test/stub-fetch";
 
 /**
  * The route is authentication and one line of shaping; what may be fetched and
@@ -20,8 +20,26 @@ function req(url: string): Request {
   return new Request(url);
 }
 
-/** Install a fake global fetch for one test; returns a restore fn. */
-
+/**
+ * Stub both halves of the resolver.
+ *
+ * It talks to two kinds of thing: the page itself through `safe-fetch` (which no
+ * longer calls `fetch` — it dials the address the guard vetted), and the DOI and
+ * arXiv APIs through plain `fetch`. A test that stubs one and not the other
+ * silently reaches the live API for the other; three of these were passing
+ * against real Crossref and arXiv responses before this, which is worse than
+ * failing, because it cannot be run offline.
+ */
+function stubBoth(handler: (url: string) => Response | Promise<Response>) {
+  const outbound = stubOutboundFetch(handler);
+  const global = stubFetch((url) => handler(url));
+  return {
+    restore: () => {
+      outbound.restore();
+      global.restore();
+    },
+  };
+}
 test("url-meta: 400 when url param is missing", async () => {
   const res = await GET_META("http://localhost/api/url-meta");
   assert.equal(res.status, 400);
@@ -44,7 +62,7 @@ test("url-meta: refuses a private address without requesting it", async () => {
   // This route used to `fetch(..., { redirect: "follow" })` with no address
   // check at all, which made it a way to reach anything the server could.
   let requested = false;
-  const { restore } = stubFetch(() => {
+  const { restore } = stubBoth(() => {
     requested = true;
     return new Response("should not happen");
   });
@@ -73,7 +91,7 @@ test("url-meta: refuses a URL carrying credentials, and an odd port", async () =
 });
 
 test("url-meta: resolves a DOI in the URL via Crossref", async () => {
-  const { restore } = stubFetch((url) => {
+  const { restore } = stubBoth((url) => {
     assert.match(url, /api\.crossref\.org\/works\//);
     return Response.json({
       message: {
@@ -102,7 +120,7 @@ test("url-meta: resolves a DOI in the URL via Crossref", async () => {
 });
 
 test("url-meta: 404 when Crossref has no record for the DOI", async () => {
-  const { restore } = stubFetch(() => new Response("nope", { status: 404 }));
+  const { restore } = stubBoth(() => new Response("nope", { status: 404 }));
   try {
     const target = "https://dl.acm.org/doi/10.5555/unregistered";
     const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
@@ -123,7 +141,7 @@ test("url-meta: scrapes citation meta tags from an HTML page", async () => {
     <meta name="citation_doi" content="https://doi.org/10.5555/attn">
     <meta name="citation_abstract" content="The dominant   models.">
   </head></html>`;
-  const { restore } = stubFetch(() => new Response(html, { status: 200 }));
+  const { restore } = stubBoth(() => new Response(html, { status: 200 }));
   try {
     const target = "https://arxiv.org/abs/1706.03762";
     const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
@@ -142,7 +160,7 @@ test("url-meta: scrapes citation meta tags from an HTML page", async () => {
 });
 
 test("url-meta: passes through an upstream non-OK status with a hint", async () => {
-  const { restore } = stubFetch(() => new Response("forbidden", { status: 403 }));
+  const { restore } = stubBoth(() => new Response("forbidden", { status: 403 }));
   try {
     const target = "https://example.com/paper";
     const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
@@ -154,7 +172,7 @@ test("url-meta: passes through an upstream non-OK status with a hint", async () 
 });
 
 test("url-meta: arXiv URLs resolve through the arXiv API, not the abs page", async () => {
-  const { restore } = stubFetch((url) => {
+  const { restore } = stubBoth((url) => {
     assert.match(url, /export\.arxiv\.org\/api\/query/);
     return new Response(
       `<feed><entry><title>BISCUIT: Causal Representation Learning</title>` +
@@ -180,7 +198,7 @@ test("url-meta: arXiv URLs resolve through the arXiv API, not the abs page", asy
 });
 
 test("url-meta: 422 on a bot wall rather than importing its <title>", async () => {
-  const { restore } = stubFetch(() =>
+  const { restore } = stubBoth(() =>
     new Response("<html><head><title>Client Challenge</title></head></html>", {
       headers: { "content-type": "text/html" },
     }),
@@ -196,7 +214,7 @@ test("url-meta: 422 on a bot wall rather than importing its <title>", async () =
 });
 
 test("url-meta: 422 when a page has no citation metadata at all", async () => {
-  const { restore } = stubFetch(() =>
+  const { restore } = stubBoth(() =>
     new Response("<html><head><title>Some blog post</title></head></html>", {
       headers: { "content-type": "text/html" },
     }),
@@ -213,7 +231,7 @@ test("url-meta: 422 when a page has no citation metadata at all", async () => {
 
 test("url-meta: a scheme-less host is fetched over https", async () => {
   let seen = "";
-  const { restore } = stubFetch((url) => {
+  const { restore } = stubBoth((url) => {
     seen = url;
     return new Response(
       '<html><head><meta name="citation_title" content="Scheme Less"/></head></html>',
@@ -232,7 +250,7 @@ test("url-meta: a scheme-less host is fetched over https", async () => {
 
 test("url-meta: an explicit http target is kept as http, not upgraded", async () => {
   let seen = "";
-  const { restore } = stubFetch((url) => {
+  const { restore } = stubBoth((url) => {
     seen = url;
     return new Response(
       '<html><head><meta name="citation_title" content="Plain HTTP"/></head></html>',

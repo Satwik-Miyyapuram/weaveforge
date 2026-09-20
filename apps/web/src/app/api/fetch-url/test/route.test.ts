@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GET } from "../route";
+import { stubOutboundFetch } from "@/lib/test/stub-fetch";
 
 /**
  * The route is auth and shaping; what may be fetched is decided in
@@ -12,19 +13,18 @@ import { GET } from "../route";
 const url = (target: string, as = "title") =>
   `http://localhost/api/fetch-url?as=${as}&url=${encodeURIComponent(target)}`;
 
-/** Records anything that tries to leave, so a refusal can be shown to be early. */
+/**
+ * Records anything that tries to leave, so a refusal can be shown to be early.
+ *
+ * On the outbound transport rather than on `globalThis.fetch`: the fetch path no
+ * longer calls `fetch`, so a stub there would record nothing and every "nothing
+ * was requested" assertion would pass for the wrong reason.
+ */
 function watchFetch() {
-  const original = globalThis.fetch;
-  const calls: string[] = [];
-  globalThis.fetch = ((input: string | URL | Request) => {
-    calls.push(String(input));
-    return Promise.resolve(new Response("should not happen", { status: 500 }));
-  }) as typeof fetch;
+  const stub = stubOutboundFetch(() => new Response("should not happen", { status: 500 }));
   return {
-    calls,
-    restore: () => {
-      globalThis.fetch = original;
-    },
+    calls: stub.calls.map((call) => call.url),
+    restore: stub.restore,
   };
 }
 
