@@ -92,7 +92,7 @@ import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-ch
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import type { ProjectContext } from "@/lib/project-context";
-import { systemClock, uuidIds } from "@/features/papers/infrastructure/system";
+import { randomBytes, systemClock, uuidIds } from "@/lib/system";
 import {
   configureProjectCacheHooks,
   ProjectLwwInvalidator,
@@ -357,11 +357,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       tokenHasher: shareLinkTokenHasher,
       ids: uuidIds,
       clock: systemClock,
-      randomBytes: async (n) => {
-        const bytes = new Uint8Array(n);
-        crypto.getRandomValues(bytes);
-        return bytes;
-      },
+      randomBytes,
     });
   const redeemShareLink =
     shareLinkRepository &&
