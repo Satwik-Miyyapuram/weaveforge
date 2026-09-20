@@ -96,12 +96,25 @@ SUPABASE_JWT_SECRET=<jwt secret>               # server only — mints sessions 
 
 # Postgres (when provider = postgres — server-side blob registry)
 DATABASE_URL=postgres://user:pass@host:5432/thesis
+
+# Bug reports filed from the app's error screen (optional)
+GITHUB_ISSUES_TOKEN=github_pat_...              # server only — fine-grained, issues: write
+GITHUB_ISSUES_REPO=Satwik-Miyyapuram/weaveforge # optional; defaults to this repository
 ```
 
 Without those two server-only values the app still signs people in, but the
 settings panels that issue SDK API tokens and MCP relay tokens answer 503:
 the token service has nothing to sign with. The JWT secret is the same one
 PostgREST is given in [the shift guide](oracle-shift.md).
+
+Without `GITHUB_ISSUES_TOKEN` the error screens keep their other two escapes and
+the report panel answers 503 naming that variable — a report is never silently
+dropped. When it is set, the app files an issue containing what the reader saw,
+what they added, and the recent `console.error`/`console.warn` lines, **redacted**
+for tokens, credentials, emails, account names in paths and long opaque blobs. No
+account identity is attached, and the reader previews the whole payload before
+sending. Use a token scoped to `issues: write` on one repository: it is the only
+credential in this app that can write anywhere.
 
 `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/running/postgres-provider.md`](postgres-provider.md). Default remains `supabase`.
 

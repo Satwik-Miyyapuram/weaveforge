@@ -386,12 +386,28 @@ us to:
 | **The `select("*")` sweep** | **Finish it** | All 45 sites named, and the `check:dry` baseline deleted so the rule is a plain ban rather than a ratchet |
 | **The bundle lead** | **Dynamic-import `katex`** | `components/markdown/markdown.tsx` is loaded by four route modules and statically imports `katex`; the maths renderer moves behind a dynamic import (or the plain renderer splits from the maths one) |
 
-**Work still open from these decisions:** the error-report affordance, and nothing
-else. **Done:** the CRDT compaction and its body barrier (D1), the outbox loop with
-a live token (D2), the merged trees (D3), the `select("*")` sweep, the records
-above, and the bundle change — which was worth more than the import graph
-suggested. Six routes were carrying **75 KB** of KaTeX in first-load JS; `/papers`
-is 409 KB now instead of 483, and the ratchet is set to the new numbers.
+**All seven are implemented and verified; nothing from these decisions is open.**
+
+* **D1** — the transactional `compact_crdt_log` RPC and the body-durability
+  barrier, with integration tests against real migrations.
+* **D2** — the outbox loop, on open, on reconnect and on a timer, with the access
+  token read per request.
+* **D3** — the report and reading-list trees built from the merged set, with the
+  first tests those two loaders have ever had.
+* **D4/D5** — the blanket-share semantics kept and the row-cap policy recorded,
+  both above.
+* **BUG-17 and the report affordance** — the positional injection was already fixed
+  in Phase 1; the affordance is `RouteError`'s "Report this problem" panel, which
+  files a redacted issue and shows the reader the payload first.
+* **The sweep** — 45 sites named, the baseline deleted, the rule a plain ban.
+* **The bundle** — six routes were carrying **75 KB** of KaTeX in first-load JS;
+  `/papers` is 409 KB instead of 483, and the ratchet holds the new numbers.
+
+Two things this run settled that are *not* decisions to revisit: the local
+PostgREST emulator had been dropping every SQLSTATE, and `pinnedRequest` called
+directly bypassed the transport seam tests stub — so a route test was quietly
+reaching the live api.github.com. Both are fixed, both are recorded in the commits
+that found them.
 
 **D1, as built — three things the tests settled that the plan could not.**
 
