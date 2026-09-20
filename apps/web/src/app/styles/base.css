@@ -30,9 +30,24 @@
   --font-serif: var(--font-plex-serif), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  /* Transition durations, so a press reads as a press everywhere. 60ms was
-     below the threshold at which one is legible, and it was half the value of
-     the control sitting beside it in the same form. */
+  /* Transition durations, so a press reads as a press everywhere. The audit
+     asked for `--dur-fast: 60ms`; 60ms was below the threshold at which a
+     press is legible at all — it is a snap — and it was half the value of the
+     control sitting beside it in the same form, so the pair is one value.
+
+     These govern *press and selection feedback*: the duration of a control
+     answering a person. Fifty `0.15s` literals across thirteen stylesheets
+     agreed with `--dur-base` by coincidence, which meant retuning the token
+     would have moved the buttons and left everything else behind. They now
+     read it, and the reactive layer in `motion.css` derives its ramp from
+     `--dur-fast` so `--motion-scale` still reaches all three of its values at
+     once.
+
+     Other durations stay literal on purpose, because they are different kinds
+     of motion with their own tuned values: hover fades at `0.12s`, the
+     breakpoint-crossing layout ease at `--layout-duration`, and the
+     multi-second skeleton and loading animations. Folding those into one
+     feedback token would be a design change, not a consistency fix. */
   --dur-fast: 150ms;
   --dur-base: 150ms;
 
