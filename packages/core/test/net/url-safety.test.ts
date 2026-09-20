@@ -4,7 +4,6 @@ import {
   checkUrlShape,
   isPublicAddress,
   parseUserUrl,
-  describeRejection,
   DEFAULT_FETCH_LIMITS,
 } from "../../src/net/url-safety.js";
 
@@ -128,12 +127,6 @@ test("a non-canonical IPv4 spelling is not read as a different address", () => {
 
 test("a trailing dot does not smuggle a name past the checks", () => {
   no("http://localhost./", "hostname");
-});
-
-test("every rejection can be explained to the person who pasted it", () => {
-  for (const reason of ["not-a-url", "scheme", "credentials", "port", "private-address", "hostname"] as const) {
-    assert.ok(describeRejection(reason).length > 10);
-  }
 });
 
 test("the default limits are bounded", () => {

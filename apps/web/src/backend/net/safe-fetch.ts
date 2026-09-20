@@ -1,11 +1,11 @@
 import { lookup } from "node:dns/promises";
 import {
   checkUrlShape,
-  describeRejection,
   isPublicAddress,
   DEFAULT_FETCH_LIMITS,
   type OutboundFetchLimits,
 } from "@weaveforge/core";
+import { describeRejection } from "./rejection-copy";
 
 /**
  * Fetching a URL a visitor chose, from the server, without becoming a way into

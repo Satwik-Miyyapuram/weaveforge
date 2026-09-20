@@ -266,21 +266,3 @@ export const DEFAULT_FETCH_LIMITS: OutboundFetchLimits = {
   maxBytes: 8 * 1024 * 1024,
   timeoutMs: 10_000,
 };
-
-/** What to say to the person who pasted the URL. */
-export function describeRejection(reason: UrlRejection): string {
-  switch (reason) {
-    case "not-a-url":
-      return "That is not a web address.";
-    case "scheme":
-      return "Only http and https addresses can be fetched.";
-    case "credentials":
-      return "Addresses carrying a username or password are not fetched.";
-    case "port":
-      return "That port is not one WeaveForge will fetch from.";
-    case "private-address":
-      return "That address is on a private network, so it is not fetched.";
-    case "hostname":
-      return "That host is not reachable from the public internet.";
-  }
-}
