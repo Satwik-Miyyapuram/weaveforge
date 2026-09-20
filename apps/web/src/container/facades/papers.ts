@@ -27,8 +27,10 @@ import type { IPaperImageStore } from "@/features/papers/domain/zotero";
  * Custom fields went to `PaperFieldsFacade` and everything Zotero to
  * `ZoteroFacade`; what remains is the paper itself and the things attached to
  * it. `signedImageUrls` was deleted rather than moved: no caller ever had one,
- * because the note and paper editors read blobs (`fetchImageBlobs`) instead of
- * presigned URLs.
+ * because the editors read blobs — `fetchImageBlobs`, which is the presigned-URL
+ * path taken one step further, minting the URL and fetching through it, so
+ * nothing needed the URL itself. Presigning is alive for the callers that do
+ * want it: vault assets, experiment artifacts, the batched route.
  */
 export class PapersFacade {
   constructor(
