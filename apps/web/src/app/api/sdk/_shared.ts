@@ -4,7 +4,7 @@ import { readBackendConfig } from "@/backend/config";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { hashApiToken, isApiTokenFormat } from "@/features/settings/infrastructure/api-token-crypto";
 import { encodeBytea } from "@/lib/bytea";
-import { formatError } from "@/lib/format-error";
+import { formatError, formatErrorForResponse } from "@/lib/format-error";
 import { bearerToken } from "@/lib/bearer-token";
 
 /**
@@ -157,9 +157,21 @@ export async function requireSdkUser(request: Request): Promise<ApiAuthResult> {
     }
     return { ok: true, db, userId: data.user.id, accessToken };
   } catch (err) {
-    const message = formatError(err);
-    const status = message.includes("SUPABASE_JWT_SECRET") ? 503 : 500;
-    return { ok: false, response: NextResponse.json({ error: message }, { status }) };
+    // A configuration fault is an outage; anything else is a server error. The
+    // distinction is read from the error itself, but the *body* is not: a route
+    // response is not a log line, and `formatError` is the display formatter —
+    // for a PostgREST error it joins `message — details — hint (code)`, which
+    // names tables, constraints and SQLSTATEs to whoever holds a token.
+    // `formatErrorForResponse` keeps that detail in the server log and answers
+    // with stable wording, which is the convention every other route follows.
+    const status = formatError(err).includes("SUPABASE_JWT_SECRET") ? 503 : 500;
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: formatErrorForResponse(err, "api-auth") },
+        { status },
+      ),
+    };
   }
 }
 
@@ -185,6 +197,14 @@ export async function requireMcpRelayUser(request: Request): Promise<ApiAuthResu
     if (error || !data.user?.id) return { ok: false, response: NextResponse.json({ error: "Invalid MCP token." }, { status: 401 }) };
     return { ok: true, db, userId: data.user.id, accessToken };
   } catch (error) {
-    return { ok: false, response: NextResponse.json({ error: formatError(error) }, { status: 503 }) };
+    // The same leak as the SDK path above, on the relay surface: this one
+    // answers 503 for every failure, so only the body changes.
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: formatErrorForResponse(error, "mcp-relay-auth") },
+        { status: 503 },
+      ),
+    };
   }
 }
