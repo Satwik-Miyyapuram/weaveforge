@@ -77,7 +77,7 @@ export class SupabaseVaultPageRepository extends ProjectRepository implements IV
   }
 
   async list(filter?: VaultPageFilter): Promise<VaultPage[]> {
-    let query = this.scoped(this.db.from(TABLE).select("*"));
+    let query = this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS));
     if (filter?.parentId !== undefined) {
       query =
         filter.parentId === null

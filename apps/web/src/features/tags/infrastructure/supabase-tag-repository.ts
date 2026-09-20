@@ -43,14 +43,14 @@ export class SupabaseTagRepository extends ProjectRepository implements ITagRepo
   }
 
   async findByName(name: string): Promise<Tag | null> {
-    let q = this.db.from(TAGS).select("*").eq("name", name);
+    let q = this.db.from(TAGS).select(TAG_COLUMNS).eq("name", name);
     if (this.pid) q = q.eq("project_id", this.pid);
     const row = await one<TagRow>(q.maybeSingle());
     return row ? toTagDomain(row) : null;
   }
 
   async list(): Promise<Tag[]> {
-    let q = this.db.from(TAGS).select("*").order("name");
+    let q = this.db.from(TAGS).select(TAG_COLUMNS).order("name");
     if (this.pid) q = q.eq("project_id", this.pid);
     return (await rows<TagRow>(q)).map(toTagDomain);
   }

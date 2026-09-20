@@ -56,7 +56,7 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
     if (!projectId) return [];
     const { data, error } = await this.db
       .from(TABLE)
-      .select("*")
+      .select(READER_ANNOTATION_COLUMNS)
       .eq("project_id", projectId)
       .order("sort_index", { ascending: true });
     if (error) throw error;
@@ -111,7 +111,7 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
       .update(updates)
       .eq("id", id)
       .eq("project_id", projectId)
-      .select("*")
+      .select(READER_ANNOTATION_COLUMNS)
       .single();
     if (error) throw error;
 
@@ -126,7 +126,7 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
       .update({ sync_state: "pending" })
       .eq("id", id)
       .eq("project_id", projectId)
-      .select("*")
+      .select(READER_ANNOTATION_COLUMNS)
       .single();
     if (flagError) throw flagError;
     return toDomain(flagged as ReaderAnnotationRow);

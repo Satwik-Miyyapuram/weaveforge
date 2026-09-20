@@ -70,7 +70,7 @@ export class SupabaseCrdtUpdateStore implements ICrdtUpdateStore {
   ): Promise<CrdtUpdateRecord[]> {
     const { data, error } = await this.db
       .from(TABLE)
-      .select("*")
+      .select(CRDT_COLUMNS)
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
       .gt("id", afterId)

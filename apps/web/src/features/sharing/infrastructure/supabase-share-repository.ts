@@ -70,7 +70,7 @@ export class SupabaseShareRepository implements IShareRepository {
     resourceType: ShareableType,
     resourceId: string | null,
   ): Promise<Share[]> {
-    let q = this.db.from(TABLE).select("*").eq("resource_type", resourceType);
+    let q = this.db.from(TABLE).select(SHARE_COLUMNS).eq("resource_type", resourceType);
     q = resourceId === null ? q.is("resource_id", null) : q.eq("resource_id", resourceId);
     return (await rows<ShareRow>(q)).map(toDomain);
   }
@@ -78,7 +78,7 @@ export class SupabaseShareRepository implements IShareRepository {
   async listSharedWithMe(resourceType?: ShareableType): Promise<Share[]> {
     const uid = await this.session.getCurrentUserId();
     if (!uid) return [];
-    let q = this.db.from(TABLE).select("*").eq("recipient_id", uid);
+    let q = this.db.from(TABLE).select(SHARE_COLUMNS).eq("recipient_id", uid);
     if (resourceType) q = q.eq("resource_type", resourceType);
     return (await rows<ShareRow>(q.order("created_at", { ascending: false }))).map(toDomain);
   }

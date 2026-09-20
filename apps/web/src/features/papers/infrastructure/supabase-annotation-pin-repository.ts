@@ -72,7 +72,7 @@ export class SupabaseAnnotationPinRepository extends ProjectScopedSupabaseReposi
   }): Promise<AnnotationPin[]> {
     const projectId = this.ctx.projectId;
     if (!projectId) return [];
-    let query = this.db.from(TABLE).select("*").eq("project_id", projectId);
+    let query = this.db.from(TABLE).select(ANNOTATION_PIN_COLUMNS).eq("project_id", projectId);
     if (filter?.paperId) query = query.eq("paper_id", filter.paperId);
     if (filter?.reportSectionId) {
       query = query.eq("report_section_id", filter.reportSectionId);

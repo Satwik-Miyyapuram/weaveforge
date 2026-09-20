@@ -50,6 +50,17 @@ interface MembershipRow {
   role: OrgInviteRole;
 }
 
+/**
+ * The codes table's columns, named rather than starred.
+ *
+ * This is the service that redeems a join code, and it runs with the **admin**
+ * client — the service role, which bypasses RLS — so the projection is the only
+ * thing bounding what the row carries. `code_hash` is in it because the lookup
+ * compares it; `organizations` (see `ORG_COLUMNS`) is read on the redemption
+ * path for somebody who has not joined yet.
+ */
+const CODE_COLUMNS = "id,org_id,target_role,code_hash,revoked_at";
+
 const ROLES: OrgInviteRole[] = ["professor", "phd", "masters"];
 
 /**
@@ -158,7 +169,7 @@ export class OrgInviteService {
     const hash = hashOrgInviteCodeInput(normalized);
     const { data: codeRow, error: codeErr } = await admin
       .from("org_invite_codes")
-      .select("*")
+      .select(CODE_COLUMNS)
       .eq("code_hash", hash)
       .is("revoked_at", null)
       .maybeSingle();
@@ -168,7 +179,7 @@ export class OrgInviteService {
     const row = codeRow as CodeRow;
     const { data: org, error: orgErr } = await admin
       .from("organizations")
-      .select("*")
+      .select(ORG_COLUMNS)
       .eq("id", row.org_id)
       .single();
     // A code that points at a lab which no longer exists is a 404, not a bad

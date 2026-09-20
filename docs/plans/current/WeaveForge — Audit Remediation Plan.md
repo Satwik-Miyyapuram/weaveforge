@@ -365,22 +365,30 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 
 ---
 
-## Phase 8 — decisions, deferrals, won't-fix
+## Phase 8 — decided
 
-Recorded so they are choices, not omissions. Each needs a short answer before it can be scheduled.
+Every question below has an answer from the project owner (2026-02), so these are
+scheduled work rather than open questions. The decisions and what each one commits
+us to:
 
-| Item | Question |
-|---|---|
-| **Transactional CRDT compaction** (`WF-B01`/`B08` residue) | Inversion fixes ordering, but compaction is still two round trips and the entity body is written fire-and-forget, concurrently with teardown. Do we add the RPC (which must do its own owner/edit check in SQL — PostgREST returns 204 for an RLS-filtered delete, so today a non-owner collaborator's compaction is a silent no-op that grows the log forever), and do we make the body durable before deleting the tail? |
-| **Outbox pump** (`BUG-12`, `BUG-13`) | `SyncEngine.cycle()` has no production caller: local-first writes never enqueue, and the one pump run uses a token frozen at `enable()` time. BUG-13's `reauth` outcome only makes sense once the loop actually cycles, and the fix does not compile against today's pump. Wire the loop first, or leave the mapping documented? |
-| **Shared rows in the tree** (`BUG-01` siblings) | `load-report-screen` and `load-reading-lists-screen` also build their (rendered) trees from pre-merge `owned`, so shared sections are absent from the tree view. Product call: do shared items belong in the tree? |
-| **Blanket share semantics** (`PERF-02`) | Confirm that a project-wide share should grant comment/edit on every pin, which is what the current second loop does and what a naive index would drop. |
-| **Row-cap policy** (fact 2) | Set `PGRST_DB_MAX_ROWS` in the compose service so the deployment is explicit? The read fixes make correctness independent of it either way. |
-| **`PERF-09`** | Won't fix. Documented design; the proposed change breaks deletion detection. |
-| **`WF-P09` as written** | Won't do. Chunks as the append path is the design `0115` explicitly rejects. The scheduling gap is Phase 3.2. |
-| **`BUG-17` residue** | Positional-only parameters (`def train(run, /, beta)`) and a caller filling the run slot positionally remain awkward. Bind properly, then decide whether a mis-binding (a float arriving in the run slot) should be a loud `TypeError` with guidance. |
-| **`ARCH-03` timing** | The facade split touches ~69 call sites. Do it in Phase 6, or slice it per concern (images first, then fields, then zotero) across several commits? |
-| **`WF-P08`** | Already fixed in migration `0099`; only the docs are wrong. No work beyond Phase 7. |
+| Item | Decision | What it means |
+|---|---|---|
+| **Transactional CRDT compaction** (`WF-B01`/`B08`) | **Do it properly** | Add `compact_crdt_log(resource_type, resource_id, upto_id)`: one statement, its own owner-or-edit check in SQL, returns the rows deleted. The ordering fix alone is not enough — an RLS-filtered delete answers `204`, so a non-owner's compaction advances the shared watermark and makes the rows unsweepable for the owner afterwards. Also make the entity body durable **before** the tail is deleted |
+| **Outbox pump** (`BUG-12`, `BUG-13`) | **Wire it** | `SyncEngine.cycle()` gets a production caller (reconnect, timer, wake), and the transport stops using the token captured at `enable()` time — `async () => (await client.auth.getSession()).data.session?.access_token`. With the loop cycling, `reauth` becomes reachable and `BUG-13` closes properly |
+| **Shared rows in the tree** | **Include them** | `load-report-screen` and `load-reading-lists-screen` build their trees from the merged set, so a shared section or list appears in the tree rather than only in the flat projection |
+| **Blanket share semantics** (`PERF-02`) | **Keep** | A share with no `resourceId` grants comment/edit on every pin whose owner is the sharer. Confirmed as intended; the two-index `grantIndex` is the implementation that preserves it |
+| **Row-cap policy** | **Leave `PGRST_DB_MAX_ROWS` unset** | The self-hosted PostgREST default (unlimited) stands, and the compose comment stays as the record. The reads are correct under either setting, which is why this is a preference and not a correctness question |
+| **`PERF-09`** | **Won't fix** | Filtering delta reads by "updated since the watermark" cannot see deletions — a deleted row has no `updated_at` to report. The full stamp read is what makes deletion detection work |
+| **`WF-P09` as written** | **Won't do** | Chunks are a compaction format written by the rollup, not an append format; a chunk per step rewrites a growing array every step. The real gap was the missing schedule, closed in Phase 3.2 |
+| **`BUG-17`** | **Fixed, plus user-facing report** | The injection is fixed (`bind_partial`). The residue question became a decision of its own: errors a person can be shown should carry a **report-to-GitHub** affordance that files an issue with redacted logs, so the owner can act on them |
+| **`ARCH-03` timing** | **Done** | Sliced per concern: fields, then Zotero. Ten call sites, not 69 |
+| **`WF-P08`** | **No work** | Fixed by migration `0099`; only the docs were wrong, corrected in Phase 7 |
+| **The `select("*")` sweep** | **Finish it** | All 45 sites named, and the `check:dry` baseline deleted so the rule is a plain ban rather than a ratchet |
+| **The bundle lead** | **Dynamic-import `katex`** | `components/markdown/markdown.tsx` is loaded by four route modules and statically imports `katex`; the maths renderer moves behind a dynamic import (or the plain renderer splits from the maths one) |
+
+**Work still open from these decisions:** the CRDT RPC and body durability, the
+outbox pump, the merged trees, the error-report affordance, and the bundle change.
+Each is scheduled below in the order it was agreed.
 
 ---
 

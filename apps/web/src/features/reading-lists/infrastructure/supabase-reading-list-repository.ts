@@ -58,7 +58,7 @@ export class SupabaseReadingListRepository extends ProjectRepository implements 
   }
 
   async list(filter?: ReadingListFilter): Promise<ReadingList[]> {
-    let query = this.db.from(LISTS).select("*");
+    let query = this.db.from(LISTS).select(READING_LIST_COLUMNS);
     if (this.pid) query = query.eq("project_id", this.pid);
     if (filter?.parentId !== undefined) {
       query =
@@ -74,7 +74,7 @@ export class SupabaseReadingListRepository extends ProjectRepository implements 
   }
 
   async getTree(): Promise<ReadingListTreeNode[]> {
-    let q = this.db.from(LISTS).select("*");
+    let q = this.db.from(LISTS).select(READING_LIST_COLUMNS);
     if (this.pid) q = q.eq("project_id", this.pid);
     const { data, error } = await q;
     if (error) throw error;

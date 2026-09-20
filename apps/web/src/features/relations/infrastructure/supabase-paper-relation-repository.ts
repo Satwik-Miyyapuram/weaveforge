@@ -39,7 +39,7 @@ export class SupabasePaperRelationRepository extends ProjectRepository
   }
 
   async list(filter?: PaperRelationFilter): Promise<PaperRelation[]> {
-    let query = this.db.from(TABLE).select("*");
+    let query = this.db.from(TABLE).select(PAPER_RELATION_COLUMNS);
     if (this.pid) query = query.eq("project_id", this.pid);
     if (filter?.relation) query = query.eq("relation", filter.relation);
     if (filter?.fromPaper) query = query.eq("from_paper", filter.fromPaper);
@@ -49,13 +49,13 @@ export class SupabasePaperRelationRepository extends ProjectRepository
   }
 
   async getGraph(): Promise<PaperRelation[]> {
-    let q = this.db.from(TABLE).select("*");
+    let q = this.db.from(TABLE).select(PAPER_RELATION_COLUMNS);
     if (this.pid) q = q.eq("project_id", this.pid);
     return (await rows<PaperRelationRow>(q)).map(toDomain);
   }
 
   async relationsFor(paperId: string): Promise<PaperRelation[]> {
-    let q = this.db.from(TABLE).select("*").or(`from_paper.eq.${paperId},to_paper.eq.${paperId}`);
+    let q = this.db.from(TABLE).select(PAPER_RELATION_COLUMNS).or(`from_paper.eq.${paperId},to_paper.eq.${paperId}`);
     if (this.pid) q = q.eq("project_id", this.pid);
     return (await rows<PaperRelationRow>(q)).map(toDomain);
   }

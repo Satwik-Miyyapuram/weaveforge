@@ -32,7 +32,7 @@ export class SupabaseSupervisionRepository implements ISupervisionRepository {
   async listMilestones(memberId: string): Promise<Milestone[]> {
     return (await rows<MilestoneRow>(this.db
       .from("milestones")
-      .select("*")
+      .select(MILESTONE_COLUMNS)
       .eq("user_id", memberId)
       .order("target_date", { ascending: true, nullsFirst: false }))).map(milestoneToDomain);
   }
@@ -40,7 +40,7 @@ export class SupabaseSupervisionRepository implements ISupervisionRepository {
   async listLogs(memberId: string): Promise<LogEntry[]> {
     return (await rows<LogEntryRow>(this.db
       .from("log_entries")
-      .select("*")
+      .select(LOG_ENTRY_COLUMNS)
       .eq("user_id", memberId)
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false }))).map(logToDomain);
@@ -76,6 +76,22 @@ export class SupabaseSupervisionRepository implements ISupervisionRepository {
  * Every requested id gets an entry, empty or not: a supervisee with no logs has
  * to read as "nothing yet", not as "not loaded".
  */
+/**
+ * The columns a MilestoneRow is read as, named rather than starred.
+ *
+ * Derived from the row type: exactly the fields the mapper reads, where a star
+ * would mean "whatever the table grows next".
+ */
+/**
+ * The columns a LogEntryRow is read as, named rather than starred.
+ *
+ * Derived from the row type: exactly the fields the mapper reads, where a star
+ * would mean "whatever the table grows next".
+ */
+const LOG_ENTRY_COLUMNS = "id,entry_date,kind,body,links,created_at";
+
+const MILESTONE_COLUMNS = "id,title,description,status,target_date,dependencies,compute,created_at";
+
 function groupByOwner<Row extends { user_id: string }, T>(
   rows: readonly Row[],
   memberIds: readonly string[],

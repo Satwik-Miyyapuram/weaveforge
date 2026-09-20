@@ -200,33 +200,12 @@ if (inlineCoreTypes.length) {
  *   * the local PostgREST client tests exercise `.select()` passthrough itself.
  *
  * The rule's first run found **45** sites across 17 adapters — this was not one
- * finding, it was the house style. Eighteen are fixed: the paper, vault, comment,
- * share, share-link, tag and settings reads, plus twelve whose row type is named
- * right at the call. The rest are listed below as a **ratchet** — the counts may
- * only come down, and a new file may not appear. Each entry is a site whose read
- * maps through a mapper a few lines away rather than through a type argument at
- * the call, which is why it wants a person rather than the codemod that did the
- * other eighteen.
+ * finding, it was the house style. All 45 are named now, so this is a plain ban
+ * with no baseline to keep in step: the ten that took a person rather than the
+ * codemod were the ones whose read maps through a mapper a few lines away, and
+ * the `@/`-aliased row types were the ones the first codemod pass could not
+ * follow.
  */
-const SELECT_STAR_BASELINE = {
-  "features/ai-assistant/infrastructure/supabase-ai-proposal-store.ts": 2,
-  "features/collab/infrastructure/supabase-crdt-update-store.ts": 1,
-  "features/experiments/infrastructure/supabase-experiment-repository.ts": 1,
-  "features/logbook/infrastructure/supabase-log-entry-repository.ts": 1,
-  "features/org/infrastructure/org-invite-service.ts": 2,
-  "features/org/infrastructure/supabase-supervision-repository.ts": 2,
-  "features/papers/infrastructure/supabase-annotation-pin-repository.ts": 1,
-  "features/plan/infrastructure/supabase-milestone-repository.ts": 1,
-  "features/reader/infrastructure/supabase-reader-annotation-repository.ts": 3,
-  "features/reading-lists/infrastructure/supabase-reading-list-repository.ts": 2,
-  "features/relations/infrastructure/supabase-paper-relation-repository.ts": 3,
-  "features/report/infrastructure/supabase-report-section-repository.ts": 2,
-  "features/sharing/infrastructure/supabase-share-link-repository.ts": 1,
-  "features/sharing/infrastructure/supabase-share-repository.ts": 2,
-  "features/tags/infrastructure/supabase-tag-repository.ts": 2,
-  "features/vault/infrastructure/supabase-vault-page-repository.ts": 1,
-};
-
 const selectStar = search('select\\("\\*"\\)', "**/infrastructure/**/*.ts").filter(
   // A projection written in prose is not a projection. The rule is about the
   // query, and the comment explaining it quotes the very thing it bans — which
@@ -234,24 +213,16 @@ const selectStar = search('select\\("\\*"\\)', "**/infrastructure/**/*.ts").filt
   (line) => !/:\s*(?:\*|\/\/)/.test(line),
 );
 
-const selectStarCounts = new Map();
-for (const line of selectStar) {
-  const file = line.split(":")[0].replace(/\\/g, "/");
-  const known = Object.keys(SELECT_STAR_BASELINE).find((candidate) => file.endsWith(candidate));
-  const key = known ?? file;
-  selectStarCounts.set(key, (selectStarCounts.get(key) ?? 0) + 1);
-}
-const selectStarRegressions = [];
-for (const [file, count] of selectStarCounts) {
-  const allowed = SELECT_STAR_BASELINE[file];
-  if (allowed === undefined) selectStarRegressions.push(`${file} (${count}, not in the baseline)`);
-  else if (count > allowed) selectStarRegressions.push(`${file} (${count}, baseline ${allowed})`);
-}
-if (selectStarRegressions.length) {
+if (selectStar.length) {
   console.error(
     'FAIL: select("*") in a repository — name the columns the caller reads (PERF-04):',
   );
-  for (const line of selectStarRegressions) console.error(`  ${line}`);
+  for (const line of selectStar) console.error(`  ${line}`);
+  console.error(
+    "\n  A star transfers whatever the table grows next to every caller, and it never\n" +
+      "  breaks: the row type is wide, the mapper ignores extra fields, the tests pass.\n" +
+      "  Name the projection; the row type in that read tells you which columns.",
+  );
   failed = true;
 }
 
