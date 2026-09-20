@@ -34,9 +34,19 @@ export function preferenceMemory(bridge: {
   writePreference(name: "sync-offer-shown", value: string | boolean | null): Promise<void>;
 }): OfferMemory {
   return {
-    read: async () => (await bridge.readPreference("sync-offer-shown")) === true,
+    // The declared type is `string | boolean | null`, so the one-time bit must
+    // not depend on which of those a given shell round-trips. Today's Electron
+    // store writes JSON and reads it back as a boolean, so a `"true"` string
+    // means a hand-edited or corrupted preference file rather than a normal
+    // path — and that is exactly the case worth surviving, because the failure
+    // is an offer that reappears after every upgrade.
+    read: async () => isTruthy(await bridge.readPreference("sync-offer-shown")),
     markShown: () => bridge.writePreference("sync-offer-shown", true),
   };
+}
+
+function isTruthy(value: string | boolean | null): boolean {
+  return value === true || value === "true" || value === "1";
 }
 
 /**
