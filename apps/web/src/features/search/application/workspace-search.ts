@@ -265,7 +265,6 @@ export class WorkspaceSearch {
     if (!index || this.stale.size === 0) return;
 
     const kinds = [...this.stale];
-    this.stale.clear();
 
     const snapshot = await this.deps.snapshot();
     // Links change with notes and papers, so the graph is rebuilt whenever one
@@ -292,6 +291,14 @@ export class WorkspaceSearch {
     index.remove(before);
     index.add(fresh);
     this.documentCount += fresh.length - before.length;
+
+    // Cleared last, and only the kinds actually refreshed. Clearing up front —
+    // where this used to be — meant a snapshot read that rejected lost them
+    // permanently: the index kept serving the old rows for those kinds, nothing
+    // was marked stale any more, and no later `ensure()` had any reason to look.
+    // Deleting per kind rather than clearing also keeps a write that lands
+    // *during* the refresh marked, so it is picked up by the next one.
+    for (const kind of kinds) this.stale.delete(kind);
   }
 
   /**

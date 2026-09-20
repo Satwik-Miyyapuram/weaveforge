@@ -175,6 +175,42 @@ test("a PDF indexed in the reader joins the semantic corpus too", async () => {
   );
 });
 
+test("a failed refresh keeps the kinds stale instead of losing them", async () => {
+  // The staleness set used to be cleared *before* the snapshot was awaited, so a
+  // read that rejected lost the kinds for good: the index went on serving the
+  // rows it had, nothing was marked stale any more, and no later `ensure()` had
+  // any reason to look again. Silent, and stale forever.
+  const pages = [note("n1", "Method", "The GAN setup.")];
+  let failNext = false;
+  const search = new WorkspaceSearch({
+    snapshot: async () => {
+      if (failNext) {
+        failNext = false;
+        throw new Error("offline");
+      }
+      return snapshot({ vaultPages: [...pages] });
+    },
+    projectId: () => "p1",
+  });
+
+  await search.ensure();
+  assert.equal(search.search("diffusion").length, 0);
+
+  pages[0] = note("n1", "Method", "The diffusion setup.");
+  search.markStale("vault_page");
+  failNext = true;
+  await assert.rejects(() => search.ensure(), /offline/);
+
+  // The next attempt has to still know that notes are stale.
+  await search.ensure();
+
+  assert.equal(
+    search.search("diffusion").length,
+    1,
+    "the kind stayed marked, so the retry actually refreshed it",
+  );
+});
+
 test("editing a note refreshes notes without re-reading PDF text", async () => {
   let snapshots = 0;
   const pages = [note("n1", "Method", "The GAN setup.")];
