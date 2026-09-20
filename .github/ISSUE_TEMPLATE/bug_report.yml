@@ -69,6 +69,7 @@ body:
         - OS / browser:
         - Node version:
         - Python version (SDK only):
+        - SDK extras installed, if relevant: `figures` / `tensorboard` / `wandb`
         - Deployment: hosted / self-hosted Supabase / self-hosted Postgres
     validations:
       required: false

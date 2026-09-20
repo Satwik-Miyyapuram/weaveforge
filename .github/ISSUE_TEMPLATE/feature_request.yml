@@ -38,6 +38,10 @@ body:
     id: proposal
     attributes:
       label: What you'd like to happen
+      description: |
+        If this is a new tracked concern, note that it should arrive as a new
+        feature module (see `docs/building/design.md`) rather than as edits
+        spread across existing ones.
     validations:
       required: true
 
