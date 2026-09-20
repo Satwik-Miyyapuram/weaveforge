@@ -98,6 +98,135 @@ test("maxConcepts caps the result and prunes orphaned mentions", async () => {
   assert.ok(result.mentions.every((m) => kept.has(conceptKey(m.conceptName))));
 });
 
+// ------------------------------------------------ what the kind rules decide
+
+test("acronyms we know are not all filed as methods", async () => {
+  // "an acronym is a method" is a good default and a bad rule: the acronyms
+  // research writing is full of are venues, datasets and metrics, and the
+  // keyword rules below can never fire for an acronym because it contains no
+  // such word. NEURIPS is seven letters, so the acronym pattern never even
+  // matched it and it was dropped entirely.
+  const result = await extractor.extract({
+    documents: [
+      doc("n1", "N", "Submitted to ICLR. The MNIST split. We report BLEU. Off to NEURIPS."),
+      doc("n2", "M", "ICLR again, MNIST again, BLEU again, NEURIPS again."),
+    ],
+  });
+
+  const kindOf = (name: string) =>
+    result.concepts.find((c) => conceptKey(c.name) === name)?.kind;
+
+  assert.equal(kindOf("iclr"), "venue");
+  assert.equal(kindOf("neurips"), "venue");
+  assert.equal(kindOf("mnist"), "dataset");
+  assert.equal(kindOf("bleu"), "metric");
+});
+
+test("a stated link is classified too, not filed as a bare concept", async () => {
+  const result = await extractor.extract({
+    documents: [doc("n1", "N", "Trained on [[ImageNet]] and tagged #iclr for the deadline.")],
+  });
+
+  const kindOf = (name: string) =>
+    result.concepts.find((c) => conceptKey(c.name) === name)?.kind;
+
+  assert.equal(kindOf("imagenet"), "dataset");
+  // The tag is lowercased on the way in; the acronym tables are case-insensitive
+  // so that does not decide whether it is recognised.
+  assert.equal(kindOf("iclr"), "venue");
+});
+
+test("an ordinary lowercase tag is not mistaken for an acronym", async () => {
+  // The guard on the acronym rule: testing it case-insensitively would file
+  // every short lowercase tag as a method.
+  const result = await extractor.extract({
+    documents: [doc("n1", "N", "Some #notes and #todo for later.")],
+  });
+
+  const kindOf = (name: string) =>
+    result.concepts.find((c) => conceptKey(c.name) === name)?.kind;
+
+  assert.equal(kindOf("notes"), "concept");
+  assert.equal(kindOf("todo"), "concept");
+});
+
+test("a wikilink names nothing when it has no target", async () => {
+  // `[[#Heading]]` links to a section of this note and `[[|alias]]` to nothing
+  // at all: neither is a concept, and the two loops that derived the stated set
+  // disagreed about it.
+  const result = await extractor.extract({
+    documents: [doc("n1", "N", "Jump to [[#Overview]] and to [[|alias]].")],
+  });
+
+  assert.deepEqual(result.concepts, []);
+  assert.ok(!result.mentions.some((m) => conceptKey(m.conceptName) === ""));
+});
+
+test("a concept named only by a wikilink still carries evidence", async () => {
+  // Evidence is read from the stripped text, and stripping is what removes
+  // `[[…]]` — so this was the one case where the review queue's pane was blank:
+  // a concept the user had stated outright.
+  const result = await extractor.extract({
+    documents: [doc("n1", "N", "See [[Graph Neural Networks]] for the details.")],
+  });
+
+  const mention = result.mentions.find(
+    (m) => conceptKey(m.conceptName) === "graph neural networks",
+  );
+  assert.ok(mention);
+  assert.ok(mention!.evidence.length > 0, "a stated concept must not arrive with empty evidence");
+  assert.match(mention!.evidence, /Graph Neural Networks/);
+});
+
+test("one scan still finds the acronym inside a hyphenated phrase", async () => {
+  // The two regex passes this replaces were not redundant: the phrase pattern
+  // stops at "VAE-based" and the acronym pass added "VAE". A merged alternation
+  // that let the phrase branch win at each position would lose the acronym —
+  // which is why the match is read from the inside instead.
+  const text = "VAE-based models are cheaper.";
+  const result = await extractor.extract({
+    documents: [doc("n1", "N", text), doc("n2", "M", text)],
+  });
+
+  const names = result.concepts.map((c) => conceptKey(c.name));
+  assert.ok(names.includes("vae"), `expected the acronym; got ${names.join(", ")}`);
+  assert.ok(names.includes("vae-based"), "and the phrase it sits in");
+});
+
+test("a stated tag corrects the name a guess froze first", async () => {
+  // First-write-wins meant the mention recorded first kept the name for good, so
+  // a deliberate tag could not correct a guess — the one signal the module's own
+  // comments call stated, not inferred.
+  const result = await extractor.extract({
+    documents: [
+      doc("n1", "N", "Our Transformer baseline."),
+      doc("n2", "M", "Transformer again."),
+      doc("n3", "P", "Tagged as #transformer in the plan."),
+    ],
+  });
+
+  const concept = result.concepts.find((c) => conceptKey(c.name) === "transformer");
+  assert.ok(concept);
+  assert.equal(concept!.name, "transformer", "the tag's own spelling is the one kept");
+});
+
+test("a stated tag cannot downgrade a kind a rule recognised", async () => {
+  // `#abc` lowercases on the way in, so the acronym rule no longer fires for it
+  // and the tag classifies as the generic bucket. Merging on "the stated signal
+  // wins" replaced the recognised "method" the phrase pass had already found.
+  const result = await extractor.extract({
+    documents: [
+      doc("n1", "N", "We use ABC here."),
+      doc("n2", "M", "ABC again."),
+      doc("n3", "P", "Tagged #abc too."),
+    ],
+  });
+
+  const concept = result.concepts.find((c) => conceptKey(c.name) === "abc");
+  assert.ok(concept);
+  assert.equal(concept!.kind, "method");
+});
+
 // -------------------------------------------------------------------- merging
 
 test("merging sums mentions and unions aliases", () => {
