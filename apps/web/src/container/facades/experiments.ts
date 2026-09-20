@@ -15,6 +15,15 @@ const STALE_STATUS_CONCURRENCY = 3;
 /** How many artifact uploads may be in flight together. See `attachArtifacts`. */
 const ARTIFACT_UPLOAD_CONCURRENCY = 3;
 
+/**
+ * Points a chart asks for, per metric.
+ *
+ * A plot is a few hundred pixels wide, so this is already more resolution than
+ * a screen can show; the number exists to keep a 40 000-point series from being
+ * transferred, parsed and laid out to draw an 800-pixel line.
+ */
+const CHART_MAX_POINTS = 2000;
+
 export class ExperimentsFacade {
   /** Non-null while a reconciliation is in flight, so callers can join it. */
   private reconciling: Promise<void> | null = null;
@@ -124,8 +133,17 @@ export class ExperimentsFacade {
     return this.deps.papers.getById(id);
   }
 
+  /**
+   * The curves for one run's chart.
+   *
+   * The budget is the facade's, not the caller's, because it is a chart fact
+   * rather than a screen preference: a wider chart draws the same series, and
+   * the reduction keeps every measured point it can. 2000 is well past the two
+   * or three thousand a plot can actually resolve, and it is small enough that
+   * the read never approaches a server row cap.
+   */
   metricHistory(experimentId: string): Promise<MetricPoint[]> {
-    return this.deps.metrics.history(experimentId);
+    return this.deps.metrics.history(experimentId, undefined, { maxPoints: CHART_MAX_POINTS });
   }
 
   get manageExperiment() {
