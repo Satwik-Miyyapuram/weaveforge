@@ -419,7 +419,7 @@ Every one of the 88 findings is assigned to exactly one phase below, and the cou
 | 2 — lexical extractor | 1 (9 fixes) | 9 | **done** |
 | 3 — read path, DB, hot paths | 8 | 19 | **done** |
 | 4 — contracts & types | 10 | 9 | **done** |
-| 5 — lifecycle & memory | 7 | 7 | not started |
+| 5 — lifecycle & memory | 7 | 7 | **done** |
 | 6 — structural decomposition | 7 | 7 | not started |
 | 7 — guardrails, hardening, docs | 8 | 6 | not started |
 | 8 — decisions | 10 | 1 (plus 7 refuted / won't-fix recorded) | open questions |
@@ -528,16 +528,36 @@ One rewrite of `packages/core/src/features/ai-assistant/domain/lexical-concept-e
 
 Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
+### Phase 5 — what landed
+
+| Item | Finding | How it was closed |
+|---|---|---|
+| Registrations are disposable | MEM-01 | `registerRepoCacheEntry` returns a disposer, delivered through the register hook the invalidator already offered rather than threaded back through `cacheRepo` → `wireBackend`'s twenty-four call sites |
+| The write-only cache set | MEM-03 | `ProjectLwwInvalidator.caches` deleted; nothing ever read it |
+| Container teardown | — | `createAppContainer` returns `dispose()`, and `bootstrap` calls it when it replaces a container — after the new one is built, so a bad config cannot tear the app down |
+| Session hooks stop accumulating | *audit missed* | `registerSessionReset` returns a disposer, and the container holds it, so a rebuild no longer leaves a generation whose hook runs on every later sign-out |
+| The realtime channel is released | BUG-10, *audit missed* | `ProjectLwwInvalidator.dispose()` leaves the channel; the session reset calls it, and so does container teardown. The reset had nulled the project id without telling the invalidator, and a rebuild dropped it with the channel still joined |
+| Module hooks are cleared | *audit missed* | `clearProjectCacheHooks()`, or the next container's writes are reported to the previous one's invalidator |
+| The reset registers after what it reaches | BUG-11 | Moved below `workspace`; the TDZ was unreachable but free to remove |
+| One IndexedDB connection | MEM-06 | Memoised, with `onversionchange`/`onclose` handlers — without them a memoised handle goes stale after another tab upgrades and every caller swallows the failure — and closed at the **end** of the device wipe |
+| The semantic corpus | MEM-02 | Projected on demand instead of retained; that fixes the staleness (the retained copy meant a note added after the build could never be found semantically) *and* the re-enable the audit's own patch would have broken |
+
+**Three of these seven were not in the audit.** The container never had a teardown path at all: `bootstrap` rebuilt it on every provider change and dropped the reference, so the accumulated repository registrations, the session hook and the joined private channel all survived together. The audit described the symptom (memory grows, invalidation walks dead entries) and proposed the fix for one of the three.
+
+**The IndexedDB item needed a test harness to be verifiable.** Phase 0's `fake-indexeddb` grew `close`, `onversionchange` and a `versionChange()` trigger, so the memoisation and the stale-handle recovery are under test rather than review. The module's own test caught a mistake in the fix: comparing `opening` (the promise) against the database made the handlers never clear the memo, which is the exact failure they exist to prevent.
+
+Baseline: `npm run test:core` → 1214 pass / 0 fail.
+
 After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests and a real `next build`:
 
-| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Phase 4 |
-|---|---|---|---|---|---|
-| core | 1214 | 1231 | 1239 | 1248 | 1247 |
-| web | 1428 | 1439 | 1439 | 1466 | 1474 |
-| pglite integration | 20 | 20 | 20 | 20 | 20 |
-| desktop | 237 | 237 | 237 | 237 | 237 |
-| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
-| files the boundary gates search | 675 | 675 | 676 | 677 | 702 |
+| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Phase 4 | After Phase 5 |
+|---|---|---|---|---|---|---|
+| core | 1214 | 1231 | 1239 | 1248 | 1247 | 1247 |
+| web | 1428 | 1439 | 1439 | 1466 | 1474 | 1487 |
+| pglite integration | 20 | 20 | 20 | 20 | 20 | 20 |
+| desktop | 237 | 237 | 237 | 237 | 237 | 237 |
+| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
+| files the boundary gates search | 675 | 675 | 676 | 677 | 702 | 702 |
 
 Core goes 1248 → 1247 because one test moved out of it: `describeRejection`'s completeness assertion now lives beside the prose it checks.
 
