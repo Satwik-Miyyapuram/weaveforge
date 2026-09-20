@@ -109,12 +109,26 @@ PostgREST is given in [the shift guide](oracle-shift.md).
 
 Without `GITHUB_ISSUES_TOKEN` the error screens keep their other two escapes and
 the report panel answers 503 naming that variable — a report is never silently
-dropped. When it is set, the app files an issue containing what the reader saw,
-what they added, and the recent `console.error`/`console.warn` lines, **redacted**
-for tokens, credentials, emails, account names in paths and long opaque blobs. No
-account identity is attached, and the reader previews the whole payload before
-sending. Use a token scoped to `issues: write` on one repository: it is the only
-credential in this app that can write anywhere.
+dropped.
+
+**Where that variable goes** is worth being precise about, because the obvious
+guess is wrong: the route that files reports (`/api/report-issue`) is served by
+`apps/web`, which runs on **Vercel** — not on the API box. So:
+
+| Context | Where to set it |
+|---|---|
+| Production | the `apps/web` project on Vercel → Settings → Environment Variables (`GITHUB_ISSUES_TOKEN`, optionally `GITHUB_ISSUES_REPO`). Redeploy for it to take effect. |
+| Local development | `apps/web/.env.local` — Next only reads it from the app directory, and it is git-ignored. |
+| The OCI box | **nothing.** `infra/oci/docker-compose.yml` runs the database, PostgREST, Realtime, the gateway and MinIO; the web app is not in it. Setting the token there would look configured and do nothing. |
+| A packaged desktop build | **nothing** — it serves a static copy of the app, which has no server and therefore no report endpoint. The panel says so rather than failing silently. |
+
+The token is a fine-grained PAT with `issues: write` on one repository. When it is
+set, the app files an issue containing what the reader saw, what they added, and
+the recent `console.error`/`console.warn` lines plus any uncaught error or
+rejection, **redacted** for tokens, credentials, emails, account names in paths and
+long opaque blobs. No account identity is attached, and the reader previews the
+whole payload before sending. It is the only credential in this app that can write
+anywhere.
 
 `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/running/postgres-provider.md`](postgres-provider.md). Default remains `supabase`.
 

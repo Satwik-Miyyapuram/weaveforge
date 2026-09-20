@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { recoverClientRuntime } from "@/lib/client-runtime-recovery";
-import { installConsoleCapture } from "@/lib/error-report/log-buffer";
+import { installConsoleCapture, recordError } from "@/lib/error-report/log-buffer";
 
 function looksLikeChunkFailure(message: string): boolean {
   return /ChunkLoadError|Loading chunk [\d]+ failed|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(
@@ -24,6 +24,18 @@ export function ClientRuntimeRecovery() {
 
     const onError = (event: ErrorEvent) => {
       const msg = event.message || "";
+      // An uncaught error is printed by the *browser*, not through
+      // `console.error`, so the capture above never sees it. This is where it gets
+      // kept — with the line it happened on, which is the part a report needs.
+      recordError(
+        [
+          event.error instanceof Error ? (event.error.stack ?? `${event.error.name}: ${event.error.message}`) : msg,
+          event.filename ? `at ${event.filename}:${event.lineno}:${event.colno}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+
       const target = event.target;
       const scriptFailed =
         !!target &&
@@ -39,6 +51,9 @@ export function ClientRuntimeRecovery() {
         reason instanceof Error
           ? `${reason.name} ${reason.message}`
           : String(reason ?? "");
+      // A rejection may be printed by nobody at all, so it is recorded before
+      // anything else looks at it.
+      recordError(reason instanceof Error ? (reason.stack ?? msg) : msg);
       if (looksLikeChunkFailure(msg)) {
         void recoverClientRuntime();
       }

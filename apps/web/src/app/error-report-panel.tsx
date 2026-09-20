@@ -78,7 +78,12 @@ export function ErrorReportPanel({
         message:
           response.status === 401
             ? "Sign in again, then retry — a report needs an account so the tracker cannot be filled by strangers."
-            : (body.error ?? "The report could not be filed."),
+            : response.status === 404 || response.status === 405
+              ? // A packaged desktop build serves a static copy of the app: it has no
+                // server, so it has no report endpoint. The details above are the same
+                // either way, and saying so beats a button that can never work.
+                "This copy of the app cannot file reports. The details above can be copied and sent on."
+              : (body.error ?? "The report could not be filed."),
       });
     } catch {
       // Offline, most likely: the error screen is often the first thing a reader

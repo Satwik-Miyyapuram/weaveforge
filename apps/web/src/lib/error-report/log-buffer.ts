@@ -58,6 +58,22 @@ export function recentLogs(): string {
 }
 
 /**
+ * Record something that never reached the console.
+ *
+ * A browser reports an uncaught error by printing it *itself* — the message does
+ * not travel through the `console.error` function — and an unhandled rejection
+ * may be printed by nobody at all. Both are exactly the failures a reader wants to
+ * report, so the window handlers that already watch for them record them here. The
+ * trace is the point: `window.onerror` carries the message, the file and the line,
+ * and the `Error` behind a rejection carries the stack.
+ */
+export function recordError(text: string): void {
+  if (!text) return;
+  lines.push(`[uncaught] ${text}`);
+  if (lines.length > MAX_LINES) lines.shift();
+}
+
+/**
  * Put the console back and empty the buffer, for tests.
  *
  * Restoring matters as much as clearing: resetting `installed` alone would let a
