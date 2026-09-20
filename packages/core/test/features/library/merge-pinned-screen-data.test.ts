@@ -137,16 +137,43 @@ test("merge: a pin the project already owns is not listed twice", async () => {
   );
 });
 
-test("merge: a grant for another resource type does not grant access here", async () => {
+test("merge: a grant for another resource type says nothing about this one", async () => {
   const merged = await merge({
     owned: [],
     pins: [pin("p9")],
     shares: [share({ resourceId: "p9", resourceType: "experiment", access: "edit" })],
   });
 
-  // An explicit `false`, not an absent key: the first loop records an entry for
-  // every shared row it walked. Consumers read `.get(id) ?? false` and
-  // `!map.get(id)`, so the two spellings are the same answer to them.
+  // `false`, because it is a pin: the merge looks at every pinned id and records
+  // what it found, which for a share of another resource type is nothing. A
+  // resource that is neither pinned nor named by a share of this type is
+  // *absent* instead, which is what makes the maps a statement about this type
+  // rather than about every share row.
   assert.equal(merged.canComment.get("p9"), false);
+  assert.equal(merged.canEdit.get("p9"), false);
+});
+
+test("merge: a resource this merge never saw is absent, not false", async () => {
+  const merged = await merge({
+    owned: [],
+    pins: [],
+    shares: [share({ resourceId: "p9", resourceType: "experiment", access: "edit" })],
+  });
+
+  assert.equal(merged.canComment.has("p9"), false);
+  assert.equal(merged.canEdit.has("p9"), false);
+});
+
+test("merge: a share that names a resource is granted even when it is not pinned", async () => {
+  // A note opened from a link may be shared without being pinned, and the editor
+  // still asks whether this reader may comment on it — so the index is built
+  // from every share of this type, not only the pinned ones.
+  const merged = await merge({
+    owned: [],
+    pins: [],
+    shares: [share({ resourceId: "p9", access: "comment" })],
+  });
+
+  assert.equal(merged.canComment.get("p9"), true);
   assert.equal(merged.canEdit.get("p9"), false);
 });
