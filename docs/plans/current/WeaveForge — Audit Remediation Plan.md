@@ -417,7 +417,7 @@ Every one of the 88 findings is assigned to exactly one phase below, and the cou
 | 0 — baseline & scaffolding | 5 | 0 (creates the missing test homes) | **done** |
 | 1 — correctness, integrity, security | 15 | 30 | **done** |
 | 2 — lexical extractor | 1 (9 fixes) | 9 | **done** |
-| 3 — read path, DB, hot paths | 8 | 19 | not started |
+| 3 — read path, DB, hot paths | 8 | 19 | **done** |
 | 4 — contracts & types | 10 | 9 | not started |
 | 5 — lifecycle & memory | 7 | 7 | not started |
 | 6 — structural decomposition | 7 | 7 | not started |
@@ -481,16 +481,41 @@ One rewrite of `packages/core/src/features/ai-assistant/domain/lexical-concept-e
 
 **Note on evidence for the three internal fixes.** `WF-P03`, `WF-P04` and `WF-P05` change no observable output, so there is no behavioural test that can fail without them — their evidence is the shape of the code and the review of it. What their absence *could* have cost is pinned instead: the acronym-inside-a-hyphenated-phrase test guards the single-scan rewrite, and the evidence tests guard the two derivations of "stated" collapsing into one.
 
+### Phase 3 — what landed
+
+**3.1 The metric read path** (`WF-B02`, `WF-B03`, `WF-P01`, `WF-P02`) — one migration, `0131_metric_activity_rpc.sql`, with two read functions and the index that was missing:
+
+- `latest_metric_activity(uuid[])` computes one row per experiment from **both stores** — the hot rows and the chunk archive — with `security invoker` so RLS still decides visibility. This is the finding whose failure mode is a database *write*: a missing entry made the experiments screen mark a live run abandoned.
+- `metric_history(uuid, text, int)` takes a point budget and reduces server-side by stride, keeping each series' first and last sample. A stride, not an average: averaging a loss curve smooths away the spikes a spike is the reason to plot. Below the budget nothing is dropped.
+- `experiment_metric_points (experiment_id, wall_time desc) where wall_time is not null` — the audit's index DDL could not be applied at all, because `experiment_metrics` is a **view** over `experiment_metric_points` and `experiment_metric_chunks` since `0114`/`0115`.
+
+`history()` without a budget now pages by **rows received** rather than by page size. The audit's `if (page.length < PAGE) break` stops after the first page on any deployment whose row cap is below the page size, because a capped response *is* a short page.
+
+**3.2 The rollup nothing ran** (`WF-P09`'s real gap) — two npm scripts and `docs/running/metrics-maintenance.md`, with a suggested cron, the queries that show whether it is working, and an honest statement that not running it costs space rather than data.
+
+**3.3 The papers repository cluster** (`BUG-05`, `BUG-06`, `BUG-07`, `BUG-08`, `PERF-04`, `PERF-09`) — the project filter is now one helper every read goes through, in the papers *and* vault repositories; chunk reads are issued together with a deterministic order; four dedupe copies collapse into one; `listSummaries` is typed as the summary it fetches. `PERF-09` was already refuted and is documented in place.
+
+**3.4–3.8 The hot paths** (`PERF-01`–`PERF-08`) — one-pass image stripping, one share-grant index, one value index per table, one service-role client per config, a map lookup instead of a route scan, a bounded decode, and no canvas round trip for a file that is already small and already in a format we would have produced.
+
+**Measured, not asserted:** on a 400-row table with 20 000 field values and three rollup columns, building the rows took **5624 ms** before `PERF-03` and **5 ms** after — the same data the audit computed as "30 million map inserts". That measurement is why the guard is a 1500 ms budget rather than a micro-benchmark: it separates the two shapes by three orders of magnitude.
+
+**Two more defects found by the work itself, in the local PostgREST client:**
+
+- It did not implement `.range()` at all, so any paged read threw `range is not a function` on the local backend only. Paging is how a caller reads a table larger than one response, and the client exists to speak the same protocol the browser repositories speak.
+- An array bound to a *function argument* was sent as JSON, which Postgres reads as `malformed array literal`. That broke the new `latest_metric_activity` **and** `record_blob_access_many`, which no test had exercised on that path.
+
+**Deviation, recorded:** `PERF-04`'s projection cannot be narrowed to the three columns the audit proposed. The port promises a `Paper` and a dedupe hit is handed straight back to the caller as the paper it found, so fewer columns behind a wider type is the same lie `listSummaries` used to tell. The lookup now uses the full list projection; a narrower port for the citation-linking caller is the real fix and belongs with Phase 4's contract work.
+
 Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
 After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests and a real `next build`:
 
-| Suite | Before | After Phase 1 | After Phase 2 |
-|---|---|---|---|
-| core | 1214 | 1231 | 1239 |
-| web | 1428 | 1439 | 1439 |
-| pglite integration | 20 | 20 | 20 |
-| desktop | 237 | 237 | 237 |
-| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) |
+| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 |
+|---|---|---|---|---|
+| core | 1214 | 1231 | 1239 | 1248 |
+| web | 1428 | 1439 | 1439 | 1466 |
+| pglite integration | 20 | 20 | 20 | 20 |
+| desktop | 237 | 237 | 237 | 237 |
+| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
 
 One thing it needs: `npm run docs:generate`, because the generated line counts in `docs/building/architecture-map.md` move with every source commit — including the commits that fix things. That is why `check:all` was red before any of this work started.
