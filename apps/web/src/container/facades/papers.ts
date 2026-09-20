@@ -298,17 +298,10 @@ export class PapersFacade {
 
   fetchImageBlobs(paths: readonly string[]) {
     // Called on the store, not as a detached function: the bucket store's
-    // `fetchBlobs` reads `this.blobs`, and unbound it threw on every note
-    // with two or more pictures.
-    const images = this.deps.images;
-    if (images.fetchBlobs) return images.fetchBlobs(paths);
-    return Promise.all(paths.map((p) => this.deps.images.fetchBlob(p))).then((blobs) => {
-      const out = new Map<string, Blob>();
-      paths.forEach((p, i) => {
-        if (blobs[i]) out.set(p, blobs[i]!);
-      });
-      return out;
-    });
+    // `fetchBlobs` reads `this.blobs`, and unbound it threw on every note with
+    // two or more pictures. The store owns its own batching, so this is the
+    // whole of it.
+    return this.deps.images.fetchBlobs(paths);
   }
 
   uploadImage(paperId: string, blob: Blob, ext: string) {
