@@ -34,7 +34,11 @@ export class LoadReportScreenUseCase {
     });
 
     return {
-      tree: buildSectionTree(owned),
+      // From the merged set, not from `owned`. A shared section belongs in the
+      // tree like any other: building the tree pre-merge put it in `flat` and
+      // left it out of the only projection the screen paints, so the same data
+      // had two different answers depending on which field you read.
+      tree: buildSectionTree(merged.items),
       flat: merged.items,
       pinnedSharedBy: merged.pinnedSharedBy,
       reportCanComment: merged.canComment,

@@ -46,7 +46,10 @@ export class LoadReadingListsScreenUseCase {
     });
 
     return {
-      tree: buildListTree(owned),
+      // From the merged set: a list shared with this project belongs in the tree
+      // a reader navigates, not only in the flat list beside it. Building the
+      // tree pre-merge is what hid every shared list from the tree view.
+      tree: buildListTree(merged.items),
       lists: merged.items,
       papers,
       notes,
