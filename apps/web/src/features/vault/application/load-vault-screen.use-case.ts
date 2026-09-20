@@ -7,7 +7,11 @@ import type {
   ReadingList,
   VaultPageSummary,
 } from "@weaveforge/core";
-import { mergePinnedScreenData } from "@weaveforge/core";
+import {
+  buildListMembership,
+  loadPinnedScreenData,
+  vaultPageIdOfItem,
+} from "@weaveforge/core";
 
 export interface VaultScreenData {
   /**
@@ -50,26 +54,19 @@ export class LoadVaultScreenUseCase {
   ) {}
 
   async execute(): Promise<VaultScreenData> {
-    const [owned, lists, pins, shares] = await Promise.all([
+    const [owned, lists] = await Promise.all([
       // Required on the port; see `IPaperRepository.listSummaries` for why the
       // call-site fallback is gone. `ownedIds` below is derived from this, so a
       // wider read would not have changed the answer — only the payload.
       this.deps.pages.listSummaries(),
       this.deps.lists.list(),
-      this.deps.pins?.listForProject() ?? Promise.resolve([]),
-      this.deps.shares?.listSharedWithMe("vault_page") ?? Promise.resolve([]),
     ]);
     const items = await this.deps.listItems.listItemsForLists(lists.map((l) => l.id));
-    const membership = new Map<string, Set<string>>(lists.map((l) => [l.id, new Set<string>()]));
-    for (const it of items) {
-      if (it.vaultPageId) membership.get(it.listId)?.add(it.vaultPageId);
-    }
+    const membership = buildListMembership(lists, items, vaultPageIdOfItem);
 
-    const merged = await mergePinnedScreenData({
+    const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "vault_page",
       owned,
-      pins,
-      shares,
       loadById: (id) => this.deps.pages.getById(id),
     });
 

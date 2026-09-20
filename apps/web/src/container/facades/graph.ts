@@ -17,6 +17,7 @@ import type {
 } from "@weaveforge/core";
 import type { IGraphSettingsRepository, GraphPersistedState } from "@weaveforge/core";
 import type { RemoveRelationUseCase } from "@weaveforge/core";
+import { buildListMembership, paperIdOfItem } from "@weaveforge/core";
 
 export interface GraphScreenData {
   papers: Paper[];
@@ -54,10 +55,7 @@ export class GraphFacade {
       this.deps.lists.list(),
     ]);
     const items = await this.deps.listItems.listItemsForLists(lists.map((l) => l.id));
-    const membership = new Map<string, Set<string>>(lists.map((l) => [l.id, new Set<string>()]));
-    for (const it of items) {
-      if (it.paperId) membership.get(it.listId)?.add(it.paperId);
-    }
+    const membership = buildListMembership(lists, items, paperIdOfItem);
     return { papers, notes, sections, relations, lists, membership };
   }
 

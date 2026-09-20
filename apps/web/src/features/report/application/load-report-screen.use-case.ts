@@ -4,7 +4,7 @@ import type {
   IShareRepository,
   ReportSection,
 } from "@weaveforge/core";
-import { buildSectionTree, mergePinnedScreenData } from "@weaveforge/core";
+import { buildSectionTree, loadPinnedScreenData } from "@weaveforge/core";
 import type { ReportSectionTreeNode } from "@weaveforge/core";
 
 export interface ReportScreenData {
@@ -25,17 +25,11 @@ export class LoadReportScreenUseCase {
   ) {}
 
   async execute(): Promise<ReportScreenData> {
-    const [owned, pins, shares] = await Promise.all([
-      this.deps.sections.list(),
-      this.deps.pins?.listForProject() ?? Promise.resolve([]),
-      this.deps.shares?.listSharedWithMe("report_section") ?? Promise.resolve([]),
-    ]);
+    const owned = await this.deps.sections.list();
 
-    const merged = await mergePinnedScreenData({
+    const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "report_section",
       owned,
-      pins,
-      shares,
       loadById: (id) => this.deps.sections.getById(id),
     });
 

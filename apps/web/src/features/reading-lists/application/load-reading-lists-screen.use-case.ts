@@ -1,6 +1,6 @@
 import {
   buildListTree,
-  mergePinnedScreenData,
+  loadPinnedScreenData,
   type IPaperRepository,
   type IReadingListRepository,
   type IShareRepository,
@@ -33,19 +33,15 @@ export class LoadReadingListsScreenUseCase {
   ) {}
 
   async execute(): Promise<ReadingListsScreenData> {
-    const [owned, papers, notes, pins, shares] = await Promise.all([
+    const [owned, papers, notes] = await Promise.all([
       this.deps.lists.list(),
       this.deps.papers.list(),
       this.deps.notes.list(),
-      this.deps.pins?.listForProject() ?? Promise.resolve([]),
-      this.deps.shares?.listSharedWithMe("reading_list") ?? Promise.resolve([]),
     ]);
 
-    const merged = await mergePinnedScreenData({
+    const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "reading_list",
       owned,
-      pins,
-      shares,
       loadById: (id) => this.deps.lists.getById(id),
     });
 

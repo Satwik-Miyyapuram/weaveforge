@@ -8,4 +8,5 @@ export * from "./domain/reading-list-repository.js";
 export * from "./domain/screening.js";
 export * from "./domain/screening-repository.js";
 export * from "./application/screen-items.use-case.js";
+export * from "./application/list-membership.js";
 export * from "./application/manage-reading-list.use-case.js";

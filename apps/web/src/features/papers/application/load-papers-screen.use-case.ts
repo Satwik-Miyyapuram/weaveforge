@@ -7,7 +7,11 @@ import type {
   PaperSummary,
   ReadingList,
 } from "@weaveforge/core";
-import { mergePinnedScreenData } from "@weaveforge/core";
+import {
+  buildListMembership,
+  loadPinnedScreenData,
+  paperIdOfItem,
+} from "@weaveforge/core";
 
 export interface PapersScreenData {
   /**
@@ -37,26 +41,19 @@ export class LoadPapersScreenUseCase {
   ) {}
 
   async execute(): Promise<PapersScreenData> {
-    const [papers, lists, pins, shares] = await Promise.all([
+    const [papers, lists] = await Promise.all([
       // The card projection, required on the port. The `?? list()` fallback that
       // stood here is what pulled every abstract and metadata bag into a list
       // render, on the screens that paint neither.
       this.deps.papers.listSummaries(),
       this.deps.lists.list(),
-      this.deps.pins?.listForProject() ?? Promise.resolve([]),
-      this.deps.shares?.listSharedWithMe("paper") ?? Promise.resolve([]),
     ]);
     const items = await this.deps.listItems.listItemsForLists(lists.map((l) => l.id));
-    const membership = new Map<string, Set<string>>(lists.map((l) => [l.id, new Set<string>()]));
-    for (const it of items) {
-      if (it.paperId) membership.get(it.listId)?.add(it.paperId);
-    }
+    const membership = buildListMembership(lists, items, paperIdOfItem);
 
-    const merged = await mergePinnedScreenData({
+    const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "paper",
       owned: papers,
-      pins,
-      shares,
       loadById: (id) => this.deps.papers.getById(id),
     });
 

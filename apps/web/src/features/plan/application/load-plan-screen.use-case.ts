@@ -8,7 +8,7 @@ import type {
   Milestone,
   Paper,
 } from "@weaveforge/core";
-import { mergePinnedScreenData } from "@weaveforge/core";
+import { loadPinnedScreenData } from "@weaveforge/core";
 
 export interface PlanScreenData {
   milestones: Milestone[];
@@ -30,19 +30,15 @@ export class LoadPlanScreenUseCase {
   ) {}
 
   async execute(): Promise<PlanScreenData> {
-    const [owned, papers, experiments, pins, shares] = await Promise.all([
+    const [owned, papers, experiments] = await Promise.all([
       this.deps.milestones.list(),
       this.deps.papers.list(),
       this.deps.experiments.list(),
-      this.deps.pins?.listForProject() ?? Promise.resolve([]),
-      this.deps.shares?.listSharedWithMe("milestone") ?? Promise.resolve([]),
     ]);
 
-    const merged = await mergePinnedScreenData({
+    const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "milestone",
       owned,
-      pins,
-      shares,
       loadById: (id) => this.deps.milestones.getById(id),
     });
 

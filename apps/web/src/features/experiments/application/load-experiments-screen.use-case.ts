@@ -4,7 +4,7 @@ import type {
   ILibraryPinRepository,
   IShareRepository,
 } from "@weaveforge/core";
-import { mergePinnedScreenData } from "@weaveforge/core";
+import { loadPinnedScreenData } from "@weaveforge/core";
 
 export interface ExperimentsScreenData {
   experiments: Experiment[];
@@ -22,17 +22,11 @@ export class LoadExperimentsScreenUseCase {
   ) {}
 
   async execute(): Promise<ExperimentsScreenData> {
-    const [owned, pins, shares] = await Promise.all([
-      this.deps.experiments.list(),
-      this.deps.pins?.listForProject() ?? Promise.resolve([]),
-      this.deps.shares?.listSharedWithMe("experiment") ?? Promise.resolve([]),
-    ]);
+    const owned = await this.deps.experiments.list();
 
-    const merged = await mergePinnedScreenData({
+    const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "experiment",
       owned,
-      pins,
-      shares,
       loadById: (id) => this.deps.experiments.getById(id),
     });
 
