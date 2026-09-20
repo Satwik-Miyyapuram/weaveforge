@@ -53,15 +53,40 @@ export function sdkDbForUserToken(token: string) {
  * resolved through an RPC everywhere in this schema; it is a function of its
  * own so that one edit cannot weaken both halves of the check at once.
  */
+/**
+ * The service-role client, built once per configuration.
+ *
+ * `createRestClient` sets up auth state, a realtime channel map and a fetch
+ * wrapper. Building one per request is wasted work on a route that is in front
+ * of every SDK call, and the Python SDK's metric flush pays it each time.
+ *
+ * Keyed to the URL and key it was built from rather than cached unconditionally:
+ * `client.ts` documents that these clients carry per-request credentials and are
+ * not singletons, and the tests point the environment at a stub per case — a
+ * cache that ignored the config would keep talking to whichever database was
+ * configured first.
+ */
+let cachedAdmin: { key: string; client: ReturnType<typeof createRestClient> } | null = null;
+
+function adminClientFor(cfg: { supabaseUrl?: string; supabaseServiceRoleKey?: string }) {
+  const key = `${cfg.supabaseUrl}\u0000${cfg.supabaseServiceRoleKey}`;
+  if (cachedAdmin?.key !== key) {
+    cachedAdmin = {
+      key,
+      client: createRestClient(cfg.supabaseUrl!, cfg.supabaseServiceRoleKey!, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      }),
+    };
+  }
+  return cachedAdmin.client;
+}
+
 async function apiTokenScopes(token: string): Promise<string[]> {
   const cfg = readBackendConfig();
   if (!cfg.supabaseUrl || !cfg.supabaseServiceRoleKey) {
     throw new Error("Missing server config for API token scope resolution.");
   }
-  const admin = createRestClient(cfg.supabaseUrl, cfg.supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
-  const { data, error } = await admin.rpc("api_token_scopes", {
+  const { data, error } = await adminClientFor(cfg).rpc("api_token_scopes", {
     p_token_hash: encodeBytea(hashApiToken(token)),
   });
   // Thrown rather than treated as "no scopes": an unreachable database is an
