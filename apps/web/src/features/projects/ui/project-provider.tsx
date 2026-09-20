@@ -13,7 +13,7 @@ import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 
 const STORAGE_KEY = "thesis.projectId";
 
-interface ProjectState {
+export interface ProjectState {
   projects: Project[];
   current: Project | null;
   loading: boolean;
@@ -21,7 +21,15 @@ interface ProjectState {
   refresh: () => Promise<Project[]>;
 }
 
-const Ctx = createContext<ProjectState | null>(null);
+/**
+ * Exported for tests. `useProject` throws outside a provider, but the provider
+ * itself reaches for the container — so a hook test that only needs a project
+ * id (the screen-data hook does) would otherwise have to build an application
+ * to render one hook. Wrapping the probe in this context is the honest
+ * smaller dependency: the test is asserting what the hook does with a project,
+ * not how a project is chosen.
+ */
+export const ProjectContext = createContext<ProjectState | null>(null);
 
 /**
  * Holds the list of projects and the current selection. Selecting a project
@@ -68,14 +76,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const current = projects.find((p) => p.id === currentId) ?? null;
 
   return (
-    <Ctx.Provider value={{ projects, current, loading, setProject: apply, refresh }}>
+    <ProjectContext.Provider value={{ projects, current, loading, setProject: apply, refresh }}>
       {children}
-    </Ctx.Provider>
+    </ProjectContext.Provider>
   );
 }
 
 export function useProject(): ProjectState {
-  const c = useContext(Ctx);
+  const c = useContext(ProjectContext);
   if (!c) throw new Error("useProject must be used within a ProjectProvider.");
   return c;
 }
