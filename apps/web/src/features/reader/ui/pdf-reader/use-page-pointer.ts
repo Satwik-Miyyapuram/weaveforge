@@ -306,7 +306,10 @@ export function usePagePointer({
       erasedIds.current.add(ann.id);
       // A stroke being erased must not also be the group the next stroke joins.
       if (inkGroup.current?.annotationId === ann.id) inkGroup.current = null;
-      void removeLocal(ann.id, { confirm: false });
+      // No confirmation, and none offered: rubbing out a word is a dozen marks
+      // in one drag, and a dialog per stroke would make the eraser unusable.
+      // The gesture is already deliberate, and ink undo puts it back.
+      void removeLocal(ann.id);
     }
   }
 

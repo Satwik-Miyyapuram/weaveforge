@@ -4,9 +4,11 @@
  *
  * Parses each theme selector block, resolves the raw color tokens it defines
  * (hex only — color-mix()/var() aliases are skipped), and checks the key
- * text/surface pairs the UI actually renders. Themes that omit a raw token
- * inherit it from the default light `:root` (Paper) base, matching how the
- * cascade behaves at runtime.
+ * text/surface pairs the UI actually renders — body, muted and faint copy, the
+ * accent button, and the semantic status ramp both on its own tint (the pills)
+ * and straight on the page (chips, icon tints, the status bar). Themes that
+ * omit a raw token inherit it from the default light `:root` (Paper) base,
+ * matching how the cascade behaves at runtime.
  *
  * Usage:  node scripts/contrast-audit.mjs
  * Exit code 1 if any normal-text pair falls below AA (4.5:1).
@@ -76,14 +78,42 @@ const blocks = parseThemes(css);
 // first block that actually defines --bg.
 const base = blocks.find((b) => b.tokens["--bg"])?.tokens ?? {};
 
+/**
+ * The semantic status ramp, which `themes/common.css` aliases onto the pill
+ * families (`--st-positive-fg: var(--s-good)`, and so on).
+ *
+ * Checked as *text*, at 4.5:1, because that is what it is: `entity-detail.css`
+ * renders `.status-*` pills as `color: var(--st-*-fg)` on `var(--st-*-bg)` at
+ * `font-size: 0.72rem`, and the same ramp is the text colour of the git chip
+ * (`git.css`), the explorer's dirty/untracked marks and the status bar's save
+ * state (`editor-workspace.css`). It was not in this list until a design audit
+ * asked what the script left unmeasured; eleven of the fourteen themes were
+ * below AA on it, three of them below 2:1.
+ */
+const RAMP = ["neutral", "info", "good", "warn", "danger", "mute"];
+
 // Pairs the UI renders: [foreground token, background token, label, largeText?]
 const PAIRS = [
   ["--text", "--bg", "body text on bg"],
   ["--muted", "--bg", "muted text on bg"],
   ["--muted", "--surface2", "muted on row/chip"],
+  /* `--faint` at the 3:1 large-text bar, which is the bar this script has
+     always applied and the one every theme now clears. It is the honest bar
+     for the decorative uses — the pitch's SVG card notes, a dimmed macro — and
+     it is *not* the honest bar for the small text that also wears it
+     (`.rowNote` at 0.78rem, an input placeholder), where WCAG wants 4.5:1.
+     Raising the token to 4.5:1 would put it within a step of `--muted` in
+     nine themes and collapse the hierarchy the ramp exists to express, so
+     that is a design decision rather than a contrast fix, and it is recorded
+     as open in docs/internal/reports/redesign-audit-fixes.md instead of being
+     silently settled here. */
   ["--faint", "--bg", "faint text on bg", true], // decorative → 3:1 bar
   ["--accent-fg", "--accent", "button label on accent"],
   ["--accent", "--bg", "accent-as-text on bg"],
+  // Status pills: the ramp on its own tint.
+  ...RAMP.map((k) => [`--s-${k}`, `--s-${k}-bg`, `status ${k} on tint`]),
+  // The same ramp as text straight on the page: chips, icon tints, status bar.
+  ...RAMP.map((k) => [`--s-${k}`, "--bg", `status ${k} on bg`]),
 ];
 
 let failures = 0;

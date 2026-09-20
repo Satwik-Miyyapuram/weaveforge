@@ -1634,7 +1634,7 @@
   font-size: 0.78rem;
   cursor: pointer;
   user-select: none;
-  transition: all 0.15s ease;
+  transition: all var(--dur-base) ease;
 }
 
 .ink-tool:hover {
@@ -1780,7 +1780,7 @@
   border-radius: 50%;
   border: 1.5px solid var(--border-strong);
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform var(--dur-base) ease, box-shadow var(--dur-base) ease;
   flex-shrink: 0;
 }
 
@@ -1886,7 +1886,7 @@
   opacity: 0;
   pointer-events: auto;
   cursor: default;
-  transition: opacity 0.25s ease, width 0.15s ease, background 0.15s ease;
+  transition: opacity 0.25s ease, width var(--dur-base) ease, background var(--dur-base) ease;
 }
 
 .overlay-scrollbar-track.is-visible .overlay-scrollbar-thumb,
@@ -1976,7 +1976,7 @@
   border-radius: 2px;
   box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
   background: var(--surface);
-  transition: outline 0.15s ease;
+  transition: outline var(--dur-base) ease;
 }
 .ink-sheet.is-drag-over {
   outline: 2px dashed var(--accent);

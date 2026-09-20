@@ -13,14 +13,14 @@
   --border-strong: #d3ccb9;
   --text: #2b2924;
   --muted: #6b6659;
-  --faint: #9a9384;
+  --faint: #918a79;
   --accent: #3b5b8c;
   --accent-fg: #ffffff;
   --accent-soft: #e7edf5;
   --s-neutral: #6b6659;  --s-neutral-bg: #eceae2;
   --s-info: #2f6f8f;     --s-info-bg: #e2eef2;
-  --s-good: #3f7a52;     --s-good-bg: #e4efe6;
-  --s-warn: #a6742a;     --s-warn-bg: #f3ebdc;
+  --s-good: #3d7650;     --s-good-bg: #e4efe6;
+  --s-warn: #8d6224;     --s-warn-bg: #f3ebdc;
   --s-danger: #a4443a;   --s-danger-bg: #f3e2df;
-  --s-mute: #8a8478;     --s-mute-bg: #ecebe4;
+  --s-mute: #6e6a60;     --s-mute-bg: #ecebe4;
 }

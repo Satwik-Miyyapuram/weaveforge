@@ -151,7 +151,7 @@
   margin-left: auto;
   color: var(--muted);
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+  transition: opacity var(--dur-base), color var(--dur-base), background var(--dur-base), border-color var(--dur-base);
 }
 .list-item-remove:hover { color: var(--danger); }
 .list-paper-row:hover .list-item-remove,

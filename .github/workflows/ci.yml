@@ -155,6 +155,14 @@ jobs:
         if: always()
         run: npm run check:ui
 
+      # WCAG AA for every theme, computed rather than eyeballed: the semantic
+      # ramp is text at 0.72rem on its own tint, and eleven of the fourteen
+      # palettes were below the bar before this ran anywhere.
+      - name: check:contrast
+        id: gate_contrast
+        if: always()
+        run: npm run check:contrast
+
       - name: check:hygiene
         id: gate_hygiene
         if: always()
@@ -191,6 +199,7 @@ jobs:
           check "check:dry"             "${{ steps.gate_dry.outcome }}"
           check "check:api-route-tests" "${{ steps.gate_routes.outcome }}"
           check "check:ui"              "${{ steps.gate_ui.outcome }}"
+          check "check:contrast"        "${{ steps.gate_contrast.outcome }}"
           check "check:hygiene"         "${{ steps.gate_hygiene.outcome }}"
           check "check:mcp-plugin"      "${{ steps.gate_mcp.outcome }}"
           check "check:docs"            "${{ steps.gate_docs.outcome }}"
@@ -198,7 +207,7 @@ jobs:
             echo "::error::boundary gate(s) did not pass:$failed"
             exit 1
           fi
-          echo "all seven boundary gates passed"
+          echo "all eight boundary gates passed"
 
       - name: Lint Web App
         run: npm run lint --workspace @weaveforge/web

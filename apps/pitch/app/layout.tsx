@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { FONT_VARIABLES } from "@/app/fonts";
 import "@/app/globals.css";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
+import { pitchShareMetadata } from "@/app/pitch/share-card";
 
 /**
  * Root document for the exported pitch site.
@@ -20,42 +21,20 @@ const basePath = process.env.BASE_PATH ?? "";
  * Not a guess: `scripts/copy-assets.mjs` writes the CNAME GitHub Pages serves
  * from (`PAGES_DOMAIN`, default www.weaveforge.org), and the Pages workflow
  * builds with `BASE_PATH: ""` precisely because the site sits at the root of
- * that domain. `metadataBase` is also what lets every image URL below stay
- * relative, which is what keeps them correct under a non-empty `BASE_PATH`.
+ * that domain. It becomes the card's `metadataBase`, which is what lets the
+ * image URLs in `@/app/pitch/share-card` stay relative — and relative is what
+ * keeps them correct under a non-empty `BASE_PATH`.
  */
 const SITE_URL = "https://www.weaveforge.org";
 
-const TITLE = "WeaveForge — one workspace for research";
-const DESCRIPTION =
-  "Papers, notes, plan, experiments and writing in one project, so the reasoning behind your research survives the years it takes to do it.";
-
+/**
+ * Title, description and the whole Open Graph / Twitter block come from the
+ * pitch's own module, shared with the copy of this page the app serves at
+ * `/pitch`. Two hosts, one card — see `@/app/pitch/share-card`.
+ */
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: TITLE,
-  description: DESCRIPTION,
+  ...pitchShareMetadata({ origin: SITE_URL, basePath }),
   icons: { icon: `${basePath}/icons/weave_forge.svg` },
-  openGraph: {
-    type: "website",
-    siteName: "WeaveForge",
-    locale: "en",
-    url: `${basePath}/`,
-    title: TITLE,
-    description: DESCRIPTION,
-    images: [
-      {
-        url: `${basePath}/og.png`,
-        width: 1200,
-        height: 630,
-        alt: "WeaveForge — one workspace for research.",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: TITLE,
-    description: DESCRIPTION,
-    images: [`${basePath}/og.png`],
-  },
 };
 
 export const viewport: Viewport = {

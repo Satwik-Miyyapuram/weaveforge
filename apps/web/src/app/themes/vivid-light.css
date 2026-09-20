@@ -12,11 +12,11 @@
   --accent: #7c3aed;
   --accent-fg: #ffffff;
   --accent-soft: #ede9fe;
-  --s-neutral: #64748b;  --s-neutral-bg: #e2e8f0;
-  --s-info: #0284c7;     --s-info-bg: #bae6fd;
-  --s-good: #059669;     --s-good-bg: #a7f3d0;
-  --s-warn: #d97706;     --s-warn-bg: #fde68a;
-  --s-danger: #dc2626;   --s-danger-bg: #fecaca;
+  --s-neutral: #5b697e;  --s-neutral-bg: #e2e8f0;
+  --s-info: #02689e;     --s-info-bg: #bae6fd;
+  --s-good: #047452;     --s-good-bg: #a7f3d0;
+  --s-warn: #9c5604;     --s-warn-bg: #fde68a;
+  --s-danger: #b71e1e;   --s-danger-bg: #fecaca;
   --s-mute: #7c3aed;     --s-mute-bg: #ede9fe;
   --sel-ring: rgba(124, 58, 237, 0.22);
   --shadow:

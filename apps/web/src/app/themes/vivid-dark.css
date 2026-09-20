@@ -13,10 +13,10 @@
   --accent-fg: #0c0a1d;
   --accent-soft: #1e293b;
   --s-neutral: #94a3b8;  --s-neutral-bg: #1e293b;
-  --s-info: #38bdf8;     --s-info-bg: #0c4a6e;
+  --s-info: #3dbff8;     --s-info-bg: #0c4a6e;
   --s-good: #34d399;     --s-good-bg: #064e3b;
   --s-warn: #fbbf24;     --s-warn-bg: #78350f;
-  --s-danger: #f87171;   --s-danger-bg: #7f1d1d;
+  --s-danger: #fa9090;   --s-danger-bg: #7f1d1d;
   --s-mute: #a78bfa;     --s-mute-bg: #2e1065;
   --sel-ring: rgba(34, 211, 238, 0.28);
   --shadow: 0 1px 3px rgba(124, 58, 237, 0.35), 0 12px 32px rgba(34, 211, 238, 0.12);

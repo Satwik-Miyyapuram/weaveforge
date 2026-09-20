@@ -56,9 +56,17 @@
 }
 
 :root[data-motion="reactive"] {
-  --rm-fast: calc(0.14s * var(--motion-scale));
-  --rm-base: calc(0.26s * var(--motion-scale));
-  --rm-slow: calc(0.52s * var(--motion-scale));
+  /* Derived from the app's own duration token rather than written out, which
+     is what `--motion-scale` needs: it multiplies once, here, and reaches all
+     three values. The reactive layer is a flourish rather than feedback, so it
+     stays deliberately slower than a press — base and slow are multiples of
+     fast instead of equal to it, and the ramp keeps its shape. The numbers
+     this produces are 150 / 262 / 525 ms against the 140 / 260 / 520 it
+     replaces: two of the three are unchanged to within a percent, and the one
+     that moved, moved by ten milliseconds. */
+  --rm-fast: calc(var(--dur-fast) * var(--motion-scale));
+  --rm-base: calc(var(--rm-fast) * 1.75);
+  --rm-slow: calc(var(--rm-fast) * 3.5);
   /* Tilt is deliberately small. Past ~4deg a card stops reading as a surface
      catching the light and starts reading as a toy. */
   --rm-tilt: 3.2deg;
