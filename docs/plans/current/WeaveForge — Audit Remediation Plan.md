@@ -453,4 +453,16 @@ Phase 1 carries the most findings because so many of them are one-file changes; 
 
 Known gaps after Phase 1, recorded rather than hidden: the Zotero push rule and the composition root still have no direct test (Phases 3 and 6); `safe-fetch`'s socket behaviour is not observable through the existing fetch stub; `check:docs` was stale before this work.
 
-Baseline: `npm run test:core` → 1214 pass / 0 fail. After Phase 1: core 1227+, web 1437+, python 84 (3 skipped); typecheck, lint and every boundary gate except the pre-existing `check:docs` drift are green.
+Baseline: `npm run test:core` → 1214 pass / 0 fail.
+
+After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests and a real `next build`:
+
+| Suite | Before | After |
+|---|---|---|
+| core | 1214 | 1231 |
+| web | 1428 | 1439 |
+| pglite integration | 20 | 20 |
+| desktop | 237 | 237 |
+| python (`pytest`) | 76 | 84 (+3 skipped) |
+
+One thing it needs: `npm run docs:generate`, because the generated line counts in `docs/building/architecture-map.md` move with every source commit — including the commits that fix things. That is why `check:all` was red before any of this work started.
