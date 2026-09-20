@@ -47,7 +47,7 @@ stays a Zotero annotation.
   `packages/core/src/ink/width.ts` (the ink note's nib set),
   `apps/web/src/features/editor-workspace/application/pane-tree.ts`
   (`splitPane`, `openTab`, `setTabMode`, `DocumentMode`) and
-  `apps/web/src/features/editor-workspace/application/kind.ts`.
+  `apps/web/src/features/editor-workspace/ui/kind.ts`.
 - Pure logic goes in `packages/core` with tests under `packages/core/test/`;
   hooks and components in `apps/web`. Nothing over 800 lines
   (`npm run check:hygiene`); split into sibling modules.
