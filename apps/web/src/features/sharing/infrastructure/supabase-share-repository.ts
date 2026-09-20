@@ -19,6 +19,14 @@ import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
  * touches the caller's own rows (RLS `shares_owner_all`), which sidesteps the
  * NULL-resource_id unique-index edge case an upsert would hit.
  */
+/**
+ * The columns a ShareRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const SHARE_COLUMNS = "id,owner_id,recipient_id,resource_type,resource_id,access,created_at";
+
 const TABLE = "shares";
 
 export class SupabaseShareRepository implements IShareRepository {
@@ -49,7 +57,7 @@ export class SupabaseShareRepository implements IShareRepository {
         resource_id: input.resourceId,
         access: input.access ?? "comment",
       })
-      .select("*")
+      .select(SHARE_COLUMNS)
       .single());
     return toDomain(dbRow);
   }

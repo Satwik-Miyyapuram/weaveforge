@@ -421,7 +421,7 @@ Every one of the 88 findings is assigned to exactly one phase below, and the cou
 | 4 — contracts & types | 10 | 9 | **done** |
 | 5 — lifecycle & memory | 7 | 7 | **done** |
 | 6 — structural decomposition | 7 (+`PERF-04`) | 7 (+1 latent bug) | **done** |
-| 7 — guardrails, hardening, docs | 8 | 6 | not started |
+| 7 — guardrails, hardening, docs | 8 | 6 | **in progress** — the gates and the docs corrections landed; `SEC-02`/`SEC-05`/`SEC-06`, the bundle budget and the CI list remain |
 | 8 — decisions | 10 | 1 (plus 7 refuted / won't-fix recorded) | open questions |
 
 Phase 1 carries the most findings because so many of them are one-file changes; Phase 0 carries none, but it is why the rest are verifiable at all.
@@ -571,6 +571,23 @@ Baseline: `npm run test:core` → 1214 pass / 0 fail.
 **One recurring cost worth naming.** Hand-rolled test fakes of `IPaperRepository` have now broken twice on a port change (`manage-vault-page` in Phase 4, `manage-relations` here), both times at runtime rather than compile time, because core's tests are not type-checked. Both were replaced with the shipped in-memory repository. If a third appears, the fix is to type-check core's tests rather than to write another fake.
 
 Baseline: `npm run test:core` → 1214 pass / 0 fail.
+
+### Phase 7 — what has landed so far
+
+| Item | How it was closed |
+|---|---|
+| Facade size ceiling | `check:solid` now measures each facade's members and constructor dependencies **with the TypeScript parser** and fails past a per-file limit. `PapersFacade` had reached 39 members and nothing stopped it one method at a time; `ai-assistant.ts` is at 39 today, so its limit is its current size — a ratchet that may only come down. The first draft of this rule counted indentation and read `dashboard.ts` as one member and twenty-two dependencies |
+| `select("*")` rule | `check:dry` bans a starred projection in any adapter. Its first run found **45 sites across 17 adapters** — the house style, not one finding. Eighteen are fixed; the rest are a counted ratchet (see the debt note below) |
+| Docs: the E2EE claim | `README.md` said no migration removes the E2EE key tables. `0099_drop_e2ee_schema.sql` drops all seven, and has since it was written |
+| Docs: the migration table | `supabase/migrations/README.md` stopped at `0094` while the chain runs to `0131`. Every migration from `0095` is in the table now |
+| Docs: what the chain is for | The same README described this folder as "your hosted Supabase project". The deployment is **self-hosted Postgres + PostgREST + Realtime on OCI with MinIO blobs** — this chain is the database in both cases, with `migrations-self-hosted-postgres/` applied first on OCI, and Supabase Auth issuing the tokens either way |
+| Docs: migration numbers | `_shared.ts` cited "0072 and 0130" for the scope-filtering RPCs; `resolve_api_token` gained its filter and `api_token_scopes()` was created in **0129** |
+| `ARCH-04` rule and widened gate roots | Landed in Phase 4, and they are what this item asked for |
+| Registry-consistency test | Landed in Phase 4 (`lib/test/screens.test.ts`) |
+
+**Debt taken on, counted rather than hidden.** Twenty-seven `select("*")` sites remain across sixteen adapters, listed by file and count in `check-dry.mjs`. They are the reads whose row type is named by a mapper a few lines away rather than at the call, so each needs a person; the gate now forbids a new one and forbids any of those counts rising.
+
+**Two corrections the deployment reality forced.** `0131`'s comment and the OCI compose both compare row caps against "the hosted Supabase platform's 1000" — true as a comparison, and on the self-hosted stack `db-max-rows` is deliberately unset (unlimited), which is why the metric reads were made correct under *either* setting rather than tuned to one. And the removal of `signedImageUrls` stands: presigning is alive for vault assets, experiment artifacts and the batched route, and the paper editors reach it *through* `fetchImageBlobs`, which mints the URL and fetches through it.
 
 After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests and a real `next build`:
 

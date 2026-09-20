@@ -3,6 +3,14 @@ import type { CrdtUpdateRecord, ICrdtUpdateStore } from "@weaveforge/core";
 import { decodeBytea, encodeBytea } from "@/lib/bytea.js";
 import { oneRow, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a CrdtRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const CRDT_COLUMNS = "id,resource_type,resource_id,project_id,epoch,payload,author_id,created_at";
+
 const TABLE = "crdt_updates";
 
 interface CrdtRow {
@@ -50,7 +58,7 @@ export class SupabaseCrdtUpdateStore implements ICrdtUpdateStore {
         payload: encodeBytea(input.payload),
         author_id: input.authorId,
       })
-      .select("*")
+      .select(CRDT_COLUMNS)
       .single());
     return mapRow(dbRow);
   }

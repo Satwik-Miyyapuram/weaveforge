@@ -21,6 +21,14 @@ import {
 import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
 import { rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a OrgRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const ORG_COLUMNS = "id,name,owner_id,created_at";
+
 interface CodeRow {
   id: string;
   org_id: string;
@@ -261,7 +269,7 @@ export class OrgInviteService {
   async listOwnedOrganizations(userId: string): Promise<Organization[]> {
     return (await rows<OrgRow>(this.admin()
       .from("organizations")
-      .select("*")
+      .select(ORG_COLUMNS)
       .eq("owner_id", userId)
       .order("created_at", { ascending: true }))).map(toOrg);
   }

@@ -6,6 +6,14 @@ import {
 } from "./project-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a ProjectRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const PROJECT_COLUMNS = "id,name,color,created_at";
+
 const TABLE = "projects";
 
 export class SupabaseProjectRepository implements IProjectRepository {
@@ -19,7 +27,7 @@ export class SupabaseProjectRepository implements IProjectRepository {
     return row ? toDomain(row) : null;
   }
   async list(): Promise<Project[]> {
-    return (await rows<ProjectRow>(this.db.from(TABLE).select("*").order("created_at"))).map(toDomain);
+    return (await rows<ProjectRow>(this.db.from(TABLE).select(PROJECT_COLUMNS).order("created_at"))).map(toDomain);
   }
   async save(entity: Project): Promise<void> {
     const userId = await this.session.getCurrentUserId();

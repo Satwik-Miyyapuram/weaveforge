@@ -17,6 +17,14 @@ import { one, rows, run } from "@/backend/providers/supabase/row-access";
 import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 /** Ids per `in (...)` request; the list travels in the URL. */
+/**
+ * The columns a VaultPageRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,sort_order,created_at,updated_at";
+
 const ID_CHUNK = 200;
 
 const TABLE = "vault_pages";
@@ -29,7 +37,7 @@ export class SupabaseVaultPageRepository extends ProjectRepository implements IV
 
   async getById(id: string): Promise<VaultPage | null> {
     const row = await one<VaultPageRow>(
-      this.scoped(this.db.from(TABLE).select("*")).eq("id", id).maybeSingle(),
+      this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS)).eq("id", id).maybeSingle(),
     );
     return row ? toDomain(row) : null;
   }
@@ -59,7 +67,7 @@ export class SupabaseVaultPageRepository extends ProjectRepository implements IV
     const pages = await Promise.all(
       chunks.map((chunk) =>
         rows<VaultPageRow>(
-          this.scoped(this.db.from(TABLE).select("*"))
+          this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS))
             .in("id", chunk)
             .order("id", { ascending: true }),
         ),

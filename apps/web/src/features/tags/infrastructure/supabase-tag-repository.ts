@@ -16,13 +16,29 @@ import {
 import { one, rows, run } from "@/backend/providers/supabase/row-access";
 import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
+/**
+ * The columns a TagRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+/**
+ * The columns a PaperTagRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const PAPER_TAG_COLUMNS = "paper_id,tag_id,source,annotation_ref";
+
+const TAG_COLUMNS = "id,name,color";
+
 const TAGS = "tags";
 const PAPER_TAGS = "paper_tags";
 
 export class SupabaseTagRepository extends ProjectRepository implements ITagRepository {
 
   async getById(id: string): Promise<Tag | null> {
-    const row = await one<TagRow>(this.db.from(TAGS).select("*").eq("id", id).maybeSingle());
+    const row = await one<TagRow>(this.db.from(TAGS).select(TAG_COLUMNS).eq("id", id).maybeSingle());
     return row ? toTagDomain(row) : null;
   }
 
@@ -70,15 +86,15 @@ export class SupabasePaperTagRepository implements IPaperTagRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async listForPaper(paperId: string): Promise<PaperTag[]> {
-    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select("*").eq("paper_id", paperId))).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS).eq("paper_id", paperId))).map(toPaperTagDomain);
   }
 
   async listForTag(tagId: string): Promise<PaperTag[]> {
-    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select("*").eq("tag_id", tagId))).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS).eq("tag_id", tagId))).map(toPaperTagDomain);
   }
 
   async listAll(): Promise<PaperTag[]> {
-    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select("*"))).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS))).map(toPaperTagDomain);
   }
 
   async link(link: PaperTag): Promise<void> {

@@ -37,7 +37,7 @@ export function sdkDbForUserToken(token: string) {
  *
  * This is the application half of the scope check. The database half is
  * `resolve_api_token` / `resolve_mcp_relay_token`, which filter on scope
- * themselves (migrations 0072 and 0130); this exists because a `create or
+ * themselves (migrations 0072 and 0129); this exists because a `create or
  * replace` swaps a function's whole body, so a future edit that drops the
  * `scopes` predicate would re-open the seam silently — and the symptom is a
  * relay token, handed to third-party MCP software by design, also

@@ -13,6 +13,14 @@ import {
 } from "./citation-alert-track-rows";
 import { one, oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a TrackRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const TRACK_COLUMNS = "id,paper_id,tracked_at,last_checked_at,seen_citing_ids";
+
 const TABLE = "citation_alert_tracks";
 
 export class SupabaseCitationAlertTrackRepository extends ProjectScopedSupabaseRepository implements ICitationAlertTrackRepository {
@@ -32,7 +40,7 @@ export class SupabaseCitationAlertTrackRepository extends ProjectScopedSupabaseR
         },
         { onConflict: "project_id,paper_id" },
       )
-      .select("*")
+      .select(TRACK_COLUMNS)
       .single());
     return toDomain(dbRow);
   }
@@ -50,7 +58,7 @@ export class SupabaseCitationAlertTrackRepository extends ProjectScopedSupabaseR
     if (!projectId) return [];
     return (await rows<TrackRow>(this.db
       .from(TABLE)
-      .select("*")
+      .select(TRACK_COLUMNS)
       .eq("project_id", projectId)
       .order("tracked_at", { ascending: false }))).map(toDomain);
   }
@@ -60,7 +68,7 @@ export class SupabaseCitationAlertTrackRepository extends ProjectScopedSupabaseR
     if (!projectId) return null;
     const row = await one<TrackRow>(this.db
       .from(TABLE)
-      .select("*")
+      .select(TRACK_COLUMNS)
       .eq("project_id", projectId)
       .eq("paper_id", paperId)
       .maybeSingle());

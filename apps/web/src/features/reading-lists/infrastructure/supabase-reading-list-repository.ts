@@ -27,6 +27,22 @@ import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-r
  * must pass the same contract suites.
  */
 
+/**
+ * The columns a ReadingListRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+/**
+ * The columns a ReadingListItemRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const READING_LIST_ITEM_COLUMNS = "id,list_id,paper_id,vault_page_id,sort_order,note,inherited_from_list_id,duplicate_of_item_id";
+
+const READING_LIST_COLUMNS = "id,name,description,parent_id,sort_order,color,created_at";
+
 const LISTS = "reading_lists";
 const ITEMS = "reading_list_items";
 
@@ -35,7 +51,7 @@ export class SupabaseReadingListRepository extends ProjectRepository implements 
   async getById(id: string): Promise<ReadingList | null> {
     const row = await one<ReadingListRow>(this.db
       .from(LISTS)
-      .select("*")
+      .select(READING_LIST_COLUMNS)
       .eq("id", id)
       .maybeSingle());
     return row ? toListDomain(row) : null;
@@ -84,7 +100,7 @@ export class SupabaseReadingListItemRepository
   async listItems(listId: string): Promise<ReadingListItem[]> {
     return (await rows<ReadingListItemRow>(this.db
       .from(ITEMS)
-      .select("*")
+      .select(READING_LIST_ITEM_COLUMNS)
       .eq("list_id", listId)
       .order("sort_order", { ascending: true }))).map(toItemDomain);
   }
@@ -93,7 +109,7 @@ export class SupabaseReadingListItemRepository
     if (listIds.length === 0) return [];
     return (await rows<ReadingListItemRow>(this.db
       .from(ITEMS)
-      .select("*")
+      .select(READING_LIST_ITEM_COLUMNS)
       .in("list_id", listIds as string[])
       .order("sort_order", { ascending: true }))).map(toItemDomain);
   }
@@ -101,21 +117,21 @@ export class SupabaseReadingListItemRepository
   async listsForPaper(paperId: string): Promise<ReadingListItem[]> {
     return (await rows<ReadingListItemRow>(this.db
       .from(ITEMS)
-      .select("*")
+      .select(READING_LIST_ITEM_COLUMNS)
       .eq("paper_id", paperId))).map(toItemDomain);
   }
 
   async listsForNote(vaultPageId: string): Promise<ReadingListItem[]> {
     return (await rows<ReadingListItemRow>(this.db
       .from(ITEMS)
-      .select("*")
+      .select(READING_LIST_ITEM_COLUMNS)
       .eq("vault_page_id", vaultPageId))).map(toItemDomain);
   }
 
   async find(listId: string, paperId: string): Promise<ReadingListItem | null> {
     const row = await one<ReadingListItemRow>(this.db
       .from(ITEMS)
-      .select("*")
+      .select(READING_LIST_ITEM_COLUMNS)
       .eq("list_id", listId)
       .eq("paper_id", paperId)
       .maybeSingle());
@@ -125,7 +141,7 @@ export class SupabaseReadingListItemRepository
   async findNote(listId: string, vaultPageId: string): Promise<ReadingListItem | null> {
     const row = await one<ReadingListItemRow>(this.db
       .from(ITEMS)
-      .select("*")
+      .select(READING_LIST_ITEM_COLUMNS)
       .eq("list_id", listId)
       .eq("vault_page_id", vaultPageId)
       .maybeSingle());

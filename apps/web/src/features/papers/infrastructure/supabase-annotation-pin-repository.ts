@@ -13,6 +13,14 @@ import {
 } from "./annotation-pin-rows";
 import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a AnnotationPinRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const ANNOTATION_PIN_COLUMNS = "id,paper_id,annotation_key,report_section_id,created_at";
+
 const TABLE = "annotation_pins";
 
 export class SupabaseAnnotationPinRepository extends ProjectScopedSupabaseRepository implements IAnnotationPinRepository {
@@ -32,7 +40,7 @@ export class SupabaseAnnotationPinRepository extends ProjectScopedSupabaseReposi
         },
         { onConflict: "project_id,paper_id,annotation_key" },
       )
-      .select("*")
+      .select(ANNOTATION_PIN_COLUMNS)
       .single());
     return toDomain(dbRow);
   }

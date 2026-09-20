@@ -19,6 +19,14 @@ import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-r
  * suite as the in-memory repository.
  */
 
+/**
+ * The columns a PaperRelationRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const PAPER_RELATION_COLUMNS = "id,from_paper,to_paper,relation,note,source,created_at";
+
 const TABLE = "paper_relations";
 
 export class SupabasePaperRelationRepository extends ProjectRepository
@@ -59,7 +67,7 @@ export class SupabasePaperRelationRepository extends ProjectRepository
   ): Promise<PaperRelation | null> {
     const row = await one<PaperRelationRow>(this.db
       .from(TABLE)
-      .select("*")
+      .select(PAPER_RELATION_COLUMNS)
       .eq("from_paper", fromPaper)
       .eq("to_paper", toPaper)
       .eq("relation", relation)

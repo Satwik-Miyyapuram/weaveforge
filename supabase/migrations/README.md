@@ -1,15 +1,22 @@
-# Supabase Cloud migrations
+# Database migrations
 
-SQL in this folder runs on your **hosted Supabase project** (managed Postgres + Supabase Auth).
+The schema, in the order it was built. **This chain is the database**, and it is applied to
+every deployment — the hosted Supabase project and the self-hosted OCI stack alike.
 
-```bash
-supabase link
-supabase db push
-```
+- **Hosted Supabase** (managed Postgres + Supabase Auth + Supabase Storage):
+  `supabase link && supabase db push`, or paste the files into the SQL Editor in numeric order
+  (`0001`, `0002`, …).
+- **OCI / self-hosted** (Postgres 16 + PostgREST + MinIO; see `infra/oci/docker-compose.yml`):
+  apply [`../migrations-self-hosted-postgres/`](../migrations-self-hosted-postgres/) **first** —
+  it stubs the furniture a stock Postgres lacks (`auth.users`, `auth.uid()`, `storage.buckets`,
+  the `anon`/`authenticated`/`service_role` grants) — then this chain in order.
 
-Or paste individual files into the Supabase **SQL Editor** in numeric order (`0001`, `0002`, …).
+Auth is Supabase Auth in both cases: the self-hosted PostgREST and Realtime verify the tokens
+Supabase signs (`PGRST_JWT_SECRET` carries the project's public keys). Only the *data plane* and
+*object storage* move.
 
-**Do not** add self-hosted-only scripts here. Those belong in [`../migrations-self-hosted-postgres/`](../migrations-self-hosted-postgres/).
+**Do not** add self-hosted-only scripts here. Those belong in
+[`../migrations-self-hosted-postgres/`](../migrations-self-hosted-postgres/).
 
 ## Recent additions
 
@@ -57,3 +64,40 @@ Or paste individual files into the Supabase **SQL Editor** in numeric order (`00
 | `0087` | Merges owner/shared SELECT policies for core shared resources |
 | `0088` | Merges remaining shared SELECT policies and removes write-policy SELECT overlap |
 | `0094` | Restores owner-scoped `project-space-consolidate` access for key epoch state |
+| `0095` | Server-held copy of the email-recovery secret, so a locked-out device can ask to be let back in |
+| `0096` | `overleaf_linked_reports.updated_at` gains a trigger — it only ever had its insert default |
+| `0097` | Per-section word targets for a linked Overleaf report |
+| `0098` | Hybrid phase A: note titles are plaintext, so the database can enforce uniqueness on them |
+| `0099` | **Drops the whole E2EE schema** — `user_keys`, project/resource keys and wraps, `key_epochs` |
+| `0100` | AI proposals and audit records carry plaintext `content` as jsonb (tables were empty; no backfill) |
+| `0101` | Card projection for notes: a short body prefix without shipping the markdown |
+| `0102` | Citation alert tracks: which library papers to watch for new citing papers |
+| `0103` | Zotero annotations stay cached on their paper; this table stores the per-annotation extraction |
+| `0104` | Project-scoped custom fields on papers (definitions + per-paper values) |
+| `0105` | Extends paper custom fields with relation and rollup kinds |
+| `0106` | Phase D — persisted jump-to-locus anchors |
+| `0107` | Phase F1 — first-class quotation types on Zotero annotation cards |
+| `0108` | Phase F2 — lab snapshot publishing (freeze-and-publish) |
+| `0109` | Phase F corrections: two defects found reviewing `0107` and `0108` |
+| `0110` | Phase R3 — local reader annotations |
+| `0111` | Speeds up the `profiles` SELECT policy |
+| `0112` | Published lab snapshots are immutable |
+| `0113` | Replaces expired presigned URLs in `experiments.artifacts` with storage paths |
+| `0114` | Metrics storage fix A — narrows the metric rows |
+| `0115` | Metrics storage fix B — packs settled points into chunks |
+| `0116` | Retention for `ai_mcp_relay_requests` |
+| `0117` | Provisions the calling user's own rows on demand |
+| `0118` | Offline sync, server side — a watermark, tombstones, a base version |
+| `0119` | Stops a device applying a row the server has already numbered |
+| `0120` | Screening decisions: one row per reviewer, per membership, per stage |
+| `0121` | The change feed as one stream, ordered by `server_seq` |
+| `0122` | Every reference to `auth.users` goes when the user does |
+| `0123` | Takes the DDL function out of reach of the function-EXECUTE grants |
+| `0124` | A registry row must describe a path inside its owner's folder |
+| `0125` | Writes that have to happen in the database, not as a sequence of round trips |
+| `0126` | A metric point may only be written into an experiment its writer owns |
+| `0127` | Indexes `experiment_metric_chunks.user_id` |
+| `0128` | Attaches the existing `set_updated_at()` trigger to the tables that lacked it |
+| `0129` | `resolve_api_token` honours the token's scope; adds `api_token_scopes()` |
+| `0130` | Takes the `anon` grant off every internal definer function |
+| `0131` | Answers "when did each of these runs last log?" where the data is |

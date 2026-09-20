@@ -221,7 +221,7 @@ supabase link --project-ref <your-ref>
 supabase db push
 ```
 
-Apply the full chain with `supabase db push`. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped and nothing reads them, but no migration removes them. Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
+Apply the full chain with `supabase db push`. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped, nothing reads them, and **`0099` drops the whole schema** — this paragraph used to claim no migration did. Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
 
 ### Collaboration
 

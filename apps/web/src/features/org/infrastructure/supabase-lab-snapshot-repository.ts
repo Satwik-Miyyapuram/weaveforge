@@ -14,6 +14,14 @@ import {
 } from "./lab-snapshot-rows";
 import { one, oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a LabSnapshotRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const LAB_SNAPSHOT_COLUMNS = "id,project_id,title,note,content,published_at,created_at";
+
 const TABLE = "lab_snapshots";
 
 export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseRepository implements ILabSnapshotRepository {
@@ -32,7 +40,7 @@ export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseReposito
         note: input.note?.trim() || null,
         content: input.content,
       })
-      .select("*")
+      .select(LAB_SNAPSHOT_COLUMNS)
       .single());
     return toDomain(dbRow);
   }
@@ -45,7 +53,7 @@ export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseReposito
     const userId = await this.session.requireUserId();
     return (await rows<LabSnapshotRow>(this.db
       .from(TABLE)
-      .select("*")
+      .select(LAB_SNAPSHOT_COLUMNS)
       .eq("user_id", userId)
       .order("published_at", { ascending: false }))).map(toDomain);
   }
@@ -53,13 +61,13 @@ export class SupabaseLabSnapshotRepository extends ProjectScopedSupabaseReposito
   async listForMember(memberId: string): Promise<LabSnapshot[]> {
     return (await rows<LabSnapshotRow>(this.db
       .from(TABLE)
-      .select("*")
+      .select(LAB_SNAPSHOT_COLUMNS)
       .eq("user_id", memberId)
       .order("published_at", { ascending: false }))).map(toDomain);
   }
 
   async getById(id: string): Promise<LabSnapshot | null> {
-    const row = await one<LabSnapshotRow>(this.db.from(TABLE).select("*").eq("id", id).maybeSingle());
+    const row = await one<LabSnapshotRow>(this.db.from(TABLE).select(LAB_SNAPSHOT_COLUMNS).eq("id", id).maybeSingle());
     return row ? toDomain(row) : null;
   }
 }

@@ -18,6 +18,14 @@ import { run } from "@/backend/providers/supabase/row-access";
  * sealed with a server-held key via /api/settings/credentials (E2EE dropped).
  */
 
+/**
+ * The columns a SettingsRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const SETTINGS_COLUMNS = "user_id,zotero_library,disclaimer_accepted_at,disclaimer_version,appearance,ai_access";
+
 interface SettingsRow {
   user_id: string;
   zotero_library: string | null;
@@ -106,7 +114,7 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
   }
 
   private async readSettings(): Promise<UserSettings> {
-    const { data, error } = await this.db.from(TABLE).select("*").maybeSingle();
+    const { data, error } = await this.db.from(TABLE).select(SETTINGS_COLUMNS).maybeSingle();
     if (error) throw error;
     if (!data) return { ...EMPTY_SETTINGS };
     const row = data as SettingsRow;

@@ -180,6 +180,81 @@ if (inlineCoreTypes.length) {
   failed = true;
 }
 
+/**
+ * `select("*")` in a repository implementation.
+ *
+ * `PERF-04` found four dedupe lookups selecting every column of `papers` to read
+ * an id, and it was one of a family: a repository that reaches for `*` transfers
+ * whatever the table grows next — the abstract, the bibtex, the metadata bag —
+ * to every caller, and nothing notices, because a wider row still type-checks
+ * against a wide type. The projection has to be named so that narrowing it is a
+ * decision someone made.
+ *
+ * Scoped to `**\/infrastructure/**`: that is where the adapters live, and it is
+ * the layer where a read's columns are the author's to choose. Two places are
+ * deliberately outside it:
+ *
+ *   * `app/api/sdk/experiments/route.ts` selects `*` on an upsert and returns the
+ *     row it just wrote to the caller that wrote it — the Python SDK reads the
+ *     whole experiment back, so the projection is the contract there;
+ *   * the local PostgREST client tests exercise `.select()` passthrough itself.
+ *
+ * The rule's first run found **45** sites across 17 adapters — this was not one
+ * finding, it was the house style. Eighteen are fixed: the paper, vault, comment,
+ * share, share-link, tag and settings reads, plus twelve whose row type is named
+ * right at the call. The rest are listed below as a **ratchet** — the counts may
+ * only come down, and a new file may not appear. Each entry is a site whose read
+ * maps through a mapper a few lines away rather than through a type argument at
+ * the call, which is why it wants a person rather than the codemod that did the
+ * other eighteen.
+ */
+const SELECT_STAR_BASELINE = {
+  "features/ai-assistant/infrastructure/supabase-ai-proposal-store.ts": 2,
+  "features/collab/infrastructure/supabase-crdt-update-store.ts": 1,
+  "features/experiments/infrastructure/supabase-experiment-repository.ts": 1,
+  "features/logbook/infrastructure/supabase-log-entry-repository.ts": 1,
+  "features/org/infrastructure/org-invite-service.ts": 2,
+  "features/org/infrastructure/supabase-supervision-repository.ts": 2,
+  "features/papers/infrastructure/supabase-annotation-pin-repository.ts": 1,
+  "features/plan/infrastructure/supabase-milestone-repository.ts": 1,
+  "features/reader/infrastructure/supabase-reader-annotation-repository.ts": 3,
+  "features/reading-lists/infrastructure/supabase-reading-list-repository.ts": 2,
+  "features/relations/infrastructure/supabase-paper-relation-repository.ts": 3,
+  "features/report/infrastructure/supabase-report-section-repository.ts": 2,
+  "features/sharing/infrastructure/supabase-share-link-repository.ts": 1,
+  "features/sharing/infrastructure/supabase-share-repository.ts": 2,
+  "features/tags/infrastructure/supabase-tag-repository.ts": 2,
+  "features/vault/infrastructure/supabase-vault-page-repository.ts": 1,
+};
+
+const selectStar = search('select\\("\\*"\\)', "**/infrastructure/**/*.ts").filter(
+  // A projection written in prose is not a projection. The rule is about the
+  // query, and the comment explaining it quotes the very thing it bans — which
+  // it did, on this rule's first run, in this repository.
+  (line) => !/:\s*(?:\*|\/\/)/.test(line),
+);
+
+const selectStarCounts = new Map();
+for (const line of selectStar) {
+  const file = line.split(":")[0].replace(/\\/g, "/");
+  const known = Object.keys(SELECT_STAR_BASELINE).find((candidate) => file.endsWith(candidate));
+  const key = known ?? file;
+  selectStarCounts.set(key, (selectStarCounts.get(key) ?? 0) + 1);
+}
+const selectStarRegressions = [];
+for (const [file, count] of selectStarCounts) {
+  const allowed = SELECT_STAR_BASELINE[file];
+  if (allowed === undefined) selectStarRegressions.push(`${file} (${count}, not in the baseline)`);
+  else if (count > allowed) selectStarRegressions.push(`${file} (${count}, baseline ${allowed})`);
+}
+if (selectStarRegressions.length) {
+  console.error(
+    'FAIL: select("*") in a repository — name the columns the caller reads (PERF-04):',
+  );
+  for (const line of selectStarRegressions) console.error(`  ${line}`);
+  failed = true;
+}
+
 if (failed) {
   console.error("\nSee docs/building/dev.md § Post-merge review checklist (SOLID / DRY).");
   process.exit(1);

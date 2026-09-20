@@ -19,6 +19,14 @@ import {
 } from "./reader-annotation-rows";
 import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a ReaderAnnotationRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const READER_ANNOTATION_COLUMNS = "id,paper_id,origin,zotero_key,type,color,text,comment,tags,anchor,page_index,sort_index,sync_state,zotero_version,created_at,updated_at";
+
 const TABLE = "reader_annotations";
 
 export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRepository
@@ -30,7 +38,7 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
     if (!projectId) return [];
     return (await rows<ReaderAnnotationRow>(this.db
       .from(TABLE)
-      .select("*")
+      .select(READER_ANNOTATION_COLUMNS)
       .eq("project_id", projectId)
       .eq("paper_id", paperId)
       .order("sort_index", { ascending: true }))).map(toDomain);
@@ -83,7 +91,7 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
         sort_index: sortIndex,
         sync_state: "local",
       })
-      .select("*")
+      .select(READER_ANNOTATION_COLUMNS)
       .single());
     return toDomain(dbRow);
   }
