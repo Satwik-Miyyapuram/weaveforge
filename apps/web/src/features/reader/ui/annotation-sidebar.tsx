@@ -35,7 +35,7 @@ interface AnnotationSidebarProps {
     id: string,
     patch: { comment?: string; tags?: string[]; color?: string },
   ) => Promise<void>;
-  onRemoveLocal?: (id: string) => Promise<void>;
+  onRemoveLocal?: (id: string) => void;
   onPinLocal?: (ann: ReaderAnnotation, sectionId: string | null) => Promise<void>;
   backlinks?: AnnotationBacklinkTarget[];
 }
@@ -198,7 +198,7 @@ export function AnnotationSidebar({
                       type="button"
                       className="link-btn"
                       disabled={busyId === a.id}
-                      onClick={() => void onRemoveLocal?.(a.id)}
+                      onClick={() => onRemoveLocal?.(a.id)}
                     >
                       Delete
                     </button>

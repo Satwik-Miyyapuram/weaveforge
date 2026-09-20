@@ -104,9 +104,9 @@ export function useInkUndo(
   );
 
   const removeLocal = useCallback(
-    async (id: string, options?: { confirm?: boolean }) => {
+    async (id: string) => {
       const ann = annotationsRef.current.find((a) => a.id === id);
-      await actionsRef.current.removeLocal(id, options);
+      await actionsRef.current.removeLocal(id);
       if (ann && enabledRef.current && isStroke(ann)) {
         setState((s) => pushInkUndo(s, { kind: "remove", annotation: ann }));
       }
@@ -137,7 +137,7 @@ export function useInkUndo(
       const created = await raw.persistDraft(draftFromAnnotation(ann));
       if (created) setState((s) => renameInkUndoId(s, ann.id, created.id));
     };
-    const remove = (ann: ReaderAnnotation) => raw.removeLocal(ann.id, { confirm: false });
+    const remove = (ann: ReaderAnnotation) => raw.removeLocal(ann.id);
     switch (entry.kind) {
       case "create":
         return direction === "undo" ? remove(entry.annotation) : recreate(entry.annotation);
