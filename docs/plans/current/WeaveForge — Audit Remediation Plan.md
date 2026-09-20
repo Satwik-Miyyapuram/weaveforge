@@ -386,9 +386,26 @@ us to:
 | **The `select("*")` sweep** | **Finish it** | All 45 sites named, and the `check:dry` baseline deleted so the rule is a plain ban rather than a ratchet |
 | **The bundle lead** | **Dynamic-import `katex`** | `components/markdown/markdown.tsx` is loaded by four route modules and statically imports `katex`; the maths renderer moves behind a dynamic import (or the plain renderer splits from the maths one) |
 
-**Work still open from these decisions:** the CRDT RPC and body durability, the
-outbox pump, the merged trees, the error-report affordance, and the bundle change.
-Each is scheduled below in the order it was agreed.
+**Work still open from these decisions:** the outbox loop itself — `cycle()` has no
+production caller yet, and its token is live now, so the loop is what remains — the
+error-report affordance, and the bundle change. **Done so far:** the CRDT
+compaction and its body barrier (D1), the merged trees (D3), the `select("*")`
+sweep, and the records above.
+
+**D1, as built — three things the tests settled that the plan could not.**
+
+* `revoke ... from public` did not make the function anon-unreachable: Supabase's
+  default privileges write an explicit `anon=X` entry into every new function's
+  ACL. The schema-invariants test failed the first run, which is what it is for.
+* The existence probe has to run **before** the permission check, because
+  `can_edit_resource` is false for a row that does not exist — so a deleted
+  document read as "you may not compact this" and the client would have logged a
+  security refusal every time it closed one.
+* The **local provider dropped the PostgreSQL SQLSTATE** from every failure, in the
+  query builder *and* in `rpc`. Callers branch on that code, so a SQLSTATE mapping
+  written against PostgREST became a plain `throw` on the local backend. The test
+  for a `not-permitted` answer is what surfaced it; both paths now share one
+  `toPostgrestError`, so they cannot drift apart again.
 
 ---
 
