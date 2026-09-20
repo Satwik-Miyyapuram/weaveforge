@@ -420,7 +420,7 @@ Every one of the 88 findings is assigned to exactly one phase below, and the cou
 | 3 — read path, DB, hot paths | 8 | 19 | **done** |
 | 4 — contracts & types | 10 | 9 | **done** |
 | 5 — lifecycle & memory | 7 | 7 | **done** |
-| 6 — structural decomposition | 7 | 7 | not started |
+| 6 — structural decomposition | 7 | 5 (+1 latent bug) | **in progress** — `ARCH-03` and `ARCH-11`'s split outstanding |
 | 7 — guardrails, hardening, docs | 8 | 6 | not started |
 | 8 — decisions | 10 | 1 (plus 7 refuted / won't-fix recorded) | open questions |
 
@@ -548,16 +548,36 @@ Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
 Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
+### Phase 6 — what has landed, and what is left
+
+| Item | Finding | How it was closed |
+|---|---|---|
+| The lost staleness | *audit missed* | `refreshStale` cleared the staleness set **before** awaiting the snapshot, so a read that rejected lost the kinds for good: the index served the old rows, nothing was marked stale, and no later `ensure()` looked again. Cleared last now, per kind |
+| One append-note use case | ARCH-09 | In core, with the port it satisfies (`IAiPaperNoteAppender`) already existing. The revision rule it contained was written **three** times; `proposalApplies` is that rule, as a generic type predicate so callers keep their own row type |
+| One push-to-Zotero rule | ARCH-08 | The two copies had drifted on the part that matters: the facade swallowed a failed push, the composition root let it escape a *confirmed* proposal after the paper was already added. One use case, with a stated outcome |
+| The local-Zotero import | ARCH-06 | An application-layer use case with the desktop bridge injected, so the branch a browser user hits is testable without Electron |
+| One auth flow | ARCH-10 | Both surfaces now share the mint → verify → answer sequence. The relay surface answered 503 for *every* failure, so a bug of ours reached clients as "try again later"; one policy now (503 only for a missing JWT secret), and one refusal wording per surface |
+| One pinned-screen preamble | ARCH-01 | `loadPinnedScreenData` takes the resource type once instead of six screens spelling it twice, and `buildListMembership` replaces the map built by hand in four places |
+
+**Still outstanding, and why.** `ARCH-11`'s decomposition and `ARCH-03`'s facade split are the two items this phase has not done. Both are large, mechanically broad, and *structural* — neither fixes a behaviour:
+
+- **`ARCH-03`** touches ~69 call sites across ~30 files, and three of the 39 members have no callers at all (delete-or-wire is a decision to make first). Doing it half-way leaves a facade that is split in name and not in fact, which is worse than the 39-member class.
+- **`ARCH-11`'s split** is four extractions out of one 500-line class whose *bug* is already fixed. The value is in the next reader's navigation, and it wants to be done as one coherent pass rather than interleaved with behaviour changes.
+
+`PERF-04`'s narrow lookup port is deferred with the reasoning in Phase 4: it is an addition, not a defect, and its benefit is unmeasured.
+
+Baseline: `npm run test:core` → 1214 pass / 0 fail.
+
 After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests and a real `next build`:
 
-| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Phase 4 | After Phase 5 |
-|---|---|---|---|---|---|---|
-| core | 1214 | 1231 | 1239 | 1248 | 1247 | 1247 |
-| web | 1428 | 1439 | 1439 | 1466 | 1474 | 1487 |
-| pglite integration | 20 | 20 | 20 | 20 | 20 | 20 |
-| desktop | 237 | 237 | 237 | 237 | 237 | 237 |
-| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
-| files the boundary gates search | 675 | 675 | 676 | 677 | 702 | 702 |
+| Suite | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Phase 4 | After Phase 5 | After Phase 6 |
+|---|---|---|---|---|---|---|---|
+| core | 1214 | 1231 | 1239 | 1248 | 1247 | 1247 | 1265 |
+| web | 1428 | 1439 | 1439 | 1466 | 1474 | 1487 | 1494 |
+| pglite integration | 20 | 20 | 20 | 20 | 20 | 20 | 20 |
+| desktop | 237 | 237 | 237 | 237 | 237 | 237 | 237 |
+| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) | 84 (+3 skipped) |
+| files the boundary gates search | 675 | 675 | 676 | 677 | 702 | 702 | 702 |
 
 Core goes 1248 → 1247 because one test moved out of it: `describeRejection`'s completeness assertion now lives beside the prose it checks.
 
