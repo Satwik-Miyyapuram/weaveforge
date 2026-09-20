@@ -101,3 +101,4 @@ Supabase signs (`PGRST_JWT_SECRET` carries the project's public keys). Only the 
 | `0129` | `resolve_api_token` honours the token's scope; adds `api_token_scopes()` |
 | `0130` | Takes the `anon` grant off every internal definer function |
 | `0131` | Answers "when did each of these runs last log?" where the data is |
+| `0132` | `compact_crdt_log` — compaction as one statement, owner-or-edit only |
