@@ -2,6 +2,7 @@
 
 import { resetAppData } from "@/lib/client-runtime-recovery";
 import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
+import { ErrorReportPanel } from "./error-report-panel-lazy";
 
 /**
  * The body of every route error boundary.
@@ -97,6 +98,13 @@ export function RouteError({
           </pre>
         </details>
       ) : null}
+
+      {/*
+        The way out that this screen was missing: telling somebody. It is the lazy
+        boundary that keeps the rule above intact — the panel needs the container,
+        and this component must not.
+      */}
+      <ErrorReportPanel title={scope ? `${scope} failed to display` : "The app failed to display a screen"} detail={detail} />
 
       <div className="card" style={{ marginTop: 24, padding: 16 }}>
         <h2 style={{ fontSize: "1rem", marginBottom: 4 }}>Still stuck?</h2>

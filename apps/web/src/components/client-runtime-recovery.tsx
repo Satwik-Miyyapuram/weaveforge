@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { recoverClientRuntime } from "@/lib/client-runtime-recovery";
+import { installConsoleCapture } from "@/lib/error-report/log-buffer";
 
 function looksLikeChunkFailure(message: string): boolean {
   return /ChunkLoadError|Loading chunk [\d]+ failed|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(
@@ -15,6 +16,12 @@ function looksLikeChunkFailure(message: string): boolean {
  */
 export function ClientRuntimeRecovery() {
   useEffect(() => {
+    // Errors and warnings from here on are kept for a bug report — see
+    // `lib/error-report/log-buffer`. Installed with the shell rather than by the
+    // error screen, because the log a reader needs is the one written *before*
+    // the failure, and an error screen only exists afterwards.
+    installConsoleCapture();
+
     const onError = (event: ErrorEvent) => {
       const msg = event.message || "";
       const target = event.target;

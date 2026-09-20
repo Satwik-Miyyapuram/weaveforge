@@ -55,6 +55,16 @@ export interface PinnedRequestInput {
   family: 4 | 6;
   headers: Record<string, string>;
   timeoutMs: number;
+  /**
+   * Defaults to `GET`.
+   *
+   * Present because one caller files a GitHub issue, which is a `POST` carrying a
+   * token. The alternative was sending that through plain `fetch`, off the pinned
+   * path — the exception this module exists to avoid.
+   */
+  method?: string;
+  /** The body, for the methods that carry one. `content-length` is derived from it. */
+  body?: string;
 }
 
 export interface SafeFetchOptions extends Partial<OutboundFetchLimits> {
@@ -117,6 +127,22 @@ export function resetOutboundTransport(): void {
 }
 
 /**
+ * One pinned request, through the seam above.
+ *
+ * Call this rather than `pinnedRequest` directly. `pinnedRequest` is the
+ * *implementation* — what `transport` starts out pointing at — so a caller that
+ * reaches for it skips the seam, and a test that stubs the transport silently
+ * stops covering that caller. Not theoretical: the issue-filing path called
+ * `pinnedRequest` directly, and its test reached the **real** api.github.com and
+ * got a `401` for a fake token instead of the stubbed `201` it expected. The same
+ * shape of mistake as the three url-meta tests that were passing against live
+ * Crossref and arXiv responses.
+ */
+export function pinnedFetch(input: PinnedRequestInput): Promise<Response> {
+  return transport(input);
+}
+
+/**
  * Connect to `address`, while telling the server (and the certificate) that we
  * meant `url.hostname`.
  *
@@ -135,6 +161,12 @@ export function resetOutboundTransport(): void {
 export async function pinnedRequest(input: PinnedRequestInput): Promise<Response> {
   const { url, address, family, headers, timeoutMs } = input;
   const transport = url.protocol === "https:" ? httpsRequest : httpRequest;
+  const method = input.method ?? "GET";
+  // `content-length` is set from the bytes actually written rather than trusted
+  // from the caller: a mismatch is a request the server waits on, and this is the
+  // one place that knows both numbers.
+  const bodyHeaders =
+    input.body === undefined ? {} : { "content-length": String(Buffer.byteLength(input.body)) };
 
   return new Promise<Response>((resolve, reject) => {
     const req = transport(
@@ -142,8 +174,8 @@ export async function pinnedRequest(input: PinnedRequestInput): Promise<Response
         hostname: address,
         port: url.port || (url.protocol === "https:" ? 443 : 80),
         path: `${url.pathname}${url.search}`,
-        method: "GET",
-        headers: { ...headers, Host: url.host },
+        method,
+        headers: { ...headers, ...bodyHeaders, Host: url.host },
         servername: url.hostname,
         lookup: (_hostname, _options, callback) => callback(null, address, family),
       },
@@ -166,6 +198,7 @@ export async function pinnedRequest(input: PinnedRequestInput): Promise<Response
       req.destroy(new Error("That site took too long to answer."));
     });
     req.on("error", reject);
+    if (input.body !== undefined) req.write(input.body);
     req.end();
   });
 }

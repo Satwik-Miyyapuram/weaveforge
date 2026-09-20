@@ -14,13 +14,26 @@ export function stubOutboundFetch(
   handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
 ): {
   /** Every request, with the address the guard pinned for it. */
-  calls: { url: string; address: string }[];
+  calls: { url: string; address: string; method?: string; body?: string }[];
   restore: () => void;
 } {
-  const calls: { url: string; address: string }[] = [];
-  setOutboundTransport(async ({ url, address, headers }) => {
-    calls.push({ url: url.href, address });
-    const response = await handler(url.href, { headers });
+  const calls: { url: string; address: string; method?: string; body?: string }[] = [];
+  setOutboundTransport(async ({ url, address, headers, method, body }) => {
+    // Method and body are recorded when present and omitted when not: adding
+    // `method: undefined` to every entry changes the shape existing callers
+    // compare, and one of them compares whole entries.
+    const call: { url: string; address: string; method?: string; body?: string } = {
+      url: url.href,
+      address,
+    };
+    if (method !== undefined) call.method = method;
+    if (body !== undefined) call.body = body;
+    calls.push(call);
+
+    // Passed through, not dropped: a caller that sends a POST with a JSON body is
+    // exactly what a stub on the *transport* has to be able to see, because real
+    // `fetch` would.
+    const response = await handler(url.href, { method, headers, body });
     // `Response.url` is empty unless it came off the network; code that reads
     // where it ended up after redirects needs it, as with `stubFetch`.
     if (!response.url) Object.defineProperty(response, "url", { value: url.href, configurable: true });
