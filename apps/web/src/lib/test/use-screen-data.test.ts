@@ -68,7 +68,7 @@ test("screen data: a cold screen is fetched and kept in the memory cache", async
 
 test("screen data: a fresh memory cache answers without touching the network", async () => {
   clearAllScreenCaches();
-  setScreenCache(CACHE_KEY, { label: "cached" });
+  setScreenCache(CACHE_KEY, { label: "cached" }, Date.now());
   let loads = 0;
   const harness = await renderHook(
     () =>

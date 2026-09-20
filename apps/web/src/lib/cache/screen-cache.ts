@@ -6,26 +6,37 @@
  * learned about it. The difference matters when a payload comes back from
  * IndexedDB after a reload: stamping it with the time it was read would make a
  * week-old screen look freshly loaded and suppress the revalidation that would
- * have corrected it. See `screen-cache-idb.ts` for what the age is used for.
+ * have corrected it. The number is required at every call site rather than
+ * defaulted, so a caller has to say which of those two moments it means.
+ *
+ * The value and its timestamp are one entry rather than two maps keyed the same
+ * way. Two maps had to be walked in step by every reader and every deleter, and
+ * a desync — a value with no timestamp — is not a loud failure: the entry reads
+ * as never fresh, and the screen revalidates on every mount.
  */
+
+import { SCREEN_REVALIDATE_AFTER_MS } from "./cache-policy";
 
 export function screenCacheKey(projectId: string | null, screen: string): string {
   return `${projectId ?? "-"}|${screen}`;
 }
 
-const store = new Map<string, unknown>();
-const loadedAt = new Map<string, number>();
-
-/** Skip background revalidation when screen cache is newer than this. */
-const SCREEN_CACHE_FRESH_MS = 120_000;
-
-export function getScreenCache<T>(key: string): T | undefined {
-  return store.get(key) as T | undefined;
+interface Entry<T> {
+  value: T;
+  /** When the payload came back from the server. */
+  fetchedAt: number;
 }
 
-export function isScreenCacheFresh(key: string, maxAgeMs = SCREEN_CACHE_FRESH_MS): boolean {
-  const at = loadedAt.get(key);
-  return at != null && Date.now() - at < maxAgeMs;
+const store = new Map<string, Entry<unknown>>();
+
+export function getScreenCache<T>(key: string): T | undefined {
+  return store.get(key)?.value as T | undefined;
+}
+
+/** Skip background revalidation when the payload was fetched this recently. */
+export function isScreenCacheFresh(key: string, maxAgeMs = SCREEN_REVALIDATE_AFTER_MS): boolean {
+  const entry = store.get(key);
+  return entry != null && Date.now() - entry.fetchedAt < maxAgeMs;
 }
 
 /** True when any payload exists (stale-while-revalidate — skip nav overlay). */
@@ -33,9 +44,8 @@ export function hasScreenCacheData(key: string): boolean {
   return store.has(key);
 }
 
-export function setScreenCache<T>(key: string, value: T, fetchedAt = Date.now()): void {
-  store.set(key, value);
-  loadedAt.set(key, fetchedAt);
+export function setScreenCache<T>(key: string, value: T, fetchedAt: number): void {
+  store.set(key, { value, fetchedAt });
 }
 
 export function clearScreenCachesForScreens(
@@ -44,9 +54,7 @@ export function clearScreenCachesForScreens(
 ): void {
   const prefix = `${projectId ?? "-"}|`;
   for (const screen of screens) {
-    const key = `${prefix}${screen}`;
-    store.delete(key);
-    loadedAt.delete(key);
+    store.delete(`${prefix}${screen}`);
   }
   void import("@/lib/cache/screen-cache-idb").then((m) =>
     m.idbClearScreenCachesForScreens(projectId, screens),
@@ -55,6 +63,5 @@ export function clearScreenCachesForScreens(
 
 export function clearAllScreenCaches(): void {
   store.clear();
-  loadedAt.clear();
   void import("@/lib/cache/screen-cache-idb").then((m) => m.idbClearScreenCaches());
 }

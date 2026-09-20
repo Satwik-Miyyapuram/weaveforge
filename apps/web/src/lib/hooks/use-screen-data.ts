@@ -98,7 +98,9 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
       const fresh = await loadRef.current();
       // Superseded while in flight — a manual refresh, or a project switch.
       if (seq !== requestSeq.current) return;
-      setScreenCache(cacheKey, fresh);
+      // `Date.now()` because this payload *was* fetched now; the restore path
+      // above passes the time the server answered, which is a different moment.
+      setScreenCache(cacheKey, fresh, Date.now());
       void idbSetScreenCache(cacheKey, fresh);
       setData(fresh);
       completedLoads.current += 1;

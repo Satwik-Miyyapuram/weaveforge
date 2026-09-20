@@ -35,8 +35,8 @@ test("scoped invalidation clears dependents but not unrelated repos", async () =
   assert.equal((await paper.list())[0], "paper-row");
   assert.equal((await log.list())[0], "log-row");
 
-  setScreenCache(screenCacheKey("proj-1", "papers"), { ok: true });
-  setScreenCache(screenCacheKey("proj-1", "logbook"), { ok: true });
+  setScreenCache(screenCacheKey("proj-1", "papers"), { ok: true }, Date.now());
+  setScreenCache(screenCacheKey("proj-1", "logbook"), { ok: true }, Date.now());
 
   invalidateForWrite("paper");
 
@@ -50,7 +50,7 @@ test("unknown resource type falls back to clear-all", async () => {
   const log = makeRepo("log", "log_entry");
   await paper.list();
   await log.list();
-  setScreenCache(screenCacheKey("proj-1", "logbook"), { ok: true });
+  setScreenCache(screenCacheKey("proj-1", "logbook"), { ok: true }, Date.now());
 
   invalidateForWrite("unknown-type");
 
