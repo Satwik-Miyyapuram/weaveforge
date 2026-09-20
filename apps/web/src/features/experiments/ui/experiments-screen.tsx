@@ -116,6 +116,27 @@ export function ExperimentsScreen() {
     return () => clearInterval(t);
   }, [hasLiveRunning, load]);
 
+  // Stale-run cleanup, once per mount and deliberately *not* part of the load.
+  //
+  // It writes, and the load path runs on mount, on project switch and on every
+  // poll above — hanging maintenance there made a read a mutation and had it
+  // run several times over. The facade single-flights the call, so a second
+  // mount (React's development double-invoke, or another tab) joins this one
+  // rather than issuing the same updates again. Reload afterwards, so a run
+  // that has just been marked abandoned is drawn as abandoned.
+  useEffect(() => {
+    let active = true;
+    void getContainer()
+      .experiments.reconcileStaleRuns()
+      .then(() => {
+        if (active) void load();
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [load]);
+
   const visible = useMemo(() => {
     const set = new Set(statusFilter);
     return set.size === 0 ? items : items.filter((e) => set.has(e.status));
