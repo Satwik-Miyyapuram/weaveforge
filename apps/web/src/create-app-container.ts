@@ -118,7 +118,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const [
     { wireIntegrations },
     { wireCitationSources },
-    { GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY, GENERATED_MCP_TOOL_NAMES },
+    { GENERATED_MCP_ENABLED, GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY, GENERATED_MCP_TOOL_NAMES },
     { SupabaseAiAuditStore, SupabaseAiProposalStore },
     { SupabaseCrdtUpdateStore },
     { CrdtSnapshotStore },
@@ -154,6 +154,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   registerSessionReset(() => {
     projectContext.projectId = null;
     workspace.resetSnapshotBaseline();
+    // The search index is a copy of the previous user's workspace — note titles,
+    // note bodies, paper abstracts — held in memory for the life of the tab. The
+    // container is not torn down on sign-out and the index has no owner check, so
+    // without this the next person at this browser can rank-search the last
+    // person's notes until something happens to rebuild it. Dropping it here
+    // costs one rebuild on the next sign-in.
+    search?.invalidate();
     // The API key lives only in memory, but "only in memory" has to include
     // "not across a sign-out" — the next person at this browser is not the one
     // who typed it.
@@ -530,6 +537,20 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectId: pid,
   });
 
+  /**
+   * The AI tool surface, as the deployment configured it.
+   *
+   * A tool allowlist may only ever narrow. Two states mean "no tools" — the
+   * MCP plugin disabled, and a generated registry that selected nothing — and
+   * both used to be passed as `undefined`, which the facade reads as "no
+   * allowlist at all" and fills with every core tool. The empty list is passed
+   * as an empty list so the surface can only be narrowed by configuration,
+   * never widened by its absence.
+   */
+  const allowedAiTools = (
+    GENERATED_MCP_ENABLED ? GENERATED_MCP_TOOL_NAMES : []
+  ) as readonly import("@weaveforge/core").AiToolName[];
+
   const container: AppContainer = {
     integrations: { bibliography, notifications, logSync, gitRead },
     backendConfig: backend.config,
@@ -660,9 +681,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       isEncryptionUnlocked: () => true,
       newId: () => uuidIds.newId(),
       now: () => systemClock.nowIso(),
-      allowedTools: GENERATED_MCP_TOOL_NAMES.length
-        ? (GENERATED_MCP_TOOL_NAMES as readonly import("@weaveforge/core").AiToolName[])
-        : undefined,
+      allowedTools: allowedAiTools,
     }),
     aiProposals: new AiProposalFacade({
       proposals: aiProposalStore,

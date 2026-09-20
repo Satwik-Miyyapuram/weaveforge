@@ -156,7 +156,14 @@ export class AiAssistantFacade {
       encryptionUnlocked: this.deps.isEncryptionUnlocked(),
       now: this.deps.now(),
       ttlMs: input.ttlMinutes == null ? undefined : input.ttlMinutes * 60_000,
-      allowedTools: this.deps.allowedTools?.length ? this.deps.allowedTools : AI_TOOL_NAMES,
+      // `?? AI_TOOL_NAMES`, not `?.length ? … : …`: the three states are
+      // distinct and the empty one is a decision, not an absence. A deployment
+      // whose generated registry is empty has configured *no* tools, and the
+      // fallback used to hand it every core tool instead — widening the surface
+      // exactly when the operator had narrowed it to nothing. `undefined` is
+      // reserved for callers that genuinely have no allowlist to express (tests,
+      // and any container built before this was wired).
+      allowedTools: this.deps.allowedTools ?? AI_TOOL_NAMES,
       proposalCapabilities: input.proposalCapabilities,
     });
     this.sessions.set(session.grant.id, session);
