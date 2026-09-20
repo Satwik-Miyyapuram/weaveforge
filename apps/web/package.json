@@ -22,6 +22,7 @@
     "prebuild": "npm run copy:pdf-worker",
     "build": "next build",
     "analyze": "node ./scripts/analyze.mjs",
+    "check:contrast": "node scripts/contrast-audit.mjs",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
