@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..features.experiments.application.manage_experiment import ManageExperimentUseCase
+from ..shared.ports import Closer
 from .fakes import FixedClock, SeqIdGenerator
 from .in_memory_experiment_repository import InMemoryExperimentRepository
 from .in_memory_metric_repository import InMemoryMetricRepository
@@ -35,6 +36,10 @@ class MemoryContainer:
     experiments: InMemoryExperimentRepository = field(default_factory=InMemoryExperimentRepository)
     metrics: InMemoryMetricRepository = field(default_factory=InMemoryMetricRepository)
     artifacts: MemoryArtifactStorage = field(default_factory=MemoryArtifactStorage)
+    #: The real `Container` has one; modelling the field here is what makes the
+    #: close path testable at all. Without it `_close_owned` found nothing to
+    #: close in every in-memory test, so the leak it guards could not be seen.
+    api: Closer | None = None
     manage_experiment: ManageExperimentUseCase = field(init=False)
 
     def __post_init__(self) -> None:

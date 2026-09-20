@@ -1,13 +1,16 @@
 """Run + decorator + context-manager, driven against an in-memory container."""
 
 
+import asyncio
+import warnings
+
 import pytest
 
 from weaveforge import track, track_experiment
 from weaveforge.features.experiments.domain.metric_point import MetricSeries
 from weaveforge.sync import SyncRegistry
 from weaveforge.sync.source import Artifact
-from weaveforge.testing import MemoryContainer
+from weaveforge.testing import InMemoryMetricRepository, MemoryContainer
 
 
 class FakeFigure:
@@ -242,4 +245,163 @@ def test_track_leaves_an_injected_container_open(monkeypatch):
     assert api.closed is False
     # The run is still usable in the only sense that matters after the block.
     assert container.experiments.list()[0].status == "done"
+
+
+# --- exit paths -------------------------------------------------------------
+#
+# Every one of these is a way the run used to be left behind: still `running`
+# because the send failed after the body succeeded, or an open connection or
+# mirror because the experiment could not be created at all.
+
+
+class _RefusingMetrics(InMemoryMetricRepository):
+    """The server is gone by the time the run tries to send."""
+
+    def append(self, points, *, timeout=None):  # type: ignore[override]
+        raise ConnectionError("no route to host")
+
+
+def _explode(*_args, **_kwargs):
+    raise RuntimeError("the experiment could not be created")
+
+
+def test_a_failing_send_on_the_success_path_still_ends_the_run(monkeypatch):
+    """The success path used to be unguarded: `sync`, `flush` and only then the
+    status, so one failed send left the experiment marked ``running`` for ever.
+    The status is now written under a guard, and the send error is re-raised
+    because on this path there is no earlier exception to protect."""
+    _no_git(monkeypatch)
+    container = MemoryContainer(metrics=_RefusingMetrics())
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ConnectionError):
+            with track("send-flaky", container=container) as run:
+                run.log_metric("loss", 1.0, step=0)
+
+    experiment = container.experiments.list()[0]
+    assert experiment.status == "done", "training succeeded; only the send did not"
+    assert experiment.finished_at is not None
+    assert any("could not send metrics" in str(w.message) for w in caught)
+
+
+def test_a_failing_send_on_the_failure_path_keeps_the_training_error(monkeypatch):
+    _no_git(monkeypatch)
+    container = MemoryContainer(metrics=_RefusingMetrics())
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="training died"):
+            with track("crashy", container=container) as run:
+                run.log_metric("loss", 1.0, step=0)  # something for the flush to send
+                raise ValueError("training died")
+
+    experiment = container.experiments.list()[0]
+    assert experiment.status == "failed"
+    assert any("could not send metrics" in str(w.message) for w in caught)
+
+
+def test_a_run_that_could_not_be_created_still_closes_the_connection(monkeypatch):
+    """`_start_run` used to sit above the `try`, so anything it raised — a
+    rejected token, a missing project, a mirror that cannot mirror — skipped the
+    `finally` that closes the pool this call opened."""
+    _no_git(monkeypatch)
+    container, api = _container_with_api()
+    monkeypatch.setattr("weaveforge.tracking._connect", lambda project=None: container)
+    monkeypatch.setattr(container.manage_experiment, "add", _explode)
+
+    with pytest.raises(RuntimeError, match="could not be created"):
+        with track("owned"):
+            pass
+
+    assert api.closed is True
+
+
+def test_a_mirror_is_released_when_the_experiment_cannot_be_created(monkeypatch):
+    """The mirror is evaluated before the run is built, so a failure in between
+    left a live run open on somebody else's service with nothing left to close
+    it."""
+    _no_git(monkeypatch)
+    source = RecordingMirrorSource()
+    registry = SyncRegistry()
+    registry.register(source)
+    container = MemoryContainer()
+    monkeypatch.setattr(container.manage_experiment, "add", _explode)
+
+    with pytest.raises(RuntimeError):
+        with track("mirrored", container=container, registry=registry, mirror="recorder"):
+            pass
+
+    assert source.opened[0].finished == "failed"
+
+
+def test_a_crash_whose_flush_also_fails_still_finishes_the_mirror(monkeypatch):
+    """`Run.set_status` is the only thing that ever closes a mirror, and the
+    failure path used to flush first — so a dead network left the mirrored run
+    open as well as the row marked ``running``."""
+    _no_git(monkeypatch)
+    source = RecordingMirrorSource()
+    registry = SyncRegistry()
+    registry.register(source)
+    container = MemoryContainer(metrics=_RefusingMetrics())
+
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError):
+            with track(
+                "mirrored", container=container, registry=registry, mirror="recorder"
+            ):
+                raise ValueError("training died")
+
+    assert source.opened[0].finished == "failed"
+    assert container.experiments.list()[0].status == "failed"
+
+
+def test_the_decorator_tracks_an_async_function(monkeypatch):
+    """A synchronous wrapper around a coroutine function stamps the run `done`
+    before a single step has run, and records no summary — silently."""
+    _no_git(monkeypatch)
+    container = MemoryContainer()
+
+    @track_experiment(name="async-run", container=container)
+    async def train(run, beta=1.0):
+        assert run.experiment.status == "running"
+        run.log_metric("loss", 0.5, step=0)
+        return {"val_loss": 0.25}
+
+    assert asyncio.run(train()) == {"val_loss": 0.25}
+
+    experiment = container.experiments.list()[0]
+    assert experiment.status == "done"
+    assert experiment.metrics["val_loss"] == 0.25
+    assert [p.step for p in container.metrics.history(experiment.id, "loss")] == [0]
+
+
+def test_the_decorator_captures_positional_arguments(monkeypatch):
+    """Hyperparameters used to be read from `kwargs` alone, so the same call
+    captured its config or did not depending on the caller's style."""
+    _no_git(monkeypatch)
+    container = MemoryContainer()
+
+    @track_experiment(name="positional", container=container)
+    def train(beta, run):
+        assert run.experiment.status == "running"
+
+    train(4)
+
+    assert container.experiments.list()[0].config["beta"] == 4
+
+
+def test_the_decorator_does_not_inject_a_run_the_caller_already_passed(monkeypatch):
+    """`kwargs.setdefault` only guards the keyword namespace: a caller passing
+    the run positionally got `TypeError: got multiple values for argument`."""
+    _no_git(monkeypatch)
+    container = MemoryContainer()
+    mine = object()
+
+    @track_experiment(name="explicit", container=container)
+    def train(run):
+        return run is mine
+
+    assert train(mine) is True
 

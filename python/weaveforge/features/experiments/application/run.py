@@ -12,16 +12,16 @@ from __future__ import annotations
 
 import io
 import threading
-import warnings
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from typing import Any
 
+from ....shared.guards import best_effort
+from ....shared.ports import ExperimentBookkeeper
 from ....sync.registry import SyncRegistry, default_registry
 from ....sync.source import ArtifactSource, MetricSource, Mirror
 from ...experiments.domain.experiment import Experiment, ExperimentStatus
 from ...experiments.domain.metric_point import MetricPoint
-from .manage_experiment import ManageExperimentUseCase
 
 #: Uploader signature: (experiment_id, name, data, content_type) -> link URL.
 Uploader = Callable[[str, str, bytes, str], str]
@@ -73,7 +73,7 @@ class Run:
 
     def __init__(
         self,
-        manage: ManageExperimentUseCase,
+        manage: ExperimentBookkeeper,
         experiment: Experiment,
         *,
         uploader: Uploader | None = None,
@@ -229,13 +229,20 @@ class Run:
         than this review should land. What remains, honestly: the calling thread
         waits up to ``_AUTO_FLUSH_TIMEOUT`` per automatic flush attempt.
         """
-        try:
-            self.flush(timeout=_AUTO_FLUSH_TIMEOUT)
-        except Exception as exc:  # noqa: BLE001 - network errors of any shape
-            warnings.warn(f"weaveforge: could not send metrics, will retry ({exc})", stacklevel=3)
-            with self._lock:
-                if len(self._buffer) > _MAX_BUFFERED:
-                    del self._buffer[: len(self._buffer) - _MAX_BUFFERED]
+        def attempt() -> None:
+            try:
+                self.flush(timeout=_AUTO_FLUSH_TIMEOUT)
+            except Exception:
+                # Trim before re-raising so the warning and the bound are
+                # decided together, as they were when this was written inline.
+                with self._lock:
+                    if len(self._buffer) > _MAX_BUFFERED:
+                        del self._buffer[: len(self._buffer) - _MAX_BUFFERED]
+                raise
+
+        # stacklevel 5 keeps the attribution where the inline version had it:
+        # best_effort, `attempt`, this method, _flush_when_full, log_metric.
+        best_effort("send metrics, will retry", attempt, stacklevel=5)
 
     # --- lifecycle -------------------------------------------------------
     def flush(self, *, timeout: float | None = None) -> None:
