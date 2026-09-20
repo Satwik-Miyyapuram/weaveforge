@@ -14,6 +14,35 @@ export interface CompressedImage {
 const MAX_DIM = 1600;
 const QUALITY = 0.82;
 
+/**
+ * Files at or below this are left alone when they are already in a format we
+ * would have produced.
+ *
+ * The trade, stated plainly: a 40 KB WebP screenshot is decoded, redrawn and
+ * re-encoded to save a few kilobytes and lose a little quality, and everything
+ * in between is CPU the person who dropped the file waits for. Below this size
+ * the original bytes are kept instead.
+ *
+ * What is given up: a file that is small *and* enormous in pixels keeps its
+ * full resolution, because knowing the dimensions requires the decode this is
+ * avoiding. Storage is the only cost — the file is already small, and the note
+ * renders it scaled — so it is the cheap side of the trade.
+ */
+const KEEP_ORIGINAL_BELOW_BYTES = 64 * 1024;
+
+/** Formats we already prefer: nothing to gain from re-encoding a small one. */
+const ALREADY_OPTIMAL = new Set(["image/webp", "image/jpeg"]);
+
+/**
+ * Whether the file can be stored as it came.
+ *
+ * Pure, and separate from the decode, so the decision can be tested without a
+ * canvas — which is the only way anything in this module is testable.
+ */
+export function canStoreUnchanged(file: { type: string; size: number }): boolean {
+  return ALREADY_OPTIMAL.has(file.type) && file.size <= KEEP_ORIGINAL_BELOW_BYTES;
+}
+
 export async function compressImage(
   file: File,
   { maxDim = MAX_DIM, quality = QUALITY }: { maxDim?: number; quality?: number } = {},
@@ -21,7 +50,16 @@ export async function compressImage(
   if (!file.type.startsWith("image/")) {
     throw new Error("Only image files can be attached.");
   }
-  const bitmap = await createImageBitmap(file);
+  if (canStoreUnchanged(file)) {
+    return { blob: file, ext: file.type === "image/webp" ? "webp" : "jpeg" };
+  }
+  // `imageOrientation: "from-image"` is what applies a phone photo's EXIF
+  // rotation. It is the spec default in current engines, so this changes nothing
+  // there — it is written out so the behaviour does not depend on a default, and
+  // the fallback keeps a browser that does not know the option working.
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() =>
+    createImageBitmap(file),
+  );
   try {
     const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * scale));
