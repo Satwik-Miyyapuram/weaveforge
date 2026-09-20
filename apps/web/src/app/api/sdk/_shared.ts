@@ -97,22 +97,6 @@ async function apiTokenScopes(token: string): Promise<string[]> {
 }
 
 /**
- * 401 for anything the SDK surface will not accept.
- *
- * One wording for every reason — unknown token, expired token, wrong scope —
- * so a caller holding a relay token learns nothing about *why* it was refused
- * here. The scope is not a secret the holder lacks: it is in their own token
- * list. The body is the same anyway, and one response is one thing to keep
- * consistent.
- */
-function refusedApiToken(): { ok: false; response: NextResponse } {
-  return {
-    ok: false,
-    response: NextResponse.json({ error: "Invalid or expired API token." }, { status: 401 }),
-  };
-}
-
-/**
  * The one authenticated-caller shape every API route in this app uses.
  *
  * `accessToken` is the JWT to hand to Supabase — the caller's own bearer token
@@ -129,6 +113,22 @@ export interface ApiCaller {
 }
 
 export type ApiAuthResult = ({ ok: true } & ApiCaller) | { ok: false; response: NextResponse };
+
+/**
+ * 401 for anything a surface will not accept.
+ *
+ * One wording for every reason — unknown token, expired token, wrong scope — so
+ * a caller holding a token for the *other* surface learns nothing about why it
+ * was refused. The scope is not a secret the holder lacks: it is in their own
+ * token list. One response is also one thing to keep consistent.
+ */
+const API_TOKEN_REFUSED = "Invalid or expired API token.";
+const MCP_RELAY_REFUSED = "Invalid or expired MCP token.";
+const SESSION_REFUSED = "Invalid session.";
+
+function refused(message: string): ApiAuthResult {
+  return { ok: false, response: NextResponse.json({ error: message }, { status: 401 }) };
+}
 
 /**
  * Whether a credential could be a Supabase session JWT.
@@ -153,83 +153,99 @@ function looksLikeJwt(token: string): boolean {
   return parts.length === 3 && parts.every((part) => /^[A-Za-z0-9_-]+$/.test(part));
 }
 
+/**
+ * The second half of both flows: mint if needed, verify, or refuse.
+ *
+ * The two surfaces differ in which credential they accept and which scope it
+ * must carry; they do not differ in what happens next, and that next part was
+ * written out twice — mint, build the client from the minted token, ask Supabase
+ * who it is, answer in the caller shape. Two copies of a security-relevant
+ * sequence is one copy that can be edited and one that cannot: the relay's had
+ * already drifted on the failure status below.
+ */
+async function verifyCaller(
+  token: string,
+  mint: (token: string) => Promise<string | null>,
+  refusal: string,
+): Promise<ApiAuthResult> {
+  const accessToken = await mint(token);
+  if (!accessToken) return refused(refusal);
+
+  const db = sdkDbForUserToken(accessToken);
+  const { data, error } = await db.auth.getUser(accessToken);
+  if (error || !data.user?.id) return refused(refusal);
+  return { ok: true, db, userId: data.user.id, accessToken };
+}
+
+/**
+ * A failure that is not the caller's fault: an outage, or a bug of ours.
+ *
+ * The distinction is read from the error itself, but the *body* is not: a route
+ * response is not a log line, and `formatError` is the display formatter — for a
+ * PostgREST error it joins `message — details — hint (code)`, which names tables,
+ * constraints and SQLSTATEs to whoever holds a token. `formatErrorForResponse`
+ * keeps that detail in the server log and answers with stable wording, which is
+ * the convention every other route follows.
+ *
+ * One policy for both surfaces. The relay surface used to answer `503` for
+ * *every* failure, so a bug of ours — a null dereference, a bad RPC name —
+ * reached clients as "try again later", which is the one answer that will not
+ * help them. `SUPABASE_JWT_SECRET` missing is still an outage; everything else is
+ * a `500`.
+ */
+function authFailure(error: unknown, surface: "api-auth" | "mcp-relay-auth"): ApiAuthResult {
+  const status = formatError(error).includes("SUPABASE_JWT_SECRET") ? 503 : 500;
+  return {
+    ok: false,
+    response: NextResponse.json({ error: formatErrorForResponse(error, surface) }, { status }),
+  };
+}
+
 export async function requireSdkUser(request: Request): Promise<ApiAuthResult> {
   const token = bearerToken(request);
-  if (!token) {
-    return { ok: false, response: NextResponse.json({ error: "Not authenticated." }, { status: 401 }) };
-  }
+  if (!token) return refused("Not authenticated.");
   try {
-    let accessToken = token;
-
     if (isApiTokenFormat(token)) {
+      // Read first, deliberately: a token of the wrong scope never gets a JWT,
+      // never updates `last_used_at` and never touches a route's database handle.
       const scopes = await apiTokenScopes(token);
-      if (!scopes.includes(SDK_SCOPE)) return refusedApiToken();
-
-      const svc = apiTokenService();
-      const minted = await svc.resolveSdkAccessToken(token);
-      if (!minted) return refusedApiToken();
-      accessToken = minted;
-    } else if (!looksLikeJwt(token)) {
-      // Not an API token and not a JWT: no session could ever match it, and
-      // asking Supabase would only turn a bad credential into a server error.
-      return { ok: false, response: NextResponse.json({ error: "Invalid session." }, { status: 401 }) };
+      if (!scopes.includes(SDK_SCOPE)) return refused(API_TOKEN_REFUSED);
+      return await verifyCaller(
+        token,
+        (value) => apiTokenService().resolveSdkAccessToken(value),
+        API_TOKEN_REFUSED,
+      );
     }
-
-    const db = sdkDbForUserToken(accessToken);
-    const { data, error } = await db.auth.getUser(accessToken);
-    if (error || !data.user?.id) {
-      return { ok: false, response: NextResponse.json({ error: "Invalid session." }, { status: 401 }) };
-    }
-    return { ok: true, db, userId: data.user.id, accessToken };
+    // Not an API token and not a JWT: no session could ever match it, and asking
+    // Supabase would only turn a bad credential into a server error.
+    if (!looksLikeJwt(token)) return refused(SESSION_REFUSED);
+    // A session is already its own access token; there is nothing to mint.
+    return await verifyCaller(token, async (value) => value, SESSION_REFUSED);
   } catch (err) {
-    // A configuration fault is an outage; anything else is a server error. The
-    // distinction is read from the error itself, but the *body* is not: a route
-    // response is not a log line, and `formatError` is the display formatter —
-    // for a PostgREST error it joins `message — details — hint (code)`, which
-    // names tables, constraints and SQLSTATEs to whoever holds a token.
-    // `formatErrorForResponse` keeps that detail in the server log and answers
-    // with stable wording, which is the convention every other route follows.
-    const status = formatError(err).includes("SUPABASE_JWT_SECRET") ? 503 : 500;
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: formatErrorForResponse(err, "api-auth") },
-        { status },
-      ),
-    };
+    return authFailure(err, "api-auth");
   }
 }
 
 /** Relay endpoints accept a normal browser session or a relay-only MCP token. */
 export async function requireMcpRelayUser(request: Request): Promise<ApiAuthResult> {
   const token = bearerToken(request);
-  if (!token) return { ok: false, response: NextResponse.json({ error: "Not authenticated." }, { status: 401 }) };
+  if (!token) return refused("Not authenticated.");
+  // A browser session is not an API token, and the SDK path already knows how to
+  // check one — including the JWT shape test that keeps a bad credential a 401.
   if (!isApiTokenFormat(token)) return requireSdkUser(request);
   try {
-    // The mirror of the check in `requireSdkUser`: a browser session is not an
-    // API token and never reaches here, so an SDK token must not be accepted
-    // for relay work either. `resolve_mcp_relay_token` already filters on this
-    // scope; this is the same second check on the other side of the seam.
+    // The mirror of the check in `requireSdkUser`: a browser session never
+    // reaches here, so an SDK token must not be accepted for relay work either.
+    // `resolve_mcp_relay_token` already filters on this scope; this is the same
+    // second check on the other side of the seam.
     const scopes = await apiTokenScopes(token);
-    if (!scopes.includes(MCP_RELAY_SCOPE)) {
-      return { ok: false, response: NextResponse.json({ error: "Invalid or expired MCP token." }, { status: 401 }) };
-    }
-
-    const accessToken = await apiTokenService().resolveMcpRelayAccessToken(token);
-    if (!accessToken) return { ok: false, response: NextResponse.json({ error: "Invalid or expired MCP token." }, { status: 401 }) };
-    const db = sdkDbForUserToken(accessToken);
-    const { data, error } = await db.auth.getUser(accessToken);
-    if (error || !data.user?.id) return { ok: false, response: NextResponse.json({ error: "Invalid MCP token." }, { status: 401 }) };
-    return { ok: true, db, userId: data.user.id, accessToken };
+    if (!scopes.includes(MCP_RELAY_SCOPE)) return refused(MCP_RELAY_REFUSED);
+    return await verifyCaller(
+      token,
+      (value) => apiTokenService().resolveMcpRelayAccessToken(value),
+      MCP_RELAY_REFUSED,
+    );
   } catch (error) {
-    // The same leak as the SDK path above, on the relay surface: this one
-    // answers 503 for every failure, so only the body changes.
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: formatErrorForResponse(error, "mcp-relay-auth") },
-        { status: 503 },
-      ),
-    };
+    return authFailure(error, "mcp-relay-auth");
   }
 }
