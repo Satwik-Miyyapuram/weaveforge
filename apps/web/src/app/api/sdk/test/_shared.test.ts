@@ -23,7 +23,7 @@ test("requireMcpRelayUser: 401 with no Authorization header", async () => {
 // The seam the review found: an `mcp_relay`-scoped token — minted with
 // `expires_at: null` and handed to third-party MCP software — also resolved as
 // an SDK token, because `resolve_api_token` filtered on expiry only. The
-// database half of the fix is migration 0130; these cover the application half,
+// database half of the fix is migration 0129; these cover the application half,
 // which is what makes a future regression in the RPC fail closed rather than
 // silently re-open the seam.
 

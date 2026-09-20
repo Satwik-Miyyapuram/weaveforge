@@ -2,9 +2,15 @@
 
 WeaveForge separates **domain logic** (`@weaveforge/core`) from **persistence, auth, and blob storage**. The web app selects a backend provider at deploy time — same pattern as [integrations](../using/integrations.md).
 
-Today the default is **Supabase** (managed Postgres + Auth + Storage). For larger orgs or self-hosting, you can target:
+The deployment this project runs on is **self-hosted**: Postgres 16 + PostgREST + Realtime on an
+OCI VM, with **MinIO** for blobs and Supabase Auth as the identity provider (the stack verifies the
+tokens Supabase signs). [`infra/oci/docker-compose.yml`](../../infra/oci/docker-compose.yml) is the
+whole data plane, and [`docs/running/oracle-shift.md`](oracle-shift.md) is how it was moved there.
 
-- **Postgres + your own auth** (Oracle Cloud free-tier VM, Neon, RDS, …)
+**Hosted Supabase** (managed Postgres + Auth + Storage) remains a supported target — the same
+migrations apply, and it needs none of the self-hosted prerequisites. Other targets:
+
+- **Postgres + your own auth** (Neon, RDS, another VM, …)
 - **Cloudflare** (Workers/Pages + Hyperdrive or D1 + R2 + Access)
 
 Repository interfaces in `@weaveforge/core` are the swap boundary — not PostgREST query builders.
@@ -103,9 +109,11 @@ It is **not** the self-hosting switch, and setting it in a deployed app breaks t
 
 ---
 
-## Default: Supabase
+## Hosted Supabase (a fresh checkout's default, not this deployment)
 
-Best for solo researchers and small labs: free tier, magic-link auth, RLS, zero ops.
+Best for solo researchers and small labs: free tier, magic-link auth, RLS, zero ops. This is what
+the env examples in the repository assume; the production deployment is the self-hosted stack at the
+top of this page, which needs none of the Supabase Storage or Supabase Postgres pieces.
 
 1. Create a Supabase project.
 2. Apply migrations (`supabase db push` or SQL editor).
