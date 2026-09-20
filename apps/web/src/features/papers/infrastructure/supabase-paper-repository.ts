@@ -3,6 +3,7 @@ import {
   type IPaperRepository,
   type Paper,
   type PaperFilter,
+  type PaperIdentity,
   type PaperSummary,
 } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
@@ -50,6 +51,15 @@ const PAPER_SUMMARY_COLUMNS =
 
 /** What a delta read needs: the id it keys on, and the two version columns. */
 const PAPER_STAMP_COLUMNS = "id,updated_at,created_at";
+
+/**
+ * What a citation link reads, and nothing else.
+ *
+ * The narrowest projection here, and the only one whose type agrees with it: see
+ * `IPaperIdentityLookup`. `status` is in it because the reference popover says
+ * whether the reader has read the paper it linked to.
+ */
+const PAPER_IDENTITY_COLUMNS = "id,title,status";
 
 export class SupabasePaperRepository extends ProjectRepository implements IPaperRepository {
 
@@ -197,5 +207,34 @@ export class SupabasePaperRepository extends ProjectRepository implements IPaper
   async findByDoi(doi: string): Promise<Paper | null> {
     const normalized = normalizeDoi(doi);
     return normalized ? this.findBy("doi", normalized) : null;
+  }
+
+  /**
+   * The three columns a citation link reads, and nothing else.
+   *
+   * This is the narrower port the comment above asks for: a citation naming a
+   * DOI wants to know whether the library has it, what it is called and whether
+   * it has been read. Answering with a whole `Paper` transferred the abstract,
+   * the bibtex and the metadata bag of every reference matched, on a path that
+   * walks a bibliography.
+   */
+  async findIdentityByArxivId(arxivId: string): Promise<PaperIdentity | null> {
+    return this.findIdentity("arxiv_id", arxivId);
+  }
+
+  async findIdentityByDoi(doi: string): Promise<PaperIdentity | null> {
+    const normalized = normalizeDoi(doi);
+    return normalized ? this.findIdentity("doi", normalized) : null;
+  }
+
+  private async findIdentity(
+    column: "arxiv_id" | "doi",
+    value: string,
+  ): Promise<PaperIdentity | null> {
+    let query = this.scoped(this.db.from(TABLE).select(PAPER_IDENTITY_COLUMNS));
+    query = query.eq(column, value);
+    const row = await one<Pick<PaperRow, "id" | "title" | "status">>(query.maybeSingle());
+    if (!row) return null;
+    return { id: row.id, title: row.title, status: row.status as PaperIdentity["status"] };
   }
 }

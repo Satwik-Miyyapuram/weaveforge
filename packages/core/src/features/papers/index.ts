@@ -6,6 +6,7 @@
  */
 
 export * from "./domain/paper.js";
+export * from "./domain/paper-identity.js";
 export * from "./domain/paper-repository.js";
 export * from "./domain/annotation-pin.js";
 export * from "./domain/annotation-pin-repository.js";

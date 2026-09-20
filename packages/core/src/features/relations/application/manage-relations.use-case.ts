@@ -16,7 +16,7 @@ import type { IPaperRelationRepository } from "../domain/paper-relation-reposito
 import type { ICitationSource } from "./citation-source.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { normalizeDoi, type Paper } from "../../papers/domain/paper.js";
-import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
+import type { IPaperIdentityLookup, PaperIdentity } from "../../papers/domain/paper-identity.js";
 import type { PaperRef } from "../../papers/application/metadata-source.js";
 
 export interface AddRelationDeps {
@@ -56,7 +56,8 @@ export interface LinkCitationsResult {
 export class LinkCitationsUseCase {
   constructor(
     private readonly sources: readonly ICitationSource[],
-    private readonly papers: IPaperRepository,
+    /** Only the identity lookup: linking reads nothing else about a paper. */
+    private readonly papers: IPaperIdentityLookup,
     private readonly relations: IPaperRelationRepository,
     private readonly addRelation: AddRelationUseCase,
   ) {}
@@ -100,9 +101,18 @@ export class LinkCitationsUseCase {
     return { created, unmatched };
   }
 
-  private async matchLocalPaper(ref: PaperRef): Promise<Paper | null> {
-    if (ref.kind === "arxiv") return this.papers.findByArxivId(ref.value);
-    if (ref.kind === "doi") return this.papers.findByDoi(ref.value);
+  /**
+   * The local paper a citation names — its identity, not the whole row.
+   *
+   * This used to call `findByArxivId`/`findByDoi`, which answer with a full
+   * `Paper`: linking one bibliography transferred the abstract, the bibtex and
+   * the metadata bag of every reference it matched, and the only field anything
+   * downstream reads is the id. `IPaperIdentityLookup` is the port for that
+   * question.
+   */
+  private async matchLocalPaper(ref: PaperRef): Promise<PaperIdentity | null> {
+    if (ref.kind === "arxiv") return this.papers.findIdentityByArxivId(ref.value);
+    if (ref.kind === "doi") return this.papers.findIdentityByDoi(ref.value);
     return null;
   }
 

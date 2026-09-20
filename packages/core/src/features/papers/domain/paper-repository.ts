@@ -12,10 +12,22 @@ import type {
   IWritableRepository,
 } from "../../../shared/repository.js";
 import type { Paper, PaperFilter, PaperSummary } from "./paper.js";
+import type { IPaperIdentityLookup } from "./paper-identity.js";
 
+/**
+ * The full paper store, which also answers the narrow identity question.
+ *
+ * `extends IPaperIdentityLookup` rather than declaring those two methods here:
+ * a caller that only wants to know whether a DOI is in the library depends on
+ * the narrow port, and an adapter is one object that satisfies both. The methods
+ * are required — an implementation that cannot answer "is this DOI here" cannot
+ * serve the citation linker at all, and finding that out at a call site is worse
+ * than finding it out at the class.
+ */
 export interface IPaperRepository
   extends IReadableRepository<Paper, PaperFilter>,
-    IWritableRepository<Paper> {
+    IWritableRepository<Paper>,
+    IPaperIdentityLookup {
   /**
    * The card projection every paper list paints from.
    *

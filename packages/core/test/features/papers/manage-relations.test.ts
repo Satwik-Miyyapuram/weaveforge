@@ -11,6 +11,7 @@ import {
   type ICitationSource,
 } from "../../../src/index.js";
 import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
 
 class InMemoryRelationRepo implements IPaperRelationRepository {
   readonly rows = new Map<string, PaperRelation>();
@@ -98,22 +99,20 @@ const paper = (over: Partial<Paper> & { id: string }): Paper =>
     ...over,
   }) as Paper;
 
-class FakePapers {
-  constructor(private readonly all: Paper[]) {}
-  async findByArxivId(v: string) {
-    return this.all.find((p) => p.arxivId === v) ?? null;
+/**
+ * The shipped in-memory repository, not a hand-rolled fake.
+ *
+ * The fake this replaces implemented five methods of a ten-method port, and core
+ * tests are not type-checked — so when the citation linker moved to the
+ * `IPaperIdentityLookup` port, the fake compiled and then threw
+ * `findIdentityByArxivId is not a function` at runtime. That is the second time
+ * a hand-rolled fake has drifted this way; the real double cannot.
+ */
+class FakePapers extends InMemoryPaperRepository {
+  constructor(all: Paper[]) {
+    super();
+    for (const paper of all) void this.save(paper);
   }
-  async findByDoi(v: string) {
-    return this.all.find((p) => p.doi === v) ?? null;
-  }
-  async getById() {
-    return null;
-  }
-  async list() {
-    return this.all;
-  }
-  async save() {}
-  async delete() {}
 }
 
 class FakeSource implements ICitationSource {

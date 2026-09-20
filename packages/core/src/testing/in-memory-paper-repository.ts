@@ -13,6 +13,7 @@ import {
   type PaperSummary,
 } from "../features/papers/domain/paper.js";
 import type { IPaperRepository } from "../features/papers/domain/paper-repository.js";
+import type { PaperIdentity } from "../features/papers/domain/paper-identity.js";
 
 export class InMemoryPaperRepository implements IPaperRepository {
   private readonly store = new Map<string, Paper>();
@@ -75,4 +76,25 @@ export class InMemoryPaperRepository implements IPaperRepository {
     }
     return null;
   }
+
+  /**
+   * The narrow lookup, derived from the rows this store already holds.
+   *
+   * A real adapter answers this with three columns; here the row *is* in memory,
+   * so there is nothing to save — but the type still narrows, which is what keeps
+   * a caller from quietly starting to read the abstract.
+   */
+  async findIdentityByArxivId(arxivId: string): Promise<PaperIdentity | null> {
+    const paper = await this.findByArxivId(arxivId);
+    return paper ? identityOf(paper) : null;
+  }
+
+  async findIdentityByDoi(doi: string): Promise<PaperIdentity | null> {
+    const paper = await this.findByDoi(doi);
+    return paper ? identityOf(paper) : null;
+  }
+}
+
+function identityOf(paper: Paper): PaperIdentity {
+  return { id: paper.id, title: paper.title, status: paper.status };
 }

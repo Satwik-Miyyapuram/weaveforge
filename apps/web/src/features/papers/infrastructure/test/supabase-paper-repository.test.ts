@@ -150,6 +150,35 @@ test("papers: the list projection is the one the caller may rely on", async () =
   assert.doesNotMatch(rec.sql[0]!, /"bibtex"|"metadata"/);
 });
 
+test("papers: the identity lookup selects three columns and no more", async () => {
+  // PERF-04. A citation link reads whether the library has the DOI, what it is
+  // called and whether it has been read; the whole-row projection it used to go
+  // through carried the abstract, the bibtex and the metadata bag of every
+  // reference a bibliography walk matched.
+  const rec = recorder([]);
+  await repo(rec).findIdentityByDoi("10.1234/abc");
+
+  const sql = rec.sql[0]!;
+  assert.match(sql, /"id", "title", "status"/);
+  assert.doesNotMatch(sql, /"abstract"|"bibtex"|"metadata"|"authors"|"tags"/);
+  assert.match(sql, /"doi" = \$/, "and the filter is the column the caller named");
+});
+
+test("papers: an empty DOI matches nothing in the identity lookup either", async () => {
+  const rec = recorder([]);
+  const found = await repo(rec).findIdentityByDoi("");
+
+  assert.equal(found, null);
+  assert.deepEqual(rec.sql, [], "and nothing was asked of the server");
+});
+
+test("papers: an identity row is rebuilt as the three fields, not a paper", async () => {
+  const rec = recorder([{ id: "a", title: "Latent Diffusion", status: "read" }]);
+  const identity = await repo(rec).findIdentityByArxivId("1312.6114");
+
+  assert.deepEqual(identity, { id: "a", title: "Latent Diffusion", status: "read" });
+});
+
 test("papers: stamps come back ordered so a delta read is stable", async () => {
   const rec = recorder(STAMP_ROW);
   const stamps = await repo(rec).listStamps();

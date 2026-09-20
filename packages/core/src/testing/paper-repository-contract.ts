@@ -89,6 +89,41 @@ export function runPaperRepositoryContract(
     assert.equal(found?.id, "a");
   });
 
+  // --- the narrow lookup (PERF-04) -----------------------------------------
+  //
+  // `findIdentityBy*` answers the same question as `findBy*` with three columns
+  // instead of a whole row, and the citation linker and the reader's reference
+  // panel depend on it. Checked against both implementations here because the
+  // failure that matters is not "wrong columns" — it is a lookup that finds
+  // nothing, on a path whose result is "not in the library" rather than an
+  // error.
+
+  test(`[${label}] findIdentityBy* answers from the same store as findBy*`, async () => {
+    const repo = makeRepo();
+    await repo.save(samplePaper({ id: "a", title: "Latent Diffusion", doi: "10.1234/abc", arxivId: "1312.6114" }));
+
+    const byDoi = await repo.findIdentityByDoi("10.1234/abc");
+    assert.equal(byDoi?.id, "a");
+    assert.equal(byDoi?.title, "Latent Diffusion");
+    assert.equal(byDoi?.status, "to_read");
+
+    const byArxiv = await repo.findIdentityByArxivId("1312.6114");
+    assert.equal(byArxiv?.id, "a");
+
+    assert.equal(await repo.findIdentityByDoi("10.9999/nope"), null);
+    assert.equal(await repo.findIdentityByArxivId("0000.0000"), null);
+  });
+
+  test(`[${label}] findIdentityByDoi normalizes the way findByDoi does`, async () => {
+    // A DOI pasted as a URL and a DOI stored bare are the same paper; the two
+    // lookups disagreeing here would mean a citation found by one path and not
+    // the other.
+    const repo = makeRepo();
+    await repo.save(samplePaper({ id: "a", doi: "10.1234/abc" }));
+
+    assert.equal((await repo.findIdentityByDoi("https://doi.org/10.1234/abc"))?.id, "a");
+  });
+
   test(`[${label}] delete removes the entity`, async () => {
     const repo = makeRepo();
     const paper = samplePaper();
