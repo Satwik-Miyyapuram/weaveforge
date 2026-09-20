@@ -1,4 +1,11 @@
-import type { CreateMemberUseCase, ILogEntryRepository, IMemberRepository, Member } from "@weaveforge/core";
+import type {
+  CreateMemberUseCase,
+  ILabSnapshotRepository,
+  ILogEntryRepository,
+  IMemberRepository,
+  IMilestoneRepository,
+  Member,
+} from "@weaveforge/core";
 import type { ISupervisionRepository } from "@weaveforge/core";
 
 export class OrgFacade {
@@ -7,9 +14,9 @@ export class OrgFacade {
       members: IMemberRepository;
       createMember: CreateMemberUseCase;
       supervision: ISupervisionRepository;
-      labSnapshots: import("@weaveforge/core").ILabSnapshotRepository;
-      milestones: import("@weaveforge/core").IMilestoneRepository;
-      logs: import("@weaveforge/core").ILogEntryRepository;
+      labSnapshots: ILabSnapshotRepository;
+      milestones: IMilestoneRepository;
+      logs: ILogEntryRepository;
     },
   ) {}
 

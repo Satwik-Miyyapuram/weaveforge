@@ -178,6 +178,14 @@ jobs:
         if: always()
         run: npm run check:docs
 
+      # The list above and `check:boundaries` are written twice, and this is what
+      # makes that safe: a gate added to one and not the other is the failure
+      # mode that would otherwise be silent, in the direction of less checking.
+      - name: check:ci-parity
+        id: gate_ci_parity
+        if: always()
+        run: npm run check:ci-parity
+
       # Fails when any gate above failed, naming them.
       #
       # Without this step the job would go green with a red gate in it, because
@@ -203,6 +211,7 @@ jobs:
           check "check:hygiene"         "${{ steps.gate_hygiene.outcome }}"
           check "check:mcp-plugin"      "${{ steps.gate_mcp.outcome }}"
           check "check:docs"            "${{ steps.gate_docs.outcome }}"
+          check "check:ci-parity"       "${{ steps.gate_ci_parity.outcome }}"
           if [ -n "$failed" ]; then
             echo "::error::boundary gate(s) did not pass:$failed"
             exit 1
@@ -219,6 +228,12 @@ jobs:
       # compares against the deploy config.
       - name: Deployment surface
         run: npm run check:deployment-surface
+
+      # Also after the build, and for the same reason: it measures the chunks the
+      # build produced. What it catches is a route that quietly grew an eager
+      # dependency — WF-P07's finding, which nothing measured before this.
+      - name: Bundle budget
+        run: npm run bundle:budget
 
       # A desktop release left as a draft is invisible to every installed copy,
       # and nothing about the app says so — it simply reports no update. This

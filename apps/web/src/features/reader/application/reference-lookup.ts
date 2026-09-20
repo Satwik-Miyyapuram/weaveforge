@@ -1,8 +1,18 @@
-import { type PaperMetadata, type PaperRef, type Paper } from "@weaveforge/core";
-import type { ParsedReference } from "@weaveforge/core";
+import { type PaperMetadata, type PaperRef, type PaperIdentity } from "@weaveforge/core";
+import type { IPaperIdentityLookup, ParsedReference } from "@weaveforge/core";
 
+/**
+ * What the panel shows when a cited paper is already in the library.
+ *
+ * `PaperIdentity`, not `Paper`: the popover and the panel read the *status* (so
+ * they can say "in library · read") and the id, and nothing else. Typing it as a
+ * full paper was a promise the lookup paid for in columns — a bibliography walk
+ * transferred the abstract, the bibtex and the metadata bag of every reference it
+ * recognised. A `Paper` still satisfies this, so the places that build a
+ * resolution from a freshly added paper are unaffected.
+ */
 export type ResolvedReference =
-  | { status: "resolved"; metadata: PaperMetadata; inLibrary?: Paper; sourceId: string }
+  | { status: "resolved"; metadata: PaperMetadata; inLibrary?: PaperIdentity; sourceId: string }
   | { status: "unresolved" }
   | { status: "pending" };
 
@@ -35,7 +45,8 @@ export class ReferenceLookupService {
 
   constructor(
     private readonly resolver: { resolveWithSource(ref: PaperRef): Promise<{ metadata: PaperMetadata; sourceId: string }> },
-    private readonly papers: { findByDoi(doi: string): Promise<Paper | null>; findByArxivId(id: string): Promise<Paper | null> },
+    /** The identity of a paper the library already has; see `IPaperIdentityLookup`. */
+    private readonly papers: IPaperIdentityLookup,
     private readonly cache?: ReferenceLookupCache,
     private readonly now: () => number = () => Date.now(),
   ) {}
@@ -91,11 +102,11 @@ export class ReferenceLookupService {
     return { status: "unresolved" };
   }
 
-  private async findInLibrary(metadata: PaperMetadata): Promise<Paper | undefined> {
+  private async findInLibrary(metadata: PaperMetadata): Promise<PaperIdentity | undefined> {
     return (metadata.doi
-      ? await this.papers.findByDoi(metadata.doi)
+      ? await this.papers.findIdentityByDoi(metadata.doi)
       : metadata.arxivId
-        ? await this.papers.findByArxivId(metadata.arxivId)
+        ? await this.papers.findIdentityByArxivId(metadata.arxivId)
         : null) ?? undefined;
   }
 }

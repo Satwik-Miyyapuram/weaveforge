@@ -36,10 +36,17 @@ const ALLOWED = new Set(["http:", "https:"]);
  *
  * An allowlist rather than a blocklist: `http://internal:6379/` speaks to Redis
  * well enough to be useful to an attacker, and enumerating every such port is a
- * game nobody wins. 8080 and friends are here because a self-hoster really does
- * run things there.
+ * game nobody wins. 8000, 8008 and 8080 are here because a self-hoster really
+ * does run things there.
+ *
+ * 3000 and 5000 were here too, and are not any more. Those are the ports this
+ * project's own stack listens on (the Next dev server, and a common API port),
+ * which makes them *inbound* conveniences rather than outbound ones: allowing
+ * them means an authenticated paste can reach that service on any public host,
+ * including a self-hoster's own mis-exposed node. An operator who needs another
+ * port can say so explicitly — see `docs/SECURITY.md`.
  */
-const ALLOWED_PORTS = new Set(["", "80", "443", "8000", "8008", "8080", "8443", "3000", "5000"]);
+const ALLOWED_PORTS = new Set(["", "80", "443", "8000", "8008", "8080", "8443"]);
 
 /**
  * Hostnames that mean "this machine" or "this network" whatever DNS says.
@@ -94,17 +101,44 @@ export function checkUrlShape(input: string | URL): UrlCheck {
   return { ok: true };
 }
 
-/** True when the string is an IPv4 or IPv6 literal. */
+/**
+ * True when the string is an IPv4 or IPv6 literal.
+ *
+ * The IPv6 half is a colon test, which is loose: `not:an:address` counts. That
+ * is deliberate and safe in the only direction it is used — a string that looks
+ * like IPv6 but is not one fails `expandIpv6` and is refused below, so the
+ * looseness can only produce a refusal, never an allowance.
+ */
 export function isIpAddress(value: string): boolean {
   return parseIpv4(value) !== null || value.includes(":");
 }
 
+/**
+ * The octets of a **canonical** dotted quad, or null.
+ *
+ * Canonical only, and that is the point rather than pedantry. A resolver reads
+ * a leading zero the way C's `inet_aton` always has — as octal, so `010` is 8 —
+ * and Node will also accept the hex and single-integer forms. This function
+ * used to read `010.0.0.1` as 10.0.0.1, so a string could mean one address to
+ * the guard and another to the socket.
+ *
+ * In the current call paths that disagreement is unreachable: every string
+ * reaching here has already been through `new URL()`, whose own IPv4 parser
+ * performs the same octal/hex expansion, so guard and socket see the same
+ * canonical address (`010.0.0.1` becomes `8.0.0.1` at both ends, and
+ * `2130706433` becomes `127.0.0.1` and is refused). This is therefore
+ * defence-in-depth for the exported primitive, not a fix for a live bypass —
+ * and it is worth having, because `isPublicAddress` is public API and the day a
+ * caller hands it unresolved text is the day this matters.
+ */
 function parseIpv4(value: string): number[] | null {
   const parts = value.split(".");
   if (parts.length !== 4) return null;
   const octets: number[] = [];
   for (const part of parts) {
-    if (!/^\d{1,3}$/.test(part)) return null;
+    // Canonical dotted-quad only: a leading zero means octal to a resolver, and
+    // a padded octet is how "10.0.0.1" and "8.0.0.1" stop being the same string.
+    if (!/^(0|[1-9]\d{0,2})$/.test(part)) return null;
     const octet = Number(part);
     if (octet > 255) return null;
     octets.push(octet);
@@ -232,21 +266,3 @@ export const DEFAULT_FETCH_LIMITS: OutboundFetchLimits = {
   maxBytes: 8 * 1024 * 1024,
   timeoutMs: 10_000,
 };
-
-/** What to say to the person who pasted the URL. */
-export function describeRejection(reason: UrlRejection): string {
-  switch (reason) {
-    case "not-a-url":
-      return "That is not a web address.";
-    case "scheme":
-      return "Only http and https addresses can be fetched.";
-    case "credentials":
-      return "Addresses carrying a username or password are not fetched.";
-    case "port":
-      return "That port is not one WeaveForge will fetch from.";
-    case "private-address":
-      return "That address is on a private network, so it is not fetched.";
-    case "hostname":
-      return "That host is not reachable from the public internet.";
-  }
-}

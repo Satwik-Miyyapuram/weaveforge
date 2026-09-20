@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fetchPageTitle, fetchRemoteImage } from "../fetch-for-paste";
+import { stubOutboundFetch } from "@/lib/test/stub-fetch";
 
 /** A resolver with one public host, so no DNS is needed. */
 const resolve = async (hostname: string): Promise<string[]> => {
@@ -8,12 +9,15 @@ const resolve = async (hostname: string): Promise<string[]> => {
   throw new Error("no such host");
 };
 
+/**
+ * The same call shape these tests always had, on the transport.
+ *
+ * It used to replace `globalThis.fetch`; the paste path no longer calls `fetch`
+ * — it dials the address the guard vetted — so a stub there intercepted nothing
+ * and every one of these tests fell through to the real network.
+ */
 function stub(handler: () => Response) {
-  const original = globalThis.fetch;
-  globalThis.fetch = (() => Promise.resolve(handler())) as typeof fetch;
-  return () => {
-    globalThis.fetch = original;
-  };
+  return stubOutboundFetch(handler).restore;
 }
 
 test("reads the title a site would want shown for a link", async () => {

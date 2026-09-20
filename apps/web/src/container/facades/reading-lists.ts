@@ -1,4 +1,6 @@
 import type {
+  IReadingListItemRepository,
+  IReadingListRepository,
   ManageReadingListUseCase,
   ReadingListItem,
   ScreenItemsUseCase,
@@ -9,8 +11,8 @@ export class ReadingListsFacade {
   constructor(
     private readonly deps: {
       load: LoadReadingListsScreenUseCase;
-      lists: import("@weaveforge/core").IReadingListRepository;
-      listItems: import("@weaveforge/core").IReadingListItemRepository;
+      lists: IReadingListRepository;
+      listItems: IReadingListItemRepository;
       manageReadingList: ManageReadingListUseCase;
       screenItems: ScreenItemsUseCase;
     },

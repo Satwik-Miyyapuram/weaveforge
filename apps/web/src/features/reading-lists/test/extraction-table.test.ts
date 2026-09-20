@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue } from "@weaveforge/core";
+import { encodeRollupOptions } from "@weaveforge/core";
 import {
   buildProposeFillPrompt,
   emptyCellPaperIds,
@@ -113,4 +114,56 @@ test("emptyCellPaperIds and buildProposeFillPrompt target empty cells", () => {
   assert.match(prompt, /quoteExact/);
   assert.match(prompt, /p2 — B/);
   assert.match(prompt, /list-1/);
+});
+
+/**
+ * A budget rather than a stopwatch, following `paste-stress.test.ts`: the point
+ * is to fail loudly if the table goes quadratic again, not to measure a machine.
+ */
+const TABLE_BUDGET_MS = 1500;
+
+test("a large extraction table is built in time proportional to its size", () => {
+  // This was quadratic twice over: every row scanned *every* project value to
+  // find its own, and every rollup cell rebuilt the whole value index. At these
+  // numbers that is 400 × 20 000 scans plus 1 200 index builds — tens of
+  // millions of operations, seconds of blocking the main thread — against
+  // something that should be a few milliseconds.
+  const papers = 400;
+  const valuesPerPaper = 50;
+
+  const allPapers = Array.from({ length: papers }, (_, index) => paper(`p${index}`, `Paper ${index}`));
+  const allValues: PaperFieldValue[] = allPapers.flatMap((row, index) =>
+    Array.from({ length: valuesPerPaper }, (_, field) => ({
+      id: `v${index}-${field}`,
+      paperId: row.id,
+      fieldId: `f${field}`,
+      value: field,
+    })),
+  );
+  const defs: PaperFieldDef[] = [
+    { id: "rel", name: "Related", kind: "relation", options: [], sortOrder: 0 },
+    { id: "src", name: "Score", kind: "number", options: [], sortOrder: 1 },
+    ...Array.from({ length: 3 }, (_, index) => ({
+      id: `rollup${index}`,
+      name: `Rollup ${index}`,
+      kind: "rollup" as const,
+      options: encodeRollupOptions({ relationFieldId: "rel", sourceFieldId: "src", agg: "sum" }),
+      sortOrder: 2 + index,
+    })),
+  ];
+
+  const startedAt = Date.now();
+  const rows = flattenPaperRows(
+    allPapers,
+    allPapers.map((row) => row.id),
+    allValues,
+    defs,
+  );
+  const elapsed = Date.now() - startedAt;
+
+  assert.equal(rows.length, papers);
+  assert.ok(
+    elapsed < TABLE_BUDGET_MS,
+    `building ${papers} rows took ${elapsed}ms, over the ${TABLE_BUDGET_MS}ms budget — suspect a complexity change`,
+  );
 });

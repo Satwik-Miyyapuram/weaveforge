@@ -19,6 +19,14 @@ import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-r
  */
 
 
+/**
+ * The columns a ReportSectionRow is read as, named rather than starred.
+ *
+ * Derived from the row type: exactly the fields the mapper reads, where a star
+ * would mean "whatever the table grows next".
+ */
+const REPORT_SECTION_COLUMNS = "id,title,section_no,parent_id,status,word_count,target_words,deadline,draft_url,notes,sort_order,created_at";
+
 const TABLE = "report_sections";
 
 export class SupabaseReportSectionRepository extends ProjectRepository
@@ -31,7 +39,7 @@ export class SupabaseReportSectionRepository extends ProjectRepository
   }
 
   async list(filter?: ReportSectionFilter): Promise<ReportSection[]> {
-    let query = this.db.from(TABLE).select("*");
+    let query = this.db.from(TABLE).select(REPORT_SECTION_COLUMNS);
     if (this.pid) query = query.eq("project_id", this.pid);
     if (filter?.status) query = query.eq("status", filter.status);
     if (filter?.parentId !== undefined) {
@@ -50,7 +58,7 @@ export class SupabaseReportSectionRepository extends ProjectRepository
   }
 
   async getTree(): Promise<ReportSectionTreeNode[]> {
-    let q = this.db.from(TABLE).select("*");
+    let q = this.db.from(TABLE).select(REPORT_SECTION_COLUMNS);
     if (this.pid) q = q.eq("project_id", this.pid);
     const { data, error } = await q;
     if (error) throw error;

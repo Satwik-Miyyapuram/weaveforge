@@ -1,4 +1,9 @@
-import type { INotificationIntegration, ManageMilestoneUseCase, Milestone } from "@weaveforge/core";
+import type {
+  IMilestoneRepository,
+  INotificationIntegration,
+  ManageMilestoneUseCase,
+  Milestone,
+} from "@weaveforge/core";
 import type { LoadPlanScreenUseCase, PlanScreenData as PlanScreenLoadData } from "@/features/plan/application/load-plan-screen.use-case";
 
 export type PlanScreenData = PlanScreenLoadData;
@@ -7,7 +12,7 @@ export class PlanFacade {
   constructor(
     private readonly deps: {
       load: LoadPlanScreenUseCase;
-      milestones: import("@weaveforge/core").IMilestoneRepository;
+      milestones: IMilestoneRepository;
       manageMilestone: ManageMilestoneUseCase;
       notifications: INotificationIntegration;
     },

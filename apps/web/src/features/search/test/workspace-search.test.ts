@@ -1,8 +1,9 @@
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
-import { WorkspaceSearch, collapseToEntities } from "@/features/search/application/workspace-search";
+import type { PdfIndexSource, SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
+import { WorkspaceSearch } from "@/features/search/application/workspace-search";
+import { collapseToEntities } from "@/features/search/application/collapse-to-entities";
 
 /**
  * `WorkspaceSearch` reaches IndexedDB for the PDF text store and the index
@@ -112,6 +113,103 @@ test("invalidating forgets what was held per paper", async () => {
   search.invalidate();
   assert.equal(search.ready, false);
   assert.equal(search.corpusSize.documents, 0);
+});
+
+// --- what the semantic arm embeds -------------------------------------------
+//
+// The projection the index was built from used to be kept for this arm, and it
+// went stale the moment anything was refreshed: `refreshStale` and `indexPdf`
+// add documents and neither touched the copy. Because the vector store's
+// revision is derived from this projection, a stale copy meant a note added
+// after the build could never be found semantically — and nothing said so.
+
+test("the semantic corpus includes a note added after the build", async () => {
+  const pages = [note("n1", "Method", "The GAN setup.")];
+  const search = new WorkspaceSearch({
+    snapshot: async () => snapshot({ vaultPages: [...pages] }),
+    projectId: () => "p1",
+  });
+
+  await search.ensure();
+  const before = await search.projectionForSemantic();
+  assert.deepEqual(
+    before.filter((doc) => doc.kind === "note").map((doc) => doc.id),
+    ["note:n1"],
+  );
+
+  pages.push(note("n2", "Results", "The diffusion sampler."));
+  search.markStale("vault_page");
+  await search.ensure();
+
+  const after = await search.projectionForSemantic();
+  assert.deepEqual(
+    after.filter((doc) => doc.kind === "note").map((doc) => doc.id).sort(),
+    ["note:n1", "note:n2"],
+    "a note added since the build has to be in the corpus the arm embeds",
+  );
+});
+
+test("the semantic corpus is projected again after the arm is switched off", async () => {
+  // Re-enabling used to be the audit's trap: clearing the retained copy on
+  // disable left nothing to embed, because `ensure()` returns the existing index
+  // without rebuilding. Projecting on demand is what makes the second enable
+  // work.
+  const search = searchFor({ vaultPages: [note("n1", "Method", "The GAN setup.")] });
+  await search.ensure();
+
+  search.setSemanticIndex(null);
+
+  const corpus = await search.projectionForSemantic();
+  assert.ok(corpus.length > 0, "there is still a corpus to embed");
+});
+
+test("a PDF indexed in the reader joins the semantic corpus too", async () => {
+  const search = searchFor({ papers: [paper("pa1", "Attention")] });
+  await search.ensure();
+  search.indexPdf(pdf("pa1", [LONG("photosynthesis")]));
+
+  const corpus = await search.projectionForSemantic();
+
+  assert.ok(
+    corpus.some((doc) => doc.kind === "pdf"),
+    "text indexed after the build must be reproducible from the projection",
+  );
+});
+
+test("a failed refresh keeps the kinds stale instead of losing them", async () => {
+  // The staleness set used to be cleared *before* the snapshot was awaited, so a
+  // read that rejected lost the kinds for good: the index went on serving the
+  // rows it had, nothing was marked stale any more, and no later `ensure()` had
+  // any reason to look again. Silent, and stale forever.
+  const pages = [note("n1", "Method", "The GAN setup.")];
+  let failNext = false;
+  const search = new WorkspaceSearch({
+    snapshot: async () => {
+      if (failNext) {
+        failNext = false;
+        throw new Error("offline");
+      }
+      return snapshot({ vaultPages: [...pages] });
+    },
+    projectId: () => "p1",
+  });
+
+  await search.ensure();
+  assert.equal(search.search("diffusion").length, 0);
+
+  pages[0] = note("n1", "Method", "The diffusion setup.");
+  search.markStale("vault_page");
+  failNext = true;
+  await assert.rejects(() => search.ensure(), /offline/);
+
+  // The next attempt has to still know that notes are stale.
+  await search.ensure();
+
+  assert.equal(
+    search.search("diffusion").length,
+    1,
+    "the kind stayed marked, so the retry actually refreshed it",
+  );
 });
 
 test("editing a note refreshes notes without re-reading PDF text", async () => {
@@ -354,7 +452,7 @@ test("collapseToEntities sends a page to its paper's document even when the pape
   const folded = collapseToEntities(
     [hit("pdf:a#4", "a", 3), hit("pdf:b#0", "b", 2)],
     { entityId: "x" },
-    (page) => (page.entityId === "a" ? "paper:a" : null),
+    (page: SearchHit) => (page.entityId === "a" ? "paper:a" : null),
   );
   assert.deepEqual(folded, [
     { id: "paper:a", score: 3 },

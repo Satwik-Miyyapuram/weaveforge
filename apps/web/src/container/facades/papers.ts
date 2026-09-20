@@ -1,42 +1,54 @@
 import type {
   AddPaperUseCase,
   CheckCitationAlertsUseCase,
-  IBibliographyIntegration,
+  IAnnotationPinRepository,
+  IAnnotationQuotationTypeRepository,
   ImportPaperUseCase,
+  IPaperRepository,
+  IReaderAnnotationSink,
+  IReaderAnnotationSource,
+  IReportSectionRepository,
   ManageTagsUseCase,
-  ManagePaperFieldsUseCase,
+  NewReaderAnnotation,
   Paper,
-  PaperFieldKind,
-  PaperFieldRollupAgg,
-  PaperFieldValueData,
+  QuotationType,
+  ReaderAnnotationPatch,
   UpdatePaperUseCase,
 } from "@weaveforge/core";
 import type { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
 import type { LoadPapersScreenUseCase, PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
 import type { IPaperImageStore } from "@/features/papers/domain/zotero";
-import { applyBibliographyAnnotations } from "@/integrations/providers/zotero/bibliography-integration";
 
+/**
+ * Papers: the shelf, the cards, the images, and the reader's annotations on them.
+ *
+ * It used to be four concerns in one class — 39 public members and 16
+ * constructor dependencies, which is what the boundary gate now watches for.
+ * Custom fields went to `PaperFieldsFacade` and everything Zotero to
+ * `ZoteroFacade`; what remains is the paper itself and the things attached to
+ * it. `signedImageUrls` was deleted rather than moved: no caller ever had one,
+ * because the editors read blobs — `fetchImageBlobs`, which is the presigned-URL
+ * path taken one step further, minting the URL and fetching through it, so
+ * nothing needed the URL itself. Presigning is alive for the callers that do
+ * want it: vault assets, experiment artifacts, the batched route.
+ */
 export class PapersFacade {
   constructor(
     private readonly deps: {
       load: LoadPapersScreenUseCase;
       deletePaper: DeletePaperUseCase;
-      bibliography: IBibliographyIntegration;
-      papers: import("@weaveforge/core").IPaperRepository;
+      papers: IPaperRepository;
       manageTags: ManageTagsUseCase;
       updatePaper: UpdatePaperUseCase;
       importPaper: ImportPaperUseCase;
       addPaper: AddPaperUseCase;
       images: IPaperImageStore;
       citationAlerts: CheckCitationAlertsUseCase;
-      annotationPins: import("@weaveforge/core").IAnnotationPinRepository;
-      annotationQuotationTypes: import("@weaveforge/core").IAnnotationQuotationTypeRepository;
-      readerAnnotations: import("@weaveforge/core").IReaderAnnotationSource &
-        import("@weaveforge/core").IReaderAnnotationSink;
-      /** Zotero API key + library, read at call time (post-unlock). */
-      zoteroCredentials: import("@/features/papers/infrastructure/zotero-metadata-source").ZoteroCredentialsProvider;
-      paperFields: ManagePaperFieldsUseCase;
-      reportSections: import("@weaveforge/core").IReportSectionRepository;
+      annotationPins: IAnnotationPinRepository;
+      annotationQuotationTypes: IAnnotationQuotationTypeRepository;
+      readerAnnotations: IReaderAnnotationSource &
+        IReaderAnnotationSink;
+      reportSections: IReportSectionRepository;
     },
   ) {}
 
@@ -44,72 +56,8 @@ export class PapersFacade {
     return this.deps.load.execute();
   }
 
-  async syncBibliography() {
-    const library = await this.deps.bibliography.syncLibrary();
-    const byPaper = await this.deps.bibliography.pullAnnotations();
-    const annotations = await applyBibliographyAnnotations(
-      byPaper,
-      this.deps.papers,
-      this.deps.manageTags,
-    );
-    return { library, annotations };
-  }
-
-  /**
-   * The Zotero running on this computer: its papers, then their annotations.
-   *
-   * Separate from `syncBibliography`, which reads the cloud library with an
-   * API key. This one needs no key and no account: Zotero 7 serves a read-only
-   * copy of the same API on loopback, and the desktop shell is what reaches
-   * it. Items not yet in the library become papers first — a copy with no
-   * account has no other way to fill its shelf — and annotations are then
-   * matched by the `zoteroKey` every pulled paper carries.
-   */
-  async importLocalZotero() {
-    const { desktop } = await import("@/lib/desktop/desktop-bridge");
-    const bridge = desktop();
-    if (!bridge || typeof bridge.zoteroLocal !== "function") {
-      throw new Error("Reading the local Zotero needs the WeaveForge desktop app.");
-    }
-    const { localZoteroAnnotations, localZoteroLibrary } = await import(
-      "@/features/papers/infrastructure/zotero-local"
-    );
-    const papers = await localZoteroLibrary(bridge, {
-      listPapers: () => this.deps.papers.list(),
-      addPaper: (input) => this.deps.addPaper.addManual(input),
-      onItemTags: async (paper, remote) => {
-        const names = (remote.tags ?? []).map((t) => t.tag ?? "").filter(Boolean);
-        if (names.length === 0) return;
-        await this.deps.manageTags.reconcileSources(
-          paper.id,
-          names.map((name) => ({ name, source: "zotero_item" as const })),
-          ["zotero_item"],
-        );
-      },
-    }).pull();
-    const byPaper = await localZoteroAnnotations(bridge).pullAll();
-    const annotations = await applyBibliographyAnnotations(
-      byPaper,
-      this.deps.papers,
-      this.deps.manageTags,
-    );
-    return { papers, annotations, items: byPaper.size };
-  }
-
   deletePaper(paper: Paper) {
     return this.deps.deletePaper.execute(paper);
-  }
-
-  async autoPush(paper: Paper) {
-    if (paper.metadata?.zoteroKey) return;
-    try {
-      const key = await this.deps.bibliography.pushPaper(paper);
-      if (key) {
-        await this.deps.papers.save({ ...paper, metadata: { ...paper.metadata, zoteroKey: key } });
-      }
-    } catch {
-      /* best-effort */
-    }
   }
 
   getPaper(id: string) {
@@ -173,7 +121,7 @@ export class PapersFacade {
   async setAnnotationQuotationType(
     paperId: string,
     annotationKey: string,
-    quotationType: import("@weaveforge/core").QuotationType | null,
+    quotationType: QuotationType | null,
   ) {
     if (!quotationType) {
       await this.deps.annotationQuotationTypes.remove(paperId, annotationKey);
@@ -192,14 +140,14 @@ export class PapersFacade {
 
   createReaderAnnotation(
     paperId: string,
-    draft: import("@weaveforge/core").NewReaderAnnotation,
+    draft: NewReaderAnnotation,
   ) {
     return this.deps.readerAnnotations.create(paperId, draft);
   }
 
   updateReaderAnnotation(
     id: string,
-    patch: import("@weaveforge/core").ReaderAnnotationPatch,
+    patch: ReaderAnnotationPatch,
   ) {
     return this.deps.readerAnnotations.update(id, patch);
   }
@@ -208,89 +156,17 @@ export class PapersFacade {
     return this.deps.readerAnnotations.remove(id);
   }
 
-  /**
-   * R5 dry-run: build Zotero write payloads without calling the live API.
-   * Kept as a separate entry point so "show me what would happen" can never be
-   * a mistyped argument away from actually writing.
-   */
-  async dryRunZoteroAnnotationWriteBack(paperId: string, parentItemKey: string) {
-    const { DryRunZoteroAnnotationWriteBack } = await import("@weaveforge/core");
-    const anns = await this.deps.readerAnnotations.list(paperId);
-    const client = new DryRunZoteroAnnotationWriteBack();
-    return client.push(parentItemKey, anns);
-  }
-
-  /**
-   * R5 live push — writes this paper's local annotations into Zotero.
-   *
-   * `parentItemKey` is the **attachment** key (the stored PDF), not the
-   * bibliographic item. Updates carry a version guard, so an annotation edited
-   * in Zotero since the last sync returns `conflict` rather than being
-   * overwritten. Callers must confirm with the user first; this mutates a real
-   * library and nothing here asks twice.
-   */
-  async pushAnnotationsToZotero(paperId: string, parentItemKey: string) {
-    const { ZoteroApiAnnotationWriteBack } = await import(
-      "@/features/reader/infrastructure/zotero-annotation-write-back"
-    );
-    const anns = await this.deps.readerAnnotations.list(paperId);
-    const local = anns.filter((a) => a.origin === "local");
-    const client = new ZoteroApiAnnotationWriteBack(this.deps.zoteroCredentials);
-    return client.push(parentItemKey, local, { live: true });
-  }
-
   listReportSections() {
     return this.deps.reportSections.list();
   }
 
-  listPaperFieldDefs() {
-    return this.deps.paperFields.listDefs();
-  }
 
-  listPaperFieldValuesForPaper(paperId: string) {
-    return this.deps.paperFields.listValuesForPaper(paperId);
-  }
 
-  listPaperFieldValuesForProject() {
-    return this.deps.paperFields.listValuesForProject();
-  }
 
-  definePaperField(input: {
-    name: string;
-    kind: PaperFieldKind;
-    options?: string[];
-    rollup?: {
-      relationFieldId: string;
-      agg: PaperFieldRollupAgg;
-      sourceFieldId?: string;
-    };
-  }) {
-    return this.deps.paperFields.define(input);
-  }
 
-  renamePaperField(fieldId: string, name: string) {
-    return this.deps.paperFields.rename(fieldId, name);
-  }
 
-  updatePaperFieldOptions(fieldId: string, options: string[]) {
-    return this.deps.paperFields.updateOptions(fieldId, options);
-  }
 
-  removePaperField(fieldId: string) {
-    return this.deps.paperFields.remove(fieldId);
-  }
 
-  setPaperFieldValue(
-    paperId: string,
-    fieldId: string,
-    value: PaperFieldValueData | null,
-  ) {
-    return this.deps.paperFields.setValue(paperId, fieldId, value);
-  }
-
-  signedImageUrls(paths: string[]) {
-    return this.deps.images.signedUrls(paths);
-  }
 
   fetchImageBlob(path: string) {
     return this.deps.images.fetchBlob(path);
@@ -298,17 +174,10 @@ export class PapersFacade {
 
   fetchImageBlobs(paths: readonly string[]) {
     // Called on the store, not as a detached function: the bucket store's
-    // `fetchBlobs` reads `this.blobs`, and unbound it threw on every note
-    // with two or more pictures.
-    const images = this.deps.images;
-    if (images.fetchBlobs) return images.fetchBlobs(paths);
-    return Promise.all(paths.map((p) => this.deps.images.fetchBlob(p))).then((blobs) => {
-      const out = new Map<string, Blob>();
-      paths.forEach((p, i) => {
-        if (blobs[i]) out.set(p, blobs[i]!);
-      });
-      return out;
-    });
+    // `fetchBlobs` reads `this.blobs`, and unbound it threw on every note with
+    // two or more pictures. The store owns its own batching, so this is the
+    // whole of it.
+    return this.deps.images.fetchBlobs(paths);
   }
 
   uploadImage(paperId: string, blob: Blob, ext: string) {

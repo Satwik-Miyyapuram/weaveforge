@@ -34,10 +34,11 @@ export function PaperFieldsStrip({ paperId, readOnly }: { paperId: string; readO
 
   const reload = useCallback(async () => {
     const papers = getContainer().papers;
+    const paperFields = getContainer().paperFields;
     const [nextDefs, nextValues, allValues, screen] = await Promise.all([
-      papers.listPaperFieldDefs(),
-      papers.listPaperFieldValuesForPaper(paperId),
-      papers.listPaperFieldValuesForProject(),
+      paperFields.listPaperFieldDefs(),
+      paperFields.listPaperFieldValuesForPaper(paperId),
+      paperFields.listPaperFieldValuesForProject(),
       papers.loadScreenData(),
     ]);
     setDefs(nextDefs);
@@ -60,7 +61,7 @@ export function PaperFieldsStrip({ paperId, readOnly }: { paperId: string; readO
     setBusy(true);
     setMsg(null);
     try {
-      await getContainer().papers.setPaperFieldValue(paperId, fieldId, value);
+      await getContainer().paperFields.setPaperFieldValue(paperId, fieldId, value);
       await reload();
     } catch (error) {
       setMsg(formatError(error));
@@ -325,7 +326,7 @@ function PaperFieldsManager({
                   disabled={busy}
                   onClick={() =>
                     void run(async () => {
-                      await getContainer().papers.renamePaperField(def.id, renameName);
+                      await getContainer().paperFields.renamePaperField(def.id, renameName);
                       setRenameId(null);
                     })
                   }
@@ -366,7 +367,7 @@ function PaperFieldsManager({
                     if (!confirm(`Remove field "${def.name}"? Values on papers will be deleted.`)) {
                       return;
                     }
-                    void run(() => getContainer().papers.removePaperField(def.id));
+                    void run(() => getContainer().paperFields.removePaperField(def.id));
                   }}
                 >
                   Remove
@@ -456,7 +457,7 @@ function PaperFieldsManager({
           }
           onClick={() =>
             void run(async () => {
-              await getContainer().papers.definePaperField({
+              await getContainer().paperFields.definePaperField({
                 name,
                 kind,
                 options: needsOptions

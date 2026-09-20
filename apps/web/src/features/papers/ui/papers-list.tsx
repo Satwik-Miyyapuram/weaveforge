@@ -103,7 +103,7 @@ export function PapersScreen() {
     setSyncMsg(null);
     setError(null);
     try {
-      const { library, annotations } = await getContainer().papers.syncBibliography();
+      const { library, annotations } = await getContainer().zotero.syncBibliography();
       const { pushed, pulled, deletedLocal } = library;
       setSyncMsg(
         `Synced — pushed ${pushed}, pulled ${pulled}, removed ${deletedLocal} · ${annotations} annotations.`,
@@ -128,7 +128,7 @@ export function PapersScreen() {
     setSyncMsg(null);
     setError(null);
     try {
-      const { papers, annotations, items } = await getContainer().papers.importLocalZotero();
+      const { papers, annotations, items } = await getContainer().zotero.importLocalZotero();
       setSyncMsg(
         `Read Zotero on this computer — ${papers} new paper${papers === 1 ? "" : "s"}, ${items} annotated item${items === 1 ? "" : "s"}, ${annotations} paper${annotations === 1 ? "" : "s"} updated.`,
       );

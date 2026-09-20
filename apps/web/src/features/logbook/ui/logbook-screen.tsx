@@ -28,7 +28,7 @@ export function LogbookScreen() {
 
   const loadEntries = useCallback(() => getContainer().logbook.loadEntries(), []);
   const { data, loading, error, reload: load } = useScreenData("logbook", loadEntries);
-  const entries = data ?? emptyArray<import("@weaveforge/core").LogEntry>();
+  const entries = data ?? emptyArray<LogEntry>();
 
   if (loading) {
     return <ScreenLoading status="Loading logbook…" />;

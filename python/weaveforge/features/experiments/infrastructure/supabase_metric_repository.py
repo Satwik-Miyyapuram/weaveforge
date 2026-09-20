@@ -1,6 +1,9 @@
 """Supabase adapter for :class:`IMetricRepository` (the ``experiment_metrics``
-curve table, migration 0016). Appends are batched into a single insert;
-``user_id`` is filled by the column default (``auth.uid()``)."""
+view over ``experiment_metric_points`` and ``experiment_metric_chunks``).
+Appends are batched into a single insert; ``user_id`` is filled by the column
+default (``auth.uid()``). Writes bypass the ingest route's downsampler, which is
+why ``scripts/prune-metric-series.mjs`` exists as a backstop — see
+``docs/running/metrics-maintenance.md``."""
 
 from __future__ import annotations
 

@@ -120,3 +120,40 @@ test("a text[] column takes an array literal; a jsonb column takes JSON", async 
   assert.equal(seen[1]?.params[0], '{"a"}');
   assert.equal(pgArray(["a\\b"]), '{"a\\\\b"}');
 });
+
+test("`range` is an inclusive window, spelled limit and offset", async () => {
+  // supabase-js pages with `range`, so a client that speaks the protocol has to
+  // answer it — the metric history read pages through this, and without it the
+  // whole curve read threw "range is not a function" on the local backend.
+  const { run, seen } = recorder([{ id: "a" }]);
+  await createLocalClient(run).from("papers").select("id").range(1000, 1999);
+  assert.match(seen[0]?.sql ?? "", /limit 1000 offset 1000$/);
+
+  const { run: wide, seen: more } = recorder([{ id: "a" }]);
+  await createLocalClient(wide).from("papers").select("id").range(5, 14);
+  assert.match(more[0]?.sql ?? "", /limit 10 offset 5$/);
+});
+
+test("an array argument to a function travels as an array literal", async () => {
+  // PostgREST accepts a JSON array for an array-typed parameter and Postgres
+  // does not: `["a"]` is "malformed array literal". Every call with an array
+  // argument failed on the local backend — `record_blob_access_many` included,
+  // which nothing had exercised.
+  const { run, seen } = recorder([{ experiment_id: "e1" }]);
+  await createLocalClient(run).rpc("latest_metric_activity", {
+    p_experiment_ids: ["e1", "e2"],
+  });
+  assert.equal(seen[0]?.params[0], '{"e1","e2"}');
+});
+
+test("an array of objects is still JSON, for a jsonb parameter", async () => {
+  // `create_organization_atomic`'s `p_codes` is jsonb and is called with an
+  // array of objects, which no Postgres array literal can express.
+  const { run, seen } = recorder([{ id: "1" }]);
+  await createLocalClient(run).rpc("create_organization_atomic", {
+    p_user_id: "u1",
+    p_name: "Lab",
+    p_codes: [{ code: "abc", role: "admin" }],
+  });
+  assert.equal(seen[0]?.params[2], '[{"code":"abc","role":"admin"}]');
+});

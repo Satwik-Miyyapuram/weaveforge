@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
+import type { PageTextItem } from "@weaveforge/core";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 
@@ -536,7 +537,7 @@ const renderPage = useCallback(
         const content = await pdfPage.getTextContent();
         if (generation !== renderGeneration.current) return;
         const lib = await loadPdfLib();
-        const geometryItems: import("@weaveforge/core").PageTextItem[] = [];
+        const geometryItems: PageTextItem[] = [];
         for (const raw of content.items) {
           const it = raw as {
             str?: string;

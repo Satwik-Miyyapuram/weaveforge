@@ -1,5 +1,10 @@
-import type { IReportSectionRepository, IShareRepository, ReportSection } from "@weaveforge/core";
-import { buildSectionTree, mergePinnedScreenData } from "@weaveforge/core";
+import type {
+  ILibraryPinRepository,
+  IReportSectionRepository,
+  IShareRepository,
+  ReportSection,
+} from "@weaveforge/core";
+import { buildSectionTree, loadPinnedScreenData } from "@weaveforge/core";
 import type { ReportSectionTreeNode } from "@weaveforge/core";
 
 export interface ReportScreenData {
@@ -14,28 +19,26 @@ export class LoadReportScreenUseCase {
   constructor(
     private readonly deps: {
       sections: IReportSectionRepository;
-      pins?: import("@weaveforge/core").ILibraryPinRepository;
+      pins?: ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}
 
   async execute(): Promise<ReportScreenData> {
-    const [owned, pins, shares] = await Promise.all([
-      this.deps.sections.list(),
-      this.deps.pins?.listForProject() ?? Promise.resolve([]),
-      this.deps.shares?.listSharedWithMe("report_section") ?? Promise.resolve([]),
-    ]);
+    const owned = await this.deps.sections.list();
 
-    const merged = await mergePinnedScreenData({
+    const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "report_section",
       owned,
-      pins,
-      shares,
       loadById: (id) => this.deps.sections.getById(id),
     });
 
     return {
-      tree: buildSectionTree(owned),
+      // From the merged set, not from `owned`. A shared section belongs in the
+      // tree like any other: building the tree pre-merge put it in `flat` and
+      // left it out of the only projection the screen paints, so the same data
+      // had two different answers depending on which field you read.
+      tree: buildSectionTree(merged.items),
       flat: merged.items,
       pinnedSharedBy: merged.pinnedSharedBy,
       reportCanComment: merged.canComment,

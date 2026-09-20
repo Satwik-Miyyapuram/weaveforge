@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   bodyLinksTo, extractHashtags, normalizeTitleKey,
-  type VaultPage, type VaultPageSummary, type VaultPageTreeNode } from "@weaveforge/core";
+  type VaultPage, type VaultPageSummary } from "@weaveforge/core";
+import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -14,7 +15,7 @@ import { AddVaultPageForm } from "../add-vault-page-form";
 import { importNotesFromFiles } from "../../application/import-notes";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap, emptySet } from "@/lib/empty";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { rememberRecentTarget } from "@/lib/recent-targets";
@@ -71,16 +72,17 @@ export function VaultScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const tree =
-    data?.tree ?? emptyArray<import("@weaveforge/core").VaultPageTreeNode<VaultPageSummary>>();
+  // Which rows this project owns. Served by the use-case rather than derived
+  // here from a tree that nothing renders — see `VaultScreenData.ownedIds`.
+  const ownedIds = data?.ownedIds ?? emptySet<string>();
   // The list holds summaries; opening a note replaces that entry with the full
   // page. `VaultPage` is assignable to `VaultPageSummary`, so one array can hold
   // both — but the element type stays the summary, which forces a `.body` read
   // through `noteBodyText`/`isHydratedPage` instead of silently yielding
   // `undefined` (review-2 F6).
   const flat =
-    data?.flat ?? emptyArray<import("@weaveforge/core").VaultPageSummary | VaultPage>();
-  const lists = data?.lists ?? emptyArray<import("@weaveforge/core").ReadingList>();
+    data?.flat ?? emptyArray<VaultPageSummary | VaultPage>();
+  const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const vaultCanComment = data?.vaultCanComment ?? emptyMap<string, boolean>();
@@ -116,11 +118,6 @@ export function VaultScreen() {
       href: `/notes?page=${encodeURIComponent(selected.id)}`,
     });
   }, [selected]);
-
-  const ownedIds = useMemo(
-    () => new Set(tree.flatMap((n) => collectIds(n))),
-    [tree],
-  );
 
   const pinnedPages = useMemo(
     () => flat.filter((p) => pinnedSharedBy.has(p.id) && !ownedIds.has(p.id)),
@@ -537,7 +534,3 @@ export function VaultScreen() {
   );
 }
 
-/** Every page id in a tree of summary nodes (the tree never carries bodies). */
-function collectIds(node: VaultPageTreeNode<VaultPageSummary>): string[] {
-  return [node.page.id, ...node.children.flatMap(collectIds)];
-}

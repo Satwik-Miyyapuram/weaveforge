@@ -15,6 +15,14 @@ import {
 } from "./annotation-quotation-type-rows";
 import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a AnnotationQuotationTypeRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const ANNOTATION_QUOTATION_TYPE_COLUMNS = "id,paper_id,annotation_key,quotation_type,created_at,updated_at";
+
 const TABLE = "annotation_quotation_types";
 
 export class SupabaseAnnotationQuotationTypeRepository extends ProjectScopedSupabaseRepository
@@ -40,7 +48,7 @@ export class SupabaseAnnotationQuotationTypeRepository extends ProjectScopedSupa
         },
         { onConflict: "project_id,paper_id,annotation_key" },
       )
-      .select("*")
+      .select(ANNOTATION_QUOTATION_TYPE_COLUMNS)
       .single());
     return toDomain(dbRow);
   }
@@ -59,7 +67,7 @@ export class SupabaseAnnotationQuotationTypeRepository extends ProjectScopedSupa
     if (!projectId) return [];
     return (await rows<AnnotationQuotationTypeRow>(this.db
       .from(TABLE)
-      .select("*")
+      .select(ANNOTATION_QUOTATION_TYPE_COLUMNS)
       .eq("project_id", projectId)
       .eq("paper_id", paperId)
       .order("created_at", { ascending: true }))).map(toDomain);

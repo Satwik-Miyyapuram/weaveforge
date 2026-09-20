@@ -1,14 +1,51 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderMarkdownPlain, renderMarkdownWithShiki, renderProseMarkdown } from "@/components/markdown/markdown";
+import { containsMath, loadMathRenderer } from "@/components/markdown/math-renderer";
 
-test("renders inline and display equations locally", () => {
-  const inline = renderProseMarkdown("The latent is $z = \\mu + \\sigma\\epsilon$.");
-  const display = renderProseMarkdown("$$\\mathcal{L}_{VAE} = x^2$$");
+/**
+ * The maths tests load KaTeX explicitly, and the app deliberately does not.
+ *
+ * `renderProseMarkdown` is synchronous and used to import KaTeX at module scope,
+ * which put 75 KB of it in the first-load JS of six routes — including ones whose
+ * screens have no maths on them. The renderer is loaded on demand now, and until
+ * it arrives maths renders as a placeholder holding the source TeX.
+ *
+ * So the assertions below pass the renderer they are about. That keeps them
+ * strong (real KaTeX output, real `trust: false` behaviour, real macro isolation)
+ * while the default path is exercised by the placeholder tests further down.
+ */
+async function withKatex(): Promise<{ mathRenderer: Awaited<ReturnType<typeof loadMathRenderer>> }> {
+  return { mathRenderer: await loadMathRenderer() };
+}
+
+test("renders inline and display equations locally", async () => {
+  const options = await withKatex();
+  const inline = renderProseMarkdown("The latent is $z = \\mu + \\sigma\\epsilon$.", options);
+  const display = renderProseMarkdown("$$\\mathcal{L}_{VAE} = x^2$$", options);
 
   assert.match(inline, /class="katex"/);
   assert.match(display, /class="katex-display"/);
   assert.match(display, /mathcal/);
+});
+
+test("without a loaded renderer, maths is a placeholder holding the TeX", () => {
+  // The default path, and the reason it is safe: a reader whose chunk has not
+  // arrived (or never will) sees the formula the author wrote, not an empty box.
+  const html = renderProseMarkdown("The latent is $z = \\mu$.", { mathRenderer: null });
+
+  assert.match(html, /class="math-pending"/);
+  assert.match(html, /z = \\mu/, "the source is shown, escaped");
+  assert.doesNotMatch(html, /class="katex"/);
+});
+
+test("only text with maths triggers the load", () => {
+  // A false positive costs a 75 KB fetch, so the delimiters are checked the way
+  // the renderer recognises them.
+  assert.equal(containsMath("Just prose about $5 and a shell $VAR."), true, "a bare dollar counts");
+  assert.equal(containsMath("$$\\int_0^1 x\\,dx$$"), true);
+  assert.equal(containsMath("Escaped: \\$5 only."), false, "an escaped dollar is not a delimiter");
+  assert.equal(containsMath("No maths here at all."), false);
 });
 
 test("keeps code, escaped dollars, and URL dollars out of equation rendering", () => {
@@ -20,8 +57,12 @@ test("keeps code, escaped dollars, and URL dollars out of equation rendering", (
   assert.match(html, /value=\$x\$/);
 });
 
-test("fails safely for untrusted or invalid TeX", () => {
-  const html = renderProseMarkdown("$\\href{javascript:alert(1)}{unsafe}$ and $\\notARealCommand$ and <script>alert(1)</script>");
+test("fails safely for untrusted or invalid TeX", async () => {
+  const options = await withKatex();
+  const html = renderProseMarkdown(
+    "$\\href{javascript:alert(1)}{unsafe}$ and $\\notARealCommand$ and <script>alert(1)</script>",
+    options,
+  );
 
   assert.doesNotMatch(html, /href="javascript:/i);
   assert.doesNotMatch(html, /<script>/i);

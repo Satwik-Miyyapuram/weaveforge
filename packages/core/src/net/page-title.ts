@@ -46,6 +46,16 @@ const BOT_WALL =
 /** Longer than this is a page dumping its whole description into the title. */
 const MAX_TITLE = 300;
 
+/**
+ * How much of a document is worth scanning for a title.
+ *
+ * A `<title>` lives in the head. Exported so the caller that *decodes* the bytes
+ * can stop at the same place this stops looking — decoding half a megabyte to
+ * read a few dozen bytes at the top is work nobody asked for, and a page with a
+ * large inline script before its `<title>` makes it measurable.
+ */
+export const PAGE_TITLE_SCAN_CHARS = 200_000;
+
 export interface PageTitle {
   title: string;
   /** True when the title looks like a challenge page rather than the article. */
@@ -63,7 +73,7 @@ export interface PageTitle {
  */
 export function extractPageTitle(html: string): PageTitle | null {
   // Only the head is worth scanning, and a page can be megabytes.
-  const head = html.slice(0, 200_000);
+  const head = html.slice(0, PAGE_TITLE_SCAN_CHARS);
 
   const og =
     metaContent(head, "og:title") ??

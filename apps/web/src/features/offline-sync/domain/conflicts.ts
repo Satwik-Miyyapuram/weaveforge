@@ -49,8 +49,14 @@ export class ConflictStore {
    * An insert has no base, so there is nothing to merge against and nothing
    * useful to record — the row already exists on the server and the puller will
    * bring it.
+   *
+   * `serverVersion` may be null (the transport could not read it). The column is
+   * nullable and stays that way through the re-queue: `resolveWith` hands it
+   * back as the next attempt's `baseVersion`, and a 0 written here would become
+   * a guard on a version no row has — an op that conflicts for ever instead of
+   * dead-lettering once.
    */
-  async open(entry: OutboxEntry, serverVersion: number): Promise<void> {
+  async open(entry: OutboxEntry, serverVersion: number | null): Promise<void> {
     if (!entry.basePayload) return;
     await this.sql.exec(
       `insert into sync_conflicts (table_name, row_id, base, local, server_version)

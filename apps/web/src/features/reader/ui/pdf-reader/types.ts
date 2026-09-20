@@ -70,7 +70,7 @@ export interface PdfReaderProps {
   /** 0-based page hint; when present the jump resolves there first. */
   page?: number;
   /** Projected reader annotations (Zotero and/or local). */
-  annotations?: import("@weaveforge/core").ReaderAnnotation[];
+  annotations?: ReaderAnnotation[];
   /**
    * Hash of the PDF being rendered, when the source ladder knows it. Stored
    * annotation rects are only trusted against a matching hash; empty on both

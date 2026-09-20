@@ -1,12 +1,20 @@
 import type {
-  IMemberRepository,
-  ManageCommentsUseCase,
-  ManageSharingUseCase,
-  Share,
-  PinSharedResourceUseCase,
+  CreateShareLinkUseCase,
   DuplicateSharedPaperUseCase,
-  NewLibraryPinInput,
+  IExperimentRepository,
+  ILibraryPinRepository,
+  IMemberRepository,
+  IPaperRepository,
   LibraryPin,
+  ManageCommentsUseCase,
+  ManageShareLinksUseCase,
+  ManageSharingUseCase,
+  NewLibraryPinInput,
+  PinSharedResourceUseCase,
+  RedeemShareLinkUseCase,
+  RevokeShareLinkUseCase,
+  Share,
+  ShareableType,
 } from "@weaveforge/core";
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
 import type { LoadSharedWithMeScreenUseCase, LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
@@ -17,18 +25,18 @@ export class SharingFacade {
     private readonly deps: {
       sharing: ManageSharingUseCase;
       comments: ManageCommentsUseCase;
-      createShareLink: import("@weaveforge/core").CreateShareLinkUseCase | null;
-      redeemShareLink: import("@weaveforge/core").RedeemShareLinkUseCase | null;
-      manageShareLinks: import("@weaveforge/core").ManageShareLinksUseCase | null;
-      revokeShareLink: import("@weaveforge/core").RevokeShareLinkUseCase | null;
+      createShareLink: CreateShareLinkUseCase | null;
+      redeemShareLink: RedeemShareLinkUseCase | null;
+      manageShareLinks: ManageShareLinksUseCase | null;
+      revokeShareLink: RevokeShareLinkUseCase | null;
       session: ICurrentUserProvider;
       sharedReader: ISharedReader;
       members: IMemberRepository;
       pinShared: PinSharedResourceUseCase;
       duplicateSharedPaper: DuplicateSharedPaperUseCase;
-      libraryPins: import("@weaveforge/core").ILibraryPinRepository;
-      papers: import("@weaveforge/core").IPaperRepository;
-      experiments: import("@weaveforge/core").IExperimentRepository;
+      libraryPins: ILibraryPinRepository;
+      papers: IPaperRepository;
+      experiments: IExperimentRepository;
       loadSharedWithMe: LoadSharedWithMeScreenUseCase;
     },
   ) {}
@@ -38,7 +46,7 @@ export class SharingFacade {
   }
 
   async createShareLink(input: {
-    resourceType: import("@weaveforge/core").ShareableType;
+    resourceType: ShareableType;
     resourceId: string;
     expiresAt?: string | null;
   }) {
@@ -52,7 +60,7 @@ export class SharingFacade {
     return this.deps.redeemShareLink.execute(urlToken);
   }
 
-  listShareLinks(resourceType: import("@weaveforge/core").ShareableType, resourceId: string) {
+  listShareLinks(resourceType: ShareableType, resourceId: string) {
     if (!this.deps.manageShareLinks) return Promise.resolve([]);
     return this.deps.manageShareLinks.listForResource(resourceType, resourceId);
   }
@@ -93,11 +101,11 @@ export class SharingFacade {
     return this.deps.duplicateSharedPaper.execute(input);
   }
 
-  unpinShared(resourceType: import("@weaveforge/core").ShareableType, resourceId: string) {
+  unpinShared(resourceType: ShareableType, resourceId: string) {
     return this.deps.libraryPins.unpin(resourceType, resourceId);
   }
 
-  isPinned(resourceType: import("@weaveforge/core").ShareableType, resourceId: string) {
+  isPinned(resourceType: ShareableType, resourceId: string) {
     return this.deps.libraryPins.isPinned(resourceType, resourceId);
   }
 }

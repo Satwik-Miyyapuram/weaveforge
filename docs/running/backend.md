@@ -2,9 +2,15 @@
 
 WeaveForge separates **domain logic** (`@weaveforge/core`) from **persistence, auth, and blob storage**. The web app selects a backend provider at deploy time — same pattern as [integrations](../using/integrations.md).
 
-Today the default is **Supabase** (managed Postgres + Auth + Storage). For larger orgs or self-hosting, you can target:
+The deployment this project runs on is **self-hosted**: Postgres 16 + PostgREST + Realtime on an
+OCI VM, with **MinIO** for blobs and Supabase Auth as the identity provider (the stack verifies the
+tokens Supabase signs). [`infra/oci/docker-compose.yml`](../../infra/oci/docker-compose.yml) is the
+whole data plane, and [`docs/running/oracle-shift.md`](oracle-shift.md) is how it was moved there.
 
-- **Postgres + your own auth** (Oracle Cloud free-tier VM, Neon, RDS, …)
+**Hosted Supabase** (managed Postgres + Auth + Storage) remains a supported target — the same
+migrations apply, and it needs none of the self-hosted prerequisites. Other targets:
+
+- **Postgres + your own auth** (Neon, RDS, another VM, …)
 - **Cloudflare** (Workers/Pages + Hyperdrive or D1 + R2 + Access)
 
 Repository interfaces in `@weaveforge/core` are the swap boundary — not PostgREST query builders.
@@ -90,6 +96,10 @@ SUPABASE_JWT_SECRET=<jwt secret>               # server only — mints sessions 
 
 # Postgres (when provider = postgres — server-side blob registry)
 DATABASE_URL=postgres://user:pass@host:5432/thesis
+
+# Bug reports filed from the app's error screen (optional)
+GITHUB_ISSUES_TOKEN=github_pat_...              # server only — fine-grained, issues: write
+GITHUB_ISSUES_REPO=Satwik-Miyyapuram/weaveforge # optional; defaults to this repository
 ```
 
 Without those two server-only values the app still signs people in, but the
@@ -97,15 +107,40 @@ settings panels that issue SDK API tokens and MCP relay tokens answer 503:
 the token service has nothing to sign with. The JWT secret is the same one
 PostgREST is given in [the shift guide](oracle-shift.md).
 
+Without `GITHUB_ISSUES_TOKEN` the error screens keep their other two escapes and
+the report panel answers 503 naming that variable — a report is never silently
+dropped.
+
+**Where that variable goes** is worth being precise about, because the obvious
+guess is wrong: the route that files reports (`/api/report-issue`) is served by
+`apps/web`, which runs on **Vercel** — not on the API box. So:
+
+| Context | Where to set it |
+|---|---|
+| Production | the `apps/web` project on Vercel → Settings → Environment Variables (`GITHUB_ISSUES_TOKEN`, optionally `GITHUB_ISSUES_REPO`). Redeploy for it to take effect. |
+| Local development | `apps/web/.env.local` — Next only reads it from the app directory, and it is git-ignored. |
+| The OCI box | **nothing.** `infra/oci/docker-compose.yml` runs the database, PostgREST, Realtime, the gateway and MinIO; the web app is not in it. Setting the token there would look configured and do nothing. |
+| A packaged desktop build | **nothing** — it serves a static copy of the app, which has no server and therefore no report endpoint. The panel says so rather than failing silently. |
+
+The token is a fine-grained PAT with `issues: write` on one repository. When it is
+set, the app files an issue containing what the reader saw, what they added, and
+the recent `console.error`/`console.warn` lines plus any uncaught error or
+rejection, **redacted** for tokens, credentials, emails, account names in paths and
+long opaque blobs. No account identity is attached, and the reader previews the
+whole payload before sending. It is the only credential in this app that can write
+anywhere.
+
 `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/running/postgres-provider.md`](postgres-provider.md). Default remains `supabase`.
 
 It is **not** the self-hosting switch, and setting it in a deployed app breaks the browser bundle: the client repositories reach the database over HTTP through PostgREST, which a Postgres connection string cannot replace. To move a deployed app onto your own database, set `NEXT_PUBLIC_DATA_URL` — [`docs/running/oracle-shift.md`](oracle-shift.md).
 
 ---
 
-## Default: Supabase
+## Hosted Supabase (a fresh checkout's default, not this deployment)
 
-Best for solo researchers and small labs: free tier, magic-link auth, RLS, zero ops.
+Best for solo researchers and small labs: free tier, magic-link auth, RLS, zero ops. This is what
+the env examples in the repository assume; the production deployment is the self-hosted stack at the
+top of this page, which needs none of the Supabase Storage or Supabase Postgres pieces.
 
 1. Create a Supabase project.
 2. Apply migrations (`supabase db push` or SQL editor).

@@ -27,6 +27,33 @@ export interface PostgrestError {
   code?: string;
 }
 
+/** The SQLSTATE a database error carries, when it carries one. */
+function postgresCode(error: unknown): string | undefined {
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+/**
+ * A PGlite failure, shaped the way PostgREST shapes one.
+ *
+ * `code` is the load-bearing part. Callers branch on it — a permission refusal
+ * is `42501`, a missing function `PGRST202`, a unique violation `23505` — and
+ * dropping it meant the same failure arrived differently depending on which
+ * provider was running. That is how a SQLSTATE mapping written against PostgREST
+ * quietly became a `throw` on the local backend: the mapping found no code, fell
+ * through to `throw`, and the caller saw a raw message instead of a refusal.
+ *
+ * One function for both paths, because there were two — `execute` for the query
+ * builder and `rpc` for functions — and they had drifted: neither passed the code
+ * on, and only one of them was wrong about anything else.
+ */
+function toPostgrestError(error: unknown): PostgrestError {
+  return {
+    message: error instanceof Error ? error.message : String(error),
+    code: postgresCode(error),
+  };
+}
+
 interface Reply<T> {
   data: T;
   error: PostgrestError | null;
@@ -100,6 +127,29 @@ export function pgArray(values: readonly unknown[]): string {
 }
 
 /**
+ * A value bound to a function argument.
+ *
+ * PostgREST takes a JSON array for an array-typed parameter — that is how
+ * `record_blob_access_many` is called with its `p_paths text[]` — but Postgres
+ * is what parses it here, and `["a"]` is not an array literal, so every call
+ * with an array argument failed with "malformed array literal". That affected
+ * `latest_metric_activity` and also `record_blob_access_many`, on the local
+ * backend only, where nothing had exercised it.
+ *
+ * The element type is the only signal available — `encode` learns a column's
+ * type from the table it is writing to, and an argument has no table. A `uuid[]`,
+ * `text[]` or `int[]` holds scalars and wants the literal form; an array of
+ * objects can only be destined for a `jsonb` parameter
+ * (`create_organization_atomic`'s `p_codes`), which wants JSON.
+ */
+function encodeArgument(value: unknown): string | number | boolean | Uint8Array | null {
+  if (Array.isArray(value) && value.every((item) => item === null || typeof item !== "object")) {
+    return pgArray(value);
+  }
+  return encode(value);
+}
+
+/**
  * A value on its way into a statement.
  *
  * The bridge carries only primitives, so anything structured travels as JSON
@@ -134,6 +184,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   private readonly params: unknown[] = [];
   private readonly orders: string[] = [];
   private limitTo: number | null = null;
+  private offsetTo = 0;
   private columns = "*";
   private returning = false;
   private rowMode: "many" | "one" | "maybe" = "many";
@@ -253,6 +304,20 @@ class Builder<T> implements PromiseLike<Reply<T>> {
     return this;
   }
 
+  /**
+   * PostgREST's `Range: from-to`, inclusive at both ends.
+   *
+   * Paging is how a caller reads a table larger than one response, so a client
+   * that speaks the protocol needs it: the metric history adapter pages with
+   * this, and without it every read of a long curve failed with "range is not a
+   * function" on the local backend only.
+   */
+  range(from: number, to: number): this {
+    this.limitTo = Math.max(0, to - from + 1);
+    this.offsetTo = Math.max(0, from);
+    return this;
+  }
+
   single(): this {
     this.rowMode = "one";
     return this;
@@ -298,7 +363,10 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   private tail(): string {
     const order = this.orders.length ? ` order by ${this.orders.join(", ")}` : "";
     const limit = this.limitTo === null ? "" : ` limit ${Number(this.limitTo)}`;
-    return `${order}${limit}`;
+    // `offset` without `limit` is legal in Postgres, so a bare `.range(5, …)`
+    // still pages correctly.
+    const offset = this.offsetTo ? ` offset ${Number(this.offsetTo)}` : "";
+    return `${order}${limit}${offset}`;
   }
 
   /** The statement, built last so every filter has already booked its parameter. */
@@ -376,10 +444,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
       const sql = this.compile();
       rows = (await this.run(sql, this.params)) as Row[];
     } catch (error) {
-      return {
-        data: null as T,
-        error: { message: error instanceof Error ? error.message : String(error) },
-      };
+      return { data: null as T, error: toPostgrestError(error) };
     }
 
     if (this.headOnly && this.counting) {
@@ -455,17 +520,14 @@ export function createLocalClient(run: LocalQuery) {
       try {
         const rows = (await run(
           `select * from ${ident(name)}(${call})`,
-          names.map((n) => encode(args[n])),
+          names.map((n) => encodeArgument(args[n])),
         )) as Row[];
         // A function returning one scalar answers as PostgREST does: the value.
         const first = rows[0];
         const data = first && Object.keys(first).length === 1 ? Object.values(first)[0] : rows;
         return { data, error: null as PostgrestError | null };
       } catch (error) {
-        return {
-          data: null,
-          error: { message: error instanceof Error ? error.message : String(error) },
-        };
+        return { data: null, error: toPostgrestError(error) };
       }
     },
   };

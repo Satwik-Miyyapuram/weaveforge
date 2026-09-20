@@ -1,4 +1,8 @@
-import type { ManageReportSectionUseCase, ReportSection } from "@weaveforge/core";
+import type {
+  IReportSectionRepository,
+  ManageReportSectionUseCase,
+  ReportSection,
+} from "@weaveforge/core";
 import type { LoadReportScreenUseCase, ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { reportImagePathsInBody } from "@/features/report/lib/report-images-md";
 
@@ -6,7 +10,7 @@ export class ReportFacade {
   constructor(
     private readonly deps: {
       load: LoadReportScreenUseCase;
-      sections: import("@weaveforge/core").IReportSectionRepository;
+      sections: IReportSectionRepository;
       manageReportSection: ManageReportSectionUseCase;
       images: import("@/features/report/infrastructure/report-image-store").ReportImageStore;
     },

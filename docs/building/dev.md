@@ -225,7 +225,11 @@ These tests run in `check:all` and on every PR.
 The gates `check:boundaries` runs, read from `package.json` rather than
 remembered:
 
+<<<<<<< HEAD
+CI runs these as **separate steps** rather than through `check:boundaries`, so each gate names itself in the job log and a second broken rule is visible in the same run instead of waiting behind the first. An aggregate step fails the job if any gate did not pass, so the job is still red on a failure. That makes this list a second copy of `check:boundaries`, and `check:ci-parity` is the gate that keeps the two identical — a gate added to one and not the other used to stop gating merges, silently, with a green build. `check:boundaries` itself is unchanged and remains the fast local pre-PR pass.
+=======
 CI runs these eight as **separate steps** rather than through `check:boundaries`, so each gate names itself in the job log and a second broken rule is visible in the same run instead of waiting behind the first. An aggregate step fails the job if any gate did not pass, so the job is still red on a failure. `check:boundaries` itself is unchanged and remains the fast local pre-PR pass — but it is now a second copy of this list, so a gate added there must be added to [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) too.
+>>>>>>> origin/main
 
 <!-- generated:boundary-checks -->
 
@@ -241,6 +245,7 @@ CI runs these eight as **separate steps** rather than through `check:boundaries`
 | `npm run check:hygiene` | `node scripts/check-hygiene.mjs` |
 | `npm run check:mcp-plugin` | `node scripts/check-mcp-plugin.mjs` |
 | `npm run check:docs` | `node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check` |
+| `npm run check:ci-parity` | `node scripts/check-ci-parity.mjs` |
 
 <!-- /generated:boundary-checks -->
 

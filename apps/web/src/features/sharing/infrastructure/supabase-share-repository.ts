@@ -19,6 +19,14 @@ import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
  * touches the caller's own rows (RLS `shares_owner_all`), which sidesteps the
  * NULL-resource_id unique-index edge case an upsert would hit.
  */
+/**
+ * The columns a ShareRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const SHARE_COLUMNS = "id,owner_id,recipient_id,resource_type,resource_id,access,created_at";
+
 const TABLE = "shares";
 
 export class SupabaseShareRepository implements IShareRepository {
@@ -49,7 +57,7 @@ export class SupabaseShareRepository implements IShareRepository {
         resource_id: input.resourceId,
         access: input.access ?? "comment",
       })
-      .select("*")
+      .select(SHARE_COLUMNS)
       .single());
     return toDomain(dbRow);
   }
@@ -62,7 +70,7 @@ export class SupabaseShareRepository implements IShareRepository {
     resourceType: ShareableType,
     resourceId: string | null,
   ): Promise<Share[]> {
-    let q = this.db.from(TABLE).select("*").eq("resource_type", resourceType);
+    let q = this.db.from(TABLE).select(SHARE_COLUMNS).eq("resource_type", resourceType);
     q = resourceId === null ? q.is("resource_id", null) : q.eq("resource_id", resourceId);
     return (await rows<ShareRow>(q)).map(toDomain);
   }
@@ -70,7 +78,7 @@ export class SupabaseShareRepository implements IShareRepository {
   async listSharedWithMe(resourceType?: ShareableType): Promise<Share[]> {
     const uid = await this.session.getCurrentUserId();
     if (!uid) return [];
-    let q = this.db.from(TABLE).select("*").eq("recipient_id", uid);
+    let q = this.db.from(TABLE).select(SHARE_COLUMNS).eq("recipient_id", uid);
     if (resourceType) q = q.eq("resource_type", resourceType);
     return (await rows<ShareRow>(q.order("created_at", { ascending: false }))).map(toDomain);
   }

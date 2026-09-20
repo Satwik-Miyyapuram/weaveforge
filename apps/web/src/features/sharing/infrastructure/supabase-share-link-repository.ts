@@ -15,6 +15,17 @@ function throwSupabaseError(error: { message?: string }, fallback: string): neve
 
 const TABLE = "share_links";
 
+/**
+ * The columns a minted link is read back as.
+ *
+ * `token_hash`, `dek_wrap` and `dek_epoch` are written and never read: the hash is
+ * what the *server* compares against on redemption, and the wrapped key is
+ * unwrapped by the RPC that resolves the link. Selecting them back would put key
+ * material in a response this route then serialises — which is the reason to name
+ * this projection rather than star it, beyond the usual one.
+ */
+const SHARE_LINK_COLUMNS = "id,owner_id,resource_type,resource_id,access,expires_at,created_at";
+
 interface ShareLinkRow {
   id: string;
   owner_id: string;
@@ -98,7 +109,7 @@ export class SupabaseShareLinkRepository implements IShareLinkRepository {
         dek_wrap: input.dekWrap ? encodeBytea(input.dekWrap) : null,
         dek_epoch: input.dekEpoch ?? null,
       })
-      .select("*")
+      .select(SHARE_LINK_COLUMNS)
       .single();
     if (error) throwSupabaseError(error, "Failed to load share link.");
     return mapRow(data as ShareLinkRow);

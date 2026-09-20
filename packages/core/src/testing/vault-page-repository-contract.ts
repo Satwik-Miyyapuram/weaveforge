@@ -65,15 +65,11 @@ export function runVaultPageRepositoryContract(
   // --- the lossy method (review-2 F4c) -------------------------------------
   //
   // `listSummaries` is the projection the note cards and the tree paint from,
-  // and it is the one method no contract suite covered. It is optional on the
-  // port, so both shapes are asserted rather than one being skipped silently.
-  test(`[${label}] listSummaries, when present, covers every saved page`, async () => {
+  // and it is the one method no contract suite covered. It is required on the
+  // port now, so the branches that recorded its absence are gone: an
+  // implementation without it does not compile.
+  test(`[${label}] listSummaries covers every saved page`, async () => {
     const repo = makeRepo();
-    if (!repo.listSummaries) {
-      // Not an error: the port allows the `list()` fallback.
-      assert.equal(repo.listSummaries, undefined);
-      return;
-    }
     await repo.save(samplePage({ id: "a" }));
     await repo.save(samplePage({ id: "b", parentId: "a", title: "Child" }));
     const summaries = await repo.listSummaries();
@@ -86,7 +82,6 @@ export function runVaultPageRepositoryContract(
 
   test(`[${label}] listSummaries keeps the identity the tree nests on`, async () => {
     const repo = makeRepo();
-    if (!repo.listSummaries) return;
     const page = samplePage({ id: "child", parentId: "root", sortOrder: 3 });
     await repo.save(page);
     const [summary] = await repo.listSummaries();
@@ -105,7 +100,6 @@ export function runVaultPageRepositoryContract(
     // note. A summary must therefore either carry the real body or clearly not
     // carry one; `body: ""` with no preview is the one shape that is a lie.
     const repo = makeRepo();
-    if (!repo.listSummaries) return;
     const page = samplePage({ id: "a", body: "A note with real content." });
     await repo.save(page);
     const [summary] = await repo.listSummaries();

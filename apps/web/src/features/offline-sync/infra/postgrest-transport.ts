@@ -65,7 +65,16 @@ export class PostgrestTransport implements SyncTransport {
     if (entry.op === "insert") {
       return this.request("POST", `/${table}`, entry.payload ?? {}, "return=representation");
     }
-    const guard = `?id=eq.${encodeURIComponent(entry.rowId)}&row_version=eq.${entry.baseVersion ?? 0}`;
+    // Guard only on a version we actually hold. An unknown base version used to
+    // be spelled `?? 0`, which turns "we never recorded one" into a specific and
+    // wrong claim: no live row is at version 0, so the PATCH matched nothing and
+    // `send` read that as a conflict — an op that could never drain. Last write
+    // wins is the honest reading of "no version to compare against"; if an
+    // unguarded write is unacceptable for a caller, the op belongs in the
+    // `refused` outcome with a reason, not parked as a phantom conflict.
+    const row = `?id=eq.${encodeURIComponent(entry.rowId)}`;
+    const guard =
+      entry.baseVersion == null ? row : `${row}&row_version=eq.${entry.baseVersion}`;
     const body =
       entry.op === "delete" ? { deleted_at: new Date().toISOString() } : (entry.payload ?? {});
     return this.request("PATCH", `/${table}${guard}`, body, "return=representation");
@@ -74,8 +83,11 @@ export class PostgrestTransport implements SyncTransport {
   /**
    * Read back the version the server holds, so the merge has both sides.
    *
-   * If the row cannot be read the op is still a conflict — version 0 says "the
-   * server has something you have not seen", which is exactly true.
+   * `serverVersion: null` — not `0` — when it cannot be read. The distinction is
+   * not cosmetic: this value is persisted on the conflict row and re-queued as
+   * the next attempt's `baseVersion`, so a fabricated 0 becomes a guard that
+   * matches nothing and dead-letters the op. "The server has something you have
+   * not seen" is true without knowing which version it is.
    */
   private async conflict(entry: OutboxEntry): Promise<SendOutcome> {
     try {
@@ -86,9 +98,9 @@ export class PostgrestTransport implements SyncTransport {
       );
       const row = Array.isArray(found.rows) ? found.rows[0] : undefined;
       const version = (row as { row_version?: unknown } | undefined)?.row_version;
-      return { status: "conflict", serverVersion: typeof version === "number" ? version : 0 };
+      return { status: "conflict", serverVersion: typeof version === "number" ? version : null };
     } catch {
-      return { status: "conflict", serverVersion: 0 };
+      return { status: "conflict", serverVersion: null };
     }
   }
 

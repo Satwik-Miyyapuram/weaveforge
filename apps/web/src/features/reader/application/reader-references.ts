@@ -21,6 +21,7 @@ import {
   type PdfLink,
   type ReaderOutlineItem,
 } from "@weaveforge/core";
+import type { FigureTarget } from "@weaveforge/core";
 import { pageTextFromItems } from "./reference-locate";
 
 /** A clickable thing found in the page text. */
@@ -48,7 +49,7 @@ export interface MentionHit {
    */
   rects?: number[][];
   /** Where a figure/table/equation mention jumps to, for figures. */
-  target?: import("@weaveforge/core").FigureTarget;
+  target?: FigureTarget;
   /** How this citation was found, and how much to trust it. */
   source?: CitationSource;
   confidence?: number;

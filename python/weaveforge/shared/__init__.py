@@ -6,6 +6,17 @@ factories pure and testable (see ``docs/building/design.md`` §5.1).
 """
 
 from .clock import Clock, IdGenerator, SystemClock, UuidGenerator, iso_date
+from .guards import USER_FRAME, best_effort
+from .ports import (
+    ArtifactUpload,
+    ArtifactUploader,
+    Closer,
+    ExperimentBookkeeper,
+    ExperimentWriter,
+    TrackingContainer,
+    api_closer,
+    artifact_uploader,
+)
 from .repository import (
     Identifiable,
     IReadableRepository,
@@ -23,4 +34,14 @@ __all__ = [
     "IReadableRepository",
     "IWritableRepository",
     "IRepository",
+    "USER_FRAME",
+    "best_effort",
+    "ArtifactUpload",
+    "ArtifactUploader",
+    "Closer",
+    "ExperimentBookkeeper",
+    "ExperimentWriter",
+    "TrackingContainer",
+    "api_closer",
+    "artifact_uploader",
 ]

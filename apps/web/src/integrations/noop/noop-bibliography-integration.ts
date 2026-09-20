@@ -1,6 +1,7 @@
 import type {
   BibliographyAnnotation,
   BibliographyCollection,
+  BibliographyCredentials,
   BibliographySyncResult,
   IBibliographyIntegration,
   Paper,
@@ -27,7 +28,7 @@ export class NoopBibliographyIntegration implements IBibliographyIntegration {
   }
 
   async listCollections(
-    _credentials?: import("@weaveforge/core").BibliographyCredentials,
+    _credentials?: BibliographyCredentials,
   ): Promise<BibliographyCollection[]> {
     return [];
   }

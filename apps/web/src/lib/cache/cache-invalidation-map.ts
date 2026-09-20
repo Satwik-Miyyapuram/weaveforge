@@ -1,6 +1,11 @@
 /**
  * Scoped cache invalidation map (cache-invalidation-scoping-plan.md).
+ *
+ * `screens` is typed as {@link ScreenId}, so a name that is not a real screen is
+ * a compile error rather than a delete of a key nothing ever wrote.
  */
+
+import type { ScreenId } from "@/lib/screens";
 
 export type ResourceType =
   | "paper"
@@ -24,26 +29,29 @@ export type ResourceType =
 
 export const WRITE_INVALIDATION_MAP: Record<
   ResourceType,
-  { repos: readonly ResourceType[]; screens: readonly string[] }
+  { repos: readonly ResourceType[]; screens: readonly ScreenId[] }
 > = {
-  paper: { repos: ["paper", "paper_relation", "tag", "paper_tag", "reading_list_item"], screens: ["papers", "graph", "lists", "dashboard"] },
-  vault_page: { repos: ["vault_page", "paper_relation", "reading_list_item"], screens: ["vault", "notes", "graph", "lists", "dashboard"] },
-  reading_list: { repos: ["reading_list", "reading_list_item"], screens: ["lists", "papers", "vault", "dashboard"] },
-  reading_list_item: { repos: ["reading_list_item", "reading_list"], screens: ["lists", "papers", "vault", "dashboard"] },
-  log_entry: { repos: ["log_entry"], screens: ["logbook", "dashboard"] },
-  report_section: { repos: ["report_section"], screens: ["report", "dashboard"] },
-  experiment: { repos: ["experiment"], screens: ["experiments", "dashboard"] },
-  milestone: { repos: ["milestone"], screens: ["plan", "dashboard"] },
-  paper_relation: { repos: ["paper_relation"], screens: ["graph", "dashboard"] },
-  tag: { repos: ["tag", "paper_tag", "paper"], screens: ["papers", "graph", "dashboard"] },
-  paper_tag: { repos: ["tag", "paper_tag", "paper"], screens: ["papers", "graph", "dashboard"] },
+  paper: { repos: ["paper", "paper_relation", "tag", "paper_tag", "reading_list_item"], screens: ["papers", "graph", "lists"] },
+  vault_page: { repos: ["vault_page", "paper_relation", "reading_list_item"], screens: ["vault", "graph", "lists"] },
+  reading_list: { repos: ["reading_list", "reading_list_item"], screens: ["lists", "papers", "vault"] },
+  reading_list_item: { repos: ["reading_list_item", "reading_list"], screens: ["lists", "papers", "vault"] },
+  log_entry: { repos: ["log_entry"], screens: ["logbook"] },
+  report_section: { repos: ["report_section"], screens: ["report", "report-overleaf"] },
+  experiment: { repos: ["experiment"], screens: ["experiments"] },
+  milestone: { repos: ["milestone"], screens: ["plan"] },
+  paper_relation: { repos: ["paper_relation"], screens: ["graph"] },
+  tag: { repos: ["tag", "paper_tag", "paper"], screens: ["papers", "graph"] },
+  paper_tag: { repos: ["tag", "paper_tag", "paper"], screens: ["papers", "graph"] },
   comment: { repos: ["comment"], screens: [] },
-  share: { repos: ["share"], screens: ["shared-with-me", "dashboard"] },
-  library_pin: { repos: ["library_pin"], screens: ["papers", "lists", "dashboard"] },
+  share: { repos: ["share"], screens: ["shared-with-me"] },
+  library_pin: { repos: ["library_pin"], screens: ["papers", "lists"] },
   citation_alert_track: { repos: ["citation_alert_track"], screens: ["papers", "logbook"] },
-  project: { repos: ["project"], screens: ["dashboard"] },
-  dashboard_layout: { repos: ["dashboard_layout"], screens: ["dashboard"] },
-  graph_settings: { repos: ["graph_settings"], screens: ["graph", "dashboard"] },
+  // A project or its dashboard layout changing is not a *screen* cache's
+  // business: the dashboard has its own facade and never calls `useScreenData`,
+  // so these two named a name nothing wrote.
+  project: { repos: ["project"], screens: [] },
+  dashboard_layout: { repos: ["dashboard_layout"], screens: [] },
+  graph_settings: { repos: ["graph_settings"], screens: ["graph"] },
 };
 
 export function isScopedCacheInvalidationEnabled(): boolean {

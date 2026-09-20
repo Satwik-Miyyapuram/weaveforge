@@ -19,6 +19,14 @@ import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-r
  */
 
 
+/**
+ * The columns a LogEntryRow is read as, named rather than starred.
+ *
+ * Derived from the row type: exactly the fields the mapper reads, where a star
+ * would mean "whatever the table grows next".
+ */
+const LOG_ENTRY_COLUMNS = "id,entry_date,kind,body,links,created_at";
+
 const TABLE = "log_entries";
 
 export class SupabaseLogEntryRepository extends ProjectRepository implements ILogEntryRepository {
@@ -29,7 +37,7 @@ export class SupabaseLogEntryRepository extends ProjectRepository implements ILo
   }
 
   async list(filter?: LogEntryFilter): Promise<LogEntry[]> {
-    let query = this.db.from(TABLE).select("*");
+    let query = this.db.from(TABLE).select(LOG_ENTRY_COLUMNS);
     if (this.pid) query = query.eq("project_id", this.pid);
     if (filter?.kind) query = query.eq("kind", filter.kind);
     if (filter?.dateFrom) query = query.gte("entry_date", filter.dateFrom);

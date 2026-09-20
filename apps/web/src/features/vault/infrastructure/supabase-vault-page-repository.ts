@@ -13,10 +13,18 @@ import {
   toSummaryDomain,
   toRow,
 } from "./vault-page-rows";
-import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
+import { one, rows, run } from "@/backend/providers/supabase/row-access";
 import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
 /** Ids per `in (...)` request; the list travels in the URL. */
+/**
+ * The columns a VaultPageRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,sort_order,created_at,updated_at";
+
 const ID_CHUNK = 200;
 
 const TABLE = "vault_pages";
@@ -28,15 +36,16 @@ const VAULT_SUMMARY_COLUMNS =
 export class SupabaseVaultPageRepository extends ProjectRepository implements IVaultPageRepository {
 
   async getById(id: string): Promise<VaultPage | null> {
-    const row = await rowById<VaultPageRow>(this.db, TABLE, id);
+    const row = await one<VaultPageRow>(
+      this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS)).eq("id", id).maybeSingle(),
+    );
     return row ? toDomain(row) : null;
   }
 
   /** Ids and versions only — the cheap first half of a delta read. */
   async listStamps(): Promise<EntityStamp[]> {
-    let query = this.db.from(TABLE).select("id,updated_at,created_at");
-    if (this.pid) query = query.eq("project_id", this.pid);
-    query = query.order("sort_order", { ascending: true });
+    const query = this.scoped(this.db.from(TABLE).select("id,updated_at,created_at"))
+      .order("sort_order", { ascending: true });
     const { data, error } = await query;
     if (error) throw error;
     return (data as { id: string; updated_at: string | null; created_at: string }[]).map((row) => ({
@@ -47,20 +56,28 @@ export class SupabaseVaultPageRepository extends ProjectRepository implements IV
 
   async listByIds(ids: readonly string[]): Promise<VaultPage[]> {
     if (ids.length === 0) return [];
-    const out: VaultPage[] = [];
+    const chunks: string[][] = [];
     // Chunked: an `in` list travels in the URL, and a large one is rejected.
+    // Requested together rather than one after another, and ordered by `id` so
+    // the result is deterministic — the same two omissions the papers
+    // repository had.
     for (let start = 0; start < ids.length; start += ID_CHUNK) {
-            out.push(...(await rows<VaultPageRow>(this.db
-        .from(TABLE)
-        .select("*")
-        .in("id", ids.slice(start, start + ID_CHUNK) as string[]))).map(toDomain));
+      chunks.push(ids.slice(start, start + ID_CHUNK) as string[]);
     }
-    return out;
+    const pages = await Promise.all(
+      chunks.map((chunk) =>
+        rows<VaultPageRow>(
+          this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS))
+            .in("id", chunk)
+            .order("id", { ascending: true }),
+        ),
+      ),
+    );
+    return pages.flat().map(toDomain);
   }
 
   async list(filter?: VaultPageFilter): Promise<VaultPage[]> {
-    let query = this.db.from(TABLE).select("*");
-    if (this.pid) query = query.eq("project_id", this.pid);
+    let query = this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS));
     if (filter?.parentId !== undefined) {
       query =
         filter.parentId === null
@@ -76,9 +93,9 @@ export class SupabaseVaultPageRepository extends ProjectRepository implements IV
   }
 
   async listSummaries(): Promise<VaultPage[]> {
-    let query = this.db.from(TABLE).select(VAULT_SUMMARY_COLUMNS);
-    if (this.pid) query = query.eq("project_id", this.pid);
-    query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
+    const query = this.scoped(this.db.from(TABLE).select(VAULT_SUMMARY_COLUMNS))
+      .order("sort_order", { ascending: true })
+      .order("title", { ascending: true });
     const { data, error } = await query;
     if (error) {
       // Pre-migration fallback: derive preview from full body if body_preview is missing.
@@ -92,11 +109,13 @@ export class SupabaseVaultPageRepository extends ProjectRepository implements IV
 
   /** Fallback when `body_preview` has not been migrated yet. */
   private async listSummariesFromBody(): Promise<VaultPage[]> {
-    let query = this.db
-      .from(TABLE)
-      .select("id,title,parent_id,sort_order,created_at,updated_at,project_id,body");
-    if (this.pid) query = query.eq("project_id", this.pid);
-    query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
+    const query = this.scoped(
+      this.db
+        .from(TABLE)
+        .select("id,title,parent_id,sort_order,created_at,updated_at,project_id,body"),
+    )
+      .order("sort_order", { ascending: true })
+      .order("title", { ascending: true });
     const { data, error } = await query;
     if (error) throw error;
     return (data as VaultPageRow[]).map((row) => ({
@@ -112,8 +131,7 @@ export class SupabaseVaultPageRepository extends ProjectRepository implements IV
   }
 
   async getTree(): Promise<VaultPageTreeNode[]> {
-    let q = this.db.from(TABLE).select(VAULT_SUMMARY_COLUMNS);
-    if (this.pid) q = q.eq("project_id", this.pid);
+    const q = this.scoped(this.db.from(TABLE).select(VAULT_SUMMARY_COLUMNS));
     const { data, error } = await q;
     if (error) {
       if (isMissingBodyPreviewColumn(error)) {
@@ -131,7 +149,7 @@ export class SupabaseVaultPageRepository extends ProjectRepository implements IV
   }
 
   async delete(id: string): Promise<void> {
-    await deleteRowById(this.db, TABLE, id);
+    await run(this.scoped(this.db.from(TABLE).delete()).eq("id", id));
   }
 }
 

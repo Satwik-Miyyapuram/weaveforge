@@ -33,9 +33,11 @@ import {
   UpdatePaperUseCase,
   RemoveRelationUseCase,
   CompactCrdtLogUseCase,
-  appendPaperNote,
+  AppendPaperNoteUseCase,
+  PushPaperToZoteroUseCase,
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
+import type { AiToolName } from "@weaveforge/core";
 import { SemanticScholarMetadataSource } from "@/features/papers/infrastructure/semantic-scholar-metadata-source";
 import { OpenAlexMetadataSource } from "@/features/papers/infrastructure/openalex-metadata-source";
 import { ReferenceLookupService } from "@/features/reader/application/reference-lookup";
@@ -45,6 +47,7 @@ import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-meta
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
 import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
+import { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
 // Adding a paper also asks for its PDF, so a paper imported after the folder
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
 import { PrefetchingAddPaperUseCase } from "@/features/papers/application/prefetch-paper-pdf.use-case";
@@ -64,6 +67,8 @@ import { wireBackend } from "@/backend/wire-backend";
 import { readBackendConfig } from "@/backend/config";
 import {
   PapersFacade,
+  PaperFieldsFacade,
+  ZoteroFacade,
   GraphFacade,
   PlanFacade,
   LogbookFacade,
@@ -92,13 +97,9 @@ import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-ch
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import type { ProjectContext } from "@/lib/project-context";
-import { systemClock, uuidIds } from "@/features/papers/infrastructure/system";
-import {
-  configureProjectCacheHooks,
-  ProjectLwwInvalidator,
-  setActiveProjectIdForCache,
-} from "@/lib/cache/project-lww-invalidator";
-import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { randomBytes, systemClock, uuidIds } from "@/lib/system";
+import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
+import { createContainerLifecycle } from "@/container/lifecycle";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
@@ -112,13 +113,23 @@ import { closeFolder } from "@/features/workspace/application/workspace-folder";
 export interface CreatedAppContainer {
   container: AppContainer;
   projectLww: ProjectLwwInvalidator;
+  /**
+   * Release everything this container registered.
+   *
+   * `bootstrap.ts` builds a container per configuration, and the previous one is
+   * replaced the moment the backend or storage provider changes. Without this,
+   * each generation left behind: two dozen repository-cache registrations, its
+   * session-reset hook (so a later sign-out ran every generation's), and a
+   * joined private realtime channel.
+   */
+  dispose: () => void;
 }
 
 export async function createAppContainer(): Promise<CreatedAppContainer> {
   const [
     { wireIntegrations },
     { wireCitationSources },
-    { GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY, GENERATED_MCP_TOOL_NAMES },
+    { GENERATED_MCP_ENABLED, GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY, GENERATED_MCP_TOOL_NAMES },
     { SupabaseAiAuditStore, SupabaseAiProposalStore },
     { SupabaseCrdtUpdateStore },
     { CrdtSnapshotStore },
@@ -133,33 +144,22 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
 
   const projectContext: ProjectContext = { projectId: null };
   const pid = () => projectContext.projectId;
-  const projectLww = new ProjectLwwInvalidator();
-  setActiveProjectIdForCache(pid);
+  const lifecycle = createContainerLifecycle(projectContext, pid);
+  const projectLww = lifecycle.projectLww;
   // Assigned below, once the container exists. Every repository write routes
   // through this hook, and the search index has to hear about them or an edit
   // stays invisible to search until the next reload.
   let search: WorkspaceSearch | null = null;
-  configureProjectCacheHooks({
-    onWrite: (resourceType) => {
-      projectLww.notifyPeers(resourceType);
-      search?.markStale(resourceType);
-    },
-    register: (cache) => projectLww.registerCache(cache),
+  // Before `wireBackend`: wiring is what registers the repository caches, and
+  // registering them is what collects the disposers.
+  lifecycle.installHooks((resourceType) => {
+    projectLww.notifyPeers(resourceType);
+    search?.markStale(resourceType);
   });
   const backend = wireBackend(readBackendConfig(), projectContext, pid);
   if ("db" in backend) {
     projectLww.watch(backend.db, pid());
   }
-
-  registerSessionReset(() => {
-    projectContext.projectId = null;
-    workspace.resetSnapshotBaseline();
-    // The API key lives only in memory, but "only in memory" has to include
-    // "not across a sign-out" — the next person at this browser is not the one
-    // who typed it.
-    clearActiveProvider();
-    closeFolder();
-  });
 
   const crdtUpdateStore = new SupabaseCrdtUpdateStore(backend.db);
   const crdtSnapshotStore = new CrdtSnapshotStore(backend.db);
@@ -350,11 +350,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       tokenHasher: shareLinkTokenHasher,
       ids: uuidIds,
       clock: systemClock,
-      randomBytes: async (n) => {
-        const bytes = new Uint8Array(n);
-        crypto.getRandomValues(bytes);
-        return bytes;
-      },
+      randomBytes,
     });
   const redeemShareLink =
     shareLinkRepository &&
@@ -390,26 +386,26 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     clock: systemClock,
     ids: uuidIds,
   });
-  const aiPaperNotes = {
-    async appendPaperNote({
-      paperId,
-      addition,
-      expectedRevision,
-    }: {
-      paperId: string;
-      addition: string;
-      expectedRevision?: string;
-    }) {
-      const paper = await paperRepository.getById(paperId);
-      if (!paper || (expectedRevision && paper.updatedAt !== expectedRevision)) return "conflicted" as const;
-      await paperRepository.save({
-        ...paper,
-        summary: appendPaperNote(paper.summary, addition),
-        updatedAt: systemClock.nowIso(),
-      });
-      return "appended" as const;
-    },
-  };
+  // Was an object literal here; it was the only place that decided whether an
+  // approved note proposal still applies, and it could not be tested without
+  // wiring the whole container. The port it satisfies already existed in core.
+  const aiPaperNotes = new AppendPaperNoteUseCase({
+    papers: paperRepository,
+    clock: systemClock,
+  });
+  // One push rule, shared with `PapersFacade.autoPush`: it used to be written out
+  // in both places, and the copies disagreed about what a failed push means.
+  const pushToZotero = new PushPaperToZoteroUseCase({
+    papers: paperRepository,
+    bibliography,
+  });
+  const importLocalZotero = new ImportLocalZoteroUseCase({
+    papers: paperRepository,
+    addPaper,
+    manageTags,
+    // Lazily, because the desktop bridge is only meaningful inside the shell.
+    bridge: async () => (await import("@/lib/desktop/desktop-bridge")).desktop(),
+  });
   const aiProposalExecutors = new AiProposalExecutorRegistry(
     GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY
       ? GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY({
@@ -420,14 +416,14 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
           updatePaper,
           paperFields: managePaperFields,
           addPaper,
+          // The outcome is dropped on purpose. This executor's contract is
+          // accepted-or-conflicted, and a Zotero push that failed is neither: the
+          // paper *was* added, so "conflicted" would be a lie and a throw would
+          // report failure for a write that landed. A failed push is survivable —
+          // the paper simply has no item behind it — and the outcome is there for
+          // a caller that wants to say so.
           pushZotero: async (paper) => {
-            if (paper.metadata?.zoteroKey) return;
-            const key = await bibliography.pushPaper(paper);
-            if (key)
-              await paperRepository.save({
-                ...paper,
-                metadata: { ...paper.metadata, zoteroKey: key },
-              });
+            await pushToZotero.execute(paper);
           },
           lists: manageReadingList,
           relations: addRelation,
@@ -443,14 +439,14 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   });
 
   const prefetchProject = new PrefetchProjectUseCase({
-    listPapers: () => paperRepository.listSummaries?.() ?? paperRepository.list(),
+    listPapers: () => paperRepository.listSummaries(),
     listLogEntries: () => logEntryRepository.list(),
     listReportSections: () => reportSectionRepository.list(),
     listReadingLists: () => readingListRepository.list(),
     getRelationGraph: () => backend.paperRelationRepository.getGraph(),
     listExperiments: () => experimentRepository.list(),
     listMilestones: () => (pid() ? milestoneRepository.list() : Promise.resolve([])),
-    listVaultPages: () => vaultPageRepository.listSummaries?.() ?? vaultPageRepository.list(),
+    listVaultPages: () => vaultPageRepository.listSummaries(),
     listTags: () => backend.tagRepository.listWithCounts(),
     listPins: () => backend.libraryPinRepository.listForProject(),
   });
@@ -530,13 +526,52 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectId: pid,
   });
 
+  // Registered once `workspace` exists: it closes over the facade, and
+  // registering it near the top of this function was a `const` used above its
+  // own declaration. The lifecycle holds the disposer, so a container that is
+  // replaced takes its hook with it.
+  lifecycle.registerReset(() => {
+    projectContext.projectId = null;
+    workspace.resetSnapshotBaseline();
+    // The search index is a copy of the previous user's workspace — note titles,
+    // note bodies, paper abstracts — held in memory for the life of the tab. The
+    // container is not torn down on sign-out and the index has no owner check, so
+    // without this the next person at this browser can rank-search the last
+    // person's notes until something happens to rebuild it. Dropping it here
+    // costs one rebuild on the next sign-in.
+    search?.invalidate();
+    // The API key lives only in memory, but "only in memory" has to include
+    // "not across a sign-out" — the next person at this browser is not the one
+    // who typed it.
+    clearActiveProvider();
+    closeFolder();
+    // Leave the project's realtime channel. The reset nulls the project id but
+    // nothing told the invalidator, so the private channel for the previous
+    // project stayed joined until the next `watch()` — which, for a session
+    // that ends here, never came.
+    projectLww.dispose();
+  });
+
+  /**
+   * The AI tool surface, as the deployment configured it.
+   *
+   * A tool allowlist may only ever narrow. Two states mean "no tools" — the
+   * MCP plugin disabled, and a generated registry that selected nothing — and
+   * both used to be passed as `undefined`, which the facade reads as "no
+   * allowlist at all" and fills with every core tool. The empty list is passed
+   * as an empty list so the surface can only be narrowed by configuration,
+   * never widened by its absence.
+   */
+  const allowedAiTools = (
+    GENERATED_MCP_ENABLED ? GENERATED_MCP_TOOL_NAMES : []
+  ) as readonly AiToolName[];
+
   const container: AppContainer = {
     integrations: { bibliography, notifications, logSync, gitRead },
     backendConfig: backend.config,
     papers: new PapersFacade({
       load: loadPapersScreen,
       deletePaper,
-      bibliography,
       papers: paperRepository,
       manageTags,
       updatePaper,
@@ -547,6 +582,16 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       annotationPins: backend.annotationPinRepository,
       annotationQuotationTypes: backend.annotationQuotationTypeRepository,
       readerAnnotations: backend.readerAnnotationRepository,
+      reportSections: reportSectionRepository,
+    }),
+    paperFields: new PaperFieldsFacade({ paperFields: managePaperFields }),
+    zotero: new ZoteroFacade({
+      bibliography,
+      pushToZotero,
+      importLocalZotero,
+      readerAnnotations: backend.readerAnnotationRepository,
+      papers: paperRepository,
+      manageTags,
       // Read at call time, not at wiring time: the key is only decryptable
       // once the user has unlocked, which is after the container is built.
       zoteroCredentials: async () => {
@@ -555,8 +600,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
         const library = await read("zotero", "library");
         return { ...(apiKey ? { apiKey } : {}), ...(library ? { library } : {}) };
       },
-      paperFields: managePaperFields,
-      reportSections: reportSectionRepository,
     }),
     graph: new GraphFacade({
       papers: paperRepository,
@@ -600,8 +643,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       },
       vocabulary: async () => {
         const [pages, papers] = await Promise.all([
-          vaultPageRepository.listSummaries?.() ?? vaultPageRepository.list(),
-          paperRepository.listSummaries?.() ?? paperRepository.list(),
+          // Titles only — the projection is the right read, now that the port
+          // requires it rather than leaving each caller a fallback to write.
+          vaultPageRepository.listSummaries(),
+          paperRepository.listSummaries(),
         ]);
         return [pages.map((page) => page.title), papers.map((paper) => paper.title)];
       },
@@ -660,9 +705,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       isEncryptionUnlocked: () => true,
       newId: () => uuidIds.newId(),
       now: () => systemClock.nowIso(),
-      allowedTools: GENERATED_MCP_TOOL_NAMES.length
-        ? (GENERATED_MCP_TOOL_NAMES as readonly import("@weaveforge/core").AiToolName[])
-        : undefined,
+      allowedTools: allowedAiTools,
     }),
     aiProposals: new AiProposalFacade({
       proposals: aiProposalStore,
@@ -728,5 +771,5 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     integrationConfig: wiredIntegrations.config,
   };
 
-  return { container, projectLww };
+  return { container, projectLww, dispose: lifecycle.dispose };
 }

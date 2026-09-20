@@ -52,9 +52,9 @@ export function ExtractionTable({
   const reload = useCallback(async () => {
     const listIds = collectSubtreeIds(node);
     const [nextDefs, items, allValues, proposals] = await Promise.all([
-      getContainer().papers.listPaperFieldDefs(),
+      getContainer().paperFields.listPaperFieldDefs(),
       getContainer().readingLists.listItemsForLists(listIds),
-      getContainer().papers.listPaperFieldValuesForProject(),
+      getContainer().paperFields.listPaperFieldValuesForProject(),
       getContainer().aiProposals.listPending(),
     ]);
     const paperIds = items.flatMap((item) => (item.paperId ? [item.paperId] : []));
@@ -110,7 +110,7 @@ export function ExtractionTable({
     setBusy(true);
     setError(null);
     try {
-      await getContainer().papers.setPaperFieldValue(paperId, fieldId, value);
+      await getContainer().paperFields.setPaperFieldValue(paperId, fieldId, value);
       await reload();
     } catch (err) {
       setError(formatError(err));

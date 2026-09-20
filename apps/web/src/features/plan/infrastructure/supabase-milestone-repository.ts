@@ -3,6 +3,14 @@ import { milestoneToDomain, milestoneToRow, type MilestoneRow } from "./mileston
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
+/**
+ * The columns a MilestoneRow is read as, named rather than starred.
+ *
+ * Derived from the row type: exactly the fields the mapper reads, where a star
+ * would mean "whatever the table grows next".
+ */
+const MILESTONE_COLUMNS = "id,title,description,status,target_date,dependencies,compute,created_at";
+
 const TABLE = "milestones";
 
 export class SupabaseMilestoneRepository extends ProjectRepository implements IMilestoneRepository {
@@ -13,7 +21,7 @@ export class SupabaseMilestoneRepository extends ProjectRepository implements IM
   }
   async list(filter?: MilestoneFilter): Promise<Milestone[]> {
     if (!this.pid) return [];
-    let q = this.db.from(TABLE).select("*");
+    let q = this.db.from(TABLE).select(MILESTONE_COLUMNS);
     q = q.eq("project_id", this.pid);
     if (filter?.status) q = q.eq("status", filter.status);
     if (filter?.titleContains) {

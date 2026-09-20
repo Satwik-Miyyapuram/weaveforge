@@ -1,6 +1,6 @@
 import {
   buildListTree,
-  mergePinnedScreenData,
+  loadPinnedScreenData,
   type IPaperRepository,
   type IReadingListRepository,
   type IShareRepository,
@@ -10,6 +10,7 @@ import {
   type ReadingListTreeNode,
   type VaultPage,
 } from "@weaveforge/core";
+import type { ILibraryPinRepository } from "@weaveforge/core";
 
 export interface ReadingListsScreenData {
   tree: ReadingListTreeNode[];
@@ -26,30 +27,29 @@ export class LoadReadingListsScreenUseCase {
       lists: IReadingListRepository;
       papers: IPaperRepository;
       notes: IVaultPageRepository;
-      pins?: import("@weaveforge/core").ILibraryPinRepository;
+      pins?: ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}
 
   async execute(): Promise<ReadingListsScreenData> {
-    const [owned, papers, notes, pins, shares] = await Promise.all([
+    const [owned, papers, notes] = await Promise.all([
       this.deps.lists.list(),
       this.deps.papers.list(),
       this.deps.notes.list(),
-      this.deps.pins?.listForProject() ?? Promise.resolve([]),
-      this.deps.shares?.listSharedWithMe("reading_list") ?? Promise.resolve([]),
     ]);
 
-    const merged = await mergePinnedScreenData({
+    const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "reading_list",
       owned,
-      pins,
-      shares,
       loadById: (id) => this.deps.lists.getById(id),
     });
 
     return {
-      tree: buildListTree(owned),
+      // From the merged set: a list shared with this project belongs in the tree
+      // a reader navigates, not only in the flat list beside it. Building the
+      // tree pre-merge is what hid every shared list from the tree view.
+      tree: buildListTree(merged.items),
       lists: merged.items,
       papers,
       notes,

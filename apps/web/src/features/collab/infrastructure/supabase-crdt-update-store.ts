@@ -1,7 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CrdtUpdateRecord, ICrdtUpdateStore } from "@weaveforge/core";
+import type { CompactOutcome, CrdtUpdateRecord, ICrdtUpdateStore } from "@weaveforge/core";
 import { decodeBytea, encodeBytea } from "@/lib/bytea.js";
 import { oneRow, run } from "@/backend/providers/supabase/row-access";
+
+/**
+ * The columns a CrdtRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const CRDT_COLUMNS = "id,resource_type,resource_id,project_id,epoch,payload,author_id,created_at";
 
 const TABLE = "crdt_updates";
 
@@ -50,7 +58,7 @@ export class SupabaseCrdtUpdateStore implements ICrdtUpdateStore {
         payload: encodeBytea(input.payload),
         author_id: input.authorId,
       })
-      .select("*")
+      .select(CRDT_COLUMNS)
       .single());
     return mapRow(dbRow);
   }
@@ -62,7 +70,7 @@ export class SupabaseCrdtUpdateStore implements ICrdtUpdateStore {
   ): Promise<CrdtUpdateRecord[]> {
     const { data, error } = await this.db
       .from(TABLE)
-      .select("*")
+      .select(CRDT_COLUMNS)
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
       .gt("id", afterId)
@@ -95,11 +103,53 @@ export class SupabaseCrdtUpdateStore implements ICrdtUpdateStore {
   ): Promise<number> {
     const { count, error } = await this.db
       .from(TABLE)
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
       .gt("id", afterId);
     if (error) throw error;
     return count ?? 0;
+  }
+
+  /**
+   * The transactional compaction, through the one function that can do it.
+   *
+   * The two refusals arrive as PostgreSQL errors, and each means something the
+   * caller acts on differently, so they are mapped rather than thrown:
+   *
+   *   * `42501` (insufficient privilege) — the caller may not edit this
+   *     resource. Compaction is not for them, now or later in this session;
+   *   * `P0002` (no_data_found) — the row is gone, so there is nothing to
+   *     compact. A client that treats this as an error would log a failure every
+   *     time it closed a deleted document.
+   *
+   * Anything else is a real failure and propagates: a `PGRST202` (function not
+   * found) means migration `0132` has not been applied, and swallowing it would
+   * turn "your database is behind" into "compaction silently stopped".
+   */
+  async compact(input: {
+    resourceType: string;
+    resourceId: string;
+    uptoId: number;
+    currentUpto?: number;
+  }): Promise<CompactOutcome> {
+    if (input.currentUpto != null && input.uptoId <= input.currentUpto) {
+      return { status: "no-op", reason: "stale" };
+    }
+
+    const { data, error } = await this.db.rpc("compact_crdt_log", {
+      p_resource_type: input.resourceType,
+      p_resource_id: input.resourceId,
+      p_upto_id: input.uptoId,
+    });
+
+    if (error) {
+      const code = (error as { code?: string }).code;
+      if (code === "42501") return { status: "not-permitted" };
+      if (code === "P0002") return { status: "no-op", reason: "missing" };
+      throw error;
+    }
+
+    return { status: "compacted", deleted: typeof data === "number" ? data : 0 };
   }
 }

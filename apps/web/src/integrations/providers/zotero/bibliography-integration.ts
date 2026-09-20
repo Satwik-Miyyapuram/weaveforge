@@ -1,4 +1,5 @@
 import { extractHashtags, type IPaperRepository, type ManageTagsUseCase } from "@weaveforge/core";
+import type { Paper } from "@weaveforge/core";
 import { appendTagHashtags, reconcileTagsFromBody } from "@/features/papers/lib/note-tags";
 import type {
   BibliographyAnnotation,
@@ -46,7 +47,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
     return this.deps.annotations.pullAll();
   }
 
-  async pushPaper(paper: import("@weaveforge/core").Paper) {
+  async pushPaper(paper: Paper) {
     return this.deps.exporter.save(paper);
   }
 
@@ -97,7 +98,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
 /** Merge pulled annotations into local papers + tag index. */
 export async function applyBibliographyAnnotations(
   byPaper: Map<string, BibliographyAnnotation[]>,
-  papers: import("@weaveforge/core").IPaperRepository,
+  papers: IPaperRepository,
   tags: ManageTagsUseCase,
 ): Promise<number> {
   const all = await papers.list();

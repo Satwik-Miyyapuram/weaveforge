@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AiAssistantFacade } from "@/container/facades";
-import type { AiAccessSettings, AiToolName } from "@weaveforge/core";
+import type {
+  AiAccessSettings,
+  AiToolName,
+  Paper,
+} from "@weaveforge/core";
 
 const PAPER = {
   id: "paper-1", title: "Attention", authors: ["A"], year: 2017, venue: "NeurIPS",
   abstract: "An abstract about attention.", status: "reading", tags: [], summary: "note body",
-} as unknown as import("@weaveforge/core").Paper;
+} as unknown as Paper;
 
 const settings: AiAccessSettings = {
   enabled: true,
