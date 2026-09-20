@@ -33,7 +33,7 @@ import {
   UpdatePaperUseCase,
   RemoveRelationUseCase,
   CompactCrdtLogUseCase,
-  appendPaperNote,
+  AppendPaperNoteUseCase,
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
 import type { AiToolName } from "@weaveforge/core";
@@ -382,26 +382,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     clock: systemClock,
     ids: uuidIds,
   });
-  const aiPaperNotes = {
-    async appendPaperNote({
-      paperId,
-      addition,
-      expectedRevision,
-    }: {
-      paperId: string;
-      addition: string;
-      expectedRevision?: string;
-    }) {
-      const paper = await paperRepository.getById(paperId);
-      if (!paper || (expectedRevision && paper.updatedAt !== expectedRevision)) return "conflicted" as const;
-      await paperRepository.save({
-        ...paper,
-        summary: appendPaperNote(paper.summary, addition),
-        updatedAt: systemClock.nowIso(),
-      });
-      return "appended" as const;
-    },
-  };
+  // Was an object literal here; it was the only place that decided whether an
+  // approved note proposal still applies, and it could not be tested without
+  // wiring the whole container. The port it satisfies already existed in core.
+  const aiPaperNotes = new AppendPaperNoteUseCase({
+    papers: paperRepository,
+    clock: systemClock,
+  });
   const aiProposalExecutors = new AiProposalExecutorRegistry(
     GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY
       ? GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY({
