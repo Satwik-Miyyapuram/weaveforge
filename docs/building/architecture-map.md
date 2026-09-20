@@ -89,7 +89,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 
 | Where | Size | What lives there |
 | --- | --- | --- |
-| `packages/core` | 46,581 lines | Domain and application logic shared by every surface |
+| `packages/core` | 47,175 lines | Domain and application logic shared by every surface |
 | `apps/web` | 143,847 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/desktop` | 10,869 lines | The Electron shell — what only an installed app can do |
 | `apps/pitch` | 824 lines | The public site and this documentation |
@@ -98,7 +98,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `supabase/migrations` | 130 files | The schema, as an ordered sequence |
 | `docs` | 81 files | Documentation, this page included |
 
-**206,834 lines of code in all**, across 1,830 source files.
+**207,428 lines of code in all**, across 1,831 source files.
 
 <!-- /generated:code-map -->
 

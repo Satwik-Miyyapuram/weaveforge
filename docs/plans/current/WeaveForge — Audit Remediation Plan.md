@@ -416,7 +416,7 @@ Every one of the 88 findings is assigned to exactly one phase below, and the cou
 |---|---|---|---|
 | 0 — baseline & scaffolding | 5 | 0 (creates the missing test homes) | **done** |
 | 1 — correctness, integrity, security | 15 | 30 | **done** |
-| 2 — lexical extractor | 1 (9 fixes) | 9 | not started |
+| 2 — lexical extractor | 1 (9 fixes) | 9 | **done** |
 | 3 — read path, DB, hot paths | 8 | 19 | not started |
 | 4 — contracts & types | 10 | 9 | not started |
 | 5 — lifecycle & memory | 7 | 7 | not started |
@@ -453,16 +453,44 @@ Phase 1 carries the most findings because so many of them are one-file changes; 
 
 Known gaps after Phase 1, recorded rather than hidden: the Zotero push rule and the composition root still have no direct test (Phases 3 and 6); `safe-fetch`'s socket behaviour is not observable through the existing fetch stub; `check:docs` was stale before this work.
 
+### Phase 2 — what landed
+
+One rewrite of `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`, closing 9 findings. The file is now `prepare` → `harvestStated` → `harvestGuessed` → `mergeMentions` → `rankAndLimit` → `projectMentions`, and `extract()` is five lines of composition.
+
+| Item | Finding | How it was closed |
+|---|---|---|
+| Decompose into stages | WF-C03 | The `record` closure that mutated two collections from three call sites is gone; each stage is a pure function of the one before it |
+| One pass, one derivation of "stated" | WF-P03, WF-C05 | `strength` is set where a signal is harvested and read for both the keep decision and the merge; the second loop over every document is deleted |
+| Lowercase once, carry the match index | WF-P04 | `prepare()` lowercases each document once; evidence comes from `snippetAt(index)`, not a re-search |
+| Store the key once | WF-P05 | Keys are computed at harvest and carried on the internal mention and entry, so no stage re-normalises a name |
+| One scan for both patterns | WF-P06 | One regex, read from the inside — see the correction below |
+| No boolean flag | WF-C06 | `classify(name, strength)` with the fallback each path deserves; the old flag sat *after* the acronym rule, so it never selected a rule subset |
+| Acronym tables | WF-B10 | Venue, dataset and metric acronyms are checked before the "an acronym is a method" default. `NEURIPS` (seven letters) never matched the old pattern at all |
+| Merge policy | WF-B11 | Stated wins the name and the keep decision; the kind is never replaced by a less informative one |
+
+**Three corrections to the audit's proposed fixes, made while implementing them.**
+
+1. **`WF-P06`'s "single alternation" would have lost concepts.** The two passes this replaces were not redundant: for `VAE-based`, the phrase pattern stops at `VAE-based` while the acronym pass adds `VAE`, and a merged alternation that lets the phrase branch win at each position drops the acronym entirely. The implementation scans once with the phrase pattern and reads the all-caps tokens *inside* each match, which reproduces both passes' contributions from one scan. The regression is pinned by a test.
+2. **`WF-B11`'s "upgrade when the stronger signal arrives" would have downgraded kinds.** A stated tag that no rule recognises classifies as the generic `concept`, so a plain strength comparison replaces a recognised `method` or `dataset` with the vaguer answer. The implemented rule is *never less informative*: a kind a rule recognised beats any fallback, and equal-information kinds are decided by `KIND_INFORMATIVENESS`, with the stated signal breaking ties.
+3. **`WF-B10`'s impact was narrower than stated.** The guessed path rejects anything under three characters, so two-letter acronyms (`AI`, `ML`) never became concepts at all; and `NEURIPS` was dropped rather than mislabelled. The tables are needed for the ≤6-letter acronyms the pattern *could* match, plus the longer ones it could not.
+
+**Two defects found while testing, both in the same function and neither in the audit.**
+
+- `[[#Overview]]` was being harvested as a **hashtag concept**. The hashtag reader is a plain regex and cannot tell a heading target from a tag, so linking to a section of a note coined a concept called "overview". The wikilinks are now blanked (length-preserving) before the hashtag scan, which is also what makes `[[#Heading]]` behave as `WF-C05` assumed it did.
+- A wikilink-only concept carried **empty evidence**, because stripping markdown is what removes `[[…]]` and the snippet was read from the stripped text only. Evidence now falls back to the raw text. This was on the plan as an audit-missed item; it is closed here.
+
+**Note on evidence for the three internal fixes.** `WF-P03`, `WF-P04` and `WF-P05` change no observable output, so there is no behavioural test that can fail without them — their evidence is the shape of the code and the review of it. What their absence *could* have cost is pinned instead: the acronym-inside-a-hyphenated-phrase test guards the single-scan rewrite, and the evidence tests guard the two derivations of "stated" collapsing into one.
+
 Baseline: `npm run test:core` → 1214 pass / 0 fail.
 
 After Phase 0 + Phase 1, `npm run check:all` is **green end to end** — typecheck, lint, all seven boundary gates, core, web, pglite integration, desktop tests and a real `next build`:
 
-| Suite | Before | After |
-|---|---|---|
-| core | 1214 | 1231 |
-| web | 1428 | 1439 |
-| pglite integration | 20 | 20 |
-| desktop | 237 | 237 |
-| python (`pytest`) | 76 | 84 (+3 skipped) |
+| Suite | Before | After Phase 1 | After Phase 2 |
+|---|---|---|---|
+| core | 1214 | 1231 | 1239 |
+| web | 1428 | 1439 | 1439 |
+| pglite integration | 20 | 20 | 20 |
+| desktop | 237 | 237 | 237 |
+| python (`pytest`) | 76 | 84 (+3 skipped) | 84 (+3 skipped) |
 
 One thing it needs: `npm run docs:generate`, because the generated line counts in `docs/building/architecture-map.md` move with every source commit — including the commits that fix things. That is why `check:all` was red before any of this work started.
