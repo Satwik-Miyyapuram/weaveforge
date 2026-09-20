@@ -95,11 +95,35 @@ test("ports are an allowlist, because a blocklist is a game nobody wins", () => 
   }
 });
 
+test("the ports this project's own stack listens on are not outbound ports", () => {
+  // 3000 is the Next dev server and 5000 a common API port. They are inbound
+  // conveniences, so allowing them means an authenticated paste can reach a
+  // self-hoster's own mis-exposed service on any public host.
+  no("http://example.com:3000/", "port");
+  no("http://example.com:5000/", "port");
+  // The dev-server ports a self-hoster really does fetch from stay.
+  ok("http://example.com:8000/");
+  ok("http://example.com:8008/");
+});
+
 test("an unreadable address is not trusted", () => {
   assert.equal(isPublicAddress("not-an-address"), false);
   assert.equal(isPublicAddress(""), false);
   assert.equal(isPublicAddress("1.2.3"), false);
   assert.equal(isPublicAddress("999.1.1.1"), false);
+});
+
+test("a non-canonical IPv4 spelling is not read as a different address", () => {
+  // A resolver reads these the way inet_aton does, so a guard that numbers them
+  // itself has to agree. `new URL()` normalises before this is reached in every
+  // current call path, which is why this pins the primitive: `010.0.0.1` is 8
+  // to the socket, not 10, and refusing to read it at all is the fail-closed
+  // answer for anything that has not been normalised.
+  assert.equal(isPublicAddress("010.0.0.1"), false, "leading zero means octal, not 10.0.0.1");
+  assert.equal(isPublicAddress("1.2.3.04"), false, "a padded octet is not a canonical one");
+  assert.equal(isPublicAddress("0x7f.0.0.1"), false);
+  assert.equal(isPublicAddress("2130706433"), false, "no dots at all is not a dotted quad");
+  assert.equal(isPublicAddress("1.2.3.4"), true);
 });
 
 test("a trailing dot does not smuggle a name past the checks", () => {
