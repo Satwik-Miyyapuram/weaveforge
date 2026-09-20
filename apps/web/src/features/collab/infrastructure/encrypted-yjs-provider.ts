@@ -29,7 +29,22 @@ export interface EncryptedYjsProviderOptions {
   epoch?: number;
   awareness?: Awareness;
   getSnapshotUpto?: () => Promise<number>;
-  setSnapshotUpto?: (uptoId: number) => Promise<void>;
+  /**
+   * Write the document body out, and resolve `true` only when it is durable.
+   *
+   * The body is the other copy of everything compaction is about to delete log
+   * rows for: after a compaction, reconstruction is "the body, then the tail".
+   * The editor writes that body on a debounce and fire-and-forget, so a
+   * compaction could delete rows whose content existed only in memory — the one
+   * way this path can lose an edit rather than merely duplicate work.
+   *
+   * `false` means the write did not land (a rejected save is a real case: the
+   * logbook refuses an empty body). Compaction is then *deferred*, not attempted:
+   * the rows stay, the watermark does not move, and the next successful save
+   * compacts. Absent means the caller has no body to persist — a resource whose
+   * text lives only in the CRDT log — and compaction proceeds.
+   */
+  awaitBodyPersisted?: () => Promise<boolean>;
   compactCrdtLog?: CompactCrdtLogUseCase;
   /**
    * Puts the row's stored body into an empty document. Runs *after* the CRDT
@@ -210,7 +225,7 @@ export class EncryptedYjsProvider {
   }
 
   private async maybeCompact() {
-    if (!this.opts.compactCrdtLog || !this.opts.setSnapshotUpto) return;
+    if (!this.opts.compactCrdtLog) return;
     const snapshotUpto = (await this.opts.getSnapshotUpto?.()) ?? 0;
     const tailCount = await this.opts.crdtStore.countAfter(
       this.opts.resourceType,
@@ -218,17 +233,31 @@ export class EncryptedYjsProvider {
       snapshotUpto,
     );
     if (tailCount < COMPACT_THRESHOLD || this.lastPersistedId <= snapshotUpto) return;
-    await this.opts.compactCrdtLog.execute({
+
+    // The body is the other copy of everything this is about to delete log rows
+    // for: after compaction, reconstruction is "the body, then the tail". A save
+    // that did not land defers this rather than risking the edit — see
+    // `awaitBodyPersisted`.
+    if (this.opts.awaitBodyPersisted && !(await this.opts.awaitBodyPersisted())) {
+      this.opts.onError?.("compact", "the body was not durable, so compaction was deferred");
+      return;
+    }
+
+    const outcome = await this.opts.compactCrdtLog.execute({
       resourceType: this.opts.resourceType,
       resourceId: this.opts.resourceId,
       snapshotUptoId: this.lastPersistedId,
-      // Already read above to size the tail, and passed on so the use-case can
-      // treat "my snapshot is older than the stored watermark" as the no-op it
-      // is. Without it a stale caller would still attempt the write, and rely
-      // on the database to refuse the rewind.
+      // Already read above, to size the tail: a caller whose snapshot is behind
+      // the stored watermark is a local no-op rather than a round trip.
       currentSnapshotUpto: snapshotUpto,
-      setSnapshotUpto: this.opts.setSnapshotUpto,
     });
+
+    if (outcome.status === "not-permitted") {
+      // This reader can see the document but not compact it, so the log keeps
+      // growing while they have it open. Worth saying once, and not an error for
+      // them to act on — hence a notice rather than a throw.
+      this.opts.onError?.("compact", "this account may not compact this document");
+    }
   }
 
   async destroy() {

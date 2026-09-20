@@ -1,26 +1,30 @@
 /**
- * CompactCrdtLogUseCase: which of the two steps may happen first.
+ * CompactCrdtLogUseCase: what it asks the store for, and what it does not ask.
  *
- * Compaction ends with two writes: bake the tail into a snapshot and move the
- * watermark past it, then drop the update rows the snapshot now covers. The
- * order is the whole safety argument. Destroying the rows first means every
- * crash, refused request or dropped connection in between leaves a log that has
- * lost the newest edits while the watermark still claims they are reachable —
- * and the only durable copy is the document body, which collaborative editing
- * writes fire-and-forget (review of the collab path, finding B01/B08). The
- * watermark has to move first; deleting afterwards is idempotent cleanup.
+ * Compaction used to be two calls from this class — advance the watermark, then
+ * delete — and the ordering between them was the whole safety argument. Both are
+ * now one call, `ICrdtUpdateStore.compact`, which is a single database
+ * transaction with its own rights check. What is left here is the *decision*: a
+ * caller with no snapshot does not compact, and a caller whose snapshot is behind
+ * the stored watermark does not either.
+ *
+ * The class's own test should therefore be about which calls it makes and what it
+ * does with the answer — the ordering and the rights check are the store's, and
+ * are tested against a real Postgres in the integration suite.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { CompactCrdtLogUseCase } from "../../../src/features/collab/application/compact-crdt-log.use-case.js";
-import type { ICrdtUpdateStore } from "../../../src/features/collab/domain/crdt-update-store.js";
+import type {
+  CompactOutcome,
+  ICrdtUpdateStore,
+} from "../../../src/features/collab/domain/crdt-update-store.js";
 
-/** Records the order of the two steps, and can refuse the first of them. */
+/** Records what the use case asked for, and answers however a test says. */
 class RecordingStore implements ICrdtUpdateStore {
-  readonly calls: string[] = [];
-  readonly deletedUpTo: number[] = [];
-  refuseWatermark: Error | null = null;
+  readonly compactions: { resourceType: string; resourceId: string; uptoId: number; currentUpto?: number }[] = [];
+  answer: CompactOutcome = { status: "compacted", deleted: 7 };
 
   async append(): Promise<never> {
     throw new Error("append is not part of compaction");
@@ -28,111 +32,75 @@ class RecordingStore implements ICrdtUpdateStore {
   async listAfter(): Promise<never[]> {
     return [];
   }
-  async deleteUpTo(_resourceType: string, _resourceId: string, uptoId: number): Promise<void> {
-    this.calls.push("delete");
-    this.deletedUpTo.push(uptoId);
+  async deleteUpTo(): Promise<void> {
+    throw new Error("compaction must not sweep outside `compact`");
   }
   async deleteAll(): Promise<void> {
-    this.calls.push("deleteAll");
+    throw new Error("compaction must not sweep outside `compact`");
   }
   async countAfter(): Promise<number> {
     return 0;
+  }
+  async compact(input: { resourceType: string; resourceId: string; uptoId: number; currentUpto?: number }) {
+    this.compactions.push(input);
+    return this.answer;
   }
 }
 
 const RESOURCE = { resourceType: "vault_page", resourceId: "page-1" };
 
-test("compaction advances the watermark before it destroys the update log", async () => {
+test("compaction asks the store for one transactional call", async () => {
   const store = new RecordingStore();
   const useCase = new CompactCrdtLogUseCase({ crdtStore: store });
 
-  await useCase.execute({
-    ...RESOURCE,
-    snapshotUptoId: 100,
-    setSnapshotUpto: async () => {
-      store.calls.push("watermark");
-    },
-  });
+  const outcome = await useCase.execute({ ...RESOURCE, snapshotUptoId: 100 });
 
-  assert.deepEqual(
-    store.calls,
-    ["watermark", "delete"],
-    "the destructive step must not be able to happen before the bookkeeping step",
-  );
-  assert.deepEqual(store.deletedUpTo, [100]);
+  assert.deepEqual(store.compactions, [{ ...RESOURCE, uptoId: 100, currentUpto: undefined }]);
+  assert.deepEqual(outcome, { status: "compacted", deleted: 7 }, "and answers with what the database said");
 });
 
-test("compaction leaves the log alone when the watermark cannot be recorded", async () => {
+test("a caller with no snapshot does not touch the database", async () => {
   const store = new RecordingStore();
-  store.refuseWatermark = new Error("network");
   const useCase = new CompactCrdtLogUseCase({ crdtStore: store });
 
-  await assert.rejects(
-    useCase.execute({
-      ...RESOURCE,
-      snapshotUptoId: 100,
-      setSnapshotUpto: async () => {
-        store.calls.push("watermark");
-        throw store.refuseWatermark!;
-      },
-    }),
-    /network/,
-  );
+  const outcome = await useCase.execute({ ...RESOURCE, snapshotUptoId: 0 });
 
-  assert.deepEqual(
-    store.deletedUpTo,
-    [],
-    "a watermark that was never stored must not have cost us the updates it was to cover",
-  );
+  assert.deepEqual(store.compactions, []);
+  assert.deepEqual(outcome, { status: "no-op", reason: "nothing-to-do" });
 });
 
-test("compaction with nothing to cover is a no-op", async () => {
+test("a stale caller is a no-op rather than a round trip", async () => {
+  // Two writers co-editing means two clients can compact. One holding an older
+  // snapshot must not rewind the watermark: the loader replays from it, so an id
+  // behind the stored one asks for a range whose rows are already gone. The
+  // database refuses that too — this is the cheap local answer, not the guard.
   const store = new RecordingStore();
   const useCase = new CompactCrdtLogUseCase({ crdtStore: store });
 
-  await useCase.execute({
-    ...RESOURCE,
-    snapshotUptoId: 0,
-    setSnapshotUpto: async () => {
-      store.calls.push("watermark");
-    },
-  });
+  const outcome = await useCase.execute({ ...RESOURCE, snapshotUptoId: 100, currentSnapshotUpto: 200 });
 
-  assert.deepEqual(store.calls, []);
+  assert.deepEqual(store.compactions, []);
+  assert.deepEqual(outcome, { status: "no-op", reason: "stale" });
 });
 
-test("a stale caller cannot move the watermark backwards", async () => {
-  // Two writers co-editing means two clients can compact. One holding an
-  // older snapshot must be a no-op, not a rewind: the loader replays from the
-  // watermark, so an id behind the stored one asks it to replay a range whose
-  // rows have already been compacted away.
+test("a caller that is the newest one is asked of the database", async () => {
   const store = new RecordingStore();
   const useCase = new CompactCrdtLogUseCase({ crdtStore: store });
 
-  await useCase.execute({
-    ...RESOURCE,
-    snapshotUptoId: 100,
-    currentSnapshotUpto: 200,
-    setSnapshotUpto: async () => {
-      store.calls.push("watermark");
-    },
-  });
+  await useCase.execute({ ...RESOURCE, snapshotUptoId: 200, currentSnapshotUpto: 100 });
 
-  assert.deepEqual(store.calls, [], "an older watermark must not be written, nor its rows deleted");
+  assert.deepEqual(store.compactions, [{ ...RESOURCE, uptoId: 200, currentUpto: 100 }]);
 });
 
-test("compaction still runs when the caller is the newest one", async () => {
+test("a refusal is passed through, not swallowed or thrown", async () => {
+  // The interesting answer. A reader who may view a document but not edit it gets
+  // `not-permitted` from the database, and the caller needs to know so it can say
+  // so once instead of retrying forever.
   const store = new RecordingStore();
+  store.answer = { status: "not-permitted" };
   const useCase = new CompactCrdtLogUseCase({ crdtStore: store });
 
-  await useCase.execute({
-    ...RESOURCE,
-    snapshotUptoId: 200,
-    currentSnapshotUpto: 100,
-    setSnapshotUpto: async () => {
-      store.calls.push("watermark");
-    },
-  });
+  const outcome = await useCase.execute({ ...RESOURCE, snapshotUptoId: 100 });
 
-  assert.deepEqual(store.calls, ["watermark", "delete"]);
+  assert.deepEqual(outcome, { status: "not-permitted" });
 });

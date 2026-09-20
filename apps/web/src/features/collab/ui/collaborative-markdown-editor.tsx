@@ -65,6 +65,8 @@ export function CollaborativeMarkdownEditor({
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The body waiting on the debounce, so compaction can flush it rather than lose it. */
+  const pendingBody = useRef<string | null>(null);
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
   const displayNameRef = useRef(displayName);
@@ -88,10 +90,43 @@ export function CollaborativeMarkdownEditor({
   const scheduleSave = useCallback((body: string) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (!shouldPersistBody({ ready: ready.current, next: body, lastSaved: lastSaved.current })) return;
+    pendingBody.current = body;
     saveTimer.current = setTimeout(() => {
-      lastSaved.current = body;
-      void onSaveRef.current(body);
+      void flushBody();
     }, SAVE_MS);
+  }, []);
+
+  /**
+   * Write the pending body now, and resolve only once it is durable.
+   *
+   * Two callers: the debounce, and compaction. Compaction deletes the CRDT rows
+   * that hold the same text on the strength of the body being the durable copy,
+   * so it has to run *after* this write lands — and it has to flush a save that
+   * is still sitting on the timer, which is a body that exists nowhere but in
+   * this tab.
+   *
+   * `false` means the save did not land. The logbook rejects an empty body, and
+   * a network save can fail; in either case compaction is deferred rather than
+   * deleting rows whose content the server never received.
+   */
+  const flushBody = useCallback(async (): Promise<boolean> => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    const body = pendingBody.current;
+    if (body === null) return true;
+
+    pendingBody.current = null;
+    lastSaved.current = body;
+    try {
+      await onSaveRef.current(body);
+      return true;
+    } catch {
+      // The next edit schedules another save; until one succeeds, compaction
+      // stays deferred.
+      return false;
+    }
   }, []);
 
   // Kept out of the editor effect: the display name arrives after the profile
@@ -135,7 +170,10 @@ export function CollaborativeMarkdownEditor({
       // live connection that was never part of the offer.
       live: !isLocalMode(),
       getSnapshotUpto: session.getSnapshotUpto,
-      setSnapshotUpto: session.setSnapshotUpto,
+      // Compaction waits on this. The body is the other durable copy of what it
+      // is about to delete log rows for, and the debounce above means the newest
+      // text may not have been written at all yet.
+      awaitBodyPersisted: flushBody,
       compactCrdtLog: session.compactCrdtLog,
       // Runs once the CRDT log has been replayed. Only a document with no
       // stored history takes the row's body — otherwise the log is the truth

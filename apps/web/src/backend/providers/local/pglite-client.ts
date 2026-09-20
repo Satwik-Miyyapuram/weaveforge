@@ -27,6 +27,33 @@ export interface PostgrestError {
   code?: string;
 }
 
+/** The SQLSTATE a database error carries, when it carries one. */
+function postgresCode(error: unknown): string | undefined {
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+/**
+ * A PGlite failure, shaped the way PostgREST shapes one.
+ *
+ * `code` is the load-bearing part. Callers branch on it — a permission refusal
+ * is `42501`, a missing function `PGRST202`, a unique violation `23505` — and
+ * dropping it meant the same failure arrived differently depending on which
+ * provider was running. That is how a SQLSTATE mapping written against PostgREST
+ * quietly became a `throw` on the local backend: the mapping found no code, fell
+ * through to `throw`, and the caller saw a raw message instead of a refusal.
+ *
+ * One function for both paths, because there were two — `execute` for the query
+ * builder and `rpc` for functions — and they had drifted: neither passed the code
+ * on, and only one of them was wrong about anything else.
+ */
+function toPostgrestError(error: unknown): PostgrestError {
+  return {
+    message: error instanceof Error ? error.message : String(error),
+    code: postgresCode(error),
+  };
+}
+
 interface Reply<T> {
   data: T;
   error: PostgrestError | null;
@@ -417,10 +444,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
       const sql = this.compile();
       rows = (await this.run(sql, this.params)) as Row[];
     } catch (error) {
-      return {
-        data: null as T,
-        error: { message: error instanceof Error ? error.message : String(error) },
-      };
+      return { data: null as T, error: toPostgrestError(error) };
     }
 
     if (this.headOnly && this.counting) {
@@ -503,10 +527,7 @@ export function createLocalClient(run: LocalQuery) {
         const data = first && Object.keys(first).length === 1 ? Object.values(first)[0] : rows;
         return { data, error: null as PostgrestError | null };
       } catch (error) {
-        return {
-          data: null,
-          error: { message: error instanceof Error ? error.message : String(error) },
-        };
+        return { data: null, error: toPostgrestError(error) };
       }
     },
   };
