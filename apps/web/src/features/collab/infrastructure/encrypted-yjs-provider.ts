@@ -222,6 +222,11 @@ export class EncryptedYjsProvider {
       resourceType: this.opts.resourceType,
       resourceId: this.opts.resourceId,
       snapshotUptoId: this.lastPersistedId,
+      // Already read above to size the tail, and passed on so the use-case can
+      // treat "my snapshot is older than the stored watermark" as the no-op it
+      // is. Without it a stale caller would still attempt the write, and rely
+      // on the database to refuse the rewind.
+      currentSnapshotUpto: snapshotUpto,
       setSnapshotUpto: this.opts.setSnapshotUpto,
     });
   }
