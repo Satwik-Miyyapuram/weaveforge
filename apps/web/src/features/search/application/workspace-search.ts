@@ -86,8 +86,6 @@ export class WorkspaceSearch {
   private semantic: SemanticIndex | null = null;
   /** Pages held per paper, so a re-extraction knows what to retract. */
   private pdfPageCounts = new Map<string, number>();
-  /** The projection the index was built from, kept for the semantic arm. */
-  private docs: readonly SearchDoc[] = [];
   /** Extracted PDF text for the live papers, read once per build. */
   private pdfTexts: readonly PdfIndexSource[] = [];
 
@@ -157,7 +155,7 @@ export class WorkspaceSearch {
     if (cached) {
       const restored = miniSearchIndexFactory.load(cached, revision);
       if (restored) {
-        this.adoptProjection(docs);
+        this.documentCount = docs.length;
         applySearchSettings(restored, this.settings);
         return restored;
       }
@@ -165,14 +163,14 @@ export class WorkspaceSearch {
 
     if (supportsIndexWorker()) {
       try {
-        return await this.buildViaWorker(snapshot, projectId, docs, revision);
+        return await this.buildViaWorker(snapshot, projectId);
       } catch {
         // A worker that cannot start is not a reason to leave search broken;
         // the in-thread path below still works, it merely blocks.
       }
     }
 
-    this.adoptProjection(docs);
+    this.documentCount = docs.length;
     const index = buildSearchIndex(docs, revision, this.settings);
     void persistSearchIndex(projectId, () => index.serialize(), docs.length);
     return index;
@@ -189,8 +187,6 @@ export class WorkspaceSearch {
   private async buildViaWorker(
     snapshot: WorkspaceSnapshot,
     projectId: string | null,
-    fallbackDocs: readonly SearchDoc[],
-    fallbackRevision: string,
   ): Promise<IWorkspaceSearchIndex> {
     const built = await buildIndexInWorker(snapshot, projectId, this.settings);
     const index = miniSearchIndexFactory.load(built.serialized, built.revision);
@@ -199,9 +195,6 @@ export class WorkspaceSearch {
     applySearchSettings(index, this.settings);
     this.documentCount = built.documentCount;
     this.pdfPageCounts = new Map(built.pdfPageCounts);
-    // The projection is kept for the semantic arm, which embeds the same text.
-    // Its revision must match what the worker actually indexed.
-    this.docs = built.revision === fallbackRevision ? fallbackDocs : [];
     void persistSearchIndex(projectId, () => built.serialized, built.documentCount);
     return index;
   }
@@ -215,11 +208,6 @@ export class WorkspaceSearch {
       ...toPdfSearchDocs(this.pdfTexts, degrees),
       ...toAnnotationSearchDocs(snapshot.readerAnnotations, paperTitles, degrees),
     ];
-  }
-
-  private adoptProjection(docs: readonly SearchDoc[]): void {
-    this.docs = docs;
-    this.documentCount = docs.length;
   }
 
   /**
@@ -338,9 +326,28 @@ export class WorkspaceSearch {
     return this.semantic?.ready ?? false;
   }
 
-  /** Every document currently indexed, for the semantic arm to embed. */
-  indexedDocuments(): readonly SearchDoc[] {
-    return this.docs;
+  /**
+   * The corpus as it stands now, for the semantic arm to embed.
+   *
+   * Projected on demand rather than kept from the build, which is a correctness
+   * fix before it is a memory one. The kept copy went stale the moment anything
+   * was refreshed — `refreshStale` and `indexPdf` add documents to the keyword
+   * index and neither touched it — and the vector store's revision is derived
+   * from this projection, so a stale copy produced a revision matching vectors
+   * built from older text: a note added after the build could never be found by
+   * the semantic arm, and nothing anywhere said so.
+   *
+   * Dropping the copy is what makes re-enabling work, too. The audit's patch
+   * cleared it when the arm was switched off, which broke turning it back on:
+   * `ensure()` returns the existing index without rebuilding, so there would
+   * have been nothing left to embed and the arm would answer nothing.
+   *
+   * It is also a second copy of every note body and paper abstract, held for the
+   * life of the tab, for a feature most readers never switch on.
+   */
+  async projectionForSemantic(): Promise<readonly SearchDoc[]> {
+    const snapshot = await this.deps.snapshot();
+    return this.projectDocuments(snapshot);
   }
 
   /**
@@ -461,6 +468,10 @@ export class WorkspaceSearch {
     const docs = toPdfSearchDocs([source], degrees);
     this.index.add(docs);
     this.pdfPageCounts.set(source.paperId, source.pages.length);
+    // Recorded as well as indexed, so that a re-projection reproduces what the
+    // index holds: without it, text indexed here would be missing from the
+    // semantic arm's corpus until the next full build read it back from storage.
+    this.pdfTexts = [...this.pdfTexts.filter((s) => s.paperId !== source.paperId), source];
     this.documentCount = this.documentCount - previous + docs.length;
   }
 

@@ -114,6 +114,67 @@ test("invalidating forgets what was held per paper", async () => {
   assert.equal(search.corpusSize.documents, 0);
 });
 
+// --- what the semantic arm embeds -------------------------------------------
+//
+// The projection the index was built from used to be kept for this arm, and it
+// went stale the moment anything was refreshed: `refreshStale` and `indexPdf`
+// add documents and neither touched the copy. Because the vector store's
+// revision is derived from this projection, a stale copy meant a note added
+// after the build could never be found semantically — and nothing said so.
+
+test("the semantic corpus includes a note added after the build", async () => {
+  const pages = [note("n1", "Method", "The GAN setup.")];
+  const search = new WorkspaceSearch({
+    snapshot: async () => snapshot({ vaultPages: [...pages] }),
+    projectId: () => "p1",
+  });
+
+  await search.ensure();
+  const before = await search.projectionForSemantic();
+  assert.deepEqual(
+    before.filter((doc) => doc.kind === "note").map((doc) => doc.id),
+    ["note:n1"],
+  );
+
+  pages.push(note("n2", "Results", "The diffusion sampler."));
+  search.markStale("vault_page");
+  await search.ensure();
+
+  const after = await search.projectionForSemantic();
+  assert.deepEqual(
+    after.filter((doc) => doc.kind === "note").map((doc) => doc.id).sort(),
+    ["note:n1", "note:n2"],
+    "a note added since the build has to be in the corpus the arm embeds",
+  );
+});
+
+test("the semantic corpus is projected again after the arm is switched off", async () => {
+  // Re-enabling used to be the audit's trap: clearing the retained copy on
+  // disable left nothing to embed, because `ensure()` returns the existing index
+  // without rebuilding. Projecting on demand is what makes the second enable
+  // work.
+  const search = searchFor({ vaultPages: [note("n1", "Method", "The GAN setup.")] });
+  await search.ensure();
+
+  search.setSemanticIndex(null);
+
+  const corpus = await search.projectionForSemantic();
+  assert.ok(corpus.length > 0, "there is still a corpus to embed");
+});
+
+test("a PDF indexed in the reader joins the semantic corpus too", async () => {
+  const search = searchFor({ papers: [paper("pa1", "Attention")] });
+  await search.ensure();
+  search.indexPdf(pdf("pa1", [LONG("photosynthesis")]));
+
+  const corpus = await search.projectionForSemantic();
+
+  assert.ok(
+    corpus.some((doc) => doc.kind === "pdf"),
+    "text indexed after the build must be reproducible from the projection",
+  );
+});
+
 test("editing a note refreshes notes without re-reading PDF text", async () => {
   let snapshots = 0;
   const pages = [note("n1", "Method", "The GAN setup.")];
