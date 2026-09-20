@@ -22,6 +22,7 @@ import type {
   UpdatePaperUseCase,
 } from "@weaveforge/core";
 import type { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
+import type { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
 import type { LoadPapersScreenUseCase, PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
 import type { IPaperImageStore } from "@/features/papers/domain/zotero";
 import { applyBibliographyAnnotations } from "@/integrations/providers/zotero/bibliography-integration";
@@ -34,6 +35,8 @@ export class PapersFacade {
       bibliography: IBibliographyIntegration;
       /** The one push-to-Zotero rule, shared with the AI proposal executor. */
       pushToZotero: PushPaperToZoteroUseCase;
+      /** The local-Zotero workflow, with the desktop bridge it needs injected. */
+      importLocalZotero: ImportLocalZoteroUseCase;
       papers: IPaperRepository;
       manageTags: ManageTagsUseCase;
       updatePaper: UpdatePaperUseCase;
@@ -68,44 +71,12 @@ export class PapersFacade {
   }
 
   /**
-   * The Zotero running on this computer: its papers, then their annotations.
-   *
-   * Separate from `syncBibliography`, which reads the cloud library with an
-   * API key. This one needs no key and no account: Zotero 7 serves a read-only
-   * copy of the same API on loopback, and the desktop shell is what reaches
-   * it. Items not yet in the library become papers first — a copy with no
-   * account has no other way to fill its shelf — and annotations are then
-   * matched by the `zoteroKey` every pulled paper carries.
+   * The Zotero running on this computer. See `ImportLocalZoteroUseCase` — the
+   * workflow lives there so it can be driven with a bridge a test supplies,
+   * rather than only with an Electron shell on the other side.
    */
-  async importLocalZotero() {
-    const { desktop } = await import("@/lib/desktop/desktop-bridge");
-    const bridge = desktop();
-    if (!bridge || typeof bridge.zoteroLocal !== "function") {
-      throw new Error("Reading the local Zotero needs the WeaveForge desktop app.");
-    }
-    const { localZoteroAnnotations, localZoteroLibrary } = await import(
-      "@/features/papers/infrastructure/zotero-local"
-    );
-    const papers = await localZoteroLibrary(bridge, {
-      listPapers: () => this.deps.papers.list(),
-      addPaper: (input) => this.deps.addPaper.addManual(input),
-      onItemTags: async (paper, remote) => {
-        const names = (remote.tags ?? []).map((t) => t.tag ?? "").filter(Boolean);
-        if (names.length === 0) return;
-        await this.deps.manageTags.reconcileSources(
-          paper.id,
-          names.map((name) => ({ name, source: "zotero_item" as const })),
-          ["zotero_item"],
-        );
-      },
-    }).pull();
-    const byPaper = await localZoteroAnnotations(bridge).pullAll();
-    const annotations = await applyBibliographyAnnotations(
-      byPaper,
-      this.deps.papers,
-      this.deps.manageTags,
-    );
-    return { papers, annotations, items: byPaper.size };
+  importLocalZotero() {
+    return this.deps.importLocalZotero.execute();
   }
 
   deletePaper(paper: Paper) {

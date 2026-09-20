@@ -47,6 +47,7 @@ import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-meta
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
 import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
+import { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
 // Adding a paper also asks for its PDF, so a paper imported after the folder
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
 import { PrefetchingAddPaperUseCase } from "@/features/papers/application/prefetch-paper-pdf.use-case";
@@ -396,6 +397,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     papers: paperRepository,
     bibliography,
   });
+  const importLocalZotero = new ImportLocalZoteroUseCase({
+    papers: paperRepository,
+    addPaper,
+    manageTags,
+    // Lazily, because the desktop bridge is only meaningful inside the shell.
+    bridge: async () => (await import("@/lib/desktop/desktop-bridge")).desktop(),
+  });
   const aiProposalExecutors = new AiProposalExecutorRegistry(
     GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY
       ? GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY({
@@ -564,6 +572,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       deletePaper,
       bibliography,
       pushToZotero,
+      importLocalZotero,
       papers: paperRepository,
       manageTags,
       updatePaper,
