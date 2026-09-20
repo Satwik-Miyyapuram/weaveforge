@@ -120,14 +120,53 @@ test("a body over the cap is abandoned rather than buffered", async () => {
 test("a declared content-length over the cap is refused before reading", async () => {
   const stub = stubFetch(
     () => new Response("x", { headers: { "content-length": String(50 * 1024 * 1024) } }),
-  );
-  try {
+  );  try {
     const result = await safeFetch("https://example.com/big", {
       resolve: publicResolver,
       maxBytes: 1024,
     });
     assert.equal(result.ok, false);
     assert.equal(result.ok === false && result.status, 413);
+  } finally {
+    stub.restore();
+  }
+});
+
+test("a body larger than the first buffer is read back byte for byte", async () => {
+  // The buffer grows as the body arrives, copying what it already has. That copy
+  // is the part a cap test cannot see: a body of a few hundred bytes never
+  // crosses the growth boundary, and an off-by-one there would corrupt every
+  // figure over 64 KB rather than refusing it. The chunks are uneven on purpose,
+  // so a growth landing mid-chunk is exercised.
+  // The chunks are uneven on purpose, so a growth landing mid-chunk is
+  // exercised, and their total is the body's size.
+  const chunks = [1, 1000, 64 * 1024 - 3, 17, 64 * 1024, 40_000];
+  const payload = new Uint8Array(chunks.reduce((total, size) => total + size, 0));
+  for (let index = 0; index < payload.length; index += 1) payload[index] = index % 251;
+
+  let offset = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      const size = chunks.shift();
+      if (size === undefined) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(payload.subarray(offset, offset + size));
+      offset += size;
+    },
+  });
+
+  const stub = stubFetch(() => new Response(body));
+  try {
+    const result = await safeFetch("https://example.com/figure.png", {
+      resolve: publicResolver,
+      maxBytes: 1024 * 1024,
+    });
+    assert.equal(result.ok, true);
+    if (result.ok !== true) return;
+    assert.equal(result.body.byteLength, payload.byteLength);
+    assert.deepEqual([...result.body], [...payload]);
   } finally {
     stub.restore();
   }
