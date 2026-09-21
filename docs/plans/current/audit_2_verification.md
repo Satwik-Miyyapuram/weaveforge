@@ -129,7 +129,42 @@ re-estimate after reading the code, not the audit's.
 | **WF-N09** | real | None. Network security config is strictly less code than the global flag. | S |
 | **WF-N10** | real | None. | S |
 | **WF-N14** | partial | Two sub-claims are false: the list is `ArrayList<Float>`, not nullable (`:67`), and the buffer *is* cleared per stroke (`:208-209`, `:141`). The real defect is the unbounded per-stroke buffer plus `JSONArray(strokePoints).toString()` on the UI thread at pen lift. | S |
-| **WF-N19** | real | The fix says "keep `proguard-rules.pro`" — the file does not exist, so it must be created. | S |
+| **WF-N19** | **wrong target** | The code reading is accurate — `apps/android` really does have `isMinifyEnabled = false` and no `signingConfig` — but **that module is not the shipped Android app.** See below. | — |
+
+### WF-N19 — accurate about the code, wrong about which artifact ships
+
+Found on a second pass, after being asked why a release-signing finding existed at
+all. There are **two** Android projects and the audit's framing merged them:
+
+| | `apps/web/twa` | `apps/android` |
+| --- | --- | --- |
+| What it is | The **Bubblewrap Trusted Web Activity** | The **inking shell** — a `WebView` plus the stylus surface |
+| Package | `app.weaveforge.twa` | `org.weaveforge.ink` |
+| Shipped? | **Yes** — Play releases on `android-v*` tags, and the CI workflow builds, checks and signs it | No. Debug only, side-loaded by the owner; `apps/android/README.md` lists "Release signing" under *Not done* |
+| Signing | Configured: keystore from CI secrets, `app-release-signed.apk` + `.aab` committed to the workflow's artifacts, keystore present locally | None |
+| Minification | **`minifyEnabled true`** — `apps/web/twa/app/build.gradle:162-163` | `isMinifyEnabled = false` |
+| Size on disk | 1.09 MB signed release | 8.6 MB debug |
+
+So the finding's two recommendations — add a `signingConfig`, turn on R8 — are
+**already done on the artifact that ships**, and the only place they are absent is
+a developer's own debug shell, for which an unsigned, unminified build is the
+correct configuration. `apps/android/README.md` says as much in its first
+paragraph: *"This is not the TWA in `apps/web/twa` — a Trusted Web Activity
+runs in Chrome Custom Tabs, which allow no native view on top."*
+
+The audit even quotes that README's "Not done: Release signing" line as evidence of
+a gap, when it is a statement of scope.
+
+Adding R8 to the inking shell would also have been the one change here that can only
+fail on a device: R8 strips the reflection-called `@JavascriptInterface` methods
+unless a keep rule holds them, and inking then stops working silently **in release
+only** — untestable on this machine. That is a bad trade for an artifact nobody
+installs.
+
+**D3 is dropped, not deferred.** The action it leaves is documentation: the audit's
+finding should be read as "the inking shell is a debug tool", which its README
+already says.
+
 
 ### Permission posture (`WF-X01`…`WF-X08`)
 

@@ -42,9 +42,38 @@ Legend: ✅ landed · 🔨 decided and in flight · ⏸ needs a decision · ❌ 
 | --- | --- | --- | --- |
 | D1 | Screen-cache cancellation | **A** — add `AbortSignal` through `LoadScreenUseCase` and the 10 call sites | not started |
 | D2 | Metric `append` — keep or delete | **A** — keep it, add the round-trip test | ✅ done, two bugs found |
-| D3 | Android release — signing and R8 | **A** — signing config + `isMinifyEnabled` + keep rule | not started |
+| D3 | Android release — signing and R8 | **dropped** — aimed at the wrong artifact | ❌ |
 | D4 | Privileged-capability diagnostic screen | **dropped** | ❌ |
 | D5 | Gesture ownership | **restructure**, to the stated spec | ✅ written, unverified |
+
+### D3 — dropped: the finding was about the wrong Android project
+
+Found on a second pass, after being asked why a release-signing finding existed at
+all. There are **two** Android projects, and WF-N19 merged them:
+
+| | `apps/web/twa` | `apps/android` |
+| --- | --- | --- |
+| What | the **Bubblewrap TWA** | the **inking shell** |
+| Shipped | **yes** — Play releases on `android-v*` tags, signed in CI | no — debug only, side-loaded by the owner |
+| Signing | configured (CI secrets; `android-keystore.jks` present locally) | none |
+| Minification | **`minifyEnabled true`** (`apps/web/twa/app/build.gradle:162`) | `isMinifyEnabled = false` |
+| On disk | 1.09 MB signed release | 8.6 MB debug |
+
+The finding's two recommendations are **already in place on the artifact that
+ships**. The only place they are absent is a developer's own debug shell, for which
+an unsigned, unminified build is correct — and `apps/android/README.md` says so in
+its first paragraph ("This is not the TWA in `apps/web/twa`"), which the audit
+quoted as evidence of a gap rather than of scope.
+
+Acting on it would also have been the one change here that can only fail on a
+device: R8 strips the reflection-called `@JavascriptInterface` methods without a
+keep rule, and inking then breaks **in release only** — untestable on this machine.
+Bad trade for an artifact nobody installs.
+
+What D3 leaves behind is documentation, now done: `apps/android/README.md` no
+longer reads as a release deliverable, records why R8 is deliberately off, replaces
+the stale five-tier list with the gesture table, and corrects "JDK 17–24" to
+17–21 (AGP 8.7.3 fails on 22+).
 
 ### D4 — dropped, and the reasoning is worth keeping
 
