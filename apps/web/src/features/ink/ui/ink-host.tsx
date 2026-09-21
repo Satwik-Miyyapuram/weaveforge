@@ -292,12 +292,9 @@ export function InkHost({
     hand,
     palette,
     onEvent,
-    // Picking the pen up selects a pen mode, so a stroke drawn with the eraser or
-    // the lasso up is not swallowed by the tool gate. See `toolOnPenApproach`.
     onPenApproach,
     onStrokeEnd: () => {
-      // One state change per stroke, which is the contract the hook's doc comment
-      // makes: the live stroke never entered React, so there is nothing to batch.
+      // One state change per stroke, as the hook's doc comment promises.
       setStrokes((count) => count + 1);
       scheduleSave();
     },
@@ -508,10 +505,9 @@ export function InkHost({
     paper,
   });
 
-  // Both image layers of the sheet, resolved by the one module that knows both
-  // stores: the figures placed on the page, and the inline images the text
-  // layer's markdown pass renders (`paperimg:` is a paper's figure, and a
-  // paper's Notes tab is the same sheet).
+  // Both image layers of the sheet, from the one module that knows both stores: the
+  // figures placed on the page, and the inline images the text layer's markdown pass
+  // renders (`paperimg:` is a paper's figure, and a paper's Notes tab is the same sheet).
   const { figureUrls, resolveImageSrc } = useInkSheetImages({
     figures,
     pages: textPagesRef,
