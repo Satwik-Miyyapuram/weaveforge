@@ -42,6 +42,8 @@ export interface InkPenDeps {
   palette: InkPalette;
   /** The worker's answers, as the host's RPC keeps them. */
   onEvent: (event: InkWorkerEvent) => void;
+  /** The pen came near the screen: choose a pen mode if one is not already up. */
+  onPenApproach?: () => void;
   /** One state change per stroke, for the readout, and the late save's ask. */
   onStrokeEnd: () => void;
   /** The actuator, where the platform can drive one; `null` elsewhere. */
@@ -105,6 +107,11 @@ export function useInkPen(deps: InkPenDeps) {
     onLive: (sample) => hapticsRef.current?.update(sample),
     onStrokeEnd: deps.onStrokeEnd,
     onEvent: deps.onEvent,
+    // The pen arriving selects a pen mode (see `toolOnPenApproach`). It has to be
+    // wired here rather than to a tool-bar click, because ink is gated on the tool
+    // in force: a stroke that began while the eraser or the lasso was up would be
+    // swallowed, and the user would see a pen that "does not write".
+    onPenApproach: deps.onPenApproach,
   });
 
   /** The waveform is the tool's: graphite, felt, rubber. */

@@ -26,14 +26,17 @@ import type { ScreenId } from "@/lib/screens";
  *     answer both: the reload effect runs after the restore effect, so the
  *     restore would always observe a newer counter and drop every payload it
  *     read — silently disabling the offline restore this hook exists for.
- */
-/**
- * Load screen data with stale-while-revalidate: show cached payload instantly on
- * remount, refresh in the background.
  *
  * `screen` is a {@link ScreenId} rather than a string because it *is* a cache
  * key: a misspelt one is not an error anywhere, it is a screen whose data is
  * never cleared on a write and never warmed on a hover.
+ *
+ * The IndexedDB restore is best-effort and the network write to it is observed
+ * rather than fired and forgotten: a cache that stops working without saying so
+ * is the failure this hook exists to prevent, and the write is the only place
+ * that failure would be visible. (It cannot reject today — `idbSetScreenCache`
+ * swallows its own errors — which is the other half of why the ceiling on it
+ * needs to be measurable.)
  */
 export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
   const { current } = useProject();
@@ -101,7 +104,16 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
       // `Date.now()` because this payload *was* fetched now; the restore path
       // above passes the time the server answered, which is a different moment.
       setScreenCache(cacheKey, fresh, Date.now());
-      void idbSetScreenCache(cacheKey, fresh);
+      // Observed, not discarded. This promise cannot reject today —
+      // `idbSetScreenCache` catches everything internally so a quota error never
+      // reaches a caller — but a write nobody can observe is a write nobody can
+      // measure, and the offline restore is the feature whose quiet failure is
+      // invisible until the network is gone. Recording the failure here is what
+      // would make a regression in the cache show up as a number rather than as
+      // "the app is offline and the cache is empty and nothing said why".
+      void idbSetScreenCache(cacheKey, fresh).catch(() => {
+        recordPerf(`screen.${screen}.idb_write_failed`, 1);
+      });
       setData(fresh);
       completedLoads.current += 1;
       recordPerfSince(`screen.${screen}.fetch_ms`, startedAt);

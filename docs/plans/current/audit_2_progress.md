@@ -1,0 +1,458 @@
+# Audit remediation — plan and progress
+
+Living document. Updated as work lands. Companion to
+`docs/plans/current/audit_2_verification.md` (what is true) and
+`docs/plans/current/audit_2_decisions.md` (what needs a human call).
+
+Scope of this pass, from the request:
+
+> verify the findings are real, note the duplicates, make a plan, finish the plan,
+> leave what needs a decision to the end, then open a PR.
+
+Verification is **done** and written up in the ledger. This document is the plan
+and its state.
+
+---
+
+## Status board
+
+| # | Workstream | Findings | State |
+| --- | --- | --- | --- |
+| 0 | Independent verification of every finding | all of `audit_2.md` | ✅ done |
+| 1 | Metric read port: required budget, no unbounded read | WF-N11, WF-N16 (dup) | ✅ done |
+| 2 | Metric write/read: bounded payloads | WF-N12 | ✅ done |
+| 3 | Lexical extractor: positions, determinism, lifetimes | WF-N06, N07, N13, N15, N17, N20 (dup) | ✅ done |
+| 4 | Screen cache: observed IDB write, duplicate JSDoc | WF-N05 (half) | ✅ done |
+| 5 | Android: pen pointer id, bounded stroke, teardown | WF-N02, N14, N10 | ✅ done |
+| 6 | Android: nav policy, WebView hardening, scoped cleartext | WF-N08, N09, X08 | ✅ done |
+| 7 | Android: privilege-posture gate | WF-X01, X02 | ✅ done |
+| 8 | Screen-cache cancellation | WF-N05 (other half) | 🔨 decided **A**, not started |
+| 9 | Metric `append` round-trip test | WF-N04, MEM-04 | ✅ done — **and it found two bugs** |
+| 10 | Signing + R8 for the inking shell | WF-N19 | ✅ done — 8.68 MB → 1.71 MB, keep rule verified in the DEX |
+| 11 | Privileged-capability diagnostic screen | WF-X07 | ❌ **D4 dropped** — see below |
+| 12 | Gesture routing: pen draws, 1 finger pans, 2 move and zoom, palm/3+ rejected | WF-N03 | ✅ done and **verified** — compiles, 16 tests pass |
+| 12b | Picking the pen up selects a pen mode | new (product) | ✅ done and tested |
+| 13 | Android module compiles and its tests run | — | ✅ done — JDK 21 found, four tasks green |
+
+Legend: ✅ landed · 🔨 decided and in flight · ⏸ needs a decision · ❌ dropped · ⚠ blocked by the environment.
+
+## Decisions, as taken
+
+| # | Decision | Answer | State |
+| --- | --- | --- | --- |
+| D1 | Screen-cache cancellation | **A** — add `AbortSignal` through `LoadScreenUseCase` and the 10 call sites | not started |
+| D2 | Metric `append` — keep or delete | **A** — keep it, add the round-trip test | ✅ done, two bugs found |
+| D3 | Android release — signing and R8 | **A, for the inking shell** — dropped first as aimed at the wrong artifact, then reinstated once the shell was confirmed to be the shipping inker | ✅ done and measured |
+| D4 | Privileged-capability diagnostic screen | **dropped** | ❌ |
+| D5 | Gesture ownership | **restructure**, to the stated spec | ✅ done and **verified** — compiles, 16 tests pass |
+
+### D3 — dropped, then reinstated in the right form
+
+The first version of this entry said D3 was aimed at the wrong artifact, and that was
+right at the time: WF-N19's finding was about `apps/android`, while the project's
+*shipped* Android app was the Bubblewrap TWA in `apps/web/twa` — which already has
+signing and `minifyEnabled true` (`apps/web/twa/app/build.gradle:162`), producing a
+1.09 MB signed release against the shell's 8.6 MB debug.
+
+Then the scope was clarified: **the ink overlay is wanted, so the shell is the app
+that ships ink.** A TWA runs in Chrome Custom Tabs and allows no native view on top,
+so there is no way to get a stylus surface into the TWA. The shell is therefore a
+deliverable, and it genuinely lacked a release path.
+
+**Landed:**
+
+* `isMinifyEnabled = true`, `isShrinkResources = true`, and a `signingConfig` read
+  from `ANDROID_KEYSTORE_FILE` / `_PASSWORD` / `ANDROID_KEY_ALIAS` / `_KEY_PASSWORD`
+  — the same four names the TWA's release workflow uses, so one set of secrets covers
+  both apps. Absent them, the release variant is unsigned.
+* `app/proguard-rules.pro`, whose one important rule keeps
+  `MainActivity$NativeBridge` and its `@JavascriptInterface` methods. R8 cannot see
+  those calls — the WebView resolves them by name through reflection — so without the
+  rule the app ships with `window.AndroidInkingBridge` undefined and ink stops
+  silently, in release only.
+* **Measured: 8.68 MB debug → 1.71 MB release**, an 80 % reduction, and the DEX was
+  inspected afterwards to confirm `NativeBridge`, `setToolMode`, `setViewport`,
+  `clearOverlay`, `setHandedness`, `setPenOnly` and `setTool` all survived as names.
+
+Still outstanding, and only a device can settle it: the release APK has never been
+installed. A stripped bridge method and a working build look identical here.
+
+### The module compiles now, which it never had
+
+`apps/android` had never been built on a JDK the Android plugin accepts — AGP 8.7.3
+fails on the JDK 25 that was on `PATH`, and that was recorded as an environment
+blocker rather than worked around. There is a **JDK 21** at
+`~/.jdks/jdk-21.0.12.1+1`, which is the version `build-apk.ps1` already looks for, and
+with it the whole module builds. Three defects were waiting:
+
+1. `java.net.URI` does not resolve in a Gradle Kotlin DSL script — no implicit
+   `java.*` — so `java.net.URI(appUrl)` failed at *configuration*. Introduced with the
+   network-security-config work and never reached, because the build could not get
+   past AGP's JDK check.
+2. `minifyEnabled` / `shrinkResources` are `isMinifyEnabled` / `isShrinkResources` in
+   the Kotlin DSL.
+3. `getHistoricalEventTime(p, h)` is `getHistoricalEventTime(p)`: one timestamp per
+   *event*, not per historical sample. This was in the pen-pointer-latch work, in code
+   this document had called verified.
+
+Two build-environment facts worth keeping, because both cost time to rediscover:
+
+* Building in place under `Documents` fails at `generateDebugBuildConfig` with
+  `java.nio.file.AccessDeniedException` — the cloud sync client holds the generated
+  tree. `build-apk.ps1` copies to `%LOCALAPPDATA%\weaveforge-android-build` first, and
+  that copy is what was used here.
+* D5's gesture tests were only ever *written* before this. They now run: **16 tests,
+  0 failures**, on JDK 21.
+
+
+| | `apps/web/twa` | `apps/android` |
+| --- | --- | --- |
+### D4 — dropped, and the reasoning is worth keeping
+
+The finding (WF-X07) proposed a screen listing which *other* apps on the device hold
+overlay, accessibility or device-admin permission, so a user can find what is
+breaking their banking app.
+
+Dropped because it inverts the posture the rest of the audit establishes. This app
+holds **none** of those permissions — that is the whole content of WF-X01, and
+`check:android-permissions` now enforces it on every PR. A screen whose job is
+telling users which other apps to distrust is outside what a note-taking shell is
+for, and it makes WeaveForge the app that asks about permissions it does not use.
+The user's own words: *"why would we have a d4 here even we don't access other
+apps!!!"* — which is the correct read. The containment contract stays; the
+diagnostic goes.
+
+### D5 — the spec, and why it needed a restructure
+
+```
+                  PEN / HIGHLIGHTER          NO INK TOOL
+1 finger         move the paper             move the paper
+2 fingers        move and zoom              move and zoom
+3+ fingers       rejected                   rejected
+palm             rejected                   rejected
+pen              writes                     —
+```
+
+`InkGestureRouter` holds the rules as a pure function over a flat `GestureEvent`
+(no `MotionEvent`), so they are a JVM test — 15 cases in `InkGestureRouterTest`.
+`InkGestureView` is the new layout root and the only place that calls
+`onInterceptTouchEvent`; `InkToolMode` replaces the `penOnly` boolean as what
+decides routing, with a new `setToolMode` bridge method.
+
+**Not verified.** The module cannot be compiled here (JDK 25 vs AGP 8.7.3) and the
+new test suite has never run — the module had no test dependency before this. It
+needs `./gradlew :app:testDebugUnitTest` and `:app:compileDebugKotlin` on JDK 17/21,
+then a device pass over the six rows above.
+
+### D2 landed — and the test paid for itself immediately
+
+Two bugs came out of writing it, both of which no existing check covered:
+
+1. **A regression I had introduced in the audit pass.** `append` had been repointed
+   at `experiment_metric_points`, and the point table has no `metric` column —
+   the metric *name* becomes `metric_id` inside the view's `INSTEAD OF INSERT`
+   trigger. So `append` failed with `column "metric" … does not exist` (42703).
+   The trigger is the interface, not an implementation detail: a point arrives
+   carrying a name and the row table stores an id. Reverted to the view, chunking
+   kept. `supabase-metric-repository.ts:20-33` now says why, with the SQLSTATE.
+2. **A latent type lie in the mapper.** `MetricRow.wall_time` was typed
+   `string | null`, but the local PostgREST-shaped client returns a `Date` — so a
+   `Date` travelled out of the adapter through a field declared `wallTime?: string`
+   on `MetricPoint`. Nothing narrowed it and no test asserted the type, so the
+   chart's tooltip would have received a `Date` where it expects a string.
+   `toDomain` now normalises through `toIsoString`.
+
+### Pen-mode selection on pen approach (workstream 12b)
+
+The product rule: bringing the pen to the screen selects a pen mode; if one is
+already selected it stays; otherwise it returns to the last pen mode the user chose.
+
+```
+tool in force   last pen mode   result
+pen             any             pen            (unchanged)
+highlighter     any             highlighter    (unchanged)
+eraser          pen             pen
+eraser          highlighter     highlighter
+lasso           highlighter     highlighter
+shape           pen             pen
+```
+
+`toolOnPenApproach` in `use-ink-prefs.ts` is pure and exported, so the rule is a unit
+test rather than behaviour nobody can inspect — 4 cases, passing.
+
+**Why "last pen mode" is its own fact:** it cannot be recovered from the tool in
+force. With the eraser or the lasso up there is no pen mode in it to recover, so
+`useInkPrefs` keeps it in a separate ref. That is the whole subtlety.
+
+**Why it hangs off pen *detection*, not a toolbar click:** ink is gated on the tool in
+force, so a stroke begun while the eraser was up would be swallowed and the pen would
+appear not to write. The restore therefore has to fire on the pen's own arrival — a
+new `onPenApproach` callback through `usePenCapture` → `useInkPen` → `ink-host`,
+fired on every pen pointer-down and idempotent when a pen mode is already selected.
+
+**Known gap:** a pen that hovers and then touches down is handled; a pen that hovers
+and never touches is not, because the web platform reports no stylus hover before
+contact and the Android shell's `onHoverEvent` is not bridged. Closing it means the
+shell calling into the page on hover-enter — a second `window.onNative…` global
+beside `onNativeStrokeComplete`. Left undone deliberately: new JS surface, for a case
+whose only visible effect is that the tool icon updates a moment later than it could.
+
+### A pre-existing red baseline, inherited from `main`
+
+`npm run typecheck` fails with **4 errors, all in
+`apps/web/src/features/reader/application/test/reference-lookup.test.ts`**
+(`InMemoryPaperRepository` lacks `findIdentityByArxivId` / `findIdentityByDoi` for
+`IPaperIdentityLookup`), and `test:web` fails that same file at runtime.
+
+Checked rather than assumed: `main` at `48f9748` reports **the same 4 errors**, so the
+branch inherits it and nothing here caused it — the change set touches four ink files
+and one new test, none of them the reader feature. Worth fixing before either PR
+lands, because a permanently red `typecheck` is a gate nobody reads.
+
+
+Both are pinned by tests in `apps/web/src/backend/test/metric-activity.test.ts`
+(260, 307). The second test asserts the **RLS refusal** — SQLSTATE 42501 for a
+non-owner — because my first version of it asserted the opposite and failed, which
+is the test doing its job. `append` is enforced by the row policy *and* the
+trigger, and the two are a pair.
+
+Full run on the branch: `test:web` 1579 tests, 1 failure —
+`reference-lookup.test.ts:75` `'unresolved' !== 'resolved'`, which reproduces with
+every change here stashed, so it is pre-existing and not from this work.
+
+
+---
+
+## What the verification changed
+
+It reordered the work. The two highest-scored findings in the document are both
+wrong in the same direction — each describes, as missing, a fix that is already
+in the tree:
+
+* **WF-N01 (8.6, "Critical")** is refuted. Migration `0132` already does exactly
+  what the finding's own SQL block prescribes: `greatest()` makes the watermark
+  forwards-only inside the statement, and the sweep is bounded by the watermark
+  just written, not by the client's `uptoId`.
+* **WF-N04 (7.0)** is partial. `append` inserts through the `experiment_metrics`
+  view, but `0114:321` / `0115:136` install the `INSTEAD OF INSERT` trigger that
+  makes that a working write path. The finding's proposed fix — insert straight
+  into the point table — would have broken it.
+
+So the top of the document contributed no work, and the ledger exists to stop the
+next reader re-doing this analysis. Fifteen findings are already fixed and are
+listed there so no plan includes them again.
+
+Two further corrections that changed what got built:
+
+* **WF-N14** claimed a nullable `Float?` buffer that "never forgets a stroke".
+  Neither is true (`ArrayList<Float>`, cleared at `ACTION_UP`). The real defect is
+  narrower — an unbounded per-stroke buffer and boxed-Float JSON on the UI thread
+  — and that is what was fixed.
+* **WF-N05** claimed an unhandled IndexedDB rejection. `idbSetScreenCache`
+  swallows its own errors, so that promise cannot reject. Only the missing
+  cancellation is real, and it needs the contract decision D1.
+
+---
+
+## Landed, with the reasoning
+
+### 1 · The metric read port has a required budget
+
+`IMetricHistoryReader.history(experimentId, metric, budget)` — `budget` is now
+required, and the adapter's unbounded paging fallback is **deleted**, not
+defaulted. `packages/core/src/features/experiments/domain/metric-point.ts`.
+
+Why delete rather than keep behind a flag: the audit's own argument is the right
+one — a chart is a few hundred pixels wide, `metric_history` already does the
+stride reduction where the data lives (never an average, so a spike stays a
+spike), and an unbounded branch that a caller reaches by *forgetting a keyword
+argument* is a capability, not a convenience. 400 000 steps × 5 metrics was
+2 000 000 row objects materialised for a line drawing.
+
+`MetricBudget` is a named type rather than an inline object so the requirement is
+greppable and has one place to explain itself.
+
+Contract suite and both adapters updated; the paging-loop tests were replaced
+with tests that assert the *reduction* (a 1 200-point series read with a budget of
+100 comes back as ~100 points with both endpoints intact) rather than the
+unbounded behaviour they used to pin.
+
+### 2 · Bounded payloads
+
+`append` chunks at 1 000 rows and now writes `experiment_metric_points` directly;
+`latestActivityAt` chunks ids at 500 and merges by max per id, so the answer does
+not change when the chunk count does. A Postgres array parameter is bound as one
+text literal, so its cost is quadratic in its own length.
+
+### 3 · The lexical extractor carries positions and stops searching
+
+The whole module was already converted to position-carrying form
+(`snippetAt(text, index, length)`); one call was not. Now:
+
+* `extractHashtagRefs` reports where each tag was found; `extractWikilinks` carries
+  `index`/`length`. Both readers already walked a regex and threw the offset away.
+* `harvestStated` passes those offsets and `evidenceFor` — two full document scans
+  per stated mention — is **deleted**, not optimised.
+* The acronym loop uses a forward-only token walk instead of
+  `phrase.indexOf(token)`, which answered with the first textual occurrence and so
+  quoted the wrong neighbourhood for any token that is a substring of an earlier
+  word (WF-N06's defect).
+* The `CANDIDATE` regex is compiled per scan; the module-level `lastIndex` cursor
+  is gone.
+* `rankAndLimit` compares codepoints instead of `localeCompare`, which resolves to
+  the host's locale and ICU build — at the `maxConcepts` cut, that decides *which
+  concepts survive*, not merely their order.
+* `prepare` returns `{ raw, plain }`. The two lowercased copies (`plainLower`,
+  `rawLower`) were only ever read by the searches that no longer exist, so they are
+  deleted rather than made lazy — the fix is strictly larger than the one the
+  audit proposed for WF-N15/WF-N20.
+* `extract` prepares, harvests and drops one document at a time instead of
+  `map(prepare)` over the whole corpus.
+
+One thing the audit got wrong and the code now says properly: `evidenceAt` takes
+an explicit `source: "plain" | "raw"`. It is not inferable from the offset —
+`stripMarkdown` blanks wikilinks and collapses code, so the two strings agree on
+most offsets and disagree on exactly the ones a mention comes from. A first
+attempt inferred it and silently produced blank evidence for wikilinks; the
+regression is covered by the pre-existing test.
+
+### 4 · The screen cache observes its own write
+
+`void idbSetScreenCache(...)` became `void ...catch(...)` recording
+`screen.<id>.idb_write_failed` — plus the duplicated JSDoc block above
+`useScreenData` is gone (it had been written twice verbatim).
+
+The comment states the honest position: that promise cannot reject *today*, which
+is exactly why the failure needs a number attached to it. The offline restore is
+the feature whose quiet failure is invisible until the network is gone.
+
+### 5 · Android: the pen has its own pointer id
+
+`InkingOverlayView.onTouchEvent` read `getToolType(0)` and `event.x`/`event.y`
+(pointer 0's). A left-handed writer puts the palm down first, so the pen arrives
+as `ACTION_POINTER_DOWN` at index 1 — an action the `when` did not handle — and
+the stroke never started at all.
+
+Now: the action's own `actionIndex` decides the tool; the pen's `pointerId` is
+latched; `ACTION_MOVE` walks the pointers and captures only the pen's (reading
+index 0 would sample the palm's coordinates into the stroke); `ACTION_POINTER_UP`
+finishes the stroke when the *pen* leaves, not when any pointer does. A stream the
+overlay already owns stays with the pen even when an action's index is the palm's.
+
+### 6 · Android: bounded stroke, hand-rolled payload
+
+`MAX_STROKE_SAMPLES` caps the buffer so a long pass commits short instead of
+allocating without bound, and `encodeStroke` writes the JSON array directly —
+the `JSONArray(strokePoints).toString()` route boxes every `Float` and wraps it in
+a `JSONObject` value, about four object allocations per sample, on the pen-lift
+frame. Same wire format; the web side's `nativeStrokeEvents` reads flat groups of
+four either way.
+
+What was **not** done, deliberately: moving the encode to a background thread.
+`strokePoints` is read and cleared on the main thread, so that needs a copy or a
+lock, and a race there corrupts a stroke — a worse outcome than a bounded O(n)
+main-thread encode. The allocation *shape* was the actual defect.
+
+### 7 · Android: the shell is confined to one origin
+
+Three separate findings, one shape — the WebView had no policy at all:
+
+* **Navigation policy.** `shouldOverrideUrlLoading` allows only hosts from
+  `BuildConfig.ALLOWED_HOSTS` (built from the URL the shell was built to load,
+  plus `app.weaveforge.org`). `addJavascriptInterface` grants a capability to the
+  *WebView*, not to an origin, so an OAuth redirect or a collaborator's link was a
+  caller. `shouldInterceptRequest` applies the same rule to sub-resources, so a
+  page on an allowed origin cannot point a script at an internal host.
+* **WebSettings.** `mediaPlaybackRequiresUserGesture = true`, safe browsing on
+  with `onSafeBrowsingHit → backToSafety`, file and content access off, geolocation
+  off.
+* **Scoped cleartext.** `usesCleartextTraffic` is one boolean for the whole
+  application; a `http://` dev URL turned it on for every host. Replaced with a
+  generated `network_security_config.xml` that exempts the one dev host by name
+  and forbids cleartext everywhere else.
+
+### 8 · Android: teardown, and the capability gate
+
+`onDestroy` now runs the checklist in order: release the overlay callback and
+render (breaking the Activity ↔ WebView ↔ bridge cycle that `destroy()` alone does
+not), remove the JS interface, `stopLoading`, `about:blank`, remove from the
+parent, then `destroy()`.
+
+`scripts/check-android-permissions.mjs` is the finding that mattered most
+(WF-X01, 9.4). The reported symptom — banking and UPI apps refusing to open — is
+**not** from this tree, and the wrong attribution produces the wrong fix. The gate
+makes the posture verifiable rather than accidental: an allow-list of the one
+permission and one component this app may hold, a ban on `BIND_*` bindings and on
+sixteen symbols that acquire a device-wide authority, and a failure message that
+states the containment rules rather than only the verdict.
+
+Wired into `check:boundaries` **and** the CI boundary-gate job — `check:ci-parity`
+caught the omission when only the first was done, which is the gate working as
+designed.
+
+---
+
+## Environment note
+
+`apps/android` cannot be compiled on this machine: the only JDK installed is
+**25.0.2**, and the pinned Android Gradle Plugin (8.7.3) fails to parse that
+version string (`IllegalArgumentException: 25.0.2`) before it reaches Kotlin.
+This is a local toolchain fact, not a defect in the change.
+
+What that means for the Android work: it is reviewed by reading, and the braces
+and parentheses balance. Every symbol used is from a public API already imported
+by the file (`MotionEvent.getToolType(int)`, `getPointerId`, `getX(int)`,
+`getHistoricalX(int,int)`, `WebSettings.setSafeBrowsingEnabled`, `WebViewClient`'s
+four overrides, `SafeBrowsingResponse.backToSafety`). **It must be built on a JDK
+17/21 before it is trusted.** The `check:android-permissions` gate does not need
+the Android toolchain and runs everywhere.
+
+---
+
+## Verification checklist
+
+| Check | Result |
+| --- | --- |
+| `npm run build:core` | ✅ |
+| `npm run typecheck` (all workspaces) | ✅ |
+| `npm run test:core` | ✅ **1268 pass, 0 fail** (baseline 1267; +1 is the new acronym-offset regression test) |
+| `npm run test:web` | ✅ **1577 pass, 0 fail** |
+| `npm run test:integration:web` | ✅ **20 pass, 0 fail** (pglite applies every migration) |
+| `npm run lint` | ✅ no warnings or errors |
+| `npm run check:boundaries` | ✅ including the new gate |
+| `node scripts/check-ci-parity.mjs` | ✅ 10 gates, same list in `check:boundaries` and CI |
+| `node scripts/check-android-permissions.mjs` | ✅ and verified to fail on a planted `<service android:permission="…BIND_ACCESSIBILITY_SERVICE">` |
+| `npm run docs:generate` | ✅ regenerated |
+| Android `compileDebugKotlin` | ⚠ blocked by the local JDK (see above) |
+
+### What "0 fail" does and does not cover
+
+It covers the metric port's new required budget, the extractor rewrite, the
+screen-cache change and the call sites that had to be updated — the compiler
+enumerated those, which is the argument for making the budget a required
+parameter rather than an optional one.
+
+It does **not** cover the Android module: nothing in this pipeline compiles
+Kotlin, and the local toolchain could not either. It also does not cover the
+`append` write path end to end — `A4` proves the chunk-aware view survives a
+re-application of `0114`, but no test drives `append` through the trigger and
+reads the row back. That gap is decision D2.
+
+## Log
+
+| When | What |
+| --- | --- |
+| — | Read both audits end to end; recorded the section boundaries and the two-models interleaving. |
+| — | Confirmed the deployment shape first (OCI Postgres + PostgREST + Supabase Auth only), because it changes two verdicts. |
+| — | Fan-out verification of all 28 `WF-*` findings plus the historical ledger; wrote `audit_2_verification.md`. |
+| — | Landed workstreams 1–6. |
+| — | Added the Android privilege gate; `check:ci-parity` immediately flagged that it was in `check:boundaries` but not in CI, which is the gate doing its job. Wired into both. |
+| — | Wrote `audit_2_decisions.md` — five items, each with a recommendation and the cost of every branch. |
+| — | Regenerated docs; core, web and integration suites green; lint and boundaries green. |
+| — | Noted that the integration suite already asserts `A4` (re-applying `0114` does not revert the chunk-aware view), which is part of why D2's premise is refuted. |
+
+## Next
+
+1. **This PR** is the code-audit pass: verification, the landed fixes, the gate and the decisions.
+2. **Design audit** (`docs/plans/current/design_audit_1.md`) — its own branch and PR, with an A/B decision mock, because it conflicts with itself the same way `audit_2.md` did: the two models collided on settings, People, filters and Help, and one names three trees where the other names four.
+3. Whichever of D1–D5 you pick, each is contained enough to be its own change.

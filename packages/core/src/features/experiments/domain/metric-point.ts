@@ -28,24 +28,45 @@ export interface IMetricWriter {
   append(points: MetricPoint[]): Promise<void>;
 }
 
+/**
+ * How many points a reader can use.
+ *
+ * The budget is a required argument rather than an optional one because the
+ * signature is the only place this decision can be made once. Optional, the
+ * cheap path was the one a caller had to remember to ask for, and `history(id)`
+ * read as "sometimes this is fine" when the truth is "it is fine exactly when
+ * you say how many points you can draw".
+ */
+export interface MetricBudget {
+  /**
+   * Ceiling for the result, applied **per metric** — a chart overlays several
+   * series and each needs its own resolution, so one budget across them would
+   * starve whichever sorts second.
+   */
+  readonly maxPoints: number;
+}
+
 /** Drawing one run's curves: samples, in step order. */
 export interface IMetricHistoryReader {
   /**
    * Samples for an experiment (optionally one metric), step-ordered.
    *
-   * `maxPoints` is a budget for the whole result, and it exists because a chart
-   * is a few hundred pixels wide: a long run stores tens of thousands of points
-   * per metric, and every one of them would otherwise be transferred, parsed and
-   * laid out to draw a line. Below the budget nothing is reduced. Above it the
-   * reduction is a stride — never an average, which would smooth away the spikes
-   * a spike is the reason to plot — and the first and last sample of each metric
-   * always survive, so a curve never appears to start late or stop early.
+   * `budget` exists because a chart is a few hundred pixels wide: a long run
+   * stores tens of thousands of points per metric, and every one of them would
+   * otherwise be transferred, parsed and laid out to draw a line. Below the
+   * budget nothing is reduced. Above it the reduction is a stride — never an
+   * average, which would smooth away the spikes a spike is the reason to plot —
+   * and the first and last sample of each metric always survive, so a curve
+   * never appears to start late or stop early.
+   *
+   * There is deliberately no unbudgeted variant. The adapter used to fall back
+   * to materialising the entire series when the budget was omitted, which is a
+   * read port returning an unbounded value on a path a caller could reach by
+   * forgetting a keyword argument. A genuinely complete read — an export, a
+   * recompute — belongs behind its own method name with its own documented cost,
+   * not behind the cheap one.
    */
-  history(
-    experimentId: string,
-    metric?: string,
-    options?: { maxPoints?: number },
-  ): Promise<MetricPoint[]>;
+  history(experimentId: string, metric: string | undefined, budget: MetricBudget): Promise<MetricPoint[]>;
 }
 
 /**

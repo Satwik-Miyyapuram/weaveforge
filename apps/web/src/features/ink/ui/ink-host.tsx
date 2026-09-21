@@ -136,7 +136,7 @@ export function InkHost({
    * each tool remembers — a return from the highlighter hands the pen back
    * its own colour, not a fluorescent yellow.
    */
-  const { tool, setTool, colour, onColourChange } = useInkPrefs();
+  const { tool, setTool, colour, onColourChange, onPenApproach } = useInkPrefs();
   const [width, setWidth] = useState<number>(INK_PEN_WIDTH);
   const [zoom, setZoom] = useState(1);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -292,9 +292,9 @@ export function InkHost({
     hand,
     palette,
     onEvent,
+    onPenApproach,
     onStrokeEnd: () => {
-      // One state change per stroke, which is the contract the hook's doc comment
-      // makes: the live stroke never entered React, so there is nothing to batch.
+      // One state change per stroke, as the hook's doc comment promises.
       setStrokes((count) => count + 1);
       scheduleSave();
     },
@@ -505,10 +505,9 @@ export function InkHost({
     paper,
   });
 
-  // Both image layers of the sheet, resolved by the one module that knows both
-  // stores: the figures placed on the page, and the inline images the text
-  // layer's markdown pass renders (`paperimg:` is a paper's figure, and a
-  // paper's Notes tab is the same sheet).
+  // Both image layers of the sheet, from the one module that knows both stores: the
+  // figures placed on the page, and the inline images the text layer's markdown pass
+  // renders (`paperimg:` is a paper's figure, and a paper's Notes tab is the same sheet).
   const { figureUrls, resolveImageSrc } = useInkSheetImages({
     figures,
     pages: textPagesRef,

@@ -15,6 +15,7 @@ import type {
   Experiment,
   IExperimentActivityReader,
   IMetricHistoryReader,
+  MetricBudget,
 } from "@weaveforge/core";
 import { ExperimentsFacade } from "../facades/experiments";
 import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
@@ -60,7 +61,7 @@ function harness(data: ExperimentsScreenData, options: { lastActivity?: Map<stri
     // this object would stop compiling — which is the whole point of the split.
     metrics: {
       latestActivityAt: async () => options.lastActivity ?? new Map<string, number>(),
-      history: async () => [],
+      history: async (_experimentId: string, _metric: string | undefined, _budget: MetricBudget) => [],
     } satisfies IMetricHistoryReader & IExperimentActivityReader,
     manageExperiment: {
       setStatus: async (id: string, status: string) => {
