@@ -43,6 +43,7 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var inkOverlay: InkingOverlayView
+    private lateinit var inkGesture: InkGestureView
 
     /** The hosts the shell may load, from the build that produced it. */
     private val allowedHosts: Set<String> =
@@ -63,6 +64,13 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         inkOverlay = findViewById(R.id.inkOverlay)
+
+        // The parent decides which layer a touch stream belongs to. It is wired from
+        // the layout's ids rather than by child index, so the arrangement inside
+        // `InkGestureView` is not load-bearing.
+        inkGesture = findViewById(R.id.inkGesture)
+        inkGesture.webView = webView
+        inkGesture.overlay = inkOverlay
 
         with(webView.settings) {
             javaScriptEnabled = true
@@ -136,7 +144,7 @@ class MainActivity : AppCompatActivity() {
         // Installed only for an allowed document. `doUpdateVisitedHistory` fires
         // on every navigation, including history moves and redirects, so the
         // interface is present exactly while the loaded origin may use it.
-        webView.addJavascriptInterface(NativeBridge(inkOverlay), BRIDGE_NAME)
+        webView.addJavascriptInterface(NativeBridge(inkOverlay, inkGesture), BRIDGE_NAME)
 
         inkOverlay.onStrokeFinished = { pointsJson ->
             runOnUiThread {
@@ -211,7 +219,36 @@ class MainActivity : AppCompatActivity() {
      * one origin. If this bridge ever grows a method that touches storage, the
      * same origin gate has to be re-argued for it rather than assumed.
      */
-    class NativeBridge(private val overlay: InkingOverlayView) {
+    class NativeBridge(
+        private val overlay: InkingOverlayView,
+        private val gesture: InkGestureView,
+    ) {
+        /**
+         * Which tool is selected, and whether the page is pen-only.
+         *
+         * The tool name is what decides gesture routing, so it has to cross the
+         * bridge: with Select chosen the pen manipulates the page and nothing inks,
+         * and with Pen or Highlighter chosen the pen writes while one finger still
+         * moves the paper and two still move and zoom it.
+         *
+         * Setting this through [setTool] would tie routing to a colour pick — the ink
+         * bar calls `setTool` for a width change too — so the mode is its own call.
+         * That also keeps the ink bar's own separation ("no tool selected" is a state,
+         * not a colour) visible on this side.
+         */
+        @JavascriptInterface
+        fun setToolMode(tool: String, penOnly: Boolean) {
+            val mode = if (tool == "pen" || tool == "highlighter") {
+                InkToolMode.INK
+            } else {
+                InkToolMode.NONE
+            }
+            gesture.post {
+                gesture.toolMode = mode
+                overlay.penOnly = penOnly
+            }
+        }
+
         @JavascriptInterface
         fun setViewport(left: Float, top: Float, width: Float, height: Float, dpr: Float) {
             overlay.post { overlay.setViewport(left * dpr, top * dpr, width * dpr, height * dpr) }
@@ -232,6 +269,11 @@ class MainActivity : AppCompatActivity() {
             overlay.post { overlay.setPenStyle(colour, widthPx) }
         }
 
+        /**
+         * Retained because the web side still calls it, and because pen-only is a
+         * real preference. It no longer decides gesture ownership: that is the tool
+         * mode's job, so a finger still moves the paper in pen-only mode.
+         */
         @JavascriptInterface
         fun setPenOnly(enabled: Boolean) {
             overlay.post { overlay.penOnly = enabled }

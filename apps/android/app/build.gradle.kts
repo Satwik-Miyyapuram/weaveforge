@@ -125,6 +125,18 @@ android {
         ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!desktop.ini:!*~"
     }
 
+    testOptions {
+        unitTests {
+            // `InkGestureRouter` is deliberately free of Android types — it reads a
+            // flat `GestureEvent`, not a `MotionEvent` — so its rules are a plain JVM
+            // test with no emulator and no Robolectric. That matters because the
+            // gesture rules are the part of this module that is hardest to debug on a
+            // device and the part that has already been wrong once.
+            isIncludeAndroidResources = false
+            isReturnDefaultValues = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -146,4 +158,7 @@ dependencies {
     implementation("androidx.webkit:webkit:1.12.1")
     // CanvasFrontBufferedRenderer: the wet stroke written straight to the scanout buffer.
     implementation("androidx.graphics:graphics-core:1.0.3")
+
+    // The gesture rules, as a JVM test. See `InkGestureRouterTest`.
+    testImplementation("junit:junit:4.13.2")
 }

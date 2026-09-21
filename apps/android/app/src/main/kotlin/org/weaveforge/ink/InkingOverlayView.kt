@@ -8,14 +8,11 @@ import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.PorterDuff
 import android.graphics.RectF
-import android.os.Build
-import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.SurfaceView
 import androidx.graphics.lowlatency.CanvasFrontBufferedRenderer
 import androidx.graphics.surface.SurfaceControlCompat
-import kotlin.math.PI
 
 /**
  * A transparent, front-buffered stylus surface over the web view.
@@ -49,19 +46,21 @@ class InkingOverlayView @JvmOverloads constructor(
 
     /** Called with the stroke as a JSON array `[x, y, p, t, ...]` in view pixels. */
     var onStrokeFinished: ((String) -> Unit)? = null
+
+    /**
+     * Whether the user asked for pen-only behaviour.
+     *
+     * Read by the web side's own gate, not by anything here. Routing is
+     * [InkGestureView]'s job now, and in pen-only mode a finger still moves the
+     * paper and two fingers still move and zoom it — so this flag no longer decides
+     * what this view receives.
+     */
     var penOnly: Boolean = false
 
     /** Which side the palm rests on; reserved for a rest-zone heuristic. */
     var leftHanded: Boolean = false
 
     private companion object {
-        /** How long after the pen leaves hover a touch is still taken as a palm. */
-        const val STYLUS_HOVER_GRACE_MS = 400L
-
-        /** A contact bigger than this is a hand's heel, not a fingertip. */
-        const val PALM_AREA_THRESHOLD_MM2 = 25.0f
-        const val PALM_SIZE_THRESHOLD = 0.35f
-
         /**
          * The most samples one stroke may hold.
          *
@@ -77,10 +76,7 @@ class InkingOverlayView @JvmOverloads constructor(
     /** The ink page's box in view pixels, or null when no page is on screen. */
     private var viewport: RectF? = null
 
-    // Hover-lock state.
-    private var isStylusHovering = false
     private var isStylusDrawing = false
-    private var lastStylusUptimeMs = 0L
 
     /**
      * Which pointer the pen is, or `-1` when no pen is down.
@@ -189,48 +185,32 @@ class InkingOverlayView @JvmOverloads constructor(
 
     private fun inViewport(x: Float, y: Float): Boolean = viewport?.contains(x, y) ?: false
 
-    /**
-     * S-Pen and USI digitisers report the pen up to ~15 mm off the glass. The
-     * hover is what locks the palm out before the nib lands.
-     *
-     * Hover is a single-pointer stream, so index 0 is the pen here; there is no
-     * second pointer to confuse it with.
-     */
-    override fun onHoverEvent(event: MotionEvent): Boolean {
-        val toolType = event.getToolType(0)
-        if (toolType == MotionEvent.TOOL_TYPE_STYLUS || toolType == MotionEvent.TOOL_TYPE_ERASER) {
-            when (event.actionMasked) {
-                MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> {
-                    isStylusHovering = true
-                    lastStylusUptimeMs = SystemClock.uptimeMillis()
-                }
-                MotionEvent.ACTION_HOVER_EXIT -> {
-                    isStylusHovering = false
-                    lastStylusUptimeMs = SystemClock.uptimeMillis()
-                }
-            }
-        }
-        // Not consumed: the web view still gets hover for its own cursor.
-        return false
-    }
-
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val now = SystemClock.uptimeMillis()
-        // The tool that changed is at `actionIndex`. Index 0 is whoever arrived
-        // first, which is the palm whenever the palm landed first.
+        // Every event that reaches this view is the pen's. The decision about which
+        // view owns a touch stream lives in `InkGestureRouter`, behind
+        // `InkGestureView.onInterceptTouchEvent` — a palm is rejected and a finger is
+        // passed to the web view *there*, because that is the only place a
+        // mid-gesture decision can be made. What used to be here was a five-tier
+        // policy in `onTouchEvent`, and the last of those tiers could not work at all:
+        // it claimed the gesture at `ACTION_DOWN` and then tried to give two-finger
+        // gestures back, which no sibling view can do.
+        //
+        // So this stays a single-pointer state machine over the pen, with the one
+        // correction the old version needed: the action's own index decides the tool,
+        // never index 0, because a palm that landed first is pointer 0.
         val index = event.actionIndex.coerceIn(0, (event.pointerCount - 1).coerceAtLeast(0))
         val toolType = event.getToolType(index)
         val isStylus = toolType == MotionEvent.TOOL_TYPE_STYLUS ||
             toolType == MotionEvent.TOOL_TYPE_ERASER
 
         // A stream the overlay already owns stays with the pen even when this
-        // particular action's index belongs to another pointer: the palm
-        // arriving or lifting mid-stroke must not be read as a stylus action, and
-        // must not end the stroke either.
-        if (!isStylus && penPointerId != -1 && isPenDown(event)) return onStylus(event, now)
+        // particular action's index belongs to another pointer: the palm arriving or
+        // lifting mid-stroke must not be read as a stylus action, and must not end the
+        // stroke either.
+        if (!isStylus && penPointerId != -1 && isPenDown(event)) return onStylus(event)
 
-        return if (isStylus) onStylus(event, now) else onTouch(event, now)
+        return if (isStylus) onStylus(event) else false
     }
 
     /** Whether the latched pen pointer is still part of this event. */
@@ -246,8 +226,7 @@ class InkingOverlayView @JvmOverloads constructor(
         penPointerId != -1 && event.getPointerId(index) == penPointerId
 
     // 1. The stylus: raw digitiser samples, batched history included.
-    private fun onStylus(event: MotionEvent, now: Long): Boolean {
-        lastStylusUptimeMs = now
+    private fun onStylus(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 val index = event.actionIndex
@@ -363,54 +342,7 @@ class InkingOverlayView @JvmOverloads constructor(
         hasLast = true
     }
 
-    // 2. Touch: the palm, refused in tiers.
-    private fun onTouch(event: MotionEvent, now: Long): Boolean {
-        // No page on screen: the overlay is not in the way of anything.
-        if (viewport == null) return false
-
-        // Tier A: the pen is drawing, hovering, or only just left. The palm
-        // rests while the pen writes; swallowed, so the web view never scrolls.
-        val penNearby = isStylusDrawing || isStylusHovering ||
-            (now - lastStylusUptimeMs < STYLUS_HOVER_GRACE_MS)
-        if (penNearby) return true
-
-        // Tier B: the driver's own verdict (API 33+).
-        if (Build.VERSION.SDK_INT >= 33 && (event.flags and MotionEvent.FLAG_CANCELED) != 0) return true
-
-        // Tier C: contact geometry. A fingertip is under ~25 mm².
-        val xdpi = resources.displayMetrics.xdpi
-        val ydpi = resources.displayMetrics.ydpi
-        val majorMm = (event.touchMajor / xdpi) * 25.4f
-        val minorMm = (event.touchMinor / ydpi) * 25.4f
-        val areaMm2 = (PI * majorMm * minorMm / 4.0).toFloat()
-        if (areaMm2 > PALM_AREA_THRESHOLD_MM2 || event.size > PALM_SIZE_THRESHOLD) return true
-
-        // Tier D: pen-only, where a single finger is never a pen.
-        //
-        // This tier cannot be made to work as documented, and the reason is worth
-        // writing down rather than leaving as a threshold to tune. A gesture is
-        // one dispatch stream: the first finger's ACTION_DOWN arrives with
-        // pointerCount == 1, so this returns `true`, the overlay owns the stream —
-        // and the second finger's ACTION_POINTER_DOWN then reaches a view that
-        // already claimed the gesture. Returning `false` there does not hand the
-        // earlier ACTION_DOWN back: the view below never saw it, so it cannot
-        // scroll or pinch, and "two fingers still pan" is unreachable. Deciding
-        // ownership at pointer-count time is wrong for every gesture whose pointer
-        // count changes, which is every pinch.
-        //
-        // The honest fix is structural — the overlay in a FrameLayout the web view
-        // shares, so `onInterceptTouchEvent` can take a gesture over mid-stream, or
-        // deferring the claim on ACTION_DOWN. Both change what pen-only mode blocks
-        // for a *single* finger (deferring lets a one-finger drag scroll the page,
-        // which is what pen-only exists to prevent), so this is a decision rather
-        // than a patch. Until it is taken, the behaviour is left as it is and this
-        // comment replaces the claim that it already works.
-        if (penOnly) return event.pointerCount < 2
-
-        // Tier E: anything else is the web view's; it decides between scroll
-        // and touch-draw itself.
-        return false
-    }
+    // The five-tier touch policy that used to live here is now `InkGestureRouter`.
 }
 
 /**
