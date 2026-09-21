@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WeaveForge — every design change, mocked</title>
+<style>
+  :root[data-mode="light"] {
+    --bg:#f4f1ea; --surface:#fbfaf6; --surface2:#efece3; --elev:#fdfcf9;
+    --border:#e4dfd2; --border-strong:#d3ccb9; --line:#e4dfd2;
+    --text:#2b2924; --muted:#6b6659; --faint:#9a9384;
+    --accent:#3b5b8c; --accent-fg:#fff; --accent-soft:#e7edf5;
+    --danger:#a4443a;
+    --s-neutral:#6b6659; --s-neutral-bg:#eceae2;
+    --s-info:#2f6f8f;    --s-info-bg:#e2eef2;
+    --s-good:#3f7a52;    --s-good-bg:#e4efe6;
+    --s-warn:#a6742a;    --s-warn-bg:#f3ebdc;
+    --s-danger:#a4443a;  --s-danger-bg:#f3e2df;
+    --s-mute:#8a8478;    --s-mute-bg:#ecebe4;
+    --card-tint:#e7edf5;
+    --shadow:0 1px 2px rgba(43,41,36,.06), 0 8px 24px rgba(43,41,36,.06);
+    --font:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --font-serif:"IBM Plex Serif",Georgia,serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  :root[data-mode="dark"] {
+    --bg:#14171c; --surface:#191d24; --surface2:#20252e; --elev:#1d222a;
+    --border:#2a313b; --border-strong:#3a4250; --line:#2a313b;
+    --text:#e7eaf0; --muted:#98a1b0; --faint:#7b8598;
+    --accent:#89a0cc; --accent-fg:#14171c; --accent-soft:#222a38;
+    --danger:#e0857c;
+    --s-neutral:#98a1b0; --s-neutral-bg:#242a34;
+    --s-info:#7fb3cb;    --s-info-bg:#1d2c34;
+    --s-good:#7fb894;    --s-good-bg:#1c2c22;
+    --s-warn:#d3a869;    --s-warn-bg:#2f2719;
+    --s-danger:#e0857c;  --s-danger-bg:#33211f;
+    --s-mute:#8b94a3;    --s-mute-bg:#242832;
+    --card-tint:#222a38;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6;font-family:var(--font);}
+  .wrap{max-width:1220px;margin:0 auto;padding:30px 20px 110px;}
+  h1{font-size:25px;line-height:1.2;margin:0 0 8px;letter-spacing:-.01em;}
+  h2{font-size:18px;margin:0;letter-spacing:-.005em;}
+  h3{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600;}
+  p{margin:0 0 10px;}
+  code{font-family:var(--font-mono);font-size:.85em;background:var(--surface2);padding:1px 5px;border-radius:5px;}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+  .serif{font-family:var(--font-serif);}
+  .measure{max-width:84ch;}
+  .muted{color:var(--muted);}
+  header.top{display:flex;align-items:flex-start;gap:20px;justify-content:space-between;flex-wrap:wrap;
+             border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:22px;}
+  button{font:inherit;cursor:pointer;}
+  .ghost{background:transparent;border:1px solid var(--border-strong);color:var(--text);border-radius:9px;padding:7px 13px;}
+  .ghost:hover{background:var(--surface2);}
+
+  .tocnav{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px;}
+  .tocnav a{font-size:12.5px;text-decoration:none;color:var(--accent);border:1px solid var(--border);
+            border-radius:999px;padding:4px 11px;background:var(--surface);}
+  .tocnav a:hover{background:var(--accent-soft);}
+
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;}
+  @media (max-width:820px){.summary{grid-template-columns:repeat(2,1fr);}}
+  .stat{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;box-shadow:var(--shadow);}
+  .stat b{display:block;font-size:23px;line-height:1.15;font-weight:600;}
+  .stat span{font-size:12.5px;color:var(--muted);}
+
+  section.chg{border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:13px;
+              background:var(--surface);box-shadow:var(--shadow);padding:20px 22px;margin:0 0 20px;}
+  section.chg.decision{border-left-color:var(--s-warn);}
+  section.chg .head{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:5px;}
+  .num{font-family:var(--font-mono);font-size:13px;color:var(--muted);}
+  .tagrow{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;}
+  .tag{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;}
+  .tag.new{background:var(--accent-soft);color:var(--accent);}
+  .tag.dec{background:var(--s-warn-bg);color:var(--s-warn);}
+  .tag.a11y{background:var(--s-info-bg);color:var(--s-info);}
+  .why{color:var(--muted);max-width:86ch;}
+
+  .ab{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;}
+  @media (max-width:900px){.ab{grid-template-columns:1fr;}}
+  .ab.one{grid-template-columns:1fr;}
+  .pane{border:1px solid var(--border);border-radius:11px;background:var(--elev);overflow:hidden;}
+  .pane>.cap{padding:8px 13px;font-size:12.5px;font-weight:600;background:var(--surface2);
+             border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;}
+  .pane>.cap .pill{margin-left:auto;}
+  .pane>.body{padding:14px;min-width:0;}
+  .pane.now>.cap{color:var(--muted);}
+  .pane.fix{border-color:var(--accent);}
+  .pane.fix>.cap{background:var(--accent-soft);}
+  .note{margin-top:11px;padding-top:10px;border-top:1px dashed var(--border);font-size:12.5px;color:var(--muted);}
+  .note b{color:var(--text);font-weight:600;}
+
+  /* primitives */
+  .pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;}
+  .pill.neutral{background:var(--s-neutral-bg);color:var(--s-neutral);}
+  .pill.info{background:var(--s-info-bg);color:var(--s-info);}
+  .pill.good{background:var(--s-good-bg);color:var(--s-good);}
+  .pill.warn{background:var(--s-warn-bg);color:var(--s-warn);}
+  .pill.danger{background:var(--s-danger-bg);color:var(--s-danger);}
+  .pill.mute{background:var(--s-mute-bg);color:var(--s-mute);}
+
+  .shell{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);}
+  .rail{width:132px;flex:none;background:var(--surface2);border-right:1px solid var(--border);padding:8px;
+        display:flex;flex-direction:column;gap:2px;font-size:12.5px;}
+  .rail .it{padding:5px 8px;border-radius:7px;color:var(--muted);cursor:pointer;}
+  .rail .it.on{background:var(--accent);color:var(--accent-fg);font-weight:600;}
+  .main{flex:1;min-width:0;}
+  .bar{display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--surface2);
+       border-bottom:1px solid var(--border);font-size:11.5px;color:var(--muted);}
+  .crumb{display:flex;align-items:center;gap:6px;padding:6px 11px;background:var(--surface);
+        border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:11px;color:var(--muted);}
+  .scr{padding:12px;}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:none;}
+
+  .seg{display:flex;gap:3px;padding:3px;background:var(--surface2);border:1px solid var(--border);
+       border-radius:9px;flex-wrap:wrap;max-width:100%;}
+  .seg .s{padding:4px 9px;border-radius:6px;font-size:11.5px;color:var(--muted);white-space:nowrap;}
+  .seg .s.on{background:var(--accent);color:var(--accent-fg);font-weight:600;}
+
+  .card{border:1px solid var(--border);border-radius:11px;background:var(--surface);padding:11px 12px;}
+  .card h4{margin:0;font-size:14.5px;font-weight:600;line-height:1.3;}
+  .chead{display:flex;align-items:flex-start;gap:9px;}
+  .chead h4{flex:1;min-width:0;}
+  .cmeta{font-size:12.5px;color:var(--muted);margin:2px 0 0;}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .chip{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--muted);}
+  .chip.more{background:var(--accent-soft);color:var(--accent);}
+  .cfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;
+         padding-top:7px;border-top:1px solid var(--border);}
+  .cfoot .right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+  .excerpt{font-family:var(--font-serif);font-size:13.5px;margin:7px 0 0;}
+  .rail3{width:3px;flex:none;border-radius:999px;background:var(--s-good);}
+  .iconbtn{min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;
+           border:1px solid var(--border-strong);border-radius:8px;background:var(--elev);font-size:14px;}
+  .iconbtn.danger{color:var(--danger);border-color:var(--danger);}
+  .iconbtn.big{min-width:44px;height:44px;}
+  .linkbtn{background:none;border:0;padding:3px 1px;font-size:12.5px;color:var(--accent);}
+  .sel{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;
+       border:1px solid var(--border-strong);border-radius:8px;background:var(--elev);min-width:104px;}
+  .sel .caret{margin-left:auto;color:var(--muted);font-size:10px;}
+  .rowline{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .rowline:last-child{border-bottom:0;}
+  .rowline .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .btn{border-radius:9px;padding:6px 12px;font-size:13px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600;}
+  .stack{display:flex;flex-direction:column;gap:9px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:640px){.grid2{grid-template-columns:1fr;}}
+  .svg-chart{width:100%;height:auto;display:block;}
+  .axis{stroke:var(--border-strong);stroke-width:1;}
+  .gridline{stroke:var(--border);stroke-width:1;}
+  .lbl{font-size:10px;fill:var(--muted);font-family:var(--font-mono);}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:8px;}
+  .legend i{display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:5px;}
+  .empty{text-align:center;padding:20px 14px;color:var(--muted);font-size:13.5px;}
+  .empty .mark{display:grid;place-items:center;width:40px;height:40px;margin:0 auto 9px;border-radius:11px;
+               background:var(--surface2);font-size:17px;}
+  .empty h4{font-size:14.5px;color:var(--text);margin:0 0 3px;}
+  .skel{border-radius:5px;background:var(--card-tint);}
+  .skel.sub{background:var(--surface2);}
+  .filterbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;}
+  .fchip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
+         background:var(--accent-soft);color:var(--accent);font-size:12px;}
+  .fchip b{cursor:pointer;font-weight:700;}
+  .disclose{border:1px solid var(--border);border-radius:9px;background:var(--surface2);padding:9px 12px;font-size:13px;}
+  .ringwrap{display:flex;align-items:center;gap:14px;}
+  .toast{border:1px solid var(--border);border-left:3px solid var(--s-info);border-radius:9px;
+         background:var(--surface);padding:9px 12px;font-size:12.5px;}
+  footer.foot{border-top:1px solid var(--border);margin-top:30px;padding-top:18px;font-size:13px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1>Every design change, mocked</h1>
+    <p class="measure" style="margin:8px 0 0">
+      The whole design review in one page: <b>12 changes we need</b>, each drawn as it ships today
+      beside the change, plus <b>5 decisions</b> where the two models disagreed and only you can
+      settle it. Everything here was checked against the real component before it was drawn —
+      eight of the audit's claims turned out to describe an older app and are listed at the end.
+    </p>
+  </div>
+  <button class="ghost" id="modeBtn" type="button">Dark theme</button>
+</header>
+
+<div class="summary">
+  <div class="stat"><b>12</b><span>changes to make</span></div>
+  <div class="stat"><b>5</b><span>decisions for you (amber)</span></div>
+  <div class="stat"><b>8</b><span>already done — do not plan</span></div>
+  <div class="stat"><b>17</b><span>verified against source</span></div>
+</div>
+
+<nav class="tocnav">
+  <a href="#c1">1 Settings</a>
+  <a href="#c2">2 StatusPill</a>
+  <a href="#c3">3 Cards</a>
+  <a href="#c4">4 Destructive</a>
+  <a href="#c5">5 Measure</a>
+  <a href="#c6">6 Screens</a>
+  <a href="#c7">7 Page title</a>
+  <a href="#c8">8 States</a>
+  <a href="#c9">9 Filters</a>
+  <a href="#c10">10 Help</a>
+  <a href="#c11">11 Curve</a>
+  <a href="#c12">12 Rings</a>
+  <a href="#done">Already done</a>
+</nav>
+
+<!-- ============================================ 1 -->
+<section class="chg decision" id="c1">
+  <div class="head">
+    <span class="num">01</span><h2>Settings: group the 14 tabs instead of scrolling them</h2>
+    <span class="tagrow"><span class="tag dec">decision 1</span></span>
+  </div>
+  <p class="why">
+    Settings is <b>already a 14-tab tablist</b> with full ARIA wiring — the audit's "candidate for
+    tabs" is stale. The real problem is that fourteen items sit in a strip whose scrollbar is hidden,
+    so nine of them are unreachable without discovering you can scroll sideways.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — 14 in a scrolling strip <span class="pill mute">shipped</span></div>
+      <div class="body">
+        <div class="seg">
+          <span class="s on">Account</span><span class="s">Org</span><span class="s">Appearance</span>
+          <span class="s">Search</span><span class="s">Paste</span><span class="s">Editor</span>
+          <span class="s">Ink</span><span class="s">Folder</span><span class="s">AI</span><span class="s">Tokens</span>
+          <span class="s">Integrations</span><span class="s">Sync</span><span class="s">Data</span><span class="s">Updates</span>
+        </div>
+        <div class="note">Nine of fourteen need a horizontal scroll nobody can see. <code>Delete account</code> is in the first tab.</div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — six groups on a left rail <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="shell">
+          <div class="rail">
+            <div class="it on">Account</div><div class="it">Workspace</div><div class="it">Writing</div>
+            <div class="it">Appearance</div><div class="it">Integrations</div><div class="it">Privacy</div>
+          </div>
+          <div class="main"><div class="scr">
+            <div class="rowline"><span class="grow">Display name</span><span class="muted">Sam</span></div>
+            <div class="rowline"><span class="grow">Email</span><span class="muted mono">sam@lab.edu</span></div>
+            <div class="rowline"><span class="grow">Updates</span><span class="muted">current</span></div>
+          </div></div>
+        </div>
+        <div class="note">
+          Account <span class="muted">= Account, Updates</span> · Workspace <span class="muted">= Org, Folder, Data</span> ·
+          Writing <span class="muted">= Editor, Paste, Ink, Search</span> · Integrations <span class="muted">= AI, Tokens, Sync</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 2 -->
+<section class="chg" id="c2">
+  <div class="head">
+    <span class="num">02</span><h2>One <code>StatusPill</code> the app can import</h2>
+    <span class="tagrow"><span class="tag a11y">a11y</span></span>
+  </div>
+  <p class="why">
+    The semantic ramp is already centralised — <code>--st-*</code> aliases onto <code>--s-*</code> in
+    <code>themes/common.css</code>, and <code>check:contrast</code> passes across every theme. What is
+    missing is the component: a <code>StatusPill</code> <b>does exist</b>, in
+    <code>apps/pitch/src</code> — the marketing site — and was never moved into the app. Adding it is
+    also where the colour-alone problem gets fixed: a glyph per rank, so red-green colour blindness is
+    not a barrier.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — colour only, per feature <span class="pill mute">shipped</span></div>
+      <div class="body">
+        <div class="stack">
+          <div><span class="pill neutral">to_read</span> <span class="pill info">reading</span>
+               <span class="pill good">read</span> <span class="pill mute">skimmed</span></div>
+          <div><span class="pill neutral">planned</span> <span class="pill info">running</span>
+               <span class="pill good">done</span> <span class="pill danger">failed</span></div>
+          <div><span class="pill neutral">planned</span> <span class="pill info">in_progress</span>
+               <span class="pill good">done</span> <span class="pill warn">blocked</span></div>
+        </div>
+        <div class="note">Four vocabularies, six ranks, one set of tokens. Colour is the <b>only</b> signal distinguishing <span class="pill good">read</span> from <span class="pill info">reading</span>.</div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — one component, glyph per rank <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="stack">
+          <div><span class="pill neutral">○ to_read</span> <span class="pill info">◐ reading</span>
+               <span class="pill good">✓ read</span> <span class="pill mute">– skimmed</span></div>
+          <div><span class="pill neutral">○ planned</span> <span class="pill info">◐ running</span>
+               <span class="pill good">✓ done</span> <span class="pill danger">✕ failed</span>
+               <span class="pill mute">– abandoned</span></div>
+          <div><span class="pill neutral">○ planned</span> <span class="pill info">◐ in_progress</span>
+               <span class="pill good">✓ done</span> <span class="pill warn">⚠ blocked</span></div>
+        </div>
+        <div class="note"><code>&lt;StatusPill kind="paper" status="read" /&gt;</code> — a <code>StatusKey</code> union, no colour named at the call site. Same ranks the contrast gate already verifies.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 3 -->
+<section class="chg decision" id="c3">
+  <div class="head">
+    <span class="num">03</span><h2>Two card densities, and delete off the far left</h2>
+    <span class="tagrow"><span class="tag dec">decision 2</span></span>
+  </div>
+  <p class="why">
+    <code>EntityCard</code> exists and is used in 8 files, so "five different cards" is stale — the
+    divergence is in what each screen fills it with. The open question is whether a paper's own
+    summary belongs behind "Show more", and this is the strongest screen-level finding in the audit:
+    on a reading list, the hidden region <em>is</em> the content.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — one density, summary collapsed <span class="pill mute">shipped</span></div>
+      <div class="body">
+        <div class="card">
+          <div class="chead"><h4>Attention is all you need</h4></div>
+          <p class="cmeta">Vaswani, Shazeer, Parmar et al. · 2017 · NeurIPS</p>
+          <div class="chips"><span class="chip">#transformer</span><span class="chip">#attention</span><span class="chip more">+2</span></div>
+          <div class="cfoot">
+            <button class="iconbtn danger" aria-label="Delete paper">🗑</button>
+            <span class="right"><span class="sel">read<span class="caret">▾</span></span>
+              <button class="linkbtn">Share</button><button class="iconbtn">↗</button></span>
+          </div>
+        </div>
+        <div class="note">Delete is the <b>first</b> control in the row — the primitive's own header documents it that way — and it is one 30px target from nothing in particular. Four of these fill 760px.</div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — <code>Entry</code> density for text-first screens <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="card" style="display:flex;gap:11px">
+          <div class="rail3"></div>
+          <div style="flex:1;min-width:0">
+            <div class="chead"><h4>Attention is all you need</h4></div>
+            <p class="cmeta">Vaswani, Shazeer, Parmar et al. · 2017 · NeurIPS</p>
+            <p class="excerpt">We propose a new simple network architecture, the Transformer, based
+              solely on attention mechanisms, dispensing with recurrence and convolutions entirely…</p>
+            <div class="chips"><span class="chip">#transformer</span><span class="chip">#attention</span></div>
+            <div class="cfoot">
+              <button class="iconbtn danger big" aria-label="Delete paper Attention is all you need">🗑</button>
+              <span class="right"><button class="linkbtn">Show more ▾</button>
+                <button class="linkbtn">Share</button><button class="iconbtn big" aria-label="More actions">⋯</button></span>
+            </div>
+          </div>
+        </div>
+        <div class="note">Three lines of summary at full measure in Plex Serif; status as a 3px margin rail instead of the row's most prominent control; <b>delete named in its label and moved to an overflow</b>; 44×44 targets. <code>Row</code> stays as it is for experiments, milestones, report and shared.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 4 -->
+<section class="chg" id="c4">
+  <div class="head">
+    <span class="num">04</span><h2>Destructive actions name what they destroy</h2>
+    <span class="tagrow"><span class="tag a11y">a11y</span></span>
+  </div>
+  <p class="why">
+    The audit's "red 14px text beside edit" is wrong — it is already a named icon button. The verified
+    residue is narrower and worse: <code>deleteAriaLabel</code> defaults to <code>"Delete"</code> and
+    <b>no screen passes a real one</b>, so a screen reader hears "Delete" with no object. And the
+    confirm, where one exists, cannot say what is at risk.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — "Delete", unnamed <span class="pill mute">shipped</span></div>
+      <div class="body">
+        <div class="toast" style="border-left-color:var(--danger)">
+          <b>Screen reader:</b> "Delete, button"<br>
+          <span class="muted">— which delete? The row is not named.</span>
+        </div>
+        <div class="note">Confirm text, when there is one: <em>"Delete this?"</em></div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — the object and the consequence <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="toast" style="border-left-color:var(--s-good)">
+          <b>Screen reader:</b> "Delete log entry for 12 February, button"
+        </div>
+        <div class="disclose" style="margin-top:9px">
+          Delete "X-ray augmentation study"?<br>
+          <span class="muted">This also removes it from 2 reading lists. This cannot be undone.</span>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:9px">
+            <button class="btn">Cancel</button><button class="btn" style="border-color:var(--danger);color:var(--danger)">Delete</button>
+          </div>
+        </div>
+        <div class="note">Icon + colour + a name + a consequence. Any one alone is not the signal — that is the rule worth writing into the component.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 5 -->
+<section class="chg" id="c5">
+  <div class="head">
+    <span class="num">05</span><h2>Three named measures instead of one 760px</h2>
+    <span class="tagrow"></span>
+  </div>
+  <p class="why">
+    <code>ui-spec.md:115</code> states "desktop max-width matches the rest of the app (~760px)" as a
+    consistency rule. 760px is a <em>reading</em> measure — about 75 characters at 15px. It is right
+    for a log body and wrong for a five-column compare table and a force graph.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — everything at 760px <span class="pill mute">shipped</span></div>
+      <div class="body">
+        <div style="width:100%;max-width:380px;border:1px dashed var(--border-strong);border-radius:8px;padding:9px;font-size:12.5px" class="muted">
+          <b style="color:var(--text)">runs table</b> — 5 metric columns + name + checkbox, scrolling sideways inside 760px
+        </div>
+        <div class="note">The dashboard is worse: a 12-column grid inside 760px is 63px per column, so a 4-col card is 253px and its stat ring has no room for a label.</div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — each screen declares its measure <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="stack">
+          <div class="rowline"><span class="grow mono" style="font-size:12px">--measure-prose</span><span class="muted">760px — log, summaries, report, notes</span></div>
+          <div class="rowline"><span class="grow mono" style="font-size:12px">--measure-data</span><span class="muted">1120px — compare table, experiments, git</span></div>
+          <div class="rowline"><span class="grow mono" style="font-size:12px">--measure-wide</span><span class="muted">min(100vw − 2rem, 1600px) — graph, dashboard</span></div>
+        </div>
+        <div class="note">The dashboard keeps 12 columns only above 1200px and drops to 6 at prose width. Three tokens, and every screen says which one it is.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 6 -->
+<section class="chg" id="c6">
+  <div class="head">
+    <span class="num">06</span><h2>A breadcrumb, and closed sub-tab navigation</h2>
+    <span class="tagrow"><span class="tag a11y">a11y</span></span>
+  </div>
+  <p class="why">
+    Five primary destinations with sub-tabs, and the sub-tab strip doubles as the page identity. Two
+    concrete defects: no breadcrumb anywhere, so "which list was I in?" has no answer; and sub-tabs are
+    hidden and disabled on detail views by the same handler that owns the swipe gesture.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — no breadcrumb, swipe-only sub-tabs <span class="pill mute">shipped</span></div>
+      <div class="body">
+        <div class="shell">
+          <div class="main">
+            <div class="bar"><span class="dot"></span><span>Deep learning for X-ray</span></div>
+            <div class="scr">
+              <div class="seg" style="margin-bottom:10px"><span class="s on">Papers</span><span class="s">Notes</span><span class="s">Graph</span><span class="s">Lists</span></div>
+              <div class="rowline"><span class="grow">Attention is all you need</span><span class="pill good">read</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="note">The sub-tab label is the only indication of where you are, and on mobile the strip moves under a swipe with no push to history — so Back does not return you.</div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — breadcrumb, real <code>h1</code>, one gesture <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="shell">
+          <div class="main">
+            <div class="bar"><span class="dot"></span><span>Deep learning for X-ray</span></div>
+            <div class="crumb">Project › Library › Papers</div>
+            <div class="scr">
+              <h1 style="font-size:17px;margin:0 0 8px">Papers</h1>
+              <div class="rowline"><span class="grow">Attention is all you need</span><span class="pill good">✓ read</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="note">Every nested view gets a sticky breadcrumb that is a router back, not a swipe. And the <b>destination set is deferred</b> — see decision 4.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 7 -->
+<section class="chg" id="c7">
+  <div class="head">
+    <span class="num">07</span><h2>Seven of nine list screens render no <code>h1</code></h2>
+    <span class="tagrow"><span class="tag a11y">a11y</span></span>
+  </div>
+  <p class="why">
+    <code>ScreenHead</code> takes an optional <code>title</code>, and only two call sites pass one
+    (<code>report-screen</code>, <code>report-overleaf-screen</code>). The other seven — papers,
+    experiments, plan, logbook, lists, notes, projects — pass none, so those pages have <b>no heading
+    element at all</b>. A screen reader lands on a page with no title to announce and no way to jump to
+    its content.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — 2 of 9 have a heading <span class="pill danger">bug</span></div>
+      <div class="body">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <tr><td style="padding:3px 0">papers-list.tsx</td><td class="muted">no title → <b>no h1</b></td></tr>
+          <tr><td style="padding:3px 0">experiments-screen.tsx</td><td class="muted">no title → <b>no h1</b></td></tr>
+          <tr><td style="padding:3px 0">plan-screen.tsx</td><td class="muted">no title → <b>no h1</b></td></tr>
+          <tr><td style="padding:3px 0">logbook-screen.tsx</td><td class="muted">no title → <b>no h1</b></td></tr>
+          <tr><td style="padding:3px 0">lists-screen.tsx</td><td class="muted">no title → <b>no h1</b></td></tr>
+          <tr><td style="padding:3px 0">vault-screen.tsx</td><td class="muted">no title → <b>no h1</b></td></tr>
+          <tr><td style="padding:3px 0">projects-screen.tsx</td><td class="muted">no title → <b>no h1</b></td></tr>
+          <tr><td style="padding:3px 0">report-screen.tsx</td><td>title="Sections" → h1</td></tr>
+          <tr><td style="padding:3px 0">report-overleaf-screen.tsx</td><td>title="Overleaf" → h1</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — the rule becomes mechanical <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="stack">
+          <div class="rowline"><span class="grow">A screen with a SubNav</span><span class="muted">the sub-tab label <b>is</b> the <code>h1</code></span></div>
+          <div class="rowline"><span class="grow">A screen without one</span><span class="muted"><code>ScreenHead</code> renders the <code>h1</code></span></div>
+          <div class="rowline"><span class="grow">Both cases</span><span class="muted">exactly one <code>h1</code>, always</span></div>
+        </div>
+        <div class="note">Not a preference: a page with no heading is a WCAG 1.3.1 / 2.4.6 failure, and <code>vitest</code>-shaped test — "every screen renders exactly one h1" — is what keeps it from regressing.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 8 -->
+<section class="chg" id="c8">
+  <div class="head">
+    <span class="num">08</span><h2>Loading and error states — the half that is missing</h2>
+    <span class="tagrow"></span>
+  </div>
+  <p class="why">
+    <code>EmptyState</code> exists with two variants (<code>first-run</code>, <code>no-results</code>)
+    plus a <code>ClearFiltersButton</code>, used in 13 files — so "every screen writes its own empty
+    string" is stale. What is genuinely absent is the other two states: loading still renders the
+    <em>word</em>, and a failed load is an inline string with no way back.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — empty is good, loading and error are not <span class="pill mute">half</span></div>
+      <div class="body">
+        <div class="empty">
+          <span class="mark">📚</span><h4>No papers yet</h4>
+          <p style="margin:0">Papers you add become the graph, the citations and the report.</p>
+          <p style="margin:9px 0 0"><button class="btn primary">＋ Add paper</button></p>
+        </div>
+        <div class="note"><b>Missing:</b> <span class="muted">"Loading…" as a word, and an error with no Retry — even though <code>useScreenData</code> already returns <code>reload</code>.</span></div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — <code>StateBlock</code>, skeleton from the real row <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="stack">
+          <div class="card" style="opacity:.65">
+            <div class="skel" style="height:11px;width:62%"></div>
+            <div class="skel sub" style="height:9px;width:36%;margin-top:8px"></div>
+            <div class="cfoot"><span></span><span class="right">
+              <div class="skel sub" style="height:20px;width:52px;border-radius:6px"></div>
+              <div class="skel sub" style="height:20px;width:34px;border-radius:6px"></div></span></div>
+          </div>
+          <div class="card" style="opacity:.35">
+            <div class="skel" style="height:11px;width:50%"></div>
+            <div class="skel sub" style="height:9px;width:44%;margin-top:8px"></div>
+          </div>
+        </div>
+        <div class="toast" style="margin-top:10px">
+          <b>Couldn't load papers.</b> <span class="muted">The last list is still shown.</span>
+          <button class="linkbtn" style="margin-left:6px">Retry</button>
+        </div>
+        <div class="note">The skeleton is the <code>Row</code>/<code>Entry</code> shell at final positions, faded in — the dashboard already does exactly this, so it is a pattern to copy, not invent. Errors name the operation and only inline when there is stale data worth keeping.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 9 -->
+<section class="chg" id="c9">
+  <div class="head">
+    <span class="num">09</span><h2>Filters: the active values, not just a count</h2>
+    <span class="tagrow"></span>
+  </div>
+  <p class="why">
+    Only two surfaces carry a filter control — <code>papers-list.tsx</code> and
+    <code>vault-screen.tsx</code> — while <code>ui-spec §4.5</code> claims "every multi-filter page uses
+    a Filters popover". The Logbook has no date or kind filter at all, which is the one screen where a
+    year of dated entries most needs a range. And the count badge is the only evidence a list is narrowed.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — a badge, and two of five lists <span class="pill mute">shipped</span></div>
+      <div class="body">
+        <div class="filterbar">
+          <input class="sel" style="min-width:150px" value="Search" readonly />
+          <button class="btn">Filters ▾ <span class="pill info">3</span></button>
+        </div>
+        <div class="rowline" style="margin-top:9px"><span class="grow">14 results</span>
+          <span class="muted" style="font-size:12px">…of 212, and 3 filters you cannot see</span></div>
+        <div class="note">Set three filters yesterday, come back, and you see a short list and a small badge.</div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — chips that say what, count that says how many <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="filterbar">
+          <input class="sel" style="min-width:130px" value="Search" readonly />
+          <span class="fchip">status: reading <b>✕</b></span>
+          <span class="fchip">tag: vae <b>✕</b></span>
+          <span class="fchip">list: Thesis <b>✕</b></span>
+          <button class="btn">Filters ▾</button>
+        </div>
+        <div class="rowline" style="margin-top:9px"><span class="grow">14 of 212 · 3 filters</span>
+          <span class="linkbtn">Clear all</span></div>
+        <div class="note">Stated in words as well as a number. The Logbook gains Kind and a date range, Shared gains Type and Owner, Report gains Status. 44×44 targets, closes on outside-click and Escape.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 10 -->
+<section class="chg" id="c10">
+  <div class="head">
+    <span class="num">10</span><h2>Heading help: an inline disclosure, not a hover tooltip</h2>
+    <span class="tagrow"><span class="tag a11y">a11y</span></span>
+  </div>
+  <p class="why">
+    There is <b>no tooltip in the app today</b> — no <code>HeadingHelp</code> component exists — so
+    "every heading has a <code>?</code> hover tooltip" is prospective, not shipped. It is worth deciding
+    now rather than building it: a hover tooltip on a PWA that renders as a bottom-tab mobile app is
+    unreachable on touch, and WCAG 1.4.13 requires a tooltip to be dismissible, hoverable and
+    persistent. An inline disclosure satisfies all three with no JS.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Proposed-then-not-built — hover <code>?</code> <span class="pill mute">absent</span></div>
+      <div class="body">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px;font-weight:600">Papers</span>
+          <span style="display:grid;place-items:center;width:18px;height:18px;border-radius:50%;
+                 border:1px solid var(--border-strong);font-size:11px;color:var(--muted)">?</span>
+        </div>
+        <div class="note" style="border-top-style:solid;border-top-color:var(--border)">
+          On a phone: no hover state exists, so the help is unreachable. On a keyboard: focus alone does not reveal it.
+        </div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — a disclosure under the heading <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px;font-weight:600">Papers</span>
+          <button class="linkbtn" aria-expanded="true">What is this? ▾</button>
+        </div>
+        <div class="disclose" style="margin-top:8px">
+          Everything you have added, with the status you set. The graph and the report are built from
+          this list — a paper is never "in" only one place.
+        </div>
+        <div class="note">One registry keyed by <code>ScreenId</code>, so the copy lives in one file and every screen has it. Renders identically at every breakpoint; takes the prose measure.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 11 -->
+<section class="chg decision" id="c11">
+  <div class="head">
+    <span class="num">11</span><h2>The metric curve: give it an actual design</h2>
+    <span class="tagrow"><span class="tag dec">decision 3</span></span>
+  </div>
+  <p class="why">
+    Curves are drawn with uPlot, and the spec concedes the styling "needs design". This is the
+    product's evidence: a loss curve exists to show a spike. The code audit's chunking work already
+    chose a stride over an average for exactly this reason — so a smoothing control in the UI would
+    undo at the chart what the query layer was careful to preserve.
+  </p>
+  <div class="ab">
+    <div class="pane fix">
+      <div class="cap">Change — no smoothing, one shared y-domain <span class="pill info">recommended</span></div>
+      <div class="body">
+        <svg class="svg-chart" viewBox="0 0 380 152" role="img" aria-label="Two runs on a shared y scale, spikes intact">
+          <line class="gridline" x1="34" y1="20" x2="368" y2="20"/>
+          <line class="gridline" x1="34" y1="62" x2="368" y2="62"/>
+          <line class="gridline" x1="34" y1="104" x2="368" y2="104"/>
+          <line class="axis" x1="34" y1="132" x2="368" y2="132"/>
+          <line class="axis" x1="34" y1="10" x2="34" y2="132"/>
+          <text class="lbl" x="2" y="24">1.0</text><text class="lbl" x="2" y="66">0.5</text>
+          <text class="lbl" x="2" y="108">0.0</text><text class="lbl" x="300" y="146">120k</text>
+          <text class="lbl" x="6" y="146">step</text>
+          <polyline fill="none" stroke="var(--s-info)" stroke-width="1.5" stroke-linejoin="round"
+            points="34,128 60,120 86,124 112,106 138,112 164,70 176,96 190,78 216,52 242,58 268,30 294,34 320,22 346,26 368,18"/>
+          <polyline fill="none" stroke="var(--s-warn)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="4 2"
+            points="34,126 60,127 86,118 112,122 138,98 156,118 170,86 190,104 216,72 242,80 268,66 294,72 320,44 346,58 368,40"/>
+          <circle cx="170" cy="86" r="3.4" fill="var(--s-warn)"/>
+          <circle cx="176" cy="96" r="3.4" fill="var(--s-info)"/>
+        </svg>
+        <div class="legend">
+          <span><i style="background:var(--s-info)"></i>run 14 · loss</span>
+          <span><i style="background:var(--s-warn)"></i>run 9 · loss (dashed = validation)</span>
+        </div>
+        <div class="note">1.5px strokes, round joins, crosshair listing <b>every</b> visible series at the nearest step. Free scale is an explicit opt-out, never the default — independent y-scales make a worse run look like a better one, which is the failure the module exists to prevent.</div>
+      </div>
+    </div>
+    <div class="pane now">
+      <div class="cap">The alternative — a smoothing slider <span class="pill warn">not recommended</span></div>
+      <div class="body">
+        <svg class="svg-chart" viewBox="0 0 380 152" role="img" aria-label="Smoothed curves where the divergence is invisible">
+          <line class="gridline" x1="34" y1="42" x2="368" y2="42"/>
+          <line class="gridline" x1="34" y1="88" x2="368" y2="88"/>
+          <line class="axis" x1="34" y1="132" x2="368" y2="132"/>
+          <line class="axis" x1="34" y1="10" x2="34" y2="132"/>
+          <text class="lbl" x="2" y="46">1.0</text><text class="lbl" x="2" y="92">0.5</text>
+          <path fill="none" stroke="var(--s-info)" stroke-width="1.5" stroke-linejoin="round"
+            d="M34 128 C 84 122, 126 108, 176 92 C 226 74, 288 44, 368 20"/>
+          <path fill="none" stroke="var(--s-warn)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="4 2"
+            d="M34 124 C 94 120, 146 104, 206 84 C 256 66, 316 46, 368 36"/>
+        </svg>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:8px">
+          <span class="lbl" style="fill:var(--muted)">smooth</span><input type="range" min="0" max="40" value="18" style="flex:1"/>
+        </div>
+        <div class="note">At step 60k–70k the divergence — the entire reason to plot two runs — is gone. If smoothing ever ships it must be a named preset and the axis must say so.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 12 -->
+<section class="chg" id="c12">
+  <div class="head">
+    <span class="num">12</span><h2>Dashboard rings: one gauge, not six</h2>
+    <span class="tagrow"></span>
+  </div>
+  <p class="why">
+    Six default student cards each carry a progress ring, and <code>§3.0</code> concedes "card chrome,
+    stat rings and edit affordances need a final pass". Appendix A specifies radius and shadow and stops
+    before any data primitive, so six gauges cannot agree on stroke width, tick position, label
+    placement, or what the remainder arc means.
+  </p>
+  <div class="ab">
+    <div class="pane now">
+      <div class="cap">Now — nothing to conform to <span class="pill mute">shipped</span></div>
+      <div class="body">
+        <div class="ringwrap">
+          <svg width="54" height="54" viewBox="0 0 54 54" aria-hidden="true">
+            <circle cx="27" cy="27" r="20" fill="none" stroke="var(--surface2)" stroke-width="6"/>
+            <circle cx="27" cy="27" r="20" fill="none" stroke="var(--s-good)" stroke-width="6"
+                    stroke-dasharray="88 126" transform="rotate(-90 27 27)"/>
+          </svg>
+          <svg width="54" height="54" viewBox="0 0 54 54" aria-hidden="true" style="opacity:.6">
+            <circle cx="27" cy="27" r="22" fill="none" stroke="var(--surface2)" stroke-width="3"/>
+            <circle cx="27" cy="27" r="22" fill="none" stroke="var(--accent)" stroke-width="3"
+                    stroke-dasharray="70 138" transform="rotate(-90 27 27)"/>
+          </svg>
+        </div>
+        <div class="note">Two different radii, two stroke widths, two colours for the same idea — and the remainder arc means something different in each.</div>
+      </div>
+    </div>
+    <div class="pane fix">
+      <div class="cap">Change — one <code>Ring</code>, thresholds from the ramp <span class="pill info">proposed</span></div>
+      <div class="body">
+        <div class="ringwrap">
+          <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="72 percent complete">
+            <circle cx="32" cy="32" r="22" fill="none" stroke="var(--surface2)" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="32" cy="32" r="22" fill="none" stroke="var(--s-good)" stroke-width="4" stroke-linecap="round"
+                    stroke-dasharray="99.5 138.2" transform="rotate(-90 32 32)"/>
+            <text x="32" y="36" text-anchor="middle" class="lbl" style="font-size:15px;fill:var(--text)">72</text>
+          </svg>
+          <div>
+            <div class="mono" style="font-size:12px">progress · 72%</div>
+            <div class="muted" style="font-size:12px">r=22 · 4px round cap · tabular numeral · label below at 12px mono</div>
+          </div>
+        </div>
+        <div class="note">Value arc takes <code>--s-good</code> / <code>--s-warn</code> / <code>--s-danger</code> by threshold — the <b>same ranks as the status pills</b>, so a ring and a pill agree that 80% is good. Defined in Appendix A beside the radius and shadow tokens.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ DONE -->
+<section class="chg" id="done" style="border-left-color:var(--s-good)">
+  <div class="head">
+    <span class="num">—</span><h2>Already done — do not plan these</h2>
+    <span class="tagrow"><span class="tag" style="background:var(--s-good-bg);color:var(--s-good)">verified</span></span>
+  </div>
+  <p class="why">
+    Eight claims in the audit describe an older app. Each was checked against the file it names, and
+    listing them here is the point: a plan built on them would rebuild what exists.
+  </p>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card"><h4>Settings is already a tablist</h4><p class="cmeta">14 tabs, <code>role="tablist"</code> / <code>tabpanel</code> / <code>aria-labelledby</code> per pane — <code>settings-screen.tsx:49-64, :318</code>. The change is the grouping, not the tabs.</p></div>
+    <div class="card"><h4>The folder mirror has its own tab</h4><p class="cmeta"><code>Folder</code> is in <code>SETTINGS_TABS</code> with <code>workspace-folder-panel.tsx</code> behind it. "Only in docs" is stale.</p></div>
+    <div class="card"><h4>Delete is a named icon button</h4><p class="cmeta"><code>entity-icon-btn danger card-del</code> with <code>aria-label</code> and <code>title</code> — <code>entity-card.tsx:114-124</code>. Not "14px red text".</p></div>
+    <div class="card"><h4>Graph focus mode shipped</h4><p class="cmeta"><code>useState(false)</code>, the <code>⛶ Focus</code> trigger, the hideable overlay bar, full-bleed canvas — <code>graph-screen.tsx:68, :301, :400</code>.</p></div>
+    <div class="card"><h4>Card and empty-state primitives exist</h4><p class="cmeta"><code>entity-card.tsx</code> in 8 files · <code>empty-state.tsx</code> in 13, with two variants and a <code>ClearFiltersButton</code>.</p></div>
+    <div class="card"><h4>One semantic ramp, measured</h4><p class="cmeta"><code>--st-*</code> aliases onto <code>--s-*</code> in <code>themes/common.css</code>; <code>npm run check:contrast</code> reports 0 pairs below AA.</p></div>
+    <div class="card"><h4>Fourteen themes, not eleven or seven</h4><p class="cmeta"><code>lib/theme/theme.ts</code> — 6 light + 8 dark. Vivid and Pastel are in neither audit.</p></div>
+    <div class="card"><h4>Reduced motion is honoured</h4><p class="cmeta"><code>prefers-reduced-motion</code> in 9 stylesheets including <code>base.css</code>, so first paint is covered. Only the auto/on/off setting is missing.</p></div>
+  </div>
+</section>
+
+<!-- ============================================ OPEN -->
+<section class="chg decision" style="border-left-color:var(--s-warn)">
+  <div class="head"><span class="num">?</span><h2>The decisions, and my recommendation</h2></div>
+  <div class="ab one" style="margin-top:10px">
+    <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+      <tr style="border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:7px 9px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">#</th>
+        <th style="text-align:left;padding:7px 9px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">The choice</th>
+        <th style="text-align:left;padding:7px 9px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">My call</th>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 9px"><b>1</b></td>
+        <td style="padding:8px 9px">Group the 14 settings tabs · <b>or</b> leave the strip</td>
+        <td style="padding:8px 9px"><b>Group.</b> Six groups on a rail, above.</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 9px"><b>2</b></td>
+        <td style="padding:8px 9px">One card density · <b>or</b> two, with a text-first <code>Entry</code></td>
+        <td style="padding:8px 9px"><b>Two.</b> The hidden-summary argument is the strongest finding in the review.</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 9px"><b>3</b></td>
+        <td style="padding:8px 9px">No smoothing, shared scale · <b>or</b> a smoothing slider</td>
+        <td style="padding:8px 9px"><b>No slider.</b> The query layer already refuses to average.</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 9px"><b>4</b></td>
+        <td style="padding:8px 9px">Keep 4 destinations + breadcrumbs · <b>or</b> five task groups (Capture · Read · Run · Write · Share)</td>
+        <td style="padding:8px 9px"><b>Breadcrumbs now, destination set later.</b> All three proposals disagree, and the accessible half is not preference — it needs a card sort, not a mock.</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 9px"><b>5</b></td>
+        <td style="padding:8px 9px">A Lab card on Home first · <b>or</b> the <code>Org</code> tab only</td>
+        <td style="padding:8px 9px"><b>Home card first.</b> Lab formation is the acquisition loop and has no entry point.</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<footer class="foot">
+  <p style="margin:0 0 8px">
+    Tell me the numbers — <code>1 group, 2 two-density, 3 no-slider, 4 breadcrumbs, 5 home-card</code> —
+    or just the ones you disagree with.
+  </p>
+  <p style="margin:0">
+    Sources: <code>design_audit_verification.md</code> · <code>settings-screen.tsx</code> ·
+    <code>entity-card.tsx</code> · <code>empty-state.tsx</code> · <code>screen-head.tsx</code> ·
+    <code>graph-screen.tsx</code> · <code>themes/common.css</code> · <code>lib/theme/theme.ts</code> ·
+    <code>check-contrast.mjs</code>. Every claim on this page was read from one of those files.
+  </p>
+</footer>
+
+</div>
+<script>
+  document.getElementById("modeBtn").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.getAttribute("data-mode") === "dark";
+    root.setAttribute("data-mode", dark ? "light" : "dark");
+    this.textContent = dark ? "Dark theme" : "Light theme";
+  });
+</script>
+</body>
+</html>
