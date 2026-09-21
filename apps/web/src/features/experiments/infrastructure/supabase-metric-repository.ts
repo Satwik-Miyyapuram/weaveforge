@@ -7,18 +7,26 @@ import {
 } from "./metric-rows";
 
 /**
- * The row store, written to directly.
+ * The relation a write goes to: the **view**, not the row table.
  *
- * `experiment_metrics` is a **view** as of 0114/0115 — the row store is this
- * table and `experiment_metric_chunks` holds settled points packed into arrays —
- * and it carries `INSTEAD OF INSERT` triggers that route a write back here while
- * resolving the metric *name* to an id. The read below reads the view, because
- * that is what unions the chunks in. The write names this table, because a write
- * path that depends on a trigger firing to remember `user_id` is a write path
- * that fails silently when the trigger is missing; the ingest API the Python SDK
- * speaks writes here too.
+ * `experiment_metrics` has been a view since 0114/0115 — the row store is
+ * `experiment_metric_points` and `experiment_metric_chunks` holds settled points
+ * packed into arrays — and 0114:321 / 0115:136 install `INSTEAD OF INSERT`
+ * triggers that route a write into the row table.
+ *
+ * The trigger is not incidental, it is the interface. A point arrives carrying the
+ * metric's **name**; the row table stores `metric_id`, and the trigger does the
+ * name lookup on the way in (`experiment_metric_name_id`). Writing to the table
+ * directly therefore fails outright — `column "metric" of relation
+ * "experiment_metric_points" does not exist` (42703) — which an integration test
+ * in `backend/test/metric-activity.test.ts` now pins, because this was got wrong
+ * once: a review read the view as a read-only relation and prescribed inserting
+ * into the table, which would have broken the write.
+ *
+ * Reads go to the same view for the opposite reason: it is what unions the
+ * expanded chunks in with the loose rows.
  */
-const TABLE_POINTS = "experiment_metric_points";
+const VIEW_METRICS = "experiment_metrics";
 
 /**
  * Rows per insert.
@@ -60,8 +68,13 @@ export class SupabaseMetricRepository implements IMetricRepository {
       value: p.value,
       wall_time: p.wallTime ?? null,
     }));
+    // Chunked, because one insert of a whole run is a request body that grows
+    // without bound, and `check:hygiene` fails an API route for exactly that
+    // shape. `user_id` is never sent: the trigger coalesces it to `auth.uid()`,
+    // which is also what the row table's insert policy checks — so the caller's
+    // identity, not the payload, decides who owns the row.
     for (let start = 0; start < payload.length; start += INSERT_CHUNK) {
-      await run(this.db.from(TABLE_POINTS).insert(payload.slice(start, start + INSERT_CHUNK)));
+      await run(this.db.from(VIEW_METRICS).insert(payload.slice(start, start + INSERT_CHUNK)));
     }
   }
 

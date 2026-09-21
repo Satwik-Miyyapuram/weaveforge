@@ -26,14 +26,53 @@ and its state.
 | 5 | Android: pen pointer id, bounded stroke, teardown | WF-N02, N14, N10 | ✅ done |
 | 6 | Android: nav policy, WebView hardening, scoped cleartext | WF-N08, N09, X08 | ✅ done |
 | 7 | Android: privilege-posture gate | WF-X01, X02 | ✅ done |
-| 8 | Screen-cache cancellation | WF-N05 (other half) | ⏸ decision D1 |
-| 9 | Metric `append` round-trip test | WF-N04, MEM-04 | ⏸ decision D2 |
-| 10 | `check:android-permissions` as a release-build gate | WF-N19 | ⏸ decision D3 |
-| 11 | Privileged-capability diagnostic screen | WF-X07 | ⏸ decision D4 |
-| 12 | Pen-only gesture ownership | WF-N03 | ⏸ decision D5 |
+| 8 | Screen-cache cancellation | WF-N05 (other half) | 🔨 decided **A**, not started |
+| 9 | Metric `append` round-trip test | WF-N04, MEM-04 | ✅ done — **and it found two bugs** |
+| 10 | `check:android-permissions` as a release-build gate | WF-N19 | 🔨 decided **A**, not started |
+| 11 | Privileged-capability diagnostic screen | WF-X07 | ⏸ D4 — explained in plain terms, awaiting a yes/no |
+| 12 | Gesture routing: pen draws, 1 finger pans, 2 zoom, palm/3+ rejected | WF-N03 | 🔨 decided **B (restructure)**, spec given — not started |
 | 13 | Android compilation verified on this machine | — | ⚠ environment |
 
-Legend: ✅ landed · ⏸ needs a decision · ⚠ blocked by the environment.
+Legend: ✅ landed · 🔨 decided and in flight · ⏸ needs a decision · ⚠ blocked by the environment.
+
+## Decisions, as taken
+
+| # | Decision | Answer | State |
+| --- | --- | --- | --- |
+| D1 | Screen-cache cancellation | **A** — add `AbortSignal` through `LoadScreenUseCase` and the 10 call sites | not started |
+| D2 | Metric `append` — keep or delete | **A** — keep it, add the round-trip test | ✅ done |
+| D3 | Android release — signing and R8 | **A** — signing config + `isMinifyEnabled` + keep rule | not started |
+| D4 | Privileged-capability diagnostic screen | *re-explained in plain terms; awaiting* | pending |
+| D5 | Gesture ownership | **B — restructure**, with a stated spec: pen writes; 1 finger pans; 2 fingers zoom; palm and 3+ fingers rejected; same with no pen. Version in pen-only mode: drops the pen. | not started |
+
+### D2 landed — and the test paid for itself immediately
+
+Two bugs came out of writing it, both of which no existing check covered:
+
+1. **A regression I had introduced in the audit pass.** `append` had been repointed
+   at `experiment_metric_points`, and the point table has no `metric` column —
+   the metric *name* becomes `metric_id` inside the view's `INSTEAD OF INSERT`
+   trigger. So `append` failed with `column "metric" … does not exist` (42703).
+   The trigger is the interface, not an implementation detail: a point arrives
+   carrying a name and the row table stores an id. Reverted to the view, chunking
+   kept. `supabase-metric-repository.ts:20-33` now says why, with the SQLSTATE.
+2. **A latent type lie in the mapper.** `MetricRow.wall_time` was typed
+   `string | null`, but the local PostgREST-shaped client returns a `Date` — so a
+   `Date` travelled out of the adapter through a field declared `wallTime?: string`
+   on `MetricPoint`. Nothing narrowed it and no test asserted the type, so the
+   chart's tooltip would have received a `Date` where it expects a string.
+   `toDomain` now normalises through `toIsoString`.
+
+Both are pinned by tests in `apps/web/src/backend/test/metric-activity.test.ts`
+(260, 307). The second test asserts the **RLS refusal** — SQLSTATE 42501 for a
+non-owner — because my first version of it asserted the opposite and failed, which
+is the test doing its job. `append` is enforced by the row policy *and* the
+trigger, and the two are a pair.
+
+Full run on the branch: `test:web` 1579 tests, 1 failure —
+`reference-lookup.test.ts:75` `'unresolved' !== 'resolved'`, which reproduces with
+every change here stashed, so it is pre-existing and not from this work.
+
 
 ---
 

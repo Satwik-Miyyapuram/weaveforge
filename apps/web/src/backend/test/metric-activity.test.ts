@@ -240,3 +240,99 @@ test("metric history: a budget above the series length changes nothing", async (
 
   assert.deepEqual(history.map((p) => p.step), [1, 2]);
 });
+
+/**
+ * The write path, end to end, through the view.
+ *
+ * `append` has had no production caller since the Python SDK became the writer
+ * over the ingest API, which is exactly how it drifted and why a review flagged
+ * it twice: one finding said it inserted into a relation that has been a *view*
+ * since 0114/0115 and would fail with "cannot insert into a view", another said
+ * the method was dead surface to delete. Both readings are wrong, and neither
+ * could be settled by reading the adapter — the answer is in the schema.
+ *
+ * It works because 0114/0115 install `INSTEAD OF INSERT` triggers that route the
+ * write into `experiment_metric_points` and fill the columns the view cannot
+ * carry: `metric` (text) resolves to `metric_id`, and `user_id` coalesces to
+ * `auth.uid()`. This test is what makes that a documented dependency rather than
+ * an accident a later migration can quietly remove.
+ */
+test("metric write: append through the view lands in the row store", async () => {
+  const { db, owner, experiment, repoFor } = await fixture();
+  const id = await experiment(owner, "Ingest");
+
+  await repoFor(owner).append([
+    { experimentId: id, metric: "loss", step: 1, value: 0.9, wallTime: "2026-05-01T08:00:00.000Z" },
+    { experimentId: id, metric: "loss", step: 2, value: 0.5, wallTime: "2026-05-01T09:00:00.000Z" },
+    { experimentId: id, metric: "acc", step: 1, value: 0.1 },
+  ]);
+
+  // 1. The rows are physically in the point table, with the metric *name*
+  //    resolved to an id and the owner filled by the trigger.
+  const rows = await db.as(owner).sql<{
+    metric: string;
+    step: number;
+    value: number;
+    user_id: string;
+  }>(
+    `select n.name as metric, p.step, p.value, p.user_id
+       from experiment_metric_points p
+       join experiment_metric_names n on n.id = p.metric_id
+      where p.experiment_id = $1
+      order by n.name, p.step`,
+    [id],
+  );
+
+  assert.deepEqual(
+    rows.map((r) => [r.metric, r.step, r.value]),
+    [["acc", 1, 0.1], ["loss", 1, 0.9], ["loss", 2, 0.5]],
+    "metric text resolved to metric_id, step and value preserved",
+  );
+  assert.ok(
+    rows.every((r) => r.user_id === owner),
+    "user_id came from the trigger's coalesce(new.user_id, auth.uid())",
+  );
+
+  // 2. And the same rows read back through the view the chart uses.
+  const loss = await repoFor(owner).history(id, "loss", { maxPoints: 100 });
+  assert.deepEqual(loss.map((p) => p.step), [1, 2]);
+  assert.deepEqual(loss.map((p) => p.value), [0.9, 0.5]);
+  assert.equal(loss[0]?.wallTime, "2026-05-01T08:00:00.000Z", "wall_time survives the round trip");
+
+  // 3. A wall time the caller omitted stays absent rather than becoming epoch 0.
+  const acc = await repoFor(owner).history(id, "acc", { maxPoints: 100 });
+  assert.equal(acc[0]?.wallTime, undefined);
+});
+
+test("metric write: a caller cannot append to an experiment they do not own", async () => {
+  // The write path is protected by RLS, not by the view being read-only — and the
+  // pairing is worth pinning because reading it the other way is what produced the
+  // code audit's contradictory findings about this method.
+  //
+  // `experiment_metric_points` has an insert policy of `auth.uid() = user_id`, and
+  // the view's trigger fills `user_id` with `coalesce(new.user_id, auth.uid())`.
+  // Leaving `user_id` out of the payload therefore resolves it to the *caller*, so
+  // a non-owner's insert evaluates `other = owner`, which is false, and is refused
+  // with SQLSTATE 42501. Same enforcement as `schema-invariants.integration.ts`'s
+  // "A3: metrics can only be appended to an experiment the writer owns".
+  //
+  // The first version of this test asserted the opposite — that the coalesce would
+  // stamp the caller and the row would land. It failed, which is the test doing its
+  // job; the refusal is the interesting behaviour.
+  const { db, other, experiment, metricId, repoFor } = await fixture();
+  const owner = await db.createUser();
+  const theirs = await experiment(owner, "Theirs");
+  await metricId("loss");
+
+  await assert.rejects(
+    () => repoFor(other).append([{ experimentId: theirs, metric: "loss", step: 1, value: 0.5 }]),
+    (err: { code?: string }) => err.code === "42501",
+    "a non-owner's append is refused by the row policy",
+  );
+
+  const rows = await db.sql<{ n: number }>(
+    "select count(*)::int as n from experiment_metric_points where experiment_id = $1",
+    [theirs],
+  );
+  assert.equal(rows[0]?.n, 0, "and nothing was written");
+});
