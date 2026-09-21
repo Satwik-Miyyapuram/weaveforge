@@ -28,11 +28,11 @@ and its state.
 | 7 | Android: privilege-posture gate | WF-X01, X02 | ✅ done |
 | 8 | Screen-cache cancellation | WF-N05 (other half) | 🔨 decided **A**, not started |
 | 9 | Metric `append` round-trip test | WF-N04, MEM-04 | ✅ done — **and it found two bugs** |
-| 10 | `check:android-permissions` as a release-build gate | WF-N19 | 🔨 decided **A**, not started |
+| 10 | Signing + R8 for the inking shell | WF-N19 | ✅ done — 8.68 MB → 1.71 MB, keep rule verified in the DEX |
 | 11 | Privileged-capability diagnostic screen | WF-X07 | ❌ **D4 dropped** — see below |
-| 12 | Gesture routing: pen draws, 1 finger pans, 2 move and zoom, palm/3+ rejected | WF-N03 | ✅ written, ⚠ not compiled or run |
+| 12 | Gesture routing: pen draws, 1 finger pans, 2 move and zoom, palm/3+ rejected | WF-N03 | ✅ done and **verified** — compiles, 16 tests pass |
 | 12b | Picking the pen up selects a pen mode | new (product) | ✅ done and tested |
-| 13 | Android compilation verified on this machine | — | ⚠ environment |
+| 13 | Android module compiles and its tests run | — | ✅ done — JDK 21 found, four tasks green |
 
 Legend: ✅ landed · 🔨 decided and in flight · ⏸ needs a decision · ❌ dropped · ⚠ blocked by the environment.
 
@@ -42,39 +42,71 @@ Legend: ✅ landed · 🔨 decided and in flight · ⏸ needs a decision · ❌ 
 | --- | --- | --- | --- |
 | D1 | Screen-cache cancellation | **A** — add `AbortSignal` through `LoadScreenUseCase` and the 10 call sites | not started |
 | D2 | Metric `append` — keep or delete | **A** — keep it, add the round-trip test | ✅ done, two bugs found |
-| D3 | Android release — signing and R8 | **dropped** — aimed at the wrong artifact | ❌ |
+| D3 | Android release — signing and R8 | **A, for the inking shell** — dropped first as aimed at the wrong artifact, then reinstated once the shell was confirmed to be the shipping inker | ✅ done and measured |
 | D4 | Privileged-capability diagnostic screen | **dropped** | ❌ |
-| D5 | Gesture ownership | **restructure**, to the stated spec | ✅ written, unverified |
+| D5 | Gesture ownership | **restructure**, to the stated spec | ✅ done and **verified** — compiles, 16 tests pass |
 
-### D3 — dropped: the finding was about the wrong Android project
+### D3 — dropped, then reinstated in the right form
 
-Found on a second pass, after being asked why a release-signing finding existed at
-all. There are **two** Android projects, and WF-N19 merged them:
+The first version of this entry said D3 was aimed at the wrong artifact, and that was
+right at the time: WF-N19's finding was about `apps/android`, while the project's
+*shipped* Android app was the Bubblewrap TWA in `apps/web/twa` — which already has
+signing and `minifyEnabled true` (`apps/web/twa/app/build.gradle:162`), producing a
+1.09 MB signed release against the shell's 8.6 MB debug.
+
+Then the scope was clarified: **the ink overlay is wanted, so the shell is the app
+that ships ink.** A TWA runs in Chrome Custom Tabs and allows no native view on top,
+so there is no way to get a stylus surface into the TWA. The shell is therefore a
+deliverable, and it genuinely lacked a release path.
+
+**Landed:**
+
+* `isMinifyEnabled = true`, `isShrinkResources = true`, and a `signingConfig` read
+  from `ANDROID_KEYSTORE_FILE` / `_PASSWORD` / `ANDROID_KEY_ALIAS` / `_KEY_PASSWORD`
+  — the same four names the TWA's release workflow uses, so one set of secrets covers
+  both apps. Absent them, the release variant is unsigned.
+* `app/proguard-rules.pro`, whose one important rule keeps
+  `MainActivity$NativeBridge` and its `@JavascriptInterface` methods. R8 cannot see
+  those calls — the WebView resolves them by name through reflection — so without the
+  rule the app ships with `window.AndroidInkingBridge` undefined and ink stops
+  silently, in release only.
+* **Measured: 8.68 MB debug → 1.71 MB release**, an 80 % reduction, and the DEX was
+  inspected afterwards to confirm `NativeBridge`, `setToolMode`, `setViewport`,
+  `clearOverlay`, `setHandedness`, `setPenOnly` and `setTool` all survived as names.
+
+Still outstanding, and only a device can settle it: the release APK has never been
+installed. A stripped bridge method and a working build look identical here.
+
+### The module compiles now, which it never had
+
+`apps/android` had never been built on a JDK the Android plugin accepts — AGP 8.7.3
+fails on the JDK 25 that was on `PATH`, and that was recorded as an environment
+blocker rather than worked around. There is a **JDK 21** at
+`~/.jdks/jdk-21.0.12.1+1`, which is the version `build-apk.ps1` already looks for, and
+with it the whole module builds. Three defects were waiting:
+
+1. `java.net.URI` does not resolve in a Gradle Kotlin DSL script — no implicit
+   `java.*` — so `java.net.URI(appUrl)` failed at *configuration*. Introduced with the
+   network-security-config work and never reached, because the build could not get
+   past AGP's JDK check.
+2. `minifyEnabled` / `shrinkResources` are `isMinifyEnabled` / `isShrinkResources` in
+   the Kotlin DSL.
+3. `getHistoricalEventTime(p, h)` is `getHistoricalEventTime(p)`: one timestamp per
+   *event*, not per historical sample. This was in the pen-pointer-latch work, in code
+   this document had called verified.
+
+Two build-environment facts worth keeping, because both cost time to rediscover:
+
+* Building in place under `Documents` fails at `generateDebugBuildConfig` with
+  `java.nio.file.AccessDeniedException` — the cloud sync client holds the generated
+  tree. `build-apk.ps1` copies to `%LOCALAPPDATA%\weaveforge-android-build` first, and
+  that copy is what was used here.
+* D5's gesture tests were only ever *written* before this. They now run: **16 tests,
+  0 failures**, on JDK 21.
+
 
 | | `apps/web/twa` | `apps/android` |
 | --- | --- | --- |
-| What | the **Bubblewrap TWA** | the **inking shell** |
-| Shipped | **yes** — Play releases on `android-v*` tags, signed in CI | no — debug only, side-loaded by the owner |
-| Signing | configured (CI secrets; `android-keystore.jks` present locally) | none |
-| Minification | **`minifyEnabled true`** (`apps/web/twa/app/build.gradle:162`) | `isMinifyEnabled = false` |
-| On disk | 1.09 MB signed release | 8.6 MB debug |
-
-The finding's two recommendations are **already in place on the artifact that
-ships**. The only place they are absent is a developer's own debug shell, for which
-an unsigned, unminified build is correct — and `apps/android/README.md` says so in
-its first paragraph ("This is not the TWA in `apps/web/twa`"), which the audit
-quoted as evidence of a gap rather than of scope.
-
-Acting on it would also have been the one change here that can only fail on a
-device: R8 strips the reflection-called `@JavascriptInterface` methods without a
-keep rule, and inking then breaks **in release only** — untestable on this machine.
-Bad trade for an artifact nobody installs.
-
-What D3 leaves behind is documentation, now done: `apps/android/README.md` no
-longer reads as a release deliverable, records why R8 is deliberately off, replaces
-the stale five-tier list with the gesture table, and corrects "JDK 17–24" to
-17–21 (AGP 8.7.3 fails on 22+).
-
 ### D4 — dropped, and the reasoning is worth keeping
 
 The finding (WF-X07) proposed a screen listing which *other* apps on the device hold
