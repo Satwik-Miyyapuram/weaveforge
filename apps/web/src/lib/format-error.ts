@@ -19,8 +19,34 @@ function networkFailureMessage(message: string): string | null {
   // and this app talks to two of them — keep it, because "which one" is the
   // whole of what a reader can pass on to whoever can fix it.
   const host = /\(could not reach ([^)]+)\)/.exec(message)?.[1];
+  // The client probes the host with no `Origin` header when a request fails, so a
+  // server that answered is reported as having refused the origin. Without this the
+  // reader is sent to check a VPN that was never involved — see
+  // `hostAnswersWithoutOrigin` in providers/supabase/client, and the two are otherwise
+  // identical at this layer because a CORS refusal arrives as the same bare
+  // `TypeError: Failed to fetch` a dead network does.
+  const refused = /\(origin refused by ([^)]+)\)/.exec(message)?.[1];
+  if (refused) {
+    const where = typeof window === "undefined" ? "this page" : window.location.origin;
+    return (
+      `The API at ${refused} is running, but it refused a request from ${where}. ` +
+      "That origin is not on its CORS allow-list, which is a server-side change " +
+      "(CORS_ALLOWED_ORIGINS in infra/oci/Caddyfile) — not a connection problem, and " +
+      "nothing this browser can fix."
+    );
+  }
   const what = host ? `Could not reach ${host}.` : "Could not reach the server.";
-  return `${what} The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.`;
+  // The origin, named, because on this deployment it is the usual cause and it is the
+  // one fact a reader can act on without opening a Network tab. The allow-list covers
+  // only `weaveforge.org`, `app://weaveforge` and `localhost:3000|3100`, so a preview
+  // deployment, a dev server on another port and a local API on a bare IP all produce
+  // this while the network is perfectly fine.
+  const origin = typeof window === "undefined" ? null : window.location.origin;
+  const hint =
+    origin && host
+      ? ` If the network is fine, check that this origin (${origin}) is on the API's CORS allow-list.`
+      : "";
+  return `${what} The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.${hint}`;
 }
 /** Extract a human-readable message from unknown thrown values (incl. Supabase/PostgREST). */
 export function formatError(err: unknown): string {

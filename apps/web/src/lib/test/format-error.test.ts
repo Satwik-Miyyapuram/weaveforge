@@ -93,6 +93,46 @@ test("a failed fetch handed back as a plain object still gets the network wordin
   );
 });
 
+test("a network failure names this origin, because a CORS refusal looks identical", () => {
+  const original = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = { location: { origin: "https://weaveforge-preview-abc.vercel.app" } };
+  try {
+    const message = formatError(
+      new TypeError("Failed to fetch (could not reach api.weaveforge.org)"),
+    );
+    assert.match(message, /Could not reach api\.weaveforge\.org\./);
+    assert.match(message, /weaveforge-preview-abc\.vercel\.app/, "the origin must be named");
+    assert.match(message, /CORS allow-list/, "and the likely cause stated");
+  } finally {
+    if (original === undefined) delete (globalThis as { window?: unknown }).window;
+    else (globalThis as { window?: unknown }).window = original;
+  }
+});
+
+test("a refusal by a running server does not blame the reader's connection", () => {
+  // The bug: Caddy answers a preflight from an unlisted origin with 403 and no
+  // `Access-Control-Allow-Origin`, so the browser fails the fetch exactly as it would
+  // for a dead network, and the app told the reader to check a VPN that was never
+  // involved. The client probes the host without an `Origin` header — not subject to
+  // CORS — and marks the error when the host answered, because a server that is up and
+  // refusing is a different problem with a different fix.
+  const original = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = { location: { origin: "http://localhost:4100" } };
+  try {
+    const message = formatError(
+      new TypeError(
+        "Failed to fetch (could not reach api.weaveforge.org) (origin refused by api.weaveforge.org)",
+      ),
+    );
+    assert.match(message, /is running, but it refused a request from http:\/\/localhost:4100/);
+    assert.match(message, /CORS_ALLOWED_ORIGINS/, "the fix must be named");
+    assert.doesNotMatch(message, /check your connection/, "and the connection advice dropped");
+  } finally {
+    if (original === undefined) delete (globalThis as { window?: unknown }).window;
+    else (globalThis as { window?: unknown }).window = original;
+  }
+});
+
 // ---------------------------------------------------------------- the wire form
 //
 // `formatError` is the display formatter: it is what the UI shows the person

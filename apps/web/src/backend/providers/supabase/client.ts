@@ -208,13 +208,72 @@ function routedFetch(rewrite: (href: string) => string): typeof fetch {
       // rather than passing it as `init`, so the opt-out actually applies.
       return await fetch(new Request(target, input), uncached);
     } catch (error) {
-      throw namedNetworkFailure(error, target);
+      // Only on a failing path, so the probe it may run costs nothing normally.
+      throw await namedNetworkFailure(error, target);
     }
   };
 }
 
 /**
- * Re-throw a network failure with the host it could not reach.
+ * How long the reachability probe may take.
+ *
+ * Short on purpose, and the reason matters: an unreachable host does not fail fast.
+ * A refused connection is immediate, but a name that does not resolve hangs for the
+ * platform's DNS timeout — measured at about seven seconds here — and a probe that
+ * waited that out would put seven seconds between a failure and the message
+ * explaining it, on the one path where the reader is already having a bad time. Two
+ * and a half seconds is far longer than a server that is up needs to answer a
+ * `HEAD`, so the only case that reaches the ceiling is the one where "unreachable"
+ * was the right answer anyway.
+ */
+const PROBE_TIMEOUT_MS = 2500;
+
+/**
+ * Whether the host is reachable at all when the browser does not send an Origin.
+ *
+ * ## Why this exists
+ *
+ * A CORS refusal and a dead network are the same event at the fetch layer: the
+ * browser fails with a bare `TypeError: Failed to fetch` and no status. The API's
+ * Caddy config (`infra/oci/Caddyfile`) answers a preflight from an origin it does
+ * not list with `403` and no `Access-Control-Allow-Origin`, so the request is
+ * refused *by a server that is running perfectly* — and the app then reported it as
+ * the reader's connection being down, sending them to check a VPN that was never
+ * involved.
+ *
+ * The two are distinguishable, and cheaply: a request with **no** `Origin` header
+ * is not subject to CORS, so it reaches PostgREST and comes back 200 (verified
+ * against the live host). `mode: "no-cors"` is what makes that request legal from a
+ * browser without the response being readable — it resolves opaquely on success and
+ * rejects on a transport failure, which is exactly the yes/no needed here. It is
+ * only ever issued on a path that is already failing, so it costs nothing when
+ * things work.
+ *
+ * Resolves `true` only when the host answered in time. Anything else — offline,
+ * DNS, blocked, or timed out — is `false`, and the caller then keeps the connection
+ * advice rather than blaming the allow-list.
+ */
+export async function hostAnswersWithoutOrigin(target: string): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const url = new URL(target);
+    const base = `${url.protocol}//${url.host}/`;
+    const probe = fetch(base, { method: "HEAD", mode: "no-cors", cache: "no-store" });
+    const expired = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("probe timed out")), PROBE_TIMEOUT_MS);
+    });
+    await Promise.race([probe, expired]);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Re-throw a network failure with the host it could not reach — and, when the host
+ * turns out to be up, say that the refusal was the origin allow-list.
  *
  * A browser reports a request that never left it as a bare
  * `TypeError: Failed to fetch`, carrying no URL. This app talks to two origins
@@ -223,7 +282,7 @@ function routedFetch(rewrite: (href: string) => string): typeof fetch {
  * to act on a report of it. Anything that is not a network failure is passed
  * through untouched: a server that answered has its own words.
  */
-function namedNetworkFailure(error: unknown, target: string): unknown {
+async function namedNetworkFailure(error: unknown, target: string): Promise<unknown> {
   if (!(error instanceof TypeError)) return error;
   let host = target;
   try {
@@ -231,7 +290,13 @@ function namedNetworkFailure(error: unknown, target: string): unknown {
   } catch {
     // Not a URL that parses — report it as given rather than losing it.
   }
-  return Object.assign(new TypeError(`${error.message} (could not reach ${host})`), { cause: error });
+  // A refusal the server is responsible for is marked as such, because the
+  // formatter cannot tell and must not claim the reader's network is at fault.
+  const reachable = await hostAnswersWithoutOrigin(target);
+  const marker = reachable ? ` (origin refused by ${host})` : "";
+  return Object.assign(new TypeError(`${error.message} (could not reach ${host})${marker}`), {
+    cause: error,
+  });
 }
 
 export function resetSupabaseClientForTests(): void {
