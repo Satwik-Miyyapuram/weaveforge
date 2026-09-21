@@ -31,6 +31,7 @@ and its state.
 | 10 | `check:android-permissions` as a release-build gate | WF-N19 | 🔨 decided **A**, not started |
 | 11 | Privileged-capability diagnostic screen | WF-X07 | ❌ **D4 dropped** — see below |
 | 12 | Gesture routing: pen draws, 1 finger pans, 2 move and zoom, palm/3+ rejected | WF-N03 | ✅ written, ⚠ not compiled or run |
+| 12b | Picking the pen up selects a pen mode | new (product) | ✅ done and tested |
 | 13 | Android compilation verified on this machine | — | ⚠ environment |
 
 Legend: ✅ landed · 🔨 decided and in flight · ⏸ needs a decision · ❌ dropped · ⚠ blocked by the environment.
@@ -99,6 +100,54 @@ Two bugs came out of writing it, both of which no existing check covered:
    on `MetricPoint`. Nothing narrowed it and no test asserted the type, so the
    chart's tooltip would have received a `Date` where it expects a string.
    `toDomain` now normalises through `toIsoString`.
+
+### Pen-mode selection on pen approach (workstream 12b)
+
+The product rule: bringing the pen to the screen selects a pen mode; if one is
+already selected it stays; otherwise it returns to the last pen mode the user chose.
+
+```
+tool in force   last pen mode   result
+pen             any             pen            (unchanged)
+highlighter     any             highlighter    (unchanged)
+eraser          pen             pen
+eraser          highlighter     highlighter
+lasso           highlighter     highlighter
+shape           pen             pen
+```
+
+`toolOnPenApproach` in `use-ink-prefs.ts` is pure and exported, so the rule is a unit
+test rather than behaviour nobody can inspect — 4 cases, passing.
+
+**Why "last pen mode" is its own fact:** it cannot be recovered from the tool in
+force. With the eraser or the lasso up there is no pen mode in it to recover, so
+`useInkPrefs` keeps it in a separate ref. That is the whole subtlety.
+
+**Why it hangs off pen *detection*, not a toolbar click:** ink is gated on the tool in
+force, so a stroke begun while the eraser was up would be swallowed and the pen would
+appear not to write. The restore therefore has to fire on the pen's own arrival — a
+new `onPenApproach` callback through `usePenCapture` → `useInkPen` → `ink-host`,
+fired on every pen pointer-down and idempotent when a pen mode is already selected.
+
+**Known gap:** a pen that hovers and then touches down is handled; a pen that hovers
+and never touches is not, because the web platform reports no stylus hover before
+contact and the Android shell's `onHoverEvent` is not bridged. Closing it means the
+shell calling into the page on hover-enter — a second `window.onNative…` global
+beside `onNativeStrokeComplete`. Left undone deliberately: new JS surface, for a case
+whose only visible effect is that the tool icon updates a moment later than it could.
+
+### A pre-existing red baseline, inherited from `main`
+
+`npm run typecheck` fails with **4 errors, all in
+`apps/web/src/features/reader/application/test/reference-lookup.test.ts`**
+(`InMemoryPaperRepository` lacks `findIdentityByArxivId` / `findIdentityByDoi` for
+`IPaperIdentityLookup`), and `test:web` fails that same file at runtime.
+
+Checked rather than assumed: `main` at `48f9748` reports **the same 4 errors**, so the
+branch inherits it and nothing here caused it — the change set touches four ink files
+and one new test, none of them the reader feature. Worth fixing before either PR
+lands, because a permanently red `typecheck` is a gate nobody reads.
+
 
 Both are pinned by tests in `apps/web/src/backend/test/metric-activity.test.ts`
 (260, 307). The second test asserts the **RLS refusal** — SQLSTATE 42501 for a
