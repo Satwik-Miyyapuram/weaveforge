@@ -554,56 +554,175 @@
 
 /* Ink in focus, OneNote's way: the toolbar row goes, and what a hand needs
    mid-stroke — tools, colours, nibs, undo, the page, the paper — floats as a
-   narrow palette down the left edge with the paper running full-bleed behind
-   it. Everything else on the bar (export, recognise, the readout, the wrist
-   guard…) is chrome for later and hides; the fold handle shrinks the palette
-   to its tools. */
-.workspace-shell.is-focus .ink-bar {
+   narrow palette at the edge of the page with the paper running full-bleed
+   behind it. Everything else on the bar (export, recognise, the readout, the
+   wrist guard…) is chrome for later and hides; the fold handle shrinks the
+   palette to its tools, and the move handle parks it in any of eight docks.
+
+   Both writing surfaces float the same way: the ink note's `.ink-bar` inside
+   `.workspace-shell.is-focus`, the reader's `.pdf-pen-rail` inside
+   `.pdf-reader.is-focus`. Each carries `.ink-palette` and `data-dock`, so the
+   rules below are written once. */
+.workspace-shell.is-focus .ink-palette,
+.pdf-reader.is-focus .ink-palette {
   position: absolute;
-  inset-inline-start: 10px;
-  inset-block-start: 50%;
-  transform: translateY(-50%);
   z-index: 5;
+  display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
   gap: 6px;
   width: max-content;
+  height: auto;
+  margin: 0;
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(10px);
+  /* No backdrop-filter and no transform here: either would make the palette
+     the containing block of the colour menu's `position: fixed` panel. */
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
 }
 
-.workspace-shell.is-focus .ink-bar > :not(.ink-bar-collapse):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper) {
+/* The eight docks. Edges centre along their axis (by auto margins, see
+   above); corners sit 10px in. */
+.workspace-shell.is-focus .ink-palette[data-dock="left"],
+.pdf-reader.is-focus .ink-palette[data-dock="left"] {
+  inset-inline-start: 10px; inset-block: 0; margin-block: auto; height: max-content; max-height: calc(100% - 20px); overflow-y: auto;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="right"],
+.pdf-reader.is-focus .ink-palette[data-dock="right"] {
+  inset-inline-end: 10px; inset-block: 0; margin-block: auto; height: max-content; max-height: calc(100% - 20px); overflow-y: auto;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="top"],
+.pdf-reader.is-focus .ink-palette[data-dock="top"] {
+  inset-block-start: 10px; inset-inline: 0; margin-inline: auto;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"],
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
+  inset-block-end: 10px; inset-inline: 0; margin-inline: auto;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="top-left"],
+.pdf-reader.is-focus .ink-palette[data-dock="top-left"] { inset-block-start: 10px; inset-inline-start: 10px; }
+.workspace-shell.is-focus .ink-palette[data-dock="top-right"],
+.pdf-reader.is-focus .ink-palette[data-dock="top-right"] { inset-block-start: 10px; inset-inline-end: 10px; }
+.workspace-shell.is-focus .ink-palette[data-dock="bottom-left"],
+.pdf-reader.is-focus .ink-palette[data-dock="bottom-left"] { inset-block-end: 10px; inset-inline-start: 10px; }
+.workspace-shell.is-focus .ink-palette[data-dock="bottom-right"],
+.pdf-reader.is-focus .ink-palette[data-dock="bottom-right"] { inset-block-end: 10px; inset-inline-end: 10px; }
+
+/* Along the top and bottom edges the palette runs as a row. */
+.workspace-shell.is-focus .ink-palette[data-dock="top"],
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"],
+.pdf-reader.is-focus .ink-palette[data-dock="top"],
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
+  flex-direction: row;
+  align-items: center;
+  max-width: calc(100% - 20px);
+  overflow-x: auto;
+}
+
+/* The ink note's bar: what stays, and what is chrome for later. */
+.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper) {
+  display: none;
+}
+/* The pen rail: the Done button, its spacer and the separators are chrome. */
+.pdf-reader.is-focus .pdf-pen-rail > .ink-bar-spacer,
+.pdf-reader.is-focus .pdf-pen-rail > .ink-sep,
+.pdf-reader.is-focus .pdf-pen-rail > .ink-tool {
   display: none;
 }
 
-.workspace-shell.is-focus .ink-bar[data-collapsed] > :not(.ink-bar-collapse):not(.ink-bar-tools) {
+/* Folded: the handles and the tools, nothing else. */
+.workspace-shell.is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools),
+.pdf-reader.is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools) {
   display: none;
 }
 
-.ink-bar-collapse { display: none; }
-.workspace-shell.is-focus .ink-bar-collapse { display: inline-flex; align-self: center; }
-
-.workspace-shell.is-focus .ink-bar .ink-bar-group,
-.workspace-shell.is-focus .ink-bar .ink-swatches,
-.workspace-shell.is-focus .ink-bar .ink-page-pill {
+/* The handles exist only once the palette floats. */
+.ink-palette-handles { display: none; }
+.workspace-shell.is-focus .ink-palette-handles,
+.pdf-reader.is-focus .ink-palette-handles {
+  display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 2px;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles,
+.pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles {
+  flex-direction: row;
+}
+.ink-dock { position: relative; display: inline-flex; }
+.ink-bar-dock,
+.ink-bar-collapse { color: var(--muted); }
+
+/* The dock picker: a 3×3 grid of the eight positions, the centre empty. */
+.ink-dock-grid {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 18px);
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+}
+.ink-palette[data-dock$="right"] .ink-dock-grid { left: auto; right: 0; }
+.ink-palette[data-dock^="bottom"] .ink-dock-grid { top: auto; bottom: calc(100% + 6px); }
+.ink-dock-cell {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--surface-2, var(--surface));
+  cursor: pointer;
+}
+.ink-dock-cell:hover { border-color: var(--accent); }
+.ink-dock-cell[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.ink-dock-cell--empty { border-style: dashed; opacity: 0.35; cursor: default; }
+
+.workspace-shell.is-focus .ink-palette .ink-bar-group,
+.workspace-shell.is-focus .ink-palette .ink-swatches,
+.workspace-shell.is-focus .ink-palette .ink-page-pill,
+.pdf-reader.is-focus .ink-palette .ink-bar-group,
+.pdf-reader.is-focus .ink-palette .ink-swatches {
+  flex-direction: column;
+  align-items: center;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-bar-group,
+.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-swatches,
+.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-page-pill,
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-swatches,
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-page-pill,
+.pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-bar-group,
+.pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-swatches,
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-swatches {
+  flex-direction: row;
 }
 
 /* Targets for a pen held mid-air, not a mouse: 36px buttons, 26px swatches,
    and a little more air between them. */
-.workspace-shell.is-focus .ink-bar .ink-tool,
-.workspace-shell.is-focus .ink-bar .ink-page-pill .ink-tool { width: 36px; height: 36px; }
-.workspace-shell.is-focus .ink-bar .ink-tool svg { width: 18px; height: 18px; }
-.workspace-shell.is-focus .ink-bar .ink-bar-group,
-.workspace-shell.is-focus .ink-bar .ink-page-pill { gap: 4px; padding: 3px; border-radius: 10px; }
-.workspace-shell.is-focus .ink-bar .ink-swatches { gap: 9px; padding: 8px 5px; }
-.workspace-shell.is-focus .ink-bar .ink-swatch { width: 26px; height: 26px; }
+.workspace-shell.is-focus .ink-palette .ink-tool,
+.workspace-shell.is-focus .ink-palette .ink-page-pill .ink-tool,
+.pdf-reader.is-focus .ink-palette .ink-tool { width: 36px; height: 36px; }
+.workspace-shell.is-focus .ink-palette .ink-tool svg,
+.pdf-reader.is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
+.workspace-shell.is-focus .ink-palette .ink-bar-group,
+.workspace-shell.is-focus .ink-palette .ink-page-pill,
+.pdf-reader.is-focus .ink-palette .ink-bar-group { gap: 4px; padding: 3px; border-radius: 10px; }
+.workspace-shell.is-focus .ink-palette .ink-swatches,
+.pdf-reader.is-focus .ink-palette .ink-swatches { gap: 9px; padding: 8px 5px; }
+.workspace-shell.is-focus .ink-palette .ink-swatch,
+.pdf-reader.is-focus .ink-palette .ink-swatch { width: 26px; height: 26px; }
 .workspace-shell.is-focus .ink-bar .ink-page-count {
   flex-direction: column;
   gap: 0;
@@ -630,6 +749,10 @@
   right: auto;
   left: calc(100% + 8px);
   transform: none;
+}
+.workspace-shell.is-focus .ink-bar[data-dock$="right"] .ink-menu-list {
+  left: auto;
+  right: calc(100% + 8px);
 }
 
 /* Hover actions on a row, VS Code's way: hidden until the row is under the
@@ -1487,6 +1610,29 @@
 }
 .paper-pdf-pane .reader-main { flex: 1; min-height: 0; }
 .paper-pdf-pane .empty-state { margin: auto; }
+/* The address a person types for a paper that came without a PDF. */
+.paper-pdf-fetch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, 34rem);
+  margin: 12px auto;
+  text-align: start;
+}
+.paper-pdf-fetch-label { font-size: 0.82rem; color: var(--muted); }
+.paper-pdf-fetch-row { display: flex; gap: 8px; }
+.paper-pdf-fetch-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+.paper-pdf-fetch-error { margin: 0; font-size: 0.8rem; color: var(--s-danger); }
 .paper-pdf-pane-tools {
   position: absolute;
   right: 20px;
@@ -1799,6 +1945,28 @@
 .ink-swatch-good { background: var(--s-good); }
 .ink-swatch-info { background: var(--s-info); }
 .ink-swatch-danger { background: var(--s-danger); }
+
+/* The marker colours: the reader's eight, fixed hex in every theme, so a
+   yellow highlight on a note is the yellow on a paper. The ink renderer reads
+   the same tokens (`INK_COLOUR_TOKENS`). */
+:root {
+  --ink-yellow: #ffd400;
+  --ink-red: #ff6666;
+  --ink-green: #5fb236;
+  --ink-blue: #2ea8e5;
+  --ink-purple: #a28ae5;
+  --ink-pink: #e56eee;
+  --ink-orange: #f19837;
+  --ink-grey: #aaaaaa;
+}
+.ink-swatch-yellow { background: var(--ink-yellow); }
+.ink-swatch-red { background: var(--ink-red); }
+.ink-swatch-green { background: var(--ink-green); }
+.ink-swatch-blue { background: var(--ink-blue); }
+.ink-swatch-purple { background: var(--ink-purple); }
+.ink-swatch-pink { background: var(--ink-pink); }
+.ink-swatch-orange { background: var(--ink-orange); }
+.ink-swatch-grey { background: var(--ink-grey); }
 
 .ink-pen-only {
   display: inline-flex;

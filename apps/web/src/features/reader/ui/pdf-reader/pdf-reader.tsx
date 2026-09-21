@@ -214,6 +214,26 @@ export function PdfReader({
   const inkUndo = useInkUndo(actions, annotations, penOpen);
   const { persistDraft, removeLocal, saveAnchor, reset: resetInkUndo } = inkUndo;
   useEffect(() => resetInkUndo(), [url, resetInkUndo]);
+  // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back the
+  // last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back. Listened for on the
+  // window, the ink note's way, so it answers wherever focus went after the
+  // last tap — a rail button, the page, nowhere — and not only while the
+  // reader's root holds it.
+  const inkUndoRef = useRef(inkUndo);
+  inkUndoRef.current = inkUndo;
+  useEffect(() => {
+    if (!penOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      if (isEditableTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (key !== "z" && key !== "y") return;
+      event.preventDefault();
+      void (key === "y" || event.shiftKey ? inkUndoRef.current.redo() : inkUndoRef.current.undo());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [penOpen]);
 
   /** Stable identity so a memoised page overlay is not re-rendered by a new closure. */
   const selectAnnotation = useCallback((id: string) => setSelectedAnnId(id), []);
@@ -564,16 +584,6 @@ export function PdfReader({
       event.preventDefault();
       setFocus(false);
       return;
-    }
-    // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back
-    // the last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back.
-    if (penOpen && (event.ctrlKey || event.metaKey) && !isEditableTarget(event.target)) {
-      const key = event.key.toLowerCase();
-      if (key === "z" || key === "y") {
-        event.preventDefault();
-        void (key === "y" || event.shiftKey ? inkUndo.redo() : inkUndo.undo());
-        return;
-      }
     }
     // Delete the selected annotation from the page itself. Deleting was only
     // reachable by finding the same annotation again in the sidebar list.

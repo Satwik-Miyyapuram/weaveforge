@@ -134,3 +134,20 @@ test("setIdentifiers trims an arXiv id and leaves its case alone", async () => {
   const saved = await update.setIdentifiers(paper.id, { arxivId: " 2401.00001v2 " });
   assert.equal(saved.arxivId, "2401.00001v2");
 });
+
+test("setPdfSource keeps a typed PDF address as the paper's open-access copy", async () => {
+  const { add, update } = setup();
+  const p = await add.addManual({ title: "Found it" });
+  const linked = await update.setPdfSource(p.id, "  https://repo.example/paper.pdf ");
+  // The same field a metadata source fills, so the reader's ladder finds it.
+  assert.equal(linked.metadata.openAccessPdf, "https://repo.example/paper.pdf");
+  const cleared = await update.setPdfSource(p.id, "");
+  assert.equal("openAccessPdf" in cleared.metadata, false);
+});
+
+test("setPdfSource refuses anything but https", async () => {
+  const { add, update } = setup();
+  const p = await add.addManual({ title: "Plain" });
+  await assert.rejects(() => update.setPdfSource(p.id, "http://repo.example/paper.pdf"));
+  await assert.rejects(() => update.setPdfSource(p.id, "file:///C:/paper.pdf"));
+});

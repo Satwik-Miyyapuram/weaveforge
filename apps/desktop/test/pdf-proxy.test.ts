@@ -68,3 +68,23 @@ test("an HTML landing page is not a PDF, whatever it is labelled", async () => {
   const lying = answering("<html>abstract page</html>", { type: "application/pdf" });
   assert.equal((await proxyPdf(`${APP}/api/pdf-proxy?url=${encodeURIComponent(ARXIV)}`, lying.fetchFn)).status, 415);
 });
+
+test("a typed address may be any https host, and is still held to being a PDF", async () => {
+  const typed = `${APP}/api/pdf-proxy?url=${encodeURIComponent("https://repo.example/a.pdf")}&typed=1`;
+  const { fetchFn, calls } = answering(pdfBody());
+  const res = await proxyPdf(typed, fetchFn);
+  assert.equal(res.status, 200);
+  assert.deepEqual(calls, ["https://repo.example/a.pdf"]);
+
+  const html = answering("<html>", { type: "text/html" });
+  assert.equal((await proxyPdf(typed, html.fetchFn)).status, 415);
+});
+
+test("a typed address is still refused when it is not https", async () => {
+  const { fetchFn, calls } = answering(pdfBody());
+  for (const url of ["http://localhost:5432/x.pdf", "https://user:pw@repo.example/a.pdf", "file:///C:/a.pdf"]) {
+    const res = await proxyPdf(`${APP}/api/pdf-proxy?url=${encodeURIComponent(url)}&typed=1`, fetchFn);
+    assert.equal(res.status, 400, url);
+  }
+  assert.deepEqual(calls, []);
+});

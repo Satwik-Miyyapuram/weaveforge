@@ -43,9 +43,26 @@ export type InkTool = (typeof INK_TOOLS)[number];
  *
  * Names, never hex: the design's palette rule is that no colour is written in
  * code, and a chunk that stored `#b45309` would survive a theme change as the
- * wrong colour. The binary container writes the index.
+ * wrong colour. The binary container writes the index, so new colours go on
+ * the end: an older reader that meets an index past its own list falls back
+ * to the first entry rather than misreading the stroke.
+ *
+ * The first six are the theme's own tokens. The eight after them are the
+ * marker colours the PDF reader's pen offers (`READER_ANNOTATION_COLORS`),
+ * named here so a note and a paper draw from one palette.
  */
-export const INK_COLOURS = ["text", "accent", "warn", "good", "info", "danger"] as const;
+export const INK_THEME_COLOURS = ["text", "accent", "warn", "good", "info", "danger"] as const;
+export const INK_MARKER_COLOURS = [
+  "yellow",
+  "red",
+  "green",
+  "blue",
+  "purple",
+  "pink",
+  "orange",
+  "grey",
+] as const;
+export const INK_COLOURS = [...INK_THEME_COLOURS, ...INK_MARKER_COLOURS] as const;
 export type InkColour = (typeof INK_COLOURS)[number];
 
 /**

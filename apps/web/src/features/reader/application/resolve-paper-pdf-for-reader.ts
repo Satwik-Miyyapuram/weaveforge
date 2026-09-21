@@ -15,7 +15,7 @@ import { resolvePaperPdfSource, paperToPdfSourcePaper } from "./resolve-paper-pd
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { pdfProxyNeedsToken } from "./pdf-download-consent";
-import { proxiedPdfUrl } from "./sanitize-reader-url";
+import { isAllowedPdfProxyUrl, proxiedPdfUrl } from "./sanitize-reader-url";
 
 const CACHE_CAP = 64;
 let sharedCache: IPdfByteCache | null = null;
@@ -174,6 +174,56 @@ export async function downloadPaperPdfToCache(paperId: string, url: string): Pro
   if (!bytes) return false;
   await cache.set(paperId, bytes);
   return true;
+}
+
+/**
+ * Fetch a PDF from an address the person typed, into the cache under the
+ * paper's id.
+ *
+ * An allowlisted host goes through the proxy like any other. Any other
+ * https host: the desktop shell's proxy fetches it (`typed=1`, see
+ * `apps/desktop/src/pdf-proxy.ts`); a browser has no such relay — the web
+ * server's proxy is deliberately allowlisted — so it asks the host directly
+ * and gets the PDF only if the host sends CORS headers, which repositories
+ * often do and publishers mostly do not. The answer says which it was, so
+ * the pane can suggest the file route when the address one is closed.
+ */
+export async function fetchTypedPdfToCache(
+  paperId: string,
+  url: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ ok: true } | { ok: false; reason: "no-cache" | "not-pdf" | "blocked" | "failed" }> {
+  const cache = getReaderPdfByteCache();
+  if (!cache) return { ok: false, reason: "no-cache" };
+  let bytes: ArrayBuffer | null = null;
+  if (isAllowedPdfProxyUrl(url)) {
+    bytes = await fetchPdfBytesForCache(url);
+    if (!bytes) return { ok: false, reason: "not-pdf" };
+  } else if (desktop() !== null) {
+    const res = await fetchFn(`/api/pdf-proxy?url=${encodeURIComponent(url)}&typed=1`);
+    if (!res.ok) return { ok: false, reason: res.status === 415 ? "not-pdf" : "failed" };
+    bytes = await res.arrayBuffer();
+  } else {
+    let res: Response;
+    try {
+      res = await fetchFn(url, { headers: { accept: "application/pdf" } });
+    } catch {
+      // A network error on a cross-origin fetch is what CORS looks like.
+      return { ok: false, reason: "blocked" };
+    }
+    if (!res.ok) return { ok: false, reason: "failed" };
+    bytes = await res.arrayBuffer();
+  }
+  if (!bytes || !looksLikePdfBytes(bytes)) return { ok: false, reason: "not-pdf" };
+  await cache.set(paperId, bytes);
+  return { ok: true };
+}
+
+/** `%PDF` somewhere in the first kilobyte, the reader's own magic check. */
+export function looksLikePdfBytes(bytes: ArrayBuffer): boolean {
+  const head = new Uint8Array(bytes, 0, Math.min(1024, bytes.byteLength));
+  const text = String.fromCharCode(...head);
+  return text.includes("%PDF");
 }
 
 async function seedCacheFromUrl(cache: IPdfByteCache, key: string, url: string): Promise<void> {

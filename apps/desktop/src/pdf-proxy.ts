@@ -15,6 +15,13 @@ import {
  * bearer token, because there is no account here to hold one. The renderer
  * knows that: see `fetchPdfBytesForCache`.
  *
+ * One thing the server's copy does not do: with `typed=1`, a URL the reader
+ * typed themselves may be on any https host. The allowlist on the server
+ * keeps it from being a fetch-anything relay for the whole internet; here the
+ * only person it can fetch for is the one at the keyboard, who could open
+ * the same address in a browser. The PDF check and the byte cap still hold,
+ * and so does https, so a typed address cannot reach `http://localhost`.
+ *
  * `fetchFn` is injected so the shaping can be tested without a network.
  */
 
@@ -44,15 +51,28 @@ function looksLikePdf(bytes: Uint8Array): boolean {
   return head.includes("%PDF");
 }
 
+/** An https address without credentials — what a typed URL must be. */
+function isHttpsUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 export type PdfFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export async function proxyPdf(
   requestUrl: string,
   fetchFn: PdfFetch = fetch,
 ): Promise<Response> {
-  const target = new URL(requestUrl).searchParams.get("url");
+  const params = new URL(requestUrl).searchParams;
+  const target = params.get("url");
   if (!target) return refuse(400, "url is required");
-  if (!isAllowedPdfProxyUrl(target)) return refuse(400, "URL host is not allowed for PDF proxy");
+  const typed = params.get("typed") === "1";
+  const allowed = typed ? isHttpsUrl : isAllowedPdfProxyUrl;
+  if (!allowed(target)) return refuse(400, "URL host is not allowed for PDF proxy");
 
   let upstream: Response;
   try {
@@ -65,7 +85,7 @@ export async function proxyPdf(
     return refuse(502, "Upstream fetch failed");
   }
   // A redirect may have left the allowlist; the final address is what counts.
-  if (upstream.url && !isAllowedPdfProxyUrl(upstream.url)) {
+  if (upstream.url && !allowed(upstream.url)) {
     return refuse(400, "Redirect target not allowed");
   }
   if (!upstream.ok) return refuse(502, `Upstream returned ${upstream.status}`);

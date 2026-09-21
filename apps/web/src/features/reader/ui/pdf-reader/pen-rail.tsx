@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import { ColourMenu } from "@/components/colour-menu";
+import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 
 /**
  * The pen rail: one strip with everything a hand holding a stylus needs.
@@ -14,7 +17,9 @@ import { ColourMenu } from "@/components/colour-menu";
  * It borrows the ink note's glyphs and classes (`ink-tool-icons`, `.ink-tool`,
  * `.ink-swatch`, `.ink-nib-dot`) so the two surfaces look like one product;
  * it does not borrow the `InkBar` component, whose props are the ink note's
- * whole state.
+ * whole state. In the reader's focus mode it floats as the same palette the
+ * ink note's bar becomes (`.ink-palette`, editor-workspace.css), with the
+ * same move and fold handles and the same remembered dock.
  */
 
 import { INK_NIB_WIDTHS_PT, INK_PEN_WIDTHS } from "@weaveforge/core";
@@ -91,9 +96,23 @@ export function PenRail({
   // offers the eight reader colours as presets in the native picker, which
   // is the one place the picker is worth its taps.
   const swatches = recent.length ? recent : READER_ANNOTATION_COLORS.slice(0, 4);
+  const [collapsed, setCollapsed] = useState(false);
+  const [dock, setDock] = usePaletteDock();
   return (
-    <div className="pdf-reader-tools pdf-pen-rail" role="toolbar" aria-label="Pen">
-      <div className="ink-bar-group" role="radiogroup" aria-label="Pen tool">
+    <div
+      className="pdf-reader-tools pdf-pen-rail ink-palette"
+      role="toolbar"
+      aria-label="Pen"
+      data-collapsed={collapsed || undefined}
+      data-dock={dock}
+    >
+      {/* Handles, focus mode only (CSS): move the palette, fold it */}
+      <div className="ink-palette-handles">
+        <PaletteDockButton dock={dock} onDock={setDock} />
+        <PaletteFoldButton collapsed={collapsed} onToggle={() => setCollapsed((was) => !was)} />
+      </div>
+
+      <div className="ink-bar-group ink-bar-tools" role="radiogroup" aria-label="Pen tool">
         {PEN_RAIL_TOOLS.map((entry) => (
           <button
             key={entry}

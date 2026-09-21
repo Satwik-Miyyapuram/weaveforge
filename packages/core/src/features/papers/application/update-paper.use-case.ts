@@ -69,6 +69,29 @@ export class UpdatePaperUseCase {
   }
 
   /** Replace the paper's tags (normalized). */
+  /**
+   * Remember where this paper's PDF came from.
+   *
+   * A paper added from a reference list often has a DOI and a landing page
+   * and nothing the reader can open; when the person finds the PDF themselves
+   * and fetches it by address, that address is kept as the paper's open-access
+   * copy — the same field a metadata source fills — so the reader resolves it
+   * on every later open, on any device, without asking again. Only https;
+   * blank clears it.
+   */
+  async setPdfSource(id: string, url: string | undefined): Promise<Paper> {
+    const trimmed = url?.trim();
+    if (trimmed && !/^https:\/\//i.test(trimmed)) {
+      throw new PaperValidationError("A PDF address must start with https://.");
+    }
+    return this.mutate(id, (p) => {
+      const metadata = { ...(p.metadata ?? {}) };
+      if (trimmed) metadata.openAccessPdf = trimmed;
+      else delete metadata.openAccessPdf;
+      return { ...p, metadata };
+    });
+  }
+
   async setTags(id: string, tags: string[]): Promise<Paper> {
     return this.deps.tags.setManualTags(id, tags);
   }

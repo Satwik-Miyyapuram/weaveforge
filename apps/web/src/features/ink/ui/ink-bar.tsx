@@ -17,6 +17,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import {
   INK_COLOURS,
+  INK_MARKER_COLOURS,
+  INK_THEME_COLOURS,
   INK_PEN_WIDTHS,
   INK_HIGHLIGHTER_WIDTH,
   type InkHand,
@@ -25,6 +27,8 @@ import {
 } from "@weaveforge/core";
 
 import { paperLabel, toolIcon, toolLabel } from "./ink-bar-glyphs";
+import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
+import { Popover } from "@/components/popover";
 
 export { toolLabel } from "./ink-bar-glyphs";
 
@@ -170,9 +174,12 @@ export function InkBar({
   /**
    * Folded, in focus mode: the palette shrinks to the tools and its own
    * handle, OneNote's way, so the paper is all there is until a hand wants
-   * more. Outside focus the handle is hidden and the flag does nothing.
+   * more. Outside focus the handle is hidden and the flag does nothing. The
+   * dock — which edge or corner the palette floats at — is the same story,
+   * and is shared with the PDF reader's pen rail (`palette-dock.tsx`).
    */
   const [collapsed, setCollapsed] = useState(false);
+  const [dock, setDock] = usePaletteDock();
   useEffect(() => {
     if (!menu) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -223,34 +230,17 @@ export function InkBar({
 
   return (
     <div
-      className="ink-bar"
+      className="ink-bar ink-palette"
       role="toolbar"
       aria-label="Ink tools"
       data-collapsed={collapsed || undefined}
+      data-dock={dock}
     >
-      {/* 0. Fold handle: focus mode only (CSS), the palette's own chevron */}
-      <button
-        type="button"
-        className="ink-tool ink-tool-icon-only ink-bar-collapse"
-        onClick={() => setCollapsed((was) => !was)}
-        aria-expanded={!collapsed}
-        title={collapsed ? "Show all tools" : "Fold the tools away"}
-        aria-label={collapsed ? "Show all tools" : "Fold the tools away"}
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          {collapsed ? <path d="M9 6l6 6-6 6" /> : <path d="M15 6l-6 6 6 6" />}
-        </svg>
-      </button>
+      {/* 0. Handles, focus mode only (CSS): move the palette, fold it */}
+      <div className="ink-palette-handles">
+        <PaletteDockButton dock={dock} onDock={setDock} />
+        <PaletteFoldButton collapsed={collapsed} onToggle={() => setCollapsed((was) => !was)} />
+      </div>
 
       {/* 1. Drawing Tools Segmented Pill */}
       <div
@@ -275,9 +265,10 @@ export function InkBar({
 
       <span className="ink-sep" aria-hidden="true" />
 
-      {/* 2. Full 6-Color Swatches Palette */}
+      {/* 2. Colours: the six theme swatches inline, and every colour — theme
+          and marker — one tap further, the pen rail's way */}
       <div className="ink-swatches" role="radiogroup" aria-label="Ink color">
-        {INK_COLOURS.map((entry) => (
+        {INK_THEME_COLOURS.map((entry) => (
           <button
             key={entry}
             type="button"
@@ -288,6 +279,40 @@ export function InkBar({
             onClick={() => onColour(entry)}
           />
         ))}
+        <Popover
+          iconOnly
+          ariaLabel="Other colour"
+          triggerClassName="colour-menu-trigger"
+          label={<span className={`ink-swatch colour-menu-current ink-swatch-${colour}`} aria-hidden />}
+        >
+          {(close) => (
+            <div className="colour-menu">
+              {[INK_THEME_COLOURS, INK_MARKER_COLOURS].map((row, i) => (
+                <div
+                  key={i}
+                  className="colour-menu-row"
+                  role="group"
+                  aria-label={i === 0 ? "Theme colours" : "Marker colours"}
+                >
+                  {row.map((entry) => (
+                    <button
+                      key={entry}
+                      type="button"
+                      className={`ink-swatch ink-swatch-${entry}`}
+                      aria-pressed={colour === entry}
+                      aria-label={`Ink colour: ${entry}`}
+                      title={`Ink colour: ${entry}`}
+                      onClick={() => {
+                        onColour(entry);
+                        close();
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </Popover>
       </div>
 
       <span className="ink-sep" aria-hidden="true" />

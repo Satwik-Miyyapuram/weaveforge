@@ -99,6 +99,9 @@
 }
 .pdf-reader.is-focus .pdf-reader-chrome {
   border: 0; border-radius: 0; background: transparent;
+  /* The pen rail floats out of it (editor-workspace.css, `.ink-palette`):
+     nothing here may clip it, and the empty chrome takes no room. */
+  overflow: visible; position: static;
 }
 .pdf-reader.is-focus .pdf-reader-chrome > :not(.pdf-pen-rail),
 .pdf-reader.is-focus .pdf-reader-side,
@@ -106,7 +109,7 @@
 .pdf-reader.is-focus .pdf-reader-banner {
   display: none;
 }
-.pdf-reader.is-focus .pdf-pen-rail { border-top: 0; padding-inline-end: 52px; }
+.pdf-reader.is-focus .pdf-pen-rail { border-top: 0; }
 .pdf-reader.is-focus .pdf-reader-body { flex: 1; grid-template-columns: minmax(0, 1fr); }
 .pdf-reader.is-focus .pdf-reader-scroll-wrap { flex: 1; }
 .pdf-reader.is-focus .pdf-reader-scroll {

@@ -23,6 +23,7 @@ import { PdfReader } from "./pdf-reader";
 import { proxiedPdfUrl } from "../application/sanitize-reader-url";
 import {
   downloadPaperPdfToCache,
+  fetchTypedPdfToCache,
   isStoredPdfUrl,
   evictReaderPdfCache,
   getReaderPdfByteCache,
@@ -99,6 +100,10 @@ export function PaperPdfPane({
   const fetchedFor = useRef<string | null>(null);
   const [rememberChoice, setRememberChoice] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  /** The address the person typed for a paper that has none. */
+  const [typedUrl, setTypedUrl] = useState("");
+  const [typedBusy, setTypedBusy] = useState(false);
+  const [typedError, setTypedError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef(onActivity);
   activityRef.current = onActivity;
@@ -282,7 +287,83 @@ export function PaperPdfPane({
     }
   }
 
+  /**
+   * Fetch the PDF at an address the person typed and keep it as this paper's,
+   * then remember the address on the paper so the reader finds it next time.
+   */
+  async function fetchTyped() {
+    if (!paperId) return;
+    const url = typedUrl.trim();
+    if (!/^https:\/\//i.test(url)) {
+      setTypedError("The address must start with https://.");
+      return;
+    }
+    setTypedBusy(true);
+    setTypedError(null);
+    try {
+      const result = await fetchTypedPdfToCache(paperId, url);
+      if (!result.ok) {
+        setTypedError(
+          result.reason === "no-cache"
+            ? "This browser cannot keep a PDF — open a workspace folder first."
+            : result.reason === "not-pdf"
+              ? "That address did not answer with a PDF. Try the direct link to the .pdf file."
+              : result.reason === "blocked"
+                ? "That site does not let the browser fetch it. Download the PDF and use Load PDF… instead."
+                : "That address could not be fetched.",
+        );
+        return;
+      }
+      try {
+        await getContainer().papers.updatePaper.setPdfSource(paperId, url);
+      } catch {
+        // The bytes are kept either way; the link is a convenience for next time.
+      }
+      activityRef.current?.("reader", `Fetched the PDF from ${new URL(url).hostname} and linked it to this paper.`);
+      setTypedUrl("");
+      setError(null);
+      setCacheSkippedFor(null);
+      setLoading(true);
+      setGeneration((n) => n + 1);
+    } catch (err) {
+      setTypedError(formatError(err));
+    } finally {
+      setTypedBusy(false);
+    }
+  }
+
   const canLoad = allowLoad && Boolean(paperId);
+  const fetchForm = canLoad ? (
+    <form
+      className="paper-pdf-fetch"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void fetchTyped();
+      }}
+    >
+      <label className="paper-pdf-fetch-label" htmlFor="paper-pdf-fetch-url">
+        Know where the PDF is? Paste its address and it is fetched, kept here and linked to this paper.
+      </label>
+      <div className="paper-pdf-fetch-row">
+        <input
+          id="paper-pdf-fetch-url"
+          type="url"
+          inputMode="url"
+          placeholder="https://…/paper.pdf"
+          value={typedUrl}
+          disabled={typedBusy}
+          onChange={(event) => {
+            setTypedUrl(event.target.value);
+            if (typedError) setTypedError(null);
+          }}
+        />
+        <button type="submit" className="btn-primary btn-sm" disabled={typedBusy || !typedUrl.trim()}>
+          {typedBusy ? "Fetching…" : "Fetch & link"}
+        </button>
+      </div>
+      {typedError && <p className="paper-pdf-fetch-error" role="alert">{typedError}</p>}
+    </form>
+  ) : null;
   const loadButton = canLoad ? (
     <button
       type="button"
@@ -344,6 +425,7 @@ export function PaperPdfPane({
         <div className="card empty-state">
           <h2>Cannot open this source</h2>
           <p>{error}</p>
+          {fetchForm}
           {loadButton}
         </div>
       )}
@@ -351,6 +433,7 @@ export function PaperPdfPane({
         <div className="card empty-state">
           <h2>Nothing to show</h2>
           <p>No PDF was provided for this locus.</p>
+          {fetchForm}
           {loadButton}
         </div>
       )}
