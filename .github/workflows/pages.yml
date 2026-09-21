@@ -65,7 +65,7 @@ jobs:
           NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL || 'https://app.weaveforge.org' }}
         run: npm run build --workspace @weaveforge/pitch
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/pitch/out
 
