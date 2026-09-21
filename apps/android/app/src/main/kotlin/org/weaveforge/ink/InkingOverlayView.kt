@@ -259,7 +259,12 @@ class InkingOverlayView @JvmOverloads constructor(
                             event.getHistoricalX(p, h),
                             event.getHistoricalY(p, h),
                             event.getHistoricalPressure(p, h),
-                            event.getHistoricalEventTime(p, h),
+                            // `getHistoricalEventTime` takes only the pointer index:
+                            // a batched sample has one timestamp per *event*, and
+                            // `historySize` is shared across pointers. Passing `h`
+                            // here is a compile error, which is the good outcome —
+                            // the shape of the API is the documentation.
+                            event.getHistoricalEventTime(p),
                         )
                     }
                     record(

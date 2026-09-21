@@ -105,9 +105,14 @@ data class GestureEvent(
  * | three or more fingers | `INTERCEPT` — absorbed; not a page gesture |
  * | a palm (large contact) | `INTERCEPT` — absorbed, and if the page was moving it stops |
  *
- * The palm is only rejected once the contact has kept its size for
- * [PALM_SETTLE_SAMPLES]; see the comment on that constant for why a single
- * oversized sample is not enough to call it a palm.
+ * The palm test reads **every** pointer's contact box, not just the action's, and it
+ * acts on the first palm-shaped sample. An earlier version required two consecutive
+ * oversized samples, on the theory that a driver's first report of a contact is
+ * noisy. That was the wrong fix for the wrong problem: the actual defect was reading
+ * one pointer's geometry while a palm sat at another index, and `getTouchMajor(i)`
+ * reports the *current* box for pointer `i`, which is stable for as long as the
+ * contact is. So a fingertip is a fingertip on its first sample too, and the delay
+ * only served to let one frame of a resting hand reach the page.
  */
 class InkGestureRouter {
     /** True between the first contact and the last one leaving. */
@@ -115,9 +120,6 @@ class InkGestureRouter {
 
     /** The pen's pointer id while the pen is down, else -1. */
     private var penPointerId = -1
-
-    /** How many consecutive samples have looked like a palm. */
-    private var palmSamples = 0
 
     /** True once this gesture has been decided to be a palm (or too many fingers). */
     private var absorbed = false
@@ -130,20 +132,16 @@ class InkGestureRouter {
         const val TOOL_TYPE_ERASER = 4
         const val TOOL_TYPE_FINGER = 1
 
-        /** A contact wider than this is a hand's heel, not a fingertip. */
+        /**
+         * A contact wider than this is a hand's heel, not a fingertip.
+         *
+         * Pixels, because that is what `getTouchMajor` returns. A fingertip is
+         * roughly 8–12 mm across, which on a 300 dpi panel is ~100–140 px; a heel is
+         * several times that. The gap is wide enough that the threshold does not need
+         * to be delicate, which is why there is no calibration knob here.
+         */
         const val PALM_MAJOR_PX = 180f
         const val PALM_SIZE = 0.42f
-
-        /**
-         * Consecutive samples a contact must look palm-sized before we act.
-         *
-         * `touchMajor` is noisy on the first one or two samples of any contact —
-         * drivers report an optimistic width while the digitizer is still
-         * settling — so acting on sample one would throw away the first frames of
-         * a legitimate finger pan. Two settled samples is under 40 ms at a normal
-         * touch rate and reliably separates a heel from a fingertip.
-         */
-        const val PALM_SETTLE_SAMPLES = 2
 
         /** Fingers allowed to keep a page gesture. A third is not a page gesture. */
         const val MAX_PAGE_FINGERS = 2
@@ -156,7 +154,6 @@ class InkGestureRouter {
     fun reset() {
         gestureActive = false
         penPointerId = -1
-        palmSamples = 0
         absorbed = false
         activeTool = null
     }
@@ -180,8 +177,7 @@ class InkGestureRouter {
         if (event.phase == GesturePhase.DOWN) {
             gestureActive = true
             penPointerId = -1
-            palmSamples = 0
-            absorbed = false
+                absorbed = false
             activeTool = tool
         }
 
@@ -209,8 +205,7 @@ class InkGestureRouter {
         if (actionPointer != null && isPenTool(actionPointer.toolType)) {
             if (event.phase == GesturePhase.DOWN || event.phase == GesturePhase.POINTER_DOWN) {
                 penPointerId = actionPointer.id
-                palmSamples = 0
-                absorbed = false
+                        absorbed = false
                 return GestureRoute.CAPTURE_PEN
             }
             if (lifting && actionPointer.id == penPointerId) {
@@ -235,18 +230,28 @@ class InkGestureRouter {
             return GestureRoute.INTERCEPT
         }
 
-        val contact = actionPointer ?: event.pointers.firstOrNull()
-
         // Geometry first, so a palm is rejected the moment it is recognised.
-        // `actionIndex` on a MOVE is 0 by definition, so the size test reads the
-        // event-level aggregate there instead of one pointer's box.
-        val major = if (event.phase == GesturePhase.MOVE) event.touchMajor else (contact?.major ?: 0f)
-        val minor = if (event.phase == GesturePhase.MOVE) event.touchMinor else (contact?.minor ?: 0f)
-        val size = if (event.phase == GesturePhase.MOVE) event.size else (contact?.size ?: 0f)
-        val palmShaped = major > PALM_MAJOR_PX && minor > PALM_MAJOR_PX || size > PALM_SIZE
+        //
+        // Over *every* pointer in the event, not just the action's — a palm is
+        // frequently not the pointer an action names (a finger pan that a palm joins
+        // names the palm, but a palm that joins a finger names whichever moved or
+        // arrived), and reading one index was how a resting hand went unnoticed.
+        //
+        // On a MOVE the event-level aggregate is the better source, because that is
+        // what Android computes across the whole event and `actionIndex` is
+        // meaningless there. `InkGestureView.flatten` fills both, so the router reads
+        // whichever the phase can answer.
+        val largest = event.pointers.maxByOrNull { maxOf(it.major, it.minor) }
+        val major = if (event.phase == GesturePhase.MOVE) event.touchMajor else (largest?.major ?: 0f)
+        val minor = if (event.phase == GesturePhase.MOVE) event.touchMinor else (largest?.minor ?: 0f)
+        val size = if (event.phase == GesturePhase.MOVE) event.size else (largest?.size ?: 0f)
+        // Parenthesised deliberately: `a > X && b > X || c > Y` reads as
+        // `(a > X && b > X) || (c > Y)`, which is what is meant, but only because of
+        // precedence rather than because it is written down.
+        val palmShaped =
+            (major > PALM_MAJOR_PX && minor > PALM_MAJOR_PX) || size > PALM_SIZE
 
-        palmSamples = if (palmShaped) palmSamples + 1 else 0
-        if (palmSamples >= PALM_SETTLE_SAMPLES) {
+        if (palmShaped) {
             absorbed = true
             return GestureRoute.INTERCEPT
         }

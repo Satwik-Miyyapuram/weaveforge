@@ -1,3 +1,10 @@
+// `java.net.URI` needs its own import: a Gradle Kotlin DSL script has no implicit
+// `java.*`, so the fully-qualified `java.net.URI(appUrl)` does not resolve and the
+// build fails at *configuration* with `Unresolved reference: net` — before any
+// Kotlin is compiled, which is how it went unnoticed until the module was built on
+// a JDK the Android plugin accepts.
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,9 +19,17 @@ plugins {
 val appUrl: String = System.getenv("WEAVEFORGE_URL")?.takeIf { it.isNotBlank() }
     ?: "https://app.weaveforge.org/"
 
-val appUri: java.net.URI = java.net.URI(appUrl)
-val appHost: String = appUri.host ?: "app.weaveforge.org"
-val appIsCleartext: Boolean = (appUri.scheme ?: "https").lowercase() == "http"
+/**
+ * The host and scheme of [appUrl], parsed leniently.
+ *
+ * Not `URI` for the host: a Gradle configuration must not throw on a URL a user
+ * typed, and `URI("http://192.168.1.10:3000")` is fine but `URI("192.168.1.10")`
+ * — which someone will pass — is a relative URI whose `host` is null. Parse the
+ * parts and fall back rather than failing the whole build on a malformed dev URL.
+ */
+val appUri: URI? = runCatching { URI(appUrl) }.getOrNull()
+val appHost: String = appUri?.host?.takeIf { it.isNotBlank() } ?: "app.weaveforge.org"
+val appIsCleartext: Boolean = (appUri?.scheme ?: "https").lowercase() == "http"
 
 /**
  * Hosts the WebView may load, and the ones it may then call the ink bridge from.
@@ -112,6 +127,35 @@ android {
         buildConfigField("String", "ALLOWED_HOSTS", "\"$appAllowedHosts\"")
     }
 
+    /**
+     * The release signing identity, from the environment.
+     *
+     * This shell is not a developer-only artifact: it is the only way to get the
+     * stylus overlay, because a Trusted Web Activity runs in Chrome Custom Tabs and
+     * allows no native view on top. So it needs a real release path, and a release
+     * APK with no `signingConfig` is not a deliverable — `assembleRelease` produces
+     * something that cannot be installed over the debug build.
+     *
+     * Read from the environment rather than committed, matching how `WEAVEFORGE_URL`
+     * is already read by this file: a keystore is an identity, and identities do not
+     * belong in a repository. The TWA's release workflow reads its keystore from CI
+     * secrets; the same four names are used here so one set of secrets covers both.
+     *
+     * Absent the variables the release variant is simply unsigned, which is what a
+     * local `-Release` build without secrets should be — a build, not a release.
+     */
+    signingConfigs {
+        create("release") {
+            val store = System.getenv("ANDROID_KEYSTORE_FILE")
+            if (!store.isNullOrBlank() && file(store).exists()) {
+                storeFile = file(store)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }
@@ -139,7 +183,17 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            val hasSigning = System.getenv("ANDROID_KEYSTORE_FILE")
+                ?.let { file(it).exists() } == true
+            if (hasSigning) signingConfig = signingConfigs.getByName("release")
+            // Leading `is` is AGP's Kotlin DSL accessor for the boolean setter; the
+            // bare names resolve only from Java.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 

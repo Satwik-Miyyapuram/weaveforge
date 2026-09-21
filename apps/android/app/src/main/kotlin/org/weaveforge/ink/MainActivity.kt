@@ -88,10 +88,14 @@ class MainActivity : AppCompatActivity() {
             // The shell loads one first-party origin. It has no reason to reach
             // the filesystem or a content provider, and file: URLs are a
             // long-standing WebView escalation path.
+            //
+            // `setAllowFileAccessFromFileURLs` and `setAllowUniversalAccessFromFileURLs`
+            // are deliberately not set: both are deprecated no-ops at minSdk 29 and
+            // above, which is where this module starts. Setting them compiles with a
+            // warning and does nothing, so they were removed rather than left in as
+            // reassurance — `allowFileAccess = false` is what actually closes the path.
             allowFileAccess = false
             allowContentAccess = false
-            allowFileAccessFromFileURLs = false
-            allowUniversalAccessFromFileURLs = false
             setGeolocationEnabled(false)
             // The web app checks for the bridge object, not the UA, but a
             // distinct token makes the shell visible in logs.
