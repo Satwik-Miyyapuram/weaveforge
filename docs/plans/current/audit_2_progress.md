@@ -29,21 +29,58 @@ and its state.
 | 8 | Screen-cache cancellation | WF-N05 (other half) | 🔨 decided **A**, not started |
 | 9 | Metric `append` round-trip test | WF-N04, MEM-04 | ✅ done — **and it found two bugs** |
 | 10 | `check:android-permissions` as a release-build gate | WF-N19 | 🔨 decided **A**, not started |
-| 11 | Privileged-capability diagnostic screen | WF-X07 | ⏸ D4 — explained in plain terms, awaiting a yes/no |
-| 12 | Gesture routing: pen draws, 1 finger pans, 2 zoom, palm/3+ rejected | WF-N03 | 🔨 decided **B (restructure)**, spec given — not started |
+| 11 | Privileged-capability diagnostic screen | WF-X07 | ❌ **D4 dropped** — see below |
+| 12 | Gesture routing: pen draws, 1 finger pans, 2 move and zoom, palm/3+ rejected | WF-N03 | ✅ written, ⚠ not compiled or run |
 | 13 | Android compilation verified on this machine | — | ⚠ environment |
 
-Legend: ✅ landed · 🔨 decided and in flight · ⏸ needs a decision · ⚠ blocked by the environment.
+Legend: ✅ landed · 🔨 decided and in flight · ⏸ needs a decision · ❌ dropped · ⚠ blocked by the environment.
 
 ## Decisions, as taken
 
 | # | Decision | Answer | State |
 | --- | --- | --- | --- |
 | D1 | Screen-cache cancellation | **A** — add `AbortSignal` through `LoadScreenUseCase` and the 10 call sites | not started |
-| D2 | Metric `append` — keep or delete | **A** — keep it, add the round-trip test | ✅ done |
+| D2 | Metric `append` — keep or delete | **A** — keep it, add the round-trip test | ✅ done, two bugs found |
 | D3 | Android release — signing and R8 | **A** — signing config + `isMinifyEnabled` + keep rule | not started |
-| D4 | Privileged-capability diagnostic screen | *re-explained in plain terms; awaiting* | pending |
-| D5 | Gesture ownership | **B — restructure**, with a stated spec: pen writes; 1 finger pans; 2 fingers zoom; palm and 3+ fingers rejected; same with no pen. Version in pen-only mode: drops the pen. | not started |
+| D4 | Privileged-capability diagnostic screen | **dropped** | ❌ |
+| D5 | Gesture ownership | **restructure**, to the stated spec | ✅ written, unverified |
+
+### D4 — dropped, and the reasoning is worth keeping
+
+The finding (WF-X07) proposed a screen listing which *other* apps on the device hold
+overlay, accessibility or device-admin permission, so a user can find what is
+breaking their banking app.
+
+Dropped because it inverts the posture the rest of the audit establishes. This app
+holds **none** of those permissions — that is the whole content of WF-X01, and
+`check:android-permissions` now enforces it on every PR. A screen whose job is
+telling users which other apps to distrust is outside what a note-taking shell is
+for, and it makes WeaveForge the app that asks about permissions it does not use.
+The user's own words: *"why would we have a d4 here even we don't access other
+apps!!!"* — which is the correct read. The containment contract stays; the
+diagnostic goes.
+
+### D5 — the spec, and why it needed a restructure
+
+```
+                  PEN / HIGHLIGHTER          NO INK TOOL
+1 finger         move the paper             move the paper
+2 fingers        move and zoom              move and zoom
+3+ fingers       rejected                   rejected
+palm             rejected                   rejected
+pen              writes                     —
+```
+
+`InkGestureRouter` holds the rules as a pure function over a flat `GestureEvent`
+(no `MotionEvent`), so they are a JVM test — 15 cases in `InkGestureRouterTest`.
+`InkGestureView` is the new layout root and the only place that calls
+`onInterceptTouchEvent`; `InkToolMode` replaces the `penOnly` boolean as what
+decides routing, with a new `setToolMode` bridge method.
+
+**Not verified.** The module cannot be compiled here (JDK 25 vs AGP 8.7.3) and the
+new test suite has never run — the module had no test dependency before this. It
+needs `./gradlew :app:testDebugUnitTest` and `:app:compileDebugKotlin` on JDK 17/21,
+then a device pass over the six rows above.
 
 ### D2 landed — and the test paid for itself immediately
 
