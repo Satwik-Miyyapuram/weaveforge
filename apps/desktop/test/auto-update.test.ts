@@ -166,3 +166,51 @@ test("auto update: disabled means nothing is registered", () => {
   // Untouched: a development copy must not reconfigure an updater it never runs.
   assert.equal(updater.autoInstallOnAppQuit, true);
 });
+
+test("auto update: the shutdown finishes before the installer is spawned", async () => {
+  // The NSIS installer force-kills a running app about 2.5 seconds after it
+  // starts, and `quitAndInstall` starts it before quitting. A database still
+  // being written out at that moment is a corrupted one, so the shutdown runs
+  // first, and the installer is only asked for once it has returned.
+  const updater = fakeUpdater();
+  const order: string[] = [];
+  let finish: () => void = () => {};
+  const prepared = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  startAutoUpdate(
+    options(updater, {
+      ask: async () => true,
+      prepare: () => {
+        order.push("prepare");
+        return prepared;
+      },
+    }),
+  );
+  updater.quitAndInstall = function () {
+    order.push("install");
+    this.installed += 1;
+  };
+  updater.fired("update-downloaded", { version: "9.9.9" });
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(order, ["prepare"], "the installer waits for the shutdown");
+  finish();
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(order, ["prepare", "install"]);
+});
+
+test("auto update: a shutdown that fails does not refuse the update", async () => {
+  const updater = fakeUpdater();
+  startAutoUpdate(
+    options(updater, {
+      ask: async () => true,
+      prepare: async () => {
+        throw new Error("backup disk is gone");
+      },
+    }),
+  );
+  updater.fired("update-downloaded", { version: "9.9.9" });
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(updater.installed, 1);
+});

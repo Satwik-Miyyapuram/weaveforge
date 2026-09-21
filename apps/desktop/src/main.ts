@@ -504,6 +504,14 @@ async function backUpLocalDb(): Promise<void> {
 }
 setInterval(() => void backUpLocalDb(), BACKUP_EVERY_MS).unref();
 
+/**
+ * A last copy, then the close. Safe to run more than once: a database that is
+ * already closed has nothing to snapshot and nothing to close, so an update —
+ * which runs this before the installer is spawned — and the `will-quit` that
+ * follows it do not fight over the same files.
+ */
+const shutDownLocalDb = (): Promise<void> => backUpLocalDb().then(() => localDb.close());
+
 ipc.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
   localDb.query(sql, params),
 );
@@ -719,7 +727,7 @@ app.on("will-quit", (event) => {
   runBoundedQuit({
     // A last copy first, then the close: the copy is what survives a close
     // that does not finish, and both are inside the bound.
-    cleanup: () => backUpLocalDb().then(() => localDb.close()),
+    cleanup: shutDownLocalDb,
     exit: () => app.exit(0),
   });
 });
@@ -762,7 +770,13 @@ if (!app.requestSingleInstanceLock()) {
     // and for builds with no feed behind them.
     void realUpdater().then((updater) => {
       if (updater)
-        startAutoUpdate({ updater, window: () => mainWindow, enabled: true });
+        startAutoUpdate({
+          updater,
+          window: () => mainWindow,
+          enabled: true,
+          // Closed before the installer exists, not raced against its kill.
+          prepare: shutDownLocalDb,
+        });
     });
     installMenu({
       chooseFolder: async () => {
