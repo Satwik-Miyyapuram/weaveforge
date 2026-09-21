@@ -1,37 +1,52 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { IMetricRepository, MetricPoint } from "@weaveforge/core";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import type { IMetricRepository, MetricBudget, MetricPoint } from "@weaveforge/core";
+import { run } from "@/backend/providers/supabase/row-access";
 import {
   type MetricRow,
   toDomain,
 } from "./metric-rows";
 
-const TABLE = "experiment_metrics";
-
 /**
- * Columns `toDomain` reads. `experiment_metrics` is a view since 0114/0115 and
- * exposes exactly these plus `user_id`, so `select("*")` fetched a column nobody
- * maps — and, before 0114, three more.
- */
-const METRIC_COLUMNS = "metric, step, value, wall_time";
-
-/**
- * Rows per request in the paging loop below.
+ * The row store, written to directly.
  *
- * Only a starting point: the loop advances by however many rows actually came
- * back, so a server row cap smaller than this costs extra round trips rather
- * than missing data.
+ * `experiment_metrics` is a **view** as of 0114/0115 — the row store is this
+ * table and `experiment_metric_chunks` holds settled points packed into arrays —
+ * and it carries `INSTEAD OF INSERT` triggers that route a write back here while
+ * resolving the metric *name* to an id. The read below reads the view, because
+ * that is what unions the chunks in. The write names this table, because a write
+ * path that depends on a trigger firing to remember `user_id` is a write path
+ * that fails silently when the trigger is missing; the ingest API the Python SDK
+ * speaks writes here too.
  */
-const PAGE = 1000;
+const TABLE_POINTS = "experiment_metric_points";
+
+/**
+ * Rows per insert.
+ *
+ * A single `insert` of a whole run's points is one request whose body grows
+ * without bound — an array parameter or a request body built from an unbounded
+ * list is the shape `check:hygiene` fails an API route for. Chunking turns one
+ * catastrophic failure at some tens of thousands of rows into N bounded requests.
+ */
+const INSERT_CHUNK = 1000;
+
+/**
+ * Experiment ids per `latest_metric_activity` call.
+ *
+ * A Postgres array parameter is bound as one text literal, so its cost is
+ * quadratic in its own length and it hits statement-size limits at a few tens of
+ * thousands of elements. The list is tens of ids today, which is exactly the
+ * kind of bound that is true until it is not.
+ */
+const IDS_PER_RPC = 500;
 
 /**
  * Supabase adapter for the `experiment_metrics` curve data.
  *
- * `experiment_metrics` is a **view** as of 0114/0115: the row store is
- * `experiment_metric_points`, and `experiment_metric_chunks` holds settled
- * points packed into arrays, with the view unioning the expanded chunks and the
- * loose rows. The dashboard reads history through it and the Python SDK is the
- * writer. `user_id` is filled by the column default (`auth.uid()`).
+ * The dashboard reads history through the `experiment_metrics` view and the
+ * Python SDK is the writer, over the ingest API. `metric_history` does the
+ * downsampling where the data lives; nothing here pages a whole series into the
+ * browser.
  */
 export class SupabaseMetricRepository implements IMetricRepository {
   constructor(private readonly db: SupabaseClient) {}
@@ -45,60 +60,40 @@ export class SupabaseMetricRepository implements IMetricRepository {
       value: p.value,
       wall_time: p.wallTime ?? null,
     }));
-    await run(this.db.from(TABLE).insert(payload));
+    for (let start = 0; start < payload.length; start += INSERT_CHUNK) {
+      await run(this.db.from(TABLE_POINTS).insert(payload.slice(start, start + INSERT_CHUNK)));
+    }
   }
 
   /**
    * Samples for one experiment, step-ordered.
    *
-   * With a `maxPoints` budget this is one bounded request to `metric_history`,
-   * which reduces the series where the data lives — so what crosses the wire is
-   * already the size the chart needs, and the response cannot be truncated by a
-   * server row cap because it never approaches one.
+   * One bounded request to `metric_history`, which reduces the series where the
+   * data lives — so what crosses the wire is already the size the chart needs,
+   * and the response cannot be truncated by a server row cap because it never
+   * approaches one.
    *
-   * Without a budget it pages by **rows received**, not by page size. The
-   * obvious loop — advance a fixed page and stop when a short page arrives —
-   * stops after the first page on any deployment whose `db-max-rows` is below
-   * that page size, because a capped response *is* a short page; the curve then
-   * ends early, which a researcher reads as "training stopped here". Advancing
-   * by what came back cannot skip rows and cannot stop early, whatever the cap
-   * is; the price of a small cap is more requests.
-   *
-   * `(metric, step)` is a total order here — the store's primary key is
-   * `(experiment_id, metric_id, step)` — which is what makes paging safe from
-   * duplicates and gaps.
+   * This used to fall back to a paging loop over the view whenever the budget was
+   * omitted, materialising the entire run — 2 000 000 rows for a 400 000-step run
+   * logging five metrics — as that many JS objects, on a tablet, for a chart a few
+   * thousand pixels wide. The fallback is gone and the budget is required on the
+   * port: an unbounded read is not a thing a cheap-looking call should be able to
+   * do by forgetting an argument. The paging loop itself was correct (it advanced
+   * by rows received, which is the right answer to a server row cap); it was
+   * answering a question no chart has.
    */
   async history(
     experimentId: string,
-    metric?: string,
-    options?: { maxPoints?: number },
+    metric: string | undefined,
+    budget: MetricBudget,
   ): Promise<MetricPoint[]> {
-    if (options?.maxPoints != null) {
-      const { data, error } = await this.db.rpc("metric_history", {
-        p_experiment_id: experimentId,
-        p_metric: metric ?? null,
-        p_max_points: options.maxPoints,
-      });
-      if (error) throw error;
-      return ((data ?? []) as MetricRow[]).map(toDomain);
-    }
-
-    const all: MetricRow[] = [];
-    for (let from = 0; ; ) {
-      let q = this.db
-        .from(TABLE)
-        .select(METRIC_COLUMNS)
-        .eq("experiment_id", experimentId)
-        .order("metric", { ascending: true })
-        .order("step", { ascending: true })
-        .range(from, from + PAGE - 1);
-      if (metric) q = q.eq("metric", metric);
-      const page = await rows<MetricRow>(q);
-      if (page.length === 0) break;
-      all.push(...page);
-      from += page.length;
-    }
-    return all.map(toDomain);
+    const { data, error } = await this.db.rpc("metric_history", {
+      p_experiment_id: experimentId,
+      p_metric: metric ?? null,
+      p_max_points: budget.maxPoints,
+    });
+    if (error) throw error;
+    return ((data ?? []) as MetricRow[]).map(toDomain);
   }
 
   /**
@@ -110,19 +105,29 @@ export class SupabaseMetricRepository implements IMetricRepository {
    * and the server's row cap makes that untrue without saying so. The caller
    * reads a missing entry as "nothing logged recently" and marks the run
    * abandoned, so the failure was a write, not a stale label.
+   *
+   * The id list is chunked, and the chunks are merged by max per id so the
+   * answer does not change when the chunk count does.
    */
   async latestActivityAt(experimentIds: readonly string[]): Promise<Map<string, number>> {
     const out = new Map<string, number>();
     if (experimentIds.length === 0) return out;
 
-    const { data, error } = await this.db.rpc("latest_metric_activity", {
-      p_experiment_ids: [...experimentIds],
-    });
-    if (error) throw error;
+    for (let start = 0; start < experimentIds.length; start += IDS_PER_RPC) {
+      const { data, error } = await this.db.rpc("latest_metric_activity", {
+        p_experiment_ids: [...experimentIds.slice(start, start + IDS_PER_RPC)],
+      });
+      if (error) throw error;
 
-    for (const row of (data ?? []) as { experiment_id: string; last_wall_time: string | null }[]) {
-      const t = Date.parse(String(row.last_wall_time));
-      if (Number.isFinite(t)) out.set(row.experiment_id, t);
+      for (const row of (data ?? []) as {
+        experiment_id: string;
+        last_wall_time: string | null;
+      }[]) {
+        const t = Date.parse(String(row.last_wall_time));
+        if (!Number.isFinite(t)) continue;
+        const previous = out.get(row.experiment_id);
+        if (previous === undefined || t > previous) out.set(row.experiment_id, t);
+      }
     }
     return out;
   }

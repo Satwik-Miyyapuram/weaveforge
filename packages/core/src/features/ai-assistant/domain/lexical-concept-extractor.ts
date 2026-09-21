@@ -15,7 +15,7 @@
  * after that is a pure function of what they returned:
  *
  * ```
- * prepare(doc) → { raw, plain, plainLower, rawLower }
+ * prepare(doc) → { raw, plain }
  * harvestStated(doc)  → the signals the user authored  (#tag, [[link]])
  * harvestGuessed(doc) → the signals we inferred        (one regex scan)
  * mergeMentions(...)  → one entry per concept, with the merge policy
@@ -36,7 +36,7 @@
  */
 
 import { extractWikilinks } from "../../vault/domain/vault-page.js";
-import { extractHashtags } from "../../papers/domain/paper.js";
+import { extractHashtagRefs } from "../../papers/domain/paper.js";
 import {
   conceptKey,
   type ConceptKind,
@@ -183,27 +183,25 @@ interface HarvestedMention {
   evidence: string;
 }
 
-/** A document with the two lowercased copies a mention search needs. */
+/**
+ * A document, reduced to the two strings a mention search needs.
+ *
+ * There used to be four: `plainLower` and `rawLower` were whole lowercased
+ * copies, held so that the evidence lookup could search for a mention's text
+ * without allocating a haystack per mention. Positions are carried now — every
+ * reader that finds a match reports where it found it — so nothing searches the
+ * document for text it already has the location of, and both copies are gone
+ * rather than deferred.
+ */
 interface PreparedDocument {
   id: string;
   raw: string;
   plain: string;
-  plainLower: string;
-  rawLower: string;
 }
 
 function prepare(document: ExtractionDocument): PreparedDocument {
   const raw = document.text ?? "";
-  const plain = stripMarkdown(raw);
-  return {
-    id: document.id,
-    raw,
-    plain,
-    // Lowercased once per document rather than once per mention: a 50 KB note
-    // with eighty mentions was allocating eighty copies of itself.
-    plainLower: plain.toLowerCase(),
-    rawLower: raw.toLowerCase(),
-  };
+  return { id: document.id, raw, plain: stripMarkdown(raw) };
 }
 
 /** A snippet of surrounding text, given a position already known. */
@@ -214,20 +212,28 @@ function snippetAt(text: string, index: number, length: number): string {
 }
 
 /**
- * Where a stated signal appears, for the review queue's evidence pane.
+ * The evidence snippet for a match whose position is already known.
  *
- * The stripped text is tried first — it is the sentence a reader recognises.
- * The raw text is the fallback, and it is not optional: stripping removes
- * `[[…]]`, so a wikilink-only concept used to carry empty evidence, which is
- * precisely the case the pane exists for.
+ * `source` is the string the offset belongs to, and the caller always knows it:
+ * `plain` is what the capitalisation scan read, `raw` is what the hashtag and
+ * wikilink readers read. It cannot be inferred from the offset, which is the
+ * reason the old `evidenceFor` searched instead — `stripMarkdown` blanks
+ * wikilinks and collapses code, so the two strings agree on most offsets and
+ * disagree on exactly the ones a mention is likely to come from.
+ *
+ * No search happens here, and none is needed: the reader that found the match
+ * reported where, so this only has to quote it. Searching was also *wrong* twice
+ * over — it cost two document scans per stated mention, and it answered with the
+ * first textual occurrence of the name, which is a different occurrence whenever
+ * the name is a substring of an earlier word.
  */
-function evidenceFor(doc: PreparedDocument, needle: string): string {
-  const lower = needle.toLowerCase();
-  const plainIndex = doc.plainLower.indexOf(lower);
-  if (plainIndex >= 0) return snippetAt(doc.plain, plainIndex, needle.length);
-  const rawIndex = doc.rawLower.indexOf(lower);
-  if (rawIndex >= 0) return snippetAt(doc.raw, rawIndex, needle.length);
-  return "";
+function evidenceAt(
+  doc: PreparedDocument,
+  source: "plain" | "raw",
+  index: number,
+  length: number,
+): string {
+  return snippetAt(source === "plain" ? doc.plain : doc.raw, index, length);
 }
 
 /**
@@ -244,12 +250,42 @@ function withoutWikilinks(text: string): string {
 }
 
 /**
+ * The start offset of each non-empty token in `text`.
+ *
+ * Walks the same separator class the old `split(/[^A-Za-z0-9]+/)` used and
+ * accumulates position instead of searching for the token afterwards. That is
+ * the whole point: `phrase.indexOf(token)` finds the first *textual* occurrence,
+ * which is the wrong one whenever a token is a substring of an earlier word — in
+ * "MAGAN GAN Models", `indexOf("GAN")` answers 2, inside `MAGAN`, and the
+ * evidence pane then quotes the wrong neighbourhood.
+ *
+ * Forward-only by construction, so a later token can never resolve to a position
+ * inside an earlier one.
+ */
+function tokenOffsets(text: string): Array<{ token: string; at: number }> {
+  const out: Array<{ token: string; at: number }> = [];
+  const re = /[A-Za-z0-9]+/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    out.push({ token: match[0], at: match.index });
+  }
+  return out;
+}
+
+/**
  * The signals the user authored deliberately, which are always kept: a hashtag
  * or a wikilink is a stated concept, not a guess.
+ *
+ * Positions come from the readers that found the matches, and so does the text
+ * those positions are *in*: both readers walk `doc.raw`, and `withoutWikilinks`
+ * is length-preserving, so every offset here is an offset in the raw text. The
+ * old path called `evidenceFor` instead, which searched for the mention's name
+ * all over again — twice per mention, and in the stripped text first, which is
+ * exactly where the wrong occurrence came from.
  */
 function harvestStated(doc: PreparedDocument): HarvestedMention[] {
   const out: HarvestedMention[] = [];
-  const record = (name: string) => {
+  const record = (name: string, index: number, length: number) => {
     const classified = classify(name, "stated");
     out.push({
       key: conceptKey(name),
@@ -258,15 +294,20 @@ function harvestStated(doc: PreparedDocument): HarvestedMention[] {
       kindRecognised: classified.recognised,
       strength: "stated",
       documentId: doc.id,
-      evidence: evidenceFor(doc, name),
+      evidence: evidenceAt(doc, "raw", index, length),
     });
   };
 
-  for (const tag of extractHashtags(withoutWikilinks(doc.raw))) record(tag);
+  const withoutLinks = withoutWikilinks(doc.raw);
+  for (const ref of extractHashtagRefs(withoutLinks)) record(ref.tag, ref.index, ref.length);
+
   for (const link of extractWikilinks(doc.raw)) {
     // `[[#Heading]]` and `[[|alias]]` name nothing to file.
     const target = link.target.trim();
-    if (target) record(target);
+    if (!target) continue;
+    // The whole `[[…]]` is what was matched, so it is what the evidence quotes.
+    // A bare target would quote a heading, not the link the user wrote.
+    record(target, link.index ?? 0, link.length ?? 0);
   }
   return out;
 }
@@ -303,14 +344,22 @@ function harvestGuessed(doc: PreparedDocument): HarvestedMention[] {
     });
   };
 
-  CANDIDATE.lastIndex = 0;
+  // Compiled per scan rather than shared. The module-level pattern carries the
+  // `g` flag, which means it carries a `lastIndex` cursor: one instance shared by
+  // every caller makes "extraction never interleaves" an unstated assumption that
+  // no type enforces. It holds today only because nothing awaits between the
+  // reset and the loop — and `extract` is `async`, so the next progress callback
+  // or abort check inserted there would have two documents sharing one cursor and
+  // silently dropping matches from both. V8 caches the compiled form, so this
+  // costs an allocation and not a recompile.
+  const scan = new RegExp(CANDIDATE.source, "g");
   let match: RegExpExecArray | null;
-  while ((match = CANDIDATE.exec(doc.plain)) !== null) {
+  while ((match = scan.exec(doc.plain)) !== null) {
     const phrase = match[1]!;
     record(phrase, match.index, phrase.length);
-    for (const token of phrase.split(/[^A-Za-z0-9]+/)) {
+    for (const { token, at } of tokenOffsets(phrase)) {
       if (!ACRONYM_ONLY.test(token)) continue;
-      record(token, match.index + phrase.indexOf(token), token.length);
+      record(token, match.index + at, token.length);
     }
   }
   return out;
@@ -408,6 +457,17 @@ function mergeMentions(mentions: readonly HarvestedMention[]): {
  * What is worth a page: a phrase seen in two documents, or anything stated in
  * one — a phrase in a single document is usually incidental, but the user
  * already committed to a tag.
+ *
+ * The tie-break is a codepoint comparison, not `localeCompare`. Every other
+ * operation here is deliberately reproducible — an explicit `KIND_INFORMATIVENESS`
+ * table, a documented merge order, a normalised key — and `localeCompare` with no
+ * locale argument resolves to the host's default locale and its ICU collation.
+ * Because this comparator runs *at* the `maxConcepts` cut, two environments can
+ * keep different concepts rather than merely list the same ones in another order:
+ * the same vault yields a wiki with a page on one machine and not on another, and
+ * the CI gate that asserts extraction output runs in a different locale from the
+ * laptop that wrote the expectation. Concept keys are already normalised, so there
+ * is no case-folding left for a collator to do.
  */
 function rankAndLimit(
   entries: readonly ConceptEntry[],
@@ -416,7 +476,8 @@ function rankAndLimit(
   const ranked = entries
     .filter((entry) => entry.documents.size >= MIN_MENTIONS || entry.strength === "stated")
     .sort(
-      (a, b) => b.documents.size - a.documents.size || a.name.localeCompare(b.name),
+      (a, b) =>
+        b.documents.size - a.documents.size || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
     );
   return maxConcepts ? ranked.slice(0, maxConcepts) : ranked;
 }
@@ -440,11 +501,18 @@ export class LexicalConceptExtractor implements IConceptExtractor {
   readonly id = "lexical";
 
   async extract(request: ExtractionRequest): Promise<ExtractionResult> {
-    const documents = request.documents.map(prepare);
-    const mentions = documents.flatMap((doc) => [
-      ...harvestStated(doc),
-      ...harvestGuessed(doc),
-    ]);
+    // One document in flight, not the whole corpus. This was
+    // `documents.map(prepare)` followed by a `flatMap` over that array, which
+    // prepared *every* document up front and kept all of them reachable for the
+    // whole run — every copy of every document live at once, so a 2 000-note
+    // vault held several copies of the corpus on the same tab that renders the
+    // wiki preview. Only the mentions need to outlive a document, and they are
+    // small.
+    const mentions = request.documents.flatMap((source) => {
+      const doc = prepare(source);
+      const out = [...harvestStated(doc), ...harvestGuessed(doc)];
+      return out; // `doc` is unreachable from here on
+    });
 
     const merged = mergeMentions(mentions);
     const limited = rankAndLimit(merged.concepts, request.maxConcepts);

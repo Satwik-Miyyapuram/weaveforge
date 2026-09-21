@@ -174,17 +174,18 @@ test("metric history: points archived into chunks are read back", async () => {
     [id, owner, loss],
   );
 
-  const history = await repoFor(owner).history(id, "loss");
+  const history = await repoFor(owner).history(id, "loss", { maxPoints: 100 });
 
   assert.deepEqual(history.map((p) => p.step), [1, 2]);
   assert.deepEqual(history.map((p) => p.value), [0.9, 0.5]);
 });
 
-test("metric history: a series longer than one page is read whole", async () => {
-  // The paging loop advances by the rows it received rather than by the page
-  // size it asked for. The old shape — stop on a short page — silently ends the
-  // curve on any deployment whose row cap is below the page size, which is the
-  // failure a researcher reads as "training stopped here".
+test("metric history: a long series is reduced where the data lives, not paged into the browser", async () => {
+  // The unbudgeted branch this used to take materialised the whole run as JS
+  // objects in one array, for a chart a few thousand pixels wide. A budget is now
+  // required on the port, so the only way to read 1 200 stored points is to say
+  // you can draw 1 200 of them; the server-side stride still keeps the endpoints,
+  // so a curve never looks like it started late or stopped early.
   const { db, owner, metricId, experiment, repoFor } = await fixture();
   const id = await experiment(owner, "Long run");
   const loss = await metricId("loss");
@@ -196,11 +197,11 @@ test("metric history: a series longer than one page is read whole", async () => 
     [id, owner, loss, `{${steps.join(",")}}`],
   );
 
-  const history = await repoFor(owner).history(id, "loss");
+  const history = await repoFor(owner).history(id, "loss", { maxPoints: 100 });
 
-  assert.equal(history.length, 1200, "every stored point is returned, across pages");
-  assert.equal(history[0]?.step, 1);
-  assert.equal(history.at(-1)?.step, 1200);
+  assert.ok(history.length >= 100 && history.length <= 102, `got ${history.length} points`);
+  assert.equal(history[0]?.step, 1, "the first sample survives");
+  assert.equal(history.at(-1)?.step, 1200, "and so does the last");
 });
 
 test("metric history: a budget reduces the series where the data lives", async () => {
@@ -235,7 +236,7 @@ test("metric history: a budget above the series length changes nothing", async (
     [id, owner, loss],
   );
 
-  const history = await repoFor(owner).history(id, "loss", { maxPoints: 500 });
+  const history = await repoFor(owner).history(id, "loss", { maxPoints: 5000 });
 
   assert.deepEqual(history.map((p) => p.step), [1, 2]);
 });

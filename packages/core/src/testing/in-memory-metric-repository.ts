@@ -1,5 +1,6 @@
 import type {
   IMetricRepository,
+  MetricBudget,
   MetricPoint,
 } from "../features/experiments/domain/metric-point.js";
 
@@ -17,15 +18,15 @@ export class InMemoryMetricRepository implements IMetricRepository {
 
   async history(
     experimentId: string,
-    metric?: string,
-    options?: { maxPoints?: number },
+    metric: string | undefined,
+    budget: MetricBudget,
   ): Promise<MetricPoint[]> {
     const ordered = this.points
       .filter((p) => p.experimentId === experimentId)
       .filter((p) => (metric ? p.metric === metric : true))
       .sort((a, b) => (a.metric === b.metric ? a.step - b.step : a.metric.localeCompare(b.metric)))
       .map((p) => ({ ...p }));
-    return options?.maxPoints == null ? ordered : reduceToBudget(ordered, options.maxPoints);
+    return reduceToBudget(ordered, budget.maxPoints);
   }
 
   async latestActivityAt(experimentIds: readonly string[]): Promise<Map<string, number>> {

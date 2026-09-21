@@ -193,6 +193,31 @@ test("one scan still finds the acronym inside a hyphenated phrase", async () => 
   assert.ok(names.includes("vae-based"), "and the phrase it sits in");
 });
 
+test("the acronym's evidence points at the acronym, not at an earlier word containing it", async () => {
+  // The offsets used to be recovered with `phrase.indexOf(token)`, which answers
+  // with the first *textual* occurrence anywhere in the phrase. For "MAGAN GAN
+  // Models" that is offset 2 — inside `MAGAN` — so the review queue quoted the
+  // wrong neighbourhood for every mention whose token is a substring of an
+  // earlier word. Offsets are now accumulated while walking the phrase, so they
+  // cannot land inside a token that came before.
+  const text = "The MAGAN GAN Models baseline is the comparison we report.";
+  const result = await extractor.extract({
+    documents: [doc("n1", "N", text), doc("n2", "M", text)],
+  });
+
+  const acronym = result.concepts.find((c) => c.name === "GAN");
+  assert.ok(acronym, "the standalone acronym is still found");
+
+  const mention = result.mentions.find((m) => m.conceptName === "GAN");
+  assert.ok(mention);
+  assert.match(
+    mention!.evidence,
+    /GAN Models/,
+    `the snippet must quote the standalone token, not the tail of MAGAN: ${mention!.evidence}`,
+  );
+  assert.doesNotMatch(mention!.evidence, /MAGAN$/);
+});
+
 test("a stated tag corrects the name a guess froze first", async () => {
   // First-write-wins meant the mention recorded first kept the name for good, so
   // a deliberate tag could not correct a guess — the one signal the module's own

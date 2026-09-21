@@ -9,6 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type {
   IMetricRepository,
+  MetricBudget,
   MetricPoint,
 } from "../features/experiments/domain/metric-point.js";
 
@@ -22,13 +23,21 @@ function pt(overrides: Partial<MetricPoint> = {}): MetricPoint {
   };
 }
 
+/**
+ * The budget every case below reads with unless it is testing the reduction.
+ *
+ * Large enough that a series in these tests is returned whole, because the
+ * behaviour under test is ordering and scoping rather than reduction.
+ */
+const WHOLE: MetricBudget = { maxPoints: 1000 };
+
 export function runMetricRepositoryContract(
   label: string,
   makeRepo: () => IMetricRepository,
 ): void {
   test(`[${label}] history is empty for an unknown experiment`, async () => {
     const repo = makeRepo();
-    assert.deepEqual(await repo.history("nope"), []);
+    assert.deepEqual(await repo.history("nope", undefined, WHOLE), []);
   });
 
   test(`[${label}] append then history returns points in step order`, async () => {
@@ -37,7 +46,7 @@ export function runMetricRepositoryContract(
       pt({ metric: "loss", step: 1, value: 0.9 }),
       pt({ metric: "loss", step: 0, value: 1.0 }),
     ]);
-    const loss = await repo.history("e1", "loss");
+    const loss = await repo.history("e1", "loss", WHOLE);
     assert.deepEqual(loss.map((p) => p.step), [0, 1]);
     assert.deepEqual(loss.map((p) => p.value), [1.0, 0.9]);
   });
@@ -48,7 +57,7 @@ export function runMetricRepositoryContract(
       pt({ metric: "loss", step: 0, value: 1 }),
       pt({ metric: "acc", step: 0, value: 0.5 }),
     ]);
-    const acc = await repo.history("e1", "acc");
+    const acc = await repo.history("e1", "acc", WHOLE);
     assert.equal(acc.length, 1);
     assert.equal(acc[0]?.metric, "acc");
   });
@@ -59,7 +68,7 @@ export function runMetricRepositoryContract(
       pt({ experimentId: "e1", step: 0, value: 1 }),
       pt({ experimentId: "e2", step: 0, value: 2 }),
     ]);
-    const e1 = await repo.history("e1");
+    const e1 = await repo.history("e1", undefined, WHOLE);
     assert.equal(e1.length, 1);
     assert.equal(e1[0]?.experimentId, "e1");
   });

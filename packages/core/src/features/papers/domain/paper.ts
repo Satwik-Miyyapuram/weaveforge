@@ -172,9 +172,49 @@ export function normalizeTags(tags: string[]): string[] {
   return out;
 }
 
+/** A hashtag with the offset it was found at, for evidence that points at it. */
+export interface HashtagRef {
+  /** Normalized: no leading '#', lowercased. */
+  tag: string;
+  /** Index of the '#' in the text it was read from. */
+  index: number;
+  /** Length of the matched text, including the '#'. */
+  length: number;
+}
+
+/** The one pattern that reads hashtags, so the two readers cannot drift. */
+const HASHTAG = /#[\p{L}\p{N}_-]+/gu;
+
+/**
+ * Pull `#hashtags` out of free text, with the position each was found at.
+ *
+ * The position is the reason this exists next to `extractHashtags`: a caller
+ * that shows evidence needs to quote the neighbourhood of *this* match, and
+ * re-finding the tag by searching for its text lands on the first textual
+ * occurrence instead — which is a different one whenever a tag is a substring of
+ * an earlier word.
+ *
+ * Deduped by normalized tag, first occurrence wins, so the offsets match what
+ * `extractHashtags` returns in the same order.
+ */
+export function extractHashtagRefs(text?: string): HashtagRef[] {
+  if (!text) return [];
+  const out: HashtagRef[] = [];
+  const seen = new Set<string>();
+  HASHTAG.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = HASHTAG.exec(text)) !== null) {
+    const tag = match[0].replace(/^#+/, "").toLowerCase();
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push({ tag, index: match.index, length: match[0].length });
+  }
+  return out;
+}
+
 /** Pull `#hashtags` out of free text, normalized (no '#', lowercase, deduped). */
 export function extractHashtags(text?: string): string[] {
   if (!text) return [];
-  const matches = text.match(/#[\p{L}\p{N}_-]+/gu) ?? [];
+  const matches = text.match(HASHTAG) ?? [];
   return normalizeTags(matches);
 }

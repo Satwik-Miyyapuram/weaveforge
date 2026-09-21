@@ -142,6 +142,15 @@ export interface WikilinkRef {
   block?: string;
   /** The full matched text, e.g. `[[Note#Heading|alias]]`. */
   raw: string;
+  /**
+   * Where `raw` starts in the body it was read from, and how long it is.
+   *
+   * Carried rather than recomputed: a caller that wants to quote the link's
+   * neighbourhood cannot search the body for `raw` without landing on an
+   * earlier identical link. Absent on refs built by hand.
+   */
+  index?: number;
+  length?: number;
 }
 
 /** Blank out code fences and inline code so links inside code aren't parsed. */
@@ -167,6 +176,10 @@ function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
  * Extracts `[[wikilinks]]` from a note body: `[[Target]]`, `[[Target|alias]]`,
  * `[[Target#Heading]]`, `[[Target#^block]]`. Links inside code are ignored.
  * Pure — resolution to ids happens in the UI against the note/paper title maps.
+ *
+ * `maskCode` blanks code spans to spaces of the same length, so an offset in the
+ * masked text is the same offset in `body` — which is what lets `index` be the
+ * position in the original.
  */
 export function extractWikilinks(body?: string): WikilinkRef[] {
   if (!body) return [];
@@ -176,7 +189,7 @@ export function extractWikilinks(body?: string): WikilinkRef[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(masked)) !== null) {
     const ref = parseWikilinkInner(m[1]!, m[0]!);
-    if (ref) out.push(ref);
+    if (ref) out.push({ ...ref, index: m.index, length: m[0].length });
   }
   return out;
 }

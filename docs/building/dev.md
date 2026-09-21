@@ -244,6 +244,7 @@ CI runs these eight as **separate steps** rather than through `check:boundaries`
 | `npm run check:contrast` | `npm run check:contrast --workspace @weaveforge/web` |
 | `npm run check:hygiene` | `node scripts/check-hygiene.mjs` |
 | `npm run check:mcp-plugin` | `node scripts/check-mcp-plugin.mjs` |
+| `npm run check:android-permissions` | `node scripts/check-android-permissions.mjs` |
 | `npm run check:docs` | `node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check` |
 | `npm run check:ci-parity` | `node scripts/check-ci-parity.mjs` |
 
