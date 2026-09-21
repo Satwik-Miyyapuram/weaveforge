@@ -54,6 +54,7 @@ import {
   mayOpenExternally,
 } from "./handlers";
 import { answerRelay } from "./app-relays";
+import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
 import { preferenceStore, secretStore } from "./main-stores";
@@ -741,18 +742,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
-    // Rewrite CORS headers for remote API calls from packaged custom app:// scheme
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      const responseHeaders = { ...details.responseHeaders };
-      if (details.url.includes("weaveforge.org")) {
-        responseHeaders["access-control-allow-origin"] = ["*"];
-        responseHeaders["access-control-allow-headers"] = ["*"];
-        responseHeaders["access-control-allow-methods"] = [
-          "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-        ];
-      }
-      callback({ responseHeaders });
-    });
+    // The API's CORS is settled here, not by the server's allow-list: the
+    // installed app must sign in whether or not the deployed Caddyfile names
+    // `app://weaveforge` today. See `api-cors.ts` for what is rewritten and why.
+    installApiCors(session.defaultSession, APP_ORIGIN);
 
     if (bundled) serveBundle();
     // Started before the window, so a sign-in cannot come back to a port that
