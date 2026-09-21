@@ -136,7 +136,7 @@ export function InkHost({
    * each tool remembers — a return from the highlighter hands the pen back
    * its own colour, not a fluorescent yellow.
    */
-  const { tool, setTool, colour, onColourChange } = useInkPrefs();
+  const { tool, setTool, colour, onColourChange, onPenApproach } = useInkPrefs();
   const [width, setWidth] = useState<number>(INK_PEN_WIDTH);
   const [zoom, setZoom] = useState(1);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -292,6 +292,9 @@ export function InkHost({
     hand,
     palette,
     onEvent,
+    // Picking the pen up selects a pen mode, so a stroke drawn with the eraser or
+    // the lasso up is not swallowed by the tool gate. See `toolOnPenApproach`.
+    onPenApproach,
     onStrokeEnd: () => {
       // One state change per stroke, which is the contract the hook's doc comment
       // makes: the live stroke never entered React, so there is nothing to batch.
