@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { PdfLocus, QuotationType, ReaderAnnotation } from "@weaveforge/core";
+import type { OpenAccessIds, PdfLocus, QuotationType, ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
@@ -40,6 +40,14 @@ import { projectZoteroAnnotations } from "../application/project-zotero-annotati
 import { mergeReaderAnnotations } from "../application/merge-reader-annotations";
 import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 import { formatError } from "@/lib/format-error";
+import type { PaperHtmlPage } from "../application/paper-html";
+import { describeFreeCopyFailure, isWebArticle, openAccessIdsOf } from "../application/find-free-copy";
+import { PaperHtmlView } from "./paper-html-view";
+
+async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
+  const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
+  return (await paperHtmlStore()?.get(paperId)) ?? null;
+}
 
 export interface PaperPdfPaneProps {
   /** The paper whose PDF to show; `null` with `pdfUrl` shows a bare URL. */
@@ -104,9 +112,18 @@ export function PaperPdfPane({
   const [typedUrl, setTypedUrl] = useState("");
   const [typedBusy, setTypedBusy] = useState(false);
   const [typedError, setTypedError] = useState<string | null>(null);
+  /** The paper kept as a web page, when it has no PDF that opens. */
+  const [htmlPage, setHtmlPage] = useState<PaperHtmlPage | null>(null);
+  /** The ids the open-access indexes are asked by, once the paper is loaded. */
+  const openAccessIds = useRef<OpenAccessIds | null>(null);
+  const [freeBusy, setFreeBusy] = useState(false);
+  const [freeStatus, setFreeStatus] = useState<{ text: string; error: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef(onActivity);
   activityRef.current = onActivity;
+  // The ladder effect below starts a fetch without re-running when this changes.
+  const findFreeRef = useRef(findFree);
+  findFreeRef.current = findFree;
 
   useEffect(() => onTitle?.(title), [onTitle, title]);
   useEffect(() => onAnnotations?.(annotations), [onAnnotations, annotations]);
@@ -115,6 +132,9 @@ export function PaperPdfPane({
     setError(null);
     setTitle(null);
     setPendingDownload(null);
+    setHtmlPage(null);
+    setFreeStatus(null);
+    openAccessIds.current = null;
     // Drop the previous paper's annotations before loading the next one.
     // Without this they stay mounted over the new PDF at the old paper's
     // coordinates, and survive indefinitely if the new load fails.
@@ -139,6 +159,7 @@ export function PaperPdfPane({
           setError("Paper not found or inaccessible.");
           return;
         }
+        openAccessIds.current = openAccessIdsOf(paper);
         // Resolve the source first: the ladder is what knows the content hash,
         // and the projection needs it to stamp each Zotero rect with the file
         // it was captured against.
@@ -199,7 +220,24 @@ export function PaperPdfPane({
             setPdfRevokeUrl(null);
           }
         } else {
-          setError("This paper has no PDF URL the reader can open (HTML landing pages are skipped).");
+          // No PDF: a full-text page kept earlier is the paper's text.
+          let kept: PaperHtmlPage | null = null;
+          try {
+            kept = await keptHtmlPage(paper.id);
+          } catch {
+            kept = null;
+          }
+          if (cancelled) return;
+          if (kept) {
+            setHtmlPage(kept);
+          } else if (openAccessIds.current && isWebArticle(openAccessIds.current)) {
+            // A blog post or an essay: its own page is the paper, so open it
+            // rather than wait for a button press to go and get it.
+            setError("This paper is a web page and has no PDF.");
+            void findFreeRef.current(paper.title);
+          } else {
+            setError("This paper has no PDF the reader can open yet.");
+          }
         }
       })
       .catch((err) => {
@@ -332,7 +370,93 @@ export function PaperPdfPane({
     }
   }
 
+  /**
+   * Ask the open-access indexes for a copy anyone may read and open the first
+   * that works: a PDF is kept like a fetched one and linked to the paper; a
+   * full-text web page is kept and shown in place of the PDF.
+   */
+  async function findFree(paperTitle: string | null = title) {
+    if (!paperId || !openAccessIds.current) return;
+    setFreeBusy(true);
+    setFreeStatus({
+      text: isWebArticle(openAccessIds.current) ? "Fetching the page…" : "Asking the open-access indexes…",
+      error: false,
+    });
+    try {
+      const { findFreeCopyInBrowser } = await import("../application/free-copy-browser");
+      const outcome = await findFreeCopyInBrowser(paperId, openAccessIds.current);
+      if (outcome.kind === "pdf") {
+        const host = new URL(outcome.candidate.url).hostname;
+        try {
+          await getContainer().papers.updatePaper.setPdfSource(paperId, outcome.candidate.url);
+        } catch {
+          // The bytes are kept either way; the link is for next time.
+        }
+        activityRef.current?.("reader", `Found a free PDF on ${host}; it is kept with this paper.`);
+        setFreeStatus(null);
+        setError(null);
+        setCacheSkippedFor(null);
+        setLoading(true);
+        setGeneration((n) => n + 1);
+      } else if (outcome.kind === "html") {
+        activityRef.current?.(
+          "reader",
+          outcome.candidate.source === "paper"
+            ? `Opened the page on ${new URL(outcome.page.url).hostname}; kept with this paper.`
+            : `No free PDF, but the full text is on ${new URL(outcome.page.url).hostname}; kept as a web page.`,
+        );
+        setFreeStatus(null);
+        setError(null);
+        setHtmlPage(outcome.page);
+        // Searchable like a PDF's text. Best effort: the page is kept either way.
+        void import("@/features/search/application/index-library-pdfs")
+          .then(({ indexPaperHtmlPage }) => indexPaperHtmlPage(outcome.page, paperTitle ?? undefined))
+          .catch(() => undefined);
+      } else {
+        setFreeStatus({ text: describeFreeCopyFailure(outcome, isWebArticle(openAccessIds.current)), error: true });
+      }
+    } catch (err) {
+      setFreeStatus({ text: `The search for a free copy failed: ${formatError(err)}`, error: true });
+    } finally {
+      setFreeBusy(false);
+    }
+  }
+
+  async function removeHtmlPage() {
+    if (!paperId) return;
+    try {
+      const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
+      await paperHtmlStore()?.remove(paperId);
+      // The page was this paper's only text, so its search text goes with it.
+      try {
+        const { removePdfTextsDurably } = await import("@/features/search/application/pdf-text-folder");
+        const container = getContainer();
+        await removePdfTextsDurably(container.projects.context.projectId, [paperId]);
+        container.search.invalidate();
+      } catch {
+        // Stale search text is pruned on the next rebuild; the page is gone either way.
+      }
+      setHtmlPage(null);
+      setLoading(true);
+      setGeneration((n) => n + 1);
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
+
   const canLoad = allowLoad && Boolean(paperId);
+  const freeCopy = canLoad ? (
+    <div className="paper-free-copy">
+      <button type="button" className="btn-primary btn-sm" disabled={freeBusy} onClick={() => void findFree()}>
+        {freeBusy ? "Searching…" : openAccessIds.current && isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
+      </button>
+      {freeStatus && (
+        <p className="paper-free-copy-status" role={freeStatus.error ? "alert" : "status"}>
+          {freeStatus.text}
+        </p>
+      )}
+    </div>
+  ) : null;
   const fetchForm = canLoad ? (
     <form
       className="paper-pdf-fetch"
@@ -421,18 +545,20 @@ export function PaperPdfPane({
           )}
         </div>
       )}
-      {!loading && error && (
+      {!loading && error && !htmlPage && (
         <div className="card empty-state">
           <h2>Cannot open this source</h2>
           <p>{error}</p>
+          {freeCopy}
           {fetchForm}
           {loadButton}
         </div>
       )}
-      {!loading && !error && !pdfUrl && !pendingDownload && !downloading && (
+      {!loading && !error && !pdfUrl && !htmlPage && !pendingDownload && !downloading && (
         <div className="card empty-state">
           <h2>Nothing to show</h2>
           <p>No PDF was provided for this locus.</p>
+          {freeCopy}
           {fetchForm}
           {loadButton}
         </div>
@@ -441,7 +567,10 @@ export function PaperPdfPane({
           source that will not open — but they were only ever rendered as an
           overlay on the document, which made them look lost. List them here so
           the work is still reachable when the PDF is not. */}
-      {!loading && !pdfUrl && annotations.length > 0 && (
+      {!loading && !pdfUrl && htmlPage && (
+        <PaperHtmlView page={htmlPage} toolbarExtra={loadButton} onRemove={() => void removeHtmlPage()} />
+      )}
+      {!loading && !pdfUrl && !htmlPage && annotations.length > 0 && (
         <AnnotationSidebar
           annotations={annotations}
           quotationTypes={quotationTypes}
@@ -469,13 +598,11 @@ export function PaperPdfPane({
             onActivity={(kind, message) => activityRef.current?.(kind, message)}
             onSourceFailure={handleSourceFailure}
             inkRail={inkRail}
+            toolbarExtra={loadButton}
           />
           {aside}
         </div>
       )}
-      {!loading && pdfUrl && loadButton ? (
-        <div className="paper-pdf-pane-tools">{loadButton}</div>
-      ) : null}
     </div>
   );
 }

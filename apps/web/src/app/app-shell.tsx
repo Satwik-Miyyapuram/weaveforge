@@ -14,8 +14,9 @@ import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { useIsDetailView } from "@/lib/hooks/use-detail-view";
 import { useWorkspaceRoute } from "@/lib/hooks/use-workspace-route";
+import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { titleForPath } from "@/lib/route-title";
 import { HeaderActions } from "./header-actions";
-import { ThemeToggle } from "./theme-toggle";
 import { TabBar } from "./tabbar";
 import { SubNav } from "./sub-nav";
 import { PageTransition } from "./page-transition";
@@ -27,6 +28,8 @@ import { SwipeViews } from "./swipe-views";
 import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
+import { WorkspaceFolderRestore } from "@/features/workspace/ui/workspace-folder-restore";
+import { PdfTextFolderSync } from "@/features/workspace/ui/pdf-text-folder-sync";
 
 /**
  * Top-level shell: gates on auth, then on a selected project. Brand header
@@ -34,7 +37,7 @@ import { PasswordResetScreen } from "@/components/password-reset-screen";
  * the current project id so switching projects remounts (and reloads) screens.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, expired } = useAuth();
   const pathname = usePathname();
   if (pathname === "/recover") return <EmailRecoveryScreen />;
   if (pathname === "/reset-password") return <PasswordResetScreen />;
@@ -52,7 +55,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 renders straight through after auth. */}
             <ThemeSyncProvider>
               <OrgSetupGate>
+                {/* Above the project-scoped shell, so it runs once: the folder
+                    mirror is per session, and reconnecting it per project would
+                    re-ask on every switch. See the component for why this is
+                    not in the Settings panel. */}
+                <WorkspaceFolderRestore />
+                {expired && <SessionExpiredPrompt />}
                 <ProjectProvider>
+                  <PdfTextFolderSync />
                   <ProjectScopedShell>{children}</ProjectScopedShell>
                 </ProjectProvider>
               </OrgSetupGate>
@@ -80,7 +90,14 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   const linkRedeem = pathname === "/link" || pathname.startsWith("/link/");
   const { current } = useProject();
   const accountRoute = isAccountRoute(pathname);
-  const { breakpoint, navEnter } = useLayoutBreakpoint();
+  const registry = useModuleRegistry();
+  // The window title names the screen, so the taskbar, history and a screen
+  // reader's page announcement say where you are rather than "WeaveForge".
+  useEffect(() => {
+    const items = [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)];
+    document.title = titleForPath(pathname, items);
+  }, [pathname, registry]);
+  const { breakpoint, navEnter, railByDefault } = useLayoutBreakpoint();
   const detailView = useIsDetailView();
   // On `/workspace` the shell changes shape: the primary nav is always the icon
   // rail, the content is full-bleed and the sub-nav strip is gone (document
@@ -93,8 +110,14 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // workspace collapses again on the way back in. It used to be
   // `editorRoute || manual`, which made the hamburger a dead button on the
   // one screen where the sidebar is narrowest.
+  //
+  // `railByDefault` joins the default for the same reason `/workspace` is in it:
+  // between the 900px layout breakpoint and 1100px a 216px sidebar is a quarter
+  // of the window, and both those widths are real tablets in landscape. It is a
+  // *default*, not a rule — the toggle above still wins, and widening the window
+  // past the threshold puts the sidebar back on its own.
   const [override, setOverride] = useState<boolean | null>(null);
-  const collapsed = override ?? editorRoute;
+  const collapsed = override ?? (editorRoute || railByDefault);
   useEffect(() => setOverride(null), [editorRoute]);
   // Enable sidebar transitions only AFTER the layout has settled into place, so
   // the nav appearing on load (padding-left 0→232) doesn't slide the content
@@ -169,7 +192,6 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
             <OrgSwitcher />
             <ProjectSwitcher />
             <div className="brand-right">
-              <ThemeToggle />
               <HeaderActions variant="menu" />
             </div>
           </div>
@@ -182,7 +204,12 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
             {/* The workspace hides it too — document tabs supersede the
                 Library strip there, and the rail keeps the rest one click
                 away. */}
-            {!detailView && !editorRoute && <SubNav />}
+            {/* Mobile only. On a desktop the sidebar lists every destination
+                itself, so a second row of the same links across the top of the
+                content is chrome that says nothing new — and it was the row
+                that made the Library look like six tabs rather than one section
+                of a sidebar. */}
+            {!detailView && !editorRoute && breakpoint === "mobile" && <SubNav />}
             <SwipeViews disabled={detailView || editorRoute}>
               <RoutePending>
                 <PageTransition>{children}</PageTransition>
@@ -195,7 +222,6 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           // RoutePending drives nav-pending state that only makes sense there.
           <>
             <div className="project-picker-bar desktop-only">
-              <ThemeToggle />
               <HeaderActions variant="menu" />
             </div>
             {children}
@@ -203,7 +229,6 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
         ) : (
           <>
             <div className="project-picker-bar desktop-only">
-              <ThemeToggle />
               <HeaderActions variant="menu" />
             </div>
             <ProjectsScreen />
@@ -221,4 +246,27 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
     );
   }
   return <ShareDialogHost>{shell}</ShareDialogHost>;
+}
+
+/**
+ * The session lapsed while the app was open. The workspace and its folder stay
+ * where they are; this asks for a fresh sign-in on top of them, and signing in
+ * as the same person picks up exactly where they were.
+ */
+function SessionExpiredPrompt() {
+  const [open, setOpen] = useState(false);
+  if (open) {
+    return (
+      <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
+        <button type="button" className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now">×</button>
+        <LoginScreen />
+      </div>
+    );
+  }
+  return (
+    <div className="session-expired-banner" role="status">
+      <span>Your session ended. Your workspace folder is still connected — sign in again to sync.</span>
+      <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(true)}>Sign in</button>
+    </div>
+  );
 }

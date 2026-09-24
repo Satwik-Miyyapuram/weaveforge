@@ -58,13 +58,12 @@ export function ListViewIcon(props: IconProps) {
   );
 }
 
-/** Status board / kanban columns. */
-export function BoardViewIcon(props: IconProps) {
+/** Nested rows: a parent with indented children. */
+export function TreeViewIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <rect x="3" y="4" width="5" height="16" rx="1.5" />
-      <rect x="10" y="4" width="5" height="10" rx="1.5" />
-      <rect x="17" y="4" width="5" height="13" rx="1.5" />
+      <path d="M4 5h9M9 12h11M9 19h11" />
+      <path d="M5 5v14M5 12h2M5 19h2" />
     </Svg>
   );
 }

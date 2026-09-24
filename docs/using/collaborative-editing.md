@@ -49,7 +49,7 @@ CodeMirror ── y-codemirror ── Y.Doc ── EncryptedYjsProvider ─┬�
                                                              └─ crdt_updates table  (durable)
 ```
 
-- **Live** goes over a Supabase Realtime private channel, `crdt:<type>:<id>`.
+- **Live** goes over a Realtime private channel (the Realtime server runs on the OCI box beside Postgres), `crdt:<type>:<id>`.
   Authorization is RLS on `realtime.messages` (migration `0044`), so who may
   join is decided by the database, not by the client.
 - **Durable** is the `crdt_updates` table. The provider appends the document

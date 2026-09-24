@@ -14,6 +14,11 @@
   flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin;
 }
 .pdf-reader-tools { border-top: 1px solid var(--line); }
+/* Where there is room, the tools row wraps instead of scrolling: a scrolled
+   strip hid the annotation tool and its colour off the right edge. */
+@media (min-width: 721px) {
+  .pdf-reader-tools { flex-wrap: wrap; overflow-x: visible; }
+}
 /* Related controls sit in a bordered cluster so grouping is visible, not implied. */
 .pdf-reader-group {
   display: inline-flex; align-items: center; gap: 4px; flex: none;
@@ -80,6 +85,12 @@
      be scrolled to. Declared after the plain value as a progressive upgrade. */
   align-items: safe center;
   gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: 10px;
+  /* Every touch gesture is the page's, not the browser's: panning and pinching
+     are `use-reader-gestures`, which is what lets a pinch scale the paper
+     instead of the shell's whole UI. `pan-x pan-y` was the tempting middle
+     ground and it does not work — Chromium claims a two-finger gesture as a pan
+     and cancels the pointer events, so the zoom never arrives. */
+  touch-action: none;
 }
 @media (max-width: 720px) {
   /* Less page chrome above the document, and room for the bottom tab bar. */
@@ -99,17 +110,16 @@
 }
 .pdf-reader.is-focus .pdf-reader-chrome {
   border: 0; border-radius: 0; background: transparent;
-  /* The pen rail floats out of it (editor-workspace.css, `.ink-palette`):
+  /* The pen palette floats out of it (editor-workspace.css, `.ink-palette`):
      nothing here may clip it, and the empty chrome takes no room. */
   overflow: visible; position: static;
 }
-.pdf-reader.is-focus .pdf-reader-chrome > :not(.pdf-pen-rail),
+.pdf-reader.is-focus .pdf-reader-chrome > :not(.ink-bar),
 .pdf-reader.is-focus .pdf-reader-side,
 .pdf-reader.is-focus .pdf-reader-tool-hint,
 .pdf-reader.is-focus .pdf-reader-banner {
   display: none;
 }
-.pdf-reader.is-focus .pdf-pen-rail { border-top: 0; }
 .pdf-reader.is-focus .pdf-reader-body { flex: 1; grid-template-columns: minmax(0, 1fr); }
 .pdf-reader.is-focus .pdf-reader-scroll-wrap { flex: 1; }
 .pdf-reader.is-focus .pdf-reader-scroll {
@@ -140,8 +150,7 @@
   position: relative;
   background: #fff;
   box-shadow: 0 1px 6px rgba(0,0,0,0.18);
-  min-height: 320px; /* keep IntersectionObserver from painting every page at once before layout */
-  /* The scroller is a column flex container with a bounded height, so pages
+  min-height: 320px; /* keep IntersectionObserver from painting every page at once before layout */  /* The scroller is a column flex container with a bounded height, so pages
      inherited flex-shrink: 1. Once zoomed, their combined height exceeded that
      bound and every page box was compressed while its canvas kept the pixel
      height set at render time — so pages overlapped and the foot of each was
@@ -149,16 +158,30 @@
      container scroll. */
   flex: none;
 }
+/* Never narrower than its own contents: with `min-width: 0` a nowrap strip
+   squeezed the box below its input and steppers, which then spilled out over
+   the next group instead of the strip scrolling. */
 .pdf-reader-search {
-  display: inline-flex; gap: 4px; align-items: center; flex: 1 1 12rem; min-width: 0;
+  display: inline-flex; gap: 2px; align-items: center; flex: 1 1 12rem; min-width: min-content;
+  max-width: 22rem;
   padding: 2px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--surface-alt);
 }
 .pdf-reader-search input {
   flex: 1; min-width: 6rem; padding: 4px 8px;
 }
-.pdf-reader-search .btn-secondary { white-space: nowrap; }
-.pdf-reader-search-count { font-size: 0.8rem; min-width: 3rem; }
+.pdf-reader-search input[type="search"] { border: none; background: transparent; box-shadow: none; }
+.pdf-reader-search-count {
+  font-family: var(--font-mono); font-size: 0.72rem; padding: 0 4px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.pdf-reader-search-step {
+  display: inline-grid; place-items: center; flex: none;
+  width: 26px; height: 26px; padding: 0;
+  color: var(--muted); background: none; border: none; border-radius: 6px; cursor: pointer;
+}
+.pdf-reader-search-step:hover:not(:disabled) { color: var(--text); background: var(--surface2); }
+.pdf-reader-search-step:disabled { opacity: 0.4; cursor: default; }
 /* One column that never grows with its content. A grid's auto track has a
  * min-content floor, so the pen's page-plus-margin row (`max-content`) would
  * widen the scroller, the fit-to-width measure would read the wider box, the
@@ -174,6 +197,11 @@
   .pdf-reader-body--outline { grid-template-columns: minmax(0, 1fr); }
   .pdf-reader-side { order: 2; }
   .pdf-reader-outline, .pdf-reader-sidebar { max-height: 40dvh; }
+  /* Stacked under the page, the list waits behind its toolbar toggle. */
+  .pdf-reader-side:not(.is-list-open) .pdf-reader-sidebar { display: none; }
+}
+@media (min-width: 861px) {
+  .pdf-reader-narrow-only { display: none; }
 }
 .pdf-reader-outline {
   /* `vh` then `dvh`, the fallback pair base.css uses on `body` — a cap inside a
@@ -186,9 +214,6 @@
 .pdf-reader-outline ul { list-style: none; margin: 0; padding-left: 0.75rem; }
 .pdf-reader-outline > ul { padding-left: 0; }
 .pdf-reader-outline-empty { font-size: 0.85rem; padding: 8px; }
-.pdf-reader-scroll--spread {
-  flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start;
-}
 .pdf-reader-textlayer {
   position: absolute; inset: 0; overflow: clip; line-height: 1;
   text-align: initial;
@@ -309,20 +334,19 @@ body > canvas.hiddenCanvasElement { display: none; }
   outline-offset: 2px;
   opacity: 0.6;
 }
-.pdf-reader-ann-marquee {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  stroke-dasharray: 5 4;
-  pointer-events: none;
-}
 .pdf-reader-ann.is-underline { opacity: 1; }
 .pdf-reader--dark .pdf-reader-textlayer {
   opacity: 0.45; mix-blend-mode: difference;
 }
+/* The ink layer. The strokes are drawn by the ink note's renderer
+   (`features/ink/ui/ink-strokes`) — same spline, same caps, same nibs — so
+   nothing here restates how a *pen* stroke looks; only where the layer sits,
+   and the one thing a PDF page changes: what a highlighter is. */
 .pdf-reader-ann-svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
-/* A pen sits on top of the page; a highlighter sits under the words. Multiply
-   is what makes a broad stroke tint the text instead of painting it out. */
+/* A pen sits on top of the page; a highlighter tints what is under it. Multiply
+   is what makes a broad stroke read as a marker over a page image rather than a
+   printed block covering the words, and it is the reader's own rule: the note's
+   sheet is the app's paper, a PDF page is somebody else's. */
 .pdf-reader-ink--highlighter {
   mix-blend-mode: multiply;
   opacity: 0.45;
@@ -351,24 +375,34 @@ body > canvas.hiddenCanvasElement { display: none; }
   background: var(--surface); color: inherit;
 }
 .pdf-reader-sidebar-pin { display: grid; gap: 2px; font-size: 0.85rem; }
-.pdf-reader-page--draw { touch-action: none; cursor: crosshair; }
-/* The row is the drawing surface (see `.pdf-reader-page-row`), so the tool's
-   touch-action and cursor belong on it: the strip inherits neither from the
-   page box beside it, and a finger landing there would otherwise scroll the
-   document instead of drawing. */
-.pdf-reader-page-row:has(.pdf-reader-page--draw) { touch-action: none; cursor: crosshair; }
-.pdf-reader-page--draw .pdf-reader-textlayer { pointer-events: none; }
-/* Once a stylus is in use, touch is not drawing (palm rejection), so give
-   finger scrolling back instead of freezing the document under a drawing tool. */
-.pdf-reader-page--draw.pdf-reader-page--pen { touch-action: pan-x pan-y; }
-.pdf-reader-page-row:has(.pdf-reader-page--draw.pdf-reader-page--pen) { touch-action: pan-x pan-y; }
-.pdf-reader-page--erase { cursor: cell; }
-.pdf-reader-page-row:has(.pdf-reader-page--erase) { cursor: cell; }
+/* The tool's own pointer is set inline on the row from the one table both
+   surfaces read (`INK_TOOL_CURSORS`, features/ink): a data-URL cursor cannot
+   live in a class list. What belongs here is the touch behaviour, and the rule
+   that the ink layer is not a target while a tool that draws is in hand.
+
+   Touch belongs to `use-reader-gestures` everywhere — the scroller's rule, and
+   the row's too: the strip beside the page and the strip between two pages are
+   the same surface as the page under a finger. */
+.pdf-reader-page-row { touch-action: none; }
+/* A tool that owns the page takes the page's *words* away from the browser: a
+   drag across a sentence is a stroke, a loop or a region — never a selection.
+   The layer is a child of the page's row, not of the page box (pdf.js's render
+   appends it to the host it finds by `data-page`, and that host is the row), so
+   the row is what has to be asked; the page box's own descendant selector this
+   used to be never matched anything. */
+.pdf-reader-page-row:has(.pdf-reader-page--draw) .pdf-reader-textlayer { pointer-events: none; }
 /* While erasing, a click must reach the page, not the ink it is rubbing out. */
 .pdf-reader-page--erase .pdf-reader-ann-layer * { pointer-events: none; }
 .pdf-reader--dark .pdf-reader-page canvas {
   filter: var(--pdf-dark-filter, invert(1) hue-rotate(180deg));
 }
+/* …and the box under the canvas takes what that filter makes of the page.
+   The canvas is the white page inverted, so it reads black; while pdf.js is
+   repainting — which is every zoom, and every page that scrolls into view — the
+   canvas is cleared, and a white box behind it flashed the page white for a
+   frame. Painting the box the *filtered* colour is what stops the flash; the
+   app's own dark surface would be just as wrong here as the white one. */
+.pdf-reader--dark .pdf-reader-page { background: #000; }
 .pdf-reader--dark .pdf-reader-ann { mix-blend-mode: screen; }
 /* Minimal: a footnote-sized card — title, one metadata line, one row of quiet
    text actions. Same surface as `.popover-panel`; every colour is a theme
@@ -522,10 +556,19 @@ body > canvas.hiddenCanvasElement { display: none; }
 .metric-chip,
 .proj-chip { border-radius: var(--radius-pill); }
 
-/* The pen rail: the ink note's controls (`.ink-tool`, `.ink-swatch`) on the
-   reader's second strip, so a hand that knows one surface knows the other. */
-.pdf-pen-rail { gap: 6px; }
-.pdf-pen-rail .ink-swatches { gap: 5px; padding: 0 2px; }
+/* The pen palette, docked: the ink note's own bar on the reader's second
+   strip, so a hand that knows one surface knows the other. It is the same
+   `.ink-bar` element, only here it is a row inside the reader's panel rather
+   than the panel's first line — one control surface, one hairline. */
+.pdf-reader-chrome .ink-bar {
+  border-bottom: 0;
+  border-top: 1px solid var(--line);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+/* In focus it floats (editor-workspace.css): the strip's own frame goes. */
+.pdf-reader.is-focus .ink-bar { border-top: 0; }
 
 /* The writing margin (§pen-margin): a page-wide strip to the right of each
    page while the pen is out. It is a sibling of the page box inside the page's

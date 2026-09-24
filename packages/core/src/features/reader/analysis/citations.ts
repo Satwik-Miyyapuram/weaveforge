@@ -5,7 +5,7 @@
  * mention when its authors/year or bracket numbers name entries in the list.
  */
 import type { CitationMention, PageTextRange, ParsedReference } from "./analysis-types.js";
-import { mentionRects, originalRange, searchTextFromItems, stripInvisible, surnameKey, type PdfItem } from "./citation-text.js";
+import { composeSpacingAccents, mentionRects, originalRange, searchTextFromItems, stripInvisible, surnameKey, type PdfItem } from "./citation-text.js";
 
 export type CitationStyle = "numeric" | "author-year" | "both";
 export type EngineMode = "legacy" | "fixed";
@@ -52,7 +52,7 @@ function referenceIndexes(authors: string, year: string, refs: readonly ParsedRe
 }
 
 export function matchAuthorYearText(text: string, refs: readonly ParsedReference[]): number[] {
-  const normalized = stripInvisible(text.normalize("NFKC")).replace(/\s+/g, " ");
+  const normalized = stripInvisible(composeSpacingAccents(text).normalize("NFKC")).replace(/\s+/g, " ");
   return [...new Set([...normalized.matchAll(new RegExp(AUTHOR_YEAR, "gu"))]
     .flatMap((match) => referenceIndexes(match[1]!, match[2]!, refs)))];
 }

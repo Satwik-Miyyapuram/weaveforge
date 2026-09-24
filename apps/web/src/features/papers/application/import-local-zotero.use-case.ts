@@ -50,6 +50,21 @@ export class ImportLocalZoteroUseCase {
        * for it. A test supplies a fake and never touches Electron.
        */
       bridge: () => Promise<DesktopBridge | null>;
+      /**
+       * The Zotero collection this project syncs to, or `undefined` for the
+       * whole library.
+       *
+       * The same per-project setting the cloud sync reads — `projects.zotero_collection`,
+       * chosen in Settings — so "read Zotero on this computer" imports the
+       * collection the reader is actually working on rather than all 4,000
+       * items of their library. Absent means the whole library, which is what a
+       * reader who has never picked a collection gets, and is also what the
+       * cloud path does.
+       *
+       * A function rather than a value because the project can change between
+       * mounts, and the import must read the setting as it stands when it runs.
+       */
+      collection?: () => Promise<string | undefined>;
     },
   ) {}
 
@@ -66,21 +81,29 @@ export class ImportLocalZoteroUseCase {
       "@/features/papers/infrastructure/zotero-local"
     );
 
-    const papers = await localZoteroLibrary(bridge, {
-      listPapers: () => this.deps.papers.list(),
-      addPaper: (input) => this.deps.addPaper.addManual(input),
-      onItemTags: async (paper, remote) => {
-        const names = (remote.tags ?? []).map((t) => t.tag ?? "").filter(Boolean);
-        if (names.length === 0) return;
-        await this.deps.manageTags.reconcileSources(
-          paper.id,
-          names.map((name) => ({ name, source: "zotero_item" as const })),
-          ["zotero_item"],
-        );
-      },
-    }).pull();
+    const collection = this.deps.collection;
 
-    const byPaper = await localZoteroAnnotations(bridge).pullAll();
+    const papers = await localZoteroLibrary(
+      bridge,
+      {
+        listPapers: () => this.deps.papers.list(),
+        addPaper: (input) => this.deps.addPaper.addManual(input),
+        onItemTags: async (paper, remote) => {
+          const names = (remote.tags ?? []).map((t) => t.tag ?? "").filter(Boolean);
+          if (names.length === 0) return;
+          await this.deps.manageTags.reconcileSources(
+            paper.id,
+            names.map((name) => ({ name, source: "zotero_item" as const })),
+            ["zotero_item"],
+          );
+        },
+      },
+      collection,
+    ).pull();
+
+    // Scoped to the same collection as the papers, or the annotations would
+    // arrive for papers the import deliberately did not take.
+    const byPaper = await localZoteroAnnotations(bridge, collection).pullAll();
     const annotations = await applyBibliographyAnnotations(
       byPaper,
       this.deps.papers,

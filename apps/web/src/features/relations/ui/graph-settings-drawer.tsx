@@ -81,14 +81,39 @@ export function GraphSettingsDrawer({
 }) {
   if (!open) return null;
 
+  /**
+   * One panel, two positions, and the backdrop deliberately outside it.
+   *
+   * **On a wide screen this is a drawer**: the panel is fixed to the right edge
+   * and the backdrop dims the graph behind it, because the graph is the thing
+   * being adjusted and an overlay costs no layout height.
+   *
+   * **On a phone it is a section under the graph**, with no backdrop and no
+   * close button. A 320px panel fixed over a 420px window left a sliver of graph
+   * beside it and nothing to see underneath — the panel and the thing it
+   * controls were never on screen together, which is the one thing a settings
+   * panel has to get right.
+   *
+   * Rendered **once**, not once per layout. An earlier attempt rendered a copy
+   * in each place and let CSS hide one; that duplicates every `id` in the form
+   * and makes each `htmlFor` ambiguous, which is a real accessibility defect for
+   * the sake of avoiding a positioning rule.
+   *
+   * The backdrop is a sibling of the wrapper rather than inside it so that the
+   * wrapper can be collapsed to `display: contents` — it has to be, for the
+   * panel to take its place in the flow under the graph — without the backdrop
+   * being laid out as part of that flow at the top of the screen. It is hidden
+   * outright below the breakpoint, where there is no overlay to dismiss.
+   */
   return (
     <>
       <button type="button" className="graph-drawer-backdrop" aria-label="Close settings" onClick={onClose} />
-      <aside className="graph-settings-drawer card" aria-label="Graph settings">
-        <div className="graph-drawer-head">
-          <strong>Graph settings</strong>
-          <button type="button" className="link-btn" onClick={onClose}>✕</button>
-        </div>
+      <div className="graph-settings-shell">
+        <aside className="graph-settings-drawer card" aria-label="Graph settings">
+          <div className="graph-drawer-head">
+            <strong>Graph settings</strong>
+            <button type="button" className="link-btn graph-drawer-close" onClick={onClose}>✕</button>
+          </div>
 
         <Section title="Filters" defaultOpen>
           <input
@@ -348,7 +373,8 @@ export function GraphSettingsDrawer({
             Export visible papers
           </button>
         </Section>
-      </aside>
+        </aside>
+      </div>
     </>
   );
 }

@@ -13,6 +13,7 @@ import { isInkNoteBody, normalizeTitleKey } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { isHydratedPage, noteBodyText } from "@/lib/page-text";
+import { logPath } from "@weaveforge/core";
 import { memberRank } from "../ui/kind";
 import {
   buildListsTree,
@@ -69,16 +70,22 @@ export interface WorkspaceData {
  */
 export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Promise<WorkspaceData> {
   const container = getContainer();
-  const [vault, papers, report, lists] = await Promise.all([
+  const [vault, papers, report, lists, log] = await Promise.all([
     container.vault.loadScreenData(),
     container.papers.loadScreenData().catch(() => null),
     container.report.loadScreenData().catch(() => null),
     container.readingLists.loadScreenData().catch(() => null),
+    // A log entry is markdown and is edited like one, so it is loaded like the
+    // other text kinds. Its own screen's read, reused rather than a second query
+    // — and caught, because a logbook that will not load must not take Notes,
+    // Papers and the Report down with it.
+    container.logbook.loadEntries().catch(() => null),
   ]);
 
   const paperRows = papers?.papers ?? [];
   const sectionRows = report?.flat ?? [];
   const listRows = lists?.lists ?? [];
+  const logRows = log ?? [];
   // A reload rebuilds the set from summaries; a note already hydrated keeps
   // its full body as long as the summary still describes it — the preview
   // is the body's head, so a body that changed underneath shows as a
@@ -135,6 +142,17 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
       hydrated: true,
       path: `report/${section.title || "Untitled"}.report.md`,
     })),
+    // A log entry, as a document. Its body is markdown and always whole — the
+    // repository reads the row out in one piece — so hydrated is true and no
+    // pane has to wait for a second fetch before it may save.
+    ...logRows.map((entry) => ({
+      kind: "log_entry",
+      id: entry.id,
+      title: entry.entryDate,
+      body: entry.body,
+      hydrated: true,
+      path: logPath(entry.id, entry.entryDate),
+    })),
   ];
 
   // The `@` and `[[` rows, in the shape `/notes` builds them: a paper's row
@@ -175,6 +193,10 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
         id: section.id,
         title: section.title,
         parentId: section.parentId ?? undefined,
+      })),
+      logEntries: logRows.map((entry) => ({
+        id: entry.id,
+        entryDate: entry.entryDate,
       })),
   });
 

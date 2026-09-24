@@ -11,13 +11,14 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
+import { PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddSectionForm, type ReportParentOption } from "./add-section-form";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { EntityCard } from "@/components/entity-card";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -517,16 +518,16 @@ function SectionCard({
         )
       }
       meta={meta}
-      onDelete={readOnly || !onRemove ? undefined : onRemove}
-      deleteDisabled={busy}
-      deleteAriaLabel="Delete section"
-      actions={
-        !readOnly ? (
-          <ShareButton resourceType="report_section" resourceId={s.id} title={`Share: ${s.title}`} />
-        ) : undefined
+      menu={
+        <EntityCardMenu
+          resourceType="report_section"
+          resourceId={s.id}
+          title={`Share: ${s.title}`}
+          onDelete={readOnly || !onRemove ? undefined : onRemove}
+          deleteLabel="Delete section"
+          deleteDisabled={busy}
+        />
       }
-      onOpen={onOpen ? () => onOpen(s.id) : undefined}
-      openLabel={hasNotes ? "Open section" : "Write section"}
     >
       {hasNotes ? (
         <div className="section-note-md-preview">

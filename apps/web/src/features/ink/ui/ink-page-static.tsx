@@ -12,10 +12,9 @@
 
 import { useMemo } from "react";
 import type { FigureGeometry, InkStroke } from "@weaveforge/core";
-import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { INK_RENDER_COLOURS, paletteCss, type InkPalette } from "../render/ink-palette";
-import { strokePath } from "../application/ink-svg";
 import { InkFigures } from "./ink-figures";
+import { InkStrokes, type InkRenderStroke } from "./ink-strokes";
 import { InkSheetTextUnderlay, inkSheetRuleStyle } from "./ink-sheet-underlay";
 
 export interface InkPageStaticProps {
@@ -66,14 +65,20 @@ export function InkPageStatic({
   const width = Math.max(1, Math.round(pageSize.width * scale));
   const height = Math.max(1, Math.round(pageSize.height * scale));
 
-  const pens = useMemo(
-    () => strokes?.filter((s) => s.tool !== "highlighter") ?? [],
-    [strokes],
-  );
-
-  const highlighters = useMemo(
-    () => strokes?.filter((s) => s.tool === "highlighter") ?? [],
-    [strokes],
+  /**
+   * The page's strokes as the one renderer takes them: the colour *name*
+   * resolved through the live palette, and the tool carried as the flag the
+   * renderer draws with — a highlighter is wide and translucent, a pen is not.
+   */
+  const drawn = useMemo<InkRenderStroke[]>(
+    () =>
+      (strokes ?? []).map((stroke) => ({
+        points: stroke.points,
+        width: stroke.width,
+        colour: paletteCss(palette, stroke.colour),
+        highlighter: stroke.tool === "highlighter",
+      })),
+    [strokes, palette],
   );
 
   return (
@@ -106,7 +111,7 @@ export function InkPageStatic({
           />
         ) : null}
         {strokes && strokes.length > 0 ? (
-          <svg
+          <InkStrokes
             className="ink-strokes-static"
             viewBox={`0 0 ${pageSize.width} ${pageSize.height}`}
             style={{
@@ -118,41 +123,8 @@ export function InkPageStatic({
               pointerEvents: "none",
               zIndex: 1,
             }}
-          >
-            {pens.map((stroke, i) => {
-              const d = strokePath(stroke);
-              if (!d) return null;
-              const col = paletteCss(palette, stroke.colour);
-              return (
-                <path
-                  key={`p-${i}`}
-                  d={d}
-                  stroke={col}
-                  strokeWidth={stroke.width}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              );
-            })}
-            {highlighters.map((stroke, i) => {
-              const d = strokePath(stroke);
-              if (!d) return null;
-              const col = paletteCss(palette, stroke.colour);
-              return (
-                <path
-                  key={`h-${i}`}
-                  d={d}
-                  stroke={col}
-                  strokeWidth={stroke.width}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeOpacity={HIGHLIGHTER_ALPHA}
-                  fill="none"
-                />
-              );
-            })}
-          </svg>
+            strokes={drawn}
+          />
         ) : null}
         <span className="ink-ghost-label">{index + 1}</span>
       </div>

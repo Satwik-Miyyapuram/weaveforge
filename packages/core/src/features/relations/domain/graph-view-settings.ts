@@ -18,6 +18,26 @@ export type GroupBy = "none" | "status" | "list";
  */
 export type LayoutMode = "force" | "timeline";
 
+/**
+ * A run, as the graph needs it.
+ *
+ * Here rather than in the graph feature because the container's facade returns
+ * it, and a facade in `container/` importing from `features/relations/` would be
+ * the dependency pointing the wrong way — core is the layer both can reach.
+ *
+ * Narrower than `Experiment` on purpose: the graph draws a run's name, its
+ * status and the paper it tests, and nothing else. Handing it whole entities
+ * would put metric payloads and config blobs into a node array that
+ * react-force-graph clones on every layout pass.
+ */
+export interface GraphExperimentEntry {
+  id: string;
+  name: string;
+  status: string;
+  /** The paper this run tests — the edge that puts a run on the graph at all. */
+  relatedPaper?: string;
+}
+
 export interface GraphViewSettings {
   edgeMode: EdgeMode;
   colorBy: ColorBy;

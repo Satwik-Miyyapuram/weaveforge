@@ -1,3 +1,4 @@
+import { titleFromFileName } from "@weaveforge/core";
 import type { IMetadataSource, PaperMetadata, PaperRef } from "@weaveforge/core";
 import { isChildItem, zoteroHeaders, zoteroLibraryUrl, type ZoteroItemData } from "./zotero-web-api";
 
@@ -85,7 +86,7 @@ function toMetadata(d: ZoteroItemData): PaperMetadata {
   const year = d.date ? Number(/\d{4}/.exec(d.date)?.[0]) || undefined : undefined;
   const arxivId = /arXiv:\s*([\w.\/-]+)/i.exec(d.extra ?? "")?.[1];
   return {
-    title: d.title ?? "Untitled (Zotero)",
+    title: d.title ? titleFromFileName(d.title) : "Untitled (Zotero)",
     authors,
     venue: d.publicationTitle,
     year,

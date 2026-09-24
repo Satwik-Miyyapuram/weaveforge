@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { AppContainer } from "@/bootstrap";
 import type { SearchHit } from "@weaveforge/core";
-import { useSearchIndex } from "@/lib/hooks/use-search-index";
+import { useHybridSearchIndex, useSearchIndex } from "@/lib/hooks/use-search-index";
 import { renderHook } from "./react-harness.js";
 
 /**
@@ -110,6 +110,94 @@ test("a search that throws costs the ranking, not the caller", async () => {
     await harness.flush();
 
     assert.deepEqual(harness.current("boiling"), []);
+    await harness.unmount();
+  });
+});
+
+/**
+ * The hybrid arm, and why it has to be reachable at all.
+ *
+ * `enableSemanticSearch` downloads the encoder, embeds the whole corpus and calls
+ * `container.search.setSemanticIndex(...)`. The only surface that consulted it was
+ * `WorkspaceSearch.searchHybrid` — whose only callers were its own tests. Every
+ * screen searched through `useSearchIndex`, which called the keyword-only
+ * `search`, so the feature could complete successfully and change not one result:
+ * four thousand embeddings stored, and every query still answered by keyword.
+ *
+ * These pin the two halves of the fix: the hybrid call happens, and it degrades to
+ * the keyword ranking rather than to nothing when the encoder is absent or throws.
+ */
+test("the hybrid hook asks the semantic-aware search", async () => {
+  const hybridCalls: string[] = [];
+  const container = {
+    search: {
+      ensure: async () => undefined,
+      search: () => [HIT],
+      searchHybrid: async (query: string) => {
+        hybridCalls.push(query);
+        return [HIT];
+      },
+    },
+  } as unknown as AppContainer;
+
+  await withImmediateIdle(async () => {
+    const harness = await renderHook(
+      () => useHybridSearchIndex(true, { container: () => container }),
+      undefined,
+    );
+    await harness.flush();
+
+    const hits = await harness.current.searchHybrid("boiling");
+    assert.deepEqual(hits, [HIT]);
+    assert.deepEqual(hybridCalls, ["boiling"], "the semantic-aware call is the one made");
+    await harness.unmount();
+  });
+});
+
+test("a hybrid search that throws falls back to the keyword ranking", async () => {
+  // The encoder failing is not a reason to return nothing.
+  const container = {
+    search: {
+      ensure: async () => undefined,
+      search: () => [HIT],
+      searchHybrid: async () => {
+        throw new Error("the encoder went away");
+      },
+    },
+  } as unknown as AppContainer;
+
+  await withImmediateIdle(async () => {
+    const harness = await renderHook(
+      () => useHybridSearchIndex(true, { container: () => container }),
+      undefined,
+    );
+    await harness.flush();
+
+    assert.deepEqual(await harness.current.searchHybrid("boiling"), [HIT]);
+    await harness.unmount();
+  });
+});
+
+test("the hybrid hook still exposes the synchronous keyword function", async () => {
+  // The palette re-ranks on every keystroke and cannot await a forward pass per
+  // character, so the synchronous arm has to remain available beside it.
+  const container = {
+    search: {
+      ensure: async () => undefined,
+      search: () => [HIT],
+      searchHybrid: async () => [HIT],
+    },
+  } as unknown as AppContainer;
+
+  await withImmediateIdle(async () => {
+    const harness = await renderHook(
+      () => useHybridSearchIndex(true, { container: () => container }),
+      undefined,
+    );
+    await harness.flush();
+
+    assert.deepEqual(harness.current.search("boiling"), [HIT], "synchronous, for typing");
+    assert.equal(harness.current.ready, true);
     await harness.unmount();
   });
 });

@@ -264,6 +264,12 @@
 .dashboard-list-row:hover { color: var(--accent-ink, var(--accent)); }
 .dashboard-list-arrow { color: var(--muted); flex: none; }
 .dashboard-list-more { font-size: 0.82rem; padding: 2px 0; }
+.dashboard-list-more-btn {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer;
+}
+.dashboard-list-more-btn:hover { text-decoration: underline; }
+/* Every item shown: the list scrolls inside the card, which keeps its size. */
+.dashboard-list--all { max-height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .dashboard-log-row { flex-direction: column; align-items: flex-start; gap: 2px; }
 .dashboard-log-row > span:first-child { flex: none; white-space: nowrap; }
 .dashboard-log-date { color: var(--muted); font-size: 0.78rem; }

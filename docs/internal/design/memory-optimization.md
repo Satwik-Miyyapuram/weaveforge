@@ -40,6 +40,7 @@ app.commandLine.appendSwitch("js-flags", "--max-old-space-size=256 --optimize-fo
 ```
 - `--max-old-space-size=256`: Restricts maximum heap size, preventing unbounded V8 memory inflation.
 - `--optimize-for-size`: Instructs V8's Crankshaft/Turbofan JIT compilers to optimize for smaller code cache memory footprint rather than hyper-aggressive inlining.
+  - **Removed (2026-09-24).** Measured in the shell, it left the encoder worker's WebAssembly at ~2 s per passage; without it, and with `enable-features=SharedArrayBuffer` so ONNX runs 4 threads, a 1,039-passage corpus embeds with arctic-embed-m in ~6 minutes instead of not finishing within 30. The shipped cap is 512 MB (see `main.ts`).
 
 ### 2.2 Disable Unused Chromium Background Features
 Electron includes numerous Chromium browser-specific subsystems that WeaveForge does not use:

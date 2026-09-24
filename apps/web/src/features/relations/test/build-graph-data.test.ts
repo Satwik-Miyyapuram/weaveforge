@@ -209,3 +209,101 @@ describe("timeline layout inputs", () => {
     assert.equal(data.nodes.find((n) => n.id === "p1")?.year, undefined);
   });
 });
+
+/**
+ * Experiments on the citation graph.
+ *
+ * A run is drawn hanging off the paper it tests, which is the only link the
+ * entity carries. The interesting cases are the two ways that link can be
+ * missing, because both produce a node nothing connects to — and an edge to
+ * nowhere is what the final link filter would silently drop while leaving the
+ * node behind.
+ */
+describe("experiment nodes", () => {
+  const run = (id: string, name: string, relatedPaper?: string) => ({
+    id,
+    name,
+    status: "planned",
+    ...(relatedPaper ? { relatedPaper } : {}),
+  });
+
+  it("draws a run attached to the paper it tests", () => {
+    const { data } = buildGraphData(
+      [paper("p1", "One")],
+      [],
+      { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
+      new Map(),
+      [],
+      [],
+      [],
+      [run("e1", "Ablation", "p1")],
+    );
+
+    const node = data.nodes.find((n) => n.id === "e1");
+    assert.equal(node?.kind, "experiment");
+    assert.equal(node?.label, "Ablation");
+    assert.equal(node?.experimentId, "e1");
+    const link = data.links.find((l) => l.kind === "experiment");
+    assert.equal(link?.source, "p1");
+    assert.equal(link?.target, "e1");
+  });
+
+  it("leaves a run with no paper off the graph, rather than as a floating node", () => {
+    const { data } = buildGraphData(
+      [paper("p1", "One")],
+      [],
+      { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
+      new Map(),
+      [],
+      [],
+      [],
+      [run("e1", "Unlinked")],
+    );
+    assert.equal(data.nodes.some((n) => n.id === "e1"), false);
+  });
+
+  it("leaves a run whose paper is not in the graph off it too", () => {
+    // The paper exists in the project but is not among the papers handed to the
+    // builder — filtered out by a tag or list selection upstream. Keeping the
+    // node would leave one edge the link filter then drops, so the canvas would
+    // show a run connected to nothing.
+    const { data } = buildGraphData(
+      [paper("p1", "One")],
+      [],
+      { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
+      new Map(),
+      [],
+      [],
+      [],
+      [run("e1", "Orphaned run", "p-missing")],
+    );
+    assert.equal(data.nodes.some((n) => n.id === "e1"), false);
+    assert.equal(data.links.some((l) => l.kind === "experiment"), false);
+  });
+
+  it("makes the run a neighbour of its paper, so hovering one lights the other", () => {
+    // `neighbors` is built from the links and is what the canvas reads to dim
+    // everything not connected to the hovered node. A run whose edge existed but
+    // whose adjacency did not would hover as an isolated dot beside the paper it
+    // belongs to.
+    //
+    // This replaced a test asserting the paper's *node* grows when a run is
+    // attached. That was wrong about the code: a paper's `val` is computed where
+    // the paper node is created, which is before this loop runs, so the degree
+    // the loop used to bump on the paper changed nothing the canvas reads. The
+    // bump was removed and the claim replaced with one the data model actually
+    // makes.
+    const { neighbors } = buildGraphData(
+      [paper("p1", "One")],
+      [],
+      { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
+      new Map(),
+      [],
+      [],
+      [],
+      [run("e1", "Ablation", "p1")],
+    );
+    assert.equal(neighbors.get("p1")?.has("e1"), true);
+    assert.equal(neighbors.get("e1")?.has("p1"), true);
+  });
+});

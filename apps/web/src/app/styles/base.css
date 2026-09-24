@@ -25,10 +25,13 @@
   /* App shell max width — everything else (grids, dashboards) is centered and
      capped here so wide/ultrawide screens don't sprawl edge-to-edge. */
   --app-max: 1200px;
-  /* IBM Plex — self-hosted via next/font in layout.tsx. */
-  --font: var(--font-sans, var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
-  --font-serif: var(--font-plex-serif), Georgia, "Times New Roman", serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Rubik / JetBrains Mono — self-hosted via next/font (app/fonts.ts). */
+  --font: var(--font-sans, var(--font-face-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
+  /* The "serif" slot is the display face: titles and headings. It is the same
+     plain sans now, so a heading differs from its text by weight and size,
+     not by a change of letterform. */
+  --font-serif: var(--font-face-sans), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-mono: var(--font-face-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   /* Transition durations, so a press reads as a press everywhere. The audit
      asked for `--dur-fast: 60ms`; 60ms was below the threshold at which a
@@ -141,7 +144,16 @@ html, body { margin: 0; padding: 0; }
    floats over the viewport instead (`WindowScrollbar`), so switching tabs
    (short → tall content) never shifts the layout sideways and nothing sits
    there while the page fits. */
-html { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+html {
+  overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
+  /* The same surface as `body`. `body` carries it and is only as tall as its
+     content, so anything that unpaints — a dropped frame, a window mid-resize,
+     a compositor hiccup while the sidebar animates its width — used to show the
+     window's own default behind it: pure black in the dark theme, which is
+     indistinguishable from a hung app. With the colour on the root as well, a
+     missed paint shows the theme instead of a blackout. */
+  background: var(--bg);
+}
 html::-webkit-scrollbar { display: none; }
 body {
   /* Fill the viewport even when a screen is short.
@@ -165,38 +177,72 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Theme-coherent scrollbars (Firefox + WebKit). Sub-nav hides its own below.
-   `html` is deliberately not listed: naming it here set `scrollbar-width: thin`
-   after the `none` above at equal specificity, and the native page scrollbar
-   came back beside the overlay one on every screen. */
-body,
-* {
+/* Scrollbars are an overlay that reveals itself, everywhere.
+ *
+ * Transparent until the pointer is over the container, then the thumb appears as
+ * a floating pill. This is the default for every scroll container in the app, so
+ * no screen has to remember to ask for it.
+ *
+ * **The three rules below are one mechanism and are useless apart**, which is
+ * what went wrong the first time this was written. An earlier version had only
+ * the `:hover` rules at the foot of this file, on the theory that revealing a
+ * thumb was the whole of it. It was not: with no `*::-webkit-scrollbar` sizing
+ * and no transparent track, Chromium painted its ordinary bar at its ordinary
+ * width and merely recoloured the thumb on hover — a 17px grey slab that changed
+ * shade, not a hover scrollbar. Measured in the editor: `div.explorer-body` and
+ * every pane body reported a 17px native bar and no overlay.
+ *
+ * Why `::-webkit-scrollbar` rather than the `OverlayScrollbar` component: that
+ * component draws its own thumb and is genuinely an overlay, but it has to be
+ * attached to each container by hand, and it is on four of them. The stylesheet
+ * covers all of them at once, which is what "everywhere" means. The two coexist
+ * — the component's containers hide the native bar outright and keep working.
+ */
+
+/* Width, and only for elements that can scroll. A zero-width bar is not painted
+   and takes no space, so this is also what makes the reveal possible: there is
+   no bar until the thumb appears. */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+
+/* Firefox's half: a thin bar that is transparent until hovered, which the
+   `:hover` rules at the foot of this file swap for a visible thumb. Chromium
+   ignores both properties, which is why the `::-webkit-scrollbar` rules above
+   are the ones that matter in the desktop app.
+ *
+ * **Not applied to a container that has the overlay component.** Chromium does
+ * implement `scrollbar-width`, and it wins: with it set the engine takes its own
+ * standard-scrollbar path and ignores `::-webkit-scrollbar`, so the component's
+ * container would get an 11px reserved gutter beside a component that reserves
+ * nothing. Measured: this rule turned the component's containers from 0px of
+ * gutter into 11px, which is a layout change on the window's own scrollbar —
+ * the one the reader said was already correct. Excluding them keeps the width at
+ * the 10px the webkit rule asks for.
+ *
+ * `html` is excluded for the same reason it always was: it carries the window's
+ * own overlay. */
+/* Wrapped in `:where()` so it weighs nothing: as a bare `*:not():not()` it
+ * scored (0,2,0) and beat every single-class `scrollbar-width: none` — the
+ * sidebar rail's among them, whose hidden bar came back as a thumb beside the
+ * icons. A default must lose to any container that says otherwise. */
+:where(body, *:not(.overlay-scrollbar-track):not(html)) {
   scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-}*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  scrollbar-color: transparent transparent;
 }
-*::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-  border-radius: 999px;
-}
+
+/* Nothing painted at rest. `border: 3px solid transparent` with `padding-box`
+   clipping is what insets the thumb, so it floats inside the 10px gutter rather
+   than filling it — the same look the component's thumb has. */
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner { background: transparent; border: 0; }
 *::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
+  background: transparent;
+  border: 3px solid transparent;
   border-radius: 999px;
-  border: 2px solid transparent;
   background-clip: padding-box;
 }
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-}
-*::-webkit-scrollbar-button {
-  display: none;
-  width: 0;
-  height: 0;
-}
-*::-webkit-scrollbar-corner {
-  background: var(--scrollbar-track);
+
+@media (prefers-reduced-motion: no-preference) {
+  *::-webkit-scrollbar-thumb { transition: background-color 0.18s ease; }
 }
 
 /* Visible keyboard focus for all interactive controls (mouse clicks unaffected). */
@@ -313,9 +359,61 @@ body,
 .sub-tab:not(.active):hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
 .sub-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
+/* Touch sizing follows the *pointer*, not the window.
+   The 44px floor for these tabs lives inside the ≤899px layout query in
+   `dashboard.css`, which meant an iPad in landscape (1024px, so `desktop`
+   layout) got 32px-tall tabs while the same iPad in portrait (820px, `mobile`)
+   got 44px — the adaptation inverted itself when the device was rotated. A
+   coarse pointer is the thing that actually needs the bigger target, wherever
+   the layout breakpoint happens to fall. */
+@media (pointer: coarse) {
+  .sub-tab { min-height: 44px; }
+}
+
 /* Respect users who prefer reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   .page-transition { animation: none; }
   .page-transition--dashboard { animation: none; }
   .sub-tab-indicator { transition: none; }
+}
+
+/* The reveal. `:hover` is on the scroll container itself, so a thumb appears for
+   the box the pointer is over and not for the rest of the page.
+ *
+ * `border-color` rather than `background`, because the inset that makes the thumb
+ * a floating pill instead of a gutter-filling slab is the transparent border set
+ * above; painting the background alone would show a 10px bar with square corners
+ * over the padding box.
+ *
+ * The track stays transparent on hover on purpose. Revealing a track as well
+ * gives the container a visible stripe whenever the pointer crosses it, which is
+ * more chrome than the content was paying for at rest. */
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-color: transparent;
+  background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+/* Firefox's reveal. Kept separate from the webkit rules above because the two
+   engines read different properties and neither understands the other's: this
+   one is only ever read by a browser that supports `@supports` for it, so it
+   cannot clobber the Chromium path. */
+@supports (scrollbar-color: red blue) {
+  *:hover { scrollbar-color: var(--scrollbar-thumb) transparent; }
+}
+
+/* Read by assistive technology, not drawn. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

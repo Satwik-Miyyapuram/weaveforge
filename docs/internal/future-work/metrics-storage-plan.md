@@ -53,7 +53,7 @@ at scale. Both need the SSH tunnel from
 
 ## Measured, not estimated
 
-From the live Supabase database, 1,625 rows:
+From the live database (measured before the move to OCI), 1,625 rows:
 
 ```
 actual tuple data   107.5 B     the real payload

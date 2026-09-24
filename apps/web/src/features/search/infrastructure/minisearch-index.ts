@@ -207,6 +207,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         score: result.score,
         page: fields.page,
         terms: result.terms,
+        queryTerms: result.queryTerms,
         excerpt: options.excerpts
           ? buildExcerpt(fields.body ?? "", result.terms, { maxChars: 200 })
           : undefined,

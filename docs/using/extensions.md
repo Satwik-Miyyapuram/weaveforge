@@ -127,7 +127,7 @@ A feature module is a vertical slice:
 features/<name>/
 ├── domain/           # optional web-only types
 ├── application/      # Load*ScreenUseCase, commands
-├── infrastructure/   # Supabase adapters (if not in backend/)
+├── infrastructure/   # PostgREST adapters (if not in backend/)
 ├── ui/               # screens, components
 ├── module.ts         # FeatureModule descriptor
 └── index.ts          # public barrel — only import path for other features
@@ -219,7 +219,7 @@ Gated by `readIntegrationConfig()` so disabled providers never appear.
 | Layer | How |
 |-------|-----|
 | Domain / use-cases | Unit tests with in-memory repos (`packages/core/test/`) |
-| Repository | Shared contract suite — run against in-memory + Supabase |
+| Repository | Shared contract suite — run against in-memory + PostgREST |
 | UI boundaries | `npm run check:solid` + `npm run check:dry` |
 | Integrations | Adapter unit tests + optional live test with env creds |
 | Python sync | `pytest` with fabricated rows (`tests/test_sync_sources.py`) |
@@ -238,7 +238,7 @@ A module is done when contract tests pass on **both** in-memory and real backend
 | Runtime `import()` marketplace | Phase E — deferred |
 | Auto-generated Next.js routes for built-in features | Built-ins keep hand-written `app/*/page.tsx` |
 | Plugin marketplace / sandbox | Explicit non-goal for v1 (`DESIGN.md` §7) |
-| Python SDK backend swap | Supabase-only today |
+| Python SDK backend swap | Not needed: the SDK talks only to the web app's `/api/sdk/*` |
 
 ---
 

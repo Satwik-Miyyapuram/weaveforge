@@ -1,7 +1,11 @@
 # Security Policy
 
-WeaveForge talks directly to your own Supabase project. The web app holds
-Supabase credentials (a public anon key + your session), and the Python SDK uses
+WeaveForge's data lives in Postgres on the project's own server on Oracle
+Cloud (OCI), reached through PostgREST, with files in MinIO on the same server,
+all behind Caddy at `api.weaveforge.org`. Supabase is used for sign-in only: it
+issues the session tokens, and PostgREST checks them against the shared JWT
+secret. The web app holds the sign-in project's public anon key plus your
+session, and the Python SDK uses
 **personal access tokens** that act on your behalf under Row-Level Security.
 Please treat credential handling and access-control (RLS) issues as
 security-sensitive.
@@ -32,7 +36,7 @@ In scope: authentication/session handling, Row-Level Security policies in the
 share-link redemption, API token hashing (`0061`), signed-URL / storage-bucket
 policies, and share-link rate limits (`0049`, `0056`, `0058`).
 
-Out of scope: issues in your own Supabase project configuration, and anything
+Out of scope: issues in your own server or sign-in project configuration, and anything
 requiring a compromised developer machine or leaked credentials that were not
 mishandled by this codebase.
 
@@ -135,10 +139,9 @@ a proposal somebody has to read.
   Settings. Tokens grant the same RLS scope as your user account.
 - Scope experiments to a project and keep buckets private (the migrations set
   them private by default).
-- Hosted Supabase leaked-password protection is available only on plans that
-  support it. The project currently used for development is below that tier;
-  enable the setting after upgrading, or configure equivalent protection when
-  self-hosting Auth.
+- Leaked-password protection is a setting of the sign-in (Supabase Auth)
+  project and is available only on plans that support it. The project in use is
+  below that tier; enable it after upgrading.
 
 ## Self-host operators
 

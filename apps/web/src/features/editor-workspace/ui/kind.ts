@@ -267,7 +267,7 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     creatable: false,
   },
   log_entry: {
-    icon: "pencil",
+    icon: "calendar",
     tint: "neutral",
     suffix: ".log.md",
     document: "text",

@@ -63,6 +63,30 @@ export async function readStoredPdfBytes(url: string): Promise<ArrayBuffer | nul
   return bytes && bytes.byteLength > 0 ? bytes : null;
 }
 
+/**
+ * The bytes behind whatever the resolver returned, from either place they live.
+ *
+ * **This exists because the two halves were split and the indexer only knew one.**
+ * A resolved source is either a `cache://` reference — bytes already on this
+ * device, which the desktop reader reads through `readStoredPdfBytes` — or a
+ * remote URL, which goes through the proxy in `fetchPdfBytesForCache`. The reader
+ * handles both because it is handed the URL and asks itself what it is.
+ *
+ * The library indexer called only `fetchPdfBytesForCache`, so every paper whose
+ * bytes were **already cached** failed: `fetch` on `cache://…` cannot succeed,
+ * and the ranking read
+ *
+ *     13 × "the proxy produced no bytes for cache://<uuid>"
+ *
+ * which reads like a network problem and is the opposite of one — those papers
+ * were the ones already downloaded, and the cheapest to index. One caller knowing
+ * half the answer is the kind of bug that looks like the network being broken.
+ */
+export async function pdfBytesForSource(url: string): Promise<ArrayBuffer | null> {
+  if (isCachePdfUrl(url)) return readStoredPdfBytes(url);
+  return fetchPdfBytesForCache(url);
+}
+
 async function materializeCachePdfUrl(
   url: string,
   cache: IPdfByteCache,

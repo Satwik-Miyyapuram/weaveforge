@@ -66,7 +66,7 @@ test("a pen stroke is one round-capped path at its own width and colour", () => 
       makeInkStroke({ points: [100, 200, 300, 400], pressures: [], width: 5 }),
     ],
   });
-  assert.match(text, /"d":"M100 200L300 400"/);
+  assert.match(text, /"d":"M100 200L/);
   assert.match(text, /"strokeWidth":5/);
   assert.match(text, /"strokeLinecap":"round"/);
   assert.match(text, /"strokeLinejoin":"round"/);
@@ -106,8 +106,8 @@ test("a highlighter keeps its alpha and draws over the pen", () => {
   assert.match(text, new RegExp(`"strokeOpacity":${HIGHLIGHTER_ALPHA}`));
   // Document order is the pen first, the tinted band after — the same order
   // the sheet and the SVG export draw in.
-  const pen = text.indexOf("M30 30L40 40");
-  const highlighter = text.indexOf("M10 10L20 20");
+  const pen = text.indexOf('"d":"M30 30');
+  const highlighter = text.indexOf('"d":"M10 10');
   assert.ok(pen >= 0 && highlighter > pen, "the highlighter draws over the pen");
 });
 

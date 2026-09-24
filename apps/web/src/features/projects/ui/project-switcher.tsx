@@ -1,47 +1,64 @@
 "use client";
 
-import { useState } from "react";
 import { useProject } from "./project-provider";
-import { ChevronIcon } from "@/components/chevron-icon";
+import { Popover } from "@/components/popover";
 
-/** Header chip showing the current project; dropdown to switch or open the picker. */
+/**
+ * Header chip showing the current project; the panel switches or opens the picker.
+ *
+ * Through `Popover`, like the account button. This chip lives in the sidebar's
+ * bottom block, which is a scroll container: a panel positioned inside it was
+ * clipped by that container and pinned to it. Portalled out and placed by
+ * measurement, it drops down when there is room below the chip and flips up when
+ * there is not — which is the whole point of the shared control.
+ */
 export function ProjectSwitcher() {
   const { current, projects, setProject } = useProject();
-  const [open, setOpen] = useState(false);
   if (!current) return null;
 
   return (
     <div className="proj-switcher">
-      <button
-        type="button"
-        className="proj-chip"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+      <Popover
+        portal
+        align="left"
+        ariaLabel="Project"
+        triggerClassName="proj-chip"
+        label={
+          <>
+            <span className="project-dot" style={{ background: current.color ?? "#7c9885" }} />
+            <span title={current.name}>{current.name}</span>
+          </>
+        }
       >
-        <span className="project-dot" style={{ background: current.color ?? "#7c9885" }} />
-        <span>{current.name}</span>
-        <ChevronIcon />
-      </button>
-      {open && (
-        <div className="proj-menu" onMouseLeave={() => setOpen(false)}>
-          {projects.map((p) => (
+        {(close) => (
+          <>
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                className={`proj-menu-item${p.id === current.id ? " sel" : ""}`}
+                onClick={() => {
+                  setProject(p.id);
+                  close();
+                }}
+              >
+                <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
+                {p.name}
+                {p.id === current.id && <span className="check">✓</span>}
+              </button>
+            ))}
+            <div className="proj-menu-sep" />
             <button
-              key={p.id}
-              className={`proj-menu-item${p.id === current.id ? " sel" : ""}`}
-              onClick={() => { setProject(p.id); setOpen(false); }}
+              className="proj-menu-item"
+              onClick={() => {
+                setProject(null);
+                close();
+              }}
             >
-              <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
-              {p.name}
-              {p.id === current.id && <span className="check">✓</span>}
+              ＋  New / all projects
             </button>
-          ))}
-          <div className="proj-menu-sep" />
-          <button className="proj-menu-item" onClick={() => { setProject(null); setOpen(false); }}>
-            ＋  New / all projects
-          </button>
-        </div>
-      )}
+          </>
+        )}
+      </Popover>
     </div>
   );
 }

@@ -14,8 +14,10 @@ export interface StoredVectors {
   dimensions: number;
   ids: string[];
   vectors: ArrayBuffer;
-  /** Corpus fingerprint at build time; a mismatch means re-embed. */
+  /** Corpus fingerprint when stored. */
   revision: string;
+  /** Per-document text hashes, so a reload re-embeds only what changed. */
+  hashes?: Record<string, string>;
 }
 
 const key = (projectId: string | null) => projectId ?? "-";

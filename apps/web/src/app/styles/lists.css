@@ -27,7 +27,8 @@
 .list-view-toggle {
   display: inline-flex; gap: 6px; align-items: center; flex: none;
 }
-.list-view-toggle .link-btn.is-active { font-weight: 700; text-decoration: underline; }
+.list-view-toggle { gap: 2px; }
+.list-view-toggle .entity-icon-btn.is-active { color: var(--active-fg); background: var(--active-bg); }
 .extraction-table { margin: 6px 0 10px; display: grid; gap: 8px; min-width: 0; }
 .extraction-table-toolbar {
   display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-width: 0;
@@ -98,7 +99,6 @@
   white-space: nowrap;
   max-width: 220px;
 }
-.list-del { flex: none; }
 .list-body {
   padding: 2px 0 6px;
   display: grid; gap: 4px; min-width: 0;

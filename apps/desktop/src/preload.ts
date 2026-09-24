@@ -16,7 +16,13 @@ import type {
   DesktopTexTool,
   DesktopZoteroReply,
 } from "@/lib/desktop/desktop-bridge";
-import { CHANNELS, type ImagePayload, type IpcResult, type TitlePayload } from "./channels";
+import {
+  CHANNELS,
+  type AppLogPayload,
+  type ImagePayload,
+  type IpcResult,
+  type TitlePayload,
+} from "./channels";
 
 /**
  * What the page is allowed to ask the machine for.
@@ -90,6 +96,13 @@ const bridge: DesktopBridge = {
   // `send`, not `invoke`: per sample, and nothing to wait for.
   inkHaptics: (message: DesktopInkHaptics) => ipcRenderer.send(CHANNELS.inkHaptics, message),
   setWindowFocus: (on: boolean) => ipcRenderer.send(CHANNELS.windowFocus, on === true),
+  // `send` for the report — the page must not wait on a disk to fail a request —
+  // and `invoke` for the read, which the log panel renders once when it opens.
+  reportAppLog: (entry) => ipcRenderer.send(CHANNELS.appReport, entry),
+  readAppLog: () => call<AppLogPayload>(CHANNELS.appRead),
+  revealAppLog: async () => {
+    await call<null>(CHANNELS.appReveal);
+  },
   compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),

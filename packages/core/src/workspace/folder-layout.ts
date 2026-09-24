@@ -201,6 +201,18 @@ export function paperPdfPath(paperId: string): string {
   return `${PAPER_PDF_DIR}/${paperId}.pdf`;
 }
 
+/** Where a paper's full-text web page is kept: `papers/html/<paperId>.html`. */
+export const PAPER_HTML_DIR = `${ENTITY_DIRS.paper}/html`;
+
+/**
+ * The folder's copy of a paper that is published as a web page rather than a
+ * PDF (arXiv's HTML, PubMed Central, a journal's full-text page). Kept already
+ * sanitised — no scripts, no forms — so the file is safe to open on its own.
+ */
+export function paperHtmlPath(paperId: string): string {
+  return `${PAPER_HTML_DIR}/${paperId}.html`;
+}
+
 /**
  * Where a stored blob lands in the folder.
  *

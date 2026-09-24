@@ -76,34 +76,44 @@ export function ThemeConfigPanel({
   }
 
   return (
-    <div className="field" style={{ marginTop: "16px" }}>
-      <label htmlFor="theme-config-file">Theme file</label>
-      <p className="muted" style={{ margin: "2px 0 8px" }}>
-        Load a <code>config.json</code> to override colors, fonts and corner radii. Only
-        known keys with recognised values are accepted — anything else is reported
-        and nothing is applied.
-      </p>
+    <div className="appearance-row appearance-row--stack">
+      <div className="appearance-row-text">
+        <label htmlFor="theme-config-file">Theme file</label>
+        <p>
+          A <code>config.json</code> that overrides colours, fonts and corner radii. Only
+          known keys with recognised values are accepted — anything else is reported
+          and nothing is applied.
+        </p>
+      </div>
 
+      {/* The native file input is kept (it is what the label points at and
+          what assistive tech announces) but hidden behind a plain button: its
+          own "Choose file / No file chosen" chrome is the one control on the
+          page that no theme can restyle. */}
       <div className="theme-config-actions">
         <input
           ref={inputRef}
           id="theme-config-file"
+          className="sr-only"
           type="file"
           accept="application/json,.json"
           onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
         />
-        <button type="button" className="btn-secondary" onClick={downloadTemplate}>
-          Download template
+        <button type="button" className="btn-secondary btn-sm" onClick={() => inputRef.current?.click()}>
+          Load file…
+        </button>
+        <button type="button" className="btn-secondary btn-sm" onClick={downloadTemplate}>
+          Template
         </button>
         {current && (
-          <button type="button" className="btn-secondary" onClick={remove}>
-            Remove theme
+          <button type="button" className="btn-secondary btn-sm" onClick={remove}>
+            Remove
           </button>
         )}
       </div>
 
       {current && !errors.length && (
-        <p className="muted" style={{ margin: "8px 0 0" }}>
+        <p className="theme-config-active">
           Active: <strong>{current.name}</strong> — {Object.keys(current.vars).length} tokens.
         </p>
       )}

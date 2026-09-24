@@ -5,7 +5,7 @@ type BlobProviderId = "supabase" | "tiered";
 export type EnvReader = Record<string, string | undefined>;
 
 export interface StorageConfig {
-  /** Primary blob adapter (default: supabase until cutover). */
+  /** Primary blob adapter. Production runs `tiered`; `supabase` is the legacy fallback when unset. */
   readonly provider: BlobProviderId;
   readonly hotQuotaGb: number;
   readonly hotHighWatermark: number;

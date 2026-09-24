@@ -151,3 +151,11 @@ test("setPdfSource refuses anything but https", async () => {
   await assert.rejects(() => update.setPdfSource(p.id, "http://repo.example/paper.pdf"));
   await assert.rejects(() => update.setPdfSource(p.id, "file:///C:/paper.pdf"));
 });
+
+test("setTitle collapses whitespace and refuses a blank title", async () => {
+  const { add, update } = setup();
+  const paper = await add.addManual({ title: "Catalog Page draft" });
+  const saved = await update.setTitle(paper.id, "  Attention   Is All\nYou Need ");
+  assert.equal(saved.title, "Attention Is All You Need");
+  await assert.rejects(update.setTitle(paper.id, "   "), /needs a title/);
+});

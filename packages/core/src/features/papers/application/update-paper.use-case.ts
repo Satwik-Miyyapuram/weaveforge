@@ -36,6 +36,16 @@ export class UpdatePaperUseCase {
     return this.mutate(id, (p) => ({ ...p, status }));
   }
 
+  /**
+   * Rename the paper. Blank is refused rather than stored: a paper with no
+   * title has nothing to be listed, linked or cited by.
+   */
+  async setTitle(id: string, title: string): Promise<Paper> {
+    const trimmed = title.replace(/\s+/g, " ").trim();
+    if (!trimmed) throw new PaperValidationError("A paper needs a title.");
+    return this.mutate(id, (p) => ({ ...p, title: trimmed }));
+  }
+
   /** Reader-authored summary; capped by word count to keep it an abstract, not a doc. */
   static readonly SUMMARY_MAX_WORDS = 250;
 

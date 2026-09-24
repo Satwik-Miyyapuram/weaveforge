@@ -35,5 +35,7 @@
 @import "./ai-review.css"; /* AI review screen. */
 @import "./reader.css"; /* PDF reader. */
 @import "./editor-workspace.css"; /* Desktop editor: explorer tree, panes, tabs. */
+@import "./record.css"; /* The record page: paper, note and experiment detail. */
+@import "./appearance.css"; /* Settings → Appearance, laid out like a record page. */
 @import "./surfaces.css"; /* The borderless surfaces variant. */
 @import "./motion.css"; /* The reactive motion variant. */

@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { ReportContext } from "./error-report-panel";
 
 /**
  * The report panel, behind a lazy boundary — and here that is not only about size.
@@ -19,6 +20,12 @@ const LazyPanel = dynamic(() => import("./error-report-panel").then((m) => m.Err
   ssr: false,
 });
 
-export function ErrorReportPanel(props: { title: string; detail: string; route?: string }) {
+export function ErrorReportPanel(props: {
+  title: string;
+  detail: string;
+  route?: string;
+  open?: boolean;
+  context?: ReportContext;
+}) {
   return <LazyPanel {...props} />;
 }

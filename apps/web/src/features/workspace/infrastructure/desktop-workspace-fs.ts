@@ -89,7 +89,8 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   }
 
   async rename(from: string, to: string): Promise<void> {
-    await this.writeFile(to, await this.readText(from));
+    // Bytes, not text: a text round trip mangles anything that is not UTF-8.
+    await this.writeFile(to, await this.readFile(from));
     await this.remove(from);
   }
 }

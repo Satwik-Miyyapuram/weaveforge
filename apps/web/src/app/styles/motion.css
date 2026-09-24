@@ -359,14 +359,15 @@
 
 /* Chevrons point at the menu they opened. Driven by aria-expanded, so the
    animation cannot disagree with what assistive tech is told. */
-:root[data-motion="reactive"] .proj-chip .chev,
-:root[data-motion="reactive"] .header-overflow-btn {
+:root[data-motion="reactive"] .proj-chip .chev {
   transition: rotate var(--rm-base) var(--layout-ease);
 }
 :root[data-motion="reactive"] .proj-chip .chev { rotate: 0deg; }
 :root[data-motion="reactive"] .proj-chip[aria-expanded="true"] .chev { rotate: 180deg; }
-:root[data-motion="reactive"] .header-overflow-btn { rotate: 0deg; }
-:root[data-motion="reactive"] .header-overflow-btn[aria-expanded="true"] { rotate: 90deg; }
+/* The account trigger does not turn. This used to rotate the `⋯` a quarter
+   turn so it stood up when the menu opened; the trigger is a person icon now,
+   and rotating it tips the head sideways. The caret handled the pointing and it
+   is gone too. */
 
 /* Dropdowns fall in from under their trigger instead of appearing whole.
    `@starting-style` gives the entry a from-state without a mount class; there

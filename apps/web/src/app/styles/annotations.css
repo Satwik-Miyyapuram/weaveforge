@@ -50,21 +50,6 @@
 .section-excerpt-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; min-width: 0; }
 .section-excerpt-actions select,
 .section-excerpt-actions .custom-select-container { max-width: 100%; min-width: 0; flex: 1 1 140px; }
-.papers-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
-}
-.papers-board-col {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px;
-  min-height: 120px;
-  background: var(--bg-elevated, var(--bg));
-}
-.papers-board-col h3 { margin: 0 0 8px; font-size: 0.85rem; }
-.papers-board-col .entity-card { margin-bottom: 8px; }
 
 .jump-to-backdrop {
   position: fixed; inset: 0; z-index: var(--z-overlay);

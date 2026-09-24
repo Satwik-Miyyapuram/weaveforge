@@ -52,6 +52,21 @@ export class ReadingListsFacade {
     return this.deps.listItems.listItemsForLists(listIds);
   }
 
+  /** Every list, for a picker that has to offer all of them. */
+  allLists() {
+    return this.deps.lists.list();
+  }
+
+  /** The lists one paper is in — the card menu's starting state. */
+  listsForPaper(paperId: string) {
+    return this.deps.listItems.listsForPaper(paperId);
+  }
+
+  /** The lists one note is in. Notes and papers share the join, see core. */
+  listsForNote(vaultPageId: string) {
+    return this.deps.listItems.listsForNote(vaultPageId);
+  }
+
   get manageReadingList() {
     return this.deps.manageReadingList;
   }

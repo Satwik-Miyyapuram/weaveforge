@@ -3,6 +3,7 @@ import type {
   EmbedWorkerRequest,
   EmbedWorkerResponse,
 } from "./embedding-worker";
+import { DEFAULT_EMBEDDING_MODEL, embeddingProfile, type EmbeddingModelProfile } from "./embedding-models";
 
 /**
  * `IEmbedder` over the encoder worker.
@@ -21,7 +22,6 @@ export interface WorkerEmbedderOptions {
   onProgress?(loaded: number, total: number): void;
 }
 
-const DEFAULT_MODEL = "Xenova/all-MiniLM-L6-v2";
 
 /**
  * How long the encoder sits unused before its worker is stopped. The weights
@@ -33,6 +33,9 @@ const IDLE_EVICT_MS = 5 * 60_000;
 export class WorkerEmbedder implements IEmbedder {
   readonly id: string;
   dimensions = 0;
+  /** Where "related" starts on this model's cosine scale. */
+  readonly minScore: number;
+  private readonly profile: EmbeddingModelProfile;
 
   private worker: Worker | null = null;
   private nextId = 1;
@@ -47,7 +50,9 @@ export class WorkerEmbedder implements IEmbedder {
   >();
 
   constructor(private readonly options: WorkerEmbedderOptions = {}) {
-    this.id = options.model ?? DEFAULT_MODEL;
+    this.profile = options.model ? embeddingProfile(options.model) : DEFAULT_EMBEDDING_MODEL;
+    this.id = this.profile.id;
+    this.minScore = this.profile.minScore;
   }
 
   /**
@@ -111,7 +116,24 @@ export class WorkerEmbedder implements IEmbedder {
   }
 
   private async start(): Promise<void> {
-    this.worker = new Worker(new URL("./embedding-worker.ts", import.meta.url));
+    /*
+     * A static asset, not a bundler-resolved worker.
+     *
+     * This was `new Worker(new URL("./embedding-worker.ts", import.meta.url))`,
+     * which is the documented Next.js shape and did not work here. Webpack
+     * resolved `import.meta.url` to the source file's *filesystem path* on the
+     * build machine, then passed its own runtime chunk to the `Worker`
+     * constructor — and building that URL threw inside webpack's Trusted Types
+     * shim, so the reader saw `e.replace is not a function` with no mention of
+     * workers. See `scripts/build-embedding-worker.mjs` for the whole account.
+     *
+     * `/embedding-worker.js` is same-origin and absolute, which is also what lets
+     * onnxruntime-web resolve its own `.wasm` next to it, and it keeps
+     * Transformers.js — tens of megabytes — out of every route's JS graph.
+     * `copy-pdf-worker.mjs` serves the pdf.js worker the same way, for the same
+     * reason.
+     */
+    this.worker = new Worker("/embedding-worker.js", { type: "module" });
     this.worker.addEventListener(
       "message",
       (event: MessageEvent<EmbedWorkerResponse>) => {
@@ -130,7 +152,10 @@ export class WorkerEmbedder implements IEmbedder {
 
     const response = await this.send({
       type: "load",
-      model: this.options.model ?? DEFAULT_MODEL,
+      model: this.id,
+      pooling: this.profile.pooling,
+      queryPrefix: this.profile.queryPrefix,
+      passagePrefix: this.profile.passagePrefix,
       host: this.options.host ?? cachedWeightHost(),
     });
     if (response.type !== "ready")

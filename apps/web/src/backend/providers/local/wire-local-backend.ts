@@ -1,12 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyWorkspaceChange } from "@/lib/workspace-changes";
+import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/supabase-settings-repository";
 import { watchWrites } from "../supabase/watch-writes";
 import type { BackendParts } from "../supabase/wire-supabase-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import { LocalAuthService, LocalSessionProvider } from "./local-identity";
 import { LocalBlobStore } from "./local-blob-store";
 import { LocalRunner } from "./local-runner";
-import { LocalSettingsRepository } from "./local-settings-repository";
+import { DeviceSecretsStore } from "./device-secrets-store";
 
 /**
  * The three things that make the app run on this computer alone.
@@ -16,6 +17,10 @@ import { LocalSettingsRepository } from "./local-settings-repository";
  * in the local database. Writes are wrapped the same way as the Supabase
  * client's, so the folder mirror, the local HTTP surface and the MCP server
  * hear about a local edit exactly as they hear about a synced one.
+ *
+ * The settings repository is the account one with the credentials store swapped,
+ * not a subclass: the difference was never the mode, only where secrets can
+ * live. See `DeviceSecretsStore`.
  */
 export function localBackendParts(query: LocalQuery = defaultQuery()): BackendParts {
   const db = watchWrites(createLocalClient(query) as unknown as SupabaseClient, notifyWorkspaceChange);
@@ -23,7 +28,7 @@ export function localBackendParts(query: LocalQuery = defaultQuery()): BackendPa
   return {
     db,
     session,
-    settingsRepository: new LocalSettingsRepository(db, session, query),
+    settingsRepository: new SupabaseSettingsRepository(db, session, new DeviceSecretsStore(query)),
     auth: new LocalAuthService(),
     blobStore: new LocalBlobStore(query),
   };

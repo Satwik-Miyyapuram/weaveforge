@@ -26,11 +26,19 @@ import {
 
 import { escapeHtml } from "@/lib/escape-html";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
+import { INK_SEGMENT_SUBDIVISIONS, strokeCurveAt } from "../render/ink-renderer";
 import {
   INK_RENDER_COLOURS,
   paletteCss,
   type InkPalette,
 } from "../render/ink-palette";
+
+/**
+ * No pressure channel, for a caller that only wants the centreline: with
+ * `variableWidth: false` {@link strokeCurveAt} never reads this, and the page's
+ * samples carry no pressure anyway.
+ */
+const NO_PRESSURE = new Uint8Array(0);
 
 /** A figure as the SVG export needs it: its placement and its pixels. */
 export interface InkSvgFigure extends FigureGeometry {
@@ -60,16 +68,48 @@ function num(value: number): string {
   return Number.isFinite(value) ? String(Math.round(value * 100) / 100) : "0";
 }
 
-/** One stroke's centreline as a path, or `null` for a stroke with no points. */
-export function strokePath(stroke: InkStroke): string | null {
+/**
+ * One stroke's centreline as a path, or `null` for a stroke with no points.
+ *
+ * The samples are joined by the **same Hermite spline the renderers draw**
+ * — `strokeCurveAt`, `INK_SEGMENT_SUBDIVISIONS` sub-segments per span — and not
+ * by straight lines. A digitiser puts a sample about every millimetre, and a
+ * stored path has been simplified on top of that, so consecutive samples can be
+ * far apart: a polyline through them shows a corner on every curve, which is
+ * exactly what a stroke on a PDF page looked like beside the same stroke on a
+ * note. Three sub-segments per span is the count the canvas and the GPU already
+ * draw, so this is the geometry, not an approximation of it.
+ *
+ * The width stays the model's one width per stroke: a reader annotation stores
+ * a single `width`, so there is no per-point taper to reproduce here.
+ *
+ * Takes anything that carries points rather than an `InkStroke` outright,
+ * because the PDF reader's ink is a `ReaderAnnotation` anchor, not a note
+ * stroke — and both are drawn through the same renderer
+ * (`ui/ink-strokes.tsx`), which is the point.
+ */
+export function strokePath(stroke: { points: readonly number[] }): string | null {
   const points = stroke.points;
   if (points.length < 2) return null;
-  let out = `M${num(points[0]!)} ${num(points[1]!)}`;
+  const first = `M${num(points[0]!)} ${num(points[1]!)}`;
   // A single point is a dot, and a round cap draws it — hence the zero-length
   // line rather than an empty path.
-  if (points.length === 2) return `${out}l0 0`;
-  for (let i = 2; i + 1 < points.length; i += 2) {
-    out += `L${num(points[i]!)} ${num(points[i + 1]!)}`;
+  if (points.length === 2) return `${first}l0 0`;
+
+  const count = Math.floor(points.length / 2);
+  const x = new Float32Array(count);
+  const y = new Float32Array(count);
+  for (let i = 0; i < count; i += 1) {
+    x[i] = points[i * 2]!;
+    y[i] = points[i * 2 + 1]!;
+  }
+  const input = { x, y, pressure: NO_PRESSURE, width: 0, variableWidth: false };
+  let out = first;
+  for (let i = 0; i + 1 < count; i += 1) {
+    for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {
+      const at = strokeCurveAt(input, i, k / INK_SEGMENT_SUBDIVISIONS);
+      out += `L${num(at.x)} ${num(at.y)}`;
+    }
   }
   return out;
 }

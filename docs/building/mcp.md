@@ -103,7 +103,7 @@ result goes through `mcpReadResult`, the same wrapper the relay uses.
   real browser-side claim, decrypt, and dispatch path, with the relay standing
   on an in-memory store and encryption forced unlocked. It needs no credentials,
   so it runs in CI, and it covers the one seam the unit tests sit either side of.
-- Supabase RLS integration: owner isolation and atomic relay claims.
+- Postgres RLS integration: owner isolation and atomic relay claims.
 - Browser E2E: opt-in, encrypted browser-approved read, revocation, and
   sign-out stopping a live relay.
 - Core/web tests, typechecks, production build, SOLID/DRY checks, and plugin

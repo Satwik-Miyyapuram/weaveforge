@@ -24,7 +24,6 @@ test("ink facade: assets methods survive being passed around unbound", async () 
     chunks: {} as never,
     assets: new Store(),
     bridge: () => null,
-    myScript: async () => undefined,
     vocabulary: async () => [],
   });
   const { fetchBlob, upload } = facade.assets;

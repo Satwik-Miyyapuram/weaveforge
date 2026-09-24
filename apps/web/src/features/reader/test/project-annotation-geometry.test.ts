@@ -128,7 +128,9 @@ test("projects ink paths as scaled, flipped polyline points", () => {
   ]);
   assert.equal(boxes.length, 0, "ink has no rects to box");
   assert.equal(strokes.length, 1);
-  assert.equal(strokes[0]!.points, "10,10 20,20");
+  // Flat x,y pairs, the shape the ink renderer builds its path from — so a
+  // stroke on a paper goes through the same path builder a note's does.
+  assert.deepEqual(strokes[0]!.points, [10, 10, 20, 20]);
 });
 
 test("ink carries its nib width, scaled with the page", () => {
@@ -193,7 +195,9 @@ test("ink follows the same rotation as the rest of the page", () => {
     type: "ink",
     anchor: { zoteroPosition: { pageIndex: 0, paths: [[10, 782, 20, 772]] } },
   });
-  assert.equal(project([inkAnn], { rotation: 90 }).strokes[0]!.points, "782,10 772,20");
+  assert.deepEqual(project([inkAnn], { rotation: 90 }).strokes[0]!.points, [
+    782, 10, 772, 20,
+  ]);
 });
 
 test("drops malformed rects and path points instead of emitting NaN geometry", () => {

@@ -8,6 +8,8 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
 import { Select } from "@/components/select";
 import { Markdown } from "@/components/markdown/markdown";
+import { EntityCard } from "@/components/entity-card";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { DeleteIcon, EditIcon } from "@/components/view-icons";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -59,7 +61,7 @@ export function LogbookScreen() {
       {!error && entries.length === 0 && (
         <EmptyState
           variant="first-run"
-          icon={<NavIcon name="pencil" />}
+          icon={<NavIcon name="calendar" />}
           title="No log entries yet"
           body="The logbook is the part you will be glad of in month seven: what you tried today, and what it told you. One line is enough to start."
           action={
@@ -156,33 +158,26 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
   }
 
   return (
-    <li className="card log-item">
-      <div className="log-head">
-        <div className="log-meta">
-          <span className="log-date">{entry.entryDate}</span>
-          <span className={`status status-${entry.kind}`}>{entry.kind}</span>
-        </div>
-        <button
-          className="entity-icon-btn log-edit"
-          aria-label="Edit log entry"
-          title="Edit"
-          onClick={() => setEditing(true)}
-        >
-          <EditIcon />
-        </button>
-      </div>
+    <EntityCard
+      as="li"
+      className="log-item"
+      // Same card as papers, notes, experiments, milestones and report
+      // sections: what identifies the row on the card, the occasional and
+      // destructive controls behind one ⋯. A log entry has no share type yet,
+      // so the menu carries Edit and Delete and gains Share with it.
+      title={<span className="log-date">{entry.entryDate}</span>}
+      status={<span className={`status status-${entry.kind}`}>{entry.kind}</span>}
+      menu={
+        <EntityCardMenu
+          shareable={false}
+          deleteLabel="Delete log entry"
+          onDelete={() => void remove()}
+          extraItems={[{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
+        />
+      }
+    >
       <Markdown className="log-body">{entry.body}</Markdown>
-      <div className="card-foot">
-        <button
-          className="entity-icon-btn danger card-del"
-          aria-label="Delete log entry"
-          title="Delete"
-          onClick={() => void remove()}
-        >
-          <DeleteIcon />
-        </button>
-      </div>
-    </li>
+    </EntityCard>
   );
 }
 

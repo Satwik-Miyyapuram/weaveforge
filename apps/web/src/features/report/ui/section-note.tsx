@@ -1,5 +1,6 @@
 "use client";
 
+import { InlineError } from "@/components/form-error";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -256,7 +257,7 @@ export function SectionNote({
               handleRef={editorHandle}
             />
             <div className="summary-editor-foot">
-              {saveError && <span className="error" role="alert">{saveError}</span>}
+              {saveError && <InlineError>{saveError}</InlineError>}
               <button
                 type="button"
                 className="link-btn"

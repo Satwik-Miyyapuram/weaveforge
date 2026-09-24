@@ -163,3 +163,17 @@
 
 /* Ink: the engine list, in the selector's order. */
 .settings-engine-list { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; }
+
+/* The application log (Settings → Data). A wall of monospace that has to wrap
+   rather than scroll sideways: the interesting part of a stack trace is at the
+   end of a long line, and a horizontal scrollbar hides exactly that. */
+.app-log-path { margin: 4px 0 8px; }
+.app-log-path code { font-size: 0.78rem; word-break: break-all; }
+.app-log-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.app-log-text {
+  margin: 0; padding: 12px; max-height: 320px; overflow: auto;
+  font: 0.75rem/1.5 var(--font-mono);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  color: var(--ink); background: var(--surface-alt);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}

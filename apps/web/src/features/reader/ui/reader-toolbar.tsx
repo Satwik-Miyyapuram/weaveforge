@@ -6,9 +6,19 @@ import type { ReaderViewportApi } from "./use-reader-viewport";
 interface ReaderToolbarProps {
   viewport: ReaderViewportApi;
   numPages: number;
+  /**
+   * Ink mode: the pen is out.
+   *
+   * The fit controls stand down with it. Fitting re-scales the page under a
+   * hand that is writing on it — the stroke in progress jumps, and the line
+   * being drawn lands somewhere else — and a hand holding a stylus is not
+   * reaching for "Fit width" anyway. Zoom, rotate and the page field stay: they
+   * are how the paper is *read*, and a writer still turns the page.
+   */
+  hideFit?: boolean;
 }
 
-export function ReaderToolbar({ viewport, numPages }: ReaderToolbarProps) {
+export function ReaderToolbar({ viewport, numPages, hideFit = false }: ReaderToolbarProps) {
   const percent = Math.round(viewport.renderScale * 100);
   const pages = Math.max(1, numPages);
 
@@ -60,24 +70,28 @@ export function ReaderToolbar({ viewport, numPages }: ReaderToolbarProps) {
         </button>
       </div>
       <div className="pdf-reader-group">
-        <button
-          type="button"
-          className={`btn-secondary btn-sm${viewport.fit === "width" ? " is-active" : ""}`}
-          onClick={viewport.fitWidth}
-          aria-pressed={viewport.fit === "width"}
-          title="Fit width"
-        >
-          Fit width
-        </button>
-        <button
-          type="button"
-          className={`btn-secondary btn-sm${viewport.fit === "page" ? " is-active" : ""}`}
-          onClick={viewport.fitPage}
-          aria-pressed={viewport.fit === "page"}
-          title="Fit page"
-        >
-          Fit page
-        </button>
+        {!hideFit && (
+          <>
+            <button
+              type="button"
+              className={`btn-secondary btn-sm${viewport.fit === "width" ? " is-active" : ""}`}
+              onClick={viewport.fitWidth}
+              aria-pressed={viewport.fit === "width"}
+              title="Fit width"
+            >
+              Fit width
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-sm${viewport.fit === "page" ? " is-active" : ""}`}
+              onClick={viewport.fitPage}
+              aria-pressed={viewport.fit === "page"}
+              title="Fit page"
+            >
+              Fit page
+            </button>
+          </>
+        )}
         <button
           type="button"
           className="btn-secondary btn-sm"

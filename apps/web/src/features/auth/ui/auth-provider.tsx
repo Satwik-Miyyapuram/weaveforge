@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { AuthUser } from "../domain/auth";
@@ -14,6 +15,12 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 interface AuthState {
   user: AuthUser | null;
   loading: boolean;
+  /**
+   * The session lapsed without anyone signing out. `user` is still the last
+   * signed-in user so the app, and the workspace folder it mirrors, stay put;
+   * the shell asks for a fresh sign-in instead of dropping to the login screen.
+   */
+  expired: boolean;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
 }
@@ -28,6 +35,9 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expired, setExpired] = useState(false);
+  const lastUser = useRef<AuthUser | null>(null);
+  const signingOut = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -44,9 +54,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // used to sign users out when offline).
       unsubscribe = auth.onChange((u) => {
         if (!active) return;
-        if (u === null) clearSessionCaches();
-        setUser(u);
         setLoading(false);
+        const previous = lastUser.current;
+        if (u === null) {
+          // An expired or revoked session is not a sign-out. On the desktop
+          // the person has a workspace folder open and work in progress;
+          // wiping the session closed the folder and threw them onto the login
+          // screen mid-sentence. Keep everything and ask them to sign back in.
+          // Only a deliberate sign-out (or a browser, which has no folder to
+          // lose) clears the session.
+          if (previous && !signingOut.current && desktop()) {
+            setExpired(true);
+            return;
+          }
+          signingOut.current = false;
+          lastUser.current = null;
+          setExpired(false);
+          clearSessionCaches();
+          setUser(null);
+          return;
+        }
+        // Signing back in as someone else must not inherit the last user's caches.
+        if (previous && previous.id !== u.id) clearSessionCaches();
+        lastUser.current = u;
+        setExpired(false);
+        setUser(u);
       });
     });
 
@@ -90,10 +122,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    signingOut.current = true;
+    if (expired) {
+      // The session is already gone, so the auth service has nothing to
+      // announce; finish the sign-out here.
+      lastUser.current = null;
+      setExpired(false);
+      setUser(null);
+    }
     clearSessionCaches();
     const { getLightContainer } = await import("@/light-bootstrap");
     await getLightContainer().auth.signOut();
-  }, []);
+  }, [expired]);
 
   const updatePassword = useCallback(async (password: string) => {
     const { getLightContainer } = await import("@/light-bootstrap");
@@ -101,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signOut, updatePassword }}>
+    <AuthContext.Provider value={{ user, loading, expired, signOut, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

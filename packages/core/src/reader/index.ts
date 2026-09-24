@@ -113,10 +113,16 @@ export {
   INK_DEFAULT_WIDTH,
   INK_NIB_WIDTHS_PT,
   INK_NIB_DEFAULT_PT,
+  inkNoteWidthToPdfPoints,
   HIGHLIGHTER_WIDTH,
   HIGHLIGHTER_MIN_WIDTH,
   type InkGroupCandidate,
 } from "./ink-stroke.js";
+export {
+  LASSO_CAUGHT_SHARE,
+  inkPathsInPolygon,
+  pointInPolygon,
+} from "./ink-lasso.js";
 export {
   EMPTY_INK_UNDO,
   INK_UNDO_LIMIT,
@@ -141,6 +147,7 @@ export {
   diffAnnotationFields,
   resolveAnnotationConflict,
   toZoteroWritePayload,
+  zoteroWriteBackAnnotations,
   DryRunZoteroAnnotationWriteBack,
   isZoteroLibrarySyncMode,
   type ZoteroLibrarySyncMode,

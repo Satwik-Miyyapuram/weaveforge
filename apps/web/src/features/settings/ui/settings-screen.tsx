@@ -16,7 +16,6 @@ import { SyncSettings } from "@/features/sync";
 import { SearchSettingsPanel } from "./search-settings-panel";
 import { PasteSettingsPanel } from "./paste-settings-panel";
 import { EditorSettingsPanel } from "./editor-settings-panel";
-import { InkSettingsPanel } from "./ink-settings-panel";
 import { WorkspaceFolderPanel } from "./workspace-folder-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
 import { AccountInfoPanel } from "./account-info-panel";
@@ -27,16 +26,18 @@ import { ApiTokensPanel } from "./api-tokens-panel";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
 import { ThemeConfigPanel } from "./theme-config-panel";
 import { OfflineStoragePanel, SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
+import { AppLogPanel } from "./app-log-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
-import { useCapability } from "@/deployment/capabilities";
+import { useCapability, hasServerRoutes } from "@/deployment/capabilities";
 import { FormError } from "@/components/form-error";
 
 /**
@@ -53,8 +54,7 @@ const SETTINGS_TABS = [
   { id: "search", label: "Search" },
   { id: "paste", label: "Paste" },
   { id: "editor", label: "Editor" },
-  { id: "ink", label: "Ink" },
-  { id: "folder", label: "Folder" },
+  { id: "workspace", label: "Workspace" },
   { id: "ai", label: "AI" },
   { id: "tokens", label: "Tokens" },
   { id: "integrations", label: "Integrations" },
@@ -71,9 +71,15 @@ const SETTINGS_TAB_IDS = new Set<string>(SETTINGS_TABS.map((t) => t.id));
  * The jump nav's `#settings-appearance` anchors are already linked to from
  * elsewhere, so the hash keeps selecting the section — it just picks a tab now
  * instead of scrolling to it.
+ *
+ * `#settings-folder` is aliased to the workspace tab. The tab was called
+ * "Folder" until it took on the database as well — the two are one location
+ * now — and a link written against the old name should land on the settings it
+ * means rather than on nothing.
  */
 function tabFromHash(hash: string): SettingsTabId | null {
   const id = hash.replace(/^#settings-/, "");
+  if (id === "folder") return "workspace";
   return SETTINGS_TAB_IDS.has(id) ? (id as SettingsTabId) : null;
 }
 
@@ -134,8 +140,9 @@ export function SettingsScreen() {
 
   const { busy, error, setError, submit } = useSubmit(async () => {
     await getContainer().settings.manageSettings.save(settings);
-    // The ink engine is chosen once per session from the saved settings; a
-    // MyScript key added or removed here changes the list, so forget the choice.
+    // The ink engine is probed once per session and kept. Saving settings can
+    // change what the *desktop shell* answers — the local API's switch is the
+    // one — so the probe is dropped here rather than being trusted forever.
     getContainer().ink.reset();
     // Ranking is read per query, so this lands without a reindex.
     getContainer().search.setSettings(settings.search);
@@ -315,6 +322,7 @@ export function SettingsScreen() {
 
   return (
     <section className="screen settings-screen">
+      <h1 className="sr-only">Settings</h1>
       <div className="seg settings-tabs" role="tablist" aria-label="Settings sections">
         {tabs.map((t) => (
           <button
@@ -349,7 +357,7 @@ export function SettingsScreen() {
         </div>
       )}
 
-      {tab === "folder" && <WorkspaceFolderPanel />}
+      {tab === "workspace" && <WorkspaceFolderPanel />}
 
       {tab === "ai" && <AiProviderPanel />}
 
@@ -365,78 +373,100 @@ export function SettingsScreen() {
           dirty state. */}
       {tab === "paste" && <PasteSettingsPanel />}
       {tab === "editor" && <EditorSettingsPanel />}
-      {tab === "ink" && <InkSettingsPanel settings={settings} onChange={setSettings} />}
 
+      {/* Laid out like a record page (styles/appearance.css): mono section
+          heads over a hairline, one row per preference with its explanation on
+          the left and the control on the right, and no box around any of it. */}
       {tab === "appearance" && (
-      <div id="settings-appearance" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-appearance">
-        <h3 className="settings-group">Appearance</h3>
-        <p className="muted" style={{ margin: "4px 0 12px" }}>Choose your preferred themes for light and dark modes.</p>
-        <div className="field-row-equal">
-          <div className="field">
-            <label htmlFor="lightTheme">Light Theme</label>
+      <div id="settings-appearance" className="settings-anchor appearance" role="tabpanel" aria-labelledby="settings-tab-appearance">
+        <header className="appearance-head">
+          <h3 className="appearance-title">Appearance</h3>
+          <p className="appearance-lede">How WeaveForge looks on this device.</p>
+        </header>
+
+        <section className="appearance-section" aria-labelledby="appearance-theme-head">
+          <h4 id="appearance-theme-head" className="record-section-head">Theme</h4>
+          <div className="appearance-row">
+            <div className="appearance-row-text">
+              <label htmlFor="lightTheme">Light theme</label>
+              <p>Used while your system is in light mode.</p>
+            </div>
             <Select id="lightTheme" value={lightTheme} onChange={(e) => handleLightThemeChange(e.target.value)}>
               {LIGHT_THEME_OPTIONS.map((opt) => (
                 <option key={opt.id} value={opt.id}>{opt.label}</option>
               ))}
             </Select>
           </div>
-          <div className="field">
-            <label htmlFor="darkTheme">Dark Theme</label>
+          <div className="appearance-row">
+            <div className="appearance-row-text">
+              <label htmlFor="darkTheme">Dark theme</label>
+              <p>Used while your system is in dark mode.</p>
+            </div>
             <Select id="darkTheme" value={darkTheme} onChange={(e) => handleDarkThemeChange(e.target.value)}>
               {DARK_THEME_OPTIONS.map((opt) => (
                 <option key={opt.id} value={opt.id}>{opt.label}</option>
               ))}
             </Select>
           </div>
-        </div>
-        <div className="field" style={{ marginTop: "12px" }}>
-          <label htmlFor="controlSize">Button size</label>
-          <Select id="controlSize" value={controlSize} onChange={(e) => handleControlSizeChange(e.target.value)}>
-            {CONTROL_SIZE_OPTIONS.map((opt) => (
-              <option key={opt.id} value={opt.id}>{opt.label}</option>
-            ))}
-          </Select>
-          <p className="muted" style={{ margin: "6px 0 0" }}>
-            Scales icon buttons and expand toggles (lists, report sections, cards) together.
-          </p>
-        </div>
-        <div className="field" style={{ marginTop: "12px" }}>
-          <label htmlFor="surfaces">Surfaces</label>
-          <Select id="surfaces" value={surfaces} onChange={(e) => handleSurfacesChange(e.target.value)}>
-            {SURFACE_STYLE_OPTIONS.map((opt) => (
-              <option key={opt.id} value={opt.id}>{opt.label}</option>
-            ))}
-          </Select>
-          <p className="muted" style={{ margin: "6px 0 0" }}>
-            Borderless separates panels with shadow and light. Bordered restores every
-            hairline — pick it with the High Contrast theme, where a shadow carries far
-            too little contrast to mark an edge.
-          </p>
-        </div>
-        <div className="field" style={{ marginTop: "12px" }}>
-          <label className="toggle-row" htmlFor="reactiveMotion">
+          <ThemeConfigPanel current={customTheme} onChange={handleCustomThemeChange} />
+        </section>
+
+        <section className="appearance-section" aria-labelledby="appearance-interface-head">
+          <h4 id="appearance-interface-head" className="record-section-head">Interface</h4>
+          <div className="appearance-row">
+            <div className="appearance-row-text">
+              <label htmlFor="surfaces">Surfaces</label>
+              <p>
+                Borderless separates panels and cards with shadow and a faint fill; Bordered
+                outlines each with a hairline. Pick Bordered with High Contrast, where a
+                shadow carries too little contrast to mark an edge.
+              </p>
+            </div>
+            <Select id="surfaces" value={surfaces} onChange={(e) => handleSurfacesChange(e.target.value)}>
+              {SURFACE_STYLE_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>{opt.label}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="appearance-row">
+            <div className="appearance-row-text">
+              <label htmlFor="controlSize">Button size</label>
+              <p>Scales icon buttons and expand toggles (lists, report sections, cards) together.</p>
+            </div>
+            <Select id="controlSize" value={controlSize} onChange={(e) => handleControlSizeChange(e.target.value)}>
+              {CONTROL_SIZE_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>{opt.label}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="appearance-row">
+            <div className="appearance-row-text">
+              <label htmlFor="reactiveMotion">Reactive animations</label>
+              <p>
+                Cards tilt toward the pointer and catch a light sheen; buttons and nav icons
+                respond to hover and press. Ordinary transitions are unaffected, and a
+                system &ldquo;reduce motion&rdquo; setting overrides this.
+              </p>
+            </div>
             <input
               id="reactiveMotion"
               type="checkbox"
-              className="themed-check"
+              role="switch"
+              className="appearance-switch"
               checked={reactiveMotion}
               onChange={(e) => handleReactiveMotionChange(e.target.checked)}
             />
-            <span>Reactive animations</span>
-          </label>
-          <p className="muted" style={{ margin: "6px 0 0" }}>
-            Cards tilt toward the pointer and catch a light sheen; buttons and nav icons
-            respond to hover and press. Off by default. The app&rsquo;s existing
-            transitions are unaffected either way, and a system &ldquo;reduce
-            motion&rdquo; setting overrides this.
-          </p>
-        </div>
-        <ThemeConfigPanel current={customTheme} onChange={handleCustomThemeChange} />
+          </div>
+        </section>
       </div>
       )}
 
       {tab === "ai" && loading && <ScreenLoader status="Loading settings…" compact />}
-      {tab === "ai" && !loading && (
+      {/* The MCP half only. The provider panel below it is a client-side BYOK
+          setting and works with no server; the MCP relay and its tokens are both
+          served by routes a static export does not contain. See
+          `deployment/capabilities.ts` and `ai-access-panel.tsx`. */}
+      {tab === "ai" && !loading && hasServerRoutes() && (
         <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
@@ -460,6 +490,17 @@ export function SettingsScreen() {
             <div id="settings-integrations" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-integrations">
               <h3 className="settings-group">Integrations</h3>
               <p className="muted">Metadata sources for your library. Tap one to configure it.</p>
+              {isOfflineBuild() ? (
+                // The desktop bundle has no `/api/settings/credentials` to seal
+                // them behind, so they go in this machine's database instead —
+                // signed in or not. Saying so is the whole point: a reader who
+                // has just signed in would otherwise reasonably assume the key
+                // went to their account, and it did not. See `DeviceSecretsStore`.
+                <p className="muted">
+                  Keys are kept on this computer, in the app&rsquo;s own folder, protected by its file
+                  permissions. Signing in does not move them to your account.
+                </p>
+              ) : null}
               <div className="integration-list">
                 {userIntegrations.map((d) => {
                   const connected = isUserIntegrationConnected(
@@ -580,6 +621,11 @@ export function SettingsScreen() {
         <div id="settings-data-panel" role="tabpanel" aria-labelledby="settings-tab-data">
           {/* Exporting works either way — it reads the database this copy has. */}
           <ExportDataPanel />
+          {/* The record of what went wrong, beside the data it is about. It is
+              here rather than in its own tab on purpose: a reader opens this
+              *after* something failed, and a panel they have to go looking for
+              is one they will not find while stuck. */}
+          <AppLogPanel />
           <PrivacyNotice />
           {/* Linking a provider and deleting an account both need the account. */}
           {hasAccount && <GitHubLinkCard />}

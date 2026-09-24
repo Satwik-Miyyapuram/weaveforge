@@ -8,7 +8,10 @@
 //   in   {"id":1,"type":"recognise","lines":[{"strokes":[[x,y,p,x,y,p,...]]}],
 //         "vocabulary":["Graph-prior module"],"lang":"en-US"}
 //   out  {"id":1,"type":"recognised","engine":"windows-ink@1",
-//         "lines":[{"text":"...","confidence":1,"alternatives":["..."]}],"ms":7}
+//         "lines":[{"text":"...","confidence":1,
+//                   "words":[{"candidates":["brown","lorown"],"known":[true,false],
+//                             "join":"browned"}]}],
+//         "ms":7}
 //
 //   in   {"id":2,"type":"haptics-probe"}
 //   out  {"id":2,"type":"haptics","available":true,"device":"pen 3 at pointer 5"}
@@ -35,18 +38,19 @@
 //      the whole reason it works a page in milliseconds rather than needing
 //      240–330 MB of image model and 6–20 seconds a page.
 //   2. **It exposes no confidence score.** There is no per-line number to map into
-//      [0,1]; the honest report is `1` for a line the analyser produced text for
-//      and `0` for one it did not, with `TextAlternates` carried through as the
-//      alternatives. §5.4's "map each engine's score" is therefore a no-op for
-//      this engine, which is recorded here rather than papered over with an
-//      invented number that would make the correction UI lie.
+//      [0,1], so `confidence` stays `1` for a line the analyser produced text for
+//      and `0` for one it did not — and the evidence goes out beside it instead:
+//      each word's readings (`RecognizedText` first, then `TextAlternates`), with
+//      the OS spell checker's verdict on each (SpellCheck.cs). The client picks a
+//      reading and derives a confidence from those (packages/core/src/ink/
+//      decode.ts), which is a measurement of something rather than a number
+//      invented here.
 //   3. **It takes no vocabulary hints either.** §5.4 says "Windows Ink accepts a
 //      word list as a recognition guide"; `InkAnalyzer` and
-//      `InkRecognizerContainer` expose no such parameter. The fields are still on
-//      the wire, because the engine interface is engine-agnostic and a future
-//      engine may use them, but this one ignores them — which is why §5.4's
-//      post-match against known titles is the only path that helps here, not a
-//      fallback for engines that cannot.
+//      `InkRecognizerContainer` expose no such parameter. The vocabulary is used
+//      on the client instead, twice: to prefer a reading that is a known term,
+//      and in §5.4's post-match against known titles. `lang` picks the spell
+//      checker's dictionary.
 //   4. Strokes arrive in tenths of a millimetre and are handed to WinRT in
 //      device-independent pixels, the unit its recogniser works in: the
 //      conversion divides by ten (0.1 mm → 1 DIP at 96 dpi).
@@ -71,6 +75,18 @@ internal static class Program
 
     /// <summary>Points one stroke may hold. Past this it is a clock, not a pen.</summary>
     private const int MaxPointsPerStroke = 100_000;
+
+    /// <summary>Readings kept per word. See `Words`.</summary>
+    private const int MaxReadings = 6;
+
+    /// <summary>Two-word readings added to a word no reading of which is a word.</summary>
+    private const int MaxSplits = 2;
+
+    /// <summary>The shortest half a split may leave. See `Splits`.</summary>
+    private const int MinSplitPart = 3;
+
+    /// <summary>Readings per side tried when joining two words: 3 × 3 spell checks at most.</summary>
+    private const int MaxJoinReadings = 3;
 
     /// <summary>The pen's actuator, when the pen has one. See PenHapticsEngine.cs.</summary>
     private static readonly PenHapticsEngine Haptics = new();
@@ -320,7 +336,8 @@ internal static class Program
             if (result.Status == InkAnalysisStatus.Updated)
             {
                 var text = new List<string>[requested.Count];
-                var alternatives = new List<string>[requested.Count];
+                var words = new List<RecognisedWord>[requested.Count];
+                var checker = SpellCheck.For(request?.Lang);
                 // A recursive walk over `Children`, because the analysis root is a
                 // tree and the lines are leaves under it: a page of handwriting
                 // comes back as `InkDrawing` or `InkWritingRegion` → `InkLine` →
@@ -337,27 +354,24 @@ internal static class Program
                     {
                         if (ownerOfStroke.TryGetValue(strokeId, out var owner)) owners.Add(owner);
                     }
+                    var read = Words(line, checker);
                     foreach (var owner in owners)
                     {
                         if (said.Length > 0) (text[owner] ??= []).Add(said);
-                        foreach (var alternate in Alternatives(line))
-                        {
-                            var found = alternatives[owner] ??= [];
-                            if (!found.Contains(alternate)) found.Add(alternate);
-                        }
+                        (words[owner] ??= []).AddRange(read);
                     }
                 }
                 for (var index = 0; index < requested.Count; index++)
                 {
                     var said = text[index];
                     if (said is not { Count: > 0 }) continue;
-                    var found = alternatives[index];
                     lines[index] = new RecognisedLine(
                         string.Join(" ", said),
                         // No score exists; `1` is "the engine produced text for
                         // this line", not a measurement. See the note at the top.
                         1,
-                        found is { Count: > 0 } ? found.GetRange(0, Math.Min(4, found.Count)) : null);
+                        null,
+                        words[index] is { Count: > 0 } found ? found : null);
                 }
             }
         }
@@ -380,29 +394,105 @@ internal static class Program
     }
 
     /// <summary>
-    /// Every other reading the engine offered for a line's words.
+    /// Each word of a line with every reading the engine offered for it, the
+    /// engine's own choice first, and the spell checker's verdict on each.
     ///
-    /// The line's own children are the words; `FindNodes` exists on the analysis
-    /// *root*, not on a node, so this walks the same tree the lines came from.
+    /// `TextAlternates` usually repeats the chosen reading, so the list is
+    /// deduplicated; it is capped because a reading past the sixth is noise and
+    /// each one costs a spell check. `known` is left off when this machine has no
+    /// checker for the language, which the client reads as "not judged".
     /// </summary>
-    private static List<string> Alternatives(InkAnalysisLine line)
+    private static List<RecognisedWord> Words(InkAnalysisLine line, ISpellChecker? checker)
     {
-        var found = new List<string>();
+        var found = new List<RecognisedWord>();
         foreach (var child in line.Children ?? [])
         {
             if (child is not InkAnalysisInkWord word) continue;
-            foreach (var alternate in word.TextAlternates ?? [])
+            var candidates = new List<string>();
+            foreach (var reading in new[] { word.RecognizedText }.Concat(word.TextAlternates ?? []))
             {
-                if (!string.IsNullOrWhiteSpace(alternate) && !found.Contains(alternate)) found.Add(alternate);
+                if (string.IsNullOrWhiteSpace(reading) || candidates.Contains(reading)) continue;
+                candidates.Add(reading);
+                if (candidates.Count == MaxReadings) break;
             }
+            if (candidates.Count == 0) continue;
+            List<bool>? known = null;
+            if (checker is not null)
+            {
+                try
+                {
+                    known = candidates.Select(reading => SpellCheck.IsWord(checker, reading)).ToList();
+                }
+                catch
+                {
+                    known = null;
+                }
+            }
+            if (known is not null && !known.Contains(true) && checker is not null)
+            {
+                foreach (var split in Splits(candidates[0], checker))
+                {
+                    if (candidates.Contains(split)) continue;
+                    candidates.Add(split);
+                    known.Add(true);
+                }
+            }
+            found.Add(new RecognisedWord(candidates, known, null));
+        }
+        if (checker is null) return found;
+        for (var index = 0; index + 1 < found.Count; index++)
+        {
+            var join = Join(found[index], found[index + 1], checker);
+            if (join is not null) found[index] = found[index] with { Join = join };
         }
         return found;
+    }
+
+    /// <summary>
+    /// A merged word read as two: "seedsmatters" → "seeds matters". Tried only
+    /// when none of a word's readings is a word, and only where both halves are
+    /// — so a reading the engine got right is never cut. Halves under three
+    /// letters are left out: nearly every pair of letters is a word to some
+    /// dictionary, and "lolocks" is not "lo locks".
+    /// </summary>
+    private static List<string> Splits(string reading, ISpellChecker checker)
+    {
+        var found = new List<string>();
+        if (reading.Length < 2 * MinSplitPart || reading.Length > 30 || !reading.All(char.IsLetter)) return found;
+        for (var cut = MinSplitPart; cut <= reading.Length - MinSplitPart && found.Count < MaxSplits; cut++)
+        {
+            var left = reading[..cut];
+            var right = reading[cut..];
+            if (SpellCheck.IsWord(checker, left) && SpellCheck.IsWord(checker, right)) found.Add($"{left} {right}");
+        }
+        return found;
+    }
+
+    /// <summary>
+    /// One word read as two: "dr aft" → "draft". The first joined pair of
+    /// readings the dictionary knows, from the engine's picks outward; the client
+    /// decides whether to use it, because "a part" and "apart" are both right
+    /// somewhere.
+    /// </summary>
+    private static string? Join(RecognisedWord first, RecognisedWord second, ISpellChecker checker)
+    {
+        foreach (var left in first.Candidates.Take(MaxJoinReadings))
+        {
+            if (left.Contains(' ') || !left.All(char.IsLetter)) continue;
+            foreach (var right in second.Candidates.Take(MaxJoinReadings))
+            {
+                if (right.Contains(' ') || !right.All(char.IsLetter)) continue;
+                var joined = left + right;
+                if (joined.Length >= 4 && SpellCheck.IsWord(checker, joined)) return joined;
+            }
+        }
+        return null;
     }
 
     private static List<RecognisedLine> EmptyLines(int count)
     {
         var lines = new List<RecognisedLine>(count);
-        for (var index = 0; index < count; index++) lines.Add(new RecognisedLine(string.Empty, 0, null));
+        for (var index = 0; index < count; index++) lines.Add(new RecognisedLine(string.Empty, 0, null, null));
         return lines;
     }
 
@@ -460,18 +550,25 @@ internal static class Program
 
     internal sealed record HapticsResponse(string Type, bool Available, string? Device, int? Id);
 
-    internal sealed record RecognisedLine(string Text, double Confidence, List<string>? Alternatives);
+    internal sealed record RecognisedLine(
+        string Text,
+        double Confidence,
+        List<string>? Alternatives,
+        List<RecognisedWord>? Words);
+
+    /// <summary>One word's readings, best first, and whether each is a word.</summary>
+    internal sealed record RecognisedWord(List<string> Candidates, List<bool>? Known, string? Join);
 
     internal sealed class RecogniseRequest
     {
         [JsonPropertyName("lines")]
         public List<RecogniseLine>? Lines { get; set; }
 
-        /// <summary>Accepted and ignored: this engine takes no word list. See above.</summary>
+        /// <summary>Accepted and ignored here: the client applies it. See above.</summary>
         [JsonPropertyName("vocabulary")]
         public List<string>? Vocabulary { get; set; }
 
-        /// <summary>Accepted and ignored: the OS picks its own model.</summary>
+        /// <summary>The spell checker's dictionary; the OS picks its own ink model.</summary>
         [JsonPropertyName("lang")]
         public string? Lang { get; set; }
     }

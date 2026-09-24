@@ -11,10 +11,10 @@ designed to be reused and extended.
 - **Read the extension guide.** [`docs/using/extensions.md`](docs/using/extensions.md) lists every seam you can plug into today
   (integrations, metadata sources, feature modules, backend/storage, Python sync) and what still requires a PR.
 - **Depend on interfaces, not implementations.** Domain and application code must not
-  import the Supabase SDK or any concrete infrastructure. Wire concrete adapters only
+  import the Supabase SDK (our PostgREST client) or any concrete infrastructure. Wire concrete adapters only
   in the composition root.
 - **Every repository implementation must pass the shared contract tests** for its
-  interface (both the in-memory and the Supabase implementation).
+  interface (both the in-memory and the PostgREST implementation).
 
 ## SOLID PR checklist
 
@@ -31,7 +31,7 @@ Before opening or merging a PR, confirm:
 - [ ] **New repo has contract test** — every new repository interface gets a shared
       contract suite in `packages/core/src/testing/` and a test file under
       `packages/core/test/` run against the in-memory implementation (and against
-      the schema and RLS suite when the repository is Supabase-backed). `packages/core/test/` mirrors
+      the schema and RLS suite when the repository is Postgres-backed). `packages/core/test/` mirrors
       `packages/core/src/`: a test for `src/features/papers/...` lives in
       `test/features/papers/`, one for `src/reader/...` in `test/reader/`.
 - [ ] **Business logic not in bootstrap/components** — orchestration and rules live
@@ -42,21 +42,28 @@ See `docs/building/design.md` §4 for the full SOLID rubric.
 
 ## Development prerequisites
 
-Apply **every** migration in [`supabase/migrations/`](supabase/migrations/)
-before running the app or the integration suite; `0117` is the current head.
-They are ordered and cumulative, so `supabase db push` is the whole step:
+The data lives in Postgres on the project's OCI server (behind PostgREST at
+`api.weaveforge.org`); Supabase handles sign-in only. Apply **every** migration
+to that database before running the app or the integration suite, the
+self-hosted prerequisites first; `0132` is the current head. They are ordered
+and cumulative:
 
 ```bash
-supabase link --project-ref <your-ref>
-supabase db push
+for f in supabase/migrations-self-hosted-postgres/*.sql supabase/migrations/*.sql; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+done
 ```
+
+The folder is called `supabase/` for history: the schema started on a
+Supabase-hosted database and kept its layout (`auth.uid()`, the `anon` and
+`authenticated` roles) when it moved.
 
 An earlier revision of this section listed individual files (`0019`–`0035`).
 That list stopped being maintained long before the schema stopped growing, and
 a partial list is worse than none — it reads as "these are the ones that
 matter" when the truth is that they all are.
 
-Supabase Cloud stops at the latest file in [`supabase/migrations/`](supabase/migrations/). Self-hosted-only SQL is in [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) — see [`supabase/README.md`](supabase/README.md).
+The prerequisites in [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) recreate what a bare Postgres lacks (the `auth` schema helpers and roles) — see [`supabase/README.md`](supabase/README.md).
 
 **Smoke acceptance** after migrations:
 
@@ -69,7 +76,7 @@ Supabase Cloud stops at the latest file in [`supabase/migrations/`](supabase/mig
 
 1. Create `features/<name>/` with the standard sub-layers.
 2. Define the entity and repository interface in `packages/core`.
-3. Provide an in-memory implementation (for tests) and a Supabase implementation.
+3. Provide an in-memory implementation (for tests) and a PostgREST implementation.
 4. Add a DB migration under `supabase/migrations/`.
 5. Export a `FeatureModule` descriptor and register it in `apps/web/src/registry.ts` (`ALL_MODULES`).
 
@@ -79,7 +86,7 @@ Persistence and auth are env-selected at the composition root — same pattern a
 
 **Full guide:** [`docs/running/backend.md`](docs/running/backend.md)
 
-Default is Supabase (`NEXT_PUBLIC_BACKEND_PROVIDER=supabase`). To self-host: implement repository adapters against the existing Postgres schema and wire a new provider in `wire-backend.ts`.
+Table data goes to the Postgres on the OCI server through PostgREST (`NEXT_PUBLIC_DATA_URL`). The provider id `supabase` names the client library (supabase-js speaks PostgREST), not where the data is stored; leave it at that default (`postgres` only selects the server-side blob registry and breaks the browser bundle). A different store means implementing the repository adapters against the same schema and wiring a new provider in `wire-backend.ts`.
 
 ## Web storage (`apps/web/src/storage/`)
 
@@ -87,7 +94,7 @@ Object/blob storage (paper images, experiment artifacts, vault assets) is a **se
 
 **Full guide:** [`docs/running/storage/README.md`](docs/running/storage/README.md)
 
-Default is Supabase Storage (`BLOB_PROVIDER=supabase`). Tiered hot/cold storage (R2 hot, MinIO cold, with a `blob_objects` registry row as the only index of an object's bucket and path) has shipped: set `BLOB_PROVIDER=tiered`. See [`docs/internal/plans/completed/migration-plan.md`](docs/internal/plans/completed/migration-plan.md).
+Production runs `BLOB_PROVIDER=tiered`: MinIO on the OCI server, with an optional R2 hot tier in front, and a `blob_objects` registry row as the only index of an object's bucket and path. The older `supabase` storage adapter is still selectable (it is the fallback when the variable is unset), but no deployment stores files there. See [`docs/internal/plans/completed/migration-plan.md`](docs/internal/plans/completed/migration-plan.md).
 
 ## Web integrations (`apps/web/src/integrations/`)
 
@@ -118,7 +125,7 @@ code must not reach for it.
 ```bash
 cd python
 pip install -e '.[dev]' ruff mypy
-pytest          # offline; the Supabase integration test auto-skips without creds
+pytest          # offline; the database integration test auto-skips without creds
 ruff check weaveforge tests
 mypy
 ```

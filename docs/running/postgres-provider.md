@@ -33,7 +33,7 @@ Server-only, since it uses the Node `pg` driver:
 NEXT_PUBLIC_BACKEND_PROVIDER=postgres
 DATABASE_URL=postgres://user:pass@localhost:5432/thesis
 NEXT_PUBLIC_BLOB_PROVIDER=tiered
-# Auth and table data still Supabase-shaped:
+# Sign-in stays on Supabase Auth; table data still goes through PostgREST (NEXT_PUBLIC_DATA_URL):
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 # R2 for hot tier (see docs/running/storage/r2-setup.md)

@@ -30,11 +30,15 @@ interface AnnotationBox {
 interface AnnotationStroke {
   id: string;
   color: string;
-  /** SVG `points` attribute value, already in CSS pixels. */
-  points: string;
+  /**
+   * Flat `x, y` pairs in CSS pixels — the shape the ink renderer takes
+   * (`features/ink/ui/ink-strokes`), so a stroke drawn on a paper goes through
+   * exactly the same path builder as one drawn on a note.
+   */
+  points: number[];
   /** Nib width in CSS pixels. */
   width: number;
-  /** Wide strokes are highlighter marks: translucent, multiplied over the page. */
+  /** Wide strokes are highlighter marks: translucent, laid over the text. */
   highlighter: boolean;
 }
 
@@ -119,22 +123,24 @@ export function projectPageAnnotationGeometry(
       const highlighter = isHighlighterInk(position.width);
       for (const path of position.paths) {
         if (!Array.isArray(path) || path.length < 4) continue;
-        const points: string[] = [];
+        const points: number[] = [];
         for (let i = 0; i + 1 < path.length; i += 2) {
           const x = path[i];
           const y = path[i + 1];
           if (typeof x !== "number" || typeof y !== "number") continue;
           if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
           const screen = pdfPointToScreen(x, y, projection);
-          points.push(`${screen.x},${screen.y}`);
+          points.push(screen.x, screen.y);
         }
-        if (points.length >= 2) {
+        if (points.length >= 4) {
           strokes.push({
             id: ann.id,
             color: ann.color,
-            points: points.join(" "),
-            // The nib is a physical width on the page, so it zooms with it.
-            width: inkWidth * scale,
+            points,
+            // The nib is a physical width on the page, so it zooms with it —
+            // and keeps a floor, or the finest nib is an invisible hairline at
+            // fit-width zoom.
+            width: Math.max(inkWidth * scale, 0.5),
             highlighter,
           });
         }

@@ -10,6 +10,7 @@ import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
+import { formatError } from "@/lib/format-error";
 
 function isImageUrl(url: string): boolean {
   try {
@@ -49,9 +50,12 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
   );
 }
 
-function RelatedPaper({ paperId }: { paperId: string }) {
+/** The title of the paper a run tests, or null until (or unless) it resolves. */
+export function usePaperTitle(paperId: string | undefined): string | null {
   const [title, setTitle] = useState<string | null>(null);
   useEffect(() => {
+    setTitle(null);
+    if (!paperId) return;
     let alive = true;
     getContainer().experiments.getPaper(paperId)
       .then((p) => alive && setTitle(p?.title ?? null))
@@ -60,6 +64,11 @@ function RelatedPaper({ paperId }: { paperId: string }) {
       alive = false;
     };
   }, [paperId]);
+  return title;
+}
+
+function RelatedPaper({ paperId }: { paperId: string }) {
+  const title = usePaperTitle(paperId);
   if (!title) return null;
   return (
     <span className="git-chip" title="Paper this run tests/implements">
@@ -86,25 +95,6 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
     </div>
   );
 }
-
-export function ExpConfigPanel({ config }: { config: Record<string, unknown> }) {
-  const entries = Object.entries(config ?? {});
-  if (entries.length === 0) return null;
-  return (
-    <section className="exp-detail-section">
-      <h3 className="exp-detail-heading">Config</h3>
-      <dl className="exp-config-grid">
-        {entries.map(([k, v]) => (
-          <div key={k} className="exp-config-row">
-            <dt>{k}</dt>
-            <dd>{typeof v === "object" && v !== null ? JSON.stringify(v) : String(v)}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
 
 /**
  * Resolve stored artifact entries to URLs that can be rendered now.
@@ -200,11 +190,19 @@ export function MetricCurves({
 }) {
   const [points, setPoints] = useState<MetricPoint[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The server has not been migrated to the function the curves read through.
+  // Nothing on this device is wrong and a report would not help, so it is said
+  // plainly rather than raised as an error.
+  const [serverBehind, setServerBehind] = useState(false);
 
   const fetchHistory = useCallback(() => {
     return getContainer().experiments.metricHistory(experimentId)
       .then(setPoints)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      // A PostgREST refusal is a plain object; String() of it was "[object Object]".
+      .catch((e) => {
+        setError(formatError(e));
+        setServerBehind((e as { code?: unknown } | null)?.code === "PGRST202");
+      });
   }, [experimentId]);
 
   useEffect(() => {
@@ -233,6 +231,7 @@ export function MetricCurves({
     return [...groups.entries()];
   }, [points]);
 
+  if (error && serverBehind) return <p className="record-empty">{error}</p>;
   if (error) return <FormError>{error}</FormError>;
   if (points === null) return <p className="muted">Loading curves…</p>;
   if (byMetric.length === 0)

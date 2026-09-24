@@ -17,15 +17,18 @@ import {
   APP_SCHEME,
   appHeaders,
   contentTypeFor,
+  isPageRequest,
   resolveAppFile,
 } from "./app-protocol";
+import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import type { LocalClient } from "./local-db";
 import { LocalDbBackups, readBackup } from "./local-db-backup";
 import { LocalDbHost } from "./local-db-host";
+import { databaseDirFor, relocateDatabaseOnce } from "./local-db-location";
 import { applyDeferredMove, moveAside } from "./local-db-reset";
 import { readHomeConfig, writeHomeConfig } from "./home-config";
 import {
-  adoptRoot,
+  chooseRoot,
   currentRoot,
   forgetRoot,
   listVaultFiles,
@@ -56,13 +59,14 @@ import {
 import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
-import { CHANNELS } from "./channels";
+import { CHANNELS, type AppLogPayload, type IpcResult } from "./channels";
 import { preferenceStore, secretStore } from "./main-stores";
 import { fetchReleases, findUpdate } from "./update-check";
 import { installMenu, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
 import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
 import { runBoundedQuit } from "./quit";
+import { createAppLog, MAX_ENTRIES, type AppLog, type AppLogEntry } from "./app-log";
 
 /**
  * The desktop shell.
@@ -133,6 +137,97 @@ const APP_ORIGIN = originOf(APP_URL);
  */
 const ipc = registerGuardedIpc(APP_ORIGIN, ipcMain);
 
+/**
+ * The application log, and the two lines of setup it needs.
+ *
+ * Created here rather than inside `whenReady` so the console is captured from
+ * the first line this process prints: the failures worth having on disk are the
+ * ones that happen while the shell is still coming up. `record` needs no ready
+ * app — only `file` does, and that is read lazily when the page asks.
+ *
+ * The `dir` is resolved per call because `app.getPath("userData")` is only
+ * valid once Electron has a name for the app, which happens after this module
+ * is evaluated — so `createAppLog` is handed a function to call rather than the
+ * path itself.
+ */
+const appLog: AppLog = createAppLog({ dir: () => app.getPath("userData") });
+appLog.installConsoleCapture();
+// The file is the record and the ring is a window onto it: on a fresh launch
+// that window starts empty, so the panel would say "nothing has been logged"
+// while the previous session's failures sat in the file beside it — which is
+// exactly the session a reader is asking about when the window died. The read
+// cannot happen at module load (`getPath` needs a ready app), so it is kicked
+// off here and awaited by nobody: a log that has not finished restoring is a
+// log with fewer lines, not a launch that waits on a disk.
+//
+// The catch is not decoration. This file installs an `unhandledRejection`
+// listener a few lines below that records the reason *and leaves the process
+// running*, so a rejection here would be a line in the log rather than a crash —
+// but it would also be the one failure this whole feature exists to make
+// legible, and it would be legible only as "unhandledRejection". The read is
+// allowed to fail; it is not allowed to fail silently.
+void app.whenReady().then(() =>
+  appLog.restoreFromDisk().catch((cause: unknown) => {
+    appLog.record({
+      level: "warn",
+      source: "app-log",
+      message: "the previous session's log could not be read back",
+      detail: cause instanceof Error ? cause.message : String(cause),
+    });
+  }),
+);
+
+/**
+ * One record, for a failure nobody else is going to print.
+ *
+ * The caller is `unhandledRejection` below; this is shared rather than inlined
+ * so the shape of a fatal entry is stated once.
+ */
+function recordFatal(what: string, cause: unknown): void {
+  appLog.record({
+    level: "error",
+    source: "uncaught",
+    message: cause instanceof Error ? (cause.stack ?? cause.message) : String(cause),
+    detail: what,
+  });
+}
+
+/**
+ * One log entry as one line.
+ *
+ * The panel and the file show the same text, and the file's lines are the JSON
+ * this produces, so the two can never disagree about what a record says. The
+ * detail is appended rather than summarised: for a failed request it is the URL,
+ * the status and the head of the body, which is the whole reason the log exists.
+ */
+function formatLogLine(entry: AppLogEntry): string {
+  const stamp = entry.at.replace("T", " ").replace("Z", "");
+  const head = `${stamp} ${entry.level.toUpperCase().padEnd(5)} [${entry.source}] ${entry.message}`;
+  return entry.detail ? `${head}\n    ${entry.detail.replace(/\n/g, "\n    ")}` : head;
+}
+
+/**
+ * An unhandled rejection is recorded, because nothing else will print it.
+ *
+ * There is deliberately **no** `uncaughtException` listener here, and the two
+ * were the same thing for a while. Registering one suppresses Node's default
+ * action — print the error and exit — so a shell that would have died on a
+ * crash instead carried on in an undefined state that the reader has no way to
+ * see. That is a worse outcome than the lost log line it bought, and the log
+ * line was not even reliably bought: `flush()` is an unbounded promise chain,
+ * so `void`-ing it here waited for nothing while the process was free to exit
+ * with the write still queued.
+ *
+ * What survives of the original idea is the console capture above: an uncaught
+ * exception is still printed by Node, that print still reaches the log through
+ * the wrapped console, and the process still dies the way it should. A
+ * rejection is different — it is printed by nobody unless it is listened for —
+ * so this one stays, and it only records.
+ */
+process.on("unhandledRejection", (reason) => {
+  recordFatal("unhandledRejection", reason);
+});
+
 /** Where the Help menu sends a reader. Matches the app's own docs link. */
 const DOCS_URL = "https://www.weaveforge.org/docs/";
 
@@ -148,10 +243,18 @@ let loopback: import("node:http").Server | null = null;
  * and a large vault's search index both live under it, and an isolate that
  * hits the cap is killed outright, which costs far more than the difference.
  */
-app.commandLine.appendSwitch(
-  "js-flags",
-  "--max-old-space-size=512 --optimize-for-size",
-);
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=512");
+/*
+ * Not `--optimize-for-size`. It was here with the heap cap, and it cost the
+ * encoder worker most of its speed: the ONNX runtime is WebAssembly, and a
+ * forward pass measured ~2 s per passage in this shell against 0.12 s natively
+ * — a corpus that should embed in minutes took the better part of an hour.
+ *
+ * And SharedArrayBuffer, which the app's origin is not cross-origin isolated
+ * enough to get on its own: with it the runtime splits each pass across
+ * threads (see `embedding-worker.ts`). Nothing else here posts shared memory.
+ */
+app.commandLine.appendSwitch("enable-features", "SharedArrayBuffer");
 app.commandLine.appendSwitch("disable-speech-api");
 app.commandLine.appendSwitch("disable-print-preview");
 app.commandLine.appendSwitch(
@@ -302,6 +405,90 @@ ipc.on(CHANNELS.windowFocus, (_event, on: unknown) => {
   window.setFullScreen(focus);
 });
 
+/**
+ * The application log's three channels.
+ *
+ * `appReport` is a `send` from a page whose request just failed, so it is
+ * validated here rather than trusted: a level outside the three, or a message
+ * that is not a string, is dropped. It is not refused loudly — a malformed log
+ * line is worth less than the failure the page was trying to report, and an
+ * exception on the far side would replace that report with a bigger one.
+ *
+ * `appRead` formats here rather than in the page so there is one answer to what
+ * a log line looks like: `text` is what the panel shows and what the file
+ * holds, in the same order. `appReveal` opens the shell's own path and takes no
+ * argument, so a page cannot ask the operating system to open anything else.
+ */
+ipc.on(CHANNELS.appReport, (_event, payload: unknown) => {
+  if (!payload || typeof payload !== "object") return;
+  const entry = payload as Record<string, unknown>;
+  const level = entry.level;
+  if (level !== "error" && level !== "warn" && level !== "info") return;
+  if (typeof entry.message !== "string" || entry.message.length === 0) return;
+  appLog.record({
+    level,
+    source: typeof entry.source === "string" ? entry.source : "renderer",
+    message: entry.message,
+    detail: typeof entry.detail === "string" ? entry.detail : undefined,
+  });
+});
+
+/**
+ * The log itself, in the envelope `call()` unwraps.
+ *
+ * That envelope is the whole reason this handler is shaped the way it is.
+ * `preload.ts`'s `call()` reads `result.ok` before it reads anything else, so a
+ * handler that answers with the payload directly — which is what nearly every
+ * `ipcMain.handle` in this file does, because the two fetch channels predate the
+ * envelope — makes the far side throw `new Error(undefined)`: a rejection with
+ * no message, reported to the reader as a bare "Error". That is exactly what
+ * this did on its first run. Every `call()`-wrapped channel answers with
+ * `{ ok, value }`; `preferenceRead` and `localApiState` show the shape.
+ */
+ipc.handle(CHANNELS.appRead, (): IpcResult<AppLogPayload> => {
+  try {
+    const entries = appLog.entries();
+    return {
+      ok: true,
+      value: {
+        file: appLog.file(),
+        // One entry per line in the JSON file; these are formatted for a person,
+        // so an entry with a detail spans several lines. The panel is not a
+        // parser and does not need them to be one-to-one.
+        text: entries.map(formatLogLine).join("\n"),
+        // `false` means the ring has dropped something it once held. It is not
+        // a claim about the file: the ring and the file hold different amounts
+        // at different times, and this is the ring's own answer. That is why the
+        // panel offers the file rather than promising what is in it.
+        complete: entries.length < MAX_ENTRIES,
+      },
+    };
+  } catch (cause) {
+    // A failure here is the panel's problem to report, not the caller's to
+    // decode: the message crosses as data, like every other refusal.
+    return {
+      ok: false,
+      message: cause instanceof Error ? cause.message : String(cause),
+    };
+  }
+});
+
+/**
+ * Show the log in the operating system's file browser.
+ *
+ * In the envelope, like `appRead` above — this shipped without it, and the
+ * result was `revealAppLog()` rejecting with `TypeError: Cannot read properties
+ * of null (reading 'ok')` for every click: `call()` dereferences `result.ok`
+ * before it looks at anything else, and `null` has no `ok`. The button was dead
+ * and the reason was invisible, which is the worst version of this class of bug.
+ * It takes no argument, so a page cannot ask the shell to open anything but the
+ * one file it chose.
+ */
+ipc.handle(CHANNELS.appReveal, (): IpcResult<null> => {
+  shell.showItemInFolder(appLog.file());
+  return { ok: true, value: null };
+});
+
 ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) =>
   preferenceStore().read(name),
 );
@@ -374,12 +561,16 @@ function serveBundle(): void {
     const file = resolveAppFile(BUNDLE, request.url, (candidate) =>
       fs.statSync(candidate, { throwIfNoEntry: false })?.isFile() ?? false,
     );
-    if (!file) return new Response(null, { status: 404 });
+    const notFound = path.join(BUNDLE, "404.html");
+    const served =
+      file ??
+      (isPageRequest(request.url) && fs.existsSync(notFound) ? notFound : null);
+    if (!served) return new Response(null, { status: 404 });
 
-    const response = await net.fetch(pathToFileURL(file).toString());
+    const response = await net.fetch(pathToFileURL(served).toString());
     return new Response(response.body, {
-      status: response.status,
-      headers: appHeaders(contentTypeFor(file)),
+      status: file ? response.status : 404,
+      headers: appHeaders(contentTypeFor(served)),
     });
   });
 }
@@ -403,12 +594,104 @@ ipc.handle(
 );
 
 /**
- * The local database, opened on first use under the app's own directory.
+ * The local database, under the app's own directory.
  *
- * PGlite is imported here and nowhere else, and lazily: it is a WASM Postgres,
- * and an app that stays online for its whole life should never pay to load it.
+ * See `appDbDir` below for why this is *not* the workspace folder — it was, and
+ * the move corrupted the database and put the app in a relaunch loop. The
+ * short version: relocating a live WASM Postgres is a dump-and-reload that can
+ * fail, and it ran on every launch, which is the one place a destructive
+ * operation must never be.
+ *
+ * PGlite is imported in `openEngine` and nowhere else, and lazily: it is a WASM
+ * Postgres, and an app that stays online for its whole life should never pay to
+ * load it.
  */
-const localDbDir = path.join(app.getPath("userData"), "local-db");
+const appDbDir = path.join(app.getPath("userData"), "local-db");
+/**
+ * Where the database lives: the workspace folder when a move has landed,
+ * otherwise the app's own directory.
+ *
+ * **This feature destroyed a database once; the guard rails are in
+ * `local-db-location.ts`.** The short version, because it is worth not
+ * repeating: the first attempt ran its move on *every launch*, on the boot path,
+ * with `recover` waiting to throw the result away — so one failure became a
+ * relaunch loop that left 129 unopenable directories and repeatedly discarded a
+ * working 318 MB database in favour of a 48 MB backup. The dump-and-load itself
+ * was fine; measured in isolation it round trips. Invoking it unconditionally,
+ * and answering a failure with destruction, was not.
+ *
+ * Resolved once into `storageDir` and read from there afterwards, so the
+ * directory is decided by one verified answer rather than recomputed by every
+ * caller — including `databaseDirFor`'s own question, which is asynchronous
+ * because answering it properly means opening the database.
+ */
+let storageDir: string | null = null;
+const localDbDir = (): string => storageDir ?? appDbDir;
+
+/** Opens a directory and reads one row; the only honest test of "can it open". */
+async function verifyDatabase(dir: string): Promise<boolean> {
+  const { PGlite } = await import("@electric-sql/pglite");
+  const client = (await PGlite.create({ dataDir: dir })) as unknown as LocalClient;
+  try {
+    await client.query("select 1");
+    return true;
+  } finally {
+    await client.close().catch(() => undefined);
+  }
+}
+
+/**
+ * Decide where the database is, moving it into the chosen folder if that has
+ * never been attempted, and **only** trusting a copy that opens.
+ *
+ * Idempotent and safe to await more than once: the answer is cached. Called from
+ * `open` before anything opens; every later caller reads `storageDir`.
+ */
+async function ensureDatabaseLocation(): Promise<string> {
+  const root = vault.root?.path;
+  if (!root) {
+    storageDir = appDbDir;
+    return storageDir;
+  }
+  const metaDir = path.join(root, WORKSPACE_META_DIR);
+  const result = await relocateDatabaseOnce({
+    appDir: appDbDir,
+    workspaceMetaDir: metaDir,
+    verify: verifyDatabase,
+    dump: async (dir) => {
+      const { PGlite } = await import("@electric-sql/pglite");
+      const client = (await PGlite.create({ dataDir: dir })) as unknown as LocalClient & {
+        dumpDataDir?: (c: "gzip") => Promise<Blob>;
+      };
+      if (typeof client.dumpDataDir !== "function") {
+        await client.close();
+        throw new Error("the engine cannot dump its data directory");
+      }
+      const bytes = await client.dumpDataDir("gzip");
+      return { bytes, close: () => client.close() };
+    },
+    load: async (targetDir, bytes) => {
+      const { PGlite } = await import("@electric-sql/pglite");
+      const client = (await PGlite.create({
+        dataDir: targetDir,
+        loadDataDir: bytes as Blob,
+      })) as unknown as LocalClient;
+      await client.close();
+    },
+  });
+  // A workspace copy that exists but will not open right now — a lock held by a
+  // process being replaced, most often — falls back to the app's own database
+  // for this launch. The marker is not written, so the next launch tries the
+  // workspace again once the lock has cleared.
+  storageDir = await databaseDirFor(appDbDir, metaDir, verifyDatabase);
+  if (storageDir !== result.dir) {
+    console.warn(`[local-db] the workspace copy did not open; using ${storageDir} for this launch`);
+  }
+  console.log(`[local-db] ${result.note}: ${storageDir}`);
+  return storageDir;
+}
+
+
 
 /**
  * Copies of the database, under the app's directory and under the workspace
@@ -425,12 +708,12 @@ const localDbBackups = new LocalDbBackups({
   },
 });
 
-/** Start the engine on `localDbDir`, from a backup's bytes when given some. */
+/** Start the engine on the current data directory, from a backup's bytes when given some. */
 async function openEngine(loadDataDir?: Blob): Promise<LocalClient> {
   const { PGlite, types } = await import("@electric-sql/pglite");
   const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
   return (await PGlite.create({
-    dataDir: localDbDir,
+    dataDir: localDbDir(),
     extensions: { pgcrypto },
     // Rows cross to the renderer shaped as PostgREST would send them, and the
     // repositories were written against that: a `date` is its `YYYY-MM-DD`
@@ -445,6 +728,53 @@ async function openEngine(loadDataDir?: Blob): Promise<LocalClient> {
   })) as unknown as LocalClient;
 }
 
+/**
+ * `openEngine`, with three attempts before it admits defeat.
+ *
+ * A local Postgres holds a lock on its data directory, and the two situations
+ * that produce a *transient* failure are both ordinary here: reconnecting a
+ * folder while the previous install is still running, and a shutdown whose
+ * engine has not finished releasing its files. Neither is a corrupt database,
+ * and the caller's response to a failure — `recover`, which moves the directory
+ * aside and rebuilds from a backup — is far too expensive to spend on them.
+ *
+ * The bound is what makes this safe: a genuinely unopenable directory still
+ * reaches `recover` eventually rather than being retried forever.
+ *
+ * The schedule is deliberately not "three tries, 700 ms apart", which was the
+ * first version and was wrong by an order of magnitude. Opening this database
+ * means initializing a WASM Postgres over a directory that is hundreds of
+ * megabytes; measured, that takes seconds, not milliseconds. Three attempts
+ * spanning 1.4 seconds therefore gave up while a lock held by a process being
+ * replaced was still clearing — and `recover` answers giving up by moving the
+ * database aside and rebuilding from an older backup, so a *slow open* was being
+ * read as a *broken database* and cost the reader their recent work.
+ *
+ * What matters is the total, not the count: roughly ten attempts backing off to
+ * five seconds is about half a minute of patience, which outlasts any process
+ * that is genuinely on its way out, and is still bounded.
+ */
+const OPEN_ATTEMPTS = 10;
+const OPEN_BACKOFF_MS = 500;
+const OPEN_BACKOFF_MAX_MS = 5000;
+
+async function openEngineWithRetry(): Promise<LocalClient> {
+  let last: unknown;
+  for (let attempt = 0; attempt < OPEN_ATTEMPTS; attempt++) {
+    try {
+      return await openEngine();
+    } catch (cause) {
+      last = cause;
+      if (attempt < OPEN_ATTEMPTS - 1) {
+        const wait = Math.min(OPEN_BACKOFF_MS * 2 ** attempt, OPEN_BACKOFF_MAX_MS);
+        await new Promise((resolve) => setTimeout(resolve, wait));
+      }
+    }
+  }
+  console.warn(`[local-db] could not open after ${OPEN_ATTEMPTS} attempts: ${String(last)}`);
+  throw last;
+}
+
 const localDb = new LocalDbHost({
   migrations: [
     path.join(__dirname, "migrations"),
@@ -452,21 +782,32 @@ const localDb = new LocalDbHost({
   ],
   dataDir: localDbDir,
   open: async () => {
-    // A reset the previous run could only write down; see `local-db-reset.ts`.
-    applyDeferredMove(localDbDir);
-    // The folder's backups are only findable once the folder is known, and
-    // the folder is taken up in the background at boot.
+    // The folder is taken up in the background at boot and the answer decides
+    // where the database is, so this waits for it.
     await rootRestored;
+    // The once-ever move into the workspace folder, before anything opens. It
+    // returns the directory to use either way, and after a successful move this
+    // is a pure lookup — see `local-db-location.ts` for why it is shaped that
+    // way rather than being a copy on every launch.
+    await ensureDatabaseLocation();
+    // A reset the previous run could only write down; see `local-db-reset.ts`.
+    applyDeferredMove(localDbDir());
     // No database at all -- a fresh install, or a reset -- but a backup: the
     // backup is what the person had, so it is what they get back.
-    if (!fs.existsSync(localDbDir)) {
+    if (!fs.existsSync(localDbDir())) {
       const latest = await localDbBackups.latest();
       if (latest) {
         console.log(`[local-db] no database; restoring from ${latest}`);
         return openEngine(await readBackup(latest));
       }
     }
-    return openEngine();
+    // The database exists, so a failure to open it here is a failure, not a
+    // missing file -- and `recover` (below) answers a failure by throwing the
+    // directory away and rebuilding from a backup, which is the most expensive
+    // thing this file can do. It is worth three patient attempts first: a lock
+    // held by a process that is still exiting clears in about a second, and
+    // must not cost the reader their afternoon.
+    return openEngineWithRetry();
   },
   recover: async (cause) => {
     const latest = await localDbBackups.latest();
@@ -475,7 +816,7 @@ const localDb = new LocalDbHost({
     // The engine that failed may still hold the directory. When it does, the
     // move waits for a process that has never opened it -- this one,
     // relaunched -- and that boot finds no directory and restores (above).
-    if ((await moveAside(localDbDir)) === "deferred") {
+    if ((await moveAside(localDbDir())) === "deferred") {
       app.relaunch();
       app.exit(0);
       return null;
@@ -484,7 +825,7 @@ const localDb = new LocalDbHost({
   },
   discard: async () => {
     // As in `recover`, for the button on the page.
-    if ((await moveAside(localDbDir)) === "deferred") {
+    if ((await moveAside(localDbDir())) === "deferred") {
       app.relaunch();
       app.exit(0);
     }
@@ -562,9 +903,36 @@ const rootRestored: Promise<void> = preferenceStore()
     return (await readHomeConfig(app.getPath("home"))).vaultRoot;
   })
   .then((remembered) => restoreRoot(vault, remembered, rememberRoot))
-  .then((root) => (root ? vaultWatcher.start(root.path) : null))
+  .then((root) => {
+    // A folder remembered from the last run is a connected folder from this one,
+    // so the menu says so before the window is even shown.
+    if (root) vaultWatcher.start(root.path);
+  })
   .catch(() => null)
   .then(() => undefined);
+
+/**
+ * Put the workspace folder in the menu, whatever it is now.
+ *
+ * Called at startup, when a folder is chosen, and when one is forgotten: the
+ * menu is a picture of the state, and a picture drawn once is how the File menu
+ * went on saying "Choose workspace folder…" after a folder was connected.
+ */
+function refreshMenu(): void {
+  installMenu({
+    chooseFolder: async () => {
+      await chooseWorkspaceFolder();
+    },
+    workspace: () => vault.root?.path ?? null,
+    openFolder: async () => {
+      const root = vault.root?.path;
+      if (root) await shell.openPath(root);
+    },
+    checkForUpdates: () => offerUpdate({ tellWhenCurrent: true }),
+    docsUrl: DOCS_URL,
+    goTo: (route) => routeTo(mainWindow, APP_URL, route),
+  });
+}
 
 /**
  * Ask for a workspace folder and adopt what comes back.
@@ -584,12 +952,13 @@ async function chooseWorkspaceFolder() {
         properties: ["openDirectory", "createDirectory"],
       });
   // A dismissed dialog is the user declining, not a failure.
-  const adopted = await adoptRoot(
+  const adopted = await chooseRoot(
     vault,
     result.canceled ? null : (result.filePaths[0] ?? null),
     rememberRoot,
   );
   if (adopted.ok && adopted.value) vaultWatcher.start(adopted.value.path);
+  refreshMenu();
   return adopted;
 }
 
@@ -598,7 +967,9 @@ ipc.handle(CHANNELS.vaultChoose, () => chooseWorkspaceFolder());
 ipc.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
 ipc.handle(CHANNELS.vaultForget, () => {
   vaultWatcher.stop();
-  return forgetRoot(vault, rememberRoot);
+  const forgotten = forgetRoot(vault, rememberRoot);
+  refreshMenu();
+  return forgotten;
 });
 ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) =>
   readVaultFile(vault, at),
@@ -778,14 +1149,7 @@ if (!app.requestSingleInstanceLock()) {
           prepare: shutDownLocalDb,
         });
     });
-    installMenu({
-      chooseFolder: async () => {
-        await chooseWorkspaceFolder();
-      },
-      checkForUpdates: () => offerUpdate({ tellWhenCurrent: true }),
-      docsUrl: DOCS_URL,
-      goTo: (route) => routeTo(mainWindow, APP_URL, route),
-    });
+    refreshMenu();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

@@ -68,6 +68,22 @@ export function paletteCss(
 }
 
 /**
+ * One palette entry as `#rrggbb`.
+ *
+ * A stored reader annotation carries a literal colour, not a name, so a paper's
+ * ink resolves its ink colour through the same palette the note draws with —
+ * one place decides what "red" is, on both surfaces.
+ */
+export function paletteHex(palette: InkPalette, colour: InkColour): string {
+  const [r, g, b] = palette[colour] ?? palette.text ?? INK_RENDER_COLOURS.text;
+  const channel = (value: number) =>
+    Math.round(Math.max(0, Math.min(1, value)) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(r)}${channel(g)}${channel(b)}`;
+}
+
+/**
  * Parse what `getComputedStyle` answers for a colour: `rgb(r, g, b)`,
  * `rgba(r, g, b, a)`, or the modern `color(srgb r g b)`. Anything else — a
  * token that resolved to nothing — answers `null` so the caller keeps its

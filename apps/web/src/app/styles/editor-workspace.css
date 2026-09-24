@@ -425,6 +425,26 @@
   .explorer-start-note { opacity: 1; }
 }
 
+/*
+ * Where it can hover, the hidden button must not hold its width either: in a
+ * narrow explorer the invisible 60px squeezed short names like "Notes" to
+ * "Not…". Out of the flow it overlays the row's end only while it shows.
+ */
+@media (hover: hover) {
+  .explorer-start-note {
+    position: absolute;
+    inset-inline-end: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--surface2); /* the hovered row's own fill */
+    pointer-events: none;
+  }
+  .explorer-row:hover .explorer-start-note,
+  .explorer-row:focus-within .explorer-start-note {
+    pointer-events: auto;
+  }
+}
+
 .explorer-start-note:hover {
   border-color: var(--accent);
   color: var(--accent);
@@ -495,6 +515,42 @@
 
 .explorer-show:hover { color: var(--text); background: var(--surface2); }
 
+/* Phone: the explorer is a drawer over the document, not a column beside it
+   (workspace-screen.tsx sets `.is-phone` below the desktop breakpoint). The
+   document always has the whole width; the drawer covers most of it and the
+   rest stays visible so it is clear what is underneath. */
+.workspace-shell.is-phone {
+  grid-template-columns: 0 minmax(0, 1fr);
+  /* The bottom nav floats over the last ~70px; without this it sat on the
+     status bar, so "Saved" was never visible on a phone. */
+  padding-block-end: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* A 375px screen has no room for a second pane, and the two split buttons
+   were taking the width the open tabs needed. */
+.workspace-shell.is-phone .pane-action[aria-label^="Split"] {
+  display: none;
+}
+
+.workspace-shell.is-phone .explorer-panel {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 6;
+  width: min(86vw, 340px);
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 28%, transparent);
+}
+
+.workspace-shell.is-phone .explorer-show {
+  width: 36px;
+  height: 40px;
+}
+
+.workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
+.workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
+  padding-inline-start: 36px;
+}
+
 /* The strip's first tab starts past the handle, or the two overlap. */
 .workspace-shell.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
 .workspace-shell.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
@@ -559,9 +615,9 @@
    wrist guard…) is chrome for later and hides; the fold handle shrinks the
    palette to its tools, and the move handle parks it in any of eight docks.
 
-   Both writing surfaces float the same way: the ink note's `.ink-bar` inside
-   `.workspace-shell.is-focus`, the reader's `.pdf-pen-rail` inside
-   `.pdf-reader.is-focus`. Each carries `.ink-palette` and `data-dock`, so the
+   Both writing surfaces float the same way, because they are the same element:
+   `.ink-bar.ink-palette`, inside `.workspace-shell.is-focus` on a note and
+   inside `.pdf-reader.is-focus` in the reader. It carries `data-dock`, so the
    rules below are written once. */
 .workspace-shell.is-focus .ink-palette,
 .pdf-reader.is-focus .ink-palette {
@@ -622,14 +678,11 @@
   overflow-x: auto;
 }
 
-/* The ink note's bar: what stays, and what is chrome for later. */
-.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper) {
-  display: none;
-}
-/* The pen rail: the Done button, its spacer and the separators are chrome. */
-.pdf-reader.is-focus .pdf-pen-rail > .ink-bar-spacer,
-.pdf-reader.is-focus .pdf-pen-rail > .ink-sep,
-.pdf-reader.is-focus .pdf-pen-rail > .ink-tool {
+/* The bar in focus — both surfaces are this one bar now
+   (`features/ink/ui/ink-bar`), so this is one rule rather than two: what a
+   hand needs mid-stroke stays, and everything else is chrome for later. */
+.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper),
+.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper) {
   display: none;
 }
 
@@ -657,36 +710,20 @@
 .ink-dock { position: relative; display: inline-flex; }
 .ink-bar-dock,
 .ink-bar-collapse { color: var(--muted); }
+/* The grip drags the palette: no browser panning on it, and a hand cursor. */
+.ink-bar-dock { cursor: grab; touch-action: none; }
+.ink-palette[data-dragging] { transition: none; cursor: grabbing; }
+.ink-palette[data-dragging] .ink-bar-dock { cursor: grabbing; }
 
-/* The dock picker: a 3×3 grid of the eight positions, the centre empty. */
-.ink-dock-grid {
-  position: absolute;
-  z-index: 6;
-  top: calc(100% + 6px);
-  left: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 18px);
-  gap: 4px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+/* The selection halo the ink renderer draws under a selected stroke
+   (`features/ink/ui/ink-strokes`), on whichever surface offers selection: the
+   sheet's own mark for "this line is picked up", in the accent the lasso uses. */
+.ink-stroke-halo {
+  fill: none;
+  stroke: var(--accent);
+  opacity: 0.3;
+  pointer-events: none;
 }
-.ink-palette[data-dock$="right"] .ink-dock-grid { left: auto; right: 0; }
-.ink-palette[data-dock^="bottom"] .ink-dock-grid { top: auto; bottom: calc(100% + 6px); }
-.ink-dock-cell {
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  background: var(--surface-2, var(--surface));
-  cursor: pointer;
-}
-.ink-dock-cell:hover { border-color: var(--accent); }
-.ink-dock-cell[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
-.ink-dock-cell--empty { border-style: dashed; opacity: 0.35; cursor: default; }
 
 .workspace-shell.is-focus .ink-palette .ink-bar-group,
 .workspace-shell.is-focus .ink-palette .ink-swatches,
@@ -1336,9 +1373,28 @@
 
 .breadcrumb {
   display: inline-flex;
+  flex: none;
   align-items: center;
   min-width: 0;
+  max-width: 60%;
 }
+
+/* No crumb takes more than 60% of the strip, so a long title gives up the
+   room and "Files" keeps its name; anything left over scrolls. Its text clips
+   with an ellipsis instead of spilling over the next crumb, which on a phone
+   printed "PDF" on top of the title. */
+.breadcrumb-plain,
+.breadcrumb-btn,
+.breadcrumb-current {
+  min-width: 2ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A folder crumb that cannot be opened is plain text, but it keeps the same
+   padding as its neighbours: without it the separator touched the label
+   ("Papers›Title"). */
+.breadcrumb-plain { padding: 2px 6px; }
 
 .breadcrumb-btn,
 .breadcrumb-current {
@@ -1375,8 +1431,9 @@
 .breadcrumb-sep {
   display: inline-flex;
   flex: none;
+  padding-inline: 1px;
   color: var(--faint);
-  opacity: 0.55;
+  opacity: 0.8;
 }
 
 .breadcrumb-sep .chev svg {
@@ -1633,12 +1690,40 @@
   font-size: 0.85rem;
 }
 .paper-pdf-fetch-error { margin: 0; font-size: 0.8rem; color: var(--s-danger); }
-.paper-pdf-pane-tools {
-  position: absolute;
-  right: 20px;
-  bottom: 16px;
-  z-index: 2;
+/* "Find a free copy": the button, and the line saying what it found. */
+.paper-free-copy { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 8px auto 4px; }
+.paper-free-copy-status { margin: 0; max-width: 34rem; font-size: 0.8rem; color: var(--muted); }
+.paper-free-copy-status[role="alert"] { color: var(--s-danger); }
+
+/* A paper kept as a web page: a thin bar, then the sandboxed frame. */
+.paper-html-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
 }
+.paper-html-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+.paper-html-kind { font-weight: 600; }
+.paper-html-source {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.paper-html-spacer { flex: 1; }
+.paper-html-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--surface); }
 
 /* -------------------------------------------------------------------------
    The status bar (§3.4, step 2)
@@ -2571,4 +2656,52 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #e9e9e9;
+}
+
+/* -------------------------------------------------------------------------
+   The phone's document switcher (pane-view.tsx). Below 480px the strip showed
+   about one and a half titles; one control naming the document on screen,
+   opening the phone's own picker, replaces it.
+   ---------------------------------------------------------------------- */
+.pane-tab-switcher { display: none; }
+
+@media (max-width: 479px) {
+  .pane-tabs .pane-tab-scroll { display: none; }
+  .pane-tab-switcher {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 0 6px 0 10px;
+    color: var(--text);
+    font-size: 0.815rem;
+  }
+  .workspace-shell.is-explorer-hidden .pane-tab-switcher { padding-inline-start: 40px; }
+  /* The shared Select, flattened into the tab bar. Scoped to the container
+     and its trigger: the menu carries the same class and keeps its own look. */
+  .custom-select-container.pane-tab-select { flex: 1; min-width: 0; width: auto; height: 100%; }
+  .pane-tab-select > .custom-select-button {
+    height: 100%;
+    padding: 0 4px 0 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+  .pane-tab-select > .custom-select-button:focus { box-shadow: none; }
+  .pane-tab-select > .custom-select-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .pane-tab-count {
+    flex: none;
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 18px;
+    text-align: center;
+  }
+  .pane-tab-switcher .pane-tab-close { opacity: 1; width: 24px; height: 24px; }
 }

@@ -52,7 +52,7 @@ function stub(failOn?: string) {
 const NO_MIGRATIONS: string[] = [];
 
 /** The options every test shares: nowhere real, and a discard that only counts. */
-const ELSEWHERE = { dataDir: "/nowhere/local-db", discard: async () => {} };
+const ELSEWHERE = { dataDir: () => "/nowhere/local-db", discard: async () => {} };
 
 test("local-db-host: a failed migration closes the engine it opened", async () => {
   const opened: ReturnType<typeof stub>[] = [];
@@ -156,7 +156,7 @@ test("local-db-host: a failed open is reported as such, and reset moves aside", 
       return stub().client;
     },
     migrations: NO_MIGRATIONS,
-    dataDir: "/nowhere/local-db",
+    dataDir: () => "/nowhere/local-db",
     discard: async () => {
       discarded += 1;
     },
@@ -186,7 +186,7 @@ test("local-db-host: reset is refused while the database is healthy", async () =
   const host = new LocalDbHost({
     open: async () => stub().client,
     migrations: NO_MIGRATIONS,
-    dataDir: "/nowhere/local-db",
+    dataDir: () => "/nowhere/local-db",
     discard: async () => {
       discarded += 1;
     },
@@ -206,7 +206,7 @@ test("local-db-host: a reset whose move fails keeps the failure for a retry", as
       throw new Error("Aborted().");
     },
     migrations: NO_MIGRATIONS,
-    dataDir: "/nowhere/local-db",
+    dataDir: () => "/nowhere/local-db",
     discard: async () => {
       throw new Error("EACCES: permission denied");
     },
@@ -232,7 +232,10 @@ test("local-db-host: an open that fails is retried from a backup, and says so", 
   assert.equal((await host.query("select 1", [])).ok, true);
   assert.deepEqual(host.state(), {
     failure: null,
-    dataDir: ELSEWHERE.dataDir,
+    // `state()` reports the *current* directory, not the option it was built
+    // with: the option is a function because the answer changes when a
+    // workspace folder is connected, and the page has to see the new one.
+    dataDir: ELSEWHERE.dataDir(),
     restoredFrom: "/backups/local-db-1.tar.gz",
   });
 });

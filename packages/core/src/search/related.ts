@@ -12,12 +12,23 @@
 import { relatedByPpr, type PprOptions } from "./personalized-pagerank.js";
 import { graphDegrees, type WikiGraph } from "./wiki-graph.js";
 
-export type RelatedArm = "graph" | "lexical" | "tags" | "none";
+export type RelatedArm = "graph" | "lexical" | "semantic" | "tags" | "none";
 
 export interface RelatedResult {
   id: string;
   score: number;
+  /** The method that ranked it first — what the list is headed with. */
   arm: RelatedArm;
+  /**
+   * Every method that found it, strongest first, when more than one ran. A
+   * paper both linked from the seed and close to it in meaning says so.
+   */
+  arms?: readonly RelatedArm[];
+  /**
+   * Cosine similarity to the seed, 0–1, when the meaning arm found it. The
+   * fused `score` is a rank blend and means nothing as a number; this does.
+   */
+  similarity?: number;
 }
 
 /** Below this the seed has too little neighbourhood for a walk to say anything. */
@@ -72,6 +83,8 @@ export function explainArm(arm: RelatedArm): string {
       return "From links between your notes and papers";
     case "lexical":
       return "By similar wording — not enough links yet for the graph";
+    case "semantic":
+      return "By similar meaning — not enough links yet for the graph";
     case "tags":
       return "By shared tags";
     default:

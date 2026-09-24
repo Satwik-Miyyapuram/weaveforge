@@ -90,7 +90,7 @@ apps/web/src/storage/
 ├── config.ts
 ├── wire-storage.ts
 └── providers/
-    ├── supabase/blob-store.ts   ← today
+    ├── supabase/blob-store.ts   ← legacy, unused
     ├── s3/blob-store.ts         ← Phase 1
     └── tiered/tiered-blob-store.ts
 ```

@@ -89,14 +89,19 @@
   min-width: 8.25rem;
   font-size: 0.78rem;
   text-transform: capitalize;
-  border-radius: 999px;
+  /* 6px, matching the panel below, not the pill this was. At 999px the control
+     was a lozenge 28px tall, and the control and the list it opens disagreed
+     about what shape they were: the panel had already come down to 6px (see
+     `forms.css`) while the thing you press to open it stayed fully round. One
+     control, one corner — the same argument that fix was made on. */
+  border-radius: 6px;
   cursor: pointer;
 }
 .status-select.custom-select-container { width: auto; }
 .status-select .custom-select-button {
   padding: 6px 12px;
   min-height: var(--control-md);
-  border-radius: 999px;
+  border-radius: 6px;
   gap: 6px;
   font-size: 0.78rem;
   line-height: 1.2;

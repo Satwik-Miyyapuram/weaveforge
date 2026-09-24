@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  DEFAULT_EXPANDED,
   EXPLORER_STORAGE_KEY,
   collapseAll,
+  defaultExpanded,
   expandAll,
   isSectionOpen,
   readExpanded,
@@ -21,6 +21,21 @@ import {
   type WorkspaceTreeNode,
 } from "../application/workspace-tree";
 
+/**
+ * The roots a workspace with one of everything has.
+ *
+ * Derived from the tree rather than written out, because the bug this file now
+ * guards against was a written-out list: `DEFAULT_EXPANDED` named three roots
+ * and the tree had four, so the logbook was the one section a first run left
+ * shut. A test that spells the four keys by hand would have had the same gap.
+ */
+const ROOTS = buildWorkspaceTree({
+  notes: [],
+  papers: [],
+  reportSections: [],
+  logEntries: [],
+}).map((node) => node.key);
+
 function memoryStore(initial: string | null = null) {
   let value = initial;
   return {
@@ -33,29 +48,95 @@ function memoryStore(initial: string | null = null) {
 }
 
 test("a first run opens the roots rather than showing an empty panel", () => {
-  assert.deepEqual([...readExpanded(memoryStore())], [...DEFAULT_EXPANDED]);
-  assert.deepEqual([...readExpanded(undefined)], [...DEFAULT_EXPANDED]);
+  assert.deepEqual([...readExpanded(memoryStore(), ROOTS)], [...defaultExpanded(ROOTS)]);
+  assert.deepEqual([...readExpanded(undefined, ROOTS)], [...defaultExpanded(ROOTS)]);
+  // Including the logbook, which the old hard-coded default left shut.
+  assert.ok(ROOTS.includes("logbook"), "the tree no longer has a Log root");
 });
 
 test("what was expanded survives a reload", () => {
   const store = memoryStore();
-  writeExpanded(store, new Set(["notes", "vault_page:a"]));
+  // A record that already knows every root: what it says is what comes back,
+  // with nothing added.
+  writeExpanded(store, new Set(["notes", "vault_page:a", ...ROOTS]));
 
-  assert.deepEqual([...readExpanded(store)], ["notes", "vault_page:a"]);
-  assert.equal(store.read(), JSON.stringify(["notes", "vault_page:a"]));
+  const reopened = readExpanded(store, ROOTS, true);
+  assert.deepEqual([...reopened], ["notes", "vault_page:a", "papers", "report", "logbook"]);
+  // Including the fact that a root the reader left shut is not reopened.
+  assert.equal(reopened.has("logbook"), true);
+});
+
+/**
+ * A record written before a root existed does not keep it shut.
+ *
+ * This is the case the "start open" rule missed for every existing reader: the
+ * stored list is a delta against the roots of the day it was written, nothing
+ * rewrites it when a root appears, and so the new root stayed collapsed for
+ * everyone who had ever toggled a folder — which is everyone.
+ */
+test("a root the record has never heard of is opened, on the migrating read", () => {
+  const store = memoryStore();
+  // Exactly the shape a pre-logbook record has.
+  writeExpanded(store, new Set(["notes", "papers", "report"]));
+
+  assert.deepEqual([...readExpanded(store, ROOTS, true)], ["notes", "papers", "report", "logbook"]);
+});
+
+/**
+ * And the read after it leaves the record alone.
+ *
+ * The migration cannot tell "this record predates the root" from "the reader
+ * closed this root" — a collapse and an absence are the same absent key — so
+ * running it on every read reopens every section anybody ever closed. That is
+ * the bug this pins: collapse the Log, reload, and it came back.
+ */
+test("a deliberate collapse is not a migration, and survives the next read", () => {
+  const store = memoryStore();
+  // Migrated once, which is what a real session does on its first read.
+  const migrated = readExpanded(
+    (() => {
+      writeExpanded(store, new Set(["notes", "papers", "report"]));
+      return store;
+    })(),
+    ROOTS,
+    true,
+  );
+  assert.equal(migrated.has("logbook"), true);
+
+  // The reader closes the Log, and that is written back.
+  const collapsed = new Set(migrated);
+  collapsed.delete("logbook");
+  writeExpanded(store, collapsed);
+
+  // The next session's read does not migrate, and does not reopen it.
+  assert.equal(readExpanded(store, ROOTS, false).has("logbook"), false);
+  // Asking the migration to run again *would* reopen it, and that is exactly
+  // why the caller runs it once: a collapse and a record that predates the root
+  // are the same absent key, so nothing in the record can tell them apart. This
+  // assertion is the reason `readExpanded` takes a `migrate` flag at all.
+  assert.equal(readExpanded(store, ROOTS, true).has("logbook"), true);
 });
 
 test("collapsing everything is remembered, not treated as no record", () => {
   const store = memoryStore();
   writeExpanded(store, new Set());
 
-  assert.deepEqual([...readExpanded(store)], []);
+  // An empty record is a decision — "I collapsed everything" — and the
+  // migration must not undo it by filling in every root.
+  assert.deepEqual([...readExpanded(store, ROOTS, true)], []);
 });
 
 test("a record written by something else falls back to the defaults", () => {
-  assert.deepEqual([...readExpanded(memoryStore("not json"))], [...DEFAULT_EXPANDED]);
-  assert.deepEqual([...readExpanded(memoryStore('{"notes":true}'))], [...DEFAULT_EXPANDED]);
-  assert.deepEqual([...readExpanded(memoryStore("[1, \"notes\"]"))], ["notes"]);
+  assert.deepEqual([...readExpanded(memoryStore("not json"), ROOTS)], [...defaultExpanded(ROOTS)]);
+  assert.deepEqual([...readExpanded(memoryStore('{"notes":true}'), ROOTS)], [...defaultExpanded(ROOTS)]);
+  // A valid array with unknown keys keeps what it names and gains the roots the
+  // tree has — the migration is what the `true` asks for.
+  assert.deepEqual(
+    [...readExpanded(memoryStore("[1, \"notes\"]"), ROOTS, true)].sort(),
+    [...new Set(["notes", ...ROOTS])].sort(),
+  );
+  // Without it, the record is taken exactly as written.
+  assert.deepEqual([...readExpanded(memoryStore("[1, \"notes\"]"), ROOTS)], ["notes"]);
 });
 
 test("storage that throws never stops the explorer", () => {
@@ -68,7 +149,7 @@ test("storage that throws never stops the explorer", () => {
     },
   };
 
-  assert.deepEqual([...readExpanded(hostile)], [...DEFAULT_EXPANDED]);
+  assert.deepEqual([...readExpanded(hostile, ROOTS)], [...defaultExpanded(ROOTS)]);
   assert.doesNotThrow(() => writeExpanded(hostile, ["notes"]));
   assert.equal(EXPLORER_STORAGE_KEY, "weaveforge.explorer.expanded");
 });
@@ -101,6 +182,7 @@ test("only the open rows are painted, and each knows its indent", () => {
       ["Method", 1],
       ["Papers", 0],
       ["Report", 0],
+      ["Log", 0],
     ],
   );
 
@@ -113,6 +195,7 @@ test("only the open rows are painted, and each knows its indent", () => {
       ["Baselines", 2],
       ["Papers", 0],
       ["Report", 0],
+      ["Log", 0],
     ],
   );
 });
@@ -149,7 +232,7 @@ test("collapse all closes every branch", () => {
 test("collapse all leaves one row per root and nothing else", () => {
   assert.deepEqual(
     visibleRows(nestedTree(), collapseAll()).map((row) => row.node.label),
-    ["Notes", "Papers", "Report"],
+    ["Notes", "Papers", "Report", "Log"],
   );
 });
 

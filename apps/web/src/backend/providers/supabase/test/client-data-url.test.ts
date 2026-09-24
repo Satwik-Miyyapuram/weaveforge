@@ -4,6 +4,7 @@ import {
   createRestClient,
   createSupabaseClient,
   getRealtimeClient,
+  namedNetworkFailure,
   resetSupabaseClientForTests,
 } from "../client";
 
@@ -209,6 +210,73 @@ test("a network failure names the host it could not reach", async () => {
     globalThis.fetch = original;
     resetSupabaseClientForTests();
   }
+});
+
+/**
+ * The probe's answer must not be reported as a CORS verdict.
+ *
+ * This is the bug that cost a person an evening on a VM: the probe uses
+ * `mode: "no-cors"`, which resolves for **any** response — measured against the
+ * live API, a real `GET /rest/v1/papers` returns `401` *with*
+ * `access-control-allow-origin` set correctly, and the old code still reported an
+ * "origin refused". The host being up says nothing about its allow-list, so all
+ * the client may claim is that the host answered.
+ *
+ * Tested through `namedNetworkFailure` directly rather than through a Supabase
+ * query. Driving it through the client meant mocking `fetch` and then asserting
+ * on whatever the library decided to put in `error.message`, which turned out to
+ * be nothing — the assertion saw `""` and the test was measuring Supabase's error
+ * plumbing instead of this function. The unit under test is the one that was
+ * wrong, so it is the one called.
+ */
+test("a probe that resolves is not reported as an origin refusal", async () => {
+  const original = globalThis.fetch;
+  const seen: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    seen.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+    // `no-cors` resolves opaquely for a 401 exactly as it does for a 200, which
+    // is the whole reason "reachable" cannot mean "the origin was accepted".
+    return new Response(null, { status: 401 });
+  }) as typeof fetch;
+  try {
+    const wrapped = (await namedNetworkFailure(
+      new TypeError("Failed to fetch"),
+      "https://oci.example.com:3000/rest/v1",
+    )) as Error;
+    assert.match(wrapped.message, /\(host answered\)/, "the observation is carried");
+    assert.match(wrapped.message, /\(browser said: Failed to fetch\)/, "and the browser's words");
+    assert.doesNotMatch(wrapped.message, /origin refused/, "a claim the probe cannot support");
+    // The probe asks a path the API serves, not the bare origin PostgREST
+    // answers with a 404.
+    assert.ok(
+      seen.some((u) => u.endsWith("/rest/v1/")),
+      `expected a probe of /rest/v1/, saw ${JSON.stringify(seen)}`,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("a probe that fails is reported as an unreachable host, with no CORS claim", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new TypeError("Failed to fetch");
+  }) as typeof fetch;
+  try {
+    const wrapped = (await namedNetworkFailure(
+      new TypeError("Failed to fetch"),
+      "https://oci.example.com:3000/rest/v1",
+    )) as Error;
+    assert.match(wrapped.message, /could not reach oci\.example\.com:3000/);
+    assert.doesNotMatch(wrapped.message, /host answered|origin refused/);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("only a network failure is rewritten; a server's own words pass through", async () => {
+  const notNetwork = new Error("aborted by the caller");
+  assert.equal(await namedNetworkFailure(notNetwork, "https://x.example/rest/v1"), notNetwork);
 });
 
 test("an error that is not a network failure keeps its own words", async () => {

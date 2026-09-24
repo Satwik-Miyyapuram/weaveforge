@@ -1,7 +1,7 @@
 import type { WorkspaceCommit } from "@weaveforge/core";
 
 import type { IpcResult, VaultEntryPayload, VaultRootPayload } from "./channels";
-import { NodeWorkspaceFs, verifyRoot } from "./vault-folder";
+import { NodeWorkspaceFs, verifyRoot, workspaceRootFor } from "./vault-folder";
 import { commitVault } from "./vault-git";
 
 /**
@@ -56,7 +56,28 @@ export function newVaultSession(): VaultSession {
 /** Told when the chosen folder changes, so it can outlive the process. */
 export type RememberRoot = (root: string | null) => void;
 
-/** Adopt a directory the user picked. Refuses anything `verifyRoot` refuses. */
+/**
+ * Adopt a directory the user *chose*.
+ *
+ * A folder that is already theirs is not refused: the workspace goes in
+ * `WeaveForge/` inside it and that is what is adopted (see `workspaceRootFor`),
+ * so what the renderer is told to show is where the files really are.
+ */
+export async function chooseRoot(
+  session: VaultSession,
+  chosen: string | null,
+  remember?: RememberRoot,
+): Promise<IpcResult<VaultRootPayload | null>> {
+  if (chosen === null) return { ok: true, value: session.root };
+  const choice = await workspaceRootFor(chosen);
+  if (!choice.ok) return { ok: false, message: choice.reason };
+  session.root = { path: choice.root, state: choice.state };
+  session.fs = new NodeWorkspaceFs(choice.root);
+  remember?.(choice.root);
+  return { ok: true, value: session.root };
+}
+
+/** Adopt a directory that was remembered. Refuses anything `verifyRoot` refuses. */
 export async function adoptRoot(
   session: VaultSession,
   chosen: string | null,

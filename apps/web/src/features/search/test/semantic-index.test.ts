@@ -216,3 +216,67 @@ test("an aborted build stops instead of finishing in the background", async () =
   await assert.rejects(build, /cancelled/i);
   assert.equal(index.ready, false, "a half-built index is not exposed");
 });
+
+test("sync re-embeds only what changed and drops what was deleted", async () => {
+  const embedder = new TopicEmbedder();
+  const index = new SemanticIndex(embedder);
+  await index.build(CORPUS);
+  embedder.calls = [];
+
+  const edited = doc("note:a", "Method", "We train the autoencoder latent with Adam.");
+  const changed = await index.sync([edited, CORPUS[2]!], (id) => id.startsWith("note:"));
+
+  assert.equal(changed, true);
+  assert.equal(embedder.calls.length, 1, "one edited note, one forward pass");
+  assert.equal((await index.search("posterior latent vae", 5)).some((h) => h.id === "note:b"), false, "deleted note is gone");
+  assert.equal(await index.sync([edited, CORPUS[2]!], (id) => id.startsWith("note:")), false, "no-op second time");
+});
+
+test("nearestTo finds neighbours from the seed's own vectors, without embedding", async () => {
+  const embedder = new TopicEmbedder();
+  const index = new SemanticIndex(embedder);
+  await index.build([...CORPUS, doc("note:d", "Tuesday", "More on self-attention and the transformer.")]);
+  embedder.calls = [];
+
+  const near = index.nearestTo("note:d", 3);
+  assert.equal(near[0]?.id, "note:a");
+  assert.equal(near.some((h) => h.id === "note:d"), false, "never itself");
+  assert.equal(embedder.calls.length, 0);
+});
+
+test("stored vectors plus hashes re-embed only what changed while the app was closed", async () => {
+  const first = new SemanticIndex(new TopicEmbedder());
+  await first.build(CORPUS);
+  const stored = first.serialize()!;
+  assert.ok(stored.hashes["note:a"], "each document's text hash travels with the vectors");
+
+  // Next launch: one note edited, one deleted, one added.
+  const edited = doc("note:a", "Method", "Adam with momentum, now about the optimizer.");
+  const added = doc("note:d", "More", "A latent autoencoder variant.");
+  const now = [edited, CORPUS[1]!, added];
+
+  const embedder = new TopicEmbedder();
+  const second = new SemanticIndex(embedder);
+  assert.equal(second.load(stored), true);
+  const changed = await second.sync(now, () => true);
+
+  assert.equal(changed, true);
+  const embedded = embedder.calls.filter((call) => call.kind === "passage").flatMap((call) => call.texts);
+  assert.equal(embedded.length, 2, "the edited and the added note, nothing else");
+  assert.ok(embedded.some((text) => text.includes("optimizer")));
+  assert.ok(embedded.some((text) => text.includes("variant")));
+
+  const ids = (await second.search("adam gradient", 5)).map((hit) => hit.id);
+  assert.ok(!ids.includes("note:c"), "the deleted note no longer answers");
+  assert.equal(ids[0], "note:a", "the edited note is found by its new meaning");
+});
+
+test("a reload with nothing changed embeds nothing", async () => {
+  const first = new SemanticIndex(new TopicEmbedder());
+  await first.build(CORPUS);
+  const embedder = new TopicEmbedder();
+  const second = new SemanticIndex(embedder);
+  second.load(first.serialize()!);
+  assert.equal(await second.sync(CORPUS, () => true), false);
+  assert.equal(embedder.calls.length, 0);
+});

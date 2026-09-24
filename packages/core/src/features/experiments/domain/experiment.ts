@@ -190,3 +190,43 @@ export function formatMetricValue(_metric: string, value: number): string {
   if (abs >= 0.01) return value.toFixed(4);
   return value.toExponential(2);
 }
+
+/**
+ * One metric's value as text, for a chip or a table cell.
+ *
+ * Here rather than in the web app because it is the *general* case of
+ * {@link formatMetricValue}: the same rule for every surface that shows a metric
+ * value, and no React in sight, so it can be tested without a DOM — the version
+ * of this that lived in `metric-chart.tsx` could not be, because importing that
+ * module pulls in uPlot's stylesheet.
+ *
+ * A number (or a numeric string) goes through `formatMetricValue`, which is what
+ * gives the chips their consistent precision. Anything else is *shown*, not
+ * stringified blindly — and that distinction is a bug that shipped: the fallback
+ * was `String(value ?? "—")`, and `String` on any object produces the literal
+ * `[object Object]`, which is what a run whose metric was an object displayed on
+ * its experiment page. `Number(anObject)` is always `NaN`, so every non-numeric
+ * value reached that fallback; that is why the symptom was this exact text
+ * rather than a blank or a crash.
+ *
+ * An object is therefore shown as compact JSON, a boolean is spelled (it used to
+ * render as `0.00000`, because `Number(false)` is a finite 0 — a different claim
+ * from `false`), and a value that cannot be serialised at all, such as a cycle,
+ * degrades to "—" rather than throwing inside a render.
+ */
+export function formatMetricCell(_metric: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (Number.isFinite(n)) return formatMetricValue(_metric, n);
+  if (typeof value === "string") return value;
+  if (typeof value === "boolean") return value ? "true" : "false";
+  try {
+    const json = JSON.stringify(value);
+    // `undefined` from a function, a symbol, or an array/object holding only
+    // those: JSON has no representation, and "—" is the honest answer.
+    return json === undefined ? "—" : json;
+  } catch {
+    // A cycle, or a `toJSON` that threw. The cell is not worth failing a render.
+    return "—";
+  }
+}

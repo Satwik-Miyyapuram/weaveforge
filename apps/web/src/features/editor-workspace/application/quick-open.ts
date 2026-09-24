@@ -134,6 +134,10 @@ const GROUP_ORDER: readonly { kind: string; label: string }[] = [
   { kind: "paper_pdf", label: "PDFs" },
   { kind: "reading_list", label: "Reading lists" },
   { kind: "report_section", label: "Report" },
+  // The logbook, last: it is the one root whose rows are named by a date rather
+  // than a title, so it is the one a searcher is least likely to be reaching
+  // for by name — and the group order is the explorer's own root order.
+  { kind: "log_entry", label: "Log" },
 ];
 
 /**

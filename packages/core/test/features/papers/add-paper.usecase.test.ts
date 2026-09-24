@@ -67,3 +67,22 @@ test("MetadataResolver throws when no source supports the ref", async () => {
   const resolver = new MetadataResolver([new FakeArxivSource()]);
   await assert.rejects(() => resolver.resolve({ kind: "doi", value: "10.1/x" }));
 });
+
+test("addManual treats an id-less paper with the same long title as a duplicate", async () => {
+  const repo = new InMemoryPaperRepository();
+  const uc = new AddPaperUseCase({ repository: repo, clock, ids: seqIds() });
+  const first = await uc.addManual({ title: "Attention Is All You Need: Transformers" });
+  const second = await uc.addManual({ title: "attention is all you need — transformers.pdf" });
+  assert.equal(second.id, first.id);
+  assert.equal((await repo.list()).length, 1);
+});
+
+test("addManual never title-matches a paper that brings its own id, or a short title", async () => {
+  const repo = new InMemoryPaperRepository();
+  const uc = new AddPaperUseCase({ repository: repo, clock, ids: seqIds() });
+  await uc.addManual({ title: "Attention Is All You Need: Transformers" });
+  await uc.addManual({ title: "Attention Is All You Need: Transformers", doi: "10.1/xyz" });
+  await uc.addManual({ title: "Notes" });
+  await uc.addManual({ title: "Notes" });
+  assert.equal((await repo.list()).length, 4);
+});

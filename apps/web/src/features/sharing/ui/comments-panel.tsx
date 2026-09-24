@@ -35,7 +35,8 @@ export function CommentsPanel({
 
   useEffect(() => {
     let alive = true;
-    void reload();
+    // A thread that cannot be read (no account, offline) is an empty one here.
+    reload().catch(() => {});
     getContainer().sharing.listDirectory()
       .then((d) => alive && setMembers(d))
       .catch(() => {});

@@ -1,19 +1,16 @@
 # Database migrations
 
-The schema, in the order it was built. **This chain is the database**, and it is applied to
-every deployment — the hosted Supabase project and the self-hosted OCI stack alike.
+The schema, in the order it was built. **This chain is the database.** It runs on the
+Postgres 16 on the project's OCI server (with PostgREST, Realtime and MinIO beside it; see
+`infra/oci/docker-compose.yml`):
 
-- **Hosted Supabase** (managed Postgres + Supabase Auth + Supabase Storage):
-  `supabase link && supabase db push`, or paste the files into the SQL Editor in numeric order
-  (`0001`, `0002`, …).
-- **OCI / self-hosted** (Postgres 16 + PostgREST + MinIO; see `infra/oci/docker-compose.yml`):
-  apply [`../migrations-self-hosted-postgres/`](../migrations-self-hosted-postgres/) **first** —
+- apply [`../migrations-self-hosted-postgres/`](../migrations-self-hosted-postgres/) **first** —
   it stubs the furniture a stock Postgres lacks (`auth.users`, `auth.uid()`, `storage.buckets`,
   the `anon`/`authenticated`/`service_role` grants) — then this chain in order.
 
-Auth is Supabase Auth in both cases: the self-hosted PostgREST and Realtime verify the tokens
-Supabase signs (`PGRST_JWT_SECRET` carries the project's public keys). Only the *data plane* and
-*object storage* move.
+Supabase is used for sign-in only: the self-hosted PostgREST and Realtime verify the tokens
+Supabase Auth signs (`PGRST_JWT_SECRET` carries the project's public keys). All tables and files
+live on the OCI server.
 
 **Do not** add self-hosted-only scripts here. Those belong in
 [`../migrations-self-hosted-postgres/`](../migrations-self-hosted-postgres/).

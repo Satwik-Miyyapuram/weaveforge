@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { pdfPointToScreen, pdfRectToScreenBox, type PageProjection } from "@weaveforge/core";
 import { sanitizePdfUrl } from "../../application/sanitize-reader-url";
 import { Modal } from "@/components/modal";
+import { InkStrokes } from "@/features/ink";
 import type { DraftShape } from "./types";
 import type { MarginNote } from "../../application/margin-notes";
 
@@ -22,7 +23,9 @@ export function SafeExternalLink({ href, children }: { href: string; children: R
  *
  * Uses the same projection as the persisted overlay — `x * scale` and
  * `(pageHeight - y) * scale` — so the preview sits exactly where the saved
- * annotation lands, with no jump on release.
+ * annotation lands, with no jump on release. The wet stroke goes through the
+ * ink note's renderer, so it is the line the saved stroke will be rather than a
+ * second approximation of it; the rectangle tools are the reader's own.
  */
 export function DraftShapeOverlay({
   shape,
@@ -33,57 +36,83 @@ export function DraftShapeOverlay({
   color: string;
   projection: PageProjection;
 }) {
-  const toScreen = (x: number, y: number) => {
-    const point = pdfPointToScreen(x, y, projection);
-    return `${point.x},${point.y}`;
-  };
+  const points = useMemo(() => {
+    if (shape.kind === "rect") return [];
+    const out: number[] = [];
+    for (let i = 0; i + 1 < shape.path.length; i += 2) {
+      const screen = pdfPointToScreen(shape.path[i]!, shape.path[i + 1]!, projection);
+      out.push(screen.x, screen.y);
+    }
+    return out;
+  }, [shape, projection]);
+
+  /**
+   * The lasso loop, drawn exactly as the sheet draws it — same dashed accent
+   * (`ink-lasso`, editor-workspace.css), so the gesture looks like the one the
+   * hand already knows. A closed polygon: the last point joins the first, which
+   * is the area the marks inside are judged against.
+   */
+  if (shape.kind === "lasso") {
+    const loop: string[] = [];
+    for (let i = 0; i + 1 < points.length; i += 2) {
+      loop.push(`${points[i]},${points[i + 1]}`);
+    }
+    if (loop.length < 2) return null;
+    return (
+      <div className="pdf-reader-ann-layer" aria-hidden>
+        <svg className="pdf-reader-ann-svg" width="100%" height="100%">
+          <polygon className="ink-lasso" points={loop.join(" ")} />
+        </svg>
+      </div>
+    );
+  }
+
+  if (shape.kind === "ink") {
+    return (
+      <div className="pdf-reader-ann-layer" aria-hidden>
+        <InkStrokes
+          className="pdf-reader-ann-svg"
+          // The wet stroke wears the same look the saved one will, including
+          // the reader's own highlighter over a page image.
+          highlighterClassName="pdf-reader-ink--highlighter"
+          strokes={[
+            {
+              points,
+              // Same nib the saved stroke will have, so nothing changes
+              // thickness on release.
+              width: Math.max(shape.width * projection.scale, 0.5),
+              colour: color,
+              highlighter: shape.highlighter,
+            },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  const box = pdfRectToScreenBox(
+    [
+      Math.min(shape.x0, shape.x1),
+      Math.min(shape.y0, shape.y1),
+      Math.max(shape.x0, shape.x1),
+      Math.max(shape.y0, shape.y1),
+    ],
+    projection,
+  );
 
   return (
     <div className="pdf-reader-ann-layer" aria-hidden>
       <svg className="pdf-reader-ann-svg" width="100%" height="100%">
-        {shape.kind === "ink" ? (
-          <polyline
-            className={
-              shape.highlighter
-                ? "pdf-reader-ink pdf-reader-ink--highlighter"
-                : "pdf-reader-ink"
-            }
-            points={Array.from({ length: Math.floor(shape.path.length / 2) }, (_, i) =>
-              toScreen(shape.path[i * 2]!, shape.path[i * 2 + 1]!),
-            ).join(" ")}
-            fill="none"
-            stroke={color}
-            // Same nib the saved stroke will have, so nothing changes thickness
-            // on release.
-            strokeWidth={Math.max(shape.width * projection.scale, 0.5)}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ) : (
-          (() => {
-            const box = pdfRectToScreenBox(
-              [
-                Math.min(shape.x0, shape.x1),
-                Math.min(shape.y0, shape.y1),
-                Math.max(shape.x0, shape.x1),
-                Math.max(shape.y0, shape.y1),
-              ],
-              projection,
-            );
-            return (
-              <rect
-                x={box.left}
-                y={box.top}
-                width={box.width}
-                height={box.height}
-                fill="none"
-                stroke={color}
-                strokeWidth={1.5}
-                strokeDasharray="4 3"
-              />
-            );
-          })()
-        )}
+        <rect
+          x={box.left}
+          y={box.top}
+          width={box.width}
+          height={box.height}
+          fill="none"
+          stroke={color}
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+        />
       </svg>
     </div>
   );

@@ -2,7 +2,7 @@
 
 **Push ML experiments into the same dashboard as your papers and thesis plan.**
 
-The [WeaveForge](../README.md) web app tracks literature, milestones, and report progress. This package connects your **training scripts** to that same Supabase database — runs, step-indexed curves, and figure artifacts show up under **Experiments** without a separate wandb/MLflow silo.
+The [WeaveForge](../README.md) web app tracks literature, milestones, and report progress. This package connects your **training scripts** to that same database (Postgres on the project's OCI server, reached through the web app's `/api/sdk/*`) — runs, step-indexed curves, and figure artifacts show up under **Experiments** without a separate wandb/MLflow silo.
 
 ## Why use it
 
@@ -121,7 +121,7 @@ Mirrors the web app: `features/experiments/{domain,application,infrastructure}`,
 
 ```bash
 pip install -e '.[dev]'
-pytest   # offline; Supabase integration test skips without env creds
+pytest   # offline; the database integration test skips without env creds
 ```
 
 ## More

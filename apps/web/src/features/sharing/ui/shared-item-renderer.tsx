@@ -1,6 +1,7 @@
 "use client";
 
 import type { Paper } from "@weaveforge/core";
+import { formatMetricCell } from "@weaveforge/core";
 import Link from "next/link";
 import { CommentsToggle } from "@/features/sharing/ui/comments-toggle";
 import { SharedPaperImages } from "@/features/sharing/ui/shared-paper-images";
@@ -83,7 +84,13 @@ export function SharedItemRenderer({
             <div className="metric-chips">
               {metrics.slice(0, 4).map(([k, v]) => (
                 <span key={k} className="metric-chip">
-                  <em>{k}</em> {String(v)}
+                  {/* Through the shared formatter, not `String(v)`. That call had
+                      both halves of the bug the experiment page was reported
+                      for: an object rendered as the literal `[object Object]`,
+                      and a number lost the precision every other surface shows
+                      it with — `0.22` here against `0.2200` there, for the same
+                      run. */}
+                  <em>{k}</em> {formatMetricCell(k, v)}
                 </span>
               ))}
             </div>

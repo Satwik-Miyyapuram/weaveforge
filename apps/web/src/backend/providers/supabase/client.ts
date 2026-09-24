@@ -229,35 +229,55 @@ function routedFetch(rewrite: (href: string) => string): typeof fetch {
 const PROBE_TIMEOUT_MS = 2500;
 
 /**
- * Whether the host is reachable at all when the browser does not send an Origin.
+ * Whether the host answers when the browser does not apply CORS to the request.
  *
- * ## Why this exists
+ * ## What this can and cannot tell you
  *
  * A CORS refusal and a dead network are the same event at the fetch layer: the
  * browser fails with a bare `TypeError: Failed to fetch` and no status. The API's
- * Caddy config (`infra/oci/Caddyfile`) answers a preflight from an origin it does
- * not list with `403` and no `Access-Control-Allow-Origin`, so the request is
- * refused *by a server that is running perfectly* — and the app then reported it as
- * the reader's connection being down, sending them to check a VPN that was never
- * involved.
+ * Caddy config answers a preflight from an origin it does not list with `403` and
+ * no `Access-Control-Allow-Origin`, so a request can be refused *by a server that
+ * is running perfectly*.
  *
- * The two are distinguishable, and cheaply: a request with **no** `Origin` header
- * is not subject to CORS, so it reaches PostgREST and comes back 200 (verified
- * against the live host). `mode: "no-cors"` is what makes that request legal from a
- * browser without the response being readable — it resolves opaquely on success and
- * rejects on a transport failure, which is exactly the yes/no needed here. It is
- * only ever issued on a path that is already failing, so it costs nothing when
- * things work.
+ * `mode: "no-cors"` is what makes the request legal from a browser without the
+ * response being readable: it resolves opaquely for **any** response — `200`,
+ * `401`, even `404` — and rejects only on a transport failure, a timeout, or a
+ * refusal that the *server* made. That is the yes/no worth having, and it is also
+ * the limit of it: this answers "did the host answer at all", not "did the host
+ * like our origin".
  *
- * Resolves `true` only when the host answered in time. Anything else — offline,
- * DNS, blocked, or timed out — is `false`, and the caller then keeps the connection
- * advice rather than blaming the allow-list.
+ * **Conflating those two is a bug that shipped, and it sent a person to edit a
+ * Caddyfile that was correct.** The old version of this function was documented
+ * as asking whether the host is reachable and was then read, by its caller, as
+ * proving an origin refusal — a non-sequitur, since a host being up says nothing
+ * about its allow-list. `mode: "no-cors"` resolves on `401` exactly as it does on
+ * `200`, so "reachable" was true for almost any reply. The caller now says only
+ * what this actually observed.
+ *
+ * Two smaller faults in the old version, kept in mind here:
+ *
+ * - It probed the **bare origin** (`https://api.weaveforge.org/`), which
+ *   PostgREST answers with a `404`. The comment claimed that URL returns 200.
+ * - It ran in the renderer, where the desktop shell has already rewritten
+ *   `Origin` to `https://app.weaveforge.org` — so it was not even testing the
+ *   origin the resulting message named.
+ *
+ * The probe now asks a path the data API actually serves, so a `no-cors` resolve
+ * means "the API answered something", which is the strongest statement available
+ * from here.
  */
 export async function hostAnswersWithoutOrigin(target: string): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const url = new URL(target);
-    const base = `${url.protocol}//${url.host}/`;
+    // `/rest/v1/` rather than the root: the root is a 404 from PostgREST, and a
+    // probe that is answered by a 404 is barely evidence of anything. When the
+    // target already carries the REST prefix, the root `404` is unavoidable —
+    // `no-cors` mode hides statuses either way, so the distinction is about
+    // asking a real question rather than about reading the answer.
+    const base = url.pathname.startsWith("/rest/")
+      ? `${url.protocol}//${url.host}/rest/v1/`
+      : `${url.protocol}//${url.host}/`;
     const probe = fetch(base, { method: "HEAD", mode: "no-cors", cache: "no-store" });
     const expired = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error("probe timed out")), PROBE_TIMEOUT_MS);
@@ -272,17 +292,26 @@ export async function hostAnswersWithoutOrigin(target: string): Promise<boolean>
 }
 
 /**
- * Re-throw a network failure with the host it could not reach — and, when the host
- * turns out to be up, say that the refusal was the origin allow-list.
+ * Re-throw a network failure with the host it could not reach, and — when the
+ * host turns out to answer — the observation that it is up.
  *
  * A browser reports a request that never left it as a bare
  * `TypeError: Failed to fetch`, carrying no URL. This app talks to two origins
- * — Supabase for auth, a self-hosted PostgREST for data — so that message
- * alone cannot say which half is unreachable, and that is the one fact needed
- * to act on a report of it. Anything that is not a network failure is passed
- * through untouched: a server that answered has its own words.
+ * — Supabase for auth, a self-hosted PostgREST for data — so that message alone
+ * cannot say which half is unreachable, and that is the one fact needed to act on
+ * a report of it. Anything that is not a network failure is passed through
+ * untouched: a server that answered has its own words.
+ *
+ * **The marker is deliberately not a conclusion.** It used to read
+ * `(origin refused by <host>)`, which asserted a CORS verdict from evidence that
+ * cannot support one, and `format-error.ts` turned that into a paragraph naming
+ * `CORS_ALLOWED_ORIGINS`. The honest reading of "the probe resolved" is that the
+ * host is up, so that — and the original error text, which was being discarded —
+ * is what travels now. A reader who is told the host is up and what the browser
+ * said has somewhere to go; a reader told "this is a CORS problem" when it is not
+ * has a server to go and misconfigure.
  */
-async function namedNetworkFailure(error: unknown, target: string): Promise<unknown> {
+export async function namedNetworkFailure(error: unknown, target: string): Promise<unknown> {
   if (!(error instanceof TypeError)) return error;
   let host = target;
   try {
@@ -290,10 +319,11 @@ async function namedNetworkFailure(error: unknown, target: string): Promise<unkn
   } catch {
     // Not a URL that parses — report it as given rather than losing it.
   }
-  // A refusal the server is responsible for is marked as such, because the
-  // formatter cannot tell and must not claim the reader's network is at fault.
-  const reachable = await hostAnswersWithoutOrigin(target);
-  const marker = reachable ? ` (origin refused by ${host})` : "";
+  const answered = await hostAnswersWithoutOrigin(target);
+  // `(host answered)` rather than a CORS verdict, and the browser's own words are
+  // carried in the message rather than dropped — they were being discarded, which
+  // is why every failure read identically. `format-error.ts` reads both.
+  const marker = answered ? ` (host answered) (browser said: ${error.message})` : "";
   return Object.assign(new TypeError(`${error.message} (could not reach ${host})${marker}`), {
     cause: error,
   });

@@ -1,7 +1,8 @@
 /**
- * The page's pointer plumbing: the eraser's cursor, the capture an eraser sweep
- * or a lasso loop takes and releases, and the polyline the lasso's SVG draws.
- * Nothing here knows the page's state; it is what the handlers reach for.
+ * The page's pointer plumbing: the cursor each tool shows, the capture an
+ * eraser sweep or a lasso loop takes and releases, and the polyline the lasso's
+ * SVG draws. Nothing here knows the page's state; it is what the handlers reach
+ * for.
  */
 
 /** The eraser's cursor: a ring the size of a fingertip, hot spot at its centre. */
@@ -14,6 +15,33 @@ export const ERASER_CURSOR =
       "</svg>",
   ) +
   '") 12 12, crosshair';
+
+/**
+ * A drawing tool's cursor: the crosshair OneNote shows over a page, and the one
+ * the reader has always used.
+ *
+ * A pen and a highlighter are aimed, so the pointer is the aim — an arrow would
+ * hide the pixel the nib is about to land on. The eraser is a *size*, so it is
+ * the ring above: the tip it will rub out, drawn at the tip.
+ */
+export const DRAW_CURSOR = "crosshair";
+
+/**
+ * The pointer each tool shows over the page, by the bar's tool names.
+ *
+ * One table for both surfaces that carry ink, because a hand that knows what
+ * the eraser looks like on a sheet must not find a different one on a paper.
+ */
+export const INK_TOOL_CURSORS: Record<
+  "pen" | "highlighter" | "eraser" | "lasso" | "shape",
+  string
+> = {
+  pen: DRAW_CURSOR,
+  highlighter: DRAW_CURSOR,
+  eraser: ERASER_CURSOR,
+  lasso: DRAW_CURSOR,
+  shape: DRAW_CURSOR,
+};
 
 /** Where each touch is, in client pixels, while it is down. */
 export type TouchPoint = { x: number; y: number };

@@ -100,6 +100,7 @@ import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, systemClock, uuidIds } from "@/lib/system";
 import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
 import { createContainerLifecycle } from "@/container/lifecycle";
+import { createLibraryTidy } from "@/container/library-tidy";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
@@ -405,6 +406,22 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     manageTags,
     // Lazily, because the desktop bridge is only meaningful inside the shell.
     bridge: async () => (await import("@/lib/desktop/desktop-bridge")).desktop(),
+    // The same per-project collection the cloud sync reads, so "read Zotero on
+    // this computer" takes the collection the reader is working on rather than
+    // their whole library. `undefined` — no project, or none chosen — means the
+    // whole library, which is what the cloud path does too.
+    collection: async () => {
+      const projectId = pid();
+      if (!projectId) return undefined;
+      try {
+        return await projectBibliographyCollection.getCollection(projectId);
+      } catch {
+        // A collection setting that cannot be read is not a reason to refuse
+        // the import: the whole library is a superset of it, and a reader gets
+        // their papers rather than an error about a setting.
+        return undefined;
+      }
+    },
   });
   const aiProposalExecutors = new AiProposalExecutorRegistry(
     GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY
@@ -585,6 +602,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       reportSections: reportSectionRepository,
     }),
     paperFields: new PaperFieldsFacade({ paperFields: managePaperFields }),
+    libraryTidy: createLibraryTidy({ papers: paperRepository, updatePaper, resolver, backend, bibliography, newId: uuidIds.newId }),
     zotero: new ZoteroFacade({
       bibliography,
       pushToZotero,
@@ -608,6 +626,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       relations: backend.paperRelationRepository,
       lists: readingListRepository,
       listItems: readingListItemRepository,
+      experiments: experimentRepository,
       addRelation,
       linkCitations,
       removeRelation,
@@ -636,11 +655,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       chunks: inkChunkStore,
       assets: vaultAssetStore,
       bridge: desktop,
-      myScript: async () => {
-        const settings = await backend.manageSettings.get();
-        const key = settings.integrations?.myscript?.applicationKey;
-        return key ? { applicationKey: key } : undefined;
-      },
       vocabulary: async () => {
         const [pages, papers] = await Promise.all([
           // Titles only — the projection is the right read, now that the port

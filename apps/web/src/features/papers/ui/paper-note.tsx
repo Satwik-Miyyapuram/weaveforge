@@ -1,38 +1,72 @@
 "use client";
 
+import { InlineError } from "@/components/form-error";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { PAPER_STATUSES, type Paper, type PaperStatus } from "@weaveforge/core";
+import { titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { formatError } from "@/lib/format-error";
-import { BellIcon, BellOffIcon, DeleteIcon, EditIcon } from "@/components/view-icons";
+import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, EditIcon } from "@/components/view-icons";
+import {
+  RecordActivity,
+  RecordEmpty,
+  RecordFacts,
+  RecordSection,
+  recordDate,
+  wordCount,
+} from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
-import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
+import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
+import { CommentsPanel } from "@/features/sharing/ui/comments-panel";
 import { PaperMarkdown } from "./paper-markdown";
 import { paperImageMarkdown, materializePaperBlobImages } from "../lib/paper-images-md";
 import { reconcileTagsFromBody } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
 import { AttachImageButton } from "@/components/attach-image-button";
-import { Select } from "@/components/select";
 import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
-import { resolveCiteKey } from "@/features/overleaf/application/build-overleaf-export";
+import { formatPaperCitation, resolveCiteKey } from "@/features/overleaf/application/build-overleaf-export";
 import { PaperExternalLink } from "./paper-external-link";
 import { buildLocusLink, resolvePaperPdfUrl } from "@/features/reader";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
 import { PaperAnnotations } from "./paper-annotations";
 import { PaperFieldsStrip } from "./paper-fields";
+import { PaperFirstPage } from "./paper-first-page";
+import { PaperStatusControl, statusLabel } from "./paper-status";
 import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
 import { Modal } from "@/components/modal";
 
-/** Full-page reading view for one paper: the note as an article, plus tags,
- *  annotations, figures, and an inline note editor. */
+/** How far along reading a paper is, as the dots in the bar. */
+function QuoteIcon() {
+  return (
+    <svg className="vicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M7 7h4v4c0 3-1.5 5-4 6" />
+      <path d="M14 7h4v4c0 3-1.5 5-4 6" />
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg className="vicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h4" />
+    </svg>
+  );
+}
+
+/**
+ * One paper as a record page: the title and its catalogue line, a reading
+ * column (note, annotations, abstract, fields, links, comments) and a column
+ * of facts beside it (first page, record, related by similarity, activity).
+ */
 export function PaperNote({
   paper,
   readOnly = false,
@@ -59,6 +93,7 @@ export function PaperNote({
   /** The APPEND / REPLACE choice, when a note has no template markers. */
   const [templateChoiceOpen, setTemplateChoiceOpen] = useState(false);
   const [editingIds, setEditingIds] = useState(false);
+  const [copied, setCopied] = useState(false);
   // Filled in while the editor is on screen, so the button can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
   const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
@@ -175,214 +210,279 @@ export function PaperNote({
     }
   }
 
-  return (
-    <div className="paper-note">
-      <button type="button" className="btn-secondary paper-back" onClick={onBack}>← Papers</button>
+  async function copyCitation() {
+    const text =
+      citationFormat === "wikilink" ? `[[${paper.title}]]` : formatPaperCitation(paper, citationFormat);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setSaveError("The clipboard is not available here.");
+    }
+  }
 
-      <div className="paper-note-head">
-        {!readOnly && (
-          <button
-            type="button"
-            className="entity-icon-btn danger"
-            onClick={() => void remove()}
-            disabled={busy}
-            aria-label="Delete paper"
-            title="Delete"
-          >
-            <DeleteIcon />
-          </button>
-        )}
+  function startEditing() {
+    setDraft(paper.summary ?? "");
+    setEditing(true);
+  }
+
+  const citeKey = typeof paper.metadata?.["citeKey"] === "string" ? paper.metadata["citeKey"] : "";
+  const fileName = typeof paper.metadata?.["fileName"] === "string" ? paper.metadata["fileName"] : null;
+  const words = wordCount(paper.summary);
+  const wordsLabel = `${words} ${words === 1 ? "word" : "words"}`;
+  const annotationCount = Array.isArray(paper.metadata?.["annotations"])
+    ? (paper.metadata["annotations"] as unknown[]).length
+    : 0;
+  const meta = [
+    paper.year ? String(paper.year) : null,
+    paper.venue,
+    paper.arxivId ? `arXiv:${paper.arxivId}` : null,
+    paper.doi ? `DOI ${paper.doi}` : null,
+    `Added ${recordDate(paper.createdAt)}`,
+  ].filter(Boolean);
+  const activity = [
+    trackingCitations ? { at: "Now", what: "Citation alerts on" } : null,
+    paper.readAt ? { at: recordDate(paper.readAt), what: `Marked ${statusLabel(paper.status)}` } : null,
+    paper.updatedAt && recordDate(paper.updatedAt) !== recordDate(paper.createdAt)
+      ? { at: recordDate(paper.updatedAt), what: "Last edited" }
+      : null,
+    { at: recordDate(paper.createdAt), what: fileName ? `Imported from ${fileName}` : "Added to the library" },
+  ].filter((event): event is { at: string; what: string } => event !== null);
+
+  return (
+    <article className="record">
+      <nav className="record-bar" aria-label="Paper">
+        <button type="button" className="record-back" onClick={onBack}>← Papers</button>
+        <span className="record-mono record-bar-id">Record {citeKey || paper.id.slice(0, 6)}</span>
         {readOnly ? (
           <PinnedPaperBadge ownerName={sharedByName} />
         ) : (
-          <span className="paper-note-status">
-            <Select
-              className="status-select"
-              value={paper.status}
-              disabled={busy}
-              onChange={(e) => void changeStatus(e.target.value as PaperStatus)}
-              aria-label="Reading status"
-            >
-              {PAPER_STATUSES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-            </Select>
-          </span>
+          <PaperStatusControl status={paper.status} disabled={busy} onChange={(s) => void changeStatus(s)} />
         )}
-        <div className="card-foot-right">
-          {readOnly ? (
-            <CommentsToggle resourceType="paper" resourceId={paper.id} canComment={canComment} variant="detail" />
-          ) : (
-            <>
-              <ShareButton resourceType="paper" resourceId={paper.id} title={`Share: ${paper.title}`} />
-              {/* Without an identifier this used to be a disabled button whose
-                  tooltip told you to add a DOI — with nowhere to add one. Now it
-                  opens the editor that fixes exactly that. */}
-              <button
-                type="button"
-                className={`entity-icon-btn${trackingCitations ? " is-active" : ""}`}
-                onClick={() =>
-                  canTrackCitations ? void toggleCitationTracking() : setEditingIds(true)
-                }
-                disabled={trackingCitations == null || trackingBusy}
-                aria-pressed={canTrackCitations ? trackingCitations ?? false : undefined}
-                aria-label={
-                  !canTrackCitations
-                    ? "Add a DOI or arXiv ID to track citations"
-                    : trackingCitations
-                      ? "Stop citation alerts"
-                      : "Track new citations"
-                }
-                title={
-                  canTrackCitations
-                    ? trackingCitations
-                      ? "Citation alerts on"
-                      : "Track new citations"
-                    : "Add a DOI or arXiv ID to track citations"
-                }
-              >
-                {canTrackCitations ? <BellIcon /> : <BellOffIcon />}
-              </button>
-              {!editing && (
-                <button
-                  type="button"
-                  className="entity-icon-btn"
-                  onClick={() => { setDraft(paper.summary ?? ""); setEditing(true); }}
-                  aria-label={hasSummary ? "Edit note" : "Add note"}
-                  title={hasSummary ? "Edit note" : "Add note"}
-                >
-                  <EditIcon />
-                </button>
-              )}
-              {editing && (
-                <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
-              )}
-              <CommentsToggle resourceType="paper" resourceId={paper.id} canComment variant="detail" />
-            </>
+        <div className="record-actions">
+          {!readOnly && (
+            // Without an identifier this opens the editor that adds one, rather
+            // than sitting disabled with nowhere to go.
+            <button
+              type="button"
+              className={`record-action${trackingCitations ? " is-on" : ""}`}
+              onClick={() => (canTrackCitations ? void toggleCitationTracking() : setEditingIds(true))}
+              disabled={trackingCitations == null || trackingBusy}
+              aria-pressed={canTrackCitations ? trackingCitations ?? false : undefined}
+              title={
+                !canTrackCitations
+                  ? "Add a DOI or arXiv ID to track citations"
+                  : trackingCitations
+                    ? "Citation alerts on — click to stop"
+                    : "Track new citations"
+              }
+            >
+              {canTrackCitations ? <BellIcon /> : <BellOffIcon />}
+              <span>{trackingCitations ? "Watching" : "Watch"}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="record-action"
+            onClick={() => void copyCitation()}
+            title={`Copy the citation (${citationFormat})`}
+          >
+            <QuoteIcon />
+            <span>{copied ? "Copied" : "Cite"}</span>
+          </button>
+          {readerHref && (
+            <Link href={readerHref} className="record-action" title="Open in reader">
+              <PdfIcon />
+              <span>PDF</span>
+            </Link>
+          )}
+          {!readOnly && (
+            <ShareButton resourceType="paper" resourceId={paper.id} title={`Share: ${paper.title}`} showLabel />
+          )}
+          <a href="#record-comments" className="record-action">
+            <CommentsIcon />
+            <span>Comment</span>
+          </a>
+          {!readOnly && (
+            <button
+              type="button"
+              className="record-action danger"
+              onClick={() => void remove()}
+              disabled={busy}
+              aria-label="Delete paper"
+              title="Delete"
+            >
+              <DeleteIcon />
+            </button>
           )}
         </div>
-      </div>
+      </nav>
 
-      <h1 className="paper-article-title">{paper.title}</h1>
-      <div className="paper-source-meta">
+      <header className="record-head">
+        <h1 className="record-title">{titleFromFileName(paper.title)}</h1>
         {paper.authors.length > 0 && (
-          <p className="muted paper-article-by">
-            <strong>{paper.authors.slice(0, 6).join(", ")}{paper.authors.length > 6 ? " et al." : ""}</strong>
-            {paper.year ? ` · ${paper.year}` : ""}
+          <p className="record-by">
+            {paper.authors.slice(0, 6).join(", ")}
+            {paper.authors.length > 6 ? " et al." : ""}
           </p>
         )}
-        <ul className="paper-source-meta-list muted">
-          {paper.venue && <li>Venue: {paper.venue}</li>}
-          {paper.doi && <li>DOI: {paper.doi}</li>}
-          {paper.arxivId && <li>arXiv: {paper.arxivId}</li>}
-          {typeof paper.metadata?.["citeKey"] === "string" && paper.metadata["citeKey"] && (
-            <li>Cite key: {String(paper.metadata["citeKey"])}</li>
-          )}
-        </ul>
+        <p className="record-mono record-meta">{meta.join(" / ")}</p>
         {!readOnly &&
           (editingIds ? (
-            <PaperIdentifiersEditor
-              paper={paper}
-              onClose={() => setEditingIds(false)}
-              onReplace={onReplace}
-            />
+            <PaperIdentifiersEditor paper={paper} onClose={() => setEditingIds(false)} onReplace={onReplace} />
           ) : (
             // Reachable either way: a paper with no identifier needs one added,
             // and a paper with a wrong one needs it corrected.
-            <p className="muted paper-source-hint">
-              {canTrackCitations
-                ? "Citation alerts can watch this paper. "
-                : "No DOI or arXiv ID, so citation alerts can’t watch this paper. "}
+            <p className="record-hint">
+              {canTrackCitations ? null : "No DOI or arXiv ID yet, so citation alerts can’t watch this paper. "}
               <button type="button" className="link-btn" onClick={() => setEditingIds(true)}>
                 {canTrackCitations ? "Edit DOI / arXiv ID" : "Add one"}
               </button>
             </p>
           ))}
-        <div className="paper-source-actions">
-          {readerHref && (
-            <Link href={readerHref} className="btn-secondary btn-sm">
-              Open in reader
-            </Link>
+      </header>
+
+      <div className="record-grid">
+        <div className="record-main">
+          <RecordSection
+            label="Note"
+            tag={
+              !readOnly && !editing ? (
+                <button type="button" className="record-tag-btn" onClick={startEditing}>
+                  <EditIcon size={13} /> {hasSummary ? wordsLabel : "Write"}
+                </button>
+              ) : hasSummary ? (
+                wordsLabel
+              ) : null
+            }
+          >
+            {!editing ? (
+              hasSummary ? (
+                <PaperMarkdown body={paper.summary!} className="summary record-note" />
+              ) : readOnly ? (
+                <RecordEmpty>No note on this paper.</RecordEmpty>
+              ) : (
+                <button type="button" className="record-note-empty" onClick={startEditing}>
+                  Write what this paper is for, in your own words. #hashtags place it in the graph.
+                </button>
+              )
+            ) : (
+              <div className="summary-editor">
+                <div className="summary-editor-bar">
+                  <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} disabled={busy} />
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={reRenderTemplate}
+                    disabled={busy}
+                    title="Refresh generated metadata; your edits are preserved"
+                  >
+                    Re-render template
+                  </button>
+                  <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
+                </div>
+                <MarkdownCodeEditor
+                  className="summary-input markdown-code-editor--notes"
+                  value={draft}
+                  placeholder="Write your note… Use #hashtags to link this paper in the graph. Math: $E = mc^2$ or $$\\frac{a}{b}$$."
+                  disabled={busy}
+                  onChange={setDraft}
+                  wikilinkTitles={wikilinkTitles}
+                  wikilinkCompletions={wikilinkCompletions}
+                  citationFormat={citationFormat}
+                  imagePaste={imagePaste}
+                  handleRef={editorHandle}
+                />
+                <div className="summary-editor-foot">
+                  {saveError && <InlineError>{saveError}</InlineError>}
+                  <button type="button" className="link-btn" onClick={() => setEditing(false)} disabled={busy}>cancel</button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => void saveSummary()}
+                    disabled={busy || !dirty}
+                  >
+                    {busy ? "Saving…" : "Save note"}
+                  </button>
+                </div>
+              </div>
+            )}
+            {!editing && saveError && <InlineError>{saveError}</InlineError>}
+            {!editing && !readOnly && <TagEditor paper={paper} onReplace={onReplace} />}
+          </RecordSection>
+
+          {!editing && (
+            <>
+              <RecordSection label="Annotations" tag={annotationCount > 0 ? String(annotationCount) : "None yet"}>
+                {annotationCount > 0 ? (
+                  <PaperAnnotations paper={paper} readOnly={readOnly} />
+                ) : (
+                  <RecordEmpty>
+                    Nothing highlighted yet. Select text in the PDF and the highlight lands here with its page number.
+                  </RecordEmpty>
+                )}
+              </RecordSection>
+
+              <RecordSection label="Abstract" tag={paper.abstract ? null : "Unresolved"}>
+                {paper.abstract ? (
+                  <p className="record-abstract">{paper.abstract}</p>
+                ) : (
+                  <RecordEmpty>
+                    No abstract on file.{" "}
+                    {canTrackCitations
+                      ? "Resolve the identifier and WeaveForge will pull one in."
+                      : "Add a DOI or arXiv ID and WeaveForge can pull one in."}
+                  </RecordEmpty>
+                )}
+              </RecordSection>
+
+              <RecordSection label="Fields">
+                <PaperFieldsStrip paperId={paper.id} readOnly={readOnly} />
+              </RecordSection>
+
+              {!readOnly && (
+                <RecordSection label="Linked papers" tag="By hand">
+                  <RelatedPapersPanel paper={paper} onChanged={onChanged} />
+                </RecordSection>
+              )}
+
+              <RecordSection label="Comments" id="record-comments">
+                <CommentsPanel resourceType="paper" resourceId={paper.id} canComment={readOnly ? canComment : true} />
+              </RecordSection>
+            </>
           )}
-          <PaperExternalLink paper={paper} />
         </div>
-      </div>
 
-      <div className="paper-note-body">
-        <details className="paper-source-section" open>
-          <summary>Note</summary>
-        {!editing ? (
-          hasSummary
-            ? <PaperMarkdown body={paper.summary!} className="summary" />
-            : <p className="muted summary-empty">No note yet — use “Add note” to write one.</p>
-        ) : (
-          <div className="summary-editor">
-            <div className="summary-editor-bar">
-              <CitationFormatSelect
-                value={citationFormat}
-                onChange={setCitationFormat}
-                disabled={busy}
-              />
-              <button
-                type="button"
-                className="link-btn"
-                onClick={reRenderTemplate}
-                disabled={busy}
-                title="Refresh generated metadata; your edits are preserved"
-              >
-                Re-render template
-              </button>
-            </div>
-            <MarkdownCodeEditor
-              className="summary-input markdown-code-editor--notes"
-              value={draft}
-              placeholder="Write your note… Use #hashtags to link this paper in the graph. Math: $E = mc^2$ or $$\\frac{a}{b}$$."
-              disabled={busy}
-              onChange={setDraft}
-              wikilinkTitles={wikilinkTitles}
-              wikilinkCompletions={wikilinkCompletions}
-              citationFormat={citationFormat}
-              imagePaste={imagePaste}
-              handleRef={editorHandle}
+        <aside className="record-aside">
+          <PaperFirstPage
+            paperId={paper.id}
+            readerHref={readerHref}
+            caption={`First page${fileName ? ` · ${fileName}` : ""}`}
+          />
+          <RecordSection label="Record">
+            <RecordFacts
+              rows={[
+                ["Status", statusLabel(paper.status)],
+                paper.year ? ["Year", String(paper.year)] : null,
+                paper.venue ? ["Venue", paper.venue] : null,
+                paper.arxivId ? ["arXiv", paper.arxivId] : null,
+                paper.doi ? ["DOI", paper.doi] : null,
+                citeKey ? ["Cite key", citeKey] : null,
+                ["Added", recordDate(paper.createdAt)],
+                ["Tags", paper.tags.length > 0 ? paper.tags.map((t) => `#${t}`).join(" ") : "—"],
+              ]}
             />
-            <div className="summary-editor-foot">
-              {saveError && <span className="error" role="alert">{saveError}</span>}
-              <button type="button" className="link-btn" onClick={() => setEditing(false)} disabled={busy}>cancel</button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => void saveSummary()}
-                disabled={busy || !dirty}
-              >
-                {busy ? "Saving…" : "Save note"}
-              </button>
-            </div>
-          </div>
-        )}
-        {!editing && !readOnly && <TagEditor paper={paper} onReplace={onReplace} />}
-        </details>
-
-        {!editing && (
-          <details className="paper-source-section" open>
-            <summary>Fields</summary>
-            <PaperFieldsStrip paperId={paper.id} readOnly={readOnly} />
-          </details>
-        )}
-        {!editing && (
-          <details className="paper-source-section" open>
-            <summary>Annotations</summary>
-            <PaperAnnotations paper={paper} readOnly={readOnly} />
-          </details>
-        )}
-        {!editing && !readOnly && (
-          <details className="paper-source-section">
-            <summary>Related papers</summary>
-            <RelatedPapersPanel paper={paper} onChanged={onChanged} />
-          </details>
-        )}
-
-        {/* What the graph and wording put next to this paper — including
-            things nobody linked by hand. Last, because it is a way onwards
-            from the paper, and the paper itself is what the reader came for. */}
-        <RelatedPanel seedKind="paper" seedId={paper.id} />
+            <PaperExternalLink paper={paper} />
+          </RecordSection>
+          {/* What the graph, the wording and the meaning put next to this
+              paper — including things nobody linked by hand. */}
+          <RelatedPanel seedKind="paper" seedId={paper.id} variant="record" />
+          <RecordSection label="Activity">
+            <RecordActivity events={activity} />
+          </RecordSection>
+        </aside>
       </div>
 
       {/*
@@ -417,6 +517,6 @@ export function PaperNote({
           </div>
         </Modal>
       ) : null}
-    </div>
+    </article>
   );
 }

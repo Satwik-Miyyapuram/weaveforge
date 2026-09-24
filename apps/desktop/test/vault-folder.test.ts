@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { NodeWorkspaceFs, rootFingerprint, verifyRoot } from "../src/vault-folder";
+import {
+  NodeWorkspaceFs,
+  rootFingerprint,
+  verifyRoot,
+  workspaceRootFor,
+  WORKSPACE_SUBDIR,
+} from "../src/vault-folder";
 import {
   MAX_VAULT_BYTES,
   adoptRoot,
@@ -20,6 +26,7 @@ import {
   writeVaultBytes,
   writeVaultFile,
 } from "../src/vault-handlers";
+import { WORKSPACE_META_DIR } from "@weaveforge/core";
 
 async function tempDir(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), "weaveforge-vault-"));
@@ -38,11 +45,45 @@ test("a folder we already wrote is recognized as ours", async () => {
   assert.deepEqual(await verifyRoot(root), { ok: true, state: "existing" });
 });
 
-test("somebody's Documents folder is refused", async () => {
+test("somebody's Documents folder is refused as-is", async () => {
   const root = await tempDir();
   await writeFile(path.join(root, "taxes.pdf"), "mine");
   const verdict = await verifyRoot(root);
   assert.equal(verdict.ok, false);
+});
+
+test("…but choosing it puts the workspace in a WeaveForge folder inside it", async () => {
+  // The ordinary case: `Documents` is where a person keeps documents. Their
+  // folder becomes the workspace's parent rather than a refusal.
+  const theirs = await tempDir();
+  await writeFile(path.join(theirs, "taxes.pdf"), "mine");
+  const choice = await workspaceRootFor(theirs);
+  assert.ok(choice.ok);
+  assert.equal(choice.root, path.join(theirs, WORKSPACE_SUBDIR));
+  assert.equal(choice.state, "empty");
+  // Their file is untouched, and the workspace's own folder is what is adopted.
+  assert.equal(await readFile(path.join(theirs, "taxes.pdf"), "utf8"), "mine");
+  assert.deepEqual(await verifyRoot(choice.root), { ok: true, state: "empty" });
+});
+
+test("choosing it again reuses the same WeaveForge folder", async () => {
+  // Idempotent: a second choice of the same parent must not nest twice.
+  const theirs = await tempDir();
+  await writeFile(path.join(theirs, "taxes.pdf"), "mine");
+  const first = await workspaceRootFor(theirs);
+  assert.ok(first.ok);
+  await mkdir(path.join(first.root, WORKSPACE_META_DIR), { recursive: true });
+  const second = await workspaceRootFor(theirs);
+  assert.ok(second.ok);
+  assert.equal(second.root, first.root);
+  assert.equal(second.state, "existing");
+});
+
+test("an empty folder is the workspace itself, not a parent", async () => {
+  const root = await tempDir();
+  const choice = await workspaceRootFor(root);
+  assert.ok(choice.ok);
+  assert.equal(choice.root, root, "nothing to keep apart, so nothing nested");
 });
 
 test("dotfiles nobody chose to put there do not count as contents", async () => {

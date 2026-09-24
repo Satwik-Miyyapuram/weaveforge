@@ -2,6 +2,7 @@
 
 import { memo, useMemo } from "react";
 import type { ReaderAnnotation } from "@weaveforge/core";
+import { INK_SELECTION_HALO_PX, InkStrokes } from "@/features/ink";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
 
 interface AnnotationOverlayProps {
@@ -14,38 +15,34 @@ interface AnnotationOverlayProps {
   pageHeight: number;
   pageWidth: number;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  /** The ink marks a lasso has picked up, by annotation id. */
+  inkSelectedIds?: readonly string[];
+  /**
+   * A highlight was tapped.
+   *
+   * Only the highlight boxes answer to this. Ink does not: it is picked up with
+   * the lasso, by geometry, and never has to be a target on the page — see the
+   * note on this component.
+   */
+  onSelect?: (id: string) => void;
 }
 
 /**
  * Paint page-local annotation geometry. All coordinate maths lives in
  * `projectPageAnnotationGeometry`; this component is markup only.
+ *
+ * There are two kinds of mark here and they are drawn by two different things,
+ * deliberately. A **highlight** is a rectangle of text and stays a DOM box:
+ * it sits under the page's own words, takes their colour, and is what a tap
+ * lands on. **Ink** is drawn by the ink note's renderer (`InkStrokes`), so a
+ * stroke written on a paper is the same path, cap, join and highlighter tint as
+ * one written on a note — the reader owns no stroke renderer of its own.
+ *
+ * The ink is paint and nothing else: it takes no pointer. Marks are picked up
+ * with the lasso, which works by geometry (`inkAnnotationsAt`) rather than by
+ * hit-testing the DOM, so a stroke never has to be a target — and, being no
+ * target, it never stands between the pen and the words underneath it.
  */
-/**
- * Bounding box of an SVG `points` string ("x,y x,y …"), in the same CSS pixels
- * the overlay is drawn in. Returns null when nothing parses.
- */
-function strokeBounds(
-  points: string,
-): { x: number; y: number; width: number; height: number } | null {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const pair of points.split(/\s+/)) {
-    const [rawX, rawY] = pair.split(",");
-    const x = Number(rawX);
-    const y = Number(rawY);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x);
-    maxY = Math.max(maxY, y);
-  }
-  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-}
-
 function AnnotationOverlayInner({
   annotations,
   pageNumber,
@@ -55,6 +52,7 @@ function AnnotationOverlayInner({
   pageHeight,
   pageWidth,
   selectedId,
+  inkSelectedIds,
   onSelect,
 }: AnnotationOverlayProps) {
   // Projection is the reader's per-frame cost: ~1.7 ms for a page holding 100
@@ -76,51 +74,37 @@ function AnnotationOverlayInner({
     [annotations, pageNumber, scale, pageHeight, pageWidth, rotation, contentHash],
   );
 
-  if (boxes.length === 0 && strokes.length === 0) return null;
+  const ink = useMemo(
+    () =>
+      strokes.map((s) => ({
+        id: s.id,
+        points: s.points,
+        width: s.width,
+        colour: s.color,
+        highlighter: s.highlighter,
+      })),
+    [strokes],
+  );
+
+  if (boxes.length === 0 && ink.length === 0) return null;
 
   return (
     <div className="pdf-reader-ann-layer" aria-hidden>
-      {strokes.length > 0 && (
-        <svg className="pdf-reader-ann-svg" width="100%" height="100%">
-          {strokes.map((s, i) => {
-            const selected = selectedId === s.id;
-            // A thicker line was the only cue that a stroke was selected, which
-            // is far too subtle to answer "what will Delete remove?". Draw the
-            // stroke's extent as a dashed box, matching the boxed annotations.
-            const bounds = selected ? strokeBounds(s.points) : null;
-            // The marquee must clear the nib, or a highlighter's own width
-            // spills outside the box that claims to contain it.
-            const pad = 4 + s.width / 2;
-            return (
-              <g key={`${s.id}-ink-${i}`}>
-                {bounds && (
-                  <rect
-                    className="pdf-reader-ann-marquee"
-                    x={bounds.x - pad}
-                    y={bounds.y - pad}
-                    width={bounds.width + pad * 2}
-                    height={bounds.height + pad * 2}
-                  />
-                )}
-                <polyline
-                  className={s.highlighter ? "pdf-reader-ink pdf-reader-ink--highlighter" : "pdf-reader-ink"}
-                  points={s.points}
-                  fill="none"
-                  stroke={s.color}
-                  // The nib width is the annotation's own, so a pressed pen
-                  // stroke reads as heavier than a light one and a highlighter
-                  // covers a line of text. Selection adds a hair, not a jump.
-                  strokeWidth={Math.max(s.width + (selected ? 1 : 0), 0.5)}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  onClick={() => onSelect(s.id)}
-                  style={{ pointerEvents: "stroke", cursor: "pointer" }}
-                />
-              </g>
-            );
-          })}
-        </svg>
-      )}
+      <InkStrokes
+        className="pdf-reader-ann-svg"
+        // A highlighter over a PDF page is the reader's own look, not the
+        // sheet's: see `InkStrokes.highlighterClassName`.
+        highlighterClassName="pdf-reader-ink--highlighter"
+        strokes={ink}
+        // The list's single selection and the lasso's set are one selection as
+        // far as the ink is concerned: both are marks that are picked up.
+        selectedIds={
+          selectedId ? [...(inkSelectedIds ?? []), selectedId] : inkSelectedIds
+        }
+        // A picked-up mark wears the note's halo, not a box round it — the box
+        // belongs to the highlight rectangles below, which *are* rectangles.
+        haloGrow={INK_SELECTION_HALO_PX}
+      />
       {boxes.map((box, i) => (
         <button
           key={`${box.id}-${i}`}
@@ -136,7 +120,7 @@ function AnnotationOverlayInner({
             background: box.underline ? "transparent" : box.color,
             borderBottom: box.underline ? `2px solid ${box.color}` : undefined,
           }}
-          onClick={() => onSelect(box.id)}
+          onClick={onSelect ? () => onSelect(box.id) : undefined}
         />
       ))}
     </div>

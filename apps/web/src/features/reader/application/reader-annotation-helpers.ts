@@ -76,11 +76,37 @@ export const READER_ANNOTATION_COLORS = [
  * `ink` and `highlighter` both produce Zotero ink annotations and differ only
  * in nib width — see `HIGHLIGHTER_MIN_WIDTH` in core for why the distinction is
  * carried by the width rather than by a field Zotero would drop.
+ *
+ * `select` and `lasso` are two different jobs and were one tool until a loop
+ * drawn round a paragraph selected the paragraph. `select` is the **reader's**:
+ * it is the pointer a paper is read with — drag across text to highlight it,
+ * fire a link, copy a sentence. `lasso` is the **writer's**: it picks ink up,
+ * and with it armed the page's text is not a target at all, so a loop drawn over
+ * a sentence takes the marks on it rather than the sentence. One tool cannot do
+ * both, because a drag is a text selection *or* a loop and never both.
  */
-export type ReaderCreateTool = "select" | "ink" | "highlighter" | "erase" | "image" | "text";
+export type ReaderCreateTool =
+  | "select"
+  | "lasso"
+  | "ink"
+  | "highlighter"
+  | "erase"
+  | "image"
+  | "text";
 
 const READER_INK_TOOLS = new Set<ReaderCreateTool>(["ink", "highlighter"]);
 
 export function isInkTool(tool: ReaderCreateTool): boolean {
   return READER_INK_TOOLS.has(tool);
+}
+
+/**
+ * Whether the tool takes the page's text away from the browser.
+ *
+ * The two region tools drag a box where the words would otherwise be selected,
+ * the three ink tools draw on them, and the lasso loops round them — all five
+ * mean "the page is the tool's surface, not the text's".
+ */
+export function toolOwnsThePage(tool: ReaderCreateTool): boolean {
+  return tool !== "select";
 }

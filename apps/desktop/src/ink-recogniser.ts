@@ -33,8 +33,8 @@ export interface InkRecognitionRequest {
    * Words the note is likely to contain.
    *
    * Sent, and **ignored by this engine**: `InkAnalyzer` exposes no word-list
-   * parameter, so §5.4's post-match is the only path that helps on Windows
-   * rather than a fallback for engines that cannot take hints.
+   * parameter, so the vocabulary is applied on the client, to the per-word
+   * readings in `words` and in §5.4's post-match.
    */
   vocabulary?: readonly string[];
   lang?: string;
@@ -47,10 +47,21 @@ export interface InkRecognitionLine {
    *
    * Not a measurement: `InkAnalyzer` exposes no confidence, and inventing one
    * would make the correction UI's dotted underline claim to know which lines are
-   * doubtful. The web engine, which does have a score, reports a real one.
+   * doubtful. The evidence is in `words`, from which the client derives a score
+   * (packages/core/src/ink/decode.ts).
    */
   confidence: number;
   alternatives?: string[];
+  words?: InkRecognitionWord[];
+}
+
+/** One word's readings, the engine's pick first, with the OS spell checker's verdicts. */
+export interface InkRecognitionWord {
+  candidates: string[];
+  /** Parallel to `candidates`; null when the machine has no dictionary for the language. */
+  known: boolean[] | null;
+  /** This word and the next read as one, when that reading is a word. */
+  join: string | null;
 }
 
 export interface InkRecognitionResult {

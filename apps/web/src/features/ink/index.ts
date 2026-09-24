@@ -84,6 +84,7 @@ export {
 export {
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
+  INK_SELECTION_HALO_PX,
   capsuleHalfExtent,
   packStrokeInstances,
   radiusAt,
@@ -100,6 +101,16 @@ export {
   WebglInkRenderer,
   supportsWebglInk,
 } from "./render/webgl-renderer";
+export {
+  paletteCss,
+  paletteHex,
+  parseCssColour,
+  readThemePalette,
+  samePalette,
+  INK_COLOUR_TOKENS,
+  type InkPalette,
+  type InkRgb,
+} from "./render/ink-palette";
 export {
   CanvasInkRenderer,
   HIGHLIGHTER_ALPHA,
@@ -127,6 +138,12 @@ export {
 } from "./ui/ink-host";
 export { InkReader, type InkReaderProps } from "./ui/ink-reader";
 export { fitScale, headerForTool, selectedText } from "./ui/ink-page-math";
+export {
+  DRAW_CURSOR,
+  ERASER_CURSOR,
+  INK_TOOL_CURSORS,
+  pointsAttribute,
+} from "./ui/ink-page-pointer";
 export {
   INK_NO_ENGINE_MESSAGE,
 } from "./ui/use-ink-recognition";
@@ -167,11 +184,8 @@ export {
   type RecognisedPage,
 } from "./application/recognise-page";
 export {
-  STROKE_CTC_ENGINE_ID,
   WINDOWS_INK_ENGINE_ID,
   createDesktopInkRecogniser,
-  createOptionalMyScriptRecogniser,
-  createStrokeModelRecogniser,
   desktopInkRequest,
   inkRecogniserCandidates,
 } from "./application/recognisers";
@@ -184,6 +198,11 @@ export {
   type InkBarTool,
 } from "./ui/ink-bar";
 export { InkPage, type InkPageProps } from "./ui/ink-page";
+export {
+  InkStrokes,
+  type InkRenderStroke,
+  type InkStrokesProps,
+} from "./ui/ink-strokes";
 export {
   requestInkPresenter,
   trailColour,

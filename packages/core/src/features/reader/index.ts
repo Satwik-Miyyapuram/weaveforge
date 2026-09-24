@@ -45,5 +45,5 @@ export {
   inReferenceList,
   type CitationCandidate as CitationTextCandidate,
 } from "./analysis/citations.js";
-export { searchTextFromItems, originalRange, stripInvisible, surnameKey } from "./analysis/citation-text.js";
+export { composeSpacingAccents, searchTextFromItems, originalRange, stripInvisible, surnameKey } from "./analysis/citation-text.js";
 export { analyzePdfDocument, outlineItemOf } from "./analysis/document-analysis.js";

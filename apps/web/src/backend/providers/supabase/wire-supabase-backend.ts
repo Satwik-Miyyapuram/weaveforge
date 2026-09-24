@@ -67,6 +67,7 @@ import { SupabasePaperFieldRepository } from "@/features/papers/infrastructure/s
 import { SupabaseReportSectionRepository } from "@/features/report/infrastructure/supabase-report-section-repository";
 import { SupabaseVaultPageRepository } from "@/features/vault/infrastructure/supabase-vault-page-repository";
 import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/supabase-settings-repository";
+import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { SupabaseCommentRepository } from "@/features/sharing/infrastructure/supabase-comment-repository";
 import { SupabaseShareRepository } from "@/features/sharing/infrastructure/supabase-share-repository";
 import { SupabaseSharedReader } from "@/features/sharing/infrastructure/supabase-shared-reader";
@@ -170,7 +171,8 @@ export function wireSupabaseBackend(
       ? new SupabaseAdminUserProvisioner(url, config.supabaseServiceRoleKey)
       : null;
 
-  const settingsRepository = parts?.settingsRepository ?? new SupabaseSettingsRepository(db, session);
+  const settingsRepository =
+    parts?.settingsRepository ?? new SupabaseSettingsRepository(db, session, secretsStoreFor(db));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
   const projectRepository = cacheRepo(
     new SupabaseProjectRepository(db, session),

@@ -17,7 +17,9 @@ export interface BackendConfig {
    * Supabase Auth, and the self-hosted PostgREST validates them with the same
    * JWT secret.
    *
-   * Unset means "same as Supabase", which is the current arrangement.
+   * Production sets it to the OCI server (`https://api.weaveforge.org`); the
+   * sign-in project holds no WeaveForge data. Unset means "same as
+   * `supabaseUrl`", which only a fresh checkout or a test would want.
    */
   readonly dataUrl?: string;
   /**
@@ -29,7 +31,7 @@ export interface BackendConfig {
    * once `dataUrl` moves, a Supabase-hosted realtime authorizes against a
    * frozen copy and denies every resource created after the cutover.
    *
-   * Unset means "same as Supabase", which is correct until the data moves.
+   * Production sets it beside `dataUrl`. Unset means "same as `supabaseUrl`".
    */
   readonly realtimeUrl?: string;
   /** Supabase anon/public key (required when provider = supabase). */

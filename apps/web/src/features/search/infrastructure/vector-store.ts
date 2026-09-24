@@ -1,6 +1,8 @@
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
 import { decodeBase64, encodeBase64 } from "@/lib/bytea";
+import { WORKSPACE_META_DIR } from "@weaveforge/core";
+import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./vector-store-idb";
 
 /**
@@ -86,7 +88,7 @@ function localStore(): VectorStore {
  * vectors, or vectors with no ids, is not half an index but none of one.
  */
 function pack(value: StoredVectors): string {
-  const head = JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision });
+  const head = JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes });
   return `${encodeBase64(new TextEncoder().encode(head))}.${encodeBase64(new Uint8Array(value.vectors))}`;
 }
 
@@ -108,13 +110,107 @@ function unpack(packed: string): StoredVectors | null {
 }
 
 
+/** Where the vectors sit inside a connected workspace folder. */
+export const FOLDER_CACHE_DIR = `${WORKSPACE_META_DIR}/cache`;
+const folderPath = (projectId: string | null) => `${FOLDER_CACHE_DIR}/vectors-${key(projectId)}.bin`;
+
+/**
+ * A copy in the workspace folder, beside the notes the vectors describe.
+ *
+ * The folder is what the reader thinks of as their workspace: it survives a
+ * reinstall, a cleared cache and a sign-out, and moving it to another machine
+ * should not cost a from-scratch embed. It is a cache, not content, so the
+ * directory carries a `.gitignore` of its own — versioning the folder must not
+ * commit ten megabytes of floats on every edit — and the folder watcher and the
+ * mirror both leave it alone.
+ *
+ * Binary rather than the base64 the database row needs: a length-prefixed
+ * JSON head, then the raw vectors.
+ */
+const folderStore = {
+  async get(projectId: string | null): Promise<StoredVectors | null> {
+    const fs = activeWorkspaceFs();
+    if (!fs) return null;
+    try {
+      if (!(await fs.stat(folderPath(projectId)))) return null;
+      return unpackBinary(await fs.readFile(folderPath(projectId)));
+    } catch {
+      return null;
+    }
+  },
+  async set(projectId: string | null, value: StoredVectors): Promise<void> {
+    const fs = activeWorkspaceFs();
+    if (!fs) return;
+    try {
+      await fs.mkdirp(FOLDER_CACHE_DIR);
+      if (!(await fs.stat(`${FOLDER_CACHE_DIR}/.gitignore`))) {
+        await fs.writeFile(`${FOLDER_CACHE_DIR}/.gitignore`, "*\n");
+      }
+      // The shell writes beside the file and renames it into place, so a
+      // kill mid-write leaves the previous cache whole.
+      await fs.writeFile(folderPath(projectId), packBinary(value));
+    } catch {
+      /* best-effort, like every other copy */
+    }
+  },
+  async clear(): Promise<void> {
+    const fs = activeWorkspaceFs();
+    if (!fs) return;
+    try {
+      for (const entry of await fs.list(FOLDER_CACHE_DIR)) {
+        if (entry.kind === "file" && /\/vectors-[^/]*\.bin$/.test(`/${entry.path}`)) await fs.remove(entry.path);
+      }
+    } catch {
+      /* nothing there */
+    }
+  },
+};
+
+export function packBinary(value: StoredVectors): Uint8Array {
+  const head = new TextEncoder().encode(
+    JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes }),
+  );
+  const out = new Uint8Array(4 + head.byteLength + value.vectors.byteLength);
+  new DataView(out.buffer).setUint32(0, head.byteLength, true);
+  out.set(head, 4);
+  out.set(new Uint8Array(value.vectors), 4 + head.byteLength);
+  return out;
+}
+
+export function unpackBinary(bytes: Uint8Array): StoredVectors | null {
+  try {
+    const length = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0, true);
+    const head = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + length))) as Omit<StoredVectors, "vectors">;
+    const vectors = bytes.slice(4 + length).buffer;
+    if (vectors.byteLength !== head.ids.length * head.dimensions * 4) return null;
+    return { ...head, vectors };
+  } catch {
+    return null;
+  }
+}
+
 let chosen: VectorStore | null = null;
 
 /**
- * The store this copy should use. Decided once: the backend is wired at
- * startup and cannot change without a reload.
+ * The store this copy should use: the workspace folder first when one is
+ * connected, then the copy's own store. Both are written, so a folder that is
+ * disconnected later still leaves a warm cache behind, and a folder carried to
+ * another machine arrives with its vectors.
  */
 export function vectorStore(): VectorStore {
-  chosen ??= isLocalMode() ? localStore() : idbStore;
+  if (!chosen) {
+    const own = isLocalMode() ? localStore() : idbStore;
+    chosen = {
+      async get(projectId) {
+        return (await folderStore.get(projectId)) ?? (await own.get(projectId));
+      },
+      async set(projectId, value) {
+        await Promise.all([folderStore.set(projectId, value), own.set(projectId, value)]);
+      },
+      async clear() {
+        await Promise.all([folderStore.clear(), own.clear()]);
+      },
+    };
+  }
   return chosen;
 }

@@ -9,6 +9,7 @@ import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { Select } from "@/components/select";
 import { EntityCard } from "@/components/entity-card";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { EditIcon } from "@/components/view-icons";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -358,33 +359,24 @@ function MilestoneCard({
               .join(" · ")
           : undefined
       }
-      onDelete={readOnly ? undefined : () => void remove()}
-      deleteDisabled={busy}
-      deleteAriaLabel="Delete milestone"
-      actions={
-        <>
-          {!readOnly && (
-            <ShareButton resourceType="milestone" resourceId={m.id} title={`Share: ${m.title}`} />
-          )}
-          <CommentsToggle
-            resourceType="milestone"
-            resourceId={m.id}
-            canComment={readOnly ? canComment : true}
-          />
-          {!readOnly && (
-            <button
-              type="button"
-              className="entity-icon-btn"
-              onClick={() => setEditing(true)}
-              aria-label="Edit milestone"
-              title="Edit"
-            >
-              <EditIcon />
-            </button>
-          )}
-        </>
+      menu={
+        <EntityCardMenu
+          resourceType="milestone"
+          resourceId={m.id}
+          title={`Share: ${m.title}`}
+          onDelete={readOnly ? undefined : () => void remove()}
+          deleteLabel="Delete milestone"
+          deleteDisabled={busy}
+          extraItems={readOnly ? [] : [{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
+        />
       }
-    >
+      actions={
+        <CommentsToggle
+          resourceType="milestone"
+          resourceId={m.id}
+          canComment={readOnly ? canComment : true}
+        />
+      }    >
       {m.description && <p className="summary">{m.description}</p>}
       {m.dependencies.length > 0 && (
         <div className="git-chips">

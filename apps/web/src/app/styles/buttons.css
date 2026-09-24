@@ -1,7 +1,7 @@
 /* `text-wrap: balance` so a two-line screen title breaks evenly rather than
    leaving one word on the second line. It was pitch-only before this. */
 .screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: 1.6rem; margin: 18px 0 2px; letter-spacing: -0.01em; text-wrap: balance; }
-/* Code/monospace surfaces adopt IBM Plex Mono. */
+/* Code/monospace surfaces adopt the mono face (JetBrains Mono). */
 code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono); }
 .head-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .screen-head:empty { display: none; }
@@ -60,3 +60,17 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 .btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; }
 .muted { color: var(--muted); margin: 2px 0; }
 .error { color: var(--danger); }
+/* "Report" after an inline error: quiet, so it reads as an option, not a second alarm. */
+.error-report-link {
+  margin-inline-start: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85em;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.error-report-link:hover { color: var(--text); }

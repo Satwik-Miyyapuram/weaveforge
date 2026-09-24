@@ -38,3 +38,23 @@ export const NOTE_COLOR = "#a0896a";
 export const WIKILINK_COLOR = "#6f7f9c";
 /** Report section nodes on the citation graph. */
 export const REPORT_COLOR = "#5e8f7b";
+/**
+ * Experiment nodes.
+ *
+ * A muted terracotta, deliberately in neither the relation palette nor the
+ * status palette: a run is not a claim about a paper and not a reading state, so
+ * a colour borrowed from either would read as one. It sits closest to
+ * `contradicts` and `skimmed` in hue, which is acceptable — those are edges and
+ * paper statuses, and a run is neither, so the two are never compared side by
+ * side on the same shape.
+ */
+export const EXPERIMENT_COLOR = "#b06a4e";
+/**
+ * Experiment ↔ paper edges.
+ *
+ * The same colour as the nodes it connects, because the edge means "this run
+ * tests that paper" and nothing more specific: it is not one of the six
+ * `RelationType`s a person asserts by hand, so it must not borrow one of their
+ * colours and imply a citation stance the data does not carry.
+ */
+export const EXPERIMENT_LINK_COLOR = "rgba(176, 106, 78, 0.55)";

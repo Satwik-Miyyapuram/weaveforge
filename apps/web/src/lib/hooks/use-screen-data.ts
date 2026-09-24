@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useProject } from "@/features/projects";
 import {
-  getScreenCache, isScreenCacheFresh, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
+  clearScreenCachesForScreens, getScreenCache, isScreenCacheFresh, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
 import { idbGetScreenCache, idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
 import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
 import { formatError } from "@/lib/format-error";
@@ -129,5 +129,17 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
     void reload();
   }, [reload]);
 
-  return { data, loading: loading && data == null, error, reload, setData };
+  /**
+   * Reload past the freshness window. `reload` trusts a cache younger than
+   * {@link SCREEN_REVALIDATE_AFTER_MS}, which is right for a tab switch and
+   * wrong straight after this screen changed something itself: a write that
+   * reaches the store by a path the write-watch does not see left the old
+   * payload "fresh", and the screen showed what had just been undone.
+   */
+  const refresh = useCallback(async () => {
+    clearScreenCachesForScreens(projectId, [screen]);
+    await reload();
+  }, [projectId, screen, reload]);
+
+  return { data, loading: loading && data == null, error, reload, refresh, setData };
 }

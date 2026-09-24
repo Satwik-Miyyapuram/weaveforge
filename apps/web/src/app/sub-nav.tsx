@@ -8,9 +8,13 @@ import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 
 /**
- * Segmented sub-navigation for grouped sections (Library → Papers/Lists/Graph,
+ * Segmented sub-navigation for grouped sections (Library → Papers/Notes/Graph,
  * Experiments → Experiments/Git). A pill indicator slides horizontally to the
  * active tab. Renders only when the current group has more than one view.
+ *
+ * Mobile only — the shell gates it (`app-shell.tsx`). On a desktop the sidebar
+ * carries every destination, and this strip was the thing that made a section
+ * of the sidebar look like six tabs of its own.
  */
 export function SubNav() {
   const { effectivePath: pathname } = useNavPending();
@@ -18,7 +22,10 @@ export function SubNav() {
   const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
   const navGroups = useNavGroups();
   const group = groupForPath(pathname, navGroups);
-  const multi = !!group && group.items.length > 1;
+  // A view that declared itself out of the mobile bar is out of the strip too:
+  // they are the same set of destinations seen two ways. See `NavItem.mobile`.
+  const items = group?.items.filter((it) => it.mobile !== false) ?? [];
+  const multi = items.length > 1;
   const warmPath = useCallback((href: string) => {
     prefetchScreenForPath(href.split(/[?#]/)[0] ?? href);
   }, []);
@@ -29,8 +36,15 @@ export function SubNav() {
       setPill(null);
       return;
     }
-    const el = navRef.current?.querySelector<HTMLElement>(".sub-tab.active");
-    if (el) setPill({ left: el.offsetLeft, width: el.offsetWidth });
+    const nav = navRef.current;
+    const el = nav?.querySelector<HTMLElement>(".sub-tab.active");
+    if (!nav || !el) return;
+    setPill({ left: el.offsetLeft, width: el.offsetWidth });
+    // On a phone the strip scrolls sideways; a later tab would otherwise be
+    // active but out of sight, which reads as "not here".
+    if (el.offsetLeft < nav.scrollLeft || el.offsetLeft + el.offsetWidth > nav.scrollLeft + nav.clientWidth) {
+      nav.scrollLeft = el.offsetLeft - (nav.clientWidth - el.offsetWidth) / 2;
+    }
   }, [pathname, multi, group?.key]);
 
   // Reposition on resize (label widths can change).
@@ -53,8 +67,8 @@ export function SubNav() {
           style={{ transform: `translateX(${pill.left}px)`, width: pill.width }}
         />
       )}
-      {group.items.map((it) => {
-        const matches = group.items.filter(
+      {items.map((it) => {
+        const matches = items.filter(
           (item) => pathname === item.path || pathname?.startsWith(`${item.path}/`),
         );
         const best = [...matches].sort((a, b) => b.path.length - a.path.length)[0];

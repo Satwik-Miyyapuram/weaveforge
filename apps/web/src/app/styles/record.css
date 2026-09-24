@@ -1,0 +1,354 @@
+/*
+ * The record page — a paper, a note or an experiment read as a catalogue entry
+ * (components/record.tsx). Serif for what was written, mono for what was filed,
+ * sans for everything you do. Hairlines instead of boxes, words instead of
+ * buttons, so the page carries its content rather than its chrome.
+ *
+ * Colours are theme tokens only; the layout reads the same in every theme.
+ */
+
+.record {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 4px 4px 64px;
+  color: var(--text);
+}
+
+.record-mono {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+
+.record-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  min-height: 36px;
+}
+.record-back {
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.record-back:hover { color: var(--text); }
+.record-bar-id { white-space: nowrap; }
+
+.record-state { display: inline-flex; align-items: center; gap: 8px; }
+.record-state .custom-select-container { width: auto; }
+.record-state .custom-select-button {
+  padding: 2px 4px;
+  gap: 6px;
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.record-state .custom-select-button:hover { color: var(--text); }
+
+.record-dots { display: inline-flex; gap: 4px; }
+.record-dots > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+}
+.record-dots > span.is-on { background: var(--text); border-color: var(--text); }
+
+.record-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-left: auto;
+}
+.record-action,
+.record-actions .entity-icon-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  min-height: 0;
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  box-shadow: none;
+  text-decoration: none;
+  cursor: pointer;
+}
+.record-action:hover,
+.record-actions .entity-icon-text-btn:hover { color: var(--text); background: none; }
+.record-action.is-on { color: var(--text); }
+.record-action.danger:hover { color: var(--s-danger); }
+.record-action:disabled { opacity: 0.5; cursor: default; }
+.record-action .vicon,
+.record-actions .entity-icon-text-btn .vicon { width: 15px; height: 15px; }
+
+/* ── Title block ─────────────────────────────────────────────────────────── */
+
+.record-head {
+  margin-top: 40px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
+.record-title {
+  margin: 0;
+  max-width: 30ch;
+  font-family: var(--font-serif);
+  font-size: clamp(1.9rem, 3.6vw, 3rem);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.record-by {
+  margin: 16px 0 0;
+  font-size: 1rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.record-meta { margin: 10px 0 0; line-height: 1.7; overflow-wrap: anywhere; }
+.record-hint { margin: 12px 0 0; font-size: 0.82rem; color: var(--faint); }
+.record-head .paper-ids-editor { margin-top: 14px; }
+
+/* ── Two columns ─────────────────────────────────────────────────────────── */
+
+.record-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: 56px;
+  margin-top: 36px;
+}
+.record-main,
+.record-aside { min-width: 0; }
+
+@media (max-width: 900px) {
+  .record-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .record-head { margin-top: 24px; }
+}
+
+.record-section { margin: 0 0 40px; }
+.record-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.record-section-tag { color: var(--faint); font-weight: 400; }
+.record-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--faint);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.record-tag-btn:hover { color: var(--text); }
+
+.record-empty {
+  margin: 0;
+  max-width: 56ch;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.record-note-empty {
+  display: block;
+  width: 100%;
+  min-height: 92px;
+  padding: 14px 16px;
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  color: var(--faint);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+.record-note-empty:hover { border-color: var(--border-strong); color: var(--muted); }
+
+.record-main .summary,
+.record-note { font-size: 0.98rem; line-height: 1.75; margin: 0; }
+.record-abstract {
+  margin: 0;
+  max-width: var(--content-measure);
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+.record-main .tag-editor { margin-top: 14px; }
+.record-main .summary-editor { margin: 0; }
+
+/* Sections nested inside a record section drop their own frames. */
+.record-section .related-panel,
+.record-section .annotations { margin: 0; padding: 0; border: none; background: none; }
+
+/* ── Side column ─────────────────────────────────────────────────────────── */
+
+.record-page { margin: 0 0 36px; }
+.record-page-frame {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1.294;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-decoration: none;
+}
+a.record-page-frame:hover { border-color: var(--border-strong); }
+.record-page-frame img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+
+/* Settings → Appearance → Surfaces. The section rules stay either way — they
+   are the page's structure, not boxes — but the two framed things on it (the
+   empty note and the first-page preview) follow the setting like every other
+   surface: Borderless trades the hairline for a fill a step off the page. */
+:root[data-surfaces="borderless"] .record-note-empty,
+:root[data-surfaces="borderless"] .record-page-frame {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+:root[data-surfaces="borderless"] .record-note-empty:hover,
+:root[data-surfaces="borderless"] a.record-page-frame:hover {
+  border-color: transparent;
+  background: var(--surface2);
+}
+.record-page-empty {
+  padding: 24px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--faint);
+}
+.record-page figcaption { margin-top: 10px; overflow-wrap: anywhere; }
+
+.record-facts { display: grid; gap: 9px; margin: 0; }
+.record-fact { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.record-fact dt {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.record-leader {
+  flex: 1 1 12px;
+  min-width: 12px;
+  border-bottom: 1px dotted var(--border-strong);
+  transform: translateY(-3px);
+}
+.record-fact dd {
+  margin: 0;
+  max-width: 65%;
+  font-size: 0.86rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.record-aside .paper-external-link { margin: 14px 0 0; font-size: 0.84rem; }
+
+.record-related { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.record-related li { display: grid; gap: 6px; min-width: 0; }
+.record-related-title {
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  line-height: 1.35;
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.record-related-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.record-related-score { display: flex; align-items: center; gap: 10px; }
+.record-bar-track { flex: 1; height: 2px; background: var(--border); overflow: hidden; }
+.record-bar-fill { display: block; height: 100%; background: var(--accent); }
+.record-related-arm { letter-spacing: 0.06em; }
+.record-footnote { margin: 16px 0 0; font-size: 0.76rem; line-height: 1.5; color: var(--faint); }
+
+.record-activity { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.record-activity li {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+.record-activity-at {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding-top: 2px;
+}
+
+/* ── Note and experiment variants ────────────────────────────────────────── */
+
+.record-hypothesis {
+  max-width: var(--content-measure);
+  font-family: var(--font-serif);
+  font-style: italic;
+  line-height: 1.55;
+}
+.record-title-input {
+  width: 100%;
+  font-family: var(--font-serif);
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 500;
+}
+.record-link-btn {
+  padding: 0;
+  font: inherit;
+  font-family: var(--font-serif);
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.record-link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+.record-fact dd a { color: var(--text); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.record-fact dd a:hover { text-decoration-color: currentColor; }
+.record-section-tag .btn-secondary {
+  min-height: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--faint);
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+.record-section-tag .btn-secondary:hover { color: var(--text); }
+.record .live-dot { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.record .metric-curves--detail { margin: 0; }
+.record-section-tag .entity-icon-btn { width: 24px; height: 24px; min-height: 0; border: none; background: none; color: var(--faint); }
+.record-section-tag .entity-icon-btn:hover { color: var(--text); }

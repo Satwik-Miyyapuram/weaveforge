@@ -14,12 +14,12 @@
   "homepage": "https://github.com/Satwik-Miyyapuram/weaveforge#readme",
   "scripts": {
     "copy:pdf-worker": "node scripts/copy-pdf-worker.mjs",
-    "predev": "npm run copy:pdf-worker",
+    "predev": "npm run copy:pdf-worker && npm run build:embedding-worker",
     "dev": "next dev",
     "dev:clean": "npm run clean && next dev",
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
     "serve": "next dev -p 3000",
-    "prebuild": "npm run copy:pdf-worker",
+    "prebuild": "npm run copy:pdf-worker && npm run build:embedding-worker",
     "build": "next build",
     "analyze": "node ./scripts/analyze.mjs",
     "check:contrast": "node scripts/contrast-audit.mjs",
@@ -32,7 +32,8 @@
     "test:e2e:editor": "node ./scripts/run-editor-e2e.mjs",
     "test:e2e:install": "playwright install chromium",
     "record:demos": "tsx e2e/demo-clips/record.ts",
-    "migrate": "./scripts/migrate-to-oracle.sh"
+    "migrate": "./scripts/migrate-to-oracle.sh",
+    "build:embedding-worker": "node scripts/build-embedding-worker.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1135.0",
@@ -53,6 +54,7 @@
     "@uiw/codemirror-themes": "^4.25.11",
     "@weaveforge/core": "*",
     "d3-force": "^3.0.0",
+    "dompurify": "^3.4.16",
     "fflate": "^0.8.3",
     "flatbush": "^4.6.2",
     "isomorphic-git": "^1.42.2",

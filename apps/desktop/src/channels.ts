@@ -156,6 +156,18 @@ export const CHANNELS = {
   inkHapticsAvailable: "weaveforge:ink-haptics-available",
   inkHaptics: "weaveforge:ink-haptics",
   /**
+   * The application log: the page posts to it, and reads it back.
+   *
+   * Neither direction is a general file interface. `appReport` accepts an entry
+   * from the fixed shape in `app-log.ts` and nothing else; `appReveal` opens the
+   * one file the shell chose. The page names no path in either direction, which
+   * is deliberate — this is the record of what went wrong, and a channel a page
+   * could use to name a file would be a worse hole than the one it fills.
+   */
+  appReport: "weaveforge:app-report",
+  appRead: "weaveforge:app-read",
+  appReveal: "weaveforge:app-reveal",
+  /**
    * The workspace's focus mode (`⌘⇧F`) reaching the window: the page hides
    * its own chrome, and asks here for the window's — the menu bar and the
    * title bar — to go with it, and to come back. `send`, not `invoke`: a
@@ -199,4 +211,27 @@ export interface VaultEntryPayload {
   kind: "file" | "dir";
   size: number;
   modifiedAt: string;
+}
+
+/** What the page posts to the application log. The shell stamps the time. */
+export interface AppLogReportPayload {
+  level: "error" | "warn" | "info";
+  source: string;
+  message: string;
+  detail?: string;
+}
+
+/**
+ * The application log as the page receives it.
+ *
+ * `text` is the entries already formatted — one line each, oldest first — so the
+ * page can show them without a second parser and a second answer to "what does
+ * a log line look like". `file` is where they are also written, so the reader
+ * can open the same record in an editor.
+ */
+export interface AppLogPayload {
+  file: string;
+  text: string;
+  /** False when the in-memory ring dropped older entries than `text` holds. */
+  complete: boolean;
 }

@@ -7,10 +7,10 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { BoardViewIcon, CardsViewIcon, ListViewIcon } from "@/components/view-icons";
+import { CardsViewIcon, ListViewIcon } from "@/components/view-icons";
 import { CardColumns } from "@/components/card-columns";
 import { rankedFilter } from "@/features/search/application/rank-filter";
-import { useSearchIndex } from "@/lib/hooks/use-search-index";
+import { useHybridSearchIndex, type WorkspaceSearchFn } from "@/lib/hooks/use-search-index";
 import { usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
 import { MultiSelect } from "@/components/multi-select";
@@ -22,6 +22,7 @@ import type { PapersScreenData } from "@/features/papers/application/load-papers
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { PaperCard } from "./paper-card";
+import { LibraryTidyNotice } from "./library-tidy";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
 import { ListTagFilters } from "@/components/list-tag-filters";
@@ -32,7 +33,7 @@ import { FormError } from "@/components/form-error";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
-type PapersLayout = "cards" | "list" | "board";
+type PapersLayout = "cards" | "list";
 
 /**
  * Papers screen. Presentation + view-state only; all data access goes through
@@ -57,7 +58,10 @@ export function PapersScreen() {
   const [listFilter, setListFilter] = usePersistedState<string[]>("thesis.papers.list", []);
   const [tagFilter, setTagFilter] = usePersistedState<string[]>("thesis.papers.tags", []);
   const [search, setSearch] = usePersistedState<string>("thesis.papers.search", "");
-  const [layout, setLayout] = usePersistedState<PapersLayout>("thesis.papers.view", "cards");
+  const [storedLayout, setLayout] = usePersistedState<PapersLayout>("thesis.papers.view", "cards");
+  // A status board used to be a third layout; a reader who last left it on
+  // gets the cards.
+  const layout: PapersLayout = storedLayout === "list" ? "list" : "cards";
   const { setPushed, consumePushed } = useDetailPushFlag();
   const goBackToList = useDetailBack("/papers", "paper", consumePushed);
 
@@ -78,10 +82,33 @@ export function PapersScreen() {
     return { ...data, ownerNames: emptyMap<string, string>() };
   }, []);
 
-  const { data, loading, error: loadError, reload: load, setData } = useScreenData("papers", loadScreen);
+  const { data, loading, error: loadError, reload: load, refresh, setData } = useScreenData("papers", loadScreen);
   // Only a typed query ranks through the index; building it for an untouched
   // list would read the whole project on every visit to the screen.
-  const searchIndex = useSearchIndex(search.trim().length > 0);
+  const { search: keywordSearch, searchHybrid, ready: indexReady } = useHybridSearchIndex(
+    search.trim().length > 0,
+  );
+  // The hybrid answer for the query currently typed, once it arrives. Keyword
+  // ranking answers immediately; this replaces it when the semantic arm is on,
+  // so a paper found by meaning rather than wording appears here as it does in
+  // the jump palette. Tagged with its query so a slow answer to an older one is
+  // never applied to a newer one.
+  const [hybrid, setHybrid] = useState<{ query: string; hits: ReturnType<WorkspaceSearchFn> } | null>(null);
+  useEffect(() => {
+    const q = search.trim();
+    if (!q || !indexReady) return;
+    let live = true;
+    void searchHybrid(q, { kinds: ["paper"], limit: 500 }).then((hits) => {
+      if (live) setHybrid({ query: q, hits });
+    });
+    return () => {
+      live = false;
+    };
+  }, [search, indexReady, searchHybrid]);
+  const searchIndex = useCallback<WorkspaceSearchFn>(
+    (q, options) => (hybrid && hybrid.query === q.trim() ? hybrid.hits : keywordSearch(q, options)),
+    [hybrid, keywordSearch],
+  );
 
   usePinnedOwnerNames(data, setData);
 
@@ -97,6 +124,12 @@ export function PapersScreen() {
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const paperCanComment = data?.paperCanComment ?? emptyMap<string, boolean>();
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
+  // Only the reader's own papers are offered for tidying: a pinned paper
+  // shared by someone else is theirs to rename or merge.
+  const ownPapers = useMemo(
+    () => (isSharedView ? emptyArray<PaperSummary>() : papers.filter((p) => !pinnedSharedBy.has(p.id))),
+    [papers, pinnedSharedBy, isSharedView],
+  );
 
   const syncZotero = useCallback(async () => {
     setSyncing(true);
@@ -361,7 +394,7 @@ export function PapersScreen() {
   }
 
   return (
-    <section className="screen">
+    <section className="screen papers-screen">
       <ScreenHead note={syncMsg && <p className="muted">{syncMsg}</p>}>
         <button
           className="btn-primary"
@@ -370,6 +403,14 @@ export function PapersScreen() {
           onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
         >
           {syncing ? "Syncing…" : "+ Paper"}
+        </button>
+        {/* The wiki is an action, not a destination. It reads the papers and the
+            notes together and proposes pages from them, so it belongs in the row
+            with the other ways of adding something rather than in the Library
+            strip, which now lists only the things you have. The Notes screen
+            carries the same button to this same screen. */}
+        <button className="btn-secondary" type="button" onClick={() => router.push("/wiki")}>
+          Wiki
         </button>
         <button
           className="btn-secondary"
@@ -440,14 +481,15 @@ export function PapersScreen() {
         </Modal>
       )}
 
+      {/* One quiet line instead of a progress card and a banner: how far
+          through the library you are, and anything older imports left to tidy. */}
       {papers.length > 0 && (
-        <div className="card progress-card">
-          <div className="progress-top">
-            <span>{readCount} / {papers.length} papers read</span>
-            <strong>{pct}%</strong>
-          </div>
-          <div
-            className="progress-bar"
+        <div className="papers-ledger">
+          <span className="record-mono">
+            {papers.length} {papers.length === 1 ? "paper" : "papers"} · {readCount} read
+          </span>
+          <span
+            className="papers-ledger-bar"
             role="progressbar"
             aria-label="Reading progress"
             aria-valuenow={pct}
@@ -455,7 +497,9 @@ export function PapersScreen() {
             aria-valuemax={100}
           >
             <span style={{ width: `${pct}%` }} />
-          </div>
+          </span>
+          <span className="record-mono">{pct}%</span>
+          <LibraryTidyNotice papers={ownPapers} onChanged={refresh} />
         </div>
       )}
 
@@ -510,16 +554,6 @@ export function PapersScreen() {
                 onClick={() => setLayout("list")}
               >
                 <ListViewIcon />
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-label="Board by status"
-                aria-selected={layout === "board"}
-                className={layout === "board" ? "seg-on" : ""}
-                onClick={() => setLayout("board")}
-              >
-                <BoardViewIcon />
               </button>
             </div>
           </div>
@@ -589,31 +623,6 @@ export function PapersScreen() {
         />
       )}
 
-      {visible.length > 0 && layout === "board" && (
-        <div className="papers-board">
-          {PAPER_STATUSES.map((status) => {
-            const col = visible.filter((p) => p.status === status);
-            return (
-              <div key={status} className="papers-board-col">
-                <h3>
-                  {status.replace("_", " ")} · {col.length}
-                </h3>
-                {col.map((p) => (
-                  <PaperCard
-                    key={p.id}
-                    paper={p}
-                    readOnly={isReadOnlyPaper(p.id)}
-                    sharedByName={sharedOwnerName(p.id)}
-                    onOpen={() => openPaperById(p.id)}
-                    onReplace={replace}
-                    onChanged={load}
-                  />
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </section>
   );
 }

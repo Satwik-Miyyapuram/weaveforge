@@ -336,7 +336,6 @@ export function PaperPage() {
               pageHeight={hit.pageHeight}
               pageWidth={hit.pageWidth}
               selectedId={null}
-              onSelect={() => {}}
             />
           )}
         </div>

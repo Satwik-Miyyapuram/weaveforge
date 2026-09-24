@@ -16,6 +16,37 @@ export function stripInvisible(text: string): string {
     .replace(/[   - ]/g, " ");
 }
 
+/**
+ * TeX-made PDFs often draw an accent as its own spacing glyph ("´", "¨")
+ * placed over the next letter. NFKC turns each of those into a space plus a
+ * combining mark, so "Ballé" read as "Ball ´e": the name split in two, the
+ * citation matched nothing, and the label showed the split. These map each
+ * spacing accent to the combining mark that belongs on the letter after it.
+ * The backtick is left out: in code it is a backtick.
+ */
+const SPACING_ACCENTS: Readonly<Record<string, string>> = {
+  "\u00B4": "\u0301", // acute
+  "\u02CB": "\u0300", // grave (modifier letter)
+  "\u00A8": "\u0308", // diaeresis
+  "\u02C6": "\u0302", // circumflex
+  "\u02DC": "\u0303", // tilde
+  "\u02C7": "\u030C", // caron
+  "\u02DA": "\u030A", // ring
+  "\u00B8": "\u0327", // cedilla
+  "\u02D8": "\u0306", // breve
+  "\u02D9": "\u0307", // dot above
+  "\u02DD": "\u030B", // double acute
+  "\u00AF": "\u0304", // macron
+};
+
+const SPACING_ACCENT_PATTERN = new RegExp(`([${Object.keys(SPACING_ACCENTS).join("")}])[ \\t]?(\\p{L})`, "gu");
+
+/** "Ball\u00B4e" and "Ball\u00B4 e" become "Ball\u00E9"; an accent before anything but a letter stays. */
+export function composeSpacingAccents(text: string): string {
+  return text.replace(SPACING_ACCENT_PATTERN, (_, accent: string, letter: string) =>
+    (letter + SPACING_ACCENTS[accent]).normalize("NFC"));
+}
+
 export function fontSizeOf(item: PdfItem): number {
   return Math.hypot(item.transform[2] ?? 0, item.transform[3] ?? 0) || item.height || 10;
 }
@@ -33,6 +64,8 @@ export function searchTextFromItems(items: readonly PdfItem[]): SearchText {
   const ends: number[] = [];
   let cursor = 0;
   let previous: PdfItem | undefined;
+  // A spacing accent waiting for the letter it sits on, and where it began.
+  let accent: { mark: string; start: number } | null = null;
   const append = (str: string, start: number, end: number) => {
     text += str;
     for (let i = 0; i < str.length; i++) {
@@ -42,22 +75,47 @@ export function searchTextFromItems(items: readonly PdfItem[]): SearchText {
   };
 
   for (const item of items) {
-    if (previous && item.str && text && !/\s$/.test(text) && !/^\s/.test(item.str)) {
+    // An accent-only item sits over the next letter, so it is no guide to the
+    // gap before or after it; gaps are measured from the word before it.
+    const accentOnly = item.str.trim() !== "" && [...item.str.trim()].every((glyph) => SPACING_ACCENTS[glyph]);
+    if (previous && !accentOnly && !accent && item.str && text && !/\s$/.test(text) && !/^\s/.test(item.str)) {
       const size = Math.max(fontSizeOf(item), fontSizeOf(previous));
       const gap = (item.transform[4] ?? 0) - ((previous.transform[4] ?? 0) + previous.width);
       const sameLine = Math.abs((item.transform[5] ?? 0) - (previous.transform[5] ?? 0)) < size * 0.4;
       if (sameLine && gap > Math.max(0.8, size * 0.13)) append(" ", cursor, cursor);
     }
     for (const glyph of item.str) {
+      const mark = SPACING_ACCENTS[glyph];
+      if (mark) {
+        // Held, not written: it belongs on the next letter. If no letter
+        // follows it is dropped, which beats the stray space NFKC would add.
+        accent = { mark, start: cursor };
+        cursor += glyph.length;
+        continue;
+      }
+      if (accent && /\p{L}/u.test(glyph)) {
+        const composed = stripInvisible((glyph + accent.mark).normalize("NFC").normalize("NFKC"));
+        append(composed, accent.start, cursor + glyph.length);
+        accent = null;
+        cursor += glyph.length;
+        continue;
+      }
+      if (accent && /^\s$/u.test(glyph)) {
+        // "´ e": the space between the accent and its letter is not a word gap.
+        cursor += glyph.length;
+        continue;
+      }
+      accent = null;
       const normalized = stripInvisible(glyph.normalize("NFKC")).replace(/\s/g, " ");
       append(normalized, cursor, cursor + glyph.length);
       cursor += glyph.length;
     }
     if (item.hasEOL) {
+      accent = null;
       append(" ", cursor, cursor + 1);
       cursor++;
     }
-    if (item.str.trim()) previous = item;
+    if (item.str.trim() && !accentOnly) previous = item;
   }
   return { text, starts, ends };
 }

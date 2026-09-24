@@ -1,4 +1,8 @@
-.ai-review-screen { max-width: 920px; }
+/* The screen width, from the one place every screen gets it. This was its own
+   920px, which made AI review narrower than the library, the dashboard and the
+   notes beside it. A screen is the same width as its siblings; only *prose*
+   narrows, and it narrows to the reading measure (`.markdown`). */
+.ai-review-screen { max-width: min(var(--app-max), 100%); }
 .ai-review-screen .screen-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .ai-review-screen h1 { margin: 4px 0 8px; font-family: var(--font-serif); }
 .ai-review-toolbar, .ai-review-card-head, .ai-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

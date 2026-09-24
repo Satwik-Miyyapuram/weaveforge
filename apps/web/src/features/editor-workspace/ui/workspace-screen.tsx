@@ -52,6 +52,7 @@ import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
 import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
+import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 
 function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
@@ -102,12 +103,32 @@ export function WorkspaceScreen() {
   // a ref rather than closing over a stale one.
   const activeDocRef = useRef<Document | undefined>(undefined);
   useEffect(() => setExplorerHidden(readHidden(store())), []);
+  // On a phone there is no room for the explorer beside a document: at 375px
+  // the two shared the width, the tree's labels truncated to a letter and the
+  // PDF's own toolbar sat over the page. There the explorer is a drawer over
+  // the document, closed once something is opened from it, and its state is
+  // not written back — a phone closing it must not hide it on the desktop.
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia(`(max-width: ${DESKTOP_BREAKPOINT_PX - 1}px)`);
+    const sync = () => setPhone(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+  const hasOpenTab = openTabs(layout).length > 0;
+  useEffect(() => {
+    if (phone && hasOpenTab) setExplorerHidden(true);
+    // Only when the width crosses, or the first document arrives: the drawer
+    // stays where the person put it after that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone, hasOpenTab]);
   const toggleExplorer = useCallback(() => {
     setExplorerHidden((current) => {
-      writeHidden(store(), !current);
+      if (!phone) writeHidden(store(), !current);
       return !current;
     });
-  }, []);
+  }, [phone]);
   const createMode = useWikilinkCreateMode();
   // One handle per open document, so the pane's image button reaches the
   // editor in the tab it sits over. The boxes outlive their editors: a handle
@@ -212,6 +233,9 @@ export function WorkspaceScreen() {
           ink_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
           paper: (id, next) => container.papers.updatePaper.setSummary(id, next),
           report_section: (id, next) => container.report.manageReportSection.setNotes(id, next),
+          // A log entry is markdown, so the editor's text *is* the entry's body.
+          // The kind is not ours to write: see LogbookFacade.saveEntryBody.
+          log_entry: (id, next) => container.logbook.saveEntryBody(id, next),
         };
         await writers[tab.kind]?.(tab.id, body);
         setDirty(false);
@@ -565,7 +589,7 @@ export function WorkspaceScreen() {
 
   return (
     <div
-      className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}${focus ? " is-focus" : ""}`}
+      className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}${focus ? " is-focus" : ""}${phone ? " is-phone" : ""}`}
     >
       {focus ? (
         <button
@@ -604,6 +628,7 @@ export function WorkspaceScreen() {
           // `pane-tree`'s restore cannot disagree. The tab remembers whatever
           // mode you leave it in.
           const doc = (documents ?? []).find((d) => d.kind === selection.kind && d.id === selection.id);
+          if (phone) setExplorerHidden(true);
           apply(
             openTab(layout, {
               kind: selection.kind,

@@ -8,6 +8,7 @@ import type {
 } from "@weaveforge/core";
 
 export type { PdfLib } from "@/lib/pdf-lib";
+import type { ReactNode } from "react";
 import type { PdfLib } from "@/lib/pdf-lib";
 
 export type PdfDocument = Awaited<ReturnType<PdfLib["getDocument"]>["promise"]>;
@@ -16,20 +17,28 @@ export type RenderTask = ReturnType<Awaited<ReturnType<PdfDocument["getPage"]>>[
 
 /**
  * A mark being drawn right now, in PDF coordinates — either a freehand path
- * (flat x,y pairs, as `inkPath` holds them) or a dragged region.
+ * (flat x,y pairs, as `inkPath` holds them), a dragged region, or the loop the
+ * lasso is drawing.
  */
 export type DraftShape =
   | { kind: "ink"; pageNumber: number; path: number[]; width: number; highlighter: boolean }
-  | { kind: "rect"; pageNumber: number; x0: number; y0: number; x1: number; y1: number };
+  | { kind: "rect"; pageNumber: number; x0: number; y0: number; x1: number; y1: number }
+  | { kind: "lasso"; pageNumber: number; path: readonly number[] };
 
 /** An ink annotation being extended stroke by stroke, so one mark is one row. */
 export interface InkGroup extends InkGroupCandidate {
   annotationId: string;
 }
 
-/** A selected ink annotation being dragged to a new place on its page. */
+/**
+ * Selected ink being dragged to a new place on its page.
+ *
+ * A list, because the lasso picks up a whole selection and the sheet drags one
+ * as a single thing: an arrow drawn through a bracket and its label moves all
+ * three together or none of them.
+ */
 export interface InkMove {
-  annotationId: string;
+  annotationIds: string[];
   pointerId: number;
   pageNumber: number;
   /** Where the drag started, in PDF user space. */
@@ -95,6 +104,8 @@ export interface PdfReaderProps {
    * own toggle, so this is the starting state, not a lock.
    */
   inkRail?: boolean;
+  /** The owner's own controls, drawn at the end of the toolbar (e.g. "Load PDF…"). */
+  toolbarExtra?: ReactNode;
 }
 
 export interface JumpState {

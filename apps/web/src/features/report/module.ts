@@ -10,7 +10,7 @@ export const reportModule: FeatureModule = {
   navGroup: "report",
   navItems: [
     { key: "report-sections", label: "Sections", path: "/report", icon: "doc" },
-    { key: "report-overleaf", label: "Overleaf", path: "/report/overleaf", icon: "doc" },
+    { key: "report-overleaf", label: "Overleaf", path: "/report/overleaf", icon: "overleaf" },
   ],
   routes: [
     { path: "/report", component: "report/ReportPage" },

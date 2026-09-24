@@ -17,7 +17,7 @@
      checks, and the build. Only what CI cannot see is listed here. -->
 
 - [ ] Tests cover the new behaviour, and would fail without this change
-- [ ] No secrets (Supabase keys, tokens, passwords) anywhere in the diff
+- [ ] No secrets (sign-in keys, server credentials, tokens, passwords) anywhere in the diff
 - [ ] Docs / README / `CHANGELOG.md` updated if behaviour or setup changed
 - [ ] Architecture holds: domain and application layers import no Supabase;
       wiring stays in the composition root (see `docs/building/design.md`)

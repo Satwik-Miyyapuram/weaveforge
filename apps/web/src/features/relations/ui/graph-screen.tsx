@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Paper, PaperRelation, ReadingList, ReportSection, VaultPage } from "@weaveforge/core";
+import { useRouter } from "next/navigation";
+import type { GraphExperimentEntry, Paper, PaperRelation, ReadingList, ReportSection, VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -18,6 +19,7 @@ import { GraphLegend } from "./graph-legend";
 import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
 import { graphFilterCount } from "@weaveforge/core";
+import { experimentHref } from "@/features/experiments";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -28,6 +30,7 @@ import { FormError } from "@/components/form-error";
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
   const { current: project } = useProject();
+  const router = useRouter();
   const {
     settings,
     patchSettings,
@@ -63,6 +66,7 @@ export function GraphScreen() {
   const edges = data?.relations ?? emptyArray<PaperRelation>();
   const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
+  const experiments = data?.experiments ?? emptyArray<GraphExperimentEntry>();
   const [linking, setLinking] = useState(false);
   const [linkMsg, setLinkMsg] = useState<string | null>(null);
   const [focus, setFocus] = useState(false);
@@ -158,6 +162,22 @@ export function GraphScreen() {
       setLocalSeed(node.id);
       return;
     }
+    /**
+     * A run opens its own detail screen rather than a panel here.
+     *
+     * Every other node has a side panel because the graph *is* where that
+     * document is read — a paper's abstract, a note's body. A run's detail is a
+     * screen of its own (metrics, config, figures, git chips), it already
+     * exists, and rebuilding a reduced copy in a 320px panel would be a second
+     * answer to "what is this run" that drifts from the first. So the click
+     * leaves the graph, and `localSeed` is deliberately *not* set: seeding the
+     * local subgraph on a node the reader is navigating away from would change
+     * the view they come back to.
+     */
+    if (node.kind === "experiment") {
+      router.push(experimentHref(node.experimentId ?? node.id));
+      return;
+    }
     if (node.kind === "report" || node.sectionId) {
       const sectionId = node.sectionId ?? node.id;
       setSelectedSectionId(sectionId);
@@ -228,6 +248,7 @@ export function GraphScreen() {
       notes={visibleNotes}
       sections={sections}
       relations={visibleEdges}
+      experiments={experiments}
       settings={settings}
       membership={membership}
       lists={lists}
@@ -306,7 +327,35 @@ export function GraphScreen() {
       )}
       {localBanner}
       {canvas}
-      {canvas && (selectedPaper || selectedNote || selectedSection || selectedConcept) && (
+    </div>
+  ) : null;
+
+  /**
+   * The run-down below the canvas: legend, then settings, then the panel.
+   *
+   * This exists as its own block, rather than living inside `graph-stage`, so
+   * that a narrow window can put it *under* the graph in the document order it
+   * is read in. Inside the stage every one of these was absolutely positioned
+   * against the canvas — which is right on a wide screen, where they float over
+   * it and cost no height, and wrong on a phone, where a 300px panel anchored to
+   * the canvas covers most of the graph it is describing and cannot be scrolled
+   * away from. Outside the stage they are ordinary blocks on a phone and
+   * positioned again at the desktop breakpoint, so the wide layout is unchanged.
+   *
+   * `settingsDrawer` is placed **here and only here**. Above the breakpoint
+   * `.graph-below` is `display: contents`, so the panel is a direct child of the
+   * screen for layout purposes and its own `position: fixed` makes it the drawer
+   * it has always been; below it, the same element is an ordinary block in this
+   * column. One render, one set of ids, and the position is a stylesheet
+   * decision rather than a `matchMedia` guess that could disagree with the CSS.
+   */
+  const graphBelow = canvas ? (
+    <div className="graph-below">
+      <div className="graph-below-legend">
+        <GraphLegend showConcepts={settings.showConcepts} />
+      </div>
+      {settingsDrawer}
+      {(selectedPaper || selectedNote || selectedSection || selectedConcept) && (
         <GraphSidePanel
           paper={selectedPaper}
           note={selectedNote}
@@ -405,11 +454,17 @@ export function GraphScreen() {
           </div>
           <BraveGraphWarning />
         </div>
-        {settingsDrawer}
+        {/* No `settingsDrawer` here: focus mode renders `graphView` and nothing
+            else, and the one render lives inside `graph-below` — which focus
+            mode does not use, so the settings button in the focus bar would have
+            nothing to open. It falls through to `graphBelow` below instead. */}
         {graphView}
+        {graphBelow}
         {!hasVisibleItems && (
           <div className="empty gf-empty"><p>No items match the filter.</p></div>
         )}
+        {/* Focus mode has no room for the panel, so it keeps the floating
+            legend it has always had; only the plain view gets `graphBelow`. */}
         <div className="graph-focus-legend"><GraphLegend showConcepts={settings.showConcepts} /></div>
         {addEdgeModal}
       </div>
@@ -418,8 +473,8 @@ export function GraphScreen() {
 
   return (
     <section className="screen screen--wide">
+      <h1 className="sr-only">Graph</h1>
       {header}
-      {settingsDrawer}
       {addEdgeModal}
       <BraveGraphWarning />
       {error && <FormError>{error}</FormError>}
@@ -452,7 +507,13 @@ export function GraphScreen() {
         />
       )}
       {graphView}
-      {hasVisibleItems && <GraphLegend showConcepts={settings.showConcepts} />}
+      {/* The legend moved inside `graphBelow`, which owns the whole run-down
+          under the canvas: legend, then the selected item's panel. Ordering them
+          as one block is what lets a narrow window put the graph first and
+          everything that describes it underneath, in one flex or grid rule,
+          instead of three separately-positioned elements that each had to be
+          taught about the phone layout. */}
+      {graphBelow}
     </section>
   );
 }

@@ -10,7 +10,7 @@ We use a feature-sliced modular pattern:
 - **`apps/web/src/bootstrap.ts`**: Composition root — wires use-cases, integrations, and facades from `wireBackend()`.
 - **`apps/web/src/container/facades/`**: UI entry points (`getContainer().papers`, `.plan`, …). UI must not reach into repositories directly.
 - **`packages/core/`**: Shared interfaces, entities, and use cases.
-- **`apps/web/src/backend/`**: Env-driven persistence + auth wiring (`wireBackend()`). Default: Supabase; see [`docs/running/backend.md`](../running/backend.md).
+- **`apps/web/src/backend/`**: Env-driven persistence + auth wiring (`wireBackend()`). Data: PostgREST on the OCI server; sign-in: Supabase Auth; see [`docs/running/backend.md`](../running/backend.md).
 - **`docs/using/integrations.md`**: Third-party providers (Zotero, GitLab, …).
 - **`docs/using/extensions.md`**: Extension seams — integrations, modules, backend, Python sync; links to plugin backlog.
 - **`docs/using/citations-and-overleaf.md`**: User guide for cite/excerpts/Overleaf `\cite` / related papers.

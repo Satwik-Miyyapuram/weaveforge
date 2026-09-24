@@ -42,6 +42,19 @@ export interface AccountLinksInput {
    * session to end, so "Sign out" would be a lie: the offer is the opposite one.
    */
   local?: boolean;
+  /**
+   * Whether this bundle contains `/supervision` and `/shared` at all.
+   *
+   * Not the same question as `local`, and treating it as one was a bug: the
+   * desktop export holds those route directories aside
+   * (`apps/desktop/scripts/build-web.mjs`), so they are absent whether or not a
+   * window is signed in. Linking to one is a 404 the router also prefetches, on
+   * every render of the sidebar — which is exactly what the `local` check was
+   * added to stop, and it only stopped it for a copy with no account. Defaults
+   * to true, so a caller that has no build flag to consult keeps the served
+   * build's behaviour.
+   */
+  hasRoutes?: boolean;
 }
 
 /**
@@ -66,11 +79,12 @@ export function accountLinks(input: AccountLinksInput): AccountLink[] {
     links.push({ id: "projects", label: "Projects" });
   }
 
-  // Supervision and sharing are both about other people's copies of the app,
-  // and the desktop build ships neither route. Offering them without an account
-  // is a link to a page that is not in the bundle: the click 404s, and the
-  // router prefetches the miss on every render of the sidebar.
-  if (!input.local) {
+  // Supervision and sharing are both about other people's copies of the app.
+  // They are offered only by a copy that ships the routes: without an account
+  // they are beside the point, and in the desktop bundle they are absent from
+  // the export entirely, so a link to one is a 404 the router prefetches on
+  // every render of the sidebar.
+  if (!input.local && (input.hasRoutes ?? true)) {
     if (input.canSupervise) {
       links.push({ id: "supervise", label: "Supervise", href: "/supervision" });
     }

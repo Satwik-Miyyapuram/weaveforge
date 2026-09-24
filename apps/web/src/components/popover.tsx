@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ChevronIcon } from "./chevron-icon";
 
@@ -18,6 +19,7 @@ export function Popover({
   ariaLabel,
   iconOnly = false,
   triggerClassName = "btn-secondary",
+  portal = false,
   children,
 }: {
   label: React.ReactNode;
@@ -29,6 +31,20 @@ export function Popover({
   iconOnly?: boolean;
   /** Extra class on the trigger, for a trigger that is a swatch rather than a button. */
   triggerClassName?: string;
+  /**
+   * Render the panel into `<body>` instead of under the trigger.
+   *
+   * The panel is positioned `fixed` in viewport coordinates, but a `fixed`
+   * element is placed against its nearest ancestor that establishes a containing
+   * block — any transform, filter, backdrop-filter, perspective or `contain`.
+   * A trigger inside an animating card therefore pins the panel to *the card*,
+   * and it opens offset from the button that was pressed. Portalling takes the
+   * panel out of that subtree so `fixed` means the viewport again.
+   *
+   * Off by default: a trigger in static chrome (a toolbar) has no such ancestor,
+   * and leaving the panel where it is keeps the DOM next to the control.
+   */
+  portal?: boolean;
   /** The panel, or a function of `close` when picking something should shut it. */
   children: React.ReactNode | ((close: () => void) => React.ReactNode);
 }) {
@@ -88,7 +104,10 @@ export function Popover({
     };
   }, [open, align, children]);
 
-  useDismissOnOutside(open, () => setOpen(false), ref);
+  // A portalled panel is outside `ref`, so it has to be named as "inside" too —
+  // otherwise the mousedown that lands on an option closes the menu before the
+  // click can select it. `useDismissOnOutside` takes a list for this.
+  useDismissOnOutside(open, () => setOpen(false), portal ? [ref, panelRef] : ref);
 
   // Move focus into the panel on open; restore it to the trigger on close.
   useEffect(() => {
@@ -109,6 +128,8 @@ export function Popover({
         type="button"
         className={`${triggerClassName} popover-trigger${open ? " on" : ""}${iconOnly ? " popover-trigger--icon" : ""}`}
         aria-label={ariaLabel}
+        // An icon has no words of its own; the tooltip gives the pointer the name a screen reader gets.
+        title={iconOnly ? ariaLabel : undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={panelId}
@@ -118,19 +139,25 @@ export function Popover({
         {count ? <span className="popover-badge">{count}</span> : null}
         {!iconOnly && <ChevronIcon open={open} className="popover-caret" />}
       </button>
-      {open && (
-        <div
-          ref={panelRef}
-          className="popover-panel card"
-          id={panelId}
-          role="dialog"
-          aria-label={ariaLabel}
-          tabIndex={-1}
-          style={panelPos}
-        >
-          {typeof children === "function" ? children(() => setOpen(false)) : children}
-        </div>
-      )}
+      {open &&
+        (() => {
+          const panel = (
+            <div
+              ref={panelRef}
+              className="popover-panel card"
+              id={panelId}
+              role="dialog"
+              aria-label={ariaLabel}
+              tabIndex={-1}
+              style={panelPos}
+            >
+              {typeof children === "function" ? children(() => setOpen(false)) : children}
+            </div>
+          );
+          // `document.body` is safe here: the panel only exists once `open`, and
+          // open is false in any server render.
+          return portal ? createPortal(panel, document.body) : panel;
+        })()}
     </div>
   );
 }

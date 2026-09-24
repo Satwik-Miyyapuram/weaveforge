@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PdfIndexSource, SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
-import { collapseToEntities } from "@/features/search/application/collapse-to-entities";
+import { collapseToEntities, distinctRelated } from "@/features/search/application/collapse-to-entities";
 
 /**
  * `WorkspaceSearch` reaches IndexedDB for the PDF text store and the index
@@ -458,4 +458,244 @@ test("collapseToEntities sends a page to its paper's document even when the pape
     { id: "paper:a", score: 3 },
     { id: "pdf:b#0", score: 2 },
   ]);
+});
+
+test("distinctRelated lists a paper once, however the arms named it", () => {
+  const docs: Record<string, Pick<SearchHit, "kind" | "entityId" | "title">> = {
+    "paper:a": { kind: "paper", entityId: "a", title: "Faithful Bi-Directional Model Steering" },
+    "pdf:a#3": { kind: "pdf", entityId: "a", title: "Faithful Bi-Directional Model Steering" },
+    // A second record of the same paper, imported twice.
+    "paper:a2": { kind: "paper", entityId: "a2", title: "Faithful bi-directional model steering." },
+    "paper:b": { kind: "paper", entityId: "b", title: "Causal Abstractions of Neural Networks" },
+    "paper:b2": { kind: "paper", entityId: "b2", title: "Causal Abstractions of Neural Networks.pdf" },
+    // A note may share a paper's title — it is a different thing to open.
+    "note:n": { kind: "note", entityId: "n", title: "Causal Abstractions of Neural Networks" },
+    "paper:c": { kind: "paper", entityId: "c", title: "Structured Disentangled Representations" },
+  };
+  const results = ["paper:a", "pdf:a#3", "paper:b", "paper:a2", "note:n", "paper:b2", "gone", "paper:c"].map(
+    (id, i) => ({ id, score: 10 - i }),
+  );
+  const kept = distinctRelated(results, (id) => docs[id] ?? null);
+  // Order is kept and the best-ranked entry of each wins; an id the index no
+  // longer resolves is passed through for the caller to drop.
+  assert.deepEqual(kept.map((r) => r.id), ["paper:a", "paper:b", "note:n", "gone", "paper:c"]);
+  assert.deepEqual(distinctRelated(results, (id) => docs[id] ?? null, 2).map((r) => r.id), ["paper:a", "paper:b"]);
+});
+
+test("distinctRelated reads a file-named import as the paper it is, and leaves out the seed's twin", () => {
+  const docs: Record<string, Pick<SearchHit, "kind" | "entityId" | "title">> = {
+    "paper:seed": { kind: "paper", entityId: "seed", title: "Nonparametric Variational Auto-Encoders" },
+    "paper:file": { kind: "paper", entityId: "file", title: "Goyal et al. - 2017 - Nonparametric Variational Auto-Encoders.pdf" },
+    "paper:x": { kind: "paper", entityId: "x", title: "Deep Variational Information Bottleneck" },
+    "paper:y": { kind: "paper", entityId: "y", title: "Alemi - 2019 - Deep Variational Information Bottleneck.pdf" },
+    // A title with a dash in it is not a file name.
+    "paper:z": { kind: "paper", entityId: "z", title: "Self-Attention - A Survey" },
+  };
+  const results = ["paper:file", "paper:x", "paper:y", "paper:z"].map((id, i) => ({ id, score: 10 - i }));
+  assert.deepEqual(
+    distinctRelated(results, (id) => docs[id] ?? null, Infinity, "paper:seed").map((r) => r.id),
+    ["paper:x", "paper:z"],
+  );
+});
+
+test("distinctRelated knows a file name cut short is still the paper", () => {
+  const titles: Record<string, string> = {
+    "paper:seed": "Nonparametric Variational Auto-Encoders for Hierarchical Representation Learning",
+    "paper:cut": "Goyal et al. - 2017 - Nonparametric Variational Auto-Encoders for Hierarchical R.pdf",
+    "paper:other": "Nonparametric Bayes",
+  };
+  const resolve = (id: string) => ({ kind: "paper" as const, entityId: id, title: titles[id]! });
+  const kept = distinctRelated([{ id: "paper:cut" }, { id: "paper:other" }], resolve, 5, "paper:seed");
+  assert.deepEqual(kept.map((r) => r.id), ["paper:other"]);
+});
+
+test("distinctRelated knows a second download of the file is the same paper", () => {
+  const titles: Record<string, string> = {
+    "paper:seed": "Goyal et al. - 2017 - Nonparametric Variational Auto-Encoders.pdf",
+    "paper:copy": "Goyal et al. - 2017 - Nonparametric Variational Auto-Encoders 1.pdf",
+    "paper:gpt": "Language Models are Unsupervised Multitask Learners GPT 2",
+  };
+  const resolve = (id: string) => ({ kind: "paper" as const, entityId: id, title: titles[id]! });
+  const kept = distinctRelated([{ id: "paper:copy" }, { id: "paper:gpt" }], resolve, 5, "paper:seed");
+  assert.deepEqual(kept.map((r) => r.id), ["paper:gpt"]);
+});
+
+test("related lists two records of one paper once", async () => {
+  const search = searchFor({
+    papers: [
+      paper("seed", "Causal abstraction for interpretability"),
+      paper("dup1", "Causal abstraction of neural networks"),
+      paper("dup2", "Causal Abstraction of Neural Networks"),
+      paper("other", "Interpretability of causal models"),
+    ],
+  });
+  await search.ensure();
+  const ids = search.related("paper:seed", 8).map((r) => r.id);
+  assert.ok(ids.length > 0);
+  assert.equal(ids.filter((id) => id === "paper:dup1" || id === "paper:dup2").length, 1, ids.join(", "));
+});
+
+test("the semantic arm respects the kinds a caller asked for", async () => {
+  const search = searchFor({
+    papers: [paper("pa1", "Attention")],
+    vaultPages: [note("n2", "Latents", "the posterior stays close to the prior")],
+  });
+  await search.ensure();
+  search.setSemanticIndex(fakeSemantic(["note:n2", "paper:pa1"]));
+
+  const hybrid = await search.searchHybrid("attention", { limit: 10, kinds: ["paper"] });
+  assert.deepEqual(
+    hybrid.map((h) => h.kind),
+    hybrid.map(() => "paper"),
+    "a papers-only list must not be handed a note by the vector arm",
+  );
+});
+
+test("a vector hit below the noise floor does not become a match", async () => {
+  const search = searchFor({
+    vaultPages: [note("n1", "Attention", "positions"), note("n2", "Latents", "posterior")],
+  });
+  await search.ensure();
+  search.setSemanticIndex({
+    ready: true,
+    async search() {
+      return [{ id: "note:n2", score: 0.21 }];
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+
+  const hybrid = await search.searchHybrid("attention", { limit: 10 });
+  assert.equal(hybrid.some((h) => h.id === "note:n2"), false);
+});
+
+test("the noise floor is the encoder's own, not a fixed number", async () => {
+  const search = searchFor({
+    vaultPages: [note("n1", "Attention", "positions"), note("n2", "Latents", "posterior")],
+  });
+  await search.ensure();
+  // 0.45 clears MiniLM's 0.3 but is noise for a model whose unrelated pairs
+  // sit near 0.5; with the model saying so, it must not match.
+  search.setSemanticIndex({
+    ready: true,
+    minScore: 0.55,
+    async search() {
+      return [{ id: "note:n2", score: 0.45 }];
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+
+  const hybrid = await search.searchHybrid("attention", { limit: 10 });
+  assert.equal(hybrid.some((h) => h.id === "note:n2"), false);
+});
+
+test("a keyword hit on one function word of a question is not fused in", async () => {
+  const search = searchFor({
+    vaultPages: [
+      note("n1", "Residual learning", "shortcut connections for very deep networks"),
+      note("n2", "Cooking", "how to boil pasta for dinner"),
+    ],
+  });
+  await search.ensure();
+  search.setSemanticIndex({
+    ready: true,
+    minScore: 0.28,
+    async search() {
+      return [{ id: "note:n1", score: 0.5 }];
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+
+  // "how" and "for" match the cooking note; neither is about anything.
+  const hybrid = await search.searchHybrid("how to train very deep networks", { limit: 10 });
+  assert.equal(hybrid[0]?.id, "note:n1");
+  assert.equal(hybrid.some((h) => h.id === "note:n2"), false);
+});
+
+test("an off-topic question returns nothing once both arms are strict", async () => {
+  const search = searchFor({
+    vaultPages: [note("n1", "Residual learning", "shortcut connections for deep networks")],
+  });
+  await search.ensure();
+  search.setSemanticIndex({
+    ready: true,
+    minScore: 0.28,
+    async search() {
+      return [{ id: "note:n1", score: 0.12 }];
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+
+  assert.deepEqual(await search.searchHybrid("how to cook pasta for dinner", { limit: 10 }), []);
+});
+
+test("related falls back to meaning when the graph has nothing, and says so", async () => {
+  const search = searchFor({
+    vaultPages: [note("n1", "Tuesday", "attention heads"), note("n2", "Heads", "multi-head self-attention")],
+  });
+  await search.ensure();
+  search.setSemanticIndex({
+    ready: true,
+    nearestTo: () => [{ id: "note:n2", score: 0.8 }],
+    async search() {
+      return [];
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+
+  const related = await search.relatedHybrid("note:n1", 5);
+  assert.equal(related[0]?.id, "note:n2");
+  assert.equal(related[0]?.arm, "semantic");
+});
+
+test("related adds what is close in meaning to what wording found, and says which found each", async () => {
+  const search = searchFor({
+    vaultPages: [
+      note("n1", "Attention heads", "attention heads in transformers"),
+      note("n2", "Attention heads pruned", "pruning attention heads"),
+      note("n3", "Tuesday", "what the probe found"),
+    ],
+  });
+  await search.ensure();
+  const wording = search.related("note:n1", 5);
+  assert.ok(wording.some((hit) => hit.id === "note:n2"), "wording finds the shared title");
+  search.setSemanticIndex({
+    ready: true,
+    nearestTo: () => [
+      { id: "note:n3", score: 0.9 },
+      { id: "note:n2", score: 0.7 },
+    ],
+    async search() {
+      return [];
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+
+  const related = await search.relatedHybrid("note:n1", 5);
+  const byId = new Map(related.map((hit) => [hit.id, hit]));
+  assert.deepEqual(byId.get("note:n3")?.arms, ["semantic"], "meaning alone found the note with no shared words");
+  assert.deepEqual(byId.get("note:n2")?.arms, [wording.find((hit) => hit.id === "note:n2")!.arm, "semantic"]);
+});
+
+test("a refreshed note is handed to the semantic arm to re-embed", async () => {
+  let body = "first draft";
+  const search = new WorkspaceSearch({
+    snapshot: async () => snapshot({ vaultPages: [note("n1", "Method", body)] }),
+    projectId: () => "p1",
+  });
+  await search.ensure();
+
+  const synced: string[][] = [];
+  search.setSemanticIndex({
+    ready: true,
+    async sync(docs: readonly { id: string }[]) {
+      synced.push(docs.map((d) => d.id));
+      return true;
+    },
+  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  let changed = 0;
+  search.onSemanticChanged = () => {
+    changed += 1;
+  };
+
+  body = "second draft";
+  search.markStale("vault_page");
+  await search.ensure();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepEqual(synced, [["note:n1"]]);
+  assert.equal(changed, 1);
 });

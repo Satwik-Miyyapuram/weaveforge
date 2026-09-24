@@ -29,6 +29,8 @@
     <AssemblyName>ink-recogniser</AssemblyName>
     <RootNamespace>WeaveForge.InkRecogniser</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Source-generated COM (SpellCheck.cs) emits unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!--
       Self-contained and trimmed: the target machine may have no .NET at all, and
       this is shipped inside an Electron app rather than installed. Trimming is on

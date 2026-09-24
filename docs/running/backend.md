@@ -2,13 +2,14 @@
 
 WeaveForge separates **domain logic** (`@weaveforge/core`) from **persistence, auth, and blob storage**. The web app selects a backend provider at deploy time — same pattern as [integrations](../using/integrations.md).
 
-The deployment this project runs on is **self-hosted**: Postgres 16 + PostgREST + Realtime on an
-OCI VM, with **MinIO** for blobs and Supabase Auth as the identity provider (the stack verifies the
-tokens Supabase signs). [`infra/oci/docker-compose.yml`](../../infra/oci/docker-compose.yml) is the
+WeaveForge's data is **self-hosted**: Postgres 16 + PostgREST + Realtime on an OCI VM, with
+**MinIO** for files, all behind Caddy at `api.weaveforge.org`. Supabase is used for **sign-in only**:
+Supabase Auth issues the session tokens, and the stack verifies them with the shared JWT secret. No
+table data or files are stored at Supabase. [`infra/oci/docker-compose.yml`](../../infra/oci/docker-compose.yml) is the
 whole data plane, and [`docs/running/oracle-shift.md`](oracle-shift.md) is how it was moved there.
 
-**Hosted Supabase** (managed Postgres + Auth + Storage) remains a supported target — the same
-migrations apply, and it needs none of the self-hosted prerequisites. Other targets:
+The same migrations would run on any Postgres that PostgREST can front. Other targets that fit the
+same seams:
 
 - **Postgres + your own auth** (Neon, RDS, another VM, …)
 - **Cloudflare** (Workers/Pages + Hyperdrive or D1 + R2 + Access)
@@ -76,7 +77,7 @@ packages/core/                    apps/web/src/
 ### What stays Postgres-specific (for now)
 
 - SQL migrations in `supabase/migrations/` — `auth.uid()`, RLS policies, `SECURITY DEFINER` helpers
-- Supabase adapters use PostgREST (`.from().select().eq()`)
+- The `Supabase*` adapters are named for their client library, supabase-js, and speak PostgREST (`.from().select().eq()`) to the OCI server
 
 A **postgres** provider reuses the same schema and reimplements adapters with `pg` or an HTTP API — no use-case changes.
 
@@ -85,10 +86,17 @@ A **postgres** provider reuses the same schema and reimplements adapters with `p
 ## Configuration
 
 ```ini
-# Backend provider (default: supabase)
+# Data and realtime: the OCI server
+NEXT_PUBLIC_DATA_URL=https://api.weaveforge.org
+NEXT_PUBLIC_REALTIME_URL=https://api.weaveforge.org
+NEXT_PUBLIC_BLOB_PROVIDER=tiered
+BLOB_PROVIDER=tiered
+
+# Backend provider — leave the default. "supabase" names the client library
+# (supabase-js, which speaks PostgREST), not where data is stored.
 NEXT_PUBLIC_BACKEND_PROVIDER=supabase          # supabase | postgres
 
-# Supabase (when provider = supabase)
+# Sign-in (Supabase Auth)
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...               # server only — account creation, API and MCP tokens
@@ -107,9 +115,9 @@ settings panels that issue SDK API tokens and MCP relay tokens answer 503:
 the token service has nothing to sign with. The JWT secret is the same one
 PostgREST is given in [the shift guide](oracle-shift.md).
 
-Without `GITHUB_ISSUES_TOKEN` the error screens keep their other two escapes and
-the report panel answers 503 naming that variable — a report is never silently
-dropped.
+Without `GITHUB_ISSUES_TOKEN` the report panel falls back to GitHub's own
+new-issue form, prefilled with the same report; the reader submits it from their
+own account. A report is never silently dropped.
 
 **Where that variable goes** is worth being precise about, because the obvious
 guess is wrong: the route that files reports (`/api/report-issue`) is served by
@@ -120,7 +128,7 @@ guess is wrong: the route that files reports (`/api/report-issue`) is served by
 | Production | the `apps/web` project on Vercel → Settings → Environment Variables (`GITHUB_ISSUES_TOKEN`, optionally `GITHUB_ISSUES_REPO`). Redeploy for it to take effect. |
 | Local development | `apps/web/.env.local` — Next only reads it from the app directory, and it is git-ignored. |
 | The OCI box | **nothing.** `infra/oci/docker-compose.yml` runs the database, PostgREST, Realtime, the gateway and MinIO; the web app is not in it. Setting the token there would look configured and do nothing. |
-| A packaged desktop build | **nothing** — it serves a static copy of the app, which has no server and therefore no report endpoint. The panel says so rather than failing silently. |
+| A packaged desktop build | **nothing** — it serves a static copy of the app, which has no server and therefore no report endpoint. Its report button opens GitHub's prefilled new-issue form instead. |
 
 The token is a fine-grained PAT with `issues: write` on one repository. When it is
 set, the app files an issue containing what the reader saw, what they added, and
@@ -130,28 +138,13 @@ long opaque blobs. No account identity is attached, and the reader previews the
 whole payload before sending. It is the only credential in this app that can write
 anywhere.
 
-`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/running/postgres-provider.md`](postgres-provider.md). Default remains `supabase`.
+`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/running/postgres-provider.md`](postgres-provider.md). Leave the default, `supabase`.
 
 It is **not** the self-hosting switch, and setting it in a deployed app breaks the browser bundle: the client repositories reach the database over HTTP through PostgREST, which a Postgres connection string cannot replace. To move a deployed app onto your own database, set `NEXT_PUBLIC_DATA_URL` — [`docs/running/oracle-shift.md`](oracle-shift.md).
 
 ---
 
-## Hosted Supabase (a fresh checkout's default, not this deployment)
-
-Best for solo researchers and small labs: free tier, magic-link auth, RLS, zero ops. This is what
-the env examples in the repository assume; the production deployment is the self-hosted stack at the
-top of this page, which needs none of the Supabase Storage or Supabase Postgres pieces.
-
-1. Create a Supabase project.
-2. Apply migrations (`supabase db push` or SQL editor).
-3. Set env vars above.
-4. Run `npm run dev`.
-
-User-facing setup: [README §3–5](../../README.md).
-
----
-
-## Self-hosted Postgres (Oracle Cloud, VPS, Neon)
+## Replacing PostgREST or sign-in (a `postgres` provider)
 
 **Goal:** Keep the same schema and RLS model; replace Supabase Auth/PostgREST with your stack.
 
@@ -224,7 +217,7 @@ Do **not** abstract PostgREST per-table — one adapter class per repository is 
 
 The SDK does not touch the database, so a backend swap costs it nothing.
 `python/weaveforge/container.py` wires everything against the web app's
-`/api/sdk/*` endpoints using a single bearer token, which is what keeps Supabase
+`/api/sdk/*` endpoints using a single bearer token, which is what keeps database
 URLs and keys out of training environments. Whatever the web app runs on behind
 those endpoints, the SDK is unchanged.
 
@@ -239,7 +232,7 @@ npm test -w @weaveforge/web
 npm run check:solid
 ```
 
-Live Supabase contract tests: set `WEAVEFORGE_SUPABASE_URL`, `WEAVEFORGE_SUPABASE_ANON_KEY`, and either `WEAVEFORGE_TOKEN` (preferred) or legacy `WEAVEFORGE_EMAIL` / `WEAVEFORGE_PASSWORD`.
+Live database contract tests (sign-in against Supabase Auth, data from the OCI server): set `WEAVEFORGE_SUPABASE_URL`, `WEAVEFORGE_SUPABASE_ANON_KEY`, and either `WEAVEFORGE_TOKEN` (preferred) or legacy `WEAVEFORGE_EMAIL` / `WEAVEFORGE_PASSWORD`.
 
 ---
 

@@ -118,3 +118,27 @@ test("sidebar: a copy with no account is not sent to routes it does not ship", (
   assert.ok(online.includes("supervise"));
   assert.ok(online.includes("shared"));
 });
+
+test("sidebar: nor is a signed-in copy on a build that does not ship them", () => {
+  // This was the bug. The check above asked whether the window had an *account*,
+  // but the desktop export holds `/supervision` and `/shared` aside whatever the
+  // account is — so a signed-in desktop window linked to both and prefetched two
+  // missing routes on every render of the sidebar. The build is a different
+  // question from the session, and it is the one that decides.
+  const desktop = ids({ local: false, hasRoutes: false, canSupervise: true });
+  assert.ok(!desktop.includes("supervise"), "no link to a route the bundle lacks");
+  assert.ok(!desktop.includes("shared"), "no link to a route the bundle lacks");
+});
+
+test("sidebar: a signed-in copy on a build with the routes keeps them", () => {
+  // The served web app: the routes are there, so nothing about them changes.
+  const web = ids({ local: false, hasRoutes: true, canSupervise: true });
+  assert.ok(web.includes("supervise"));
+  assert.ok(web.includes("shared"));
+});
+
+test("sidebar: an omitted hasRoutes keeps the served build's behaviour", () => {
+  // The default exists so a caller with no build flag to consult is not silently
+  // stripped of two entries.
+  assert.ok(ids({ local: false, canSupervise: true }).includes("shared"));
+});
