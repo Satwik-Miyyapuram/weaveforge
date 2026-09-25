@@ -14,7 +14,7 @@
   "dependencies": {
     "@weaveforge/core": "*",
     "marked": "^18.0.13",
-    "mermaid": "^11.17.2",
+    "mermaid": "^12.0.0",
     "next": "^14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
