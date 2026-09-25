@@ -216,7 +216,11 @@ async function load(id: number, model: string, host?: string): Promise<void> {
    * answers with a 404, so this is the one place the passed-in host is still the
    * right answer.
    */
-  const cachePrefix = `${(host ?? "app://models").replace(/\/+$/, "")}/`;
+  // No host means no cache of this app's own: a browser, where the weights come
+  // straight from upstream. Defaulting to `app://models` there sent every
+  // download to a scheme no browser can fetch, and enabling search by meaning
+  // on the web failed with a bare "Failed to fetch".
+  const cachePrefix = host ? `${host.replace(/\/+$/, "")}/` : null;
   const pinnedHost = (() => {
     try {
       return new URL(String(env.remoteHost)).host;
@@ -228,7 +232,7 @@ async function load(id: number, model: string, host?: string): Promise<void> {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     try {
       const parsed = new URL(url);
-      if (parsed.host === pinnedHost) {
+      if (cachePrefix && parsed.host === pinnedHost) {
         // The library asked for `https://huggingface.co/<path>`; take the path and
         // ask this app's own model host for it instead.
         return upstreamFetch(`${cachePrefix}${parsed.pathname.replace(/^\/+/, "")}${parsed.search}`, init);
