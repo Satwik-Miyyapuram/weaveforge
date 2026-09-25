@@ -12,7 +12,7 @@ import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { cachePathFor, serveModelFile, type FetchLike } from "../src/model-cache";
+import { cachePathFor, isUpstreamHost, serveModelFile, type FetchLike } from "../src/model-cache";
 
 const ROOT = path.join("C:", "cache", "models");
 
@@ -81,48 +81,112 @@ test("model cache: a cached file is served the same way, headers included", asyn
   assert.equal(cached.headers.get("access-control-allow-origin"), null);
 });
 
-test("model cache: a redirect on the same host is followed, and only so far", async () => {
+/**
+ * Redirects are followed by `fetch`, and this pins that it is asked to.
+ *
+ * These tests used to assert a hand-walked chain — that the second hop was asked
+ * at `https://huggingface.co/cdn/config.json`, that a hop off the host returned
+ * 502, that a chain of four ended. All of it passed, and none of it described
+ * what happened in the app, because **Electron's `net.fetch` throws
+ * `Error: Redirect was cancelled` when given `redirect: "manual"`**. The walk
+ * therefore threw on the first hop, `serveModelFile` answered 502, and the whole
+ * feature was unfetchable — while these tests stayed green against an injected
+ * fetch that politely returned the 302.
+ *
+ * Measured under Electron directly:
+ *
+ *     manual → THREW Error: Redirect was cancelled
+ *     follow → 200  ok=true
+ *
+ * So what is worth asserting now is the *contract*: one request, to the composed
+ * target, with following enabled. A redirect policy this process cannot enforce
+ * is not a policy, and pretending otherwise is what hid the bug.
+ */
+test("model cache: it asks once, for the composed target, and lets fetch follow redirects", async () => {
   const root = await cacheRoot();
-  const scripted = upstream((url, asked) =>
-    asked === 1
-      ? new Response(null, { status: 302, headers: { location: "/cdn/config.json" } })
-      : new Response("weights", { status: 200 }),
-  );
+  const seen: Array<{ url: string; redirect?: string }> = [];
+  const fetchLike: FetchLike = async (url, init) => {
+    seen.push({ url, redirect: init?.redirect });
+    return new Response("weights", { status: 200 });
+  };
 
-  const answer = await serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike);
+  const answer = await serveModelFile(root, URL_UNDER_TEST, fetchLike);
 
   assert.equal(answer.status, 200);
-  assert.deepEqual(scripted.asked, [
-    "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/config.json",
-    "https://huggingface.co/cdn/config.json",
+  assert.equal(await answer.text(), "weights");
+  assert.deepEqual(seen, [
+    {
+      url: "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/config.json",
+      redirect: "follow",
+    },
   ]);
 });
 
-test("model cache: a redirect that leaves the upstream host is refused, not followed", async () => {
+test("model cache: the renderer cannot point the download at another host", async () => {
+  // The initial target is composed from `UPSTREAM` plus the requested *path*.
+  // A URL naming a different host is a renderer choosing where this process makes
+  // a request, which is the one thing that has to stay impossible even though
+  // redirects are now followed for us.
   const root = await cacheRoot();
-  const scripted = upstream(
-    () => new Response(null, { status: 302, headers: { location: "https://evil.example/weights.onnx" } }),
-  );
+  const seen: string[] = [];
+  const fetchLike: FetchLike = async (url) => {
+    seen.push(url);
+    return new Response("weights", { status: 200 });
+  };
 
-  const answer = await serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike);
+  await serveModelFile(root, "app://models/anything", fetchLike);
 
-  assert.equal(answer.status, 502);
-  assert.equal(scripted.asked.length, 1, "the second host must never be asked");
+  assert.deepEqual(seen, ["https://huggingface.co/anything"]);
 });
 
-test("model cache: a chain of redirects ends, rather than following forever", async () => {
+/**
+ * The host family, which is what keeps the *initial* target honest.
+ *
+ * It used to police redirect hops too; that is `net.fetch`'s business now (see
+ * `serveModelFile`), so this is the remaining job — and it is still a job,
+ * because the target is composed here from a path the renderer supplies.
+ *
+ * The rule is a suffix rule because the LFS CDN is a different `hf.co` subdomain
+ * per region. A lookalike that merely *contains* the name must not pass, or the
+ * rule becomes a substring check an attacker can satisfy.
+ */
+test("model cache: the host family is Hugging Face's own, and nothing else", () => {
+  for (const host of ["huggingface.co", "cdn-lfs.huggingface.co", "hf.co", "us.aws.cdn.hf.co"]) {
+    assert.equal(isUpstreamHost(host), true, `${host} should be allowed`);
+  }
+  for (const host of [
+    "evil.example",
+    "huggingface.co.evil.example",
+    "nothuggingface.co",
+    "hf.co.evil.example",
+    "evil-hf.co",
+    "",
+  ]) {
+    assert.equal(isUpstreamHost(host), false, `${host} should be refused`);
+  }
+});
+
+test("model cache: a redirect is not this code's to police, and it does not pretend to be", async () => {
+  /*
+   * This replaced a test asserting that a four-hop chain was cut off at four.
+   *
+   * That ceiling existed because the walk was ours. It cannot be any more:
+   * Electron's `net.fetch` throws on `redirect: "manual"`, so the hops are
+   * followed inside Chromium and this code never sees one. Keeping the old test
+   * would have meant keeping a claim about behaviour that no longer happens —
+   * which is exactly how the redirect bugs survived this long.
+   *
+   * What is asserted instead is the part still owned here: a non-ok answer with
+   * no redirect following it is passed on as its own status rather than being
+   * flattened into a 502, so a 404 and a gateway failure stay distinguishable.
+   */
   const root = await cacheRoot();
-  let n = 0;
-  const scripted = upstream(() => {
-    n += 1;
-    return new Response(null, { status: 302, headers: { location: `/hop-${n}.json` } });
-  });
+  const scripted = upstream(() => new Response(null, { status: 404 }));
 
   const answer = await serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike);
 
-  assert.equal(answer.status, 502);
-  // Bounded: the original followed whatever it was handed, with no ceiling.
-  assert.equal(scripted.asked.length, 4);
+  assert.equal(answer.status, 404);
+  assert.equal(scripted.asked.length, 1, "asked once; following is not this code's job");
 });
 
 test("model cache: an upstream that never answers is a 502, not a throw", async () => {

@@ -12,14 +12,14 @@ This document defines the architecture and the **design principles the codebase 
 1. **Modular above all.** Every tracked concern (papers, experiments, logbook, report, meetings) is a self-contained *feature module*. Adding a new module must not require editing existing ones.
 2. **Reusable by others.** Clean seams, documented contracts, no hardcoded personal assumptions. Someone should be able to clone, configure, and run their own instance — or disable/replace a module — without surgery.
 3. **SOLID throughout.** The five SOLID principles are the explicit rubric for every module boundary, interface, and dependency. Section 4 maps each principle to concrete rules for this codebase.
-4. **Backend-agnostic where it counts.** Supabase is the chosen backend, but feature code never imports the Supabase SDK directly — it depends on repository interfaces. Swapping the data layer (e.g. to local SQLite for tests, or another Postgres host) must touch only the data layer.
+4. **Backend-agnostic where it counts.** The data layer is Postgres behind PostgREST on the project's OCI server (Supabase is used for sign-in only), and feature code never imports the Supabase SDK — the PostgREST client — directly — it depends on repository interfaces. Swapping the data layer (e.g. to local SQLite for tests, or another Postgres host) must touch only the data layer.
 5. **Two clients, one contract.** The PWA (TypeScript) and the Python CLI/SDK both operate on the same domain model and the same database. Shared concepts are defined once (the schema) and mirrored as typed models on each side.
 
 ---
 
 ## 2. Architectural overview
 
-A layered, feature-modular architecture. Dependencies point **inward and downward only**: UI → application/services → domain → data-access interfaces. Concrete infrastructure (Supabase) is injected at the edges and depended on only through interfaces.
+A layered, feature-modular architecture. Dependencies point **inward and downward only**: UI → application/services → domain → data-access interfaces. Concrete infrastructure (the PostgREST client, blob stores) is injected at the edges and depended on only through interfaces.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -182,7 +182,7 @@ These are not abstract aspirations — each maps to enforceable rules and concre
 
 ### 4.3 Liskov Substitution Principle (LSP)
 *Implementations must be substitutable for their interface.*
-- Any `IPaperRepository` implementation (Supabase, in-memory for tests, SQLite for offline) must honor the same contract and invariants. Tests run against the in-memory implementation; production uses Supabase; behavior is identical from the caller's view.
+- Any `IPaperRepository` implementation (Supabase, in-memory for tests, SQLite for offline) must honor the same contract and invariants. Tests run against the in-memory implementation; production uses the PostgREST adapter against the OCI Postgres; behavior is identical from the caller's view.
 
 ### 4.4 Interface Segregation Principle (ISP)
 *Many specific interfaces beat one fat interface.*
@@ -247,25 +247,25 @@ Third-party **bibliography, citation, notification, and log-sync** providers fol
 Kept separate (ISP): `IRealtimeChannel` (subscribe to table changes), `IOfflineCache` (read-through cache + write outbox), `IFileStorage` (PDF blobs). A module opts into each independently. The offline strategy (last-write-wins on `updated_at`) lives behind `IOfflineCache` so it can evolve without touching features.
 
 ### 5.4 Keeping the two clients consistent
-The Supabase migrations are the **single source of truth** for the schema. TypeScript types are generated from the live schema (`supabase gen types`); Python models mirror the same tables. Domain *behavior* (validation, dedupe rules) is duplicated intentionally per language but documented in one place (this doc + docstrings) so the contract is shared even though the runtime isn't.
+The migrations in `supabase/migrations/` (the folder keeps its original name) are the **single source of truth** for the schema. TypeScript types are generated from the live schema; Python models mirror the same tables. Domain *behavior* (validation, dedupe rules) is duplicated intentionally per language but documented in one place (this doc + docstrings) so the contract is shared even though the runtime isn't.
 
 ---
 
 ## 6. Testing strategy (enables the modularity to hold)
 
 - **Domain & application:** pure unit tests against **in-memory repositories** (LSP guarantees these stand in for real ones). Fast, no network.
-- **Infrastructure:** integration tests against a local Supabase (or a disposable Postgres) verifying each repository honors its interface contract — a shared "contract test suite" run against *every* implementation of an interface.
+- **Infrastructure:** integration tests against a disposable Postgres with the migrations applied verifying each repository honors its interface contract — a shared "contract test suite" run against *every* implementation of an interface.
 - **Modules in isolation:** because cross-module access is only via `index.ts`, a module can be tested with the others mocked at that public surface.
 - **PWA:** Lighthouse PWA audit in CI; component tests for view-models.
 
-A module is "done" only when its contract tests pass against both the in-memory and the Supabase implementation.
+A module is "done" only when its contract tests pass against both the in-memory and the PostgREST implementation.
 
 ---
 
 ## 7. Non-goals (for now)
 
 To keep scope honest and the design from over-engineering:
-- No custom backend server — Supabase is accessed directly through the repository adapters.
+- No custom backend server — the browser reaches PostgREST on the OCI server directly through the repository adapters; Supabase Auth only signs people in.
 - No microservices; this is a modular monolith + a sibling Python package.
 - No public plugin marketplace. An **internal** integration registry exists (`apps/web/src/integrations/`, env-driven provider selection) — see [`docs/using/integrations.md`](../using/integrations.md) and [`docs/using/extensions.md`](../using/extensions.md). External/third-party plugin loading is backlog.
 - No native mobile app; PWA only (native wrapper via Capacitor remains a clean future option because the UI is already decoupled).
@@ -278,7 +278,7 @@ Following the plan's P0/P1 but applying the structure above:
 
 1. **Scaffold** the monorepo skeleton (§3.2): `apps/web`, `packages/core`, `python/`, `supabase/`.
 2. **Establish the contracts** in `packages/core`: `IReadableRepository` / `IWritableRepository`, the `Paper` entity, `IPaperRepository`.
-3. **Build the `papers` module end-to-end** as the reference implementation of the module shape (§3.1): domain → in-memory repo → Supabase repo (passing the same contract tests) → `AddPaperUseCase` → minimal UI list + add form.
+3. **Build the `papers` module end-to-end** as the reference implementation of the module shape (§3.1): domain → in-memory repo → PostgREST repo (passing the same contract tests) → `AddPaperUseCase` → minimal UI list + add form.
 4. **Stand up the composition root** wiring (§4.5) so DIP is real from day one.
 5. Use `papers` as the template; subsequent modules (logbook, report, experiments, meetings) follow the identical shape.
 

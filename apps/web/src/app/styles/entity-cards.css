@@ -208,7 +208,7 @@
   overflow-wrap: break-word;
 }
 .paper-external-link { margin: 0; font-size: 0.8rem; min-width: 0; overflow-wrap: anywhere; }
-.paper-external-link a { color: var(--accent); text-decoration: none; }
+.paper-external-link a { color: var(--accent-ink); text-decoration: none; }
 .paper-external-link a:hover { text-decoration: underline; }
 .entity-card-snippet,
 .paper-card-snippet {
@@ -270,7 +270,7 @@
 .entity-icon-btn:hover,
 .entity-open-icon:hover,
 .paper-open-icon:hover {
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: var(--accent);
   background: var(--pill);
 }
@@ -299,7 +299,7 @@ a.entity-icon-btn:hover {
 .entity-icon-btn[aria-expanded="true"],
 .entity-icon-btn.is-active,
 .comments-trigger-detail[aria-expanded="true"] {
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: var(--accent);
   background: var(--pill);
 }

@@ -85,13 +85,13 @@ Connectiveness is the product idea: a paper can sit in a list, appear on the gra
 |-------|------------|
 | Web PWA | Next.js 14, React 18, TypeScript, Serwist service worker, CodeMirror 6, KaTeX, Shiki, react-force-graph-2d / d3-force, react-grid-layout, Yjs + y-codemirror (collab), uPlot, fflate, isomorphic-git, libsodium |
 | Domain | `@weaveforge/core` (`packages/core`) — entities, ports, use-cases; **no** React/Supabase |
-| Database | Postgres via Supabase (default); migrations in `supabase/migrations/` (through `0105+`) |
-| Auth | Supabase Auth (email + optional Google); JWT + **Postgres RLS** |
-| Blobs | Supabase Storage buckets; pluggable `IBlobStore` (R2/S3/tiered planned) |
+| Database | Self-hosted Postgres 16 + PostgREST + Realtime on an OCI VM (`api.weaveforge.org`); migrations in `supabase/migrations/`, applied with `npm run migrate:schema` |
+| Auth | Supabase Auth for sign-in only (email + optional Google); its JWT is verified by the OCI stack and enforced with **Postgres RLS** |
+| Blobs | MinIO on the OCI VM; pluggable `IBlobStore` (R2/tiered optional) |
 | Python SDK | `python/` — PyPI package `weaveforge`; httpx + supabase; Lightning/Keras/TensorBoard/wandb extras |
 | MCP plugin | `plugins/weaveforge-research/` — Codex marketplace plugin; model-agnostic MCP client |
 | Android | Trusted Web Activity wrapper (`apps/web/twa/`) |
-| Deploy | Vercel + Supabase; self-host Postgres path documented |
+| Deploy | Vercel (web) + OCI VM (data, behind Caddy); Supabase for sign-in only |
 | Quality | TDD; SOLID/DRY boundary lints; colocated API route tests; Playwright e2e |
 
 ### Architecture pattern
@@ -101,7 +101,7 @@ UI (features/*/ui)
   → Facades (container/facades/)   // ISP UI API
   → Use-cases (@weaveforge/core)
   → Repository ports
-  → Supabase / Postgres adapters (infrastructure)
+  → PostgREST / Postgres adapters (infrastructure)
 ```
 
 Composition roots: `bootstrap.ts`, `wire-backend.ts`, `wire-integrations.ts`, `wire-storage.ts`.
@@ -113,9 +113,9 @@ Composition roots: `bootstrap.ts`, `wire-backend.ts`, `wire-integrations.ts`, `w
 | Surface | Used for |
 |---------|----------|
 | **Next `/api/*`** | Server-key credentials, MCP/API tokens, blobs, org admin, Overleaf, MCP relay, SDK |
-| **Supabase PostgREST + RLS** | Papers, vault, logbook, projects, sharing, comments, non-secret settings |
+| **PostgREST + RLS (OCI)** | Papers, vault, logbook, projects, sharing, comments, non-secret settings |
 
-UI never calls `supabase.from()` directly — only via repositories through `getContainer()`.
+UI never calls the PostgREST client directly — only via repositories through `getContainer()`.
 
 ### Modular deployment
 

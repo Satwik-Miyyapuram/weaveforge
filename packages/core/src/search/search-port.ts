@@ -69,6 +69,12 @@ export interface SearchHit {
   /** Query terms that matched, for highlighting. */
   terms: readonly string[];
   /**
+   * The query's own terms this hit matched, before prefix or fuzzy expansion.
+   * Lets hybrid search tell a hit that matched the question from one that
+   * matched a single word of it.
+   */
+  queryTerms?: readonly string[];
+  /**
    * Snippet around the matched terms. Built by the index, which holds the body
    * text — the hit itself deliberately does not carry the full document.
    */

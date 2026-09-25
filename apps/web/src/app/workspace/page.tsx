@@ -50,5 +50,10 @@ export default function WorkspacePage() {
     );
   }
 
-  return <WorkspaceScreen />;
+  return (
+    <>
+      <h1 className="sr-only">Workspace</h1>
+      <WorkspaceScreen />
+    </>
+  );
 }

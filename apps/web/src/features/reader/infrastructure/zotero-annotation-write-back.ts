@@ -1,5 +1,6 @@
 import {
   toZoteroWritePayload,
+  zoteroWriteBackAnnotations,
   type IZoteroAnnotationWriteBack,
   type ReaderAnnotation,
   type ZoteroAnnotationWritePayload,
@@ -61,13 +62,19 @@ export class ZoteroApiAnnotationWriteBack implements IZoteroAnnotationWriteBack 
    * `parentItemKey` is the **attachment** key (the stored PDF), not the
    * top-level bibliographic item — Zotero anchors annotations to the file they
    * were drawn on. Passing the parent item makes Zotero reject the write.
+   *
+   * Ink is filtered out first (`zoteroWriteBackAnnotations`): a pen stroke is
+   * this app's own writing and stays here. Highlights, underlines, notes and
+   * clipped regions are what a paper is read through in both places, so those
+   * still go back.
    */
   async push(
     parentItemKey: string,
     annotations: readonly ReaderAnnotation[],
     options?: { live?: boolean },
   ): Promise<ZoteroAnnotationPushResult> {
-    const payloads = annotations.map((a) => toZoteroWritePayload(a, parentItemKey));
+    const syncable = zoteroWriteBackAnnotations(annotations);
+    const payloads = syncable.map((a) => toZoteroWritePayload(a, parentItemKey));
     if (!options?.live) {
       return { dryRun: true, payloads, results: [] };
     }
@@ -87,7 +94,7 @@ export class ZoteroApiAnnotationWriteBack implements IZoteroAnnotationWriteBack 
     // individually, so they must be sent one at a time to carry their own
     // If-Unmodified-Since-Version.
     const creates: { ann: ReaderAnnotation; payload: ZoteroAnnotationWritePayload }[] = [];
-    for (const [i, ann] of annotations.entries()) {
+    for (const [i, ann] of syncable.entries()) {
       const payload = payloads[i]!;
       if (ann.zoteroKey) {
         results.push(await this.update(base, creds.apiKey, ann, payload));

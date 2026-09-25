@@ -153,7 +153,7 @@ export function ExportOverleafPackagePanel({
               <button className="btn-primary" type="button" disabled={busy} onClick={() => void run()}>
                 {busy ? "Building…" : "Download ZIP"}
               </button>
-              <button className="btn-secondary" type="button" disabled={busy} onClick={close}>
+              <button className="btn-secondary btn-cancel" type="button" disabled={busy} onClick={close}>
                 Cancel
               </button>
             </div>

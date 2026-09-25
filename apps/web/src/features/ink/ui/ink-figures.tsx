@@ -698,7 +698,7 @@ function InkFigureCropTool({
         <button type="button" className="ink-figure-button" title="Apply (Enter)" onClick={apply}>
           Apply
         </button>
-        <button type="button" className="ink-figure-button" title="Cancel (Esc)" onClick={onCancel}>
+        <button type="button" className="ink-figure-button btn-cancel" title="Cancel (Esc)" onClick={onCancel}>
           Cancel
         </button>
       </div>

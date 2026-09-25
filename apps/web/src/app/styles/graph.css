@@ -114,7 +114,7 @@
   background: var(--elev); border: 1px solid var(--border); pointer-events: none;
 }
 .graph-legend-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.graph-legend-heading { width: 100%; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.graph-legend-heading { width: 100%; font-size: 0.72rem; letter-spacing: 0.04em; }
 .legend-concept { background: rgba(140, 133, 124, 0.35); }
 .annotation-paper { font-size: 0.76rem; margin-bottom: 4px; }
 .graph-focus .graph-side-panel { position: fixed; top: 56px; left: 10px; bottom: 14px; }
@@ -165,6 +165,94 @@
   border-radius: 11px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
 }
 .graph-focus .gf-empty { position: absolute; inset: 0; display: grid; place-items: center; }
+
+/* ---------------------------------------------------------------------------
+   The run-down under the canvas: legend, then the selected item.
+
+   Two layouts out of one block of markup.
+
+   **Narrow.** The graph takes a fixed share of the height and the block sits
+   under it as ordinary flow, so the page scrolls and the panel can be read in
+   full. This is the whole point: `.graph-side-panel` is 300px wide and was
+   anchored *inside* the canvas, so on a phone it covered most of the graph it
+   describes and there was nowhere to scroll to get out from under it. A panel
+   you cannot move out of the way is a panel that hides the thing it is about.
+
+   **Wide (>= 900px, matching DESKTOP_BREAKPOINT_PX).** The block is emptied of
+   layout — `display: contents` — and its two children go back to being
+   absolutely positioned against the canvas exactly as they were, so nothing
+   about the desktop graph moves. `contents` rather than `position: absolute` on
+   the wrapper because the children position against `.graph-stage`, and a
+   positioned wrapper would become their containing block instead.
+   --------------------------------------------------------------------------- */
+.graph-below { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 0; }
+.graph-below .graph-legend-wrap { margin: 0; }
+/* The panel is a card in the flow here, not a floating overlay. */
+.graph-below .graph-side-panel {
+  position: static;
+  width: auto;
+  max-height: none;
+  overflow: visible;
+}
+/* Outside focus mode the canvas is a bordered box with a fixed aspect; inside it
+   the stage fills the viewport, so the phone layout needs its own height. */
+.graph-stage .graph-wrap { height: min(52vh, 420px); }
+
+/*
+ * The settings panel, in its two positions — one element, moved by CSS.
+ *
+ * `graph-settings-shell` wraps only the panel, and above the breakpoint it is
+ * `display: contents`. That matters: it sits inside `.graph-below`, which is
+ * also `display: contents`, so together they put the panel in the flow as a
+ * direct child of the screen — which is where the drawer has always been for
+ * layout purposes, and is what lets the drawer's own `position: fixed` place it
+ * against the viewport and its backdrop cover the window.
+ *
+ * Below the breakpoint the shell becomes a block, so the panel is laid out in
+ * `.graph-below` — under the graph, under the legend — and the drawer's fixed
+ * positioning is replaced by a plain card in the page. The backdrop and the
+ * close button go with it: there is no overlay to dismiss when the panel is
+ * part of the page rather than on top of it.
+ */
+.graph-settings-shell { display: contents; }
+
+@media (max-width: 899px) {
+  .graph-below .graph-settings-shell { display: block; }
+  .graph-below .graph-settings-shell .graph-settings-drawer {
+    position: static;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  /* The backdrop is a sibling of the shell, so it needs its own rule: there is
+     nothing to dismiss when the panel is part of the page. */
+  .graph-drawer-backdrop { display: none; }
+  .graph-drawer-close { display: none; }
+}
+
+/*
+ * There is deliberately no bottom-sheet rule here any more.
+ *
+ * A first attempt at the phone layout made the drawer a sheet capped at 70% of
+ * the height, on the theory that seeing the graph above it while dragging a
+ * slider was the point. It still covered most of the graph, and it still had to
+ * be opened and closed — the reader asked for the settings to simply *be* under
+ * the graph on a phone, and that is what the rules above do.
+ */
+
+@media (min-width: 900px) {
+  .graph-below { display: contents; }
+  .graph-below .graph-side-panel {
+    position: absolute; top: 48px; left: 10px; bottom: 10px;
+    width: min(300px, 88vw);
+    max-height: none;
+    overflow: auto;
+  }
+  .graph-stage .graph-wrap { height: 60vh; }
+}
+
 .seg {
   display: inline-flex; gap: 2px; padding: 3px;
   background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;

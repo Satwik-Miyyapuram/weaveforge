@@ -14,7 +14,8 @@ export const MIN_TEXT_BOX_PDF_SIZE = 8;
  * has to be stated rather than inferred.
  */
 export const CREATE_TOOL_HINTS: Record<ReaderCreateTool, string> = {
-  select: "Drag across text to highlight it. Drag a selected ink mark to move it.",
+  select: "Drag across text to highlight it.",
+  lasso: "Draw a loop round marks to pick them up. Drag one you have picked up to move it.",
   ink: "Draw freehand. Strokes drawn together stay one annotation.",
   highlighter: "Sweep over the page with a broad translucent nib.",
   erase: "Drag over ink to delete it.",

@@ -49,7 +49,7 @@ The brief's §2 splits the API surface deliberately:
 | Surface | Used for |
 |---------|----------|
 | Next `/api/*` | server-key credentials, MCP/API tokens, blobs, org admin, Overleaf, SDK |
-| **Supabase PostgREST + RLS** | **papers, vault, logbook, projects, sharing, comments** |
+| **PostgREST + RLS (OCI)** | **papers, vault, logbook, projects, sharing, comments** |
 
 The browser talks **directly** to PostgREST for most product entities. A TypeScript decorator running in that same browser cannot stop anything — a user with their own anon key and a REST client bypasses every guard we write in the app layer.
 

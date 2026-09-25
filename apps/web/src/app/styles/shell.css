@@ -30,8 +30,16 @@
   width: 100%;
 }
 .screen--wide { max-width: 100%; }
-/* Long-form reading screens: comfortable line length, article-style. */
-.report-screen { max-width: min(var(--content-measure), 100%); }
+/* The same width as every other screen. This was `--content-measure` (72ch, so
+   691px at the default size) under the heading "long-form reading screens",
+   which made the report 391px narrower than the library, the dashboard and AI
+   review beside it — measured at 691 against 1082 for each of them.
+
+   A report screen is a *screen*: it is a tree of `.section-item` cards, not one
+   column of prose. Only prose narrows, and it narrows to the reading measure on
+   its own — `.markdown` below does that wherever it appears, including inside a
+   wide shell. Same correction as `.ai-review-screen`, for the same reason. */
+.report-screen { max-width: min(var(--app-max), 100%); }
 /* Rendered prose is capped to the reading measure wherever it appears (opened
    notes, paper details) so text lines stay comfortable inside wider shells. */
 .markdown { max-width: var(--content-measure); }
@@ -177,7 +185,7 @@
 }
 .proj-menu-item:hover { background: var(--status-neutral); }
 .proj-menu-item.sel { color: var(--accent-ink); }
-.proj-menu-item .check { margin-left: auto; color: var(--accent); }
+.proj-menu-item .check { margin-left: auto; color: var(--accent-ink); }
 .proj-menu-sep { height: 1px; background: var(--line); margin: 4px 0; }
 .org-switcher { margin-bottom: 8px; }
 .org-switcher .proj-chip { width: 100%; justify-content: flex-start; }

@@ -56,8 +56,17 @@ export interface LocalDbHostOptions {
    * the directory's name and the file's name together.
    */
   migrations: readonly string[];
-  /** Where the data lives. Reported to the page, so a person can find it. */
-  dataDir: string;
+  /**
+   * Where the data lives, resolved when it is needed.
+   *
+   * A function rather than a string because the answer *changes*: the database
+   * lives in the workspace folder the reader chose, and that folder is restored
+   * asynchronously at boot and can be changed at any time by picking another
+   * one. Calling this at construction would snapshot the answer from before the
+   * folder was known — which is the bug this signature exists to prevent, and
+   * the reason `dataDir` used to be a string that always said `userData`.
+   */
+  dataDir: () => string;
   /**
    * Move the data directory out of the way so the next open starts fresh.
    *
@@ -176,7 +185,7 @@ export class LocalDbHost {
   state(): LocalDbState {
     return {
       failure: this.failure ?? null,
-      dataDir: this.options.dataDir,
+      dataDir: this.options.dataDir(),
       restoredFrom: this.restoredFrom ?? null,
     };
   }

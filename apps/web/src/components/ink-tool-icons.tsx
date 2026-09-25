@@ -1,8 +1,11 @@
 /**
- * The pen, highlighter, eraser and lasso glyphs. Shared, not a feature's:
- * the ink note's bar and the PDF reader's pen rail draw the same tools and
- * should look like one product, so the icons live where both can reach them
- * without one feature's UI importing the other's.
+ * The pen, highlighter, eraser and lasso glyphs.
+ *
+ * They live here, outside both features, because the ink note and the PDF
+ * reader draw the same tools through the same bar (`features/ink/ui/ink-bar`)
+ * and the glyphs are the one part of it that predates that: keeping them where
+ * both can reach them is what let the two bars become one without a copy of
+ * each icon.
  */
 
 export type InkToolGlyph = "pen" | "highlighter" | "eraser" | "lasso";

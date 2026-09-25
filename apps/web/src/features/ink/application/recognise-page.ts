@@ -11,13 +11,14 @@
  *   the same line, whatever order they come back in — so a page that was
  *   re-segmented after an added margin note still keeps its accepted text.
  * - **Progress is per line.** The first run of a page is on demand and shows
- *   which line it is on (§5.4), so each line is its own engine call. Windows
- *   Ink answers in milliseconds; MyScript is one request per line, which is the
- *   price of opting into it.
+ *   which line it is on (§5.4), so each line is its own engine call. Windows Ink
+ *   answers in milliseconds, and it is the only engine that answers at all in
+ *   this build.
  */
 
 import {
   applyInkSegmentation,
+  INK_ENGINE_MAX_CONFIDENCE,
   inkPageConfidence,
   inkLineStrokes,
   inkStrokeBand,
@@ -151,7 +152,9 @@ async function recogniseLine(
   const matched = matchVocabulary(raw.text, hints.vocabulary);
   return {
     text: matched.text,
-    conf: raw.conf,
+    // Never `1` from an engine: that is the mark of a correction, which the
+    // next run keeps instead of recognising again.
+    conf: Math.min(raw.conf, INK_ENGINE_MAX_CONFIDENCE),
     ...(raw.alternatives?.length ? { alternatives: raw.alternatives } : {}),
   };
 }

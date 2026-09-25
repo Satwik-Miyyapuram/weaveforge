@@ -1,28 +1,33 @@
 # Database migrations
 
-WeaveForge has **two migration targets**. Pick the folder that matches where your Postgres runs.
+WeaveForge's data lives in Postgres 16 on the project's OCI server, behind
+PostgREST and Realtime (see [`infra/oci/docker-compose.yml`](../infra/oci/docker-compose.yml)).
+Supabase is used for sign-in only and stores no WeaveForge data. The folder is
+still called `supabase/` because the schema began on a Supabase-hosted database
+and kept its conventions (`auth.uid()`, the `anon` / `authenticated` /
+`service_role` roles) when it moved.
 
-| Folder | Where it runs | How to apply |
-|--------|----------------|--------------|
-| **[`migrations/`](migrations/)** | **Supabase Cloud** (hosted project) | `supabase db push` or SQL Editor |
-| **[`migrations-self-hosted-postgres/`](migrations-self-hosted-postgres/)** | **Your own Postgres** (OCI VM, VPS, Neon, …) | `psql` / migration runner — **never** `supabase db push` |
+| Folder | What it is |
+|--------|------------|
+| **[`migrations-self-hosted-postgres/`](migrations-self-hosted-postgres/)** | Prerequisites a stock Postgres lacks: the `auth` schema helpers, roles and grants, realtime broadcast policies. Applied **first**. |
+| **[`migrations/`](migrations/)** | The schema itself, in the order it was built. Applied second, in numeric order. |
 
-## New developer (Supabase Cloud — default)
+## Applying
 
-1. Create a [Supabase](https://supabase.com) project.
-2. From repo root: `supabase link` then `supabase db push`  
-   (applies everything in `migrations/` only).
-3. Copy `apps/web/.env.local.example` → `.env.local` with your project URL and anon key.
+```bash
+for f in supabase/migrations-self-hosted-postgres/*.sql supabase/migrations/*.sql; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+done
+```
 
-You can ignore `migrations-self-hosted-postgres/` until Phase 3+ self-hosting.
+The order matters: `0001_papers.sql` already puts a foreign key on `auth.users`
+and an RLS policy on `auth.uid()`, so the prerequisites have to exist first.
 
-## Self-hosted Postgres (Phase 3+ cutover)
-
-1. Apply **all** files in `migrations/` to your database (in order).
-2. Then apply files in `migrations-self-hosted-postgres/` (auth stubs for Supabase Auth + external DB).
-3. Set `DATABASE_URL` and keep Supabase env vars for auth only — see [`docs/running/postgres-provider.md`](../docs/running/postgres-provider.md).
+Then copy `apps/web/.env.local.example` to `.env.local`: `NEXT_PUBLIC_DATA_URL`
+and `NEXT_PUBLIC_REALTIME_URL` point at the server, and the `NEXT_PUBLIC_SUPABASE_*`
+keys are the sign-in project's. See [`docs/running/backend.md`](../docs/running/backend.md).
 
 ## Why two folders?
 
-- `migrations/` must stay at this path for the **Supabase CLI**.
-- Self-hosted-only SQL (e.g. stub `auth.users`) must **not** live there — it would show up in `db push` and confuse newcomers or trigger RLS warnings on Cloud.
+- `migrations/` is the portable schema; it would run on any Postgres that has the prerequisites.
+- The prerequisites stand in for what a Supabase-hosted database used to provide implicitly; keeping them apart keeps the schema readable.

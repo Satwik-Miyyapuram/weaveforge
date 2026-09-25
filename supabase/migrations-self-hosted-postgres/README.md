@@ -1,8 +1,8 @@
 # Self-hosted Postgres migrations
 
-SQL here runs only on **your own Postgres** (Oracle Cloud, VPS, Docker, etc.) — **not** on Supabase Cloud.
-
-**Do not** run `supabase db push` for this folder. **Do not** paste these into the Supabase SQL Editor unless you are intentionally provisioning a separate database.
+The prerequisites for the schema, applied to the Postgres on the project's OCI server (or any
+stock Postgres) **before** `../migrations/`. They stand in for what a Supabase-hosted database
+used to provide implicitly; WeaveForge's data is not stored at Supabase.
 
 ## Apply order
 

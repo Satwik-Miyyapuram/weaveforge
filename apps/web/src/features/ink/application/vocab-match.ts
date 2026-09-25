@@ -3,8 +3,8 @@
  *
  * A handwriting engine has never seen "Graph-prior module" or `smith2021`, and
  * writes them as whatever they look like. Windows Ink takes a word list as a
- * guide (§5.4) but the web engine and MyScript do not, so this is the pass that
- * runs after any of them: each vocabulary entry — a note title, a paper title, a
+ * guide (§5.4) but the in-worker stroke model does not, so this is the pass that
+ * runs after either: each vocabulary entry — a note title, a paper title, a
  * citation key — is slid over the recognised words, and a near-miss is rewritten
  * to the exact entry. Near is Damerau–Levenshtein ≤ 2 per word and ≤ 25 % of the
  * entry's length in total, which is loose enough for a dropped stroke and tight

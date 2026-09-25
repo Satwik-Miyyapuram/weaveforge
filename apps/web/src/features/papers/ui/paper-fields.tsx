@@ -335,7 +335,7 @@ function PaperFieldsManager({
                 </button>
                 <button
                   type="button"
-                  className="link-btn"
+                  className="link-btn btn-cancel"
                   disabled={busy}
                   onClick={() => setRenameId(null)}
                 >

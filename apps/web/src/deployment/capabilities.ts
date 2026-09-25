@@ -24,6 +24,7 @@
 import { useEffect, useState } from "react";
 
 import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { isOfflineBuild } from "./build-target";
 
 export type Capability =
   /** A sign-in identity: email, password, linked providers, account deletion. */
@@ -48,7 +49,8 @@ export type Capability =
  * has neither, so the list is presently all-or-nothing. It is still a list
  * rather than one boolean: the next thing to lose is unlikely to lose
  * everything with it, and callers that already ask by name will not have to
- * change when that happens.
+ * change when that happens — `OWN_ROUTE_CAPABILITIES` below is exactly that
+ * "next thing", and the callers did not have to change.
  */
 const ACCOUNT_CAPABILITIES: readonly Capability[] = [
   "account",
@@ -62,17 +64,50 @@ const ACCOUNT_CAPABILITIES: readonly Capability[] = [
 /**
  * Whether this copy has an account behind it.
  *
- * The build flag is not part of this on purpose: the desktop build can sign in,
- * and doing so switches it back to the server wiring. Only the runtime choice
- * decides. `isOfflineBuild` still removes the modules that a build with no
- * server cannot serve at all, which `registry.ts` handles.
+ * Only the runtime choice decides *this* question, because the desktop build can
+ * sign in and doing so switches it back to the server wiring. But "has an
+ * account" is not the same as "has the routes that account's features are
+ * served by", and asking this one for both is what put a Tokens tab and an Org
+ * tab on a build that cannot answer either. See `hasServerRoutes`.
  */
 export function hasAccount(): boolean {
   return !isLocalMode();
 }
 
+/**
+ * Whether this deployment can answer its own `/api/*` routes.
+ *
+ * The desktop app is a static export: `apps/desktop/scripts/build-web.mjs` holds
+ * `src/app/api/` aside for that build, so there is no server to answer them and a
+ * fetch for one reaches the `app://` file handler instead — a 404 with an empty
+ * body. Signing in does not change that: the same window reads the account's
+ * data over the network quite happily, and still has no route of its own.
+ *
+ * This is a build fact, not a session one, which is why it is `isOfflineBuild`
+ * and not `isLocalMode`. `registry.ts` already uses the same flag to remove the
+ * whole modules a serverless build cannot serve; this covers what lives *inside*
+ * the modules that stay.
+ */
+export function hasServerRoutes(): boolean {
+  return !isOfflineBuild();
+}
+
+/**
+ * Capabilities that need more than an account: they need this deployment to
+ * answer its own routes.
+ *
+ * Both of these issue requests a static export cannot serve — `apiTokens` mints
+ * them at `/api/settings/api-tokens`, `org` does everything at `/api/org/*` —
+ * so on a signed-in desktop build they answered yes and the screens behind them
+ * mounted and failed. A control that can only fail is worse than an absent one,
+ * which is the argument this file already makes about a section "a reader opens
+ * once and learns to distrust".
+ */
+const OWN_ROUTE_CAPABILITIES: readonly Capability[] = ["org", "apiTokens"];
+
 /** Whether this copy can do `capability`. Safe before mount: SSR says yes. */
 export function can(capability: Capability): boolean {
+  if (OWN_ROUTE_CAPABILITIES.includes(capability) && !hasServerRoutes()) return false;
   if (!ACCOUNT_CAPABILITIES.includes(capability)) return true;
   return hasAccount();
 }

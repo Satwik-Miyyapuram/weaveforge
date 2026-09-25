@@ -249,6 +249,26 @@ export function toZoteroWritePayload(
   };
 }
 
+/**
+ * The annotations a write-back actually sends: everything but ink.
+ *
+ * A pen stroke on a paper is this app's own writing, drawn with the ink note's
+ * renderer and nibs, and it is not a thing the user asked Zotero to hold. Text
+ * highlights, underlines, notes and clipped regions still go back, because
+ * those are the marks a paper is read through in both places — and a highlight
+ * made here that never reached Zotero would be a highlight the user loses when
+ * they open the same PDF in the desktop reader.
+ *
+ * Filtering here, at the one boundary where payloads are built, keeps the rule
+ * out of every call site: a caller cannot forget it, and a dry run cannot
+ * report strokes it would not send.
+ */
+export function zoteroWriteBackAnnotations(
+  annotations: readonly ReaderAnnotation[],
+): ReaderAnnotation[] {
+  return annotations.filter((ann) => ann.type !== "ink");
+}
+
 export interface IZoteroAnnotationWriteBack {
   /**
    * Dry-run by default. Live implementations must require an explicit
@@ -274,7 +294,9 @@ export class DryRunZoteroAnnotationWriteBack implements IZoteroAnnotationWriteBa
     }
     return {
       dryRun: true,
-      payloads: annotations.map((a) => toZoteroWritePayload(a, parentItemKey)),
+      payloads: zoteroWriteBackAnnotations(annotations).map((a) =>
+        toZoteroWritePayload(a, parentItemKey),
+      ),
     };
   }
 }

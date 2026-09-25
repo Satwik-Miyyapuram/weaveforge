@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { DEFAULT_EMBEDDING_MODEL } from "@/features/search/infrastructure/embedding-models";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   MAX_FIELD_WEIGHT,
   MIN_FIELD_WEIGHT,
@@ -16,6 +17,12 @@ import {
   papersNeedingIndex,
   type LibraryIndexProgress,
 } from "@/features/search/application/index-library-pdfs";
+import {
+  autoIndexEnabled,
+  autoIndexStatus,
+  setAutoIndexEnabled,
+  subscribeAutoIndex,
+} from "@/features/search/application/auto-index-library";
 import { formatError } from "@/lib/format-error";
 import { getContainer } from "@/bootstrap";
 import {
@@ -26,11 +33,13 @@ import {
 import {
   disableSemanticSearch,
   enableSemanticSearch,
+  restoreSemanticSearch,
   semanticEnabled,
-  semanticSize,
+  semanticStatus,
   semanticSupported,
+  subscribeSemanticStatus,
+  type SemanticStatus,
 } from "@/features/search/application/semantic-search";
-import type { EmbedProgress } from "@/features/search/application/semantic-index";
 import { FormError } from "@/components/form-error";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
@@ -153,11 +162,29 @@ function LibraryPdfIndexing() {
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * Why each paper could not be read.
+   *
+   * "Indexed 0, 18 could not be read" says what happened and nothing about what
+   * to do; a host refusing cross-origin reads is not something the reader can
+   * fix, a 404 is a dead link they can, and the two used to look identical.
+   */
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [auto, setAuto] = useState(false);
+  const background = useSyncExternalStore(subscribeAutoIndex, autoIndexStatus, autoIndexStatus);
+
+  useEffect(() => setAuto(autoIndexEnabled()), []);
+  // A background run's outcome is shown the same way as the button's.
+  useEffect(() => {
+    if (background.last) setReasons(background.last.reasons);
+  }, [background.last]);
+  const shown = progress ?? background.progress;
 
   async function check() {
     setBusy(true);
     setError(null);
     setDone(null);
+    setReasons({});
     try {
       setPending((await papersNeedingIndex()).length);
     } catch (err) {
@@ -181,6 +208,7 @@ function LibraryPdfIndexing() {
           (result.failed ? `, ${result.failed} could not be read` : "") +
           ".",
       );
+      setReasons(result.reasons);
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -197,14 +225,53 @@ function LibraryPdfIndexing() {
         so it pauses a few seconds between papers to stay a welcome guest. Expect it to run in
         the background for a while on a large library.
       </p>
+      <label className="field-inline">
+        <input
+          type="checkbox"
+          className="themed-check"
+          checked={auto}
+          onChange={(e) => {
+            setAuto(e.target.checked);
+            setAutoIndexEnabled(e.target.checked);
+          }}
+        />
+        Index new papers automatically
+      </label>
       {error && <FormError>{error}</FormError>}
-      {progress && (
+      {shown && (
         <p className="muted" aria-live="polite">
-          {progress.done} of {progress.total}
-          {progress.current ? ` — ${progress.current}` : ""}
+          {background.running && !progress ? "In the background: " : ""}
+          {shown.done} of {shown.total}
+          {shown.current ? ` — ${shown.current}` : ""}
+        </p>
+      )}
+      {!shown && !done && background.last && (
+        <p className="muted">
+          Last background run: indexed {background.last.indexed}
+          {background.last.failed ? `, ${background.last.failed} could not be read (retried in a week)` : ""}.
         </p>
       )}
       {done && <p className="muted">{done}</p>}
+      {/*
+        What could not be read, and why. Grouped by reason rather than listed per
+        paper: eighteen lines all saying the same thing is noise, and the reason
+        is the part that tells the reader whether to do anything.
+      */}
+      {Object.keys(reasons).length > 0 && (
+        <ul className="wiki-lint-list">
+          {Object.entries(
+            Object.entries(reasons).reduce<Record<string, string[]>>((groups, [title, why]) => {
+              (groups[why] ??= []).push(title);
+              return groups;
+            }, {}),
+          ).map(([why, titles]) => (
+            <li key={why} data-severity="info">
+              <strong>{titles.length}</strong> — {why}
+              {titles.length <= 3 && <span className="jump-to-meta"> ({titles.join(", ")})</span>}
+            </li>
+          ))}
+        </ul>
+      )}
       {pending !== null && !progress && !done && (
         <p className="muted">
           {pending === 0
@@ -223,7 +290,7 @@ function LibraryPdfIndexing() {
           Check what is missing
         </button>
         {pending !== null && pending > 0 && (
-          <button className="btn-secondary" type="button" disabled={busy} onClick={() => void run()}>
+          <button className="btn-secondary" type="button" disabled={busy || background.running} onClick={() => void run()}>
             {busy ? "Indexing…" : `Index ${pending} PDF${pending === 1 ? "" : "s"}`}
           </button>
         )}
@@ -291,15 +358,18 @@ function IndexSize() {
  * metered connection.
  */
 function SemanticSearchToggle() {
+  const status = useSyncExternalStore(subscribeSemanticStatus, semanticStatus, semanticStatus);
   const [on, setOn] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<EmbedProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [passages, setPassages] = useState(0);
 
   useEffect(() => {
-    setOn(semanticEnabled());
-    setPassages(semanticSize());
+    const enabled = semanticEnabled();
+    setOn(enabled);
+    // Opening the panel is reason enough to bring the arm up if it was left on;
+    // otherwise it waits for the first search, and the panel would report
+    // "off" for a feature the reader turned on.
+    if (enabled) void restoreSemanticSearch();
   }, []);
 
   if (!semanticSupported()) {
@@ -314,25 +384,18 @@ function SemanticSearchToggle() {
   async function toggle(next: boolean) {
     setBusy(true);
     setError(null);
-    setProgress(null);
     try {
-      if (next) {
-        await enableSemanticSearch({ onProgress: setProgress });
-        setPassages(semanticSize());
-      } else {
-        await disableSemanticSearch();
-        setPassages(0);
-      }
+      if (next) await enableSemanticSearch();
+      else await disableSemanticSearch();
       setOn(next);
     } catch (err) {
       setError(formatError(err));
     } finally {
       setBusy(false);
-      setProgress(null);
     }
   }
 
-  const download = progress?.download;
+  const working = status.phase === "downloading" || status.phase === "loading" || status.phase === "embedding";
 
   return (
     <div className="field">
@@ -341,32 +404,61 @@ function SemanticSearchToggle() {
           type="checkbox"
           className="themed-check"
           checked={on}
-          disabled={busy}
+          disabled={busy || working}
           onChange={(e) => void toggle(e.target.checked)}
         />
         Also search by meaning, not just words
       </label>
       <p className="muted jump-to-meta">
         Finds a passage that answers your question even when it shares no words with it. Runs
-        entirely on this device: a one-time ~25 MB model download, then a pass over your
+        entirely on this device: a one-time ~{DEFAULT_EMBEDDING_MODEL.downloadMb} MB model download, then a pass over your
         workspace. Keyword search keeps working throughout, and both are combined in the results.
       </p>
 
       {error && <FormError>{error}</FormError>}
+      {on && <SemanticStatusLine status={status} />}
+    </div>
+  );
+}
 
-      {busy && (
-        <p className="muted" aria-live="polite">
-          {download
-            ? `Downloading the model — ${Math.round((download.loaded / Math.max(download.total, 1)) * 100)}%`
-            : progress
-              ? `Reading your workspace — ${progress.done} of ${progress.total} passages`
-              : "Starting…"}
-        </p>
-      )}
-
-      {on && !busy && passages > 0 && (
-        <p className="muted jump-to-meta">{passages.toLocaleString()} passages embedded.</p>
-      )}
+/** One line saying what the arm is doing, and when it is done, that it works. */
+function SemanticStatusLine({ status }: { status: SemanticStatus }) {
+  const text = (() => {
+    switch (status.phase) {
+      case "downloading":
+        return `Downloading the model — ${Math.round((status.loaded / Math.max(status.total, 1)) * 100)}%`;
+      case "loading":
+        return "Starting the model…";
+      case "embedding":
+        return status.total
+          ? `Reading your workspace — ${status.done.toLocaleString()} of ${status.total.toLocaleString()} passages`
+          : "Reading your workspace…";
+      case "ready":
+        return status.upgrading
+          ? `On (${status.model}). Upgrading to ${status.upgrading.to} in the background${
+              status.upgrading.total
+                ? ` — ${status.upgrading.done.toLocaleString()} of ${status.upgrading.total.toLocaleString()} passages`
+                : "…"
+            }. Search keeps using the current model until it is done.`
+          : `On — ${status.passages.toLocaleString()} passages searchable by meaning (${status.model}). New and edited items are added as you work.`;
+      case "error":
+        return `Not working: ${status.message}. Keyword search is unaffected.`;
+      default:
+        return "Waiting to start…";
+    }
+  })();
+  const progress =
+    status.phase === "embedding" && status.total
+      ? status.done / status.total
+      : status.phase === "ready" && status.upgrading?.total
+        ? status.upgrading.done / status.upgrading.total
+      : status.phase === "downloading"
+        ? status.loaded / Math.max(status.total, 1)
+        : null;
+  return (
+    <div className="semantic-status" data-phase={status.phase} aria-live="polite">
+      <p className={status.phase === "error" ? "form-error" : "muted"}>{text}</p>
+      {progress !== null && <progress max={1} value={progress} />}
     </div>
   );
 }

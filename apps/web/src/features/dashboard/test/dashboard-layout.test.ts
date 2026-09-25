@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   appendCardPair,
+  closeLayoutGaps,
   compactLayoutVertical,
   defaultLayout,
   finalizeDashboardLayout,
@@ -187,5 +188,56 @@ describe("lgLayoutNeedsRepair", () => {
       it.id === "reading" ? { ...it, w: 1 } : it,
     );
     assert.ok(lgLayoutNeedsRepair(items));
+  });
+});
+
+describe("closeLayoutGaps", () => {
+  // The layout the design review found in a live account: stat tiles with
+  // empty columns between them, a narrowed log, a stretched attention list.
+  const saved = [
+    { id: "reading", type: "reading-progress" as const, x: 0, y: 0, w: 3, h: 2 },
+    { id: "report", type: "report-progress" as const, x: 3, y: 0, w: 3, h: 2 },
+    { id: "library", type: "library-snapshot" as const, x: 8, y: 0, w: 4, h: 2 },
+    { id: "log", type: "recent-log" as const, x: 3, y: 2, w: 8, h: 3 },
+    { id: "attention", type: "needs-attention" as const, x: 0, y: 5, w: 12, h: 3 },
+    { id: "plan", type: "plan-progress" as const, x: 1, y: 8, w: 3, h: 2 },
+    { id: "experiments", type: "experiments-summary" as const, x: 6, y: 8, w: 3, h: 2 },
+  ];
+
+  function holes(items: { x: number; y: number; w: number; h: number }[], cols = 12): number {
+    const bottom = Math.max(...items.map((it) => it.y + it.h));
+    let empty = 0;
+    for (let y = 0; y < bottom; y++) {
+      for (let x = 0; x < cols; x++) {
+        if (!items.some((it) => x >= it.x && x < it.x + it.w && y >= it.y && y < it.y + it.h)) empty++;
+      }
+    }
+    return empty;
+  }
+
+  it("leaves fewer empty cells than packing upward does, keeping every card and never shrinking one", () => {
+    const before = holes(compactLayoutVertical(saved.map((it) => ({ ...it })), 12));
+    const closed = closeLayoutGaps(saved);
+    assert.ok(holes(closed) < before, `${holes(closed)} < ${before}`);
+    assert.deepEqual(closed.map((it) => it.id).sort(), saved.map((it) => it.id).sort());
+    for (const it of closed) {
+      assert.ok(it.h >= saved.find((s) => s.id === it.id)!.h);
+      assert.ok(it.x + it.w <= 12);
+    }
+  });
+
+  it("puts the stat tiles in one row across the top, in their order", () => {
+    const closed = closeLayoutGaps(saved);
+    const top = closed.filter((it) => it.y === 0).map((it) => it.id);
+    assert.deepEqual(top.slice(0, 3), ["reading", "report", "library"]);
+  });
+
+  it("does not move the shipped default", () => {
+    const lg = studentDefaultLg();
+    const closed = closeLayoutGaps(lg);
+    assert.deepEqual(
+      closed.map(({ id, x, y, w, h }) => ({ id, x, y, w, h })),
+      [...lg].sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y)).map(({ id, x, y, w, h }) => ({ id, x, y, w, h })),
+    );
   });
 });

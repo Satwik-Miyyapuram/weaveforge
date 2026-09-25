@@ -1,28 +1,29 @@
 /**
  * The engines the web app can offer, each behind core's `InkRecogniser` (§5.2).
  *
- * Three of them, in the order the selector prefers:
+ * One of them: **Windows Ink**, through the desktop bridge. Offline, ships with
+ * the OS, and the one an engine comparison on this machine actually won. It
+ * exists only where `window.weaveforge` does and says so from `available()` — so
+ * in a browser there is honestly no engine, and the Recognise control is
+ * disabled rather than pretending.
  *
- * - **Windows Ink**, through the desktop bridge. Offline, ships with the OS, and
- *   the one an engine comparison on this machine actually won. It exists only
- *   where `window.weaveforge` does and says so from `available()`.
- * - **The in-worker stroke model** (`stroke-ctc-small@1`). This build ships no
- *   weights: §5.5 asks for the model's accuracy to be measured before it is
- *   relied on, and that measurement has not been made. So it answers
- *   `available() → false` honestly rather than pretending, and the selector
- *   moves on. The id is reserved so a note recognised by a later build says so.
- * - **MyScript**, opt-in and online. Constructed only when the caller has a
- *   key, which is the whole privacy line: without one it is not in the list.
+ * Two used to sit below it and neither was real. **MyScript iink** was a cloud
+ * recogniser that joined the list when a key was pasted into Settings: the only
+ * engine that sent strokes off the machine, behind a field for a service this app
+ * does not support. **The in-worker stroke model** (`stroke-ctc-small@1`) shipped
+ * no weights and returned `available() → false` unconditionally, existing only so
+ * a settings row could be greyed out — which is what the reader saw as "Built-in
+ * stroke model — unavailable. Not shipped in this build" and reasonably asked
+ * why it was in their settings at all.
  */
 
 import {
-  createMyScriptRecogniser,
-  isMyScriptConfigured,
+  decodeInkWords,
+  INK_ENGINE_MAX_CONFIDENCE,
   mapInkConfidence,
   type InkLine,
   type InkRecogniser,
   type InkRecognitionHints,
-  type MyScriptOptions,
   type RecognisedLine,
 } from "@weaveforge/core";
 
@@ -32,7 +33,6 @@ import type {
 } from "@/lib/desktop/desktop-bridge";
 
 export const WINDOWS_INK_ENGINE_ID = "windows-ink@1";
-export const STROKE_CTC_ENGINE_ID = "stroke-ctc-small@1";
 
 /** A page's lines as the desktop helper wants them: flat `[x, y, p, …]` per stroke. */
 export function desktopInkRequest(
@@ -87,58 +87,47 @@ export function createDesktopInkRecogniser(
       const result = await desktop.inkRecognise(
         desktopInkRequest(lines, hints),
       );
-      return result.lines.map((line) => ({
-        text: line.text,
-        conf: mapInkConfidence(line.confidence),
-        ...(line.alternatives?.length
-          ? { alternatives: [...line.alternatives] }
-          : {}),
-      }));
+      return result.lines.map((line) => {
+        // The helper's `confidence` is only "produced text or not"; its
+        // per-word readings are the evidence, and the decoder turns them into
+        // a choice and a score. A line with no words is empty or came from a
+        // helper that predates them, and is capped the same way either way:
+        // `1` is a person's correction, never an engine's.
+        if (line.text && line.words?.length) {
+          return decodeInkWords(line.words, hints.vocabulary, line.text);
+        }
+        return {
+          text: line.text,
+          conf: Math.min(
+            mapInkConfidence(line.confidence),
+            INK_ENGINE_MAX_CONFIDENCE,
+          ),
+          ...(line.alternatives?.length
+            ? { alternatives: [...line.alternatives] }
+            : {}),
+        };
+      });
     },
   };
 }
 
 /**
- * The in-worker stroke model, as this build has it: not yet.
+ * The candidate list the selector is handed, in one place.
  *
- * Kept as an engine rather than dropped from the list so the order in the
- * settings panel matches §5.2 and the "why is this greyed out" line can be
- * honest: the weights are not shipped until §5.5's measurement is made.
+ * One candidate. `createStrokeModelRecogniser` used to be the second — an engine
+ * whose `available()` returned a hard-coded `false` and whose `recognise()`
+ * threw "not shipped in this build". It existed only so the settings panel could
+ * show a greyed-out row, which is not a reason to keep a stub engine in the
+ * selection path: the selector had to probe it on every run to be told what the
+ * source already said.
+ *
+ * No second argument any more either: the only candidate left needs no
+ * configuration, which is the point. A recogniser that had to be switched on is
+ * a recogniser that could be absent — and the bar's "no engine" state is honest
+ * about that rather than being a thing the user could have fixed with a key.
  */
-export function createStrokeModelRecogniser(): InkRecogniser {
-  return {
-    id: STROKE_CTC_ENGINE_ID,
-    offline: true,
-    online: true,
-    async available() {
-      return false;
-    },
-    async recognise() {
-      throw new Error("The stroke model is not shipped in this build.");
-    },
-  };
-}
-
-/** MyScript, when and only when a key was supplied. */
-export function createOptionalMyScriptRecogniser(
-  options: MyScriptOptions,
-): InkRecogniser | null {
-  if (!isMyScriptConfigured(options)) return null;
-  return createMyScriptRecogniser(options);
-}
-
-/** The candidate list the selector is handed, in one place. */
 export function inkRecogniserCandidates(input: {
   bridge: () => DesktopBridge | null;
-  myScript?: MyScriptOptions;
 }): InkRecogniser[] {
-  const candidates: InkRecogniser[] = [
-    createDesktopInkRecogniser(input.bridge),
-    createStrokeModelRecogniser(),
-  ];
-  const myScript = input.myScript
-    ? createOptionalMyScriptRecogniser(input.myScript)
-    : null;
-  if (myScript) candidates.push(myScript);
-  return candidates;
+  return [createDesktopInkRecogniser(input.bridge)];
 }

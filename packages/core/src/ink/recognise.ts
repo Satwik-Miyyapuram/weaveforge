@@ -60,22 +60,36 @@ export interface InkRecogniser {
 /**
  * The engines this build knows of, in the order they are tried (§5.2).
  *
- * `windows-ink` is the desktop engine and costs nothing: `InkAnalyzer` ships
- * with the OS, offline, with its language models and shape recognisers already
- * installed, reached over stdio by a helper executable. `stroke-ctc` is the web
- * engine — a small online model in the existing worker. `chromium-hwr` is used
- * when a build actually has it (verified absent even on Windows Chromium, so it
- * is wrapped and never relied on). `myscript` is opt-in, online-only and paid,
- * and the note records it so a reviewer can see text left the machine.
+ * One entry, and that is the honest list. `windows-ink` is the desktop engine and
+ * costs nothing: `InkAnalyzer` ships with the OS, offline, with its language
+ * models and shape recognisers already installed, reached over stdio by a helper
+ * executable.
+ *
+ * **`stroke-ctc-small` and `chromium-hwr` used to be listed here and are gone.**
+ * Neither ever existed: there are no stroke-model weights anywhere in this
+ * repository, and `chromium-hwr` was described in this very comment as
+ * "verified absent even on Windows Chromium, so it is wrapped and never relied
+ * on". Listing them made the settings screen report two engines as
+ * *unavailable* — "Built-in stroke model — not shipped in this build" — which is
+ * a promise in a registry and an admission in the UI, and the reader rightly
+ * asked what it was and why it was in their settings at all. A registry of
+ * engines the build cannot run is not a plan; it is a list of noes.
+ *
+ * Their ids are **not** reserved for a later build. That was the original reason
+ * for keeping them, and it bought nothing: an id nobody has ever produced a note
+ * with does not need recognizing later. If a stroke model is ever trained, it
+ * arrives with its own id and its own entry.
+ *
+ * `myscript` used to be last: a paid cloud recogniser, opt-in through a key in
+ * Settings. It is gone, and its absence is a policy rather than a removal — the
+ * app's claim about an ink note is that its text is read on the machine, and an
+ * engine that has to be switched on is a claim with an exception in it.
  *
  * `trocr` is deliberately **not** here: revision 1's image OCR cost 240–330 MB
  * and 6–20 s a page, and §0.2 retracts it.
  */
 export const INK_ENGINES = [
   { id: "windows-ink@1", offline: true, online: true, platform: "desktop-windows" },
-  { id: "stroke-ctc-small@1", offline: true, online: true, platform: "any" },
-  { id: "chromium-hwr@1", offline: true, online: true, platform: "any" },
-  { id: "myscript@1", offline: false, online: true, platform: "any" },
 ] as const;
 
 export type InkEngineId = (typeof INK_ENGINES)[number]["id"];

@@ -73,7 +73,7 @@ export function PromptDialog({
         </label>
         <FormError>{problem}</FormError>
         <div className="confirm-dialog-actions">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button type="button" className="btn-secondary btn-cancel" onClick={onClose}>
             Cancel
           </button>
           <button type="submit" className="btn-primary">

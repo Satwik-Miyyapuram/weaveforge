@@ -83,7 +83,18 @@ export function useAnnotationActions({
       }`;
       const optimistic = optimisticAnnotationFromDraft(draft, tempId);
       change((prev) => [...prev, optimistic]);
-      setSelectedAnnId(tempId);
+      /**
+       * Ink is not selected on creation, and everything else is.
+       *
+       * A highlight or a note is a row you have just made and may want to
+       * comment on, so it opens selected. A pen stroke is not: a hand writing
+       * does not want the mark it has just made picked up — the sheet never
+       * picks up what was just written — and a selected stroke wears the
+       * selection halo, so selecting every new one frames the whole page in
+       * them. Tapping a mark with the pointer tool, or its row in the list,
+       * still selects it.
+       */
+      if (draft.type !== "ink") setSelectedAnnId(tempId);
       clearPendingCreate();
       setAnnError(null);
       window.getSelection()?.removeAllRanges();

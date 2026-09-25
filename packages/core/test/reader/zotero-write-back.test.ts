@@ -7,6 +7,7 @@ import {
   isZoteroLibrarySyncMode,
   resolveAnnotationConflict,
   toZoteroWritePayload,
+  zoteroWriteBackAnnotations,
   type AnnotationSyncRow,
 } from "../../src/reader/zotero-write-back.js";
 import { isAnnotationSyncState } from "../../src/reader/reader-annotation.js";
@@ -159,4 +160,31 @@ test("DryRunZoteroAnnotationWriteBack never goes live", async () => {
   assert.equal(result.payloads[0]!.parentItem, "PARENT");
   assert.deepEqual(toZoteroWritePayload(baseLocal(), "P").tags, []);
   await assert.rejects(() => client.push("PARENT", [baseLocal()], { live: true }), /Live Zotero/);
+});
+
+test("write-back sends the reading marks and never the pen strokes", async () => {
+  // A highlight that never reached Zotero is one the user loses in the desktop
+  // reader; a pen stroke is our own writing and is not Zotero's to hold.
+  const annotations: ReaderAnnotation[] = [
+    baseLocal({ id: "hl", type: "highlight" }),
+    baseLocal({ id: "ul", type: "underline" }),
+    baseLocal({ id: "note", type: "note" }),
+    baseLocal({
+      id: "stroke",
+      type: "ink",
+      anchor: { zoteroPosition: { pageIndex: 0, paths: [[1, 2, 3, 4]], width: 2 } },
+    }),
+  ];
+  assert.deepEqual(
+    zoteroWriteBackAnnotations(annotations).map((a) => a.id),
+    ["hl", "ul", "note"],
+  );
+
+  // And the dry run reports exactly what a live push would send.
+  const result = await new DryRunZoteroAnnotationWriteBack().push("PARENT", annotations);
+  assert.deepEqual(result.payloads.map((p) => p.annotationType), [
+    "highlight",
+    "underline",
+    "note",
+  ]);
 });

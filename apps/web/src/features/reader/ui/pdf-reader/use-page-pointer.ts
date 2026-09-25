@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   canJoinInkGroup,
   inkPathsHitTest,
+  inkPathsInPolygon,
   inkWidthForPressure,
+  inkNoteWidthToPdfPoints,
   meanPressure,
   screenPointToPdf,
   shouldAppendInkPoint,
   translateInkPaths,
-  HIGHLIGHTER_WIDTH,
+  INK_HIGHLIGHTER_WIDTH,
   INK_DEFAULT_WIDTH,
   type PageProjection,
   type PageTextGeometry,
@@ -25,6 +27,7 @@ import {
   draftImageRegion,
   draftInkAnnotation,
 } from "../../application/draft-local-annotation";
+import { clipSegmentToArea, pointInArea } from "../../application/clip-to-area";
 import { isInkTool, type ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import {
   EMPTY_ANNOTATIONS,
@@ -33,6 +36,8 @@ import {
   MIN_TEXT_BOX_PDF_SIZE,
 } from "./constants";
 import type { AnnotationActions } from "./use-annotation-actions";
+import { usePointerPreviews } from "./use-pointer-previews";
+import { drawArea, pageBoxOf } from "./page-box";
 import type { DraftShape, InkGroup, InkMove, PendingTextBox } from "./types";
 
 export interface PagePointerDeps {
@@ -40,6 +45,15 @@ export interface PagePointerDeps {
   canCreate: boolean;
   createTool: ReaderCreateTool;
   createColor: string;
+  /**
+   * Whether the page's ink can be written and picked up — the pen is out.
+   *
+   * With the pen away the ink is rendered and read-only: the pointer tool then
+   * has one job, which is the page's own text, and a press that lands on a
+   * stroke goes through it to the words underneath rather than picking the
+   * stroke up.
+   */
+  inkEditable: boolean;
   /** Pen nib in PDF points, before pressure. Defaults to `INK_DEFAULT_WIDTH`. */
   inkWidth?: number;
   selectedAnnId: string | null;
@@ -60,15 +74,37 @@ export interface PagePointer {
   penSeen: boolean;
   /** The stroke or region under the pointer right now, painted live. */
   draftShape: DraftShape | null;
-  /** Live offset of the mark being dragged, before it is written. */
-  movePreview: { id: string; dx: number; dy: number } | null;
+  /** Live offset of the marks being dragged, before it is written. */
+  movePreview: { ids: string[]; dx: number; dy: number } | null;
   /** True while a drag is moving ink, which is not a text selection. */
   isMovingInk: () => boolean;
+  /**
+   * The loop the pointer tool is drawing, in PDF user space, or null.
+   *
+   * The lasso is the sheet's gesture on a paper: drag a ring round the marks,
+   * and what is inside is selected. It is drawn while it is being drawn, the
+   * way the sheet draws it.
+   */
+  lassoPath: readonly number[] | null;
+  /** The page the loop is on; the loop is one page's marks. */
+  lassoPage: number | null;
+  /** The ink marks the last loop caught, by annotation id. */
+  lassoed: readonly string[];
+  /** Let the selection go — on a tool change, a new page, or after a delete. */
+  clearLasso: () => void;
   /**
    * End the mark in progress, so the next stroke starts a new annotation.
    * Changing tool or colour mid-sentence must not merge into what came before.
    */
   endInkGroup: () => void;
+  /**
+   * Throw away the mark in progress, without writing it.
+   *
+   * A second finger landing turns the first one's stroke into a pinch, and a
+   * half-drawn stroke must not be saved — it was a hand resting on the glass,
+   * not a line. The sheet does the same when a palm arrives.
+   */
+  cancelStroke: () => void;
   pendingTextBox: PendingTextBox | null;
   setPendingTextBox: (box: PendingTextBox | null) => void;
   pendingNote: { color: string } | null;
@@ -92,6 +128,7 @@ export function usePagePointer({
   canCreate,
   createTool,
   createColor,
+  inkEditable,
   inkWidth = INK_DEFAULT_WIDTH,
   selectedAnnId,
   pageSize,
@@ -128,6 +165,12 @@ export function usePagePointer({
   const [penSeen, setPenSeen] = useState(false);
   /** The ink annotation the last stroke went into, for stroke grouping. */
   const inkGroup = useRef<InkGroup | null>(null);
+  /**
+   * Whether the pen is off the paper right now, and where it was last seen in
+   * client pixels — the point the clip is measured from when it comes back.
+   */
+  const inkOutside = useRef(false);
+  const lastInkPoint = useRef<{ x: number; y: number } | null>(null);
   const inkMove = useRef<InkMove | null>(null);
   /** Ink deleted by the current eraser drag, so one pass deletes each mark once. */
   const erasedIds = useRef<Set<string>>(new Set());
@@ -138,79 +181,27 @@ export function usePagePointer({
     x1: number;
     y1: number;
   } | null>(null);
-  /**
-   * The stroke or region currently under the pointer, in PDF coordinates.
-   *
-   * `inkPath` and `dragRect` are refs, so mutating them during a drag never
-   * re-rendered anything — the mark only appeared once pointer-up persisted the
-   * annotation, with no feedback while drawing. This mirrors them into state so
-   * the in-progress shape is painted, and is cleared when the drag ends.
-   */
-  const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
-  /**
-   * Live offset of the ink mark being dragged. Held here rather than pushed
-   * through `onAnnotationsChange` so a move repaints without writing to the
-   * annotation list (and the server) on every frame.
-   */
-  const [movePreview, setMovePreview] = useState<{ id: string; dx: number; dy: number } | null>(
-    null,
-  );
-  const moveFrame = useRef<number | null>(null);
-  const pendingMove = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const {
+    draftShape, scheduleDraft, clearDraft,
+    movePreview, scheduleMove,
+    lasso, lassoPointerId, lassoPage, lassoPath, publishLasso, lassoed, setLassoed, clearLasso,
+  } = usePointerPreviews();
   /** Region a text annotation was drawn over, awaiting its text. */
   const [pendingTextBox, setPendingTextBox] = useState<PendingTextBox | null>(null);
   /** Sticky note awaiting its comment, with the colour chosen for it. */
   const [pendingNote, setPendingNote] = useState<{ color: string } | null>(null);
-  const pendingShape = useRef<DraftShape | null>(null);
-  const shapeFrame = useRef<number | null>(null);
-
   /**
-   * Publish the in-progress shape at most once per frame. Pointer-move fires far
-   * more often than the display refreshes, and each publish re-renders a page.
+   * Changing tool — or putting the pen down — lets the lasso go.
+   *
+   * A selection belongs to the tool that made it: leaving it up while the pen
+   * is in hand would draw halos round marks nobody is pointing at, and the next
+   * press over one of them would drag the selection instead of drawing. With
+   * the pen away there is no selection to hold at all, because the ink is
+   * read-only.
    */
-  const scheduleDraft = useCallback((shape: DraftShape | null) => {
-    pendingShape.current = shape;
-    if (shapeFrame.current != null) return;
-    shapeFrame.current = window.requestAnimationFrame(() => {
-      shapeFrame.current = null;
-      setDraftShape(pendingShape.current);
-    });
-  }, []);
-
-  const clearDraft = useCallback(() => {
-    if (shapeFrame.current != null) {
-      window.cancelAnimationFrame(shapeFrame.current);
-      shapeFrame.current = null;
-    }
-    pendingShape.current = null;
-    setDraftShape(null);
-  }, []);
-
-  /** Same frame budget for a move as for a stroke — see `scheduleDraft`. */
-  const scheduleMove = useCallback((next: { id: string; dx: number; dy: number } | null) => {
-    pendingMove.current = next;
-    if (next == null) {
-      if (moveFrame.current != null) {
-        window.cancelAnimationFrame(moveFrame.current);
-        moveFrame.current = null;
-      }
-      setMovePreview(null);
-      return;
-    }
-    if (moveFrame.current != null) return;
-    moveFrame.current = window.requestAnimationFrame(() => {
-      moveFrame.current = null;
-      setMovePreview(pendingMove.current);
-    });
-  }, []);
-
-  useEffect(() => clearDraft, [clearDraft]);
-  useEffect(
-    () => () => {
-      if (moveFrame.current != null) window.cancelAnimationFrame(moveFrame.current);
-    },
-    [],
-  );
+  useEffect(() => {
+    clearLasso();
+  }, [createTool, inkEditable, clearLasso]);
 
   /** The projection for one rendered page: its size, the zoom, and the rotation. */
   function pageProjection(pageNumber: number): PageProjection {
@@ -221,23 +212,6 @@ export function usePagePointer({
       scale,
       rotation,
     };
-  }
-
-  /**
-   * The rendered page box inside a page's row.
-   *
-   * The handlers sit on the row (§pdf-reader), because the row's right half is
-   * the pen's writing strip and a pointer that lands there must still be
-   * measured against the page — the strip is not part of the page. The page box
-   * is therefore found inside the row rather than being the event target, and
-   * every coordinate below is relative to it.
-   */
-  function pageBoxOf(row: Element): HTMLElement {
-    return (
-      row.querySelector<HTMLElement>(".pdf-reader-page") ??
-      row.querySelector<HTMLElement>("canvas")?.parentElement ??
-      (row as HTMLElement)
-    );
   }
 
   function screenToPdf(row: Element, clientX: number, clientY: number) {
@@ -371,26 +345,66 @@ export function usePagePointer({
     }
   }
 
-  /** Write a finished move to the annotation's stored paths. */
+  /** Write a finished move to the stored paths of every mark it carried. */
   async function commitInkMove(move: InkMove) {
     if (Math.hypot(move.dx, move.dy) < INK_MOVE_THRESHOLD) return;
-    const ann = annotations.find((a) => a.id === move.annotationId);
-    const position = ann?.anchor.zoteroPosition;
-    if (!ann || !position?.paths?.length) return;
-    // A moved mark is no longer where the group left off; the next stroke is a
-    // new mark rather than a jump back to the old position.
-    if (inkGroup.current?.annotationId === ann.id) inkGroup.current = null;
-    await saveAnchor(ann, {
-      ...ann.anchor,
-      zoteroPosition: {
-        ...position,
-        paths: translateInkPaths(position.paths, move.dx, move.dy),
-      },
-    });
+    for (const id of move.annotationIds) {
+      const ann = annotations.find((a) => a.id === id);
+      const position = ann?.anchor.zoteroPosition;
+      if (!ann || !position?.paths?.length) continue;
+      // A moved mark is no longer where the group left off; the next stroke is a
+      // new mark rather than a jump back to the old position.
+      if (inkGroup.current?.annotationId === ann.id) inkGroup.current = null;
+      await saveAnchor(ann, {
+        ...ann.anchor,
+        zoteroPosition: {
+          ...position,
+          paths: translateInkPaths(position.paths, move.dx, move.dy),
+        },
+      });
+    }
   }
 
-  /** The nib before pressure: the highlighter's is fixed, the pen's is chosen. */
-  const nibBase = createTool === "highlighter" ? HIGHLIGHTER_WIDTH : inkWidth;
+  /**
+   * The ink the current selection holds: the lasso's marks, or the one the list
+   * picked out. What a drag inside the selection moves, and what the bar's
+   * Delete acts on.
+   */
+  function selectionIds(): string[] {
+    if (lassoed.length > 0) return [...lassoed];
+    return selectedAnnId ? [selectedAnnId] : [];
+  }
+
+  /**
+   * The ink on a page the loop has caught.
+   *
+   * Judged per annotation, on all of its strokes together
+   * (`inkPathsInPolygon`): a mark is one thing the hand wrote, and a loop round
+   * most of it picks up the whole of it.
+   */
+  function inkAnnotationsInLoop(pageNumber: number, polygon: readonly number[]): string[] {
+    const onPage = annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS;
+    return onPage
+      .filter((ann) => {
+        if (ann.type !== "ink") return false;
+        const position = ann.anchor.zoteroPosition;
+        if (!position?.paths?.length || position.pageIndex !== pageNumber - 1) return false;
+        return inkPathsInPolygon(position.paths, polygon);
+      })
+      .map((ann) => ann.id);
+  }
+
+  /**
+   * The nib before pressure: the highlighter's is fixed, the pen's is chosen.
+   *
+   * The highlighter's is the ink note's 6 mm, converted once — the reader
+   * carries no nib set of its own any more, so a highlighter is the same band
+   * on a paper as on a sheet of ruled paper.
+   */
+  const nibBase =
+    createTool === "highlighter"
+      ? inkNoteWidthToPdfPoints(INK_HIGHLIGHTER_WIDTH)
+      : inkWidth;
 
   /** Nib width for a fresh stroke: the tool's base, scaled by pen pressure. */
   function inkWidthForEvent(event: React.PointerEvent): number {
@@ -402,28 +416,41 @@ export function usePagePointer({
     const host = event.currentTarget;
     const pt = screenToPdf(host, event.clientX, event.clientY);
 
-    // The select tool doubles as the move tool: pressing inside a selected ink
-    // mark picks it up. Ink was previously fixed where it landed, so a stroke
-    // drawn in the wrong place could only be deleted and redrawn.
-    if (createTool === "select") {
-      if (!selectedAnnId) return;
-      const hit = inkAnnotationsAt(pageNumber, pt.x, pt.y, ERASER_RADIUS).some(
-        (ann) => ann.id === selectedAnnId,
-      );
-      if (!hit) return;
+    // The lasso is the sheet's gesture on a paper, and the *only* thing its
+    // tool does: a drag from anywhere draws a loop, and what is inside is
+    // picked up. Anywhere, not only on a mark — a hand rings the marks it wants
+    // and should not have to start exactly on one — and the page's text is not
+    // in the way, because with this tool armed the text layer takes no pointer
+    // (`.pdf-reader-page--draw`, reader.css). A press *inside* a selection
+    // already made drags it instead, which is how a loop is moved.
+    if (createTool === "lasso" && inkEditable) {
+      const held = selectionIds();
+      const hit = inkAnnotationsAt(pageNumber, pt.x, pt.y, ERASER_RADIUS);
       event.preventDefault();
-      inkMove.current = {
-        annotationId: selectedAnnId,
-        pointerId: event.pointerId,
-        pageNumber,
-        fromX: pt.x,
-        fromY: pt.y,
-        dx: 0,
-        dy: 0,
-      };
+      if (held.length > 0 && hit.some((ann) => held.includes(ann.id))) {
+        inkMove.current = {
+          annotationIds: held,
+          pointerId: event.pointerId,
+          pageNumber,
+          fromX: pt.x,
+          fromY: pt.y,
+          dx: 0,
+          dy: 0,
+        };
+      } else {
+        lasso.current = [pt.x, pt.y];
+        lassoPointerId.current = event.pointerId;
+        lassoPage.current = pageNumber;
+        setLassoed([]);
+        publishLasso(lasso.current);
+      }
       host.setPointerCapture(event.pointerId);
       return;
     }
+
+    // The reader's own pointer: a press is the page's, so a stroke lying over a
+    // paragraph does not stand between the pen and the words.
+    if (createTool === "select") return;
 
     if (!pointerMayDraw(event)) return;
     event.preventDefault();
@@ -442,6 +469,9 @@ export function usePagePointer({
       inkPointerId.current = event.pointerId;
       inkPath.current = [pt.x, pt.y];
       inkPressures.current = [event.pressure];
+      // A stroke begins on the paper: the press that started it landed here.
+      inkOutside.current = false;
+      lastInkPoint.current = { x: event.clientX, y: event.clientY };
       scheduleDraft({
         kind: "ink",
         pageNumber,
@@ -477,7 +507,17 @@ export function usePagePointer({
     if (move && move.pointerId === event.pointerId) {
       move.dx = pt.x - move.fromX;
       move.dy = pt.y - move.fromY;
-      scheduleMove({ id: move.annotationId, dx: move.dx, dy: move.dy });
+      scheduleMove({ ids: move.annotationIds, dx: move.dx, dy: move.dy });
+      return;
+    }
+
+    if (lassoPointerId.current === event.pointerId) {
+      // A loop is a shape, and samples inside the pointer's own jitter carry
+      // none of it: the rule the stroke path uses keeps the polygon short too.
+      if (shouldAppendInkPoint(lasso.current, pt.x, pt.y)) {
+        lasso.current.push(pt.x, pt.y);
+        publishLasso(lasso.current);
+      }
       return;
     }
 
@@ -489,8 +529,82 @@ export function usePagePointer({
     if (
       isInkTool(createTool) &&
       inkPointerId.current === event.pointerId &&
-      inkPath.current.length >= 2
+      // A stroke in hand, *or* a pen that is off the paper: cutting the stroke at
+      // the edge empties the path, and the return that starts the next one has
+      // to be let in — it is the same gesture, and the contact is still ours.
+      (inkPath.current.length >= 2 || inkOutside.current)
     ) {
+      /*
+       * The stroke is cut at the edge of the row — the page and the writing
+       * margin beside it — and starts again as a *new* stroke where the pen
+       * comes back. A hand does not stop at the edge of the paper, and a stroke
+       * that collected points through everything it passed over would come back
+       * with a line drawn across a gap the page does not own.
+       *
+       * Whether the point is in the area is asked of the point; *where* the pen
+       * crossed is asked of the segment, so the ink reaches the edge exactly
+       * rather than stopping a sample short of it — and the area is the page
+       * inset by half the nib, so the ink's own edge is what lands on the page's.
+       */
+      const nibPx = inkWidthForEvent(event) * scale;
+      const area = drawArea(host, nibPx / 2);
+      const at = { x: event.clientX, y: event.clientY };
+      const previous = lastInkPoint.current ?? at;
+      const onPaper = !area || pointInArea(area, at.x, at.y);
+
+      if (inkOutside.current) {
+        if (!onPaper) {
+          // Still outside: the pen's travel leaves no mark at all.
+          lastInkPoint.current = at;
+          return;
+        }
+        // Back on the paper: a new stroke, beginning where the pen crossed in.
+        const crossing = area ? clipSegmentToArea(area, previous, at) : null;
+        const entry = screenToPdf(host, crossing?.from.x ?? at.x, crossing?.from.y ?? at.y);
+        inkPath.current = [entry.x, entry.y];
+        inkPressures.current = [event.pressure];
+        inkOutside.current = false;
+        lastInkPoint.current = at;
+        if (!shouldAppendInkPoint(inkPath.current, pt.x, pt.y)) return;
+        inkPath.current.push(pt.x, pt.y);
+        inkPressures.current.push(event.pressure);
+        scheduleDraft({
+          kind: "ink",
+          pageNumber,
+          path: [...inkPath.current],
+          width: inkWidthForEvent(event),
+          highlighter: createTool === "highlighter",
+        });
+        return;
+      }
+
+      if (!onPaper) {
+        // The pen has left: finish the stroke at the edge it crossed and wait.
+        const crossing = area ? clipSegmentToArea(area, previous, at) : null;
+        const cut = screenToPdf(host, crossing?.to.x ?? at.x, crossing?.to.y ?? at.y);
+        if (shouldAppendInkPoint(inkPath.current, cut.x, cut.y)) {
+          inkPath.current.push(cut.x, cut.y);
+          inkPressures.current.push(event.pressure);
+        }
+        const height =
+          pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize?.height;
+        if (height) {
+          void persistInkStroke({
+            pageNumber,
+            pageHeight: height,
+            path: [...inkPath.current],
+            width: inkWidthForPressure(meanPressure([...inkPressures.current]), nibBase),
+          });
+        }
+        inkPath.current = [];
+        inkPressures.current = [];
+        inkOutside.current = true;
+        clearDraft();
+        lastInkPoint.current = at;
+        return;
+      }
+
+      lastInkPoint.current = at;
       // Samples inside the pen's own jitter carry no shape and would be stored
       // forever; dropping them here also keeps the live preview cheap.
       if (!shouldAppendInkPoint(inkPath.current, pt.x, pt.y)) return;
@@ -523,6 +637,20 @@ export function usePagePointer({
       return;
     }
 
+    if (lassoPointerId.current === event.pointerId) {
+      lassoPointerId.current = null;
+      const loop = lasso.current;
+      const loopPage = lassoPage.current ?? pageNumber;
+      lasso.current = [];
+      lassoPage.current = null;
+      publishLasso(null);
+      // A loop needs an area, not a line: a tap or a flick is not a lasso, and
+      // reading one as an empty selection would drop the marks the last loop
+      // caught every time a hand brushed the page.
+      if (loop.length >= 6) setLassoed(inkAnnotationsInLoop(loopPage, loop));
+      return;
+    }
+
     if (createTool === "erase") {
       erasedIds.current = new Set();
       return;
@@ -537,7 +665,12 @@ export function usePagePointer({
       inkPath.current = [];
       inkPressures.current = [];
       inkPointerId.current = null;
-      if (path.length >= 4) {
+      // A pen that lifted off the paper has already been cut and written at the
+      // edge it crossed; there is nothing left in hand to save.
+      const cutAtEdge = inkOutside.current;
+      inkOutside.current = false;
+      lastInkPoint.current = null;
+      if (!cutAtEdge && path.length >= 4) {
         const pageHeight =
           pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
         void persistInkStroke({
@@ -602,8 +735,24 @@ export function usePagePointer({
     draftShape,
     movePreview,
     isMovingInk: () => inkMove.current != null,
+    lassoPath,
+    lassoPage: lassoPath ? lassoPage.current : null,
+    lassoed,
+    clearLasso,
     endInkGroup: () => {
       inkGroup.current = null;
+    },
+    cancelStroke: () => {
+      inkPath.current = [];
+      inkPressures.current = [];
+      inkPointerId.current = null;
+      dragRect.current = null;
+      inkMove.current = null;
+      lassoPointerId.current = null;
+      lasso.current = [];
+      lassoPage.current = null;
+      clearDraft();
+      publishLasso(null);
     },
     pendingTextBox,
     setPendingTextBox,

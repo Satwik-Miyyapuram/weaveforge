@@ -3,13 +3,78 @@
  * are untrusted — never put them in `<a href>` or pdf.js without checking.
  */
 
-/** Hosts the same-origin PDF proxy will fetch (must stay in sync with the route). */
+/**
+ * Hosts the same-origin PDF proxy will fetch. Shared by the web route
+ * (`app/api/pdf-proxy`) and the desktop shell (`apps/desktop/src/pdf-proxy.ts`),
+ * which imports this helper — so there is one list, not three that drift.
+ *
+ * ## What belongs here
+ *
+ * Hosts that serve a PDF **without credentials**. The proxy fetches as an
+ * anonymous client, so a paywalled host can be on this list and still fail with
+ * a 403 — which is exactly what `journals.sagepub.com` and
+ * `pdf.sciencedirectassets.com` did for the reader's library. Adding them would
+ * be a line of code that changes nothing and reads as though it had.
+ *
+ * So this is the open-access half:
+ *
+ * - **Preprint and repository servers** — arXiv, OpenReview, the bioRxiv/medRxiv
+ *   pair, ChemRxiv, and PubMed Central. All anonymous, all freely readable.
+ * - **Open-access publishers** — PLOS, eLife, Frontiers, MDPI, Copernicus, and
+ *   the Open Library of Humanities. Their entire output is open by licence.
+ * - **A publisher's dedicated open-access infrastructure**, where one exists:
+ *   `link.springer.com` (Springer's OA articles live on the same host and are
+ *   served without credentials) and `springeropen.com`.
+ *
+ * **Big publishers are deliberately absent.** `www.nature.com` and
+ * `onlinelibrary.wiley.com` are mostly paywalled, so listing them would promise
+ * access this proxy cannot deliver for the papers the reader actually has — the
+ * same mistake as listing SAGE or Elsevier, which is what this list exists to
+ * avoid. If a paper of yours is open access on one of those hosts and does not
+ * index, that is the case to add, individually, rather than the whole domain.
+ *
+ * A host is a *domain*, not a prefix of one: `isAllowedPdfProxyUrl` compares
+ * `hostname` exactly against this set, so `evil-arxiv.org` cannot pass and a
+ * lookalike subdomain must be named here to be reachable.
+ */
 const PDF_PROXY_ALLOWED_HOSTS = new Set([
+  // Preprints and repositories.
   "arxiv.org",
   "www.arxiv.org",
   "export.arxiv.org",
   "openreview.net",
   "www.openreview.net",
+  "biorxiv.org",
+  "www.biorxiv.org",
+  "medrxiv.org",
+  "www.medrxiv.org",
+  "chemrxiv.org",
+  "www.chemrxiv.org",
+  "ncbi.nlm.nih.gov",
+  "www.ncbi.nlm.nih.gov",
+  "pmc.ncbi.nlm.nih.gov",
+  "europepmc.org",
+  "www.europepmc.org",
+  "hal.science",
+  "hal.archives-ouvertes.fr",
+  "zenodo.org",
+  // Open-access publishers.
+  "journals.plos.org",
+  "plos.org",
+  "www.plos.org",
+  "elifesciences.org",
+  "www.elifesciences.org",
+  "frontiersin.org",
+  "www.frontiersin.org",
+  "mdpi.com",
+  "www.mdpi.com",
+  "copernicus.org",
+  "www.copernicus.org",
+  "olh.openlibhums.org",
+  "openlibhums.org",
+  "springeropen.com",
+  "www.springeropen.com",
+  "link.springer.com",
 ]);
 
 /** Hard stream cap for proxied PDFs (also enforced when Content-Length is absent). */

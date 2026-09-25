@@ -6,6 +6,7 @@ import {
   highlightWithinExcerpt, type AiEvidence, type AiWriteProposal } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Markdown } from "@/components/markdown/markdown";
+import { ScreenHead } from "@/components/screen-head";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 import { loadCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
@@ -67,7 +68,7 @@ function unresolvedSourceLabel(raw: string): string {
 }
 
 const label: Record<AiWriteProposal["kind"], string> = {
-  append_paper_note: "Append to paper note", create_vault_note: "Create vault note",
+  append_paper_note: "Append to paper note", create_vault_note: "Create note",
   create_log_entry: "Create log entry", paper_update: "Paper update",
   paper_field_value: "Extraction field value",
   reading_list_change: "Reading-list change", relation: "Graph relation",
@@ -196,14 +197,15 @@ export function AiProposalReviewScreen() {
   }
   if (loading) return <ScreenLoader />;
   return <section className="screen ai-review-screen">
-    <div className="screen-header"><div><p className="eyebrow">AI safety</p><h1>Review suggestions</h1><p className="muted">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p></div><Link className="btn-secondary" href="/settings">AI settings</Link></div>
+    <ScreenHead title="Review suggestions" eyebrow="AI safety"><Link className="btn-secondary" href="/settings">AI settings</Link></ScreenHead>
+    <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {!items.length ? <div className="card empty-state"><h2>Nothing to review</h2><p>New AI suggestions will appear here before they can change your research workspace.</p></div> : <>
-      <div className="ai-review-toolbar"><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong>{appendOnly.length > 1 && <button className="btn-primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve all safe additions</button>}</div>
+      <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <button className="btn-primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</button>}</div>
       <div className="ai-review-list">{items.map((item) => {
         const evidence = item.evidence ?? [];
         return <article className={`card ai-review-card${evidence.length ? " ai-review-card--split" : ""}`} key={item.id}>
-          <div className="ai-review-card-head"><div><span className="ai-kind">{label[item.kind]}</span><h2>{reviewHeading(item)}</h2></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>
+          <div className="ai-review-card-head"><div><span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span><h2>{reviewHeading(item)}</h2></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>
           <div className="ai-review-body">
             <div className="ai-review-proposed">
               <h3 className="ai-review-colhead">Proposed write</h3>
@@ -234,7 +236,7 @@ export function AiProposalReviewScreen() {
               })}
             </p>
           )}
-          <div className="ai-review-actions"><button className="btn-secondary danger" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="btn-primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</button></div>
+          <div className="ai-review-actions"><button className="btn-ghost btn-cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="btn-primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</button></div>
         </article>;
       })}</div>
     </>}

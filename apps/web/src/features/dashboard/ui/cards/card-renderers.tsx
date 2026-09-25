@@ -72,10 +72,13 @@ function AttentionList({
   items: DashboardStats["attention"];
   limit: number;
 }) {
-  const visible = items.slice(0, limit);
+  // The card's height sets how many rows fit; the rest wait behind "Show all",
+  // which scrolls inside the card rather than growing it past a phone screen.
+  const [all, setAll] = useState(false);
+  const visible = all ? items : items.slice(0, limit);
   const hidden = items.length - visible.length;
   return (
-    <ul className="dashboard-list">
+    <ul className={all ? "dashboard-list dashboard-list--all" : "dashboard-list"}>
       {visible.map((a) => (
         <li key={`${a.href}:${a.label}`}>
           <Link href={a.href} className="dashboard-list-row">
@@ -85,7 +88,11 @@ function AttentionList({
         </li>
       ))}
       {hidden > 0 && (
-        <li className="muted dashboard-list-more">+{hidden} more</li>
+        <li className="dashboard-list-more">
+          <button type="button" className="dashboard-list-more-btn" onClick={() => setAll(true)}>
+            Show all ({items.length})
+          </button>
+        </li>
       )}
     </ul>
   );
@@ -125,17 +132,27 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
       animateProgress={contentReady}
     />
   ),
+  // The big number is the finished count, so it is named wherever it shows:
+  // on a one-row tile the caption is hidden, and "0 running … 3" read as
+  // three of something unsaid.
   "experiments-summary": ({ stats, item }) => (
-    <Link href="/experiments" className="dashboard-stat-link">
+    <Link
+      href="/experiments"
+      className="dashboard-stat-link"
+      aria-label={`${stats.experiments.done} of ${stats.experiments.total} experiments done, ${stats.experiments.running} running`}
+    >
       <div className="dashboard-stat-row">
         <span className="dashboard-stat-count">
-          {stats.experiments.running} running
+          {stats.experiments.running} running · {stats.experiments.total} total
         </span>
-        <strong className="dashboard-stat-pct">{stats.experiments.done}</strong>
+        <strong className="dashboard-stat-pct">
+          {stats.experiments.done}
+          {item.h < 2 ? " done" : ""}
+        </strong>
       </div>
       {item.h >= 2 && (
         <span className="dashboard-stat-caption dashboard-stat-footer">
-          experiments done
+          {stats.experiments.done === 1 ? "experiment done" : "experiments done"}
         </span>
       )}
     </Link>

@@ -301,6 +301,14 @@ test(
       for (const line of cold.lines) {
         if (line.text.length > 0) assert.equal(line.confidence, 1);
       }
+      // The evidence the client scores a line from: per word, the readings and
+      // the dictionary's verdict on each (null with no dictionary installed).
+      for (const line of cold.lines) {
+        for (const word of line.words ?? []) {
+          assert.ok(word.candidates.length > 0);
+          if (word.known !== null) assert.equal(word.known.length, word.candidates.length);
+        }
+      }
     } finally {
       recogniser.dispose();
     }

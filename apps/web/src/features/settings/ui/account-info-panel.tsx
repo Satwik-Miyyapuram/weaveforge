@@ -96,9 +96,11 @@ export function AccountInfoPanel() {
     <div id="settings-account" className="card add-form account-info-panel settings-anchor" style={{ marginBottom: "24px" }}>
       <h3 className="settings-group">Account</h3>
       <p className="muted" style={{ margin: "4px 0 0" }}>
-        {hasOrgs
-          ? "Signed-in identity — useful when switching between test accounts."
-          : "This copy is working on your computer, with no account. Sign in to add a lab, sharing and another device."}
+        {user.providers.includes("local")
+          ? "This copy is working on your computer, with no account. Sign in to add a lab, sharing and another device."
+          : hasOrgs
+            ? "Signed-in identity — useful when switching between test accounts."
+            : "You are signed in. Labs and sharing are managed from the web app."}
       </p>
       <dl className="account-info-grid">
         {rows.map(({ label, value }) => (
@@ -107,15 +109,20 @@ export function AccountInfoPanel() {
             <dd>{value}</dd>
           </div>
         ))}
+        {/* The password is a row like the others. It used to sit below the
+            grid as a lone "Login password" label beside a button, reading as
+            a heading for a section that was not there. */}
+        {hasEmailPassword && (
+          <div className="account-info-row">
+            <dt>Password</dt>
+            <dd>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => { setPasswordError(null); setPasswordSuccess(false); setPasswordOpen(true); }}>
+                Change password
+              </button>
+            </dd>
+          </div>
+        )}
       </dl>
-      {hasEmailPassword && (
-        <div className="card-foot edit-actions account-password-actions">
-          <span className="muted">Login password</span>
-          <button type="button" className="btn-secondary" onClick={() => { setPasswordError(null); setPasswordSuccess(false); setPasswordOpen(true); }}>
-            Change password
-          </button>
-        </div>
-      )}
       {passwordOpen && hasEmailPassword && (
         <Modal title="Change login password" onClose={() => !passwordBusy && setPasswordOpen(false)}>
           <form className="crypto-recovery-modal-content" onSubmit={(event) => void changePassword(event)}>
@@ -126,7 +133,7 @@ export function AccountInfoPanel() {
             {passwordSuccess && <p className="success">Your login password was changed.</p>}
             <div className="button-row">
               <button type="submit" className="btn-primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</button>
-              <button type="button" className="btn-secondary" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</button>
+              <button type="button" className="btn-secondary btn-cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</button>
             </div>
           </form>
         </Modal>

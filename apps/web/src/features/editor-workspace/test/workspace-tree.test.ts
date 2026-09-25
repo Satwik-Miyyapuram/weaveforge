@@ -16,7 +16,7 @@ import {
 // application layer never compares a kind against `"paper"`.
 import { memberRank } from "../ui/kind";
 
-const EMPTY: WorkspaceTreeInput = { notes: [], papers: [], reportSections: [] };
+const EMPTY: WorkspaceTreeInput = { notes: [], papers: [], reportSections: [], logEntries: [] };
 
 function roots(input: Partial<WorkspaceTreeInput> = {}) {
   const tree = buildWorkspaceTree({ ...EMPTY, ...input });
@@ -28,16 +28,50 @@ function everyNode(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeNode[] {
   return nodes.flatMap((node) => [node, ...everyNode(node.children)]);
 }
 
-test("three roots, always, so an empty workspace still shows where things go", () => {
+test("four roots, always, so an empty workspace still shows where things go", () => {
   const { tree } = roots();
   assert.deepEqual(
     tree.map((node) => node.label),
-    ["Notes", "Papers", "Report"],
+    ["Notes", "Papers", "Report", "Log"],
   );
   assert.deepEqual(
     tree.map((node) => node.children.length),
-    [0, 0, 0],
+    [0, 0, 0, 0],
   );
+});
+
+/**
+ * A log entry is a document, dated rather than titled.
+ *
+ * It became one because the logbook was the only kind of markdown in the app
+ * you could not open in the editor: the entries are markdown, so they belong in
+ * the same pane as the notes. The row's label *is* its date, so the newest sort
+ * first with no separate sort key to disagree with the name.
+ */
+test("log entries are documents under a Log root, newest first", () => {
+  const { tree } = roots({
+    logEntries: [
+      { id: "l1", entryDate: "2026-03-14" },
+      { id: "l2", entryDate: "2026-04-02" },
+      { id: "l3", entryDate: "2026-01-09" },
+    ],
+  });
+  const log = tree[3]!;
+  assert.equal(log.label, "Log");
+  assert.deepEqual(
+    log.children.map((node) => node.label),
+    ["2026-04-02", "2026-03-14", "2026-01-09"],
+  );
+  assert.deepEqual(
+    log.children.map((node) => [node.kind, node.id, node.path]),
+    [
+      ["log_entry", "l2", "logbook/2026/04/2026-04-02--l2.log.md"],
+      ["log_entry", "l1", "logbook/2026/03/2026-03-14--l1.log.md"],
+      ["log_entry", "l3", "logbook/2026/01/2026-01-09--l3.log.md"],
+    ],
+  );
+  // A document, so quick open searches it and the explorer can open a tab.
+  assert.equal(flattenTree(tree).some((node) => node.kind === "log_entry"), true);
 });
 
 test("a note nests under its parent and carries the path the mirror would write", () => {

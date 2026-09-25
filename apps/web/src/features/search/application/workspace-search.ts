@@ -1,7 +1,12 @@
 import {
   LARGE_CORPUS_WARNING,
   buildWikiGraph,
+  HYBRID_VECTOR_WEIGHT,
+  coveredHits,
   fuseRankings,
+  gateVectorHits,
+  queryTermCount,
+  stripStopwords,
   findRelated,
   graphDegrees,
   graphDensity,
@@ -13,6 +18,7 @@ import {
   type IWorkspaceSearchIndex,
   type GraphDensity,
   type PdfIndexSource,
+  type RelatedArm,
   type RelatedResult,
   type SearchDoc,
   type SearchHit,
@@ -29,7 +35,7 @@ import { persistSearchIndex } from "../infrastructure/index-cache-policy";
 import { SearchIndexState } from "./search-index-state";
 import { projectSearchDocuments } from "./search-projection";
 import { pruneMissingPaperTexts } from "./pdf-text-pruning";
-import { collapseToEntities } from "./collapse-to-entities";
+import { collapseToEntities, distinctRelated } from "./collapse-to-entities";
 
 /**
  * Owns the lifecycle of the workspace search index: build from a snapshot,
@@ -44,6 +50,11 @@ import { collapseToEntities } from "./collapse-to-entities";
  * the fields and their transitions (`search-index-state.ts`), and the
  * related-document helper (`collapse-to-entities.ts`).
  */
+/** Most documents the vector arm may add to one answer. */
+const SEMANTIC_MAX_HITS = 30;
+/** Fallback noise floor, for an encoder that does not declare its own (MiniLM's). */
+const SEMANTIC_MIN_SCORE = 0.3;
+
 export class WorkspaceSearch {
   /**
    * The index and what it was built from.
@@ -58,6 +69,12 @@ export class WorkspaceSearch {
   private settings: SearchSettings | undefined;
   /** The optional semantic arm; null unless the user turned it on. */
   private semantic: SemanticIndex | null = null;
+  /**
+   * Called after the semantic arm re-embedded something, so its owner can
+   * persist the vectors. Without it a reload would find the stored revision
+   * stale and re-embed the whole corpus to catch up with one edited note.
+   */
+  onSemanticChanged: (() => void) | null = null;
 
   constructor(
     private readonly deps: {
@@ -234,6 +251,23 @@ export class WorkspaceSearch {
     // Last, and only the kinds actually refreshed — the whole point of the pair
     // of calls. See `SearchIndexState.settleStale`.
     this.state.settleStale(kinds);
+
+    // The keyword index was the only thing kept current here; the semantic arm
+    // kept the vectors of whatever existed when it was switched on, so a new or
+    // edited note was invisible to meaning-search until the next full rebuild.
+    this.syncSemantic(fresh, (id) => (wanted as ReadonlySet<string>).has(id.slice(0, id.indexOf(":"))));
+  }
+
+  /** Background re-embed of one slice; failures cost freshness, never search. */
+  private syncSemantic(docs: readonly SearchDoc[], owns: (docId: string) => boolean): void {
+    const semantic = this.semantic;
+    if (!semantic?.ready) return;
+    void semantic
+      .sync(docs, owns)
+      .then((changed) => {
+        if (changed && this.semantic === semantic) this.onSemanticChanged?.();
+      })
+      .catch(() => undefined);
   }
 
   /**
@@ -311,7 +345,16 @@ export class WorkspaceSearch {
 
     let nearest: { id: string; score: number }[] = [];
     try {
-      nearest = await semantic.search(query, options.limit ?? 30);
+      // Capped and floored. The fused list is also a *filter* (the papers list
+      // shows only what it returns), and with MiniLM nearly every document in a
+      // topical corpus clears the index's 0.2 floor — asking for 500 made every
+      // query "match" most of the library. The floor is the encoder's own
+      // (see `embedding-models.ts`): cosine scales differ by model.
+      // A confident best hit also keeps its next few neighbours; see `gateVectorHits`.
+      nearest = gateVectorHits(
+        await semantic.search(query, Math.min(options.limit ?? 30, SEMANTIC_MAX_HITS)),
+        semantic.minScore ?? SEMANTIC_MIN_SCORE,
+      );
     } catch {
       // The encoder failing is not a reason to return nothing; the keyword arm
       // is the one that always works.
@@ -321,16 +364,30 @@ export class WorkspaceSearch {
     // Semantic hits are ids; the stored fields live in the keyword index, so a
     // document it does not hold cannot be rendered and is dropped.
     const known = new Map(keyword.map((hit) => [hit.id, hit]));
+    // The vector arm knows nothing of `kinds`; without this filter a list asking
+    // for papers was handed notes and annotations the keyword arm had excluded.
+    const kinds = options.kinds ? new Set<string>(options.kinds) : null;
     const vectorHits = nearest.flatMap((hit) => {
       const existing = known.get(hit.id);
       if (existing) return [existing];
       const rebuilt = this.state.index?.hitById(hit.id);
-      return rebuilt ? [rebuilt] : [];
+      if (!rebuilt || (kinds && !kinds.has(rebuilt.kind))) return [];
+      return [rebuilt];
     });
+
+    // The keyword arm as fused is stricter than the one shown without vectors:
+    // function words out, and a hit must match half of what is left. Measured
+    // on 98 queries this is the difference between fusion hurting and helping
+    // (see `hybrid-fusion.ts`).
+    const content = stripStopwords(query);
+    const fusedKeyword = coveredHits(
+      content === query ? keyword : this.search(content, options),
+      queryTermCount(content),
+    ).map((hit) => known.get(hit.id) ?? hit);
 
     // Keyword first, so its excerpt is the one that survives fusion.
     return fuseRankings(
-      [{ items: keyword }, { items: vectorHits }],
+      [{ items: fusedKeyword }, { items: vectorHits, weight: HYBRID_VECTOR_WEIGHT }],
       (hit) => hit.id,
       { limit: options.limit ?? 30 },
     );
@@ -354,7 +411,9 @@ export class WorkspaceSearch {
   related(seedId: string, limit = 8): RelatedResult[] {
     if (!this.state.graph || !this.state.index) return [];
     const index = this.state.index;
-    return findRelated(seedId, {
+    // Asked for more than will be shown, so that folding duplicates below
+    // does not leave the list short.
+    const found = findRelated(seedId, {
       graph: this.state.graph,
       // More-like-this: search the seed's own title, which is the one piece of
       // its text available without holding the corpus in memory here. The id
@@ -369,7 +428,62 @@ export class WorkspaceSearch {
           (hit) => index.hitById(`paper:${hit.entityId}`)?.id ?? null,
         ).slice(0, max);
       },
-    }, limit);
+    }, limit * 2);
+    return distinctRelated(found, (id) => index.hitById(id), limit, seedId);
+  }
+
+  /**
+   * `related`, with documents close in meaning added to it.
+   *
+   * Links and wording each find a kind of related document; meaning finds
+   * another — a note titled "Tuesday" whose body is about attention heads has
+   * no title words to match and may have no links yet. So when the semantic arm
+   * is on, the seed's nearest passages by meaning are fused with whatever links
+   * or wording found. Graph answers used to be returned untouched, which hid
+   * every semantically close paper on any seed with three links; now they are
+   * fused too, and each entry says which methods found it (`arms`), so a
+   * reader can tell a linked paper from one that is only about the same thing.
+   */
+  async relatedHybrid(seedId: string, limit = 8): Promise<RelatedResult[]> {
+    const base = this.related(seedId, limit);
+    const semantic = this.semantic;
+    const index = this.state.index;
+    if (!semantic?.ready || !index) return base;
+
+    const seed = index.hitById(seedId);
+    if (!seed) return base;
+    // The seed's own vectors when it has them; its title embedded as a query
+    // when it does not (a document added since the arm last synced).
+    let nearest = semantic.nearestTo(seedId, limit * 8);
+    if (nearest.length === 0) {
+      try {
+        nearest = await semantic.search(seed.title, limit * 8);
+      } catch {
+        return base;
+      }
+    }
+    const hits = nearest.flatMap((hit) => {
+      const doc = index.hitById(hit.id);
+      return doc ? [{ ...doc, score: hit.score }] : [];
+    });
+    const vector = collapseToEntities(hits, seed, (hit) => index.hitById(`paper:${hit.entityId}`)?.id ?? null);
+    if (vector.length === 0) return base;
+
+    const baseArm = new Map(base.map((hit) => [hit.id, hit.arm]));
+    const byMeaning = new Map(vector.map((hit) => [hit.id, hit.score]));
+    const fused = fuseRankings([{ items: base }, { items: vector }], (hit) => hit.id, { limit: limit * 2 });
+    const results = fused.map((hit) => {
+      const arms: RelatedArm[] = [];
+      const found = baseArm.get(hit.id);
+      if (found) arms.push(found);
+      const similarity = byMeaning.get(hit.id);
+      if (similarity !== undefined) arms.push("semantic");
+      return { id: hit.id, score: hit.score, arm: arms[0] ?? "semantic", arms, similarity };
+    });
+    return distinctRelated(results, (id) => index.hitById(id), limit, seedId, (kept, dropped) => {
+      for (const arm of dropped.arms) if (!kept.arms.includes(arm)) kept.arms.push(arm);
+      if (dropped.similarity !== undefined && (kept.similarity ?? -1) < dropped.similarity) kept.similarity = dropped.similarity;
+    });
   }
 
   /** The link graph behind ranking and related-document lookup. */
@@ -416,6 +530,8 @@ export class WorkspaceSearch {
     // semantic arm's corpus until the next full build read it back from storage.
     this.state.pdfTexts = [...this.state.pdfTexts.filter((s) => s.paperId !== source.paperId), source];
     this.state.documentCount = this.state.documentCount - previous + docs.length;
+    const prefix = `pdf:${source.paperId}`;
+    this.syncSemantic(docs, (id) => id.startsWith(prefix));
   }
 
   /**

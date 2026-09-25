@@ -282,6 +282,28 @@ export interface DesktopBridge {
    * because an installed shell may predate it.
    */
   setWindowFocus?(on: boolean): void;
+
+  /**
+   * Post one line to the shell's application log, and read it back.
+   *
+   * The record has to outlive the window: a page that has died cannot report
+   * why, which is exactly the case the log exists for, so the file is written by
+   * the main process and the page is only a source. Neither call names a path —
+   * see `channels.ts` for why that matters.
+   *
+   * Optional because an installed shell may predate them; the page falls back to
+   * its in-memory console buffer when they are absent, which is what the browser
+   * build has anyway.
+   */
+  reportAppLog?(entry: {
+    level: "error" | "warn" | "info";
+    source: string;
+    message: string;
+    detail?: string;
+  }): void;
+  readAppLog?(): Promise<{ file: string; text: string; complete: boolean }>;
+  /** Show the log file in the operating system's file browser. */
+  revealAppLog?(): Promise<void>;
 }
 
 /** One message to the pen's actuator: velocity in CSS px/ms, pressure in [0, 1]. */
@@ -299,7 +321,17 @@ export interface DesktopInkRequest {
 
 export interface DesktopInkResult {
   engine: string;
-  lines: { text: string; confidence: number; alternatives?: string[] }[];
+  lines: {
+    text: string;
+    confidence: number;
+    alternatives?: string[];
+    /** Each word's readings and the OS dictionary's verdict on each; see `decodeInkWords`. */
+    words?: {
+      candidates: string[];
+      known?: boolean[] | null;
+      join?: string | null;
+    }[];
+  }[];
   ms: number;
 }
 

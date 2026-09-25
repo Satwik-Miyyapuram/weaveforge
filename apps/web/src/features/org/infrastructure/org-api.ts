@@ -23,7 +23,7 @@ function migrationHint(message: string): Error {
     message.includes("Could not find the function")
   ) {
     return new Error(
-      "Database update required — run supabase db push (migrations 0030–0034) and try again.",
+      "Database update required — apply the schema migrations (npm run migrate:schema, 0030–0034) and try again.",
     );
   }
   return new Error(message);

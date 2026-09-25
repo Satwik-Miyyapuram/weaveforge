@@ -9,6 +9,7 @@ import {
   INK_MAX_POINTS,
   INK_NIB_DEFAULT_PT,
   INK_NIB_WIDTHS_PT,
+  inkNoteWidthToPdfPoints,
   inkPathJsonSize,
   inkPathsBounds,
   inkPathsHitTest,
@@ -20,6 +21,7 @@ import {
   simplifyInkPath,
   translateInkPaths,
 } from "../../src/reader/ink-stroke.js";
+import { INK_PEN_WIDTH } from "../../src/ink/width.js";
 
 /** A hand-drawn-ish stroke: a sine wave sampled far denser than its shape needs. */
 function denseStroke(samples: number, amplitude = 6): number[] {
@@ -125,6 +127,15 @@ test("INK_NIB_WIDTHS_PT is the ink note's nib set, in points", () => {
   for (const nib of INK_NIB_WIDTHS_PT) {
     assert.equal(clampInkWidth(nib), nib, `${nib} pt must survive the clamp`);
   }
+});
+
+test("a nib converts one way, from the note's unit to points", () => {
+  // The bar hands the reader a note nib; the reader stores points. One
+  // conversion, so 0.3 mm is the same line on paper and on a PDF page.
+  assert.equal(inkNoteWidthToPdfPoints(3), INK_NIB_WIDTHS_PT[1]);
+  assert.equal(inkNoteWidthToPdfPoints(INK_PEN_WIDTH), 0.85);
+  // A width nobody could have chosen is a missing width, not a hairline.
+  assert.equal(inkNoteWidthToPdfPoints(Number.NaN), INK_DEFAULT_WIDTH);
 });
 
 test("meanPressure ignores samples from devices that report nothing", () => {

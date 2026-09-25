@@ -36,6 +36,16 @@ export class UpdatePaperUseCase {
     return this.mutate(id, (p) => ({ ...p, status }));
   }
 
+  /**
+   * Rename the paper. Blank is refused rather than stored: a paper with no
+   * title has nothing to be listed, linked or cited by.
+   */
+  async setTitle(id: string, title: string): Promise<Paper> {
+    const trimmed = title.replace(/\s+/g, " ").trim();
+    if (!trimmed) throw new PaperValidationError("A paper needs a title.");
+    return this.mutate(id, (p) => ({ ...p, title: trimmed }));
+  }
+
   /** Reader-authored summary; capped by word count to keep it an abstract, not a doc. */
   static readonly SUMMARY_MAX_WORDS = 250;
 
@@ -69,6 +79,29 @@ export class UpdatePaperUseCase {
   }
 
   /** Replace the paper's tags (normalized). */
+  /**
+   * Remember where this paper's PDF came from.
+   *
+   * A paper added from a reference list often has a DOI and a landing page
+   * and nothing the reader can open; when the person finds the PDF themselves
+   * and fetches it by address, that address is kept as the paper's open-access
+   * copy — the same field a metadata source fills — so the reader resolves it
+   * on every later open, on any device, without asking again. Only https;
+   * blank clears it.
+   */
+  async setPdfSource(id: string, url: string | undefined): Promise<Paper> {
+    const trimmed = url?.trim();
+    if (trimmed && !/^https:\/\//i.test(trimmed)) {
+      throw new PaperValidationError("A PDF address must start with https://.");
+    }
+    return this.mutate(id, (p) => {
+      const metadata = { ...(p.metadata ?? {}) };
+      if (trimmed) metadata.openAccessPdf = trimmed;
+      else delete metadata.openAccessPdf;
+      return { ...p, metadata };
+    });
+  }
+
   async setTags(id: string, tags: string[]): Promise<Paper> {
     return this.deps.tags.setManualTags(id, tags);
   }

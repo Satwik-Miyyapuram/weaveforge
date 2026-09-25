@@ -32,6 +32,7 @@ export function EntityCard({
   actions,
   onOpen,
   openLabel = "Open",
+  menu,
 }: {
   as?: "div" | "li";
   id?: string;
@@ -50,6 +51,15 @@ export function EntityCard({
   actions?: ReactNode;
   onOpen?: () => void;
   openLabel?: string;
+  /**
+   * The overflow menu, when the card has one.
+   *
+   * Replaces the inline delete / actions / open controls rather than joining
+   * them: those were three targets per card and two of them destructive. A card
+   * that passes a menu keeps only the status select and the menu, and the card
+   * body is the way in.
+   */
+  menu?: ReactNode;
 }) {
   const interactive = Boolean(onActivate);
   const shell = [
@@ -61,7 +71,7 @@ export function EntityCard({
     .filter(Boolean)
     .join(" ");
 
-  const showFoot = Boolean(onDelete || status || actions || onOpen);
+  const showFoot = Boolean(onDelete || status || actions || onOpen || menu);
 
   function stop(e: MouseEvent | KeyboardEvent) {
     e.stopPropagation();
@@ -111,7 +121,7 @@ export function EntityCard({
 
       {showFoot && (
         <div className="card-foot entity-card-foot" onClick={stop} onKeyDown={stop}>
-          {onDelete ? (
+          {onDelete && !menu ? (
             <button
               type="button"
               className="entity-icon-btn danger card-del"
@@ -129,8 +139,12 @@ export function EntityCard({
             {status != null && (
               <div className="entity-card-status">{status}</div>
             )}
+            {/* A card with a menu still keeps whatever `actions` it has: those are
+                live controls (a comment count), not the share and delete buttons
+                the menu absorbed. */}
             {actions}
-            {onOpen && (
+            {menu}
+            {onOpen && !menu && (
               <button
                 type="button"
                 className="entity-icon-btn entity-open-icon"

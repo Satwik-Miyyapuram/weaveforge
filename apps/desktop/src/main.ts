@@ -17,15 +17,12 @@ import {
   APP_SCHEME,
   appHeaders,
   contentTypeFor,
+  isPageRequest,
   resolveAppFile,
 } from "./app-protocol";
-import type { LocalClient } from "./local-db";
-import { LocalDbBackups, readBackup } from "./local-db-backup";
-import { LocalDbHost } from "./local-db-host";
-import { applyDeferredMove, moveAside } from "./local-db-reset";
 import { readHomeConfig, writeHomeConfig } from "./home-config";
 import {
-  adoptRoot,
+  chooseRoot,
   currentRoot,
   forgetRoot,
   listVaultFiles,
@@ -40,12 +37,15 @@ import {
   writeVaultBytes,
   writeVaultFile,
 } from "./vault-handlers";
+import { registerMainAppLog } from "./main-app-log";
 import { registerMainInk } from "./main-ink";
+import { registerMainLocalDb } from "./main-local-db";
 import { registerMainLocalApi } from "./main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
-import { compileTex, probeTex, type TexSourceFile } from "./tex";
+import { probeTex } from "./tex";
+import { registerMainTex } from "./main-tex";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
 import {
@@ -54,6 +54,7 @@ import {
   mayOpenExternally,
 } from "./handlers";
 import { answerRelay } from "./app-relays";
+import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
 import { preferenceStore, secretStore } from "./main-stores";
@@ -62,6 +63,7 @@ import { installMenu, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
 import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
 import { runBoundedQuit } from "./quit";
+import { createAppLog, type AppLog } from "./app-log";
 
 /**
  * The desktop shell.
@@ -132,6 +134,83 @@ const APP_ORIGIN = originOf(APP_URL);
  */
 const ipc = registerGuardedIpc(APP_ORIGIN, ipcMain);
 
+/**
+ * The application log, and the two lines of setup it needs.
+ *
+ * Created here rather than inside `whenReady` so the console is captured from
+ * the first line this process prints: the failures worth having on disk are the
+ * ones that happen while the shell is still coming up. `record` needs no ready
+ * app — only `file` does, and that is read lazily when the page asks.
+ *
+ * The `dir` is resolved per call because `app.getPath("userData")` is only
+ * valid once Electron has a name for the app, which happens after this module
+ * is evaluated — so `createAppLog` is handed a function to call rather than the
+ * path itself.
+ */
+const appLog: AppLog = createAppLog({ dir: () => app.getPath("userData") });
+appLog.installConsoleCapture();
+// The file is the record and the ring is a window onto it: on a fresh launch
+// that window starts empty, so the panel would say "nothing has been logged"
+// while the previous session's failures sat in the file beside it — which is
+// exactly the session a reader is asking about when the window died. The read
+// cannot happen at module load (`getPath` needs a ready app), so it is kicked
+// off here and awaited by nobody: a log that has not finished restoring is a
+// log with fewer lines, not a launch that waits on a disk.
+//
+// The catch is not decoration. This file installs an `unhandledRejection`
+// listener a few lines below that records the reason *and leaves the process
+// running*, so a rejection here would be a line in the log rather than a crash —
+// but it would also be the one failure this whole feature exists to make
+// legible, and it would be legible only as "unhandledRejection". The read is
+// allowed to fail; it is not allowed to fail silently.
+void app.whenReady().then(() =>
+  appLog.restoreFromDisk().catch((cause: unknown) => {
+    appLog.record({
+      level: "warn",
+      source: "app-log",
+      message: "the previous session's log could not be read back",
+      detail: cause instanceof Error ? cause.message : String(cause),
+    });
+  }),
+);
+
+/**
+ * One record, for a failure nobody else is going to print.
+ *
+ * The caller is `unhandledRejection` below; this is shared rather than inlined
+ * so the shape of a fatal entry is stated once.
+ */
+function recordFatal(what: string, cause: unknown): void {
+  appLog.record({
+    level: "error",
+    source: "uncaught",
+    message: cause instanceof Error ? (cause.stack ?? cause.message) : String(cause),
+    detail: what,
+  });
+}
+
+/**
+ * An unhandled rejection is recorded, because nothing else will print it.
+ *
+ * There is deliberately **no** `uncaughtException` listener here, and the two
+ * were the same thing for a while. Registering one suppresses Node's default
+ * action — print the error and exit — so a shell that would have died on a
+ * crash instead carried on in an undefined state that the reader has no way to
+ * see. That is a worse outcome than the lost log line it bought, and the log
+ * line was not even reliably bought: `flush()` is an unbounded promise chain,
+ * so `void`-ing it here waited for nothing while the process was free to exit
+ * with the write still queued.
+ *
+ * What survives of the original idea is the console capture above: an uncaught
+ * exception is still printed by Node, that print still reaches the log through
+ * the wrapped console, and the process still dies the way it should. A
+ * rejection is different — it is printed by nobody unless it is listened for —
+ * so this one stays, and it only records.
+ */
+process.on("unhandledRejection", (reason) => {
+  recordFatal("unhandledRejection", reason);
+});
+
 /** Where the Help menu sends a reader. Matches the app's own docs link. */
 const DOCS_URL = "https://www.weaveforge.org/docs/";
 
@@ -147,10 +226,18 @@ let loopback: import("node:http").Server | null = null;
  * and a large vault's search index both live under it, and an isolate that
  * hits the cap is killed outright, which costs far more than the difference.
  */
-app.commandLine.appendSwitch(
-  "js-flags",
-  "--max-old-space-size=512 --optimize-for-size",
-);
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=512");
+/*
+ * Not `--optimize-for-size`. It was here with the heap cap, and it cost the
+ * encoder worker most of its speed: the ONNX runtime is WebAssembly, and a
+ * forward pass measured ~2 s per passage in this shell against 0.12 s natively
+ * — a corpus that should embed in minutes took the better part of an hour.
+ *
+ * And SharedArrayBuffer, which the app's origin is not cross-origin isolated
+ * enough to get on its own: with it the runtime splits each pass across
+ * threads (see `embedding-worker.ts`). Nothing else here posts shared memory.
+ */
+app.commandLine.appendSwitch("enable-features", "SharedArrayBuffer");
 app.commandLine.appendSwitch("disable-speech-api");
 app.commandLine.appendSwitch("disable-print-preview");
 app.commandLine.appendSwitch(
@@ -301,6 +388,9 @@ ipc.on(CHANNELS.windowFocus, (_event, on: unknown) => {
   window.setFullScreen(focus);
 });
 
+/** The application log's channels (§main-app-log). */
+registerMainAppLog({ ipc, appLog });
+
 ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) =>
   preferenceStore().read(name),
 );
@@ -373,12 +463,16 @@ function serveBundle(): void {
     const file = resolveAppFile(BUNDLE, request.url, (candidate) =>
       fs.statSync(candidate, { throwIfNoEntry: false })?.isFile() ?? false,
     );
-    if (!file) return new Response(null, { status: 404 });
+    const notFound = path.join(BUNDLE, "404.html");
+    const served =
+      file ??
+      (isPageRequest(request.url) && fs.existsSync(notFound) ? notFound : null);
+    if (!served) return new Response(null, { status: 404 });
 
-    const response = await net.fetch(pathToFileURL(file).toString());
+    const response = await net.fetch(pathToFileURL(served).toString());
     return new Response(response.body, {
-      status: response.status,
-      headers: appHeaders(contentTypeFor(file)),
+      status: file ? response.status : 404,
+      headers: appHeaders(contentTypeFor(served)),
     });
   });
 }
@@ -401,113 +495,12 @@ ipc.handle(
     ),
 );
 
-/**
- * The local database, opened on first use under the app's own directory.
- *
- * PGlite is imported here and nowhere else, and lazily: it is a WASM Postgres,
- * and an app that stays online for its whole life should never pay to load it.
- */
-const localDbDir = path.join(app.getPath("userData"), "local-db");
-
-/**
- * Copies of the database, under the app's directory and under the workspace
- * folder's `.weaveforge/` when there is one; see `local-db-backup.ts`. Taken
- * every so often while something has changed, and on the way out.
- */
-const BACKUP_EVERY_MS = 10 * 60 * 1000;
-const localDbBackups = new LocalDbBackups({
-  dirs: () => {
-    const dirs = [path.join(app.getPath("userData"), "local-db-backups")];
-    const root = vault.root?.path;
-    if (root) dirs.push(path.join(root, ".weaveforge", "db-backups"));
-    return dirs;
-  },
+/** The local database (§main-local-db). */
+const { localDb, shutDownLocalDb } = registerMainLocalDb({
+  ipc,
+  workspaceRoot: () => vault.root?.path,
+  rootRestored: () => rootRestored,
 });
-
-/** Start the engine on `localDbDir`, from a backup's bytes when given some. */
-async function openEngine(loadDataDir?: Blob): Promise<LocalClient> {
-  const { PGlite, types } = await import("@electric-sql/pglite");
-  const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
-  return (await PGlite.create({
-    dataDir: localDbDir,
-    extensions: { pgcrypto },
-    // Rows cross to the renderer shaped as PostgREST would send them, and the
-    // repositories were written against that: a `date` is its `YYYY-MM-DD`
-    // text and a timestamp is ISO text. PGlite's default turns both into
-    // `Date` objects, which survive the bridge -- and a logbook entry's day
-    // rendered as one was React's "objects are not valid as a child".
-    parsers: {
-      [types.DATE]: (x) => x,
-      [types.TIMESTAMPTZ]: (x) => new Date(x).toISOString(),
-    },
-    ...(loadDataDir ? { loadDataDir } : {}),
-  })) as unknown as LocalClient;
-}
-
-const localDb = new LocalDbHost({
-  migrations: [
-    path.join(__dirname, "migrations"),
-    path.join(__dirname, "migrations-local"),
-  ],
-  dataDir: localDbDir,
-  open: async () => {
-    // A reset the previous run could only write down; see `local-db-reset.ts`.
-    applyDeferredMove(localDbDir);
-    // The folder's backups are only findable once the folder is known, and
-    // the folder is taken up in the background at boot.
-    await rootRestored;
-    // No database at all -- a fresh install, or a reset -- but a backup: the
-    // backup is what the person had, so it is what they get back.
-    if (!fs.existsSync(localDbDir)) {
-      const latest = await localDbBackups.latest();
-      if (latest) {
-        console.log(`[local-db] no database; restoring from ${latest}`);
-        return openEngine(await readBackup(latest));
-      }
-    }
-    return openEngine();
-  },
-  recover: async (cause) => {
-    const latest = await localDbBackups.latest();
-    if (!latest) return null;
-    console.warn(`[local-db] open failed (${String(cause)}); restoring from ${latest}`);
-    // The engine that failed may still hold the directory. When it does, the
-    // move waits for a process that has never opened it -- this one,
-    // relaunched -- and that boot finds no directory and restores (above).
-    if ((await moveAside(localDbDir)) === "deferred") {
-      app.relaunch();
-      app.exit(0);
-      return null;
-    }
-    return { client: await openEngine(await readBackup(latest)), from: latest };
-  },
-  discard: async () => {
-    // As in `recover`, for the button on the page.
-    if ((await moveAside(localDbDir)) === "deferred") {
-      app.relaunch();
-      app.exit(0);
-    }
-  },
-});
-
-/** Write a backup if anything changed; never throws, never opens the database. */
-async function backUpLocalDb(): Promise<void> {
-  try {
-    const blob = await localDb.snapshot();
-    if (!blob) return;
-    const written = await localDbBackups.take({ dumpDataDir: async () => blob });
-    if (written.length > 0) console.log(`[local-db] backed up to ${written.join(", ")}`);
-  } catch (error) {
-    console.warn(`[local-db] backup failed: ${String(error)}`);
-  }
-}
-setInterval(() => void backUpLocalDb(), BACKUP_EVERY_MS).unref();
-
-ipc.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
-  localDb.query(sql, params),
-);
-ipc.handle(CHANNELS.dbState, () => ({ ok: true, value: localDb.state() }));
-ipc.handle(CHANNELS.dbReset, () => localDb.reset());
 
 /**
  * The workspace folder.
@@ -553,9 +546,36 @@ const rootRestored: Promise<void> = preferenceStore()
     return (await readHomeConfig(app.getPath("home"))).vaultRoot;
   })
   .then((remembered) => restoreRoot(vault, remembered, rememberRoot))
-  .then((root) => (root ? vaultWatcher.start(root.path) : null))
+  .then((root) => {
+    // A folder remembered from the last run is a connected folder from this one,
+    // so the menu says so before the window is even shown.
+    if (root) vaultWatcher.start(root.path);
+  })
   .catch(() => null)
   .then(() => undefined);
+
+/**
+ * Put the workspace folder in the menu, whatever it is now.
+ *
+ * Called at startup, when a folder is chosen, and when one is forgotten: the
+ * menu is a picture of the state, and a picture drawn once is how the File menu
+ * went on saying "Choose workspace folder…" after a folder was connected.
+ */
+function refreshMenu(): void {
+  installMenu({
+    chooseFolder: async () => {
+      await chooseWorkspaceFolder();
+    },
+    workspace: () => vault.root?.path ?? null,
+    openFolder: async () => {
+      const root = vault.root?.path;
+      if (root) await shell.openPath(root);
+    },
+    checkForUpdates: () => offerUpdate({ tellWhenCurrent: true }),
+    docsUrl: DOCS_URL,
+    goTo: (route) => routeTo(mainWindow, APP_URL, route),
+  });
+}
 
 /**
  * Ask for a workspace folder and adopt what comes back.
@@ -575,12 +595,13 @@ async function chooseWorkspaceFolder() {
         properties: ["openDirectory", "createDirectory"],
       });
   // A dismissed dialog is the user declining, not a failure.
-  const adopted = await adoptRoot(
+  const adopted = await chooseRoot(
     vault,
     result.canceled ? null : (result.filePaths[0] ?? null),
     rememberRoot,
   );
   if (adopted.ok && adopted.value) vaultWatcher.start(adopted.value.path);
+  refreshMenu();
   return adopted;
 }
 
@@ -589,7 +610,9 @@ ipc.handle(CHANNELS.vaultChoose, () => chooseWorkspaceFolder());
 ipc.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
 ipc.handle(CHANNELS.vaultForget, () => {
   vaultWatcher.stop();
-  return forgetRoot(vault, rememberRoot);
+  const forgotten = forgetRoot(vault, rememberRoot);
+  refreshMenu();
+  return forgotten;
 });
 ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) =>
   readVaultFile(vault, at),
@@ -663,31 +686,7 @@ ipc.handle(CHANNELS.texProbe, async () => {
  */
 const mainInk = registerMainInk({ ipc });
 
-ipc.handle(
-  CHANNELS.texCompile,
-  async (_event, files: unknown, entryFile: unknown) => {
-    // The page names the files; `compileTex` refuses any path that would leave
-    // the temporary directory it makes, so nothing here is written near the
-    // reader's own work.
-    if (!Array.isArray(files) || typeof entryFile !== "string") {
-      return { ok: false, message: "That is not a project to compile." };
-    }
-    try {
-      return {
-        ok: true,
-        value: await compileTex(files as TexSourceFile[], entryFile),
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "The compile could not be started.",
-      };
-    }
-  },
-);
+registerMainTex({ ipc });
 
 ipc.handle(CHANNELS.vaultCommit, async () => {
   // The setting is read here rather than sent by the renderer: a window that
@@ -696,7 +695,6 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
   const enabled = await preferenceStore().read("vault-git");
   return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
-
 
 /**
  * The one thing `will-quit` waits for, and it is not allowed to wait forever.
@@ -718,7 +716,7 @@ app.on("will-quit", (event) => {
   runBoundedQuit({
     // A last copy first, then the close: the copy is what survives a close
     // that does not finish, and both are inside the bound.
-    cleanup: () => backUpLocalDb().then(() => localDb.close()),
+    cleanup: shutDownLocalDb,
     exit: () => app.exit(0),
   });
 });
@@ -741,18 +739,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
-    // Rewrite CORS headers for remote API calls from packaged custom app:// scheme
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      const responseHeaders = { ...details.responseHeaders };
-      if (details.url.includes("weaveforge.org")) {
-        responseHeaders["access-control-allow-origin"] = ["*"];
-        responseHeaders["access-control-allow-headers"] = ["*"];
-        responseHeaders["access-control-allow-methods"] = [
-          "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-        ];
-      }
-      callback({ responseHeaders });
-    });
+    // The API's CORS is settled here, not by the server's allow-list: the
+    // installed app must sign in whether or not the deployed Caddyfile names
+    // `app://weaveforge` today. See `api-cors.ts` for what is rewritten and why.
+    installApiCors(session.defaultSession, APP_ORIGIN);
 
     if (bundled) serveBundle();
     // Started before the window, so a sign-in cannot come back to a port that
@@ -769,16 +759,15 @@ if (!app.requestSingleInstanceLock()) {
     // and for builds with no feed behind them.
     void realUpdater().then((updater) => {
       if (updater)
-        startAutoUpdate({ updater, window: () => mainWindow, enabled: true });
+        startAutoUpdate({
+          updater,
+          window: () => mainWindow,
+          enabled: true,
+          // Closed before the installer exists, not raced against its kill.
+          prepare: shutDownLocalDb,
+        });
     });
-    installMenu({
-      chooseFolder: async () => {
-        await chooseWorkspaceFolder();
-      },
-      checkForUpdates: () => offerUpdate({ tellWhenCurrent: true }),
-      docsUrl: DOCS_URL,
-      goTo: (route) => routeTo(mainWindow, APP_URL, route),
-    });
+    refreshMenu();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

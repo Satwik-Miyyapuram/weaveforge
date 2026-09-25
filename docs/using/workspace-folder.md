@@ -5,16 +5,21 @@ workspace, and read your edits back in. The folder is a normal folder: open it
 in Obsidian, VS Code, or Finder, and everything in it is a file you can read
 without WeaveForge installed.
 
-Settings → Folder is where all of this lives.
+Settings → Workspace is where all of this lives.
 
 ## What gets written
 
 One directory per kind of thing — `notes/`, `papers/`, `reading-lists/`,
 `report/`, `experiments/`, `plan/`, `logbook/` — plus `assets/` for images and
 a `.weaveforge/` directory holding the mirror's own bookkeeping. On the desktop
-that directory also holds `db-backups/`: compressed copies of the app's local
-database, which is how a reinstall gets everything back — see
+that directory also holds `db/` — the local database itself — and `db-backups/`,
+compressed snapshots of it, which is how a reinstall gets everything back. See
 [the desktop app](desktop.md#where-it-lives-and-what-happens-if-it-breaks).
+
+That makes the folder the thing to back up: one folder holds your Markdown, your
+attachments and the database. [How your work is stored and synced](sync.md) is
+the full picture, including what moving the database into the folder does and
+does not do.
 
 Every file carries a `weaveforge-id` in its frontmatter. **That id is the
 identity, and the filename is not.** Rename a note in Finder and it stays the
@@ -75,7 +80,7 @@ The desktop app can serve the folder over HTTP, on this machine only, using the
 same routes as Obsidian's local REST API — so tools already written for that
 work against a WeaveForge folder without being changed.
 
-It is off until you switch it on, in Settings -> Folder. Switching it on issues
+It is off until you switch it on, in Settings → Workspace. Switching it on issues
 a token and shows it once; every request needs it, and nothing shows it again.
 Switching the surface off throws the token away, so turning it back on issues a
 new one and the old one stops working.

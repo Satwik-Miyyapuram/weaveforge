@@ -25,14 +25,13 @@
 
 ## What to do now (no OCI required)
 
-1. **Use the app on Supabase** — default; no `DATABASE_URL` needed.
+1. **Use the app on the OCI stack** — the default; data lives in Postgres and MinIO on `api.weaveforge.org`, and Supabase is used for sign-in only.
 2. **Optional tiered images** — if you want R2 for paper images, follow [`storage/r2-setup.md`](../../running/storage/r2-setup.md).
-3. **Keep migrations current** on Supabase:
+3. **Keep migrations current** on the OCI Postgres:
    ```bash
-   supabase link
-   supabase db push
+   DATABASE_URL=postgres://... npm run migrate:schema
    ```
-   Cloud migrations live in [`supabase/migrations/`](../../../supabase/migrations/). Run `supabase db push` after pulling.
+   Migrations live in [`supabase/migrations/`](../../../supabase/migrations/) (plain PostgreSQL; the folder name is historical). Run the command after pulling.
 4. **Use the product** — papers, experiments, Python SDK, sharing, E2EE, etc.
 
 Nothing breaks if Phase 3 waits months.

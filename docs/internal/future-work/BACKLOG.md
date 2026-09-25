@@ -56,9 +56,9 @@ already reworked to **server-key** (done). Affected tables (`ai_proposals`, `ai_
 | Surface | Used for |
 |---------|----------|
 | **Next `/api/*`** | Server-key credentials, MCP/API tokens, blobs, org admin ops, Overleaf, MCP relay, SDK |
-| **Supabase PostgREST + RLS** | Papers, vault, logbook, projects, sharing, comments, non-secret settings |
+| **PostgREST + RLS (OCI)** | Papers, vault, logbook, projects, sharing, comments, non-secret settings |
 
-UI does **not** call `supabase.from()` directly — only via repositories through `getContainer()`. Do not force all domain CRUD through Next routes unless we deliberately redesign.
+UI does **not** call the PostgREST client directly — only via repositories through `getContainer()`. Do not force all domain CRUD through Next routes unless we deliberately redesign.
 
 ---
 

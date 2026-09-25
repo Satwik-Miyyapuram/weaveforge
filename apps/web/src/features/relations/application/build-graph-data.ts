@@ -3,6 +3,7 @@ import {
   extractHashtags,
   extractWikilinks,
   normalizeTitleKey,
+  type GraphExperimentEntry,
   type Paper,
   type PaperRelation,
   type ReadingList,
@@ -20,6 +21,8 @@ import {
   NOTE_COLOR,
   WIKILINK_COLOR,
   REPORT_COLOR,
+  EXPERIMENT_COLOR,
+  EXPERIMENT_LINK_COLOR,
 } from "../domain/graph-palette";
 import {
   effectiveRelationTypes,
@@ -32,7 +35,7 @@ import {
 
 export interface GNode {
   id: string;
-  kind: "paper" | "tag" | "note" | "report";
+  kind: "paper" | "tag" | "note" | "report" | "experiment";
   label: string;
   val: number;
   color: string;
@@ -42,6 +45,9 @@ export interface GNode {
   noteId?: string;
   sectionId?: string;
   tagName?: string;
+  experimentId?: string;
+  /** A run's status, for the side panel and the tooltip. */
+  experimentStatus?: string;
   x?: number;
   y?: number;
   fx?: number;
@@ -54,12 +60,21 @@ export interface GLink {
   target: string;
   color: string;
   width: number;
-  kind: "rel" | "tag" | "concept" | "wikilink";
+  kind: "rel" | "tag" | "concept" | "wikilink" | "experiment";
   relation?: RelationType;
   relationId?: string;
   sourceKind?: "manual" | "auto";
   dashed?: boolean;
 }
+
+/**
+ * A run, as the graph draws it — `GraphExperimentEntry` from core.
+ *
+ * Re-exported under this file's own name so the builder, its tests and the
+ * canvas all say `ExperimentEntry` while there is one definition of the shape
+ * and it lives in the layer the container's facade can also reach.
+ */
+export type ExperimentEntry = GraphExperimentEntry;
 
 export interface GraphBuildResult {
   data: { nodes: GNode[]; links: GLink[] };
@@ -100,6 +115,7 @@ export function buildGraphData(
   lists: ReadingList[] = [],
   notes: VaultPage[] = [],
   sections: ReportSection[] = [],
+  experiments: ExperimentEntry[] = [],
 ): GraphBuildResult {
   const nodes: GNode[] = [];
   const links: GLink[] = [];
@@ -112,6 +128,20 @@ export function buildGraphData(
 
   const allowedTypes = new Set(effectiveRelationTypes(settings));
   const paperIds = new Set(papers.map((p) => p.id));
+
+  /**
+   * A run is drawn only when it has a paper to sit beside.
+   *
+   * `relatedPaper` is the one edge an experiment carries, and an unlinked run
+   * would be a node with nothing attached — which is exactly what `hideOrphans`
+   * exists to keep off the canvas. Its paper must also be one the graph is
+   * actually showing: a run pointing at a paper filtered out by the settings
+   * elsewhere would otherwise contribute a node and an edge to nowhere, and the
+   * link filter at the end would drop the edge while keeping the node.
+   */
+  const linkedExperiments = experiments.filter(
+    (e) => e.relatedPaper !== undefined && paperIds.has(e.relatedPaper),
+  );
 
   if (showRelationEdges(settings)) {
     for (const e of relations) {
@@ -335,6 +365,50 @@ export function buildGraphData(
       val: (1.8 + Math.sqrt(degree.get(s.id) ?? 0) * 1.8) * settings.nodeSize,
       color: REPORT_COLOR,
       sectionId: s.id,
+    });
+  }
+
+  /**
+   * Runs, each hanging off the paper it tests.
+   *
+   * A run is the record of *doing* the work a paper proposes, and until now the
+   * graph showed only the papers — so the one artefact a reader produces
+   * themselves was the one thing the picture of their research left out.
+   * Attaching it to `relatedPaper` rather than to a note or a tag is not a
+   * choice: that field is the only link a run carries.
+   *
+   * Sized a step below a note, so a paper with four runs does not have those
+   * runs out-weigh the paper they hang from.
+   *
+   * Note what is *not* here: `bump(e.relatedPaper)`. The paper's node — and so
+   * its `val`, which is derived from its degree — was created above this loop,
+   * so incrementing the paper's degree now would change nothing the canvas
+   * reads. It looks like it connects the run to its paper and does not: the
+   * edge in `links` is what does that, and `neighbors` is built from the links
+   * at the end. An earlier version of this loop carried the call, which is a
+   * line of code asserting a relationship the data model already expresses.
+   */
+  for (const e of linkedExperiments) {
+    links.push({
+      id: `exp:${e.id}`,
+      source: e.relatedPaper!,
+      target: e.id,
+      color: EXPERIMENT_LINK_COLOR,
+      width: 1 * settings.linkThickness,
+      kind: "experiment",
+    });
+    // The run's own degree, and only that: it is what sizes the run, and a run
+    // carries exactly one edge so it is always 1 today. Written out rather than
+    // hard-coded so a second edge — a milestone, say — would size it correctly.
+    bump(e.id);
+    nodes.push({
+      id: e.id,
+      kind: "experiment",
+      label: e.name,
+      val: (1.6 + Math.sqrt(degree.get(e.id) ?? 0) * 1.6) * settings.nodeSize,
+      color: EXPERIMENT_COLOR,
+      experimentId: e.id,
+      experimentStatus: e.status,
     });
   }
 

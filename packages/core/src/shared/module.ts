@@ -20,6 +20,16 @@ export interface NavItem {
   readonly path: string;
   /** Optional icon handle, resolved by the UI layer. */
   readonly icon?: string;
+  /**
+   * Whether this item belongs in the *mobile* bar and strip.
+   *
+   * Defaults to true. The desktop sidebar lists every destination; the phone
+   * has one bar with six slots and a strip above the content, so a destination
+   * that is a workspace rather than a screen — the editor, which needs the
+   * width and has no phone layout — is declared out of it here rather than
+   * filtered by id somewhere in the shell.
+   */
+  readonly mobile?: boolean;
 }
 
 export interface RouteDef {

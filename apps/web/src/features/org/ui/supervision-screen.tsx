@@ -7,7 +7,9 @@ import {
   type LogEntry,
   type Member,
   type Milestone,
+  ROLE_LABELS,
 } from "@weaveforge/core";
+import { ScreenHead } from "@/components/screen-head";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "./profile-provider";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -60,11 +62,12 @@ export function SupervisionScreen() {
   const selected = supervisees.find((m) => m.id === selectedId) ?? null;
 
   return (
-    <section className="screen">
-      {supervisees.length === 0 ? (
-        <p className="muted">Nobody is assigned under you yet.</p>
-      ) : (
-        <>
+    <section className="screen superv-screen">
+      <ScreenHead
+        title="Supervision"
+        eyebrow={`You supervise ${supervisees.length} ${supervisees.length === 1 ? "person" : "people"}`}
+      >
+        {supervisees.length > 0 && (
           <div className="superv-picker">
             <label className="muted" htmlFor="superv-select">Viewing</label>
             <MemberTreeSelect
@@ -75,11 +78,59 @@ export function SupervisionScreen() {
               placeholder="Select someone you supervise"
             />
           </div>
+        )}
+      </ScreenHead>
+      {supervisees.length === 0 ? (
+        <p className="muted">Nobody is assigned under you yet.</p>
+      ) : (
+        <div className="superv-layout">
+          <nav className="card superv-team" aria-label="Your team">
+            <h3 className="superv-team-head">Your team</h3>
+            <ul>
+              {supervisees.map((m) => (
+                <li key={m.id} style={{ paddingLeft: depthOf(m, supervisees) * 18 }}>
+                  <button
+                    type="button"
+                    className={`superv-team-item${m.id === selectedId ? " is-active" : ""}`}
+                    aria-current={m.id === selectedId ? "true" : undefined}
+                    onClick={() => setSelectedId(m.id)}
+                  >
+                    <span className={`superv-avatar superv-avatar--${m.role}`} aria-hidden>{initials(m)}</span>
+                    <span className="superv-team-name">{m.fullName || m.email || "Unnamed"}</span>
+                    <span className="superv-team-role">{ROLE_LABELS[m.role]}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
           {selected && <SuperviseePanel key={selected.id} member={selected} />}
-        </>
+        </div>
       )}
     </section>
   );
+}
+
+/** How far below the nearest supervisee without a supervisor in this list. */
+function depthOf(member: Member, all: Member[]): number {
+  let depth = 0;
+  let cur = member;
+  const byId = new Map(all.map((m) => [m.id, m]));
+  while (cur.supervisorId && byId.has(cur.supervisorId) && depth < 8) {
+    cur = byId.get(cur.supervisorId)!;
+    depth++;
+  }
+  return depth;
+}
+
+function initials(member: Member): string {
+  const name = member.fullName?.trim() || member.email || "?";
+  const parts = name.split(/[\s@.]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
+function capitalise(text: string): string {
+  const spaced = text.replace(/_/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 function SuperviseePanel({ member }: { member: Member }) {
@@ -120,7 +171,7 @@ function SuperviseePanel({ member }: { member: Member }) {
 
   return (
     <div className="superv-panels">
-      <div className="card add-form">
+      <div className="card add-form superv-snapshots">
         <h3 className="settings-group">Published snapshots ({snapshots.length})</h3>
         {snapshots.length === 0 ? (
           <p className="muted">
@@ -128,7 +179,7 @@ function SuperviseePanel({ member }: { member: Member }) {
           </p>
         ) : (
           <>
-            <label className="muted" htmlFor="superv-snapshot">
+            <label className="muted superv-reviewing" htmlFor="superv-snapshot">
               Reviewing
             </label>
             <Select
@@ -144,16 +195,21 @@ function SuperviseePanel({ member }: { member: Member }) {
               ))}
             </Select>
             {selectedSnapshot?.note && (
-              <p className="superv-body">{selectedSnapshot.note}</p>
+              <div className="superv-note">
+                <span className="superv-note-label">Note from {member.fullName?.split(" ")[0] || "them"}</span>
+                <p className="superv-body">{selectedSnapshot.note}</p>
+              </div>
             )}
           </>
         )}
       </div>
 
       <div className="card add-form">
-        <h3 className="settings-group">
-          Milestones ({displayMilestones.length})
-          {showFrozen ? " · snapshot" : " · live"}
+        <h3 className="settings-group superv-panel-head">
+          <span>Milestones ({displayMilestones.length})</span>
+          <span className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}>
+            {showFrozen ? "Snapshot" : "Live"}
+          </span>
         </h3>
         {displayMilestones.length === 0 ? (
           <p className="muted">No milestones yet.</p>
@@ -163,10 +219,10 @@ function SuperviseePanel({ member }: { member: Member }) {
               <li key={m.id} className="superv-item">
                 <div className="superv-item-head">
                   <span className="superv-item-title">{m.title}</span>
-                  <span className={`superv-status s-${m.status}`}>{m.status.replace("_", " ")}</span>
+                  <span className={`superv-status s-${m.status}`}>{capitalise(m.status)}</span>
                 </div>
                 {"targetDate" in m && m.targetDate && (
-                  <span className="muted">Target {m.targetDate}</span>
+                  <span className="muted superv-meta">Target date {m.targetDate}</span>
                 )}
                 {"description" in m && m.description && (
                   <p className="superv-body">{m.description}</p>
@@ -178,21 +234,23 @@ function SuperviseePanel({ member }: { member: Member }) {
       </div>
 
       <div className="card add-form">
-        <h3 className="settings-group">
-          Logbook ({displayLogs.length})
-          {showFrozen ? " · snapshot" : " · live"}
+        <h3 className="settings-group superv-panel-head">
+          <span>Logbook ({displayLogs.length})</span>
+          <span className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}>
+            {showFrozen ? "Snapshot" : "Live"}
+          </span>
         </h3>
         {displayLogs.length === 0 ? (
           <p className="muted">No log entries yet.</p>
         ) : (
           <ul className="superv-list">
             {displayLogs.map((l) => (
-              <li key={l.id} className="superv-item">
-                <div className="superv-item-head">
-                  <span className="superv-item-title">{l.entryDate}</span>
-                  <span className="muted">{l.kind}</span>
+              <li key={l.id} className="superv-item superv-log-item">
+                <time className="superv-log-date">{l.entryDate}</time>
+                <div>
+                  <span className={`superv-status s-${l.kind}`}>{capitalise(l.kind)}</span>
+                  <p className="superv-body">{l.body}</p>
                 </div>
-                <p className="superv-body">{l.body}</p>
               </li>
             ))}
           </ul>

@@ -115,7 +115,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https: wss:",
+      "connect-src 'self' https: wss: cache:",
       // The ink worker. Without this the CSP falls back through `child-src` to
       // `script-src`, which has no `blob:` — so a bundler that emits the worker
       // from a blob URL makes **ink work on desktop and fail on the web**, which

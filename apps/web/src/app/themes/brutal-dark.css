@@ -1,0 +1,54 @@
+/* Brutal dark — the same bones on a near-black ground: cream borders, cream
+ * offset shadows on what you press, a quieter shadow under cards, yellow kept
+ * for the one action that matters. The default dark palette. */
+[data-theme="brutal-dark"] {
+  --bg: #131210;
+  --surface: #1d1b18;
+  --surface2: #2a2721;
+  --elev: #1d1b18;
+  --border: #f2e1c4;
+  --border-strong: #f2e1c4;
+  --text: #f2e1c4;
+  --muted: #ab9c81;
+  --faint: #857862;
+  --accent: #ffc536;
+  --accent-fg: #12110f;
+  --accent-soft: #2b2413;
+  --accent-ink: #f2e1c4;
+  --s-neutral: #f2e1c4;  --s-neutral-bg: #2a2721;
+  --s-info: #8dadd9;     --s-info-bg: #1c2530;
+  --s-good: #86d08f;     --s-good-bg: #1a2b1d;
+  --s-warn: #ffc536;     --s-warn-bg: #2b2413;
+  --s-danger: #ff826a;   --s-danger-bg: #2e1612;
+  --s-mute: #ab9c81;     --s-mute-bg: #0c0b0a;
+
+  --bw: 2px;
+  --bw-line: #f2e1c4;
+  --hair: rgba(242, 225, 196, 0.18);
+  --well: #0c0b0a;
+  --danger-text: #ff826a;
+  --danger-soft: #3a1c17;
+  --danger-fill: #ff654d;
+  --sh-card: 5px 5px 0 #4d4639;
+  --sh-sm: 3px 3px 0 #f2e1c4;
+  --sh-btn: 4px 4px 0 #f2e1c4;
+  --sh-press: 0 0 0 #f2e1c4;
+  --press-t: translate(4px, 4px);
+  --type-bg: #262218;
+  --type-line: #ffc536;
+  --type-sh: 4px 4px 0 #ffc536;
+  --type-t: translate(-2px, -2px);
+  --nav-on-bg: #ffc536;
+  --nav-on-fg: #12110f;
+  --tint-to-read: #3a3011;
+  --tint-reading: #1c2738;
+  --tint-read: #1b3220;
+  --tint-skimmed: #3a1f25;
+  --chip-to-read: #ffc536;
+  --chip-reading: #8dadd9;
+  --chip-read: #86d08f;
+  --chip-skimmed: #ff95a9;
+  --toast-bg: #f2e1c4;
+  --toast-fg: #12110f;
+  --sel-ring: rgba(242, 225, 196, 0.2);
+}

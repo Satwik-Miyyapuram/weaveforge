@@ -12,7 +12,7 @@ import type {
   ReaderPageSize,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { savePdfText } from "@/features/search/infrastructure/pdf-text-store";
+import { savePdfTextDurably } from "@/features/search/application/pdf-text-folder";
 import {
   sanitizePdfUrl,
   originalUrlFromProxy,
@@ -418,7 +418,7 @@ useEffect(() => {
               pages: texts,
               extractedAt: new Date().toISOString(),
             };
-            void savePdfText(getContainer().projects.context.projectId, source);
+            void savePdfTextDurably(getContainer().projects.context.projectId, source);
             // Findable now rather than after a reload: the text is already in
             // hand, and a reader who searches straight after reading is the
             // common case, not the edge one.
@@ -500,18 +500,24 @@ const renderPage = useCallback(
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
         const ratio = window.devicePixelRatio || 1;
-        canvas.width = Math.floor(viewport.width * ratio);
-        canvas.height = Math.floor(viewport.height * ratio);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
-        // The *page box* takes the rendered size, not the found host: the host
-        // is the page's row (§pdf-reader), which also holds the pen's writing
-        // strip and must be free to be wider than the page it contains.
-        const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
-        pageBox.style.width = `${Math.floor(viewport.width)}px`;
-        pageBox.style.height = `${Math.floor(viewport.height)}px`;
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-        const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
+        /*
+         * Paint off screen, then show it.
+         *
+         * A canvas is cleared the moment its width is set, so rendering straight
+         * into the page blanks it for as long as the render takes — one blank
+         * frame per page, all of them at once after a zoom, which is the flash
+         * that was left. Rendering into a scratch canvas and copying it over
+         * keeps the old page on screen until the new one is finished, and the
+         * swap is a single synchronous pair of statements, so no frame is ever
+         * painted in between.
+         */
+        const scratch = document.createElement("canvas");
+        scratch.width = Math.floor(viewport.width * ratio);
+        scratch.height = Math.floor(viewport.height * ratio);
+        const scratchCtx = scratch.getContext("2d");
+        if (!scratchCtx) return;
+        scratchCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        const renderTask = pdfPage.render({ canvasContext: scratchCtx, viewport });
         renderTasks.current.set(pageNumber, renderTask);
         try {
           await renderTask.promise;
@@ -520,10 +526,20 @@ const renderPage = useCallback(
             renderTasks.current.delete(pageNumber);
           }
         }
-        if (generation !== renderGeneration.current) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          return;
-        }
+        if (generation !== renderGeneration.current) return;
+        // The page's new size, and the new bitmap, in one go.
+        canvas.width = scratch.width;
+        canvas.height = scratch.height;
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        // The *page box* takes the rendered size, not the found host: the host
+        // is the page's row (§pdf-reader), which also holds the pen's writing
+        // strip and must be free to be wider than the page it contains.
+        const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
+        pageBox.style.width = `${Math.floor(viewport.width)}px`;
+        pageBox.style.height = `${Math.floor(viewport.height)}px`;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(scratch, 0, 0);
         // Text layer — selectable / copyable; input device for future annotation (R3).
         let textLayer = host.querySelector<HTMLDivElement>(".pdf-reader-textlayer");
         if (!textLayer) {

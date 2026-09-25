@@ -16,6 +16,7 @@ import {
 } from "../domain/paper.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import type { IPaperRepository } from "../domain/paper-repository.js";
+import { titleKey } from "../domain/paper-title.js";
 import {
   MetadataResolver,
   type PaperRef,
@@ -33,7 +34,8 @@ export class AddPaperUseCase {
 
   /** Add a paper from manually entered fields. */
   async addManual(input: NewPaperInput): Promise<Paper> {
-    const existing = await this.findDuplicate(input.arxivId, input.doi);
+    const existing =
+      (await this.findDuplicate(input.arxivId, input.doi)) ?? (await this.findByTitle(input));
     if (existing) return existing;
 
     const paper = createPaper(input, {
@@ -58,6 +60,21 @@ export class AddPaperUseCase {
       if (byDoi) return byDoi;
     }
     return null;
+  }
+
+  /**
+   * A paper with no identifier (a web page, a Zotero item with no DOI) could
+   * only ever be added twice, and the library filled with pairs. With neither
+   * id to compare, the same long title is the same paper. A paper that has an
+   * id is never matched this way: two editions of a paper share a title but
+   * not a DOI, and the id is what tells them apart.
+   */
+  private async findByTitle(input: NewPaperInput): Promise<Paper | null> {
+    if (input.arxivId?.trim() || normalizeDoi(input.doi)) return null;
+    const key = titleKey(input.title);
+    if (!key) return null;
+    const match = (await this.deps.repository.listSummaries()).find((p) => titleKey(p.title) === key);
+    return match ? await this.deps.repository.getById(match.id) : null;
   }
 }
 

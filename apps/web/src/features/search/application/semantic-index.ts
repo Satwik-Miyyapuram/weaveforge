@@ -61,14 +61,47 @@ function embeddableText(doc: SearchDoc): string {
   return body ? `${head}. ${body}` : head;
 }
 
+/**
+ * A short fingerprint of what a document was embedded from.
+ *
+ * Stored beside the vectors so a reload can tell which documents changed while
+ * the app was closed and re-embed only those. Without it the only check was a
+ * fingerprint of the whole corpus, and one edited note meant embedding
+ * thousands of passages again. FNV-1a plus the length: a collision costs one
+ * stale vector until the next edit, never a wrong result elsewhere.
+ */
+export function textHash(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${(hash >>> 0).toString(36)}.${text.length.toString(36)}`;
+}
+
+const hashOf = (doc: SearchDoc) => textHash(embeddableText(doc));
+
 export class SemanticIndex {
   private index: VectorIndex | null = null;
   private embedderId = "";
+  /**
+   * A hash of the text each document was embedded from, by document id.
+   *
+   * What lets `sync` re-embed only what changed. Without it, the only way to
+   * keep the arm current after an edit was a full rebuild, so nothing did it:
+   * a note written after the index was built could never be found by meaning.
+   */
+  private embedded = new Map<string, string>();
 
   constructor(private readonly embedder: IEmbedder) {}
 
   get ready(): boolean {
     return this.index !== null;
+  }
+
+  /** The encoder's own noise floor, if it declares one. */
+  get minScore(): number | undefined {
+    return this.embedder.minScore;
   }
 
   get size(): number {
@@ -93,6 +126,7 @@ export class SemanticIndex {
 
     if (passages.length === 0) {
       this.index = null;
+      this.embedded.clear();
       return;
     }
 
@@ -111,6 +145,7 @@ export class SemanticIndex {
 
     this.index = index;
     this.embedderId = this.embedder.id;
+    this.embedded = new Map(docs.map((doc) => [doc.id, hashOf(doc)]));
   }
 
   /**
@@ -142,12 +177,41 @@ export class SemanticIndex {
       .slice(0, limit);
   }
 
+  /**
+   * Documents nearest to one already indexed, by its own passages rather than
+   * its title — a note titled "Tuesday" about attention heads should find
+   * papers on attention. No forward pass: the vectors are already here.
+   */
+  nearestTo(docId: string, limit = 10): VectorHit[] {
+    const index = this.index;
+    if (!index) return [];
+    const best = new Map<string, number>();
+    for (let i = 0; ; i += 1) {
+      const vector = index.vectorOf(passageId(docId, i));
+      if (!vector) break;
+      for (const hit of index.search(vector, limit * 4)) {
+        const id = documentIdOf(hit.id);
+        if (id === docId) continue;
+        const current = best.get(id);
+        if (current === undefined || hit.score > current) best.set(id, hit.score);
+      }
+      // Long documents: the opening passages are what the document is about.
+      if (i >= 3) break;
+    }
+    return [...best.entries()]
+      .map(([id, score]) => ({ id, score }))
+      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+      .slice(0, limit);
+  }
+
   /** Re-embed one document's passages, leaving the rest of the index alone. */
-  async update(docs: readonly SearchDoc[]): Promise<void> {
+  async update(docs: readonly SearchDoc[], onProgress?: (done: number, total: number) => void): Promise<void> {
     const index = this.index;
     if (!index) return;
 
+    let done = 0;
     for (const doc of docs) {
+      onProgress?.(done++, docs.length);
       // Passage counts change with the text, so old ones are retracted by
       // prefix rather than by position — a shortened note must not leave its
       // former tail behind.
@@ -161,7 +225,35 @@ export class SemanticIndex {
         kind: "passage",
       });
       index.add(chunks.map((_, i) => ({ id: passageId(doc.id, i), vector: vectors[i]! })));
+      this.embedded.set(doc.id, hashOf(doc));
     }
+  }
+
+  /**
+   * Bring one slice of the corpus in line with `docs`.
+   *
+   * `owns` says which ids the slice covers (a kind, or one paper's pages): any
+   * of those not in `docs` was deleted and is dropped; any whose text differs
+   * from what was embedded is re-embedded. Unchanged documents cost nothing,
+   * which is what makes calling this on every refresh affordable.
+   *
+   * Returns whether anything changed, so the caller knows to persist.
+   */
+  async sync(
+    docs: readonly SearchDoc[],
+    owns: (docId: string) => boolean,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<boolean> {
+    const index = this.index;
+    if (!index) return false;
+
+    const present = new Set(docs.map((doc) => doc.id));
+    const gone = [...new Set(index.allIds().map(documentIdOf))].filter((id) => owns(id) && !present.has(id));
+    if (gone.length > 0) this.removeDocuments(gone);
+
+    const changed = docs.filter((doc) => this.embedded.get(doc.id) !== hashOf(doc));
+    if (changed.length > 0) await this.update(changed, onProgress);
+    return gone.length > 0 || changed.length > 0;
   }
 
   /** Drop documents entirely — a deletion, or a kind being re-projected. */
@@ -170,6 +262,7 @@ export class SemanticIndex {
     if (!index) return;
     const dropping = new Set(docIds);
     index.remove(index.allIds().filter((id) => dropping.has(documentIdOf(id))));
+    for (const id of docIds) this.embedded.delete(id);
   }
 
   /**
@@ -178,17 +271,49 @@ export class SemanticIndex {
    * Vectors from one encoder are meaningless to another — the tag is what stops
    * a model change from silently returning nonsense instead of re-embedding.
    */
-  serialize(): { model: string; dimensions: number; ids: string[]; vectors: ArrayBuffer } | null {
+  serialize(): {
+    model: string;
+    dimensions: number;
+    ids: string[];
+    vectors: ArrayBuffer;
+    hashes: Record<string, string>;
+  } | null {
     if (!this.index) return null;
     const { ids, vectors } = this.index.toBytes();
-    return { model: this.embedderId, dimensions: this.index.dimensions, ids, vectors };
+    return {
+      model: this.embedderId,
+      dimensions: this.index.dimensions,
+      ids,
+      vectors,
+      hashes: Object.fromEntries(this.embedded),
+    };
   }
 
-  load(stored: { model: string; dimensions: number; ids: string[]; vectors: ArrayBuffer }): boolean {
+  /**
+   * Restore stored vectors.
+   *
+   * `hashes` says what each document was embedded from, so a following `sync`
+   * re-embeds exactly what changed while the app was closed. Older stores have
+   * none; then `docs` — which the caller has matched to the vectors by corpus
+   * revision — seeds the comparison instead.
+   */
+  load(
+    stored: {
+      model: string;
+      dimensions: number;
+      ids: string[];
+      vectors: ArrayBuffer;
+      hashes?: Record<string, string>;
+    },
+    docs: readonly SearchDoc[] = [],
+  ): boolean {
     if (stored.model !== this.embedder.id) return false;
     try {
       this.index = VectorIndex.fromBytes(stored.dimensions, stored.ids, stored.vectors);
       this.embedderId = stored.model;
+      this.embedded = stored.hashes
+        ? new Map(Object.entries(stored.hashes))
+        : new Map(docs.map((doc) => [doc.id, hashOf(doc)]));
       return true;
     } catch {
       return false;
@@ -197,5 +322,6 @@ export class SemanticIndex {
 
   clear(): void {
     this.index = null;
+    this.embedded.clear();
   }
 }

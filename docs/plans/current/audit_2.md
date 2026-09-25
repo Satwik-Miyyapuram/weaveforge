@@ -1,3 +1,9 @@
+> **Historical — a review record, not a guide.** `design_audit_1.md` is the raw
+> output of a design review run against this repository, two models' findings
+> concatenated. It is kept verbatim as evidence for `design_audit_verification.md`,
+> so it names files that did not exist then or do not exist now — that is what a
+> finding describing a gap looks like. Read the verification ledger for what is
+> actually true, not this file.
  {
     id: "WF-N01",
     title: "The compaction guard is advisory: two concurrent compactors can both pass `currentUpto` and one of them sweeps rows the other has not snapshotted",

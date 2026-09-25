@@ -23,6 +23,15 @@ import {
 import { inkPageSvg } from "../application/ink-svg";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
+import { INK_SEGMENT_SUBDIVISIONS } from "../render/ink-renderer";
+
+/** Every `x,y` a path command names, in order. */
+function pathPoints(d: string): [number, number][] {
+  return [...d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => [
+    Number(m[1]),
+    Number(m[2]),
+  ]);
+}
 
 function pageWith(...strokes: InkPage["strokes"]): InkPage {
   return { ...blankInkPage("blank"), strokes };
@@ -53,10 +62,63 @@ test("a stroke is one path, round-capped, at its own width and colour", () => {
     // The stroke's colour is a *name*; the value comes from the palette.
     { palette: paletteWith("text", [1, 0, 0]) },
   );
-  assert.match(svg, /<path d="M100 200L300 400"/);
+  assert.match(svg, /<path d="M100 200L/);
   assert.match(svg, /stroke-width="5"/);
   assert.match(svg, /stroke-linecap="round"/);
   assert.match(svg, /stroke="rgb\(255, 0, 0\)"/);
+});
+
+test("a two-point stroke stays the straight line it is", () => {
+  // The spline must not bend a stroke that has no bend in it: every sub-segment
+  // it emits between two samples lies on the line between them.
+  const svg = inkPageSvg(
+    pageWith(makeInkStroke({ points: [100, 200, 300, 400], pressures: [] })),
+  );
+  const points = pathPoints(/d="(M[^"]+)"/.exec(svg)?.[1] ?? "");
+  assert.equal(points.length, 1 + INK_SEGMENT_SUBDIVISIONS, "one span, subdivided");
+  for (const [x, y] of points) {
+    // The line through (100, 200) and (300, 400) is y = x + 100.
+    assert.ok(Math.abs(y - (x + 100)) < 0.01, `${x},${y} is off the line`);
+  }
+});
+
+test("a stroke through a bend is drawn as a curve, not as corners at its samples", () => {
+  // The samples turn 45° at the middle one. A polyline turns by all of it *at*
+  // that sample — a visible facet, and the reason a stroke on a PDF page read
+  // as blocky beside the same stroke on a note. The spline carries the tangent
+  // through the sample and spreads the turn over the spans either side, so the
+  // joint it draws is far shallower.
+  const points = pathPoints(
+    /d="(M[^"]+)"/.exec(
+      inkPageSvg(
+        pageWith(makeInkStroke({ points: [0, 0, 100, 0, 200, 100], pressures: [] })),
+      ),
+    )?.[1] ?? "",
+  );
+  assert.equal(points.length, 1 + 2 * INK_SEGMENT_SUBDIVISIONS, "two spans, subdivided");
+
+  const turn = (a: [number, number], b: [number, number], c: [number, number]) => {
+    const angle = (u: [number, number], v: [number, number]) =>
+      Math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1]);
+    return Math.abs(
+      angle([b[0] - a[0], b[1] - a[1]], [c[0] - b[0], c[1] - b[1]]),
+    );
+  };
+  const atSample = points[INK_SEGMENT_SUBDIVISIONS]!;
+  const joint = turn(
+    points[INK_SEGMENT_SUBDIVISIONS - 1]!,
+    atSample,
+    points[INK_SEGMENT_SUBDIVISIONS + 1]!,
+  );
+  // The corner the samples themselves ask for, which is what a polyline draws.
+  const corner = turn([0, 0], [100, 0], [200, 100]);
+  const degrees = (radians: number) => ((radians * 180) / Math.PI).toFixed(1);
+  assert.ok(
+    joint < corner * 0.6,
+    `the joint is a curve, not the samples' own corner (${degrees(joint)}° against ${degrees(corner)}°)`,
+  );
+  // And the drawn path still passes through the sample it was given.
+  assert.deepEqual(atSample, [100, 0]);
 });
 
 test("a highlighter keeps its alpha and is drawn over the pen", () => {
@@ -72,7 +134,7 @@ test("a highlighter keeps its alpha and is drawn over the pen", () => {
   );
   assert.match(svg, new RegExp(`stroke-opacity="${HIGHLIGHTER_ALPHA}"`));
   const highlighter = svg.indexOf('stroke-opacity="0.35"');
-  const pen = svg.indexOf("M30 30L40 40");
+  const pen = svg.indexOf('d="M30 30');
   // A highlighter tints writing it was laid on: the pen's path is written
   // first and the tinted band after it, which is what "over" means in SVG
   // document order.

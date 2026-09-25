@@ -41,7 +41,7 @@ export function Breadcrumbs({
                 {crumb.label}
               </button>
             ) : (
-              <span className={last ? "breadcrumb-current" : undefined}>{crumb.label}</span>
+              <span className={last ? "breadcrumb-current" : "breadcrumb-plain"}>{crumb.label}</span>
             )}
             {last && suffix ? <span className="breadcrumb-ext">{suffix}</span> : null}
           </span>

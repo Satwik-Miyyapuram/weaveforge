@@ -13,6 +13,8 @@ import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import Link from "next/link";
+import { ScreenHead } from "@/components/screen-head";
+import { sharedItemTypeLabel } from "@/features/sharing/ui/shared-item-routes";
 
 type SharedWithMeView = {
   items: SharedItemDetail[];
@@ -34,24 +36,49 @@ export function SharedWithMeScreen() {
   const items = data?.items ?? emptyArray<LoadSharedWithMeScreenData["items"][number]>();
   const nameOf = data?.nameOf ?? emptyMap<string, string>();
 
+  const [kindFilter, setKindFilter] = useState<SharedItemDetail["kind"] | "all">("all");
+  const kinds = useMemo(() => [...new Set(items.map((it) => it.kind))], [items]);
+  const ownerCount = useMemo(() => new Set(items.map((it) => it.ownerId)).size, [items]);
+
   const byOwner = useMemo(() => {
     const groups = new Map<string, SharedItemDetail[]>();
     for (const it of items) {
+      if (kindFilter !== "all" && it.kind !== kindFilter) continue;
       const arr = groups.get(it.ownerId) ?? [];
       arr.push(it);
       groups.set(it.ownerId, arr);
     }
     return [...groups.entries()];
-  }, [items]);
+  }, [items, kindFilter]);
 
   if (loading) {
     return <ScreenLoading status="Loading shared items…" />;
   }
 
   return (
-    <section className="screen">
+    <section className="screen shared-screen">
+      <ScreenHead
+        title="Shared with me"
+        eyebrow={items.length > 0 ? `${items.length} ${items.length === 1 ? "item" : "items"} from ${ownerCount} ${ownerCount === 1 ? "person" : "people"}` : undefined}
+      >
+        {kinds.length > 1 && (
+          <div className="shared-filter" role="group" aria-label="Filter by type">
+            {(["all", ...kinds] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={kindFilter === k ? "active" : undefined}
+                aria-pressed={kindFilter === k}
+                onClick={() => setKindFilter(k)}
+              >
+                {k === "all" ? "All" : pluralLabel(k)}
+              </button>
+            ))}
+          </div>
+        )}
+      </ScreenHead>
       {error && <FormError>{error}</FormError>}
-      {!error && byOwner.length === 0 && (
+      {!error && items.length === 0 && (
         <EmptyState
           variant="first-run"
           icon={<NavIcon name="book" />}
@@ -67,8 +94,14 @@ export function SharedWithMeScreen() {
 
       {byOwner.map(([ownerId, list]) => (
         <div key={ownerId} className="shared-group">
-          <h3 className="settings-group">{nameOf.get(ownerId) ?? "Member"}</h3>
-          <ul className="exp-list">
+          <h3 className="settings-group shared-group-head">
+            <span className="superv-avatar" aria-hidden>{initialsOf(nameOf.get(ownerId) ?? "Member")}</span>
+            <span>{nameOf.get(ownerId) ?? "Member"}</span>
+            <span className="shared-group-count">
+              {list.length} {list.length === 1 ? "item" : "items"}
+            </span>
+          </h3>
+          <ul className="exp-list shared-grid">
             {list.map((it) => (
               <SharedItemRenderer
                 key={`${it.kind}:${it.id}`}
@@ -82,4 +115,14 @@ export function SharedWithMeScreen() {
       ))}
     </section>
   );
+}
+
+function pluralLabel(kind: SharedItemDetail["kind"]): string {
+  const label = sharedItemTypeLabel(kind);
+  return label.charAt(0).toUpperCase() + label.slice(1) + "s";
+}
+
+function initialsOf(name: string): string {
+  const parts = name.split(/[\s@.]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
 }

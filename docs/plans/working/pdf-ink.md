@@ -196,14 +196,19 @@ silent.
 ```mermaid
 flowchart LR
   subgraph reader [reader/ui]
-    PdfReader -->|"createTool, createColor, nib"| PenRail
-    PenRail -->|"undo / redo"| InkUndo[use-ink-undo]
+    PdfReader -->|"tool, colour, width (the bar's own vocabulary)"| InkBar
+    InkBar -->|"undo / redo"| InkUndo[use-ink-undo]
     PdfReader -->|"pointer → paths in pt"| PagePointer[use-page-pointer]
     PagePointer -->|"NewReaderAnnotation ink"| Sink[IReaderAnnotationSink]
   end
+  subgraph ink [ink/ui]
+    InkBar[ink-bar.tsx: the one bar]
+    InkStrokes[ink-strokes.tsx: the one ink renderer]
+  end
   Sink --> Repo[(reader annotations)]
-  Repo -->|"R5"| Zotero[(Zotero)]
+  Repo -->|"R5, highlights and notes only"| Zotero[(Zotero)]
   Zotero -->|"import"| Repo
+  Repo -->|"ink annotations"| InkStrokes
   subgraph core [packages/core]
     Nibs[ink-stroke.ts: INK_NIB_WIDTHS_PT]
     Undo[ink-undo.ts]
@@ -215,11 +220,28 @@ flowchart LR
   Graph[(MS Graph)] --> OneNote --> Vault[(vault)]
 ```
 
-- `PenRail` (new, `apps/web/src/features/reader/ui/pdf-reader/pen-rail.tsx`):
-  props `{tool, color, nib, canUndo, canRedo, onTool, onColor, onNib, onUndo,
-  onRedo, onClose}`. Renders with the ink note's rail classes and icons; if
-  `InkBar` can take a `variant="reader"` cleanly, do that instead of a new
-  component — decide after reading it, say which in the commit.
+- **Built as one bar, not two.** The reader renders the ink note's
+  `InkBar` (`apps/web/src/features/ink/ui/ink-bar.tsx`) rather than a `PenRail`
+  of its own: the note hands it the whole of its state, the reader the pen's,
+  and a section whose props are absent is not drawn. The reader's tools are the
+  bar's under their own names — `select` is the lasso, `ink` the pen, `erase`
+  the eraser (`use-pen-prefs.ts` maps them), the colour is an ink colour *name*
+  resolved through the palette, and the nib is the note's 0.1 mm converted once
+  (`inkNoteWidthToPdfPoints`). No `Done` button: the reader's own *Pen* toggle
+  puts the pen down.
+- **One ink renderer.** A paper's strokes are drawn by
+  `apps/web/src/features/ink/ui/ink-strokes.tsx`, the same component the note's
+  static pages use, so the path builder, caps, joins and highlighter tint are
+  the note's. Text highlights keep their own DOM renderer
+  (`annotation-overlay.tsx`): a highlight is a rectangle of the page's own text
+  and has nothing in common with a pen line.
+- Ink is **not** written back to Zotero (`zoteroWriteBackAnnotations`): only
+  highlights, underlines, notes and clipped regions are. Nor is it *created*
+  outside ink mode: the reader's tool picker offers highlight text, clip a region
+  and write a note, and the three ink tools belong to the pen bar. With the pen
+  away the marks are drawn and read-only — a pen or a finger goes to the page's
+  own text, not to a stroke lying over it — and a paper's ink is to be synced
+  from the ink notes rather than written here in a second vocabulary.
 - `PaperPdfPane` gets `inkRail?: boolean`; `document-host.tsx` passes it for
   the paper tab's new mode `ink`. The `/reader` route gets a *Pen* toggle in
   its toolbar that shows the same rail.
@@ -231,11 +253,13 @@ flowchart LR
 Each phase ends green, committed, and (from phase 1) verified over CDP with a
 screenshot in the PR comment.
 
-### Phase 1 — pen rail
+### Phase 1 — the pen bar
 - `INK_NIB_WIDTHS_PT`, `ink-undo.ts` in core, tests.
-- `PenRail`, `use-ink-undo.ts`; the tool `<select>` stays for PDF mode, the
-  rail replaces it when open; colour swatches; nib buttons set the width
-  that `use-page-pointer.ts` hands to `inkWidthForPressure`.
+- The reader renders the ink note's `InkBar` (§1.5) with `use-ink-undo.ts`; the
+  tool `<select>` stays for PDF mode, the bar replaces it when the pen is out;
+  colour swatches; nib buttons set the width that `use-page-pointer.ts` hands
+  to `inkWidthForPressure`.
+- Ink drawn through `InkStrokes` (§1.5), and not written back to Zotero.
 - Paper tab mode `ink` in `pane-tree.ts` `DocumentMode`, `kind.ts`
   (`ink: true` for `paper`), the mode button in `pane-view.tsx`;
   `PaperPdfPane inkRail`; `/reader` *Pen* toggle.

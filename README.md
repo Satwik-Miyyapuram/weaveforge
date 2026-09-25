@@ -15,11 +15,11 @@ Most research tools split the job: Zotero for papers, Notion for notes, wandb fo
 | | **Web app** (`apps/web`) | **Python SDK** (`python/`) |
 |---|--------------------------|----------------------------|
 | **What** | Next.js PWA — library, graph, plan, log, report, experiments, vault, sharing | Push runs, curves, and figures from training scripts |
-| **Install** | `npm install` + Supabase project | `pip install -e python` |
+| **Install** | `npm install` + the OCI data stack | `pip install -e python` |
 | **Best for** | Day-to-day research in the browser | `@track_experiment`, Lightning/Keras callbacks, TensorBoard/wandb import |
 | **Docs** | [Quick start ↓](#quick-start) · [Features ↓](#features) | [Python SDK ↓](#python-sdk) · [`python/README.md`](python/README.md) |
 
-Both talk to the **same Postgres schema** (`supabase/migrations/`). Log a run in Python → compare it in the dashboard next to the paper it implements.
+Both talk to the **same Postgres schema** (`supabase/migrations/`; the folder keeps its old name, the database is the self-hosted one on OCI). Log a run in Python → compare it in the dashboard next to the paper it implements.
 
 ---
 
@@ -40,14 +40,12 @@ Built **TDD + SOLID**: framework-agnostic core (`@weaveforge/core`), repository 
 
 ## Quick start
 
-**Prerequisites:** Node.js 22+ and a Postgres 16 the app can reach. Two supported shapes, and the
-one this project runs on is the second — see [`docs/running/backend.md`](docs/running/backend.md):
+**Prerequisites:** Node.js 22+ and the data stack: **Postgres 16 + PostgREST + Realtime on OCI**,
+with MinIO for blobs, all behind Caddy ([`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml);
+see [`docs/running/backend.md`](docs/running/backend.md)). Every row and every file lives there.
 
-- a [Supabase](https://supabase.com) project (managed Postgres + Auth + Storage), or
-- self-hosted **Postgres + PostgREST + Realtime on OCI**, with MinIO for blobs
-  ([`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml)).
-
-Auth is Supabase Auth in both cases; only the data plane and object storage move.
+Supabase is used for **sign-in only**: Supabase Auth issues the session tokens, and the OCI stack
+verifies them. No research data is stored in Supabase.
 
 ```bash
 git clone https://github.com/Satwik-Miyyapuram/weaveforge.git
@@ -57,9 +55,9 @@ npm run build:core
 npm run test:core          # the domain suite — no network, no browser
 ```
 
-1. Copy `apps/web/.env.local.example` → `apps/web/.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`. On the OCI stack these point at the Caddy gateway in front of PostgREST, not at `supabase.co`.
-2. Apply schema: `supabase link --project-ref <ref> && supabase db push`, or `psql` the files in order. On OCI,
-   [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) goes **first**, then the main chain — see [`supabase/migrations/README.md`](supabase/migrations/README.md).
+1. Copy `apps/web/.env.local.example` → `apps/web/.env.local`. Set `NEXT_PUBLIC_DATA_URL` and `NEXT_PUBLIC_REALTIME_URL` to the Caddy gateway (e.g. `https://api.weaveforge.org`), and `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the auth project that issues sign-in tokens.
+2. Apply the schema to the OCI Postgres with `psql`, in order:
+   [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) **first**, then the main chain — see [`supabase/migrations/README.md`](supabase/migrations/README.md).
 3. `npm run dev` → http://localhost:3000 — sign in, create a project, start adding papers.
 
 Full setup (Auth providers, integrations, deploy): sections below and [`docs/building/dev.md`](docs/building/dev.md).
@@ -126,14 +124,14 @@ Details: [`python/README.md`](python/README.md).
 ## Architecture
 
 ```
-packages/core/     Domain entities, repository interfaces, use-cases (no React/Supabase)
+packages/core/     Domain entities, repository interfaces, use-cases (no React, no data-access SDK)
 apps/web/          Next.js PWA — features/{domain,application,infrastructure,ui}
                    bootstrap.ts = composition root; facades/ = UI API (ISP)
 python/            Same contracts for experiment push + sync sources
 supabase/          SQL migrations — single schema source of truth
 ```
 
-- **Dependency inversion** — UI and scripts depend on interfaces; Supabase/Postgres adapters live in infrastructure.
+- **Dependency inversion** — UI and scripts depend on interfaces; the PostgREST/Postgres adapters live in infrastructure.
 - **Feature modules** — `registry.ts` builds nav; extend via ports + composition root (see [`docs/using/extensions.md`](docs/using/extensions.md)).
 - **RLS everywhere** — anon key in the browser is fine; Postgres policies enforce access. Sharing adds read/comment; writes stay owner-only.
 
@@ -165,7 +163,7 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 
 | Doc | Contents |
 |-----|----------|
-| [`docs/running/backend.md`](docs/running/backend.md) | Choosing a backend: Supabase or self-hosted Postgres |
+| [`docs/running/backend.md`](docs/running/backend.md) | The backend: the OCI data stack, and sign-in |
 | [`docs/running/postgres-provider.md`](docs/running/postgres-provider.md) | What the `postgres` backend provider actually selects |
 | [`docs/running/oracle-shift.md`](docs/running/oracle-shift.md) | Start-to-finish move onto Oracle Cloud free tier |
 | [`docs/running/storage/README.md`](docs/running/storage/README.md) | Blob storage as its own composition layer (R2, tiering, growth) |
@@ -199,48 +197,49 @@ apps/web/         Next.js PWA
 apps/pitch/       Static export of the pitch site (GitHub Pages)
 apps/desktop/     Electron shell around the web app (see apps/desktop/README.md)
 packages/core/    @weaveforge/core — shared domain + use-cases
-supabase/         Migrations 0001…0131 (see supabase/migrations/README.md)
+supabase/         SQL migrations 0001…0131 for the OCI Postgres (see supabase/migrations/README.md)
 python/           weaveforge SDK
 docs/             using/ building/ running/, and internal/ working notes
 ```
 
 ### Database and auth
 
-**Self-hosted on OCI (what this project runs on):** Postgres 16, PostgREST, Realtime and MinIO
-behind Caddy, from [`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml). Supabase Auth
-still issues the session tokens; the stack verifies them (`JWT_KEYS` carries the project's public
-keys). Apply [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/)
-first, then the main chain.
+**Data: self-hosted on OCI.** Postgres 16, PostgREST, Realtime and MinIO behind Caddy, from
+[`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml). Apply
+[`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) first,
+then the main chain.
 
-**Hosted Supabase (the alternative):**
-
-1. [supabase.com](https://supabase.com) → **New project**.
-2. **Settings → API** — copy Project URL and anon key into `.env.local`.
-3. **Authentication** — enable Email (and optional Google). Add `http://localhost:3000` to redirect URLs.
+**Sign-in: Supabase Auth.** It issues the session tokens and nothing else; the OCI stack verifies
+them (`JWT_KEYS` carries the auth project's public keys). In the auth project, enable Email (and
+optionally Google) and add `http://localhost:3000` to the redirect URLs.
 
 ### Environment (`apps/web/.env.local`)
 
 ```ini
-# The data API. Hosted Supabase: your project URL. OCI: the Caddy gateway, e.g. https://<your-host>
-NEXT_PUBLIC_SUPABASE_URL=https://<your-ref>.supabase.co
+# The data API and realtime: the Caddy gateway on the OCI box.
+NEXT_PUBLIC_DATA_URL=https://<your-host>
+NEXT_PUBLIC_REALTIME_URL=https://<your-host>
+# Sign-in only: the auth project that issues session tokens.
+NEXT_PUBLIC_SUPABASE_URL=https://<your-auth-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 # Server-only, required for linked Overleaf reports; never expose to the browser.
 # Use a stable long random value so stored credentials remain decryptable.
 # OVERLEAF_CREDENTIAL_KEY=...
-# Optional: NEXT_PUBLIC_BACKEND_PROVIDER=supabase | postgres
-# Blobs: supabase (default) | tiered (R2 hot + MinIO/OCI cold) — see docs/running/storage/README.md
-# NEXT_PUBLIC_BLOB_PROVIDER=tiered
+# Blobs: tiered (R2 hot + MinIO on OCI cold) — see docs/running/storage/README.md
+NEXT_PUBLIC_BLOB_PROVIDER=tiered
+BLOB_PROVIDER=tiered
 # Optional integration overrides — see docs/using/integrations.md
 ```
 
 ### Database
 
 ```bash
-supabase link --project-ref <your-ref>
-supabase db push
+for f in supabase/migrations-self-hosted-postgres/*.sql supabase/migrations/*.sql; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+done
 ```
 
-Apply the full chain with `supabase db push`. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped, nothing reads them, and **`0099` drops the whole schema** — this paragraph used to claim no migration did. Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
+Apply the full chain, self-hosted prerequisites first. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped, nothing reads them, and **`0099` drops the whole schema** — this paragraph used to claim no migration did. Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
 
 ### Collaboration
 
@@ -285,8 +284,8 @@ npm run build --workspace @weaveforge/pitch   # static export -> apps/pitch/out
 
 ## Deploy
 
-- **Web** → Vercel (or any Node host): root `apps/web`, set `NEXT_PUBLIC_SUPABASE_*`, add production URL to Supabase Auth redirects.
-- **Database** → Supabase hosted or self-hosted Postgres per [`docs/running/backend.md`](docs/running/backend.md).
+- **Web** → Vercel (or any Node host): root `apps/web`, set `NEXT_PUBLIC_DATA_URL`, `NEXT_PUBLIC_REALTIME_URL` and the sign-in keys, and add the production URL to the auth project's redirects.
+- **Database and files** → the OCI stack, per [`docs/running/backend.md`](docs/running/backend.md).
 - **Pitch site** → GitHub Pages, built from `apps/pitch` by
   [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to
   `main` that touches it. See [The pitch site ↓](#the-pitch-site).

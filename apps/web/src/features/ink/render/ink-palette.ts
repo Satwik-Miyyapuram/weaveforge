@@ -1,5 +1,5 @@
 /**
- * The ink palette: the six `INK_COLOURS` as linear-ish sRGB triples the
+ * The ink palette: the `INK_COLOURS` as linear-ish sRGB triples the
  * renderers draw with.
  *
  * Strokes store a colour *name* — "text", "accent" — and the name resolves to a
@@ -23,6 +23,16 @@ export const INK_RENDER_COLOURS: InkPalette = {
   good: [0.16, 0.6, 0.36],
   info: [0.2, 0.55, 0.72],
   danger: [0.79, 0.24, 0.24],
+  // The marker colours, `--ink-*` in base.css: the reader's eight, so a note
+  // and a paper written in "yellow" are the same yellow.
+  yellow: [1, 0.83, 0],
+  red: [1, 0.4, 0.4],
+  green: [0.37, 0.7, 0.21],
+  blue: [0.18, 0.66, 0.9],
+  purple: [0.64, 0.54, 0.9],
+  pink: [0.9, 0.43, 0.93],
+  orange: [0.95, 0.6, 0.22],
+  grey: [0.67, 0.67, 0.67],
 };
 
 /** The CSS custom property each ink colour is the value of. */
@@ -33,6 +43,14 @@ export const INK_COLOUR_TOKENS: Record<InkColour, string> = {
   good: "--s-good",
   info: "--s-info",
   danger: "--s-danger",
+  yellow: "--ink-yellow",
+  red: "--ink-red",
+  green: "--ink-green",
+  blue: "--ink-blue",
+  purple: "--ink-purple",
+  pink: "--ink-pink",
+  orange: "--ink-orange",
+  grey: "--ink-grey",
 };
 
 /** One palette entry as a CSS colour, for a trail or a Canvas 2D fill. */
@@ -47,6 +65,22 @@ export function paletteCss(
   return alpha >= 1
     ? `rgb(${channel(r)}, ${channel(g)}, ${channel(b)})`
     : `rgba(${channel(r)}, ${channel(g)}, ${channel(b)}, ${alpha})`;
+}
+
+/**
+ * One palette entry as `#rrggbb`.
+ *
+ * A stored reader annotation carries a literal colour, not a name, so a paper's
+ * ink resolves its ink colour through the same palette the note draws with —
+ * one place decides what "red" is, on both surfaces.
+ */
+export function paletteHex(palette: InkPalette, colour: InkColour): string {
+  const [r, g, b] = palette[colour] ?? palette.text ?? INK_RENDER_COLOURS.text;
+  const channel = (value: number) =>
+    Math.round(Math.max(0, Math.min(1, value)) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(r)}${channel(g)}${channel(b)}`;
 }
 
 /**

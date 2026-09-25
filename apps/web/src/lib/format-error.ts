@@ -19,8 +19,46 @@ function networkFailureMessage(message: string): string | null {
   // and this app talks to two of them — keep it, because "which one" is the
   // whole of what a reader can pass on to whoever can fix it.
   const host = /\(could not reach ([^)]+)\)/.exec(message)?.[1];
+  /**
+   * The host answered a probe that CORS does not apply to, so it is up.
+   *
+   * **This used to be a verdict, and that was a bug.** The client's marker read
+   * `(origin refused by <host>)` and this function turned it into a paragraph
+   * naming `CORS_ALLOWED_ORIGINS`, telling the reader their server's allow-list
+   * was at fault. But the probe behind it used `mode: "no-cors"`, which resolves
+   * for *any* response — `200`, `401`, `404` alike — so "reachable" was true for
+   * almost any reply whatsoever, and the conclusion did not follow from the
+   * evidence. It sent someone to edit a Caddyfile that was already correct, twice.
+   *
+   * What the observation actually supports: the host is up and answered, so the
+   * problem is not the connection — and the browser's own words, which the client
+   * now carries through, are the part that says what happened. Both are kept.
+   */
+  const answered = /\(host answered\)/.exec(message) !== null;
+  const browserSaid = /\(browser said: ([^)]+)\)/.exec(message)?.[1];
+  if (answered) {
+    const where = typeof window === "undefined" ? "this app" : window.location.origin;
+    return (
+      `The API at ${host ?? "the server"} answered a reachability check, so it is running — but this ` +
+      `request from ${where} failed. ` +
+      (browserSaid ? `The browser said: “${browserSaid}”. ` : "") +
+      "That is what a CORS refusal, a blocked request or an expired session looks like from here, " +
+      "and the distinction needs the Network tab or the server's log. Reload and try again; if it " +
+      "persists, the browser's own words above are the part worth passing on."
+    );
+  }
   const what = host ? `Could not reach ${host}.` : "Could not reach the server.";
-  return `${what} The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.`;
+  // The origin, named, because on this deployment it is the usual cause and it is the
+  // one fact a reader can act on without opening a Network tab. The allow-list covers
+  // only `weaveforge.org`, `app://weaveforge` and `localhost:3000|3100`, so a preview
+  // deployment, a dev server on another port and a local API on a bare IP all produce
+  // this while the network is perfectly fine.
+  const origin = typeof window === "undefined" ? null : window.location.origin;
+  const hint =
+    origin && host
+      ? ` If the network is fine, check that this origin (${origin}) is on the API's CORS allow-list.`
+      : "";
+  return `${what} The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.${hint}`;
 }
 /** Extract a human-readable message from unknown thrown values (incl. Supabase/PostgREST). */
 export function formatError(err: unknown): string {
@@ -39,6 +77,17 @@ export function formatError(err: unknown): string {
   if (typeof err === "object") {
     const record = err as Record<string, unknown>;
     const message = record.message;
+    // PostgREST's "no such function": the app is newer than the database it is
+    // talking to. Its raw text ("Could not find the function
+    // public.metric_history(p_experiment_id, …) in the schema cache") reads like
+    // a crash; what it means is that a migration has not been applied yet.
+    if (record.code === "PGRST202") {
+      const fn = typeof message === "string" ? /function ([\w.]+)\(/.exec(message)?.[1] : undefined;
+      return (
+        `The server's database is older than this version of the app${fn ? ` (it has no ${fn.replace(/^public\./, "")} function yet)` : ""}. ` +
+        "Whoever runs the server needs to apply the latest migrations (npm run migrate:schema). (PGRST202)"
+      );
+    }
     if (typeof message === "string" && message.trim()) {
       const trimmed = message.trim();
       // supabase-js hands a failed fetch back as a plain object, so the network
@@ -64,7 +113,7 @@ export function formatError(err: unknown): string {
     if (parts.length > 0) {
       const text = parts.join(" — ");
       if (text.includes("api_tokens") || code === "PGRST205" || code === "42P01") {
-        return `${text}. Run supabase db push (migration 0061) if API tokens are not set up yet.`;
+        return `${text}. Apply the schema migrations (npm run migrate:schema; migration 0061) if API tokens are not set up yet.`;
       }
       return text;
     }
@@ -186,7 +235,7 @@ const CALLER_FAULT_MESSAGES: Record<string, string> = {
  *
  * The hint is kept, deliberately, because it is the one case where the generic
  * message is actively unhelpful to the only person who can act on it: an
- * operator who has just deployed and forgotten `supabase db push` sees a 500 on
+ * operator who has just deployed and forgotten `npm run migrate:schema` sees a 500 on
  * every request and needs to be told why. What is *not* kept is the table name
  * — the existing hint in `formatError` says "if API tokens are not set up yet",
  * which names a table to whoever is holding the response. The reworded version
@@ -197,7 +246,7 @@ const CALLER_FAULT_MESSAGES: Record<string, string> = {
 const MIGRATION_INCOMPLETE = new Set(["42P01", "PGRST205"]);
 
 const MIGRATION_HINT =
-  "The server is missing a database migration; run supabase db push and try again.";
+  "The server is missing a database migration; apply the schema migrations (npm run migrate:schema) and try again.";
 
 /** The hidden detail, in a form a log reader can use. */
 function describeForLog(err: unknown): string {

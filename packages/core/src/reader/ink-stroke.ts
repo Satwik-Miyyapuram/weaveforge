@@ -71,13 +71,23 @@ const INK_MAX_WIDTH = 24;
 const PT_PER_MM = 72 / 25.4;
 
 /**
- * The pen rail's four nibs, in PDF points, derived from the ink note's set
- * (`ink/width.ts`, in 0.1 mm) so a 0.3 mm pen on a PDF is the same line as a
- * 0.3 mm pen on an ink note and the two sets cannot drift apart:
+ * One ink nib, in the note's own unit (0.1 mm), as PDF points.
+ *
+ * The bar and the note share one nib set — `INK_PEN_WIDTHS`, in 0.1 mm — and
+ * this is the only place the unit changes, so a 0.3 mm pen draws the same line
+ * on a paper as on a sheet of ruled paper and the two sets cannot drift apart.
+ */
+export function inkNoteWidthToPdfPoints(tenths: number): number {
+  if (!Number.isFinite(tenths)) return INK_DEFAULT_WIDTH;
+  return Math.round((tenths / INK_WIDTH_UNITS_PER_MM) * PT_PER_MM * 100) / 100;
+}
+
+/**
+ * The rail's four nibs, in PDF points, derived from the ink note's set:
  * 0.28 / 0.85 / 1.42 / 1.98 pt.
  */
 export const INK_NIB_WIDTHS_PT: readonly number[] = INK_PEN_WIDTHS.map(
-  (tenths) => Math.round((tenths / INK_WIDTH_UNITS_PER_MM) * PT_PER_MM * 100) / 100,
+  inkNoteWidthToPdfPoints,
 );
 
 /**

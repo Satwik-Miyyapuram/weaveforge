@@ -109,7 +109,10 @@ const PAIRS = [
      silently settled here. */
   ["--faint", "--bg", "faint text on bg", true], // decorative → 3:1 bar
   ["--accent-fg", "--accent", "button label on accent"],
-  ["--accent", "--bg", "accent-as-text on bg"],
+  // Text that wants the accent reads `--accent-ink`, which common.css points
+  // at `--accent` and a theme with a fill-only accent (brutal's yellow) sets
+  // to something legible; the audit follows the same fallback.
+  ["--accent-ink", "--bg", "accent-as-text on bg"],
   // Status pills: the ramp on its own tint.
   ...RAMP.map((k) => [`--s-${k}`, `--s-${k}-bg`, `status ${k} on tint`]),
   // The same ramp as text straight on the page: chips, icon tints, status bar.
@@ -120,7 +123,8 @@ let failures = 0;
 const themeBlocks = blocks.filter((b) => b.tokens["--bg"]); // skip alias-only :root
 
 for (const t of themeBlocks) {
-  const tok = (name) => t.tokens[name] ?? base[name];
+  const raw = (name) => t.tokens[name] ?? base[name];
+  const tok = (name) => (name === "--accent-ink" && !hexToRgb(raw(name) ?? "") ? raw("--accent") : raw(name));
   const rows = [];
   for (const [fgN, bgN, label, large] of PAIRS) {
     const fg = hexToRgb(tok(fgN) ?? ""), bg = hexToRgb(tok(bgN) ?? "");

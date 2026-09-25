@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -10,16 +11,18 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
+  clampScale,
   readerKeyboardCommand,
   resolveTextAnchor,
   canJoinInkGroup,
   inkPathsHitTest,
   inkWidthForPressure,
+  inkNoteWidthToPdfPoints,
   meanPressure,
   screenPointToPdf,
   shouldAppendInkPoint,
   translateInkPaths,
-  HIGHLIGHTER_WIDTH,
+  INK_HIGHLIGHTER_WIDTH,
   INK_DEFAULT_WIDTH,
   type PageProjection,
   type PageTextGeometry,
@@ -32,6 +35,15 @@ import {
   type FigureTarget,
 } from "@weaveforge/core";
 import type { TextSelectionRange } from "@weaveforge/core";
+// The ink note's own bar, palette and nibs: the reader draws no toolbar of its
+// own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
+import {
+  InkBar,
+  INK_RENDER_COLOURS,
+  paletteHex,
+  readThemePalette,
+  type InkPalette,
+} from "@/features/ink";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
 import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
@@ -49,6 +61,7 @@ import {
   optimisticAnnotationFromDraft,
   PENDING_ANNOTATION_PREFIX,
   READER_ANNOTATION_COLORS,
+  toolOwnsThePage,
   type ReaderCreateTool,
 } from "../../application/reader-annotation-helpers";
 import { useReaderViewport } from "../use-reader-viewport";
@@ -62,7 +75,6 @@ import { SelectionCreateBar } from "../selection-create-bar";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
-import { Select } from "@/components/select";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ColourMenu } from "@/components/colour-menu";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -73,9 +85,9 @@ import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePagePointer } from "./use-page-pointer";
+import { useReaderGestures } from "../use-reader-gestures";
 import { useInkUndo } from "./use-ink-undo";
-import { usePenPrefs } from "./use-pen-prefs";
-import { PenRail } from "./pen-rail";
+import { usePenPrefs, barToolFor, inkCursorFor, readerToolFor } from "./use-pen-prefs";
 import { useReaderReferences } from "./use-reader-references";
 import { ReferencePopoverHost } from "./reference-popover-host";
 import { CitationTextLayer } from "./citation-text-layer";
@@ -137,32 +149,49 @@ export function PdfReader({
   onActivity,
   onSourceFailure,
   inkRail = false,
+  toolbarExtra,
 }: PdfReaderProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const [showOutline, setShowOutline] = useState(false);
   const [showReferences, setShowReferences] = useState(false);
+  // Narrow screens stack the side column under the page, where an always-open
+  // annotation list took 40% of a phone's height. There it waits behind this.
+  const [showAnnotationList, setShowAnnotationList] = useState(false);
   const [find, setFind] = useState<{ matches: DocumentSearchMatch[]; active: number }>({ matches: [], active: -1 });
   const [flashPage, setFlashPage] = useState<number | null>(null);
   const [captionTarget, setCaptionTarget] = useState<FigureTarget | null>(null);
-  const [spread, setSpread] = useState(false);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [pickedTool, setCreateTool] = useState<ReaderCreateTool>("select");
   const [pickedColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
-  // The pen rail, once up, is the tool picker: what it holds is what draws.
-  // Its choices persist per user (`usePenPrefs`), the toolbar's do not.
+  // The pen bar, once up, is the tool picker: what it holds is what draws. Its
+  // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
+  const [sideCollapsed, setSideCollapsed] = useState(readSideCollapsed);
+  const toggleSide = () =>
+    setSideCollapsed((v) => {
+      writeSideCollapsed(!v);
+      return !v;
+    });
   useEffect(() => setPenOpen(inkRail), [inkRail]);
   const pen = usePenPrefs();
   const createTool: ReaderCreateTool = penOpen ? pen.prefs.tool : pickedTool;
-  const createColor = penOpen ? pen.prefs.color : pickedColor;
   /**
-   * Writing is a full-width activity, so a drawing tool puts the reader in
-   * focus: the outline, the references and the annotation list all stand down
-   * and the paper gets the room. Select is the exception — it is the tool you
-   * pick things *with*, so the list it picks from has to stay.
+   * The ink colour, as the literal a stored annotation takes.
+   *
+   * The bar's swatches are the ink note's colour *names* (`INK_COLOURS`), so
+   * the paper's ink is written in the same vocabulary the note is; this is the
+   * one place a name becomes the hex a `ReaderAnnotation` carries. The palette
+   * is read off the document once, after mount — reading it during render would
+   * both touch the DOM there and paint a different colour on the client's first
+   * pass than the static export's.
    */
-  const penFocused = penOpen && pen.prefs.tool !== "select";
+  const [inkPalette, setInkPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
+  useEffect(() => setInkPalette(readThemePalette(document)), []);
+  const penColor = paletteHex(inkPalette, pen.prefs.colour);
+  const createColor = penOpen ? penColor : pickedColor;
+  /** The nib in PDF points, from the note's 0.1 mm — one nib set for both surfaces. */
+  const penWidth = inkNoteWidthToPdfPoints(pen.prefs.width);
   // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
   // session, not persisted — a reader that reopens with every control hidden
   // looks broken, not focused.
@@ -214,6 +243,26 @@ export function PdfReader({
   const inkUndo = useInkUndo(actions, annotations, penOpen);
   const { persistDraft, removeLocal, saveAnchor, reset: resetInkUndo } = inkUndo;
   useEffect(() => resetInkUndo(), [url, resetInkUndo]);
+  // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back the
+  // last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back. Listened for on the
+  // window, the ink note's way, so it answers wherever focus went after the
+  // last tap — a rail button, the page, nowhere — and not only while the
+  // reader's root holds it.
+  const inkUndoRef = useRef(inkUndo);
+  inkUndoRef.current = inkUndo;
+  useEffect(() => {
+    if (!penOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      if (isEditableTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (key !== "z" && key !== "y") return;
+      event.preventDefault();
+      void (key === "y" || event.shiftKey ? inkUndoRef.current.redo() : inkUndoRef.current.undo());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [penOpen]);
 
   /** Stable identity so a memoised page overlay is not re-rendered by a new closure. */
   const selectAnnotation = useCallback((id: string) => setSelectedAnnId(id), []);
@@ -237,8 +286,9 @@ export function PdfReader({
   function pageAnnotations(pageNumber: number): ReaderAnnotation[] {
     const list = annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS;
     if (!movePreview) return list;
+    const moving = new Set(movePreview.ids);
     return list.map((ann) => {
-      if (ann.id !== movePreview.id) return ann;
+      if (!moving.has(ann.id)) return ann;
       const position = ann.anchor.zoteroPosition;
       if (!position?.paths?.length) return ann;
       return {
@@ -286,11 +336,50 @@ export function PdfReader({
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
 
+  /**
+   * How many pen strokes the page under the pen carries, for the bar's
+   * readout: the note counts strokes because that is what it holds, and a
+   * paper's ink annotations are its strokes.
+   */
+  const pageInkStrokes = useMemo(
+    () =>
+      (annotationsByPage.get(viewport.page) ?? EMPTY_ANNOTATIONS).filter(
+        (ann) => ann.type === "ink",
+      ).length,
+    [annotationsByPage, viewport.page],
+  );
+
+  /**
+   * The pointer the page shows, from the one table both surfaces read
+   * (`inkCursorFor`, `features/ink`): the crosshair a nib is aimed with, the
+   * eraser's ring. The pointer tool is left alone — it is the arrow and the
+   * text I-beam the page already gives it.
+   */
+  const pageCursor = canCreate ? inkCursorFor(createTool) : undefined;
+
+  /**
+   * Ink is the ink mode's.
+   *
+   * With the pen away the reader is reading: the paper's marks are still drawn
+   * — they are what the page says — but nothing on it takes the pointer, so a
+   * pen or a finger goes to the page's own text instead of to a stroke lying
+   * over it, and a drag across a paragraph is a selection rather than a lasso.
+   */
+  const inkEditable = penOpen;
+
+  /** What the armed tool will do on release. */
+  const toolHint = CREATE_TOOL_HINTS[createTool];
+
   const {
     penSeen,
     draftShape,
     movePreview,
     isMovingInk,
+    lassoPath,
+    lassoPage,
+    lassoed,
+    clearLasso,
+    cancelStroke,
     endInkGroup,
     pendingTextBox,
     setPendingTextBox,
@@ -304,7 +393,8 @@ export function PdfReader({
     canCreate,
     createTool,
     createColor,
-    inkWidth: pen.prefs.nib,
+    inkEditable,
+    inkWidth: penWidth,
     selectedAnnId,
     pageSize,
     scale,
@@ -317,12 +407,236 @@ export function PdfReader({
     saveAnchor,
   });
 
-  const unpaintedPageSize = (size: ReaderPageSize, at: number, turn: number) => {
+  /**
+   * The pinch, previewed and then committed.
+   *
+   * While the fingers are down the zoom is a **transform** on the pages: paint
+   * only, no layout, no pdf.js — which is what keeps it at the display's rate.
+   * The commit is one change of scale afterwards, so every page is rendered once
+   * at the size it was dragged to instead of once per frame of the drag.
+   */
+  const [zoomPreview, setZoomPreview] = useState<{
+    factor: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  /**
+   * The pages' boxes as they were before the pinch scaled anything, by page.
+   *
+   * The transform origins are measured against these for the whole gesture —
+   * see the preview effect below for why measuring them again would make the
+   * page drift while it zooms.
+   */
+  const pinchBoxes = useRef(new Map<string, { left: number; top: number }>());
+
+  /**
+   * Give every page the size a scale means, at once.
+   *
+   * A page's box and its canvas are sized by pdf.js as it repaints — which is
+   * fine for one page at a time and wrong for a zoom, where every page changes
+   * size at the same moment: until each one is repainted its box has no size at
+   * all, so the document goes blank, reflows in pieces and drags the scroll with
+   * it. That is the flashing a pinch ended with.
+   *
+   * Doing it here instead takes the new layout in one step. The **bitmap is left
+   * alone**: the browser stretches the old one to the new size, so the page is
+   * never blank, and pdf.js repaints it sharp a moment later. Landscape is the
+   * rotation the reader already turns the page by, so the width and the height
+   * swap exactly as they do everywhere else.
+   */
+  const resizePagesFor = useCallback(
+    (at: number) => {
+      const scroller = containerRef.current;
+      if (!scroller) return;
+      for (const row of scroller.querySelectorAll<HTMLElement>(".pdf-reader-page-row")) {
+        const pageNumber = Number(row.dataset.page);
+        // The text geometry carries the page's own size under other names; the
+        // document's page size stands in for a page not measured yet.
+        const geometry = pageGeometries.current.get(pageNumber);
+        const size: ReaderPageSize | null = geometry
+          ? { width: geometry.pageWidth, height: geometry.pageHeight }
+          : pageSize;
+        const box = row.querySelector<HTMLElement>(".pdf-reader-page");
+        if (!size || !box) continue;
+        const { width, height } = pageRenderSize(size, at, rotation);
+        box.style.width = `${width}px`;
+        box.style.height = `${height}px`;
+        const canvas = box.querySelector("canvas");
+        if (canvas) {
+          canvas.style.width = `${width}px`;
+          canvas.style.height = `${height}px`;
+        }
+      }
+    },
+    [containerRef, pageGeometries, pageSize, rotation],
+  );
+
+  /**
+   * Take a pinch: the real scale, and the scroll that keeps the point the pinch
+   * was about exactly where it is on screen.
+   *
+   * The layout takes its new size *before* the scale changes, so the frame the
+   * browser paints is the one the fingers were already looking at — the preview
+   * transform comes off at the same instant the pages become that size — and the
+   * scroll is then set against a layout that is already right, rather than
+   * waiting for pdf.js to grow the pages one by one.
+   *
+   * The anchor is **measured, not calculated**. Scaling the scroll offset is the
+   * obvious arithmetic and it is wrong here: the pages are centred in the
+   * scroller, so the content's own origin is not the scroller's, and a scaled
+   * offset drifts the page sideways every zoom. Instead the point's position
+   * *within the page under it* is taken before the resize and looked up again
+   * after — whatever centring, zoom or rotation did to the layout, the page
+   * moves by exactly the difference.
+   */
+  const commitZoom = useCallback(
+    (factor: number, focusX: number, focusY: number) => {
+      const scroller = containerRef.current;
+      const before = viewport.renderScale;
+      const applied = clampScale(before * factor) / before;
+      if (!Number.isFinite(applied) || applied === 1) {
+        setZoomPreview(null);
+        return;
+      }
+      /*
+       * The reader is placing the view itself here. A zoom moves the scroll to
+       * keep the fingers' point still, which can land on another page — and the
+       * reader's own rule is to scroll the page being read to the top, smoothly.
+       * Left alone, that rule smooth-scrolls the whole zoom back out over half a
+       * second of frames: the anchor is set and then animated away from. The
+       * flag is the one the reader already uses when *it* moves the view; the
+       * timeout is only so a zoom that happens not to change the page cannot
+       * leave the next page change unscrolled.
+       */
+      suppressPageScroll.current = true;
+      window.setTimeout(() => {
+        suppressPageScroll.current = false;
+      }, 400);
+
+      /*
+       * The preview comes off *first*, and by hand. Its transform is still on
+       * the pages, and a bounding rect reports the transformed box — so a
+       * measurement taken now would be in scaled coordinates and then scaled
+       * again by the resize, which is how a zoom ended up offset from the point
+       * it was about. Clearing it here also means the frame the browser paints
+       * next is the one the hand was looking at: the pages are already the size
+       * the transform was showing.
+       */
+      for (const row of scroller?.querySelectorAll<HTMLElement>(".pdf-reader-page-row") ?? []) {
+        row.style.transform = "";
+        row.style.transformOrigin = "";
+      }
+      pinchBoxes.current.clear();
+
+      const scrollerRect = scroller?.getBoundingClientRect();
+      const focusClientX = (scrollerRect?.left ?? 0) + focusX;
+      const focusClientY = (scrollerRect?.top ?? 0) + focusY;
+      const page = scrollerRect
+        ? (document
+            .elementFromPoint(focusClientX, focusClientY)
+            ?.closest(".pdf-reader-page-row") as HTMLElement | null)
+        : null;
+      const before_ = page?.getBoundingClientRect();
+      const withinPageX = before_ ? focusClientX - before_.left : 0;
+      const withinPageY = before_ ? focusClientY - before_.top : 0;
+
+      resizePagesFor(before * applied);
+      setZoomPreview(null);
+      viewport.zoomBy(factor);
+
+      if (!scroller || !page || !before_) return;
+      const now = page.getBoundingClientRect();
+      // Where that same point sits on screen now, and the scroll that puts it
+      // back where the hand left it.
+      const landedX = now.left + withinPageX * applied;
+      const landedY = now.top + withinPageY * applied;
+      scroller.scrollLeft += landedX - focusClientX;
+      scroller.scrollTop += landedY - focusClientY;
+    },
+    [viewport, containerRef, resizePagesFor, suppressPageScroll],
+  );
+
+  /**
+   * Show the pinch: the pages, scaled about the point the pinch is about.
+   *
+   * A transform moves nothing and re-renders nothing, so the gesture runs at the
+   * display's rate however many pages are on screen, and the pages off screen
+   * are left alone — there is nothing of theirs to repaint.
+   *
+   * The boxes the origins are measured from are **captured once, before any
+   * transform is applied**, and that is not a micro-optimisation: a bounding
+   * rect reports the *transformed* box, so measuring afresh each frame takes the
+   * origin from an already-scaled rectangle, and the anchor then walks a little
+   * further every frame — which is exactly what "the page drifts while I zoom"
+   * looks like. Nothing rescales the layout for the length of the gesture, so
+   * one measurement of it is the right one.
+   */
+  useLayoutEffect(() => {
+    const scroller = containerRef.current;
+    if (!scroller) return;
+    const rows = scroller.querySelectorAll<HTMLElement>(".pdf-reader-page-row");
+
+    if (!zoomPreview) {
+      for (const row of rows) {
+        row.style.transform = "";
+        row.style.transformOrigin = "";
+      }
+      pinchBoxes.current.clear();
+      return;
+    }
+
+    if (pinchBoxes.current.size === 0) {
+      const scrollerBox = scroller.getBoundingClientRect();
+      for (const row of rows) {
+        const box = row.getBoundingClientRect();
+        if (box.bottom < scrollerBox.top - 400 || box.top > scrollerBox.bottom + 400) continue;
+        pinchBoxes.current.set(row.dataset.page ?? "", { left: box.left, top: box.top });
+      }
+    }
+
+    const scrollerBox = scroller.getBoundingClientRect();
+    const originX = scrollerBox.left + zoomPreview.x;
+    const originY = scrollerBox.top + zoomPreview.y;
+    for (const row of rows) {
+      const box = pinchBoxes.current.get(row.dataset.page ?? "");
+      if (!box) {
+        row.style.transform = "";
+        continue;
+      }
+      row.style.transformOrigin = `${originX - box.left}px ${originY - box.top}px`;
+      row.style.transform = `scale(${zoomPreview.factor})`;
+    }
+  }, [zoomPreview, containerRef]);
+
+  /** Two fingers pan and pinch, whatever the tool — and one finger pans too,
+   * because on a paper the stylus draws and the hand moves the page. Asked first
+   * on every pointer event, and it takes the first finger's work away when the
+   * second lands. */
+  const gestures = useReaderGestures({
+    scrollRef: containerRef,
+    onGestureStart: cancelStroke,
+    onZoomPreview: (factor, x, y) => setZoomPreview({ factor, x, y }),
+    onZoomCommit: (factor, x, y) => commitZoom(factor, x, y),
+  });
+
+  /**
+   * The size a page takes at a scale, rotation included.
+   *
+   * A page turned a quarter turn is as wide as it is tall and the other way
+   * about; the placeholder for a page not yet painted and the resize a zoom does
+   * both read their size from here, so a landscape page zooms as the same shape.
+   */
+  function pageRenderSize(size: ReaderPageSize, at: number, turn: number) {
     const sideways = turn % 180 !== 0;
     return {
-      minWidth: `${Math.floor((sideways ? size.height : size.width) * at)}px`,
-      minHeight: `${Math.floor((sideways ? size.width : size.height) * at)}px`,
+      width: Math.floor((sideways ? size.height : size.width) * at),
+      height: Math.floor((sideways ? size.width : size.height) * at),
     };
+  }
+
+  const unpaintedPageSize = (size: ReaderPageSize, at: number, turn: number) => {
+    const { width, height } = pageRenderSize(size, at, turn);
+    return { minWidth: `${width}px`, minHeight: `${height}px` };
   };
 
   const onFigureTarget = useCallback((target: FigureTarget) => {
@@ -565,16 +879,6 @@ export function PdfReader({
       setFocus(false);
       return;
     }
-    // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back
-    // the last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back.
-    if (penOpen && (event.ctrlKey || event.metaKey) && !isEditableTarget(event.target)) {
-      const key = event.key.toLowerCase();
-      if (key === "z" || key === "y") {
-        event.preventDefault();
-        void (key === "y" || event.shiftKey ? inkUndo.redo() : inkUndo.undo());
-        return;
-      }
-    }
     // Delete the selected annotation from the page itself. Deleting was only
     // reachable by finding the same annotation again in the sidebar list.
     if (
@@ -773,7 +1077,7 @@ export function PdfReader({
       {/* One panel, two rows: viewport controls above, find/view/annotate below.
           Two free-floating wrapping bars read as scattered chrome. */}
       <div className="pdf-reader-chrome">
-        <ReaderToolbar viewport={viewport} numPages={numPages} />
+        <ReaderToolbar viewport={viewport} numPages={numPages} hideFit={penOpen} />
         <div className="pdf-reader-tools">
         <ReaderSearchBar
           pages={pageTexts}
@@ -784,10 +1088,10 @@ export function PdfReader({
         />
         <div className="pdf-reader-group">
           {/* Outline, citations and references all live in the side column the
-              pen's focus hides, so their toggles stand down with it rather than
-              offering a switch that would appear to do nothing. Two-page and
-              the search bar stay: they are the page's own controls. */}
-          {!penFocused && (
+              pen hides, so their toggles stand down with it rather than offering
+              a switch that would appear to do nothing. The search bar stays: it
+              is the page's own control. */}
+          {!penOpen && (
             <button
               type="button"
               className={`btn-secondary btn-sm${showOutline ? " is-active" : ""}`}
@@ -797,15 +1101,7 @@ export function PdfReader({
               {outline.some((item) => item.y !== undefined) ? "Sections (detected)" : "Outline"}
             </button>
           )}
-          <button
-            type="button"
-            className={`btn-secondary btn-sm${spread ? " is-active" : ""}`}
-            aria-pressed={spread}
-            onClick={() => setSpread((v) => !v)}
-          >
-            Two-page
-          </button>
-          {!penFocused && (
+          {!penOpen && (
             <button
               type="button"
               className={`btn-secondary btn-sm${refs.enabled ? " is-active" : ""}`}
@@ -815,7 +1111,7 @@ export function PdfReader({
               Link citations
             </button>
           )}
-          {!penFocused && (
+          {!penOpen && (
             <button
               type="button"
               className={`btn-secondary btn-sm${showReferences ? " is-active" : ""}`}
@@ -825,6 +1121,17 @@ export function PdfReader({
               References{refs.index.references.length ? ` (${refs.index.references.length})` : ""}
             </button>
           )}
+          {!penOpen && (annotations.length > 0 || canCreate) && (
+            <button
+              type="button"
+              className={`btn-secondary btn-sm pdf-reader-narrow-only${showAnnotationList ? " is-active" : ""}`}
+              aria-pressed={showAnnotationList}
+              onClick={() => setShowAnnotationList((v) => !v)}
+            >
+              Annotations{annotations.length ? ` (${annotations.length})` : ""}
+            </button>
+          )}
+          {toolbarExtra}
         </div>
         <button
           type="button"
@@ -842,39 +1149,44 @@ export function PdfReader({
             aria-pressed={penOpen}
             onClick={() => {
               endInkGroup();
-              setPenOpen((v) => !v);
+              const next = !penOpen;
+              setPenOpen(next);
+              syncPenParam(next);
             }}
           >
-            Pen
+            Ink mode
           </button>
         )}
         {canCreate && !penOpen && (
           <div className="pdf-reader-group">
-            <Select
-              className="pdf-reader-tool-select"
-              aria-label="Annotation tool"
-              value={createTool}
-              onChange={(e) => {
-                // Switching tool ends the mark in progress, so the next stroke
-                // never merges into one drawn with a different nib.
-                endInkGroup();
-                setCreateTool(e.target.value as ReaderCreateTool);
-              }}
-            >
-              {/* Named by what each does, not by what it is. "Image region"
-                  and "Text box" both drag out a rectangle, so the old labels
-                  gave no way to tell them apart. */}
-              <option value="select">Highlight text</option>
-              <option value="ink">Draw freehand</option>
-              <option value="highlighter">Highlighter pen</option>
-              <option value="erase">Erase ink</option>
-              <option value="image">Clip a region</option>
-              <option value="text">Write a note</option>
-            </Select>
+            {/* Named by what each does. The three ink tools are deliberately
+                absent: ink is the ink mode's, with the note's nibs and renderer.
+                What is left is what a reader does *to* a paper. A segmented
+                group, not a menu, so the armed tool is always visible. */}
+            <div className="seg pdf-reader-tool-seg" role="radiogroup" aria-label="Annotation tool">
+              {READER_TOOL_CHOICES.map((choice) => (
+                <button
+                  key={choice.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={createTool === choice.value}
+                  className={createTool === choice.value ? "seg-on" : undefined}
+                  title={choice.hint}
+                  onClick={() => {
+                    // Switching tool ends the mark in progress, so the next stroke
+                    // never merges into one drawn with a different nib.
+                    endInkGroup();
+                    setCreateTool(choice.value);
+                  }}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
             <ColourMenu
               value={createColor}
               palette={READER_ANNOTATION_COLORS}
-              recent={pen.prefs.recent}
+              recent={READER_ANNOTATION_COLORS.slice(0, 4)}
               ariaLabel="Annotation colour"
               onChange={(colour) => {
                 endInkGroup();
@@ -884,40 +1196,51 @@ export function PdfReader({
           </div>
         )}
         </div>
+        {/* The ink note's own bar, not a copy of it: same tools, same swatches,
+            same nibs, same fold and move handles. The reader hands it the
+            pen's state only — it owns no pages of its own to offer, and a
+            paper has no paper menu, print dialog or recogniser to show. */}
         {canCreate && penOpen && (
-          <PenRail
-            tool={pen.prefs.tool}
-            color={pen.prefs.color}
-            nib={pen.prefs.nib}
-            recent={pen.prefs.recent}
+          <InkBar
+            tool={barToolFor(pen.prefs.tool)}
+            colour={pen.prefs.colour}
+            width={pen.prefs.width}
             canUndo={inkUndo.canUndo}
             canRedo={inkUndo.canRedo}
+            page={viewport.page}
+            pages={numPages}
+            strokes={pageInkStrokes}
+            penSeen={penSeen}
+            // What the lasso caught: the bar's two selection actions appear
+            // only then, and Delete takes the whole selection.
+            selected={lassoed.length}
+            onDeleteSelection={() => {
+              const doomed = [...lassoed];
+              clearLasso();
+              for (const id of doomed) void removeLocal(id);
+            }}
             onTool={(tool) => {
               endInkGroup();
-              pen.setTool(tool);
+              pen.setTool(readerToolFor(tool));
             }}
-            onColor={(color) => {
+            onColour={(colour) => {
               endInkGroup();
-              pen.setColor(color);
+              pen.setColour(colour);
             }}
-            onNib={(nib) => {
+            onWidth={(width) => {
               endInkGroup();
-              pen.setNib(nib);
+              pen.setWidth(width);
             }}
             onUndo={() => void inkUndo.undo()}
             onRedo={() => void inkUndo.redo()}
-            onClose={() => {
-              endInkGroup();
-              setPenOpen(false);
-            }}
           />
         )}
       </div>
       {/* Both rectangle tools look identical while dragging, so say which one
-          is armed and what releasing will do. */}
-      {canCreate && CREATE_TOOL_HINTS[createTool] && (
-        <p className="pdf-reader-tool-hint muted">{CREATE_TOOL_HINTS[createTool]}</p>
-      )}
+          is armed and what releasing will do. The pointer tool says more with
+          the pen out than without it: with the pen away the ink is read-only,
+          so it highlights text and nothing else. */}
+      {canCreate && toolHint && <p className="pdf-reader-tool-hint muted">{toolHint}</p>}
       {annError && (
         <div className="pdf-reader-banner pdf-reader-banner--low" role="alert">
           {annError}{" "}
@@ -940,13 +1263,42 @@ export function PdfReader({
       )}
       <div
         className={`pdf-reader-body${
-          !penFocused && (showOutline || annotations.length > 0 || canCreate)
-            ? " pdf-reader-body--outline"
+          !penOpen && (showOutline || annotations.length > 0 || canCreate)
+            ? sideCollapsed
+              ? " pdf-reader-body--rail"
+              : " pdf-reader-body--outline"
             : ""
         }`}
       >
-        {!penFocused && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
-          <div className="pdf-reader-side">
+        {/* Writing is a full-width activity: with the pen bar up — whatever tool
+            it holds, the lasso included — the outline, the references and the
+            annotation list all stand down and the paper gets the room. Nothing
+            on a paper is picked up *from* the list; it is picked up on the page,
+            by drawing a loop round it. */}
+        {/* Collapsed, the whole column folds to one vertical tab that still
+            says how many annotations wait behind it. */}
+        {!penOpen && sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
+          <button
+            type="button"
+            className="pdf-reader-side-rail"
+            aria-expanded={false}
+            title="Show the side panel"
+            onClick={toggleSide}
+          >
+            <span>Annotations{annotations.length ? ` ${annotations.length}` : ""}</span>
+          </button>
+        )}
+        {!penOpen && !sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
+          <div className={`pdf-reader-side${showAnnotationList ? " is-list-open" : ""}`}>
+            <button
+              type="button"
+              className="btn-ghost btn-sm pdf-reader-side-collapse"
+              aria-expanded
+              title="Hide the side panel"
+              onClick={toggleSide}
+            >
+              Collapse
+            </button>
             {showOutline && (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
             )}
@@ -1014,7 +1366,7 @@ export function PdfReader({
           active={find.active}
         />
         <div
-          className={`pdf-reader-scroll${spread ? " pdf-reader-scroll--spread" : ""}`}
+          className="pdf-reader-scroll"
           ref={containerRef}
           onMouseUp={onSelectionMouseUp}
         >
@@ -1032,14 +1384,34 @@ export function PdfReader({
               className="pdf-reader-page-row"
               data-page={n}
               key={n}
-              onPointerDown={(e) => onPagePointerDown(n, e)}
-              onPointerMove={onPagePointerMove}
-              onPointerUp={(e) => onPagePointerUp(n, e)}
-              onPointerCancel={(e) => onPagePointerUp(n, e)}
+              // The tool's own pointer, from the one table both surfaces read
+              // (`INK_TOOL_CURSORS`): a crosshair for a nib that is aimed, the
+              // eraser's ring for the tip that rubs out. Set here rather than in
+              // CSS because the page's class list cannot carry a data URL.
+              style={canCreate && pageCursor ? { cursor: pageCursor } : undefined}
+              // Two fingers are the page's own gesture, so they are asked for
+              // first: a pinch that the tool also saw would draw a stroke and
+              // zoom the paper at once.
+              onPointerDown={(e) => {
+                if (gestures.begin(e)) return;
+                onPagePointerDown(n, e);
+              }}
+              onPointerMove={(e) => {
+                if (gestures.move(e)) return;
+                onPagePointerMove(e);
+              }}
+              onPointerUp={(e) => {
+                if (gestures.end(e)) return;
+                onPagePointerUp(n, e);
+              }}
+              onPointerCancel={(e) => {
+                if (gestures.end(e)) return;
+                onPagePointerUp(n, e);
+              }}
             >
               <div
                 className={`pdf-reader-page${
-                  createTool !== "select" && canCreate ? " pdf-reader-page--draw" : ""
+                  toolOwnsThePage(createTool) && canCreate ? " pdf-reader-page--draw" : ""
                 }${createTool === "erase" && canCreate ? " pdf-reader-page--erase" : ""}${
                   penSeen ? " pdf-reader-page--pen" : ""
                 }${flashPage === n ? " pdf-reader-flash" : ""}`}
@@ -1061,7 +1433,10 @@ export function PdfReader({
                     pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
                     pageWidth={pageGeometries.current.get(n)?.pageWidth ?? pageSize.width}
                     selectedId={selectedAnnId}
-                    onSelect={selectAnnotation}
+                    // No lasso selection survives the pen being put down, and
+                    // `undefined` is a stable prop where a fresh `[]` would
+                    // re-render every page's overlay on every frame.
+                    inkSelectedIds={inkEditable ? lassoed : undefined}
                   />
                 )}
                 {/* Inside the page, because it decorates the page's own text
@@ -1107,6 +1482,14 @@ export function PdfReader({
               {pageSize && draftShape?.pageNumber === n && (
                 <DraftShapeOverlay
                   shape={draftShape}
+                  color={createColor}
+                  projection={pageProjection(n)}
+                />
+              )}
+              {/* The lasso loop, on the page it is being drawn on. */}
+              {pageSize && lassoPath && lassoPage === n && (
+                <DraftShapeOverlay
+                  shape={{ kind: "lasso", pageNumber: n, path: lassoPath }}
                   color={createColor}
                   projection={pageProjection(n)}
                 />
@@ -1185,4 +1568,42 @@ export function PdfReader({
       ) : null}
     </div>
   );
+}
+
+/** What a reader does *to* a paper, in the order the top bar shows it. */
+const READER_TOOL_CHOICES: ReadonlyArray<{
+  value: ReaderCreateTool;
+  label: string;
+  hint: string;
+}> = [
+  { value: "select", label: "Highlight", hint: "Highlight text" },
+  { value: "image", label: "Clip", hint: "Clip a region" },
+  { value: "text", label: "Comment", hint: "Write a note on the page" },
+];
+
+/** Mirror the ink mode into `?pen=1` so a reload or a shared link lands in it. */
+function syncPenParam(on: boolean) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (on) url.searchParams.set("pen", "1");
+  else url.searchParams.delete("pen");
+  window.history.replaceState(window.history.state, "", url);
+}
+
+const SIDE_COLLAPSED_KEY = "wf.reader.sideCollapsed";
+
+function readSideCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SIDE_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSideCollapsed(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private mode or blocked storage: the panel simply forgets.
+  }
 }

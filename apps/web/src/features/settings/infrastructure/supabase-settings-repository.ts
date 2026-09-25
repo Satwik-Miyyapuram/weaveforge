@@ -14,8 +14,10 @@ import { run } from "@/backend/providers/supabase/row-access";
 /**
  * Supabase implementation of ISettingsRepository. One row per user; user_id is
  * filled by the column default auth.uid(). Non-secret fields are read/written
- * directly; integration credentials (Zotero / GitLab / Semantic Scholar) are
- * sealed with a server-held key via /api/settings/credentials (E2EE dropped).
+ * directly; integration credentials (Zotero / GitLab / Semantic Scholar) go
+ * through a `SecretsStore` — by default the server route that seals them with a
+ * server-held key, and on a deployment with no routes of its own, this machine
+ * (see `SecretsStore`).
  */
 
 /**
@@ -39,6 +41,63 @@ export type Secrets = Pick<UserSettings, "zoteroApiKey" | "semanticScholarKey" |
 
 const TABLE = "user_settings";
 const CREDENTIALS_ROUTE = "/api/settings/credentials";
+
+/**
+ * Where integration credentials are kept.
+ *
+ * A seam rather than two `protected` methods on the repository, because the
+ * question it answers is *"does this deployment have a server that can answer
+ * its own routes"* and not *"is this window working without an account"*. Those
+ * are two different questions, and answering the second one when the first was
+ * meant is what broke saving credentials in the desktop app: the window was
+ * signed in, so it took the server path, and the static export holds
+ * `src/app/api/` aside (`apps/desktop/scripts/build-web.mjs`). The request
+ * reached the `app://` handler, which can only serve files out of the bundle,
+ * and came back a 404 with an empty body — which `saveSecrets` can only report
+ * as the generic "Failed to save integration credentials.".
+ *
+ * `apps/desktop/src/main.ts` applies `supabase/migrations-local` on every
+ * launch, so the alternative store below is always available on a machine that
+ * has the local database, signed in or not.
+ */
+export interface SecretsStore {
+  load(): Promise<Secrets>;
+  save(secrets: Secrets): Promise<void>;
+}
+
+/**
+ * The server route, which seals credentials with a key the browser never holds.
+ *
+ * Correct wherever there is a server, and the only store whose contents follow
+ * the account to another device.
+ */
+export class RouteSecretsStore implements SecretsStore {
+  constructor(private readonly db: SupabaseClient) {}
+
+  private async authHeader(): Promise<Record<string, string>> {
+    const { data } = await this.db.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async load(): Promise<Secrets> {
+    const res = await fetch(CREDENTIALS_ROUTE, { headers: await this.authHeader() });
+    if (!res.ok) return {};
+    return (await res.json()) as Secrets;
+  }
+
+  async save(secrets: Secrets): Promise<void> {
+    const res = await fetch(CREDENTIALS_ROUTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await this.authHeader()) },
+      body: JSON.stringify(secrets),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? "Failed to save integration credentials.");
+    }
+  }
+}
 
 /**
  * The metadata row, briefly memoized across repository instances.
@@ -67,32 +126,9 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
   constructor(
     private readonly db: SupabaseClient,
     private readonly session: ICurrentUserProvider,
+    /** Defaults to the server route; see `SecretsStore` for when it must not. */
+    private readonly secrets: SecretsStore = new RouteSecretsStore(db),
   ) {}
-
-  private async authHeader(): Promise<Record<string, string>> {
-    const { data } = await this.db.auth.getSession();
-    const token = data.session?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }
-
-  /** Overridden by the local copy, which has no server route to ask. */
-  protected async loadSecrets(): Promise<Secrets> {
-    const res = await fetch(CREDENTIALS_ROUTE, { headers: await this.authHeader() });
-    if (!res.ok) return {};
-    return (await res.json()) as Secrets;
-  }
-
-  protected async saveSecrets(secrets: Secrets): Promise<void> {
-    const res = await fetch(CREDENTIALS_ROUTE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(await this.authHeader()) },
-      body: JSON.stringify(secrets),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? "Failed to save integration credentials.");
-    }
-  }
 
   /**
    * Full settings, memoized like the metadata read.
@@ -118,7 +154,7 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
     if (error) throw error;
     if (!data) return { ...EMPTY_SETTINGS };
     const row = data as SettingsRow;
-    const secrets = await this.loadSecrets();
+    const secrets = await this.secrets.load();
     return hydrateUserSettings({
       zoteroApiKey: secrets.zoteroApiKey ?? undefined,
       zoteroLibrary: row.zotero_library ?? undefined,
@@ -163,8 +199,8 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
     // Read through, not from the memo: this is a read-modify-write, and merging
     // onto a minute-old copy could drop a field another tab just wrote.
     const existing = await this.readSettings();
-    // Seal secrets server-side first (owns credentials_enc + clears plaintext).
-    await this.saveSecrets({
+    // Seal secrets first (owns credentials_enc + clears plaintext).
+    await this.secrets.save({
       zoteroApiKey: settings.zoteroApiKey,
       semanticScholarKey: settings.semanticScholarKey,
       integrations: settings.integrations,

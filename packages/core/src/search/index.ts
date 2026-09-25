@@ -18,6 +18,7 @@ export * from "./embedding-port.js";
 export * from "./text-chunks.js";
 export * from "./vector-index.js";
 export * from "./rank-fusion.js";
+export * from "./hybrid-fusion.js";
 export * from "./wiki-graph.js";
 export * from "./personalized-pagerank.js";
 export * from "./related.js";

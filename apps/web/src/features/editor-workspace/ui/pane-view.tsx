@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { NavIcon } from "@/app/nav-icon";
+import { Select } from "@/components/select";
 import type { Crumb } from "../application/breadcrumbs";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
 import {
@@ -226,6 +227,40 @@ function PaneLeafView({
           );
         })}
         </div>
+        {/* Below 480px the strip fits about one and a half titles, so it gives
+            way to one control naming the document on screen; its menu lists
+            every title in full. */}
+        {showing ? (
+          <div className="pane-tab-switcher">
+            <span className={`pane-tab-icon ${tintClass(showing.kind)}`} aria-hidden="true">
+              <NavIcon name={kindIcon(showing.kind)} />
+            </span>
+            <Select
+              className="pane-tab-select"
+              aria-label="Open documents"
+              value={String(leaf.activeIndex)}
+              onChange={(event) => onActivate(leaf.id, Number(event.target.value))}
+            >
+              {leaf.tabs.map((tab, index) => (
+                <option key={tabKey(tab)} value={index}>
+                  {labelFor(tab)}
+                </option>
+              ))}
+            </Select>
+            {leaf.tabs.length > 1 ? (
+              <span className="pane-tab-count" aria-hidden="true">{leaf.tabs.length}</span>
+            ) : null}
+            <button
+              type="button"
+              className="pane-tab-close"
+              aria-label={`Close ${labelFor(showing)}`}
+              title={`Close ${labelFor(showing)}`}
+              onClick={() => onClose(leaf.id, leaf.activeIndex)}
+            >
+              <CloseGlyph />
+            </button>
+          </div>
+        ) : null}
         <div className="pane-tab-actions">
           {showing && editing === "edit" && renderTools ? (
             <span className="pane-tools">{renderTools(showing)}</span>

@@ -15,29 +15,68 @@
 }
 .papers-table td.papers-col-open { padding: 6px 8px; }
 
-.papers-controls {
+/* The header: title and progress on the left, find and add on the right. */
+.papers-head-row {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  margin: 14px 0 6px;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 24px;
 }
-.papers-controls-main {
+.papers-head-title { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.papers-head .screen-title { margin: 18px 0 0; }
+.papers-head-actions {
   display: flex;
-  flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  flex: 0 1 auto;
   min-width: 0;
 }
-.papers-controls-main .search-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
+.papers-head-actions .search-input { margin: 0; width: 300px; min-width: 0; flex: 0 1 300px; }
+.papers-head-actions .btn-primary,
+.papers-head-actions .popover { flex: none; }
+
+/* The filter row: one dropdown per facet, the active values as removable
+   chips, and the layout switch pushed to the far end. */
+.papers-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 8px;
 }
-.papers-controls-main .popover,
-.papers-controls-main .seg {
-  flex: none;
+.papers-filters .custom-select-container.papers-filter { width: auto; flex: none; }
+.papers-filters .papers-filter .custom-select-button { padding: 7px 12px; min-width: 116px; }
+.papers-layout-seg { margin-left: auto; flex: none; }
+.papers-layout-seg button { display: inline-flex; align-items: center; gap: 6px; }
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 11px;
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.filter-chip-x {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.filter-chip-x:hover { filter: brightness(0.8); color: var(--ink); }
+
+@media (max-width: 899px) {
+  .papers-head-actions { flex-basis: 100%; }
+  .papers-head-actions .search-input { flex: 1 1 auto; width: auto; }
 }
 
 .papers-table-scroll {
@@ -94,7 +133,7 @@
   color: var(--ink);
   white-space: nowrap;
 }
-.papers-sort-btn--on { color: var(--accent); }
+.papers-sort-btn--on { color: var(--accent-ink); }
 .papers-sort-arrow {
   font-size: 0.65rem;
   opacity: 0.45;
@@ -118,7 +157,7 @@
   overflow-wrap: anywhere;
   line-height: 1.35;
 }
-.papers-table-title-btn:hover { color: var(--accent); }
+.papers-table-title-btn:hover { color: var(--accent-ink); }
 .papers-table-shared {
   display: block;
   margin-top: 2px;
@@ -327,3 +366,127 @@
 
 /* Zotero PDF annotations (expanded card view). */
 .annotations { margin-top: 12px; min-width: 0; max-width: 100%; }
+
+/* Tidy the library: placeholder titles and duplicates left by older imports. */
+.tidy-panel { display: grid; gap: 20px; max-width: 640px; }
+.tidy-head { font-size: 0.95rem; margin: 0 0 4px; }
+.tidy-lede { font-size: 0.85rem; margin: 0 0 10px; }
+.tidy-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.tidy-row { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--border); }
+.tidy-current { font-size: 0.85rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tidy-fix { display: flex; gap: 8px; }
+.tidy-input { flex: 1; min-width: 0; }
+.tidy-group { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tidy-group legend { font-size: 0.8rem; padding: 0; margin-bottom: 2px; }
+.tidy-choice { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+/* The global form rule sets inputs to full width; a radio stretched that way
+   pushed the titles to the far edge and floated the dot mid-row. */
+.tidy-choice input[type="radio"] { flex: none; width: 16px; margin: 3px 0 0; }
+.tidy-choice > span { display: grid; min-width: 0; }
+.tidy-choice-title { overflow-wrap: anywhere; }
+.tidy-choice-meta { font-size: 0.8rem; }
+.tidy-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tidy-confirm { font-size: 0.8rem; margin-right: auto; }
+@media (max-width: 479px) {
+  .tidy-fix { flex-direction: column; }
+}
+
+/* ── The Papers screen, read as a catalogue ──────────────────────────────────
+ * Same language as the record page (record.css): hairlines instead of filled
+ * boxes, status as dots and a word, occasional actions out of sight until the
+ * pointer is on the card. The grid carries titles, not controls. */
+
+.papers-ledger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.papers-ledger-bar {
+  width: 120px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.papers-ledger-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
+
+/* Library upkeep, as a band across the screen rather than a line of small
+   print: what needs doing, why it matters, and the one button that does it. */
+.tidy-notice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 4px 0 18px;
+  padding: 12px 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+}
+.tidy-notice-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tidy-notice-text .muted { font-size: 0.86rem; }
+.tidy-notice .btn-secondary { flex: none; }
+
+/* The catalogue is a quiet list, not a wall of floating cards, but it still
+   answers to Settings → Appearance: Bordered draws each entry's hairline,
+   Borderless drops it for a faint fill. Neither lifts the entry on a shadow
+   (a list of shadows is the visual load this layout exists to shed), so the
+   selectors carry `:root` to outweigh the generic borderless card rules. */
+:root :is(.papers-screen, .vault-screen) .card.entity-card.paper-card {
+  gap: 6px;
+  padding: 14px 16px 10px;
+  background: transparent;
+  box-shadow: none;
+  border-color: var(--border);
+}
+:root :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--surface2) 55%, transparent);
+  border-color: var(--border-strong);
+}
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
+  border-color: transparent;
+  background: var(--surface2);
+}
+/* No hover lift unless reactive motion is on — then its tilt is the feedback,
+   and cancelling `transform` here would silently switch that setting off. */
+:root:not([data-motion="reactive"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
+  transform: none;
+}
+:is(.papers-screen, .vault-screen) .paper-card .entity-card-title { font-size: 1.04rem; line-height: 1.32; }
+:is(.papers-screen, .vault-screen) .paper-card .entity-card-snippet { -webkit-line-clamp: 2; line-clamp: 2; color: var(--faint); }
+:is(.papers-screen, .vault-screen) .paper-card .entity-card-foot { border-top: none; padding-top: 2px; }
+:is(.papers-screen, .vault-screen) .paper-card .tag-chip {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+:is(.papers-screen, .vault-screen) .paper-card .tag-chips { gap: 10px; }
+
+/* Status first in the foot, the kebab last and hidden until wanted. */
+:is(.papers-screen, .vault-screen) .paper-card .card-foot-right { width: 100%; justify-content: space-between; }
+:is(.papers-screen, .vault-screen) .paper-card .card-foot-right > :last-child { margin-left: auto; }
+/* Faint rather than hidden: on a touch-only screen there is no hover to
+   reveal it with. */
+:is(.papers-screen, .vault-screen) .paper-card .card-menu-trigger {
+  opacity: 0.35;
+  border-color: transparent;
+  background: none;
+  transition: opacity var(--dur-base);
+}
+:is(.papers-screen, .vault-screen) .paper-card:hover .card-menu-trigger,
+:is(.papers-screen, .vault-screen) .paper-card:focus-within .card-menu-trigger,
+:is(.papers-screen, .vault-screen) .paper-card .card-menu-trigger[aria-expanded="true"] { opacity: 1; }
+
+.tidy-option { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; font-size: 0.85rem; }
+.tidy-option input[type="checkbox"] { flex: none; margin: 3px 0 0; }
+.tidy-option > span { display: grid; min-width: 0; }

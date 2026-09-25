@@ -7,7 +7,7 @@ packages/core/src/storage/          apps/web/src/storage/
 ├── blob-ports.ts (IBlobStore)      ├── config.ts           ← BLOB_PROVIDER, R2, tiering knobs
 └── (Phase 1: registry, tiering)    ├── wire-storage.ts     ← composition helper
                                     └── providers/
-                                        supabase/           ← code default (Supabase Storage)
+                                        supabase/           ← legacy adapter, unused (code fallback)
                                         s3/                 ← R2 + MinIO
                                         tiered/             ← hot/cold facade — what OCI runs
 ```
@@ -24,7 +24,7 @@ Feature code uses **`IBlobStore`** via `PaperImageStore` — never Supabase Stor
 
 ## Docs
 
-- [`../plans/completed/migration-plan.md`](../../internal/plans/completed/migration-plan.md) — phased self-host (Postgres + tiered blobs, Supabase Auth)
+- [`../plans/completed/migration-plan.md`](../../internal/plans/completed/migration-plan.md) — how data and files moved to OCI (Postgres + tiered blobs; Supabase kept for sign-in)
 - [`tiering.md`](tiering.md) — R2 hot → OCI cold eviction formula
 - [`r2-setup.md`](r2-setup.md) — enable R2, create bucket, API token, env vars
 - [`growth.md`](growth.md) — which *database* tables grow without bound, and what deletes them
@@ -32,15 +32,13 @@ Feature code uses **`IBlobStore`** via `PaperImageStore` — never Supabase Stor
 ## What is actually running
 
 The OCI deployment runs **`BLOB_PROVIDER=tiered`** — R2 (or S3-compatible) hot, **MinIO on the OCI
-box** cold, with the `blob_objects` registry tracking what is where. Set in the deployed
-environment, not in the repository: the env examples leave it commented out, so a fresh checkout
-still gets `supabase`.
+box** cold, with the `blob_objects` registry tracking what is where. No files are stored at
+Supabase. The env examples set `tiered`; `apps/web/.env.local.example` has the keys.
 
-## Code default
+## Code fallback
 
-`BLOB_PROVIDER=supabase` (or unset) → `SupabaseBlobStore` wired from `wire-supabase-backend` via
-`wireStorage()`. That is the default a new checkout gets, and what a hosted-Supabase deployment
-uses; it is *not* what this project runs on.
+`BLOB_PROVIDER` unset falls back to `SupabaseBlobStore` (Supabase Storage), the adapter from before
+the move to OCI. Nothing uses it: always set `tiered`.
 
 ## Tiered
 

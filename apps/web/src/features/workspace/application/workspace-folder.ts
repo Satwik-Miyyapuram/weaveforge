@@ -1,6 +1,7 @@
 import {
   ASSET_DIR,
   NoOpWorkspaceGit,
+  WORKSPACE_META_DIR,
   changedSide,
   describeChanges,
   diffWorkspace,
@@ -87,6 +88,28 @@ export interface FolderSession {
   git: "none" | "isomorphic";
 }
 
+const connectedListeners = new Set<() => void>();
+
+/**
+ * Called whenever a folder is connected, reconnection at launch included.
+ * For things that keep a copy of their own state in the folder and must write
+ * it once there is somewhere to write it.
+ */
+export function onFolderConnected(listener: () => void): () => void {
+  connectedListeners.add(listener);
+  return () => connectedListeners.delete(listener);
+}
+
+function announceConnected(): void {
+  for (const listener of [...connectedListeners]) {
+    try {
+      listener();
+    } catch {
+      /* a listener's problem is its own */
+    }
+  }
+}
+
 export function folderSession(): FolderSession | null {
   if (!activeFs) return null;
   return {
@@ -104,13 +127,20 @@ export function supportsDirectoryPicker(): boolean {
   return BrowserWorkspaceFs.supportsDirectoryPicker;
 }
 
-/** Pick a real folder. Returns false when the user dismissed the picker. */
+/**
+ * Pick a real folder. Returns false when the user dismissed the picker.
+ */
 export async function chooseFolder(options: { git: boolean }): Promise<boolean> {
   const fs = await BrowserWorkspaceFs.pickDirectory();
   if (!fs) return false;
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
   watchForChanges();
+  // Connecting a folder starts the mirror rather than waiting for the next
+  // write: the workspace is usually not empty, and an empty folder after
+  // connecting reads as a failed connection. See `requestSync`'s own comment.
+  requestSync();
+  announceConnected();
   return true;
 }
 
@@ -146,6 +176,11 @@ export async function chooseDesktopFolder(options: {
   // The folder is where the desktop copy keeps its PDFs; fill it in the
   // background so the papers open from disk, offline included.
   downloadLibraryPdfsOnce();
+  // And write the workspace out now. Reconnecting the remembered folder on
+  // every launch lands here too, which is what keeps the folder current across
+  // a restart rather than waiting for the next edit.
+  requestSync();
+  announceConnected();
   return true;
 }
 
@@ -155,6 +190,8 @@ export async function openBrowserStorageFolder(options: { git: boolean }): Promi
   activeFs = fs;
   activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
   watchForChanges();
+  requestSync();
+  announceConnected();
 }
 
 export function closeFolder(): void {
@@ -239,7 +276,15 @@ const syncs: Coalescer = createCoalescer({
   },
 });
 
-/** Ask for a sync. Cheap enough to call on every save. */
+/**
+ * Ask for a sync. Cheap enough to call on every save.
+ *
+ * This is the continuous half: `watchForChanges` subscribes it to
+ * `onWorkspaceChange`, which every write announces through the backend, so the
+ * folder follows the workspace with no button pressed. The button in Settings is
+ * then "write it now" rather than the only way anything reaches the disk. The
+ * copy in the panel says that, and used to say the opposite.
+ */
 export function requestSync(): void {
   if (!activeFs) return;
   syncs.request();
@@ -315,7 +360,8 @@ function watchFolderForChanges(): void {
   unwatchFolder = bridge.onVaultChange((paths) => {
     const before = external.size;
     for (const path of paths) {
-      if (path !== MIRROR_MANIFEST_PATH) external.add(path);
+      // The search cache is the app's own write, not somebody else's edit.
+      if (path !== MIRROR_MANIFEST_PATH && !path.startsWith(`${WORKSPACE_META_DIR}/cache/`)) external.add(path);
     }
     if (external.size !== before) announceExternal();
   });

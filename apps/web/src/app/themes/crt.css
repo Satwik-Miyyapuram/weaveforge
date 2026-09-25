@@ -1,0 +1,55 @@
+/* CRT — a card table under a CRT in a lit room: cream felt, Jersey 10 pixel
+ * type for titles and buttons only, Rubik for reading, buttons that sit on a
+ * solid shadow and drop into it, scanlines over everything. Light only. */
+[data-theme="crt"] {
+  --bg: #e7cfa6;
+  --surface: #ffe7c1;
+  --surface2: #f1d5a7;
+  --elev: #ffe7c1;
+  --border: #2b222b;
+  --border-strong: #2b222b;
+  --text: #2b222b;
+  --muted: #5c4b51;
+  --faint: #7d696c;
+  --accent: #1f6dab;
+  --accent-fg: #ffe7c1;
+  --accent-soft: #fbd59c;
+  --accent-ink: #2b222b;
+  --s-neutral: #2b222b;  --s-neutral-bg: #f1d5a7;
+  --s-info: #2b222b;     --s-info-bg: #8db7d0;
+  --s-good: #2b222b;     --s-good-bg: #6cbf81;
+  --s-warn: #2b222b;     --s-warn-bg: #f29731;
+  --s-danger: #8f1f14;   --s-danger-bg: #f1c2a8;
+  --s-mute: #54444a;     --s-mute-bg: #ddc69e;
+
+  --bw: 3px;
+  --bw-line: #2b222b;
+  --hair: rgba(43, 34, 43, 0.25);
+  --well: #d9c095;
+  --danger-text: #b3241a;
+  --danger-soft: #f7c5ab;
+  --danger-fill: #c73729;
+  --sh-card: 0 6px 0 #2b222b;
+  --sh-sm: 0 3px 0 #2b222b;
+  --sh-btn: 0 5px 0 #12466e;
+  --sh-btn-2: 0 5px 0 #a85f0f;
+  --sh-press: 0 0 0 #12466e;
+  --press-t: translateY(5px);
+  --type-bg: #ffeecf;
+  --type-line: #1f6dab;
+  --type-sh: 0 4px 0 #12466e;
+  --type-t: translateY(-2px);
+  --nav-on-bg: #c73729;
+  --nav-on-fg: #ffe7c1;
+  --tint-to-read: #fbd59c;
+  --tint-reading: #d6dad4;
+  --tint-read: #d3e2be;
+  --tint-skimmed: #f5c9c4;
+  --chip-to-read: #f29731;
+  --chip-reading: #8db7d0;
+  --chip-read: #6cbf81;
+  --chip-skimmed: #f2929c;
+  --toast-bg: #2b222b;
+  --toast-fg: #ffe7c1;
+  --sel-ring: rgba(43, 34, 43, 0.22);
+}

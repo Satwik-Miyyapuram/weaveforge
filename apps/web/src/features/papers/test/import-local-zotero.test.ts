@@ -3,7 +3,6 @@ import test from "node:test";
 
 import type { Paper } from "@weaveforge/core";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
-import { ZOTERO_NOT_RUNNING } from "@/features/papers/infrastructure/zotero-local";
 import { ImportLocalZoteroUseCase } from "../application/import-local-zotero.use-case";
 
 /**
@@ -73,6 +72,9 @@ test("outside the desktop app the answer is a sentence, not a crash", async () =
 test("the injected bridge is the one that is used", async () => {
   // No hidden `desktop()` lookup: a bridge that cannot reach Zotero produces the
   // message the reader can act on, which only happens if this bridge was called.
+  // The message now carries the bridge's own reason in brackets, so this matches
+  // the sentence rather than comparing to it — the identity of the error class
+  // changed when the cause stopped being thrown away.
   const { useCase } = harness({
     bridge: async () =>
       ({
@@ -83,7 +85,8 @@ test("the injected bridge is the one that is used", async () => {
   });
 
   await assert.rejects(() => useCase.execute(), (error: Error) => {
-    assert.equal(error.message, ZOTERO_NOT_RUNNING);
+    assert.match(error.message, /Zotero is not answering on this computer/);
+    assert.match(error.message, /ECONNREFUSED/);
     return true;
   });
 });

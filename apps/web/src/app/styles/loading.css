@@ -72,7 +72,6 @@
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--muted);
 }
 .weaveforge-loader-tip {
@@ -191,7 +190,7 @@
 .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .auth-brand img, .auth-brand svg { width: 44px; height: 44px; border-radius: 13px; }
 .auth-brand div { display: grid; gap: 3px; }
-.auth-brand span { color: var(--accent); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.auth-brand span { color: var(--accent-ink); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; }
 .auth-brand strong { font-family: var(--font-serif); font-size: 1.35rem; }
 .auth-hero { color: var(--muted); line-height: 1.55; margin: 0; }
 .auth-email { display: grid; gap: 12px; }

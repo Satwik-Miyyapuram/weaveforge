@@ -40,13 +40,14 @@ Use `weur` (Western Europe) or `enam` (US East) — pick closest to your users/O
 
 Endpoint (automatic in app): `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`
 
-## 4. Apply Supabase migration
+## 4. Apply the registry migration
 
-Tiered mode uses `blob_objects` registry:
+Tiered mode uses the `blob_objects` registry, created by
+`supabase/migrations/0023_blob_registry.sql`. It is part of the full chain applied to the OCI
+Postgres (see [`../backend.md`](../backend.md)); on its own:
 
 ```bash
-supabase db push
-# or run supabase/migrations/0023_blob_registry.sql in SQL Editor
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0023_blob_registry.sql
 ```
 
 ## 5. Configure app
@@ -61,7 +62,7 @@ R2_SECRET_ACCESS_KEY=your_secret_access_key
 R2_BUCKET=weaveforge-hot
 ```
 
-`NEXT_PUBLIC_BLOB_PROVIDER` tells the **browser** to call `/api/blobs/*` instead of Supabase Storage. R2 keys stay server-only (no `NEXT_PUBLIC_` prefix). You can also set `BLOB_PROVIDER=tiered` as a server-only alias.
+`NEXT_PUBLIC_BLOB_PROVIDER` tells the **browser** to call `/api/blobs/*` instead of the default MinIO store. R2 keys stay server-only (no `NEXT_PUBLIC_` prefix). You can also set `BLOB_PROVIDER=tiered` as a server-only alias.
 
 Restart dev:
 
@@ -72,7 +73,7 @@ npm run dev -w @weaveforge/web
 ## 6. Verify
 
 1. Sign in → upload a paper image
-2. Supabase **Table Editor** → `blob_objects` → new row, `tier = hot`
+2. `psql "$DATABASE_URL"` → `select * from blob_objects order by created_at desc limit 1` shows the new row, `tier = hot`
 3. R2 dashboard → bucket → object under `paper-images/...`
 
 ## Troubleshooting
@@ -82,8 +83,8 @@ npm run dev -w @weaveforge/web
 | `Please enable R2` (403) | Step 1 |
 | `Tiered storage requires R2_*` | Step 5 — all four R2 vars set |
 | `BLOB_PROVIDER is not tiered` on API | Set `NEXT_PUBLIC_BLOB_PROVIDER=tiered`, restart |
-| Upload goes to Supabase Storage | Set `NEXT_PUBLIC_BLOB_PROVIDER=tiered` (browser needs the public var) |
-| Upload 401 | Sign in; check Supabase session |
+| Upload goes to the default MinIO store instead of R2 | Set `NEXT_PUBLIC_BLOB_PROVIDER=tiered` (browser needs the public var) |
+| Upload 401 | Sign in again; the session token has expired |
 | `blob_objects` insert fails | Apply migration `0023` |
 | Image open shows 405 | Fixed: images use `/api/blobs/content` (not R2 presigned URLs) |
 | R2 privacy / public URLs | Keep bucket **private**; app proxies reads via signed app tokens |

@@ -19,6 +19,7 @@ import { safeWorkspacePath } from "@weaveforge/core";
 
 import { CHANNELS } from "./channels";
 import { createVaultWatch, type VaultWatch } from "./vault-watch";
+import { TEMP_SUFFIX } from "./vault-folder";
 
 /** What the watcher needs from the shell. */
 export interface MainVaultWatchDeps {
@@ -67,7 +68,7 @@ export function registerMainVaultWatch(
     });
     try {
       vaultWatcher = fs.watch(root, { recursive: true }, (_event, name) => {
-        if (!name) return;
+        if (!name || name.toString().endsWith(TEMP_SUFFIX)) return;
         vaultWatch?.saw(name.toString().split(path.sep).join("/"));
       });
       // A watch that fails later — an unplugged drive — must not take the

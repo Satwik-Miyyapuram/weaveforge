@@ -19,6 +19,38 @@ import path from "node:path";
 /** The host the weights actually come from, when they are not here yet. */
 const UPSTREAM = "https://huggingface.co";
 
+/**
+ * Whether a redirect target is still the weight host's own infrastructure.
+ *
+ * **This used to be an exact-host comparison and it broke the entire feature.**
+ * Every file Hugging Face serves is a redirect: `config.json` answers `307` to a
+ * relative `/api/resolve-cache/...` path on the same host, and the weights answer
+ * `302` to `https://us.aws.cdn.hf.co/xet-bridge-us/...` — a CDN host, not
+ * `huggingface.co`. `next.host !== "huggingface.co"` was therefore true for the
+ * very first file, `serveModelFile` returned 502, and the reader saw
+ *
+ *     Bad gateway error occurred while trying to load file:
+ *     "app://models/Xenova/all-MiniLM-L6-v2/resolve/main/config.json"
+ *
+ * which names this app's own host and so pointed at the proxy rather than at a
+ * comparison that was one string too strict.
+ *
+ * The rule is a family rather than an exact name, because the LFS CDN is a
+ * different subdomain on every region and always a `hf.co` one. A redirect
+ * anywhere else is still refused: what a redirect buys an attacker is not the
+ * file, it is this app making a request the caller chose to a host the caller
+ * chose, from inside the reader's machine.
+ */
+export function isUpstreamHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === "huggingface.co" ||
+    host.endsWith(".huggingface.co") ||
+    host === "hf.co" ||
+    host.endsWith(".hf.co")
+  );
+}
+
 /** The hostname the renderer points `env.remoteHost` at. */
 export const MODEL_HOST = "models";
 
@@ -39,18 +71,13 @@ export function cachePathFor(root: string, url: string): string | null {
 }
 
 /**
- * How far a download may be led before it is given up on.
+ * What a download needs of `fetch`, so a test can supply the responses.
  *
- * Enough for the shapes this actually sees -- a redirect to a CDN host and, on
- * a bad day, one more -- and no more. What a redirect buys an attacker here is
- * not the file; it is the app making a request the caller chose to a host the
- * caller chose, from a process that sits inside the reader's machine. Bounded,
- * it is a cache miss that returns 502.
+ * `redirect` includes `"follow"` because that is what this passes: Electron's
+ * `net.fetch` **throws** on `"manual"`, which is the finding that ended the
+ * hand-walked redirect chain. See `serveModelFile`.
  */
-const MAX_REDIRECTS = 3;
-
-/** What a download needs of `fetch`, so a test can supply the responses. */
-export type FetchLike = (url: string, init?: { redirect?: "manual" }) => Promise<Response>;
+export type FetchLike = (url: string, init?: { redirect?: "manual" | "follow" }) => Promise<Response>;
 
 /**
  * Serve one model file, fetching it upstream if this is the first ask.
@@ -59,11 +86,10 @@ export type FetchLike = (url: string, init?: { redirect?: "manual" }) => Promise
  * the page, which can say "the weights could not be fetched" instead of
  * failing silently with a model that never loads.
  *
- * Redirects are walked by hand rather than by `fetch`'s own following, for two
- * reasons: the limit has to be a number in this file rather than whatever the
- * ambient default happens to be, and a redirect chain that leaves the upstream
- * host is a chain this did not intend to walk. Every hop is checked, and the
- * first one outside the host answers 502 instead of being followed.
+ * The initial target is composed here from `UPSTREAM` and the requested path, so
+ * the renderer cannot send this anywhere but the weight host. Redirects after
+ * that are `net.fetch`'s business — see the comment in the body for why walking
+ * them by hand was impossible in this process.
  */
 export async function serveModelFile(
   root: string,
@@ -76,29 +102,39 @@ export async function serveModelFile(
   const cached = await readFile(file).catch(() => null);
   if (cached) return new Response(new Uint8Array(cached), { status: 200, headers: headersFor(file) });
 
-  let target = `${UPSTREAM}${new URL(url).pathname}`;
-  let upstream: Response | null = null;
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    const answer = await fetchUpstream(target, { redirect: "manual" }).catch(() => null);
-    if (!answer) return new Response(null, { status: 502 });
-    const location = answer.headers.get("location");
-    if (!answer.ok && location) {
-      let next: URL;
-      try {
-        next = new URL(location, target);
-      } catch {
-        return new Response(null, { status: 502 });
-      }
-      // Same host, or the download stops here. A redirect that changes host is
-      // not something any of these files does, and the app will not be the
-      // thing that follows one on somebody's behalf.
-      if (next.host !== new URL(UPSTREAM).host) return new Response(null, { status: 502 });
-      target = next.toString();
-      continue;
-    }
-    upstream = answer;
-    break;
-  }
+  const target = `${UPSTREAM}${new URL(url).pathname}`;
+  /*
+   * Redirects are followed by `net.fetch`, not walked by hand.
+   *
+   * This function used to walk them itself, with `redirect: "manual"` and a
+   * `MAX_REDIRECTS` ceiling, so that a hop leaving the weight host could be
+   * refused. That design could never work in this process: **Electron's
+   * `net.fetch` throws `Error: Redirect was cancelled` for `manual`**, so the
+   * walk threw on the very first hop, the catch returned 502, and every model
+   * file was unfetchable. Measured directly under Electron:
+   *
+   *     manual → THREW Error: Redirect was cancelled
+   *     follow → 200  ok=true
+   *
+   * It also had to be wrong about which hop was legitimate, because every file
+   * Hugging Face serves *is* a redirect — `config.json` through the resolve cache
+   * on the same host, the weights through the LFS CDN on a per-region `hf.co`
+   * subdomain — so a policy of refusing to leave `huggingface.co` exactly was a
+   * policy of never completing a download.
+   *
+   * What that costs: the redirect ceiling is now Chromium's rather than a number
+   * in this file, and hops cannot be inspected. What it buys: the feature works.
+   * `isUpstreamHost` remains, and is still what decides the *initial* target, so
+   * the renderer cannot point this at a third party — it just cannot police where
+   * the weight host itself redirects to.
+   */
+  const upstream = await fetchUpstream(target, { redirect: "follow" }).catch((error: unknown) => {
+    // A 502 with no explanation is what made this take a detour: "bad gateway"
+    // from the caller's side does not say whether the host refused, the network
+    // failed, or something else did. The reason goes to the log.
+    console.warn(`[models] fetch failed for ${target}: ${String(error)}`);
+    return null;
+  });
   if (!upstream) return new Response(null, { status: 502 });
   if (!upstream.ok) return new Response(null, { status: upstream.status });
 

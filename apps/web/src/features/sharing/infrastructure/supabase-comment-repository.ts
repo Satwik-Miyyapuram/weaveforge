@@ -14,7 +14,8 @@ import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
  * Derived from the row type: these are exactly the fields the mapper reads, and a
  * star would make them "whatever the table grows next".
  */
-const COMMENT_COLUMNS = "id,author_id,resource_type,resource_id,body,created_at";
+const COMMENT_COLUMNS =
+  "id,author_id,resource_type,resource_id,body,created_at,anchor_quote,anchor_prefix,anchor_suffix,parent_id,resolved_at";
 
 const TABLE = "comments";
 
@@ -44,6 +45,10 @@ export class SupabaseCommentRepository implements ICommentRepository {
         resource_type: input.resourceType,
         resource_id: input.resourceId,
         body: input.body,
+        anchor_quote: input.anchor?.quote ?? null,
+        anchor_prefix: input.anchor?.prefix ?? null,
+        anchor_suffix: input.anchor?.suffix ?? null,
+        parent_id: input.parentId ?? null,
       })
       .select(COMMENT_COLUMNS)
       .single());
@@ -59,6 +64,17 @@ export class SupabaseCommentRepository implements ICommentRepository {
   async remove(id: string): Promise<void> {
     await run(this.db.from(TABLE).delete().eq("id", id));
   }
+
+  /**
+   * Through `set_comment_resolved` (0133), not an update: the page owner may
+   * resolve someone else's thread, and an UPDATE policy that allowed that would
+   * also let them rewrite its body.
+   */
+  async setResolved(id: string, resolved: boolean): Promise<string | null> {
+    const { data, error } = await this.db.rpc("set_comment_resolved", { p_comment_id: id, p_resolved: resolved });
+    if (error) throw error;
+    return (data as string | null) ?? null;
+  }
 }
 
 function toRow(c: Comment): Record<string, unknown> {
@@ -69,5 +85,10 @@ function toRow(c: Comment): Record<string, unknown> {
     resource_id: c.resourceId,
     body: c.body ?? "",
     created_at: c.createdAt || undefined,
+    anchor_quote: c.anchor?.quote ?? null,
+    anchor_prefix: c.anchor?.prefix ?? null,
+    anchor_suffix: c.anchor?.suffix ?? null,
+    parent_id: c.parentId ?? null,
+    resolved_at: c.resolvedAt ?? null,
   };
 }

@@ -53,7 +53,7 @@ export interface InkRecognitionDeps {
 
 /** The message the text column shows where no engine can run. */
 export const INK_NO_ENGINE_MESSAGE =
-  "No handwriting engine is available here. On Windows the desktop app recognises offline; a MyScript key in Settings enables recognition elsewhere.";
+  "No handwriting engine is available here. The desktop app on Windows recognises offline through the operating system's own analyser; the built-in stroke model is not shipped in this build.";
 
 export function useInkRecognition(deps: InkRecognitionDeps) {
   const {

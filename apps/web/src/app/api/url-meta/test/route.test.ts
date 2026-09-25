@@ -213,17 +213,43 @@ test("url-meta: 422 on a bot wall rather than importing its <title>", async () =
   }
 });
 
-test("url-meta: 422 when a page has no citation metadata at all", async () => {
+test("url-meta: 422 when a page is neither a paper nor an article", async () => {
   const { restore } = stubBoth(() =>
-    new Response("<html><head><title>Some blog post</title></head></html>", {
+    new Response("<html><head><title>Welcome to my site</title></head></html>", {
       headers: { "content-type": "text/html" },
     }),
   );
   try {
-    const target = "https://example.com/post";
+    const target = "https://example.com/";
     const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
     assert.equal(res.status, 422);
-    assert.match((await res.json()).error, /No citation metadata/);
+    assert.match((await res.json()).error, /does not look like a paper or an article/);
+  } finally {
+    restore();
+  }
+});
+
+test("url-meta: a blog post that says it is an article is imported", async () => {
+  // Research blogs and essays carry no citation tags; they say what they are
+  // through JSON-LD or OpenGraph, and they are the paper.
+  const page = `<html><head>
+    <title>LLM Powered Autonomous Agents | Lil'Log</title>
+    <meta property="og:site_name" content="Lil'Log">
+    <meta property="og:type" content="article">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting",
+      "headline":"LLM Powered Autonomous Agents","author":{"@type":"Person","name":"Lilian Weng"},
+      "datePublished":"2023-06-23T00:00:00Z","description":"Building agents with LLM as the core controller."}</script>
+  </head><body><article>…</article></body></html>`;
+  const { restore } = stubBoth(() => new Response(page, { headers: { "content-type": "text/html" } }));
+  try {
+    const target = "https://lilianweng.github.io/posts/2023-06-23-agent/";
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.title, "LLM Powered Autonomous Agents");
+    assert.deepEqual(body.authors, ["Lilian Weng"]);
+    assert.equal(body.year, 2023);
+    assert.equal(body.venue, "Lil'Log");
   } finally {
     restore();
   }

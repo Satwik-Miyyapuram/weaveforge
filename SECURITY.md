@@ -1,7 +1,11 @@
 # Security Policy
 
-WeaveForge talks directly to your own Supabase project. The web app holds
-Supabase credentials (a public anon key plus your session). The Python SDK holds
+WeaveForge's data lives in Postgres on the project's own server on Oracle
+Cloud (OCI), reached through PostgREST, with files in MinIO on the same server,
+all behind Caddy at `api.weaveforge.org`. Supabase is used for sign-in only: it
+issues the session tokens, and PostgREST checks them against the shared JWT
+secret. The web app holds the sign-in project's public anon key plus your
+session. The Python SDK holds
 neither: it authenticates to the web app over HTTP with a dashboard-issued
 bearer token (`WEAVEFORGE_TOKEN`) that acts on your behalf under Row-Level
 Security, and it can upload files and write rows with that scope. Please treat
@@ -12,8 +16,8 @@ self-hosting guidance — is in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Data protection model
 
-WeaveForge protects your research data with **encryption at rest** (your Supabase
-project's managed disk encryption) plus **Postgres Row-Level Security** as the
+WeaveForge protects your research data with **encryption at rest** (OCI block-volume
+encryption on the server's disks) plus **Postgres Row-Level Security** as the
 access-control boundary — a row is readable only by its owner or someone it is
 explicitly shared with (`shared_to_me`). Third-party integration secrets (Overleaf
 git token, Zotero / Semantic Scholar keys) are additionally encrypted with a
@@ -45,7 +49,7 @@ In scope: authentication/session handling, Row-Level Security policies in the
 `supabase/migrations/`, secret handling in the web app and Python SDK, and the
 signed-URL / storage-bucket policies.
 
-Out of scope: issues in your own Supabase project configuration, and anything
+Out of scope: issues in your own server or sign-in project configuration, and anything
 requiring a compromised developer machine or leaked credentials that were not
 mishandled by this codebase.
 

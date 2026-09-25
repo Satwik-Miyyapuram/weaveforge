@@ -89,6 +89,13 @@ function buildNavGroupsFromModules(modules: readonly FeatureModule[]): NavGroup[
       const items = modules.filter((m) => m.navGroup === key).flatMap((m) => m.navItems);
       return { key, label: meta.label, icon: meta.icon, items };
     })
+    // A group with no nav items is not a section, it is a heading over nothing.
+    // The `experiments` group is the live example: both of its members moved out
+    // of it (Experiments to Library, Git with the rest of the shell's tools), so
+    // the key survived in `NAV_GROUP_ORDER` while the group itself had nothing
+    // left in it, and the sidebar rendered an "Experiments" fold that opened onto
+    // an empty box. Filtering here rather than deleting the key keeps the order
+    // declaration honest for a plugin that adds a member back.
     .filter((g) => g.items.length > 0);
 }
 

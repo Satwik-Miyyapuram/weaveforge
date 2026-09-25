@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { extractDoi, normalizeArxivId } from "@weaveforge/core";
+import {
+  decodeHtmlEntities,
+  extractDoi,
+  extractPageMetadata,
+  normalizeArxivId,
+  pageImportRefusal,
+  type PageMetadata,
+} from "@weaveforge/core";
 import { safeFetch } from "@/backend/net/safe-fetch";
 
 /** The slice of a Crossref `works` record this route reads. */
@@ -25,8 +32,13 @@ type CrossrefWork = {
  *
  * The route reads the citation meta tags academic sites embed — Highwire
  * `citation_*` (arXiv, IEEE, ACM, Springer, Google Scholar), Dublin Core `DC.*`,
- * and OpenGraph as a fallback — and returns normalised JSON the client maps to
- * a paper.
+ * schema.org JSON-LD (`ScholarlyArticle`, `BlogPosting`, `Article`) for blog
+ * and article pages, and OpenGraph as a fallback — and returns normalised JSON
+ * the client maps to a paper. A page with neither citation tags nor an article
+ * marker, with no title, or behind a bot wall is refused by `pageImportRefusal`
+ * rather than stored under a placeholder title. Any host may be asked for;
+ * `safeFetch` resolves it, refuses private addresses and re-checks each
+ * redirect.
  */
 
 /** How long the two fixed-host lookups may take before we give up on them. */
@@ -119,23 +131,15 @@ export async function resolveUrlMetadata(target: string | null) {
     return NextResponse.json({ error: hint }, { status: res.status });
   }
   const html = new TextDecoder().decode(res.body);
-  const meta = extractMetadata(html, res.url);
+  const meta = extractPageMetadata(html, res.url);
 
-  // A 200 does not mean we got the paper. Cloudflare/Datadome interstitials
+  // A 200 does not mean we got a paper. Cloudflare/Datadome interstitials
   // ("Client Challenge", "Verifying your browser") answer 200 with a normal
-  // <title> and no citation tags — importing that would file a paper called
-  // "Client Challenge". Refuse anything that carries no citation metadata.
-  if (!meta.hasCitationMeta) {
-    const wall = BOT_WALL_TITLE.test(meta.title ?? "");
-    return NextResponse.json(
-      {
-        error: wall
-          ? "That site blocked automated access. Import by DOI or arXiv id instead."
-          : "No citation metadata found on that page. Import by DOI or arXiv id, or add the paper manually.",
-      },
-      { status: 422 },
-    );
-  }
+  // <title> — importing that would file a paper called "Client Challenge". A
+  // page counts when it carries citation tags, or says it is an article (a
+  // research blog post, an essay, a Distill-style write-up).
+  const refusal = pageImportRefusal(meta);
+  if (refusal) return NextResponse.json({ error: refusal }, { status: 422 });
   return NextResponse.json(meta);
 }
 
@@ -149,7 +153,7 @@ async function fetchArxiv(id: string, url: string): Promise<ExtractedMeta | null
   const entry = /<entry>([\s\S]*?)<\/entry>/.exec(xml)?.[1];
   if (!entry) return null;
   const pick = (tag: string) =>
-    decode(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(entry)?.[1]?.trim() ?? "");
+    decodeHtmlEntities(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(entry)?.[1]?.trim() ?? "");
   const title = pick("title").replace(/\s+/g, " ");
   if (!title) return null;
   const published = pick("published");
@@ -157,7 +161,7 @@ async function fetchArxiv(id: string, url: string): Promise<ExtractedMeta | null
   return {
     title,
     authors: [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)]
-      .map((m) => decode(m[1]?.trim() ?? ""))
+      .map((m) => decodeHtmlEntities(m[1]?.trim() ?? ""))
       .filter(Boolean),
     year: published ? Number(published.slice(0, 4)) || undefined : undefined,
     doi: doi || undefined,
@@ -168,113 +172,4 @@ async function fetchArxiv(id: string, url: string): Promise<ExtractedMeta | null
   };
 }
 
-const BOT_WALL_TITLE =
-  /client challenge|verifying your browser|just a moment|attention required|are you a robot|access denied|captcha|checking your browser/i;
-
-interface ExtractedMeta {
-  title?: string;
-  authors: string[];
-  year?: number;
-  venue?: string;
-  doi?: string;
-  arxivId?: string;
-  abstract?: string;
-  url: string;
-  /** True when the page carried real bibliographic tags (Highwire / Dublin
-   *  Core), as opposed to only an OpenGraph or <title> fallback. */
-  hasCitationMeta: boolean;
-}
-
-/** Read all <meta name=.. content=..> (and property=..) pairs from the head. */
-function metaTags(html: string): Map<string, string[]> {
-  const tags = new Map<string, string[]>();
-  const re = /<meta\b[^>]*>/gi;
-  for (const [tag] of html.matchAll(re)) {
-    const name =
-      attr(tag, "name") ?? attr(tag, "property") ?? attr(tag, "itemprop");
-    const content = attr(tag, "content");
-    if (!name || content == null) continue;
-    const key = name.toLowerCase();
-    const list = tags.get(key) ?? [];
-    list.push(decode(content));
-    tags.set(key, list);
-  }
-  return tags;
-}
-
-function attr(tag: string, name: string): string | undefined {
-  const m =
-    new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, "i").exec(tag) ??
-    new RegExp(`\\b${name}\\s*=\\s*'([^']*)'`, "i").exec(tag);
-  return m?.[1];
-}
-
-function extractMetadata(html: string, url: string): ExtractedMeta {
-  const m = metaTags(html);
-  const first = (...keys: string[]) => {
-    for (const k of keys) {
-      const v = m.get(k)?.[0]?.trim();
-      if (v) return v;
-    }
-    return undefined;
-  };
-
-  const title =
-    first("citation_title", "dc.title", "og:title", "twitter:title") ??
-    htmlTitle(html);
-  const authors = (
-    m.get("citation_author") ??
-    m.get("dc.creator") ??
-    m.get("author") ??
-    []
-  )
-    .map((a) => a.trim())
-    .filter(Boolean);
-
-  const dateStr = first(
-    "citation_publication_date",
-    "citation_date",
-    "dc.date",
-    "article:published_time",
-  );
-  const year = dateStr ? Number(/\d{4}/.exec(dateStr)?.[0]) || undefined : undefined;
-
-  const hasCitationMeta = [...m.keys()].some(
-    (k) => k.startsWith("citation_") || k.startsWith("dc."),
-  );
-
-  const doiRaw = first("citation_doi", "dc.identifier.doi", "doi");
-  const doi = doiRaw?.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "").trim();
-
-  let arxivId = first("citation_arxiv_id")?.trim();
-  if (!arxivId) {
-    const am = /arxiv\.org\/(?:abs|pdf)\/([\w.\/-]+?)(?:v\d+)?(?:\.pdf)?$/i.exec(url);
-    if (am) arxivId = am[1];
-  }
-
-  return {
-    title: title?.replace(/\s+/g, " "),
-    authors,
-    year,
-    venue: first("citation_journal_title", "citation_conference_title", "dc.source"),
-    doi: doi || undefined,
-    arxivId,
-    abstract: first("citation_abstract", "dc.description", "og:description", "description")?.replace(/\s+/g, " "),
-    url,
-    hasCitationMeta,
-  };
-}
-
-function htmlTitle(html: string): string | undefined {
-  return decode(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim() ?? "") || undefined;
-}
-
-function decode(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
-}
+type ExtractedMeta = Omit<PageMetadata, "isArticle"> & { isArticle?: boolean };

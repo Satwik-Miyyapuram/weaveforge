@@ -20,6 +20,12 @@ export interface IEmbedder {
   readonly id: string;
   /** Vector width. Mixing widths in one index is meaningless, so it is checked. */
   readonly dimensions: number;
+  /**
+   * Cosine below which a hit is noise for this model. Scales differ by model
+   * (MiniLM's unrelated pairs sit near 0.2, BGE's near 0.5), so a caller's
+   * floor is only meaningful per encoder. Absent: the caller's default.
+   */
+  readonly minScore?: number;
   embed(request: EmbedRequest): Promise<Float32Array[]>;
 }
 

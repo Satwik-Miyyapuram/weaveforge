@@ -13,6 +13,7 @@ import { CompareViewIcon, FilterIcon, ListViewIcon } from "@/components/view-ico
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { EntityCard } from "@/components/entity-card";
+import { CardMenu } from "@/components/card-menu";
 import { ExperimentCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
 import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
@@ -32,7 +33,7 @@ import {
 } from "./experiment-panels";
 import { ScreenHead } from "@/components/screen-head";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { EXPERIMENTS_HREF, experimentHref } from "./experiment-href";
+import { experimentHref } from "./experiment-href";
 import { ExperimentDetailScreen } from "./experiment-detail-screen";
 import { FormError } from "@/components/form-error";
 
@@ -142,13 +143,20 @@ export function ExperimentsScreen() {
     return set.size === 0 ? items : items.filter((e) => set.has(e.status));
   }, [items, statusFilter]);
 
+  // The static build has no page per experiment, so the list's own route stands
+  // in for one: with `?experiment=` set it *is* the experiment's page, the way
+  // `/papers/?paper=` is a paper's. It used to open over the list in a dialog,
+  // which made an experiment the one thing in the app you could not link to,
+  // go back from, or read at full width.
+  if (isOfflineBuild() && focusFromUrl) return <ExperimentDetailScreen id={focusFromUrl} />;
+
   if (loading) {
     return <ScreenLoading status="Loading experiments…" />;
   }
 
   return (
     <section className="screen">
-      <ScreenHead>
+      <ScreenHead eyebrow={experimentsEyebrow(items)}>
         {hasLiveRunning && (
           // The tick is 5s, but a tick does not necessarily refresh anything:
           // `useScreenData` serves the cached payload and only re-fetches once
@@ -161,7 +169,7 @@ export function ExperimentsScreen() {
           type="button"
           onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
         >
-          + Experiment
+          New experiment
         </button>
       </ScreenHead>
 
@@ -283,7 +291,7 @@ export function ExperimentsScreen() {
               className="btn-primary"
               onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
             >
-              + Experiment
+              New experiment
             </button>
           }
         />
@@ -314,12 +322,6 @@ export function ExperimentsScreen() {
           </ul>
         ))}
 
-      {/* Only ever mounted in the static build; the served app navigates. */}
-      {isOfflineBuild() && focusFromUrl && (
-        <Modal title="Experiment" onClose={() => router.replace(EXPERIMENTS_HREF)}>
-          <ExperimentDetailScreen id={focusFromUrl} />
-        </Modal>
-      )}
     </section>
   );
 }
@@ -328,6 +330,14 @@ const PALETTE = [
   "#3e5a78", "#c2410c", "#0f766e", "#7c3aed",
   "#b91c1c", "#a16207", "#0369a1", "#4d7c0f",
 ];
+
+/** "5 experiments · 2 running": the count the brutal themes set over the title. */
+function experimentsEyebrow(experiments: Experiment[]): string | undefined {
+  if (experiments.length === 0) return undefined;
+  const running = experiments.filter((e) => e.status === "running").length;
+  const total = `${experiments.length} ${experiments.length === 1 ? "experiment" : "experiments"}`;
+  return running > 0 ? `${total} · ${running} running` : total;
+}
 
 function asNumber(v: unknown): number | null {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
@@ -509,6 +519,9 @@ function ExperimentCard({
   const router = useRouter();
   const { beginNavigation } = useNavPending();
   const [busy, setBusy] = useState(false);
+  // Held here, not inside the menu: the menu closes on pick, and the share
+  // sheet it opened has to outlive that.
+  const [shareOpen, setShareOpen] = useState(false);
   const openDetail = useCallback(() => {
     const dest = experimentHref(exp.id);
     beginNavigation(dest);
@@ -528,10 +541,11 @@ function ExperimentCard({
     }
   }
   return (
-    <EntityCard
+    <>
+      <EntityCard
       as="li"
       id={`exp-${exp.id}`}
-      className="exp-item"
+      className={`exp-item exp-item--${exp.status}`}
       onActivate={openDetail}
       title={exp.name}
       status={
@@ -550,16 +564,10 @@ function ExperimentCard({
         )
       }
       meta={exp.hypothesis || undefined}
-      onDelete={readOnly ? undefined : () => void remove()}
-      deleteDisabled={busy}
-      deleteAriaLabel="Delete experiment"
-      actions={
-        !readOnly ? (
-          <ShareButton resourceType="experiment" resourceId={exp.id} title={`Share: ${exp.name}`} />
-        ) : undefined
-      }
-      onOpen={openDetail}
-      openLabel="Open experiment"
+      // Same card shape as papers and notes: status stays on the card, the
+      // occasional and destructive controls move behind one ⋯.
+      menu={
+         readOnly ? undefined : (           <CardMenu             items={[               { id: "share", label: "Share", onSelect: () => setShareOpen(true) },               { id: "delete", label: "Delete", danger: true, disabled: busy, onSelect: () => void remove() },             ]}           />         )       }
     >
       <ExpGitChips exp={exp} limit={3} />
       <ExpMetricChips exp={exp} limit={3} />
@@ -567,7 +575,16 @@ function ExperimentCard({
         {exp.resultNote && <p className="entity-card-snippet">{cardSnippet(exp.resultNote)}</p>}
         <ExperimentCardThumbs artifacts={exp.artifacts} />
       </div>
-    </EntityCard>
+      </EntityCard>
+      <ShareButton
+        hideTrigger
+        resourceType="experiment"
+        resourceId={exp.id}
+        title={`Share: ${exp.name}`}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+      />
+    </>
   );
 }
 
@@ -579,6 +596,9 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
   const [config, setConfig] = useState("");
   const [status, setStatus] = useState<ExperimentStatus>("planned");
   const [busy, setBusy] = useState(false);
+  // Held here, not inside the menu: the menu closes on pick, and the share
+  // sheet it opened has to outlive that.
+  const [shareOpen, setShareOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {

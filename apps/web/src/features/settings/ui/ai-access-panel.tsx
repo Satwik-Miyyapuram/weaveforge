@@ -5,6 +5,7 @@ import {
   AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS, AI_PROPOSAL_KINDS, AI_READ_CATEGORIES, aiReadCategoryForResource, applyUserIntegrationFields, getUserIntegrationField, type AiAccessSettings, type AiProposalKind, type AiReadCategory, type UserSettings } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
+import { hasServerRoutes } from "@/deployment/capabilities";
 import type { AiSourceOption, McpTokenRecord } from "@/container/facades";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
@@ -301,7 +302,13 @@ export function AiAccessPanel({ settings, onChange }: {
     }
   }
 
-  if (!GENERATED_MCP_ENABLED) return null;
+  // The relay this panel drives is a server-side queue paired with a token
+  // minted at `/api/settings/mcp-tokens`, and a static export has neither. Left
+  // on, the panel offered a "Create MCP token" button that could only throw, and
+  // started a poller asking `/api/mcp/relay/browser` for work every few seconds
+  // forever — a 404 each time, from a request that could never be answered. Same
+  // argument as `apiTokens` in `deployment/capabilities.ts`.
+  if (!GENERATED_MCP_ENABLED || !hasServerRoutes()) return null;
 
   return (
     <section className="ai-access-panel" aria-labelledby="ai-access-title">

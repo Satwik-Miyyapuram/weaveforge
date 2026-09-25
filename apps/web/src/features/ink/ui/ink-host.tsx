@@ -104,6 +104,8 @@ import { useInkWorkerRpc } from "./use-ink-worker-rpc";
 import { useInkRecognition } from "./use-ink-recognition";
 import { InkPrintPreview } from "./ink-print-preview";
 import { usePageExport } from "./use-page-export";
+import { pageGapPx } from "./ink-bar-more";
+import { usePageGap } from "./use-page-gap";
 import type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 
 export type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
@@ -139,6 +141,7 @@ export function InkHost({
   const { tool, setTool, colour, onColourChange, onPenApproach } = useInkPrefs();
   const [width, setWidth] = useState<number>(INK_PEN_WIDTH);
   const [zoom, setZoom] = useState(1);
+  const [pageGap, setPageGap] = usePageGap();
   const [containerWidth, setContainerWidth] = useState(0);
   /** The scroller's visible box: the canvas is never larger than this. */
   const [view, setView] = useState({ width: 0, height: 0 });
@@ -517,17 +520,10 @@ export function InkHost({
   });
 
   /** The bar's image button: a figure, of which a page may hold any number. */
-  const onAddImageToCurrentPage = useCallback(() => {
-    imageInputRef.current?.click();
-  }, []);
+  const onAddImageToCurrentPage = useCallback(() => imageInputRef.current?.click(), []);
 
   /** The file the image picker produced: a figure on the page it was picked for. */
-  const onImageFile = useCallback(
-    (file: File) => {
-      void onAddFigure(file);
-    },
-    [onAddFigure],
-  );
+  const onImageFile = useCallback((file: File) => void onAddFigure(file), [onAddFigure]);
 
   const {
     onLasso,
@@ -694,10 +690,15 @@ export function InkHost({
         onNextPage={() => goToPage(pageIndex + 1)}
         onDeleteSelection={onDeleteSelection}
         onCopyAsText={() => void onCopyAsText()}
+        zoom={zoom}
+        onZoom={setZoom}
+        pageGap={pageGap}
+        onPageGap={setPageGap}
       />
       {/* The rail: continuous multi-page scroll with background active page switching. */}
       <InkRail
         scrollRef={scrollRef}
+        pageGap={pageGapPx(pageGap)}
         pageIndex={pageIndex}
         pageCount={pageCount}
         pageSize={pageSize}

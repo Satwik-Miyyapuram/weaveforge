@@ -54,3 +54,41 @@
 .privacy-disclaimer-full { margin-top: 4px; }
 .privacy-disclaimer-full summary { color: var(--muted); cursor: pointer; font-size: 0.9rem; }
 .privacy-disclaimer-full p { margin: 0.6rem 0; line-height: 1.5; font-size: 0.88rem; }
+
+/* Settings rail: six groups down the left, the open group's tabs under it,
+   the chosen section on the right. Under 900px the rail becomes a scrolling
+   strip above the section. */
+.settings-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start; }
+.settings-rail {
+  display: grid; gap: 4px; position: sticky;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+}
+.settings-rail-head {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 10px 12px; border: 0; border-radius: 10px; background: none;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.settings-rail-head:hover { filter: brightness(0.96); }
+.settings-rail-group.is-open .settings-rail-head { background: var(--active-bg); color: var(--active-fg); }
+.settings-rail-icon {
+  display: grid; place-items: center; flex: none; width: 34px; height: 34px;
+  border-radius: 8px; border: 1px solid var(--line);
+}
+.settings-rail-text { display: grid; min-width: 0; }
+.settings-rail-label { font-weight: 700; }
+.settings-rail-hint { font-size: 0.78rem; opacity: 0.75; }
+.settings-rail-tabs { display: grid; gap: 2px; margin: 6px 0 8px 32px; padding-left: 12px; border-left: 2px solid var(--line); }
+.settings-rail-tabs button {
+  padding: 5px 4px; border: 0; background: none; color: var(--muted);
+  font: inherit; font-size: 0.9rem; text-align: left; cursor: pointer;
+}
+.settings-rail-tabs button.is-active { color: var(--text); font-weight: 700; }
+.settings-body { min-width: 0; display: grid; gap: 16px; align-content: start; }
+@media (max-width: 900px) {
+  .settings-layout { grid-template-columns: minmax(0, 1fr); }
+  .settings-rail { position: static; display: flex; overflow-x: auto; scrollbar-width: none; }
+  .settings-rail-group { display: contents; }
+  .settings-rail-head { width: auto; flex: none; }
+  .settings-rail-hint, .settings-rail-icon { display: none; }
+  .settings-rail-tabs { display: none; }
+}

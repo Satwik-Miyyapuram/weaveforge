@@ -60,7 +60,7 @@ export function SelectionCreateBar({
       >
         Note
       </button>
-      <button type="button" className="link-btn" disabled={busy} onClick={onCancel}>
+      <button type="button" className="link-btn btn-cancel" disabled={busy} onClick={onCancel}>
         Cancel
       </button>
     </div>

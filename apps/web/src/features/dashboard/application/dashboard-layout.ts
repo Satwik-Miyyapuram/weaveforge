@@ -53,9 +53,12 @@ export function studentDefaultLg(): DashboardLayoutItem[] {
     item("report", "report-progress", 3, 0, 3, 2),
     item("plan", "plan-progress", 6, 0, 3, 2),
     item("experiments", "experiments-summary", 9, 0, 3, 2),
-    item("attention", "needs-attention", 0, 2, 12, 3),
-    item("log", "recent-log", 0, 5, 8, 3),
-    item("library", "library-snapshot", 8, 5, 4, 2),
+    // Attention sits beside the library rather than across the whole row: a
+    // short list stretched over twelve columns read as mostly empty space, and
+    // the old 8+4 row below it left a one-row hole under the library tile.
+    item("attention", "needs-attention", 0, 2, 8, 3),
+    item("library", "library-snapshot", 8, 2, 4, 3),
+    item("log", "recent-log", 0, 5, 12, 3),
   ];
 }
 
@@ -68,7 +71,7 @@ export function studentDefaultSm(): DashboardLayoutItem[] {
     item("experiments", "experiments-summary", 2, 2, 2, 2),
     item("attention", "needs-attention", 0, 4, 4, 3),
     item("log", "recent-log", 0, 7, 4, 4),
-    item("library", "library-snapshot", 0, 11, 2, 2),
+    item("library", "library-snapshot", 0, 11, 4, 2),
   ];
 }
 
@@ -329,6 +332,65 @@ export function finalizeDashboardLayout(layout: DashboardLayout): DashboardLayou
     lg: compactLayoutVertical(normalized.lg, 12),
     sm: normalizeSmLayout(normalized.sm),
   };
+}
+
+/**
+ * Close the holes in a desktop layout saved before the current default.
+ *
+ * Packing upward (`compactLayoutVertical`) cannot fill a hole *beside* a card:
+ * a row of three stat tiles leaves three empty columns, and a card that was
+ * narrowed leaves its old width empty. Here each card, in reading order, takes
+ * the first place it fits scanning row by row, and then any card with free
+ * columns to its right widens into them, and a short card beside a tall one
+ * grows down into the hole under it, each up to its maximum size. Order is
+ * kept; cards only move, widen and lengthen.
+ *
+ * Run when a saved layout is loaded, not while editing, so a card someone is
+ * resizing is not pulled out from under the pointer.
+ */
+export function closeLayoutGaps(items: readonly DashboardLayoutItem[], cols = 12): DashboardLayoutItem[] {
+  const sorted = items
+    .map((it) => normalizeLayoutItem(it, cols))
+    .sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y));
+  const placed: DashboardLayoutItem[] = [];
+  for (const it of sorted) {
+    let spot: { x: number; y: number } | null = null;
+    for (let y = 0; !spot && y < 400; y++) {
+      for (let x = 0; x + it.w <= cols; x++) {
+        if (fitsAt({ ...it, x, y }, placed)) {
+          spot = { x, y };
+          break;
+        }
+      }
+    }
+    placed.push({ ...it, ...(spot ?? { x: 0, y: placed.reduce((m, p) => Math.max(m, p.y + p.h), 0) }) });
+  }
+  // Widen right to left, so the rightmost card of a row takes the free columns.
+  const byRight = [...placed].sort((a, b) => b.x - a.x);
+  for (const it of byRight) {
+    const { maxW } = layoutFloors(getCardDef(it.type), cols);
+    while (
+      it.x + it.w < cols &&
+      it.w < maxW &&
+      fitsAt({ x: it.x + it.w, y: it.y, w: 1, h: it.h }, placed.filter((p) => p !== it))
+    ) {
+      it.w += 1;
+    }
+  }
+  // A short card beside a tall one leaves a hole under it; it grows into the
+  // hole when that row is still inside the grid (another card spans it).
+  for (const it of placed) {
+    const { maxH } = layoutFloors(getCardDef(it.type), cols);
+    const others = placed.filter((p) => p !== it);
+    while (
+      it.h < maxH &&
+      others.some((p) => p.y <= it.y + it.h && p.y + p.h > it.y + it.h) &&
+      fitsAt({ x: it.x, y: it.y + it.h, w: it.w, h: 1 }, others)
+    ) {
+      it.h += 1;
+    }
+  }
+  return placed.sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y));
 }
 
 /** Parse layout JSON and apply compaction defaults for the active breakpoints. */

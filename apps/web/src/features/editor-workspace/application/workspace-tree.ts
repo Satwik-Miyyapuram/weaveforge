@@ -7,15 +7,16 @@
  * tab points at nothing. The tree carries `{kind, id}` and the path only as the
  * label the user sees, which is also why a rename needs no tab bookkeeping.
  *
- * Three roots, because those are the three things the desktop editor edits:
- * notes (a real tree), papers (flat, each with at most one note), and the
- * report (a tree of sections).
+ * Four roots, because those are the things the desktop editor edits: notes (a
+ * real tree), papers (flat, each with at most one note), the report (a tree of
+ * sections), and the logbook (flat and dated).
  */
 
 import {
   ENTITY_DIRS,
   KIND_SUFFIX,
   flatPath,
+  logPath,
   treePaths,
   type FolderNode,
   type WorkspaceEntityType,
@@ -81,10 +82,29 @@ export interface NoteNode extends FolderNode {
   kind?: "vault_page" | "ink_page";
 }
 
+/**
+ * A log entry in the tree.
+ *
+ * One field, not two: the row's label is its date. There is no separate title
+ * to keep in step with the date it files under, which is the class of bug a
+ * second field would invite — an entry filed under March while reading April.
+ */
+export interface LogEntry {
+  id: string;
+  entryDate: string;
+}
+
 export interface WorkspaceTreeInput {
   notes: readonly NoteNode[];
   papers: readonly PaperEntry[];
   reportSections: readonly FolderNode[];
+  /**
+   * The logbook, as documents. Optional so the six tests that build a tree out
+   * of notes, papers and sections do not each have to say "and no log entries"
+   * — the absence of a logbook and an empty logbook are the same tree, and the
+   * screen that owns this one always passes it.
+   */
+  logEntries?: readonly LogEntry[];
 }
 
 const byLabel = (a: WorkspaceTreeNode, b: WorkspaceTreeNode) =>
@@ -167,6 +187,20 @@ export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode
     })
     .sort(byLabel);
 
+  // The logbook, newest first, as one flat root. Dated rows rather than a
+  // title to sort by: the date is the name, so the label and the sort key are
+  // the same string and an entry can never be filed under a month it is not in.
+  const logEntries: WorkspaceTreeNode[] = (input.logEntries ?? [])
+    .map((entry) => ({
+      key: `log_entry:${entry.id}`,
+      kind: "log_entry" as const,
+      id: entry.id,
+      label: entry.entryDate,
+      path: logPath(entry.id, entry.entryDate),
+      children: [],
+    }))
+    .sort((a, b) => b.label.localeCompare(a.label));
+
   return [
     nestedRoot("Notes", "vault_page", input.notes),
     {
@@ -177,6 +211,13 @@ export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode
       children: papers,
     },
     nestedRoot("Report", "report_section", input.reportSections),
+    {
+      key: ENTITY_DIRS.log_entry,
+      kind: "folder",
+      label: "Log",
+      path: ENTITY_DIRS.log_entry,
+      children: logEntries,
+    },
   ];
 }
 

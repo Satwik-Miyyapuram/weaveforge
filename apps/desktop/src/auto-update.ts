@@ -63,6 +63,18 @@ export interface AutoUpdateOptions {
   ask?: AskToInstall;
   /** Whether a found update may be fetched before the reader is asked. */
   autoDownload?: boolean;
+  /**
+   * What must finish before the installer is handed the process.
+   *
+   * `quitAndInstall` spawns the installer *first* and quits second, and the
+   * NSIS installer gives a running app about two and a half seconds before it
+   * `taskkill /f`s it — less than the shutdown needs, which writes the local
+   * database out whole and then closes it. A close cut off by the kill is
+   * exactly the corruption `will-quit` was written to avoid, so the same
+   * shutdown runs here, to completion, before the installer exists at all.
+   * Errors are swallowed: an update must not be refused over a backup.
+   */
+  prepare?: () => Promise<unknown>;
 }
 
 /**
@@ -76,6 +88,7 @@ export function startAutoUpdate(options: AutoUpdateOptions): boolean {
     schedule = setInterval,
     ask = (info) => askInWindow(window, info),
     autoDownload = true,
+    prepare = async () => {},
   } = options;
   if (!enabled) return false;
 
@@ -90,8 +103,10 @@ export function startAutoUpdate(options: AutoUpdateOptions): boolean {
 
   updater.on("update-downloaded", (info) => {
     void ask(info)
-      .then((install) => {
-        if (install) updater.quitAndInstall();
+      .then(async (install) => {
+        if (!install) return;
+        await prepare().catch(() => {});
+        updater.quitAndInstall();
       })
       .catch(() => {});
   });

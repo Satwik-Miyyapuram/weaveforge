@@ -32,6 +32,50 @@ const NOT_EMPTY =
 const NOT_A_DIRECTORY = "That is not a folder.";
 
 /**
+ * The folder WeaveForge makes inside a folder that is already somebody's.
+ *
+ * Choosing a folder that has a person's own files in it is the *ordinary* case,
+ * not a mistake — `Documents` is where a person keeps documents — so refusing it
+ * left the setting unusable for anyone who did not first make an empty folder by
+ * hand. Instead their folder becomes the workspace's **parent** and the workspace
+ * goes in `WeaveForge/` inside it: their files are never mixed with ours, the
+ * mark below is still the test for recognizing our own, and a hand that reaches
+ * for `Documents` gets `Documents/WeaveForge`.
+ */
+export const WORKSPACE_SUBDIR = "WeaveForge";
+
+/** A chosen folder, and where the workspace in it actually lives. */
+export type RootChoice =
+  | { ok: true; root: string; state: "empty" | "existing" }
+  | { ok: false; reason: string };
+
+/**
+ * Where a chosen folder's workspace should live.
+ *
+ * Distinct from {@link verifyRoot}, which stays strict: this is what a *choice*
+ * resolves to, and the difference matters. Restoring a remembered folder must
+ * refuse a directory that is no longer ours — quietly nestling a fresh workspace
+ * inside a stranger's folder is exactly what the strict test exists to prevent —
+ * while choosing one should place the workspace somewhere sensible and say where.
+ */
+export async function workspaceRootFor(chosen: string): Promise<RootChoice> {
+  const verdict = await verifyRoot(chosen);
+  if (verdict.ok) return { ...verdict, root: chosen };
+  // A file, or a path that does not exist, is a refusal worth repeating: there
+  // is no folder here to put a workspace inside.
+  if (verdict.reason !== NOT_EMPTY) return verdict;
+
+  const nested = path.join(chosen, WORKSPACE_SUBDIR);
+  try {
+    await fs.mkdir(nested, { recursive: true });
+  } catch {
+    return { ok: false, reason: `WeaveForge could not write inside that folder.` };
+  }
+  const inner = await verifyRoot(nested);
+  return inner.ok ? { ...inner, root: nested } : inner;
+}
+
+/**
  * Decide whether a directory may become the workspace folder.
  *
  * The rule is narrow on purpose. Writing a workspace scatters a file per
@@ -94,6 +138,10 @@ function statOf(entry: { name: string; isDirectory(): boolean }, at: string): st
 }
 
 /** `IWorkspaceFs` over a directory, with every path checked twice. */
+/** Marks a write in progress; the folder watcher ignores these. */
+export const TEMP_SUFFIX = ".wftmp";
+let tempSeq = 0;
+
 export class NodeWorkspaceFs implements IWorkspaceFs {
   constructor(private readonly root: string) {}
 
@@ -115,7 +163,19 @@ export class NodeWorkspaceFs implements IWorkspaceFs {
   async writeFile(relative: string, data: Uint8Array | string): Promise<void> {
     const target = await this.resolve(relative);
     await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, typeof data === "string" ? encoder.encode(data) : data);
+    // Written beside the target and renamed over it. A plain write truncates
+    // first, so an installer or a crash that killed the app mid-write left a
+    // note empty or cut off -- the folder is the reader's own copy of their
+    // work, and a torn file there is lost work. A rename within one directory
+    // is atomic: the old file or the new one, never half of either.
+    const temporary = `${target}.${process.pid}.${(tempSeq += 1)}${TEMP_SUFFIX}`;
+    try {
+      await fs.writeFile(temporary, typeof data === "string" ? encoder.encode(data) : data);
+      await fs.rename(temporary, target);
+    } catch (error) {
+      await fs.rm(temporary, { force: true }).catch(() => undefined);
+      throw error;
+    }
   }
 
   async remove(relative: string, options?: { recursive?: boolean }): Promise<void> {
@@ -135,6 +195,8 @@ export class NodeWorkspaceFs implements IWorkspaceFs {
     const entries = await fs.readdir(target, { withFileTypes: true }).catch(() => []);
     const out: WorkspaceStat[] = [];
     for (const entry of entries) {
+      // A write the app was killed in the middle of; the real file is intact.
+      if (entry.name.endsWith(TEMP_SUFFIX)) continue;
       const relative = statOf(entry, at);
       const stat = await this.stat(relative);
       if (stat) out.push(stat);

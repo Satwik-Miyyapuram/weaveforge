@@ -33,7 +33,7 @@ test("formatError: joins PostgREST details/hint/code when there is no message", 
 
 test("formatError: appends the api_tokens migration hint", () => {
   const byText = formatError({ details: "relation api_tokens does not exist", code: "42P01" });
-  assert.match(byText, /Run supabase db push \(migration 0061\)/);
+  assert.match(byText, /Apply the schema migrations \(npm run migrate:schema; migration 0061\)/);
   const byCode = formatError({ details: "schema cache miss", code: "PGRST205" });
   assert.match(byCode, /migration 0061/);
 });
@@ -93,6 +93,70 @@ test("a failed fetch handed back as a plain object still gets the network wordin
   );
 });
 
+test("a network failure names this origin, because a CORS refusal looks identical", () => {
+  const original = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = { location: { origin: "https://weaveforge-preview-abc.vercel.app" } };
+  try {
+    const message = formatError(
+      new TypeError("Failed to fetch (could not reach api.weaveforge.org)"),
+    );
+    assert.match(message, /Could not reach api\.weaveforge\.org\./);
+    assert.match(message, /weaveforge-preview-abc\.vercel\.app/, "the origin must be named");
+    assert.match(message, /CORS allow-list/, "and the likely cause stated");
+  } finally {
+    if (original === undefined) delete (globalThis as { window?: unknown }).window;
+    else (globalThis as { window?: unknown }).window = original;
+  }
+});
+
+test("a host that answered does not get its allow-list blamed", () => {
+  /*
+   * This test used to assert the opposite, and it was pinning a bug.
+   *
+   * The old marker was `(origin refused by <host>)` and this test required the
+   * message to name `CORS_ALLOWED_ORIGINS` as the fix. But the probe behind that
+   * marker uses `mode: "no-cors"`, which resolves for any response at all — 200,
+   * 401, 404 — so it proves the host is up and nothing more. A host being up says
+   * nothing about its allow-list, and the conclusion did not follow.
+   *
+   * Measured cost: with the live API answering `access-control-allow-origin`
+   * correctly on real responses and `204` on preflights for both origins, this
+   * message sent a person to edit a Caddyfile that was already right.
+   *
+   * What is asserted now: the message reports the observation (the host is up),
+   * carries the browser's own words, and makes no claim it cannot support.
+   */
+  const original = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = { location: { origin: "http://localhost:4100" } };
+  try {
+    const message = formatError(
+      new TypeError(
+        "Failed to fetch (could not reach api.weaveforge.org) (host answered) (browser said: Failed to fetch)",
+      ),
+    );
+    assert.match(message, /answered a reachability check, so it is running/);
+    assert.match(message, /from http:\/\/localhost:4100/, "the origin is named");
+    assert.match(message, /Failed to fetch/, "the browser's own words are carried");
+    assert.doesNotMatch(message, /CORS_ALLOWED_ORIGINS/, "no server-side claim it cannot support");
+    assert.doesNotMatch(message, /check your connection/, "and the connection advice dropped");
+  } finally {
+    if (original === undefined) delete (globalThis as { window?: unknown }).window;
+    else (globalThis as { window?: unknown }).window = original;
+  }
+});
+
+test("a host that did not answer still gets the connection advice", () => {
+  // The other half, and the one the old code got right: a probe that failed means
+  // the host is genuinely unreachable, so the reader is told to check the network
+  // rather than sent looking for a server-side list.
+  const message = formatError(
+    new TypeError("Failed to fetch (could not reach api.weaveforge.org)"),
+  );
+  assert.match(message, /Could not reach api\.weaveforge\.org\./);
+  assert.match(message, /check your connection/);
+  assert.doesNotMatch(message, /CORS_ALLOWED_ORIGINS/);
+});
+
 // ---------------------------------------------------------------- the wire form
 //
 // `formatError` is the display formatter: it is what the UI shows the person
@@ -139,7 +203,7 @@ test("formatErrorForResponse: a missing migration is surfaced, without the table
   for (const code of ["42P01", "PGRST205"]) {
     const safe = formatErrorForResponse({ message: 'relation "api_tokens" does not exist', code });
     assert.match(safe, /migration/i);
-    assert.match(safe, /supabase db push/);
+    assert.match(safe, /npm run migrate:schema/);
     assert.doesNotMatch(safe, /api_tokens/, "the hint must not carry the table name");
   }
 });
@@ -195,3 +259,15 @@ test("formatErrorForResponse: Node errno codes are five letters too, and are not
   }
 });
 
+
+test("formatError: a missing database function says the server needs its migrations", () => {
+  const message = formatError({
+    code: "PGRST202",
+    message: "Could not find the function public.metric_history(p_experiment_id, p_max_points, p_metric) in the schema cache",
+    details: null,
+    hint: null,
+  });
+  assert.match(message, /older than this version of the app/);
+  assert.match(message, /no metric_history function/);
+  assert.doesNotMatch(message, /\[object Object\]/);
+});

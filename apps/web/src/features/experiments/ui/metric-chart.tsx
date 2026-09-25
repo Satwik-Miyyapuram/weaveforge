@@ -6,6 +6,17 @@ import "uplot/dist/uPlot.min.css";
 import type { MetricPoint } from "@weaveforge/core";
 import { formatMetricValue } from "@weaveforge/core";
 
+/**
+ * `formatMetricCell` lives in core, beside `formatMetricValue`.
+ *
+ * It moved because a Node test cannot import this module: line 5 pulls in
+ * uPlot's stylesheet, and `node --test` parses that as JavaScript and dies on
+ * the first `.uplot` selector. The formatter is pure and has no React in it, so
+ * core is where it can actually be tested — and re-exported here so the two
+ * screens that already import it from this file keep working.
+ */
+export { formatMetricCell } from "@weaveforge/core";
+
 export interface MetricSeries {
   id: string;
   /** Run label shown in legend (defaults to id). */
@@ -186,10 +197,4 @@ export function MetricChart({ metric, series, height = 240, showLegend }: Metric
       <div className="metric-chart-plot" ref={containerRef} role="img" aria-label={`${metric} over steps`} />
     </figure>
   );
-}
-
-export function formatMetricCell(_metric: string, value: unknown): string {
-  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-  if (!Number.isFinite(n)) return String(value ?? "—");
-  return formatMetricValue(_metric, n);
 }

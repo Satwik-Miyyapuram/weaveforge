@@ -13,6 +13,7 @@ import type {
 } from "@weaveforge/core";
 import {
   buildGraphData,
+  type ExperimentEntry,
   type GLink,
   type GNode,
 } from "../application/build-graph-data";
@@ -126,6 +127,7 @@ export function GraphCanvas({
   notes,
   sections = [],
   relations,
+  experiments = [],
   settings,
   membership,
   lists,
@@ -143,6 +145,8 @@ export function GraphCanvas({
   notes: VaultPage[];
   sections?: ReportSection[];
   relations: PaperRelation[];
+  /** Runs to draw, each attached to the paper it tests. See `ExperimentEntry`. */
+  experiments?: ExperimentEntry[];
   settings: GraphViewSettings;
   membership: Map<string, Set<string>>;
   lists: ReadingList[];
@@ -285,10 +289,10 @@ export function GraphCanvas({
   // the centre — losing the current layout. Those forces are applied live via
   // the d3Force effect instead, so they must NOT rebuild the data.
   const { data: rawData, neighbors, tagToPapers, tagToNotes } = useMemo(() => {
-    return buildGraphData(papers, relations, settings, membership, lists, notes, sections);
+    return buildGraphData(papers, relations, settings, membership, lists, notes, sections, experiments);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    papers, relations, membership, lists, notes, sections,
+    papers, relations, membership, lists, notes, sections, experiments,
     settings.edgeMode, settings.relationTypes, settings.showConcepts,
     settings.minConceptDegree, settings.showConceptCooccurrence, settings.hideOrphans,
     settings.nodeSize, settings.linkThickness, settings.showAutoStyle,
@@ -694,7 +698,10 @@ export function GraphCanvas({
           paintShape(node, ctx, node.color);
           if (labelVisible(node)) {
             const label = node.label.length > 28 ? `${node.label.slice(0, 27)}…` : node.label;
-            const fontSize = node.kind === "tag" ? 4 : 4.5;
+            // Graph units, so the label scales with the canvas; but never under
+            // ~10.5px on screen, where it stopped being text. Zoomed out, the
+            // clash check below then shows fewer labels rather than tiny ones.
+            const fontSize = Math.max(node.kind === "tag" ? 4 : 4.5, 10.5 / zoom);
             ctx.font = `${fontSize}px ${fontFamily}`;
             const lx = node.x ?? 0;
             const ly = (node.y ?? 0) - nodeR(node) - 2;

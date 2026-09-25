@@ -13,11 +13,12 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
+import { CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddListForm } from "./add-list-form";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
-import { DeleteIcon, UnlinkIcon } from "@/components/view-icons";
+import { CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { collectListIds, listDisplayColor } from "./list-ui";
@@ -30,6 +31,13 @@ import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
+
+/** A list's three views, as icon buttons named by their tooltip. */
+const LIST_VIEWS = [
+  { id: "tree", label: "Tree view", Icon: TreeViewIcon },
+  { id: "table", label: "Table view", Icon: CompareViewIcon },
+  { id: "screen", label: "Screening view", Icon: FilterIcon },
+] as const;
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };
 
@@ -165,8 +173,8 @@ export function ListsScreen() {
 
   return (
     <section className="screen lists-screen">
-      <ScreenHead>
-        <button className="btn-primary" onClick={() => setAddOpen(true)}>+ List</button>
+      <ScreenHead eyebrow={listsEyebrow(flat)}>
+        <button className="btn-primary" onClick={() => setAddOpen(true)}>New list</button>
       </ScreenHead>
 
       {addOpen && (
@@ -184,7 +192,7 @@ export function ListsScreen() {
           body="A reading list is how a pile of papers becomes an argument: group them by theme, nest the groups, and keep the reason each one is there. It is a view over your papers, not a second copy of them."
           action={
             <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
-              + List
+              New list
             </button>
           }
         />
@@ -267,13 +275,25 @@ function listItemTitle(
   return "Unknown";
 }
 
+/** "2 lists · 1 sublist": the count the brutal themes set over the title. */
+function listsEyebrow(lists: ReadingList[]): string | undefined {
+  if (lists.length === 0) return undefined;
+  const sub = lists.filter((l) => l.parentId).length;
+  const top = lists.length - sub;
+  const parts = [`${top} ${top === 1 ? "list" : "lists"}`];
+  if (sub > 0) parts.push(`${sub} ${sub === 1 ? "sublist" : "sublists"}`);
+  return parts.join(" · ");
+}
+
 function listCountLabel(items: ReadingListItem[]): string {
   const papers = items.filter((i) => i.paperId).length;
   const notes = items.filter((i) => i.vaultPageId).length;
   const parts: string[] = [];
   if (papers > 0) parts.push(`${papers} paper${papers === 1 ? "" : "s"}`);
   if (notes > 0) parts.push(`${notes} note${notes === 1 ? "" : "s"}`);
-  return parts.join(", ") || "0 items";
+  // "Empty" rather than "0 items": the filled lists beside it count papers and
+  // notes, and a third noun for the same count read as a different measure.
+  return parts.join(", ") || "Empty";
 }
 
 /**
@@ -444,47 +464,34 @@ function ListNode(props: ListNodeProps) {
         <h3 className="list-row-title">{list.name}</h3>
         <span className="list-count">{countLabel}</span>
         <div className="list-view-toggle" role="group" aria-label="List view">
-          <button
-            type="button"
-            className={`link-btn${view === "tree" ? " is-active" : ""}`}
-            aria-pressed={view === "tree"}
-            onClick={() => setView("tree")}
-          >
-            Tree
-          </button>
-          <button
-            type="button"
-            className={`link-btn${view === "table" ? " is-active" : ""}`}
-            aria-pressed={view === "table"}
-            onClick={() => setView("table")}
-          >
-            Table
-          </button>
-          <button
-            type="button"
-            className={`link-btn${view === "screen" ? " is-active" : ""}`}
-            aria-pressed={view === "screen"}
-            onClick={() => setView("screen")}
-          >
-            Screen
-          </button>
+          {LIST_VIEWS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={`entity-icon-btn${view === id ? " is-active" : ""}`}
+              aria-pressed={view === id}
+              aria-label={label}
+              title={label}
+              onClick={() => setView(id)}
+            >
+              <Icon />
+            </button>
+          ))}
         </div>
         {readOnly ? (
           <PinnedPaperBadge ownerName={sharedByName} />
         ) : (
-          <>
-            <button
-              type="button"
-              className="entity-icon-btn danger list-del"
-              onClick={() => void deleteList()}
-              disabled={deleteBusy}
-              aria-label={`Delete list ${list.name}`}
-              title="Delete"
-            >
-              <DeleteIcon />
-            </button>
-            <ShareButton resourceType="reading_list" resourceId={list.id} title={`Share: ${list.name}`} />
-          </>
+          // Share and Delete sit behind one ⋯, as on every entity card: deleting
+          // a list is rare, and a red icon on every row was the loudest thing
+          // on the screen. `deleteList` still asks before it removes anything.
+          <EntityCardMenu
+            resourceType="reading_list"
+            resourceId={list.id}
+            title={`Share: ${list.name}`}
+            onDelete={() => void deleteList()}
+            deleteLabel="Delete list…"
+            deleteDisabled={deleteBusy}
+          />
         )}
         <CommentsToggle
           resourceType="reading_list"

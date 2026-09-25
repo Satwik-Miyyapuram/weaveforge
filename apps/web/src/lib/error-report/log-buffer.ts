@@ -74,6 +74,34 @@ export function recordError(text: string): void {
 }
 
 /**
+ * Whether this exact failure has already happened in this window.
+ *
+ * The same error event fires again for every re-render, retry and route change
+ * that repeats it, and the shell's log is a file that outlives the window — a
+ * render loop can write thousands of identical lines into a record a person is
+ * expected to read. Remembering the *text* rather than a count is enough: two
+ * occurrences of a byte-identical stack with a byte-identical origin line are
+ * the same failure happening twice, and one line about it is the honest report.
+ *
+ * Bounded, and cleared with the rest of the capture. A `Set` of every stack a
+ * long session ever produced would itself become the leak.
+ */
+const seen = new Set<string>();
+const MAX_SEEN = 200;
+
+export function alreadyRecorded(text: string): boolean {
+  if (!text) return true;
+  if (seen.has(text)) return true;
+  seen.add(text);
+  if (seen.size > MAX_SEEN) {
+    // Oldest-first: a `Set` iterates in insertion order.
+    const oldest = seen.values().next().value;
+    if (oldest !== undefined) seen.delete(oldest);
+  }
+  return false;
+}
+
+/**
  * Put the console back and empty the buffer, for tests.
  *
  * Restoring matters as much as clearing: resetting `installed` alone would let a
@@ -84,5 +112,6 @@ export function recordError(text: string): void {
 export function resetLogCaptureForTest(): void {
   for (const restore of restores.splice(0)) restore();
   lines.length = 0;
+  seen.clear();
   installed = false;
 }

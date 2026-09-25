@@ -13,6 +13,74 @@ test("pdf-proxy: allowlist accepts arxiv/openreview https only", () => {
   assert.equal(isAllowedPdfProxyUrl("javascript:alert(1)"), false);
 });
 
+/**
+ * The open-access hosts, and the lookalikes that must not pass.
+ *
+ * The list was arXiv and OpenReview only, so "index my library" reported *"the
+ * proxy produced no bytes"* for every paper on a host it would not fetch — the
+ * papers that are freely readable being the ones refused. These are the hosts the
+ * reader's own library actually has, plus the repositories a literature review
+ * reaches for.
+ */
+test("pdf-proxy: open-access repositories and publishers are allowed", () => {
+  const allowed = [
+    // Preprints and repositories.
+    "https://biorxiv.org/content/10.1101/2020.01.01.000001v1.full.pdf",
+    "https://www.medrxiv.org/content/10.1101/2020.01.01.000001v1.full.pdf",
+    "https://chemrxiv.org/engage/api-gateway/chemrxiv/assets/x.pdf",
+    "https://pmc.ncbi.nlm.nih.gov/articles/PMC1234567/pdf/x.pdf",
+    "https://europepmc.org/articles/PMC1234567?pdf=render",
+    // Open-access publishers.
+    "https://journals.plos.org/plosone/article/file?id=x&type=printable",
+    "https://elifesciences.org/articles/12345.pdf",
+    "https://www.frontiersin.org/articles/10.3389/x/pdf",
+    "https://www.mdpi.com/1234-5678/9/1/1/pdf",
+    "https://olh.openlibhums.org/article/id/1234/galley/1/download/",
+    // A publisher's dedicated open-access infrastructure.
+    "https://link.springer.com/content/pdf/10.1007/x.pdf",
+    "https://www.springeropen.com/articles/10.1186/x.pdf",
+  ];
+  for (const url of allowed) {
+    assert.equal(isAllowedPdfProxyUrl(url), true, `${url} should be allowed`);
+  }
+});
+
+test("pdf-proxy: a lookalike host cannot pass the allowlist", () => {
+  // The check compares `hostname` exactly against a set, so a domain that merely
+  // *contains* an allowed one is not reachable. Pinned because a future change to
+  // a suffix match would quietly turn the proxy into a fetch-anything relay.
+  const refused = [
+    "https://evil-arxiv.org/pdf/1706.03762",
+    "https://arxiv.org.evil.test/pdf/1706.03762",
+    "https://notplos.org/x.pdf",
+    "https://plos.org.evil.test/x.pdf",
+    "https://ncbi.nlm.nih.gov.evil.test/x.pdf",
+  ];
+  for (const url of refused) {
+    assert.equal(isAllowedPdfProxyUrl(url), false, `${url} should be refused`);
+  }
+});
+
+test("pdf-proxy: mostly-paywalled publishers are not promised", () => {
+  /*
+   * A deliberate absence, pinned so it is not "helpfully" added later.
+   *
+   * The proxy fetches anonymously, so a host whose articles mostly need a
+   * subscription can be on the list and still answer 403 — which is what SAGE and
+   * Elsevier did. Listing them would be a line of code that changes nothing and
+   * reads as though it had, and the reader would still be told their library
+   * could not be indexed with no idea why.
+   */
+  for (const url of [
+    "https://journals.sagepub.com/doi/pdf/10.1177/x",
+    "https://www.sciencedirect.com/science/article/pii/x/pdf",
+    "https://www.nature.com/articles/x.pdf",
+    "https://onlinelibrary.wiley.com/doi/pdf/10.1002/x",
+  ]) {
+    assert.equal(isAllowedPdfProxyUrl(url), false, `${url} should not be promised`);
+  }
+});
+
 test("pdf-proxy: GET requires authentication", async () => {
   const res = await GET(
     new Request(

@@ -1,4 +1,4 @@
-import { normalizeDoi, type NewPaperInput, type Paper } from "@weaveforge/core";
+import { normalizeDoi, type NewPaperInput, type Paper, titleFromFileName } from "@weaveforge/core";
 import type { ZoteroSyncResult } from "../domain/zotero";
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
 import { toZoteroItem } from "./zotero-exporter";
@@ -252,7 +252,7 @@ function remoteToInput(d: ZoteroItemData): NewPaperInput {
   const year = d.date ? Number(/\d{4}/.exec(d.date)?.[0]) || undefined : undefined;
   const arxivId = arxivOfRemote(d);
   return {
-    title: d.title ?? "Untitled (Zotero)",
+    title: d.title ? titleFromFileName(d.title) : "Untitled (Zotero)",
     authors,
     venue: d.publicationTitle,
     year,

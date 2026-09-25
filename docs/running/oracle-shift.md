@@ -1,5 +1,11 @@
 # The Oracle shift — the whole thing, start to finish
 
+> **Status: done.** This is the record of how the data moved, kept as the
+> runbook for rebuilding the server. The tables, realtime and files now live on
+> the OCI server at `api.weaveforge.org`; Supabase is used for sign-in only and
+> stores no WeaveForge data. Where the text below says "right now everything
+> lives at Supabase", it describes the starting point of the move.
+
 > **Who this is for:** you have just created an Oracle Cloud account and have not
 > done this kind of thing before. This is the only document you need. It goes
 > from empty account to your app reading and writing its own database.

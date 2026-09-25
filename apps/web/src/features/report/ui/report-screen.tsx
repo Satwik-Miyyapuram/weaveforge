@@ -11,13 +11,14 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
+import { PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddSectionForm, type ReportParentOption } from "./add-section-form";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { EntityCard } from "@/components/entity-card";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -225,13 +226,13 @@ export function ReportScreen() {
 
   return (
     <section className="screen report-screen">
-      <ScreenHead title="Sections">
+      <ScreenHead title="Sections" eyebrow={sectionsEyebrow(ownedFlat)}>
         <button
           className="btn-primary"
           type="button"
           onClick={() => setComposeOpen(true)}
         >
-          + Section
+          New section
         </button>
       </ScreenHead>
 
@@ -253,7 +254,7 @@ export function ReportScreen() {
       {ownedFlat.length > 0 && (
         <div className="card progress-card">
           <div className="progress-top">
-            <span>{done} / {ownedFlat.length} sections done</span>
+            <span>{done} of {ownedFlat.length} sections done</span>
             <strong>{pct}%</strong>
           </div>
           <div className="progress-bar">
@@ -275,7 +276,7 @@ export function ReportScreen() {
               className="btn-primary"
               onClick={() => setComposeOpen(true)}
             >
-              + Section
+              New section
             </button>
           }
         />
@@ -473,7 +474,7 @@ function SectionCard({
 
   return (
     <EntityCard
-      className={`section-item${nested ? " section-item--nested" : ""}`}
+      className={`section-item section-item--${s.status}${nested ? " section-item--nested" : ""}`}
       nested={nested}
       onActivate={onOpen ? () => onOpen(s.id) : undefined}
       leading={
@@ -510,23 +511,23 @@ function SectionCard({
           >
             {REPORT_STATUSES.map((st) => (
               <option key={st} value={st}>
-                {st.replace("_", " ")}
+                {statusLabel(st)}
               </option>
             ))}
           </Select>
         )
       }
       meta={meta}
-      onDelete={readOnly || !onRemove ? undefined : onRemove}
-      deleteDisabled={busy}
-      deleteAriaLabel="Delete section"
-      actions={
-        !readOnly ? (
-          <ShareButton resourceType="report_section" resourceId={s.id} title={`Share: ${s.title}`} />
-        ) : undefined
+      menu={
+        <EntityCardMenu
+          resourceType="report_section"
+          resourceId={s.id}
+          title={`Share: ${s.title}`}
+          onDelete={readOnly || !onRemove ? undefined : onRemove}
+          deleteLabel="Delete section"
+          deleteDisabled={busy}
+        />
       }
-      onOpen={onOpen ? () => onOpen(s.id) : undefined}
-      openLabel={hasNotes ? "Open section" : "Write section"}
     >
       {hasNotes ? (
         <div className="section-note-md-preview">
@@ -535,4 +536,22 @@ function SectionCard({
       ) : null}
     </EntityCard>
   );
+}
+
+/** "not_started" reads "Not started". */
+function statusLabel(status: ReportStatus): string {
+  const words = status.replace("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** "4 sections · 4,210 of 12,000 words" above the title. */
+function sectionsEyebrow(sections: readonly ReportSection[]): string | undefined {
+  if (!sections.length) return undefined;
+  const words = sections.reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
+  const target = sections.reduce((sum, s) => sum + (s.targetWords ?? 0), 0);
+  const count = `${sections.length} ${sections.length === 1 ? "section" : "sections"}`;
+  const fmt = (n: number) => n.toLocaleString();
+  return target
+    ? `${count} · ${fmt(words)} of ${fmt(target)} words`
+    : `${count} · ${fmt(words)} words`;
 }

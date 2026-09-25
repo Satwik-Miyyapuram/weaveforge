@@ -6,6 +6,7 @@ import { createSupabaseClient } from "./providers/supabase/client";
 import { SupabaseSessionProvider } from "./providers/supabase/session";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/supabase-settings-repository";
+import { secretsStoreFor } from "./providers/secrets-store";
 import { SupabaseSelfProvisioner } from "@/features/org/infrastructure/supabase-self-provisioner";
 import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/wire-local-backend";
@@ -44,7 +45,11 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   const db = createSupabaseClient(url, anonKey, config.dataUrl);
   const session = new SupabaseSessionProvider(db);
   const auth = new SupabaseAuthService(db);
-  const settingsRepository = new SupabaseSettingsRepository(db, session);
+  // The same credentials store the full container will pick, and for the same
+  // reason: this container is the one that handles the sign-in and the very
+  // first settings write, so on a build with no routes of its own it must not
+  // reach for `/api/settings/credentials` either.
+  const settingsRepository = new SupabaseSettingsRepository(db, session, secretsStoreFor(db));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
   return { auth, manageSettings, selfProvisioner: new SupabaseSelfProvisioner(db) };
 }

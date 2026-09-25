@@ -146,7 +146,12 @@ button.nav-link {
     transform: translateX(0);
     width: 216px;
     max-width: none;
-    padding: 20px 14px;
+    /* No horizontal padding: a row's hover fill is what has to reach the
+       sidebar's edges, and it can only do that if the row is as wide as the
+       column. The text keeps its inset through the row's own `padding: 10px
+       14px`, so nothing moves — measured, the icon and label stay at x=28 and
+       a full-width fill lands flush at 216 instead of stopping at 201.2. */
+    padding: 20px 0;
     border-radius: 0;
     border: none;
     border-right: 1px solid var(--line);
@@ -163,11 +168,20 @@ button.nav-link {
      The sidebar is pinned `top: 0; bottom: 0` and nothing inside it could
      scroll, so on a short viewport the column simply overflowed and Sign out —
      the last item — ended up below the fold with no way to reach it. The links
-     give way first; the account block stays put. */
+     give way first; the account block stays put.
+     
+     The horizontal padding is the *inset of the pills*, and it belongs here
+     rather than on each row. `.nav` itself carries no horizontal padding, which
+     is deliberate — it is what lets a row's hover fill reach the column's edge —
+     but that made the pills **touch both edges**, which is what the reader
+     reported. The fix is to inset the whole list instead of the rows: the fill
+     still spans the full width it is given, and what it is given is now the
+     column less 14px each side, so every pill sits clear of the edge and every
+     label lines up with the account links and the project chip below it. */
   .nav-links {
     display: flex; flex-direction: column; justify-content: flex-start; gap: 4px;
-    flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
-    scrollbar-width: thin;
+    flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; overflow-x: hidden; overscroll-behavior: contain;
+    padding: 0 14px;
   }
   .nav-link {
     flex: none; flex-direction: row; justify-content: flex-start; gap: 12px;
@@ -178,6 +192,15 @@ button.nav-link {
   }
 .nav-link .nav-icon { width: calc(var(--icon-size) + 3px); height: calc(var(--icon-size) + 3px); flex: none; }
   .nav-link:hover { background: var(--pill); color: var(--ink); }
+  /* Group headings. The strip that carried this grouping is mobile-only now, so
+     the sidebar states it itself: a heading and the destinations under it,
+     rather than one "Library" entry that hid four of them behind a click. */
+  .nav-group { display: flex; flex-direction: column; gap: 4px; }
+  .nav-group-label {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin: 10px 0 0; padding: 4px 14px; background: none; border: 0; cursor: pointer; font-family: inherit; text-align: left;
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em;
+ color: var(--muted);
+  }
   .nav-home { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
   .nav-bottom.desktop-only {
     display: flex; flex-direction: column; gap: 6px;
@@ -186,14 +209,21 @@ button.nav-link {
        way first -- and scrolls only once it alone is taller than the window,
        instead of running off the bottom with Help and Sign out out of reach. */
     flex: 0 1 auto; min-height: 0;
-    overflow-y: auto; overflow-x: hidden; scrollbar-width: thin;
+    overflow-y: auto; overflow-x: hidden; flex: none; scrollbar-width: none;
   }
   /* Account links stack in the sidebar instead of wrapping. `.header-actions`
      is a wrapping pill row, which is right for the mobile top bar and wrong in
      a 216px column: the pills wrapped into ragged two-per-row lines that made
-     the block taller than the items in it needed. */
+     the block taller than the items in it needed.
+     
+     The horizontal padding is on the *stack*, not on each pill, so the pills keep
+     their full-bleed hover fill — the same treatment the nav rows above them get
+     — while their labels still line up at the sidebar's 14px inset. Without it
+     these labels sat at x=0 while every other label in the column sat at x=14,
+     which is what the account row's own inset exposed. */
   .nav-bottom .header-actions {
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 2px;
+    padding: 0 14px;
   }
   .nav-bottom .header-actions .header-link,
   .nav-bottom .header-actions .signout {
@@ -214,11 +244,17 @@ button.nav-link {
   .layout.nav-collapsed { padding-left: var(--nav-rail-width); }
   .layout.nav-collapsed .nav {
     width: var(--nav-rail-width);
-    padding: 14px 8px;
+    /* 20px of top padding in *both* states, and that is the whole of the fix for
+       the brand jumping when the sidebar collapses: the brand is the first thing
+       in the column, so the column's top padding is its y. This was 14px against
+       the expanded 20px, and the mark moved 6px up when the sidebar closed —
+       measured, logo centre y=44.4 expanded and y=38.4 collapsed. The horizontal
+       8px is what holds a 40px row centred in a 56px rail. */
+    padding: 20px 8px;
     align-items: center;
   }
   .layout.nav-collapsed .menu-toggle { align-self: center; margin-bottom: 8px; }
-  .layout.nav-collapsed .nav-links { width: 100%; align-items: center; }
+  .layout.nav-collapsed .nav-links { width: 100%; align-items: center; padding: 0; }
   .layout.nav-collapsed .nav-link,
   .layout.nav-collapsed .nav-bottom .header-link,
   .layout.nav-collapsed .nav-bottom .signout,
@@ -229,6 +265,7 @@ button.nav-link {
     border-radius: 999px;
   }
   .layout.nav-collapsed .nav-label,
+  .layout.nav-collapsed .nav-group-label,
   .layout.nav-collapsed .app-name,
   .layout.nav-collapsed .proj-switcher,
   .layout.nav-collapsed .org-switcher,
@@ -251,6 +288,24 @@ button.nav-link {
   .layout.has-nav.nav-collapsed.editor-route { padding-left: var(--nav-rail-width); }
   .layout.has-nav.editor-route:not(.nav-collapsed) { padding-left: var(--nav-inset); }
   .layout.editor-route .nav { background: var(--surface); }
+}
+
+/* The labelled rail. Past 1280px there is room for a word under each icon, and
+   several icons (Graph, Git, Wiki) are abstract enough that a hover tooltip is
+   a poor way to learn them. Only the destinations get a label; the account
+   actions at the bottom stay icons, as they are the same on every screen. */
+@media (min-width: 1280px) {
+  :root { --nav-rail-width: 76px; }
+  .layout.nav-collapsed .nav-links .nav-link {
+    width: 60px; height: auto; min-height: 48px;
+    flex-direction: column; gap: 2px; padding: 6px 2px;
+    border-radius: 12px;
+  }
+  .layout.nav-collapsed .nav-links .nav-label {
+    display: block; max-width: 100%;
+    font-size: 0.62rem; line-height: 1.15; text-align: center;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
 }
 
 /* Workspace focus (`⌘⇧F`, editor-workspace.css): the rail goes with the rest
@@ -287,3 +342,234 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
   color: var(--muted); border: 1px solid var(--border); background: transparent;
 }
 .nav-bottom .local-mode-badge, .desktop-only .local-mode-badge { align-self: flex-start; margin-bottom: 6px; }
+
+/* Below 461px the bottom bar cannot hold six words, so it holds six icons.
+   Measured: each slot is `(width - 40) / 6`, and "Experiments" needs 64px of
+   content — so it fits from a slot of about 68px, which is a 448px window, and
+   is ellipsised ("Experi…") below that. Rather than sit the query exactly on the
+   boundary, where a classic scrollbar puts the media-query width a few pixels
+   under `innerWidth`, it hides with margin to spare.
+
+   Icons are what a bottom bar is for, and each item keeps its name: every link
+   carries an explicit `aria-label` in `tabbar.tsx`, so hiding the span costs a
+   screen reader nothing. The threshold is a *width*, not the 900px layout
+   breakpoint, because 461–899 is where the labels fit — a tablet keeps them. */
+@media (max-width: 460px) {
+  .nav-link .nav-label { display: none; }
+}
+
+/* The foldable heading and the group body it hides, desktop sidebar only: the mobile bar
+   renders group links rather than these, so neither exists below 900px. */
+/* A heading, not a control that gets chosen: folding it only brightens the
+   words, muted to ink, which is lighter on a dark theme and darker on a light
+   one. The global press tint and the accent focus ring made it look like the
+   selected destination under it; the same colour step marks keyboard focus. */
+.nav-group-label { transition: color var(--dur-base) ease; }
+.nav-group-label:hover,
+.nav-group-label:focus-visible { color: var(--ink); }
+button.nav-group-label:not(:disabled):active,
+button.nav-group-label:focus,
+button.nav-group-label:focus-visible {
+  background-color: transparent;
+  outline: none;
+}
+.nav-group-items { display: flex; flex-direction: column; gap: 4px; }
+
+/* The brand is the collapse control, and it replaced the hamburger. It is built
+   on the metrics of the links under it — same min height, padding, radius and
+   type size — because it sits in that column and anything else reads as a
+   control bolted on. Hidden below 900px: the phone bar has its own six slots
+   and no rail to toggle. */
+.nav-brand-toggle { display: none; }
+@media (min-width: 900px) {
+  .nav-brand-toggle {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    min-height: var(--touch-min); margin: 0 0 8px; padding: 10px 14px;
+    border: 0; border-radius: 999px; background: none;
+    color: var(--ink); cursor: pointer; font: inherit; text-align: left;
+    font-size: 0.92rem; font-weight: 600;
+    transition: background var(--dur-base), color var(--dur-base);
+  }
+  /* Sized against the icons optically, not literally. The mark is a full-bleed
+     filled tile — its artwork fills the whole viewBox — while the nav icons are
+     stroke glyphs inside a 24×24 box with margins. Equal boxes therefore read
+     as unequal: the tile carries the ink of the full square. `--icon-size`
+     rather than `+3px` is what makes the two look the same weight. */
+  /* No tile. The mark draws its own rounded square (`<rect fill="var(--surface2)">`),
+     which in a column of line icons reads as a highlighted, selected chip rather
+     than as the app. The strokes are the mark; the tile was a background. */
+  .nav-brand-toggle .app-logo rect { display: none; }
+  /* Sized so the *ink* matches the icons, not the box. Once the tile is gone the
+     strokes occupy only about 55% of the 512 viewBox (x 129–394, y 103–431), so a
+     16px box would render roughly 9px of drawing — much smaller than the 19px
+     glyphs beside it. ~1.8× puts the drawing at their size. */
+  .nav-brand-toggle .app-logo { width: calc(var(--icon-size) * 1.8); height: calc(var(--icon-size) * 1.8); flex: none; }
+  .nav-brand-toggle .app-name {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .nav-brand-toggle .chev { opacity: 0.5; flex: none; }
+  /* One glyph, two states: left means "fold me back", right means "open me".
+     The app already draws a chevron at this weight; rotating it keeps the
+     cap and the stroke identical to the tree rows above. */
+  .nav-brand-toggle .chev svg { transform: rotate(90deg); }
+  .nav-brand-toggle[aria-expanded="false"] .chev svg { transform: rotate(-90deg); }
+  /* In the rail it is only the mark and the way out of the rail. No highlight:
+     it is the app, not a row in the list, and lighting it up on hover made the
+     whole head read as pressed. */
+  .layout.nav-collapsed .nav-brand-toggle { justify-content: center; padding: 10px 0; gap: 0; }
+  .layout.nav-collapsed .nav-brand-toggle .app-name { display: none; }
+  .layout.nav-collapsed .nav-brand-toggle .chev svg { transform: rotate(-90deg); }
+  /* One control wide: the theme is a row of the account menu. */
+  /* Account, project and the account menu on one line, sharing one height.
+     
+     The row was `align-items: center` with three controls of two different
+     heights: the account button is a fixed `--touch-min` (44px), and the project
+     pill is sized by its content — 10px padding, a 22.08px line box, 10px
+     padding, so 43.69px. Centred, that leaves the pill's border and fill on a
+     different device-pixel row from the button's: 0.15px apart, which rounds to
+     one pixel of stair at one edge and none at the other, so the two controls
+     look 1px out of register and the gap between them reads as uneven.
+     
+     Fixed by construction rather than by arithmetic: the wrappers are flex
+     containers and the pills stretch inside them, so every control's box is the
+     row's own height — whatever that happens to be — and there is no number here
+     to drift when a font, a density token or `--touch-min` changes. `center`
+     inside each wrapper is what keeps the *content* centred once the box is
+     stretched.
+     
+     **The controls no longer fill the row, and that is the second fix.** They
+     used to: the chip carried `flex: 1 1 auto` and ate every spare pixel, which
+     pushed the account button to the far edge and left **58px of nothing**
+     between a 113px chip and a 44px button. Two controls that belong together
+     reading as two ends of a rule.
+     
+     There is deliberately **no `margin-right: auto`** on the switcher, which is
+     the obvious-looking way to hold the button off the chip and is wrong: an
+     auto margin *absorbs* free space instead of collapsing it, so the gap
+     survived at 38px with the margin eating it rather than the chip. Measured
+     both ways. Letting the free space stay free is the fix.
+     
+     The row gets the sidebar's own 14px inset back so the button stops kissing
+     the pane edge — measured at 1px before, because a nav row's fill is
+     deliberately full-bleed, which is right for a list of destinations and wrong
+     for a pair of boxed controls. The group is left-aligned to match the rows
+     above it rather than floating at the right.
+     
+     The chip's `max-width` is what keeps a long project name from shouldering
+     the button out: it truncates instead, and there is already an ellipsis on
+     the label. */
+  .nav-account-row {
+    display: flex; align-items: stretch; gap: 8px;
+  }
+  /*
+   * The inset, and the two overrides that un-stretch the switchers, apply to the
+   * **expanded** column only.
+   *
+   * Scoping matters here and was missed the first time: the rail's `.nav` has 8px
+   * of padding and a 40px row, so a 56px rail centres everything at 8px on both
+   * sides. The padding above is asymmetric on purpose — 14px left to line the chip
+   * up with the nav labels, 6px right to keep the button off the pane edge — and
+   * applied in the rail it produced exactly the unevenness the reader reported:
+   * measured, the nav pills sat **8px from the left and 2px from the right**, and
+   * the account button 2px from the edge. A collapsed sidebar has no labels to
+   * line up with and no pair of controls to separate, so none of this belongs
+   * there.
+   */
+  .layout:not(.nav-collapsed) .nav-account-row {
+    padding-left: 14px;
+    /* 14 on both sides, to match the nav list's inset above it. It was 14/6 —
+       6 on the right because the ⋯ was thought to be the outermost thing and
+       only needed to be kept off the edge, which left it with visibly more room
+       to its right than the pills above it had. Same inset everywhere is the
+       answer; the row is not a special case. */
+    padding-right: 14px;
+  }
+  .nav-account-row .org-switcher,
+  .nav-account-row .proj-switcher {
+    min-width: 0; flex: 0 1 auto;
+    display: flex; align-items: center;
+    /* Two rules above stretch these to the sidebar's full width on purpose —
+       `.desktop-only .proj-switcher { width: 100% }` and its org twin — and an
+       explicit width beats `flex-basis`, so `flex: 0 1 auto` alone did nothing:
+       the switcher stayed 143px around a 113px chip and the pair still read as
+       two ends of a rule. `align-self` is needed as well as the width, because
+       the row's `stretch` is what turns a `width: auto` into a full-width box. */
+    width: auto; align-self: center;
+    height: 100%;
+  }
+  /*
+   * Both the wrapper *and* the popover that actually holds the chip.
+   *
+   * The chip is not a child of `.proj-switcher`: `ProjectSwitcher` renders it
+   * through `Popover`, so the tree is `.proj-switcher > .popover > button.proj-chip`.
+   * An earlier version of this rule wrote `> .proj-chip` against
+   * `.proj-switcher` and matched nothing — the switcher stretched and the chip
+   * inside it did not, which looks exactly like the fix not being applied.
+   *
+   * `height: 100%` rather than `align-self: stretch`, because the chip is a
+   * `<button>`: a form control is sized by its content — 10px padding, a 22.08px
+   * line box, 10px padding, so 43.69px — and ignores the cross-axis stretch an
+   * ordinary flex item would take. Naming the height is what lands.
+   */
+  .nav-account-row .org-switcher .popover,
+  .nav-account-row .proj-switcher .popover { height: 100%; display: flex; min-width: 0; }
+  .nav-account-row .org-switcher .proj-chip,
+  .nav-account-row .proj-switcher .proj-chip {
+    flex: 0 1 auto; height: 100%; max-width: 100%;
+  }
+  .nav-account-row .header-overflow { flex: none; display: flex; align-items: center; }
+  /* One line, ellipsised. A two-word project name wrapped inside the pill and
+     turned it into a lozenge twice the height of every other sidebar row. */
+  .nav-account-row .proj-chip > span:not(.project-dot) {
+    min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* The chip fills the row up to the account button. Kept to its content, a
+     two-word project name had ~110px and either wrapped into a lozenge twice
+     the height of every other row or ellipsised after four letters. */
+  .layout:not(.nav-collapsed) .nav-account-row .proj-switcher { flex: 1 1 0; width: auto; }
+  .layout:not(.nav-collapsed) .nav-account-row .proj-switcher .popover,
+  .layout:not(.nav-collapsed) .nav-account-row .proj-switcher .proj-chip { width: 100%; }
+  /* Storage mode is a status, not a control, so it reads as one: a dot and a
+     line of muted text under the chip, its dot on the chip's dot, rather than a
+     second bordered pill competing with the switcher above it. */
+  .layout:not(.nav-collapsed) .nav-bottom .local-mode-badge {
+    margin: 8px 14px 2px; padding: 0 0 0 16px;
+    border: none; border-radius: 0; font-weight: 500; letter-spacing: 0;
+  }
+  .layout:not(.nav-collapsed) .nav-bottom .local-mode-badge::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted); opacity: 0.6; margin-right: 2px;
+  }
+  /* The account button already carries `--touch-min` as its own height, and it
+     is the tallest thing in the row, so the row is that tall and the button
+     fills it. Nothing to restate. */
+}
+/* The sidebar's floating thumb. The track is positioned against the wrapper,
+   not the scroller: an absolutely positioned child of a scroll container scrolls
+   away with the content. The native bar is hidden outright — the reveal is what
+   caused the jump, because it takes a gutter when it appears. */
+.nav-links-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.nav-links::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* Inside the column the rows now fill, so the thumb has to clear them: it sits
+   8px in from the right edge — 2px of its own width plus the 6px that keeps it
+   off the row's fill as the fill reaches the edge. It is positioned against
+   `.nav-links-wrap`, which is the full column width. */
+.overlay-scrollbar-nav { position: absolute; top: 6px; bottom: 6px; right: 8px; width: 8px; z-index: 3; }
+/* The account block keeps its height... in the column. It is the last thing in the
+   sidebar; a bar here would move every row above it. */
+.nav-bottom::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/*
+ * The mark never lights up.
+ *
+ * `base.css` tints every button on press — `button:not(:disabled):active {
+ * background-color: var(--press) }` — and folding the column is a click, so the
+ * brand flashed every time it was used. It is a state change, not a selection:
+ * nothing about it should look pressed, focused or chosen. `:not(:disabled)`
+ * keeps the specificity above that global rule rather than relying on order.
+ */
+button.nav-brand-toggle:not(:disabled):active,
+button.nav-brand-toggle:focus,
+button.nav-brand-toggle:focus-visible {
+  background-color: transparent;
+  outline: none;
+}

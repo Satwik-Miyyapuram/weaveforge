@@ -1,15 +1,18 @@
 "use client";
 
+import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { vaultImageMarkdown, type VaultPage } from "@weaveforge/core";
+import { extractHashtags, vaultImageMarkdown, type VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { AttachImageButton } from "@/components/attach-image-button";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import type { EditorHandle } from "@/components/editor-handle";
 import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
-import { DeleteIcon, EditIcon } from "@/components/view-icons";
+import { CommentsIcon, DeleteIcon, EditIcon } from "@/components/view-icons";
+import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
+import { RelatedPanel } from "@/components/related-panel";
 import { CollabBodyHost } from "@/features/collab";
-import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
+import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { formatError } from "@/lib/format-error";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
@@ -31,6 +34,9 @@ export function PageEditor({
   resolveEmbed,
   onChanged,
   onDeleted,
+  onBack,
+  backlinks = [],
+  onOpenPage,
 }: {
   page: VaultPage;
   readOnly?: boolean;
@@ -44,10 +50,17 @@ export function PageEditor({
   resolveEmbed?: (title: string) => string | null;
   onChanged: () => void;
   onDeleted: () => void;
+  /** Back to the list; absent where the page is embedded rather than opened. */
+  onBack?: () => void;
+  /** Notes that [[wikilink]] here. */
+  backlinks?: { id: string; title: string }[];
+  onOpenPage?: (id: string) => void;
 }) {
   const [title, setTitle] = useState(page.title);
   const [draft, setDraft] = useState(page.body);
   const [editing, setEditing] = useState(false);
+  /** The rendered note, which margin comments select from and light up. */
+  const noteTextRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   // Filled in by whichever editor is mounted — plain or collaborative — and
@@ -180,138 +193,206 @@ export function PageEditor({
     setEditing(false);
   }
 
+  const words = wordCount(page.body);
+  const wordsLabel = `${words} ${words === 1 ? "word" : "words"}`;
+  const tags = extractHashtags(page.body);
+  const linksOut = new Set([...page.body.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1]!.trim().toLowerCase())).size;
+  const edited = recordDate(page.updatedAt);
+  const created = recordDate(page.createdAt);
+  const meta = [
+    created ? `Created ${created}` : null,
+    edited && edited !== created ? `Edited ${edited}` : null,
+    wordsLabel,
+  ].filter(Boolean).join(" / ");
+
+  function startEditing() {
+    setDraft(page.body);
+    setTitle(page.title);
+    setEditing(true);
+  }
+
   return (
-    <>
-      <div className="vault-editor-head paper-note-head">
-        {!sharedPage && canEditTitle && !readOnly && (
-          <button
-            type="button"
-            className="entity-icon-btn danger"
-            onClick={() => void remove()}
-            disabled={saving}
-            aria-label="Delete note"
-            title="Delete"
-          >
-            <DeleteIcon />
-          </button>
-        )}
-        <div className="card-foot-right">
-          {readOnly ? (
-            <CommentsToggle resourceType="vault_page" resourceId={page.id} canComment={canComment} variant="detail" />
-          ) : (
-            <>
-              {!sharedPage && (
-                <ShareButton resourceType="vault_page" resourceId={page.id} title={`Share: ${page.title}`} />
-              )}
-              {!showEditor && canEditBody && (
-                <button
-                  type="button"
-                  className="entity-icon-btn"
-                  onClick={() => {
-                    setDraft(page.body);
-                    setTitle(page.title);
-                    setEditing(true);
-                  }}
-                  aria-label={hasBody ? "Edit note" : "Write note"}
-                  title={hasBody ? "Edit note" : "Write note"}
-                >
-                  <EditIcon />
-                </button>
-              )}
-              {showEditor && canEditBody && (
-                <AttachImageButton editor={editorHandle} onError={setSaveError} />
-              )}
-              {!readOnly && (
-                <CommentsToggle resourceType="vault_page" resourceId={page.id} canComment variant="detail" />
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {readOnly || sharedPage || !showEditor || !canEditTitle ? (
-        <div className="vault-title-readonly">
-          <h2 className="paper-article-title">{page.title}</h2>
-          {sharedByName && <PinnedPaperBadge ownerName={sharedByName} />}
-        </div>
-      ) : (
-        <input
-          className="vault-title-input"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          aria-label="Note title"
-        />
-      )}
-
-      {!showEditor ? (
-        hasBody ? (
-          <VaultMarkdown
-            body={page.body}
-            className="summary"
-            notes={notes}
-            papers={papers}
-            sections={sections}
-            onCreateNote={onCreateNote}
-            resolveEmbed={resolveEmbed}
-          />
-        ) : (
-          <p className="muted summary-empty">No content yet — use “Write note” to start.</p>
-        )
-      ) : (
-        <div className="summary-editor">
-          <div className="summary-editor-bar">
-            <CitationFormatSelect
-              value={citationFormat}
-              onChange={setCitationFormat}
-              disabled={saving}
-            />
-          </div>
-          {collab ? (
-            <CollabBodyHost
-              resourceType="vault_page"
-              resourceId={page.id}
-              initialBody={page.body}
-              onSave={saveCollabBody}
-              className="summary-input-collab"
-              editorClassName="markdown-code-editor summary-input markdown-code-editor--notes"
-              markdownEditing={collabEditing}
-              handleRef={editorHandle}
-            />
-          ) : (
-            <MarkdownCodeEditor
-              className="summary-input markdown-code-editor--notes"
-              value={draft}
-              placeholder="Write markdown… #hashtags and [[wikilinks]] link this note in the graph."
-              disabled={saving}
-              onChange={setDraft}
-              wikilinkTitles={wikilinkTitles}
-              wikilinkCompletions={wikilinkCompletions}
-              citationFormat={citationFormat}
-              imagePaste={imagePaste}
-              handleRef={editorHandle}
-            />
-          )}
-          <div className="summary-editor-foot">
-            {saveError && <span className="error" role="alert">{saveError}</span>}
-            {/* Cancelling a collaborative edit cannot roll the body back — it is
-                already shared and saved — so the escape hatch is just "close". */}
-            <button type="button" className="link-btn" onClick={collab ? closeEditor : cancelEdit} disabled={saving}>
-              {collab ? "close" : "cancel"}
+    <article className="record">
+      <nav className="record-bar" aria-label="Note">
+        {onBack && <button type="button" className="record-back" onClick={onBack}>← Notes</button>}
+        <span className="record-mono record-bar-id">Note{sharedPage ? " · shared" : ""}</span>
+        {sharedByName && <PinnedPaperBadge ownerName={sharedByName} />}
+        <div className="record-actions">
+          {!showEditor && canEditBody && (
+            <button type="button" className="record-action" onClick={startEditing}>
+              <EditIcon />
+              <span>{hasBody ? "Edit" : "Write"}</span>
             </button>
+          )}
+          {!readOnly && !sharedPage && (
+            <ShareButton resourceType="vault_page" resourceId={page.id} title={`Share: ${page.title}`} showLabel />
+          )}
+          <a href="#record-comments" className="record-action">
+            <CommentsIcon />
+            <span>Comment</span>
+          </a>
+          {!sharedPage && canEditTitle && !readOnly && (
             <button
               type="button"
-              className="btn-primary"
-              disabled={saving || (!dirty && !collab) || !title.trim()}
-              onClick={() => void save()}
+              className="record-action danger"
+              onClick={() => void remove()}
+              disabled={saving}
+              aria-label="Delete note"
+              title="Delete"
             >
-              {saving ? "Saving…" : collab ? "Done" : "Save note"}
+              <DeleteIcon />
             </button>
-          </div>
+          )}
         </div>
-      )}
-      {!showEditor && canEditBody && (
-        <NoteTagEditor page={page} onChanged={onChanged} />
-      )}
-    </>
+      </nav>
+
+      <header className="record-head">
+        {showEditor && canEditTitle ? (
+          <input
+            className="vault-title-input record-title-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            aria-label="Note title"
+          />
+        ) : (
+          <h1 className="record-title">{page.title}</h1>
+        )}
+        <p className="record-mono record-meta">{meta}</p>
+      </header>
+
+      <div className="record-grid">
+        <div className="record-main">
+          <RecordSection
+            label="Note"
+            tag={
+              !showEditor && canEditBody && hasBody ? (
+                <button type="button" className="record-tag-btn" onClick={startEditing}>
+                  <EditIcon size={13} /> {wordsLabel}
+                </button>
+              ) : hasBody ? wordsLabel : undefined
+            }
+          >
+            {!showEditor ? (
+              hasBody ? (
+                <div ref={noteTextRef}>
+                  <VaultMarkdown
+                    body={page.body}
+                    className="summary record-note"
+                    notes={notes}
+                    papers={papers}
+                    sections={sections}
+                    onCreateNote={onCreateNote}
+                    resolveEmbed={resolveEmbed}
+                  />
+                </div>
+              ) : canEditBody ? (
+                <button type="button" className="record-note-empty" onClick={startEditing}>
+                  Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.
+                </button>
+              ) : (
+                <RecordEmpty>Nothing written yet.</RecordEmpty>
+              )
+            ) : (
+              <div className="summary-editor">
+                <div className="summary-editor-bar">
+                  <CitationFormatSelect
+                    value={citationFormat}
+                    onChange={setCitationFormat}
+                    disabled={saving}
+                  />
+                  <AttachImageButton editor={editorHandle} onError={setSaveError} />
+                </div>
+                {collab ? (
+                  <CollabBodyHost
+                    resourceType="vault_page"
+                    resourceId={page.id}
+                    initialBody={page.body}
+                    onSave={saveCollabBody}
+                    className="summary-input-collab"
+                    editorClassName="markdown-code-editor summary-input markdown-code-editor--notes"
+                    markdownEditing={collabEditing}
+                    handleRef={editorHandle}
+                  />
+                ) : (
+                  <MarkdownCodeEditor
+                    className="summary-input markdown-code-editor--notes"
+                    value={draft}
+                    placeholder="Write markdown… #hashtags and [[wikilinks]] link this note in the graph."
+                    disabled={saving}
+                    onChange={setDraft}
+                    wikilinkTitles={wikilinkTitles}
+                    wikilinkCompletions={wikilinkCompletions}
+                    citationFormat={citationFormat}
+                    imagePaste={imagePaste}
+                    handleRef={editorHandle}
+                  />
+                )}
+                <div className="summary-editor-foot">
+                  {saveError && <InlineError>{saveError}</InlineError>}
+                  {/* Cancelling a collaborative edit cannot roll the body back — it is
+                      already shared and saved — so the escape hatch is just "close". */}
+                  <button type="button" className="link-btn" onClick={collab ? closeEditor : cancelEdit} disabled={saving}>
+                    {collab ? "close" : "cancel"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={saving || (!dirty && !collab) || !title.trim()}
+                    onClick={() => void save()}
+                  >
+                    {saving ? "Saving…" : collab ? "Done" : "Save note"}
+                  </button>
+                </div>
+              </div>
+            )}
+            {!showEditor && canEditBody && <NoteTagEditor page={page} onChanged={onChanged} />}
+          </RecordSection>
+        </div>
+
+        <aside className="record-aside">
+          <NoteComments
+            resourceType="vault_page"
+            resourceId={page.id}
+            canComment={readOnly ? canComment : true}
+            isOwner={!sharedPage && !readOnly}
+            contentRef={noteTextRef}
+            contentKey={`${showEditor ? "edit" : "view"}:${page.body}`}
+          />
+
+          <RecordSection label="Record">
+            <RecordFacts
+              rows={[
+                ["Created", created || "—"],
+                edited && edited !== created ? ["Edited", edited] : null,
+                ["Words", String(words)],
+                ["Links out", String(linksOut)],
+                ["Linked from", String(backlinks.length)],
+                tags.length > 0 ? ["Tags", tags.map((t) => `#${t}`).join(" ")] : null,
+              ]}
+            />
+          </RecordSection>
+
+          <RecordSection label="Linked mentions" tag={backlinks.length > 0 ? String(backlinks.length) : "None"}>
+            {backlinks.length > 0 ? (
+              <ul className="record-related">
+                {backlinks.map((it) => (
+                  <li key={it.id}>
+                    <button type="button" className="record-related-title record-link-btn" onClick={() => onOpenPage?.(it.id)}>
+                      {it.title}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <RecordEmpty>No note links here yet. Write [[{page.title}]] in another note and it shows up here.</RecordEmpty>
+            )}
+          </RecordSection>
+
+          {/* Backlinks are what points here; Related is what the graph, the
+              wording and the meaning suggest is adjacent, linked or not. */}
+          <RelatedPanel seedKind="note" seedId={page.id} variant="record" />
+        </aside>
+      </div>
+    </article>
   );
 }

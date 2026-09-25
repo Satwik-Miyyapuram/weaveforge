@@ -6,12 +6,12 @@
  * `segment.ts` the line grouping, `recognise.ts` the engine contract, and
  * `width.ts` the nib arithmetic in 0.1 mm. Nothing here imports an engine, a
  * canvas or a codec: what a runtime supplies — brotli or deflate, Windows Ink or
- * a stroke model — is injected at the call site. `myscript/` is the one engine
- * that *is* here, and it is exported as policy rather than as an engine: the opt-in
- * gate, the request/response mapping and the maths-to-LaTeX conversion, with the
- * key injected by the caller and no network call of its own (§5.2, §7 step 10).
- * Its pieces — vocabulary, request, response, LaTeX, engine — are its own
- * folder, split along the same lines.
+ * a stroke model — is injected at the call site.
+ *
+ * There *was* one engine here: MyScript iink, a cloud recogniser that ran only
+ * when a key was pasted into Settings. It is gone, with the key field that fed
+ * it. This copy recognises handwriting on the machine or not at all, which is
+ * what `recognise.ts`'s engine order now describes without an exception.
  */
 
 export {
@@ -47,6 +47,8 @@ export {
 export {
   INK_TOOLS,
   INK_COLOURS,
+  INK_MARKER_COLOURS,
+  INK_THEME_COLOURS,
   INK_PAPERS,
   INK_SHAPES,
   INK_HANDS,
@@ -186,32 +188,9 @@ export {
 } from "./recognise.js";
 
 export {
-  MYSCRIPT_ENGINE_ID,
-  MYSCRIPT_DEFAULT_HOST,
-  MYSCRIPT_ENDPOINT_PATH,
-  MYSCRIPT_JIIX_MIME,
-  MYSCRIPT_LATEX_MIME,
-  MYSCRIPT_CONTENT_TYPES,
-  MYSCRIPT_DEFAULT_CONFIDENCE,
-  MYSCRIPT_DEFAULT_SCALE,
-  MYSCRIPT_DEFAULT_TIMEOUT_MS,
-  isMyScriptConfigured,
-  myScriptRequestBody,
-  myScriptRecognisedLines,
-  myScriptLatex,
-  latexBlock,
-  convertToLatex,
-  createMyScriptRecogniser,
-  type MyScriptContentType,
-  type MyScriptFetch,
-  type MyScriptOptions,
-  type MyScriptStrokeBody,
-  type MyScriptRequestLine,
-  type MyScriptRequestBody,
-  type MyScriptRequest,
-  type MyScriptRequestOptions,
-  type MyScriptResponseElement,
-  type MyScriptExportResponse,
-  type MyScriptLatex,
-  type MyScriptRecogniser,
-} from "./myscript/index.js";
+  INK_ENGINE_MAX_CONFIDENCE,
+  decodeInkWords,
+  inkVocabularyWords,
+  type InkWordReadings,
+} from "./decode.js";
+

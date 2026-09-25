@@ -16,6 +16,10 @@ import { app, Menu, shell, type BrowserWindow, type MenuItemConstructorOptions }
 export interface MenuActions {
   /** Ask the reader for a workspace folder. */
   chooseFolder: () => void | Promise<void>;
+  /** The folder in use, or null when none has been chosen. */
+  workspace: () => string | null;
+  /** Show that folder in the OS file manager. */
+  openFolder: () => void | Promise<void>;
   /** Look for a newer version now, and say what was found either way. */
   checkForUpdates: () => void | Promise<void>;
   /** Where the documentation lives. */
@@ -27,6 +31,24 @@ export interface MenuActions {
 function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
   const mac = process.platform === "darwin";
   const template: MenuItemConstructorOptions[] = [];
+  /*
+   * The workspace, as the File menu says it.
+   *
+   * "Choose workspace folder…" is the right entry *before* one is chosen and a
+   * misleading one afterwards: it reads as though nothing is connected, which is
+   * what left a reader clicking it to find out where their files were going. So
+   * once there is a folder, the menu names it, offers to open it, and asks to
+   * *change* it — the same three things the Settings panel says in words.
+   */
+  const root = actions.workspace();
+  const workspaceEntries: MenuItemConstructorOptions[] = root
+    ? [
+        { label: `Workspace: ${root}`, enabled: false },
+        { label: "Open workspace folder", click: () => void actions.openFolder() },
+        { label: "Change workspace folder…", click: () => void actions.chooseFolder() },
+        { type: "separator" },
+      ]
+    : [{ label: "Choose workspace folder…", click: () => void actions.chooseFolder() }, { type: "separator" }];
 
   if (mac) {
     template.push({
@@ -50,8 +72,7 @@ function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
   template.push({
     label: "File",
     submenu: [
-      { label: "Choose workspace folder…", click: () => void actions.chooseFolder() },
-      { type: "separator" },
+      ...workspaceEntries,
       ...(mac
         ? [{ role: "close" } as MenuItemConstructorOptions]
         : [

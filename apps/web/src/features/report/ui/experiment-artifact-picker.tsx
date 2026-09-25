@@ -1,5 +1,6 @@
 "use client";
 
+import { InlineError } from "@/components/form-error";
 import { useEffect, useState } from "react";
 import type { Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -166,7 +167,7 @@ export function ExperimentArtifactPicker({
           ))
         )}
       </Select>
-      {error && <span className="error" role="alert">{error}</span>}
+      {error && <InlineError>{error}</InlineError>}
       <button type="button" className="link-btn" onClick={() => setOpen(false)} disabled={busy}>
         cancel
       </button>

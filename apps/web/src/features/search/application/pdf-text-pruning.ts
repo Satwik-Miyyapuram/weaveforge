@@ -1,5 +1,6 @@
 import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
-import { loadPdfTexts, removePdfTexts } from "../infrastructure/pdf-text-store";
+import { loadPdfTexts } from "../infrastructure/pdf-text-store";
+import { reconcilePdfTextFolder, removePdfTextsDurably } from "./pdf-text-folder";
 
 /**
  * The PDF text worth indexing, and the text that has to go.
@@ -28,6 +29,7 @@ export async function pruneMissingPaperTexts(
   projectId: string | null,
   snapshot: WorkspaceSnapshot,
 ): Promise<PdfTextForIndex> {
+  await reconcilePdfTextFolder(projectId);
   const stored = await loadPdfTexts(projectId);
   const paperIds = new Set(snapshot.papers.map((paper) => paper.id));
 
@@ -35,7 +37,7 @@ export async function pruneMissingPaperTexts(
   const pageCounts = new Map(texts.map((source) => [source.paperId, source.pages.length]));
 
   const orphans = stored.filter((source) => !paperIds.has(source.paperId));
-  if (orphans.length) await removePdfTexts(projectId, orphans.map((source) => source.paperId));
+  if (orphans.length) await removePdfTextsDurably(projectId, orphans.map((source) => source.paperId));
 
   return { texts, pageCounts, removed: orphans.length };
 }

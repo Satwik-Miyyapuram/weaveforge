@@ -7,11 +7,12 @@ import {
   normalizeSearchHistory,
   rememberSearchQuery,
   type SearchExcerpt,
+  type SearchHit,
 } from "@weaveforge/core";
 import { useRouter } from "next/navigation";
 import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { getContainer } from "@/bootstrap";
-import { useSearchIndex } from "@/lib/hooks/use-search-index";
+import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
 import {
   readRecentTargets,
   rememberRecentTarget,
@@ -94,7 +95,13 @@ export function JumpToPalette() {
   const [items, setItems] = useState<JumpItem[]>([]);
   const [active, setActive] = useState(0);
   // Warmed on open, not on mount: the palette is in the shell of every screen.
-  const searchIndex = useSearchIndex(open);
+  //
+  // The hybrid variant, so a query can reach the semantic arm when the reader has
+  // turned it on. `useHybridSearchIndex` returns the plain keyword function for
+  // the per-keystroke path *and* an async one that fuses in the encoder's nearest
+  // passages; `searchHybrid` degrades to the keyword ranking on its own when no
+  // encoder is attached, so nothing changes for anyone who has not opted in.
+  const { search: searchIndex, searchHybrid, ready: indexReady } = useHybridSearchIndex(open);
   const [history, setHistory] = useState<string[]>([]);
 
   const reload = useCallback(async () => {
@@ -161,19 +168,17 @@ export function JumpToPalette() {
     };
   }, [openPalette]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim();
-    if (!q) return items.slice(0, 30);
-
-    // Ranked search across every indexed field — body text, headings, tags,
-    // aliases — not just the titles the catalog carries.
-    //
-    // Restricted to the kinds this palette can navigate to and record as a
-    // recent target. The index covers experiments, milestones, and logbook
-    // entries too; surfacing those needs `RecentTargetKind` widened first,
-    // so it belongs with the rest of the search UX work rather than here.
-    const hits = searchIndex(q, { limit: 30, kinds: PALETTE_KINDS, excerpts: true });
-    if (hits.length > 0) {
+  /**
+   * Ranked hits as palette rows, shared by both search paths.
+   *
+   * Extracted because the keyword pass and the hybrid pass produce the same
+   * `SearchHit` shape and must render identically — a semantic hit that looked
+   * different from a keyword hit would tell the reader which arm found it, which
+   * is not a distinction they asked for.
+   */
+  const rowsFromHits = useCallback(
+    (hits: readonly SearchHit[]): JumpItem[] => {
+      if (hits.length === 0) return [];
       const byKey = new Map(items.map((item) => [`${item.kind}:${item.id}`, item]));
       return hits.map((hit) => {
         const kind = hit.kind as JumpItem["kind"];
@@ -193,21 +198,83 @@ export function JumpToPalette() {
               : kind === "annotation"
                 ? `highlight · page ${page}`
                 : kind,
-          id: inDocument ? `${hit.entityId}#${kind}${hit.page ?? 0}` : hit.entityId,
+          // The hit's own document id for in-document rows. The old
+          // `${entityId}#${kind}${page}` was shared by every highlight on the
+          // same page of the same paper, so React got duplicate keys and drew
+          // one highlight five times in place of five different ones.
+          id: inDocument ? hit.id : hit.entityId,
           kind,
           href: hit.href,
         };
         return { ...base, excerpt: hit.excerpt };
+      }).filter((row, index, rows) =>
+        // One row per key: two hits resolving to the same entity (a note found
+        // by its title and its body) would otherwise render twice.
+        rows.findIndex((other) => other.kind === row.kind && other.id === row.id) === index,
+      );
+    },
+    [items],
+  );
+
+  /**
+   * The ranked result for the current query, keyword first and semantic once it
+   * answers.
+   *
+   * The keyword pass is synchronous, so the palette never waits to show something.
+   * The hybrid pass runs after it and replaces the rows when it resolves — which
+   * is what makes turning semantic search on a change of *results* rather than a
+   * change of nothing. Before this, `enableSemanticSearch` built and stored the
+   * whole index and every screen still queried the keyword arm alone; the only
+   * caller of `searchHybrid` was its own test.
+   *
+   * Two guards, because a query is typed one character at a time. A stale answer
+   * must not overwrite a newer one (`settled` records the query it answered), and
+   * it must not land after the palette closes.
+   */
+  const [semanticRows, setSemanticRows] = useState<JumpItem[] | null>(null);
+  useEffect(() => {
+    const q = query.trim();
+    setSemanticRows(null);
+    if (!q || !indexReady) return;
+    let live = true;
+    void searchHybrid(q, { limit: 30, kinds: PALETTE_KINDS, excerpts: true })
+      .then((hits) => {
+        if (!live) return;
+        // An empty answer is kept too: the fused ranking drops keyword hits that
+        // matched only a word or two of the question, so nothing is its verdict
+        // that nothing is about it. Discarding it left the raw keyword rows up,
+        // and "how cooking pasta works" listed papers that share "works".
+        setSemanticRows(rowsFromHits(hits));
+      })
+      .catch(() => {
+        // The keyword rows are already on screen; nothing to do.
       });
-    }
+    return () => {
+      live = false;
+    };
+  }, [query, indexReady, searchHybrid, rowsFromHits]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim();
+    if (!q) return items.slice(0, 30);
 
     // Index not built yet, or genuinely no ranked match: the substring pass
-    // still answers, so the palette never regresses to empty.
+    // still answers, so a title typed out is never hidden.
     const lower = q.toLowerCase();
-    return items
-      .filter((c) => c.label.toLowerCase().includes(lower) || c.title.toLowerCase().includes(lower))
-      .slice(0, 30);
-  }, [items, query, searchIndex]);
+    const bySubstring = () =>
+      items
+        .filter((c) => c.label.toLowerCase().includes(lower) || c.title.toLowerCase().includes(lower))
+        .slice(0, 30);
+
+    // The hybrid answer wins when it has arrived: the keyword ranking, stricter
+    // about partial matches, fused with the encoder's nearest passages.
+    if (semanticRows) return semanticRows.length > 0 ? semanticRows : bySubstring();
+
+    const hits = searchIndex(q, { limit: 30, kinds: PALETTE_KINDS, excerpts: true });
+    const ranked = rowsFromHits(hits);
+    if (ranked.length > 0) return ranked;
+    return bySubstring();
+  }, [items, query, searchIndex, rowsFromHits, semanticRows]);
 
   function go(item: JumpItem) {
     const next = rememberSearchQuery(history, query);

@@ -13,6 +13,7 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 import {
   appendCardPair,
   clearLegacyLayoutStorage,
+  closeLayoutGaps,
   defaultLayout,
   finalizeDashboardLayout,
   layoutCacheKey,
@@ -99,7 +100,10 @@ export function DashboardScreen() {
         if (!active) return;
         const base = stored ?? defaultLayout(supervisorLayout);
         const merged = supervisorLayout ? mergeSupervisorCardsIfMissing(base) : base;
-        const next = finalizeDashboardLayout(merged);
+        const finalized = finalizeDashboardLayout(merged);
+        // A layout saved before the current default can carry holes beside its
+        // cards, which packing upward does not close.
+        const next = { ...finalized, lg: closeLayoutGaps(finalized.lg) };
         layoutCache.set(cacheKey, next);
         setLayout(next);
       } catch (err) {

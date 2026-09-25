@@ -20,9 +20,7 @@ import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { rankedFilter } from "@/features/search/application/rank-filter";
-import { RelatedPanel } from "@/components/related-panel";
 import { useSearchIndex } from "@/lib/hooks/use-search-index";
-import { BacklinksPanel } from "./backlinks-panel";
 import { NoteCard, noteBodyText, isHydratedPage } from "./note-card";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
@@ -311,14 +309,19 @@ export function VaultScreen() {
 
   return (
     <section className="screen vault-screen">
-      <ScreenHead>
+      <ScreenHead eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}>
         <button
           className="btn-primary"
           type="button"
           disabled={importing}
           onClick={openCompose}
         >
-          {importing ? "Importing…" : "+ Note"}
+          {importing ? "Importing…" : "New note"}
+        </button>
+        {/* Same button, same screen as on Papers — the wiki reads notes *and*
+            papers, so neither screen owns it. See `papers-list.tsx`. */}
+        <button className="btn-secondary" type="button" onClick={() => router.push("/wiki")}>
+          Wiki
         </button>
         <input
           ref={importZipRef}
@@ -427,21 +430,17 @@ export function VaultScreen() {
       {!error && (
         selected ? (
           <div className="vault-note-page">
-            <button className="btn-secondary paper-back" onClick={goBackToList}>
-              ← Notes
-            </button>
-            <article className="card paper-article vault-editor">
-              {/* The editor binds its draft state to `page.body` in a
-                  `useState` initialiser, so it must never be handed a summary:
-                  the draft would start as `undefined` and the first save would
-                  write an empty body over the note (review-2 F6). Until the
-                  hydration effect above has replaced this entry with the full
-                  page, show the loading row instead. `isHydratedPage` tests for
-                  the property, not its value, so an intentionally empty note
-                  still reaches the editor. */}
-              {!isHydratedPage(selected) ? (
-                <ScreenLoading status="Opening note…" />
-              ) : (
+            {/* The editor binds its draft state to `page.body` in a
+                `useState` initialiser, so it must never be handed a summary:
+                the draft would start as `undefined` and the first save would
+                write an empty body over the note (review-2 F6). Until the
+                hydration effect above has replaced this entry with the full
+                page, show the loading row instead. `isHydratedPage` tests for
+                the property, not its value, so an intentionally empty note
+                still reaches the editor. */}
+            {!isHydratedPage(selected) ? (
+              <ScreenLoading status="Opening note…" />
+            ) : (
               <PageEditor
                 page={selected}
                 readOnly={isReadOnlyPage(selected.id)}
@@ -458,13 +457,11 @@ export function VaultScreen() {
                   goBackToList();
                   void load();
                 }}
+                onBack={goBackToList}
+                backlinks={backlinks}
+                onOpenPage={openPage}
               />
-              )}
-            </article>
-            <BacklinksPanel items={backlinks} onOpen={openPage} />
-            {/* Backlinks are what points here; Related is what the graph and
-                wording suggest is adjacent, including things nobody linked. */}
-            <RelatedPanel seedKind="note" seedId={selected.id} />
+            )}
           </div>
         ) : ownedNotes.length === 0 && pinnedPages.length === 0 ? (
           <EmptyState
@@ -478,7 +475,7 @@ export function VaultScreen() {
                 className="btn-primary"
                 onClick={() => { setComposeMode("new"); setComposeOpen(true); }}
               >
-                + Note
+                New note
               </button>
             }
           />

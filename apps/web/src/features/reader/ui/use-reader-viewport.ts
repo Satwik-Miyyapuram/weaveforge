@@ -33,6 +33,16 @@ export interface ReaderViewportApi extends ReaderViewportState {
   setPage: (page: number) => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /**
+   * Scale by `factor`, for a gesture rather than a button.
+   *
+   * A pinch reports a ratio per frame, and the ratio has to be applied to the
+   * scale in force *now* — not to the one the closure was built with, or a fast
+   * pinch compounds from a stale value and the page jumps. So this is the one
+   * zoom that is a functional update, like `zoomIn`/`zoomOut` and unlike
+   * `setCustomScale`.
+   */
+  zoomBy: (factor: number) => void;
   fitWidth: () => void;
   fitPage: () => void;
   rotateClockwise: () => void;
@@ -94,6 +104,18 @@ export function useReaderViewport(options: UseReaderViewportOptions): ReaderView
   const fitWidth = useCallback(() => setFit("width"), [setFit]);
   const fitPage = useCallback(() => setFit("page"), [setFit]);
 
+  const zoomBy = useCallback(
+    (factor: number) => {
+      if (!Number.isFinite(factor) || factor <= 0) return;
+      setState((prev) => ({
+        ...prev,
+        fit: "custom",
+        scale: clampScale(effectiveBaseScale(prev, pageSize, containerSize) * factor),
+      }));
+    },
+    [pageSize, containerSize],
+  );
+
   const rotateClockwise = useCallback(() => {
     setState((prev) => ({ ...prev, rotation: nextRotation(prev.rotation) }));
   }, []);
@@ -110,6 +132,7 @@ export function useReaderViewport(options: UseReaderViewportOptions): ReaderView
     setPage,
     zoomIn,
     zoomOut,
+    zoomBy,
     fitWidth,
     fitPage,
     rotateClockwise,

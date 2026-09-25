@@ -7,10 +7,10 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { BoardViewIcon, CardsViewIcon, ListViewIcon } from "@/components/view-icons";
+import { CardsViewIcon, ListViewIcon } from "@/components/view-icons";
 import { CardColumns } from "@/components/card-columns";
 import { rankedFilter } from "@/features/search/application/rank-filter";
-import { useSearchIndex } from "@/lib/hooks/use-search-index";
+import { useHybridSearchIndex, type WorkspaceSearchFn } from "@/lib/hooks/use-search-index";
 import { usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
 import { MultiSelect } from "@/components/multi-select";
@@ -22,17 +22,17 @@ import type { PapersScreenData } from "@/features/papers/application/load-papers
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { PaperCard } from "./paper-card";
+import { LibraryTidyNotice } from "./library-tidy";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
-import { ListTagFilters } from "@/components/list-tag-filters";
+import { Popover } from "@/components/popover";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
-import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
-type PapersLayout = "cards" | "list" | "board";
+type PapersLayout = "cards" | "list";
 
 /**
  * Papers screen. Presentation + view-state only; all data access goes through
@@ -57,7 +57,10 @@ export function PapersScreen() {
   const [listFilter, setListFilter] = usePersistedState<string[]>("thesis.papers.list", []);
   const [tagFilter, setTagFilter] = usePersistedState<string[]>("thesis.papers.tags", []);
   const [search, setSearch] = usePersistedState<string>("thesis.papers.search", "");
-  const [layout, setLayout] = usePersistedState<PapersLayout>("thesis.papers.view", "cards");
+  const [storedLayout, setLayout] = usePersistedState<PapersLayout>("thesis.papers.view", "cards");
+  // A status board used to be a third layout; a reader who last left it on
+  // gets the cards.
+  const layout: PapersLayout = storedLayout === "list" ? "list" : "cards";
   const { setPushed, consumePushed } = useDetailPushFlag();
   const goBackToList = useDetailBack("/papers", "paper", consumePushed);
 
@@ -78,10 +81,33 @@ export function PapersScreen() {
     return { ...data, ownerNames: emptyMap<string, string>() };
   }, []);
 
-  const { data, loading, error: loadError, reload: load, setData } = useScreenData("papers", loadScreen);
+  const { data, loading, error: loadError, reload: load, refresh, setData } = useScreenData("papers", loadScreen);
   // Only a typed query ranks through the index; building it for an untouched
   // list would read the whole project on every visit to the screen.
-  const searchIndex = useSearchIndex(search.trim().length > 0);
+  const { search: keywordSearch, searchHybrid, ready: indexReady } = useHybridSearchIndex(
+    search.trim().length > 0,
+  );
+  // The hybrid answer for the query currently typed, once it arrives. Keyword
+  // ranking answers immediately; this replaces it when the semantic arm is on,
+  // so a paper found by meaning rather than wording appears here as it does in
+  // the jump palette. Tagged with its query so a slow answer to an older one is
+  // never applied to a newer one.
+  const [hybrid, setHybrid] = useState<{ query: string; hits: ReturnType<WorkspaceSearchFn> } | null>(null);
+  useEffect(() => {
+    const q = search.trim();
+    if (!q || !indexReady) return;
+    let live = true;
+    void searchHybrid(q, { kinds: ["paper"], limit: 500 }).then((hits) => {
+      if (live) setHybrid({ query: q, hits });
+    });
+    return () => {
+      live = false;
+    };
+  }, [search, indexReady, searchHybrid]);
+  const searchIndex = useCallback<WorkspaceSearchFn>(
+    (q, options) => (hybrid && hybrid.query === q.trim() ? hybrid.hits : keywordSearch(q, options)),
+    [hybrid, keywordSearch],
+  );
 
   usePinnedOwnerNames(data, setData);
 
@@ -97,6 +123,12 @@ export function PapersScreen() {
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const paperCanComment = data?.paperCanComment ?? emptyMap<string, boolean>();
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
+  // Only the reader's own papers are offered for tidying: a pinned paper
+  // shared by someone else is theirs to rename or merge.
+  const ownPapers = useMemo(
+    () => (isSharedView ? emptyArray<PaperSummary>() : papers.filter((p) => !pinnedSharedBy.has(p.id))),
+    [papers, pinnedSharedBy, isSharedView],
+  );
 
   const syncZotero = useCallback(async () => {
     setSyncing(true);
@@ -361,25 +393,86 @@ export function PapersScreen() {
   }
 
   return (
-    <section className="screen">
-      <ScreenHead note={syncMsg && <p className="muted">{syncMsg}</p>}>
-        <button
-          className="btn-primary"
-          type="button"
-          disabled={syncing}
-          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
-        >
-          {syncing ? "Syncing…" : "+ Paper"}
-        </button>
-        <button
-          className="btn-secondary"
-          type="button"
-          disabled={checkingAlerts}
-          onClick={() => void checkCitationAlerts()}
-        >
-          {checkingAlerts ? "Checking…" : "Check citations"}
-        </button>
-      </ScreenHead>
+    <section className="screen papers-screen">
+      {/* The screen's own header, not the shared `ScreenHead`: the library is
+          the one list screen with enough controls to need a hierarchy. Where you
+          are and how far through it you are on the left; the two things you do
+          most (find, add) on the right; the occasional actions behind "More". */}
+      <header className="screen-head papers-head">
+        <div className="papers-head-row">
+          <div className="papers-head-title">
+            <h1 className="screen-title">Papers</h1>
+            {papers.length > 0 && (
+              <div className="papers-ledger">
+                <span>
+                  {papers.length} {papers.length === 1 ? "paper" : "papers"} · {readCount} read
+                </span>
+                <span
+                  className="papers-ledger-bar"
+                  role="progressbar"
+                  aria-label="Reading progress"
+                  aria-valuenow={pct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <span style={{ width: `${pct}%` }} />
+                </span>
+                <span>{pct}%</span>
+              </div>
+            )}
+          </div>
+          <div className="papers-head-actions">
+            {papers.length > 0 && (
+              <input
+                className="search-input"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search papers"
+                aria-label="Search papers"
+              />
+            )}
+            <button
+              className="btn-primary"
+              type="button"
+              disabled={syncing}
+              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+            >
+              {syncing ? "Syncing…" : "Add paper"}
+            </button>
+            {/* The wiki reads the papers and notes together and proposes pages;
+                the citation check looks for new work citing the library. Both
+                are occasional, so they sit one click away rather than beside
+                Add paper. */}
+            <Popover label="More" ariaLabel="More actions" align="right">
+              {(close) => (
+                <ul className="card-menu-list">
+                  <li>
+                    <button
+                      type="button"
+                      className="card-menu-item"
+                      onClick={() => { close(); router.push("/wiki"); }}
+                    >
+                      Wiki
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className="card-menu-item"
+                      disabled={checkingAlerts}
+                      onClick={() => { close(); void checkCitationAlerts(); }}
+                    >
+                      {checkingAlerts ? "Checking citations…" : "Check citations"}
+                    </button>
+                  </li>
+                </ul>
+              )}
+            </Popover>
+          </div>
+        </div>
+        {syncMsg && <p className="muted">{syncMsg}</p>}
+      </header>
 
       {composeOpen && (
         <Modal
@@ -441,90 +534,94 @@ export function PapersScreen() {
       )}
 
       {papers.length > 0 && (
-        <div className="card progress-card">
-          <div className="progress-top">
-            <span>{readCount} / {papers.length} papers read</span>
-            <strong>{pct}%</strong>
-          </div>
-          <div
-            className="progress-bar"
-            role="progressbar"
-            aria-label="Reading progress"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <span style={{ width: `${pct}%` }} />
+        <div className="papers-filters" role="group" aria-label="Filter papers">
+          <MultiSelect
+            id="fstatus"
+            className="papers-filter"
+            values={statusFilter}
+            onChange={setStatusFilter}
+            allLabel="Status"
+            ariaLabel="Filter by status"
+            options={PAPER_STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
+          />
+          {lists.length > 0 && (
+            <MultiSelect
+              id="flist"
+              className="papers-filter"
+              values={listFilter}
+              onChange={setListFilter}
+              allLabel="Lists"
+              ariaLabel="Filter by list"
+              options={lists.map((l) => ({ value: l.id, label: l.name }))}
+            />
+          )}
+          {allTags.length > 0 && (
+            <MultiSelect
+              id="ftags"
+              className="papers-filter"
+              values={tagFilter}
+              onChange={setTagFilter}
+              allLabel="Tags"
+              ariaLabel="Filter by tags"
+              options={allTags.map((t) => ({ value: t, label: `#${t}` }))}
+            />
+          )}
+          {statusFilter.map((v) => (
+            <FilterChip
+              key={`s:${v}`}
+              label={`Status: ${statusLabel(v)}`}
+              onRemove={() => setStatusFilter(statusFilter.filter((x) => x !== v))}
+            />
+          ))}
+          {listFilter.map((v) => (
+            <FilterChip
+              key={`l:${v}`}
+              label={`List: ${lists.find((l) => l.id === v)?.name ?? "removed list"}`}
+              onRemove={() => setListFilter(listFilter.filter((x) => x !== v))}
+            />
+          ))}
+          {tagFilter.map((v) => (
+            <FilterChip
+              key={`t:${v}`}
+              label={`#${v}`}
+              onRemove={() => setTagFilter(tagFilter.filter((x) => x !== v))}
+            />
+          ))}
+          {activeFilters > 0 && (
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => { setStatusFilter([]); setListFilter([]); setTagFilter([]); }}
+            >
+              Clear
+            </button>
+          )}
+          <div className="seg papers-layout-seg" role="tablist" aria-label="Papers layout">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={layout === "cards"}
+              className={layout === "cards" ? "seg-on" : ""}
+              onClick={() => setLayout("cards")}
+            >
+              <CardsViewIcon />
+              Cards
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={layout === "list"}
+              className={layout === "list" ? "seg-on" : ""}
+              onClick={() => setLayout("list")}
+            >
+              <ListViewIcon />
+              List
+            </button>
           </div>
         </div>
       )}
 
-      {papers.length > 0 && (
-        <div className="papers-controls">
-          <div className="papers-controls-main">
-            <input
-              className="search-input"
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search title or author…"
-              aria-label="Search papers"
-            />
-            <ListTagFilters
-              idPrefix="f"
-              lists={lists}
-              listFilter={listFilter}
-              onListFilter={setListFilter}
-              allTags={allTags}
-              tagFilter={tagFilter}
-              onTagFilter={setTagFilter}
-              activeFilters={activeFilters}
-              onClear={() => { setStatusFilter([]); setListFilter([]); setTagFilter([]); }}
-            >
-              <MultiSelect
-                id="fstatus"
-                values={statusFilter}
-                onChange={setStatusFilter}
-                allLabel="All statuses"
-                ariaLabel="Filter by status"
-                options={PAPER_STATUSES.map((s) => ({ value: s, label: s.replace("_", " ") }))}
-              />
-            </ListTagFilters>
-            <div className="seg" role="tablist" aria-label="Papers layout">
-              <button
-                type="button"
-                role="tab"
-                aria-label="Cards view"
-                aria-selected={layout === "cards"}
-                className={layout === "cards" ? "seg-on" : ""}
-                onClick={() => setLayout("cards")}
-              >
-                <CardsViewIcon />
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-label="List view"
-                aria-selected={layout === "list"}
-                className={layout === "list" ? "seg-on" : ""}
-                onClick={() => setLayout("list")}
-              >
-                <ListViewIcon />
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-label="Board by status"
-                aria-selected={layout === "board"}
-                className={layout === "board" ? "seg-on" : ""}
-                onClick={() => setLayout("board")}
-              >
-                <BoardViewIcon />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LibraryTidyNotice papers={ownPapers} onChanged={refresh} />
 
       {error && <FormError>{error}</FormError>}
       {!error && papers.length === 0 && (
@@ -539,7 +636,7 @@ export function PapersScreen() {
               className="btn-primary"
               onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
             >
-              + Paper
+              Add paper
             </button>
           }
         />
@@ -589,31 +686,25 @@ export function PapersScreen() {
         />
       )}
 
-      {visible.length > 0 && layout === "board" && (
-        <div className="papers-board">
-          {PAPER_STATUSES.map((status) => {
-            const col = visible.filter((p) => p.status === status);
-            return (
-              <div key={status} className="papers-board-col">
-                <h3>
-                  {status.replace("_", " ")} · {col.length}
-                </h3>
-                {col.map((p) => (
-                  <PaperCard
-                    key={p.id}
-                    paper={p}
-                    readOnly={isReadOnlyPaper(p.id)}
-                    sharedByName={sharedOwnerName(p.id)}
-                    onOpen={() => openPaperById(p.id)}
-                    onReplace={replace}
-                    onChanged={load}
-                  />
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </section>
+  );
+}
+
+function statusLabel(status: string): string {
+  const words = status.replace("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** One active filter, removable on its own. */
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="filter-chip">
+      {label}
+      <button type="button" className="filter-chip-x" aria-label={`Remove filter ${label}`} onClick={onRemove}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+    </span>
   );
 }

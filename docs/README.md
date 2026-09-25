@@ -8,6 +8,7 @@ For somebody using the app.
 
 - [The desktop app](using/desktop.md) — what an installed window can do, and working without an account
 - [The workspace folder](using/workspace-folder.md) — your notes as files on your own disk
+- [Storage and sync](using/sync.md) — where your work lives, and what syncs when
 - [Collaborative editing](using/collaborative-editing.md) — two people in one document
 - [Paste](using/paste.md) — what happens to what you paste in
 - [Search](using/search.md)

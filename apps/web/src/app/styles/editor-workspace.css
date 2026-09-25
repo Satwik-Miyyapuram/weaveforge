@@ -57,7 +57,7 @@
 
 .explorer-row.is-active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* The active row is marked by a 2px accent rule on its leading edge, so the
@@ -127,7 +127,7 @@
 .explorer-icon.kind-tint-warn,
 .pane-tab-icon.kind-tint-warn { color: var(--s-warn); }
 .explorer-icon.kind-tint-accent,
-.pane-tab-icon.kind-tint-accent { color: var(--accent); }
+.pane-tab-icon.kind-tint-accent { color: var(--accent-ink); }
 .explorer-icon.kind-tint-good,
 .pane-tab-icon.kind-tint-good { color: var(--s-good); }
 .explorer-icon.kind-tint-danger,
@@ -220,7 +220,6 @@
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 .explorer-search {
@@ -344,7 +343,6 @@
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   text-align: start;
   cursor: pointer;
   user-select: none;
@@ -425,9 +423,29 @@
   .explorer-start-note { opacity: 1; }
 }
 
+/*
+ * Where it can hover, the hidden button must not hold its width either: in a
+ * narrow explorer the invisible 60px squeezed short names like "Notes" to
+ * "Not…". Out of the flow it overlays the row's end only while it shows.
+ */
+@media (hover: hover) {
+  .explorer-start-note {
+    position: absolute;
+    inset-inline-end: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--surface2); /* the hovered row's own fill */
+    pointer-events: none;
+  }
+  .explorer-row:hover .explorer-start-note,
+  .explorer-row:focus-within .explorer-start-note {
+    pointer-events: auto;
+  }
+}
+
 .explorer-start-note:hover {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /*
@@ -495,6 +513,42 @@
 
 .explorer-show:hover { color: var(--text); background: var(--surface2); }
 
+/* Phone: the explorer is a drawer over the document, not a column beside it
+   (workspace-screen.tsx sets `.is-phone` below the desktop breakpoint). The
+   document always has the whole width; the drawer covers most of it and the
+   rest stays visible so it is clear what is underneath. */
+.workspace-shell.is-phone {
+  grid-template-columns: 0 minmax(0, 1fr);
+  /* The bottom nav floats over the last ~70px; without this it sat on the
+     status bar, so "Saved" was never visible on a phone. */
+  padding-block-end: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* A 375px screen has no room for a second pane, and the two split buttons
+   were taking the width the open tabs needed. */
+.workspace-shell.is-phone .pane-action[aria-label^="Split"] {
+  display: none;
+}
+
+.workspace-shell.is-phone .explorer-panel {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 6;
+  width: min(86vw, 340px);
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 28%, transparent);
+}
+
+.workspace-shell.is-phone .explorer-show {
+  width: 36px;
+  height: 40px;
+}
+
+.workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
+.workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
+  padding-inline-start: 36px;
+}
+
 /* The strip's first tab starts past the handle, or the two overlap. */
 .workspace-shell.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
 .workspace-shell.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
@@ -554,56 +608,156 @@
 
 /* Ink in focus, OneNote's way: the toolbar row goes, and what a hand needs
    mid-stroke — tools, colours, nibs, undo, the page, the paper — floats as a
-   narrow palette down the left edge with the paper running full-bleed behind
-   it. Everything else on the bar (export, recognise, the readout, the wrist
-   guard…) is chrome for later and hides; the fold handle shrinks the palette
-   to its tools. */
-.workspace-shell.is-focus .ink-bar {
+   narrow palette at the edge of the page with the paper running full-bleed
+   behind it. Everything else on the bar (export, recognise, the readout, the
+   wrist guard…) is chrome for later and hides; the fold handle shrinks the
+   palette to its tools, and the move handle parks it in any of eight docks.
+
+   Both writing surfaces float the same way, because they are the same element:
+   `.ink-bar.ink-palette`, inside `.workspace-shell.is-focus` on a note and
+   inside `.pdf-reader.is-focus` in the reader. It carries `data-dock`, so the
+   rules below are written once. */
+.workspace-shell.is-focus .ink-palette,
+.pdf-reader.is-focus .ink-palette {
   position: absolute;
-  inset-inline-start: 10px;
-  inset-block-start: 50%;
-  transform: translateY(-50%);
   z-index: 5;
+  display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
   gap: 6px;
   width: max-content;
+  height: auto;
+  margin: 0;
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(10px);
+  /* No backdrop-filter and no transform here: either would make the palette
+     the containing block of the colour menu's `position: fixed` panel. */
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
 }
 
-.workspace-shell.is-focus .ink-bar > :not(.ink-bar-collapse):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper) {
+/* The eight docks. Edges centre along their axis (by auto margins, see
+   above); corners sit 10px in. */
+.workspace-shell.is-focus .ink-palette[data-dock="left"],
+.pdf-reader.is-focus .ink-palette[data-dock="left"] {
+  inset-inline-start: 10px; inset-block: 0; margin-block: auto; height: max-content; max-height: calc(100% - 20px); overflow-y: auto;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="right"],
+.pdf-reader.is-focus .ink-palette[data-dock="right"] {
+  inset-inline-end: 10px; inset-block: 0; margin-block: auto; height: max-content; max-height: calc(100% - 20px); overflow-y: auto;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="top"],
+.pdf-reader.is-focus .ink-palette[data-dock="top"] {
+  inset-block-start: 10px; inset-inline: 0; margin-inline: auto;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"],
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
+  inset-block-end: 10px; inset-inline: 0; margin-inline: auto;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="top-left"],
+.pdf-reader.is-focus .ink-palette[data-dock="top-left"] { inset-block-start: 10px; inset-inline-start: 10px; }
+.workspace-shell.is-focus .ink-palette[data-dock="top-right"],
+.pdf-reader.is-focus .ink-palette[data-dock="top-right"] { inset-block-start: 10px; inset-inline-end: 10px; }
+.workspace-shell.is-focus .ink-palette[data-dock="bottom-left"],
+.pdf-reader.is-focus .ink-palette[data-dock="bottom-left"] { inset-block-end: 10px; inset-inline-start: 10px; }
+.workspace-shell.is-focus .ink-palette[data-dock="bottom-right"],
+.pdf-reader.is-focus .ink-palette[data-dock="bottom-right"] { inset-block-end: 10px; inset-inline-end: 10px; }
+
+/* Along the top and bottom edges the palette runs as a row. */
+.workspace-shell.is-focus .ink-palette[data-dock="top"],
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"],
+.pdf-reader.is-focus .ink-palette[data-dock="top"],
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
+  flex-direction: row;
+  align-items: center;
+  max-width: calc(100% - 20px);
+  overflow-x: auto;
+}
+
+/* The bar in focus — both surfaces are this one bar now
+   (`features/ink/ui/ink-bar`), so this is one rule rather than two: what a
+   hand needs mid-stroke stays, and everything else is chrome for later. */
+.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more),
+.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more) {
   display: none;
 }
 
-.workspace-shell.is-focus .ink-bar[data-collapsed] > :not(.ink-bar-collapse):not(.ink-bar-tools) {
+/* Folded: the handles and the tools, nothing else. */
+.workspace-shell.is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools),
+.pdf-reader.is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools) {
   display: none;
 }
 
-.ink-bar-collapse { display: none; }
-.workspace-shell.is-focus .ink-bar-collapse { display: inline-flex; align-self: center; }
-
-.workspace-shell.is-focus .ink-bar .ink-bar-group,
-.workspace-shell.is-focus .ink-bar .ink-swatches,
-.workspace-shell.is-focus .ink-bar .ink-page-pill {
+/* The handles exist only once the palette floats. */
+.ink-palette-handles { display: none; }
+.workspace-shell.is-focus .ink-palette-handles,
+.pdf-reader.is-focus .ink-palette-handles {
+  display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 2px;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles,
+.pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles {
+  flex-direction: row;
+}
+.ink-dock { position: relative; display: inline-flex; }
+.ink-bar-dock,
+.ink-bar-collapse { color: var(--muted); }
+/* The grip drags the palette: no browser panning on it, and a hand cursor. */
+.ink-bar-dock { cursor: grab; touch-action: none; }
+.ink-palette[data-dragging] { transition: none; cursor: grabbing; }
+.ink-palette[data-dragging] .ink-bar-dock { cursor: grabbing; }
+
+/* The selection halo the ink renderer draws under a selected stroke
+   (`features/ink/ui/ink-strokes`), on whichever surface offers selection: the
+   sheet's own mark for "this line is picked up", in the accent the lasso uses. */
+.ink-stroke-halo {
+  fill: none;
+  stroke: var(--accent);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.workspace-shell.is-focus .ink-palette .ink-bar-group,
+.workspace-shell.is-focus .ink-palette .ink-swatches,
+.workspace-shell.is-focus .ink-palette .ink-page-pill,
+.pdf-reader.is-focus .ink-palette .ink-bar-group,
+.pdf-reader.is-focus .ink-palette .ink-swatches {
+  flex-direction: column;
+  align-items: center;
+}
+.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-bar-group,
+.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-swatches,
+.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-page-pill,
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-swatches,
+.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-page-pill,
+.pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-bar-group,
+.pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-swatches,
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
+.pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-swatches {
+  flex-direction: row;
 }
 
 /* Targets for a pen held mid-air, not a mouse: 36px buttons, 26px swatches,
    and a little more air between them. */
-.workspace-shell.is-focus .ink-bar .ink-tool,
-.workspace-shell.is-focus .ink-bar .ink-page-pill .ink-tool { width: 36px; height: 36px; }
-.workspace-shell.is-focus .ink-bar .ink-tool svg { width: 18px; height: 18px; }
-.workspace-shell.is-focus .ink-bar .ink-bar-group,
-.workspace-shell.is-focus .ink-bar .ink-page-pill { gap: 4px; padding: 3px; border-radius: 10px; }
-.workspace-shell.is-focus .ink-bar .ink-swatches { gap: 9px; padding: 8px 5px; }
-.workspace-shell.is-focus .ink-bar .ink-swatch { width: 26px; height: 26px; }
+.workspace-shell.is-focus .ink-palette .ink-tool,
+.workspace-shell.is-focus .ink-palette .ink-page-pill .ink-tool,
+.pdf-reader.is-focus .ink-palette .ink-tool { width: 36px; height: 36px; }
+.workspace-shell.is-focus .ink-palette .ink-tool svg,
+.pdf-reader.is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
+.workspace-shell.is-focus .ink-palette .ink-bar-group,
+.workspace-shell.is-focus .ink-palette .ink-page-pill,
+.pdf-reader.is-focus .ink-palette .ink-bar-group { gap: 4px; padding: 3px; border-radius: 10px; }
+.workspace-shell.is-focus .ink-palette .ink-swatches,
+.pdf-reader.is-focus .ink-palette .ink-swatches { gap: 9px; padding: 8px 5px; }
+.workspace-shell.is-focus .ink-palette .ink-swatch,
+.pdf-reader.is-focus .ink-palette .ink-swatch { width: 26px; height: 26px; }
 .workspace-shell.is-focus .ink-bar .ink-page-count {
   flex-direction: column;
   gap: 0;
@@ -630,6 +784,10 @@
   right: auto;
   left: calc(100% + 8px);
   transform: none;
+}
+.workspace-shell.is-focus .ink-bar[data-dock$="right"] .ink-menu-list {
+  left: auto;
+  right: calc(100% + 8px);
 }
 
 /* Hover actions on a row, VS Code's way: hidden until the row is under the
@@ -915,7 +1073,7 @@
 
 .pane-mode-btn.is-on {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* The close control lives in a 16px slot that is the dirty dot until the tab
@@ -1055,7 +1213,7 @@
 }
 .image-size-side.is-on {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .image-size-crop {
   width: 7rem;
@@ -1130,7 +1288,7 @@
 
 .quick-open-result.is-active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* The kind column, so Notes, Papers, Lists and Report hits do not interleave
@@ -1160,7 +1318,6 @@
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .quick-open-group-rows {
@@ -1174,7 +1331,7 @@
    legible rather than mystifying. */
 .quick-open-path mark {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   border-radius: 2px;
 }
 
@@ -1213,9 +1370,28 @@
 
 .breadcrumb {
   display: inline-flex;
+  flex: none;
   align-items: center;
   min-width: 0;
+  max-width: 60%;
 }
+
+/* No crumb takes more than 60% of the strip, so a long title gives up the
+   room and "Files" keeps its name; anything left over scrolls. Its text clips
+   with an ellipsis instead of spilling over the next crumb, which on a phone
+   printed "PDF" on top of the title. */
+.breadcrumb-plain,
+.breadcrumb-btn,
+.breadcrumb-current {
+  min-width: 2ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A folder crumb that cannot be opened is plain text, but it keeps the same
+   padding as its neighbours: without it the separator touched the label
+   ("Papers›Title"). */
+.breadcrumb-plain { padding: 2px 6px; }
 
 .breadcrumb-btn,
 .breadcrumb-current {
@@ -1252,8 +1428,9 @@
 .breadcrumb-sep {
   display: inline-flex;
   flex: none;
+  padding-inline: 1px;
   color: var(--faint);
-  opacity: 0.55;
+  opacity: 0.8;
 }
 
 .breadcrumb-sep .chev svg {
@@ -1445,7 +1622,6 @@
   margin-right: 4px;
   font-family: var(--font-mono);
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   font-size: 0.64rem;
 }
 .md-live-option {
@@ -1462,7 +1638,7 @@
   background: color-mix(in srgb, var(--faint) 10%, transparent);
 }
 .md-live-option.is-on {
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
@@ -1487,12 +1663,63 @@
 }
 .paper-pdf-pane .reader-main { flex: 1; min-height: 0; }
 .paper-pdf-pane .empty-state { margin: auto; }
-.paper-pdf-pane-tools {
-  position: absolute;
-  right: 20px;
-  bottom: 16px;
-  z-index: 2;
+/* The address a person types for a paper that came without a PDF. */
+.paper-pdf-fetch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, 34rem);
+  margin: 12px auto;
+  text-align: start;
 }
+.paper-pdf-fetch-label { font-size: 0.82rem; color: var(--muted); }
+.paper-pdf-fetch-row { display: flex; gap: 8px; }
+.paper-pdf-fetch-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+.paper-pdf-fetch-error { margin: 0; font-size: 0.8rem; color: var(--s-danger); }
+/* "Find a free copy": the button, and the line saying what it found. */
+.paper-free-copy { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 8px auto 4px; }
+.paper-free-copy-status { margin: 0; max-width: 34rem; font-size: 0.8rem; color: var(--muted); }
+.paper-free-copy-status[role="alert"] { color: var(--s-danger); }
+
+/* A paper kept as a web page: a thin bar, then the sandboxed frame. */
+.paper-html-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.paper-html-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+.paper-html-kind { font-weight: 600; }
+.paper-html-source {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.paper-html-spacer { flex: 1; }
+.paper-html-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--surface); }
 
 /* -------------------------------------------------------------------------
    The status bar (§3.4, step 2)
@@ -1644,7 +1871,7 @@
 
 .ink-tool[aria-pressed="true"] {
   background: var(--surface);
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: var(--border);
   box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
@@ -1799,6 +2026,28 @@
 .ink-swatch-good { background: var(--s-good); }
 .ink-swatch-info { background: var(--s-info); }
 .ink-swatch-danger { background: var(--s-danger); }
+
+/* The marker colours: the reader's eight, fixed hex in every theme, so a
+   yellow highlight on a note is the yellow on a paper. The ink renderer reads
+   the same tokens (`INK_COLOUR_TOKENS`). */
+:root {
+  --ink-yellow: #ffd400;
+  --ink-red: #ff6666;
+  --ink-green: #5fb236;
+  --ink-blue: #2ea8e5;
+  --ink-purple: #a28ae5;
+  --ink-pink: #e56eee;
+  --ink-orange: #f19837;
+  --ink-grey: #aaaaaa;
+}
+.ink-swatch-yellow { background: var(--ink-yellow); }
+.ink-swatch-red { background: var(--ink-red); }
+.ink-swatch-green { background: var(--ink-green); }
+.ink-swatch-blue { background: var(--ink-blue); }
+.ink-swatch-purple { background: var(--ink-purple); }
+.ink-swatch-pink { background: var(--ink-pink); }
+.ink-swatch-orange { background: var(--ink-orange); }
+.ink-swatch-grey { background: var(--ink-grey); }
 
 .ink-pen-only {
   display: inline-flex;
@@ -2321,7 +2570,6 @@
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .ink-text h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
@@ -2404,3 +2652,99 @@
   border-radius: 8px;
   background: #e9e9e9;
 }
+
+/* -------------------------------------------------------------------------
+   The phone's document switcher (pane-view.tsx). Below 480px the strip showed
+   about one and a half titles; one control naming the document on screen,
+   opening the phone's own picker, replaces it.
+   ---------------------------------------------------------------------- */
+.pane-tab-switcher { display: none; }
+
+@media (max-width: 479px) {
+  .pane-tabs .pane-tab-scroll { display: none; }
+  .pane-tab-switcher {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 0 6px 0 10px;
+    color: var(--text);
+    font-size: 0.815rem;
+  }
+  .workspace-shell.is-explorer-hidden .pane-tab-switcher { padding-inline-start: 40px; }
+  /* The shared Select, flattened into the tab bar. Scoped to the container
+     and its trigger: the menu carries the same class and keeps its own look. */
+  .custom-select-container.pane-tab-select { flex: 1; min-width: 0; width: auto; height: 100%; }
+  .pane-tab-select > .custom-select-button {
+    height: 100%;
+    padding: 0 4px 0 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+  .pane-tab-select > .custom-select-button:focus { box-shadow: none; }
+  .pane-tab-select > .custom-select-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .pane-tab-count {
+    flex: none;
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 18px;
+    text-align: center;
+  }
+  .pane-tab-switcher .pane-tab-close { opacity: 1; width: 24px; height: 24px; }
+}
+
+/* The pen: one swatch carries the colour, the dot on it the nib. */
+.ink-pen-trigger .colour-menu-current {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ink-pen-trigger-nib {
+  display: block; border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%);
+}
+.ink-pen-menu .ink-bar-widths {
+  margin-top: 4px; padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+/* The zoom pill reads like the page pill; its level resets to fit. */
+.ink-zoom-level {
+  border: 0; background: none; color: inherit; font: inherit;
+  min-width: 3.4em; justify-content: center; cursor: pointer;
+}
+.ink-zoom-level:hover { color: var(--text); }
+
+/* The ⋯ menu: sections split by a rule, chips for the one-of-n choices. */
+.ink-menu-more-list { min-width: 240px; gap: 0; }
+.ink-menu-section { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; }
+.ink-menu-section + .ink-menu-section { border-top: 1px solid var(--border); }
+.ink-menu-heading {
+  padding: 2px 8px 4px;
+  font-size: 0.72rem; color: var(--muted);
+}
+.ink-menu-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 2px; }
+.ink-menu-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: none; color: var(--text);
+  font: inherit; font-size: 0.76rem; cursor: pointer;
+}
+.ink-menu-chip:hover { filter: brightness(1.05); background: var(--chip); }
+.ink-menu-chip[aria-checked="true"] {
+  background: var(--active-bg, var(--chip)); color: var(--active-fg, var(--text));
+  border-color: var(--text);
+}
+.ink-menu-check, .ink-menu-value { color: var(--muted); font-size: 0.76rem; }
+
+/* Desk between pages, from the ink bar's page spacing (`--ink-page-gap`). */
+.ink-page-scroll > .ink-page + .ink-page { margin-top: var(--ink-page-gap, 0px); }

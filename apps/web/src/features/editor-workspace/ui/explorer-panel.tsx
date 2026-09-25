@@ -21,15 +21,13 @@ import {
 } from "../application/explorer-edit";
 import {
   isSectionOpen,
-  readExpanded,
-  readSections,
   toggleExpanded,
   toggleSection,
   writeExpanded,
   writeSections,
   type ExplorerSection,
-  type SectionState,
 } from "../application/explorer-state";
+import { useExplorerExpansion } from "./use-explorer-expansion";
 import {
   filterRows,
   visibleRows,
@@ -122,12 +120,7 @@ export function ExplorerPanel({
   /** Which lists a document belongs to, for the "N lists" hint. */
   listNames?: ReadonlyMap<string, string[]>;
 }) {
-  // Read after mount: the server render has no `localStorage`, and deciding
-  // there would ship a tree that jumps open on hydration.
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => readExpanded(undefined));
-  const [openSections, setOpenSections] = useState<SectionState>(() =>
-    readSections(undefined, sections),
-  );
+  const { expanded, setExpanded, openSections, setOpenSections } = useExplorerExpansion(sections);
   const [query, setQuery] = useState("");
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -136,17 +129,6 @@ export function ExplorerPanel({
   const [problem, setProblem] = useState<{ key: string; message: string } | null>(null);
   /** The row a drag is over and may drop on. */
   const [dropKey, setDropKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    const store = typeof localStorage === "undefined" ? undefined : localStorage;
-    setExpanded(readExpanded(store));
-    setOpenSections(readSections(store, sections));
-    // The sections arrive once their data has loaded. Re-reading on every
-    // change would undo the expansion the user has just made as the tree fills
-    // in, so this runs once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // The filter narrows every section at once and opens whatever it matched.
   const filtered = useMemo(() => {
     const forced = new Set<string>();
@@ -177,7 +159,7 @@ export function ExplorerPanel({
         return next;
       });
     },
-    [persistExpanded],
+    [persistExpanded, setExpanded],
   );
 
   /**
@@ -207,7 +189,7 @@ export function ExplorerPanel({
       persistExpanded(next);
       return next;
     });
-  }, [draftParentKey, persistExpanded]);
+  }, [draftParentKey, persistExpanded, setExpanded]);
 
   const startDraft = useCallback(
     (kind: CreateKind, under?: WorkspaceTreeNode) => {
@@ -285,7 +267,7 @@ export function ExplorerPanel({
       writeSections(typeof localStorage === "undefined" ? undefined : localStorage, next);
       return next;
     });
-  }, []);
+  }, [setOpenSections]);
 
   const activate = useCallback(
     (node: WorkspaceTreeNode) => {

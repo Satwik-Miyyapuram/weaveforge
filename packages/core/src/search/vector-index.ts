@@ -90,6 +90,14 @@ export class VectorIndex {
     return this.slotById.has(id);
   }
 
+  /** A copy of the stored (normalized) vector, for more-like-this queries. */
+  vectorOf(id: string): Float32Array | null {
+    const slot = this.slotById.get(id);
+    if (slot === undefined) return null;
+    const offset = slot * this.dimensions;
+    return this.data.slice(offset, offset + this.dimensions);
+  }
+
   /**
    * Insert or replace. Vectors are normalized on the way in so search is a dot
    * product; the caller's array is not modified.

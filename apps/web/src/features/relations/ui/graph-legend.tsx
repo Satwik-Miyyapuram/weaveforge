@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { RELATION_TYPES, type RelationType } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
-import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, WIKILINK_COLOR } from "../domain/graph-palette";
+import { RELATION_COLORS, NOTE_COLOR, REPORT_COLOR, WIKILINK_COLOR, EXPERIMENT_COLOR, EXPERIMENT_LINK_COLOR } from "../domain/graph-palette";
 
 /** Collapsible relation-type + concept legend for the graph view. */
 export function GraphLegend({ showConcepts = false }: { showConcepts?: boolean }) {
@@ -41,10 +41,14 @@ export function GraphLegend({ showConcepts = false }: { showConcepts?: boolean }
             <span className="muted graph-legend-heading">Nodes</span>
             <span className="legend-item"><span className="legend-swatch" style={{ background: NOTE_COLOR, transform: "rotate(45deg)" }} /> note</span>
             <span className="legend-item"><span className="legend-swatch" style={{ background: REPORT_COLOR, borderRadius: 3 }} /> report</span>
+            {/* A run is a circle like a paper, so the colour is what tells them
+                apart — the label is doing more work here than the swatch. */}
+            <span className="legend-item"><span className="legend-swatch" style={{ background: EXPERIMENT_COLOR }} /> experiment</span>
           </div>
           <div className="graph-legend-group">
             <span className="muted graph-legend-heading">Links</span>
             <span className="legend-item"><span className="legend-swatch" style={{ background: WIKILINK_COLOR }} /> [[wikilink]]</span>
+            <span className="legend-item"><span className="legend-swatch" style={{ background: EXPERIMENT_LINK_COLOR }} /> experiment → paper</span>
           </div>
         </div>
       )}

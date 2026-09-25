@@ -94,3 +94,12 @@ export const PASTE_FETCH_LIMIT: RateLimitOptions = { capacity: 20, refillPerSeco
 
 /** One limiter for the process, so the budget is shared across requests. */
 export const pasteFetchLimiter = new RateLimiter(PASTE_FETCH_LIMIT);
+
+/**
+ * The budget for web pages fetched for the reader from hosts on no list: a
+ * paper's own blog post or article page. Ten in a burst, one every five
+ * seconds — opening papers one after another fits, a crawl does not.
+ */
+export const PAGE_FETCH_LIMIT: RateLimitOptions = { capacity: 10, refillPerSecond: 0.2 };
+
+export const pageFetchLimiter = new RateLimiter(PAGE_FETCH_LIMIT);
