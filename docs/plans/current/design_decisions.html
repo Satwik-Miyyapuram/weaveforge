@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WeaveForge — design audit decision mock</title>
+<style>
+  /* the app's own Paper palette, so an option is judged in the surface it ships
+     on rather than on a designer's grey. Token names match app/themes/light.css. */
+  :root[data-mode="light"] {
+    --bg:#f4f1ea; --surface:#fbfaf6; --surface2:#efece3; --elev:#fdfcf9;
+    --border:#e4dfd2; --border-strong:#d3ccb9;
+    --text:#2b2924; --muted:#6b6659; --faint:#9a9384;
+    --accent:#3b5b8c; --accent-fg:#ffffff; --accent-soft:#e7edf5;
+    --danger:#a4443a; --danger-soft:#f3e2df;
+    --s-neutral:#6b6659; --s-neutral-bg:#eceae2;
+    --s-info:#2f6f8f;    --s-info-bg:#e2eef2;
+    --s-good:#3f7a52;    --s-good-bg:#e4efe6;
+    --s-warn:#a6742a;    --s-warn-bg:#f3ebdc;
+    --s-danger:#a4443a;  --s-danger-bg:#f3e2df;
+    --s-mute:#8a8478;    --s-mute-bg:#ecebe4;
+    --card-tint:#e7edf5;
+    --shadow: 0 1px 2px rgba(43,41,36,.06), 0 8px 24px rgba(43,41,36,.06);
+  }
+  :root[data-mode="dark"] {
+    --bg:#14171c; --surface:#191d24; --surface2:#20252e; --elev:#1d222a;
+    --border:#2a313b; --border-strong:#3a4250;
+    --text:#e7eaf0; --muted:#98a1b0; --faint:#7b8598;
+    --accent:#89a0cc; --accent-fg:#14171c; --accent-soft:#222a38;
+    --danger:#e0857c; --danger-soft:#33211f;
+    --s-neutral:#98a1b0; --s-neutral-bg:#242a34;
+    --s-info:#7fb3cb;    --s-info-bg:#1d2c34;
+    --s-good:#7fb894;    --s-good-bg:#1c2c22;
+    --s-warn:#d3a869;    --s-warn-bg:#2f2719;
+    --s-danger:#e0857c;  --s-danger-bg:#33211f;
+    --s-mute:#8b94a3;    --s-mute-bg:#242832;
+    --card-tint:#222a38;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size:15px; line-height:1.6;
+  }
+  .wrap { max-width: 1180px; margin:0 auto; padding: 32px 20px 96px; }
+
+  h1 { font-size:26px; line-height:1.2; margin:0 0 8px; letter-spacing:-.01em; }
+  h2 { font-size:19px; line-height:1.25; margin:0 0 4px; letter-spacing:-.005em; }
+  h3 { font-size:13px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted);
+       margin:0 0 10px; font-weight:600; }
+  p  { margin:0 0 10px; }
+  .measure { max-width: 76ch; }
+  .muted { color:var(--muted); }
+  .mono { font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+  header.top { display:flex; align-items:flex-start; gap:20px; justify-content:space-between;
+               border-bottom:1px solid var(--border); padding-bottom:22px; margin-bottom:28px; }
+  .badge { display:inline-block; font-size:12px; font-weight:600; padding:2px 9px; border-radius:999px;
+           background:var(--accent-soft); color:var(--accent); border:1px solid var(--border); }
+
+  button { font: inherit; cursor:pointer; }
+  .ghost { background:transparent; border:1px solid var(--border-strong); color:var(--text);
+           border-radius:9px; padding:7px 13px; }
+  .ghost:hover { background:var(--surface2); }
+
+  /* ---------- decision card ---------- */
+  .decision { background:var(--surface); border:1px solid var(--border); border-radius:16px;
+              box-shadow:var(--shadow); padding:24px; margin:0 0 26px; }
+  .decision > .head { display:flex; gap:14px; align-items:baseline; flex-wrap:wrap; margin-bottom:6px; }
+  .decision .why { color:var(--muted); max-width:80ch; }
+  .ab { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:18px 0 4px; }
+  @media (max-width: 860px) { .ab { grid-template-columns:1fr; } }
+  .opt { border:1px solid var(--border); border-radius:12px; background:var(--elev); overflow:hidden;
+         display:flex; flex-direction:column; }
+  .opt.recommended { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .opt.picked { outline:2px solid var(--accent); outline-offset:2px; background:var(--accent-soft); }
+  .opt.picked .notes { color:var(--text); }
+  .opt > .label { display:flex; align-items:center; gap:8px; padding:10px 14px;
+                  border-bottom:1px solid var(--border); background:var(--surface2); font-weight:600; font-size:13px; }
+  .opt .label .rec { margin-left:auto; font-size:11px; color:var(--accent); font-weight:700;
+                     letter-spacing:.05em; text-transform:uppercase; }
+  .opt .stage { padding:16px; flex:1; }
+  .opt .notes { padding:12px 14px; border-top:1px dashed var(--border); font-size:13px; color:var(--muted); }
+  .opt .notes b { color:var(--text); font-weight:600; }
+
+  .pick { display:flex; align-items:center; gap:10px; padding:12px 14px; border-top:1px solid var(--border);
+          background:var(--surface); }
+  .pick label { display:flex; align-items:center; gap:7px; font-size:13px; cursor:pointer; }
+  .pick input[type=text] { flex:1; min-width:120px; font:inherit; font-size:13px; padding:6px 9px;
+                           border:1px solid var(--border-strong); border-radius:8px;
+                           background:var(--elev); color:var(--text); }
+  .pick .taken { font-size:12px; color:var(--accent); font-weight:600; min-width:64px; }
+
+  /* ---------- app-ish primitives, condensed from the app's own components ---------- */
+  .faux { border:1px solid var(--border); border-radius:11px; background:var(--surface); overflow:hidden; }
+  .faux .bar { display:flex; align-items:center; gap:8px; padding:8px 11px; background:var(--surface2);
+               border-bottom:1px solid var(--border); font-size:12px; color:var(--muted); }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--accent); flex:none; }
+  .pill { display:inline-block; font-size:11.5px; font-weight:600; padding:2px 9px; border-radius:999px;
+          border:1px solid transparent; white-space:nowrap; }
+  .pill.neutral { background:var(--s-neutral-bg); color:var(--s-neutral); }
+  .pill.info    { background:var(--s-info-bg);    color:var(--s-info); }
+  .pill.good    { background:var(--s-good-bg);    color:var(--s-good); }
+  .pill.warn    { background:var(--s-warn-bg);    color:var(--s-warn); }
+  .pill.danger  { background:var(--s-danger-bg);  color:var(--s-danger); }
+  .pill.mute    { background:var(--s-mute-bg);    color:var(--s-mute); }
+
+  .tabrail { display:flex; flex-direction:column; gap:2px; padding:8px; background:var(--surface2);
+             border-right:1px solid var(--border); min-width:132px; font-size:13px; }
+  .tabrail .t { padding:6px 10px; border-radius:8px; color:var(--muted); }
+  .tabrail .t.on { background:var(--accent); color:var(--accent-fg); font-weight:600; }
+  .pane { padding:12px; flex:1; min-width:0; }
+  .row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+  .row:last-child { border-bottom:0; }
+  .row .grow { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .btn { border-radius:9px; padding:6px 12px; font-size:13px; border:1px solid var(--border-strong);
+         background:var(--surface); color:var(--text); }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); font-weight:600; }
+  .btn.icon { width:44px; height:44px; padding:0; display:inline-flex; align-items:center; justify-content:center;
+              font-size:16px; }
+  .linkbtn { background:none; border:0; padding:4px 2px; font-size:13px; color:var(--accent); }
+  .linkbtn.danger { color:var(--danger); }
+
+  .card { border:1px solid var(--border); border-radius:12px; background:var(--surface); padding:12px; }
+  .card.tinted { border-left:4px solid var(--card-tint); }
+  .card h4 { margin:0 0 2px; font-size:14.5px; font-weight:600; line-height:1.3; }
+  .card .meta { font-size:12.5px; color:var(--muted); }
+  .card .excerpt { font-family:"IBM Plex Serif", Georgia, serif; font-size:13.5px; color:var(--text); margin:8px 0 0; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:9px; }
+  .chip { font-size:11.5px; padding:2px 8px; border-radius:999px; background:var(--surface2); color:var(--muted); }
+  .foot { display:flex; align-items:center; gap:12px; margin-top:10px; padding-top:9px; border-top:1px solid var(--border); }
+
+  .stack { display:flex; flex-direction:column; gap:10px; }
+  .svg-chart { width:100%; height:auto; display:block; }
+  .axis { stroke:var(--border-strong); stroke-width:1; }
+  .gridline { stroke:var(--border); stroke-width:1; }
+  .lbl { font-size:10px; fill:var(--muted); font-family:"IBM Plex Mono", monospace; }
+
+  .sitefoot { border-top:1px solid var(--border); margin-top:34px; padding-top:18px; color:var(--muted); font-size:13px; }
+  .sitefoot code { font-family:"IBM Plex Mono", monospace; font-size:12.5px; }
+  kbd { font-family:"IBM Plex Mono",monospace; font-size:11.5px; border:1px solid var(--border-strong);
+        border-bottom-width:2px; border-radius:5px; padding:0 4px; background:var(--surface2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1>Design audit — decision mock</h1>
+    <p class="why measure" style="margin:8px 0 0">
+      Six places where the two models inside <code>design_audit_1.md</code> want
+      <em>different</em> things. Each option is drawn in the app's own Paper palette so
+      it can be judged on the surface it ships on. Pick one per card, add a note if
+      you want a third shape, and hand the page back — or just tell me the letters.
+    </p>
+    <p style="margin:12px 0 0"><span class="badge">A–F</span>
+      <span class="muted" style="font-size:13px; margin-left:6px">
+        Full analysis: <code>design_audit_verification.md</code>
+      </span>
+    </p>
+  </div>
+  <button class="ghost" id="modeBtn" type="button">Dark theme</button>
+</header>
+
+<!-- ================================================================= A -->
+<section class="decision" data-decision="A">
+  <div class="head">
+    <h2>A · Settings: how many tabs, and what are they?</h2>
+    <span class="badge">layout</span>
+  </div>
+  <p class="why">
+    Both models agree the seven-section scroll has to go. They disagree on the set —
+    and specifically on whether the <em>lab</em> is one tab or two, and whether there
+    is a Data tab at all.
+  </p>
+
+  <div class="ab">
+    <div class="opt" data-option="A">
+      <div class="label">A · Model 1 — six tabs</div>
+      <div class="stage">
+        <div class="faux" style="display:flex; min-height:212px">
+          <div class="tabrail">
+            <div class="t on">Account</div>
+            <div class="t">People</div>
+            <div class="t">Appearance</div>
+            <div class="t">Tokens</div>
+            <div class="t">Integrations</div>
+            <div class="t">Privacy</div>
+          </div>
+          <div class="pane">
+            <div class="row"><span class="grow"><b>Lab</b> · 5 members</span><span class="pill info">org chart</span></div>
+            <div class="row"><span class="grow">Invite code · professor</span><span class="chip mono">7K2M9Q</span></div>
+            <div class="row"><span class="grow">Invite code · PhD</span><span class="chip mono">4XPT1B</span></div>
+            <div class="row"><span class="grow">Invite code · Masters</span><span class="chip mono">9DWR6N</span></div>
+            <div class="row muted" style="font-size:12.5px; border:0; padding-top:12px">
+              Privacy owns the disclaimer, the repo link and <b>Delete account</b> — alone.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes"><b>Take:</b> the aria tablist rules, URL-persisted selection.<br>
+      <b>Leave:</b> a search field inside settings; People as its own top-level tab.</div>
+    </div>
+
+    <div class="opt recommended" data-option="B">
+      <div class="label">B · Model 2 — seven tabs, rail + search <span class="rec">rec</span></div>
+      <div class="stage">
+        <div class="faux" style="display:flex; min-height:212px">
+          <div class="tabrail">
+            <div class="t on">Workspace</div>
+            <div class="t">Account</div>
+            <div class="t">Appearance</div>
+            <div class="t">Integrations</div>
+            <div class="t">SDK &amp; Tokens</div>
+            <div class="t">Data</div>
+            <div class="t">Privacy</div>
+          </div>
+          <div class="pane">
+            <div class="row"><span class="grow"><b>Project</b> · Deep learning for X-ray</span><span class="mono" style="font-size:11px">#3b5b8c</span></div>
+            <div class="row"><span class="grow">Members · 5</span><span class="linkbtn">Manage</span></div>
+            <div class="row"><span class="grow">Invite codes · 3</span><span class="linkbtn">Copy all</span></div>
+            <div class="row"><span class="grow">Zotero <span class="pill good">on</span> · Git <span class="pill mute">off</span></span></div>
+            <div class="row muted" style="font-size:12.5px; border:0; padding-top:12px">
+              <em>Data</em> is where the folder mirror and export ZIP live — currently only in docs.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes"><b>Why:</b> "my project and who is in it" is one mental model, so one tab. The
+      Data tab is where the Obsidian-compatible folder mirror belongs. <b>Drop</b> the search field —
+      a settings search that jumps between panes is a symptom of too many panes.</div>
+    </div>
+  </div>
+
+  <div class="pick">
+    <span class="muted" style="font-size:12px">pick</span>
+    <label><input type="radio" name="A" value="A" /> A</label>
+    <label><input type="radio" name="A" value="B" /> B</label>
+    <input type="text" placeholder="…or describe a third shape" />
+    <span class="taken" data-taken="A"></span>
+  </div>
+</section>
+
+<!-- ================================================================= B -->
+<section class="decision" data-decision="B">
+  <div class="head">
+    <h2>B · Destructive actions on a card foot</h2>
+    <span class="badge">component</span>
+  </div>
+  <p class="why">
+    Delete is red 14px text, one link away from <em>edit</em>. Model 1 keeps it visible and
+    makes it safe; Model 2 removes it into an overflow. Both agree it must not sit beside
+    <em>edit</em>.
+  </p>
+
+  <div class="ab">
+    <div class="opt" data-option="A">
+      <div class="label">A · Model 1 — visible icon, named, confirmed</div>
+      <div class="stage">
+        <div class="card">
+          <span class="pill good">read</span>
+          <h4 style="margin-top:8px">Attention is all you need</h4>
+          <div class="meta">Vaswani et al. · 2017</div>
+          <div class="foot" style="justify-content:space-between">
+            <div style="display:flex; gap:10px">
+              <button class="linkbtn">Share</button>
+              <button class="linkbtn">Comments</button>
+              <button class="linkbtn">Edit</button>
+            </div>
+            <span style="display:flex; align-items:center; gap:16px">
+              <span style="width:1px; height:22px; background:var(--border-strong)"></span>
+              <button class="btn icon" title="Delete paper" aria-label="Delete paper Attention is all you need"
+                      style="border-color:var(--danger); color:var(--danger)">🗑</button>
+            </span>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12.5px; margin:12px 0 0">
+          Confirm names the object and its consequence:
+          <em>"Delete ‘Attention is all you need’? This also removes it from 2 reading lists."</em>
+        </p>
+      </div>
+      <div class="notes"><b>Signal:</b> icon + colour + the confirm sentence — any one alone is not the signal.</div>
+    </div>
+
+    <div class="opt recommended" data-option="B">
+      <div class="label">B · Model 2 — overflow menu <span class="rec">rec</span></div>
+      <div class="stage">
+        <div class="card">
+          <span class="pill good">read</span>
+          <h4 style="margin-top:8px">Attention is all you need</h4>
+          <div class="meta">Vaswani et al. · 2017</div>
+          <div class="foot" style="justify-content:space-between">
+            <div style="display:flex; gap:10px">
+              <button class="linkbtn">Share</button>
+              <button class="linkbtn">Comments</button>
+              <button class="linkbtn">Edit</button>
+            </div>
+            <button class="btn icon" aria-label="More actions">⋯</button>
+          </div>
+        </div>
+        <div class="faux" style="margin-top:10px; width:210px; margin-left:auto">
+          <div class="row" style="padding:9px 12px"><span class="grow">Export BibTeX</span></div>
+          <div class="row" style="padding:9px 12px"><span class="grow">Duplicate</span></div>
+          <div class="row" style="padding:9px 12px; color:var(--danger)"><span class="grow">Delete…</span></div>
+        </div>
+      </div>
+      <div class="notes"><b>Why:</b> the overflow is the distance, and it is the smaller change — the card
+      primitive's own header already puts delete first, which is the wrong end. <b>Keep A's
+      <code>aria-label</code> naming the object and the consequence confirm.</b></div>
+    </div>
+  </div>
+
+  <div class="pick">
+    <span class="muted" style="font-size:12px">pick</span>
+    <label><input type="radio" name="B" value="A" /> A</label>
+    <label><input type="radio" name="B" value="B" /> B</label>
+    <label><input type="radio" name="B" value="both" /> both</label>
+    <input type="text" placeholder="…or describe a third shape" />
+    <span class="taken" data-taken="B"></span>
+  </div>
+</section>
+
+<!-- ================================================================= C -->
+<section class="decision" data-decision="C">
+  <div class="head">
+    <h2>C · The metric curve — smoothing, and one scale or many</h2>
+    <span class="badge">chart</span>
+  </div>
+  <p class="why">
+    A loss curve exists to show a spike. The query layer in the code audit refuses to
+    average for exactly that reason. Model 2 puts a smoothing <em>slider</em> in the UI.
+  </p>
+
+  <div class="ab">
+    <div class="opt recommended" data-option="A">
+      <div class="label">A · No smoothing by default, one shared y-domain <span class="rec">rec</span></div>
+      <div class="stage">
+        <svg class="svg-chart" viewBox="0 0 380 150" role="img" aria-label="Two runs on a shared y scale, spikes intact">
+          <line class="gridline" x1="34" y1="20" x2="368" y2="20" />
+          <line class="gridline" x1="34" y1="60" x2="368" y2="60" />
+          <line class="gridline" x1="34" y1="100" x2="368" y2="100" />
+          <line class="axis" x1="34" y1="130" x2="368" y2="130" />
+          <line class="axis" x1="34" y1="10" x2="34" y2="130" />
+          <text class="lbl" x="2" y="24">1.0</text><text class="lbl" x="2" y="64">0.5</text>
+          <text class="lbl" x="2" y="104">0.0</text><text class="lbl" x="10" y="144">step</text>
+          <text class="lbl" x="310" y="144">120k</text>
+          <polyline fill="none" stroke="var(--s-info)" stroke-width="1.5" stroke-linejoin="round"
+            points="34,128 60,120 86,124 112,106 138,112 164,70 176,96 190,78 216,52 242,58 268,30 294,34 320,22 346,26 368,18" />
+          <polyline fill="none" stroke="var(--s-warn)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="4 2"
+            points="34,126 60,127 86,118 112,122 138,98 156,118 170,86 190,104 216,72 242,80 268,66 294,72 320,44 346,58 368,40" />
+          <circle cx="170" cy="86" r="3.4" fill="var(--s-warn)" />
+          <circle cx="176" cy="96" r="3.4" fill="var(--s-info)" />
+        </svg>
+        <p class="muted" style="font-size:12.5px; margin:8px 0 0">
+          Crosshair lists <em>every</em> visible series at the nearest step — both numbers, same axis.
+          Free scale is an explicit opt-out, never the default.
+        </p>
+      </div>
+      <div class="notes"><b>Palette:</b> take Model 2's Okabe–Ito / Set2 <em>names</em>, but verify each at
+      3:1 against both <code>--surface</code> and <code>--surface2</code>.</div>
+    </div>
+
+    <div class="opt" data-option="B">
+      <div class="label">B · Model 2 — smoothing slider, independent scales</div>
+      <div class="stage">
+        <svg class="svg-chart" viewBox="0 0 380 150" role="img" aria-label="Smoothed curves on independent y scales">
+          <line class="gridline" x1="34" y1="40" x2="368" y2="40" />
+          <line class="gridline" x1="34" y1="85" x2="368" y2="85" />
+          <line class="axis" x1="34" y1="130" x2="368" y2="130" />
+          <line class="axis" x1="34" y1="10" x2="34" y2="130" />
+          <text class="lbl" x="2" y="44">1.0</text><text class="lbl" x="2" y="89">0.5</text>
+          <path fill="none" stroke="var(--s-info)" stroke-width="1.5" stroke-linejoin="round"
+            d="M34 126 C 80 120, 120 108, 170 92 C 220 74, 280 40, 368 20" />
+          <path fill="none" stroke="var(--s-warn)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="4 2"
+            d="M34 122 C 90 118, 140 104, 200 84 C 250 66, 310 44, 368 34" />
+        </svg>
+        <div style="display:flex; align-items:center; gap:9px; margin-top:10px">
+          <span class="lbl" style="fill:var(--muted)">smooth</span>
+          <input type="range" min="0" max="40" value="18" style="flex:1" />
+        </div>
+        <p class="muted" style="font-size:12.5px; margin:8px 0 0">
+          Step 60k–70k: the divergence a reader is looking for is not visible on either curve.
+        </p>
+      </div>
+      <div class="notes"><b>Against:</b> a continuous smoothing control invites a researcher to smooth away
+      the thing they are looking for. If smoothing ever ships, make it a named preset and label the axis.</div>
+    </div>
+  </div>
+
+  <div class="pick">
+    <span class="muted" style="font-size:12px">pick</span>
+    <label><input type="radio" name="C" value="A" /> A</label>
+    <label><input type="radio" name="C" value="B" /> B</label>
+    <label><input type="radio" name="C" value="A+preset" /> A + a named preset</label>
+    <input type="text" placeholder="…or describe a third shape" />
+    <span class="taken" data-taken="C"></span>
+  </div>
+</section>
+
+<!-- ================================================================= D -->
+<section class="decision" data-decision="D">
+  <div class="head">
+    <h2>D · Mobile destinations — three different answers in one file</h2>
+    <span class="badge">IA</span>
+  </div>
+  <p class="why">
+    <code>F05</code> keeps four destinations and wants breadcrumbs; <code>F-04</code> wants five
+    task groups (Capture · Read · Run · Write · Share); Model 1 wants a third split. All three
+    agree the current grouping is poor, and none agrees on the target — so the mock draws the
+    two concrete bars and leaves the card-sort to a spike.
+  </p>
+
+  <div class="ab">
+    <div class="opt" data-option="A">
+      <div class="label">A · Keep four + breadcrumbs + a real h1 (F05)</div>
+      <div class="stage">
+        <div class="faux">
+          <div class="bar" style="border-bottom:1px solid var(--border)">
+            <span class="dot"></span><span>Deep learning for X-ray</span>
+            <span class="mono" style="margin-left:auto; font-size:11px">⌘K</span>
+          </div>
+          <div class="bar" style="background:var(--surface)">
+            <span class="mono" style="font-size:11.5px; color:var(--muted)">Project › Library › Papers</span>
+          </div>
+          <div style="padding:12px">
+            <div style="font-size:16px; font-weight:600; margin-bottom:8px">Papers</div>
+            <div class="row"><span class="grow">Attention is all you need</span><span class="pill good">read</span></div>
+            <div class="row"><span class="grow">Deep residual learning</span><span class="pill info">reading</span></div>
+          </div>
+          <div class="bar" style="justify-content:space-around; border-top:1px solid var(--border); border-bottom:0">
+            <span style="color:var(--accent); font-weight:600; font-size:11.5px">Library</span>
+            <span style="font-size:11.5px">Experiments</span>
+            <span style="font-size:11.5px">Plan</span>
+            <span style="font-size:11.5px">Report</span>
+          </div>
+        </div>
+      </div>
+      <div class="notes"><b>Unconditional:</b> breadcrumbs and a real <code>h1</code> per view are
+      correctness for screen readers, not a preference — take them whichever way D goes.</div>
+    </div>
+
+    <div class="opt" data-option="B">
+      <div class="label">B · Five task groups (F-04)</div>
+      <div class="stage">
+        <div class="faux">
+          <div class="bar" style="border-bottom:1px solid var(--border)">
+            <span class="dot"></span><span>Deep learning for X-ray</span>
+          </div>
+          <div class="bar" style="background:var(--surface)">
+            <span class="mono" style="font-size:11.5px; color:var(--muted)">Capture</span>
+          </div>
+          <div style="padding:12px">
+            <div class="row"><span class="grow">＋ Log entry</span></div>
+            <div class="row"><span class="grow">＋ Paper from a link</span></div>
+            <div class="row"><span class="grow">＋ Note</span></div>
+          </div>
+          <div class="bar" style="justify-content:space-around; border-top:1px solid var(--border); border-bottom:0">
+            <span style="color:var(--accent); font-weight:600; font-size:11.5px">Capture</span>
+            <span style="font-size:11.5px">Read</span>
+            <span style="font-size:11.5px">Run</span>
+            <span style="font-size:11.5px">Write</span>
+            <span style="font-size:11.5px">Share</span>
+          </div>
+        </div>
+      </div>
+      <div class="notes"><b>For:</b> matches what people <em>do</em>, and "where do I write my daily log"
+      becomes one tap. <b>Against:</b> "Capture" mixes three entities and a verb, and it is a bigger
+      migration than the breadcrumb fix.</div>
+    </div>
+  </div>
+
+  <div class="pick">
+    <span class="muted" style="font-size:12px">pick</span>
+    <label><input type="radio" name="D" value="A" /> A</label>
+    <label><input type="radio" name="D" value="B" /> B</label>
+    <label><input type="radio" name="D" value="A-now-B-spike" /> A now, spike B</label>
+    <input type="text" placeholder="…or describe a third shape" />
+    <span class="taken" data-taken="D"></span>
+  </div>
+</section>
+
+<!-- ================================================================= E -->
+<section class="decision" data-decision="E">
+  <div class="head">
+    <h2>E · One card shape, or two densities?</h2>
+    <span class="badge">component</span>
+  </div>
+  <p class="why">
+    The card primitive already exists (<code>entity-card.tsx</code>, used in 8 files), so "enforce
+    one shape" is largely already true. The question is whether a paper's own summary belongs
+    behind a "Show more" disclosure — Model 1 says no, for text-first screens.
+  </p>
+
+  <div class="ab">
+    <div class="opt" data-option="A">
+      <div class="label">A · Today — one card, summary behind "Show more"</div>
+      <div class="stage">
+        <div class="stack">
+          <div class="card tinted">
+            <div style="display:flex; align-items:flex-start; gap:10px">
+              <h4 style="flex:1">Attention is all you need</h4>
+              <span class="pill good">read</span>
+            </div>
+            <div class="meta">Vaswani, Shazeer, Parmar et al. · 2017 · NeurIPS</div>
+            <div class="chips"><span class="chip">#transformer</span><span class="chip">#attention</span></div>
+            <div class="foot" style="justify-content:space-between">
+              <button class="linkbtn danger">Delete</button>
+              <span style="display:flex; gap:12px">
+                <button class="linkbtn">Show more ▾</button>
+                <button class="linkbtn">Share</button>
+                <button class="linkbtn">Open</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12.5px; margin:12px 0 0">
+          Four of these fill the 760px screen. On a reading list, the researcher is reading
+          their own titles back to themselves, and the status <em>select</em> is the most
+          prominent control on the row.
+        </p>
+      </div>
+      <div class="notes"><b>Keep:</b> the existing anatomy — header, meta, chips, foot — is right for
+      experiments, milestones, report and shared, where the row genuinely is meta-first.</div>
+    </div>
+
+    <div class="opt recommended" data-option="B">
+      <div class="label">B · Two densities — <code>Entry</code> for papers/notes/logbook <span class="rec">rec</span></div>
+      <div class="stage">
+        <div class="stack">
+          <div class="card" style="display:flex; gap:12px">
+            <div style="width:3px; flex:none; background:var(--s-good); border-radius:999px"></div>
+            <div style="flex:1; min-width:0">
+              <h4>Attention is all you need</h4>
+              <div class="meta">Vaswani, Shazeer, Parmar et al. · 2017 · NeurIPS</div>
+              <p class="excerpt">We propose a new simple network architecture, the Transformer,
+                based solely on attention mechanisms, dispensing with recurrence and convolutions
+                entirely…</p>
+              <div class="chips"><span class="chip">#transformer</span><span class="chip">#attention</span></div>
+              <div class="foot" style="justify-content:space-between">
+                <span style="display:flex; gap:12px">
+                  <button class="linkbtn">Show more ▾</button>
+                  <button class="linkbtn">Share</button>
+                  <button class="linkbtn">Open</button>
+                </span>
+                <button class="btn icon" aria-label="More actions">⋯</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12.5px; margin:12px 0 0">
+          Three lines of the summary at full measure, in Plex Serif, with "Show more" only when
+          it actually truncates. Status moves to the margin rail as a pill.
+        </p>
+      </div>
+      <div class="notes"><b>Why:</b> §4.7's "one card spec" made one shape serve five domains, and the
+      cost landed on the one where the hidden region <em>is</em> the point. It is additive: <code>Entry</code>
+      can be a variant of the existing primitive.</div>
+    </div>
+  </div>
+
+  <div class="pick">
+    <span class="muted" style="font-size:12px">pick</span>
+    <label><input type="radio" name="E" value="A" /> A</label>
+    <label><input type="radio" name="E" value="B" /> B</label>
+    <input type="text" placeholder="…or describe a third shape" />
+    <span class="taken" data-taken="E"></span>
+  </div>
+</section>
+
+<!-- ================================================================= F -->
+<section class="decision" data-decision="F">
+  <div class="head">
+    <h2>F · Where lab formation lives</h2>
+    <span class="badge">onboarding</span>
+  </div>
+  <p class="why">
+    "Professor creates a lab, shares three codes, student joins" is the loop the product is sold
+    on and it has no home — People moved into the longest settings page. The two models put it in
+    different places, and the answers are compatible: the question is which comes first.
+  </p>
+
+  <div class="ab">
+    <div class="opt recommended" data-option="A">
+      <div class="label">A · A Lab card on Home, then a tab <span class="rec">rec</span></div>
+      <div class="stage">
+        <div class="faux">
+          <div class="bar"><span class="dot"></span><span>Home</span></div>
+          <div style="padding:12px">
+            <div class="card" style="border-left:4px solid var(--accent)">
+              <div style="display:flex; align-items:center; gap:8px">
+                <h4 style="flex:1">Your lab</h4>
+                <span class="pill info">4 members</span>
+              </div>
+              <div class="meta">2 pending invites · last join yesterday</div>
+              <div class="chips">
+                <span class="chip mono">professor 7K2M9Q</span>
+                <span class="chip mono">PhD 4XPT1B</span>
+              </div>
+              <div class="foot" style="justify-content:flex-end">
+                <button class="btn primary">＋ Invite</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes"><b>Why first:</b> a first-run nudge is the only thing that reaches a user who
+      never opens Settings, and for a solo user the card is absent rather than empty.</div>
+    </div>
+
+    <div class="opt" data-option="B">
+      <div class="label">B · Settings → People only</div>
+      <div class="stage">
+        <div class="faux" style="display:flex; min-height:168px">
+          <div class="tabrail">
+            <div class="t">Account</div>
+            <div class="t on">People</div>
+            <div class="t">Appearance</div>
+            <div class="t">Tokens</div>
+          </div>
+          <div class="pane">
+            <div class="row"><span class="grow">Invite code · professor</span><span class="chip mono">7K2M9Q</span></div>
+            <div class="row"><span class="grow">Invite code · PhD</span><span class="chip mono">4XPT1B</span></div>
+            <div class="row"><span class="grow">Invite code · Masters</span><span class="chip mono">9DWR6N</span></div>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12.5px; margin:12px 0 0">
+          Correct for a solo user, and unreachable for the persona the product targets: a lab
+          with no IT department.
+        </p>
+      </div>
+      <div class="notes"><b>Where the old standalone People icon went:</b> removed from the top bar,
+      so discovery depends on reading a settings page.</div>
+    </div>
+  </div>
+
+  <div class="pick">
+    <span class="muted" style="font-size:12px">pick</span>
+    <label><input type="radio" name="F" value="A" /> A</label>
+    <label><input type="radio" name="F" value="B" /> B</label>
+    <label><input type="radio" name="F" value="both" /> both</label>
+    <input type="text" placeholder="…or describe a third shape" />
+    <span class="taken" data-taken="F"></span>
+  </div>
+</section>
+
+<!-- ============================================================== observations -->
+<section class="decision">
+  <div class="head"><h2>Already done — do not plan these</h2><span class="badge">verified</span></div>
+  <p class="why">
+    Four claims in the audit are stale, and one is the largest single correction in the file:
+  </p>
+  <div class="stack" style="margin-top:14px">
+    <div class="card"><h4>Graph focus mode has shipped</h4>
+      <div class="meta"><code>graph-screen.tsx</code> — <code>useState(false)</code>, a <code>graph-focus-btn</code>,
+      a full-bleed canvas. Both models and <code>ui-spec §3.5</code> describe it as living on a branch.</div></div>
+    <div class="card"><h4>A contrast gate exists and passes</h4>
+      <div class="meta"><code>npm run check:contrast</code> — "0 normal-text pair(s) below AA". The thing D-06
+      asks for is built.</div></div>
+    <div class="card"><h4>Fourteen themes, not eleven or seven</h4>
+      <div class="meta"><code>lib/theme/theme.ts</code> — 6 light + 8 dark. Vivid and Pastel are in neither audit.</div></div>
+    <div class="card"><h4>The card and empty-state primitives exist</h4>
+      <div class="meta"><code>entity-card.tsx</code> in 8 files, <code>empty-state.tsx</code> in 13. The gap is
+      the footer order and the loading/error half, not the primitive.</div></div>
+  </div>
+</section>
+
+<div class="sitefoot">
+  <p style="margin:0 0 8px">
+    Hand back the letters (e.g. <code>A:B, B:A, C:A, D:A-now, E:B, F:A</code>) or just the ones you
+    disagree with. Recommendations: <b>A→B (no search)</b>, <b>B→B + A's labels</b>,
+    <b>C→A</b>, <b>D→A now, spike B</b>, <b>E→B</b>, <b>F→A</b>.
+  </p>
+  <p style="margin:0">
+    Sources: <code>docs/plans/current/design_audit_1.md</code> ·
+    <code>docs/plans/current/design_audit_verification.md</code> ·
+    <kbd>Esc</kbd> resets nothing, this page is static.
+  </p>
+</div>
+
+</div>
+
+<script>
+  // Draft persistence so the page survives a reload while you think.
+  (function () {
+    var KEY = "wf.design.decisions.v1";
+    var state = {};
+    try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { state = {}; }
+
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+    function taken(d) {
+      var el = document.querySelector('[data-taken="' + d + '"]');
+      if (!el) return;
+      var v = state[d];
+      el.textContent = v ? "chose " + v : "";
+    }
+    function textFor(d) {
+      var t = document.querySelector('[data-decision="' + d + '"] input[type=text]');
+      return t ? t.value : "";
+    }
+
+    document.querySelectorAll(".decision").forEach(function (sec) {
+      var d = sec.getAttribute("data-decision");
+      var chosen = state[d];
+      sec.querySelectorAll('input[type=radio]').forEach(function (r) {
+        if (chosen === r.value) r.checked = true;
+        r.addEventListener("change", function () {
+          if (!r.checked) return;
+          state[d] = r.value;
+          sec.querySelectorAll(".opt").forEach(function (o) {
+            o.classList.toggle("picked", o.getAttribute("data-option") === r.value);
+          });
+          save();
+          taken(d);
+        });
+        if (chosen === r.value) {
+          var o = sec.querySelector('.opt[data-option="' + r.value + '"]');
+          if (o) o.classList.add("picked");
+        }
+      });
+      var text = sec.querySelector("input[type=text]");
+      if (text) {
+        text.value = state[d + "_note"] || "";
+        text.addEventListener("input", function () {
+          state[d + "_note"] = text.value;
+          save();
+        });
+      }
+      taken(d);
+    });
+
+    // Summary in the document title, so a screenshot of the tab carries the answer.
+    function summarise() {
+      var parts = [];
+      ["A", "B", "C", "D", "E", "F"].forEach(function (d) {
+        if (state[d]) parts.push(d + ":" + state[d]);
+      });
+      document.title = parts.length
+        ? "picked " + parts.join(" ") + " — WeaveForge design mock"
+        : "WeaveForge — design audit decision mock";
+    }
+    document.addEventListener("change", summarise);
+    summarise();
+  })();
+
+  document.getElementById("modeBtn").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.getAttribute("data-mode") === "dark";
+    root.setAttribute("data-mode", dark ? "light" : "dark");
+    this.textContent = dark ? "Dark theme" : "Light theme";
+  });
+</script>
+</body>
+</html>
