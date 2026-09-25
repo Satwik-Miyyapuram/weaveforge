@@ -179,7 +179,7 @@ export function LinkedOverleafReports() {
                 <>
                   <span className="muted">Remove from this project? Overleaf keeps the document.</span>
                   <button type="button" className="link-btn" onClick={() => void unlink(report)}>Confirm</button>
-                  <button type="button" className="link-btn" onClick={() => setConfirmId(null)}>Cancel</button>
+                  <button type="button" className="link-btn btn-cancel" onClick={() => setConfirmId(null)}>Cancel</button>
                 </>
               ) : (
                 <>
@@ -362,7 +362,7 @@ function EditOverleafReportForm({ report, onSaved, onCancel, onError }: {
       <label>Entry file<input name="entryFile" required defaultValue={report.entry_file} /></label>
       <div className="linked-overleaf-form__actions">
         <button className="btn-primary" disabled={busy} type="submit">{busy ? "Saving…" : "Save changes"}</button>
-        <button className="btn-secondary" disabled={busy} type="button" onClick={onCancel}>Cancel</button>
+        <button className="btn-secondary btn-cancel" disabled={busy} type="button" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );

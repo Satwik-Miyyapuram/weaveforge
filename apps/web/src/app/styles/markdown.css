@@ -11,17 +11,17 @@
 .markdown .md-table .md-center { text-align: center; }
 .markdown .md-table .md-right { text-align: right; }
 .markdown code { background: var(--neutral); padding: 1px 5px; border-radius: 5px; font-size: 0.9em; }
-.markdown a { color: var(--accent); }
+.markdown a { color: var(--accent-ink); }
 /* Obsidian-style wikilinks: resolved = accent, unresolved = muted/dashed (offer to create). */
-.wikilink { color: var(--accent); text-decoration: none; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.wikilink { color: var(--accent-ink); text-decoration: none; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
 .wikilink:hover { border-bottom-color: var(--accent); }
 .wikilink--unresolved { color: var(--muted); border-bottom: 1px dashed color-mix(in srgb, var(--muted) 60%, transparent); }
-.wikilink--unresolved:hover { color: var(--accent); border-bottom-style: solid; }
+.wikilink--unresolved:hover { color: var(--accent-ink); border-bottom-style: solid; }
 .vault-markdown-scope { display: contents; }
 .vault-backlinks { margin-top: 14px; padding: 14px 16px; }
 .vault-backlinks__head { margin: 0 0 8px; font-size: 0.9rem; }
 .vault-backlinks__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.vault-backlinks__list .link-btn { padding: 4px 0; text-align: left; color: var(--accent); }
+.vault-backlinks__list .link-btn { padding: 4px 0; text-align: left; color: var(--accent-ink); }
 .markdown .md-image { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; }
 /* A figure's column placement (§markdown-figure-alt): the image is content
    the text wraps around, which float is, and a centered one stands alone

@@ -1,21 +1,34 @@
 import {
   findDuplicateGroups,
+  isConferenceCopy,
   isPlaceholderTitle,
+  pickKeeper,
   titleFixes,
   type DuplicateGroup,
   type IPaperRepository,
   type MetadataResolver,
+  type Paper,
   type PaperSummary,
   type TitleFix,
   type UpdatePaperUseCase,
 } from "@weaveforge/core";
 import type { MergePapersUseCase } from "@/features/papers/application/merge-papers.use-case";
 
+/** A duplicate group as the screen shows it. */
+export interface TidyDuplicateGroup extends DuplicateGroup {
+  /**
+   * The published (conference or journal) copy, when the group has exactly
+   * one and it is not already the recommended keeper. The screen offers to
+   * keep it instead and bring the reader's notes across into it.
+   */
+  conferenceId?: string;
+}
+
 /** What the tidy-up found, with the papers it names so the screen can show them. */
 export interface LibraryTidyScan {
   titles: TitleFix[];
-  duplicates: DuplicateGroup[];
-  papers: Map<string, PaperSummary>;
+  duplicates: TidyDuplicateGroup[];
+  papers: Map<string, PaperSummary & Partial<Pick<Paper, "venue">>>;
 }
 
 /**
@@ -38,11 +51,25 @@ export class LibraryTidyFacade {
 
   async scan(): Promise<LibraryTidyScan> {
     const summaries = await this.deps.papers.listSummaries();
-    return {
-      titles: titleFixes(summaries),
-      duplicates: findDuplicateGroups(summaries),
-      papers: new Map(summaries.map((p) => [p.id, p])),
-    };
+    const groups = findDuplicateGroups(summaries);
+    // The summary projection has no venue, abstract or rating, and the keeper
+    // is picked on them too. Only the grouped papers are read in full, which
+    // in a tidy library is none.
+    const full = new Map<string, Paper>();
+    for (const id of new Set(groups.flatMap((g) => g.ids))) {
+      const paper = await this.deps.papers.getById(id);
+      if (paper) full.set(id, paper);
+    }
+    const papers = new Map<string, PaperSummary & Partial<Pick<Paper, "venue">>>(summaries.map((p) => [p.id, full.get(p.id) ?? p]));
+    const duplicates = groups.map((group): TidyDuplicateGroup => {
+      const members = group.ids.map((id) => full.get(id)).filter((p): p is Paper => !!p);
+      if (members.length !== group.ids.length) return group;
+      const keepId = pickKeeper(members).id;
+      const published = members.filter(isConferenceCopy);
+      const conferenceId = published.length === 1 && published[0]!.id !== keepId ? published[0]!.id : undefined;
+      return { ...group, keepId, ...(conferenceId ? { conferenceId } : {}) };
+    });
+    return { titles: titleFixes(summaries), duplicates, papers };
   }
 
   /**

@@ -79,12 +79,22 @@ test("placeholder titles never group papers by title", () => {
   assert.deepEqual(findDuplicateGroups([paper({ title: "Catalog Page" }), paper({ title: "Catalog Page" })]), []);
 });
 
-test("the keeper is the copy with a PDF, then the one read furthest, then the oldest", () => {
+test("the keeper is the copy with the reader's own work, then more metadata, then the published one, then the oldest", () => {
   const old = paper({ id: "old", createdAt: "2020-01-01T00:00:00Z" });
   const read = paper({ id: "read", status: "read", createdAt: "2025-01-01T00:00:00Z" });
   const pdf = paper({ id: "pdf", pdfPath: "x.pdf", createdAt: "2026-01-01T00:00:00Z" });
-  assert.equal(pickKeeper([old, read, pdf]).id, "pdf");
-  assert.equal(pickKeeper([old, read]).id, "read");
+  assert.equal(pickKeeper([old, pdf, read]).id, "read");
+  assert.equal(pickKeeper([old, pdf]).id, "pdf");
+
+  const noted = paper({ id: "noted", summary: "My take", createdAt: "2026-02-01T00:00:00Z" });
+  const rich = paper({ id: "rich", doi: "10.1/x", year: 2024, authors: ["A B"], abstract: "…", venue: "NeurIPS" });
+  assert.equal(pickKeeper([rich, noted]).id, "noted", "user work beats metadata");
+  assert.equal(pickKeeper([old, rich]).id, "rich", "more metadata beats age");
+
+  const preprint = paper({ id: "preprint", year: 2023, venue: "arXiv", createdAt: "2020-01-01T00:00:00Z" });
+  const published = paper({ id: "published", year: 2023, venue: "ICML 2023", createdAt: "2024-01-01T00:00:00Z" });
+  assert.equal(pickKeeper([preprint, published]).id, "published", "published beats preprint at equal metadata");
+
   const twin = { ...old, id: "twin", createdAt: "2021-01-01T00:00:00Z" };
   assert.equal(pickKeeper([twin, old]).id, "old");
 });

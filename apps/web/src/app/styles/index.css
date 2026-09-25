@@ -39,3 +39,4 @@
 @import "./appearance.css"; /* Settings → Appearance, laid out like a record page. */
 @import "./surfaces.css"; /* The borderless surfaces variant. */
 @import "./motion.css"; /* The reactive motion variant. */
+@import "./brutal.css"; /* Neo-brutalist + CRT look, scoped to those themes. Last: wins ties. */

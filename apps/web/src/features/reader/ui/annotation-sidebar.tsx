@@ -241,7 +241,7 @@ export function AnnotationSidebar({
                     >
                       Save
                     </button>
-                    <button type="button" className="link-btn" onClick={() => setEditingId(null)}>
+                    <button type="button" className="link-btn btn-cancel" onClick={() => setEditingId(null)}>
                       Cancel
                     </button>
                   </div>

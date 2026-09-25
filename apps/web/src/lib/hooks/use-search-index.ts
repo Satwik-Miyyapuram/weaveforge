@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SearchHit, SearchQueryOptions } from "@weaveforge/core";
 import { getContainer, type AppContainer } from "@/bootstrap";
-import { SEMANTIC_CHANGED_EVENT, restoreSemanticSearch } from "@/features/search/application/semantic-search";
-import { startAutoIndex } from "@/features/search/application/auto-index-library";
+import { SEMANTIC_CHANGED_EVENT } from "@/features/search/application/semantic-events";
 
 export type WorkspaceSearchFn = (query: string, options?: SearchQueryOptions) => readonly SearchHit[];
 
@@ -81,9 +80,11 @@ function useSearchIndexState(
           // The semantic arm is re-attached here, from the first search, and
           // not at boot: it loads an encoder, and a session that never searches
           // should not pay for one. Only when the reader turned it on.
+          // Loaded here, not imported: the shell's palette uses this hook, and
+          // the engine would otherwise ship on every page.
           if (container === getContainer) {
-            void restoreSemanticSearch();
-            void startAutoIndex();
+            void import("@/features/search/application/semantic-search").then((m) => m.restoreSemanticSearch());
+            void import("@/features/search/application/auto-index-library").then((m) => m.startAutoIndex());
           }
         })
         // Deliberately not `finally`, and deliberately not setting `ready` here.

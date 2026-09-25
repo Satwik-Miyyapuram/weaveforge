@@ -89,7 +89,6 @@
 .extraction-pending-cell { display: grid; gap: 2px; min-width: 0; }
 .extraction-pending-label {
   font-size: 0.72rem;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
 }

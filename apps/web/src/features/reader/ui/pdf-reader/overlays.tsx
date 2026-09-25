@@ -164,7 +164,7 @@ export function TextBoxComposer({
           >
             {submitLabel}
           </button>
-          <button type="button" className="btn-secondary" onClick={onCancel}>
+          <button type="button" className="btn-secondary btn-cancel" onClick={onCancel}>
             Cancel
           </button>
         </div>

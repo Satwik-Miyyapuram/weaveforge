@@ -88,3 +88,37 @@ test("a typed address is still refused when it is not https", async () => {
   }
   assert.deepEqual(calls, []);
 });
+
+test("a typed address on a private or loopback host is refused before anything is fetched", async () => {
+  for (const host of ["localhost", "127.0.0.1", "10.0.0.5", "172.20.1.1", "192.168.1.1", "169.254.169.254", "[::1]", "[fd00::1]", "[fe80::1]"]) {
+    const { fetchFn, calls } = answering(pdfBody());
+    const url = `${APP}/api/pdf-proxy?url=${encodeURIComponent(`https://${host}/a.pdf`)}&typed=1`;
+    assert.equal((await proxyPdf(url, fetchFn)).status, 400, host);
+    assert.deepEqual(calls, [], host);
+  }
+});
+
+test("each redirect hop is checked before it is fetched", async () => {
+  const calls: string[] = [];
+  const fetchFn: PdfFetch = (input) => {
+    calls.push(input);
+    return Promise.resolve(new Response(null, { status: 302, headers: { location: "https://127.0.0.1/admin" } }));
+  };
+  const typed = `${APP}/api/pdf-proxy?url=${encodeURIComponent("https://repo.example/a.pdf")}&typed=1`;
+  assert.equal((await proxyPdf(typed, fetchFn)).status, 400);
+  assert.deepEqual(calls, ["https://repo.example/a.pdf"]);
+});
+
+test("a redirect within the allowlist is followed hop by hop", async () => {
+  const calls: string[] = [];
+  const fetchFn: PdfFetch = (input) => {
+    calls.push(input);
+    if (calls.length === 1) {
+      return Promise.resolve(new Response(null, { status: 301, headers: { location: "/pdf/1706.03762v7" } }));
+    }
+    return Promise.resolve(new Response(pdfBody() as BodyInit, { headers: { "content-type": "application/pdf" } }));
+  };
+  const res = await proxyPdf(`${APP}/api/pdf-proxy?url=${encodeURIComponent(ARXIV)}`, fetchFn);
+  assert.equal(res.status, 200);
+  assert.deepEqual(calls, [ARXIV, "https://arxiv.org/pdf/1706.03762v7"]);
+});

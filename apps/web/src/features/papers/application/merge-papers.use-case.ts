@@ -69,7 +69,12 @@ export class MergePapersUseCase {
   /** Merge every paper in `duplicateIds` into `keepId`, one at a time. */
   async execute(keepId: string, duplicateIds: readonly string[]): Promise<Paper> {
     const chosen = await this.load(keepId);
-    const others = await Promise.all(duplicateIds.filter((id) => id !== keepId).map((id) => this.load(id)));
+    // A duplicate already gone is one an earlier, interrupted run of this
+    // merge finished: retrying after a Zotero failure names every copy again,
+    // and the ones that went through must not stop the rest.
+    const others = (
+      await Promise.all(duplicateIds.filter((id) => id !== keepId).map((id) => this.deps.papers.getById(id)))
+    ).filter((p): p is Paper => p != null);
     const all = [chosen, ...others];
     const linked = all.filter((p) => zoteroKeyOf(p) != null);
     if (linked.length > 1 && !this.deps.bibliography) {

@@ -129,13 +129,13 @@ export function PlanScreen() {
 
   return (
     <section className="screen">
-      <ScreenHead>
+      <ScreenHead eyebrow={planEyebrow(progressItems.length, done)}>
         <button
           className="btn-primary"
           type="button"
           onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
         >
-          + Milestone
+          New milestone
         </button>
       </ScreenHead>
 
@@ -199,7 +199,7 @@ export function PlanScreen() {
       {progressItems.length > 0 && (
         <div className="card progress-card">
           <div className="progress-top">
-            <span>{done} / {progressItems.length} milestones done</span>
+            <span>{done} of {progressItems.length} milestones done</span>
             <strong>{pct}%</strong>
           </div>
           <div
@@ -228,13 +228,13 @@ export function PlanScreen() {
               className="btn-primary"
               onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
             >
-              + Milestone
+              New milestone
             </button>
           }
         />
       )}
 
-      <ul className="exp-list">
+      <ul className="exp-list plan-list">
         {items.map((m) => (
           <MilestoneCard
             key={m.id}
@@ -327,7 +327,9 @@ function MilestoneCard({
     <EntityCard
       as="li"
       id={`milestone-${m.id}`}
-      className="exp-item"
+      className={`exp-item milestone-item milestone-item--${m.status}${
+        due != null && m.status !== "done" && due <= 14 ? " milestone-item--soon" : ""
+      }`}
       title={m.title}
       status={
         readOnly ? (
@@ -340,7 +342,7 @@ function MilestoneCard({
             aria-label="Milestone status"
           >
             {MILESTONE_STATUSES.map((s) => (
-              <option key={s} value={s}>{s.replace("_", " ")}</option>
+              <option key={s} value={s}>{statusLabel(s)}</option>
             ))}
           </Select>
         )
@@ -348,7 +350,7 @@ function MilestoneCard({
       meta={
         m.targetDate
           ? [
-              `due ${m.targetDate}`,
+              `Due ${m.targetDate}`,
               due != null && m.status !== "done"
                 ? due < 0
                   ? `${-due}d overdue`
@@ -554,7 +556,7 @@ function MilestoneForm({
             onChange={(e) => setStatus(e.target.value as MilestoneStatus)}
           >
             {MILESTONE_STATUSES.map((s) => (
-              <option key={s} value={s}>{s.replace("_", " ")}</option>
+              <option key={s} value={s}>{statusLabel(s)}</option>
             ))}
           </Select>
         </div>
@@ -677,4 +679,16 @@ function MilestoneForm({
       </div>
     </form>
   );
+}
+
+/** "3 milestones · 1 done" above the title. */
+function planEyebrow(total: number, done: number): string | undefined {
+  if (!total) return undefined;
+  return `${total} ${total === 1 ? "milestone" : "milestones"} · ${done} done`;
+}
+
+/** "in_progress" reads "In progress". */
+function statusLabel(status: MilestoneStatus): string {
+  const words = status.replace("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }

@@ -182,20 +182,68 @@ export function findDuplicateGroups(papers: readonly PaperSummary[]): DuplicateG
 const STATUS_PROGRESS: Record<PaperStatus, number> = { to_read: 0, skimmed: 1, reading: 2, read: 3 };
 
 /**
- * The copy to keep: the one with a PDF, then the one read furthest, then the
- * one with a real title and identifiers, then the oldest — the one the
- * reader's links and lists were most likely made against.
+ * The fields a keeper is chosen on. A summary carries most of them; the rest
+ * (venue, abstract, rating, metadata) are read when the caller has the full
+ * row, so the tidy screen can re-pick with everything once it loads a group.
  */
-export function pickKeeper<T extends PaperSummary>(group: readonly T[]): T {
-  const score = (p: T) =>
-    (p.pdfPath ? 1000 : 0) +
+export type KeeperCandidate = PaperSummary &
+  Partial<Pick<Paper, "venue" | "abstract" | "bibtex" | "rating" | "metadata">>;
+
+/**
+ * How much of a copy is the reader's own work: how far it was read, a summary,
+ * a rating, the date read, tags, an attached PDF and annotations made on it.
+ * Losing any of it is the one thing a merge must not do, so it ranks first.
+ */
+export function userWorkScore(p: KeeperCandidate): number {
+  const annotations = p.metadata?.["annotations"];
+  return (
     STATUS_PROGRESS[p.status] * 100 +
-    (isPlaceholderTitle(p.title) ? 0 : 50) +
-    (p.doi ? 10 : 0) +
-    (p.arxivId ? 10 : 0) +
-    (p.summary ? 5 : 0) +
-    Math.min(p.tags.length, 4);
-  return [...group].sort((a, b) => score(b) - score(a) || a.createdAt.localeCompare(b.createdAt))[0]!;
+    (p.summary?.trim() ? 60 : 0) +
+    (p.rating ? 30 : 0) +
+    (p.readAt ? 20 : 0) +
+    (p.pdfPath ? 20 : 0) +
+    Math.min(p.tags.length, 5) * 4 +
+    (Array.isArray(annotations) ? Math.min(annotations.length, 20) * 5 : 0)
+  );
+}
+
+/** How many of the descriptive fields a copy has filled in. */
+export function metadataScore(p: KeeperCandidate): number {
+  return [
+    !isPlaceholderTitle(p.title),
+    p.authors.length > 0,
+    p.year != null,
+    !!p.venue?.trim(),
+    !!p.doi,
+    !!p.arxivId,
+    !!p.url,
+    !!p.abstract?.trim(),
+    !!p.bibtex?.trim(),
+  ].filter(Boolean).length;
+}
+
+const PREPRINT_VENUE = /\b(arxiv|biorxiv|medrxiv|ssrn|preprint|corr|openreview|research ?square)\b/i;
+
+/** The published version: a venue that is not a preprint server. */
+export function isConferenceCopy(p: KeeperCandidate): boolean {
+  const venue = p.venue?.trim();
+  return !!venue && !PREPRINT_VENUE.test(venue);
+}
+
+/**
+ * The copy to keep, decided in order: the one holding more of the reader's
+ * own work, then the one with more metadata, then the published (conference
+ * or journal) copy over a preprint, then the oldest — the one the reader's
+ * links and lists were most likely made against.
+ */
+export function pickKeeper<T extends KeeperCandidate>(group: readonly T[]): T {
+  return [...group].sort(
+    (a, b) =>
+      userWorkScore(b) - userWorkScore(a) ||
+      metadataScore(b) - metadataScore(a) ||
+      Number(isConferenceCopy(b)) - Number(isConferenceCopy(a)) ||
+      a.createdAt.localeCompare(b.createdAt),
+  )[0]!;
 }
 
 /** Identity of a list entry: an annotation's `key`, or the value itself. */

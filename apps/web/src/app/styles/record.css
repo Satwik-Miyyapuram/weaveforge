@@ -18,7 +18,6 @@
   font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--faint);
 }
 
@@ -53,7 +52,6 @@
   font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--muted);
 }
 .record-state .custom-select-button:hover { color: var(--text); }
@@ -154,7 +152,6 @@
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--muted);
 }
 .record-section-tag { color: var(--faint); font-weight: 400; }
@@ -232,13 +229,13 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
    are the page's structure, not boxes — but the two framed things on it (the
    empty note and the first-page preview) follow the setting like every other
    surface: Borderless trades the hairline for a fill a step off the page. */
-:root[data-surfaces="borderless"] .record-note-empty,
-:root[data-surfaces="borderless"] .record-page-frame {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .record-note-empty,
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .record-page-frame {
   border-color: transparent;
   background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
-:root[data-surfaces="borderless"] .record-note-empty:hover,
-:root[data-surfaces="borderless"] a.record-page-frame:hover {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .record-note-empty:hover,
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) a.record-page-frame:hover {
   border-color: transparent;
   background: var(--surface2);
 }
@@ -258,7 +255,6 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--muted);
 }
 .record-leader {
@@ -305,7 +301,6 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--faint);
   padding-top: 2px;
 }
@@ -348,7 +343,7 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
   box-shadow: none;
 }
 .record-section-tag .btn-secondary:hover { color: var(--text); }
-.record .live-dot { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.record .live-dot { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; }
 .record .metric-curves--detail { margin: 0; }
 .record-section-tag .entity-icon-btn { width: 24px; height: 24px; min-height: 0; border: none; background: none; color: var(--faint); }
 .record-section-tag .entity-icon-btn:hover { color: var(--text); }

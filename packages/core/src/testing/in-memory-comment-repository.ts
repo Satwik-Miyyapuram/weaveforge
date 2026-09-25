@@ -25,6 +25,9 @@ export class InMemoryCommentRepository implements ICommentRepository {
       resourceType: input.resourceType,
       resourceId: input.resourceId,
       body: input.body,
+      anchor: input.anchor ?? null,
+      parentId: input.parentId ?? null,
+      resolvedAt: null,
       createdAt: new Date(this.seq).toISOString(),
     };
     this.store.set(comment.id, comment);
@@ -42,5 +45,15 @@ export class InMemoryCommentRepository implements ICommentRepository {
 
   async remove(id: string): Promise<void> {
     this.store.delete(id);
+    // Replies go with their root, as `on delete cascade` does.
+    for (const [key, c] of this.store) if (c.parentId === id) this.store.delete(key);
+  }
+
+  async setResolved(id: string, resolved: boolean): Promise<string | null> {
+    const c = this.store.get(id);
+    if (!c) throw new Error("comment not found");
+    if (c.parentId) throw new Error("resolve the thread, not a reply");
+    c.resolvedAt = resolved ? new Date(++this.seq).toISOString() : null;
+    return c.resolvedAt;
   }
 }

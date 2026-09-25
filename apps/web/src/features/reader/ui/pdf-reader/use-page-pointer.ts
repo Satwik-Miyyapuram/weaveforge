@@ -27,11 +27,7 @@ import {
   draftImageRegion,
   draftInkAnnotation,
 } from "../../application/draft-local-annotation";
-import {
-  clipSegmentToArea,
-  pointInArea,
-  type DrawArea,
-} from "../../application/clip-to-area";
+import { clipSegmentToArea, pointInArea } from "../../application/clip-to-area";
 import { isInkTool, type ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import {
   EMPTY_ANNOTATIONS,
@@ -40,6 +36,8 @@ import {
   MIN_TEXT_BOX_PDF_SIZE,
 } from "./constants";
 import type { AnnotationActions } from "./use-annotation-actions";
+import { usePointerPreviews } from "./use-pointer-previews";
+import { drawArea, pageBoxOf } from "./page-box";
 import type { DraftShape, InkGroup, InkMove, PendingTextBox } from "./types";
 
 export interface PagePointerDeps {
@@ -183,121 +181,15 @@ export function usePagePointer({
     x1: number;
     y1: number;
   } | null>(null);
-  /**
-   * The stroke or region currently under the pointer, in PDF coordinates.
-   *
-   * `inkPath` and `dragRect` are refs, so mutating them during a drag never
-   * re-rendered anything — the mark only appeared once pointer-up persisted the
-   * annotation, with no feedback while drawing. This mirrors them into state so
-   * the in-progress shape is painted, and is cleared when the drag ends.
-   */
-  const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
-  /**
-   * Live offset of the ink marks being dragged. Held here rather than pushed
-   * through `onAnnotationsChange` so a move repaints without writing to the
-   * annotation list (and the server) on every frame. A lasso selection is
-   * dragged as one, so this is a list: the sheet moves a whole selection, and so
-   * does a paper.
-   */
-  const [movePreview, setMovePreview] = useState<{
-    ids: string[];
-    dx: number;
-    dy: number;
-  } | null>(null);
-  const moveFrame = useRef<number | null>(null);
-  const pendingMove = useRef<{ ids: string[]; dx: number; dy: number } | null>(null);
-  /**
-   * The lasso loop being drawn, in PDF user space, and the marks the last one
-   * caught. `lasso` is the ref the pointer appends to; `lassoPath` is the copy
-   * the overlay paints, published once per frame like the draft stroke.
-   */
-  const lasso = useRef<number[]>([]);
-  const lassoPointerId = useRef<number | null>(null);
-  /** The page the loop is on: a lasso takes one page's marks. */
-  const lassoPage = useRef<number | null>(null);
-  const [lassoPath, setLassoPath] = useState<readonly number[] | null>(null);
-  const lassoFrame = useRef<number | null>(null);
-  const [lassoed, setLassoed] = useState<readonly string[]>([]);
+  const {
+    draftShape, scheduleDraft, clearDraft,
+    movePreview, scheduleMove,
+    lasso, lassoPointerId, lassoPage, lassoPath, publishLasso, lassoed, setLassoed, clearLasso,
+  } = usePointerPreviews();
   /** Region a text annotation was drawn over, awaiting its text. */
   const [pendingTextBox, setPendingTextBox] = useState<PendingTextBox | null>(null);
   /** Sticky note awaiting its comment, with the colour chosen for it. */
   const [pendingNote, setPendingNote] = useState<{ color: string } | null>(null);
-  const pendingShape = useRef<DraftShape | null>(null);
-  const shapeFrame = useRef<number | null>(null);
-
-  /**
-   * Publish the in-progress shape at most once per frame. Pointer-move fires far
-   * more often than the display refreshes, and each publish re-renders a page.
-   */
-  const scheduleDraft = useCallback((shape: DraftShape | null) => {
-    pendingShape.current = shape;
-    if (shapeFrame.current != null) return;
-    shapeFrame.current = window.requestAnimationFrame(() => {
-      shapeFrame.current = null;
-      setDraftShape(pendingShape.current);
-    });
-  }, []);
-
-  const clearDraft = useCallback(() => {
-    if (shapeFrame.current != null) {
-      window.cancelAnimationFrame(shapeFrame.current);
-      shapeFrame.current = null;
-    }
-    pendingShape.current = null;
-    setDraftShape(null);
-  }, []);
-
-  /** The lasso loop, on the same frame budget as a stroke — see `scheduleDraft`. */
-  const publishLasso = useCallback((next: readonly number[] | null) => {
-    if (next == null) {
-      if (lassoFrame.current != null) {
-        window.cancelAnimationFrame(lassoFrame.current);
-        lassoFrame.current = null;
-      }
-      setLassoPath(null);
-      return;
-    }
-    if (lassoFrame.current != null) return;
-    lassoFrame.current = window.requestAnimationFrame(() => {
-      lassoFrame.current = null;
-      setLassoPath(lasso.current.length >= 2 ? [...lasso.current] : null);
-    });
-  }, []);
-
-  const clearLasso = useCallback(() => {
-    lasso.current = [];
-    lassoPointerId.current = null;
-    lassoPage.current = null;
-    publishLasso(null);
-    setLassoed([]);
-  }, [publishLasso]);
-
-  /** Same frame budget for a move as for a stroke — see `scheduleDraft`. */
-  const scheduleMove = useCallback((next: { ids: string[]; dx: number; dy: number } | null) => {
-    pendingMove.current = next;
-    if (next == null) {
-      if (moveFrame.current != null) {
-        window.cancelAnimationFrame(moveFrame.current);
-        moveFrame.current = null;
-      }
-      setMovePreview(null);
-      return;
-    }
-    if (moveFrame.current != null) return;
-    moveFrame.current = window.requestAnimationFrame(() => {
-      moveFrame.current = null;
-      setMovePreview(pendingMove.current);
-    });
-  }, []);
-
-  useEffect(() => clearDraft, [clearDraft]);
-  useEffect(
-    () => () => {
-      if (moveFrame.current != null) window.cancelAnimationFrame(moveFrame.current);
-      if (lassoFrame.current != null) window.cancelAnimationFrame(lassoFrame.current);
-    },
-    [],
-  );
   /**
    * Changing tool — or putting the pen down — lets the lasso go.
    *
@@ -319,49 +211,6 @@ export function usePagePointer({
       pageHeight: geometry?.pageHeight ?? pageSize?.height ?? 0,
       scale,
       rotation,
-    };
-  }
-
-  /**
-   * The rendered page box inside a page's row.
-   *
-   * The handlers sit on the row (§pdf-reader), because the row's right half is
-   * the pen's writing strip and a pointer that lands there must still be
-   * measured against the page — the strip is not part of the page. The page box
-   * is therefore found inside the row rather than being the event target, and
-   * every coordinate below is relative to it.
-   */
-  function pageBoxOf(row: Element): HTMLElement {
-    return (
-      row.querySelector<HTMLElement>(".pdf-reader-page") ??
-      row.querySelector<HTMLElement>("canvas")?.parentElement ??
-      (row as HTMLElement)
-    );
-  }
-
-  /**
-   * The box a stroke may be drawn in: the page's row, which is the page plus the
-   * writing margin beside it. In client pixels, so it is already the zoomed and
-   * rotated shape the hand sees.
-   *
-   * `inset` pulls the box in by that many pixels on every side, and it is the
-   * nib's half-width. A stroke is a *centreline* with a nib drawn along it, so
-   * cutting the centreline at the edge still paints half a nib past it — a
-   * highlighter's half is wide enough to lie in the gap between two pages, which
-   * is what "I can draw between the pages" turned out to be. Cutting half a nib
-   * inside puts the ink's own edge on the page's edge, which is what a pen on
-   * paper does.
-   */
-  function drawArea(row: Element, inset = 0): DrawArea | null {
-    const rect = (row as HTMLElement).getBoundingClientRect();
-    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
-    // Never so far in that the box disappears on a hairline page.
-    const back = Math.min(inset, rect.width / 4, rect.height / 4);
-    return {
-      left: rect.left + back,
-      top: rect.top + back,
-      right: rect.right - back,
-      bottom: rect.bottom - back,
     };
   }
 

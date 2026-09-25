@@ -226,13 +226,13 @@ export function ReportScreen() {
 
   return (
     <section className="screen report-screen">
-      <ScreenHead title="Sections">
+      <ScreenHead title="Sections" eyebrow={sectionsEyebrow(ownedFlat)}>
         <button
           className="btn-primary"
           type="button"
           onClick={() => setComposeOpen(true)}
         >
-          + Section
+          New section
         </button>
       </ScreenHead>
 
@@ -254,7 +254,7 @@ export function ReportScreen() {
       {ownedFlat.length > 0 && (
         <div className="card progress-card">
           <div className="progress-top">
-            <span>{done} / {ownedFlat.length} sections done</span>
+            <span>{done} of {ownedFlat.length} sections done</span>
             <strong>{pct}%</strong>
           </div>
           <div className="progress-bar">
@@ -276,7 +276,7 @@ export function ReportScreen() {
               className="btn-primary"
               onClick={() => setComposeOpen(true)}
             >
-              + Section
+              New section
             </button>
           }
         />
@@ -474,7 +474,7 @@ function SectionCard({
 
   return (
     <EntityCard
-      className={`section-item${nested ? " section-item--nested" : ""}`}
+      className={`section-item section-item--${s.status}${nested ? " section-item--nested" : ""}`}
       nested={nested}
       onActivate={onOpen ? () => onOpen(s.id) : undefined}
       leading={
@@ -511,7 +511,7 @@ function SectionCard({
           >
             {REPORT_STATUSES.map((st) => (
               <option key={st} value={st}>
-                {st.replace("_", " ")}
+                {statusLabel(st)}
               </option>
             ))}
           </Select>
@@ -536,4 +536,22 @@ function SectionCard({
       ) : null}
     </EntityCard>
   );
+}
+
+/** "not_started" reads "Not started". */
+function statusLabel(status: ReportStatus): string {
+  const words = status.replace("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** "4 sections · 4,210 of 12,000 words" above the title. */
+function sectionsEyebrow(sections: readonly ReportSection[]): string | undefined {
+  if (!sections.length) return undefined;
+  const words = sections.reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
+  const target = sections.reduce((sum, s) => sum + (s.targetWords ?? 0), 0);
+  const count = `${sections.length} ${sections.length === 1 ? "section" : "sections"}`;
+  const fmt = (n: number) => n.toLocaleString();
+  return target
+    ? `${count} · ${fmt(words)} of ${fmt(target)} words`
+    : `${count} · ${fmt(words)} words`;
 }

@@ -10,6 +10,8 @@ import {
 export type { SurfaceStyle, ThemeConfig };
 
 const LIGHT_THEMES = [
+  "brutal",
+  "crt",
   "light",
   "latte",
   "honey",
@@ -18,6 +20,7 @@ const LIGHT_THEMES = [
   "confetti-light",
 ] as const;
 export const DARK_THEMES = [
+  "brutal-dark",
   "dark",
   "mocha",
   "dracula",
@@ -35,8 +38,14 @@ export type ThemeMode = "light" | "dark";
 export type ControlSizeId = (typeof CONTROL_SIZES)[number];
 
 /** Default light / dark palette ids when nothing is stored yet. */
-export const DEFAULT_LIGHT_THEME: LightThemeId = "light";
-export const DEFAULT_DARK_THEME: DarkThemeId = "amoled";
+export const DEFAULT_LIGHT_THEME: LightThemeId = "brutal";
+export const DEFAULT_DARK_THEME: DarkThemeId = "brutal-dark";
+
+/** The redesign's themes: hard borders, offset shadows, status-tinted cards. */
+const BRUTAL_THEMES = new Set<string>(["brutal", "brutal-dark", "crt"]);
+export function isBrutalTheme(id: string): boolean {
+  return BRUTAL_THEMES.has(id);
+}
 
 export const CONTROL_SIZE_OPTIONS: ReadonlyArray<{ id: ControlSizeId; label: string }> = [
   { id: "compact", label: "Compact" },
@@ -45,6 +54,8 @@ export const CONTROL_SIZE_OPTIONS: ReadonlyArray<{ id: ControlSizeId; label: str
 ];
 
 export const LIGHT_THEME_OPTIONS: ReadonlyArray<{ id: LightThemeId; label: string }> = [
+  { id: "brutal", label: "Brutal" },
+  { id: "crt", label: "CRT" },
   { id: "light", label: "Paper" },
   { id: "latte", label: "Latte" },
   { id: "honey", label: "Honey" },
@@ -54,6 +65,7 @@ export const LIGHT_THEME_OPTIONS: ReadonlyArray<{ id: LightThemeId; label: strin
 ];
 
 export const DARK_THEME_OPTIONS: ReadonlyArray<{ id: DarkThemeId; label: string }> = [
+  { id: "brutal-dark", label: "Brutal dark" },
   { id: "amoled", label: "Amoled" },
   { id: "dark", label: "Slate" },
   { id: "mocha", label: "Mocha" },
@@ -114,6 +126,35 @@ export function readStoredSurfaceStyle(): SurfaceStyle {
     return sanitizeSurfaceStyle(localStorage.getItem("thesis.surfaces"));
   } catch {
     return "borderless";
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Card tint (brutal + CRT only)
+ * ------------------------------------------------------------------ */
+
+export type CardTint = "full" | "bar" | "none";
+
+export const CARD_TINT_OPTIONS: ReadonlyArray<{ id: CardTint; label: string }> = [
+  { id: "full", label: "Full card" },
+  { id: "bar", label: "Edge bar" },
+  { id: "none", label: "None" },
+];
+
+export function sanitizeCardTint(id: string | null | undefined): CardTint {
+  return id === "bar" || id === "none" ? id : "full";
+}
+
+/** styles/brutal.css reads `data-tint`; other themes never look at it. */
+export function applyCardTint(tint: CardTint): void {
+  document.documentElement.dataset.tint = sanitizeCardTint(tint);
+}
+
+export function readStoredCardTint(): CardTint {
+  try {
+    return sanitizeCardTint(localStorage.getItem("thesis.cardTint"));
+  } catch {
+    return "full";
   }
 }
 
@@ -252,6 +293,7 @@ function buildThemeBootScript(): string {
   const extras =
     `var sf=localStorage.getItem("thesis.surfaces")==="bordered"?"bordered":"borderless";` +
     `document.documentElement.dataset.surfaces=sf;` +
+    `var ct=localStorage.getItem("thesis.cardTint");document.documentElement.dataset.tint=ct==="bar"||ct==="none"?ct:"full";` +
     `if(localStorage.getItem("thesis.reactiveMotion")==="1")document.documentElement.dataset.motion="reactive";` +
     `var vn=${vn},rawT=localStorage.getItem("thesis.customTheme");` +
     `if(rawT){var cfg=JSON.parse(rawT),cv=(cfg&&cfg.vars)||{},okv=/^[#a-zA-Z0-9 ,.%\\/()"_-]{1,120}$/;` +

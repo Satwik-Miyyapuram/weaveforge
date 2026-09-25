@@ -17,8 +17,7 @@ import {
   wordCount,
 } from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
-import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
-import { CommentsPanel } from "@/features/sharing/ui/comments-panel";
+import { CommentsPanel, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { PaperMarkdown } from "./paper-markdown";
 import { paperImageMarkdown, materializePaperBlobImages } from "../lib/paper-images-md";
 import { reconcileTagsFromBody } from "../lib/note-tags";
@@ -502,7 +501,7 @@ export function PaperNote({
           <div className="confirm-dialog-actions">
             <button
               type="button"
-              className="btn-secondary"
+              className="btn-secondary btn-cancel"
               onClick={() => setTemplateChoiceOpen(false)}
               autoFocus
             >

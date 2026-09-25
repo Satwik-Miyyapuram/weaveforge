@@ -30,7 +30,7 @@
 .ai-access-hero h3, .ai-section-heading h4 { margin: 0; font-family: var(--font-serif); }
 .ai-access-hero h3 { margin-top: 5px; font-size: 1.18rem; }
 .ai-access-hero p { margin: 8px 0 0; max-width: 42rem; color: var(--muted); line-height: 1.55; font-size: .88rem; }
-.ai-eyebrow { margin: 0; font: 700 0.66rem var(--font-sans); letter-spacing: .1em; text-transform: uppercase; color: var(--accent-ink); }
+.ai-eyebrow { margin: 0; font: 700 0.66rem var(--font-sans); letter-spacing: .1em; color: var(--accent-ink); }
 .ai-access-hero > .status { align-self: center; }.ai-permission-row small, .ai-section-heading p { color: var(--muted); font-size: .8rem; }
 .ai-permission-row input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); flex: none; }
 .ai-permission-row input[type="checkbox"].themed-check { background: var(--surface); border-color: var(--border-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 60%, var(--line)); }
@@ -121,7 +121,7 @@
 
 /* API tokens (Settings) */
 .api-token-intro { margin-top: 0; line-height: 1.45; }
-.api-token-intro a { color: var(--accent); text-decoration: underline; }
+.api-token-intro a { color: var(--accent-ink); text-decoration: underline; }
 .api-token-env-hint {
   margin: 0 0 14px; padding: 10px 12px; border-radius: 8px;
   background: var(--surface2); border: 1px solid var(--border);

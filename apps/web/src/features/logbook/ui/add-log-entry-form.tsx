@@ -46,7 +46,7 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
         >
           {LOG_KINDS.map((k) => (
             <option key={k} value={k}>
-              {k}
+              {k.charAt(0).toUpperCase() + k.slice(1)}
             </option>
           ))}
         </Select>

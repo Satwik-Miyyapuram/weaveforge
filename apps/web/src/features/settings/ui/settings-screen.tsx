@@ -9,6 +9,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ScreenHead } from "@/components/screen-head";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { OrgPanel } from "@/features/org";
@@ -27,7 +28,7 @@ import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
+import { CARD_TINT_OPTIONS, isBrutalTheme, sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
 import { ThemeConfigPanel } from "./theme-config-panel";
@@ -64,6 +65,34 @@ const SETTINGS_TABS = [
 ] as const;
 
 type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
+
+/**
+ * The tabs, gathered into the six groups the side rail lists. Choosing a group
+ * opens its first tab; the group's other tabs sit under it while it is open.
+ */
+const SETTINGS_GROUPS: readonly {
+  id: string;
+  label: string;
+  hint: string;
+  icon: keyof typeof GROUP_ICONS;
+  tabs: readonly SettingsTabId[];
+}[] = [
+  { id: "account", label: "Account and lab", hint: "Profile, password, lab", icon: "person", tabs: ["account", "org", "tokens"] },
+  { id: "appearance", label: "Appearance", hint: "Theme, tint, text", icon: "palette", tabs: ["appearance"] },
+  { id: "editor", label: "Editor and writing", hint: "Editor, paste, workspace", icon: "pen", tabs: ["editor", "paste", "workspace"] },
+  { id: "ai", label: "Search and AI", hint: "Search, models, API keys", icon: "search", tabs: ["search", "ai"] },
+  { id: "sync", label: "Sync and integrations", hint: "Cloud, Zotero, Overleaf", icon: "sync", tabs: ["sync", "integrations"] },
+  { id: "data", label: "Data and updates", hint: "Backups, export, version", icon: "data", tabs: ["data", "updates"] },
+];
+
+const GROUP_ICONS = {
+  person: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c1.2-3.6 3.8-5.5 7-5.5s5.8 1.9 7 5.5" /></>,
+  palette: <><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 1.5-2.1-.6-1.2.2-2.4 1.5-2.4H18a3 3 0 0 0 3-3A8.5 8.5 0 0 0 12 3Z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10" cy="7" r="1" /><circle cx="14.5" cy="7" r="1" /></>,
+  pen: <><path d="M4 20l1-4L16 5l3 3L8 19l-4 1Z" /><path d="M14 7l3 3" /></>,
+  search: <><circle cx="11" cy="11" r="6" /><path d="M20 20l-4.5-4.5" /><path d="M11 8v6M8 11h6" /></>,
+  sync: <><path d="M4 12a8 8 0 0 1 13.7-5.6L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15" /><path d="M4 20v-5h5" /></>,
+  data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" /></>,
+} as const;
 
 const SETTINGS_TAB_IDS = new Set<string>(SETTINGS_TABS.map((t) => t.id));
 
@@ -121,6 +150,7 @@ export function SettingsScreen() {
   const [controlSize, setControlSize] = useState<ControlSizeId>("default");
   const [surfaces, setSurfaces] = useState<SurfaceStyle>("borderless");
   const [reactiveMotion, setReactiveMotion] = useState(false);
+  const [cardTint, setCardTint] = useState<CardTint>("full");
   const [customTheme, setCustomTheme] = useState<ThemeConfig | null>(null);
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
@@ -169,6 +199,7 @@ export function SettingsScreen() {
     setControlSize(sanitizeControlSize(appearance.controlSize));
     setSurfaces(sanitizeSurfaceStyle(appearance.surfaces));
     setReactiveMotion(appearance.reactiveMotion ?? false);
+    setCardTint(sanitizeCardTint(appearance.cardTint));
     setCustomTheme(appearance.customTheme ?? null);
   }, [load]);
 
@@ -188,6 +219,12 @@ export function SettingsScreen() {
       { darkTheme: safe },
       { apply: document.documentElement.dataset.mode === "dark" },
     );
+  }
+
+  function handleCardTintChange(val: string) {
+    const safe = sanitizeCardTint(val);
+    setCardTint(safe);
+    persistThemeChange({ cardTint: safe });
   }
 
   function handleControlSizeChange(val: string) {
@@ -320,28 +357,69 @@ export function SettingsScreen() {
     return true;
   });
 
+  const visible = new Set<SettingsTabId>(tabs.map((t) => t.id));
+  const labelOf = new Map<SettingsTabId, string>(tabs.map((t) => [t.id, t.label]));
+  const groups = SETTINGS_GROUPS
+    .map((g) => ({ ...g, tabs: g.tabs.filter((id) => visible.has(id)) }))
+    .filter((g) => g.tabs.length > 0);
+
   return (
     <section className="screen settings-screen">
-      <h1 className="sr-only">Settings</h1>
-      <div className="seg settings-tabs" role="tablist" aria-label="Settings sections">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            id={`settings-tab-${t.id}`}
-            aria-selected={tab === t.id}
-            aria-controls={`settings-${t.id}`}
-            className={tab === t.id ? "seg-on" : ""}
-            onClick={() => selectTab(t.id)}
-          >
-            {t.label}
-            {/* The dot is the whole notice between sign-ins: something to
-                notice, with nothing to answer. */}
-            {t.id === "updates" && update && <span className="tab-dot" aria-label="update available" />}
-          </button>
-        ))}
-      </div>
+      <ScreenHead
+        title="Settings"
+        eyebrow={hasAccount ? "Saved on this device and synced to your account" : "Saved on this device"}
+      />
+      <div className="settings-layout">
+      <nav className="settings-rail" aria-label="Settings sections">
+        {groups.map((g) => {
+          const open = g.tabs.includes(tab);
+          return (
+            <div key={g.id} className={`settings-rail-group${open ? " is-open" : ""}`}>
+              <button
+                type="button"
+                className="settings-rail-head"
+                aria-current={open ? "true" : undefined}
+                onClick={() => { if (!open) selectTab(g.tabs[0]!); }}
+              >
+                <span className="settings-rail-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    {GROUP_ICONS[g.icon]}
+                  </svg>
+                </span>
+                <span className="settings-rail-text">
+                  <span className="settings-rail-label">
+                    {g.label}
+                    {/* The dot is the whole notice between sign-ins: something to
+                        notice, with nothing to answer. */}
+                    {g.tabs.includes("updates") && update && <span className="tab-dot" aria-label="update available" />}
+                  </span>
+                  <span className="settings-rail-hint">{g.hint}</span>
+                </span>
+              </button>
+              {open && g.tabs.length > 1 && (
+                <div className="settings-rail-tabs" role="tablist" aria-label={g.label}>
+                  {g.tabs.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="tab"
+                      id={`settings-tab-${id}`}
+                      aria-selected={tab === id}
+                      aria-controls={`settings-${id}`}
+                      className={tab === id ? "is-active" : ""}
+                      onClick={() => selectTab(id)}
+                    >
+                      {labelOf.get(id)}
+                      {id === "updates" && update && <span className="tab-dot" aria-label="update available" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+      <div className="settings-body">
 
       {tab === "updates" && (
         <div id="settings-updates" className="settings-anchor" role="tabpanel" aria-labelledby="settings-tab-updates">
@@ -408,6 +486,38 @@ export function SettingsScreen() {
               ))}
             </Select>
           </div>
+          {(isBrutalTheme(lightTheme) || isBrutalTheme(darkTheme)) && (
+            <div className="appearance-row appearance-row--stack">
+              <div className="appearance-row-text">
+                <span className="appearance-label" id="cardTint">Card tint</span>
+                <p>How Brutal and CRT colour a paper card by its reading status.</p>
+              </div>
+              <span />
+              <div className="tint-picker" role="radiogroup" aria-labelledby="cardTint">
+                {CARD_TINT_OPTIONS.map((opt) => (
+                  <label key={opt.id} className={`tint-option tint-option--${opt.id}${cardTint === opt.id ? " is-on" : ""}`}>
+                    <span className="tint-sample" aria-hidden>
+                      <span className="tint-sample-card">
+                        <strong>Locating and editing factual associations</strong>
+                        <span className="tint-sample-meta">Meng et al. · 2022</span>
+                        {opt.id === "none" && <span className="tint-sample-chip">Reading</span>}
+                      </span>
+                    </span>
+                    <span className="tint-option-foot">
+                      <input
+                        type="radio"
+                        name="cardTint"
+                        value={opt.id}
+                        checked={cardTint === opt.id}
+                        onChange={() => handleCardTintChange(opt.id)}
+                      />
+                      <span>{opt.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <ThemeConfigPanel current={customTheme} onChange={handleCustomThemeChange} />
         </section>
 
@@ -452,7 +562,7 @@ export function SettingsScreen() {
               id="reactiveMotion"
               type="checkbox"
               role="switch"
-              className="appearance-switch"
+              className="themed-check appearance-switch"
               checked={reactiveMotion}
               onChange={(e) => handleReactiveMotionChange(e.target.checked)}
             />
@@ -600,7 +710,7 @@ export function SettingsScreen() {
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then(() => setAiAccessOpen(false)); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} />
             {error && <FormError>{error}</FormError>}
-            <div className="ai-access-modal-actions"><button type="button" className="btn-secondary" onClick={() => setAiAccessOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</button></div>
+            <div className="ai-access-modal-actions"><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</button></div>
           </form>
         </Modal>
       )}
@@ -632,6 +742,8 @@ export function SettingsScreen() {
           {hasAccount && <DeleteAccountPanel />}
         </div>
       )}
+      </div>
+      </div>
     </section>
   );
 }

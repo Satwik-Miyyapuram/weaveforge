@@ -24,7 +24,7 @@
  * scroller's scrollHeight comes from the slots alone.
  */
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type CSSProperties } from "react";
 import type { InkStroke } from "@weaveforge/core";
 import { inkPageFigures } from "@weaveforge/core";
 import type { InkPalette } from "../render/ink-palette";
@@ -35,6 +35,8 @@ import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 
 /** What the rail needs from the host. */
 export interface InkRailProps {
+  /** Desk between pages, in CSS pixels; the ⋯ menu sets it. */
+  pageGap?: number;
   /** The scroller, on the rail's own root: the host watches its scroll. */
   scrollRef: { current: HTMLDivElement | null };
   /** 0-based: the live page. */
@@ -91,6 +93,7 @@ export function InkRail(props: InkRailProps) {
     resolveImageSrc,
     palette,
     children,
+    pageGap = 0,
   } = props;
 
   const total = Math.max(1, pageCount);
@@ -131,11 +134,15 @@ export function InkRail(props: InkRailProps) {
     const { scrollWidth, scrollHeight } = scroller;
     layer.style.width = `${scrollWidth}px`;
     layer.style.height = `${scrollHeight}px`;
-  }, [pageIndex, scrollRef, total, pageSize.width, pageSize.height, scale]);
+  }, [pageIndex, scrollRef, total, pageSize.width, pageSize.height, scale, pageGap]);
 
   return (
     <div className="ink-rail-container">
-      <div className="ink-page-scroll" ref={scrollRef}>
+      <div
+        className="ink-page-scroll"
+        ref={scrollRef}
+        style={{ ["--ink-page-gap" as string]: `${pageGap}px` } as CSSProperties}
+      >
         {/* The fixed slots: every page in order. The current page's slot renders
             as static ink beneath the layer, so during a flip's repaint there is
             never a blank where the page is about to be.

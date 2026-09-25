@@ -26,7 +26,7 @@ import { paperLabel } from "./ink-bar-glyphs";
  * than guessed, before the paint, and clamped to the bar rather than to the
  * window because the bar is what the clipping ancestor is sized to.
  */
-function useBarMenu() {
+export function useBarMenu() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);

@@ -133,7 +133,7 @@ export function AccountInfoPanel() {
             {passwordSuccess && <p className="success">Your login password was changed.</p>}
             <div className="button-row">
               <button type="submit" className="btn-primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</button>
-              <button type="button" className="btn-secondary" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</button>
+              <button type="button" className="btn-secondary btn-cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</button>
             </div>
           </form>
         </Modal>

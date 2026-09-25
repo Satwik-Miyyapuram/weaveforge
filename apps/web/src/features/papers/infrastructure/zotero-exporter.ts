@@ -48,15 +48,38 @@ export class ZoteroExporter {
     return result.successful?.["0"]?.key;
   }
 
-  /** Delete the item from Zotero by its key. Best-effort (no-op if absent). */
+  /**
+   * Delete the item from Zotero by its key — permanently, not to Zotero's
+   * trash: the web API's DELETE removes the item outright. Absent already is
+   * fine.
+   *
+   * Zotero refuses a single-item DELETE without `If-Unmodified-Since-Version`
+   * (428), so the item's current version is read first. A 412 means it
+   * changed between the read and the delete; one fresh read and retry settles
+   * that, and a second 412 is an error rather than a silent success, because a
+   * copy left in Zotero comes back as a duplicate on the next sync.
+   */
   async remove(zoteroKey: string): Promise<void> {
     const creds = await this.credentials();
     if (!creds.apiKey || !creds.library) return; // not configured — nothing to do
-    const res = await this.fetchFn(`${zoteroLibraryUrl(creds.library, this.apiOrigin)}/items/${encodeURIComponent(zoteroKey)}`, {
-      method: "DELETE",
-      headers: zoteroHeaders(creds.apiKey),
-    });
-    if (!res.ok && res.status !== 404 && res.status !== 412) {
+    const url = `${zoteroLibraryUrl(creds.library, this.apiOrigin)}/items/${encodeURIComponent(zoteroKey)}`;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const head = await this.fetchFn(url, { headers: zoteroHeaders(creds.apiKey) });
+      if (head.status === 404 || head.status === 410) return;
+      if (!head.ok) {
+        const detail = await head.text().catch(() => "");
+        throw new Error(`Zotero delete failed (${head.status}). ${detail}`.trim());
+      }
+      const version = head.headers.get("Last-Modified-Version");
+      const res = await this.fetchFn(url, {
+        method: "DELETE",
+        headers: {
+          ...zoteroHeaders(creds.apiKey),
+          ...(version ? { "If-Unmodified-Since-Version": version } : {}),
+        },
+      });
+      if (res.ok || res.status === 404 || res.status === 410) return;
+      if (res.status === 412 && attempt === 0) continue;
       const detail = await res.text().catch(() => "");
       throw new Error(`Zotero delete failed (${res.status}). ${detail}`.trim());
     }

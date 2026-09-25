@@ -75,7 +75,6 @@ import { SelectionCreateBar } from "../selection-create-bar";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
-import { Select } from "@/components/select";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ColourMenu } from "@/components/colour-menu";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -168,6 +167,12 @@ export function PdfReader({
   // The pen bar, once up, is the tool picker: what it holds is what draws. Its
   // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
+  const [sideCollapsed, setSideCollapsed] = useState(readSideCollapsed);
+  const toggleSide = () =>
+    setSideCollapsed((v) => {
+      writeSideCollapsed(!v);
+      return !v;
+    });
   useEffect(() => setPenOpen(inkRail), [inkRail]);
   const pen = usePenPrefs();
   const createTool: ReaderCreateTool = penOpen ? pen.prefs.tool : pickedTool;
@@ -1144,39 +1149,40 @@ export function PdfReader({
             aria-pressed={penOpen}
             onClick={() => {
               endInkGroup();
-              setPenOpen((v) => !v);
+              const next = !penOpen;
+              setPenOpen(next);
+              syncPenParam(next);
             }}
           >
-            Pen
+            Ink mode
           </button>
         )}
         {canCreate && !penOpen && (
           <div className="pdf-reader-group">
-            <Select
-              className="pdf-reader-tool-select"
-              aria-label="Annotation tool"
-              value={createTool}
-              onChange={(e) => {
-                // Switching tool ends the mark in progress, so the next stroke
-                // never merges into one drawn with a different nib.
-                endInkGroup();
-                setCreateTool(e.target.value as ReaderCreateTool);
-              }}
-            >
-              {/* Named by what each does, not by what it is. "Image region"
-                  and "Text box" both drag out a rectangle, so the old labels
-                  gave no way to tell them apart.
-                  
-                  The three ink tools are deliberately absent. Ink is the ink
-                  mode's — the pen bar, with the note's nibs and the note's
-                  renderer — and a paper's ink is going to be synced from the
-                  ink notes rather than written here in two vocabularies. What
-                  is left is what a reader does *to* a paper: highlight its
-                  text, clip a region, write a note. */}
-              <option value="select">Highlight text</option>
-              <option value="image">Clip a region</option>
-              <option value="text">Write a note</option>
-            </Select>
+            {/* Named by what each does. The three ink tools are deliberately
+                absent: ink is the ink mode's, with the note's nibs and renderer.
+                What is left is what a reader does *to* a paper. A segmented
+                group, not a menu, so the armed tool is always visible. */}
+            <div className="seg pdf-reader-tool-seg" role="radiogroup" aria-label="Annotation tool">
+              {READER_TOOL_CHOICES.map((choice) => (
+                <button
+                  key={choice.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={createTool === choice.value}
+                  className={createTool === choice.value ? "seg-on" : undefined}
+                  title={choice.hint}
+                  onClick={() => {
+                    // Switching tool ends the mark in progress, so the next stroke
+                    // never merges into one drawn with a different nib.
+                    endInkGroup();
+                    setCreateTool(choice.value);
+                  }}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
             <ColourMenu
               value={createColor}
               palette={READER_ANNOTATION_COLORS}
@@ -1258,7 +1264,9 @@ export function PdfReader({
       <div
         className={`pdf-reader-body${
           !penOpen && (showOutline || annotations.length > 0 || canCreate)
-            ? " pdf-reader-body--outline"
+            ? sideCollapsed
+              ? " pdf-reader-body--rail"
+              : " pdf-reader-body--outline"
             : ""
         }`}
       >
@@ -1267,8 +1275,30 @@ export function PdfReader({
             annotation list all stand down and the paper gets the room. Nothing
             on a paper is picked up *from* the list; it is picked up on the page,
             by drawing a loop round it. */}
-        {!penOpen && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
+        {/* Collapsed, the whole column folds to one vertical tab that still
+            says how many annotations wait behind it. */}
+        {!penOpen && sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
+          <button
+            type="button"
+            className="pdf-reader-side-rail"
+            aria-expanded={false}
+            title="Show the side panel"
+            onClick={toggleSide}
+          >
+            <span>Annotations{annotations.length ? ` ${annotations.length}` : ""}</span>
+          </button>
+        )}
+        {!penOpen && !sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
           <div className={`pdf-reader-side${showAnnotationList ? " is-list-open" : ""}`}>
+            <button
+              type="button"
+              className="btn-ghost btn-sm pdf-reader-side-collapse"
+              aria-expanded
+              title="Hide the side panel"
+              onClick={toggleSide}
+            >
+              Collapse
+            </button>
             {showOutline && (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
             )}
@@ -1538,4 +1568,42 @@ export function PdfReader({
       ) : null}
     </div>
   );
+}
+
+/** What a reader does *to* a paper, in the order the top bar shows it. */
+const READER_TOOL_CHOICES: ReadonlyArray<{
+  value: ReaderCreateTool;
+  label: string;
+  hint: string;
+}> = [
+  { value: "select", label: "Highlight", hint: "Highlight text" },
+  { value: "image", label: "Clip", hint: "Clip a region" },
+  { value: "text", label: "Comment", hint: "Write a note on the page" },
+];
+
+/** Mirror the ink mode into `?pen=1` so a reload or a shared link lands in it. */
+function syncPenParam(on: boolean) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (on) url.searchParams.set("pen", "1");
+  else url.searchParams.delete("pen");
+  window.history.replaceState(window.history.state, "", url);
+}
+
+const SIDE_COLLAPSED_KEY = "wf.reader.sideCollapsed";
+
+function readSideCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SIDE_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSideCollapsed(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private mode or blocked storage: the panel simply forgets.
+  }
 }

@@ -34,6 +34,7 @@ export function SharedItemRenderer({
         href={href}
         ownerName={ownerName}
         ownerId={item.ownerId}
+        canComment={canComment}
       />
     );
   }
@@ -44,6 +45,7 @@ export function SharedItemRenderer({
     return (
       <li className="card exp-item shared-item">
         <Link href={href} className="shared-item-link">
+          <ShareTags kind={item.kind} canComment={canComment} />
           <div className="card-head">
             <h3 className="card-title">{page.title}</h3>
             <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>
@@ -75,6 +77,7 @@ export function SharedItemRenderer({
     return (
       <li className="card exp-item shared-item">
         <Link href={href} className="shared-item-link">
+          <ShareTags kind={item.kind} canComment={canComment} />
           <div className="card-head">
             <h3 className="card-title">{exp.name}</h3>
             <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>
@@ -113,6 +116,7 @@ export function SharedItemRenderer({
   return (
     <li className="card exp-item shared-item">
       <Link href={href} className="shared-item-link">
+        <ShareTags kind={item.kind} canComment={canComment} />
         <div className="card-head">
           <h3 className="card-title">{item.title}</h3>
           <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>
@@ -151,11 +155,13 @@ function SharedPaperCard({
   href,
   ownerName,
   ownerId,
+  canComment,
 }: {
   paper: Paper;
   href: string;
   ownerName: string;
   ownerId: string;
+  canComment: boolean;
 }) {
   const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
   const snippet = hasSummary
@@ -166,6 +172,7 @@ function SharedPaperCard({
   return (
     <li className="card paper-card shared-item">
       <Link href={href} className="shared-item-link paper-card">
+        <ShareTags kind="paper" canComment={canComment} />
         <div className="paper-card-head">
           <h3 className="paper-card-title">{paper.title}</h3>
           <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>
@@ -203,6 +210,19 @@ function SharedPaperCard({
         </Link>
       </div>
     </li>
+  );
+}
+
+/** What the item is and what the share lets me do with it, as two pills. */
+function ShareTags({ kind, canComment }: { kind: SharedItemDetail["kind"]; canComment: boolean }) {
+  const label = sharedItemTypeLabel(kind);
+  return (
+    <div className="shared-tags">
+      <span className={`shared-kind shared-kind--${kind}`}>
+        {label.charAt(0).toUpperCase() + label.slice(1)}
+      </span>
+      <span className="shared-access">{canComment ? "Can comment" : "Can view"}</span>
+    </div>
   );
 }
 

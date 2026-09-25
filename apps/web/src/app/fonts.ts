@@ -1,4 +1,4 @@
-import { JetBrains_Mono, Rubik } from "next/font/google";
+import { Jersey_10, JetBrains_Mono, Rubik } from "next/font/google";
 
 /**
  * The faces the whole product is set in, loaded once.
@@ -30,5 +30,15 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
+/* The CRT theme's pixel face, for titles and buttons only — never reading
+   text. Loaded for every theme because the theme can change without a reload;
+   `display: swap` keeps it off the critical path. */
+const pixel = Jersey_10({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-face-pixel",
+  display: "swap",
+});
+
 /** Put on <html>: the CSS variables styles/base.css reads for its type stack. */
-export const FONT_VARIABLES = `${sans.variable} ${mono.variable}`;
+export const FONT_VARIABLES = `${sans.variable} ${mono.variable} ${pixel.variable}`;

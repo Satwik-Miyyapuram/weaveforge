@@ -172,8 +172,18 @@ test("when Zotero will not let go of a copy, the copy stays and a second run fin
   assert.equal((await s.listItems.listsForPaper("a")).length, 1);
 });
 
-test("a paper that has gone is reported, not half-merged", async () => {
+test("a kept paper that has gone is reported, not half-merged", async () => {
+  const s = await setup();
+  await s.papers.save(paper("dup"));
+  await assert.rejects(s.merge.execute("gone", ["gone", "dup"]), /no longer in the library/);
+  assert.ok(await s.papers.getById("dup"));
+});
+
+test("a duplicate an earlier run already removed is skipped, so a retry finishes the rest", async () => {
   const s = await setup();
   await s.papers.save(paper("keep"));
-  await assert.rejects(s.merge.execute("keep", ["gone"]), /no longer in the library/);
+  await s.papers.save(paper("dup2"));
+  const merged = await s.merge.execute("keep", ["keep", "gone", "dup2"]);
+  assert.equal(merged.id, "keep");
+  assert.equal(await s.papers.getById("dup2"), null);
 });

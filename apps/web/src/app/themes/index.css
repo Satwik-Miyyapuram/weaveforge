@@ -18,8 +18,12 @@
 @import "./vivid-light.css";
 @import "./pastel-light.css";
 @import "./confetti-light.css";
+/* After light.css: its palette sits on :root, which ties these on specificity. */
+@import "./brutal.css";
+@import "./crt.css";
 
 /* Dark */
+@import "./brutal-dark.css";
 @import "./confetti-dark.css";
 @import "./dark.css";
 @import "./mocha.css";

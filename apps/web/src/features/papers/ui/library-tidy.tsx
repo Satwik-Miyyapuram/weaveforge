@@ -9,6 +9,7 @@ import {
   type TitleFix,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import type { LibraryTidyScan, TidyDuplicateGroup } from "@/container/facades/library-tidy";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
@@ -50,12 +51,19 @@ export function LibraryTidyNotice({
 
   return (
     <>
-      <span className="tidy-notice" role="status">
-        <span>{parts.join(" · ")}</span>
-        <button type="button" className="tidy-notice-btn" onClick={() => setOpen(true)}>
+      <div className="tidy-notice" role="status">
+        <div className="tidy-notice-text">
+          <strong>{parts.join(" · ")}</strong>
+          <span className="muted">
+            {duplicates.length
+              ? "Merge duplicates so highlights, notes and list memberships live in one place."
+              : "Some imports kept a file name or page label as the title."}
+          </span>
+        </div>
+        <button type="button" className="btn-secondary" onClick={() => setOpen(true)}>
           Review
         </button>
-      </span>
+      </div>
       {open && (
         <Modal title="Tidy the library" onClose={() => setOpen(false)}>
           <LibraryTidyPanel papers={papers} titles={titles} duplicates={duplicates} onChanged={onChanged} />
@@ -76,7 +84,29 @@ function LibraryTidyPanel({
   duplicates: DuplicateGroup[];
   onChanged: () => void | Promise<void>;
 }) {
-  const byId = useMemo(() => new Map(papers.map((p) => [p.id, p])), [papers]);
+  const localById = useMemo(() => new Map(papers.map((p) => [p.id, p])), [papers]);
+  // The groups above come from the card projection. The scan reads the grouped
+  // papers in full, so the recommended copy also weighs venue, abstract and
+  // rating, and a published copy can be offered. Until it answers (or if it
+  // fails) the local recommendation stands.
+  const [scan, setScan] = useState<Pick<LibraryTidyScan, "duplicates" | "papers"> | null>(null);
+  useEffect(() => {
+    if (duplicates.length === 0) return;
+    let live = true;
+    getContainer()
+      .libraryTidy.scan()
+      .then((result) => {
+        if (live) setScan(result);
+      })
+      .catch(() => {
+        /* keep the local recommendation */
+      });
+    return () => {
+      live = false;
+    };
+  }, [duplicates]);
+  const byId = scan?.papers ?? localById;
+  const groups: TidyDuplicateGroup[] = scan?.duplicates ?? duplicates;
   return (
     <div className="tidy-panel">
       {titles.length > 0 && (
@@ -93,16 +123,23 @@ function LibraryTidyPanel({
           </ul>
         </section>
       )}
-      {duplicates.length > 0 && (
+      {groups.length > 0 && (
         <section>
           <h3 className="tidy-head">Possible duplicates</h3>
           <p className="muted tidy-lede">
             Merging keeps the chosen copy and moves the other&rsquo;s annotations, lists, fields,
-            relations, tags and details into it. Notes link by title and are not touched.
+            relations, tags and details into it, then deletes the other copy for good, in Zotero
+            too. The copy with more of your own work is picked first, then the one with more
+            details, then the published one. Notes link by title and are not touched.
           </p>
           <ul className="tidy-list">
-            {duplicates.map((group) => (
-              <DuplicateRow key={group.ids.join(",")} group={group} byId={byId} onMerged={onChanged} />
+            {groups.map((group) => (
+              <DuplicateRow
+                key={`${group.ids.join(",")}:${group.keepId}`}
+                group={group}
+                byId={byId}
+                onMerged={onChanged}
+              />
             ))}
           </ul>
         </section>
@@ -175,9 +212,9 @@ function TitleFixRow({
   );
 }
 
-function describe(p: PaperSummary | undefined): string {
+function describe(p: (PaperSummary & { venue?: string }) | undefined): string {
   if (!p) return "";
-  return [p.year, p.pdfPath ? "PDF" : null, p.status.replace("_", " "), p.doi ? `doi:${p.doi}` : null]
+  return [p.year, p.venue, p.pdfPath ? "PDF" : null, p.status.replace("_", " "), p.doi ? `doi:${p.doi}` : null]
     .filter(Boolean)
     .join(" · ");
 }
@@ -187,8 +224,8 @@ function DuplicateRow({
   byId,
   onMerged,
 }: {
-  group: DuplicateGroup;
-  byId: Map<string, PaperSummary>;
+  group: TidyDuplicateGroup;
+  byId: Map<string, PaperSummary & { venue?: string }>;
   onMerged: () => void | Promise<void>;
 }) {
   const [keepId, setKeepId] = useState(group.keepId);
@@ -236,6 +273,21 @@ function DuplicateRow({
           );
         })}
       </fieldset>
+      {group.conferenceId ? (
+        <label className="tidy-option">
+          <input
+            type="checkbox"
+            className="themed-check"
+            checked={keepId === group.conferenceId}
+            disabled={busy || done}
+            onChange={(e) => setKeepId(e.target.checked ? group.conferenceId! : group.keepId)}
+          />
+          <span>
+            Keep the conference copy and copy my notes into it
+            <span className="muted tidy-choice-meta">{byId.get(group.conferenceId)?.venue}</span>
+          </span>
+        </label>
+      ) : null}
       {error && <FormError>{error}</FormError>}
       <div className="tidy-actions">
         {confirming ? (
@@ -243,7 +295,7 @@ function DuplicateRow({
             <span className="muted tidy-confirm">
               The other cop{others === 1 ? "y is" : "ies are"} deleted once {others === 1 ? "its" : "their"} contents move across.
             </span>
-            <button type="button" className="btn-ghost btn-sm" onClick={() => setConfirming(false)}>
+            <button type="button" className="btn-ghost btn-sm btn-cancel" onClick={() => setConfirming(false)}>
               Cancel
             </button>
             <button type="button" className="btn-primary btn-danger btn-sm" onClick={() => void merge()}>

@@ -1,5 +1,4 @@
-import { createHighlighterCore, type HighlighterCore } from "shiki/core";
-import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+import type { HighlighterCore } from "shiki/core";
 import { isMermaidFence, renderMermaidBlock } from "@/lib/mermaid-render";
 
 export type ColorMode = "light" | "dark";
@@ -16,25 +15,35 @@ const LANG_ALIASES: Record<string, string> = {
 
 let highlighterPromise: Promise<HighlighterCore> | null = null;
 
+/* Shiki's core and engine are ~50 KB gzipped; imported here, on the first
+   fence, rather than at module scope, so a note or paper without code never
+   loads them with its page. */
 function getHighlighter(): Promise<HighlighterCore> {
   if (!highlighterPromise) {
-    highlighterPromise = createHighlighterCore({
-      themes: [
-        import("@shikijs/themes/github-light"),
-        import("@shikijs/themes/github-dark"),
-      ],
-      langs: [
-        import("@shikijs/langs/javascript"),
-        import("@shikijs/langs/typescript"),
-        import("@shikijs/langs/python"),
-        import("@shikijs/langs/json"),
-        import("@shikijs/langs/bash"),
-        import("@shikijs/langs/markdown"),
-        import("@shikijs/langs/yaml"),
-        import("@shikijs/langs/rust"),
-        import("@shikijs/langs/go"),
-      ],
-      engine: createJavaScriptRegexEngine(),
+    highlighterPromise = Promise.all([import("shiki/core"), import("shiki/engine/javascript")]).then(
+      ([{ createHighlighterCore }, { createJavaScriptRegexEngine }]) =>
+        createHighlighterCore({
+          themes: [
+            import("@shikijs/themes/github-light"),
+            import("@shikijs/themes/github-dark"),
+          ],
+          langs: [
+            import("@shikijs/langs/javascript"),
+            import("@shikijs/langs/typescript"),
+            import("@shikijs/langs/python"),
+            import("@shikijs/langs/json"),
+            import("@shikijs/langs/bash"),
+            import("@shikijs/langs/markdown"),
+            import("@shikijs/langs/yaml"),
+            import("@shikijs/langs/rust"),
+            import("@shikijs/langs/go"),
+          ],
+          engine: createJavaScriptRegexEngine(),
+        }),
+    );
+    // A failed load is retried on the next fence, not kept as the answer.
+    highlighterPromise.catch(() => {
+      highlighterPromise = null;
     });
   }
   return highlighterPromise;

@@ -173,8 +173,8 @@ export function ListsScreen() {
 
   return (
     <section className="screen lists-screen">
-      <ScreenHead>
-        <button className="btn-primary" onClick={() => setAddOpen(true)}>+ List</button>
+      <ScreenHead eyebrow={listsEyebrow(flat)}>
+        <button className="btn-primary" onClick={() => setAddOpen(true)}>New list</button>
       </ScreenHead>
 
       {addOpen && (
@@ -192,7 +192,7 @@ export function ListsScreen() {
           body="A reading list is how a pile of papers becomes an argument: group them by theme, nest the groups, and keep the reason each one is there. It is a view over your papers, not a second copy of them."
           action={
             <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
-              + List
+              New list
             </button>
           }
         />
@@ -273,6 +273,16 @@ function listItemTitle(
   if (item.paperId) return paperTitles.get(item.paperId) ?? item.paperId;
   if (item.vaultPageId) return noteTitles.get(item.vaultPageId) ?? item.vaultPageId;
   return "Unknown";
+}
+
+/** "2 lists · 1 sublist": the count the brutal themes set over the title. */
+function listsEyebrow(lists: ReadingList[]): string | undefined {
+  if (lists.length === 0) return undefined;
+  const sub = lists.filter((l) => l.parentId).length;
+  const top = lists.length - sub;
+  const parts = [`${top} ${top === 1 ? "list" : "lists"}`];
+  if (sub > 0) parts.push(`${sub} ${sub === 1 ? "sublist" : "sublists"}`);
+  return parts.join(" · ");
 }
 
 function listCountLabel(items: ReadingListItem[]): string {

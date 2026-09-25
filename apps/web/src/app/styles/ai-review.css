@@ -11,7 +11,7 @@
 .ai-review-card { padding: 20px; }
 .ai-review-card h2 { font-size: 1rem; margin: 4px 0 0; }
 .ai-review-card time, .ai-kind { color: var(--muted); font-size: 0.82rem; }
-.ai-kind { color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.ai-kind { color: var(--accent-ink); font-weight: 700; letter-spacing: 0.06em; }
 .ai-proposal-content { overflow-wrap: anywhere; margin: 16px 0; padding: 12px; border-radius: 8px; background: var(--surface-alt); font: inherit; line-height: 1.55; }
 .ai-review-actions { padding-top: 14px; border-top: 1px solid var(--line); justify-content: flex-end; }
 /* Reject sits left of Approve but both belong to one decision, so they share a
@@ -27,7 +27,7 @@
 /* Sources read as named chips, not a comma-run of ids. */
 .ai-review-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; }
 .ai-review-sources-label {
-  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 0.72rem; letter-spacing: 0.06em;
   color: var(--muted); margin-right: 2px;
 }
 .ai-review-source {
@@ -42,7 +42,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 .ai-review-body { display: grid; gap: 16px; margin: 12px 0; }
 .ai-review-card--split .ai-review-body { grid-template-columns: 1fr 1fr; align-items: start; }
 .ai-review-colhead {
-  margin: 0 0 6px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  margin: 0 0 6px; font-size: 0.72rem; letter-spacing: 0.06em;
   color: var(--muted);
 }
 .ai-review-proposed .ai-proposal-content { margin: 0; }
@@ -67,3 +67,5 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 
 /* PDF reader (R0+). */
 .reader-screen { display: flex; flex-direction: column; min-height: 0; }
+.ai-review-lede { margin: -8px 0 16px; max-width: 72ch; }
+.ai-review-toolbar { padding: 14px 18px; flex-wrap: wrap; }

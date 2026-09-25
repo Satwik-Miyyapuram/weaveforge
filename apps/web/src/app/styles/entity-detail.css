@@ -1,8 +1,21 @@
 .related-panel-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
 .related-panel-list a { color: var(--ink); text-decoration: none; }
-.related-panel-list a:hover { color: var(--accent); text-decoration: underline; }
+.related-panel-list a:hover { color: var(--accent-ink); text-decoration: underline; }
 
 /* ---- Wiki screen ---- */
+/* Wiki: drafting on the left, health on the right once there is room. */
+.wiki-lede { margin: -4px 0 16px; max-width: 70ch; }
+.wiki-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.wiki-layout > .card { margin: 0; }
+@media (max-width: 1000px) { .wiki-layout { grid-template-columns: minmax(0, 1fr); } }
+.wiki-step { margin-top: 12px; }
+.wiki-step-head { display: flex; align-items: center; gap: 10px; }
+.wiki-step-title { flex: 1; min-width: 0; }
+.wiki-step-no {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none;
+  border-radius: 50%; background: var(--text); color: var(--bg); font-size: 0.74rem; font-weight: 700;
+}
+.wiki-step-count { font-size: 0.76rem; padding: 1px 9px; border-radius: 999px; background: var(--surface2); }
 .wiki-plan-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 /* A workspace can hold hundreds of sources; the list scrolls rather than
    pushing the button that acts on it off the screen. */
@@ -228,6 +241,45 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-edit { flex: none; }
 .edit-actions { justify-content: flex-end; gap: 14px; }
 .log-date { font-weight: 600; }
+/* The logbook as a timeline: a date gutter, a rule with a dot per day, the
+   day's entries, and the month and kinds beside it on a wide screen. */
+.log-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.log-timeline { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 18px; }
+.log-day { position: relative; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 34px; }
+.log-day::before {
+  content: ""; position: absolute; left: 92px; top: 0; bottom: -18px; width: 1px; background: var(--line);
+}
+.log-day:last-child::before { bottom: 0; }
+.log-day::after {
+  content: ""; position: absolute; left: 86px; top: 14px; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--accent); border: 1px solid var(--line);
+}
+.log-day-mark { display: flex; flex-direction: column; align-items: flex-end; text-align: right; padding-top: 4px; }
+.log-day-mark strong { font-size: 1.8rem; line-height: 1; }
+.log-day-mark span { color: var(--muted); font-size: 0.78rem; }
+.log-side { display: grid; gap: 16px; position: sticky; top: 16px; }
+.log-calendar h2, .log-kinds h2 { margin: 0 0 12px; font-size: 1.15rem; }
+.log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+.log-calendar-head { color: var(--muted); font-size: 0.72rem; }
+.log-calendar-day {
+  display: grid; place-items: center; aspect-ratio: 1; font-size: 0.82rem; border-radius: 6px;
+  border: 1px solid transparent;
+}
+.log-calendar-day.is-logged { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 600; }
+.log-calendar-day.is-today { border-color: var(--accent); font-weight: 700; }
+.log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.log-kinds li { display: flex; align-items: center; justify-content: space-between; }
+.log-kinds-count { color: var(--muted); font-size: 0.82rem; }
+@media (max-width: 1100px) {
+  .log-layout { grid-template-columns: minmax(0, 1fr); }
+  .log-side { display: none; }
+}
+@media (max-width: 640px) {
+  .log-day { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .log-day::before, .log-day::after { display: none; }
+  .log-day-mark { flex-direction: row; align-items: baseline; gap: 8px; }
+  .log-day-mark strong { font-size: 1.3rem; }
+}
 .log-body { margin: 0; white-space: pre-wrap; font-size: 0.95rem; }
 
 /* Report outline */

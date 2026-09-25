@@ -100,7 +100,7 @@ is only *recorded* and never drawn passes a model assertion and fails that one.
   `apps/web/src/features/ink/application/use-pen-capture.ts` (953),
   `apps/web/src/features/ink/render/webgl-renderer.ts` (1137),
   `apps/web/src/features/ink/worker/ink-worker.ts` (950), and
-  `packages/core/src/ink/myscript/` — the old 835-line `myscript.ts`, since
+  core's `ink/myscript/` (since removed) — the old 835-line `myscript.ts`, since
   split into `vocabulary.ts` (112), `request.ts` (169), `response.ts` (240),
   `latex.ts` (51) and `engine.ts` (183) behind an `index.ts` that carries the
   module's banner — while `ink-host.tsx` (1571) grew

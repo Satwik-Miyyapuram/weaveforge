@@ -48,7 +48,7 @@ export function AddVaultPageForm({
       {error && <FormError>{error}</FormError>}
       <div className="form-foot">
         {onClose && (
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button type="button" className="btn-secondary btn-cancel" onClick={onClose}>
             Cancel
           </button>
         )}

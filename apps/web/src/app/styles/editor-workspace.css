@@ -57,7 +57,7 @@
 
 .explorer-row.is-active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* The active row is marked by a 2px accent rule on its leading edge, so the
@@ -127,7 +127,7 @@
 .explorer-icon.kind-tint-warn,
 .pane-tab-icon.kind-tint-warn { color: var(--s-warn); }
 .explorer-icon.kind-tint-accent,
-.pane-tab-icon.kind-tint-accent { color: var(--accent); }
+.pane-tab-icon.kind-tint-accent { color: var(--accent-ink); }
 .explorer-icon.kind-tint-good,
 .pane-tab-icon.kind-tint-good { color: var(--s-good); }
 .explorer-icon.kind-tint-danger,
@@ -220,7 +220,6 @@
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 .explorer-search {
@@ -344,7 +343,6 @@
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   text-align: start;
   cursor: pointer;
   user-select: none;
@@ -447,7 +445,7 @@
 
 .explorer-start-note:hover {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /*
@@ -681,8 +679,8 @@
 /* The bar in focus — both surfaces are this one bar now
    (`features/ink/ui/ink-bar`), so this is one rule rather than two: what a
    hand needs mid-stroke stays, and everything else is chrome for later. */
-.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper),
-.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper) {
+.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more),
+.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more) {
   display: none;
 }
 
@@ -1075,7 +1073,7 @@
 
 .pane-mode-btn.is-on {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* The close control lives in a 16px slot that is the dirty dot until the tab
@@ -1215,7 +1213,7 @@
 }
 .image-size-side.is-on {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .image-size-crop {
   width: 7rem;
@@ -1290,7 +1288,7 @@
 
 .quick-open-result.is-active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* The kind column, so Notes, Papers, Lists and Report hits do not interleave
@@ -1320,7 +1318,6 @@
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .quick-open-group-rows {
@@ -1334,7 +1331,7 @@
    legible rather than mystifying. */
 .quick-open-path mark {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   border-radius: 2px;
 }
 
@@ -1625,7 +1622,6 @@
   margin-right: 4px;
   font-family: var(--font-mono);
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   font-size: 0.64rem;
 }
 .md-live-option {
@@ -1642,7 +1638,7 @@
   background: color-mix(in srgb, var(--faint) 10%, transparent);
 }
 .md-live-option.is-on {
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
@@ -1875,7 +1871,7 @@
 
 .ink-tool[aria-pressed="true"] {
   background: var(--surface);
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: var(--border);
   box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
@@ -2574,7 +2570,6 @@
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .ink-text h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
@@ -2705,3 +2700,51 @@
   }
   .pane-tab-switcher .pane-tab-close { opacity: 1; width: 24px; height: 24px; }
 }
+
+/* The pen: one swatch carries the colour, the dot on it the nib. */
+.ink-pen-trigger .colour-menu-current {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ink-pen-trigger-nib {
+  display: block; border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%);
+}
+.ink-pen-menu .ink-bar-widths {
+  margin-top: 4px; padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+/* The zoom pill reads like the page pill; its level resets to fit. */
+.ink-zoom-level {
+  border: 0; background: none; color: inherit; font: inherit;
+  min-width: 3.4em; justify-content: center; cursor: pointer;
+}
+.ink-zoom-level:hover { color: var(--text); }
+
+/* The ⋯ menu: sections split by a rule, chips for the one-of-n choices. */
+.ink-menu-more-list { min-width: 240px; gap: 0; }
+.ink-menu-section { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; }
+.ink-menu-section + .ink-menu-section { border-top: 1px solid var(--border); }
+.ink-menu-heading {
+  padding: 2px 8px 4px;
+  font-size: 0.72rem; color: var(--muted);
+}
+.ink-menu-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 2px; }
+.ink-menu-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: none; color: var(--text);
+  font: inherit; font-size: 0.76rem; cursor: pointer;
+}
+.ink-menu-chip:hover { filter: brightness(1.05); background: var(--chip); }
+.ink-menu-chip[aria-checked="true"] {
+  background: var(--active-bg, var(--chip)); color: var(--active-fg, var(--text));
+  border-color: var(--text);
+}
+.ink-menu-check, .ink-menu-value { color: var(--muted); font-size: 0.76rem; }
+
+/* Desk between pages, from the ink bar's page spacing (`--ink-page-gap`). */
+.ink-page-scroll > .ink-page + .ink-page { margin-top: var(--ink-page-gap, 0px); }

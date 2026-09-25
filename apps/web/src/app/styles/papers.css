@@ -15,37 +15,68 @@
 }
 .papers-table td.papers-col-open { padding: 6px 8px; }
 
-.papers-controls {
+/* The header: title and progress on the left, find and add on the right. */
+.papers-head-row {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  margin: 14px 0 6px;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 24px;
 }
-.papers-controls-main {
+.papers-head-title { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.papers-head .screen-title { margin: 18px 0 0; }
+.papers-head-actions {
   display: flex;
-  flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  flex: 0 1 auto;
   min-width: 0;
 }
-.papers-controls-main .search-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
+.papers-head-actions .search-input { margin: 0; width: 300px; min-width: 0; flex: 0 1 300px; }
+.papers-head-actions .btn-primary,
+.papers-head-actions .popover { flex: none; }
+
+/* The filter row: one dropdown per facet, the active values as removable
+   chips, and the layout switch pushed to the far end. */
+.papers-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 8px;
 }
-.papers-controls-main .popover,
-.papers-controls-main .seg {
-  flex: none;
+.papers-filters .custom-select-container.papers-filter { width: auto; flex: none; }
+.papers-filters .papers-filter .custom-select-button { padding: 7px 12px; min-width: 116px; }
+.papers-layout-seg { margin-left: auto; flex: none; }
+.papers-layout-seg button { display: inline-flex; align-items: center; gap: 6px; }
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 11px;
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
 }
-/* A phone cannot fit search, filters and the layout switch on one line: the
-   search box shrank until its placeholder read "Search tit…". Search takes
-   its own row; filters and the switch share the next, switch on the right. */
+.filter-chip-x {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.filter-chip-x:hover { filter: brightness(0.8); color: var(--ink); }
+
 @media (max-width: 899px) {
-  .papers-controls-main { flex-wrap: wrap; }
-  .papers-controls-main .search-input { flex-basis: 100%; }
-  .papers-controls-main .seg { margin-left: auto; }
+  .papers-head-actions { flex-basis: 100%; }
+  .papers-head-actions .search-input { flex: 1 1 auto; width: auto; }
 }
 
 .papers-table-scroll {
@@ -102,7 +133,7 @@
   color: var(--ink);
   white-space: nowrap;
 }
-.papers-sort-btn--on { color: var(--accent); }
+.papers-sort-btn--on { color: var(--accent-ink); }
 .papers-sort-arrow {
   font-size: 0.65rem;
   opacity: 0.45;
@@ -126,7 +157,7 @@
   overflow-wrap: anywhere;
   line-height: 1.35;
 }
-.papers-table-title-btn:hover { color: var(--accent); }
+.papers-table-title-btn:hover { color: var(--accent-ink); }
 .papers-table-shared {
   display: block;
   margin-top: 2px;
@@ -368,39 +399,34 @@
 .papers-ledger {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin: 4px 0 18px;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 .papers-ledger-bar {
-  flex: 1 1 120px;
-  max-width: 320px;
-  height: 2px;
+  width: 120px;
+  height: 4px;
   background: var(--border);
+  border-radius: 999px;
   overflow: hidden;
 }
 .papers-ledger-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
 
+/* Library upkeep, as a band across the screen rather than a line of small
+   print: what needs doing, why it matters, and the one button that does it. */
 .tidy-notice {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-left: auto;
-  font-size: 0.82rem;
-  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 4px 0 18px;
+  padding: 12px 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
 }
-.tidy-notice-btn {
-  font: inherit;
-  color: var(--text);
-  background: none;
-  border: none;
-  padding: 0;
-  text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.tidy-notice-btn:hover { text-decoration-color: currentColor; }
+.tidy-notice-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tidy-notice-text .muted { font-size: 0.86rem; }
+.tidy-notice .btn-secondary { flex: none; }
 
 /* The catalogue is a quiet list, not a wall of floating cards, but it still
    answers to Settings → Appearance: Bordered draws each entry's hairline,
@@ -419,11 +445,11 @@
   background: color-mix(in srgb, var(--surface2) 55%, transparent);
   border-color: var(--border-strong);
 }
-:root[data-surfaces="borderless"] :is(.papers-screen, .vault-screen) .card.entity-card.paper-card {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card {
   border-color: transparent;
   background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
-:root[data-surfaces="borderless"] :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
   border-color: transparent;
   background: var(--surface2);
 }
@@ -461,3 +487,6 @@
 :is(.papers-screen, .vault-screen) .paper-card:focus-within .card-menu-trigger,
 :is(.papers-screen, .vault-screen) .paper-card .card-menu-trigger[aria-expanded="true"] { opacity: 1; }
 
+.tidy-option { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; font-size: 0.85rem; }
+.tidy-option input[type="checkbox"] { flex: none; margin: 3px 0 0; }
+.tidy-option > span { display: grid; min-width: 0; }

@@ -25,10 +25,9 @@ import { PaperCard } from "./paper-card";
 import { LibraryTidyNotice } from "./library-tidy";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
-import { ListTagFilters } from "@/components/list-tag-filters";
+import { Popover } from "@/components/popover";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
-import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
@@ -395,32 +394,85 @@ export function PapersScreen() {
 
   return (
     <section className="screen papers-screen">
-      <ScreenHead note={syncMsg && <p className="muted">{syncMsg}</p>}>
-        <button
-          className="btn-primary"
-          type="button"
-          disabled={syncing}
-          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
-        >
-          {syncing ? "Syncing…" : "+ Paper"}
-        </button>
-        {/* The wiki is an action, not a destination. It reads the papers and the
-            notes together and proposes pages from them, so it belongs in the row
-            with the other ways of adding something rather than in the Library
-            strip, which now lists only the things you have. The Notes screen
-            carries the same button to this same screen. */}
-        <button className="btn-secondary" type="button" onClick={() => router.push("/wiki")}>
-          Wiki
-        </button>
-        <button
-          className="btn-secondary"
-          type="button"
-          disabled={checkingAlerts}
-          onClick={() => void checkCitationAlerts()}
-        >
-          {checkingAlerts ? "Checking…" : "Check citations"}
-        </button>
-      </ScreenHead>
+      {/* The screen's own header, not the shared `ScreenHead`: the library is
+          the one list screen with enough controls to need a hierarchy. Where you
+          are and how far through it you are on the left; the two things you do
+          most (find, add) on the right; the occasional actions behind "More". */}
+      <header className="screen-head papers-head">
+        <div className="papers-head-row">
+          <div className="papers-head-title">
+            <h1 className="screen-title">Papers</h1>
+            {papers.length > 0 && (
+              <div className="papers-ledger">
+                <span>
+                  {papers.length} {papers.length === 1 ? "paper" : "papers"} · {readCount} read
+                </span>
+                <span
+                  className="papers-ledger-bar"
+                  role="progressbar"
+                  aria-label="Reading progress"
+                  aria-valuenow={pct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <span style={{ width: `${pct}%` }} />
+                </span>
+                <span>{pct}%</span>
+              </div>
+            )}
+          </div>
+          <div className="papers-head-actions">
+            {papers.length > 0 && (
+              <input
+                className="search-input"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search papers"
+                aria-label="Search papers"
+              />
+            )}
+            <button
+              className="btn-primary"
+              type="button"
+              disabled={syncing}
+              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+            >
+              {syncing ? "Syncing…" : "Add paper"}
+            </button>
+            {/* The wiki reads the papers and notes together and proposes pages;
+                the citation check looks for new work citing the library. Both
+                are occasional, so they sit one click away rather than beside
+                Add paper. */}
+            <Popover label="More" ariaLabel="More actions" align="right">
+              {(close) => (
+                <ul className="card-menu-list">
+                  <li>
+                    <button
+                      type="button"
+                      className="card-menu-item"
+                      onClick={() => { close(); router.push("/wiki"); }}
+                    >
+                      Wiki
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className="card-menu-item"
+                      disabled={checkingAlerts}
+                      onClick={() => { close(); void checkCitationAlerts(); }}
+                    >
+                      {checkingAlerts ? "Checking citations…" : "Check citations"}
+                    </button>
+                  </li>
+                </ul>
+              )}
+            </Popover>
+          </div>
+        </div>
+        {syncMsg && <p className="muted">{syncMsg}</p>}
+      </header>
 
       {composeOpen && (
         <Modal
@@ -481,84 +533,95 @@ export function PapersScreen() {
         </Modal>
       )}
 
-      {/* One quiet line instead of a progress card and a banner: how far
-          through the library you are, and anything older imports left to tidy. */}
       {papers.length > 0 && (
-        <div className="papers-ledger">
-          <span className="record-mono">
-            {papers.length} {papers.length === 1 ? "paper" : "papers"} · {readCount} read
-          </span>
-          <span
-            className="papers-ledger-bar"
-            role="progressbar"
-            aria-label="Reading progress"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <span style={{ width: `${pct}%` }} />
-          </span>
-          <span className="record-mono">{pct}%</span>
-          <LibraryTidyNotice papers={ownPapers} onChanged={refresh} />
-        </div>
-      )}
-
-      {papers.length > 0 && (
-        <div className="papers-controls">
-          <div className="papers-controls-main">
-            <input
-              className="search-input"
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search title or author…"
-              aria-label="Search papers"
+        <div className="papers-filters" role="group" aria-label="Filter papers">
+          <MultiSelect
+            id="fstatus"
+            className="papers-filter"
+            values={statusFilter}
+            onChange={setStatusFilter}
+            allLabel="Status"
+            ariaLabel="Filter by status"
+            options={PAPER_STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
+          />
+          {lists.length > 0 && (
+            <MultiSelect
+              id="flist"
+              className="papers-filter"
+              values={listFilter}
+              onChange={setListFilter}
+              allLabel="Lists"
+              ariaLabel="Filter by list"
+              options={lists.map((l) => ({ value: l.id, label: l.name }))}
             />
-            <ListTagFilters
-              idPrefix="f"
-              lists={lists}
-              listFilter={listFilter}
-              onListFilter={setListFilter}
-              allTags={allTags}
-              tagFilter={tagFilter}
-              onTagFilter={setTagFilter}
-              activeFilters={activeFilters}
-              onClear={() => { setStatusFilter([]); setListFilter([]); setTagFilter([]); }}
+          )}
+          {allTags.length > 0 && (
+            <MultiSelect
+              id="ftags"
+              className="papers-filter"
+              values={tagFilter}
+              onChange={setTagFilter}
+              allLabel="Tags"
+              ariaLabel="Filter by tags"
+              options={allTags.map((t) => ({ value: t, label: `#${t}` }))}
+            />
+          )}
+          {statusFilter.map((v) => (
+            <FilterChip
+              key={`s:${v}`}
+              label={`Status: ${statusLabel(v)}`}
+              onRemove={() => setStatusFilter(statusFilter.filter((x) => x !== v))}
+            />
+          ))}
+          {listFilter.map((v) => (
+            <FilterChip
+              key={`l:${v}`}
+              label={`List: ${lists.find((l) => l.id === v)?.name ?? "removed list"}`}
+              onRemove={() => setListFilter(listFilter.filter((x) => x !== v))}
+            />
+          ))}
+          {tagFilter.map((v) => (
+            <FilterChip
+              key={`t:${v}`}
+              label={`#${v}`}
+              onRemove={() => setTagFilter(tagFilter.filter((x) => x !== v))}
+            />
+          ))}
+          {activeFilters > 0 && (
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => { setStatusFilter([]); setListFilter([]); setTagFilter([]); }}
             >
-              <MultiSelect
-                id="fstatus"
-                values={statusFilter}
-                onChange={setStatusFilter}
-                allLabel="All statuses"
-                ariaLabel="Filter by status"
-                options={PAPER_STATUSES.map((s) => ({ value: s, label: s.replace("_", " ") }))}
-              />
-            </ListTagFilters>
-            <div className="seg" role="tablist" aria-label="Papers layout">
-              <button
-                type="button"
-                role="tab"
-                aria-label="Cards view"
-                aria-selected={layout === "cards"}
-                className={layout === "cards" ? "seg-on" : ""}
-                onClick={() => setLayout("cards")}
-              >
-                <CardsViewIcon />
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-label="List view"
-                aria-selected={layout === "list"}
-                className={layout === "list" ? "seg-on" : ""}
-                onClick={() => setLayout("list")}
-              >
-                <ListViewIcon />
-              </button>
-            </div>
+              Clear
+            </button>
+          )}
+          <div className="seg papers-layout-seg" role="tablist" aria-label="Papers layout">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={layout === "cards"}
+              className={layout === "cards" ? "seg-on" : ""}
+              onClick={() => setLayout("cards")}
+            >
+              <CardsViewIcon />
+              Cards
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={layout === "list"}
+              className={layout === "list" ? "seg-on" : ""}
+              onClick={() => setLayout("list")}
+            >
+              <ListViewIcon />
+              List
+            </button>
           </div>
         </div>
       )}
+
+      <LibraryTidyNotice papers={ownPapers} onChanged={refresh} />
 
       {error && <FormError>{error}</FormError>}
       {!error && papers.length === 0 && (
@@ -573,7 +636,7 @@ export function PapersScreen() {
               className="btn-primary"
               onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
             >
-              + Paper
+              Add paper
             </button>
           }
         />
@@ -624,5 +687,24 @@ export function PapersScreen() {
       )}
 
     </section>
+  );
+}
+
+function statusLabel(status: string): string {
+  const words = status.replace("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** One active filter, removable on its own. */
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="filter-chip">
+      {label}
+      <button type="button" className="filter-chip-x" aria-label={`Remove filter ${label}`} onClick={onRemove}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+    </span>
   );
 }

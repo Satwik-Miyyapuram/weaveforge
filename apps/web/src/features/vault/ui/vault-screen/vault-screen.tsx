@@ -309,14 +309,14 @@ export function VaultScreen() {
 
   return (
     <section className="screen vault-screen">
-      <ScreenHead>
+      <ScreenHead eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}>
         <button
           className="btn-primary"
           type="button"
           disabled={importing}
           onClick={openCompose}
         >
-          {importing ? "Importing…" : "+ Note"}
+          {importing ? "Importing…" : "New note"}
         </button>
         {/* Same button, same screen as on Papers — the wiki reads notes *and*
             papers, so neither screen owns it. See `papers-list.tsx`. */}
@@ -475,7 +475,7 @@ export function VaultScreen() {
                 className="btn-primary"
                 onClick={() => { setComposeMode("new"); setComposeOpen(true); }}
               >
-                + Note
+                New note
               </button>
             }
           />

@@ -48,7 +48,7 @@ export function ProjectsScreen() {
     <section className="screen">
       <ScreenHead>
         {demoButton}
-        <button className="btn-primary" onClick={() => setAddOpen(true)}>+ New project</button>
+        <button className="btn-primary" onClick={() => setAddOpen(true)}>New project</button>
       </ScreenHead>
 
       {demoError && <FormError>{demoError}</FormError>}

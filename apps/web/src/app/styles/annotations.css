@@ -19,7 +19,6 @@
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  text-transform: uppercase;
   margin-bottom: 2px;
 }
 
@@ -130,7 +129,7 @@
 .jump-to-chip-remove:hover { background: var(--surface3, var(--surface2)); }
 
 .jump-to-create {
-  color: var(--accent) !important;
+  color: var(--accent-ink) !important;
   font-size: 0.85rem;
 }
 

@@ -21,6 +21,7 @@ import {
   type WikiBuildPreview,
 } from "../application/build-wiki";
 import { FormError } from "@/components/form-error";
+import { ScreenHead } from "@/components/screen-head";
 
 /**
  * Wiki: draft concept pages from what you have written, and keep them healthy.
@@ -149,18 +150,21 @@ export function WikiScreen() {
   }
 
   return (
-    <section className="screen">
-      <header className="screen-header">
-        <h2>Wiki</h2>
-        <p className="muted">
-          Concept pages drafted from your notes and papers. Nothing is written until you approve
-          it in the review queue.
-        </p>
-      </header>
+    <section className="screen wiki-screen">
+      <ScreenHead title="Wiki">
+        <Link className="btn-secondary" href="/ai-review">
+          Open review queue
+        </Link>
+      </ScreenHead>
+      <p className="muted wiki-lede">
+        Concept pages drafted from your notes and papers. Nothing is written until you approve
+        it in the review queue.
+      </p>
 
       {error && <FormError>{error}</FormError>}
 
-      <div className="card add-form">
+      <div className="wiki-layout">
+      <div className="card add-form wiki-draft">
         <h3 className="settings-group">Draft new pages</h3>
         <p className="muted">
           Scans your notes and papers for concepts that come up repeatedly and drafts a page for
@@ -178,13 +182,13 @@ export function WikiScreen() {
           )}
         </p>
         <div className="screen-actions">
-          <button className="btn-secondary" type="button" disabled={busy !== null} onClick={() => void scan()}>
+          <button className="btn-primary" type="button" disabled={busy !== null} onClick={() => void scan()}>
             {busy === "scan" && !sources ? "Scanning…" : "Scan everything"}
           </button>
           {/* With a model configured a scan costs the user money per document,
               so narrowing it has to be reachable before running, not after. */}
           <button
-            className="btn-ghost"
+            className={sources ? "btn-ghost btn-cancel" : "btn-secondary"}
             type="button"
             disabled={busy !== null}
             onClick={() => (sources ? setSources(null) : void chooseSources())}
@@ -302,7 +306,7 @@ export function WikiScreen() {
         )}
       </div>
 
-      <div className="card add-form">
+      <div className="card add-form wiki-health">
         <h3 className="settings-group">Health</h3>
         <p className="muted">
           Duplicates, links to pages that do not exist, and pages nothing connects to.
@@ -327,10 +331,12 @@ export function WikiScreen() {
               Fix in this order — merging duplicates changes which links are broken, so it comes
               first.
             </p>
-            {lint.steps.map((step) => (
-              <div key={step.kind}>
-                <h4 className="settings-group">
-                  {step.description} ({step.findings.length})
+            {lint.steps.map((step, stepIndex) => (
+              <div key={step.kind} className={`wiki-step wiki-step--${step.kind}`}>
+                <h4 className="settings-group wiki-step-head">
+                  <span className="wiki-step-no" aria-hidden="true">{stepIndex + 1}</span>
+                  <span className="wiki-step-title">{step.description}</span>
+                  <span className="wiki-step-count">{step.findings.length}</span>
                 </h4>
                 {step.kind === "dead-link" && (
                   <div className="screen-actions">
@@ -377,6 +383,7 @@ export function WikiScreen() {
             ))}
           </>
         )}
+      </div>
       </div>
       {merge && (
         <MergeDialog
@@ -459,7 +466,7 @@ function MergeDialog({
           <pre className="wiki-merge-preview">{preview.result.body}</pre>
 
           <div className="screen-actions">
-            <button className="btn-ghost" type="button" onClick={onClose}>
+            <button className="btn-ghost btn-cancel" type="button" onClick={onClose}>
               Cancel
             </button>
             <button

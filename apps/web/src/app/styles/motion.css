@@ -529,7 +529,8 @@
    Deliberately not a count and not a colour that reads as an error: what is
    waiting is an optional download for the desktop window, and the strongest
    thing it should ever do is catch the eye on the way past. */
-.settings-tabs button .tab-dot {
+.settings-tabs button .tab-dot,
+.settings-rail .tab-dot {
   display: inline-block;
   width: 6px;
   height: 6px;

@@ -185,7 +185,7 @@
 }
 .proj-menu-item:hover { background: var(--status-neutral); }
 .proj-menu-item.sel { color: var(--accent-ink); }
-.proj-menu-item .check { margin-left: auto; color: var(--accent); }
+.proj-menu-item .check { margin-left: auto; color: var(--accent-ink); }
 .proj-menu-sep { height: 1px; background: var(--line); margin: 4px 0; }
 .org-switcher { margin-bottom: 8px; }
 .org-switcher .proj-chip { width: 100%; justify-content: flex-start; }

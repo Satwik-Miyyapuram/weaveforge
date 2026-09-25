@@ -201,7 +201,6 @@
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--muted);
-  text-transform: uppercase;
   letter-spacing: 0.06em;
   min-height: 1em;
 }
@@ -216,7 +215,7 @@
 .dashboard-card-remove:hover { color: var(--ink); }
 .dashboard-card-heading {
   font-size: 0.68rem; font-weight: 600; margin: 0 0 6px; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.06em;
+ letter-spacing: 0.06em;
   flex-shrink: 0;
 }
 .dashboard-card--stat .dashboard-card-heading { margin-bottom: 4px; }
@@ -265,7 +264,7 @@
 .dashboard-list-arrow { color: var(--muted); flex: none; }
 .dashboard-list-more { font-size: 0.82rem; padding: 2px 0; }
 .dashboard-list-more-btn {
-  background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer;
+  background: none; border: 0; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer;
 }
 .dashboard-list-more-btn:hover { text-decoration: underline; }
 /* Every item shown: the list scrolls inside the card, which keeps its size. */
@@ -407,7 +406,7 @@
   .sub-nav { margin: 6px 0 2px; }
   .app-shell { padding-top: 12px; }
   .controls-row,
-  .papers-controls { margin-top: 8px; }
+  .papers-filters { margin-top: 8px; }
   .vault-editor {
     min-height: 240px !important;
   }

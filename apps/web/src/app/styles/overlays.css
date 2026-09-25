@@ -347,3 +347,98 @@
 .report-hint { font-size: 0.8em; color: var(--muted); }
 .report-failed { margin: 0; font-size: 0.9em; color: var(--danger); }
 .report-sent { margin-top: 16px; }
+
+/* Shared with me: a type filter in the head, each sender a titled grid. */
+.shared-filter { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--surface-alt); }
+.shared-filter button {
+  padding: 6px 12px; border: 0; border-radius: 8px; background: none;
+  color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+.shared-filter button.active { background: var(--active-bg); color: var(--active-fg); }
+.shared-group { margin-bottom: 22px; }
+.shared-group-head { display: flex; align-items: center; gap: 10px; }
+.shared-group-count { font-size: 0.74rem; font-weight: 500; color: var(--muted); }
+.shared-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.shared-tags { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.shared-kind, .shared-access { font-size: 0.7rem; padding: 1px 9px; border-radius: 999px; background: var(--pill); color: var(--text); }
+
+/* Margin comments on a note (note-comments.tsx). */
+.note-comments-toggle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.note-comments-toggle:hover { filter: brightness(1.15); }
+.note-comments-toggle::after { content: "▸"; margin-left: auto; transition: transform 0.15s; }
+.note-comments.is-open .note-comments-toggle::after { transform: rotate(90deg); }
+.note-comments-body { display: grid; gap: 12px; }
+.note-threads { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.note-thread {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: default;
+}
+.note-thread.is-active { border-color: var(--accent); box-shadow: 3px 3px 0 var(--accent); }
+.note-thread.is-resolved { opacity: 0.7; }
+.note-thread-quote {
+  margin: 0;
+  padding-left: 8px;
+  border-left: 3px solid var(--accent);
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-thread-quote.is-detached { border-left-color: var(--faint); text-decoration: line-through; }
+.note-comment { display: grid; gap: 2px; }
+.note-comment + .note-comment { padding-top: 6px; border-top: 1px dashed var(--border); }
+.note-comment .comment-del { margin-left: 0; }
+.note-comment-body { margin: 0; white-space: pre-wrap; font-size: 0.9rem; overflow-wrap: anywhere; }
+.note-thread-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.note-thread-actions .btn-primary { width: auto; }
+.note-comments-resolved {
+  justify-self: start;
+  padding: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.note-comments-resolved:hover { filter: brightness(1.2); }
+.note-comment-pop {
+  position: fixed;
+  z-index: var(--z-popover);
+  transform: translate(-50%, calc(-100% - 6px));
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.note-comment-pop:hover { filter: brightness(1.1); }
+::highlight(wf-comment) { background-color: color-mix(in srgb, var(--accent) 22%, transparent); }
+::highlight(wf-comment-active) { background-color: color-mix(in srgb, var(--accent) 45%, transparent); }

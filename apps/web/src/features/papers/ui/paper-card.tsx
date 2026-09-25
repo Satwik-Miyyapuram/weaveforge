@@ -69,7 +69,7 @@ export function PaperCard({
   return (
     <>
       <EntityCard
-        className="paper-card"
+        className={`paper-card paper-card--${paper.status}`}
         onActivate={onOpen}
         // Rows imported before titles were cleaned still carry the filename.
         title={titleFromFileName(paper.title)}

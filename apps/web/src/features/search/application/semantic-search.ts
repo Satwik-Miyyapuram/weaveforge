@@ -6,6 +6,7 @@ import { vectorStore } from "../infrastructure/vector-store";
 import { planEmbeddingStart, targetEmbeddingModel } from "../infrastructure/embedding-models";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { onFolderConnected } from "@/features/workspace/application/workspace-folder";
+import { SEMANTIC_CHANGED_EVENT } from "./semantic-events";
 
 /**
  * Turning semantic search on and off.
@@ -345,7 +346,7 @@ function persistNow(projectId: string | null, revision: string): void {
 }
 
 /** Fired when the arm attaches or detaches, so open views can re-query. */
-export const SEMANTIC_CHANGED_EVENT = "weaveforge:semantic-changed";
+export { SEMANTIC_CHANGED_EVENT };
 
 function announceSemanticChange(): void {
   try {

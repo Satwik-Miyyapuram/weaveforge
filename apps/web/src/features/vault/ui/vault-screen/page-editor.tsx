@@ -12,8 +12,7 @@ import { CommentsIcon, DeleteIcon, EditIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
 import { CollabBodyHost } from "@/features/collab";
-import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
-import { CommentsPanel } from "@/features/sharing/ui/comments-panel";
+import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { formatError } from "@/lib/format-error";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
@@ -60,6 +59,8 @@ export function PageEditor({
   const [title, setTitle] = useState(page.title);
   const [draft, setDraft] = useState(page.body);
   const [editing, setEditing] = useState(false);
+  /** The rendered note, which margin comments select from and light up. */
+  const noteTextRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   // Filled in by whichever editor is mounted — plain or collaborative — and
@@ -273,15 +274,17 @@ export function PageEditor({
           >
             {!showEditor ? (
               hasBody ? (
-                <VaultMarkdown
-                  body={page.body}
-                  className="summary record-note"
-                  notes={notes}
-                  papers={papers}
-                  sections={sections}
-                  onCreateNote={onCreateNote}
-                  resolveEmbed={resolveEmbed}
-                />
+                <div ref={noteTextRef}>
+                  <VaultMarkdown
+                    body={page.body}
+                    className="summary record-note"
+                    notes={notes}
+                    papers={papers}
+                    sections={sections}
+                    onCreateNote={onCreateNote}
+                    resolveEmbed={resolveEmbed}
+                  />
+                </div>
               ) : canEditBody ? (
                 <button type="button" className="record-note-empty" onClick={startEditing}>
                   Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.
@@ -344,13 +347,18 @@ export function PageEditor({
             )}
             {!showEditor && canEditBody && <NoteTagEditor page={page} onChanged={onChanged} />}
           </RecordSection>
-
-          <RecordSection label="Comments" id="record-comments">
-            <CommentsPanel resourceType="vault_page" resourceId={page.id} canComment={readOnly ? canComment : true} />
-          </RecordSection>
         </div>
 
         <aside className="record-aside">
+          <NoteComments
+            resourceType="vault_page"
+            resourceId={page.id}
+            canComment={readOnly ? canComment : true}
+            isOwner={!sharedPage && !readOnly}
+            contentRef={noteTextRef}
+            contentKey={`${showEditor ? "edit" : "view"}:${page.body}`}
+          />
+
           <RecordSection label="Record">
             <RecordFacts
               rows={[

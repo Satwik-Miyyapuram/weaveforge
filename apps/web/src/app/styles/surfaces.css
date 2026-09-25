@@ -1,5 +1,8 @@
+/* The brutal and CRT themes draw every surface with an ink border and a hard
+ * shadow (brutal.css), so this variant excludes them: each root selector here
+ * carries `:not([data-theme="brutal"], ...)`. */
 /* ---- L1: resting surfaces ---------------------------------------------- */
-:root[data-surfaces="borderless"] :is(
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
   .card,
   .graph-wrap,
   .github-link-card,
@@ -39,7 +42,7 @@
  * layer above would erase half the effect. Both attributes sit on <html>, so
  * chaining them here is (0,4,0) and outranks the (0,3,0) rule above — the two
  * are otherwise equal, and that one wins only by coming later in the file. */
-:root[data-surfaces="borderless"][data-theme^="confetti-"] .card {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-theme^="confetti-"] .card {
   border-color: var(--card-edge, transparent);
 }
 
@@ -48,7 +51,7 @@
    list to (0,3,0) and quietly outranked every later override written against a
    single class — which is how a form nested in a modal kept its rim ("double
    wall"). Anything needing a compound selector gets its own rule. */
-:root[data-surfaces="borderless"] .graph-focus-legend .graph-legend.card {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-focus-legend .graph-legend.card {
   border-color: transparent;
   box-shadow: var(--e1), var(--rim);
 }
@@ -57,14 +60,14 @@
    subordinate surface, and the tree already says so through indentation and
    the rail on its left — it gets the inset, not a rim, so depth still reads
    downwards through the levels. */
-:root[data-surfaces="borderless"] .lists-screen .list-children .list-row {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-children .list-row {
   border-color: transparent;
   box-shadow: var(--e-inset);
 }
 
 /* Interactive cards animate between levels. Declared separately from the
    resting set so the transition is not paid for by static panels. */
-:root[data-surfaces="borderless"] :is(
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
   .entity-card,
   .paper-card,
   .org-choice-card
@@ -79,7 +82,7 @@
 
 /* Nested cards stay flat and recessed — a card inside a card that also lifts
    destroys the hierarchy the outer card just established. */
-:root[data-surfaces="borderless"] .entity-card--nested {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .entity-card--nested {
   border-color: transparent;
   box-shadow: var(--e-inset);
 }
@@ -91,12 +94,12 @@
    `.card` is carried in the compound on purpose: L1's `:is()` weighs as much
    as its most specific argument (`.graph-focus-legend .graph-legend.card`),
    so this needs the same weight and must stay *after* L1 to win the cascade. */
-:root[data-surfaces="borderless"] .modal :is(.add-form, .list-add).card {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .modal :is(.add-form, .list-add).card {
   box-shadow: none;
 }
 
 /* ---- L2: interactive lift ---------------------------------------------- */
-:root[data-surfaces="borderless"] :is(
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
   .entity-card[role="button"],
   .paper-card[role="button"],
   .org-choice-card,
@@ -108,7 +111,7 @@
   transform: translateY(-1px);
 }
 
-:root[data-surfaces="borderless"] :is(
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
   .entity-card[role="button"],
   .paper-card[role="button"],
   .org-choice-card,
@@ -118,13 +121,13 @@
   transform: translateY(0);
 }
 
-:root[data-surfaces="borderless"] .entity-card--nested[role="button"]:hover {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .entity-card--nested[role="button"]:hover {
   box-shadow: var(--e1), var(--rim);
   transform: none;
 }
 
 /* ---- L3: floating & sticky chrome --------------------------------------- */
-:root[data-surfaces="borderless"] :is(
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
   .sub-nav,
   .custom-select-menu,
   .popover-panel,
@@ -146,7 +149,7 @@
    `.seg` control, and controls keep their outline. */
 
 /* ---- L4: interrupts ----------------------------------------------------- */
-:root[data-surfaces="borderless"] :is(.modal, .comments-sheet) {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.modal, .comments-sheet) {
   border-color: transparent;
   box-shadow: var(--e4), var(--rim);
 }
@@ -156,14 +159,14 @@
    the borderless L1 rule above is more specific and put the rim back, so the
    form read as a card inside a card ("double wall"). Direct children only:
    deliberately nested surfaces (choice cards, thumbs) keep their depth. */
-:root[data-surfaces="borderless"] :is(.modal, .comments-sheet) > :is(.card, .add-form, .list-add) {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.modal, .comments-sheet) > :is(.card, .add-form, .list-add) {
   border-color: transparent;
   box-shadow: none;
   background: none;
 }
 
 /* ---- Recessed wells: depth *into* the page, not out of it --------------- */
-:root[data-surfaces="borderless"] :is(
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
   .ai-proposal-content,
   .ai-source-picker,
   .shiki-markdown pre.shiki,
@@ -186,23 +189,23 @@
    to the right — occlusion is the strongest depth cue available on a flat
    viewport, and a shadow falling *onto* the content says "in front" in a way
    a 1px line never does. */
-:root[data-surfaces="borderless"] .nav {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav {
   border-color: transparent;
   box-shadow: var(--e3), var(--rim);
 }
 
 @media (min-width: 900px) {
-  :root[data-surfaces="borderless"] .nav {
+  :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav {
     border-right-color: transparent;
     box-shadow: 10px 0 26px -14px color-mix(in srgb, var(--ink) 34%, transparent);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-surfaces="borderless"] :is(.entity-card, .paper-card, .org-choice-card) {
+  :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card, .org-choice-card) {
     transition: box-shadow 0.18s var(--layout-ease);
   }
-  :root[data-surfaces="borderless"] :is(
+  :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
     .entity-card[role="button"],
     .paper-card[role="button"],
     .org-choice-card,

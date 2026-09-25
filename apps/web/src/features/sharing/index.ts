@@ -4,3 +4,5 @@ export { CommentsToggle } from "./ui/comments-toggle";
 export { PinnedPaperBadge } from "./ui/shared-item-renderer";
 export { usePinnedOwnerNames } from "./ui/use-pinned-owner-names";
 export { ShareDialogHost } from "./ui/share-dialog-host";
+export { CommentsPanel } from "./ui/comments-panel";
+export { NoteComments } from "./ui/note-comments";

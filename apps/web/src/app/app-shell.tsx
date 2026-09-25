@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 
 import { useAuth } from "@/features/auth/ui/auth-provider";
 import { LoginScreen } from "@/features/auth/ui/login-screen";
@@ -22,14 +23,23 @@ import { SubNav } from "./sub-nav";
 import { PageTransition } from "./page-transition";
 import { JumpToPalette } from "@/components/jump-to-palette";
 import { NavPendingProvider } from "@/lib/nav-pending";
-import { ShareDialogHost } from "@/features/sharing";
+import { ShareDialogHost } from "@/features/sharing/ui/share-dialog-host";
 import { RoutePending } from "./route-pending";
 import { SwipeViews } from "./swipe-views";
 import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
-import { WorkspaceFolderRestore } from "@/features/workspace/ui/workspace-folder-restore";
-import { PdfTextFolderSync } from "@/features/workspace/ui/pdf-text-folder-sync";
+
+/* Both paint nothing and only matter once a folder is connected; the folder
+   code they carry is loaded after the page rather than with every one. */
+const WorkspaceFolderRestore = dynamic(
+  () => import("@/features/workspace/ui/workspace-folder-restore").then((m) => m.WorkspaceFolderRestore),
+  { ssr: false },
+);
+const PdfTextFolderSync = dynamic(
+  () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
+  { ssr: false },
+);
 
 /**
  * Top-level shell: gates on auth, then on a selected project. Brand header

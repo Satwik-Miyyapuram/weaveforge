@@ -244,4 +244,4 @@ earlier was rejected. What changed is what is done with the engine's output.
 - `check:boundaries`: the hygiene gate still fails on work outside this pass —
   `apps/desktop/src/main.ts`, `use-page-pointer.ts` and `explorer-panel.tsx`
   over 800 lines, and `ink-polish-log.md` naming the removed
-  `packages/core/src/ink/myscript`.
+  core's since-removed `ink/myscript`.

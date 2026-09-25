@@ -14,15 +14,20 @@ import { labelForPath } from "@/lib/route-title";
  * expects one shape.
  *
  * Most screens leave the title out, since the tab bar already says where you
- * are. The page still gets its one `<h1>`, hidden, named after the route, so a
- * screen reader's heading list and "jump to main heading" land somewhere.
+ * are. The page still gets its one `<h1>`, named after the route, so a screen
+ * reader's heading list and "jump to main heading" land somewhere. The classic
+ * themes keep it hidden; the brutal themes draw it big, with the optional
+ * `eyebrow` count above it, because their pages open on a title.
  */
 export function ScreenHead({
   title,
+  eyebrow,
   note,
   children,
 }: {
   title?: string;
+  /** A short mono count over the title, e.g. "5 lists · 38 items". */
+  eyebrow?: ReactNode;
   /** Status line under the actions, e.g. the result of a sync. */
   note?: ReactNode;
   children?: ReactNode;
@@ -35,7 +40,12 @@ export function ScreenHead({
   return (
     <header className="screen-head">
       <div className="head-row">
-        {title ? <h1 className="screen-title">{title}</h1> : hidden ? <h1 className="sr-only">{hidden}</h1> : null}
+        {title || hidden ? (
+          <div className="screen-title-block">
+            {eyebrow ? <p className="screen-eyebrow">{eyebrow}</p> : null}
+            <h1 className={title ? "screen-title" : "screen-title screen-title--auto"}>{title ?? hidden}</h1>
+          </div>
+        ) : null}
         <div className="screen-actions">{children}</div>
       </div>
       {note}

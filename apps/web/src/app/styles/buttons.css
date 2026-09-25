@@ -5,6 +5,11 @@
 code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono); }
 .head-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .screen-head:empty { display: none; }
+/* The route-named <h1> a screen gets when it names no title: read by assistive
+   technology, drawn only by themes that open pages on a title (brutal.css). */
+.screen-title-block { margin-right: auto; min-width: 0; }
+.screen-title--auto { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.screen-eyebrow { display: none; }
 /* Destructive primary. Same shape as `.btn-primary` — a decision reads as one
    control group — but the side that discards something is coloured for it.
    Pairs with `.btn-secondary.danger`, which is the lighter form. */

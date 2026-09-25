@@ -8,8 +8,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { ShareButton } from "@/features/sharing";
-import { CommentsPanel } from "@/features/sharing/ui/comments-panel";
+import { CommentsPanel, ShareButton } from "@/features/sharing";
 import { commitUrl } from "@/features/sync";
 import { CommentsIcon } from "@/components/view-icons";
 import {

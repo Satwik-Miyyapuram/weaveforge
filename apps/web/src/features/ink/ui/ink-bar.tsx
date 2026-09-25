@@ -3,7 +3,9 @@
 /**
  * The ink bar: every tool, in one row, with the page and pen state at its end.
  *
- * §6.1's layout, and the whole of §6.3's tool table as data. The bar owns no
+ * One row: tools, the pen (colour and nib behind one swatch), undo, the page
+ * and the zoom. Everything done less than once a page sits behind ⋯
+ * (`ink-bar-more.tsx`). §6.1's tools, and the whole of §6.3's tool table as data. The bar owns no
  * document state — it is handed the tool in force and says what the user asked for
  * — so it can be rendered in a test with nothing behind it, and so the ink host
  * stays the only place that decides what a tool *means*.
@@ -30,7 +32,7 @@ import {
 } from "@weaveforge/core";
 
 import { toolIcon, toolLabel } from "./ink-bar-glyphs";
-import { PaperMenu, PrintMenu } from "./ink-bar-menus";
+import { MoreMenu, type InkPageGap } from "./ink-bar-more";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
 
@@ -129,6 +131,12 @@ export interface InkBarProps {
   onNextPage?: () => void;
   onDeleteSelection?: () => void;
   onCopyAsText?: () => void;
+  /** The room between pages; absent, the ⋯ menu offers no spacing. */
+  pageGap?: InkPageGap;
+  onPageGap?: (gap: InkPageGap) => void;
+  /** The note's zoom, 1 = fit width; absent, no zoom pill. */
+  zoom?: number;
+  onZoom?: (zoom: number) => void;
 }
 
 export function InkBar({
@@ -173,6 +181,10 @@ export function InkBar({
   onNextPage,
   onDeleteSelection,
   onCopyAsText,
+  pageGap,
+  onPageGap,
+  zoom,
+  onZoom,
 }: InkBarProps) {
   /**
    * Folded, in focus mode: the palette shrinks to the tools and its own
@@ -222,28 +234,30 @@ export function InkBar({
 
       <span className="ink-sep" aria-hidden="true" />
 
-      {/* 2. Colours: the six theme swatches inline, and every colour — theme
-          and marker — one tap further */}
-      <div className="ink-swatches" role="radiogroup" aria-label="Ink color">
-        {INK_THEME_COLOURS.map((entry) => (
-          <button
-            key={entry}
-            type="button"
-            className={`ink-swatch ink-swatch-${entry}`}
-            aria-pressed={colour === entry}
-            aria-label={`Ink colour: ${entry}`}
-            title={`Ink colour: ${entry}`}
-            onClick={() => onColour(entry)}
-          />
-        ))}
+      <span className="ink-sep" aria-hidden="true" />
+
+      {/* 2. The pen: colour and nib behind one swatch. The trigger shows both —
+          the colour as the swatch, the nib as the dot on it — so what the next
+          stroke will look like is readable without opening anything. The class
+          stays `ink-swatches` so the docked focus palette keeps it. */}
+      <div className="ink-swatches ink-pen-pick">
         <Popover
           iconOnly
-          ariaLabel="Other colour"
-          triggerClassName="colour-menu-trigger"
-          label={<span className={`ink-swatch colour-menu-current ink-swatch-${colour}`} aria-hidden />}
+          ariaLabel="Pen colour and nib"
+          triggerClassName="colour-menu-trigger ink-pen-trigger"
+          label={
+            <span className={`ink-swatch colour-menu-current ink-swatch-${colour}`} aria-hidden>
+              {tool === "pen" ? (
+                <span
+                  className="ink-pen-trigger-nib"
+                  style={{ width: `${3 + width}px`, height: `${3 + width}px` }}
+                />
+              ) : null}
+            </span>
+          }
         >
           {(close) => (
-            <div className="colour-menu">
+            <div className="colour-menu ink-pen-menu">
               {[INK_THEME_COLOURS, INK_MARKER_COLOURS].map((row, i) => (
                 <div
                   key={i}
@@ -267,38 +281,30 @@ export function InkBar({
                   ))}
                 </div>
               ))}
+              <div className="colour-menu-row ink-bar-widths" role="group" aria-label="Pen nib width">
+                {INK_PEN_WIDTHS.map((entry) => {
+                  const dotSize = 3 + entry;
+                  return (
+                    <button
+                      key={entry}
+                      type="button"
+                      className="ink-tool ink-tool-icon-only ink-tool-nib"
+                      aria-pressed={width === entry && tool === "pen"}
+                      aria-label={`Nib ${(entry / 10).toFixed(1)} mm`}
+                      title={`Nib ${(entry / 10).toFixed(1)} mm`}
+                      onClick={() => onWidth(entry)}
+                    >
+                      <span
+                        className="ink-nib-dot"
+                        style={{ width: `${dotSize}px`, height: `${dotSize}px` }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </Popover>
-      </div>
-
-      <span className="ink-sep" aria-hidden="true" />
-
-      {/* 3. Nib Width Dots */}
-      <div
-        className="ink-bar-group ink-bar-widths"
-        title="Pen nib width"
-        style={{ opacity: tool === "pen" ? 1 : 0.45 }}
-      >
-        {INK_PEN_WIDTHS.map((entry) => {
-          const dotSize = 3 + entry;
-          return (
-            <button
-              key={entry}
-              type="button"
-              className="ink-tool ink-tool-icon-only ink-tool-nib"
-              aria-pressed={width === entry && tool === "pen"}
-              aria-label={`Nib ${(entry / 10).toFixed(1)} mm`}
-              title={`Nib ${(entry / 10).toFixed(1)} mm`}
-              onClick={() => onWidth(entry)}
-            >
-              <span
-                className="ink-nib-dot"
-                style={{ width: `${dotSize}px`, height: `${dotSize}px` }}
-              />
-            </button>
-          );
-        })}
       </div>
 
       <span className="ink-sep" aria-hidden="true" />
@@ -443,119 +449,41 @@ export function InkBar({
         </>
       ) : null}
 
-      {onAddPage ? (
-        <button
-          type="button"
-          className="ink-tool ink-tool-icon-only"
-          onClick={onAddPage}
-          title="Add new page"
-          aria-label="Add new page"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
+      {zoom !== undefined && onZoom ? (
+        <>
+          {/* 5b. Zoom: out, the level (click to fit), in */}
+          <div className="ink-page-pill ink-zoom-pill">
+            <button
+              type="button"
+              className="ink-tool ink-tool-icon-only"
+              onClick={() => onZoom(Math.max(0.5, zoom / 1.2))}
+              disabled={zoom <= 0.5}
+              title="Zoom out"
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="ink-page-count ink-zoom-level"
+              onClick={() => onZoom(1)}
+              title="Fit the page width"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              className="ink-tool ink-tool-icon-only"
+              onClick={() => onZoom(Math.min(4, zoom * 1.2))}
+              disabled={zoom >= 4}
+              title="Zoom in"
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+          </div>
+        </>
       ) : null}
-
-      {onAddImage ? (
-        <button
-          type="button"
-          className="ink-tool ink-tool-icon-only"
-          onClick={onAddImage}
-          title={
-            hasPageBackground
-              ? "Change page image (or paste / drop)"
-              : "Add image to page (or paste / drop)"
-          }
-          aria-label={
-            hasPageBackground ? "Change page image" : "Add image to page"
-          }
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            {/* An image with a plus on its corner, so it cannot be mistaken
-                for the print button, which used to share this picture. */}
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" />
-            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-            <circle cx="9" cy="9" r="2" />
-            <path d="M16 5h6M19 2v6" />
-          </svg>
-        </button>
-      ) : null}
-
-      {hasPageBackground && onRemovePageBackground ? (
-        <button
-          type="button"
-          className="ink-tool ink-tool-icon-only"
-          onClick={onRemovePageBackground}
-          title="Remove page image"
-          aria-label="Remove page image"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="m3 3 18 18" />
-            <path d="M15 9h.01" />
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L12 15" />
-          </svg>
-        </button>
-      ) : null}
-
-      {onInsertPage ? (
-        <button
-          type="button"
-          className="ink-tool ink-tool-icon-only"
-          onClick={onInsertPage}
-          title="Insert page from PDF or image"
-          aria-label="Insert page from PDF or image"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <path d="M14 2v6h6" />
-            <path d="M12 18v-6M9 15h6" />
-          </svg>
-        </button>
-      ) : null}
-
-      <span className="ink-sep" aria-hidden="true" />
 
       {onRecognise ? (
         <>
@@ -587,81 +515,6 @@ export function InkBar({
         </>
       ) : null}
 
-      {/* 7. Print: the page on paper, as a PNG, or as SVG */}
-      {onPrint && onExportPng ? (
-        <PrintMenu
-          onPrint={onPrint}
-          onExportPng={onExportPng}
-          {...(onExportSvg ? { onExportSvg } : {})}
-        />
-      ) : null}
-
-      {/* 7b. Page layout: the paper under the ink */}
-      {paper && onPaper ? <PaperMenu paper={paper} onPaper={onPaper} /> : null}
-
-      {/* 8. Text Layer Toggle */}
-      {onToggleTextLayer ? (
-        <button
-          type="button"
-          className="ink-tool ink-tool-icon-only"
-          onClick={onToggleTextLayer}
-          aria-pressed={showTextLayer}
-          title={
-            showTextLayer ? "Hide text layer" : "Show text layer"
-          }
-          aria-label={
-            showTextLayer ? "Hide text layer" : "Show text layer"
-          }
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect width="18" height="18" x="3" y="3" rx="2" />
-            <path d="M15 3v18" />
-            <path d="M7 8h4M7 12h4M7 16h2" />
-          </svg>
-        </button>
-      ) : null}
-
-      {/* 9. Wrist Guard & Handedness. The reader's pen has neither: its palm
-          rules are fixed and its own toolbar carries no hand switch. */}
-      {onPenOnly || onHand ? <span className="ink-sep" aria-hidden="true" /> : null}
-
-      {onPenOnly ? (
-        <label
-          className="ink-pen-only"
-          title="Ignore touch entirely; the wrist guard"
-        >
-          <input
-            type="checkbox"
-            className="themed-check"
-            checked={penOnly}
-            onChange={(event) => onPenOnly(event.target.checked)}
-          />
-          <span>Pen only</span>
-        </label>
-      ) : null}
-
-      {onHand ? (
-        <button
-          type="button"
-          className="ink-tool ink-tool-hand"
-          onClick={() => onHand(hand === "right" ? "left" : "right")}
-          title="Which hand writes: the resting palm is expected on that side"
-          aria-label={`Writing hand: ${hand}`}
-        >
-          {hand === "right" ? "Right hand" : "Left hand"}
-        </button>
-      ) : null}
-
       <span className="ink-bar-spacer" />
 
       {/* 10. End Readout. Only the parts a surface actually has are printed, so
@@ -680,6 +533,28 @@ export function InkBar({
           {delegating ? " · delegated" : ""}
         </span>
       ) : null}
+
+      {/* 11. Everything else: pages, paper, spacing, export, input */}
+      <MoreMenu
+        onAddPage={onAddPage}
+        onAddImage={onAddImage}
+        hasPageBackground={hasPageBackground}
+        onRemovePageBackground={onRemovePageBackground}
+        onInsertPage={onInsertPage}
+        paper={paper}
+        onPaper={onPaper}
+        pageGap={pageGap}
+        onPageGap={onPageGap}
+        onPrint={onPrint}
+        onExportPng={onExportPng}
+        onExportSvg={onExportSvg}
+        showTextLayer={showTextLayer}
+        onToggleTextLayer={onToggleTextLayer}
+        penOnly={penOnly}
+        onPenOnly={onPenOnly}
+        hand={hand}
+        onHand={onHand}
+      />
     </div>
   );
 }

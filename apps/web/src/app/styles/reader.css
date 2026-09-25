@@ -36,7 +36,7 @@
 .pdf-reader-group .btn-secondary:hover { background: var(--surface2); }
 .pdf-reader-group .btn-secondary.is-active {
   background: color-mix(in srgb, var(--accent) 22%, var(--surface));
-  border-color: transparent; color: var(--accent);
+  border-color: transparent; color: var(--accent-ink);
 }
 .pdf-reader-icon-btn { min-width: 2rem; font-variant-numeric: tabular-nums; }
 .pdf-reader-toolbar-label {
@@ -52,12 +52,9 @@
 .pdf-reader-page-jump input {
   width: 3.5rem; padding: 4px 6px; text-align: center;
 }
-/* The toolbar is a nowrap flex strip, so the trigger must size to its content
-   rather than take the container default of width:100%. */
-.pdf-reader-tool-select { width: auto; flex: none; }
-.pdf-reader-tool-select .custom-select-button {
-  width: auto; padding: 4px 6px; font-size: 0.85rem; gap: 4px;
-}
+/* The tool group sits in a nowrap flex strip: it keeps its size. */
+.pdf-reader-tool-seg { flex: none; }
+.pdf-reader-tool-seg button { padding: 4px 11px; }
 @media (max-width: 720px) {
   /* "Page 3 / 15" is orientation, not a command. Pushing it to the end of a
      scrolling strip hides it; lead with it instead. (Pinning it with sticky
@@ -116,6 +113,7 @@
 }
 .pdf-reader.is-focus .pdf-reader-chrome > :not(.ink-bar),
 .pdf-reader.is-focus .pdf-reader-side,
+.pdf-reader.is-focus .pdf-reader-side-rail,
 .pdf-reader.is-focus .pdf-reader-tool-hint,
 .pdf-reader.is-focus .pdf-reader-banner {
   display: none;
@@ -192,9 +190,24 @@
 .pdf-reader-body--outline {
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
 }
+/* Collapsed: the side column folds to a vertical tab that still counts the
+   annotations behind it. */
+.pdf-reader-body--rail { grid-template-columns: 34px minmax(0, 1fr); }
+.pdf-reader-side-rail {
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 12px 0; min-height: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-sm, 6px);
+  background: var(--surface); color: var(--text); cursor: pointer;
+  font: inherit; font-size: 0.85rem; font-weight: 600;
+}
+.pdf-reader-side-rail span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+.pdf-reader-side-rail:hover { filter: brightness(1.05); }
+.pdf-reader-side-collapse { justify-self: end; }
 @media (max-width: 860px) {
   /* A 180px side column beside a PDF leaves neither usable; stack instead. */
-  .pdf-reader-body--outline { grid-template-columns: minmax(0, 1fr); }
+  .pdf-reader-body--outline, .pdf-reader-body--rail { grid-template-columns: minmax(0, 1fr); }
+  /* Stacked, the toolbar toggle already folds the list; no second switch. */
+  .pdf-reader-side-rail, .pdf-reader-side-collapse { display: none; }
   .pdf-reader-side { order: 2; }
   .pdf-reader-outline, .pdf-reader-sidebar { max-height: 40dvh; }
   /* Stacked under the page, the list waits behind its toolbar toggle. */
@@ -431,7 +444,7 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-ref-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin-top: 4px; }
 .pdf-reader-ref-action {
   padding: 0; border: 0; background: none; font: inherit; font-size: 0.825rem; font-weight: 500;
-  color: var(--accent); cursor: pointer; text-decoration: none;
+  color: var(--accent-ink); cursor: pointer; text-decoration: none;
 }
 .pdf-reader-ref-action:hover { text-decoration: underline; }
 /* The entry switcher a range citation shows above its details. */

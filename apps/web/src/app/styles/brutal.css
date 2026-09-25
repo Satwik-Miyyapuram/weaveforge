@@ -1,0 +1,940 @@
+/*
+ * The redesign: neo-brutalist light + dark, and the CRT theme.
+ *
+ * Every rule here is scoped to the three themes that carry the look
+ * (`brutal`, `brutal-dark`, `crt`), so the other palettes keep the soft
+ * standard shapes untouched. The palettes themselves live in themes/; this
+ * file only reads the extra tokens they define (--bw, --sh-*, --type-*,
+ * --tint-*, --chip-*).
+ *
+ * Rules of the look:
+ *  - hard ink borders, offset shadows that never blur;
+ *  - hover changes brightness only, press drops the control into its shadow;
+ *  - the focused text field lifts off the page (typeBg + hard shadow);
+ *  - focus rings are ink, never blue;
+ *  - sentence case everywhere, no all-caps;
+ *  - CRT: Jersey 10 for titles and buttons only, Rubik for reading.
+ *
+ * The prefix is `:root:is(...)`, (0,2,0) before the element's own class. The
+ * borderless surfaces variant stands down under these themes (its selectors
+ * carry a `:not(...)` for them), so it never fights these borders; this file
+ * is still imported last, after motion.css, so it wins remaining ties.
+ */
+
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) {
+  --radius: 6px;
+  --radius-sm: 4px;
+  --control-radius: 4px;
+  --control-radius-sm: 4px;
+  --e1: var(--sh-card);
+  --e2: var(--sh-card);
+  --e3: var(--sh-card);
+  --e4: var(--sh-card);
+  --rim: 0 0 0 transparent;
+  --rim-strong: 0 0 0 transparent;
+  --e-inset: none;
+  --shadow: var(--sh-card);
+  --glass-fill: var(--surface);
+  --glass-border: var(--bw-line);
+  --glass-shadow: var(--sh-sm);
+  --glass-blur: 0px;
+  --hover: color-mix(in srgb, var(--text) 8%, transparent);
+  --active-bg: var(--nav-on-bg);
+  --active-fg: var(--nav-on-fg);
+  --accent-ink: var(--text);
+  --input-bg: var(--surface);
+  --display: var(--font-face-sans), ui-sans-serif, system-ui, sans-serif;
+  --display-weight: 800;
+  --btn-font: inherit;
+  --btn-weight: 700;
+  --scrollbar-thumb: color-mix(in srgb, var(--text) 45%, transparent);
+  --scrollbar-thumb-hover: var(--text);
+}
+:root[data-theme="crt"] {
+  --radius: 12px;
+  --radius-sm: 8px;
+  --control-radius: 8px;
+  --control-radius-sm: 8px;
+  --display: var(--font-face-pixel), var(--font-face-sans), system-ui, sans-serif;
+  --display-weight: 400;
+  --btn-font: var(--font-face-pixel), var(--font-face-sans), system-ui, sans-serif;
+  --btn-weight: 400;
+}
+
+/* ---- Type ---------------------------------------------------------------- */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
+  .screen-head h1,
+  .screen-title,
+  .record-title,
+  .appearance-title,
+  .modal-head h3,
+  .dashboard-card-title,
+  .app-brand
+) {
+  font-family: var(--display);
+  font-weight: var(--display-weight);
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+:root[data-theme="crt"] :is(.screen-head h1, .screen-title, .record-title, .appearance-title, .modal-head h3, .dashboard-card-title, .app-brand) {
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow: 1px 0 rgba(199, 55, 41, 0.45), -1px 0 rgba(31, 109, 171, 0.45), 0 3px 0 rgba(43, 34, 43, 0.18);
+}
+:root[data-theme="crt"] :is(.screen-head h1, .screen-title, .record-title, .appearance-title) { font-size: 2.75rem; }
+:root[data-theme="crt"] :is(.modal-head h3, .dashboard-card-title) { font-size: 1.6rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
+  .record-section-head,
+  .nav-group-label,
+  .settings-group-title,
+  th
+) {
+  text-transform: none;
+  letter-spacing: 0;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) ::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* ---- Focus: ink, never blue --------------------------------------------- */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+}
+:root[data-theme="crt"] :focus-visible {
+  outline-style: dashed;
+  outline-offset: 4px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.sub-tab, .nav-link):focus-visible {
+  outline-offset: -3px;
+}
+
+/* ---- Surfaces ------------------------------------------------------------ */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
+  .card,
+  .modal,
+  .dashboard-card,
+  .graph-wrap,
+  .reader-split-panel,
+  .org-node,
+  .artifact-card,
+  .git-branch-bar,
+  .screening-row,
+  .metric-chart-plot,
+  .linked-overleaf-row,
+  .popover-panel,
+  .custom-select-menu,
+  .card-menu-flyout,
+  .header-menu,
+  .proj-menu,
+  .ink-menu,
+  .comments-sheet,
+  .graph-edge-popover
+) {
+  background: var(--card-tint, var(--surface));
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius);
+  box-shadow: var(--sh-card);
+}
+/* Menus and popovers take the smaller shadow: they float, but they are not a
+   card someone reads. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
+  .popover-panel,
+  .custom-select-menu,
+  .card-menu-flyout,
+  .header-menu,
+  .proj-menu,
+  .ink-menu,
+  .graph-edge-popover
+) {
+  box-shadow: var(--sh-sm);
+  border-radius: var(--radius-sm);
+}
+/* A card inside a card: outlined, not stamped. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.card, .modal, .dashboard-card) :is(.card, .entity-card--nested) {
+  box-shadow: none;
+  border-width: var(--bw);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card)[role="button"]:hover {
+  border-color: var(--bw-line);
+  background: var(--card-tint, var(--surface));
+  filter: brightness(1.04);
+}
+:root[data-theme="brutal-dark"] :is(.entity-card, .paper-card)[role="button"]:hover { filter: brightness(1.15); }
+
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .modal-backdrop {
+  background: color-mix(in srgb, var(--text) 45%, transparent);
+}
+:root[data-theme="brutal-dark"] .modal-backdrop { background: rgba(0, 0, 0, 0.6); }
+
+/* Tables: ink rules, a filled head. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) table th {
+  background: var(--surface2);
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Hairlines inside a surface stay light: the ink border is for edges. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) {
+  --line: var(--hair);
+}
+
+/* ---- Paper status tint --------------------------------------------------- */
+/* papers.css lays library cards flat with a (0,6,0) selector, so these match
+   its shape to take the card back. The tint itself follows the card-tint
+   setting on <html>: full colours the card, bar colours a thick left edge,
+   none leaves it plain. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.entity-card.paper-card {
+  background: var(--card-tint, var(--surface));
+  border-color: var(--bw-line);
+  box-shadow: var(--sh-card);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="full"] .paper-card--to_read { --card-tint: var(--tint-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="full"] .paper-card--reading { --card-tint: var(--tint-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="full"] .paper-card--read { --card-tint: var(--tint-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="full"] .paper-card--skimmed { --card-tint: var(--tint-skimmed); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card { border-left-width: 10px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--to_read { border-left-color: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--reading { border-left-color: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--read { border-left-color: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--skimmed { border-left-color: var(--chip-skimmed); }
+
+/* ---- Buttons ------------------------------------------------------------- */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary) {
+  min-height: 40px;
+  padding: 0 16px;
+  font-family: var(--btn-font);
+  font-weight: var(--btn-weight);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  text-transform: none;
+  transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease, filter var(--dur-fast) ease;
+}
+:root[data-theme="crt"] :is(.btn-primary, .btn-secondary) { font-size: 1.25rem; line-height: 1; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: var(--sh-btn);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--sh-sm);
+}
+:root[data-theme="crt"] .btn-secondary {
+  background: #f29731;
+  color: #2b222b;
+  box-shadow: var(--sh-btn-2);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary:hover:not(:disabled) { background: var(--accent); box-shadow: var(--sh-btn); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary:hover:not(:disabled) { background: var(--surface); }
+:root[data-theme="crt"] .btn-secondary:hover:not(:disabled) { background: #f29731; }
+:root[data-theme="brutal-dark"] :is(.btn-primary, .btn-secondary):hover:not(:disabled) { filter: brightness(1.15); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):active:not(:disabled) {
+  transform: var(--press-t);
+  box-shadow: var(--sh-press);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):disabled {
+  opacity: 1;
+  background: var(--surface2);
+  color: var(--muted);
+  border-style: dashed;
+  box-shadow: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-sm {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.82rem;
+}
+:root[data-theme="crt"] .btn-sm { font-size: 1.05rem; }
+/* Destructive: the filled danger button, and the red-text secondary. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger:hover:not(:disabled) {
+  background: var(--danger-fill);
+  color: var(--s-danger);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary.danger {
+  color: var(--danger-text);
+  border-color: var(--bw-line);
+}
+/* Ghost and cancel: no box at all. Cancel is red text, so the way out of a
+   dialog is never mistaken for the way through it. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-ghost, .btn-cancel) {
+  font-family: var(--btn-font);
+  font-weight: var(--btn-weight);
+  color: var(--text);
+  background: transparent;
+  border: var(--bw) solid transparent;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) {
+  color: var(--danger-text);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-ghost, .btn-cancel):hover:not(:disabled) {
+  background: var(--hover);
+  color: inherit;
+  filter: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) { color: var(--danger-text); }
+
+/* Icon buttons: plain until active, then the accent tile. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .entity-icon-btn {
+  border: var(--bw) solid transparent;
+  border-radius: var(--radius-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .entity-icon-btn:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-icon-btn[aria-expanded="true"], .entity-icon-btn.is-active) {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--bw-line);
+  box-shadow: var(--sh-sm);
+}
+
+/* ---- Fields -------------------------------------------------------------- */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+  textarea,
+  .custom-select-button
+) {
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+:root[data-theme="crt"] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]), textarea, .custom-select-button) {
+  box-shadow: inset 0 3px 0 rgba(43, 34, 43, 0.12);
+}
+/* Typing lifts the field off the page. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+  textarea,
+  .custom-select-button,
+  .summary-input
+):focus {
+  background: var(--type-bg);
+  border-color: var(--type-line);
+  box-shadow: var(--type-sh);
+  transform: var(--type-t);
+  outline: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(input, textarea)::placeholder { color: var(--muted); opacity: 1; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) input[type="checkbox"]:not([role="switch"]),
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* Status chips: mono, ink-bordered, the fill carries the state. A paper
+   card's status picker takes its fill from the card's own status class. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .record-state-select .custom-select-button {
+  font-family: var(--font-mono);
+  border-radius: 999px;
+  color: #12110f;
+  background: var(--surface2);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .paper-card--to_read .record-state-select .custom-select-button { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .paper-card--reading .record-state-select .custom-select-button { background: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .paper-card--read .record-state-select .custom-select-button { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .paper-card--skimmed .record-state-select .custom-select-button { background: var(--chip-skimmed); }
+:root[data-theme="crt"] .record-state-select .custom-select-button { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status, .status-select .custom-select-button) {
+  font-family: var(--font-mono);
+  border: var(--bw) solid var(--bw-line);
+  text-transform: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .status { border-radius: 999px; font-size: 0.72rem; }
+:root[data-theme="crt"] .status { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-to_read, .custom-select-button.status-to_read) { background: var(--chip-to-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-reading, .custom-select-button.status-reading) { background: var(--chip-reading); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-read, .custom-select-button.status-read) { background: var(--chip-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-skimmed, .custom-select-button.status-skimmed) { background: var(--chip-skimmed); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.tag-chip, .chip) {
+  border: var(--bw) solid var(--bw-line);
+  font-family: var(--font-mono);
+}
+
+/* Segmented controls: ink-filled selection. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg {
+  gap: 0;
+  padding: 0;
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-sm);
+  overflow: hidden;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button { border-radius: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button + button { border-left: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button.seg-on {
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: none;
+}
+:root[data-theme="crt"] .seg button.seg-on { background: var(--accent); color: var(--accent-fg); }
+
+/* ---- Sub-nav tabs -------------------------------------------------------- */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-nav {
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-sm);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-tab-indicator {
+  background: var(--text);
+  border-radius: 2px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-theme="crt"] .sub-tab-indicator { background: var(--accent); border-radius: 5px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-tab { color: var(--text); font-weight: 600; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-tab.active { color: var(--bg); }
+:root[data-theme="crt"] .sub-tab { font-family: var(--btn-font); font-size: 1.15rem; font-weight: 400; }
+:root[data-theme="crt"] .sub-tab.active { color: var(--accent-fg); }
+
+/* ---- Primary nav --------------------------------------------------------- */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav {
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius);
+  box-shadow: var(--sh-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-link {
+  color: var(--text);
+  border: var(--bw) solid transparent;
+  border-radius: var(--radius-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-link:hover:not(.active) { background: var(--hover); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-link.active {
+  color: var(--nav-on-fg);
+  background: var(--nav-on-bg);
+  border-color: var(--bw-line);
+  box-shadow: var(--sh-sm);
+  font-weight: 700;
+}
+@media (min-width: 900px) {
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav {
+    border-width: 0 var(--bw) 0 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* ---- Toasts -------------------------------------------------------------- */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.toast, [data-sonner-toast]) {
+  background: var(--toast-bg);
+  color: var(--toast-fg);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-card);
+}
+
+/* ---- CRT glass ----------------------------------------------------------- */
+/* Scanlines and a soft vignette over the whole screen. Pointer-transparent and
+   above everything but toasts; reduced motion does not affect it because it
+   does not move. */
+:root[data-theme="crt"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-toast) - 1);
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, rgba(43, 34, 43, 0.06) 0, rgba(43, 34, 43, 0.06) 1px, transparent 1px, transparent 3px),
+    radial-gradient(ellipse at center, transparent 60%, rgba(43, 34, 43, 0.18) 100%);
+}
+@media print {
+  :root[data-theme="crt"] body::after { display: none; }
+}
+
+/* ---- Dashboard ------------------------------------------------------------
+   The mock's stat cards: a mono label, the number big in the display face with
+   its count under it, and a thick pill bar ruled off where it fills. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"]) .screen-head .screen-title {
+  font-size: 2.4rem;
+  line-height: 1.05;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-card-heading {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 0.76rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-row {
+  /* Beside the number, not under it: the grid's stat rows are too short
+     for three lines and a bar. */
+  flex-direction: row-reverse;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 10px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-pct {
+  font-family: var(--display);
+  font-weight: var(--display-weight);
+  font-size: 1.9rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+:root[data-theme="crt"] .dashboard-stat-pct { font-size: 2.3rem; letter-spacing: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-link:hover .dashboard-stat-pct { color: inherit; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-bar.progress-bar {
+  height: 14px;
+  background: var(--surface2);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: 999px;
+}
+:root[data-theme="crt"] .dashboard-stat-bar.progress-bar { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-bar.progress-bar > span {
+  background: var(--accent);
+  box-shadow: var(--bw) 0 0 var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-link[href^="/papers"] .progress-bar > span { background: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-link[href^="/plan"] .progress-bar > span { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-log-date { font-family: var(--font-mono); font-size: 0.76rem; }
+
+/* ---- Project + account row ------------------------------------------------ */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .header-overflow-btn) {
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row .proj-chip { font-weight: 700; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .header-overflow-btn):hover {
+  filter: brightness(0.96);
+}
+
+/* ---- Screen title ---------------------------------------------------------
+   Every mock opens on its page name, big, with a mono count over it. The
+   route-named <h1> the classic themes keep for screen readers is drawn here. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-head .head-row {
+  align-items: flex-end;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-title--auto {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 18px 0 2px;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow {
+  display: block;
+  margin: 18px 0 -12px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 10px; margin: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow + .screen-title { margin-top: 14px; }
+
+/* ---- Lists ----------------------------------------------------------------
+   A list's head is a tinted, ruled bar; its items hang under it as rows split
+   by a dashed rule, each with a mono kind pill. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-tree-toolbar {
+  border-bottom: 0;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-tree-root { gap: 14px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-row,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-children .list-row {
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  padding: 6px 10px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-row:hover { background: var(--surface2); filter: brightness(0.97); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-color-dot {
+  width: 14px;
+  height: 14px;
+  box-shadow: none;
+  border: var(--bw) solid var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-row-title { font-size: 1rem; font-weight: 700; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-count {
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  padding: 0;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen :is(.list-body > .list-papers, .list-body > .list-empty, .list-body > .list-add, .list-body > .list-add-trigger, .list-body > .extraction-table) {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-children {
+  margin-left: 18px;
+  border-left-width: var(--bw);
+  border-left-color: var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-papers { gap: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-paper-row {
+  border-radius: 0;
+  border-bottom: 2px dashed color-mix(in srgb, var(--line) 30%, transparent);
+  padding: 12px 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-paper-row:last-child { border-bottom: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-paper-row:hover { background: transparent; filter: brightness(0.97); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-item-kind {
+  min-width: 84px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  padding: 3px 10px;
+  border: var(--bw) solid var(--bw-line);
+  background: var(--surface);
+  color: var(--text);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-item-kind--note { background: var(--chip-skimmed); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-body > .list-add-trigger {
+  justify-self: stretch;
+  text-align: left;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border: var(--bw) dashed var(--bw-line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 10px; margin: 0; }
+
+/* ---- Notes ----------------------------------------------------------------
+   The mock's note cards: the edit date in mono over a bold title, the excerpt
+   in reading text, tags as ruled mono pills along the foot. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .vault-screen .paper-card {
+  padding: 16px 18px;
+  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .vault-screen .paper-card .entity-card-foot { margin-top: auto; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .vault-screen .paper-card .entity-card-meta {
+  order: -1;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .vault-screen .paper-card .entity-card-title {
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .vault-screen .paper-card .entity-card-snippet {
+  color: var(--muted);
+  font-size: 0.86rem;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .vault-screen .paper-card .tag-chip {
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.74rem;
+}
+:root[data-theme="crt"] .vault-screen .paper-card .tag-chip { border-radius: var(--radius-sm); }
+:root[data-theme="crt"] .vault-screen .paper-card .entity-card-title { font-size: 1.45rem; font-weight: 400; }
+
+/* ---- Experiments ----------------------------------------------------------
+   Two columns of stamped cards, each washed in its run's state: running reads
+   as reading, done as read, failed in the danger wash; planned stays paper. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-list:not(.exp-list--timeline, .plan-list) {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: 16px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.exp-item {
+  --card-tint: var(--surface);
+  background: var(--card-tint);
+  padding: 16px 18px;
+  gap: 10px;
+  box-shadow: var(--sh-card);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.exp-item--running { --card-tint: var(--tint-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.exp-item--done { --card-tint: var(--tint-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.exp-item--failed { --card-tint: var(--danger-soft); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.exp-item--abandoned { --card-tint: var(--well); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item .entity-card-title {
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+:root[data-theme="crt"] .exp-item .entity-card-title { font-size: 1.5rem; font-weight: 400; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item :is(.git-chip, .metric-chip) {
+  border: var(--bw) solid var(--bw-line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.74rem;
+}
+:root[data-theme="crt"] .exp-item :is(.git-chip, .metric-chip) { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item .entity-card-foot { border-top: 0; }
+/* ---- Plan ------------------------------------------------------------------
+   One summary card with a thick bar, then milestones as full-width rows. Done
+   reads as read, in progress as reading, blocked in the danger wash, and a
+   milestone due inside two weeks is washed yellow so it is seen first. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .progress-card {
+  padding: 18px 20px;
+  box-shadow: var(--sh-card);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .progress-top { align-items: baseline; margin-bottom: 12px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .progress-top > span { font-weight: 700; font-size: 1.05rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .progress-top > strong {
+  font-family: var(--display);
+  font-weight: var(--display-weight);
+  font-size: 1.9rem;
+  line-height: 1;
+}
+:root[data-theme="crt"] .progress-top > strong { font-size: 2.3rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .progress-card .progress-bar {
+  height: 16px;
+  background: var(--surface2);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: 999px;
+}
+:root[data-theme="crt"] .progress-card .progress-bar { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .progress-card .progress-bar > span {
+  background: var(--chip-read);
+  box-shadow: var(--bw) 0 0 var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-list { grid-template-columns: 1fr; gap: 12px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item { min-height: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item--in_progress { --card-tint: var(--tint-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item--done { --card-tint: var(--tint-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item--blocked { --card-tint: var(--danger-soft); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item--soon { --card-tint: var(--tint-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item--done .entity-card-title { text-decoration: line-through; text-decoration-thickness: 2px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-item .entity-card-meta { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; }
+/* ---- Log -------------------------------------------------------------------
+   A timeline: the day stamped big in a gutter, an ink rule with a dot per day,
+   the day's cards to its right, and the month and kinds in a side column. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day-month { font-family: var(--font-mono); font-size: 0.7rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-list { margin: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.log-item { box-shadow: var(--sh-card); padding: 16px 18px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .entity-card-title { font-size: 1.05rem; font-weight: 700; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .log-body { font-size: 0.95rem; line-height: 1.55; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-calendar-head { font-family: var(--font-mono); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-kinds-count { font-family: var(--font-mono); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.log-calendar, .log-kinds) { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.log-calendar, .log-kinds) h2 { font-family: var(--display); font-weight: var(--display-weight); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-calendar-day.is-logged {
+  background: var(--chip-read);
+  border: var(--bw) solid var(--bw-line);
+  font-weight: 700;
+  color: #111;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-calendar-day.is-today {
+  background: var(--chip-to-read);
+  border: var(--bw) solid var(--bw-line);
+  box-shadow: var(--sh-sm);
+  font-weight: 800;
+  color: #111;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day::before { width: var(--bw); background: var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day::after { border: var(--bw) solid var(--bw-line); background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day:first-child::after { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .status-daily { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .status-weekly { background: var(--chip-reading); }
+/* Every other status family borrows the four paper chips: under way reads as
+   reading, finished as read, waiting as to read, stuck in the danger wash. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-drafting, .status-running, .status-in_progress, .status-review, .status-daily) { background: var(--chip-reading); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-done) { background: var(--chip-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-planned, .status-weekly) { background: var(--chip-to-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-failed, .status-blocked) { background: var(--danger-soft); color: var(--danger-text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-not_started, .status-abandoned) { background: var(--surface); color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .status-review { background: var(--chip-skimmed); }
+/* ---- Sections --------------------------------------------------------------
+   One stamped sheet: top-level sections are rows split by an ink rule, their
+   parts by a dashed one, nested a step in with no card chrome of their own. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen > .section-tree:not(.nested) {
+  gap: 0;
+  padding: 6px 20px;
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-card);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen > .section-tree:not(.nested) > .section-node + .section-node { border-top: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .entity-card.entity-card--nested.section-item {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 14px 0;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested { padding-left: 26px; gap: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested::before,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested > .section-node::before { display: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested > .section-node { border-top: 1.5px dashed color-mix(in srgb, var(--bw-line) 55%, transparent); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item .entity-card-title { font-weight: 700; font-size: 1.02rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item--nested .entity-card-title { font-weight: 600; font-size: 0.96rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item .entity-card-meta { font-family: var(--font-mono); font-size: 0.76rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item .card-foot { border-top: 0; padding-top: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-head-toggle.list-toggle { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); background: var(--surface); }
+/* ---- Graph -----------------------------------------------------------------
+   Chrome only; the drawing is the renderer's. A dotted desk under the nodes,
+   and the legend and side panel stamped like every other card. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-wrap {
+  background-color: var(--surface);
+  background-image: radial-gradient(color-mix(in srgb, var(--text) 18%, transparent) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-legend.card { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-legend-heading { font-family: var(--font-mono); letter-spacing: 0; text-transform: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-panel { border-left: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-title { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.3rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-meta { font-family: var(--font-mono); }
+/* ---- Wiki ------------------------------------------------------------------
+   Each health step is its own inset box with a numbered stamp and a count
+   pill; the source and concept lists are one ruled sheet. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-screen .card.add-form { padding: 20px 22px; box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-screen .card.add-form > h3.settings-group {
+  font-family: var(--display);
+  font-weight: var(--display-weight);
+  font-size: 1.25rem;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step {
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step-head { font-size: 0.95rem; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; margin: 0 0 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step-count { font-family: var(--font-mono); border: var(--bw) solid var(--bw-line); background: var(--chip-to-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step--duplicate .wiki-step-count { background: var(--chip-skimmed); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step--orphan .wiki-step-count { background: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-lint-list li { border-left: 0; padding: 6px 0; border-bottom: 1.5px dashed color-mix(in srgb, var(--bw-line) 45%, transparent); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-lint-list li:last-child { border-bottom: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-source-list,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list:not(.wiki-source-list) { gap: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-source-list {
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  padding: 2px 12px;
+  background: var(--surface);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list > li { padding: 8px 0; border-bottom: 1.5px dashed color-mix(in srgb, var(--bw-line) 45%, transparent); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list > li:last-child { border-bottom: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list .jump-to-meta { font-family: var(--font-mono); font-size: 0.74rem; }
+
+/* ── AI review ─────────────────────────────────────────────────────────── */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-toolbar { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card { padding: 20px 22px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card h2 { font-size: 1.05rem; font-weight: 700; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card time { font-family: var(--font-mono); font-size: 0.74rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind {
+  display: inline-block; margin-bottom: 4px; padding: 2px 10px;
+  border: var(--bw) solid var(--bw-line); border-radius: 999px;
+  background: var(--chip-reading); color: var(--text);
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--append_paper_note, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--create_vault_note, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--create_log_entry { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--relation, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--milestone_follow_up, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--experiment_follow_up { background: var(--chip-skimmed); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--paper_update, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--paper_field_value { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-colhead { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-proposal-content {
+  background: var(--surface2); border: var(--bw) solid var(--bw-line);
+  border-left: 6px solid var(--chip-read); border-radius: var(--radius-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-evidence {
+  background: var(--surface); border: var(--bw) dashed var(--bw-line); border-radius: var(--radius-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-evidence-excerpt { font-family: var(--font-serif, Georgia, serif); border-left-color: var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-evidence-mark { background: var(--chip-to-read); color: inherit; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-evidence-warn {
+  background: var(--chip-to-read); color: var(--text);
+  border: var(--bw) solid var(--bw-line); font-weight: 700;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-evidence-open { font-family: var(--font-mono); font-size: 0.76rem; text-decoration: underline; color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-sources-label { font-family: var(--font-mono); letter-spacing: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-source {
+  font-family: var(--font-mono); font-size: 0.72rem;
+  border: var(--bw) solid var(--bw-line); background: var(--surface2);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-actions { border-top: var(--bw) solid var(--bw-line); }
+
+/* ── Supervision ───────────────────────────────────────────────────────── */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-panels > .card { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-head, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-role, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-reviewing, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-note-label,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-meta, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-log-date, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-screen .superv-picker label { font-family: var(--font-mono); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item.is-active { background: var(--text); color: var(--surface); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-avatar { border: var(--bw) solid var(--bw-line); background: var(--chip-reading); color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-avatar--masters { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-avatar--professor { background: var(--chip-skimmed); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item.is-active .superv-avatar { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-panel-head { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.15rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-source {
+  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500;
+  border: var(--bw) solid var(--bw-line); background: var(--surface2); color: var(--text);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-source--live { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-note { background: var(--chip-to-read); border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-list { gap: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-item {
+  background: none; border-radius: 0; padding: 12px 0;
+  border-bottom: 1.5px dashed color-mix(in srgb, var(--bw-line) 45%, transparent);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-item-title { font-weight: 700; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status {
+  font-family: var(--font-mono); font-size: 0.7rem; text-transform: none;
+  border: var(--bw) solid var(--bw-line); background: var(--surface2); color: var(--text);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-done, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-daily { background: var(--chip-read); color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-in_progress, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-weekly { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-blocked { background: var(--danger-soft); color: var(--text); }
+
+/* ── Shared with me ────────────────────────────────────────────────────── */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter { padding: 0; gap: 0; border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm); overflow: hidden; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter button { border-radius: 0; border-right: var(--bw) solid var(--bw-line); padding: 7px 14px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter button:last-child { border-right: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter button.active { background: var(--text); color: var(--surface); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-group-head { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.2rem; color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-group-count { font-family: var(--font-mono); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-screen .shared-by-chip { display: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-grid > .shared-item { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-access { font-family: var(--font-mono); border: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-access { background: var(--surface2); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind--paper { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind--vault_page { background: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind--reading_list { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind--experiment, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind--milestone { background: var(--chip-skimmed); }
+
+/* ── Settings ──────────────────────────────────────────────────────────── */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-head { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-icon { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-group.is-open .settings-rail-head { background: var(--text); color: var(--surface); box-shadow: var(--sh-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-group.is-open .settings-rail-icon { background: transparent; color: inherit; border-color: transparent; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-tabs { border-left: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-body > .card, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-body > [role="tabpanel"] > .card { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-body .settings-group { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.2rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-option { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-option.is-on { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample { border-bottom: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-card { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); box-shadow: var(--sh-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-chip { border: var(--bw) solid var(--bw-line); font-family: var(--font-mono); }
+
+/* Prose links: the accent is a fill colour here (yellow), too pale for text on
+   a cream card. Ink text, accent underline. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.markdown, .card, .muted, .screen p) a:not([class]) {
+  color: var(--text); text-decoration: underline;
+  text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px;
+}

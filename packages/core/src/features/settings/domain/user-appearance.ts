@@ -6,6 +6,8 @@ import {
 
 /** Per-user light/dark mode, theme variant, and control density preferences. */
 export type ControlSize = "compact" | "default" | "comfortable";
+/** How the brutal and CRT themes colour a paper card by its reading status. */
+export type CardTint = "full" | "bar" | "none";
 
 export interface UserAppearance {
   mode?: "light" | "dark";
@@ -24,6 +26,11 @@ export interface UserAppearance {
    * default: it is additive polish, not part of the motion the app already had.
    */
   reactiveMotion?: boolean;
+  /**
+   * Paper card status colour on the brutal and CRT themes: the whole card
+   * tinted, a bar down its edge, or nothing. Other themes ignore it.
+   */
+  cardTint?: CardTint;
   /**
    * Validated theme uploaded as `config.json`. Absent means "unchanged";
    * explicit `null` means "remove the uploaded theme", which a patch needs to
@@ -50,6 +57,7 @@ export function normalizeAppearance(raw: unknown): UserAppearance | undefined {
   }
   if (o.surfaces === "borderless" || o.surfaces === "bordered") out.surfaces = o.surfaces;
   if (typeof o.reactiveMotion === "boolean") out.reactiveMotion = o.reactiveMotion;
+  if (o.cardTint === "full" || o.cardTint === "bar" || o.cardTint === "none") out.cardTint = o.cardTint;
   // Re-validated rather than copied: the settings row is user-writable, so a
   // stored theme gets the same scrutiny as the file it was uploaded from.
   if (o.customTheme === null) out.customTheme = null;

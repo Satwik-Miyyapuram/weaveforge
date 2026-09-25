@@ -155,7 +155,7 @@ export function OrgPanel() {
       {allowedRoles.length > 0 && (
         <div className="head-row">
           <div className="screen-actions">
-            <button className="btn-secondary" onClick={() => setAddOpen(true)}>+ Create account</button>
+            <button className="btn-secondary" onClick={() => setAddOpen(true)}>New account</button>
           </div>
         </div>
       )}

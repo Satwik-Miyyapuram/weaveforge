@@ -156,7 +156,7 @@ export function ExperimentsScreen() {
 
   return (
     <section className="screen">
-      <ScreenHead>
+      <ScreenHead eyebrow={experimentsEyebrow(items)}>
         {hasLiveRunning && (
           // The tick is 5s, but a tick does not necessarily refresh anything:
           // `useScreenData` serves the cached payload and only re-fetches once
@@ -169,7 +169,7 @@ export function ExperimentsScreen() {
           type="button"
           onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
         >
-          + Experiment
+          New experiment
         </button>
       </ScreenHead>
 
@@ -291,7 +291,7 @@ export function ExperimentsScreen() {
               className="btn-primary"
               onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
             >
-              + Experiment
+              New experiment
             </button>
           }
         />
@@ -330,6 +330,14 @@ const PALETTE = [
   "#3e5a78", "#c2410c", "#0f766e", "#7c3aed",
   "#b91c1c", "#a16207", "#0369a1", "#4d7c0f",
 ];
+
+/** "5 experiments · 2 running": the count the brutal themes set over the title. */
+function experimentsEyebrow(experiments: Experiment[]): string | undefined {
+  if (experiments.length === 0) return undefined;
+  const running = experiments.filter((e) => e.status === "running").length;
+  const total = `${experiments.length} ${experiments.length === 1 ? "experiment" : "experiments"}`;
+  return running > 0 ? `${total} · ${running} running` : total;
+}
 
 function asNumber(v: unknown): number | null {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
@@ -537,7 +545,7 @@ function ExperimentCard({
       <EntityCard
       as="li"
       id={`exp-${exp.id}`}
-      className="exp-item"
+      className={`exp-item exp-item--${exp.status}`}
       onActivate={openDetail}
       title={exp.name}
       status={

@@ -1,0 +1,56 @@
+/* Brutal — the neo-brutalist light theme, and the default light palette.
+ * Warm paper ground, ink borders and hard offset shadows; the look itself
+ * (borders, shadows, radii, type) lives in styles/brutal.css, which keys off
+ * the same attribute. Status colours are the mock's chip fills: to read is
+ * yellow, reading is blue, read is green. */
+[data-theme="brutal"] {
+  --bg: #f2e1c4;
+  --surface: #fff0d9;
+  --surface2: #e8d5b5;
+  --elev: #fff0d9;
+  --border: #12110f;
+  --border-strong: #12110f;
+  --text: #12110f;
+  --muted: #574e3f;
+  --faint: #7a6f5c;
+  --accent: #ffc536;
+  --accent-fg: #12110f;
+  --accent-soft: #ffe5a9;
+  --accent-ink: #12110f;
+  --s-neutral: #12110f;  --s-neutral-bg: #e8d5b5;
+  --s-info: #12110f;     --s-info-bg: #8dadd9;
+  --s-good: #12110f;     --s-good-bg: #86d08f;
+  --s-warn: #12110f;     --s-warn-bg: #ffc536;
+  --s-danger: #12110f;   --s-danger-bg: #ff654d;
+  --s-mute: #574e3f;     --s-mute-bg: #e3d1b1;
+
+  --bw: 2px;
+  --bw-line: #12110f;
+  --hair: rgba(18, 17, 15, 0.18);
+  --well: #e3d1b1;
+  --danger-text: #c62c1a;
+  --danger-soft: #ffd4bb;
+  --danger-fill: #ff654d;
+  --sh-card: 5px 5px 0 #12110f;
+  --sh-sm: 3px 3px 0 #12110f;
+  --sh-btn: 4px 4px 0 #12110f;
+  --sh-press: 0 0 0 #12110f;
+  --press-t: translate(4px, 4px);
+  --type-bg: #ffe9ba;
+  --type-line: #12110f;
+  --type-sh: 4px 4px 0 #12110f;
+  --type-t: translate(-2px, -2px);
+  --nav-on-bg: #12110f;
+  --nav-on-fg: #f2e1c4;
+  --tint-to-read: #ffe39c;
+  --tint-reading: #dcdad9;
+  --tint-read: #d6e4bf;
+  --tint-skimmed: #f3d9b8;
+  --chip-to-read: #ffc536;
+  --chip-reading: #8dadd9;
+  --chip-read: #86d08f;
+  --chip-skimmed: #ff95a9;
+  --toast-bg: #12110f;
+  --toast-fg: #f2e1c4;
+  --sel-ring: rgba(18, 17, 15, 0.2);
+}

@@ -114,7 +114,7 @@
   background: var(--elev); border: 1px solid var(--border); pointer-events: none;
 }
 .graph-legend-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.graph-legend-heading { width: 100%; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.graph-legend-heading { width: 100%; font-size: 0.72rem; letter-spacing: 0.04em; }
 .legend-concept { background: rgba(140, 133, 124, 0.35); }
 .annotation-paper { font-size: 0.76rem; margin-bottom: 4px; }
 .graph-focus .graph-side-panel { position: fixed; top: 56px; left: 10px; bottom: 14px; }

@@ -73,4 +73,29 @@ export function runCommentRepositoryContract(
     await repo.remove(c.id);
     assert.equal((await repo.list("milestone", "m1")).length, 0);
   });
+
+  test(`[${label}] a reply keeps its root, and goes when the root goes`, async () => {
+    const repo = makeRepo();
+    const root = await repo.add({
+      resourceType: "vault_page",
+      resourceId: "n1",
+      body: "why this?",
+      anchor: { quote: "the claim", prefix: "see ", suffix: " here" },
+    });
+    const reply = await repo.add({ resourceType: "vault_page", resourceId: "n1", body: "because", parentId: root.id });
+    const list = await repo.list("vault_page", "n1");
+    assert.deepEqual(list.find((c) => c.id === root.id)?.anchor, { quote: "the claim", prefix: "see ", suffix: " here" });
+    assert.equal(list.find((c) => c.id === reply.id)?.parentId, root.id);
+    await repo.remove(root.id);
+    assert.equal((await repo.list("vault_page", "n1")).length, 0);
+  });
+
+  test(`[${label}] a thread resolves and reopens at its root`, async () => {
+    const repo = makeRepo();
+    const root = await repo.add({ resourceType: "vault_page", resourceId: "n1", body: "fix" });
+    assert.ok(await repo.setResolved(root.id, true));
+    assert.ok((await repo.list("vault_page", "n1"))[0]?.resolvedAt);
+    assert.equal(await repo.setResolved(root.id, false), null);
+    assert.equal((await repo.list("vault_page", "n1"))[0]?.resolvedAt ?? null, null);
+  });
 }

@@ -3,6 +3,7 @@
 import type { UserAppearance } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import {
+  applyCardTint,
   applyControlSize,
   applyCustomTheme,
   applyReactiveMotion,
@@ -10,12 +11,14 @@ import {
   applyTheme,
   DEFAULT_DARK_THEME,
   DEFAULT_LIGHT_THEME,
+  readStoredCardTint,
   readStoredControlSize,
   readStoredCustomTheme,
   readStoredMode,
   readStoredReactiveMotion,
   readStoredSurfaceStyle,
   readStoredThemeIds,
+  sanitizeCardTint,
   sanitizeControlSize,
   sanitizeSurfaceStyle,
   sanitizeThemeId,
@@ -38,6 +41,7 @@ export function readLocalAppearance(): UserAppearance {
     controlSize: readStoredControlSize(),
     surfaces: readStoredSurfaceStyle(),
     reactiveMotion: readStoredReactiveMotion(),
+    cardTint: readStoredCardTint(),
     customTheme: readStoredCustomTheme() ?? undefined,
   };
 }
@@ -68,6 +72,9 @@ function writeLocalAppearance(appearance: UserAppearance): void {
     if (appearance.surfaces) {
       localStorage.setItem("thesis.surfaces", sanitizeSurfaceStyle(appearance.surfaces));
     }
+    if (appearance.cardTint) {
+      localStorage.setItem("thesis.cardTint", sanitizeCardTint(appearance.cardTint));
+    }
     if (typeof appearance.reactiveMotion === "boolean") {
       localStorage.setItem("thesis.reactiveMotion", appearance.reactiveMotion ? "1" : "0");
     }
@@ -90,6 +97,7 @@ function applyThemeFromLocalStorage(): void {
   applyControlSize(readStoredControlSize());
   applySurfaceStyle(readStoredSurfaceStyle());
   applyReactiveMotion(readStoredReactiveMotion());
+  applyCardTint(readStoredCardTint());
   applyCustomTheme(readStoredCustomTheme());
 }
 
@@ -122,6 +130,7 @@ export function persistThemeChange(
     controlSize: sanitizeControlSize(patch.controlSize ?? current.controlSize) as ControlSizeId,
     surfaces: sanitizeSurfaceStyle(patch.surfaces ?? current.surfaces),
     reactiveMotion: patch.reactiveMotion ?? current.reactiveMotion ?? false,
+    cardTint: sanitizeCardTint(patch.cardTint ?? current.cardTint),
     // `undefined` in the patch means "not touched", `null` means "remove it" —
     // so the fallback to `current` only happens for the former.
     customTheme: patch.customTheme === undefined ? current.customTheme : patch.customTheme,
@@ -137,6 +146,7 @@ export function persistThemeChange(
     applyControlSize(next.controlSize ?? "default");
     applySurfaceStyle(next.surfaces ?? "borderless");
     applyReactiveMotion(next.reactiveMotion ?? false);
+    applyCardTint(next.cardTint ?? "full");
     if (patch.customTheme !== undefined) applyCustomTheme(next.customTheme ?? null);
     window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   } else if (patch.controlSize) {
@@ -163,6 +173,7 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
       appearance?.controlSize ||
       appearance?.surfaces ||
       appearance?.reactiveMotion !== undefined ||
+      appearance?.cardTint ||
       appearance?.customTheme !== undefined
     ) {
       writeLocalAppearance({
@@ -172,6 +183,7 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
         controlSize: appearance.controlSize ?? readStoredControlSize(),
         surfaces: appearance.surfaces ?? readStoredSurfaceStyle(),
         reactiveMotion: appearance.reactiveMotion ?? readStoredReactiveMotion(),
+        cardTint: appearance.cardTint ?? readStoredCardTint(),
         customTheme:
           appearance.customTheme === undefined
             ? readStoredCustomTheme()

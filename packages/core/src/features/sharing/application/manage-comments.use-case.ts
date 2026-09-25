@@ -24,4 +24,8 @@ export class ManageCommentsUseCase {
   async remove(id: string): Promise<void> {
     await this.deps.repository.remove(id);
   }
+
+  setResolved(id: string, resolved: boolean): Promise<string | null> {
+    return this.deps.repository.setResolved(id, resolved);
+  }
 }
