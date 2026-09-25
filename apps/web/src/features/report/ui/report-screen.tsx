@@ -77,8 +77,8 @@ export function ReportScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const tree = data?.tree ?? emptyArray<import("@weaveforge/core").ReportSectionTreeNode>();
-  const flat = data?.flat ?? emptyArray<import("@weaveforge/core").ReportSection>();
+  const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();
+  const flat = data?.flat ?? emptyArray<ReportSection>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const reportCanComment = data?.reportCanComment ?? emptyMap<string, boolean>();
   const reportCanEdit = data?.reportCanEdit ?? emptyMap<string, boolean>();

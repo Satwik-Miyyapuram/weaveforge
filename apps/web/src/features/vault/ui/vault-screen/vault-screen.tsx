@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   bodyLinksTo, extractHashtags, normalizeTitleKey,
-  type VaultPage, type VaultPageSummary, type VaultPageTreeNode } from "@weaveforge/core";
+  type VaultPage, type VaultPageSummary } from "@weaveforge/core";
+import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -14,7 +15,7 @@ import { AddVaultPageForm } from "../add-vault-page-form";
 import { importNotesFromFiles } from "../../application/import-notes";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap, emptySet } from "@/lib/empty";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { rememberRecentTarget } from "@/lib/recent-targets";
@@ -49,7 +50,6 @@ export function VaultScreen() {
   const [tagFilter, setTagFilter] = usePersistedState<string[]>("thesis.notes.tags", []);
   const [search, setSearch] = usePersistedState<string>("thesis.notes.search", "");
   const appliedPageFromUrl = useRef<string | null>(null);
-  const hydratedPageIds = useRef(new Set<string>());
   const { setPushed, consumePushed } = useDetailPushFlag();
   const goBackToList = useDetailBack("/notes", "page", consumePushed);
 
@@ -72,16 +72,17 @@ export function VaultScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const tree =
-    data?.tree ?? emptyArray<import("@weaveforge/core").VaultPageTreeNode<VaultPageSummary>>();
+  // Which rows this project owns. Served by the use-case rather than derived
+  // here from a tree that nothing renders — see `VaultScreenData.ownedIds`.
+  const ownedIds = data?.ownedIds ?? emptySet<string>();
   // The list holds summaries; opening a note replaces that entry with the full
   // page. `VaultPage` is assignable to `VaultPageSummary`, so one array can hold
   // both — but the element type stays the summary, which forces a `.body` read
   // through `noteBodyText`/`isHydratedPage` instead of silently yielding
   // `undefined` (review-2 F6).
   const flat =
-    data?.flat ?? emptyArray<import("@weaveforge/core").VaultPageSummary | VaultPage>();
-  const lists = data?.lists ?? emptyArray<import("@weaveforge/core").ReadingList>();
+    data?.flat ?? emptyArray<VaultPageSummary | VaultPage>();
+  const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const vaultCanComment = data?.vaultCanComment ?? emptyMap<string, boolean>();
@@ -118,11 +119,6 @@ export function VaultScreen() {
     });
   }, [selected]);
 
-  const ownedIds = useMemo(
-    () => new Set(tree.flatMap((n) => collectIds(n))),
-    [tree],
-  );
-
   const pinnedPages = useMemo(
     () => flat.filter((p) => pinnedSharedBy.has(p.id) && !ownedIds.has(p.id)),
     [flat, pinnedSharedBy, ownedIds],
@@ -148,26 +144,25 @@ export function VaultScreen() {
       appliedPageFromUrl.current = null;
       return;
     }
-    if (hydratedPageIds.current.has(selectedId)) {
-      appliedPageFromUrl.current = selectedId;
-      return;
-    }
     const existing = flat.find((p) => p.id === selectedId);
     // A hydrated entry is one that carries a `body` at all — including an empty
     // one, which is a real note, not a summary. Testing the value instead would
     // re-fetch every empty note forever.
     if (existing && isHydratedPage(existing)) {
-      hydratedPageIds.current.add(selectedId);
       appliedPageFromUrl.current = selectedId;
       return;
     }
-
+    // No "already hydrated" set here: the screen revalidates after a cached
+    // paint, and that fresh list is summaries again. A set that remembered the
+    // page as done left the summary in place and the note sat on "Opening
+    // note…" for good — which is what a link into `/notes?page=` from another
+    // screen hit every time. The repository caches the row, so asking again is
+    // a lookup, not a round trip.
     let cancelled = false;
     void getContainer()
       .vault.getPage(selectedId)
       .then((p) => {
         if (cancelled || !p) return;
-        hydratedPageIds.current.add(selectedId);
         appliedPageFromUrl.current = selectedId;
         upsertFlatPage(p);
       });
@@ -539,7 +534,3 @@ export function VaultScreen() {
   );
 }
 
-/** Every page id in a tree of summary nodes (the tree never carries bodies). */
-function collectIds(node: VaultPageTreeNode<VaultPageSummary>): string[] {
-  return [node.page.id, ...node.children.flatMap(collectIds)];
-}

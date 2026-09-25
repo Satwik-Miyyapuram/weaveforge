@@ -2,6 +2,7 @@
 
 import { resetAppData } from "@/lib/client-runtime-recovery";
 import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
+import { ErrorReportPanel } from "./error-report-panel-lazy";
 
 /**
  * Strictly last-resort boundary — shown when the root layout itself crashes, so
@@ -58,6 +59,18 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
               storage fixes the stale-cache crashes this cannot.
             </p>
           ) : null}
+
+          {/*
+            The worst failure is the one most worth reporting, and this screen had
+            no way to. The panel is behind the same lazy boundary as everywhere
+            else — this boundary replaces the whole document, so if its own chunk
+            will not load, the reader keeps the buttons above and simply does not
+            see a report form. It also carries the app's inline styling problem:
+            this document has no stylesheet, so the panel's classes do nothing.
+            That is acceptable for a form, and the alternative — a second,
+            unstyled copy of the panel — is worse.
+          */}
+          <ErrorReportPanel title="WeaveForge failed to start" detail={detail} />
 
           <section style={{ marginTop: 24, borderTop: "1px solid #444", paddingTop: 16 }}>
             <h2 style={{ fontSize: "1rem" }}>Still stuck?</h2>

@@ -9,6 +9,8 @@ export interface PageTextItem {
   width: number;
   height: number;
   hasEOL?: boolean;
+  /** pdf.js font name, when the caller carries it — used for weight checks. */
+  fontName?: string;
 }
 
 export interface PageTextGeometry {

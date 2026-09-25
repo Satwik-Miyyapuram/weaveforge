@@ -8,6 +8,8 @@
  */
 
 export * from "./papers";
+export * from "./paper-fields";
+export * from "./zotero";
 export * from "./graph";
 export * from "./plan";
 export * from "./logbook";
@@ -31,6 +33,8 @@ export * from "./ink";
 import type { IntegrationsRegistry } from "@/integrations/registry";
 import type { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import type { PapersFacade } from "./papers";
+import type { PaperFieldsFacade } from "./paper-fields";
+import type { ZoteroFacade } from "./zotero";
 import type { GraphFacade } from "./graph";
 import type { PlanFacade } from "./plan";
 import type { LogbookFacade } from "./logbook";
@@ -56,6 +60,10 @@ import type { InkFacade } from "./ink";
 export interface AppContainer {
   integrations: IntegrationsRegistry;
   papers: PapersFacade;
+  /** Custom field definitions and values; split out of `PapersFacade`. */
+  paperFields: PaperFieldsFacade;
+  /** The bibliography integration and the local-Zotero workflow. */
+  zotero: ZoteroFacade;
   graph: GraphFacade;
   plan: PlanFacade;
   logbook: LogbookFacade;

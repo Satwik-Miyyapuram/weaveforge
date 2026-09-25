@@ -18,7 +18,7 @@
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background var(--dur-base), color var(--dur-base), border-color var(--dur-base);
 }
 .dashboard-customize-btn:hover {
   background: var(--pill);
@@ -132,7 +132,7 @@
   height: 10px;
   border-radius: 0 0 4px 0;
   opacity: 0.55;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur-base) ease;
   background:
     radial-gradient(circle, color-mix(in srgb, var(--muted) 90%, transparent) 1.25px, transparent 1.6px) 100% 100% / 4px 4px no-repeat,
     radial-gradient(circle, color-mix(in srgb, var(--muted) 90%, transparent) 1.25px, transparent 1.6px) calc(100% - 4px) calc(100% - 4px) / 4px 4px no-repeat,
@@ -242,7 +242,7 @@
 .dashboard-stat-pct {
   font-size: 1.5rem; font-weight: 600; line-height: 1;
   letter-spacing: -0.03em; color: var(--ink);
-  transition: color 0.15s;
+  transition: color var(--dur-base);
   flex-shrink: 0;
 }
 .dashboard-stat-pct--solo { font-size: 1.65rem; flex-shrink: 0; }

@@ -27,7 +27,7 @@ test("brackets tolerate the zero-width space pdf.js inserts and a line break", (
   const page = { number: 1, text: "As shown in [2 ] and [1,\n3] but not [0, 1] or [10 mm].", items: [] };
   const hits = findCitationMentions(page, refs, 10, "numeric");
   assert.deepEqual(
-    hits.map((h) => [page.text.slice(h.start, h.end), h.refIndexes]),
+    hits.map((h) => [page.text.slice(h.start, h.end), h.referenceIndexes]),
     [
       ["[2 ]", [2]],
       ["[1,\n3]", [1, 3]],
@@ -41,7 +41,7 @@ test("author-year handles et al. variants, ampersands, particles and lead-ins", 
     "Hochreiter and colleagues (1997) agree.";
   const hits = findCitationMentions({ number: 1, text: body, items: [] }, refs, 10, "author-year");
   assert.deepEqual(
-    hits.map((h) => h.refIndexes),
+    hits.map((h) => h.referenceIndexes),
     [[2], [3, 1], [2]],
   );
 });
@@ -69,7 +69,7 @@ test("link boxes map to the characters under them under the page-text convention
   const hits = linkCitationMentions({ number: 1, items }, links, refs);
   assert.equal(hits.length, 1);
   assert.equal(text(items).slice(hits[0]!.start, hits[0]!.end), "2");
-  assert.deepEqual(hits[0]!.refIndexes, [2]);
+  assert.deepEqual(hits[0]!.referenceIndexes, [2]);
 });
 
 test("three links over one `[38, 2, 9]` item give three separate citations", () => {
@@ -85,11 +85,24 @@ test("three links over one `[38, 2, 9]` item give three separate citations", () 
   ];
   const hits = linkCitationMentions({ number: 1, items: [item] }, links, list);
   assert.deepEqual(
-    hits.map((h) => [item.str.slice(h.start, h.end), h.refIndexes]),
+    hits.map((h) => [item.str.slice(h.start, h.end), h.referenceIndexes]),
     [
       ["38", [38]],
       ["2", [2]],
       ["9", [9]],
     ],
   );
+});
+
+test("a link measured against the rendered layout keeps its measured characters over the width estimate", () => {
+  // One wide run whose reported width is far off: the proportional estimate
+  // would land the box on the wrong digits, the measured range says `2`.
+  const items: PageTextItem[] = [
+    { str: "as shown in [1, 2, 3] here", transform: [10, 0, 0, 10, 50, 700], width: 60, height: 10, hasEOL: true },
+  ];
+  const links: PdfLink[] = [
+    { rect: [50, 698, 52, 710], dest: { page: 3, x: 40, y: 672 }, textRanges: [{ start: 16, end: 17 }] },
+  ];
+  const hits = linkCitationMentions({ number: 1, items }, links, refs);
+  assert.deepEqual(hits.map((h) => [text(items).slice(h.start, h.end), h.referenceIndexes]), [["2", [2]]]);
 });

@@ -5,10 +5,11 @@ import type {
   Paper,
   PaperRelation,
   ReadingList,
-  ReportSection,
   ReadingListItem,
+  ReportSection,
   Tag,
   VaultPage,
+  WorkspaceAnnotation,
   WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { collectWorkspaceSnapshot } from "@weaveforge/core";
@@ -37,7 +38,7 @@ export class WorkspaceFacade {
       logEntries: { list(): Promise<LogEntry[]> };
       relations: { list(): Promise<PaperRelation[]> };
       tags: { list(): Promise<Tag[]> };
-      readerAnnotations: { list(): Promise<import("@weaveforge/core").WorkspaceAnnotation[]> };
+      readerAnnotations: { list(): Promise<WorkspaceAnnotation[]> };
       /** Which project the baseline belongs to; a change invalidates it. */
       projectId(): string | null;
     },

@@ -8,15 +8,11 @@ import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.PorterDuff
 import android.graphics.RectF
-import android.os.Build
-import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.SurfaceView
 import androidx.graphics.lowlatency.CanvasFrontBufferedRenderer
 import androidx.graphics.surface.SurfaceControlCompat
-import org.json.JSONArray
-import kotlin.math.PI
 
 /**
  * A transparent, front-buffered stylus surface over the web view.
@@ -33,6 +29,15 @@ import kotlin.math.PI
  * near (hover-lock), when the driver flagged a palm, when the contact is
  * bigger than a fingertip, and — in pen-only mode — always, save for two or
  * more fingers, which pan and pinch the page underneath.
+ *
+ * ## Pointers, not a pointer
+ *
+ * Every decision here reads the pointer the event is *about*
+ * (`actionIndex`, `getToolType(index)`) and captures along the latched pen
+ * pointer, never index 0. A `MotionEvent` is a stream over a set of pointers, and
+ * the pen is not reliably the first one: a left-handed writer puts the palm down
+ * before the nib lands, so the palm is pointer 0 and the pen arrives later as
+ * `ACTION_POINTER_DOWN`.
  */
 class InkingOverlayView @JvmOverloads constructor(
     context: Context,
@@ -41,33 +46,59 @@ class InkingOverlayView @JvmOverloads constructor(
 
     /** Called with the stroke as a JSON array `[x, y, p, t, ...]` in view pixels. */
     var onStrokeFinished: ((String) -> Unit)? = null
+
+    /**
+     * Whether the user asked for pen-only behaviour.
+     *
+     * Read by the web side's own gate, not by anything here. Routing is
+     * [InkGestureView]'s job now, and in pen-only mode a finger still moves the
+     * paper and two fingers still move and zoom it — so this flag no longer decides
+     * what this view receives.
+     */
     var penOnly: Boolean = false
 
     /** Which side the palm rests on; reserved for a rest-zone heuristic. */
     var leftHanded: Boolean = false
 
     private companion object {
-        /** How long after the pen leaves hover a touch is still taken as a palm. */
-        const val STYLUS_HOVER_GRACE_MS = 400L
-
-        /** A contact bigger than this is a hand's heel, not a fingertip. */
-        const val PALM_AREA_THRESHOLD_MM2 = 25.0f
-        const val PALM_SIZE_THRESHOLD = 0.35f
+        /**
+         * The most samples one stroke may hold.
+         *
+         * A continuous highlighter pass is minutes of samples at the digitiser
+         * rate, and the buffer is cleared per stroke — but "per stroke" is not a
+         * bound. 32 000 samples is several minutes of 90 Hz pen input, well past
+         * any real stroke, and a stroke that reaches it is finished early with
+         * the samples it has rather than allocating until the pen lifts.
+         */
+        const val MAX_STROKE_SAMPLES = 32_000
     }
 
     /** The ink page's box in view pixels, or null when no page is on screen. */
     private var viewport: RectF? = null
 
-    // Hover-lock state.
-    private var isStylusHovering = false
     private var isStylusDrawing = false
-    private var lastStylusUptimeMs = 0L
+
+    /**
+     * Which pointer the pen is, or `-1` when no pen is down.
+     *
+     * Deciding stylus-versus-finger from `getToolType(0)` and then reading
+     * coordinates from `event.x`/`event.y` — which are pointer **0**'s — does
+     * nothing at all when the palm arrived first: the pen's arrival is
+     * `ACTION_POINTER_DOWN` at index 1, an action the `when` did not handle, so
+     * the stroke never starts and every subsequent `ACTION_MOVE` returns false.
+     * The user sees an app that "does not ink when my hand is down", which is
+     * exactly the situation the hover-lock tier exists to prevent and which
+     * single-pointer testing cannot reproduce. Latching the pen's own pointer id
+     * is the fix; `getToolType(index)`, never `getToolType(0)`, is the rule.
+     */
+    private var penPointerId = -1
 
     // The stroke in flight.
     private val strokePoints = ArrayList<Float>(4 * 512)
     private var lastX = 0f
     private var lastY = 0f
     private var hasLast = false
+    private var strokeTruncated = false
     private var baseWidth = 4f
 
     private val penPaint = Paint().apply {
@@ -141,78 +172,121 @@ class InkingOverlayView @JvmOverloads constructor(
         strokePoints.clear()
         isStylusDrawing = false
         hasLast = false
+        strokeTruncated = false
+        penPointerId = -1
         renderer.clear()
+    }
+
+    /** Release everything that outlives the surface. Called from `onDestroy`. */
+    fun release() {
+        onStrokeFinished = null
+        clear()
     }
 
     private fun inViewport(x: Float, y: Float): Boolean = viewport?.contains(x, y) ?: false
 
-    /**
-     * S-Pen and USI digitisers report the pen up to ~15 mm off the glass. The
-     * hover is what locks the palm out before the nib lands.
-     */
-    override fun onHoverEvent(event: MotionEvent): Boolean {
-        val toolType = event.getToolType(0)
-        if (toolType == MotionEvent.TOOL_TYPE_STYLUS || toolType == MotionEvent.TOOL_TYPE_ERASER) {
-            when (event.actionMasked) {
-                MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> {
-                    isStylusHovering = true
-                    lastStylusUptimeMs = SystemClock.uptimeMillis()
-                }
-                MotionEvent.ACTION_HOVER_EXIT -> {
-                    isStylusHovering = false
-                    lastStylusUptimeMs = SystemClock.uptimeMillis()
-                }
-            }
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        // Every event that reaches this view is the pen's. The decision about which
+        // view owns a touch stream lives in `InkGestureRouter`, behind
+        // `InkGestureView.onInterceptTouchEvent` — a palm is rejected and a finger is
+        // passed to the web view *there*, because that is the only place a
+        // mid-gesture decision can be made. What used to be here was a five-tier
+        // policy in `onTouchEvent`, and the last of those tiers could not work at all:
+        // it claimed the gesture at `ACTION_DOWN` and then tried to give two-finger
+        // gestures back, which no sibling view can do.
+        //
+        // So this stays a single-pointer state machine over the pen, with the one
+        // correction the old version needed: the action's own index decides the tool,
+        // never index 0, because a palm that landed first is pointer 0.
+        val index = event.actionIndex.coerceIn(0, (event.pointerCount - 1).coerceAtLeast(0))
+        val toolType = event.getToolType(index)
+        val isStylus = toolType == MotionEvent.TOOL_TYPE_STYLUS ||
+            toolType == MotionEvent.TOOL_TYPE_ERASER
+
+        // A stream the overlay already owns stays with the pen even when this
+        // particular action's index belongs to another pointer: the palm arriving or
+        // lifting mid-stroke must not be read as a stylus action, and must not end the
+        // stroke either.
+        if (!isStylus && penPointerId != -1 && isPenDown(event)) return onStylus(event)
+
+        return if (isStylus) onStylus(event) else false
+    }
+
+    /** Whether the latched pen pointer is still part of this event. */
+    private fun isPenDown(event: MotionEvent): Boolean {
+        for (i in 0 until event.pointerCount) {
+            if (event.getPointerId(i) == penPointerId) return true
         }
-        // Not consumed: the web view still gets hover for its own cursor.
         return false
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        val toolType = event.getToolType(0)
-        val isStylus = toolType == MotionEvent.TOOL_TYPE_STYLUS || toolType == MotionEvent.TOOL_TYPE_ERASER
-        val now = SystemClock.uptimeMillis()
-        return if (isStylus) onStylus(event, now) else onTouch(event, now)
-    }
+    /** Whether a pointer index is the pen. */
+    private fun isPenIndex(event: MotionEvent, index: Int): Boolean =
+        penPointerId != -1 && event.getPointerId(index) == penPointerId
 
     // 1. The stylus: raw digitiser samples, batched history included.
-    private fun onStylus(event: MotionEvent, now: Long): Boolean {
-        lastStylusUptimeMs = now
+    private fun onStylus(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                // Outside the page the pen is a pointer for the web view.
-                if (!inViewport(event.x, event.y)) return false
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                val index = event.actionIndex
+                if (event.getToolType(index) != MotionEvent.TOOL_TYPE_STYLUS &&
+                    event.getToolType(index) != MotionEvent.TOOL_TYPE_ERASER
+                ) {
+                    // A finger joined a stream the pen is not in yet; the palm
+                    // arriving first is this case, and it changes nothing.
+                    return isStylusDrawing
+                }
+                if (!inViewport(event.getX(index), event.getY(index))) {
+                    penPointerId = -1
+                    return false
+                }
                 clear()
+                penPointerId = event.getPointerId(index)
                 isStylusDrawing = true
-                record(event.x, event.y, event.pressure, event.eventTime)
+                record(event.getX(index), event.getY(index), event.getPressure(index), event.eventTime)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 if (!isStylusDrawing) return false
-                for (i in 0 until event.historySize) {
+                // Walk the pointers and take only the pen's: with the palm down
+                // the pen is index 1, and reading index 0 (or every index) would
+                // capture the palm's coordinates into the stroke.
+                for (p in 0 until event.pointerCount) {
+                    if (!isPenIndex(event, p)) continue
+                    for (h in 0 until event.historySize) {
+                        record(
+                            event.getHistoricalX(p, h),
+                            event.getHistoricalY(p, h),
+                            event.getHistoricalPressure(p, h),
+                            // `getHistoricalEventTime` takes only the pointer index:
+                            // a batched sample has one timestamp per *event*, and
+                            // `historySize` is shared across pointers. Passing `h`
+                            // here is a compile error, which is the good outcome —
+                            // the shape of the API is the documentation.
+                            event.getHistoricalEventTime(p),
+                        )
+                    }
                     record(
-                        event.getHistoricalX(i),
-                        event.getHistoricalY(i),
-                        event.getHistoricalPressure(i),
-                        event.getHistoricalEventTime(i),
+                        event.getX(p),
+                        event.getY(p),
+                        event.getPressure(p),
+                        event.eventTime,
                     )
                 }
-                record(event.x, event.y, event.pressure, event.eventTime)
                 return true
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                // The pen lifting while another pointer remains in the stream is
+                // the end of the stroke, not the end of the gesture.
+                if (!isStylusDrawing || !isPenIndex(event, event.actionIndex)) {
+                    return isStylusDrawing
+                }
+                return finishStroke(event, event.actionIndex)
             }
             MotionEvent.ACTION_UP -> {
                 if (!isStylusDrawing) return false
-                record(event.x, event.y, event.pressure, event.eventTime)
-                isStylusDrawing = false
-                val json = JSONArray(strokePoints).toString()
-                strokePoints.clear()
-                hasLast = false
-                // The wet stroke stays on the front buffer until the web app
-                // has drawn its own and calls clearOverlay(), so there is no
-                // frame with the stroke missing in between.
-                onStrokeFinished?.invoke(json)
-                return true
+                return finishStroke(event, event.actionIndex)
             }
             MotionEvent.ACTION_CANCEL -> {
                 val wasDrawing = isStylusDrawing
@@ -223,7 +297,40 @@ class InkingOverlayView @JvmOverloads constructor(
         return isStylusDrawing
     }
 
+    /**
+     * Commit the stroke and hand it to the web side.
+     *
+     * The payload is built here rather than as `JSONArray(strokePoints).toString()`,
+     * which boxes every `Float` into a `java.lang.Float`, wraps each in a
+     * `JSONObject` value and concatenates the lot on the main thread — about four
+     * allocations per sample, at exactly the moment the user lifts the pen and
+     * expects the dry stroke to commit. It is still the same JSON array of numbers
+     * the web side already parses; only the allocation is gone.
+     */
+    private fun finishStroke(event: MotionEvent, index: Int): Boolean {
+        record(event.getX(index), event.getY(index), event.getPressure(index), event.eventTime)
+        isStylusDrawing = false
+        penPointerId = -1
+        val json = encodeStroke(strokePoints)
+        strokePoints.clear()
+        hasLast = false
+        strokeTruncated = false
+        // The wet stroke stays on the front buffer until the web app has drawn
+        // its own and calls clearOverlay(), so there is no frame with the stroke
+        // missing in between.
+        onStrokeFinished?.invoke(json)
+        return true
+    }
+
     private fun record(x: Float, y: Float, pressure: Float, t: Long) {
+        if (strokePoints.size >= MAX_STROKE_SAMPLES * SAMPLES_PER_LINE) {
+            // Bounded rather than unbounded: a stroke that reaches the ceiling
+            // commits the samples it has instead of allocating until the pen
+            // lifts. It ends a little short of the nib's last movement, which is
+            // visible; an unbounded buffer is not.
+            strokeTruncated = true
+            return
+        }
         strokePoints.add(x)
         strokePoints.add(y)
         strokePoints.add(pressure)
@@ -240,34 +347,64 @@ class InkingOverlayView @JvmOverloads constructor(
         hasLast = true
     }
 
-    // 2. Touch: the palm, refused in tiers.
-    private fun onTouch(event: MotionEvent, now: Long): Boolean {
-        // No page on screen: the overlay is not in the way of anything.
-        if (viewport == null) return false
+    // The five-tier touch policy that used to live here is now `InkGestureRouter`.
+}
 
-        // Tier A: the pen is drawing, hovering, or only just left. The palm
-        // rests while the pen writes; swallowed, so the web view never scrolls.
-        val penNearby = isStylusDrawing || isStylusHovering ||
-            (now - lastStylusUptimeMs < STYLUS_HOVER_GRACE_MS)
-        if (penNearby) return true
+/**
+ * Floats per sample in the stroke payload: `x`, `y`, `pressure`, `t`.
+ *
+ * Top-level because both the view and the payload encoder read it, and two
+ * copies of "four" is how an encoder and its reader drift apart.
+ */
+private const val SAMPLES_PER_LINE = 4
 
-        // Tier B: the driver's own verdict (API 33+).
-        if (Build.VERSION.SDK_INT >= 33 && (event.flags and MotionEvent.FLAG_CANCELED) != 0) return true
-
-        // Tier C: contact geometry. A fingertip is under ~25 mm².
-        val xdpi = resources.displayMetrics.xdpi
-        val ydpi = resources.displayMetrics.ydpi
-        val majorMm = (event.touchMajor / xdpi) * 25.4f
-        val minorMm = (event.touchMinor / ydpi) * 25.4f
-        val areaMm2 = (PI * majorMm * minorMm / 4.0).toFloat()
-        if (areaMm2 > PALM_AREA_THRESHOLD_MM2 || event.size > PALM_SIZE_THRESHOLD) return true
-
-        // Tier D: pen-only, where a single finger is never a pen — but two
-        // fingers still pan and pinch the page beneath.
-        if (penOnly) return event.pointerCount < 2
-
-        // Tier E: anything else is the web view's; it decides between scroll
-        // and touch-draw itself.
-        return false
+/**
+ * The stroke as a JSON array of numbers: `[x, y, p, t, …]`.
+ *
+ * The same array `JSONArray(strokePoints).toString()` produced — the web side's
+ * `nativeStrokeEvents` reads it as flat groups of four — but hand-rolled,
+ * because the `JSONArray` route boxes every `Float` into a `java.lang.Float` and
+ * wraps it in a `JSONObject` value: roughly four object allocations per sample,
+ * on the main thread, at the moment the pen lifts. Two decimals is sub-pixel on
+ * any panel; three for pressure, which is what the pen actually distinguishes.
+ *
+ * Timestamps are emitted as whole numbers because they are device uptime
+ * milliseconds, and the reader only ever looks at differences.
+ */
+private fun encodeStroke(points: ArrayList<Float>): String {
+    val builder = StringBuilder(points.size * 10 + 2)
+    builder.append('[')
+    var sample = 0
+    while (sample * SAMPLES_PER_LINE < points.size) {
+        if (sample > 0) builder.append(',')
+        val at = sample * SAMPLES_PER_LINE
+        appendFixed(builder, points[at], 2)
+        builder.append(',')
+        appendFixed(builder, points[at + 1], 2)
+        builder.append(',')
+        appendFixed(builder, points[at + 2], 3)
+        builder.append(',')
+        builder.append(points[at + 3].toLong())
+        sample++
     }
+    builder.append(']')
+    return builder.toString()
+}
+
+/** Append a float with a fixed number of decimal places, without a formatter. */
+private fun appendFixed(builder: StringBuilder, value: Float, decimals: Int) {
+    val scale = if (decimals == 2) 100 else 1000
+    val scaled = Math.round(value * scale)
+    val whole = scaled / scale
+    val fraction = Math.abs(scaled % scale)
+    builder.append(whole)
+    builder.append('.')
+    var digits = decimals
+    var threshold = scale / 10
+    while (digits > 1) {
+        if (fraction < threshold) builder.append('0')
+        threshold /= 10
+        digits--
+    }
+    builder.append(fraction)
 }

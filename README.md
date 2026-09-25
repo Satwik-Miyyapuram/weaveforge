@@ -40,18 +40,26 @@ Built **TDD + SOLID**: framework-agnostic core (`@weaveforge/core`), repository 
 
 ## Quick start
 
-**Prerequisites:** Node.js 22+, a [Supabase](https://supabase.com) project (or self-hosted Postgres — see [`docs/running/backend.md`](docs/running/backend.md)).
+**Prerequisites:** Node.js 22+ and a Postgres 16 the app can reach. Two supported shapes, and the
+one this project runs on is the second — see [`docs/running/backend.md`](docs/running/backend.md):
+
+- a [Supabase](https://supabase.com) project (managed Postgres + Auth + Storage), or
+- self-hosted **Postgres + PostgREST + Realtime on OCI**, with MinIO for blobs
+  ([`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml)).
+
+Auth is Supabase Auth in both cases; only the data plane and object storage move.
 
 ```bash
 git clone https://github.com/Satwik-Miyyapuram/weaveforge.git
 cd weaveforge
 npm install
 npm run build:core
-npm run test:core          # 900+ domain tests, no network
+npm run test:core          # the domain suite — no network, no browser
 ```
 
-1. Copy `apps/web/.env.local.example` → `apps/web/.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-2. Apply schema: `supabase link --project-ref <ref> && supabase db push` (or paste migrations in the SQL editor — see [`supabase/migrations/README.md`](supabase/migrations/README.md)).
+1. Copy `apps/web/.env.local.example` → `apps/web/.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`. On the OCI stack these point at the Caddy gateway in front of PostgREST, not at `supabase.co`.
+2. Apply schema: `supabase link --project-ref <ref> && supabase db push`, or `psql` the files in order. On OCI,
+   [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) goes **first**, then the main chain — see [`supabase/migrations/README.md`](supabase/migrations/README.md).
 3. `npm run dev` → http://localhost:3000 — sign in, create a project, start adding papers.
 
 Full setup (Auth providers, integrations, deploy): sections below and [`docs/building/dev.md`](docs/building/dev.md).
@@ -191,12 +199,20 @@ apps/web/         Next.js PWA
 apps/pitch/       Static export of the pitch site (GitHub Pages)
 apps/desktop/     Electron shell around the web app (see apps/desktop/README.md)
 packages/core/    @weaveforge/core — shared domain + use-cases
-supabase/         Migrations 0001…0117 (see supabase/migrations/README.md)
+supabase/         Migrations 0001…0131 (see supabase/migrations/README.md)
 python/           weaveforge SDK
 docs/             using/ building/ running/, and internal/ working notes
 ```
 
-### Supabase project
+### Database and auth
+
+**Self-hosted on OCI (what this project runs on):** Postgres 16, PostgREST, Realtime and MinIO
+behind Caddy, from [`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml). Supabase Auth
+still issues the session tokens; the stack verifies them (`JWT_KEYS` carries the project's public
+keys). Apply [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/)
+first, then the main chain.
+
+**Hosted Supabase (the alternative):**
 
 1. [supabase.com](https://supabase.com) → **New project**.
 2. **Settings → API** — copy Project URL and anon key into `.env.local`.
@@ -205,12 +221,15 @@ docs/             using/ building/ running/, and internal/ working notes
 ### Environment (`apps/web/.env.local`)
 
 ```ini
+# The data API. Hosted Supabase: your project URL. OCI: the Caddy gateway, e.g. https://<your-host>
 NEXT_PUBLIC_SUPABASE_URL=https://<your-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 # Server-only, required for linked Overleaf reports; never expose to the browser.
 # Use a stable long random value so stored credentials remain decryptable.
 # OVERLEAF_CREDENTIAL_KEY=...
 # Optional: NEXT_PUBLIC_BACKEND_PROVIDER=supabase | postgres
+# Blobs: supabase (default) | tiered (R2 hot + MinIO/OCI cold) — see docs/running/storage/README.md
+# NEXT_PUBLIC_BLOB_PROVIDER=tiered
 # Optional integration overrides — see docs/using/integrations.md
 ```
 
@@ -221,7 +240,7 @@ supabase link --project-ref <your-ref>
 supabase db push
 ```
 
-Apply the full chain with `supabase db push`. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped and nothing reads them, but no migration removes them. Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
+Apply the full chain with `supabase db push`. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped, nothing reads them, and **`0099` drops the whole schema** — this paragraph used to claim no migration did. Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
 
 ### Collaboration
 

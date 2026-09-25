@@ -9,6 +9,7 @@ export * from "./application/create-ai-session-grant.use-case.js";
 export * from "./domain/ai-write-proposal.js";
 export * from "./domain/ai-evidence.js";
 export * from "./application/propose-append-paper-note.use-case.js";
+export * from "./application/append-paper-note.use-case.js";
 export * from "./application/confirm-ai-proposal.use-case.js";
 export * from "./application/execute-ai-proposal.use-case.js";
 export * from "./application/create-ai-proposal-draft.use-case.js";

@@ -20,6 +20,16 @@ type ProposalRow = {
 };
 
 /**
+ * The columns a proposal is read as, named rather than starred.
+ *
+ * `content` is the whole proposal as jsonb and `ai_proposals` is queried per
+ * review screen; a star would carry any column added later into a queue nobody
+ * asked it to join.
+ */
+const PROPOSAL_COLUMNS =
+  "id,kind,status,resource_type,resource_id,expected_revision,content,created_at";
+
+/**
  * User-owned proposal persistence. Proposal text, source links, and audit
  * details are stored as plaintext JSON (RLS + at-rest); lifecycle indexes stay
  * as columns for querying.
@@ -49,7 +59,7 @@ export class SupabaseAiProposalStore implements IAiProposalStore {
   }
 
   async getById(id: string): Promise<AiWriteProposal | null> {
-    const { data, error } = await this.db.from("ai_proposals").select("*").eq("id", id).maybeSingle();
+    const { data, error } = await this.db.from("ai_proposals").select(PROPOSAL_COLUMNS).eq("id", id).maybeSingle();
     if (error) throw error;
     return data ? this.fromRow(data as ProposalRow) : null;
   }
@@ -57,7 +67,7 @@ export class SupabaseAiProposalStore implements IAiProposalStore {
   async listPending(): Promise<AiWriteProposal[]> {
     const { data, error } = await this.db
       .from("ai_proposals")
-      .select("*")
+      .select(PROPOSAL_COLUMNS)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
     if (error) throw error;

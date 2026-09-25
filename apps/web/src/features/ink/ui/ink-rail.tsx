@@ -59,6 +59,15 @@ export interface InkRailProps {
   flowedText?: readonly string[];
   /** Figure blob URLs by path. */
   figureUrls?: ReadonlyMap<string, string>;
+  /**
+   * `vault:`/`paperimg:` src → a fetchable URL, or null to drop the image.
+   *
+   * The rail paints the pages either side of the current one, and their text
+   * is the same underlay the live page uses — so it needs the same resolver, or
+   * a paper's figure appears on the live page and is a broken image on the page
+   * beside it.
+   */
+  resolveImageSrc?: (src: string) => string | null;
   /** Theme palette. */
   palette?: InkPalette;
   /** Everything else the live page needs, as the page component takes it. */
@@ -79,6 +88,7 @@ export function InkRail(props: InkRailProps) {
     textPages,
     flowedText,
     figureUrls,
+    resolveImageSrc,
     palette,
     children,
   } = props;
@@ -164,6 +174,7 @@ export function InkRail(props: InkRailProps) {
                 figures={pageFigures}
                 figureUrls={figureUrls}
                 pureText={pureText}
+                resolveImageSrc={resolveImageSrc}
                 strokes={pageStrokes}
                 palette={palette}
               />

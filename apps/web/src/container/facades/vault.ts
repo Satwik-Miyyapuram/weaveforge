@@ -1,3 +1,4 @@
+import type { IVaultPageRepository, ManageVaultPageUseCase } from "@weaveforge/core";
 import type { LoadVaultScreenUseCase, VaultScreenData } from "@/features/vault/application/load-vault-screen.use-case";
 import type { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 
@@ -5,8 +6,8 @@ export class VaultFacade {
   constructor(
     private readonly deps: {
       load: LoadVaultScreenUseCase;
-      pages: import("@weaveforge/core").IVaultPageRepository;
-      manageVaultPage: import("@weaveforge/core").ManageVaultPageUseCase;
+      pages: IVaultPageRepository;
+      manageVaultPage: ManageVaultPageUseCase;
       assets: import("@/features/vault/domain/vault-assets").IVaultAssetStore;
       duplicateSharedPage: DuplicateSharedVaultPageUseCase;
     },

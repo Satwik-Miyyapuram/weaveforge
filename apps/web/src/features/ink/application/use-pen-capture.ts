@@ -181,6 +181,17 @@ export interface UsePenCaptureOptions {
    */
   onEvent?: (event: InkWorkerEvent) => void;
   /**
+   * The pen came near the screen.
+   *
+   * Fired on a pen pointer-down, which is the earliest signal this hook has: a
+   * hover that never becomes a stroke is not reported by the web platform, and the
+   * native shell's hover events are not bridged. Fired every time rather than once,
+   * because the tool can be moved away from a pen mode between strokes and the
+   * restore has to happen again — see `toolOnPenApproach` for the rule, which is
+   * idempotent when a pen mode is already selected.
+   */
+  onPenApproach?: () => void;
+  /**
    * Whether something else is drawing the wet tail. Prediction is on **only**
    * when neither this nor the hook's own presenter is (§6.2.6).
    */
@@ -513,6 +524,12 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
 
       if (event.pointerType === "pen") {
         if (!gateRef.current.hasSeenPen) setPenSeen(true);
+        // The pen is here, so a pen mode should be in force. Fired on every pen
+        // pointer-down rather than once, because the tool can be changed away from a
+        // pen mode between strokes — pick the eraser, put the pen down, pick the pen
+        // back up — and the restore has to happen again each time. It is idempotent
+        // when a pen mode is already selected, which is the common case.
+        callbacksRef.current.onPenApproach?.();
         // Layer three's default: the guard goes up on the first pen, unless this
         // device has already said otherwise.
         if (

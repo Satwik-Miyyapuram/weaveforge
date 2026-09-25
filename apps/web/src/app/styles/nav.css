@@ -40,7 +40,7 @@
   box-shadow:
     var(--glass-shadow),
     0 1px 0 color-mix(in srgb, var(--ink) 6%, transparent) inset;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: background var(--dur-base), border-color var(--dur-base), box-shadow var(--dur-base);
 }
 .nav--enter-rise {
   animation: nav-rise-in var(--layout-duration) cubic-bezier(0.22, 0.61, 0.36, 1) both;
@@ -60,7 +60,7 @@
   padding: 10px 2px; border-radius: 12px;
   min-height: var(--touch-min);
   justify-content: center;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 /* The search entry is a button, not a link — it opens a palette rather than
    navigating. Reset the parts a button brings with it so it sits in the row
@@ -154,7 +154,7 @@ button.nav-link {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     box-shadow: none;
-    transition: width 0.2s var(--layout-ease), background 0.15s;
+    transition: width 0.2s var(--layout-ease), background var(--dur-base);
   }
   .nav--enter-slide {
     animation: nav-slide-in var(--layout-duration) var(--layout-ease) both;
@@ -173,7 +173,7 @@ button.nav-link {
     flex: none; flex-direction: row; justify-content: flex-start; gap: 12px;
     font-size: 0.92rem; font-weight: 500;
     padding: 10px 14px; border-radius: 999px;
-    transition: background 0.15s, color 0.15s, padding 0.2s var(--layout-ease);
+    transition: background var(--dur-base), color var(--dur-base), padding 0.2s var(--layout-ease);
     overflow: hidden;
   }
 .nav-link .nav-icon { width: calc(var(--icon-size) + 3px); height: calc(var(--icon-size) + 3px); flex: none; }

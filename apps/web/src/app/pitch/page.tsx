@@ -216,21 +216,31 @@ export default function PitchPage() {
 
         {/* The sheet the "Sections" control opens: a full-width panel under the
             header, on the small screens where the bar above is hidden. The
-            links come from the same `SECTIONS` list the bar renders. */}
-        {sectionsOpen ? (
-          <nav className={headerCss.sectionsSheet} id="pitch-sections" aria-label="Sections">
-            {SECTIONS.map((section) => (
-              <a
-                key={section.id}
-                href={`#${section.id}`}
-                aria-current={navOn === section.id ? "true" : undefined}
-                onClick={() => setSectionsOpen(false)}
-              >
-                {section.label}
-              </a>
-            ))}
-          </nav>
-        ) : null}
+            links come from the same `SECTIONS` list the bar renders.
+
+            Present in the document whether or not it is open, and `hidden`
+            while closed. The button's `aria-controls` is an IDREF, so the
+            element it names has to exist for the reference to resolve —
+            unmounting the sheet left it pointing at nothing on every load.
+            `hidden` also keeps the nine links out of the accessibility tree
+            until the disclosure is opened. */}
+        <nav
+          className={headerCss.sectionsSheet}
+          id="pitch-sections"
+          aria-label="Sections"
+          hidden={!sectionsOpen}
+        >
+          {SECTIONS.map((section) => (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              aria-current={navOn === section.id ? "true" : undefined}
+              onClick={() => setSectionsOpen(false)}
+            >
+              {section.label}
+            </a>
+          ))}
+        </nav>
       </header>
 
       <main id="top">

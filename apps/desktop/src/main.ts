@@ -53,8 +53,7 @@ import {
   handleFetchTitle,
   mayOpenExternally,
 } from "./handlers";
-import { isPdfProxyRequest, proxyPdf } from "./pdf-proxy";
-import { isSemanticScholarProxyRequest, proxySemanticScholar } from "./semantic-scholar-proxy";
+import { answerRelay } from "./app-relays";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS } from "./channels";
 import { preferenceStore, secretStore } from "./main-stores";
@@ -365,13 +364,14 @@ function serveBundle(): void {
       );
     }
     if (host !== APP_HOST) return new Response(null, { status: 404 });
-    // The reader's PDF proxy, which the web app has as a server route.
-    if (isPdfProxyRequest(request.url)) return proxyPdf(request.url, net.fetch);
-    // Semantic Scholar, relayed so a throttled call is a 429 and not a CORS error.
-    if (isSemanticScholarProxyRequest(request.url)) return proxySemanticScholar(request, net.fetch);
+    // The `/api/*` routes the web app has on a server, relayed by the shell.
+    const relayed = answerRelay(request, net.fetch);
+    if (relayed) return relayed;
 
+    // A file, not merely a path: `/reader` names the `reader/` folder before
+    // it names `reader/index.html`, and a folder handed to net.fetch throws.
     const file = resolveAppFile(BUNDLE, request.url, (candidate) =>
-      fs.existsSync(candidate),
+      fs.statSync(candidate, { throwIfNoEntry: false })?.isFile() ?? false,
     );
     if (!file) return new Response(null, { status: 404 });
 

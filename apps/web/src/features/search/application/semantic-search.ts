@@ -67,7 +67,10 @@ async function run(options: EnableOptions): Promise<void> {
   const projectId = container.projects.context.projectId;
 
   await container.search.ensure();
-  const docs: readonly SearchDoc[] = container.search.indexedDocuments();
+  // Projected now rather than taken from a copy the build kept: that copy went
+  // stale on any incremental refresh, and the revision below is derived from it,
+  // so a note added after the build could never be found by this arm.
+  const docs: readonly SearchDoc[] = await container.search.projectionForSemantic();
   const revision = searchRevision(docs);
 
   embedder ??= new WorkerEmbedder({

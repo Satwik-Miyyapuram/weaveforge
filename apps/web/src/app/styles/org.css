@@ -12,7 +12,7 @@
   border-radius: 10px;
   background: var(--neutral);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--dur-base), background var(--dur-base);
 }
 .org-choice-card:hover {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line));

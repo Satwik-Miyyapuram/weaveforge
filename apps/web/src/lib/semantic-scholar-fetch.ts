@@ -1,17 +1,23 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
 
 /**
- * Where Semantic Scholar is reached from.
+ * Where Semantic Scholar is reached from: always our own relay.
  *
- * In a browser the page calls the API directly — it allows any origin on a
- * good answer. In the desktop shell the same call goes to the shell's relay
- * (`apps/desktop/src/semantic-scholar-proxy.ts`), which fetches without
- * CORS: a throttled call then comes back as a 429 the retry below can act
- * on, instead of the "Failed to fetch" the page would see.
+ * Both hosts have one, with the same shape — the shell's handler on `app://`
+ * (`apps/desktop/src/semantic-scholar-proxy.ts`) and a Next route in the hosted
+ * app (`apps/web/src/app/api/semantic-scholar/[...path]/route.ts`). A browser
+ * is not a special case any more: it used to call `api.semanticscholar.org`
+ * directly, and that API sends `access-control-allow-origin: *` on a good
+ * answer but **not** on a 429 — so a throttled lookup arrived as a bare
+ * `TypeError`, indistinguishable from a dead network, with no status for the
+ * retry below to read. Behind the relay the real status comes back.
+ *
+ * `desktop()` is read anyway, because the browser and the shell disagree about
+ * what a failed relay *means*: see `fetchSemanticScholar`.
  */
 export function semanticScholarUrl(path: string): string {
   const rest = path.startsWith("/") ? path.slice(1) : path;
-  return desktop() ? `/api/semantic-scholar/${rest}` : `https://api.semanticscholar.org/${rest}`;
+  return `/api/semantic-scholar/${rest}`;
 }
 
 const RETRIES = 3;
@@ -19,9 +25,15 @@ const RETRIES = 3;
 /**
  * Shared Semantic Scholar retry policy for metadata and citation endpoints.
  *
- * A 429 from the API carries no CORS header, so in a page it surfaces as a
- * thrown `TypeError` rather than a status. That throw is retried like a 429;
- * if it never clears, the original error is what the caller gets, so a dead
+ * A 429 is retried: the relay has its own three attempts, and these cover the
+ * case where it is itself rate-limited by something in front, or where a
+ * different instance answered. A thrown `TypeError` is retried too, but only in
+ * a browser, and only because there it is ambiguous — a cross-origin refusal, a
+ * dropped connection and a relay that is briefly unreachable all look the same.
+ * In the shell the relay is in-process, so a `TypeError` is not a throttled
+ * lookup and retrying it would just delay the error.
+ *
+ * If it never clears, the original throw is what the caller gets, so a dead
  * network still reads as one.
  */
 export async function fetchSemanticScholar(
@@ -43,7 +55,8 @@ async function attempt(fetchFn: typeof fetch, url: string, init?: RequestInit): 
   try {
     return await fetchFn(url, init);
   } catch (error) {
-    if (error instanceof TypeError && url.startsWith("https://api.semanticscholar.org/")) return error;
+    // The relay path, and only outside the desktop: see the note above.
+    if (error instanceof TypeError && !desktop() && url.startsWith("/api/semantic-scholar/")) return error;
     throw error;
   }
 }

@@ -1,17 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  `InkGestureView` is the parent rather than a plain FrameLayout, and that is
+  load-bearing: it owns `onInterceptTouchEvent`, which is the only place a gesture
+  can be taken over mid-stream.
+
+  The layer order inside it is unchanged — the web view below, the transparent
+  front-buffered stylus surface above — but the parent now decides which layer a
+  touch stream belongs to. See InkGestureRouter for the rules and InkGestureView
+  for why a sibling arrangement could not express them.
+-->
+<org.weaveforge.ink.InkGestureView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/inkGesture"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Layer 1: the whole WeaveForge web app. -->
+    <!-- Layer 1: the whole WeaveForge web app. One finger moves the paper, two
+         move and zoom it, and it never sees the pen. -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Layer 2: the transparent front-buffered stylus overlay. -->
+    <!-- Layer 2: the transparent front-buffered stylus surface. Draws the pen,
+         and absorbs palms and a third finger so the paper does not move under a
+         resting hand. -->
     <org.weaveforge.ink.InkingOverlayView
         android:id="@+id/inkOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
-</FrameLayout>
+</org.weaveforge.ink.InkGestureView>

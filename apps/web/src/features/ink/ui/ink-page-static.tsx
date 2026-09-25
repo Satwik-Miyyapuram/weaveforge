@@ -35,6 +35,12 @@ export interface InkPageStaticProps {
   figureUrls?: ReadonlyMap<string, string>;
   /** Note body text on this page (with figures and header stripped). */
   pureText?: string;
+  /**
+   * `vault:`/`paperimg:` src → a fetchable URL, or null to drop the image.
+   * A stable identity, so the underlay's markdown pass is not re-run — and its
+   * mermaid upgrades thrown away — every time a fetch lands.
+   */
+  resolveImageSrc?: (src: string) => string | null;
   /** Ink strokes on this page. */
   strokes?: readonly InkStroke[];
   /** Theme palette. */
@@ -52,6 +58,7 @@ export function InkPageStatic({
   figures,
   figureUrls,
   pureText,
+  resolveImageSrc,
   strokes,
   palette = INK_RENDER_COLOURS,
   onLoadError,
@@ -76,6 +83,10 @@ export function InkPageStatic({
         style={{ width: `${width}px`, height: `${height}px`, position: "relative", ...inkSheetRuleStyle(scale) }}
       >
         {backgroundUrl ? (
+          // A plain `<img>`: `backgroundUrl` is a `blob:` URL from
+          // `use-ink-sheet-images.ts`, made and revoked in this tab, which the
+          // `next/image` optimizer has no route for.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             className="ink-ghost-image"
             src={backgroundUrl}
@@ -85,7 +96,7 @@ export function InkPageStatic({
           />
         ) : null}
         {pureText ? (
-          <InkSheetTextUnderlay text={pureText} scale={scale} />
+          <InkSheetTextUnderlay text={pureText} scale={scale} resolveImageSrc={resolveImageSrc} />
         ) : null}
         {figures && figures.length > 0 ? (
           <InkFigures

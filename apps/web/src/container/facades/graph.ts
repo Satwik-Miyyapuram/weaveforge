@@ -1,5 +1,12 @@
 import type {
   AddRelationUseCase,
+  IPaperRelationRepository,
+  IPaperRepository,
+  IReadingListItemRepository,
+  IReadingListRepository,
+  IReportSectionRepository,
+  ITagRepository,
+  IVaultPageRepository,
   LinkCitationsUseCase,
   ManageTagsUseCase,
   Paper,
@@ -10,10 +17,11 @@ import type {
 } from "@weaveforge/core";
 import type { IGraphSettingsRepository, GraphPersistedState } from "@weaveforge/core";
 import type { RemoveRelationUseCase } from "@weaveforge/core";
+import { buildListMembership, paperIdOfItem } from "@weaveforge/core";
 
 export interface GraphScreenData {
   papers: Paper[];
-  notes: import("@weaveforge/core").VaultPage[];
+  notes: VaultPage[];
   sections: ReportSection[];
   relations: PaperRelation[];
   lists: ReadingList[];
@@ -23,17 +31,17 @@ export interface GraphScreenData {
 export class GraphFacade {
   constructor(
     private readonly deps: {
-      papers: import("@weaveforge/core").IPaperRepository;
-      notes: import("@weaveforge/core").IVaultPageRepository;
-      sections: import("@weaveforge/core").IReportSectionRepository;
-      relations: import("@weaveforge/core").IPaperRelationRepository;
-      lists: import("@weaveforge/core").IReadingListRepository;
-      listItems: import("@weaveforge/core").IReadingListItemRepository;
+      papers: IPaperRepository;
+      notes: IVaultPageRepository;
+      sections: IReportSectionRepository;
+      relations: IPaperRelationRepository;
+      lists: IReadingListRepository;
+      listItems: IReadingListItemRepository;
       addRelation: AddRelationUseCase;
       linkCitations: LinkCitationsUseCase;
       removeRelation: RemoveRelationUseCase;
       manageTags: ManageTagsUseCase;
-      tags: import("@weaveforge/core").ITagRepository;
+      tags: ITagRepository;
       settings: IGraphSettingsRepository;
     },
   ) {}
@@ -47,10 +55,7 @@ export class GraphFacade {
       this.deps.lists.list(),
     ]);
     const items = await this.deps.listItems.listItemsForLists(lists.map((l) => l.id));
-    const membership = new Map<string, Set<string>>(lists.map((l) => [l.id, new Set<string>()]));
-    for (const it of items) {
-      if (it.paperId) membership.get(it.listId)?.add(it.paperId);
-    }
+    const membership = buildListMembership(lists, items, paperIdOfItem);
     return { papers, notes, sections, relations, lists, membership };
   }
 

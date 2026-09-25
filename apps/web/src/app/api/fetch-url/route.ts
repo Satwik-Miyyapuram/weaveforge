@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchPageTitle, fetchRemoteImage } from "@/backend/net/fetch-for-paste";
+import { pasteFetchLimiter } from "@/backend/net/rate-limit";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
 
 /**
@@ -42,6 +43,19 @@ export async function GET(request: Request) {
 
   const auth = await requireSdkUser(request);
   if (!auth.ok) return auth.response;
+
+  // Per user, and only for the expensive half: a title is half a kilobyte and a
+  // lookup, an image is up to twelve megabytes held in this process on the way
+  // through. The bucket is what makes the second one cost the *caller* something.
+  if (as === "image") {
+    const budget = pasteFetchLimiter.take(auth.userId);
+    if (!budget.allowed) {
+      return NextResponse.json(
+        { error: "Too many image fetches. Try again shortly." },
+        { status: 429, headers: { "Retry-After": String(budget.retryAfterSeconds) } },
+      );
+    }
+  }
 
   if (as === "title") {
     const result = await fetchPageTitle(target);

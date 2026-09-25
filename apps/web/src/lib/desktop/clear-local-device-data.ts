@@ -1,5 +1,6 @@
 import { clearPersistedMcpSessions } from "@/features/ai-assistant/infrastructure/mcp-session-store";
 import { stopAllRelays } from "@/features/ai-assistant/infrastructure/mcp-relay-manager";
+import { closeAppDb } from "@/lib/cache/app-idb";
 import { idbClearScreenCaches } from "@/lib/cache/screen-cache-idb";
 import { idbClearSearchIndexes } from "@/features/search/infrastructure/search-index-idb";
 import { clearPdfTexts } from "@/features/search/infrastructure/pdf-text-store";
@@ -47,4 +48,8 @@ export async function clearLocalDeviceData(): Promise<void> {
   // workspace's content on a device the next person may be using.
   await idbClearVectors();
   await clearServiceWorkerCaches();
+  // Last, and deliberately: every clear above opens its transaction through this
+  // same connection. Closing before them would have the next one reopen it, so
+  // the wipe would end holding a live handle on the database it just emptied.
+  closeAppDb();
 }

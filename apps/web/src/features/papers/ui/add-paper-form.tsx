@@ -74,7 +74,9 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
       });
       await papers.updatePaper.setSummary(paper.id, scaffold);
     }
-    await papers.autoPush(paper);
+    // Zotero is its own facade now: the push is a bibliography concern, not a
+    // property of the shelf.
+    await getContainer().zotero.autoPush(paper);
     setTitle("");
     setRefValue("");
     onAdded?.();

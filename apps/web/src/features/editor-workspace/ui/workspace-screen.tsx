@@ -14,7 +14,7 @@ import { defaultInkNoteMeta, writeInkNoteBody } from "@weaveforge/core";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
-import { loadWorkspace, noteOpensInInk, type Document } from "../application/workspace-load";
+import { loadWorkspace, type Document } from "../application/workspace-load";
 import { bodyStats, formatCount, formatCursor } from "../application/document-stats";
 import { breadcrumbs } from "../application/breadcrumbs";
 import { outlineRows } from "../application/outline";
@@ -27,6 +27,7 @@ import {
   focusPane,
   leaves,
   moveTab,
+  hydrateTabModes,
   openTab,
   pruneLayout,
   setRatio,
@@ -49,7 +50,7 @@ import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph, PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, segmentsFor } from "./kind";
+import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 
 function store(): Storage | undefined {
@@ -151,9 +152,13 @@ export function WorkspaceScreen() {
         const loaded = await reload();
         if (cancelled) return;
         // Restore last session's panes, minus tabs whose entity is gone — a
-        // layout outlives the documents in it.
+        // layout outlives the documents in it. A tab restored with no mode was
+        // never switched by hand, so it takes its document's opening mode: the
+        // same answer a click on it in the explorer gets.
         const open = new Set(loaded.map((doc) => tabKey(doc)));
-        setLayout(pruneLayout(readLayout(store()), (tab) => open.has(tabKey(tab))));
+        const bodyOf = new Map(loaded.map((doc) => [tabKey(doc), doc.body]));
+        const pruned = pruneLayout(readLayout(store()), (tab) => open.has(tabKey(tab)));
+        setLayout(hydrateTabModes(pruned, (tab) => openModeFor(tab.kind, bodyOf.get(tabKey(tab)) ?? "")));
       } catch (err) {
         if (!cancelled) setError(formatError(err));
       }
@@ -593,11 +598,19 @@ export function WorkspaceScreen() {
         activeDoc={activeDoc}
         listNames={membership}
         onOpen={(selection) => {
-          // A note written in ink opens in Ink; its body says so (§4.1). The
-          // tab remembers the mode after that.
+          // Opening a document reads it: a note with ink in it opens on the
+          // sheet (§4.1), every other note or document in Read, and the PDF row
+          // in the reader. `openModeFor` is that one answer, so this click and
+          // `pane-tree`'s restore cannot disagree. The tab remembers whatever
+          // mode you leave it in.
           const doc = (documents ?? []).find((d) => d.kind === selection.kind && d.id === selection.id);
-          const ink = doc && hasInkView(selection.kind) && noteOpensInInk(doc.body);
-          apply(openTab(layout, { kind: selection.kind, id: selection.id, ...(ink ? { mode: "ink" as const } : {}) }));
+          apply(
+            openTab(layout, {
+              kind: selection.kind,
+              id: selection.id,
+              mode: openModeFor(selection.kind, doc?.body ?? ""),
+            }),
+          );
         }}
         onStartNote={(paperId) => {
           // The paper document exists for every paper (it is the summary), so

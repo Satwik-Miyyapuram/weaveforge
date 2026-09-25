@@ -6,6 +6,7 @@
  */
 
 export * from "./domain/paper.js";
+export * from "./domain/paper-identity.js";
 export * from "./domain/paper-repository.js";
 export * from "./domain/annotation-pin.js";
 export * from "./domain/annotation-pin-repository.js";
@@ -19,3 +20,4 @@ export * from "./application/add-paper.use-case.js";
 export * from "./application/update-paper.use-case.js";
 export * from "./application/manage-paper-fields.use-case.js";
 export * from "./application/compute-rollup.js";
+export * from "./application/push-paper-to-zotero.use-case.js";

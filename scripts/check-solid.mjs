@@ -15,12 +15,37 @@
  * over the same files in Node when ripgrep is unusable, and fails loudly
  * instead of quietly when even that is impossible.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import ts from "typescript";
 import { searchLines, searchedWith, trackedFiles } from "./lib/search.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/**
+ * A facade's public surface, counted from the syntax tree.
+ *
+ * Returns its methods and getters, and how many dependencies its constructor's
+ * `deps` object declares. See `FACADE_LIMITS` for why this is not a regex.
+ */
+function measureFacade(file) {
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.ES2022, true);
+  let members = 0;
+  let deps = 0;
+  source.forEachChild((node) => {
+    if (!ts.isClassDeclaration(node)) return;
+    for (const member of node.members) {
+      if (ts.isConstructorDeclaration(member)) {
+        const type = member.parameters[0]?.type;
+        if (type && ts.isTypeLiteralNode(type)) deps = type.members.length;
+        continue;
+      }
+      members += 1;
+    }
+  });
+  return { members, deps };
+}
 
 /**
  * The files the search runs over: everything git tracks under `features/`.
@@ -31,7 +56,12 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
  * is handed to the search as-is; see scripts/lib/search.mjs for why the paths
  * travel as data rather than on a command line.
  */
-const featureFiles = trackedFiles(root, ["apps/web/src/features"]);
+const featureFiles = trackedFiles(root, [
+  "apps/web/src/features",
+  // The composition root and its facades — the same reason as `check-dry.mjs`:
+  // the rules were blind to the files that wire the features together.
+  "apps/web/src/container",
+]);
 
 const search = (pattern, glob) =>
   searchLines({ root, files: featureFiles, pattern, glob });
@@ -137,6 +167,48 @@ if (facadeWiredSnapshot.length) {
     `FAIL: WorkspaceFacade is wired with facades (${facadeWiredSnapshot.join(", ")}) — pass repositories.`,
   );
   failed = true;
+}
+
+/**
+ * A facade may not grow past the size a reader can hold in their head.
+ *
+ * `ARCH-03` split `PapersFacade` because it had 39 public members and 16
+ * constructor dependencies across four unrelated concerns — and nothing stopped
+ * it getting there one method at a time. This is the ratchet that was missing.
+ *
+ * Counted with the TypeScript parser, not a regex. The first draft of this rule
+ * counted indentation, and it read `dashboard.ts` as one member and twenty-two
+ * dependencies because the constructor's closing brace did not match the pattern
+ * the counter was looking for — a gate that fails on its own parse is worse than
+ * no gate, and this repository already has a formatter and a parser to hand.
+ *
+ * The limits are per file and may only come down. Two are above the default
+ * because they are already there: `ai-assistant.ts` at 39 members is exactly
+ * what `PapersFacade` was, and splitting it is the same exercise.
+ */
+const FACADE_DEFAULT_LIMITS = { members: 16, deps: 16 };
+const FACADE_LIMITS = {
+  "ai-assistant.ts": { members: 39, deps: 5 },
+  "papers.ts": { members: 25, deps: 13 },
+  "sharing.ts": { members: 15, deps: 15 },
+};
+
+const facadeDir = path.join(root, "apps/web/src/container/facades");
+for (const file of readdirSync(facadeDir)) {
+  if (!file.endsWith(".ts") || file === "index.ts") continue;
+  const { members, deps } = measureFacade(path.join(facadeDir, file));
+  const limit = FACADE_LIMITS[file] ?? FACADE_DEFAULT_LIMITS;
+  const over = [];
+  if (members > limit.members) over.push(`${members} members (limit ${limit.members})`);
+  if (deps > limit.deps) over.push(`${deps} constructor dependencies (limit ${limit.deps})`);
+  if (over.length) {
+    console.error(
+      `FAIL: facades/${file} has ${over.join(" and ")} — a facade is a screen's view of the\n` +
+        "      container, not a place to collect features. Split it, or raise the limit here\n" +
+        "      with a note saying what makes this one different.",
+    );
+    failed = true;
+  }
 }
 
 if (failed) {

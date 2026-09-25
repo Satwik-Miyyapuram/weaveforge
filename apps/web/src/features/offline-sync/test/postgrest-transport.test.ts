@@ -68,6 +68,29 @@ test("a guarded write that matched no row is a conflict, with the server's versi
   assert.equal(calls[1]!.method, "GET");
 });
 
+test("an op with no base version is sent unguarded, not guarded on zero", async () => {
+  // `row_version=eq.0` matches nothing — no live row is at version 0 — so the
+  // write would come back as a conflict, the conflict row would record 0 as
+  // "the server's version", and the re-queued attempt would guard on 0 again.
+  // An op that can never drain, in a queue that never looks at it twice.
+  const { transport, calls } = harness([{ status: 200, body: [{ id: "x" }] }]);
+  const outcome = await transport.send(entry({ baseVersion: null }));
+
+  assert.deepEqual(outcome, { status: "accepted" });
+  assert.match(calls[0]!.url, /id=eq\./);
+  assert.doesNotMatch(calls[0]!.url, /row_version/);
+});
+
+test("a conflict whose server version cannot be read reports unknown, not zero", async () => {
+  // The value is persisted and re-queued as `baseVersion`, so a fabricated 0
+  // here is the same phantom guard by another route.
+  const { transport } = harness([
+    { status: 200, body: [] },
+    { status: 500, body: { message: "upstream" } },
+  ]);
+  assert.deepEqual(await transport.send(entry()), { status: "conflict", serverVersion: null });
+});
+
 test("a delete travels as a tombstone, not as a DELETE", async () => {
   const { transport, calls } = harness([{ status: 200, body: [{ id: "x" }] }]);
   await transport.send(entry({ op: "delete" }));

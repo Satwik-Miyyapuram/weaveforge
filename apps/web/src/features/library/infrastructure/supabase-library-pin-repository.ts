@@ -14,6 +14,14 @@ import {
 } from "./library-pin-rows";
 import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a PinRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const PIN_COLUMNS = "id,user_id,project_id,resource_type,resource_id,owner_id,created_at";
+
 const TABLE = "library_pins";
 
 export class SupabaseLibraryPinRepository extends ProjectScopedSupabaseRepository implements ILibraryPinRepository {
@@ -33,7 +41,7 @@ export class SupabaseLibraryPinRepository extends ProjectScopedSupabaseRepositor
         },
         { onConflict: "user_id,project_id,resource_type,resource_id" },
       )
-      .select("*")
+      .select(PIN_COLUMNS)
       .single());
     return toDomain(dbRow);
   }
@@ -52,7 +60,7 @@ export class SupabaseLibraryPinRepository extends ProjectScopedSupabaseRepositor
     if (!projectId) return [];
     return (await rows<PinRow>(this.db
       .from(TABLE)
-      .select("*")
+      .select(PIN_COLUMNS)
       .eq("project_id", projectId)
       .order("created_at", { ascending: false }))).map(toDomain);
   }

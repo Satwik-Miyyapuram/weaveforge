@@ -155,6 +155,14 @@ jobs:
         if: always()
         run: npm run check:ui
 
+      # WCAG AA for every theme, computed rather than eyeballed: the semantic
+      # ramp is text at 0.72rem on its own tint, and eleven of the fourteen
+      # palettes were below the bar before this ran anywhere.
+      - name: check:contrast
+        id: gate_contrast
+        if: always()
+        run: npm run check:contrast
+
       - name: check:hygiene
         id: gate_hygiene
         if: always()
@@ -165,10 +173,30 @@ jobs:
         if: always()
         run: npm run check:mcp-plugin
 
+      # The Android shell's privilege posture, enforced rather than described.
+      # This is the one gate here that guards against a *capability* rather than
+      # a pattern: accessibility, device admin, overlay windows and screen
+      # capture are the things that make a banking app refuse to open, and the
+      # symptom has been attributed to this app before. It runs on every PR for
+      # the same reason the others do — the change that adds one arrives as an
+      # ordinary diff, in a module nobody is reviewing for that.
+      - name: check:android-permissions
+        id: gate_android
+        if: always()
+        run: npm run check:android-permissions
+
       - name: check:docs
         id: gate_docs
         if: always()
         run: npm run check:docs
+
+      # The list above and `check:boundaries` are written twice, and this is what
+      # makes that safe: a gate added to one and not the other is the failure
+      # mode that would otherwise be silent, in the direction of less checking.
+      - name: check:ci-parity
+        id: gate_ci_parity
+        if: always()
+        run: npm run check:ci-parity
 
       # Fails when any gate above failed, naming them.
       #
@@ -191,14 +219,17 @@ jobs:
           check "check:dry"             "${{ steps.gate_dry.outcome }}"
           check "check:api-route-tests" "${{ steps.gate_routes.outcome }}"
           check "check:ui"              "${{ steps.gate_ui.outcome }}"
+          check "check:contrast"        "${{ steps.gate_contrast.outcome }}"
           check "check:hygiene"         "${{ steps.gate_hygiene.outcome }}"
           check "check:mcp-plugin"      "${{ steps.gate_mcp.outcome }}"
+          check "check:android-permissions" "${{ steps.gate_android.outcome }}"
           check "check:docs"            "${{ steps.gate_docs.outcome }}"
+          check "check:ci-parity"       "${{ steps.gate_ci_parity.outcome }}"
           if [ -n "$failed" ]; then
             echo "::error::boundary gate(s) did not pass:$failed"
             exit 1
           fi
-          echo "all seven boundary gates passed"
+          echo "all eight boundary gates passed"
 
       - name: Lint Web App
         run: npm run lint --workspace @weaveforge/web
@@ -210,6 +241,12 @@ jobs:
       # compares against the deploy config.
       - name: Deployment surface
         run: npm run check:deployment-surface
+
+      # Also after the build, and for the same reason: it measures the chunks the
+      # build produced. What it catches is a route that quietly grew an eager
+      # dependency — WF-P07's finding, which nothing measured before this.
+      - name: Bundle budget
+        run: npm run bundle:budget
 
       # A desktop release left as a draft is invisible to every installed copy,
       # and nothing about the app says so — it simply reports no update. This

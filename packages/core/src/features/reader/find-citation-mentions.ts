@@ -1,12 +1,13 @@
+import type { CitationMention, ParsedReference } from "./analysis/analysis-types.js";
 import type { OutlineTextItem } from "./outline-from-text.js";
-import type { ParsedReference } from "./parse-reference-list.js";
 
-export interface CitationMention {
-  page: number;
-  start: number;
-  end: number;
-  refIndexes: number[];
-}
+/**
+ * Pattern citation finding — the fallback for documents without their own
+ * links. A PDF whose citations are `/Link` annotations is handled first by
+ * the link analysis (`analyzePageLinks`), and what it produces is merged
+ * ahead of this by the caller. Offsets refer to the supplied page text, not
+ * a reconstructed or normalized copy.
+ */
 
 /**
  * `12`, `3-5`, `1, 4, 7–9`: the numbers inside a bracket, expanded and checked
@@ -85,7 +86,11 @@ export function detectCitationStyle(texts: readonly string[]): CitationStyle | n
   let authorYear = 0;
   for (const text of texts) {
     numeric += 3 * (text.match(BRACKET_TOKEN)?.length ?? 0);
-    authorYear += text.match(PAREN_AUTHOR_YEAR_TOKEN)?.length ?? 0;
+    // Both "(Smith 2019)" and the narrative "Smith (2019)" / "Smith et al.
+    // (2019)" are author-year evidence; a paper that cites only narratively
+    // would otherwise read as having no style at all.
+    authorYear += (text.match(PAREN_AUTHOR_YEAR_TOKEN)?.length ?? 0) +
+      (text.match(NARRATIVE_TOKEN)?.length ?? 0);
   }
   const threshold = Math.max(2, (numeric + authorYear) / 5);
   const hasNumeric = numeric >= threshold;
@@ -102,8 +107,15 @@ export function detectCitationStyle(texts: readonly string[]): CitationStyle | n
  * author; a second named surname must be its second author. A year suffix
  * ("2019a") is ignored — the list does not carry it — so both entries of a
  * 2019a/2019b pair are returned and the popover shows the choice.
+ *
+ * The fuzzy pass is the last resort: a year off by one (OCR, a typo in the
+ * paper) still matches, flagged so the caller can trust it less.
  */
-function matchAuthorYear(refs: readonly ParsedReference[], text: string): number[] {
+function matchAuthorYear(
+  refs: readonly ParsedReference[],
+  text: string,
+  fuzzy = false,
+): number[] {
   const match = AUTHOR_YEAR_GROUP.exec(text.trim());
   if (!match) return [];
   const [, first, middle, , last, year] = match;
@@ -113,10 +125,12 @@ function matchAuthorYear(refs: readonly ParsedReference[], text: string): number
       .map((s) => s.trim())
       .filter(Boolean)[0] ?? last;
   const yearNumber = Number(year!.slice(0, 4));
+  const yearOk = (ref: ParsedReference) =>
+    ref.year === yearNumber || (fuzzy && ref.year != null && Math.abs(ref.year - yearNumber) <= 1);
   return refs
     .filter(
       (ref) =>
-        ref.year === yearNumber &&
+        yearOk(ref) &&
         ref.authors[0] &&
         surnameKey(ref.authors[0]) === surnameKey(first!),
     )
@@ -126,12 +140,9 @@ function matchAuthorYear(refs: readonly ParsedReference[], text: string): number
 
 /**
  * Find citation markers in one page's text by pattern. Offsets refer to the
- * supplied text, not a reconstructed or normalized copy.
- *
- * This is the fallback for documents without their own links: a PDF whose
- * citations are `/Link` annotations is handled first by `linkCitationMentions`
- * (exact, since the link names the entry), and what it produces is merged
- * ahead of this by the caller.
+ * supplied text, not a reconstructed or normalized copy. Each mention carries
+ * the source that found it and a confidence — bracket citations are nearly
+ * certain, superscripts and fuzzy author-year matches less so.
  */
 export function findCitationMentions(
   page: { number: number; text: string; items: readonly OutlineTextItem[] },
@@ -144,14 +155,30 @@ export function findCitationMentions(
   const authorYear = style !== "numeric";
   const out: CitationMention[] = [];
   const valid = new Set(refs.map((ref) => ref.index));
-  const add = (start: number, end: number, refIndexes: number[]) => {
-    if (refIndexes.length && !out.some((mention) => start < mention.end && end > mention.start)) {
-      out.push({ page: page.number, start, end, refIndexes: [...new Set(refIndexes)] });
+  const add = (
+    start: number,
+    end: number,
+    referenceIndexes: number[],
+    source: CitationMention["source"],
+    confidence: number,
+  ) => {
+    if (referenceIndexes.length && !out.some((mention) => start < mention.end && end > mention.start)) {
+      out.push({
+        id: `c:${page.number}:${start}-${end}`,
+        page: page.number,
+        start,
+        end,
+        text: page.text.slice(start, end),
+        rects: [],
+        referenceIndexes: [...new Set(referenceIndexes)],
+        source,
+        confidence,
+      });
     }
   };
   if (numeric) {
     for (const match of page.text.matchAll(BRACKET_TOKEN)) {
-      add(match.index!, match.index! + match[0].length, numericIndexes(match[0].slice(1, -1), valid));
+      add(match.index!, match.index! + match[0].length, numericIndexes(match[0].slice(1, -1), valid), "numeric", 0.9);
     }
     // `(12)` only where the list itself is labelled that way, since in every
     // other document a parenthesised number is an equation.
@@ -159,22 +186,30 @@ export function findCitationMentions(
       for (const match of page.text.matchAll(PAREN_NUMBER_TOKEN)) {
         const before = page.text.slice(Math.max(0, match.index! - 12), match.index!);
         if (/(?:Eq|Equation|Fig|Figure|Table|Section|Sec)\.?\s*$/i.test(before)) continue;
-        add(match.index!, match.index! + match[0].length, numericIndexes(match[0].slice(1, -1), valid));
+        add(match.index!, match.index! + match[0].length, numericIndexes(match[0].slice(1, -1), valid), "numeric", 0.85);
       }
     }
   }
   if (authorYear) {
     // "(Smith 2019; Lee and Kim, 2020, p. 4)" — one group per semicolon.
     for (const match of page.text.matchAll(/\(([^()]+)\)/g)) {
-      add(
-        match.index!,
-        match.index! + match[0].length,
-        match[1]!.split(";").flatMap((part) => matchAuthorYear(refs, part)),
-      );
+      const parts = match[1]!.split(";");
+      const strict = parts.flatMap((part) => matchAuthorYear(refs, part));
+      if (strict.length) {
+        add(match.index!, match.index! + match[0].length, strict, "author-year", 0.85);
+      } else {
+        const fuzzy = parts.flatMap((part) => matchAuthorYear(refs, part, true));
+        if (fuzzy.length) add(match.index!, match.index! + match[0].length, fuzzy, "author-year", 0.5);
+      }
     }
     // Narrative: "Smith et al. (2019)", "Smith and Jones (2019)".
     for (const match of page.text.matchAll(NARRATIVE_TOKEN)) {
-      add(match.index!, match.index! + match[0].length, matchAuthorYear(refs, match[0]));
+      const strict = matchAuthorYear(refs, match[0]);
+      if (strict.length) add(match.index!, match.index! + match[0].length, strict, "author-year", 0.85);
+      else {
+        const fuzzy = matchAuthorYear(refs, match[0], true);
+        if (fuzzy.length) add(match.index!, match.index! + match[0].length, fuzzy, "author-year", 0.5);
+      }
     }
   }
   // Superscript numbers only where the page cites no other way: a paper that
@@ -193,7 +228,7 @@ export function findCitationMentions(
         item.fontSize <= 0.75 * bodyFontSize &&
         /^\d{1,3}(?:\s*[,–\-]\s*\d{1,3})*$/.test(item.str)
       ) {
-        add(start, cursor, numericIndexes(item.str, valid));
+        add(start, cursor, numericIndexes(item.str, valid), "superscript", 0.8);
       }
     }
   }

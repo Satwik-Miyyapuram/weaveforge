@@ -27,12 +27,17 @@ export interface IVaultPageRepository
    */
   getTree(): Promise<VaultPageTreeNode<VaultPageSummary>[]>;
   /**
-   * Lightweight tree/card projection with `bodyPreview`; the full body comes
-   * from `getById` when a page is opened.
+   * The tree/card projection with `bodyPreview`; the full body comes from
+   * `getById` when a page is opened.
    *
    * Returns {@link VaultPageSummary}, not `VaultPage`: the projection has no
    * `body`, and typing it as a full page is how a card edit came to persist an
    * empty body (review-2 F6).
+   *
+   * Required, not optional — see `IPaperRepository.listSummaries` for why. An
+   * implementation with no cheaper read returns `list()` here, which is a
+   * statement about that implementation rather than a decision at every call
+   * site.
    */
-  listSummaries?(): Promise<VaultPageSummary[]>;
+  listSummaries(): Promise<VaultPageSummary[]>;
 }

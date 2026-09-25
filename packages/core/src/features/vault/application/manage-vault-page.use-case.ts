@@ -46,13 +46,11 @@ export class ManageVaultPageUseCase {
    */
   private async assertTitleUnique(title: string, exceptId?: string): Promise<void> {
     const key = normalizeTitleKey(title);
-    const repo = this.deps.repository;
     // Only the identity and the title are read here, so the card projection is
-    // preferred — and the annotation says so, because the two projections are
-    // now different types (review-2 F6).
-    const existing: readonly { id: string; title: string }[] = repo.listSummaries
-      ? await repo.listSummaries()
-      : await repo.list();
+    // the right read — and it is required on the port, so this is one call
+    // rather than a fallback the caller has to remember to write.
+    const existing: readonly { id: string; title: string }[] =
+      await this.deps.repository.listSummaries();
     if (existing.some((p) => p.id !== exceptId && normalizeTitleKey(p.title) === key)) {
       throw new VaultPageValidationError(`A note titled “${title.trim()}” already exists.`);
     }

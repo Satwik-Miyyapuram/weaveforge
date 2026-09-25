@@ -1,8 +1,10 @@
 """Step-indexed metric history — the domain value objects behind training
-curves. One ``MetricPoint`` == one sample of one metric at one step, persisted
-in the ``experiment_metrics`` table (migration 0016). This is what lets curves
-synced from TensorBoard / wandb survive as full time-series rather than only
-the flat summary on ``Experiment.metrics``.
+curves. One ``MetricPoint`` == one sample of one metric at one step, read from
+the ``experiment_metrics`` view: loose rows in ``experiment_metric_points`` plus
+settled points packed into arrays in ``experiment_metric_chunks``
+(``0114``/``0115``). This is what lets curves synced from TensorBoard / wandb
+survive as full time-series rather than only the flat summary on
+``Experiment.metrics``.
 """
 
 from __future__ import annotations

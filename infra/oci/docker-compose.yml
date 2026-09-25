@@ -87,6 +87,22 @@ services:
       PGRST_SERVER_PORT: 3000
       # Browsers send an Origin; without this every request is a CORS failure.
       PGRST_SERVER_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      #
+      # `PGRST_DB_MAX_ROWS` is deliberately NOT set, and that is a decision
+      # rather than an oversight.
+      #
+      # PostgREST's default is unlimited, and the hosted Supabase platform sets
+      # 1000 instead — which is why the same code could be correct on one
+      # deployment and silently wrong on the other. Rather than pick a number
+      # that would be right for some tables, the reads were made correct under
+      # any setting: the metric history pages by rows received, and the two
+      # metric aggregates (`latest_metric_activity`, `metric_history`) are
+      # bounded by construction.
+      #
+      # A cap here would still silently truncate the repositories that do not
+      # page — `papers.list()`, the workspace snapshot — so if you set one, set
+      # it above your largest table and audit every read that would rely on it.
+      PGRST_DB_MAX_ROWS: ${PGRST_DB_MAX_ROWS:-}
     ports:
       - "3000:3000"
     healthcheck:

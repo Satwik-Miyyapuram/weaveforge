@@ -17,6 +17,34 @@ export abstract class ProjectRepository {
   protected get pid() {
     return this.ctx.projectId;
   }
+
+  /**
+   * Apply the project filter, when a project is selected.
+   *
+   * Every read in every project-scoped repository has to remember this, and the
+   * one that forgot it returned other projects' rows wherever RLS is not what
+   * is standing in the way — a self-hosted Postgres, or the local backend.
+   * Naming the rule makes it one line at the call site instead of a two-line
+   * `if` that is easy to leave out, and it reads as "this query is scoped"
+   * rather than as a filter that happens to be there.
+   *
+   * Writes are different: they go through `ProjectScopedSupabaseRepository`,
+   * which refuses to run at all without a project.
+   */
+  protected scoped<Q>(query: Q): Q {
+    const pid = this.ctx.projectId;
+    if (!pid) return query;
+    // Deliberately unconstrained, with one cast right here.
+    //
+    // `.eq()` does return the same builder, but expressing that as a constraint
+    // on `Q` (`Q extends { eq(column: string, value: string): Q }`) makes the
+    // compiler relate the whole Postgrest builder type to itself at every call
+    // site, and it gives up with TS2589 — "type instantiation is excessively
+    // deep". Leaving `Q` free keeps each caller's inferred row type intact and
+    // confines the single cast to this method.
+    const filterable = query as unknown as { eq(column: string, value: string): Q };
+    return filterable.eq("project_id", pid);
+  }
 }
 
 /**

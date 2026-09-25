@@ -5,7 +5,7 @@ import type {
   NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
   PaperFieldValueData, PaperStatus, UpdatePaperUseCase,
 } from "@weaveforge/core";
-import { appendPaperNote } from "@weaveforge/core";
+import { appendPaperNote, proposalApplies } from "@weaveforge/core";
 
 /** Typed browser-only approval executors. Invalid drafts fail closed before a write. */
 export function createAiProposalExecutors(deps: {
@@ -28,7 +28,7 @@ export function createAiProposalExecutors(deps: {
     executor("create_log_entry", async (proposal) => { const p = object(proposal); await deps.logs.add({ body: text(p, "body"), entryDate: optionalText(p, "entryDate"), kind: enumValue(p, "kind", ["daily", "weekly"] as const) } satisfies NewLogEntryInput); return "accepted"; }),
     executor("paper_update", async (proposal) => {
       const paper = await deps.papers.getById(proposal.resourceId);
-      if (!paper || (proposal.expectedRevision && paper.updatedAt !== proposal.expectedRevision)) return "conflicted";
+      if (!proposalApplies(paper, proposal.expectedRevision)) return "conflicted";
       const p = object(proposal); const status = enumValue(p, "status", ["to_read", "reading", "read", "skimmed"] as const);
       const rating = optionalNumber(p, "rating"); const tags = stringArray(p, "tags");
       if (status) await deps.updatePaper.setStatus(paper.id, status as PaperStatus);
@@ -39,7 +39,7 @@ export function createAiProposalExecutors(deps: {
     }),
     executor("paper_field_value", async (proposal) => {
       const paper = await deps.papers.getById(proposal.resourceId);
-      if (!paper || (proposal.expectedRevision && paper.updatedAt !== proposal.expectedRevision)) return "conflicted";
+      if (!proposalApplies(paper, proposal.expectedRevision)) return "conflicted";
       const p = object(proposal);
       const fieldId = text(p, "fieldId");
       const defs = await deps.paperFields.listDefs();

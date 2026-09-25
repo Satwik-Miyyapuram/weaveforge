@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReaderOutlineItem } from "@weaveforge/core";
+import { analyzePdfDocument, type DocumentAnalysis, type ReaderOutlineItem } from "@weaveforge/core";
 import {
   buildReferenceIndex,
+  indexFromAnalysis,
   type ReaderReferenceIndex,
   type ReferencePage,
 } from "../../application/reader-references";
@@ -18,6 +19,15 @@ const EMPTY_INDEX: ReaderReferenceIndex = {
   byIndex: new Map(),
   mentionsByPage: new Map(),
   bodyFontSize: 0,
+  fingerprint: "",
+};
+
+const EMPTY_ANALYSIS: DocumentAnalysis = {
+  pages: [],
+  sections: [],
+  references: [],
+  citations: [],
+  figures: [],
   fingerprint: "",
 };
 
@@ -43,24 +53,41 @@ export interface UseDocumentAnalyzerInput {
 }
 
 export interface DocumentAnalyzerResult {
+  /** The overlay-shaped index derived from the analysis. */
   index: ReaderReferenceIndex;
+  /** The structured analysis itself — sections, entries, citations, figures. */
+  analysis: DocumentAnalysis;
   progress: number; // 0 - 100
   isAnalyzing: boolean;
 }
 
+/**
+ * Runs the full document analysis off the main thread and hands back both the
+ * raw `DocumentAnalysis` (plain arrays, straight from the worker) and the
+ * overlay index derived from it. Without a worker, the same analysis runs
+ * in-thread, so both paths agree about what is on a page.
+ */
 export function useDocumentAnalyzer({
   pages,
   outline,
   enabled = true,
 }: UseDocumentAnalyzerInput): DocumentAnalyzerResult {
   const [index, setIndex] = useState<ReaderReferenceIndex>(EMPTY_INDEX);
+  const [analysis, setAnalysis] = useState<DocumentAnalysis>(EMPTY_ANALYSIS);
   const [progress, setProgress] = useState<number>(0);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const activeId = useRef<number>(0);
 
+  // Start the worker while the PDF is still being read, so the first
+  // analysis does not also pay for spawning it and loading its bundle.
+  useEffect(() => {
+    if (enabled) getWorker();
+  }, [enabled]);
+
   useEffect(() => {
     if (!enabled || !pages.length) {
       setIndex(EMPTY_INDEX);
+      setAnalysis(EMPTY_ANALYSIS);
       setProgress(0);
       setIsAnalyzing(false);
       return;
@@ -79,6 +106,7 @@ export function useDocumentAnalyzer({
         const fallback = buildReferenceIndex(pages, outline);
         if (activeId.current === id) {
           setIndex(fallback);
+          setAnalysis(buildAnalysisInThread());
           setProgress(100);
           setIsAnalyzing(false);
         }
@@ -103,21 +131,16 @@ export function useDocumentAnalyzer({
       if (data.type === "progress") {
         setProgress(data.percent);
       } else if (data.type === "complete") {
-        setIndex({
-          references: data.references,
-          byIndex: new Map(data.references.map((r) => [r.index, r])),
-          mentionsByPage: new Map(data.mentionsByPage),
-          bodyFontSize: data.bodyFontSize,
-          fingerprint: data.fingerprint,
-        });
+        setAnalysis(data.analysis);
+        setIndex(indexFromAnalysis(data.analysis, pages));
         setProgress(100);
         setIsAnalyzing(false);
         cleanup();
       } else if (data.type === "error") {
         // Fall back to in-thread calculation on worker error
         try {
-          const fallback = buildReferenceIndex(pages, outline);
-          setIndex(fallback);
+          setIndex(buildReferenceIndex(pages, outline));
+          setAnalysis(buildAnalysisInThread());
         } catch {
           /* ignore */
         }
@@ -130,8 +153,8 @@ export function useDocumentAnalyzer({
     const handleError = () => {
       if (activeId.current !== id) return;
       try {
-        const fallback = buildReferenceIndex(pages, outline);
-        setIndex(fallback);
+        setIndex(buildReferenceIndex(pages, outline));
+        setAnalysis(buildAnalysisInThread());
       } catch {
         /* ignore */
       }
@@ -157,7 +180,14 @@ export function useDocumentAnalyzer({
     return () => {
       cleanup();
     };
+
+    function buildAnalysisInThread(): DocumentAnalysis {
+      return analyzePdfDocument(
+        pages.map((page) => ({ pageNumber: page.pageNumber, items: page.items, links: page.links ?? [] })),
+        outline,
+      );
+    }
   }, [pages, outline, enabled]);
 
-  return { index, progress, isAnalyzing };
+  return { index, analysis, progress, isAnalyzing };
 }

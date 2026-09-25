@@ -1,4 +1,14 @@
-import type { ILogEntryRepository, Member } from "@weaveforge/core";
+import type {
+  IExperimentRepository,
+  ILogEntryRepository,
+  IMilestoneRepository,
+  IPaperRelationRepository,
+  IPaperRepository,
+  IReadingListRepository,
+  IReportSectionRepository,
+  ITagRepository,
+  Member,
+} from "@weaveforge/core";
 import type { IDashboardLayoutRepository, DashboardLayout } from "@weaveforge/core";
 import type { ISupervisionRepository } from "@weaveforge/core";
 import type { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
@@ -10,14 +20,14 @@ export class DashboardFacade {
       layout: IDashboardLayoutRepository;
       prefetch: PrefetchProjectUseCase;
       projectId: () => string | null;
-      papers: import("@weaveforge/core").IPaperRepository;
-      sections: import("@weaveforge/core").IReportSectionRepository;
-      milestones: import("@weaveforge/core").IMilestoneRepository;
-      experiments: import("@weaveforge/core").IExperimentRepository;
+      papers: IPaperRepository;
+      sections: IReportSectionRepository;
+      milestones: IMilestoneRepository;
+      experiments: IExperimentRepository;
       logEntries: ILogEntryRepository;
-      relations: import("@weaveforge/core").IPaperRelationRepository;
-      lists: import("@weaveforge/core").IReadingListRepository;
-      tags: import("@weaveforge/core").ITagRepository;
+      relations: IPaperRelationRepository;
+      lists: IReadingListRepository;
+      tags: ITagRepository;
       supervision: ISupervisionRepository;
     },
   ) {}

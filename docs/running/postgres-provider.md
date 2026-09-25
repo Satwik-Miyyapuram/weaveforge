@@ -39,7 +39,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 # R2 for hot tier (see docs/running/storage/r2-setup.md)
 ```
 
-Apply every file in [`supabase/migrations/`](../../supabase/migrations/), then
-[`supabase/migrations-self-hosted-postgres/`](../../supabase/migrations-self-hosted-postgres/).
+**Order matters.** Apply
+[`supabase/migrations-self-hosted-postgres/`](../../supabase/migrations-self-hosted-postgres/)
+**first**, then every file in [`supabase/migrations/`](../../supabase/migrations/). A stock Postgres
+has none of the furniture Supabase provides implicitly — `auth.users` in a foreign key, `auth.uid()`
+in every RLS policy, `storage.buckets`, the `anon`/`authenticated`/`service_role` grants — and the
+base chain uses it from the first file, so `0001_papers.sql` fails on line 28 and nothing after it
+runs. This paragraph used to give the two in the opposite order.
+
 `0025` creates a minimal `auth.users` stub with **RLS enabled** and **no
 policies**; sync user ids from Supabase via service role or direct postgres.
+
+## Scheduled maintenance
+
+Two jobs are deployment configuration rather than application code, and one of
+them has to run or the chunk archive stays empty: see
+[`metrics-maintenance.md`](metrics-maintenance.md) for the commands, a
+suggested cron schedule, and the queries that show whether it is working.

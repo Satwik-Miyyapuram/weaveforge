@@ -54,9 +54,9 @@ export function PlanScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const items = data?.milestones ?? emptyArray<import("@weaveforge/core").Milestone>();
-  const papers = data?.papers ?? emptyArray<import("@weaveforge/core").Paper>();
-  const experiments = data?.experiments ?? emptyArray<import("@weaveforge/core").Experiment>();
+  const items = data?.milestones ?? emptyArray<Milestone>();
+  const papers = data?.papers ?? emptyArray<Paper>();
+  const experiments = data?.experiments ?? emptyArray<Experiment>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const milestoneCanComment = data?.milestoneCanComment ?? emptyMap<string, boolean>();
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();

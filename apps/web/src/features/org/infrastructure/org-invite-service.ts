@@ -21,6 +21,14 @@ import {
 import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
 import { rows, run } from "@/backend/providers/supabase/row-access";
 
+/**
+ * The columns a OrgRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const ORG_COLUMNS = "id,name,owner_id,created_at";
+
 interface CodeRow {
   id: string;
   org_id: string;
@@ -41,6 +49,17 @@ interface MembershipRow {
   user_id: string;
   role: OrgInviteRole;
 }
+
+/**
+ * The codes table's columns, named rather than starred.
+ *
+ * This is the service that redeems a join code, and it runs with the **admin**
+ * client — the service role, which bypasses RLS — so the projection is the only
+ * thing bounding what the row carries. `code_hash` is in it because the lookup
+ * compares it; `organizations` (see `ORG_COLUMNS`) is read on the redemption
+ * path for somebody who has not joined yet.
+ */
+const CODE_COLUMNS = "id,org_id,target_role,code_hash,revoked_at";
 
 const ROLES: OrgInviteRole[] = ["professor", "phd", "masters"];
 
@@ -150,7 +169,7 @@ export class OrgInviteService {
     const hash = hashOrgInviteCodeInput(normalized);
     const { data: codeRow, error: codeErr } = await admin
       .from("org_invite_codes")
-      .select("*")
+      .select(CODE_COLUMNS)
       .eq("code_hash", hash)
       .is("revoked_at", null)
       .maybeSingle();
@@ -160,7 +179,7 @@ export class OrgInviteService {
     const row = codeRow as CodeRow;
     const { data: org, error: orgErr } = await admin
       .from("organizations")
-      .select("*")
+      .select(ORG_COLUMNS)
       .eq("id", row.org_id)
       .single();
     // A code that points at a lab which no longer exists is a 404, not a bad
@@ -261,7 +280,7 @@ export class OrgInviteService {
   async listOwnedOrganizations(userId: string): Promise<Organization[]> {
     return (await rows<OrgRow>(this.admin()
       .from("organizations")
-      .select("*")
+      .select(ORG_COLUMNS)
       .eq("owner_id", userId)
       .order("created_at", { ascending: true }))).map(toOrg);
   }

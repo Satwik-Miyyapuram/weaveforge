@@ -1,7 +1,13 @@
-import { useMemo } from "react";
-import { renderToString } from "katex";
+import { useEffect, useMemo, useState } from "react";
 import { escapeHtml as escapeAttr } from "@/lib/escape-html";
 import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
+import {
+  containsMath,
+  loadedMathRenderer,
+  loadMathRenderer,
+  mathPlaceholder,
+  type MathRenderer,
+} from "./math-renderer";
 
 /**
  * Minimal markdown-to-HTML for prose blocks (headings, lists, inline). Fenced
@@ -24,6 +30,29 @@ interface WikilinkResolution {
   unresolved: boolean;
 }
 export type WikilinkResolver = (target: string, heading?: string) => WikilinkResolution;
+
+/**
+ * The extra lookups a caller may hand the renderer beyond wikilinks.
+ *
+ * `resolveImageSrc` exists because an image reference in a note is not always a
+ * URL the browser can fetch: a paper note writes `paperimg:<path>` and the bytes
+ * behind it come from encrypted storage, so the caller — which knows how to
+ * fetch them — resolves the src before render. It returns `null` for an asset it
+ * cannot resolve, which drops the reference rather than leaving a broken image.
+ */
+export interface MarkdownRenderOptions {
+  resolveWikilink?: WikilinkResolver;
+  /** `paperimg:`/`vault:` src → a fetchable URL, or null to drop the image. */
+  resolveImageSrc?: (src: string) => string | null;
+  /**
+   * The maths renderer to use, when the caller has one.
+   *
+   * Left undefined in the app: `renderMath` falls back to the lazily-loaded KaTeX
+   * and emits a placeholder until it arrives. A test passes one so that what maths
+   * renders *as* can be asserted without loading KaTeX or standing up a DOM.
+   */
+  mathRenderer?: MathRenderer | null;
+}
 
 /** Render one `[[inner]]` (inner already stripped of the brackets) to an anchor. */
 function renderWikilink(inner: string, resolve: WikilinkResolver): string {
@@ -50,7 +79,7 @@ function renderWikilink(inner: string, resolve: WikilinkResolver): string {
   return `<a class="${cls}" href="${escapeAttr(href)}" data-wikilink="1"${create}>${escapeHtml(label)}</a>`;
 }
 
-function formatText(s: string): string {
+function formatText(s: string, options?: MarkdownRenderOptions): string {
   // Escape the whole string once for text nodes, then rebuild media/links with
   // attribute escaping applied to the *raw* captures (escapeAttr includes &quot;
   // and re-runs & → &amp; — so do not pass already-escaped strings into it).
@@ -59,7 +88,13 @@ function formatText(s: string): string {
     .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
     .replace(/\b_([^_]+)_\b/g, "<em>$1</em>")
     .replace(
-      /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
+      // Every prefix an image reference may carry. `paperimg:` is a paper
+      // note's figure and `reportimg:` a report section's; both were missing
+      // here, so on the ink sheet — the one surface that renders through this
+      // plain pass — those images came out as their own markdown source while
+      // the same note showed them in Read mode. Which of them the caller can
+      // actually fetch is `resolveImageSrc`'s answer, not this regex's.
+      /!\[([^\]]*)\]\((blob:[^\s)]+|vault:[^\s)]+|paperimg:[^\s)]+|reportimg:[^\s)]+|https?:\/\/[^\s)]+)\)/g,
       (_m, rawAlt: string, src: string) => {
         // Captures here are already HTML-escaped; only quote-escape for attrs.
         // A `|50%` suffix on the alt is a display width, `c=` a crop and a
@@ -70,7 +105,15 @@ function formatText(s: string): string {
         // reference they came from.
         const { alt, width, crop, align } = parseMdImageAlt(rawAlt);
         const safeAlt = alt.replace(/"/g, "&quot;");
-        const safeSrc = src.replace(/"/g, "&quot;");
+        // The resolver is handed the src the regex captured. It answers with a
+        // fetchable URL, or null for an asset this note cannot reach — in which
+        // case the reference is dropped rather than left as a broken image.
+        // `??` would be wrong here: it maps that deliberate null back onto the
+        // raw src, which is exactly the broken image the resolver refused.
+        const resolver = options?.resolveImageSrc;
+        const resolvedSrc = resolver ? resolver(src) : src;
+        if (resolvedSrc == null) return "";
+        const safeSrc = resolvedSrc.replace(/"/g, "&quot;");
         const styles: string[] = [];
         if (width) styles.push(`width:${width}`);
         // A crop as CSS: the image keeps its box and the clipped edges fall
@@ -120,8 +163,22 @@ function formatText(s: string): string {
     });
 }
 
-function renderMath(source: string, displayMode: boolean): string {
-  return renderToString(source, {
+/**
+ * One formula: rendered if KaTeX is in memory, a placeholder if it is not.
+ *
+ * Still synchronous, deliberately. This runs inside a string builder that four
+ * screens call, and making it async would change the contract of all of them;
+ * `Markdown` re-renders when the chunk lands, which is what turns the placeholder
+ * into the formula.
+ */
+function renderMath(source: string, displayMode: boolean, renderer?: MathRenderer | null): string {
+  // `undefined` means "use whatever is loaded", an explicit `null` means "render
+  // the placeholder". The distinction matters because the loaded renderer is
+  // module-level state: a caller that wants the not-yet-loaded path cannot say so
+  // by passing nothing.
+  const katex = renderer === undefined ? loadedMathRenderer() : renderer;
+  if (!katex) return mathPlaceholder(source, displayMode, escapeHtml);
+  return katex.renderToString(source, {
     displayMode,
     throwOnError: false,
     // Never allow TeX commands to introduce links, HTML, or external content.
@@ -144,11 +201,12 @@ function closingDollar(s: string, from: number): number {
 }
 
 /** Render inline Markdown while treating code, URLs, and escaped dollars as text. */
-function inline(s: string, resolve?: WikilinkResolver): string {
+function inline(s: string, options?: MarkdownRenderOptions): string {
+  const resolve = options?.resolveWikilink;
   const out: string[] = [];
   let text = "";
   const flush = () => {
-    if (text) out.push(formatText(text));
+    if (text) out.push(formatText(text, options));
     text = "";
   };
 
@@ -195,7 +253,7 @@ function inline(s: string, resolve?: WikilinkResolver): string {
       const source = end === -1 ? "" : s.slice(index + 1, end);
       if (source && !source.includes("\n")) {
         flush();
-        out.push(renderMath(source, false));
+        out.push(renderMath(source, false, options?.mathRenderer));
         index = end;
         continue;
       }
@@ -233,10 +291,10 @@ function alignClass(cell: string): string {
   return "";
 }
 
-function renderTable(rows: readonly string[], resolve?: WikilinkResolver): string {
+function renderTable(rows: readonly string[], options?: MarkdownRenderOptions): string {
   const header = splitRow(rows[0]!);
   const aligns = splitRow(rows[1]!).map(alignClass);
-  const head = header.map((cell, i) => `<th${aligns[i] ?? ""}>${inline(cell, resolve)}</th>`).join("");
+  const head = header.map((cell, i) => `<th${aligns[i] ?? ""}>${inline(cell, options)}</th>`).join("");
   const body = rows
     .slice(2)
     .map((row) => {
@@ -244,7 +302,7 @@ function renderTable(rows: readonly string[], resolve?: WikilinkResolver): strin
       // spreadsheet should not take the rows around it down with it.
       const cells = splitRow(row);
       const tds = header
-        .map((_, i) => `<td${aligns[i] ?? ""}>${inline(cells[i] ?? "", resolve)}</td>`)
+        .map((_, i) => `<td${aligns[i] ?? ""}>${inline(cells[i] ?? "", options)}</td>`)
         .join("");
       return `<tr>${tds}</tr>`;
     })
@@ -253,7 +311,7 @@ function renderTable(rows: readonly string[], resolve?: WikilinkResolver): strin
 }
 
 /** Render markdown prose (no fenced code blocks) to HTML. */
-export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): string {
+export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions): string {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let listTag: "ul" | "ol" | null = null;
@@ -277,14 +335,14 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
     const singleLineDisplay = /^\$\$([\s\S]+)\$\$$/.exec(trimmed);
     if (singleLineDisplay) {
       closeList();
-      out.push(`<div class="math-display">${renderMath(singleLineDisplay[1]!, true)}</div>`);
+      out.push(`<div class="math-display">${renderMath(singleLineDisplay[1]!, true, options?.mathRenderer)}</div>`);
       continue;
     }
     if (trimmed === "$$") {
       const closing = lines.findIndex((candidate, candidateIndex) => candidateIndex > index && candidate.trim() === "$$");
       if (closing !== -1) {
         closeList();
-        out.push(`<div class="math-display">${renderMath(lines.slice(index + 1, closing).join("\n"), true)}</div>`);
+        out.push(`<div class="math-display">${renderMath(lines.slice(index + 1, closing).join("\n"), true, options?.mathRenderer)}</div>`);
         index = closing;
         continue;
       }
@@ -305,13 +363,13 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
         const title = callout[2]!.trim() || `${type[0]!.toUpperCase()}${type.slice(1)}`;
         const bodyLines = quoteLines.slice(1);
         const body = bodyLines.some((l) => l.trim())
-          ? `<div class="callout-body">${renderProseMarkdown(bodyLines.join("\n"), resolve)}</div>`
+          ? `<div class="callout-body">${renderProseMarkdown(bodyLines.join("\n"), options)}</div>`
           : "";
         out.push(
           `<div class="callout callout--${escapeAttr(type)}"><div class="callout-title">${escapeHtml(title)}</div>${body}</div>`,
         );
       } else {
-        out.push(`<blockquote>${renderProseMarkdown(quoteLines.join("\n"), resolve)}</blockquote>`);
+        out.push(`<blockquote>${renderProseMarkdown(quoteLines.join("\n"), options)}</blockquote>`);
       }
       continue;
     }
@@ -321,7 +379,7 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
       closeList();
       let end = index + 2;
       while (end < lines.length && lines[end]!.trim().startsWith("|")) end += 1;
-      out.push(renderTable(lines.slice(index, end), resolve));
+      out.push(renderTable(lines.slice(index, end), options));
       index = end - 1;
       continue;
     }
@@ -332,13 +390,13 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
     if (h) {
       closeList();
       const level = h[1]!.length;
-      out.push(`<h${level + 2} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, resolve)}</h${level + 2}>`);
+      out.push(`<h${level + 2} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, options)}</h${level + 2}>`);
     } else if (li) {
       openList("ul");
-      out.push(`<li>${inline(li[1]!, resolve)}</li>`);
+      out.push(`<li>${inline(li[1]!, options)}</li>`);
     } else if (oli) {
       openList("ol");
-      out.push(`<li>${inline(oli[1]!, resolve)}</li>`);
+      out.push(`<li>${inline(oli[1]!, options)}</li>`);
     } else if (line.trim() === "") {
       closeList();
     } else {
@@ -348,9 +406,9 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
       if (blockMatch) {
         const text = blockMatch[1]!;
         const blockId = blockMatch[2]!;
-        out.push(`<p id="^${escapeAttr(blockId)}">${inline(text, resolve)}</p>`);
+        out.push(`<p id="^${escapeAttr(blockId)}">${inline(text, options)}</p>`);
       } else {
-        out.push(`<p>${inline(line, resolve)}</p>`);
+        out.push(`<p>${inline(line, options)}</p>`);
       }
     }
   }
@@ -359,37 +417,87 @@ export function renderProseMarkdown(md: string, resolve?: WikilinkResolver): str
 }
 
 /** Simple synchronous renderer (logbook, paper summaries — no Shiki). */
-export function Markdown({ children, className }: { children: string; className?: string }) {
+export function Markdown({
+  children,
+  className,
+  options,
+}: {
+  children: string;
+  className?: string;
+  options?: MarkdownRenderOptions;
+}) {
+  // Maths is rendered on the second pass: the first emits placeholders, this
+  // effect fetches KaTeX — only if the text contains any — and the state change
+  // re-renders with the real thing. That is what keeps 75 KB of KaTeX out of the
+  // six routes this component is reachable from; see `math-renderer`.
+  const [mathReady, setMathReady] = useState(() => loadedMathRenderer() !== null);
+
+  useEffect(() => {
+    if (mathReady || !containsMath(children)) return;
+    let cancelled = false;
+    void loadMathRenderer()
+      .then(() => {
+        if (!cancelled) setMathReady(true);
+      })
+      // A chunk that will not load is not something the reader can act on: the
+      // placeholder stays, showing the TeX they wrote.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [children, mathReady]);
+
   // One object per text, for the reason `ShikiMarkdown` gives: a fresh object
   // makes React rewrite the body, and a rewrite mid-click loses the click.
-  const markup = useMemo(() => ({ __html: renderProseMarkdown(children) }), [children]);
+  //
+  // The renderer is chosen here rather than left to `renderMath`'s fallback, so
+  // that `mathReady` is a dependency the render genuinely reads. Reaching for the
+  // module-level cache inside the memo would behave the same and leave the
+  // dependency invisible — to a reader and to the lint rule both.
+  const markup = useMemo(() => {
+    const chosen =
+      options?.mathRenderer !== undefined ? options.mathRenderer : mathReady ? loadedMathRenderer() : null;
+    return { __html: renderProseMarkdown(children, { ...options, mathRenderer: chosen }) };
+  }, [children, options, mathReady]);
   return <div className={className ? `markdown ${className}` : "markdown"} dangerouslySetInnerHTML={markup} />;
 }
 
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
 /**
+ * A fresh matcher per render. A `g` regex keeps its position on the regex
+ * object, and the Shiki pass awaits between matches — so two renders in
+ * flight at once (a note opened from a link renders its preview, then its
+ * full body a moment later) each reset and advanced the other's cursor. The
+ * first came back with its prose pushed twice: the note, rendered twice over,
+ * one copy under the other.
+ */
+function fenceMatcher(): RegExp {
+  return new RegExp(FENCE_RE.source, FENCE_RE.flags);
+}
+
+/**
  * Synchronous full render: prose through `renderProseMarkdown`, fenced code as
  * a plain escaped `<pre>` (no Shiki). For surfaces that must render in one
  * pass with no async highlight round trip, such as the ink sheet's text layer.
  */
-export function renderMarkdownPlain(md: string, resolve?: WikilinkResolver): string {
+export function renderMarkdownPlain(md: string, options?: MarkdownRenderOptions): string {
   const parts: string[] = [];
   let lastIndex = 0;
-  FENCE_RE.lastIndex = 0;
+  const fence = fenceMatcher();
   let match: RegExpExecArray | null;
-  while ((match = FENCE_RE.exec(md)) !== null) {
+  while ((match = fence.exec(md)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), resolve));
+      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
     }
     const info = (match[1] ?? "").trim();
     const lang = info.split(/\s+/)[0] ?? "";
     const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
     parts.push(`<pre class="md-code"${langAttr}><code>${escapeHtml(match[2] ?? "")}</code></pre>`);
-    lastIndex = FENCE_RE.lastIndex;
+    lastIndex = fence.lastIndex;
   }
   if (lastIndex < md.length) {
-    parts.push(renderProseMarkdown(md.slice(lastIndex), resolve));
+    parts.push(renderProseMarkdown(md.slice(lastIndex), options));
   }
   return parts.join("");
 }
@@ -399,21 +507,29 @@ export async function renderMarkdownWithShiki(
   md: string,
   mode: "light" | "dark",
   highlight: (code: string, info: string, mode: "light" | "dark") => Promise<string>,
-  resolve?: WikilinkResolver,
+  options?: MarkdownRenderOptions,
 ): Promise<string> {
+  // This path is already async, so it can wait for KaTeX instead of leaving
+  // placeholders: the reader asked for a rendered document, and the chunk is
+  // already being fetched by then on any surface with maths in it. Only when
+  // there is maths, and only when the caller did not bring its own renderer.
+  if (!options?.mathRenderer && containsMath(md)) {
+    await loadMathRenderer().catch(() => undefined);
+  }
+
   const parts: string[] = [];
   let lastIndex = 0;
-  FENCE_RE.lastIndex = 0;
+  const fence = fenceMatcher();
   let match: RegExpExecArray | null;
-  while ((match = FENCE_RE.exec(md)) !== null) {
+  while ((match = fence.exec(md)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), resolve));
+      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
     }
     parts.push(await highlight(match[2] ?? "", match[1] ?? "", mode));
-    lastIndex = FENCE_RE.lastIndex;
+    lastIndex = fence.lastIndex;
   }
   if (lastIndex < md.length) {
-    parts.push(renderProseMarkdown(md.slice(lastIndex), resolve));
+    parts.push(renderProseMarkdown(md.slice(lastIndex), options));
   }
   return parts.join("");
 }

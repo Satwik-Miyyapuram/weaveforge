@@ -17,8 +17,10 @@ export interface ReferencesPanelProps {
 }
 
 function inLibraryLabel(resolution: ResolvedReference): string | null {
-  if (resolution.status !== "resolved") return null;
-  return `In library · ${resolution.inLibrary?.status ?? "saved"}`;
+  // Resolved only means a provider knows the paper; the pill is for entries
+  // the lookup found in this workspace's library.
+  if (resolution.status !== "resolved" || !resolution.inLibrary) return null;
+  return `In library · ${resolution.inLibrary.status}`;
 }
 
 /**

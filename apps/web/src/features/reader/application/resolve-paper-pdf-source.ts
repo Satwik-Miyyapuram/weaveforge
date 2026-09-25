@@ -41,6 +41,8 @@ const openAccessResolver = new OpenAccessPdfResolver({
       url: paper.url,
       arxivId: paper.arxivId,
       pdfPath: typeof paper.metadata?.["pdfPath"] === "string" ? paper.metadata["pdfPath"] : null,
+      openAccessPdf:
+        typeof paper.metadata?.["openAccessPdf"] === "string" ? paper.metadata["openAccessPdf"] : null,
     }),
 });
 

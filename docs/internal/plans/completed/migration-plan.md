@@ -24,15 +24,24 @@ Phased path from **Supabase Cloud** (managed Postgres + Auth) to **self-hosted P
 
 ## Schema apply order (self-hosted Postgres)
 
-1. Every file in [`supabase/migrations/`](../../../../supabase/migrations/) in numeric order through the latest (`0088` at time of writing).
-2. Then files in [`supabase/migrations-self-hosted-postgres/`](../../../../supabase/migrations-self-hosted-postgres/) (auth stubs for Option A).
+> **Corrected after the fact.** This section originally applied the two folders in
+> the opposite order, which cannot work: the base chain uses `auth.users`,
+> `auth.uid()`, `storage.buckets` and the Supabase roles from its first file, so
+> `0001_papers.sql` fails on a stock Postgres. The stubs go first. The numbers
+> below are also of their time — the chain runs past `0131` now.
+
+1. Files in [`supabase/migrations-self-hosted-postgres/`](../../../../supabase/migrations-self-hosted-postgres/)
+   (the furniture a stock Postgres lacks).
+2. Then every file in [`supabase/migrations/`](../../../../supabase/migrations/) in numeric order.
 
 ```bash
-for f in supabase/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 for f in supabase/migrations-self-hosted-postgres/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+for f in supabase/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 ```
 
-E2EE requires migrations `0037` onward. Full feature parity with the web app needs the complete chain through `0088`.
+E2EE requires migrations `0037` onward, and `0099` then removes that schema again. Full feature parity
+with the web app needs the complete chain (see [`supabase/migrations/README.md`](../../../../supabase/migrations/README.md)
+for the current list).
 
 ---
 

@@ -8,6 +8,14 @@ import { experimentToDomain, experimentToRow, type ExperimentRow } from "./exper
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
 
+/**
+ * The columns a ExperimentRow is read as, named rather than starred.
+ *
+ * Derived from the row type: exactly the fields the mapper reads, where a star
+ * would mean "whatever the table grows next".
+ */
+const EXPERIMENT_COLUMNS = "id,name,hypothesis,status,repo_url,commit_sha,branch,run_command,config,metrics,artifacts,result_note,started_at,finished_at,related_paper,created_at";
+
 const TABLE = "experiments";
 
 export class SupabaseExperimentRepository extends ProjectRepository implements IExperimentRepository {
@@ -17,7 +25,7 @@ export class SupabaseExperimentRepository extends ProjectRepository implements I
     return row ? experimentToDomain(row) : null;
   }
   async list(filter?: ExperimentFilter): Promise<Experiment[]> {
-    let q = this.db.from(TABLE).select("*");
+    let q = this.db.from(TABLE).select(EXPERIMENT_COLUMNS);
     if (this.pid) q = q.or(`project_id.eq.${this.pid},project_id.is.null`);
     if (filter?.status) q = q.eq("status", filter.status);
     if (filter?.relatedPaper) q = q.eq("related_paper", filter.relatedPaper);

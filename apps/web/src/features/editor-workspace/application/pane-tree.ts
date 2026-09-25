@@ -245,13 +245,19 @@ export function tabAt(layout: PaneLayout, paneId: string, index: number): TabRef
  * a mode belongs to the document, not to the pane showing it. The identical
  * layout object comes back when nothing matched, so this is safe to call from a
  * state updater without churning the tree.
+ *
+ * The mode is written *explicitly*, even when it matches what the tab would
+ * have shown anyway. A tab with no mode is one nobody has chosen for yet, and
+ * that is a fact the caller is redeeming here: comparing against `tabMode`'s
+ * fallback instead meant "Edit" on a default tab was a silent no-op, so the
+ * choice was never recorded and an opening mode could quietly override it.
  */
 export function setTabMode(layout: PaneLayout, target: TabRef, mode: DocumentMode): PaneLayout {
   const key = tabKey(target);
   let changed = false;
   const rewrite = (node: PaneNode): PaneNode => {
     if (node.type === "leaf") {
-      if (!node.tabs.some((tab) => tabKey(tab) === key && tabMode(tab) !== mode)) return node;
+      if (!node.tabs.some((tab) => tabKey(tab) === key && tab.mode !== mode)) return node;
       changed = true;
       return {
         ...node,
@@ -311,4 +317,39 @@ export function pruneLayout(layout: PaneLayout, exists: (tab: TabRef) => boolean
   };
   const root = rewrite(layout.root) ?? emptyLayout().root;
   return settleFocus(root, layout.focusedPaneId);
+}
+
+/**
+ * Stamp an opening mode onto every tab that has never been switched.
+ *
+ * A tab with no `mode` is one that was never explicitly put anywhere: it was
+ * either restored from storage written before modes existed, or opened by a
+ * caller that did not choose. Its mode is therefore the *default for that
+ * document*, and the screen is the only layer that knows a kind and a body
+ * together (`ui/kind.ts`'s `openModeFor`) — so it decides, and this applies the
+ * answer to the whole tree.
+ *
+ * A tab that already carries a mode is left exactly as it is: that is the user's
+ * own choice, and it is what makes "switched to Edit last time" survive a
+ * reload.
+ */
+export function hydrateTabModes(
+  layout: PaneLayout,
+  modeFor: (tab: TabRef) => DocumentMode,
+): PaneLayout {
+  const rewrite = (node: PaneNode): PaneNode => {
+    if (node.type === "leaf") {
+      if (!node.tabs.some((tab) => tab.mode === undefined)) return node;
+      return { ...node, tabs: node.tabs.map((tab) => (tab.mode === undefined ? { ...tab, mode: modeFor(tab) } : tab)) };
+    }
+    const first = rewrite(node.children[0]);
+    const second = rewrite(node.children[1]);
+    return first === node.children[0] && second === node.children[1]
+      ? node
+      : { ...node, children: [first, second] };
+  };
+  const root = rewrite(layout.root);
+  // The identical layout comes back when there was nothing to stamp, so a
+  // caller may use this inside a state updater without churning the tree.
+  return root === layout.root ? layout : { ...layout, root };
 }

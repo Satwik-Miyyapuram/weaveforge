@@ -18,7 +18,14 @@ import { searchLines, searchedWith, trackedFiles } from "./lib/search.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const featureFiles = trackedFiles(root, ["apps/web/src/features"]);
+const featureFiles = trackedFiles(root, [
+  "apps/web/src/features",
+  // The composition root and its facades. Not a feature, but the same rules
+  // apply — and until this was added, every rule below was blind to the ~70
+  // files that wire the features together, which is where several of them
+  // (a facade's real dependency list) matter most.
+  "apps/web/src/container",
+]);
 
 const search = (pattern, glob) =>
   searchLines({ root, files: featureFiles, pattern, glob });
@@ -148,6 +155,74 @@ if (strayKindBranches.length) {
     "FAIL: per-kind branch outside the kind table — add a column to ui/kind.ts instead:",
   );
   for (const line of strayKindBranches) console.error(`  ${line}`);
+  failed = true;
+}
+
+/**
+ * Types declared inline as `import("@weaveforge/core").X`.
+ *
+ * A class's real dependency list has to be readable at the top of the file.
+ * Declaring types inline — sometimes twice for the same name, in a file that
+ * already imports nine other types normally — turns reviewing a constructor into
+ * parsing dynamic-import expressions, and spells one concept two ways in one
+ * file. Hoisting them costs nothing at runtime: a type-only import erases.
+ *
+ * Only the core specifier is banned. A type query against a sibling module
+ * (`import("@/features/…/thing").Thing`) is left alone on purpose: those are
+ * mostly lazy-loaded modules, where the inline form is the local convention.
+ */
+const inlineCoreTypes = search('import\\("@weaveforge/core"\\)\\.', "**/*.{ts,tsx}");
+if (inlineCoreTypes.length) {
+  console.error(
+    'FAIL: types declared inline as import("@weaveforge/core").X — hoist them into a top-level import type:',
+  );
+  for (const line of inlineCoreTypes) console.error(`  ${line}`);
+  failed = true;
+}
+
+/**
+ * `select("*")` in a repository implementation.
+ *
+ * `PERF-04` found four dedupe lookups selecting every column of `papers` to read
+ * an id, and it was one of a family: a repository that reaches for `*` transfers
+ * whatever the table grows next — the abstract, the bibtex, the metadata bag —
+ * to every caller, and nothing notices, because a wider row still type-checks
+ * against a wide type. The projection has to be named so that narrowing it is a
+ * decision someone made.
+ *
+ * Scoped to `**\/infrastructure/**`: that is where the adapters live, and it is
+ * the layer where a read's columns are the author's to choose. Two places are
+ * deliberately outside it:
+ *
+ *   * `app/api/sdk/experiments/route.ts` selects `*` on an upsert and returns the
+ *     row it just wrote to the caller that wrote it — the Python SDK reads the
+ *     whole experiment back, so the projection is the contract there;
+ *   * the local PostgREST client tests exercise `.select()` passthrough itself.
+ *
+ * The rule's first run found **45** sites across 17 adapters — this was not one
+ * finding, it was the house style. All 45 are named now, so this is a plain ban
+ * with no baseline to keep in step: the ten that took a person rather than the
+ * codemod were the ones whose read maps through a mapper a few lines away, and
+ * the `@/`-aliased row types were the ones the first codemod pass could not
+ * follow.
+ */
+const selectStar = search('select\\("\\*"\\)', "**/infrastructure/**/*.ts").filter(
+  // A projection written in prose is not a projection. The rule is about the
+  // query, and the comment explaining it quotes the very thing it bans — which
+  // it did, on this rule's first run, in this repository.
+  (line) => !/:\s*(?:\*|\/\/)/.test(line),
+);
+
+if (selectStar.length) {
+  console.error(
+    'FAIL: select("*") in a repository — name the columns the caller reads (PERF-04):',
+  );
+  for (const line of selectStar) console.error(`  ${line}`);
+  console.error(
+    "\n  A star transfers whatever the table grows next to every caller, and it never\n" +
+      "  breaks: the row type is wide, the mapper ignores extra fields, the tests pass.\n" +
+      "  Name the projection; the row type in that read tells you which columns.",
+  );
   failed = true;
 }
 

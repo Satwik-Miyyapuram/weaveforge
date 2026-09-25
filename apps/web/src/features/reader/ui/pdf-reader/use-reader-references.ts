@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PageTextItem, ParsedReference, PdfLink, ReaderOutlineItem, ReadingList } from "@weaveforge/core";
+import type { PageTextItem, ParsedReference, PdfLink, ReaderOutlineItem } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import {
   type MentionHit,
@@ -25,6 +25,8 @@ export interface OpenMention {
   hit: MentionHit;
   entry: ParsedReference;
   anchor: AnchorBox | null;
+  /** How much the analyzer trusted this citation match (0–1). */
+  confidence?: number;
 }
 
 export interface UseReaderReferencesInput {
@@ -60,7 +62,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     () => [...pageItems].map(([pageNumber, items]) => ({ pageNumber, items, links: pageLinks.get(pageNumber) ?? [] })),
     [pageItems, pageLinks],
   );
-  const { index, progress: analysisProgress, isAnalyzing } = useDocumentAnalyzer({
+  const { index, analysis, progress: analysisProgress, isAnalyzing } = useDocumentAnalyzer({
     pages: referencePages,
     outline,
     enabled,
@@ -70,7 +72,6 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
 
   const [open, setOpen] = useState<OpenMention | null>(null);
   const [resolutions, setResolutions] = useState<Map<number, ResolvedReference>>(() => new Map());
-  const [lists, setLists] = useState<ReadingList[] | null>(null);
   const [linked, setLinked] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<string | null>(null);
   const inflight = useRef(new Set<number>());
@@ -186,7 +187,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     const entry = hit.refIndexes.map((i) => index.byIndex.get(i)).find(Boolean);
     if (!entry) return;
     setNotice(null);
-    setOpen({ hit, entry, anchor });
+    setOpen({ hit, entry, anchor, confidence: hit.confidence });
     const current = resolutions.get(entry.index);
     if (!current || current.status === "pending") resolve(entry);
   }, [index, resolutions, resolve, setPage, onFigureTarget]);
@@ -221,9 +222,8 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
       facade().actions.readLater(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Saved to read later"); }).catch(fail),
     addManually: (entry: ParsedReference) =>
       facade().actions.addManually(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Added to library"); }).catch(fail),
-    addToList: (entry: ParsedReference, listId: string) =>
-      facade().actions.addToList(entry, listId).then((paper) => { markInLibrary(entry, paper); setNotice("Added to list"); }).catch(fail),
-    loadLists: () => facade().readingLists().then(setLists).catch(fail),
+    addToLibrary: (entry: ParsedReference) =>
+      facade().actions.addToLibrary(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Added to library"); }).catch(fail),
     linkPapers: (citedId: string) => {
       if (!paperId) return Promise.resolve();
       return facade().actions.linkPapers(paperId, citedId)
@@ -236,13 +236,24 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         : entry.raw;
       return navigator.clipboard?.writeText(text).then(() => setNotice("Citation copied")).catch(fail) ?? Promise.resolve();
     },
-    jumpToEntry: (entry: ParsedReference) => { setPage(entry.page); setOpen(null); },
-  }), [markInLibrary, paperId, setPage]);
+    jumpToEntry: (entry: ParsedReference) => {
+      // The entry carries its first line's position; landing on the page
+      // alone leaves the reader hunting through a two-column bibliography.
+      // The target scroll is the only scroll: setting the page as well queues
+      // a scroll to the page top that overrides it, and the page tracker
+      // follows the scroll on its own.
+      setOpen(null);
+      if (onFigureTarget) onFigureTarget({ page: entry.page, x: entry.x, y: entry.y });
+      else setPage(entry.page);
+    },
+  }), [markInLibrary, paperId, setPage, onFigureTarget]);
 
   return {
     enabled,
     toggle,
     index,
+    /** The structured document analysis: sections, entries, citations, figures. */
+    analysis,
     open,
     openMention,
     close,
@@ -251,7 +262,6 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     startPrefetch,
     stopPrefetch,
     prefetchMention,
-    lists,
     linked,
     notice,
     actions,

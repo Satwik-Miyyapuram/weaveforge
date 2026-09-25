@@ -1,7 +1,8 @@
 """Use-case for experiments. Orchestration only (DIP): add, change status
 (stamping started/finished timestamps), record summary metrics, and append
 step-indexed history. Port of ``manage-experiment.use-case.ts``, extended with
-``record_history`` for the metric-curve table (0016).
+``record_history`` for the metric curve data (the ``experiment_metrics`` view
+over ``experiment_metric_points`` and ``experiment_metric_chunks``).
 """
 
 from __future__ import annotations
