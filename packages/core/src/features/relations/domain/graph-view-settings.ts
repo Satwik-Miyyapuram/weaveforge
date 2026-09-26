@@ -36,6 +36,11 @@ export interface GraphExperimentEntry {
   status: string;
   /** The paper this run tests — the edge that puts a run on the graph at all. */
   relatedPaper?: string;
+  /**
+   * The run's hypothesis and result note, joined. Not a node of its own: its
+   * `[[wikilinks]]` become edges from the run's single node.
+   */
+  note?: string;
 }
 
 export interface GraphViewSettings {
