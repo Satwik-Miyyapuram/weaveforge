@@ -304,6 +304,44 @@ export interface DesktopBridge {
   readAppLog?(): Promise<{ file: string; text: string; complete: boolean }>;
   /** Show the log file in the operating system's file browser. */
   revealAppLog?(): Promise<void>;
+
+  /**
+   * The window's menu, for the menu bar the page draws itself.
+   *
+   * On Windows and Linux the window has no title bar: the page draws one, with
+   * the menu in it, and the window buttons are the system's, drawn over the
+   * right-hand end. The menu stays in the shell, so its shortcuts work whether
+   * or not the bar is showing; `menuModel` is a picture of it, `null` where the
+   * shell keeps the native menu bar (macOS), and `invokeMenuItem` runs one
+   * entry by id. `onMenuChange` fires when the picture is out of date.
+   *
+   * Optional because an installed shell may predate them; without them the
+   * page draws no bar, which is right, since that shell still has its own.
+   */
+  menuModel?(): Promise<DesktopMenuGroup[] | null>;
+  invokeMenuItem?(id: string): Promise<void>;
+  onMenuChange?(cb: () => void): () => void;
+  /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
+  setTitleBarColors?(colors: { background: string; ink: string }): void;
+}
+
+/** One entry of the window's menu. Mirrored in `apps/desktop/src/channels.ts`. */
+export interface DesktopMenuItem {
+  id: string;
+  kind: "item" | "check" | "separator";
+  label: string;
+  accelerator: string | null;
+  enabled: boolean;
+  checked?: boolean;
+  /** Set when the entry only opens a route: the page navigates itself. */
+  route?: string;
+  /** A page action (`search`) the page runs itself. */
+  command?: string;
+}
+
+export interface DesktopMenuGroup {
+  label: string;
+  items: DesktopMenuItem[];
 }
 
 /** One message to the pen's actuator: velocity in CSS px/ms, pressure in [0, 1]. */

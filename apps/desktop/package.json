@@ -22,6 +22,7 @@
     "electron": "33.4.11",
     "electron-builder": "^25.1.8",
     "esbuild": "^0.28.2",
+    "resedit": "^1.7.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   },
@@ -70,7 +71,12 @@
       "perMachine": false,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
-      "installerHeaderIcon": "build/icon.ico"
+      "installerHeaderIcon": "build/icon.ico",
+      "installerSidebar": "installer/sidebar.bmp",
+      "uninstallerSidebar": "installer/sidebar.bmp",
+      "installerHeader": "installer/header.bmp",
+      "shortcutName": "WeaveForge",
+      "include": "installer/installer.nsh"
     },
     "npmRebuild": false,
     "publish": [
@@ -79,7 +85,8 @@
         "owner": "Satwik-Miyyapuram",
         "repo": "weaveforge"
       }
-    ]
+    ],
+    "afterPack": "scripts/stamp-exe.cjs"
   },
   "author": "WeaveForge",
   "dependencies": {

@@ -39,6 +39,7 @@ import {
 } from "./vault-handlers";
 import { registerMainAppLog } from "./main-app-log";
 import { registerMainInk } from "./main-ink";
+import { applyMemorySwitches, registerMemoryTrimming } from "./memory-trim";
 import { registerMainLocalDb } from "./main-local-db";
 import { registerMainLocalApi } from "./main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
@@ -56,10 +57,10 @@ import {
 import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
-import { CHANNELS } from "./channels";
+import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
 import { preferenceStore, secretStore } from "./main-stores";
 import { fetchReleases, findUpdate } from "./update-check";
-import { installMenu, routeTo } from "./app-menu";
+import { installMenu, invokeMenuItem, menuModel, pageCommand, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
 import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
 import { runBoundedQuit } from "./quit";
@@ -217,77 +218,25 @@ const DOCS_URL = "https://www.weaveforge.org/docs/";
 let mainWindow: BrowserWindow | null = null;
 let loopback: import("node:http").Server | null = null;
 
-/*
- * Memory (docs/internal/design/memory-optimization.md, tiers 1 and 2).
- *
- * Every switch must be appended before `whenReady`; Chromium reads them when
- * it starts its subprocesses. The V8 cap applies to every renderer and worker
- * isolate. 512 MB rather than the note's 256: the encoder worker's JS heap
- * and a large vault's search index both live under it, and an isolate that
- * hits the cap is killed outright, which costs far more than the difference.
- */
-app.commandLine.appendSwitch("js-flags", "--max-old-space-size=512");
-/*
- * Not `--optimize-for-size`. It was here with the heap cap, and it cost the
- * encoder worker most of its speed: the ONNX runtime is WebAssembly, and a
- * forward pass measured ~2 s per passage in this shell against 0.12 s natively
- * — a corpus that should embed in minutes took the better part of an hour.
- *
- * And SharedArrayBuffer, which the app's origin is not cross-origin isolated
- * enough to get on its own: with it the runtime splits each pass across
- * threads (see `embedding-worker.ts`). Nothing else here posts shared memory.
- */
-app.commandLine.appendSwitch("enable-features", "SharedArrayBuffer");
-app.commandLine.appendSwitch("disable-speech-api");
-app.commandLine.appendSwitch("disable-print-preview");
-app.commandLine.appendSwitch(
-  "disable-features",
-  [
-    "Translate",
-    "AutofillServerCommunication",
-    "CalculateNativeWinOcclusion",
-    "MediaRouter",
-    "OptimizationHints",
-  ].join(","),
-);
-app.commandLine.appendSwitch("force-color-profile", "srgb");
-app.commandLine.appendSwitch("max-active-webgl-contexts", "4");
-
-/** How long a blurred window sits before its working set is trimmed. */
-const IDLE_TRIM_MS = 180_000;
-let idleTrim: NodeJS.Timeout | null = null;
+applyMemorySwitches();
 
 /**
- * Hand inactive pages back to Windows. `process.trimWorkingSet` is Electron's
- * own binding over `EmptyWorkingSet`; it drops the cached pages the OS would
- * otherwise keep resident for lack of pressure, and the next focus faults them
- * back in without a visible stall. A no-op elsewhere.
+ * Windows and Linux: no system title bar, so the page can draw its own with the
+ * menu in it (`components/desktop-title-bar.tsx`). The minimise, maximise and
+ * close buttons stay the system's, drawn over the right-hand end at the same
+ * height as the page's bar. macOS keeps its own title bar and menu.
  */
-function trimProcessMemory(): void {
-  if (process.platform !== "win32") return;
-  const trim = (process as unknown as { trimWorkingSet?: () => void })
-    .trimWorkingSet;
-  try {
-    trim?.();
-  } catch {
-    // Not fatal: the working set is merely left as it was.
-  }
-}
-
-function registerMemoryTrimming(window: BrowserWindow): void {
-  window.on("minimize", trimProcessMemory);
-  window.on("blur", () => {
-    if (idleTrim) clearTimeout(idleTrim);
-    idleTrim = setTimeout(trimProcessMemory, IDLE_TRIM_MS);
-  });
-  window.on("focus", () => {
-    if (idleTrim) clearTimeout(idleTrim);
-    idleTrim = null;
-  });
-}
+const CUSTOM_TITLE_BAR = process.platform !== "darwin";
+const TITLE_BAR_HEIGHT = 36;
 
 function createWindow(): void {
   const window = new BrowserWindow({
+    ...(CUSTOM_TITLE_BAR
+      ? {
+          titleBarStyle: "hidden" as const,
+          titleBarOverlay: { color: "#101014", symbolColor: "#e8e6f0", height: TITLE_BAR_HEIGHT },
+        }
+      : {}),
     width: 1440,
     height: 900,
     minWidth: 900,
@@ -317,6 +266,9 @@ function createWindow(): void {
     if (mainWindow === window) mainWindow = null;
   });
   registerMemoryTrimming(window);
+  // "Maximize" reads "Restore" once it has been, so the page's menu is stale.
+  window.on("maximize", () => window.webContents.send(CHANNELS.menuChanged));
+  window.on("unmaximize", () => window.webContents.send(CHANNELS.menuChanged));
 
   void window.loadURL(APP_URL);
 
@@ -386,6 +338,22 @@ ipc.on(CHANNELS.windowFocus, (_event, on: unknown) => {
   // chord that leaves focus mode among them) keep working while it is away.
   window.setMenuBarVisibility(!focus);
   window.setFullScreen(focus);
+});
+
+ipc.handle(CHANNELS.menuModel, (): IpcResult<MenuGroupPayload[] | null> => ({
+  ok: true,
+  value: CUSTOM_TITLE_BAR ? menuModel(mainWindow) : null,
+}));
+ipc.handle(CHANNELS.menuInvoke, (_event, id: unknown): IpcResult<null> =>
+  invokeMenuItem(id, mainWindow) ? { ok: true, value: null } : { ok: false, message: "That menu entry is not available." },
+);
+ipc.on(CHANNELS.titleBarColors, (_event, colors: unknown) => {
+  const window = mainWindow;
+  if (!CUSTOM_TITLE_BAR || !window || window.isDestroyed()) return;
+  const { background, ink } = (colors ?? {}) as { background?: unknown; ink?: unknown };
+  const hex = (value: unknown) => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+  if (!hex(background) || !hex(ink)) return;
+  window.setTitleBarOverlay({ color: background as string, symbolColor: ink as string, height: TITLE_BAR_HEIGHT });
 });
 
 /** The application log's channels (§main-app-log). */
@@ -550,6 +518,9 @@ const rootRestored: Promise<void> = preferenceStore()
     // A folder remembered from the last run is a connected folder from this one,
     // so the menu says so before the window is even shown.
     if (root) vaultWatcher.start(root.path);
+    // The menu was first drawn before this finished, saying "Choose workspace
+    // folder…"; draw it again now the folder is known.
+    void app.whenReady().then(refreshMenu);
   })
   .catch(() => null)
   .then(() => undefined);
@@ -574,7 +545,9 @@ function refreshMenu(): void {
     checkForUpdates: () => offerUpdate({ tellWhenCurrent: true }),
     docsUrl: DOCS_URL,
     goTo: (route) => routeTo(mainWindow, APP_URL, route),
+    search: () => pageCommand(mainWindow, "search"),
   });
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(CHANNELS.menuChanged);
 }
 
 /**
@@ -723,6 +696,11 @@ app.on("will-quit", (event) => {
 
 // Disable Chromium history navigation gestures (swiping back/forward across the screen)
 app.commandLine.appendSwitch("overscroll-history-navigation", "0");
+
+// The id the installer's Start menu shortcut carries (`build.appId`). Without
+// it Windows files the running window under Electron's default id, and the
+// taskbar shows a second, unpinned button instead of the shortcut's icon.
+if (process.platform === "win32") app.setAppUserModelId("dev.weaveforge.desktop");
 
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
