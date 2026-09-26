@@ -6,6 +6,8 @@ import {
   pinScript,
   placeWidget,
   PLAN_WIDGET_SIZE,
+  parseTaskbarCreated,
+  powershellArgs,
   widgetDataFromRows,
   type PlanWidgetRow,
 } from "../src/plan-widget";
@@ -92,4 +94,20 @@ test("pinScript owns the window by the desktop and sends it to the bottom withou
   assert.match(script, /SetWindowLongPtr\(\$window, -8, \$desktop\)/);
   // HWND_BOTTOM, and SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE.
   assert.match(script, /SetWindowPos\(\$window, \[IntPtr\]1, 0, 0, 0, 0, 0x13\)/);
+});
+
+test("powershellArgs passes the whole script encoded, not on stdin", () => {
+  const script = pinScript(1n);
+  const args = powershellArgs(script);
+  assert.deepEqual(args.slice(0, 3), ["-NoProfile", "-NonInteractive", "-EncodedCommand"]);
+  assert.ok(!args.includes("-Command"));
+  assert.equal(Buffer.from(args[3] ?? "", "base64").toString("utf16le"), script);
+});
+
+test("pinScript reports the TaskbarCreated message, and only a registered id is taken", () => {
+  assert.match(pinScript(1n), /RegisterWindowMessage\('TaskbarCreated'\)/);
+  assert.equal(parseTaskbarCreated("49345\r\n"), 49345);
+  assert.equal(parseTaskbarCreated(""), null);
+  assert.equal(parseTaskbarCreated("16"), null);
+  assert.equal(parseTaskbarCreated("abc"), null);
 });

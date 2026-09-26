@@ -121,6 +121,11 @@ export function hwndFromHandle(handle: Uint8Array): bigint {
  * `$null` into an empty string for a `string` parameter, and no desktop is
  * titled "", so the lookup found nothing and the pin silently never happened.
  *
+ * It prints the id of the `TaskbarCreated` message, which Explorer broadcasts
+ * when it starts again. A restarted Explorer is a new desktop window, and the
+ * widget is left owned by nothing (so Show desktop hides it); the shell hooks
+ * that message and pins again (see `parseTaskbarCreated`).
+ *
  * The HWND is the only input and it is a number, formatted here, so nothing
  * from outside reaches the script text.
  */
@@ -133,12 +138,35 @@ public static class WeaveForgePin {
   [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr FindWindow(string cls, IntPtr name);
   [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)] public static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
   [DllImport("user32.dll", SetLastError = true)] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern uint RegisterWindowMessage(string name);
 }
 '@
+$ProgressPreference = 'SilentlyContinue'
 $window = [IntPtr][Int64]${hwnd.toString()}
+[WeaveForgePin]::RegisterWindowMessage('TaskbarCreated')
 $desktop = [WeaveForgePin]::FindWindow('Progman', [IntPtr]::Zero)
 if ($desktop -eq [IntPtr]::Zero) { exit 2 }
 [void][WeaveForgePin]::SetWindowLongPtr($window, -8, $desktop)
 [void][WeaveForgePin]::SetWindowPos($window, [IntPtr]1, 0, 0, 0, 0, 0x13)
 `;
+}
+
+/**
+ * The `TaskbarCreated` message id `pinScript` printed, or null. Registered
+ * message ids are 0xC000 to 0xFFFF.
+ */
+export function parseTaskbarCreated(stdout: string): number | null {
+  const id = Number(stdout.trim().split(/\s+/)[0]);
+  return Number.isInteger(id) && id >= 0xc000 && id <= 0xffff ? id : null;
+}
+
+/**
+ * The arguments that run [script] in Windows PowerShell.
+ *
+ * As `-EncodedCommand` (UTF-16LE, base64), not on stdin: `-Command -` reads
+ * stdin a line at a time, as if typed, and drops a multi-line here-string, so
+ * `pinScript`'s `Add-Type` never ran and the widget was never pinned.
+ */
+export function powershellArgs(script: string): string[] {
+  return ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
 }
