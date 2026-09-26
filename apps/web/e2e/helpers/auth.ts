@@ -47,7 +47,7 @@ async function submitLoginForm(page: Page, email: string, password: string) {
   await signInHeading.waitFor({ state: "visible", timeout: 30_000 });
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await signInHeading.waitFor({ state: "hidden", timeout: 45_000 });
 }
 
