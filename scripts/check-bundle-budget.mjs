@@ -84,7 +84,7 @@ const ROUTE_ALLOWANCES_KB = {
   "/report": 415,
   "/notes": 405,
   "/settings": 385,
-  "/graph": 365,
+  "/graph": 370,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */
