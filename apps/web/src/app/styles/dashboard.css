@@ -307,7 +307,7 @@
 
   /* Let the swipe surface fill the viewport so horizontal swipes register on
      the empty background too, not just on top of content cards. */
-  .app-shell { display: flex; flex-direction: column; min-height: 100dvh; }
+  .app-shell { display: flex; flex-direction: column; min-height: calc(100dvh - var(--titlebar-h)); }
   .view-scope { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
   .view-scope > .swipe-views { flex: 1 1 auto; min-width: 0; width: 100%; }
 

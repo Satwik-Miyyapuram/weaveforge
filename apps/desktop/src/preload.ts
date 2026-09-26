@@ -7,6 +7,7 @@ import type {
   DesktopInkResult,
   DesktopLocalApi,
   DesktopLocalDbState,
+  DesktopMenuGroup,
   DesktopOverleafSource,
   DesktopPreferenceValue,
   DesktopUpdate,
@@ -103,6 +104,16 @@ const bridge: DesktopBridge = {
   revealAppLog: async () => {
     await call<null>(CHANNELS.appReveal);
   },
+  menuModel: () => call<DesktopMenuGroup[] | null>(CHANNELS.menuModel),
+  invokeMenuItem: async (id) => {
+    await call<null>(CHANNELS.menuInvoke, id);
+  },
+  onMenuChange: (cb) => {
+    const listener = () => cb();
+    ipcRenderer.on(CHANNELS.menuChanged, listener);
+    return () => ipcRenderer.off(CHANNELS.menuChanged, listener);
+  },
+  setTitleBarColors: (colors) => ipcRenderer.send(CHANNELS.titleBarColors, colors),
   compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),

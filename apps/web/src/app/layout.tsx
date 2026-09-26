@@ -6,6 +6,7 @@ import { AppShell } from "./app-shell";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
 import { WindowScrollbar } from "@/components/window-scrollbar";
+import { DesktopTitleBar, TITLE_BAR_BOOT_SCRIPT } from "@/components/desktop-title-bar";
 import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ClientRuntimeRecovery } from "@/components/client-runtime-recovery";
@@ -53,6 +54,7 @@ export default function RootLayout({
             __html: THEME_BOOT_SCRIPT,
           }}
         />
+        <script dangerouslySetInnerHTML={{ __html: TITLE_BAR_BOOT_SCRIPT }} />
       </head>
       <body>
         <ThemeColorMeta />
@@ -64,6 +66,7 @@ export default function RootLayout({
             engine and its transport stay out of every route's first-load JS. */}
         <SyncLoop />
         <WindowScrollbar />
+        <DesktopTitleBar />
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>
