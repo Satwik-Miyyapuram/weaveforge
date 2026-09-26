@@ -83,6 +83,26 @@ are identical. The web side is `apps/web/src/features/ink/application/native-bri
 Picking the pen up selects a pen mode; see `toolOnPenApproach` in
 `apps/web/src/features/ink/ui/use-ink-prefs.ts`.
 
+### The deadlines widget
+
+A home screen widget with the next four dated milestones from the plan, the
+same data as the desktop wallpaper widget.
+
+- `PlanWidgetConfigActivity.kt` — shown when the widget is placed. The user
+  pastes the calendar link from Settings, Calendar (`deadlines.ics`, `webcal://`
+  or `widget.json` all work). It is accepted only for a host in `ALLOWED_HOSTS`,
+  over https unless `APP_URL` itself is http. The link is the credential, so a
+  widget that fetched any pasted URL would send it anywhere.
+- `PlanWidgetProvider.kt` — fetches `/api/plan/feed/<token>/widget.json` on the
+  launcher's 30 minute update, keeps the last good copy in private preferences,
+  and draws from it offline. A 404 means the link was turned off; the widget says
+  so and a tap reopens setup. Removing the last widget forgets the link.
+- `PlanWidgetModel.kt` — link rules, parsing and the row words, with no Android
+  types: `app/src/test/kotlin/.../PlanWidgetModelTest.kt`.
+
+Tapping the widget opens the app on `/plan`. `MainActivity` takes a named route
+extra, never a URL, so nothing that can start it can point the WebView elsewhere.
+
 ## Build
 
 ```powershell
@@ -122,7 +142,8 @@ tablet and open it (allow the source once).
 
 ## Permissions
 
-The module holds `INTERNET` and nothing else, and `scripts/check-android-permissions.mjs`
+The module holds `INTERNET` and nothing else (the widget's `<receiver>` and setup
+activity need no permission), and `scripts/check-android-permissions.mjs`
 (run by `npm run check:boundaries`) fails the build if that changes. The reason is
 in the script: with an accessibility service or a device administrator enabled for
 some app, banking and UPI apps refuse to open or refuse to draw their PIN pad — and
@@ -139,5 +160,7 @@ gate is what keeps it that way.
 - Hover before contact is not bridged: a pen that hovers and then touches down
   selects a pen mode on the touch, but a pen that only hovers does not. Closing it
   means a second `window.onNative…` global beside `onNativeStrokeComplete`.
+- The deadlines widget has not been placed on a device; its rules are unit
+  tested and the APK builds and lints.
 - iOS (`§3` of the design note) is out of scope.
 

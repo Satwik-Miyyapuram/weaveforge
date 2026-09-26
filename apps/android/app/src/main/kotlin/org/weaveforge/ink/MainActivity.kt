@@ -1,6 +1,7 @@
 package org.weaveforge.ink
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -14,6 +15,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import java.net.URI
 
 /**
  * The Android inking shell (docs/internal/design/ink-native-bridges.md §2).
@@ -165,8 +167,28 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        if (savedInstanceState == null) webView.loadUrl(BuildConfig.APP_URL)
+        if (savedInstanceState == null) webView.loadUrl(routeUrl(intent) ?: BuildConfig.APP_URL)
         else webView.restoreState(savedInstanceState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        routeUrl(intent)?.let(webView::loadUrl)
+    }
+
+    /**
+     * The page a launch asks for, such as the deadlines widget opening the plan.
+     * Only a named route on the app's own address: the extra picks one of a
+     * fixed set, never a URL, so nothing that can start this activity can point
+     * the WebView elsewhere.
+     */
+    private fun routeUrl(intent: Intent?): String? {
+        val path = when (intent?.getStringExtra(EXTRA_ROUTE)) {
+            ROUTE_PLAN -> "/plan"
+            else -> return null
+        }
+        val url = runCatching { URI(BuildConfig.APP_URL).resolve(path).toString() }.getOrNull() ?: return null
+        return url.takeIf { isAllowed(Uri.parse(it)) }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -294,8 +316,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private companion object {
-        const val TAG = "WeaveForgeInk"
-        const val BRIDGE_NAME = "AndroidInkingBridge"
+    companion object {
+        private const val TAG = "WeaveForgeInk"
+        private const val BRIDGE_NAME = "AndroidInkingBridge"
+
+        /** Which page to open; one of the `ROUTE_*` names. */
+        const val EXTRA_ROUTE = "org.weaveforge.ink.ROUTE"
+        const val ROUTE_PLAN = "plan"
     }
 }
