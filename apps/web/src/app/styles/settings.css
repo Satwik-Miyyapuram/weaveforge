@@ -187,3 +187,4 @@
 .calendar-feed-help { margin: 0; line-height: 1.45; font-size: 0.85rem; }
 .calendar-feed-help a { color: var(--accent-ink); text-decoration: underline; }
 .calendar-feed-actions { display: flex; align-items: center; gap: 16px; }
+.calendar-feed-desktop { margin-top: 22px; padding-top: 16px; border-top: var(--bw, 1px) solid var(--hair, var(--border)); }

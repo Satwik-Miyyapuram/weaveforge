@@ -41,6 +41,7 @@ import { registerMainAppLog } from "./main-app-log";
 import { registerMainInk } from "./main-ink";
 import { applyMemorySwitches, registerMemoryTrimming } from "./memory-trim";
 import { registerMainLocalDb } from "./main-local-db";
+import { registerMainPlanWidget } from "./main-plan-widget";
 import { registerMainLocalApi } from "./main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
@@ -292,6 +293,20 @@ function createWindow(): void {
     void openExternally(url);
     return { action: "deny" };
   });
+}
+
+/** The app's window, up and in front, made again if it was closed. */
+function showMainWindow(route?: string): void {
+  const fresh = !mainWindow;
+  if (!mainWindow) createWindow();
+  const window = mainWindow;
+  if (!window) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+  if (!route) return;
+  if (fresh) window.webContents.once("did-finish-load", () => routeTo(window, APP_URL, route));
+  else routeTo(window, APP_URL, route);
 }
 
 /** Hands a URL to the operating system, if it is a web address at all. */
@@ -638,6 +653,9 @@ const localApiDoor = registerMainLocalApi({
   secretStore,
 });
 
+/** The plan widget on the desktop (§main-plan-widget), off until switched on. */
+const planWidget = registerMainPlanWidget({ ipc, localDb, preferenceStore, showMainWindow });
+
 ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
   try {
     return { ok: true, value: await fetchZoteroLocal(url) };
@@ -710,14 +728,9 @@ if (process.platform === "win32") app.setAppUserModelId("dev.weaveforge.desktop"
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  // A second launch raises the window that is already open rather than
-  // starting another copy of the app.
-  app.on("second-instance", () => {
-    const [existing] = BrowserWindow.getAllWindows();
-    if (!existing) return;
-    if (existing.isMinimized()) existing.restore();
-    existing.focus();
-  });
+  // A second launch raises the app's window (made again if only the plan
+  // widget is up) rather than starting another copy of the app.
+  app.on("second-instance", () => showMainWindow());
 
   void app.whenReady().then(() => {
     // The API's CORS is settled here, not by the server's allow-list: the
@@ -733,7 +746,7 @@ if (!app.requestSingleInstanceLock()) {
     // present. A door left open in the settings with its key thrown away
     // stays shut.
     void localApiDoor.resume();
-    createWindow();
+    planWidget.launch(createWindow);
     // Updates are fetched in the background and installed only when the reader
     // says so -- see `auto-update.ts` for why quitting is not consent on an
     // unsigned build. The older check-and-tell path stays for the menu entry
@@ -773,8 +786,9 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on("window-all-closed", () => {
     // macOS keeps the app running with no windows; everywhere else that means
-    // the reader is finished.
-    if (process.platform !== "darwin") app.quit();
+    // the reader is finished. The one exception is the desktop widget between
+    // an Explorer restart taking it down and it coming back.
+    if (process.platform !== "darwin" && !planWidget.isReturning()) app.quit();
   });
 }
 

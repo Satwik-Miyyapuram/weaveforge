@@ -124,4 +124,11 @@ await Promise.all([
     entryPoints: [path.join(root, "src/preload.ts")],
     outfile: path.join(root, "dist/preload.js"),
   }),
+  // The plan widget's page and its own, much smaller, preload.
+  build({
+    ...shared,
+    entryPoints: [path.join(root, "src/plan-widget-preload.ts")],
+    outfile: path.join(root, "dist/plan-widget-preload.js"),
+  }),
 ]);
+fs.copyFileSync(path.join(root, "src/plan-widget.html"), path.join(root, "dist/plan-widget.html"));

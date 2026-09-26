@@ -186,6 +186,20 @@ export const CHANNELS = {
   menuInvoke: "weaveforge:menu-invoke",
   menuChanged: "weaveforge:menu-changed",
   titleBarColors: "weaveforge:title-bar-colors",
+  /**
+   * The plan widget on the desktop: whether it is on, and the switch. Asked by
+   * the app's own window, so these go through the guarded surface.
+   */
+  planWidgetState: "weaveforge:plan-widget-state",
+  planWidgetSet: "weaveforge:plan-widget-set",
+  /**
+   * The widget window's own three: its data arriving (main -> widget), and the
+   * two things its buttons do. Answered only for the widget's own page — see
+   * `main-plan-widget.ts` — never for the app's window.
+   */
+  planWidgetData: "weaveforge:plan-widget-data",
+  planWidgetOpen: "weaveforge:plan-widget-open",
+  planWidgetHide: "weaveforge:plan-widget-hide",
 } as const;
 
 /**
@@ -266,4 +280,11 @@ export interface MenuItemPayload {
 export interface MenuGroupPayload {
   label: string;
   items: MenuItemPayload[];
+}
+
+/** The plan widget, as the Settings panel sees it. */
+export interface PlanWidgetStatePayload {
+  /** False off Windows: the desktop placement is a Windows call. */
+  supported: boolean;
+  enabled: boolean;
 }

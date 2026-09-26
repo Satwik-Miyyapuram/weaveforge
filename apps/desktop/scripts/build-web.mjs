@@ -60,6 +60,21 @@ const heldAside = [
     path.join(web, `src/.${holding}-held-for-desktop-build`),
   ]);
 
+// Next bakes `NEXT_PUBLIC_*` into the bundle at build time. A bundle built
+// without the sign-in settings throws before auth starts, and the installed app
+// sits on "Loading…" forever, so refuse to build one.
+const REQUIRED_ENV = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"];
+const envFiles = [".env", ".env.local", ".env.production", ".env.production.local"]
+  .map((name) => path.join(web, name))
+  .filter((file) => fs.existsSync(file))
+  .map((file) => fs.readFileSync(file, "utf8"));
+const missingEnv = REQUIRED_ENV.filter(
+  (key) => !process.env[key] && !envFiles.some((text) => new RegExp(`^\\s*${key}\\s*=\\s*\\S`, "m").test(text)),
+);
+if (missingEnv.length > 0) {
+  throw new Error(`Set ${missingEnv.join(" and ")} in apps/web/.env.local or the environment before bundling the app.`);
+}
+
 for (const [real, holding] of heldAside) {
   if (fs.existsSync(holding)) {
     throw new Error(
