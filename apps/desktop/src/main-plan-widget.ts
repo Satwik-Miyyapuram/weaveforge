@@ -15,7 +15,7 @@
  * wallpaper has its deadlines after a restart.
  */
 import { app, BrowserWindow, ipcMain, screen, type IpcMainEvent } from "electron";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
 import { CHANNELS, type PlanWidgetStatePayload } from "./channels";
 import type { IpcSurface } from "./ipc-guard";
@@ -75,6 +75,8 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
   const dismissed = new WeakSet<BrowserWindow>();
   /** Widget windows already listening for Explorer to come back. */
   const hooked = new WeakSet<BrowserWindow>();
+  /** The helper keeping the widget on the desktop, while it runs. */
+  let helper: ChildProcess | null = null;
   let quitting = false;
   let returning = false;
   app.on("before-quit", () => {
@@ -90,24 +92,24 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
   }
 
   /**
-   * Put the window on the desktop. A helper process, because the call is two
-   * lines of Win32 and a native module would be a build toolchain for them.
+   * Put the window on the desktop and keep it there. A helper process, because
+   * the calls are a few lines of Win32 and a native module would be a build
+   * toolchain for them. It stays up while the widget does (see `pinScript`).
    * A failure leaves an ordinary bottom-most window, which is still usable.
    */
   function pin(target: BrowserWindow): void {
     if (!SUPPORTED || target.isDestroyed()) return;
+    helper?.kill();
     const hwnd = hwndFromHandle(target.getNativeWindowHandle());
     const child = spawn("powershell.exe", powershellArgs(pinScript(hwnd)), {
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
+    helper = child;
     let out = "";
     let errors = "";
-    child.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
-    child.stderr.on("data", (chunk: Buffer) => (errors += chunk.toString()));
-    child.on("error", (cause) => console.warn("[plan-widget] could not start the desktop helper:", cause.message));
-    child.on("exit", (code) => {
-      if (code !== 0) console.warn(`[plan-widget] desktop placement failed (${code}): ${errors.trim().slice(0, 300)}`);
+    child.stdout.on("data", (chunk: Buffer) => {
+      out += chunk.toString();
       // Explorer restarted: the old desktop is gone and the widget is owned by
       // nothing. Pin again once the new desktop has settled.
       const taskbarCreated = parseTaskbarCreated(out);
@@ -115,6 +117,12 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
         hooked.add(target);
         target.hookWindowMessage(taskbarCreated, () => setTimeout(() => pin(target), 2_000));
       }
+    });
+    child.stderr.on("data", (chunk: Buffer) => (errors += chunk.toString()));
+    child.on("error", (cause) => console.warn("[plan-widget] could not start the desktop helper:", cause.message));
+    child.on("exit", (code) => {
+      if (helper === child) helper = null;
+      if (code) console.warn(`[plan-widget] desktop placement failed (${code}): ${errors.trim().slice(0, 300)}`);
     });
   }
 
@@ -165,6 +173,7 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     win = target;
     target.on("closed", () => {
       if (win === target) win = null;
+      helper?.kill();
       if (timer) clearInterval(timer);
       timer = null;
       // An owned window goes when its owner does, so an Explorer restart takes
