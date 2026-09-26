@@ -81,3 +81,14 @@ test("update: moves a page under another, to the top with null, and never into i
   await uc.update(page.id, { parentId: folder.id });
   await assert.rejects(uc.update(folder.id, { parentId: page.id }), /inside itself/);
 });
+
+test("update: pins and unpins a note, keeping its body", async () => {
+  const { repo, uc } = makeUseCase();
+  const created = await uc.add({ title: "Keep", body: "text" });
+  await uc.update(created.id, { pinned: true });
+  const [summary] = await repo.listSummaries();
+  assert.equal(summary?.pinned, true);
+  assert.equal((await repo.getById(created.id))?.body, "text");
+  const unpinned = await uc.update(created.id, { pinned: false });
+  assert.equal(unpinned.pinned, false);
+});

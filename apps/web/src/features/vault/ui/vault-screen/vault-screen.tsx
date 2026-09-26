@@ -300,6 +300,9 @@ export function VaultScreen() {
   );
 
   const visibleOwned = useMemo(() => filterNotes(ownedNotes), [ownedNotes, filterNotes]);
+  // The owner's pinned notes get their own section above the rest.
+  const visibleMine = useMemo(() => visibleOwned.filter((p) => p.pinned), [visibleOwned]);
+  const visibleUnpinned = useMemo(() => visibleOwned.filter((p) => !p.pinned), [visibleOwned]);
   const visiblePinned = useMemo(() => filterNotes(pinnedPages), [pinnedPages, filterNotes]);
   const visibleCount = visibleOwned.length + visiblePinned.length;
 
@@ -495,11 +498,26 @@ export function VaultScreen() {
           />
         ) : (
           <>
-            {visibleOwned.length > 0 && (
+            {visibleMine.length > 0 && (
+              <>
+                <h4 className="settings-group vault-pinned-label">Pinned</h4>
+                <CardColumns
+                  items={visibleMine}
+                  getKey={(p) => p.id}
+                  renderItem={(p) => (
+                    <NoteCard page={p} onOpen={() => openPage(p.id)} onChanged={load} />
+                  )}
+                />
+                {visibleUnpinned.length > 0 && (
+                  <h4 className="settings-group vault-pinned-label">All notes</h4>
+                )}
+              </>
+            )}
+            {visibleUnpinned.length > 0 && (
               <CardColumns
-                items={visibleOwned}
+                items={visibleUnpinned}
                 getKey={(p) => p.id}
-                deferOffscreen={visibleOwned.length > 20}
+                deferOffscreen={visibleUnpinned.length > 20}
                 renderItem={(p) => (
                   <NoteCard page={p} onOpen={() => openPage(p.id)} onChanged={load} />
                 )}
