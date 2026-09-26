@@ -427,7 +427,7 @@ function ExperimentsAct() {
 /* ---------- act II: labs ---------- */
 
 const LABS_STEPS: StepText[] = [
-  { idx: "01 · Share", title: "Share objects, not screenshots.", body: "Share a paper, a run or one report section. Your labmate opens the object itself, with the access you gave." },
+  { idx: "01 · Share", title: "Share objects, not screenshots.", body: "Share a note, a paper, a run or one report section. Your labmate opens the object itself, with the access you gave: here, edit on the note and read only on the run." },
   { idx: "02 · Write", title: "Write the note together.", body: "Both cursors on screen, both sets of keystrokes land. The text merges as a CRDT, so there is no save button and no conflict dialog." },
   { idx: "03 · Scope", title: "Scoped by the database.", body: "Postgres row-level security is the access boundary. A bug in a screen cannot leak a row." },
   { idx: "04 · Alone", title: "Or nobody at all.", body: "Standalone is first class: the whole product, with the collaboration surface out of the way." },
@@ -473,7 +473,7 @@ function LabsAct() {
             </div>
           </article>
           <Card at={1} className="pop collab" style={{ right: 14, left: "auto", top: 0 }}>
-            <span className={s.label}>share · section 3.2</span>
+            <span className={s.label}>share · disentanglement note</span>
             <Kv k="Person B" v="can edit" />
             <Kv k="β-VAE sweep" v="read only" />
           </Card>
