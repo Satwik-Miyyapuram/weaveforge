@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@weaveforge/core": "*",
-    "marked": "^18.0.13",
+    "marked": "^18.0.14",
     "mermaid": "^11.17.2",
     "next": "^14.2.35",
     "react": "^18.3.1",

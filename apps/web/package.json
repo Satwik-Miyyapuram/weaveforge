@@ -36,21 +36,21 @@
     "build:embedding-worker": "node scripts/build-embedding-worker.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1135.0",
-    "@aws-sdk/s3-request-presigner": "^3.1135.0",
+    "@aws-sdk/client-s3": "^3.1138.0",
+    "@aws-sdk/s3-request-presigner": "^3.1138.0",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.12.4",
     "@codemirror/language-data": "^6.5.2",
     "@codemirror/search": "^6.7.2",
-    "@codemirror/state": "^6.7.5",
-    "@codemirror/view": "^6.43.12",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
     "@huggingface/transformers": "^4.3.0",
     "@lezer/highlight": "^1.2.3",
     "@playwright/test": "^1.63.0",
     "@serwist/next": "^9.5.12",
-    "@supabase/supabase-js": "^2.116.0",
+    "@supabase/supabase-js": "^2.117.0",
     "@uiw/codemirror-themes": "^4.25.11",
     "@weaveforge/core": "*",
     "d3-force": "^3.0.0",
@@ -77,7 +77,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "@next/bundle-analyzer": "^16.3.5",
+    "@next/bundle-analyzer": "^16.3.6",
     "@types/d3-force": "^3.0.10",
     "@types/node": "^20.19.43",
     "@types/pg": "^8.23.1",
@@ -90,7 +90,7 @@
     "eslint-config-next": "^14.2.35",
     "react-test-renderer": "^18.3.1",
     "serwist": "^9.5.12",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }
