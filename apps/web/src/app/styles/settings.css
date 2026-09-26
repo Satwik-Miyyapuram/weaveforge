@@ -177,3 +177,13 @@
   color: var(--ink); background: var(--surface-alt);
   border: 1px solid var(--line); border-radius: var(--radius-sm);
 }
+/* Settings → Calendar: the deadline feed link. */
+.calendar-feed-options { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 24px; margin-bottom: 12px; }
+.calendar-feed-options .field { margin: 0; min-width: 180px; }
+.calendar-feed-check { display: inline-flex; align-items: center; gap: 8px; }
+.calendar-feed-links { display: grid; gap: 10px; margin-bottom: 12px; }
+.calendar-feed-row { display: flex; gap: 8px; }
+.calendar-feed-row input { flex: 1; min-width: 0; font-family: var(--mono, ui-monospace, monospace); font-size: 0.78rem; }
+.calendar-feed-help { margin: 0; line-height: 1.45; font-size: 0.85rem; }
+.calendar-feed-help a { color: var(--accent-ink); text-decoration: underline; }
+.calendar-feed-actions { display: flex; align-items: center; gap: 16px; }

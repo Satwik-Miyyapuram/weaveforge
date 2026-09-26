@@ -28,6 +28,14 @@ export interface MilestoneRow {
   created_at: string;
 }
 
+/**
+ * The columns a MilestoneRow is read as, named rather than starred.
+ *
+ * Derived from the row type: exactly the fields the mapper reads, where a star
+ * would mean "whatever the table grows next".
+ */
+export const MILESTONE_COLUMNS = "id,title,description,status,target_date,dependencies,compute,created_at";
+
 export function milestoneToDomain(r: MilestoneRow): Milestone {
   return {
     id: r.id,

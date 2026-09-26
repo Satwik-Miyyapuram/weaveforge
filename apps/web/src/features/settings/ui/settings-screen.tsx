@@ -47,6 +47,7 @@ const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.
 // panels sit at the bottom of theirs.
 const OrgPanel = dynamic(() => import("@/features/org").then((m) => m.OrgPanel), { ssr: false });
 const AppLogPanel = dynamic(() => import("./app-log-panel").then((m) => m.AppLogPanel), { ssr: false });
+const CalendarFeedPanel = dynamic(() => import("./calendar-feed-panel").then((m) => m.CalendarFeedPanel), { ssr: false });
 const DeleteAccountPanel = dynamic(() => import("./delete-account-panel").then((m) => m.DeleteAccountPanel), { ssr: false });
 
 /**
@@ -68,6 +69,7 @@ const SETTINGS_TABS = [
   { id: "tokens", label: "Tokens" },
   { id: "integrations", label: "Integrations" },
   { id: "sync", label: "Sync" },
+  { id: "calendar", label: "Calendar" },
   { id: "data", label: "Data" },
   { id: "updates", label: "Updates" },
 ] as const;
@@ -89,7 +91,7 @@ const SETTINGS_GROUPS: readonly {
   { id: "appearance", label: "Appearance", hint: "Theme, tint, text", icon: "palette", tabs: ["appearance"] },
   { id: "editor", label: "Editor and writing", hint: "Editor, paste, workspace", icon: "pen", tabs: ["editor", "paste", "workspace"] },
   { id: "ai", label: "Search and AI", hint: "Search, models, API keys", icon: "search", tabs: ["search", "ai"] },
-  { id: "sync", label: "Sync and integrations", hint: "Cloud, Zotero, Overleaf", icon: "sync", tabs: ["sync", "integrations"] },
+  { id: "sync", label: "Sync and integrations", hint: "Cloud, Zotero, calendar", icon: "sync", tabs: ["sync", "integrations", "calendar"] },
   { id: "data", label: "Data and updates", hint: "Backups, export, version", icon: "data", tabs: ["data", "updates"] },
 ];
 
@@ -750,6 +752,8 @@ export function SettingsScreen() {
             <SyncSettings />
           </div>
         ))}
+
+      {tab === "calendar" && <CalendarFeedPanel />}
 
       {tab === "data" && (
         <div id="settings-data-panel" role="tabpanel" aria-labelledby="settings-tab-data">

@@ -17,6 +17,8 @@ import { bearerToken } from "@/lib/bearer-token";
  */
 const SDK_SCOPE = "sdk";
 const MCP_RELAY_SCOPE = "mcp_relay";
+/** Calendar and widget links (`/api/plan/feed/…`): read-only, carried in the URL. */
+const PLAN_FEED_SCOPE = "plan_feed";
 
 export function sdkDbForUserToken(token: string) {
   const cfg = readBackendConfig();
@@ -124,6 +126,7 @@ export type ApiAuthResult = ({ ok: true } & ApiCaller) | { ok: false; response: 
  */
 const API_TOKEN_REFUSED = "Invalid or expired API token.";
 const MCP_RELAY_REFUSED = "Invalid or expired MCP token.";
+const PLAN_FEED_REFUSED = "Unknown or revoked feed link.";
 const SESSION_REFUSED = "Invalid session.";
 
 function refused(message: string): ApiAuthResult {
@@ -193,7 +196,7 @@ async function verifyCaller(
  * help them. `SUPABASE_JWT_SECRET` missing is still an outage; everything else is
  * a `500`.
  */
-function authFailure(error: unknown, surface: "api-auth" | "mcp-relay-auth"): ApiAuthResult {
+function authFailure(error: unknown, surface: "api-auth" | "mcp-relay-auth" | "plan-feed-auth"): ApiAuthResult {
   const status = formatError(error).includes("SUPABASE_JWT_SECRET") ? 503 : 500;
   return {
     ok: false,
@@ -247,5 +250,25 @@ export async function requireMcpRelayUser(request: Request): Promise<ApiAuthResu
     );
   } catch (error) {
     return authFailure(error, "mcp-relay-auth");
+  }
+}
+
+/**
+ * The plan feed's caller: the token is a path segment, because a calendar app
+ * subscribing to a URL cannot send a header. Same two-sided scope check as the
+ * other surfaces — only a `plan_feed` token, and nothing else, gets a JWT here.
+ */
+export async function requirePlanFeedUser(token: string): Promise<ApiAuthResult> {
+  if (!isApiTokenFormat(token)) return refused(PLAN_FEED_REFUSED);
+  try {
+    const scopes = await apiTokenScopes(token);
+    if (!scopes.includes(PLAN_FEED_SCOPE)) return refused(PLAN_FEED_REFUSED);
+    return await verifyCaller(
+      token,
+      (value) => apiTokenService().resolvePlanFeedAccessToken(value),
+      PLAN_FEED_REFUSED,
+    );
+  } catch (error) {
+    return authFailure(error, "plan-feed-auth");
   }
 }

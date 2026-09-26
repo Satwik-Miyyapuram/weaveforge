@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { requireSdkUser, requireMcpRelayUser } from "../_shared";
+import { requireSdkUser, requireMcpRelayUser, requirePlanFeedUser } from "../_shared";
 import { stubFetch } from "@/lib/test/stub-fetch";
 
 test("requireSdkUser: 401 with no Authorization header (no Supabase touched)", async () => {
@@ -42,7 +42,7 @@ const TT_TOKEN = `tt_${"A".repeat(32)}`;
 let stubSerial = 0;
 
 /** Point both Supabase clients at a stub that answers the scope RPC. */
-function stubBackend(scopes: string[] | null, opts: { onResolveApiToken?: () => void } = {}) {
+function stubBackend(scopes: string[] | null, opts: { onResolveApiToken?: () => void; onResolvePlanFeed?: () => void } = {}) {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://stub.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
   process.env.SUPABASE_SERVICE_ROLE_KEY = `service-${(stubSerial += 1)}`;
@@ -59,6 +59,10 @@ function stubBackend(scopes: string[] | null, opts: { onResolveApiToken?: () => 
       return Response.json("00000000-0000-0000-0000-000000000001");
     }
     if (url.includes("/rest/v1/rpc/resolve_mcp_relay_token")) {
+      return Response.json("00000000-0000-0000-0000-000000000001");
+    }
+    if (url.includes("/rest/v1/rpc/resolve_plan_feed_token")) {
+      opts.onResolvePlanFeed?.();
       return Response.json("00000000-0000-0000-0000-000000000001");
     }
     // Who the minted token belongs to: the last step of both flows.
@@ -118,6 +122,48 @@ test("requireMcpRelayUser: an sdk-scoped token is refused too", async () => {
       );
       assert.equal(auth.ok, false);
       if (!auth.ok) assert.equal(auth.response.status, 401);
+    } finally {
+      restore();
+    }
+  });
+});
+
+test("requirePlanFeedUser: only a plan_feed token opens the calendar feed", async () => {
+  await withEnv(async () => {
+    let resolved = 0;
+    const { restore } = stubBackend(["sdk"], { onResolvePlanFeed: () => { resolved += 1; } });
+    try {
+      const auth = await requirePlanFeedUser(TT_TOKEN);
+      assert.equal(auth.ok, false);
+      if (!auth.ok) assert.equal(auth.response.status, 401);
+      assert.equal(resolved, 0, "an sdk token must never reach the feed resolver");
+    } finally {
+      restore();
+    }
+  });
+  await withEnv(async () => {
+    const { restore } = stubBackend(["plan_feed"]);
+    try {
+      const auth = await requirePlanFeedUser(TT_TOKEN);
+      assert.equal(auth.ok, true);
+    } finally {
+      restore();
+    }
+  });
+  const malformed = await requirePlanFeedUser("not-a-token");
+  assert.equal(malformed.ok, false);
+});
+
+test("requireSdkUser: a plan_feed token does not reach the SDK", async () => {
+  await withEnv(async () => {
+    let mintAttempted = false;
+    const { restore } = stubBackend(["plan_feed"], { onResolveApiToken: () => { mintAttempted = true; } });
+    try {
+      const auth = await requireSdkUser(
+        new Request("http://localhost/api/sdk/whoami", { headers: { authorization: `Bearer ${TT_TOKEN}` } }),
+      );
+      assert.equal(auth.ok, false);
+      assert.equal(mintAttempted, false);
     } finally {
       restore();
     }

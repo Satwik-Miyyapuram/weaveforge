@@ -4,6 +4,7 @@ import type {
   ManageMilestoneUseCase,
   Milestone,
 } from "@weaveforge/core";
+import type { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import type { LoadPlanScreenUseCase, PlanScreenData as PlanScreenLoadData } from "@/features/plan/application/load-plan-screen.use-case";
 
 export type PlanScreenData = PlanScreenLoadData;
@@ -15,6 +16,8 @@ export class PlanFacade {
       milestones: IMilestoneRepository;
       manageMilestone: ManageMilestoneUseCase;
       notifications: INotificationIntegration;
+      /** The calendar / widget link (Settings → Calendar). */
+      feedLinks: PlanFeedLinks;
     },
   ) {}
 
@@ -28,6 +31,10 @@ export class PlanFacade {
 
   notifyMilestone(event: "added" | "status", milestone: Milestone) {
     return this.deps.notifications.notifyMilestone(event, milestone);
+  }
+
+  get feedLinks() {
+    return this.deps.feedLinks;
   }
 
   get manageMilestone() {

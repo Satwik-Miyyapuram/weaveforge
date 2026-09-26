@@ -2,3 +2,4 @@
 export * from "./domain/milestone.js";
 export * from "./domain/milestone-repository.js";
 export * from "./application/manage-milestone.use-case.js";
+export * from "./application/plan-feed.js";
