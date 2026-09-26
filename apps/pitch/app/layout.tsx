@@ -44,6 +44,18 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+/**
+ * Recover a page that outlived its build.
+ *
+ * GitHub Pages serves HTML with a ten-minute cache and each deploy replaces
+ * `_next/static` wholesale, so a phone holding the previous deploy's HTML asks
+ * for chunks that no longer exist. Nothing hydrates: the stages sit unscaled,
+ * the steps never light and the theme picker is dead. When one of those chunks
+ * fails to load, refetch the document past the cache and reload — once a
+ * minute at most, so a real outage cannot turn into a reload loop.
+ */
+const STALE_BUILD_SCRIPT = `(function(){addEventListener("error",function(e){var t=e.target,u=t&&(t.src||t.href);if(!u||String(u).indexOf("/_next/static/")<0)return;try{var k="wf-stale-reload",l=+sessionStorage.getItem(k)||0;if(Date.now()-l<6e4)return;sessionStorage.setItem(k,String(Date.now()))}catch(_){return}fetch(location.href,{cache:"reload"}).catch(function(){}).then(function(){location.reload()})},true)})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
@@ -52,6 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={FONT_VARIABLES}
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: STALE_BUILD_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body>{children}</body>
