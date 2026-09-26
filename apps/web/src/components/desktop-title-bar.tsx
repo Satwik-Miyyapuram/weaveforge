@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
+import { openSearchPalette } from "./jump-to-palette";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
 
@@ -12,6 +13,18 @@ import { WeaveForgeLogo } from "./weave-forge-logo";
  * this component mounts. `--titlebar-h` in base.css reads it.
  */
 export const TITLE_BAR_BOOT_SCRIPT = `try{var w=window.weaveforge;if(w&&w.platform!=="darwin"&&typeof w.menuModel==="function")document.documentElement.setAttribute("data-titlebar","")}catch(e){}`;
+
+/** The shell's menu shortcuts (Ctrl+,) ask the page through this; see `routeTo`. */
+const MENU_COMMAND_EVENT = "weaveforge:menu-command";
+
+function runCommand(command: string): void {
+  if (command === "search") openSearchPalette();
+}
+
+/** Whether `route` is the page open now (`/papers/` is `/papers`). */
+function isHere(pathname: string | null, route: string): boolean {
+  return (pathname ?? "").replace(/\/+$/, "") === route.replace(/\/+$/, "");
+}
 
 /** `rgb(16, 16, 20)` → `#101014`, which is all the shell accepts. */
 function toHex(colour: string): string | null {
@@ -73,6 +86,20 @@ export function DesktopTitleBar() {
     };
   }, []);
 
+  // A shortcut pressed with the menu closed arrives from the shell as an event.
+  // Taken here so it moves through the router instead of reloading the page.
+  useEffect(() => {
+    const onCommand = (event: Event) => {
+      const detail = (event as CustomEvent<{ route?: unknown; command?: unknown }>).detail;
+      if (typeof detail?.route === "string") {
+        event.preventDefault();
+        router.push(detail.route);
+      } else if (typeof detail?.command === "string") runCommand(detail.command);
+    };
+    window.addEventListener(MENU_COMMAND_EVENT, onCommand);
+    return () => window.removeEventListener(MENU_COMMAND_EVENT, onCommand);
+  }, [router]);
+
   // The system's window buttons, in the bar's own colours.
   useEffect(() => {
     const bridge = desktop();
@@ -103,6 +130,10 @@ export function DesktopTitleBar() {
       close();
       if (item.route) {
         router.push(item.route);
+        return;
+      }
+      if (item.command) {
+        runCommand(item.command);
         return;
       }
       void desktop()?.invokeMenuItem?.(item.id).catch(() => undefined);
@@ -226,6 +257,7 @@ export function DesktopTitleBar() {
                           role={item.kind === "check" ? "menuitemcheckbox" : "menuitem"}
                           aria-checked={item.kind === "check" ? item.checked === true : undefined}
                           disabled={!item.enabled}
+                          aria-current={item.route && isHere(pathname, item.route) ? "page" : undefined}
                           className={`card-menu-item title-bar-item${at === active ? " active" : ""}`}
                           onPointerEnter={() => setActive(at)}
                           onClick={() => run(item)}

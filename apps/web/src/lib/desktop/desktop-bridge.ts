@@ -335,6 +335,8 @@ export interface DesktopMenuItem {
   checked?: boolean;
   /** Set when the entry only opens a route: the page navigates itself. */
   route?: string;
+  /** A page action (`search`) the page runs itself. */
+  command?: string;
 }
 
 export interface DesktopMenuGroup {

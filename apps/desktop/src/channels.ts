@@ -259,6 +259,8 @@ export interface MenuItemPayload {
   checked?: boolean;
   /** Set when the entry only opens a route, so the page can navigate itself. */
   route?: string;
+  /** A page action (`search`) the page runs itself. */
+  command?: string;
 }
 
 export interface MenuGroupPayload {

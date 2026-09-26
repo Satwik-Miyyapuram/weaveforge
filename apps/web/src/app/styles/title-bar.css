@@ -70,3 +70,5 @@ html:is([data-workspace-focus], [data-reader-focus]) .title-bar { display: none;
   background: var(--surface);
   border-bottom: var(--bw) solid var(--bw-line);
 }
+/* The page open now, in the Go menu: a bar at the leading edge, as the sidebar marks it. */
+.title-bar-item[aria-current="page"] { box-shadow: inset 3px 0 0 var(--active-bg); font-weight: 600; }

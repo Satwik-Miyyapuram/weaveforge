@@ -59,7 +59,7 @@ import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
 import { preferenceStore, secretStore } from "./main-stores";
 import { fetchReleases, findUpdate } from "./update-check";
-import { installMenu, invokeMenuItem, menuModel, routeTo } from "./app-menu";
+import { installMenu, invokeMenuItem, menuModel, pageCommand, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
 import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
 import { runBoundedQuit } from "./quit";
@@ -584,6 +584,9 @@ const rootRestored: Promise<void> = preferenceStore()
     // A folder remembered from the last run is a connected folder from this one,
     // so the menu says so before the window is even shown.
     if (root) vaultWatcher.start(root.path);
+    // The menu was first drawn before this finished, saying "Choose workspace
+    // folder…"; draw it again now the folder is known.
+    void app.whenReady().then(refreshMenu);
   })
   .catch(() => null)
   .then(() => undefined);
@@ -608,6 +611,7 @@ function refreshMenu(): void {
     checkForUpdates: () => offerUpdate({ tellWhenCurrent: true }),
     docsUrl: DOCS_URL,
     goTo: (route) => routeTo(mainWindow, APP_URL, route),
+    search: () => pageCommand(mainWindow, "search"),
   });
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(CHANNELS.menuChanged);
 }

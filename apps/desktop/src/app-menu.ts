@@ -1,3 +1,4 @@
+import path from "node:path";
 import { app, Menu, shell, type BrowserWindow, type MenuItem, type MenuItemConstructorOptions } from "electron";
 import type { MenuGroupPayload, MenuItemPayload } from "./channels";
 
@@ -27,6 +28,8 @@ export interface MenuActions {
   docsUrl: string;
   /** Take the window to a route inside the app. */
   goTo: (route: string) => void;
+  /** Open the page's search palette. */
+  search: () => void;
 }
 
 /**
@@ -53,8 +56,10 @@ function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
   const root = actions.workspace();
   const workspaceEntries: MenuItemConstructorOptions[] = root
     ? [
-        { label: `Workspace: ${root}`, enabled: false },
-        { label: "Open workspace folder", click: () => void actions.openFolder() },
+        // The folder's name, not its path: the path is what "Open" shows, and a
+        // full Windows path does not fit a menu.
+        { id: "info:workspace", label: `Workspace: ${path.basename(root) || root}`, enabled: false },
+        { label: "Show in file explorer", click: () => void actions.openFolder() },
         { label: "Change workspace folder…", click: () => void actions.chooseFolder() },
         { type: "separator" },
       ]
@@ -107,12 +112,36 @@ function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
   });
 
   template.push({
-    label: "View",
+    // The sidebar's pages, in its order and with its names.
+    label: "Go",
     submenu: [
       go("Home", "/dashboard", actions),
-      go("Library", "/papers", actions),
-      go("Notes", "/notes", actions),
+      {
+        id: "page:search",
+        label: "Search…",
+        // The page owns Ctrl+K (it works in a browser too); this only shows it.
+        accelerator: "CommandOrControl+K",
+        registerAccelerator: false,
+        click: () => actions.search(),
+      },
       { type: "separator" },
+      go("Papers", "/papers", actions),
+      go("Notes", "/notes", actions),
+      go("Editor", "/workspace", actions),
+      go("Graph", "/graph", actions),
+      go("Lists", "/lists", actions),
+      go("Experiments", "/experiments", actions),
+      { type: "separator" },
+      go("Plan", "/plan", actions),
+      go("Report", "/report", actions),
+      go("Log", "/log", actions),
+      go("Git", "/git", actions),
+    ],
+  });
+
+  template.push({
+    label: "View",
+    submenu: [
       { role: "reload", label: "Reload" },
       { role: "resetZoom", label: "Actual size" },
       { role: "zoomIn", label: "Zoom in" },
@@ -152,7 +181,6 @@ function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
     role: "help",
     submenu: [
       { label: "Documentation", click: () => void shell.openExternal(actions.docsUrl) },
-      go("Settings", "/settings", actions),
       { type: "separator" },
       { label: "Check for updates…", click: () => void actions.checkForUpdates() },
       { label: `Version ${app.getVersion()}`, enabled: false },
@@ -199,6 +227,7 @@ function describe(item: MenuItem, window: BrowserWindow | null): MenuItemPayload
   const roleDefault = (item as MenuItem & { getDefaultRoleAccelerator?: () => unknown }).getDefaultRoleAccelerator;
   const raw = item.accelerator || (item.registerAccelerator === false ? undefined : roleDefault?.call(item));
   const route = item.id.startsWith("route:") ? item.id.slice("route:".length) : undefined;
+  const command = item.id.startsWith("page:") ? item.id.slice("page:".length) : undefined;
   const label = item.id === "window:maximize" && window?.isMaximized() ? "Restore" : item.label;
   const check = item.type === "checkbox" || item.type === "radio";
   return {
@@ -209,6 +238,7 @@ function describe(item: MenuItem, window: BrowserWindow | null): MenuItemPayload
     enabled: item.enabled,
     ...(check ? { checked: item.checked } : {}),
     ...(route ? { route } : {}),
+    ...(command ? { command } : {}),
   };
 }
 
@@ -250,5 +280,21 @@ export function routeTo(window: BrowserWindow | null, base: string, route: strin
   // Navigated from inside the page rather than with `loadURL`. A load driven
   // from this process starts a fresh document whose storage the app cannot see
   // — which logs an account-less copy back out on the way to a menu entry.
-  void window.webContents.executeJavaScript(`window.location.assign(${JSON.stringify(url)})`);
+  //
+  // The page's own router first, when it is listening (the title bar is): that
+  // keeps the page, its state and its scroll instead of starting a new one.
+  void window.webContents.executeJavaScript(
+    `(()=>{const e=new CustomEvent(${JSON.stringify(PAGE_COMMAND_EVENT)},{cancelable:true,detail:{route:${JSON.stringify(path)}}});window.dispatchEvent(e);if(!e.defaultPrevented)window.location.assign(${JSON.stringify(url)})})()`,
+  );
+}
+
+/** Kept in step with `desktop-title-bar.tsx`, which listens for it. */
+const PAGE_COMMAND_EVENT = "weaveforge:menu-command";
+
+/** Ask the page to do one of its own things (`search`). */
+export function pageCommand(window: BrowserWindow | null, command: string): void {
+  if (!window || window.isDestroyed()) return;
+  void window.webContents.executeJavaScript(
+    `window.dispatchEvent(new CustomEvent(${JSON.stringify(PAGE_COMMAND_EVENT)},{detail:{command:${JSON.stringify(command)}}}))`,
+  );
 }
