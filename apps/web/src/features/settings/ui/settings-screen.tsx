@@ -14,7 +14,6 @@ import { Modal } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
-import { OrgPanel } from "@/features/org";
 import { SyncSettings } from "@/features/sync";
 import { SearchSettingsPanel } from "./search-settings-panel";
 import { PasteSettingsPanel } from "./paste-settings-panel";
@@ -23,7 +22,6 @@ import { WorkspaceFolderPanel } from "./workspace-folder-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
 import { AccountInfoPanel } from "./account-info-panel";
 import { PrivacyNotice } from "./privacy-notice";
-import { DeleteAccountPanel } from "./delete-account-panel";
 import { ExportDataPanel } from "./export-data-panel";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
@@ -36,7 +34,6 @@ import { ThemeConfigPanel } from "./theme-config-panel";
 import { ThemeCardPicker } from "./theme-card-picker";
 import { OfflineStoragePanel, SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
-import { AppLogPanel } from "./app-log-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
@@ -45,6 +42,12 @@ import { FormError } from "@/components/form-error";
 
 // Only the Tokens tab paints it, so it stays out of the route's first load.
 const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
+// The same for the panels only one tab each paints: the organisation panel is
+// the largest single import this route had, and the log and account-deletion
+// panels sit at the bottom of theirs.
+const OrgPanel = dynamic(() => import("@/features/org").then((m) => m.OrgPanel), { ssr: false });
+const AppLogPanel = dynamic(() => import("./app-log-panel").then((m) => m.AppLogPanel), { ssr: false });
+const DeleteAccountPanel = dynamic(() => import("./delete-account-panel").then((m) => m.DeleteAccountPanel), { ssr: false });
 
 /**
  * Settings sections, as tabs. This screen used to render all eight stacked
