@@ -19,6 +19,7 @@ export interface ReportSectionRow {
   notes: string | null;
   sort_order: number;
   created_at: string;
+  updated_at?: string | null;
 }
 
 export function reportSectionToDomain(row: ReportSectionRow): ReportSection {
@@ -35,6 +36,7 @@ export function reportSectionToDomain(row: ReportSectionRow): ReportSection {
     notes: row.notes ?? undefined,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 

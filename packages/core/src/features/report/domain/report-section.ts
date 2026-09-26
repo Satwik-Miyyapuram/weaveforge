@@ -37,6 +37,8 @@ export interface ReportSection extends Identifiable {
   notes?: string;
   sortOrder: number;
   createdAt: string;
+  /** When the section last changed; set by the database, absent until first read back. */
+  updatedAt?: string;
 }
 
 export interface NewReportSectionInput {
