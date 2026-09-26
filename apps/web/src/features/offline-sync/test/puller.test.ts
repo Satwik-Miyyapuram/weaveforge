@@ -79,7 +79,7 @@ describe("the puller", () => {
     assert.equal((await state.read()).watermark, 5003);
   });
 
-  it("keeps a tombstone as a row rather than letting it disappear", async () => {
+  it("removes the local row when a tombstone arrives, so no screen shows it", async () => {
     const db = await testDb();
     const user = await db.createUser();
     const sql = sqlRunner((q, p) => db.sql(q, p as unknown[]));
@@ -109,12 +109,8 @@ describe("the puller", () => {
       ]),
     ).pull();
 
-    const [stored] = await db.sql<{ deleted_at: string | null }>(
-      "select deleted_at from projects where id = $1",
-      [id],
-    );
-    assert.notEqual(stored, undefined);
-    assert.notEqual(stored!.deleted_at, null);
+    const stored = await db.sql("select 1 from projects where id = $1", [id]);
+    assert.equal(stored.length, 0);
   });
 
   it("refuses to write a table that is not part of sync", async () => {

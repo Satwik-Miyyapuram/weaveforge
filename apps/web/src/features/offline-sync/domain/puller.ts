@@ -50,10 +50,9 @@ export class Puller {
   /**
    * One row, written as the server sent it.
    *
-   * A tombstone is applied like any other row: the local copy keeps
-   * `deleted_at` set rather than disappearing, because a row that vanished
-   * locally is indistinguishable from one never received, and the next pull
-   * would have nothing to correct.
+   * A tombstone removes the local row. Keeping it with `deleted_at` set left
+   * it on every screen, since no screen filters on that column; the watermark,
+   * not the row, is what records that this change was received.
    */
   private async apply(change: RemoteChange): Promise<void> {
     await this.sql.exec("select sync_apply($1, $2::jsonb)", [

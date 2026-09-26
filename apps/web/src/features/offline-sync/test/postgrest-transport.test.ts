@@ -91,11 +91,47 @@ test("a conflict whose server version cannot be read reports unknown, not zero",
   assert.deepEqual(await transport.send(entry()), { status: "conflict", serverVersion: null });
 });
 
-test("a delete travels as a tombstone, not as a DELETE", async () => {
+test("a delete removes the row, guarded by its version", async () => {
   const { transport, calls } = harness([{ status: 200, body: [{ id: "x" }] }]);
-  await transport.send(entry({ op: "delete" }));
-  assert.equal(calls[0]!.method, "PATCH");
-  assert.equal(typeof (calls[0]!.body as { deleted_at: string }).deleted_at, "string");
+  assert.deepEqual(await transport.send(entry({ op: "delete" })), { status: "accepted" });
+  assert.equal(calls[0]!.method, "DELETE");
+  assert.match(calls[0]!.url, /row_version=eq\.3/);
+  assert.equal(calls[0]!.body, undefined);
+});
+
+test("a delete of a row the server no longer has is done, not a conflict", async () => {
+  const { transport, calls } = harness([
+    { status: 200, body: [] },
+    { status: 200, body: [] },
+  ]);
+  assert.deepEqual(await transport.send(entry({ op: "delete" })), { status: "accepted" });
+  assert.equal(calls[1]!.method, "GET");
+});
+
+test("a delete of a row someone edited since is a conflict", async () => {
+  const { transport } = harness([
+    { status: 200, body: [] },
+    { status: 200, body: [{ id: "x" }] },
+    { status: 200, body: [{ row_version: 5 }] },
+  ]);
+  assert.deepEqual(await transport.send(entry({ op: "delete" })), {
+    status: "conflict",
+    serverVersion: 5,
+  });
+});
+
+test("a first download pages a table in id order", async () => {
+  const { transport, calls } = harness([{ status: 200, body: [{ id: "a" }, { id: "b" }] }]);
+  const rows = await transport.page("log_entries", 1000, 500);
+  assert.equal(rows.length, 2);
+  assert.match(calls[0]!.url, /\/log_entries\?select=\*&order=id&limit=500&offset=1000$/);
+});
+
+test("the highest sequence is read before the download starts", async () => {
+  const { transport } = harness([{ status: 200, body: [{ server_seq: 812 }] }]);
+  assert.equal(await transport.maxSeq("projects"), 812);
+  const empty = harness([{ status: 200, body: [] }]);
+  assert.equal(await empty.transport.maxSeq("projects"), 0);
 });
 
 test("a server error leaves the op owed rather than refused", async () => {
