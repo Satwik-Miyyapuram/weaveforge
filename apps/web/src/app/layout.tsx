@@ -16,8 +16,13 @@ export const metadata: Metadata = {
   title: "WeaveForge",
   description: "A private research environment for literature, experiments, and logs.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icons/weave_forge.svg", apple: "/icons/weave_forge.svg" },
+  // iOS ignores an SVG touch icon and screenshots the page instead, so the home
+  // screen gets a 180px PNG (full-bleed; iOS rounds the corners itself).
+  icons: { icon: "/icons/weave_forge.svg", apple: "/icons/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "WeaveForge", statusBarStyle: "black-translucent" },
+  // Next 14 writes only the unprefixed `mobile-web-app-capable`; older iPadOS
+  // still needs Apple's name to open the home-screen app without Safari's bars.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {
