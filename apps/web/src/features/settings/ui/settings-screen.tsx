@@ -33,6 +33,7 @@ import { CARD_TINT_OPTIONS, isBrutalTheme, sanitizeCardTint, type CardTint, DARK
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
 import { ThemeConfigPanel } from "./theme-config-panel";
+import { ThemeCardPicker } from "./theme-card-picker";
 import { OfflineStoragePanel, SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { AppLogPanel } from "./app-log-panel";
@@ -482,26 +483,30 @@ export function SettingsScreen() {
           <h4 id="appearance-theme-head" className="record-section-head">Theme</h4>
           <div className="appearance-row">
             <div className="appearance-row-text">
-              <label htmlFor="lightTheme">Light theme</label>
+              <span className="appearance-label" id="lightThemeLabel">Light theme</span>
               <p>Used while your system is in light mode.</p>
             </div>
-            <Select id="lightTheme" value={lightTheme} onChange={(e) => handleLightThemeChange(e.target.value)}>
-              {LIGHT_THEME_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>{opt.label}</option>
-              ))}
-            </Select>
           </div>
+          <ThemeCardPicker
+            name="lightTheme"
+            labelledBy="lightThemeLabel"
+            options={LIGHT_THEME_OPTIONS}
+            value={lightTheme}
+            onChange={handleLightThemeChange}
+          />
           <div className="appearance-row">
             <div className="appearance-row-text">
-              <label htmlFor="darkTheme">Dark theme</label>
+              <span className="appearance-label" id="darkThemeLabel">Dark theme</span>
               <p>Used while your system is in dark mode.</p>
             </div>
-            <Select id="darkTheme" value={darkTheme} onChange={(e) => handleDarkThemeChange(e.target.value)}>
-              {DARK_THEME_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>{opt.label}</option>
-              ))}
-            </Select>
           </div>
+          <ThemeCardPicker
+            name="darkTheme"
+            labelledBy="darkThemeLabel"
+            options={DARK_THEME_OPTIONS}
+            value={darkTheme}
+            onChange={handleDarkThemeChange}
+          />
           {(isBrutalTheme(lightTheme) || isBrutalTheme(darkTheme)) && (
             <div className="appearance-row appearance-row--stack">
               <div className="appearance-row-text">

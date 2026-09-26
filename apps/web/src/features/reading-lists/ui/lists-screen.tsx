@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { collectListIds, listDisplayColor } from "./list-ui";
 import { ExtractionTable } from "./extraction-table";
+import { ListsRail, findListNode } from "./lists-rail";
 import { ScreeningPanel } from "./screening-panel";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
@@ -138,12 +139,31 @@ export function ListsScreen() {
 
   const { isReadOnly: isReadOnlyList, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
+  // Two panes: the rail picks one list, the right pane shows it and its sublists.
+  const [storedSelected, setSelected] = usePersistedState<string>("thesis.lists.selected", "");
+  useEffect(() => {
+    if (focusFromUrl) setSelected(focusFromUrl);
+  }, [focusFromUrl, setSelected]);
+  const selectedNode = useMemo((): ReadingListTreeNode | null => {
+    const pick = (id: string): ReadingListTreeNode | null => {
+      if (!id) return null;
+      const inTree = findListNode(tree, id);
+      if (inTree) return inTree;
+      const pinned = pinnedLists.find((l) => l.id === id) ?? (id === focusFromUrl ? flat.find((l) => l.id === id) : undefined);
+      return pinned ? { list: pinned, children: [] } : null;
+    };
+    return (
+      pick(storedSelected) ??
+      tree[0] ??
+      (pinnedLists[0] ? { list: pinnedLists[0], children: [] } : null)
+    );
+  }, [storedSelected, tree, pinnedLists, flat, focusFromUrl]);
+
 
   const bump = useCallback(() => setRefresh((n) => n + 1), []);
   const paperTitles = useMemo(() => new Map(papers.map((p) => [p.id, p.title])), [papers]);
   const noteTitles = useMemo(() => new Map(notes.map((n) => [n.id, n.title])), [notes]);
   const listNames = useMemo(() => new Map(flat.map((l) => [l.id, l.name])), [flat]);
-  const allListIds = useMemo(() => collectListIds(tree), [tree]);
 
   const toggleCollapsed = useCallback((listId: string) => {
     setCollapsed((prev) => {
@@ -198,57 +218,42 @@ export function ListsScreen() {
         />
       )}
 
-      {!error && (tree.length > 0 || pinnedLists.length > 0) && (
-        <div className="card list-tree-panel">
-          {tree.length > 0 && (
-            <>
-          <div className="list-tree-toolbar">
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => setCollapsed(new Set(allListIds))}
-            >
-              Collapse all
-            </button>
-            <button type="button" className="link-btn" onClick={() => setCollapsed(new Set())}>
-              Expand all
-            </button>
-          </div>
-          <ul className="list-tree-root">
-            {tree.map((node) => (
+      {!error && selectedNode && (
+        <div className="lists-two-pane">
+          <ListsRail
+            tree={tree}
+            pinned={pinnedLists}
+            selectedId={selectedNode.list.id}
+            onSelect={setSelected}
+          />
+          <div className="card list-tree-panel">
+            {selectedNode.children.length > 0 && (
+              <div className="list-tree-toolbar">
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => setCollapsed(new Set(collectListIds(selectedNode.children)))}
+                >
+                  Collapse all
+                </button>
+                <button type="button" className="link-btn" onClick={() => setCollapsed(new Set())}>
+                  Expand all
+                </button>
+              </div>
+            )}
+            <ul className="list-tree-root">
               <ListNode
                 {...treeContext}
-                key={node.list.id}
-                node={node}
+                key={selectedNode.list.id}
+                node={selectedNode}
                 depth={0}
-                isCollapsed={collapsed.has(node.list.id)}
-                readOnly={isReadOnlyList(node.list.id)}
-                sharedByName={sharedOwnerName(node.list.id)}
-                canComment={listCanComment.get(node.list.id) ?? false}
+                isCollapsed={false}
+                readOnly={isReadOnlyList(selectedNode.list.id) || !ownedIds.has(selectedNode.list.id)}
+                sharedByName={sharedOwnerName(selectedNode.list.id)}
+                canComment={listCanComment.get(selectedNode.list.id) ?? false}
               />
-            ))}
-          </ul>
-            </>
-          )}
-          {pinnedLists.length > 0 && (
-            <>
-              <h4 className="settings-group vault-pinned-label">Shared with you</h4>
-              <ul className="list-tree-root">
-                {pinnedLists.map((list) => (
-                  <ListNode
-                    {...treeContext}
-                    key={list.id}
-                    node={{ list, children: [] }}
-                    depth={0}
-                    isCollapsed={collapsed.has(list.id)}
-                    readOnly
-                    sharedByName={sharedOwnerName(list.id)}
-                    canComment={listCanComment.get(list.id) ?? false}
-                  />
-                ))}
-              </ul>
-            </>
-          )}
+            </ul>
+          </div>
         </div>
       )}
     </section>

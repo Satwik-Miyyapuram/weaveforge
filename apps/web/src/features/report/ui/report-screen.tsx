@@ -25,6 +25,7 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { SectionNote } from "./section-note";
+import { countSectionSources } from "../lib/section-sources";
 import { Markdown } from "@/components/markdown/markdown";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { ScreenHead } from "@/components/screen-head";
@@ -465,9 +466,11 @@ function SectionCard({
   onOpen?: (id: string) => void;
 }) {
   const hasNotes = Boolean(s.notes?.trim());
+  const sources = countSectionSources(s.notes);
   const meta = [
     s.targetWords ? `${s.wordCount} / ${s.targetWords} words` : `${s.wordCount} words`,
     s.deadline ? `due ${s.deadline}` : null,
+    sources > 0 ? `${sources} source${sources === 1 ? "" : "s"}` : null,
   ]
     .filter(Boolean)
     .join(" · ");

@@ -22,6 +22,7 @@ import {
 } from "../application/build-wiki";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
+import { WikiRecentlyApproved } from "./wiki-recent";
 
 /**
  * Wiki: draft concept pages from what you have written, and keep them healthy.
@@ -42,6 +43,7 @@ export function WikiScreen() {
   const [indexed, setIndexed] = useState<string | null>(null);
   const [sources, setSources] = useState<{ id: string; title: string }[] | null>(null);
   const [scope, setScope] = useState<Set<string>>(new Set());
+  const [recentKey, setRecentKey] = useState(0);
 
   // The provider is configured in Settings, which is a different tree; without
   // this the copy here would keep claiming the scan runs on-device after the
@@ -384,6 +386,7 @@ export function WikiScreen() {
           </>
         )}
       </div>
+      <WikiRecentlyApproved refreshKey={recentKey} />
       </div>
       {merge && (
         <MergeDialog
@@ -392,6 +395,7 @@ export function WikiScreen() {
           onClose={() => setMerge(null)}
           onMerged={() => {
             setMerge(null);
+            setRecentKey((k) => k + 1);
             void refreshLint();
           }}
         />
