@@ -241,6 +241,9 @@
   transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease, filter var(--dur-fast) ease;
 }
 :root[data-theme="crt"] :is(.btn-primary, .btn-secondary) { font-size: 1.25rem; line-height: 1; }
+/* The pixel face is unreadable at the base 0.82rem, so the boxless buttons
+   take a size near the boxed ones; a small one still reads as small. */
+:root[data-theme="crt"] :is(.btn-ghost, .btn-cancel) { font-size: 1.15rem; line-height: 1; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary {
   background: var(--accent);
   color: var(--accent-fg);
@@ -281,8 +284,11 @@
 }
 :root[data-theme="crt"] .btn-sm { font-size: 1.05rem; }
 /* Destructive: the filled danger button, and the red-text secondary. */
-@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger,
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger:hover:not(:disabled) {
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger {
+  background: var(--danger-fill);
+  color: var(--s-danger);
+}
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger:hover:not(:disabled) {
   background: var(--danger-fill);
   color: var(--s-danger);
 } }
@@ -301,8 +307,9 @@
   border-radius: var(--radius-sm);
   box-shadow: none;
 }
-@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel,
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) {
+/* Red on every device, not only where a pointer can hover. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel { color: var(--danger-text); }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) {
   color: var(--danger-text);
   background: transparent;
   box-shadow: none;
@@ -1250,12 +1257,8 @@
   text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px;
 }
 /* Settings rows divide by the design's faint ink rule, straight, not a rounded hairline. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .integration-item + .integration-item {
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.integration-item + .integration-item, .sync-issue) {
   border-top: var(--bw) solid color-mix(in srgb, var(--bw-line) 20%, transparent);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .image-size-crop {
-  border: var(--bw) solid var(--bw-line);
-  border-radius: var(--radius-sm);
 }
 /* The read view's picture control floats like any other menu. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .image-size {
@@ -1263,4 +1266,8 @@
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
   box-shadow: var(--sh-sm);
+}
+/* Its labels read as labels: the mono of the other menus' headings. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.image-size-heading, .image-size-key) {
+  font-family: var(--font-mono);
 }

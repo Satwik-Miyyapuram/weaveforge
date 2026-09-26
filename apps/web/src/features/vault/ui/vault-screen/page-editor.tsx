@@ -2,7 +2,14 @@
 
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { extractHashtags, vaultImageMarkdown, type VaultPage } from "@weaveforge/core";
+import {
+  extractHashtags,
+  isInkNoteBody,
+  readInkNoteBody,
+  splitInkTextLayer,
+  vaultImageMarkdown,
+  type VaultPage,
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { AttachImageButton } from "@/components/attach-image-button";
 import { CitationFormatSelect } from "@/components/citation-format-select";
@@ -120,10 +127,21 @@ export function PageEditor({
     if (page.id) setEditing(false);
   }, [page.id]);
 
-  const canEditBody = !readOnly;
+  // A handwritten note keeps its ink header and page markers in the body. The
+  // page shows the text layer under them, and the plain editor stays shut: it
+  // would hand the header to the person to break. Ink is written in the Editor.
+  const ink = isInkNoteBody(page.body);
+  const readBody = useMemo(
+    () =>
+      ink
+        ? splitInkTextLayer(readInkNoteBody(page.body).text).filter(Boolean).join("\n\n")
+        : page.body,
+    [ink, page.body],
+  );
+  const canEditBody = !readOnly && !ink;
   const canEditTitle = canEditBody && !sharedPage;
   const showEditor = editing && canEditBody;
-  const hasBody = !!page.body.trim();
+  const hasBody = !!readBody.trim();
   const titleDirty = canEditTitle && title.trim() !== page.title;
   const bodyDirty = draft !== page.body;
 
@@ -193,10 +211,10 @@ export function PageEditor({
     setEditing(false);
   }
 
-  const words = wordCount(page.body);
+  const words = wordCount(readBody);
   const wordsLabel = `${words} ${words === 1 ? "word" : "words"}`;
-  const tags = extractHashtags(page.body);
-  const linksOut = new Set([...page.body.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1]!.trim().toLowerCase())).size;
+  const tags = extractHashtags(readBody);
+  const linksOut = new Set([...readBody.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1]!.trim().toLowerCase())).size;
   const edited = recordDate(page.updatedAt);
   const created = recordDate(page.createdAt);
   const meta = [
@@ -276,7 +294,7 @@ export function PageEditor({
               hasBody ? (
                 <div ref={noteTextRef}>
                   <VaultMarkdown
-                    body={page.body}
+                    body={readBody}
                     className="summary record-note"
                     notes={notes}
                     papers={papers}
@@ -285,6 +303,8 @@ export function PageEditor({
                     resolveEmbed={resolveEmbed}
                   />
                 </div>
+              ) : ink ? (
+                <RecordEmpty>Handwritten, with no recognised text yet. Open it in the Editor to see the pages.</RecordEmpty>
               ) : canEditBody ? (
                 <button type="button" className="record-note-empty" onClick={startEditing}>
                   Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.

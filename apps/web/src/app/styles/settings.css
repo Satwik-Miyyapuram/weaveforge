@@ -109,6 +109,11 @@
 .settings-block > p { margin: 0; font-size: 0.875rem; }
 .settings-block progress { width: 100%; max-width: 320px; }
 .sync-conflict { display: grid; gap: 8px; }
+/* A write sync gave up on: what, why, then its two ways out. A row of the
+   panel, divided like the connection rows, not a heading of its own. */
+.sync-issue { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+.sync-issue > p { margin: 0; font-size: 0.875rem; }
+.sync-issue-more { align-self: flex-start; }
 .integration-item .status { margin-left: auto; }
 
 /* GitHub link card (Settings) */

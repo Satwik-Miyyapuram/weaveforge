@@ -42,9 +42,9 @@ export function SyncSettings() {
   if (!current || descriptors.length === 0) return null;
 
   return (
-    <div className="card add-form">
+    <div className="card settings-block">
       <h3 className="settings-group">Connections — {current.name}</h3>
-      <p className="muted">Version this project&rsquo;s work to git and post plan updates. Tap a service to configure it; tokens are stored per project (RLS-isolated).</p>
+      <p className="muted">Version this project&rsquo;s work to git and post plan updates. Choose a service to set it up; its token is kept with this project only.</p>
       {loading ? (
         <ScreenLoader status="Loading connections…" compact showTips={false} />
       ) : (
