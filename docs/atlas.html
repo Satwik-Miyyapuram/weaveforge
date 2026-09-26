@@ -542,9 +542,9 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>164,665</b><span>web app lines</span></div>
+      <div class="fact"><b>165,270</b><span>web app lines</span></div>
       <div class="fact"><b>49,867</b><span>core lines</span></div>
-      <div class="fact"><b>13,090</b><span>desktop lines</span></div>
+      <div class="fact"><b>13,391</b><span>desktop lines</span></div>
       <div class="fact"><b>3,196</b><span>python sdk</span></div>
       <div class="fact"><b>132</b><span>migrations</span></div>
       <div class="fact"><b>31</b><span>web features</span></div>
@@ -669,7 +669,7 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>164,665 lines</i>
+├── <b>apps/web/src/</b>                 <i>165,270 lines</i>
 │   ├── <u>app/</u>                      <i>26 pages + 38 API routes</i>
 │   ├── <u>features/</u>                 <i>31 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: supabase | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>13,090 lines, 48 files, main + preload only</i>
+├── <b>apps/desktop/src/</b>              <i>13,391 lines, 49 files, main + preload only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -687,7 +687,7 @@ flowchart TB
 │   ├── auto-update.ts  update-check.ts  app-menu.ts  app-protocol.ts
 │   └── secret-store.ts  preference-store.ts  auth-loopback.ts  zotero-local.ts
 │
-├── <b>apps/pitch/</b>                    <i>952 lines — public site, GitHub Pages</i>
+├── <b>apps/pitch/</b>                    <i>891 lines — public site, GitHub Pages</i>
 │
 ├── <b>python/weaveforge/</b>             <i>3,196 lines + 1,523 lines of tests</i>
 │   ├── features/{experiments,papers,projects}/{domain,application,infrastructure}
@@ -698,7 +698,7 @@ flowchart TB
 ├── <b>supabase/migrations/</b>           <i>0001 → 0133, 7,067 lines</i>
 ├── <b>scripts/</b>                       <i>53 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>91 files, 31,218 lines</i>
+└── <b>docs/</b>                          <i>91 files, 31,222 lines</i>
 </pre>
       </div>
     </section>
