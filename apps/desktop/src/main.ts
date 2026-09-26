@@ -809,8 +809,9 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on("window-all-closed", () => {
     // macOS keeps the app running with no windows; everywhere else that means
-    // the reader is finished.
-    if (process.platform !== "darwin") app.quit();
+    // the reader is finished. The one exception is the desktop widget between
+    // an Explorer restart taking it down and it coming back.
+    if (process.platform !== "darwin" && !planWidget.isReturning()) app.quit();
   });
 }
 

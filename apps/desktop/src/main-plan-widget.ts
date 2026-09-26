@@ -27,7 +27,9 @@ import {
   pinScript,
   placeWidget,
   PLAN_WIDGET_SIZE,
+  parseTaskbarCreated,
   PLAN_WIDGET_SQL,
+  powershellArgs,
   widgetDataFromRows,
   type PlanWidgetRow,
 } from "./plan-widget";
@@ -55,6 +57,11 @@ export interface MainPlanWidget {
   isOpen(): boolean;
   /** Re-read the plan now, if the widget is up. */
   refresh(): void;
+  /**
+   * Whether the widget was taken down by something else and is about to come
+   * back. The app must not quit on "no windows left" in that gap.
+   */
+  isReturning(): boolean;
 }
 
 export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget {
@@ -66,7 +73,10 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
    * a close that is neither was done to the widget, not by it.
    */
   const dismissed = new WeakSet<BrowserWindow>();
+  /** Widget windows already listening for Explorer to come back. */
+  const hooked = new WeakSet<BrowserWindow>();
   let quitting = false;
+  let returning = false;
   app.on("before-quit", () => {
     quitting = true;
   });
@@ -87,17 +97,25 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
   function pin(target: BrowserWindow): void {
     if (!SUPPORTED || target.isDestroyed()) return;
     const hwnd = hwndFromHandle(target.getNativeWindowHandle());
-    const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "-"], {
+    const child = spawn("powershell.exe", powershellArgs(pinScript(hwnd)), {
       windowsHide: true,
-      stdio: ["pipe", "ignore", "pipe"],
+      stdio: ["ignore", "pipe", "pipe"],
     });
+    let out = "";
     let errors = "";
+    child.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
     child.stderr.on("data", (chunk: Buffer) => (errors += chunk.toString()));
     child.on("error", (cause) => console.warn("[plan-widget] could not start the desktop helper:", cause.message));
     child.on("exit", (code) => {
       if (code !== 0) console.warn(`[plan-widget] desktop placement failed (${code}): ${errors.trim().slice(0, 300)}`);
+      // Explorer restarted: the old desktop is gone and the widget is owned by
+      // nothing. Pin again once the new desktop has settled.
+      const taskbarCreated = parseTaskbarCreated(out);
+      if (taskbarCreated !== null && !target.isDestroyed() && !hooked.has(target)) {
+        hooked.add(target);
+        target.hookWindowMessage(taskbarCreated, () => setTimeout(() => pin(target), 2_000));
+      }
     });
-    child.stdin.end(pinScript(hwnd));
   }
 
   function saveBounds(): void {
@@ -151,7 +169,16 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
       timer = null;
       // An owned window goes when its owner does, so an Explorer restart takes
       // the widget with the old desktop. Come back once the new one is up.
-      if (!dismissed.has(target) && !quitting) setTimeout(() => void resume(), 4_000);
+      if (!dismissed.has(target) && !quitting) {
+        returning = true;
+        setTimeout(() => {
+          void resume().finally(() => {
+            returning = false;
+            // Nothing came back and nothing else is open: the app is done.
+            if (BrowserWindow.getAllWindows().length === 0 && process.platform !== "darwin") app.quit();
+          });
+        }, 4_000);
+      }
     });
     target.on("moved", saveBounds);
     // The page is a local file with nothing to link to; nothing leaves it.
@@ -239,5 +266,6 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     resume,
     isOpen: () => !!win && !win.isDestroyed(),
     refresh: () => void refresh(),
+    isReturning: () => returning,
   };
 }
