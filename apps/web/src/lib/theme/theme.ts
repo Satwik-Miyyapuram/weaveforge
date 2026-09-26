@@ -133,16 +133,17 @@ export function readStoredSurfaceStyle(): SurfaceStyle {
  * Card tint (brutal + CRT only)
  * ------------------------------------------------------------------ */
 
-export type CardTint = "full" | "bar" | "none";
+export type CardTint = "full" | "bar" | "border" | "none";
 
 export const CARD_TINT_OPTIONS: ReadonlyArray<{ id: CardTint; label: string }> = [
   { id: "full", label: "Full card" },
   { id: "bar", label: "Edge bar" },
+  { id: "border", label: "Border" },
   { id: "none", label: "None" },
 ];
 
 export function sanitizeCardTint(id: string | null | undefined): CardTint {
-  return id === "bar" || id === "none" ? id : "full";
+  return id === "bar" || id === "border" || id === "none" ? id : "full";
 }
 
 /** styles/brutal.css reads `data-tint`; other themes never look at it. */
@@ -293,7 +294,7 @@ function buildThemeBootScript(): string {
   const extras =
     `var sf=localStorage.getItem("thesis.surfaces")==="bordered"?"bordered":"borderless";` +
     `document.documentElement.dataset.surfaces=sf;` +
-    `var ct=localStorage.getItem("thesis.cardTint");document.documentElement.dataset.tint=ct==="bar"||ct==="none"?ct:"full";` +
+    `var ct=localStorage.getItem("thesis.cardTint");document.documentElement.dataset.tint=ct==="bar"||ct==="border"||ct==="none"?ct:"full";` +
     `if(localStorage.getItem("thesis.reactiveMotion")==="1")document.documentElement.dataset.motion="reactive";` +
     `var vn=${vn},rawT=localStorage.getItem("thesis.customTheme");` +
     `if(rawT){var cfg=JSON.parse(rawT),cv=(cfg&&cfg.vars)||{},okv=/^[#a-zA-Z0-9 ,.%\\/()"_-]{1,120}$/;` +

@@ -108,6 +108,26 @@ export class LocalDatabase {
     );
   }
 
+  /**
+   * Who this device's queries run as: the account it syncs with once it has
+   * been adopted, the local-only user before that.
+   *
+   * Adoption re-owns every row to the account. Queries that still claimed to
+   * be the local user would then see none of them, so the identity has to
+   * follow the rows. Read as the database owner, since `sync_state` is the
+   * device's own bookkeeping; a database without it has never synced.
+   */
+  async deviceUser(): Promise<string> {
+    try {
+      const { rows } = await this.client.query<{ account_id: string | null }>(
+        "select account_id from sync_state limit 1",
+      );
+      return rows[0]?.account_id ?? LOCAL_USER_ID;
+    } catch {
+      return LOCAL_USER_ID;
+    }
+  }
+
   /** A copy of everything, or `null` from a client that cannot make one. */
   async dump(): Promise<Blob | null> {
     return this.client.dumpDataDir ? this.client.dumpDataDir("gzip") : null;

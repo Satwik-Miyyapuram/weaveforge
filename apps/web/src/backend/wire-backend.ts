@@ -5,6 +5,8 @@ import { SupabaseAdminUserProvisioner } from "./providers/supabase/admin-provisi
 import { wireSupabaseBackend, type WiredSupabaseBackend } from "./providers/supabase/wire-supabase-backend";
 import { isLocalMode } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/wire-local-backend";
+import { localFirstParts } from "./providers/local/local-first";
+import { localFirstActive } from "./providers/local/local-first-marker";
 
 export type WiredBackend = WiredSupabaseBackend;
 
@@ -16,6 +18,9 @@ export function wireBackend(
   // Working on this computer is not a different set of repositories, only a
   // different database, identity and blob store handed to the same ones.
   if (isLocalMode()) return wireSupabaseBackend(config, projectContext, pid, localBackendParts());
+  // A signed-in desktop that has its account's data on disk works on that copy.
+  const account = localFirstActive();
+  if (account) return wireSupabaseBackend(config, projectContext, pid, localFirstParts(config, account));
 
   switch (config.provider) {
     case "supabase":
