@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "build:web": "node scripts/build-web.mjs",
     "package": "node scripts/build.mjs && node scripts/build-web.mjs && npm run build:ink && electron-builder",
+    "pack:setup": "node scripts/pack-setup.mjs",
     "test": "node --import tsx --test test/*.test.ts",
     "build:ink": "node scripts/build-ink-recogniser.mjs",
     "smoke": "node scripts/build.mjs && node scripts/smoke.mjs"
@@ -43,7 +44,18 @@
       "output": "release"
     },
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": null
     },
     "linux": {
       "target": [
@@ -86,7 +98,7 @@
         "repo": "weaveforge"
       }
     ],
-    "afterPack": "scripts/stamp-exe.cjs"
+    "afterPack": "scripts/after-pack.cjs"
   },
   "author": "WeaveForge",
   "dependencies": {

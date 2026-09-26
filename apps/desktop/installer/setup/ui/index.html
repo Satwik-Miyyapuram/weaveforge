@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WeaveForge setup</title>
+<style>
+/* Mocha, as the app draws it, with the neo-brutalist line and shadow. */
+@font-face { font-family: Rubik; src: url(/rubik.woff2) format("woff2"); font-weight: 300 900; }
+:root {
+  --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
+  --surface0: #313244; --surface1: #45475a; --overlay: #6c7086;
+  --text: #cdd6f4; --subtext: #a6adc8;
+  --mauve: #cba6f7; --pink: #f5c2e7; --blue: #89b4fa; --yellow: #f9e2af; --green: #a6e3a1; --red: #f38ba8;
+  --line: 3px solid var(--crust);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  display: grid; grid-template-columns: 250px 1fr;
+  background: var(--base); color: var(--text);
+  font: 400 14px/1.5 Rubik, "Segoe UI", sans-serif;
+  user-select: none; cursor: default;
+  border: 1px solid var(--crust);
+}
+button { font: inherit; }
+
+/* The art panel, the same picture as the NSIS sidebar. */
+.art { position: relative; background: var(--mantle); border-right: var(--line); overflow: hidden; }
+.stripe { height: 12px; }
+.stripe.a { background: var(--mauve); } .stripe.b { background: var(--pink); } .stripe.c { background: var(--blue); }
+.art img {
+  display: block; width: 104px; height: 104px; margin: 60px auto 0;
+  border-radius: 24px; border: var(--line); box-shadow: 6px 6px 0 var(--crust);
+}
+.art h2 { margin: 26px 0 0; text-align: center; font-size: 26px; font-weight: 800; letter-spacing: -0.4px; }
+.art p { margin: 10px 26px 0; text-align: center; font-size: 13px; color: var(--subtext); }
+.chips { position: absolute; left: 0; right: 0; bottom: 28px; display: flex; justify-content: center; gap: 8px; }
+.chips span { font-size: 12px; font-weight: 600; padding: 3px 9px; border: 2px solid var(--crust); border-radius: 7px; color: var(--crust); }
+
+/* The right side: its own title bar, then one page at a time. */
+.main { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.bar { height: 40px; display: flex; align-items: center; justify-content: flex-end; padding-left: 20px; }
+.bar .title { margin-right: auto; font-size: 12px; color: var(--overlay); }
+.win {
+  width: 46px; height: 40px; border: 0; background: none; color: var(--subtext);
+  display: grid; place-items: center;
+}
+.win:hover { background: var(--surface0); color: var(--text); }
+.win.close:hover { background: var(--red); color: var(--crust); }
+.win svg { width: 11px; height: 11px; }
+
+.page { display: none; flex: 1; flex-direction: column; padding: 14px 40px 32px; }
+.page.on { display: flex; animation: in 180ms ease-out; }
+@keyframes in { from { opacity: 0; transform: translateY(6px); } }
+h1 { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.15; }
+.lead { margin: 12px 0 0; color: var(--subtext); max-width: 420px; }
+.version {
+  display: inline-block; margin-left: 10px; vertical-align: 6px;
+  font-size: 12px; font-weight: 600; padding: 2px 8px;
+  background: var(--yellow); color: var(--crust); border: 2px solid var(--crust); border-radius: 7px;
+}
+
+label.field { display: block; margin-top: 28px; font-size: 12px; font-weight: 600; color: var(--subtext); }
+.path { display: flex; gap: 10px; margin-top: 6px; }
+.path output {
+  flex: 1; min-width: 0; padding: 9px 12px;
+  background: var(--mantle); border: var(--line); border-radius: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left;
+}
+.note { margin-top: 10px; font-size: 12px; color: var(--overlay); }
+
+.actions { margin-top: auto; display: flex; justify-content: flex-end; gap: 12px; }
+.btn {
+  min-width: 108px; padding: 9px 18px; border-radius: 8px; border: var(--line);
+  background: var(--surface0); color: var(--text); font-weight: 600;
+  box-shadow: 4px 4px 0 var(--crust); transition: filter 120ms, transform 80ms, box-shadow 80ms;
+}
+.btn:hover { filter: brightness(1.15); }
+.btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--crust); }
+.btn.primary { background: var(--mauve); color: var(--crust); }
+.btn.ghost { background: none; border-color: transparent; box-shadow: none; color: var(--subtext); }
+.btn.ghost:hover { filter: none; color: var(--text); background: var(--surface0); }
+.btn:focus-visible, .win:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+button:focus:not(:focus-visible) { outline: none; }
+
+/* Progress: the brutal bar, filled with the stripes. */
+.meter { margin-top: 34px; height: 30px; border: var(--line); border-radius: 8px; background: var(--mantle); overflow: hidden; box-shadow: 4px 4px 0 var(--crust); }
+.fill {
+  height: 100%; width: 0%;
+  background: repeating-linear-gradient(-45deg, var(--mauve) 0 14px, var(--pink) 14px 28px);
+  background-size: 40px 40px; border-right: var(--line);
+  transition: width 220ms linear; animation: slide 900ms linear infinite;
+}
+@keyframes slide { to { background-position: 40px 0; } }
+.status { display: flex; justify-content: space-between; margin-top: 14px; font-size: 13px; color: var(--subtext); }
+.status b { color: var(--text); font-weight: 600; }
+
+.tick {
+  width: 56px; height: 56px; margin-bottom: 20px; border-radius: 14px;
+  display: grid; place-items: center; border: var(--line); box-shadow: 4px 4px 0 var(--crust);
+}
+.tick.ok { background: var(--green); } .tick.bad { background: var(--red); }
+.tick svg { width: 28px; height: 28px; color: var(--crust); }
+.error { margin-top: 14px; padding: 10px 12px; border: 2px solid var(--red); border-radius: 8px; color: var(--text); background: rgba(243, 139, 168, 0.08); font-size: 13px; }
+</style>
+</head>
+<body>
+  <aside class="art" data-drag>
+    <div class="stripe a"></div><div class="stripe b"></div><div class="stripe c"></div>
+    <img src="/icon.png" alt="">
+    <h2>WeaveForge</h2>
+    <p>Papers, notes and experiments, woven into one thesis.</p>
+    <div class="chips"><span style="background:var(--blue)">Read</span><span style="background:var(--yellow)">Note</span><span style="background:var(--green)">Write</span></div>
+  </aside>
+
+  <section class="main">
+    <header class="bar" data-drag>
+      <span class="title" data-drag>WeaveForge setup</span>
+      <button class="win" id="min" aria-label="Minimize" tabindex="-1"><svg viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1.2"/></svg></button>
+      <button class="win close" id="x" aria-label="Close" tabindex="-1"><svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1.2"/></svg></button>
+    </header>
+
+    <div class="page on" id="welcome">
+      <h1><span id="heading">Install WeaveForge</span><span class="version" id="version" hidden></span></h1>
+      <p class="lead" id="lead">Your papers, notes, experiments and thesis in one place, on your own machine.</p>
+      <label class="field" for="dir">Install location</label>
+      <div class="path">
+        <output id="dir"></output>
+        <button class="btn" id="browse">Change…</button>
+      </div>
+      <div class="note" id="note">Installs for you only. No admin rights needed.</div>
+      <div class="actions">
+        <button class="btn ghost btn-cancel" id="cancel">Cancel</button>
+        <button class="btn primary" id="install">Install</button>
+      </div>
+    </div>
+
+    <div class="page" id="progress">
+      <h1 id="progress-heading">Installing</h1>
+      <p class="lead">This takes about a minute. WeaveForge will close first if it is open.</p>
+      <div class="meter"><div class="fill" id="fill"></div></div>
+      <div class="status"><span id="label">Unpacking</span><b id="percent">0%</b></div>
+    </div>
+
+    <div class="page" id="done">
+      <div class="tick ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <h1 id="done-heading">WeaveForge is ready</h1>
+      <p class="lead">It is in your Start menu and on your desktop. Updates install themselves from now on.</p>
+      <div class="actions">
+        <button class="btn ghost btn-cancel" id="finish">Close</button>
+        <button class="btn primary" id="open">Open WeaveForge</button>
+      </div>
+    </div>
+
+    <div class="page" id="failed">
+      <div class="tick bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg></div>
+      <h1>Setup did not finish</h1>
+      <div class="error" id="error"></div>
+      <div class="actions">
+        <button class="btn ghost btn-cancel" id="quit">Close</button>
+        <button class="btn primary" id="retry">Try again</button>
+      </div>
+    </div>
+  </section>
+
+<script>
+const post = (message) => window.ipc.postMessage(JSON.stringify(message));
+const $ = (id) => document.getElementById(id);
+const state = { dir: "", existing: false, page: "welcome" };
+
+function show(page) {
+  state.page = page;
+  for (const el of document.querySelectorAll(".page")) el.classList.toggle("on", el.id === page);
+  const primary = document.querySelector(".page.on .btn.primary");
+  if (primary) primary.focus();
+}
+
+function setDir(dir, existing) {
+  state.dir = dir;
+  state.existing = existing;
+  $("dir").textContent = dir;
+  $("dir").title = dir;
+  $("heading").textContent = existing ? "Update WeaveForge" : "Install WeaveForge";
+  $("install").textContent = existing ? "Update" : "Install";
+  $("progress-heading").textContent = existing ? "Updating" : "Installing";
+  $("done-heading").textContent = existing ? "WeaveForge is up to date" : "WeaveForge is ready";
+  $("note").textContent = existing
+    ? "Your papers, notes and settings stay as they are."
+    : "Installs for you only. No admin rights needed.";
+}
+
+function start() {
+  show("progress");
+  setProgress(0, "Unpacking");
+  post({ cmd: "install", dir: state.dir });
+}
+
+function setProgress(value, label) {
+  const percent = Math.round(value * 100);
+  $("fill").style.width = percent + "%";
+  $("percent").textContent = percent + "%";
+  if (label) $("label").textContent = label;
+}
+
+window.wf = {
+  receive(message) {
+    switch (message.type) {
+      case "init":
+        if (message.version) {
+          $("version").textContent = "v" + message.version;
+          $("version").hidden = false;
+        }
+        setDir(message.dir, message.existing);
+        show("welcome");
+        if (!message.hasPayload) {
+          $("error").textContent = "This setup file is incomplete. Download it again.";
+          $("retry").hidden = true;
+          show("failed");
+        }
+        break;
+      case "dir":
+        setDir(message.dir, message.existing);
+        break;
+      case "progress":
+        setProgress(message.value, message.label);
+        break;
+      case "done":
+        setProgress(1, "Done");
+        setTimeout(() => show("done"), 250);
+        break;
+      case "error":
+        $("error").textContent = message.message;
+        show("failed");
+        break;
+    }
+  },
+};
+
+// The empty parts of the window move it, as a system title bar would.
+document.addEventListener("mousedown", (event) => {
+  if (event.button === 0 && event.target.closest("[data-drag]") && !event.target.closest("button")) post({ cmd: "drag" });
+});
+document.addEventListener("contextmenu", (event) => event.preventDefault());
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.page !== "progress") post({ cmd: "close" });
+});
+
+$("min").onclick = () => post({ cmd: "minimize" });
+$("x").onclick = () => post({ cmd: "close" });
+$("cancel").onclick = () => post({ cmd: "close" });
+$("finish").onclick = () => post({ cmd: "close" });
+$("quit").onclick = () => post({ cmd: "close" });
+$("browse").onclick = () => post({ cmd: "browse", dir: state.dir });
+$("install").onclick = start;
+$("retry").onclick = start;
+$("open").onclick = () => post({ cmd: "launch", dir: state.dir });
+
+post({ cmd: "ready" });
+</script>
+</body>
+</html>
