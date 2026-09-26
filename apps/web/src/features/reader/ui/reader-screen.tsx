@@ -127,25 +127,33 @@ export function ReaderScreen() {
 
   return (
     <section className={`screen reader-screen${pane ? " reader-screen--split" : ""}`}>
-      <div className="screen-header">
-        <div>
-          <p className="eyebrow">Source</p>
-          <h1>{title ?? "Reader"}</h1>
-          <p className="muted">
-            In-app PDF reader — fit width by default; zoom, rotate, and jump pages from the toolbar.
-          </p>
-        </div>
+      {/* One bar, the mock's: back, the paper's title, and the two batch tools.
+          The page count, zoom and find sit in the reader's own bar below. */}
+      <div className="reader-screen-bar">
+        {paperId && (
+          <Link
+            className="btn-secondary btn-sm reader-screen-back"
+            href={`/papers?paper=${encodeURIComponent(paperId)}`}
+            aria-label="Back to paper"
+            title="Back to paper"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+          </Link>
+        )}
+        <h1 className="reader-screen-title">{title ?? "Reader"}</h1>
         <div className="reader-screen-actions">
-          {paperId && (
-            <Link className="btn-secondary" href={`/papers?paper=${encodeURIComponent(paperId)}`}>
-              Back to paper
-            </Link>
-          )}
-          <button type="button" className="btn-secondary btn-sm" onClick={() => setShowActivity((v) => !v)}>
-            {showActivity ? "Hide activity" : "Activity"}
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            aria-pressed={showActivity}
+            onClick={() => setShowActivity((v) => !v)}
+          >
+            Activity
           </button>
-          <button type="button" className="btn-secondary btn-sm" onClick={runBatchExtractImages}>
-            Batch: list images
+          <button type="button" className="btn-ghost btn-sm" onClick={runBatchExtractImages}>
+            List images
           </button>
         </div>
       </div>
