@@ -92,6 +92,14 @@ integrity check on a downloaded update is the SHA-512 in `latest.yml`, served
 over HTTPS from the same release. Say so in the notes; do not describe the
 update as verified.
 
+The macOS `.dmg`s (arm64 and x64) carry an ad-hoc signature only
+(`apps/desktop/scripts/after-pack.cjs`), which is free and keeps Apple silicon
+from calling the app "damaged", but is not a Developer ID and is not notarised.
+Squirrel.Mac will not install updates on such a build, so macOS copies do not
+auto-update: they show a "new version" notice that opens the release page
+(`apps/desktop/src/main-update-offer.ts`). Put the first-launch steps from
+[`docs/using/desktop.md`](../using/desktop.md#installing-on-a-mac) in the notes.
+
 ## Python SDK (`py-vX.Y.Z`)
 
 1. PR: bump `__version__` in `python/weaveforge/__init__.py` to whatever the

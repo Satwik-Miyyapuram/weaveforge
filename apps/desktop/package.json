@@ -44,7 +44,18 @@
       "output": "release"
     },
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": null
     },
     "linux": {
       "target": [
@@ -87,7 +98,7 @@
         "repo": "weaveforge"
       }
     ],
-    "afterPack": "scripts/stamp-exe.cjs"
+    "afterPack": "scripts/after-pack.cjs"
   },
   "author": "WeaveForge",
   "dependencies": {

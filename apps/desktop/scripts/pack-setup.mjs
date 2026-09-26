@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
  *
  * The NSIS file stays in the release beside it, unchanged, because the in-app
  * updater downloads that one (it is what `latest.yml` names) and runs it
- * silently. People downloading WeaveForge get `WeaveForge-<version>-Setup.exe`,
+ * silently. People downloading WeaveForge get `WeaveForge-<version>-Windows-Installer.exe`,
  * which shows the app's own pages and runs the same NSIS file behind them.
  *
  * Layout, read back by `installer/setup/src/main.rs`:
@@ -64,7 +64,7 @@ trailer.writeBigUInt64LE(BigInt(fs.statSync(nsis).size), 0);
 trailer.writeBigUInt64LE(BigInt(meta.length), 8);
 trailer.write("WFSETUP1", 16, "ascii");
 
-const out = path.join(release, `WeaveForge-${version}-Setup.exe`);
+const out = path.join(release, `WeaveForge-${version}-Windows-Installer.exe`);
 fs.copyFileSync(shell, out);
 fs.appendFileSync(out, fs.readFileSync(nsis));
 fs.appendFileSync(out, meta);

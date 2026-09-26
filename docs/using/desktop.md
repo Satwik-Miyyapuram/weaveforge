@@ -8,6 +8,33 @@ by accident.
 Nothing is stored differently. Sign in on the desktop and the browser sees the
 same notes a moment later, because both are talking to the same account.
 
+## Installing on a Mac
+
+Download `WeaveForge-<version>-arm64.dmg` (Apple silicon: M1 and later) or
+`WeaveForge-<version>.dmg` (Intel) from the
+[releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases/latest),
+open it, and drag WeaveForge into Applications.
+
+The Mac build is free and is not notarised by Apple, which costs a yearly
+developer fee. So the first time you open it, macOS says it cannot check the
+app for malicious software and offers only **Done**. To open it:
+
+1. Open **System Settings → Privacy & Security**.
+2. Scroll to the line about WeaveForge being blocked and press **Open Anyway**.
+3. Confirm with your password or Touch ID. From then on it opens normally.
+
+Or, in Terminal, once:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/WeaveForge.app
+```
+
+The app carries an *ad-hoc* signature: enough for macOS to run it and to notice
+if it has been changed since it was built, but it says nothing about who built
+it. If that matters to you, build it yourself from source.
+
+The Mac build does not update itself; see [Updating](#updating).
+
 ## Signing in with Google
 
 Pick **Continue with Google** and your normal browser opens on Google's own
@@ -74,6 +101,13 @@ window is, and has a **Check now** button if you would rather ask than wait.
 
 The section is not there in a browser, because a browser has no window to
 update — whatever it loads is already current.
+
+**On a Mac** the app does not update itself: macOS only lets an app replace
+itself when Apple has signed it, and this one is not. Instead it checks when it
+opens and every few hours while it stays open, and when there is a newer
+version it asks once — **Download** opens the release page, where you install
+the new `.dmg` over the old one as the first time. **Later** holds until you
+next open the app.
 
 If the check cannot reach GitHub it says nothing rather than showing you an
 error, because a shell that cannot reach GitHub is still a working shell.

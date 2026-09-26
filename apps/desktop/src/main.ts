@@ -375,6 +375,9 @@ const offerUpdate = registerMainUpdateOffer({
   openExternally,
 });
 
+/** How often a Mac build looks for a newer release while it stays open. */
+const MAC_UPDATE_NOTICE_EVERY_MS = 6 * 60 * 60 * 1000;
+
 /**
  * Hands a finished sign-in to the page that started it.
  *
@@ -801,16 +804,27 @@ if (!app.requestSingleInstanceLock()) {
     // says so -- see `auto-update.ts` for why quitting is not consent on an
     // unsigned build. The older check-and-tell path stays for the menu entry
     // and for builds with no feed behind them.
-    void realUpdater().then((updater) => {
-      if (updater)
-        startAutoUpdate({
-          updater,
-          window: () => mainWindow,
-          enabled: true,
-          // Closed before the installer exists, not raced against its kill.
-          prepare: shutDownLocalDb,
-        });
-    });
+    //
+    // Not on macOS: the Mac build is ad-hoc signed only, and Squirrel.Mac will
+    // not install an update without a Developer ID signature. There the reader
+    // is told about a new version instead and downloads it from the release
+    // page (see `main-update-offer.ts`).
+    if (process.platform === "darwin") {
+      const notice = () => void offerUpdate({ oncePerVersion: true });
+      setTimeout(notice, 10_000);
+      setInterval(notice, MAC_UPDATE_NOTICE_EVERY_MS);
+    } else {
+      void realUpdater().then((updater) => {
+        if (updater)
+          startAutoUpdate({
+            updater,
+            window: () => mainWindow,
+            enabled: true,
+            // Closed before the installer exists, not raced against its kill.
+            prepare: shutDownLocalDb,
+          });
+      });
+    }
     refreshMenu();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
