@@ -10,9 +10,8 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { setLocalMode } from "@/backend/providers/local/local-identity";
 
 /**
- * Passwordless login. Sends a Supabase magic-link to the entered email. On
- * click-through, supabase-js parses the session from the URL and the
- * AuthProvider flips to signed-in (detectSessionInUrl).
+ * Sign in: password, Google, an emailed code or link, or (desktop only) no
+ * account at all. On success the AuthProvider flips to signed-in.
  */
 export function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -122,151 +121,189 @@ export function LoginScreen() {
     }
   }
 
+  const switchMode = () => {
+    setIsSignUp(!isSignUp);
+    setError(null);
+  };
+
   return (
-    <section className="screen auth-screen">
-      <header className="screen-head">
-        <div className="auth-brand">
-          <WeaveForgeLogo />
-          <div><span>Research, Unified</span><strong>WeaveForge</strong></div>
-        </div>
-        <h1>{isSignUp ? "Sign up" : "Sign in"}</h1>
-        <p className="auth-hero">A private research environment unifying your literature, experiments, and logs in one place. Built for standalone focus. Ready for organizational collaboration.</p>
-      </header>
-
-      {sent ? (
-        <div className="card add-form">
-          <p>
-            Registration successful! Please check your email <strong>{email}</strong> for a confirmation link to activate your account.
-          </p>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => {
-              setSent(false);
-              setIsSignUp(false);
-              setPassword("");
-              setError(null);
-            }}
-          >
-            Back to sign in
-          </button>
-        </div>
-      ) : magicLinkSent ? (
-        <div className="card add-form">
-          <h2 className="screen-title">Check your email</h2>
-          <p className="muted">We sent a sign-in link to <strong>{email}</strong>. Open it to sign in.</p>
-          <button type="button" className="btn-secondary" onClick={() => setMagicLinkSent(false)}>Back</button>
-        </div>
-      ) : resetSent ? (
-        <div className="card add-form">
-          <h2 className="screen-title">Password reset email sent</h2>
-          <p className="muted">If an account exists for <strong>{email}</strong>, you’ll receive a link to choose a new login password.</p>
-          <button type="button" className="btn-secondary" onClick={() => setResetSent(false)}>Back</button>
-        </div>
-      ) : otpSent ? (
-        <div className="card add-form">
-          <h2 className="screen-title">Enter your email code</h2>
-          <p className="muted">We sent a short-lived code to <strong>{email}</strong>.</p>
-          <form className="auth-email" onSubmit={(event) => void verifyOtp(event)}>
-            <div className="field"><label htmlFor="email-otp">Email code</label><input id="email-otp" value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" required /></div>
-            {error && <FormError>{error}</FormError>}
-            <button className="btn-primary" disabled={busy}>{busy ? "Verifying…" : "Verify code"}</button>
-          </form>
-          <button type="button" className="btn-secondary" onClick={() => { setOtpSent(false); setOtp(""); }} disabled={busy}>Back</button>
-        </div>
-      ) : (
-        <div className="card add-form">
-          <button
-            type="button"
-            className="btn-google"
-            onClick={google}
-            disabled={busy}
-          >
-            <GoogleMark />
-            Continue with Google
-          </button>
-
-          <div className="auth-divider"><span>or</span></div>
-
-          <form className="auth-email" onSubmit={submit}>
-            <div className="field">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@university.edu"
-                autoComplete="email"
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete={isSignUp ? "new-password" : "current-password"}
-                required
-              />
-            </div>
-            <button className="btn-primary" disabled={busy}>
-              {busy ? (isSignUp ? "Signing up…" : "Signing in…") : (isSignUp ? "Sign Up" : "Sign In")}
-            </button>
-          </form>
-
-          {!isSignUp && (
-            <div className="auth-secondary-actions">
-              <button type="button" className="link-btn" onClick={() => void sendMagicLink()} disabled={busy || !email.trim()}>
-                Email me a sign-in link
-              </button>
-              <button type="button" className="link-btn" onClick={() => void sendOtp()} disabled={busy || !email.trim()}>
-                Email me a code
-              </button>
-              <button type="button" className="link-btn" onClick={() => void sendPasswordReset()} disabled={busy || !email.trim()}>
-                Forgot password?
-              </button>
-            </div>
-          )}
-
-          <div style={{ marginTop: "1rem", textAlign: "center" }}>
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError(null);
-              }}
-              disabled={busy}
-            >
-              {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
-            </button>
-          </div>
-
-          {onThisComputer && (
-            <div className="auth-secondary-actions" style={{ marginTop: "1rem" }}>
+    <section className="auth-screen auth-split">
+      <AuthArt />
+      <div className="auth-panel">
+        <div className="auth-card">
+          {sent ? (
+            <>
+              <h2 className="auth-title">Check your email</h2>
+              <p className="auth-sub">
+                We sent a confirmation link to <strong>{email}</strong>. Open it to activate your account.
+              </p>
               <button
                 type="button"
-                className="link-btn"
+                className="btn-primary auth-wide"
                 onClick={() => {
-                  // The wiring is built once, at startup, from this choice —
-                  // so the choice is remembered and the window reopened.
-                  setLocalMode(true);
-                  window.location.reload();
+                  setSent(false);
+                  setIsSignUp(false);
+                  setPassword("");
+                  setError(null);
                 }}
               >
-                Work on this computer, without an account
+                Back to sign in
               </button>
-            </div>
-          )}
+            </>
+          ) : magicLinkSent ? (
+            <>
+              <h2 className="auth-title">Check your email</h2>
+              <p className="auth-sub">We sent a sign-in link to <strong>{email}</strong>. Open it to sign in.</p>
+              <button type="button" className="btn-ghost auth-wide" onClick={() => setMagicLinkSent(false)}>Back</button>
+            </>
+          ) : resetSent ? (
+            <>
+              <h2 className="auth-title">Password reset sent</h2>
+              <p className="auth-sub">If an account exists for <strong>{email}</strong>, you&rsquo;ll get a link to choose a new password.</p>
+              <button type="button" className="btn-ghost auth-wide" onClick={() => setResetSent(false)}>Back</button>
+            </>
+          ) : otpSent ? (
+            <>
+              <h2 className="auth-title">Enter your code</h2>
+              <p className="auth-sub">We sent a short-lived code to <strong>{email}</strong>.</p>
+              <form className="auth-email" onSubmit={(event) => void verifyOtp(event)}>
+                <div className="field">
+                  <label htmlFor="email-otp">Email code</label>
+                  <input id="email-otp" value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" required />
+                </div>
+                {error && <FormError>{error}</FormError>}
+                <button className="btn-primary auth-wide" disabled={busy}>{busy ? "Verifying…" : "Verify code"}</button>
+              </form>
+              <button type="button" className="btn-ghost auth-wide" onClick={() => { setOtpSent(false); setOtp(""); }} disabled={busy}>Back</button>
+            </>
+          ) : (
+            <>
+              <h2 className="auth-title">{isSignUp ? "Create an account" : "Sign in"}</h2>
+              <p className="auth-sub">
+                {isSignUp ? "Already have an account? " : "Use your lab email. New here? "}
+                <button type="button" className="auth-link" onClick={switchMode} disabled={busy}>
+                  {isSignUp ? "Sign in" : "Create an account"}
+                </button>
+              </p>
 
-          {error && <FormError>{error}</FormError>}
+              <form className="auth-email" onSubmit={submit}>
+                <div className="field">
+                  <label htmlFor="email">Email</label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@university.edu"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <div className="auth-label-row">
+                    <label htmlFor="password">Password</label>
+                    {!isSignUp && (
+                      <button type="button" className="auth-link auth-link-sm" onClick={() => void sendPasswordReset()} disabled={busy || !email.trim()}>
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete={isSignUp ? "new-password" : "current-password"}
+                    required
+                  />
+                </div>
+                <button className="btn-primary auth-wide" disabled={busy}>
+                  {busy ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create account" : "Sign in")}
+                </button>
+              </form>
+
+              <div className="auth-divider"><span>or</span></div>
+
+              <div className="auth-alt">
+                <button type="button" className="btn-google auth-wide" onClick={google} disabled={busy}>
+                  <GoogleMark />
+                  Continue with Google
+                </button>
+                {!isSignUp && (
+                  <>
+                    <button type="button" className="btn-google auth-wide" onClick={() => void sendOtp()} disabled={busy || !email.trim()}>
+                      Email me a sign-in code
+                    </button>
+                    <button type="button" className="auth-link auth-link-sm" onClick={() => void sendMagicLink()} disabled={busy || !email.trim()}>
+                      Email me a sign-in link instead
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {onThisComputer && (
+                <button
+                  type="button"
+                  className="auth-local"
+                  onClick={() => {
+                    // The wiring is built once, at startup, from this choice —
+                    // so the choice is remembered and the window reopened.
+                    setLocalMode(true);
+                    window.location.reload();
+                  }}
+                >
+                  Use without an account, local only
+                </button>
+              )}
+
+              {error && <FormError>{error}</FormError>}
+
+              <p className="auth-fine">By signing in you agree to the privacy notice shown next.</p>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </section>
+  );
+}
+
+/**
+ * The left half: the product in one line and three cards in its own look, so
+ * the first screen already reads like the app. Decorative past the headline.
+ */
+function AuthArt() {
+  return (
+    <aside className="auth-art">
+      <div className="auth-art-brand">
+        <WeaveForgeLogo />
+        <strong>WeaveForge</strong>
+      </div>
+      <div className="auth-art-copy">
+        <h1 className="auth-art-title">Research,<br />unified.</h1>
+        <p className="auth-art-lede">
+          Papers, notes, experiments and the thesis that ties them together, in one place that works offline.
+        </p>
+      </div>
+      <div className="auth-art-cards" aria-hidden="true">
+        <div className="auth-art-card auth-art-card--reading">
+          <span className="auth-art-chip">Reading</span>
+          <strong>Locating and editing factual associations in GPT</strong>
+          <span className="auth-art-meta">Meng et al. · 2022</span>
+        </div>
+        <div className="auth-art-card auth-art-card--running">
+          <span className="auth-art-chip">Running</span>
+          <strong>EXP-07 ROME layer sweep</strong>
+          <span className="auth-art-meta">epoch 6 of 10</span>
+        </div>
+        <div className="auth-art-card auth-art-card--draft">
+          <span className="auth-art-chip">Draft</span>
+          <strong>Chapter 3 outline</strong>
+          <span className="auth-art-meta">612 words · 2 backlinks</span>
+        </div>
+      </div>
+      <p className="auth-art-foot">Private by default · works offline</p>
+    </aside>
   );
 }
 

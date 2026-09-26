@@ -354,9 +354,6 @@
   .graph-focus:has(.graph-focus-bar .graph-local-banner) .graph-side-panel {
     top: calc(98px + env(safe-area-inset-top, 0px));
   }
-  
-  /* Login: centered with comfortable top gap */
-  .auth-screen { margin: 4vh auto 0; }
 
   .dashboard-head-row > .screen-title { flex: 1 1 auto; }
   .dashboard-screen .screen-actions { flex-wrap: wrap; row-gap: 8px; }
