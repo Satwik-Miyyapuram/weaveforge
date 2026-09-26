@@ -13,7 +13,7 @@ export interface VaultPageRow {
   body?: string | null;
   body_preview?: string | null;
   parent_id: string | null;
-  /** Absent on a row read before migration 0136. */
+  /** Absent on a row read before migration 0136; NULL on a row synced from an older client. */
   pinned?: boolean | null;
   sort_order: number;
   created_at: string;
