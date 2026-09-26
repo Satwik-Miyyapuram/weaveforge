@@ -67,6 +67,24 @@
   .pdf-reader-chrome .pdf-reader-search { flex: 0 0 auto; }
   .pdf-reader-chrome .pdf-reader-search input { min-width: 9rem; }
 }
+/* Phone chrome (PhoneReader mock): no sideways strips. The first row is the
+   page, zoom, find and "More"; the second holds the annotation tools and wraps.
+   Find opens as a full-width row; "More" unfolds fit, rotate, outline,
+   citations, references and focus. The toggles exist only here. */
+.pdf-reader-phone-toggles { display: none; }
+@media (max-width: 720px) {
+  .pdf-reader-toolbar, .pdf-reader-tools { flex-wrap: wrap; overflow-x: visible; }
+  .pdf-reader-phone-toggles { display: inline-flex; margin-left: auto; }
+  /* Page, zoom and the two toggles fit one 360px row: tighter icon tiles, and
+     "3 / 14" speaks for itself without the word "Page". */
+  .pdf-reader-group .pdf-reader-icon-btn { min-width: 28px; padding: 0 6px; }
+  .pdf-reader-toolbar-label { min-width: 2.6rem; padding: 0 2px; }
+  .pdf-reader-page-jump > .muted:first-child { display: none; }
+  .pdf-reader-chrome:not([data-phone-panel="more"]) .pdf-reader-more { display: none; }
+  .pdf-reader-chrome:not([data-phone-panel="search"]) .pdf-reader-tools > .pdf-reader-search { display: none; }
+  .pdf-reader-chrome .pdf-reader-tools > .pdf-reader-search { flex: 1 1 100%; max-width: none; }
+  .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex-wrap: wrap; flex: 0 1 auto; }
+}
 .pdf-reader-banner {
   padding: 8px 12px; border-radius: 8px; font-size: 0.86rem;
   border: 1px solid var(--line); background: var(--surface-alt);
