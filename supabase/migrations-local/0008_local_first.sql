@@ -239,3 +239,26 @@ begin
   end loop;
 end;
 $$;
+
+-- The desktop runs every query as `authenticated`; nothing here is for `anon`.
+-- `revoke ... from public` alone leaves the explicit grant Supabase's default
+-- privileges add (see 0130_revoke_anon_from_internal_definers.sql). Not every
+-- database this runs on has an `anon` role, so it is revoked only where it exists.
+do $$
+declare
+  f text;
+begin
+  foreach f in array array[
+    'sync_apply(text, jsonb)', 'sync_apply_many(text, jsonb)', 'sync_claim(uuid, uuid)',
+    'sync_backfill(uuid)', 'sync_record()'
+  ] loop
+    execute format('revoke all on function %s from public', f);
+    if exists (select 1 from pg_roles where rolname = 'anon') then
+      execute format('revoke all on function %s from anon', f);
+    end if;
+    if f <> 'sync_record()' and exists (select 1 from pg_roles where rolname = 'authenticated') then
+      execute format('grant execute on function %s to authenticated', f);
+    end if;
+  end loop;
+end;
+$$;
