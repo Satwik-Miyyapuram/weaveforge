@@ -29,6 +29,7 @@
 @import "./lists.css"; /* Reading lists and the extraction table. */
 @import "./graph.css"; /* Graph stage, focus bar, legend. */
 @import "./nav.css"; /* Sidebar and mobile tab bar. */
+@import "./title-bar.css"; /* The desktop window's title bar and menu, on Windows and Linux. */
 @import "./org-chart.css"; /* Supervision panels, member tree, org chart. */
 @import "./dashboard.css"; /* Dashboard grid and card chrome. */
 @import "./privacy.css"; /* Privacy notice, delete-account panel, settings tabs. */

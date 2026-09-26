@@ -1,0 +1,72 @@
+/*
+ * The desktop window's title bar, on Windows and Linux
+ * (components/desktop-title-bar.tsx).
+ *
+ * The shell hides the system title bar and draws only its window buttons, over
+ * the right-hand end; the page draws the rest. `data-titlebar` is set on
+ * <html> before the first paint when the shell will want the bar, so
+ * `--titlebar-h` is right from the start and nothing jumps when it mounts.
+ * Everything pinned to the top of the viewport reads the variable.
+ */
+html[data-titlebar] { --titlebar-h: 36px; }
+/* Focus mode takes the window full screen and hides the chrome; the bar goes too. */
+html[data-titlebar]:is([data-workspace-focus], [data-reader-focus]) { --titlebar-h: 0px; }
+html:is([data-workspace-focus], [data-reader-focus]) .title-bar { display: none; }
+
+.title-bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: calc(var(--z-overlay) - 10);
+  height: var(--titlebar-h);
+  display: flex; align-items: center; gap: 2px;
+  /* The system's buttons sit in whatever the titlebar area leaves on the right. */
+  padding: 0 calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)) 0 10px;
+  background: var(--nav-bg);
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  user-select: none;
+  /* The empty part of the bar moves the window, like a system title bar. */
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.title-bar-mark { display: inline-flex; width: 18px; height: 18px; margin-right: 8px; flex: none; }
+.title-bar-mark svg { width: 100%; height: 100%; }
+.title-bar-menus { display: flex; align-items: center; gap: 2px; height: 100%; }
+.title-bar-group { position: relative; display: flex; align-items: center; height: 100%; }
+.title-bar-button {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  height: 26px; padding: 0 10px;
+  background: none; border: 0; border-radius: var(--radius-sm, 6px);
+  color: inherit; font: inherit; cursor: default;
+}
+.title-bar-button:hover,
+.title-bar-button.open { background: var(--surface2); }
+.title-bar-button:focus-visible { outline: none; background: var(--surface2); }
+
+.popover-panel.title-bar-menu {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  position: absolute; top: calc(100% - 2px); left: 0;
+  visibility: visible;
+  z-index: 1;
+  min-width: 240px; max-width: 360px;
+  padding: 4px; gap: 0; display: block;
+}
+.title-bar-menu .card-menu-list { min-width: 0; }
+.title-bar-menu .title-bar-item { display: flex; align-items: center; justify-content: space-between; gap: 28px; cursor: default; min-height: 34px; padding-block: 6px; font-size: 0.875rem; }
+.title-bar-item.active:not(:disabled) { background: var(--surface2); }
+.title-bar-item:focus-visible { outline: none; }
+.title-bar-item-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title-bar-kbd {
+  font: inherit; font-size: 0.75rem; color: var(--muted);
+  background: none; border: 0; padding: 0; white-space: nowrap;
+}
+.title-bar-sep { height: 1px; margin: 4px 8px; background: var(--line); }
+
+/* Neo-brutalist themes: the bar's rule is the theme's heavy line. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .title-bar {
+  background: var(--surface);
+  border-bottom: var(--bw) solid var(--bw-line);
+}

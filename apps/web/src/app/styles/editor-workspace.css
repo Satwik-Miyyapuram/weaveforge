@@ -470,7 +470,7 @@
      explorer — that is where the prototype puts it, and where the eye looks
      for the state of the file it is editing. */
   grid-template-rows: minmax(0, 1fr) auto;
-  height: 100dvh;
+  height: calc(100dvh - var(--titlebar-h));
   min-height: 0;
   overflow: hidden;
 }

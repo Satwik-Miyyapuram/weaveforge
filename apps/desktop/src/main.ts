@@ -56,10 +56,10 @@ import {
 import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
-import { CHANNELS } from "./channels";
+import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
 import { preferenceStore, secretStore } from "./main-stores";
 import { fetchReleases, findUpdate } from "./update-check";
-import { installMenu, routeTo } from "./app-menu";
+import { installMenu, invokeMenuItem, menuModel, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
 import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
 import { runBoundedQuit } from "./quit";
@@ -286,8 +286,23 @@ function registerMemoryTrimming(window: BrowserWindow): void {
   });
 }
 
+/**
+ * Windows and Linux: no system title bar, so the page can draw its own with the
+ * menu in it (`components/desktop-title-bar.tsx`). The minimise, maximise and
+ * close buttons stay the system's, drawn over the right-hand end at the same
+ * height as the page's bar. macOS keeps its own title bar and menu.
+ */
+const CUSTOM_TITLE_BAR = process.platform !== "darwin";
+const TITLE_BAR_HEIGHT = 36;
+
 function createWindow(): void {
   const window = new BrowserWindow({
+    ...(CUSTOM_TITLE_BAR
+      ? {
+          titleBarStyle: "hidden" as const,
+          titleBarOverlay: { color: "#101014", symbolColor: "#e8e6f0", height: TITLE_BAR_HEIGHT },
+        }
+      : {}),
     width: 1440,
     height: 900,
     minWidth: 900,
@@ -317,6 +332,9 @@ function createWindow(): void {
     if (mainWindow === window) mainWindow = null;
   });
   registerMemoryTrimming(window);
+  // "Maximize" reads "Restore" once it has been, so the page's menu is stale.
+  window.on("maximize", () => window.webContents.send(CHANNELS.menuChanged));
+  window.on("unmaximize", () => window.webContents.send(CHANNELS.menuChanged));
 
   void window.loadURL(APP_URL);
 
@@ -386,6 +404,22 @@ ipc.on(CHANNELS.windowFocus, (_event, on: unknown) => {
   // chord that leaves focus mode among them) keep working while it is away.
   window.setMenuBarVisibility(!focus);
   window.setFullScreen(focus);
+});
+
+ipc.handle(CHANNELS.menuModel, (): IpcResult<MenuGroupPayload[] | null> => ({
+  ok: true,
+  value: CUSTOM_TITLE_BAR ? menuModel(mainWindow) : null,
+}));
+ipc.handle(CHANNELS.menuInvoke, (_event, id: unknown): IpcResult<null> =>
+  invokeMenuItem(id, mainWindow) ? { ok: true, value: null } : { ok: false, message: "That menu entry is not available." },
+);
+ipc.on(CHANNELS.titleBarColors, (_event, colors: unknown) => {
+  const window = mainWindow;
+  if (!CUSTOM_TITLE_BAR || !window || window.isDestroyed()) return;
+  const { background, ink } = (colors ?? {}) as { background?: unknown; ink?: unknown };
+  const hex = (value: unknown) => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+  if (!hex(background) || !hex(ink)) return;
+  window.setTitleBarOverlay({ color: background as string, symbolColor: ink as string, height: TITLE_BAR_HEIGHT });
 });
 
 /** The application log's channels (§main-app-log). */
@@ -575,6 +609,7 @@ function refreshMenu(): void {
     docsUrl: DOCS_URL,
     goTo: (route) => routeTo(mainWindow, APP_URL, route),
   });
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(CHANNELS.menuChanged);
 }
 
 /**
@@ -723,6 +758,11 @@ app.on("will-quit", (event) => {
 
 // Disable Chromium history navigation gestures (swiping back/forward across the screen)
 app.commandLine.appendSwitch("overscroll-history-navigation", "0");
+
+// The id the installer's Start menu shortcut carries (`build.appId`). Without
+// it Windows files the running window under Electron's default id, and the
+// taskbar shows a second, unpinned button instead of the shortcut's icon.
+if (process.platform === "win32") app.setAppUserModelId("dev.weaveforge.desktop");
 
 // One window per app, and on macOS the dock icon brings it back rather than
 // starting a second copy.
