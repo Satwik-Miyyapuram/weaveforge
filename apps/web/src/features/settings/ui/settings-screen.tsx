@@ -490,7 +490,7 @@ export function SettingsScreen() {
             <div className="appearance-row appearance-row--stack">
               <div className="appearance-row-text">
                 <span className="appearance-label" id="cardTint">Card tint</span>
-                <p>How Brutal and CRT colour a paper card by its reading status.</p>
+                <p>How Poster and CRT colour a paper card by its reading status.</p>
               </div>
               <span />
               <div className="tint-picker" role="radiogroup" aria-labelledby="cardTint">
