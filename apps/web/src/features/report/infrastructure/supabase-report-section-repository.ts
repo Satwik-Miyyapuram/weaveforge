@@ -25,7 +25,7 @@ import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-r
  * Derived from the row type: exactly the fields the mapper reads, where a star
  * would mean "whatever the table grows next".
  */
-const REPORT_SECTION_COLUMNS = "id,title,section_no,parent_id,status,word_count,target_words,deadline,draft_url,notes,sort_order,created_at";
+const REPORT_SECTION_COLUMNS = "id,title,section_no,parent_id,status,word_count,target_words,deadline,draft_url,notes,sort_order,created_at,updated_at";
 
 const TABLE = "report_sections";
 
