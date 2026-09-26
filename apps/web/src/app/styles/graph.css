@@ -301,3 +301,18 @@
   .graph-focus .graph-side-panel { left: auto; right: 10px; width: min(340px, 40vw); padding: 14px 16px; }
   .graph-side-panel .graph-side-title { font-size: 1.3rem; line-height: 1.2; }
 }
+
+/*
+ * `graph-below` is a sibling of `graph-stage`, not a child, so with
+ * `display: contents` its panel had no positioned ancestor and docked against
+ * the window: full height, off the canvas. `graph-body` wraps both and is the
+ * containing block; the panel is capped to the canvas height (60vh) so it
+ * never runs down over the legend that flows beneath.
+ */
+.graph-body { position: relative; }
+@media (min-width: 900px) {
+  .graph-body > .graph-below .graph-side-panel {
+    top: 48px; bottom: auto;
+    max-height: calc(60vh - 58px);
+  }
+}
