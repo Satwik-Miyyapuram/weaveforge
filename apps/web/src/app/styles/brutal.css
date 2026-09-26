@@ -145,7 +145,8 @@
   .header-menu,
   .proj-menu,
   .ink-menu,
-  .graph-edge-popover
+  .graph-edge-popover,
+  .pdf-reader-create-bar
 ) {
   box-shadow: var(--sh-sm);
   border-radius: var(--radius-sm);
@@ -413,6 +414,60 @@
   box-shadow: none;
 }
 :root[data-theme="crt"] .seg button.seg-on { background: var(--accent); color: var(--accent-fg); }
+
+/* Reader control groups: the group is the one boxed control, and what sits in
+   it is a flat tile. The button and `.seg` rules above are more specific than
+   reader.css's in-group tiles, so without these each tile kept its own 40px
+   height, border and drop shadow, and spilled out of the frame around it --
+   zoom's − and +, the fit pair, and the Highlight / Clip / Comment strip. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group {
+  padding: 2px;
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary, .seg button) {
+  min-height: 0;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 0.85rem;
+  border: 0;
+  border-radius: max(0px, calc(var(--radius-sm) - 3px));
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  transform: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group .seg {
+  gap: 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group .seg button + button { border-left: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary.is-active, .seg button.seg-on) {
+  background: var(--text);
+  color: var(--bg);
+}
+:root[data-theme="crt"] .pdf-reader-group :is(.btn-secondary.is-active, .seg button.seg-on) { background: var(--accent); color: var(--accent-fg); }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary, .seg button):hover:not(:disabled) {
+  background: var(--surface);
+  filter: brightness(0.92);
+} }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary.is-active, .seg button.seg-on):hover:not(:disabled) { background: var(--text); } }
+@media (hover: hover) { :root[data-theme="crt"] .pdf-reader-group :is(.btn-secondary.is-active, .seg button.seg-on):hover:not(:disabled) { background: var(--accent); } }
+
+/* The page field is the one field in a group: it keeps its frame but not the
+   typing lift, which would push it through the group's own border. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group input,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group input:focus {
+  height: 28px;
+  box-shadow: none;
+  transform: none;
+}
 
 /* ---- Sub-nav tabs -------------------------------------------------------- */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-nav {

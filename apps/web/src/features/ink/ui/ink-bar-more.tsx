@@ -303,6 +303,7 @@ export function InsertMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         title="Insert"
+        aria-label="Insert"
       >
         <svg
           width="15"
@@ -316,7 +317,6 @@ export function InsertMenu({
         >
           <path d="M12 5v14M5 12h14" />
         </svg>
-        <span>Insert</span>
         <svg
           width="12"
           height="12"

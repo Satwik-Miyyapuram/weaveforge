@@ -23,7 +23,7 @@ import type { FigureGeometry } from "@weaveforge/core";
 import type { InkBarTool } from "./ink-bar";
 import {
   claimPointer,
-  INK_TOOL_CURSORS,
+  inkToolCursor,
   pointsAttribute,
   releasePointer,
   type TouchPoint,
@@ -40,6 +40,7 @@ export function InkPage({
   pageIndex,
   pageSize,
   scale,
+  ink,
   paper,
   tool,
   project,
@@ -533,8 +534,8 @@ export function InkPage({
   );
 
   // One table for both surfaces that carry ink (`ink-page-pointer.ts`), so the
-  // eraser's ring and the pen's crosshair are the same on a sheet and a paper.
-  const cursor = INK_TOOL_CURSORS[tool];
+  // eraser and the ink dot are the same on a sheet and a paper.
+  const cursor = inkToolCursor(tool, ink);
 
   // The overlay is drawn in page units and scaled by the viewBox, so the lasso
   // and the selection box need no projection of their own.

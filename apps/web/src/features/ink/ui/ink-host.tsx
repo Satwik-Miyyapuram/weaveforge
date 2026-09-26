@@ -63,6 +63,7 @@ import type { PenHaptics } from "../application/pen-haptics";
 import { trailStyle } from "../application/ink-trail";
 import {
   INK_RENDER_COLOURS,
+  paletteHex,
   readThemePalette,
   samePalette,
   type InkPalette,
@@ -717,6 +718,7 @@ export function InkHost({
           scale={scale}
           paper={page.paper}
           tool={tool}
+          ink={{ hex: paletteHex(palette, colour), diameterPx: nib * scale }}
           project={project}
           penHandlers={penHandlers}
           canvasRef={canvasRef}

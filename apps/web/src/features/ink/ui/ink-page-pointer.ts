@@ -1,3 +1,5 @@
+import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
+
 /**
  * The page's pointer plumbing: the cursor each tool shows, the capture an
  * eraser sweep or a lasso loop takes and releases, and the polyline the lasso's
@@ -5,16 +7,41 @@
  * for.
  */
 
-/** The eraser's cursor: a ring the size of a fingertip, hot spot at its centre. */
+/** The eraser's cursor: a tilted eraser block, hot spot at the rubbing edge. */
 export const ERASER_CURSOR =
   'url("data:image/svg+xml;utf8,' +
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
-      '<circle cx="12" cy="12" r="9" fill="rgba(255,255,255,0.55)" stroke="#333" stroke-width="1.5"/>' +
-      '<circle cx="12" cy="12" r="1.2" fill="#333"/>' +
+      '<path d="M8.5 21L2.8 15.3a1.6 1.6 0 0 1 0-2.3L13 2.8a1.6 1.6 0 0 1 2.3 0l5.9 5.9a1.6 1.6 0 0 1 0 2.3L11.2 21z" fill="#fff" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/>' +
+      '<path d="M2.8 15.3L8.5 21h2.7l3.5-3.5-6.9-6.9-5 5z" fill="#f28b82" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/>' +
+      '<path d="M12 21h9" stroke="#222" stroke-width="1.5" stroke-linecap="round"/>' +
       "</svg>",
   ) +
-  '") 12 12, crosshair';
+  '") 5 19, crosshair';
+
+/** The dot cursor's size bounds in CSS px: always findable, never past the 128px browsers accept. */
+const DOT_MIN = 4;
+const DOT_MAX = 64;
+
+/**
+ * The pen's and the highlighter's cursor: the ink itself, a dot the colour,
+ * size and opacity of the stroke it will lay down, so the nib is its own
+ * preview. A thin light and dark double ring keeps it visible on any page and
+ * against any ink; the hot spot is its centre.
+ */
+export function inkDotCursor(hex: string, diameterPx: number, alpha = 1): string {
+  const d = Math.min(DOT_MAX, Math.max(DOT_MIN, Number.isFinite(diameterPx) ? diameterPx : DOT_MIN));
+  const size = Math.ceil(d + 4);
+  const c = size / 2;
+  const r = d / 2;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
+    `<circle cx="${c}" cy="${c}" r="${r + 1}" fill="none" stroke="#fff" stroke-opacity="0.9" stroke-width="1"/>` +
+    `<circle cx="${c}" cy="${c}" r="${r}" fill="${hex}" fill-opacity="${alpha}" stroke="#222" stroke-opacity="0.7" stroke-width="0.75"/>` +
+    "</svg>";
+  const hot = Math.round(c);
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}") ${hot} ${hot}, crosshair`;
+}
 
 /** An SVG cursor with its hot spot, falling back to the crosshair. */
 function svgCursor(svg: string, x: number, y: number): string {
@@ -72,6 +99,24 @@ export const INK_TOOL_CURSORS: Record<
   lasso: LASSO_CURSOR,
   shape: DRAW_CURSOR,
 };
+
+/** The ink a pen or highlighter will lay down: its colour and its nib on screen. */
+export interface InkCursorInk {
+  hex: string;
+  /** The nib's width in CSS px at the current zoom. */
+  diameterPx: number;
+}
+
+/**
+ * The pointer for a tool, with the ink in hand when there is one: the pen and
+ * the highlighter show their own dot, every other tool its shape from the table.
+ */
+export function inkToolCursor(tool: keyof typeof INK_TOOL_CURSORS, ink?: InkCursorInk): string {
+  if (ink && (tool === "pen" || tool === "highlighter")) {
+    return inkDotCursor(ink.hex, ink.diameterPx, tool === "highlighter" ? HIGHLIGHTER_ALPHA : 1);
+  }
+  return INK_TOOL_CURSORS[tool];
+}
 
 /** Where each touch is, in client pixels, while it is down. */
 export type TouchPoint = { x: number; y: number };

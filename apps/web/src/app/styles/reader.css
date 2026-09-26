@@ -61,6 +61,9 @@
 /* The tool group sits in a nowrap flex strip: it keeps its size. */
 .pdf-reader-tool-seg { flex: none; }
 .pdf-reader-tool-seg button { padding: 0 12px; min-height: 32px; }
+/* The colour swatch is one more tile of the strip: the touch minimum made it
+   36px and the annotate group 4px taller than the zoom group beside it. */
+.pdf-reader-group .colour-menu-trigger { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
 @media (max-width: 720px) {
   /* "Page 3 / 15" is orientation, not a command. Pushing it to the end of a
      scrolling strip hides it; lead with it instead. (Pinning it with sticky
@@ -98,6 +101,8 @@
 }
 .pdf-reader-banner--low { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
 .pdf-reader-scroll {
+  /* The create popover is placed in its content. */
+  position: relative;
   /* dvh, not vh: on mobile the browser's collapsing address bar makes vh taller
      than the visible area, pushing the last of the page under the chrome. */
   overflow: auto; max-height: calc(100dvh - 260px); display: flex; flex-direction: column;
@@ -405,11 +410,16 @@ body > canvas.hiddenCanvasElement { display: none; }
   mix-blend-mode: screen;
   opacity: 0.35;
 }
+/* The create popover: raised over a selection once it ends, in the scroller's
+   content so it scrolls with the words (`selection-create-bar.tsx`). */
 .pdf-reader-create-bar {
-  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-  padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface);
+  position: absolute; z-index: 6; transform: translateY(-100%);
+  display: flex; gap: 8px; align-items: center; white-space: nowrap;
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: var(--shadow);
+  touch-action: manipulation;
 }
-.pdf-reader-create-quote { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-reader-create-bar.is-below { transform: none; }
 .pdf-reader-create-colors { display: flex; gap: 4px; }
 .pdf-reader-create-swatch {
   width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--border); padding: 0; cursor: pointer;
