@@ -51,7 +51,10 @@
 }
 
 .page, .page * { box-sizing: border-box; }
-.page { min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.55; }
+/* `clip`, not `hidden`: it stops a stray wide element panning the whole page
+   sideways on a phone without making `.page` a scroll box, which would break
+   the sticky header and stages. */
+.page { min-height: 100vh; overflow-x: clip; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.55; }
 .page[data-look="crt"]::after {
   content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
   background: repeating-linear-gradient(to bottom, rgba(43,34,43,0.06) 0 1px, transparent 1px 3px),
@@ -131,8 +134,10 @@
 }
 .aud a:hover { filter: brightness(1.05); }
 .aud span { font-size: 14px; color: var(--muted); }
-.deck { position: relative; height: 440px; }
-.deck .card { position: absolute; width: min(360px, 88%); }
+/* The fan steps right and down per card; the width leaves room for the last
+   step, so the stack never reaches past its column on a phone. */
+.deck { position: relative; height: 440px; --dx: 44px; --dy: 96px; --last: 3; }
+.deck .card { position: absolute; left: calc(var(--i) * var(--dx)); top: calc(var(--i) * var(--dy)); width: min(360px, calc(100% - var(--last) * var(--dx) - 8px)); }
 .card {
   display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; background: var(--surface);
   border: var(--bw) solid var(--line); border-radius: var(--r); box-shadow: var(--sh-card);
@@ -272,6 +277,9 @@ mark.ex { background: linear-gradient(var(--hl0), var(--hl0)) no-repeat 0 0 / 10
 .g.p { background: var(--to-read); color: var(--chip-ink); border: var(--bw) solid var(--line); }
 .g.n { color: var(--muted); }
 .page tbody tr { transition: opacity 300ms, transform 300ms; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 14px 0 0; font-size: 14px; color: var(--muted); }
+.legend > span { display: inline-flex; align-items: center; gap: 8px; }
+.legend .g { width: 24px; height: 24px; font-size: 13px; }
 
 .outro { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; padding-block: 88px; border-top: var(--bw) solid var(--line); }
 .outro .lede { text-align: center; }
@@ -285,14 +293,14 @@ mark.ex { background: linear-gradient(var(--hl0), var(--hl0)) no-repeat 0 0 / 10
 @media (max-width: 900px) {
   .wrap { padding-inline: 16px; }
   .hero { grid-template-columns: 1fr; padding-block: 40px; gap: 28px; }
-  .deck { height: 330px; }
+  .deck { height: 330px; --dx: 20px; --dy: 72px; }
   .aud { grid-template-columns: 1fr; }
   .scrolly, .scrolly.flip { grid-template-columns: 1fr; gap: 0; }
   .stage-col, .flip .stage-col, .steps, .flip .steps { grid-column: 1; grid-row: auto; }
   .stage-col { position: sticky; top: 62px; z-index: 3; padding-block: 12px; background: var(--bg); border-bottom: var(--bw) solid var(--line); margin-inline: -16px; padding-inline: 16px; }
   .stage { position: relative; top: 0; height: 44vh; min-height: 280px; }
   .steps { position: relative; z-index: 1; }
-  .step, .step:first-child, .step:last-child { min-height: 0; padding: 18vh 0 18vh; justify-content: flex-start; }
+  .step, .step:first-child, .step:last-child { min-height: 0; padding: 8vh 0; justify-content: flex-start; }
   .step:first-child { padding-top: 24px; }
   .step-card { padding: 16px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r); box-shadow: var(--sh-card); }
   .page[data-js] .step:not(.now) .step-card { opacity: 1; }
@@ -300,6 +308,16 @@ mark.ex { background: linear-gradient(var(--hl0), var(--hl0)) no-repeat 0 0 / 10
   .step p { font-size: 16px; }
   .top-in { gap: 10px; min-height: 60px; }
   .top .btn { display: none; }
+  /* All six tools in view on a phone: the tool names turn on their side, so a
+     column is as wide as its mark rather than its name. */
+  .page table { min-width: 0; }
+  .page th, .page td { padding: 8px 2px; }
+  .page thead th:not(:first-child) { writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 0; font-size: 11px; white-space: nowrap; }
+  .page thead th:first-child { vertical-align: bottom; font-size: 11px; }
+  .page th:first-child, .page td:first-child { min-width: 0; width: 44%; padding-left: 10px; padding-right: 6px; }
+  .page td:first-child b { font-size: 14px; line-height: 1.3; }
+  .page td:first-child span { font-size: 12px; line-height: 1.3; display: block; }
+  .g { width: 26px; height: 26px; font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .page *, .page *::before, .page *::after { transition: none !important; animation: none !important; }

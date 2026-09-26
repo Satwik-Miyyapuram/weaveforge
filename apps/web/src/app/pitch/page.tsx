@@ -237,7 +237,7 @@ function Hero() {
           <div
             key={c.t}
             className={s.card}
-            style={{ left: i * 44, top: i * 96, transform: `rotate(${c.rot}deg)`, zIndex: i + 1 }}
+            style={{ "--i": i, transform: `rotate(${c.rot}deg)`, zIndex: i + 1 } as CSSProperties}
           >
             <Head label={c.label} chip={c.chip} tone={c.tone} />
             <span className={s.t}>{c.t}</span>
@@ -554,11 +554,16 @@ const ROWS: [string, string, string][] = [
   ["Reference library and metadata", "DOI, arXiv, URL or a whole Zotero library", "yyppnp"],
   ["PDF reading with durable annotations", "highlights and comments that survive re-imports", "yyppnn"],
   ["Excerpts as objects you can argue with", "links to its paper, note and section", "yppnnn"],
+  ["Markdown notes with wikilinks", "nested pages, backlinks, images", "ynypnn"],
   ["Typed relations between papers", "cites, extends, contradicts, builds on", "ynnnnn"],
+  ["One graph over papers, notes, tags and sections", "a graph of the work, not of files", "ynnpnn"],
   ["Plan with dependencies and compute", "milestones that know what blocks them", "ynpynn"],
-  ["Experiment tracking, live metrics", "one decorator, Lightning and Keras callbacks", "ynnnyn"],
+  ["Experiment tracking", "one decorator, Lightning and Keras callbacks", "ynnnyn"],
+  ["Live metrics while a run is going", "curves stream in beside the paper", "ynnnyn"],
+  ["Runs pinned to branch and commit", "a number traces back to code that existed", "ynnnyn"],
   ["Run to figure to section, no screenshot", "the figure exports with the LaTeX", "ynnnnp"],
   ["LaTeX export with the bibliography resolved", "outline, .bib, figures, cite keys", "yppnny"],
+  ["Share objects, not screenshots", "papers, runs and sections, scoped per person", "ypnypy"],
   ["Access enforced by the database", "Postgres row-level security", "ynnnnn"],
   ["Self-hostable, all of it", "AGPL-3.0-only, nothing hosted-only", "yppnpp"],
 ];
@@ -601,6 +606,11 @@ function CompareAct() {
             </tbody>
           </table>
         </div>
+        <p className={s.legend}>
+          <span><span className={k("g y")}>✓</span> covered</span>
+          <span><span className={k("g p")}>~</span> partly, or via a plugin</span>
+          <span><span className={k("g n")}>–</span> not its job</span>
+        </p>
       </div>
     </section>
   );
