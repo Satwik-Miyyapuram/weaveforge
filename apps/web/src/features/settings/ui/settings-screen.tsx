@@ -88,6 +88,27 @@ const SETTINGS_GROUPS: readonly {
   { id: "data", label: "Data and updates", hint: "Backups, export, version", icon: "data", tabs: ["data", "updates"] },
 ];
 
+/**
+ * What each tab holds, in the words someone would search for. "Find a setting"
+ * matches these, so a search for "dark" lands on Appearance without knowing
+ * which group the theme lives in.
+ */
+const SETTINGS_KEYWORDS: Record<SettingsTabId, readonly string[]> = {
+  account: ["Profile", "Name", "Email", "Password", "Sign out", "Delete account"],
+  org: ["Lab", "Members", "Invite", "Supervisor", "Organisation"],
+  appearance: ["Theme", "Dark mode", "Light mode", "Card tint", "Control size", "Surfaces", "Motion", "Font"],
+  search: ["Search index", "Semantic search", "Embeddings"],
+  paste: ["Paste", "Clipboard", "Paste as markdown"],
+  editor: ["Editor", "Spell check", "Line width", "Vim", "Ink", "Page spacing"],
+  workspace: ["Workspace folder", "Local files", "Notes folder"],
+  ai: ["AI provider", "Model", "API key", "MCP", "Claude"],
+  tokens: ["API tokens", "Access token"],
+  integrations: ["Zotero", "Overleaf", "GitHub"],
+  sync: ["Sync", "Cloud", "Conflicts", "Offline"],
+  data: ["Backup", "Export", "Import", "App log"],
+  updates: ["Updates", "Version", "Release notes"],
+};
+
 const GROUP_ICONS = {
   person: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c1.2-3.6 3.8-5.5 7-5.5s5.8 1.9 7 5.5" /></>,
   palette: <><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 1.5-2.1-.6-1.2.2-2.4 1.5-2.4H18a3 3 0 0 0 3-3A8.5 8.5 0 0 0 12 3Z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10" cy="7" r="1" /><circle cx="14.5" cy="7" r="1" /></>,
@@ -158,6 +179,7 @@ export function SettingsScreen() {
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
   const [tab, setTab] = useState<SettingsTabId>("account");
+  const [findQuery, setFindQuery] = useState("");
 
   // Hash is read once on mount rather than tracked: `selectTab` writes it with
   // replaceState, and reacting to a hash we just wrote would fight the click.
@@ -362,6 +384,14 @@ export function SettingsScreen() {
 
   const visible = new Set<SettingsTabId>(tabs.map((t) => t.id));
   const labelOf = new Map<SettingsTabId, string>(tabs.map((t) => [t.id, t.label]));
+  const findTerm = findQuery.trim().toLowerCase();
+  const findHits = findTerm
+    ? tabs.flatMap((t) =>
+        [t.label, ...SETTINGS_KEYWORDS[t.id]]
+          .filter((word, i, all) => all.indexOf(word) === i && word.toLowerCase().includes(findTerm))
+          .map((word) => ({ tab: t.id, word })),
+      ).slice(0, 12)
+    : null;
   const groups = SETTINGS_GROUPS
     .map((g) => ({ ...g, tabs: g.tabs.filter((id) => visible.has(id)) }))
     .filter((g) => g.tabs.length > 0);
@@ -374,7 +404,35 @@ export function SettingsScreen() {
       />
       <div className="settings-layout">
       <nav className="settings-rail" aria-label="Settings sections">
-        {groups.map((g) => {
+        <input
+          type="search"
+          className="settings-find"
+          placeholder="Find a setting"
+          aria-label="Find a setting"
+          value={findQuery}
+          onChange={(e) => setFindQuery(e.target.value)}
+        />
+        {findHits && (
+          <div className="settings-find-hits" role="list">
+            {findHits.length === 0 && <p className="muted settings-find-empty">No setting matches.</p>}
+            {findHits.map((hit) => (
+              <button
+                key={`${hit.tab}-${hit.word}`}
+                type="button"
+                role="listitem"
+                className="settings-find-hit"
+                onClick={() => {
+                  selectTab(hit.tab);
+                  setFindQuery("");
+                }}
+              >
+                <span>{hit.word}</span>
+                <span className="muted">{labelOf.get(hit.tab)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {!findHits && groups.map((g) => {
           const open = g.tabs.includes(tab);
           return (
             <div key={g.id} className={`settings-rail-group${open ? " is-open" : ""}`}>

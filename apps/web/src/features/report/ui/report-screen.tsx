@@ -471,6 +471,9 @@ function SectionCard({
   ]
     .filter(Boolean)
     .join(" · ");
+  const progress = s.targetWords
+    ? Math.min(100, Math.round((s.wordCount / s.targetWords) * 100))
+    : null;
 
   return (
     <EntityCard
@@ -529,6 +532,11 @@ function SectionCard({
         />
       }
     >
+      {progress !== null && (
+        <div className="progress-bar section-item-progress" aria-hidden="true">
+          <span style={{ width: `${progress}%` }} />
+        </div>
+      )}
       {hasNotes ? (
         <div className="section-note-md-preview">
           <Markdown className="summary">{sectionCardPreviewMd(s.notes!)}</Markdown>

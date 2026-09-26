@@ -147,3 +147,7 @@
   border: var(--bw) solid var(--bw-line);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-note-progress > span { background: var(--chip-read); }
+/* Words written against the target, per section (PhoneSections mock). */
+.section-item-progress { height: 6px; margin: 2px 0 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-item-progress { background: var(--surface2); border: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-item-progress > span { background: var(--chip-read); }
