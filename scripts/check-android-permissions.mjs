@@ -65,7 +65,14 @@ const ALLOWED_PERMISSIONS = new Map([
 
 /** The components this app may declare, with the reason each is acceptable. */
 const ALLOWED_COMPONENTS = new Map([
-  ["activity", "the single launcher activity that hosts the WebView and the ink surface"],
+  [
+    "activity",
+    "the launcher activity that hosts the WebView and the ink surface, and the deadlines widget's setup screen",
+  ],
+  [
+    "receiver",
+    "the deadlines home screen widget (AppWidgetProvider): it takes APPWIDGET_UPDATE and reads the plan feed link the user pasted",
+  ],
 ]);
 
 /**
