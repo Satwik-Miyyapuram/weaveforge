@@ -948,6 +948,9 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-body .settings-group { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.2rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-option { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-option.is-on { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.theme-card, .theme-chip) { border: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .theme-card { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.theme-card, .theme-chip).is-on { box-shadow: var(--sh-card); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample { border-bottom: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-card { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); box-shadow: var(--sh-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-chip { border: var(--bw) solid var(--bw-line); font-family: var(--font-mono); }

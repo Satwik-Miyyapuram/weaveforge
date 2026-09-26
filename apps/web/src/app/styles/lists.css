@@ -215,3 +215,40 @@
   border: 1px solid var(--border); padding: 4px 8px; text-align: left;
 }
 .screening-counts td { font-variant-numeric: tabular-nums; }
+
+/* Two panes (Lists mock): a rail of every list, the picked list on the right. */
+.lists-two-pane {
+  display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start;
+}
+.lists-two-pane .list-tree-panel { margin: 0; }
+.lists-rail {
+  position: sticky; top: 12px; display: grid; gap: 2px; padding: 8px;
+  max-height: calc(100vh - 140px); overflow-y: auto;
+}
+.lists-rail-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px;
+  padding: 6px 10px 6px calc(10px + var(--depth, 0) * 16px);
+  border: 0; border-radius: 9px; background: none; color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.lists-rail-item:hover { filter: brightness(0.96); background: var(--chip); }
+.lists-rail-item[aria-current="true"] { background: var(--active-bg); color: var(--active-fg); font-weight: 700; }
+.lists-rail-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lists-rail-count { flex: none; font-size: 0.74rem; opacity: 0.75; }
+.lists-rail-label {
+  margin: 10px 10px 4px; font-size: 0.72rem; font-weight: 700;
+  color: var(--muted);
+}
+/* The picked list is always open, so its own collapse chevron has nothing to do. */
+.lists-two-pane .list-tree-root > .list-node > .list-row > .list-toggle { display: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item[aria-current="true"] {
+  box-shadow: inset 0 0 0 var(--bw, 2px) var(--bw-line, currentColor);
+}
+@media (max-width: 900px) {
+  .lists-two-pane { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .lists-rail {
+    position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .lists-rail-item { width: auto; min-height: 36px; padding: 6px 12px; border-radius: 999px; background: var(--surface2); }
+  .lists-rail-label { flex: 1 1 100%; margin: 6px 4px 0; }
+}

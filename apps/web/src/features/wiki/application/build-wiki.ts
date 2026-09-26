@@ -43,7 +43,7 @@ async function notes() {
 }
 
 /** The wiki root and the pages under it, from one read of the notes. */
-function wikiPagesFrom(pages: readonly { id: string; title: string; body: string; parentId?: string | null }[]) {
+function wikiPagesFrom<P extends { id: string; title: string; body: string; parentId?: string | null }>(pages: readonly P[]) {
   const root = pages.find((page) => page.title === WIKI_ROOT_TITLE);
   const generated = root ? pages.filter((page) => page.parentId === root.id) : [];
   return { root, generated };
@@ -287,4 +287,17 @@ export async function proposeMissingPage(target: string): Promise<void> {
       sourceDocumentIds: [],
     },
   ]);
+}
+
+/**
+ * The wiki pages most recently written, newest first. A page only exists once
+ * its proposal was approved, so its creation time is when it was approved.
+ */
+export async function recentlyApprovedWikiPages(
+  limit = 5,
+): Promise<{ id: string; title: string; createdAt: string }[]> {
+  return wikiPagesFrom(await notes())
+    .generated.map((page) => ({ id: page.id, title: page.title, createdAt: page.createdAt }))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, limit);
 }

@@ -86,9 +86,15 @@ export function GraphSidePanel({
       aria-label={`${kindLabel} details`}
     >
       <div className="graph-side-head">
-        <strong>{kindLabel}</strong>
-        <button type="button" className="link-btn" onClick={onClose} aria-label="Close panel">
-          ✕
+        <span className="graph-side-chips">
+          <span className="graph-side-kind">{kindLabel}</span>
+          {paper && <span className="status-pill">{paper.status.replace("_", " ")}</span>}
+          {section && <span className="status-pill">{section.status.replace("_", " ")}</span>}
+        </span>
+        <button type="button" className="btn-ghost graph-side-close" onClick={onClose} aria-label="Close panel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
         </button>
       </div>
       {paper && (
@@ -156,9 +162,6 @@ function PaperPanel({
       {paper.authors.length > 0 && (
         <p className="muted graph-side-meta">{paper.authors.join(", ")}</p>
       )}
-      <p className="graph-side-meta">
-        Status: <span className="status-pill">{paper.status.replace("_", " ")}</span>
-      </p>
       {paper.tags.length > 0 && (
         <div className="tag-chips">
           {paper.tags.map((t) => (
@@ -169,7 +172,7 @@ function PaperPanel({
         </div>
       )}
       <div className="graph-side-actions">
-        <Link href={`/papers?paper=${encodeURIComponent(paper.id)}`} className="btn-secondary">
+        <Link href={`/papers?paper=${encodeURIComponent(paper.id)}`} className="btn-primary">
           Open in Papers
         </Link>
         <button type="button" className="btn-secondary" onClick={() => void autoLinkPaper()} disabled={linking}>
@@ -178,14 +181,15 @@ function PaperPanel({
       </div>
       {touching.length > 0 && (
         <div className="graph-side-section">
-          <div className="muted">Relations ({touching.length})</div>
+          <div className="graph-side-label">Relations · {touching.length}</div>
           <ul className="graph-side-list">
             {touching.slice(0, 8).map((e) => {
               const otherId = e.fromPaper === paper.id ? e.toPaper : e.fromPaper;
               return (
-                <li key={e.id}>
-                  <span className="legend-swatch" style={{ background: RELATION_COLORS[e.relation] }} />
-                  {e.relation.replace("_", " ")}{" "}
+                <li key={e.id} className="graph-side-rel">
+                  <span className="graph-side-rel-kind" style={{ borderColor: RELATION_COLORS[e.relation] }}>
+                    {e.relation.replace("_", " ")}
+                  </span>
                   <button type="button" className="link-btn" onClick={() => onSelectPaper(otherId)}>
                     {paperLabel(papers, otherId)}
                   </button>
@@ -225,7 +229,7 @@ function NotePanel({
         </div>
       )}
       <div className="graph-side-actions">
-        <Link href={`/notes?page=${encodeURIComponent(note.id)}`} className="btn-secondary">
+        <Link href={`/notes?page=${encodeURIComponent(note.id)}`} className="btn-primary">
           Open in Notes
         </Link>
       </div>
@@ -238,9 +242,9 @@ function SectionPanel({ section }: { section: ReportSection }) {
     <div className="graph-side-body">
       <h3 className="graph-side-title">{section.title}</h3>
       {section.sectionNo && <p className="muted">§ {section.sectionNo}</p>}
-      <p className="muted">{section.status.replace("_", " ")} · {section.wordCount} words</p>
+      <p className="muted">{section.wordCount} words</p>
       <div className="graph-side-actions">
-        <Link href={`/report?section=${encodeURIComponent(section.id)}`} className="btn-secondary">
+        <Link href={`/report?section=${encodeURIComponent(section.id)}`} className="btn-primary">
           Open in Report
         </Link>
       </div>

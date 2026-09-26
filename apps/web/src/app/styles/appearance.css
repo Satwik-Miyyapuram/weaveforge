@@ -124,3 +124,31 @@ input[type="checkbox"].themed-check.appearance-switch:focus-visible { outline: 2
 .tint-sample-chip { justify-self: start; padding: 1px 9px; border-radius: 999px; font-size: 0.7rem; background: var(--chip-reading, var(--pill)); }
 .tint-option-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-weight: 700; }
 @media (max-width: 700px) { .tint-picker { grid-template-columns: minmax(0, 1fr); } }
+
+/* Theme as preview cards; the less-used palettes as chips underneath. */
+.theme-picker { display: grid; gap: 12px; margin: 4px 0 16px; }
+.theme-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.theme-card { display: grid; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; cursor: pointer; background: var(--surface); }
+.theme-card:hover, .theme-chip:hover { filter: brightness(1.04); }
+.theme-card.is-on { border-color: var(--text); }
+.theme-card-preview {
+  display: grid; gap: 6px; padding: 12px; min-height: 84px; align-content: start;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.theme-card-bar { display: block; width: 40%; height: 7px; border-radius: 4px; background: var(--text); }
+.theme-card-block { display: block; height: 18px; border-radius: 4px; border: 1px solid var(--border); }
+.theme-card-block--a { background: var(--accent); }
+.theme-card-block--b { background: var(--s-good-bg); }
+.theme-card-foot, .theme-chip { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.theme-card-foot { padding: 10px 12px; }
+.theme-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.theme-chips-label { font-size: 0.8rem; }
+.theme-chip { position: relative; padding: 4px 12px 4px 8px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; background: var(--surface); }
+.theme-chip.is-on { border-color: var(--text); }
+.theme-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-chip:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+.theme-chip-dot {
+  width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border-strong);
+  background: linear-gradient(135deg, var(--bg) 50%, var(--accent) 50%);
+}
+@media (max-width: 900px) { .theme-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
