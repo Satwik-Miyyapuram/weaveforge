@@ -1,25 +1,13 @@
 import Link from "next/link";
-import { APP_URL } from "@/app/pitch/links";
 import { ATLAS, docsBySection, SECTION_LABELS } from "../../lib/docs";
+import { DocsFrame } from "./docs-frame";
 import "./docs.css";
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   const sections = docsBySection();
 
   return (
-    <div className="docs-page">
-      {/* The pitch's header, in the pitch's look: the docs are the same site,
-          and a reader who follows "Docs" from it should not land somewhere that
-          looks like a different product. */}
-      <header className="docs-top">
-        <div className="docs-top-in">
-          <Link href="/" className="docs-brand">
-            <span className="docs-logo">WF</span>WeaveForge
-          </Link>
-          <Link href="/docs/" className="docs-top-tag">Docs</Link>
-          <a className="docs-btn" href={APP_URL}>Open the app</a>
-        </div>
-      </header>
+    <DocsFrame>
       <div className="docs-shell">
         <aside className="docs-nav">
           <nav>
@@ -47,6 +35,6 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
         </aside>
         <main className="docs-main">{children}</main>
       </div>
-    </div>
+    </DocsFrame>
   );
 }

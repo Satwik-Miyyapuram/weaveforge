@@ -54,7 +54,7 @@ export const CONTROL_SIZE_OPTIONS: ReadonlyArray<{ id: ControlSizeId; label: str
 ];
 
 export const LIGHT_THEME_OPTIONS: ReadonlyArray<{ id: LightThemeId; label: string }> = [
-  { id: "brutal", label: "Brutal" },
+  { id: "brutal", label: "Poster" },
   { id: "crt", label: "CRT" },
   { id: "light", label: "Paper" },
   { id: "latte", label: "Latte" },
@@ -65,7 +65,7 @@ export const LIGHT_THEME_OPTIONS: ReadonlyArray<{ id: LightThemeId; label: strin
 ];
 
 export const DARK_THEME_OPTIONS: ReadonlyArray<{ id: DarkThemeId; label: string }> = [
-  { id: "brutal-dark", label: "Brutal dark" },
+  { id: "brutal-dark", label: "Poster dark" },
   { id: "amoled", label: "Amoled" },
   { id: "dark", label: "Slate" },
   { id: "mocha", label: "Mocha" },
