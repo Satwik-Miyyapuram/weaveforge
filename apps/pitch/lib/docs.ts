@@ -36,9 +36,10 @@ export interface DocPage {
  * property of where the file lives: `internal/` is for the working notes and
  * nothing in it is published; `using/`, `building/` and `running/` are the
  * manual. Nothing in `internal/` is secret — it is all one click away in a
- * public repository — it is simply not documentation.
+ * public repository — it is simply not documentation. `plans/` is the same kind
+ * of thing (audits and work plans) and stays out for the same reason.
  */
-const PRIVATE_DIRS = new Set(["internal", "demo"]);
+const PRIVATE_DIRS = new Set(["internal", "demo", "plans"]);
 
 /**
  * `docs/README.md` is the folder's index for somebody reading the repository.
