@@ -1,15 +1,7 @@
 import type { IMilestoneRepository, Milestone, MilestoneFilter } from "@weaveforge/core";
-import { milestoneToDomain, milestoneToRow, type MilestoneRow } from "./milestone-rows";
+import { MILESTONE_COLUMNS, milestoneToDomain, milestoneToRow, type MilestoneRow } from "./milestone-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";
 import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-repository";
-
-/**
- * The columns a MilestoneRow is read as, named rather than starred.
- *
- * Derived from the row type: exactly the fields the mapper reads, where a star
- * would mean "whatever the table grows next".
- */
-const MILESTONE_COLUMNS = "id,title,description,status,target_date,dependencies,compute,created_at";
 
 const TABLE = "milestones";
 

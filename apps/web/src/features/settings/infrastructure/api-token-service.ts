@@ -162,6 +162,14 @@ export class ApiTokenService {
     if (error) throw new Error(formatError(error));
     return typeof data === "string" ? signSupabaseAccessJwt(data, this.jwtSecret) : null;
   }
+
+  /** Resolve a `plan_feed` token (calendar / widget link) → short-lived JWT. */
+  async resolvePlanFeedAccessToken(apiToken: string): Promise<string | null> {
+    if (!isApiTokenFormat(apiToken) || !this.jwtSecret) return null;
+    const { data, error } = await this.admin().rpc("resolve_plan_feed_token", { p_token_hash: encodeBytea(hashApiToken(apiToken)) });
+    if (error) throw new Error(formatError(error));
+    return typeof data === "string" ? signSupabaseAccessJwt(data, this.jwtSecret) : null;
+  }
 }
 
 export function apiTokenService(): ApiTokenService {

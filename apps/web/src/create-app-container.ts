@@ -56,6 +56,7 @@ import { LoadExperimentsScreenUseCase } from "@/features/experiments/application
 import { LoadVaultScreenUseCase } from "@/features/vault/application/load-vault-screen.use-case";
 import { LoadReportScreenUseCase } from "@/features/report/application/load-report-screen.use-case";
 import { LoadPlanScreenUseCase } from "@/features/plan/application/load-plan-screen.use-case";
+import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
@@ -639,6 +640,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       milestones: milestoneRepository,
       manageMilestone,
       notifications,
+      feedLinks: new PlanFeedLinks(backend.db, backend.session),
     }),
     logbook: new LogbookFacade({
       logEntries: logEntryRepository,
