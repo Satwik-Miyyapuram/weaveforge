@@ -1,12 +1,45 @@
-.git-branch-bar .field { max-width: 260px; }
-.track-branch-btn { flex: none; }
-.commit-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 10px; }
-.commit-item { display: grid; gap: 6px; min-width: 0; }
-.commit-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; min-width: 0; }
-.commit-sha { font-family: ui-monospace, monospace; font-size: 0.82rem; color: var(--muted); font-weight: 600; text-decoration: none; flex: none; }
-.commit-msg { font-size: 0.95rem; min-width: 0; overflow-wrap: anywhere; }
-.commit-meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; font-size: 0.8rem; }
-.commit-meta .muted { min-width: 0; overflow-wrap: anywhere; }
+/* Git: the connected repository, its commits, and its branches beside them. */
+.git-hero { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-bottom: 16px; }
+.git-hero-mark {
+  display: grid; place-items: center; flex: none; width: 52px; height: 52px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+}
+.git-hero-mark .nav-icon { width: 24px; height: 24px; }
+.git-hero-main { flex: 1 1 260px; min-width: 0; }
+.git-hero-repo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; font-size: 1.15rem; font-weight: 700; }
+.git-hero-repo a { color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.git-hero-sub { margin: 4px 0 0; color: var(--muted); font-family: var(--font-mono); font-size: 0.8rem; overflow-wrap: anywhere; }
+.git-hero-stats { display: flex; gap: 0; margin: 0; }
+.git-hero-stats > div { padding: 0 18px; border-left: 1px solid var(--line); }
+.git-hero-stats dt { color: var(--muted); font-family: var(--font-mono); font-size: 0.75rem; }
+.git-hero-stats dd { margin: 4px 0 0; font-weight: 700; font-size: 1.05rem; }
+.git-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .git-layout { grid-template-columns: minmax(0, 1fr); } }
+.git-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.git-commits h2, .git-branches h2 { margin: 0 0 8px; font-size: 1.05rem; }
+.git-branch-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 4px; }
+.git-branch {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.git-branch.is-active { background: var(--surface2); }
+.git-branch-swatch { flex: none; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); background: var(--surface2); }
+.git-branch.is-active .git-branch-swatch { background: var(--accent); }
+.git-branch-name { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 0.85rem; overflow-wrap: anywhere; }
+.git-branch-note { color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; }
+.git-branches .track-branch-btn { width: 100%; }
+.git-branches-note { margin: 10px 0 0; font-size: 0.82rem; }
+.commit-list { list-style: none; padding: 0; margin: 0; display: grid; }
+.commit-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-width: 0; padding: 10px 0 10px 18px; border-top: 1px dashed var(--line); position: relative;
+}
+.commit-item::before { content: ""; position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: var(--line); }
+.commit-item::after { content: ""; position: absolute; left: 0; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: var(--accent); }
+.commit-main { display: grid; gap: 3px; min-width: 0; }
+.commit-sha { font-family: var(--font-mono); font-size: 0.8rem; color: inherit; font-weight: 600; text-decoration: none; }
+.commit-msg { font-size: 0.95rem; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commit-meta { color: var(--muted); font-family: var(--font-mono); font-size: 0.78rem; min-width: 0; overflow-wrap: anywhere; }
 
 /* Experiments */
 .exp-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }

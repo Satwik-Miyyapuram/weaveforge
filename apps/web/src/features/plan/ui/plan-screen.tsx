@@ -21,6 +21,7 @@ import type { PlanScreenData } from "@/features/plan/application/load-plan-scree
 import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
+import { planPace, planTimeline } from "@/features/plan/application/plan-timeline";
 
 type PlanViewData = PlanScreenData & { ownerNames: Map<string, string> };
 
@@ -122,6 +123,7 @@ export function PlanScreen() {
   );
   const done = progressItems.filter((m) => m.status === "done").length;
   const pct = progressItems.length ? Math.round((done / progressItems.length) * 100) : 0;
+  const timeline = useMemo(() => planTimeline(progressItems), [progressItems]);
 
   if (loading) {
     return <ScreenLoading status="Loading plan…" />;
@@ -189,7 +191,7 @@ export function PlanScreen() {
           resourceType="milestone"
           resourceId={null}
           title="Share your whole plan"
-          label="⇅ share plan"
+          label="⇅ Share plan"
           hideTrigger
           open={shareOpen}
           onOpenChange={setShareOpen}
@@ -200,18 +202,50 @@ export function PlanScreen() {
         <div className="card progress-card">
           <div className="progress-top">
             <span>{done} of {progressItems.length} milestones done</span>
-            <strong>{pct}%</strong>
+            {timeline ? <small className="plan-pace">{planPace(progressItems)}</small> : <strong>{pct}%</strong>}
           </div>
-          <div
-            className="progress-bar"
-            role="progressbar"
-            aria-label="Plan progress"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <span style={{ width: `${pct}%` }} />
-          </div>
+          {timeline ? (
+            // The plan in time: a mark per dated milestone, a line for today.
+            <div
+              className="plan-timeline"
+              role="progressbar"
+              aria-label="Plan progress"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div className="plan-track">
+                <span style={{ width: `${timeline.today}%` }} />
+              </div>
+              <span className="plan-today" style={{ left: `${timeline.today}%` }}>
+                <em>Today</em>
+              </span>
+              {timeline.marks.map((mk) => (
+                <span
+                  key={mk.id}
+                  className={`plan-mark plan-mark--${mk.status}`}
+                  style={{ left: `${mk.at}%` }}
+                  title={mk.title}
+                />
+              ))}
+              <div className="plan-months" aria-hidden>
+                {timeline.months.map((mo) => (
+                  <span key={`${mo.label}-${mo.at}`} style={{ left: `${mo.at}%` }}>{mo.label}</span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div
+              className="progress-bar"
+              role="progressbar"
+              aria-label="Plan progress"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <span style={{ width: `${pct}%` }} />
+            </div>
+          )}
         </div>
       )}
 
@@ -331,6 +365,17 @@ function MilestoneCard({
         due != null && m.status !== "done" && due <= 14 ? " milestone-item--soon" : ""
       }`}
       title={m.title}
+      leading={
+        readOnly ? undefined : (
+          <input
+            type="checkbox"
+            className="themed-check milestone-check"
+            checked={m.status === "done"}
+            onChange={(e) => void setStatus(e.target.checked ? "done" : "planned")}
+            aria-label={m.status === "done" ? `Reopen ${m.title}` : `Mark ${m.title} done`}
+          />
+        )
+      }
       status={
         readOnly ? (
           <PinnedPaperBadge ownerName={sharedByName} />
@@ -378,7 +423,8 @@ function MilestoneCard({
           resourceId={m.id}
           canComment={readOnly ? canComment : true}
         />
-      }    >
+      }
+    >
       {m.description && <p className="summary">{m.description}</p>}
       {m.dependencies.length > 0 && (
         <div className="git-chips">
@@ -600,7 +646,7 @@ function MilestoneForm({
               onClick={() => setDeps((prev) => prev.filter((_, k) => k !== i))}
               aria-label="Remove dependency"
             >
-              remove
+              Remove
             </button>
           </div>
         ))}
@@ -609,7 +655,7 @@ function MilestoneForm({
           className="link-btn builder-add"
           onClick={() => setDeps((prev) => [...prev, { kind: "external", refId: "", label: "" }])}
         >
-          + add dependency
+          + Add dependency
         </button>
       </div>
 
@@ -651,7 +697,7 @@ function MilestoneForm({
               onClick={() => setCompute((prev) => prev.filter((_, k) => k !== i))}
               aria-label="Remove compute need"
             >
-              remove
+              Remove
             </button>
           </div>
         ))}
@@ -662,15 +708,15 @@ function MilestoneForm({
             setCompute((prev) => [...prev, { resource: "", count: "", hours: "", notes: "" }])
           }
         >
-          + add compute
+          + Add compute
         </button>
       </div>
 
       {error && <FormError>{error}</FormError>}
       <div className={onCancel ? "card-foot edit-actions" : "card-foot form-foot"}>
         {onCancel && (
-          <button type="button" className="link-btn" onClick={onCancel} disabled={busy}>
-            cancel
+          <button type="button" className="btn-ghost btn-cancel" onClick={onCancel} disabled={busy}>
+            Cancel
           </button>
         )}
         <button className="btn-primary" disabled={busy}>

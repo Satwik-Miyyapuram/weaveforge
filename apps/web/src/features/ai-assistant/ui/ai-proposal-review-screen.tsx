@@ -135,12 +135,12 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
         <span className="ai-evidence-source">{evidence.label ?? "Source"}</span>
         {highlight?.confidence === "low" && (
           <span className="ai-evidence-warn" title="The source may have changed since this was cited">
-            unverified match
+            Unverified match
           </span>
         )}
         {locusMiss && (
           <span className="ai-evidence-warn" title="The cited sentence could not be located in this excerpt">
-            locus not found
+            Locus not found
           </span>
         )}
       </div>

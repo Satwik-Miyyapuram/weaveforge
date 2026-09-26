@@ -598,17 +598,17 @@ function ListNode(props: ListNodeProps) {
               </button>
               <button
                 type="button"
-                className="link-btn"
+                className="btn-ghost btn-cancel"
                 onClick={() => { setShowAdd(false); setPicker(""); setAddError(null); }}
               >
-                cancel
+                Cancel
               </button>
               {addError && <p className="error list-add-error">{addError}</p>}
               {reorderError && <p className="error list-add-error">{reorderError}</p>}
             </div>
           ) : canAdd && !readOnly ? (
             <button type="button" className="link-btn list-add-trigger" onClick={() => setShowAdd(true)}>
-              + add paper or note
+              + Add a paper or note
             </button>
           ) : null}
             </>

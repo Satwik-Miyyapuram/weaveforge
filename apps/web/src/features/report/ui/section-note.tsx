@@ -271,11 +271,11 @@ export function SectionNote({
               {saveError && <InlineError>{saveError}</InlineError>}
               <button
                 type="button"
-                className="link-btn"
+                className="btn-ghost btn-cancel"
                 onClick={() => setEditing(false)}
                 disabled={busy}
               >
-                cancel
+                Cancel
               </button>
               <button
                 type="button"
