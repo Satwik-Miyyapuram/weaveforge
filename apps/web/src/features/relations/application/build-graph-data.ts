@@ -23,7 +23,9 @@ import {
   REPORT_COLOR,
   EXPERIMENT_COLOR,
   EXPERIMENT_LINK_COLOR,
+  PAPER_COLOR,
 } from "../domain/graph-palette";
+import { recolourNodes } from "./node-colouring";
 import {
   effectiveRelationTypes,
   showConceptEdges,
@@ -94,6 +96,7 @@ function paperColor(
   membership: Map<string, Set<string>>,
   lists: ReadingList[],
 ): string {
+  if (colorBy === "type") return PAPER_COLOR;
   if (colorBy === "tag") return p.tags[0] ? tagColor(p.tags[0]) : "#b9b2a6";
   if (colorBy === "list" || groupBy === "list") {
     const list = lists.find((l) => membership.get(l.id)?.has(p.id));
@@ -434,6 +437,13 @@ export function buildGraphData(
     (neighbors.get(b) ?? neighbors.set(b, new Set()).get(b)!).add(a);
   };
   for (const l of filteredLinks) link(l.source, l.target);
+
+  recolourNodes(nodes, filteredLinks, settings.colorBy, settings.colorGroups, {
+    papers: new Map(papers.map((p) => [p.id, p])),
+    noteTags: new Map(notes.map((n) => [n.id, noteTags(n)])),
+    membership,
+    lists,
+  });
 
   return { data: { nodes: nodes, links: filteredLinks }, neighbors, tagToPapers, tagToNotes };
 }

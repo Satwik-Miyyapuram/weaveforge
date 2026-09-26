@@ -19,6 +19,8 @@ import {
 } from "../application/build-graph-data";
 import { cloneLinks, filterGraphByNodes, localSubgraph } from "../application/local-graph";
 import { EdgeDetailPopover } from "./graph-side-panel";
+import { useGraphColours } from "./graph-colours";
+import { paintStamp, paintStampLabel, stampRadius } from "./graph-stamp";
 
 // Wrapper forwards the ref through an `innerRef` prop because next/dynamic's
 // LoadableComponent drops a real `ref`, which would null out fgRef and silently
@@ -355,6 +357,12 @@ export function GraphCanvas({
 
   dataRef.current = data;
 
+  const colours = useGraphColours(settings);
+  const stampOn = colours.stamp != null;
+  useEffect(() => {
+    fgRef.current?.refresh?.();
+  }, [colours]);
+
   // Restart simulation when graph topology changes; refresh canvas on visual-only changes.
   useEffect(() => {
     const fg = fgRef.current;
@@ -365,7 +373,7 @@ export function GraphCanvas({
     // reachable, including after the user drags things around.
     fg.d3Force?.(
       "collide",
-      forceCollide<GNode>().radius((n) => Math.max(3, n.val) + 3).strength(0.9),
+      forceCollide<GNode>().radius((n) => (stampOn ? stampRadius(Math.max(3, n.val)) : Math.max(3, n.val)) + 3).strength(0.9),
     );
     const topologyChanged = topologyRef.current !== topologyKey;
     topologyRef.current = topologyKey;
@@ -375,7 +383,7 @@ export function GraphCanvas({
       autoFit();
     }
     fg.refresh?.();
-  }, [data, topologyKey, autoFit, fgReady]);
+  }, [data, topologyKey, autoFit, fgReady, stampOn]);
 
   const requestHoverPaint = useCallback(() => {
     const wrap = wrapRef.current;
@@ -476,7 +484,9 @@ export function GraphCanvas({
     return src === hovered || tgt === hovered;
   }, []);
 
-  const nodeR = (n: GNode) => Math.max(3, n.val);
+  // The stamp's outline eats into a small shape, so the brutal themes draw
+  // every node a size up; hit areas and labels follow the drawn size.
+  const nodeR = (n: GNode) => (stampOn ? stampRadius(Math.max(3, n.val)) : Math.max(3, n.val));
   // Hit target matches the drawn shape (plus a hair) so neighbouring hit areas
   // don't overlap and steal each other's clicks in the pointer buffer.
   //
@@ -490,7 +500,8 @@ export function GraphCanvas({
   const POINTER_MIN_SCREEN_PX = 7;
   const hoverR = useCallback(
     (n: GNode) => Math.max(nodeR(n) + 1, POINTER_MIN_SCREEN_PX / (zoomKRef.current || 1)),
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nodeR only reads stampOn
+    [stampOn],
   );
 
   const labelVisible = useCallback(
@@ -502,11 +513,12 @@ export function GraphCanvas({
     [settings.textFadeThreshold, searchHits],
   );
 
-  const paintShape = useCallback(
-    (node: GNode, ctx: CanvasRenderingContext2D, fillColor: string, r = nodeR(node)) => {
+  /** Outlines a node's shape — the same per kind in every theme. */
+  const traceShape = useCallback(
+    (node: GNode, ctx: CanvasRenderingContext2D, r: number, dx = 0, dy = 0) => {
       ctx.beginPath();
-      const x = node.x ?? 0;
-      const y = node.y ?? 0;
+      const x = (node.x ?? 0) + dx;
+      const y = (node.y ?? 0) + dy;
       if (node.kind === "tag") {
         ctx.rect(x - r, y - r, r * 2, r * 2);
       } else if (node.kind === "note") {
@@ -525,10 +537,18 @@ export function GraphCanvas({
       } else {
         ctx.arc(x, y, r, 0, 2 * Math.PI);
       }
+    },
+    [],
+  );
+
+  const paintShape = useCallback(
+    (node: GNode, ctx: CanvasRenderingContext2D, fillColor: string, r = nodeR(node)) => {
+      traceShape(node, ctx, r);
       ctx.fillStyle = fillColor;
       ctx.fill();
     },
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nodeR only reads stampOn
+    [traceShape, stampOn],
   );
 
   const css = typeof window !== "undefined" ? getComputedStyle(document.documentElement) : null;
@@ -695,17 +715,30 @@ export function GraphCanvas({
           // pointer still dims when the search has ruled it out.
           const dimmed = !isSearchHit(node.id) || !lit(node.id);
           ctx.globalAlpha = dimmed ? 0.12 : 1;
-          paintShape(node, ctx, node.color);
+          const fill = colours.fills.get(node.color) ?? node.color;
+          if (colours.stamp) {
+            paintStamp(ctx, node, nodeR(node), zoom, colours.stamp, fill, (dx, dy, r) => traceShape(node, ctx, r, dx, dy));
+          } else {
+            paintShape(node, ctx, fill);
+            if (node.kind === "experiment") {
+              // A run's second ring, as in every theme: it is what tells a run
+              // from a paper of the same colour.
+              traceShape(node, ctx, nodeR(node) + 1.6);
+              ctx.strokeStyle = fill;
+              ctx.lineWidth = 0.8;
+              ctx.stroke();
+            }
+          }
           if (labelVisible(node)) {
             const label = node.label.length > 28 ? `${node.label.slice(0, 27)}…` : node.label;
             // Graph units, so the label scales with the canvas; but never under
             // ~10.5px on screen, where it stopped being text. Zoomed out, the
             // clash check below then shows fewer labels rather than tiny ones.
             const fontSize = Math.max(node.kind === "tag" ? 4 : 4.5, 10.5 / zoom);
-            ctx.font = `${fontSize}px ${fontFamily}`;
+            ctx.font = colours.stamp ? `700 ${fontSize}px ${fontFamily}` : `${fontSize}px ${fontFamily}`;
             const lx = node.x ?? 0;
-            const ly = (node.y ?? 0) - nodeR(node) - 2;
-            const w = ctx.measureText(label).width;
+            const ly = (node.y ?? 0) - nodeR(node) - (colours.stamp ? 2 + fontSize * 0.4 : 2);
+            const w = ctx.measureText(label).width + (colours.stamp ? fontSize : 0);
             const box = { x1: lx - w / 2, y1: ly - fontSize, x2: lx + w / 2, y2: ly + 1 };
             // The hovered node and tags always win; everything else yields to a
             // label already placed on the same pixels this frame.
@@ -721,12 +754,17 @@ export function GraphCanvas({
               // to a tenth reads as the one thing on screen worth looking at,
               // which is the opposite of what the dim is for.
               ctx.globalAlpha = dimmed ? 0.12 : 1;
-              ctx.fillStyle = inkColor;
-              ctx.textAlign = "center";
-              ctx.fillText(label, lx, ly);
+              if (colours.stamp) {
+                paintStampLabel(ctx, label, lx, ly, fontSize, zoom, colours.stamp);
+              } else {
+                ctx.fillStyle = inkColor;
+                ctx.textAlign = "center";
+                ctx.fillText(label, lx, ly);
+              }
             }
           }
           if (pinned.has(node.id)) {
+            traceShape(node, ctx, nodeR(node));
             ctx.strokeStyle = inkColor;
             ctx.lineWidth = 0.8 / zoom;
             ctx.stroke();

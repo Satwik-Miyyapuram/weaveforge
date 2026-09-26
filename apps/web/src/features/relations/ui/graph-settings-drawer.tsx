@@ -3,7 +3,6 @@
 import {
   DEFAULT_GRAPH_SETTINGS,
   RELATION_TYPES,
-  type ColorBy,
   type EdgeMode,
   type GraphViewSettings,
   type GroupBy,
@@ -12,34 +11,7 @@ import {
   type RelationType,
 } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
-import { ChevronIcon } from "@/components/chevron-icon";
-import { useState } from "react";
-
-function Section({
-  title,
-  children,
-  defaultOpen = false,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="graph-drawer-section">
-      <button
-        type="button"
-        className="graph-drawer-section-head"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {title}
-        <ChevronIcon open={open} />
-      </button>
-      {open && <div className="graph-drawer-section-body">{children}</div>}
-    </div>
-  );
-}
+import { ColourSection, Section } from "./graph-colour-section";
 
 /** In-canvas settings drawer (Obsidian-style cog panel). */
 export function GraphSettingsDrawer({
@@ -247,19 +219,9 @@ export function GraphSettingsDrawer({
               </button>
             ))}
           </div>
-          <div className="seg" role="group" aria-label="Color by">
-            {(["status", "tag", "list"] as ColorBy[]).map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`seg-btn${settings.colorBy === c ? " on" : ""}`}
-                onClick={() => onChange({ colorBy: c })}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
         </Section>
+
+        <ColourSection settings={settings} onChange={onChange} />
 
         <Section title="Display">
           <div className="seg" role="group" aria-label="Edges">

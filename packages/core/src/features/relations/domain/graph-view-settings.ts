@@ -2,7 +2,21 @@ import type { RelationType } from "./paper-relation.js";
 import { RELATION_TYPES } from "./paper-relation.js";
 
 export type EdgeMode = "cites" | "tags" | "both";
-export type ColorBy = "status" | "tag" | "list";
+/**
+ * What a node's colour says. `status`, `tag` and `list` describe a paper;
+ * `type` gives each kind of node its own colour; `year` and `degree` run a
+ * light-to-dark ramp over the publication year and the number of links;
+ * `cluster` colours each densely linked community apart (label propagation),
+ * the way Gephi colours by modularity; `groups` applies the person's own
+ * query → colour rules, first match wins, the way Obsidian's graph groups do.
+ * Shapes never change with it: they always name the kind.
+ */
+export type ColorBy = "status" | "tag" | "list" | "type" | "year" | "degree" | "cluster" | "groups";
+/** One custom colour rule: `tag:x`, `list:x`, `status:x`, or words in the title. */
+export interface ColorGroup {
+  query: string;
+  color: string;
+}
 export type GroupBy = "none" | "status" | "list";
 /**
  * How nodes are arranged, as opposed to how they are coloured.
@@ -17,6 +31,16 @@ export type GroupBy = "none" | "status" | "list";
  * saved views.
  */
 export type LayoutMode = "force" | "timeline";
+/**
+ * Where node colours come from. `theme` takes the active theme's chip colours
+ * (the brutal themes define them; the others fall back to the classic set), so
+ * the graph agrees with the status chips on the Papers page. `classic` keeps
+ * the muted original palette in every theme.
+ */
+export type NodePalette = "theme" | "classic";
+/** The node colours a person can override. Tags keep their per-tag hue. */
+export const NODE_COLOR_KEYS = ["paper", "to_read", "reading", "read", "skimmed", "note", "report", "experiment"] as const;
+export type NodeColorKey = (typeof NODE_COLOR_KEYS)[number];
 
 /**
  * A run, as the graph needs it.
@@ -61,6 +85,11 @@ export interface GraphViewSettings {
   centerStrength: number;
   chargeStrength: number;
   linkDistance: number;
+  nodePalette: NodePalette;
+  /** Per-kind colour overrides, as `#rrggbb`. Missing keys follow the palette. */
+  nodeColors: Partial<Record<NodeColorKey, string>>;
+  /** Rules for `colorBy: "groups"`, in priority order. */
+  colorGroups: ColorGroup[];
 }
 
 export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
@@ -81,13 +110,45 @@ export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
   centerStrength: 0.05,
   chargeStrength: -22,
   linkDistance: 24,
+  nodePalette: "theme",
+  nodeColors: {},
+  colorGroups: [],
 };
 
 const EDGE_MODES = new Set<EdgeMode>(["cites", "tags", "both"]);
-const COLOR_BY = new Set<ColorBy>(["status", "tag", "list"]);
+const COLOR_BY = new Set<ColorBy>(["status", "tag", "list", "type", "year", "degree", "cluster", "groups"]);
 const GROUP_BY = new Set<GroupBy>(["none", "status", "list"]);
 const LAYOUTS = new Set<LayoutMode>(["force", "timeline"]);
 const RELATION_TYPE_SET = new Set<string>(RELATION_TYPES);
+const PALETTES = new Set<NodePalette>(["theme", "classic"]);
+const HEX = /^#[0-9a-f]{6}$/i;
+
+function normalizeNodeColors(raw: unknown): Partial<Record<NodeColorKey, string>> {
+  if (!raw || typeof raw !== "object") return {};
+  const src = raw as Record<string, unknown>;
+  const out: Partial<Record<NodeColorKey, string>> = {};
+  for (const key of NODE_COLOR_KEYS) {
+    const v = src[key];
+    if (typeof v === "string" && HEX.test(v)) out[key] = v.toLowerCase();
+  }
+  return out;
+}
+
+/** Enough rules to be useful, few enough that the legend still fits. */
+export const MAX_COLOR_GROUPS = 12;
+
+function normalizeColorGroups(raw: unknown): ColorGroup[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ColorGroup[] = [];
+  for (const g of raw) {
+    if (!g || typeof g !== "object") continue;
+    const { query, color } = g as Record<string, unknown>;
+    if (typeof query !== "string" || typeof color !== "string" || !HEX.test(color)) continue;
+    out.push({ query: query.slice(0, 80), color: color.toLowerCase() });
+    if (out.length === MAX_COLOR_GROUPS) break;
+  }
+  return out;
+}
 
 function isNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
@@ -135,6 +196,11 @@ export function normalizeGraphViewSettings(raw: unknown): GraphViewSettings {
       ? o.chargeStrength
       : DEFAULT_GRAPH_SETTINGS.chargeStrength,
     linkDistance: isNumber(o.linkDistance) ? o.linkDistance : DEFAULT_GRAPH_SETTINGS.linkDistance,
+    nodePalette: PALETTES.has(o.nodePalette as NodePalette)
+      ? (o.nodePalette as NodePalette)
+      : DEFAULT_GRAPH_SETTINGS.nodePalette,
+    nodeColors: normalizeNodeColors(o.nodeColors),
+    colorGroups: normalizeColorGroups(o.colorGroups),
   };
 }
 
