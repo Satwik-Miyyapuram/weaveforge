@@ -42,8 +42,13 @@ export class PostgrestTransport implements SyncTransport {
     if (attempt.status >= 500) return { status: "offline" };
     if (attempt.status === 401 || attempt.status === 403) return { status: "offline" };
     if (attempt.status >= 400) return { status: "refused", reason: firstLine(attempt.body) };
-    // A guarded write that matched nothing means the base version moved on.
-    if (attempt.rows !== null && attempt.rows.length === 0) return this.conflict(entry);
+    // A guarded write that matched nothing means the base version moved on —
+    // unless it was a delete and the row is already gone, which is the outcome
+    // the delete wanted.
+    if (attempt.rows !== null && attempt.rows.length === 0) {
+      if (entry.op === "delete" && (await this.gone(entry))) return { status: "accepted" };
+      return this.conflict(entry);
+    }
     return { status: "accepted" };
   }
 
@@ -75,9 +80,25 @@ export class PostgrestTransport implements SyncTransport {
     const row = `?id=eq.${encodeURIComponent(entry.rowId)}`;
     const guard =
       entry.baseVersion == null ? row : `${row}&row_version=eq.${entry.baseVersion}`;
-    const body =
-      entry.op === "delete" ? { deleted_at: new Date().toISOString() } : (entry.payload ?? {});
-    return this.request("PATCH", `/${table}${guard}`, body, "return=representation");
+    // A real DELETE, not a `deleted_at` stamp: no screen filters on that
+    // column, so a stamped row stayed on every other device and on the web.
+    if (entry.op === "delete") {
+      return this.request("DELETE", `/${table}${guard}`, undefined, "return=representation");
+    }
+    return this.request("PATCH", `/${table}${guard}`, entry.payload ?? {}, "return=representation");
+  }
+
+  /** Whether the row is absent on the server. A failed read is not proof. */
+  private async gone(entry: OutboxEntry): Promise<boolean> {
+    try {
+      const found = await this.request(
+        "GET",
+        `/${encodeURIComponent(entry.table)}?id=eq.${encodeURIComponent(entry.rowId)}&select=id`,
+      );
+      return found.status < 400 && Array.isArray(found.rows) && found.rows.length === 0;
+    } catch {
+      return false;
+    }
   }
 
   /**

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ShareDialog } from "./share-dialog";
+import { ShareDialog } from "./share-dialog-lazy";
 
 export interface ShareDialogRequest {
   resourceType: ShareableType;

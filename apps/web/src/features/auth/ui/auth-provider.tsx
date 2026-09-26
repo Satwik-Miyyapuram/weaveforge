@@ -14,6 +14,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 import { setSessionLost } from "@/lib/session-lost";
+import { localFirstActive, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
 
 interface AuthState {
   user: AuthUser | null;
@@ -67,6 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         const previous = lastUser.current;
         if (u === null) {
+          // A desktop working on its own copy of the account opens with that
+          // account even when the session is gone: the work is on this
+          // computer, and only syncing it needs a sign-in.
+          const account = previous || signingOut.current ? null : localFirstActive();
+          if (account) {
+            const offline: AuthUser = { id: account.id, email: account.email ?? undefined, providers: [] };
+            lastUser.current = offline;
+            wasExpired.current = true;
+            setSessionLost(true);
+            setExpired(true);
+            setUser(offline);
+            return;
+          }
           // An expired or revoked session is not a sign-out. On the desktop
           // the person has a workspace folder open and work in progress;
           // wiping the session closed the folder and threw them onto the login
@@ -86,6 +100,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setExpired(false);
           clearSessionCaches();
           setUser(null);
+          return;
+        }
+        // This window reads another account's copy on this computer. Start over
+        // against the server; the new account's copy is set up from there.
+        const onDisk = localFirstActive();
+        if (onDisk && onDisk.id !== u.id) {
+          setLocalFirstAccount(null);
+          clearSessionCaches();
+          window.location.reload();
           return;
         }
         // Signing back in as someone else must not inherit the last user's caches.
@@ -148,6 +171,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     signingOut.current = true;
     wasExpired.current = false;
+    // Signing out on purpose hands the window back to the server: the copy on
+    // disk stays, and signing in again picks it up.
+    const wasLocalFirst = localFirstActive() !== null;
+    setLocalFirstAccount(null);
     setSessionLost(false);
     if (expired) {
       // The session is already gone, so the auth service has nothing to
@@ -159,6 +186,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearSessionCaches();
     const { getLightContainer } = await import("@/light-bootstrap");
     await getLightContainer().auth.signOut();
+    // The repositories were wired to the local database; rewire them.
+    if (wasLocalFirst) window.location.reload();
   }, [expired]);
 
   const updatePassword = useCallback(async (password: string) => {
