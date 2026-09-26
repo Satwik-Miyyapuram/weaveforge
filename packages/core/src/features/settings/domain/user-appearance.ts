@@ -7,7 +7,7 @@ import {
 /** Per-user light/dark mode, theme variant, and control density preferences. */
 export type ControlSize = "compact" | "default" | "comfortable";
 /** How the brutal and CRT themes colour a paper card by its reading status. */
-export type CardTint = "full" | "bar" | "none";
+export type CardTint = "full" | "bar" | "border" | "none";
 
 export interface UserAppearance {
   mode?: "light" | "dark";
@@ -57,7 +57,7 @@ export function normalizeAppearance(raw: unknown): UserAppearance | undefined {
   }
   if (o.surfaces === "borderless" || o.surfaces === "bordered") out.surfaces = o.surfaces;
   if (typeof o.reactiveMotion === "boolean") out.reactiveMotion = o.reactiveMotion;
-  if (o.cardTint === "full" || o.cardTint === "bar" || o.cardTint === "none") out.cardTint = o.cardTint;
+  if (o.cardTint === "full" || o.cardTint === "bar" || o.cardTint === "border" || o.cardTint === "none") out.cardTint = o.cardTint;
   // Re-validated rather than copied: the settings row is user-writable, so a
   // stored theme gets the same scrutiny as the file it was uploaded from.
   if (o.customTheme === null) out.customTheme = null;
