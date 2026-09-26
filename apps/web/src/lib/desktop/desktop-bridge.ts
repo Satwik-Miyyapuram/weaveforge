@@ -323,6 +323,20 @@ export interface DesktopBridge {
   onMenuChange?(cb: () => void): () => void;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
+  /**
+   * The plan widget on the desktop: whether it is on, and the switch. Optional
+   * because an installed shell may predate it; without it Settings says nothing
+   * about a desktop widget.
+   */
+  planWidgetState?(): Promise<DesktopPlanWidget>;
+  setPlanWidget?(on: boolean): Promise<DesktopPlanWidget>;
+}
+
+/** Mirrored in `apps/desktop/src/channels.ts` (`PlanWidgetStatePayload`). */
+export interface DesktopPlanWidget {
+  /** False where the shell cannot put a window on the desktop (not Windows). */
+  supported: boolean;
+  enabled: boolean;
 }
 
 /** One entry of the window's menu. Mirrored in `apps/desktop/src/channels.ts`. */

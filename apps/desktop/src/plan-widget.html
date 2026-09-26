@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Local file, no network: nothing to load but this page's own style and script. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>WeaveForge deadlines</title>
+<style>
+  :root {
+    --bg: #fff0d9;
+    --well: #e8d5b5;
+    --line: #12110f;
+    --text: #12110f;
+    --muted: #574e3f;
+    --accent: #ffc536;
+    --late: #ff654d;
+    --soon: #ffe5a9;
+    --sh: 5px 5px 0 #12110f;
+    --sh-sm: 2px 2px 0 #12110f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b19;
+      --well: #2a2825;
+      --line: #f2e1c4;
+      --text: #f2e1c4;
+      --muted: #b8a98f;
+      --accent: #ffc536;
+      --late: #ff654d;
+      --soon: #5a4a1e;
+      --sh: 5px 5px 0 #000;
+      --sh-sm: 2px 2px 0 #000;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    font-family: "Rubik", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    -webkit-user-select: none;
+    user-select: none;
+    overflow: hidden;
+  }
+  .card {
+    position: absolute;
+    inset: 0 8px 8px 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border: 2px solid var(--line);
+    border-radius: 6px;
+    box-shadow: var(--sh);
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 12px 14px 10px;
+    border-bottom: 2px solid var(--line);
+    background: var(--accent);
+    color: #12110f;
+    /* The header is the handle: drag it to move the widget. */
+    -webkit-app-region: drag;
+    cursor: grab;
+  }
+  h1 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -0.02em; }
+  .today { font-size: 12px; font-weight: 600; opacity: 0.75; }
+  .late-count {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border: 2px solid #12110f;
+    border-radius: 4px;
+    background: var(--late);
+  }
+  ol { list-style: none; margin: 0; padding: 6px 0; flex: 1; overflow: hidden; }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+  }
+  li + li { border-top: 1px solid color-mix(in srgb, var(--line) 18%, transparent); }
+  .what { min-width: 0; flex: 1; }
+  .title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meta {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .when {
+    flex: none;
+    min-width: 58px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border: 2px solid var(--line);
+    border-radius: 4px;
+    background: var(--well);
+    box-shadow: var(--sh-sm);
+  }
+  .when.soon { background: var(--soon); }
+  .when.late { background: var(--late); color: #12110f; }
+  .blocked { color: var(--late); font-weight: 700; }
+  .empty { padding: 22px 14px; color: var(--muted); font-size: 14px; }
+  footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px 10px 14px;
+    border-top: 2px solid var(--line);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  footer .undated { flex: 1; }
+  button {
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    background: var(--well);
+    border: 2px solid var(--line);
+    border-radius: 4px;
+    padding: 3px 10px;
+    box-shadow: var(--sh-sm);
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+  }
+  button:hover { filter: brightness(1.06); }
+  button:active { transform: translate(2px, 2px); box-shadow: none; }
+  button:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: #12110f; }
+</style>
+</head>
+<body>
+<div class="card">
+  <header>
+    <h1>Deadlines</h1>
+    <span class="today" id="today"></span>
+    <span class="late-count" id="late" hidden></span>
+  </header>
+  <ol id="list"><li class="empty">Loading your plan…</li></ol>
+  <footer>
+    <span class="undated" id="undated"></span>
+    <button type="button" class="primary" id="open">Open plan</button>
+    <button type="button" id="hide" title="Hide the widget. Turn it back on in Settings, Calendar.">Hide</button>
+  </footer>
+</div>
+<script>
+  "use strict";
+  const DAY = 86400000;
+
+  /** Days from today to `date`, counted in this computer's own time zone. */
+  function daysUntil(date) {
+    const [y, m, d] = date.split("-").map(Number);
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((Date.UTC(y, m - 1, d) - today) / DAY);
+  }
+
+  function whenText(days) {
+    if (days === 0) return "Today";
+    if (days === 1) return "Tomorrow";
+    if (days === -1) return "1 day late";
+    if (days < 0) return `${-days} days late`;
+    if (days < 14) return `${days} days`;
+    return `${Math.round(days / 7)} weeks`;
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function render(data) {
+    document.getElementById("today").textContent = new Date().toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    const items = data.items.map((item) => ({ ...item, days: daysUntil(item.date) }));
+    const late = items.filter((item) => item.days < 0 && item.status !== "done").length;
+    const lateBadge = document.getElementById("late");
+    lateBadge.hidden = late === 0;
+    lateBadge.textContent = `${late} late`;
+
+    const list = document.getElementById("list");
+    list.replaceChildren();
+    if (items.length === 0) {
+      list.append(el("li", "empty", "No dated milestones. Give a milestone a target date and it shows up here."));
+    }
+    for (const item of items) {
+      const row = el("li");
+      const what = el("div", "what");
+      what.append(el("div", "title", item.title));
+      const meta = el("div", "meta");
+      if (item.status === "blocked") meta.append(el("span", "blocked", "Blocked"), " · ");
+      meta.append(
+        item.project ?? "No project",
+        " · ",
+        new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" }),
+      );
+      what.append(meta);
+      const tone = item.days < 0 ? " late" : item.days <= 3 ? " soon" : "";
+      row.append(what, el("span", `when${tone}`, whenText(item.days)));
+      list.append(row);
+    }
+    document.getElementById("undated").textContent =
+      data.undated > 0 ? `+${data.undated} without a date` : "";
+  }
+
+  document.getElementById("open").addEventListener("click", () => window.planWidget.open());
+  document.getElementById("hide").addEventListener("click", () => window.planWidget.hide());
+  window.planWidget.onData(render);
+</script>
+</body>
+</html>

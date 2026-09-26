@@ -8,6 +8,7 @@ import { FormError } from "@/components/form-error";
 import { useAuth } from "@/features/auth";
 import { hasServerRoutes } from "@/deployment/capabilities";
 import { formatError } from "@/lib/format-error";
+import { PlanWidgetToggle } from "./plan-widget-toggle";
 import {
   planFeedOrigin,
   planFeedUrls,
@@ -28,7 +29,8 @@ function formatWhen(iso: string | null): string {
 
 /**
  * Settings → Calendar: one private link that puts milestone deadlines in any
- * calendar app, and that home screen and wallpaper widgets read.
+ * calendar app, and that phone widgets read; and, in the desktop app, the
+ * widget on the wallpaper, which reads this computer's own copy instead.
  *
  * The link is the credential, and only its hash is stored, so the full link is
  * on screen once — right after it is made. After that the panel says a link is
@@ -108,7 +110,7 @@ export function CalendarFeedPanel() {
       <h3 className="settings-group">Deadlines in your calendar</h3>
       <p className="muted api-token-intro">
         One private link puts every dated milestone in Google Calendar, Outlook or Apple Calendar as an
-        all-day event, and keeps it up to date. Plan widgets on your desktop or phone read the same link.
+        all-day event, and keeps it up to date. Widgets on your phone read the same link.
       </p>
 
       <FormError>{error}</FormError>
@@ -186,6 +188,8 @@ export function CalendarFeedPanel() {
           ) : null}
         </div>
       )}
+
+      <PlanWidgetToggle />
 
       {confirming ? (
         <ConfirmDialog

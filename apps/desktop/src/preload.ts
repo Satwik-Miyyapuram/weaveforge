@@ -9,6 +9,7 @@ import type {
   DesktopLocalDbState,
   DesktopMenuGroup,
   DesktopOverleafSource,
+  DesktopPlanWidget,
   DesktopPreferenceValue,
   DesktopUpdate,
   DesktopVaultEntry,
@@ -116,6 +117,8 @@ const bridge: DesktopBridge = {
   setTitleBarColors: (colors) => ipcRenderer.send(CHANNELS.titleBarColors, colors),
   compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
+  planWidgetState: () => call<DesktopPlanWidget>(CHANNELS.planWidgetState),
+  setPlanWidget: (on) => call<DesktopPlanWidget>(CHANNELS.planWidgetSet, on === true),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);
