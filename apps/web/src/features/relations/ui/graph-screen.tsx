@@ -506,14 +506,16 @@ export function GraphScreen() {
           }
         />
       )}
-      {graphView}
-      {/* The legend moved inside `graphBelow`, which owns the whole run-down
-          under the canvas: legend, then the selected item's panel. Ordering them
-          as one block is what lets a narrow window put the graph first and
-          everything that describes it underneath, in one flex or grid rule,
-          instead of three separately-positioned elements that each had to be
-          taught about the phone layout. */}
-      {graphBelow}
+      <div className="graph-body">
+        {graphView}
+        {/* The legend moved inside `graphBelow`, which owns the whole run-down
+            under the canvas: legend, then the selected item's panel. Ordering them
+            as one block is what lets a narrow window put the graph first and
+            everything that describes it underneath, in one flex or grid rule,
+            instead of three separately-positioned elements that each had to be
+            taught about the phone layout. */}
+        {graphBelow}
+      </div>
     </section>
   );
 }

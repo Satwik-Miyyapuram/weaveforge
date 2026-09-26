@@ -768,16 +768,16 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day::before { width: var(--bw); background: var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day::after { border: var(--bw) solid var(--bw-line); background: var(--chip-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day:first-child::after { background: var(--chip-to-read); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .status-daily { background: var(--chip-read); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .status-weekly { background: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-daily, .custom-select-button.status-daily) { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-weekly, .custom-select-button.status-weekly) { background: var(--chip-reading); }
 /* Every other status family borrows the four paper chips: under way reads as
    reading, finished as read, waiting as to read, stuck in the danger wash. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-drafting, .status-running, .status-in_progress, .status-review, .status-daily) { background: var(--chip-reading); color: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-done) { background: var(--chip-read); color: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-planned, .status-weekly) { background: var(--chip-to-read); color: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-failed, .status-blocked) { background: var(--danger-soft); color: var(--danger-text); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-not_started, .status-abandoned) { background: var(--surface); color: var(--text); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .status-review { background: var(--chip-skimmed); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-drafting, .status-running, .status-in_progress, .status-review, .status-daily, .custom-select-button:is(.status-drafting, .status-running, .status-in_progress, .status-review, .status-daily)) { background: var(--chip-reading); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-done, .custom-select-button:is(.status-done)) { background: var(--chip-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-planned, .status-weekly, .custom-select-button:is(.status-planned, .status-weekly)) { background: var(--chip-to-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-failed, .status-blocked, .custom-select-button:is(.status-failed, .status-blocked)) { background: var(--danger-soft); color: var(--danger-text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-not_started, .status-abandoned, .custom-select-button:is(.status-not_started, .status-abandoned)) { background: var(--surface); color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-review, .custom-select-button.status-review) { background: var(--chip-skimmed); }
 /* ---- Sections --------------------------------------------------------------
    One stamped sheet: top-level sections are rows split by an ink rule, their
    parts by a dashed one, nested a step in with no card chrome of their own. */
