@@ -53,6 +53,45 @@ describe("the sync change feed", () => {
     assert.notEqual(rows[0]!.deleted_at, null);
   });
 
+  it("sends a real delete as a tombstone the owner can read", async () => {
+    const db = await testDb();
+    const user = await db.createUser();
+    const other = await db.createUser();
+    const as = db.as(user);
+    const [project] = await as.sql<{ id: string; server_seq: string }>(
+      "insert into projects (user_id, name) values ($1, $2) returning id, server_seq",
+      [user, "gone soon"],
+    );
+    await as.sql("delete from projects where id = $1", [project!.id]);
+    const rows = await as.sql<{ server_seq: string; deleted_at: string | null; row_data: { id: string } }>(
+      "select server_seq, deleted_at, row_data from sync_changes($1, 500) where row_id = $2",
+      [project!.server_seq, project!.id],
+    );
+    assert.equal(rows.length, 1);
+    assert.notEqual(rows[0]!.deleted_at, null);
+    assert.equal(rows[0]!.row_data.id, project!.id);
+    const seen = await db.as(other).sql("select 1 from sync_changes(0, 2000) where row_id = $1", [project!.id]);
+    assert.equal(seen.length, 0);
+  });
+
+  it("forgets the tombstone when the row comes back", async () => {
+    const db = await testDb();
+    const user = await db.createUser();
+    const as = db.as(user);
+    const [project] = await as.sql<{ id: string }>(
+      "insert into projects (user_id, name) values ($1, $2) returning id",
+      [user, "back again"],
+    );
+    await as.sql("delete from projects where id = $1", [project!.id]);
+    await as.sql("insert into projects (id, user_id, name) values ($1, $2, $3)", [project!.id, user, "back again"]);
+    const rows = await as.sql<{ deleted_at: string | null }>(
+      "select deleted_at from sync_changes(0, 2000) where row_id = $1",
+      [project!.id],
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]!.deleted_at, null);
+  });
+
   it("shows a caller nothing that belongs to somebody else", async () => {
     const db = await testDb();
     const mine = await db.createUser();

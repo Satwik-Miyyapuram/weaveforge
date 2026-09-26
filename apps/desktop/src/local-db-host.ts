@@ -16,6 +16,8 @@ import type { IpcResult } from "./channels";
 
 const OPEN_FAILED = "The local database could not be opened.";
 const HEALTHY = "The local database opened normally; there is nothing to reset.";
+/** Statements that can change which account the device belongs to. */
+const IDENTITY_CHANGES = /sync_state|sync_claim/i;
 const BAD_QUERY = "A query is a string of SQL and a list of plain values.";
 
 /**
@@ -117,6 +119,8 @@ export class LocalDbHost {
   private restoredFrom: string | undefined;
   /** Whether anything may have changed since the last `snapshot()`. */
   private dirty = false;
+  /** Who queries run as; re-read whenever a statement may have changed it. */
+  private user: string | undefined;
 
   constructor(private readonly options: LocalDbHostOptions) {}
 
@@ -165,8 +169,8 @@ export class LocalDbHost {
    *
    * The user id is not taken from the renderer. It cannot be: a page that could
    * name whoever it liked would be naming the identity that row-level security
-   * is about to trust. Until sign-in exists here, every query runs as the
-   * local-only user, which is what `LocalDatabase` does when told nothing.
+   * is about to trust. It comes from the database itself: the account the
+   * device was adopted by, or the local-only user before that.
    */
   async query(sql: unknown, params: unknown): Promise<IpcResult<unknown[]>> {
     if (typeof sql !== "string" || !sql.trim() || !validParams(params ?? [])) {
@@ -174,8 +178,10 @@ export class LocalDbHost {
     }
     try {
       const db = await this.database();
-      const { rows } = await db.query<unknown>(sql, (params as Param[] | undefined) ?? []);
+      this.user ??= await db.deviceUser();
+      const { rows } = await db.query<unknown>(sql, (params as Param[] | undefined) ?? [], this.user);
       if (writes(sql)) this.dirty = true;
+      if (IDENTITY_CHANGES.test(sql)) this.user = undefined;
       return { ok: true, value: rows };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : OPEN_FAILED };
@@ -228,6 +234,7 @@ export class LocalDbHost {
   async close(): Promise<void> {
     const opened = this.opening;
     this.opening = undefined;
+    this.user = undefined;
     // Optional, not a non-null assertion: a close that races a failed open
     // finds nothing to await. The failure path above has already cleared the
     // field and closed the client it managed to make, so there is nothing here
