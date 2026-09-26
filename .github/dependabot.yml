@@ -22,9 +22,12 @@
 # is its own pull request gets a queue nobody reviews, and an unreviewed queue is
 # the same as no scanning. A minor bump of a framework can still be a breaking
 # change, but it arrives as one reviewable PR per ecosystem rather than twenty.
-# Major updates are deliberately left ungrouped and out of the groups below:
-# they are the ones that need reading, and `react` 18→19 or `next` 14→15 wants a
-# PR of its own.
+# Major version updates are not raised at all (the `ignore` rule on every
+# entry). They used to arrive one PR each, and eighteen of them (Next 14→16,
+# React 18→19, Electron 33→44, TypeScript 5→7, …) piled up unmerged: each is a
+# planned migration, not a bump to click through. Upgrade a major on purpose,
+# in its own branch. Security updates are separate from this file and still
+# come for any version, major or not.
 #
 # `npm audit` in CI is NOT added here. It reports the lockfile's full transitive
 # tree and would fail unrelated pull requests on a vulnerable package that has no
@@ -50,6 +53,9 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-root-patch-minor:
         patterns: ["*"]
@@ -67,6 +73,9 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       web-patch-minor:
         patterns: ["*"]
@@ -83,6 +92,9 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       desktop-patch-minor:
         patterns: ["*"]
@@ -99,6 +111,9 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       pitch-patch-minor:
         patterns: ["*"]
@@ -116,6 +131,9 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       core-patch-minor:
         patterns: ["*"]
@@ -133,6 +151,9 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       python-patch-minor:
         patterns: ["*"]
@@ -151,6 +172,9 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(ci)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       actions-patch-minor:
         patterns: ["*"]
