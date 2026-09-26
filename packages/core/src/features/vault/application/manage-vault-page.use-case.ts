@@ -18,6 +18,8 @@ export interface EditVaultPageInput {
   body?: string;
   /** A new parent; `null` moves the page to the top level. Absent leaves it. */
   parentId?: string | null;
+  /** Pin or unpin the note. Absent leaves it. */
+  pinned?: boolean;
 }
 
 export interface ManageVaultPageDeps {
@@ -81,6 +83,7 @@ export class ManageVaultPageUseCase {
       ...(input.parentId === undefined
         ? {}
         : { parentId: input.parentId === null ? undefined : input.parentId }),
+      ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
       updatedAt: this.deps.clock.nowIso(),
     };
     await this.deps.repository.save(updated);

@@ -21,6 +21,8 @@ export interface VaultPage extends Identifiable {
   bodyPreview?: string;
   /** Parent page for nesting; undefined = top level. */
   parentId?: string;
+  /** The owner pinned it; the Notes screen lists pinned notes first. */
+  pinned?: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -57,6 +59,8 @@ export interface VaultPageSummary {
   bodyPreview?: string;
   /** Parent page for nesting; undefined = top level. */
   parentId?: string;
+  /** The owner pinned it; the Notes screen lists pinned notes first. */
+  pinned?: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;

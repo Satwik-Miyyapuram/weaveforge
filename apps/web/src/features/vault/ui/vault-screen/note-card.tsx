@@ -50,6 +50,16 @@ export function NoteCard({
   const excerpt = cardSnippet(preview);
   const tags = useMemo(() => extractHashtags(preview), [preview]);
 
+  async function togglePin() {
+    setBusy(true);
+    try {
+      await getContainer().vault.manageVaultPage.update(page.id, { pinned: !page.pinned });
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     if (!confirm(`Delete “${page.title}”?`)) return;
     setBusy(true);
@@ -76,6 +86,7 @@ export function NoteCard({
           readOnly ? undefined : (
             <CardMenu
               items={[
+                { id: "pin", label: page.pinned ? "Unpin" : "Pin", disabled: busy, onSelect: () => void togglePin() },
                 { id: "share", label: "Share", onSelect: () => setShareOpen(true) },
                 { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "note", id: page.id }} /> },
                 { id: "delete", label: "Delete", danger: true, disabled: busy, onSelect: () => void remove() },

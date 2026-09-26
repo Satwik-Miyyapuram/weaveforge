@@ -23,7 +23,7 @@ import { ProjectRepository } from "@/backend/providers/supabase/project-scoped-r
  * Derived from the row type: these are exactly the fields the mapper reads, and a
  * star would make them "whatever the table grows next".
  */
-const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,sort_order,created_at,updated_at";
+const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,pinned,sort_order,created_at,updated_at";
 
 const ID_CHUNK = 200;
 
@@ -31,7 +31,7 @@ const TABLE = "vault_pages";
 
 /** Tree/card projection — preview only; full body via getById on open. */
 const VAULT_SUMMARY_COLUMNS =
-  "id,title,parent_id,sort_order,created_at,updated_at,project_id,body_preview";
+  "id,title,parent_id,pinned,sort_order,created_at,updated_at,project_id,body_preview";
 
 export class SupabaseVaultPageRepository extends ProjectRepository implements IVaultPageRepository {
 

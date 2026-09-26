@@ -13,6 +13,8 @@ export interface VaultPageRow {
   body?: string | null;
   body_preview?: string | null;
   parent_id: string | null;
+  /** Absent on a row read before migration 0136. */
+  pinned?: boolean | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -24,6 +26,7 @@ export function toDomain(row: VaultPageRow): VaultPage {
     title: row.title,
     body: row.body ?? "",
     parentId: row.parent_id ?? undefined,
+    pinned: row.pinned === true,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -37,6 +40,7 @@ export function toSummaryDomain(row: VaultPageRow): VaultPage {
     body: "",
     bodyPreview: row.body_preview ?? "",
     parentId: row.parent_id ?? undefined,
+    pinned: row.pinned === true,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -67,6 +71,7 @@ export function toRow(p: VaultPage): Record<string, unknown> {
     title: p.title,
     body: p.body ?? "",
     parent_id: p.parentId ?? null,
+    pinned: p.pinned === true,
     sort_order: p.sortOrder,
     created_at: p.createdAt,
   };
