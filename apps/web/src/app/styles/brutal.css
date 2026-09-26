@@ -156,12 +156,15 @@
   box-shadow: none;
   border-width: var(--bw);
 }
+/* Hover only where there is a pointer: on touch it sticks after the tap. */
+@media (hover: hover) {
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card)[role="button"]:hover {
   border-color: var(--bw-line);
   background: var(--card-tint, var(--surface));
   filter: brightness(1.04);
 }
 :root[data-theme="brutal-dark"] :is(.entity-card, .paper-card)[role="button"]:hover { filter: brightness(1.15); }
+}
 
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .modal-backdrop {
   background: color-mix(in srgb, var(--text) 45%, transparent);
@@ -241,13 +244,13 @@
   color: #2b222b;
   box-shadow: var(--sh-btn-2);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):hover:not(:disabled) {
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):hover:not(:disabled) {
   filter: brightness(1.06);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary:hover:not(:disabled) { background: var(--accent); box-shadow: var(--sh-btn); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary:hover:not(:disabled) { background: var(--surface); }
-:root[data-theme="crt"] .btn-secondary:hover:not(:disabled) { background: #f29731; }
-:root[data-theme="brutal-dark"] :is(.btn-primary, .btn-secondary):hover:not(:disabled) { filter: brightness(1.15); }
+} }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary:hover:not(:disabled) { background: var(--accent); box-shadow: var(--sh-btn); } }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary:hover:not(:disabled) { background: var(--surface); } }
+@media (hover: hover) { :root[data-theme="crt"] .btn-secondary:hover:not(:disabled) { background: #f29731; } }
+@media (hover: hover) { :root[data-theme="brutal-dark"] :is(.btn-primary, .btn-secondary):hover:not(:disabled) { filter: brightness(1.15); } }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):active:not(:disabled) {
   transform: var(--press-t);
   box-shadow: var(--sh-press);
@@ -266,11 +269,11 @@
 }
 :root[data-theme="crt"] .btn-sm { font-size: 1.05rem; }
 /* Destructive: the filled danger button, and the red-text secondary. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger,
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger,
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger:hover:not(:disabled) {
   background: var(--danger-fill);
   color: var(--s-danger);
-}
+} }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary.danger {
   color: var(--danger-text);
   border-color: var(--bw-line);
@@ -286,29 +289,29 @@
   border-radius: var(--radius-sm);
   box-shadow: none;
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel,
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel,
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) {
   color: var(--danger-text);
   background: transparent;
   box-shadow: none;
   transform: none;
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-ghost, .btn-cancel):hover:not(:disabled) {
+} }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-ghost, .btn-cancel):hover:not(:disabled) {
   background: var(--hover);
   color: inherit;
   filter: none;
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) { color: var(--danger-text); }
+} }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) { color: var(--danger-text); } }
 
 /* Icon buttons: plain until active, then the accent tile. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .entity-icon-btn {
   border: var(--bw) solid transparent;
   border-radius: var(--radius-sm);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .entity-icon-btn:hover:not(:disabled) {
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .entity-icon-btn:hover:not(:disabled) {
   background: var(--hover);
   color: var(--text);
-}
+} }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-icon-btn[aria-expanded="true"], .entity-icon-btn.is-active) {
   background: var(--accent);
   color: var(--accent-fg);
@@ -330,13 +333,16 @@
 :root[data-theme="crt"] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]), textarea, .custom-select-button) {
   box-shadow: inset 0 3px 0 rgba(43, 34, 43, 0.12);
 }
-/* Typing lifts the field off the page. */
+/* Typing lifts the field off the page. A select lifts only while its menu is
+   open (or under keyboard focus): `:focus` outlives the menu, and a tapped
+   status chip stayed lifted after closing. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
-  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
-  textarea,
-  .custom-select-button,
-  .summary-input
-):focus {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]):focus,
+  textarea:focus,
+  .custom-select-button[aria-expanded="true"],
+  .custom-select-button:focus-visible,
+  .summary-input:focus
+) {
   background: var(--type-bg);
   border-color: var(--type-line);
   box-shadow: var(--type-sh);
@@ -433,7 +439,7 @@
   border: var(--bw) solid transparent;
   border-radius: var(--radius-sm);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-link:hover:not(.active) { background: var(--hover); }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-link:hover:not(.active) { background: var(--hover); } }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-link.active {
   color: var(--nav-on-fg);
   background: var(--nav-on-bg);
@@ -507,7 +513,7 @@
   letter-spacing: -0.02em;
 }
 :root[data-theme="crt"] .dashboard-stat-pct { font-size: 2.3rem; letter-spacing: 0; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-link:hover .dashboard-stat-pct { color: inherit; }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-link:hover .dashboard-stat-pct { color: inherit; } }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-bar.progress-bar {
   height: 14px;
   background: var(--surface2);
@@ -531,9 +537,9 @@
   box-shadow: var(--sh-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row .proj-chip { font-weight: 700; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .header-overflow-btn):hover {
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .header-overflow-btn):hover {
   filter: brightness(0.96);
-}
+} }
 
 /* ---- Screen title ---------------------------------------------------------
    Every mock opens on its page name, big, with a mono count over it. The
@@ -574,7 +580,7 @@
   background: var(--surface2);
   padding: 6px 10px;
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-row:hover { background: var(--surface2); filter: brightness(0.97); }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-row:hover { background: var(--surface2); filter: brightness(0.97); } }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-color-dot {
   width: 14px;
   height: 14px;
@@ -607,7 +613,7 @@
   font-weight: 600;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-paper-row:last-child { border-bottom: 0; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-paper-row:hover { background: transparent; filter: brightness(0.97); }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-paper-row:hover { background: transparent; filter: brightness(0.97); } }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-item-kind {
   min-width: 84px;
   text-align: center;
