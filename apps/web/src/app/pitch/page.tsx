@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import s from "./scrolly.module.css";
 import { APP_URL, DOCS_URL, REPO_URL } from "./links";
 import { SECTIONS } from "./sections";
+import "./looks.css";
+import { BrandMark, GitHubMark, ThemePicker, themeAttrs, useSiteTheme } from "./site-chrome";
 import { useScrolly } from "./use-scrolly";
 
 /**
@@ -20,9 +22,6 @@ import { useScrolly } from "./use-scrolly";
  * own showcase seed (scripts/seed-showcase-data.mjs).
  */
 
-type Look = "brutal" | "crt";
-const LOOK_KEY = "wf-look";
-
 /** Joins module class names written the way they read in the CSS: `k("obj card")`. */
 function k(names: string, extra?: string) {
   const out = names.split(" ").map((n) => s[n] ?? n);
@@ -32,36 +31,17 @@ function k(names: string, extra?: string) {
 
 export default function PitchPage() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [look, setLook] = useState<Look>("brutal");
+  const [theme, pickTheme] = useSiteTheme();
   const [active, setActive] = useState("overview");
-
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(LOOK_KEY) === "crt") setLook("crt");
-    } catch {
-      /* storage blocked: the default look stands */
-    }
-  }, []);
-
-  const pickLook = useCallback((next: Look) => {
-    setLook(next);
-    try {
-      localStorage.setItem(LOOK_KEY, next);
-    } catch {
-      /* storage blocked: the choice lasts until reload */
-    }
-    // CRT sets titles in a different face, so the stages refit.
-    requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
-  }, []);
 
   useScrolly(rootRef, setActive);
 
   return (
-    <div ref={rootRef} className={s.page} data-look={look === "crt" ? "crt" : undefined}>
+    <div ref={rootRef} className={`wf-looks ${s.page}`} {...themeAttrs(theme)}>
       <header className={s.top}>
-        <div className={k("wrap top-in")}>
+        <div className={s["top-in"]}>
           <a className={s.brand} href="#overview">
-            <span className={s.logo}>WF</span>WeaveForge
+            <span className={s.logo}><BrandMark /></span>WeaveForge
           </a>
           <nav className={s.acts} aria-label="Sections">
             {SECTIONS.map((sec) => (
@@ -70,11 +50,14 @@ export default function PitchPage() {
               </a>
             ))}
           </nav>
-          <div className={s.seg} role="group" aria-label="Look">
-            <button type="button" aria-pressed={look === "brutal"} onClick={() => pickLook("brutal")}>Brutal</button>
-            <button type="button" aria-pressed={look === "crt"} onClick={() => pickLook("crt")}>CRT</button>
+          <div className={s["top-end"]}>
+            <a className={s["top-link"]} href={DOCS_URL}>Docs</a>
+            <a className={s["icon-btn"]} href={REPO_URL} aria-label="WeaveForge on GitHub" title="GitHub">
+              <GitHubMark />
+            </a>
+            <ThemePicker theme={theme} onPick={pickTheme} />
+            <a className={k("btn btn-primary top-cta")} href={APP_URL}>Open the app</a>
           </div>
-          <a className={k("btn btn-primary")} href={APP_URL}>Open the app</a>
         </div>
         <div className={s.progress} data-progress />
       </header>
@@ -98,7 +81,8 @@ export default function PitchPage() {
 
       <footer className={s["foot-bar"]}>
         <div className={k("wrap foot")}>
-          <span>WeaveForge · papers, plan, experiments and writing in one workspace · AGPL-3.0-only</span>
+          <span className={s["foot-brand"]}><BrandMark size={18} />WeaveForge</span>
+          <span>Papers, plan, experiments and writing in one workspace · AGPL-3.0-only</span>
           <nav aria-label="Project">
             <a href={REPO_URL}>Source</a>
             <a href={DOCS_URL}>Docs</a>
@@ -443,7 +427,7 @@ function ExperimentsAct() {
 /* ---------- act II: labs ---------- */
 
 const LABS_STEPS: StepText[] = [
-  { idx: "01 · Share", title: "Share objects, not screenshots.", body: "Share a paper, a run or one report section. Your labmate comments on the object itself." },
+  { idx: "01 · Share", title: "Share objects, not screenshots.", body: "Share a paper, a run or one report section. Your labmate opens the object itself, with the access you gave." },
   { idx: "02 · Write", title: "Write the note together.", body: "Both cursors on screen, both sets of keystrokes land. The text merges as a CRDT, so there is no save button and no conflict dialog." },
   { idx: "03 · Scope", title: "Scoped by the database.", body: "Postgres row-level security is the access boundary. A bug in a screen cannot leak a row." },
   { idx: "04 · Alone", title: "Or nobody at all.", body: "Standalone is first class: the whole product, with the collaboration surface out of the way." },
@@ -464,7 +448,7 @@ function LabsAct() {
               <span className={s.label} style={{ flex: 1 }}>notes / disentanglement</span>
               <span className={s.collab} style={{ display: "flex" }}>
                 <span className={s.ava} style={{ background: "var(--hl0)" }}>SM</span>
-                <span className={s.ava} style={{ background: "var(--hl2)", marginLeft: -8 }}>PN</span>
+                <span className={s.ava} style={{ background: "var(--hl2)", marginLeft: -8 }}>PB</span>
               </span>
               <span
                 className={k("btn btn-secondary collab")}
@@ -482,15 +466,15 @@ function LabsAct() {
                 tests it directly: β = 4, seeds 42, 7 and 1337.
               </p>
               <p style={{ margin: 0 }}>
-                Priya: <span className={s.typed} data-at="2">and it fails on dSprites past 3 seeds.</span>
-                <span className={k("caret collab")} data-who="Priya Nair" style={{ background: "var(--hl2)" }} />
+                Person B: <span className={s.typed} data-at="2">and it fails on dSprites past 3 seeds.</span>
+                <span className={k("caret collab")} data-who="Person B" style={{ background: "var(--hl2)" }} />
               </p>
               <p style={{ margin: 0, color: "var(--muted)" }}>↳ linked: Higgins 2017 · β-VAE sweep, seed 42 · section 3.2</p>
             </div>
           </article>
           <Card at={1} className="pop collab" style={{ right: 14, left: "auto", top: 0 }}>
             <span className={s.label}>share · section 3.2</span>
-            <Kv k="Priya Nair" v="can comment" />
+            <Kv k="Person B" v="can edit" />
             <Kv k="β-VAE sweep" v="read only" />
           </Card>
           <Card at={3} className="sql collab" style={{ left: 30, top: 330 }}>
