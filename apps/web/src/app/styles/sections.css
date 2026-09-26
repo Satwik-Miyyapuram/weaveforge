@@ -128,3 +128,26 @@
 
 /* Markdown body */
 .markdown p { margin: 6px 0; }
+/* Section page head (PhoneSectionDetail mock): status and word progress, then
+   one toolbar row with the primary action first and Share + ⋯ at the end. */
+.section-note-status { display: flex; flex-direction: column; gap: 8px; margin: 0 0 10px; min-width: 0; }
+.section-note-status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.section-note-meta { font-size: 0.85rem; overflow-wrap: anywhere; }
+.section-note-progress { height: 8px; }
+.section-note-toolbar { flex-wrap: nowrap; }
+.section-note-toolbar .card-foot-right { flex: 0 0 auto; margin-left: auto; flex-wrap: nowrap; }
+.section-note-edit { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 480px) {
+  /* One row at 375px: Edit and Comments keep their words, Share and ⋯ are icons. */
+  .section-note-toolbar { gap: 6px; }
+  .section-note-toolbar .comments-trigger-detail { padding-inline: 10px; }
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-note-progress {
+  background: var(--surface2);
+  border: var(--bw) solid var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-note-progress > span { background: var(--chip-read); }
+/* Words written against the target, per section (PhoneSections mock). */
+.section-item-progress { height: 6px; margin: 2px 0 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-item-progress { background: var(--surface2); border: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-item-progress > span { background: var(--chip-read); }

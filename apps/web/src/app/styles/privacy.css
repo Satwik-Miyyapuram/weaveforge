@@ -92,3 +92,26 @@
   .settings-rail-hint, .settings-rail-icon { display: none; }
   .settings-rail-tabs { display: none; }
 }
+/* Find a setting: a field at the top of the rail; while it has text, the
+   matches replace the groups. */
+.settings-find { width: 100%; margin-bottom: 6px; }
+.settings-find-hits { display: grid; gap: 2px; }
+.settings-find-hit {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  width: 100%; padding: 8px 12px; border: 0; border-radius: 10px;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.settings-find-hit:hover { filter: brightness(0.96); background: var(--surface-alt); }
+.settings-find-hit .muted { font-size: 0.78rem; }
+.settings-find-empty { padding: 8px 12px; margin: 0; }
+@media (max-width: 900px) {
+  /* Groups wrap as chips under the field instead of one sideways strip, and
+     the open group's tabs follow as their own row: without it a phone could
+     never reach Paste, Workspace, Org or Updates. */
+  .settings-rail { flex-wrap: wrap; overflow-x: visible; gap: 6px; }
+  .settings-find, .settings-find-hits { flex: 1 1 100%; }
+  .settings-rail-group.is-open .settings-rail-tabs {
+    display: flex; flex-wrap: wrap; gap: 4px 14px; order: 99; flex: 1 1 100%;
+    margin: 2px 0 0; padding: 6px 0 0; border-left: 0; border-top: 2px solid var(--line);
+  }
+}

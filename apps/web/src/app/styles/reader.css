@@ -655,3 +655,33 @@ body > canvas.hiddenCanvasElement { display: none; }
   border-radius: 2px; background: color-mix(in srgb, #f5c400 85%, var(--ink));
 }
 .pdf-reader-find-mark.is-current { background: var(--accent); height: 5px; margin-top: -2px; }
+/* Phone annotate pill (PhoneReader mock): colours, ink, annotation list,
+   floating above the tab bar. Hidden on wider screens, where the toolbar holds
+   the same controls. */
+.pdf-reader-pill { display: none; }
+@media (max-width: 720px) {
+  .pdf-reader-wide-only { display: none !important; }
+  .pdf-reader-pill {
+    position: fixed; left: 14px; right: 14px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    z-index: var(--z-nav);
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    padding: 6px 10px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--line);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.16);
+  }
+  .pdf-reader-pill-colours { display: flex; gap: 8px; }
+  .pdf-reader-pill-swatch {
+    width: 30px; height: 30px; min-width: 0; padding: 0; border-radius: 50%;
+    border: 1px solid var(--line); cursor: pointer;
+  }
+  .pdf-reader-pill-swatch[aria-checked="true"] { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--text); }
+  .pdf-reader-pill-sep { align-self: stretch; border-left: 1px solid var(--line); opacity: 0.4; }
+  .pdf-reader-pill .pdf-reader-icon-btn { border-radius: 50%; width: 36px; height: 36px; padding: 0; display: inline-grid; place-items: center; }
+  /* The last page scrolls clear of the pill. */
+  .pdf-reader-scroll { padding-bottom: 72px; }
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"]) .pdf-reader-pill,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"]) .pdf-reader-pill-swatch { border: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"]) .pdf-reader-pill { box-shadow: var(--sh-card, 4px 4px 0 var(--bw-line)); }
+:root[data-theme="crt"] .pdf-reader-pill { border-radius: var(--radius); border: var(--bw) solid var(--bw-line); }

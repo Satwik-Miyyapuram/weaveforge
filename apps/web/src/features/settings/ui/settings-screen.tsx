@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SettingsFind, findSettings } from "./settings-find";
 import dynamic from "next/dynamic";
 import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import {
@@ -158,6 +159,7 @@ export function SettingsScreen() {
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
   const [tab, setTab] = useState<SettingsTabId>("account");
+  const [findQuery, setFindQuery] = useState("");
 
   // Hash is read once on mount rather than tracked: `selectTab` writes it with
   // replaceState, and reacting to a hash we just wrote would fight the click.
@@ -362,6 +364,7 @@ export function SettingsScreen() {
 
   const visible = new Set<SettingsTabId>(tabs.map((t) => t.id));
   const labelOf = new Map<SettingsTabId, string>(tabs.map((t) => [t.id, t.label]));
+  const findHits = findSettings(findQuery, tabs);
   const groups = SETTINGS_GROUPS
     .map((g) => ({ ...g, tabs: g.tabs.filter((id) => visible.has(id)) }))
     .filter((g) => g.tabs.length > 0);
@@ -374,7 +377,17 @@ export function SettingsScreen() {
       />
       <div className="settings-layout">
       <nav className="settings-rail" aria-label="Settings sections">
-        {groups.map((g) => {
+        <SettingsFind
+          query={findQuery}
+          hits={findHits}
+          labelOf={labelOf}
+          onQuery={setFindQuery}
+          onPick={(id) => {
+            selectTab(id);
+            setFindQuery("");
+          }}
+        />
+        {!findHits && groups.map((g) => {
           const open = g.tabs.includes(tab);
           return (
             <div key={g.id} className={`settings-rail-group${open ? " is-open" : ""}`}>
