@@ -21,6 +21,14 @@
  *
  * It does not remember having asked: a dismissed dialog does not make a stale
  * shell less stale.
+ *
+ * macOS is the exception to "only on sign-in". The Mac build carries an ad-hoc
+ * signature, not a Developer ID, and the in-app updater there (Squirrel.Mac)
+ * refuses to install anything that is not signed by a real identity — so the
+ * Mac build has no automatic updates at all, and this notice is the only way a
+ * Mac reader learns there is a newer version. `main.ts` therefore also runs it
+ * at launch and every few hours on macOS, with `oncePerVersion`: "Later" on a
+ * version holds until the app is next opened, and a newer release asks again.
  */
 
 import { app, dialog, type BrowserWindow } from "electron";
@@ -37,11 +45,14 @@ export interface MainUpdateOfferDeps {
 
 export function registerMainUpdateOffer(
   deps: MainUpdateOfferDeps,
-): (options?: { tellWhenCurrent?: boolean }) => Promise<void> {
+): (options?: { tellWhenCurrent?: boolean; oncePerVersion?: boolean }) => Promise<void> {
   let offering = false;
+  // Versions already put to the reader in this run, for `oncePerVersion`.
+  const asked = new Set<string>();
 
   return async function offerUpdate({
     tellWhenCurrent = false,
+    oncePerVersion = false,
   } = {}): Promise<void> {
     // In development the version is whatever is in package.json and the "update"
     // would be the release the source is ahead of.
@@ -71,8 +82,10 @@ export function registerMainUpdateOffer(
         return;
       }
 
+      if (oncePerVersion && asked.has(update.version)) return;
       const window = deps.mainWindow();
       if (!window || window.isDestroyed()) return;
+      asked.add(update.version);
       const { response } = await dialog.showMessageBox(window, {
         type: "info",
         title: "Update available",
