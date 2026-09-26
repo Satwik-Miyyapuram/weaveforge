@@ -106,7 +106,12 @@ function LibraryTidyPanel({
     };
   }, [duplicates]);
   const byId = scan?.papers ?? localById;
-  const groups: TidyDuplicateGroup[] = scan?.duplicates ?? duplicates;
+  // The scan is a snapshot: after a merge the papers reload but the scan does
+  // not (and is not rerun once no duplicates remain), so a merged group would
+  // stay on screen reading "Merged". Only offer groups whose copies all still exist.
+  const groups: TidyDuplicateGroup[] = (scan?.duplicates ?? duplicates).filter((g) =>
+    g.ids.every((id) => localById.has(id)),
+  );
   return (
     <div className="tidy-panel">
       {titles.length > 0 && (

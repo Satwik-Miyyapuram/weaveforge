@@ -40,10 +40,14 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 /* One focus ring for every text control, wherever it lives. Four files each
-   spelled out the same accent border and halo, so they had drifted apart. */
+   spelled out the same accent border and halo, so they had drifted apart.
+   A select is a button, not a text field: plain `:focus` stays on it after the
+   menu closes, so a tapped status chip kept its ring until the next tap
+   elsewhere. It rings while open or when reached by keyboard. */
 input:focus,
 textarea:focus,
-.custom-select-button:focus,
+.custom-select-button[aria-expanded="true"],
+.custom-select-button:focus-visible,
 .summary-input:focus,
 .markdown-code-editor:focus-within {
   border-color: var(--accent);
