@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShareIcon } from "@/components/view-icons";
-import { ShareDialog } from "./share-dialog";
+import { ShareDialog } from "./share-dialog-lazy";
 import { useShareDialogHost } from "./share-dialog-host";
 import { useCapability } from "@/deployment/capabilities";
 
