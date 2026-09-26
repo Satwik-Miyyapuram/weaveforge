@@ -141,7 +141,7 @@ export class AiAssistantFacade {
           `/papers?paper=${encodeURIComponent(paper.id)}#zotero-${encodeURIComponent(entry.key ?? `${entry.kind ?? "annotation"}-${index}`)}`,
         ))),
       ...readingLists.map((list) => source("reading_list", list.id, list.name, "Reading lists", `/lists?list=${encodeURIComponent(list.id)}`)),
-      ...vaultPages.map((page) => source("vault_page", page.id, page.title, "Vault notes", `/notes?page=${encodeURIComponent(page.id)}`)),
+      ...vaultPages.map((page) => source("vault_page", page.id, page.title, "Notes", `/notes?page=${encodeURIComponent(page.id)}`)),
       ...logEntries.map((entry) => source("log_entry", entry.id, `${entry.entryDate} ${entry.kind}`, "Logbook", `/log`)),
       ...experiments.map((experiment) => source("experiment", experiment.id, experiment.name, "Experiments", `/experiments?focus=${encodeURIComponent(experiment.id)}`)),
       ...milestones.map((milestone) => source("milestone", milestone.id, milestone.title, "Milestones", `/plan`)),

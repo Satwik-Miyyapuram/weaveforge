@@ -6,7 +6,6 @@ import {
   QUOTATION_TYPE_LABELS,
   type QuotationType,
   type ReaderAnnotation,
-  type ReaderAnnotationType,
 } from "@weaveforge/core";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import {
@@ -54,7 +53,7 @@ export function AnnotationSidebar({
   onPinLocal,
   backlinks = [],
 }: AnnotationSidebarProps) {
-  const [typeFilter, setTypeFilter] = useState<ReaderAnnotationType | "">("");
+  const [kindFilter, setKindFilter] = useState<AnnotationKindFilter>("all");
   const [tagFilter, setTagFilter] = useState("");
   const [pageFilter, setPageFilter] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -69,7 +68,7 @@ export function AnnotationSidebar({
   }, [annotations]);
 
   const filtered = annotations.filter((a) => {
-    if (typeFilter && a.type !== typeFilter) return false;
+    if (!matchesKind(a, kindFilter)) return false;
     if (tagFilter && !a.tags.includes(tagFilter)) return false;
     if (pageFilter.trim() !== "") {
       // Compare as numbers: a string compare makes "01" or a stray space match
@@ -114,20 +113,27 @@ export function AnnotationSidebar({
 
   return (
     <aside className="pdf-reader-sidebar" aria-label="Annotations">
+      <div className="pdf-reader-sidebar-head">
+        <h2>Annotations</h2>
+        <span className="muted">{annotations.length}</span>
+      </div>
+      {/* What the list shows, the mock's three tabs. Pressed buttons rather than
+          a tablist: they filter one list, they do not switch between panels. */}
+      <div className="seg pdf-reader-sidebar-kinds" role="group" aria-label="Show">
+        {KIND_CHOICES.map((choice) => (
+          <button
+            key={choice.value}
+            type="button"
+            aria-pressed={kindFilter === choice.value}
+            className={kindFilter === choice.value ? "seg-on" : undefined}
+            onClick={() => setKindFilter(choice.value)}
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
       <div className="pdf-reader-sidebar-filters">
-        <Select
-          aria-label="Filter by type"
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as ReaderAnnotationType | "")}
-        >
-          <option value="">All types</option>
-          <option value="highlight">Highlight</option>
-          <option value="underline">Underline</option>
-          <option value="note">Note</option>
-          <option value="image">Image</option>
-          <option value="ink">Ink</option>
-          <option value="text">Text</option>
-        </Select>
+        {tags.length > 0 && (
         <Select
           aria-label="Filter by tag"
           value={tagFilter}
@@ -140,6 +146,7 @@ export function AnnotationSidebar({
             </option>
           ))}
         </Select>
+        )}
         <input
           type="number"
           min={1}
@@ -272,7 +279,11 @@ export function AnnotationSidebar({
           );
         })}
         {filtered.length === 0 && (
-          <li className="muted">No annotations match these filters.</li>
+          <li className="muted">
+            {annotations.length === 0
+              ? "No annotations yet. Select text on the page to highlight it."
+              : "No annotations match these filters."}
+          </li>
         )}
       </ul>
       {backlinks.length > 0 && (
@@ -297,4 +308,19 @@ export function AnnotationSidebar({
       )}
     </aside>
   );
+}
+
+type AnnotationKindFilter = "all" | "highlights" | "comments";
+
+const KIND_CHOICES: ReadonlyArray<{ value: AnnotationKindFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "highlights", label: "Highlights" },
+  { value: "comments", label: "Comments" },
+];
+
+/** A comment is any mark that carries words of the reader's own. */
+function matchesKind(a: ReaderAnnotation, kind: AnnotationKindFilter): boolean {
+  if (kind === "highlights") return a.type === "highlight" || a.type === "underline";
+  if (kind === "comments") return a.type === "note" || a.type === "text" || a.comment.trim() !== "";
+  return true;
 }

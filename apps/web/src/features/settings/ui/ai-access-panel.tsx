@@ -18,7 +18,7 @@ const READ_LABELS: Record<AiReadCategory, string> = {
   paper_notes: "Paper notes",
   zotero_annotations: "Zotero annotations and notes",
   reading_lists: "Reading lists",
-  vault_notes: "Vault notes",
+  vault_notes: "Notes",
   logbook: "Logbook",
   experiments: "Experiments and milestones",
 };
