@@ -26,7 +26,15 @@ const withBundleAnalyzer = bundleAnalyzer({
  * repair them. Building the list here is the only place that can.
  */
 const publicDir = path.join(__dirname, "public");
-const PUBLIC_PRECACHE_FILES = ["manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/weave_forge.svg"];
+const PUBLIC_PRECACHE_FILES = [
+  "manifest.webmanifest",
+  "offline.html",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/maskable-512.png",
+  "icons/apple-touch-icon.png",
+  "icons/weave_forge.svg",
+];
 const publicPrecacheEntries = PUBLIC_PRECACHE_FILES.filter((file) =>
   fs.existsSync(path.join(publicDir, file)),
 ).map((file) => ({
