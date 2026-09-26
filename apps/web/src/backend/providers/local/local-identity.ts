@@ -111,10 +111,13 @@ export class LocalAuthService implements IAuthService {
 }
 
 export class LocalSessionProvider implements ICurrentUserProvider {
+  /** The local-only user, or the account a synced device belongs to. */
+  constructor(private readonly userId: string = LOCAL_USER_ID) {}
+
   async getCurrentUserId(): Promise<string | null> {
-    return LOCAL_USER_ID;
+    return this.userId;
   }
   async requireUserId(): Promise<string> {
-    return LOCAL_USER_ID;
+    return this.userId;
   }
 }

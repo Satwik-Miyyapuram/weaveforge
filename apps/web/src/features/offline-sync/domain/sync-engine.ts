@@ -25,6 +25,9 @@ export interface SyncQuota {
   check(accountId: string): Promise<{ allowed: true } | { allowed: false; reason: string }>;
 }
 
+/** 200 pages of 500: a hundred thousand rows before the next tick takes over. */
+const MAX_PAGES_PER_CYCLE = 200;
+
 export const unlimitedSync: SyncQuota = {
   check: async () => ({ allowed: true }),
 };
@@ -95,6 +98,15 @@ export class SyncEngine {
     if (pushed.stoppedBecause === "offline") {
       return { pushed, pulled: { applied: 0, watermark: (await this.state.read()).watermark, more: false } };
     }
-    return { pushed, pulled: await this.puller.pull() };
+    // Page until caught up, so a device's first download (everything the
+    // account has) arrives in one cycle rather than one page per tick. Bounded,
+    // so a feed that keeps growing cannot hold the cycle forever.
+    let pulled = await this.puller.pull();
+    let applied = pulled.applied;
+    for (let page = 1; pulled.more && page < MAX_PAGES_PER_CYCLE; page += 1) {
+      pulled = await this.puller.pull();
+      applied += pulled.applied;
+    }
+    return { pushed, pulled: { ...pulled, applied } };
   }
 }

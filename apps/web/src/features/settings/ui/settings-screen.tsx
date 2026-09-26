@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import {
   applyUserIntegrationFields,
@@ -23,7 +24,6 @@ import { AccountInfoPanel } from "./account-info-panel";
 import { PrivacyNotice } from "./privacy-notice";
 import { DeleteAccountPanel } from "./delete-account-panel";
 import { ExportDataPanel } from "./export-data-panel";
-import { ApiTokensPanel } from "./api-tokens-panel";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
@@ -40,6 +40,9 @@ import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { useCapability, hasServerRoutes } from "@/deployment/capabilities";
 import { FormError } from "@/components/form-error";
+
+// Only the Tokens tab paints it, so it stays out of the route's first load.
+const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
 
 /**
  * Settings sections, as tabs. This screen used to render all eight stacked
