@@ -1043,6 +1043,7 @@ export function PdfReader({
       ref={rootRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
+      role="region"
       aria-label="PDF reader"
       style={
         {
@@ -1087,7 +1088,7 @@ export function PdfReader({
           <div className="pdf-reader-phone-toggles pdf-reader-group">
             <button
               type="button"
-              className={`btn-secondary btn-sm pdf-reader-icon-btn${phonePanel === "search" ? " is-active" : ""}`}
+              className={`btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-find-toggle${phonePanel === "search" ? " is-active" : ""}`}
               aria-pressed={phonePanel === "search"}
               aria-label="Find in document"
               title="Find"
@@ -1362,89 +1363,6 @@ export function PdfReader({
             : ""
         }`}
       >
-        {/* Writing is a full-width activity: with the pen bar up — whatever tool
-            it holds, the lasso included — the outline, the references and the
-            annotation list all stand down and the paper gets the room. Nothing
-            on a paper is picked up *from* the list; it is picked up on the page,
-            by drawing a loop round it. */}
-        {/* Collapsed, the whole column folds to one vertical tab that still
-            says how many annotations wait behind it. */}
-        {!penOpen && sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
-          <button
-            type="button"
-            className="pdf-reader-side-rail"
-            aria-expanded={false}
-            title="Show the side panel"
-            onClick={toggleSide}
-          >
-            <span>Annotations{annotations.length ? ` ${annotations.length}` : ""}</span>
-          </button>
-        )}
-        {!penOpen && !sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
-          <div className={`pdf-reader-side${showAnnotationList ? " is-list-open" : ""}`}>
-            <button
-              type="button"
-              className="btn-ghost btn-sm pdf-reader-side-collapse"
-              aria-expanded
-              title="Hide the side panel"
-              onClick={toggleSide}
-            >
-              Collapse
-            </button>
-            {showOutline && (
-              <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
-            )}
-            {showReferences && (
-              <ReferencesPanel
-                references={refs.index.references}
-                resolutions={refs.resolutions}
-                pageNumber={viewport.page}
-                loading={pageItems.size < numPages}
-                parseFailed={pageItems.size >= numPages && refs.index.references.length === 0}
-                onJumpToMention={(ref) => {
-                  // Land on the first mention itself, not just its page: the
-                  // page-only jump did nothing when the mention was on the
-                  // page already shown, and left the reader hunting otherwise.
-                  for (const [n, hits] of refs.index.mentionsByPage) {
-                    const hit = hits.find((candidate) => candidate.refIndexes.includes(ref.index));
-                    if (!hit) continue;
-                    const [x1, y1, , y2] = hit.rects?.[0] ?? [];
-                    if (x1 != null && y1 != null && y2 != null) {
-                      onFigureTarget({ page: n, x: x1, y: y2, height: y2 - y1 });
-                    } else {
-                      onFigureTarget({ page: n, y: 0 });
-                    }
-                    return;
-                  }
-                  onFigureTarget({ page: ref.page, x: ref.x, y: ref.y });
-                }}
-              />
-            )}
-            {(annotations.length > 0 || canCreate) && (
-              <AnnotationSidebar
-                annotations={annotations}
-                quotationTypes={quotationTypes}
-                paperTitle={paperTitle}
-                selectedId={selectedAnnId}
-                canEditLocal={canCreate}
-                reportSections={reportSections}
-                pinsByKey={pinsByKey}
-                backlinks={
-                  selectedAnnId ? backlinksForAnnotation(backlinkHits, selectedAnnId) : []
-                }
-                onUpdateLocal={updateLocal}
-                onRemoveLocal={askRemove}
-                onPinLocal={pinLocal}
-                onSelect={(id) => {
-                  setSelectedAnnId(id);
-                  const ann = annotations.find((a) => a.id === id);
-                  const pageIdx = ann?.anchor.zoteroPosition?.pageIndex;
-                  if (typeof pageIdx === "number") viewport.setPage(pageIdx + 1);
-                }}
-              />
-            )}
-          </div>
-        )}
         {/* The scrollbar ticks sit on a wrapper, not inside the scroller, so
             they stay put while the pages move. */}
         <div className="pdf-reader-scroll-wrap">
@@ -1476,6 +1394,8 @@ export function PdfReader({
               className="pdf-reader-page-row"
               data-page={n}
               key={n}
+              role="group"
+              aria-label={`Page ${n} of ${numPages}`}
               // The tool's own pointer, from the one table both surfaces read
               // (`INK_TOOL_CURSORS`): a crosshair for a nib that is aimed, the
               // eraser's ring for the tip that rubs out. Set here rather than in
@@ -1590,6 +1510,93 @@ export function PdfReader({
           ))}
         </div>
         </div>
+        {/* Writing is a full-width activity: with the pen bar up — whatever tool
+            it holds, the lasso included — the outline, the references and the
+            annotation list all stand down and the paper gets the room. Nothing
+            on a paper is picked up *from* the list; it is picked up on the page,
+            by drawing a loop round it. */}
+        {/* Collapsed, the whole column folds to one vertical tab that still
+            says how many annotations wait behind it. */}
+        {!penOpen && sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
+          <button
+            type="button"
+            className="pdf-reader-side-rail"
+            aria-expanded={false}
+            aria-label={`Show the side panel${annotations.length ? `, ${annotations.length} annotations` : ""}`}
+            title="Show the side panel"
+            onClick={toggleSide}
+          >
+            <span>Annotations{annotations.length ? ` ${annotations.length}` : ""}</span>
+          </button>
+        )}
+        {!penOpen && !sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
+          <div className={`pdf-reader-side${showAnnotationList ? " is-list-open" : ""}`}>
+            <button
+              type="button"
+              className="btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-side-collapse"
+              aria-expanded
+              aria-label="Hide the side panel"
+              title="Hide the side panel"
+              onClick={toggleSide}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
+            {showOutline && (
+              <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
+            )}
+            {showReferences && (
+              <ReferencesPanel
+                references={refs.index.references}
+                resolutions={refs.resolutions}
+                pageNumber={viewport.page}
+                loading={pageItems.size < numPages}
+                parseFailed={pageItems.size >= numPages && refs.index.references.length === 0}
+                onJumpToMention={(ref) => {
+                  // Land on the first mention itself, not just its page: the
+                  // page-only jump did nothing when the mention was on the
+                  // page already shown, and left the reader hunting otherwise.
+                  for (const [n, hits] of refs.index.mentionsByPage) {
+                    const hit = hits.find((candidate) => candidate.refIndexes.includes(ref.index));
+                    if (!hit) continue;
+                    const [x1, y1, , y2] = hit.rects?.[0] ?? [];
+                    if (x1 != null && y1 != null && y2 != null) {
+                      onFigureTarget({ page: n, x: x1, y: y2, height: y2 - y1 });
+                    } else {
+                      onFigureTarget({ page: n, y: 0 });
+                    }
+                    return;
+                  }
+                  onFigureTarget({ page: ref.page, x: ref.x, y: ref.y });
+                }}
+              />
+            )}
+            {(annotations.length > 0 || canCreate) && (
+              <AnnotationSidebar
+                annotations={annotations}
+                quotationTypes={quotationTypes}
+                paperTitle={paperTitle}
+                selectedId={selectedAnnId}
+                canEditLocal={canCreate}
+                reportSections={reportSections}
+                pinsByKey={pinsByKey}
+                backlinks={
+                  selectedAnnId ? backlinksForAnnotation(backlinkHits, selectedAnnId) : []
+                }
+                onUpdateLocal={updateLocal}
+                onRemoveLocal={askRemove}
+                onPinLocal={pinLocal}
+                onSelect={(id) => {
+                  setSelectedAnnId(id);
+                  const ann = annotations.find((a) => a.id === id);
+                  const pageIdx = ann?.anchor.zoteroPosition?.pageIndex;
+                  if (typeof pageIdx === "number") viewport.setPage(pageIdx + 1);
+                }}
+              />
+            )}
+          </div>
+        )}
       </div>
       <ReferencePopoverHost
         refs={refs}
