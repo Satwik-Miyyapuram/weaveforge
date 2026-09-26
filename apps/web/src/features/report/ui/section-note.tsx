@@ -7,7 +7,8 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
 import { editorImageUpload } from "@/lib/editor-image-upload";
-import { DeleteIcon, EditIcon } from "@/components/view-icons";
+import { EditIcon } from "@/components/view-icons";
+import { CardMenu } from "@/components/card-menu";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import type { EditorHandle } from "@/components/editor-handle";
 import { AttachImageButton } from "@/components/attach-image-button";
@@ -24,8 +25,8 @@ import { SectionRelatedExcerpts } from "./section-related-excerpts";
 import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
 
 /**
- * Full-page section writing view — same chrome as PaperNote: back, status,
- * share/comments, then read or edit the draft.
+ * Full-page section writing view: back, status and word progress, one
+ * toolbar (edit, comments, share, more), then read or edit the draft.
  */
 export function SectionNote({
   section,
@@ -73,7 +74,6 @@ export function SectionNote({
   const dirty = draft !== (section.notes ?? "");
   const hasNotes = Boolean(section.notes?.trim());
   const meta = [
-    section.sectionNo ? `§ ${section.sectionNo}` : null,
     section.targetWords
       ? `${section.wordCount} / ${section.targetWords} words`
       : `${section.wordCount} words`,
@@ -81,6 +81,9 @@ export function SectionNote({
   ]
     .filter(Boolean)
     .join(" · ");
+  const progress = section.targetWords
+    ? Math.min(100, Math.round((section.wordCount / section.targetWords) * 100))
+    : null;
 
   async function changeStatus(status: ReportStatus) {
     setBusy(true);
@@ -138,81 +141,89 @@ export function SectionNote({
         ← Report
       </button>
 
-      <div className="paper-note-head">
-        {!readOnly && (
+      {/* Status, then one toolbar, then the title: the order of the phone mock
+          (PhoneSectionDetail), which reads the same on a wide screen. Delete is
+          behind the ⋯ menu, not one stray tap beside Share. */}
+      <div className="section-note-status">
+        <div className="section-note-status-row">
+          {readOnly ? (
+            <PinnedPaperBadge ownerName={sharedByName} />
+          ) : (
+            <span className="paper-note-status">
+              <Select
+                className="status-select"
+                value={section.status}
+                disabled={busy}
+                onChange={(e) => void changeStatus(e.target.value as ReportStatus)}
+                aria-label="Section status"
+              >
+                {REPORT_STATUSES.map((st) => (
+                  <option key={st} value={st}>
+                    {st.replace("_", " ")}
+                  </option>
+                ))}
+              </Select>
+            </span>
+          )}
+          {meta && <span className="muted section-note-meta">{meta}</span>}
+        </div>
+        {progress !== null && (
+          <div className="progress-bar section-note-progress" aria-hidden="true">
+            <span style={{ width: `${progress}%` }} />
+          </div>
+        )}
+      </div>
+
+      <div className="paper-note-head section-note-toolbar" role="toolbar" aria-label="Section">
+        {!readOnly && !editing && (
           <button
             type="button"
-            className="entity-icon-btn danger"
-            onClick={() => void remove()}
-            disabled={busy}
-            aria-label="Delete section"
-            title="Delete"
+            className="btn-primary section-note-edit"
+            onClick={() => {
+              setDraft(section.notes ?? "");
+              setEditing(true);
+            }}
           >
-            <DeleteIcon />
+            <EditIcon />
+            {hasNotes ? "Edit" : "Write"}
           </button>
         )}
-        {readOnly ? (
-          <PinnedPaperBadge ownerName={sharedByName} />
-        ) : (
-          <span className="paper-note-status">
-            <Select
-              className="status-select"
-              value={section.status}
-              disabled={busy}
-              onChange={(e) => void changeStatus(e.target.value as ReportStatus)}
-              aria-label="Section status"
-            >
-              {REPORT_STATUSES.map((st) => (
-                <option key={st} value={st}>
-                  {st.replace("_", " ")}
-                </option>
-              ))}
-            </Select>
-          </span>
+        {!readOnly && editing && (
+          <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
         )}
-        <div className="card-foot-right">
-          {readOnly ? (
-            <CommentsToggle
+        <CommentsToggle
+          resourceType="report_section"
+          resourceId={section.id}
+          canComment={readOnly ? canComment : true}
+          variant="detail"
+        />
+        {!readOnly && (
+          <div className="card-foot-right">
+            <ShareButton
               resourceType="report_section"
               resourceId={section.id}
-              canComment={canComment}
-              variant="detail"
+              title={`Share: ${section.title}`}
             />
-          ) : (
-            <>
-              <ShareButton
-                resourceType="report_section"
-                resourceId={section.id}
-                title={`Share: ${section.title}`}
-              />
-              {!editing && (
-                <button
-                  type="button"
-                  className="entity-icon-btn"
-                  onClick={() => {
-                    setDraft(section.notes ?? "");
-                    setEditing(true);
-                  }}
-                  aria-label={hasNotes ? "Edit note" : "Write note"}
-                  title={hasNotes ? "Edit note" : "Write note"}
-                >
-                  <EditIcon />
-                </button>
-              )}
-              {editing && (
-                <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
-              )}
-              <CommentsToggle resourceType="report_section" resourceId={section.id} canComment variant="detail" />
-            </>
-          )}
-        </div>
+            <CardMenu
+              label="More section actions"
+              items={[
+                {
+                  id: "delete",
+                  label: "Delete section",
+                  danger: true,
+                  disabled: busy,
+                  onSelect: () => void remove(),
+                },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       <h1 className="paper-article-title">
         {section.sectionNo && <span className="muted">{section.sectionNo} </span>}
         {section.title}
       </h1>
-      {meta && <p className="muted paper-article-by">{meta}</p>}
 
       <div className="section-note-layout">
       <div className="paper-note-body">
