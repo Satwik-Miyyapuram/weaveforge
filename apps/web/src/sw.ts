@@ -11,7 +11,7 @@
  * next navigation; activate wipes legacy runtime caches from older workers.
  */
 import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from "serwist";
-import { CacheFirst, ExpirationPlugin, Serwist, StaleWhileRevalidate } from "serwist";
+import { CacheFirst, ExpirationPlugin, NetworkOnly, Serwist, StaleWhileRevalidate } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -63,12 +63,33 @@ const staticOnlyRuntime: RuntimeCaching[] = [
   },
 ];
 
+/**
+ * The offline page, for opening a page with no network.
+ *
+ * Navigations stay network-only (see the header), so this is not a cached copy
+ * of any page: it is `public/offline.html`, precached, shown only when the
+ * network request itself fails. Without it an installed app — an iPad home
+ * screen icon especially — opens offline onto the browser's own error page.
+ */
+const OFFLINE_URL = "/offline.html";
+
+const navigationFallback: RuntimeCaching = {
+  matcher: ({ request }) => request.mode === "navigate",
+  handler: new NetworkOnly({
+    plugins: [
+      {
+        handlerDidError: async () => (await serwist.matchPrecache(OFFLINE_URL)) ?? Response.error(),
+      },
+    ],
+  }),
+};
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: false,
-  runtimeCaching: staticOnlyRuntime,
+  runtimeCaching: [...staticOnlyRuntime, navigationFallback],
   precacheOptions: {
     cleanupOutdatedCaches: true,
   },

@@ -47,7 +47,7 @@ const PdfTextFolderSync = dynamic(
  * the current project id so switching projects remounts (and reloads) screens.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading, expired } = useAuth();
+  const { user, loading, expired, sessionEpoch } = useAuth();
   const pathname = usePathname();
   if (pathname === "/recover") return <EmailRecoveryScreen />;
   if (pathname === "/reset-password") return <PasswordResetScreen />;
@@ -71,7 +71,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
                 {expired && <SessionExpiredPrompt />}
-                <ProjectProvider>
+                {/* Keyed on the session epoch: after signing back in, every
+                    screen that loaded while signed out loads again. */}
+                <ProjectProvider key={sessionEpoch}>
                   <PdfTextFolderSync />
                   <ProjectScopedShell>{children}</ProjectScopedShell>
                 </ProjectProvider>
@@ -260,11 +262,15 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
 
 /**
  * The session lapsed while the app was open. The workspace and its folder stay
- * where they are; this asks for a fresh sign-in on top of them, and signing in
+ * where they are; a bar at the bottom asks for a fresh sign-in, and signing in
  * as the same person picks up exactly where they were.
+ *
+ * It can be closed: the person may be in the middle of something and choose to
+ * sign in later. Closing hides it for this window; it returns on the next launch.
  */
 function SessionExpiredPrompt() {
   const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   if (open) {
     return (
       <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
@@ -273,10 +279,22 @@ function SessionExpiredPrompt() {
       </div>
     );
   }
+  if (dismissed) return null;
   return (
     <div className="session-expired-banner" role="status">
-      <span>Your session ended. Your workspace folder is still connected — sign in again to sync.</span>
-      <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(true)}>Sign in</button>
+      <span className="session-expired-text">
+        <strong>You&apos;re signed out.</strong> Sign in to sync. Your workspace folder stays connected.
+      </span>
+      <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(true)}>Sign in to sync</button>
+      <button
+        type="button"
+        className="btn-ghost btn-icon session-expired-dismiss"
+        onClick={() => setDismissed(true)}
+        aria-label="Close"
+        title="Close"
+      >
+        ×
+      </button>
     </div>
   );
 }

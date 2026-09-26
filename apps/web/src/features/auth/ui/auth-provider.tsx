@@ -11,6 +11,9 @@ import {
 import type { AuthUser } from "../domain/auth";
 import { clearSessionCaches } from "@/lib/cache/clear-session-caches";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { setSessionLost } from "@/lib/session-lost";
 
 interface AuthState {
   user: AuthUser | null;
@@ -21,6 +24,11 @@ interface AuthState {
    * the shell asks for a fresh sign-in instead of dropping to the login screen.
    */
   expired: boolean;
+  /**
+   * Bumped when a lapsed session comes back. Screens that loaded while signed
+   * out hold the server's refusals; the shell keys on this so they load again.
+   */
+  sessionEpoch: number;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
 }
@@ -36,6 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  const wasExpired = useRef(false);
   const lastUser = useRef<AuthUser | null>(null);
   const signingOut = useRef(false);
 
@@ -64,9 +74,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Only a deliberate sign-out (or a browser, which has no folder to
           // lose) clears the session.
           if (previous && !signingOut.current && desktop()) {
+            wasExpired.current = true;
+            setSessionLost(true);
             setExpired(true);
             return;
           }
+          wasExpired.current = false;
+          setSessionLost(false);
           signingOut.current = false;
           lastUser.current = null;
           setExpired(false);
@@ -76,6 +90,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         // Signing back in as someone else must not inherit the last user's caches.
         if (previous && previous.id !== u.id) clearSessionCaches();
+        else if (wasExpired.current) {
+          // Back from a lapsed session as the same person. Nothing on this
+          // device is wrong, only what was fetched while signed out: drop
+          // those answers and let every screen ask again.
+          invalidateAllRepoCaches();
+          clearAllScreenCaches();
+          setSessionEpoch((n) => n + 1);
+        }
+        wasExpired.current = false;
+        setSessionLost(false);
         lastUser.current = u;
         setExpired(false);
         setUser(u);
@@ -123,6 +147,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     signingOut.current = true;
+    wasExpired.current = false;
+    setSessionLost(false);
     if (expired) {
       // The session is already gone, so the auth service has nothing to
       // announce; finish the sign-out here.
@@ -141,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, expired, signOut, updatePassword }}>
+    <AuthContext.Provider value={{ user, loading, expired, sessionEpoch, signOut, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );
