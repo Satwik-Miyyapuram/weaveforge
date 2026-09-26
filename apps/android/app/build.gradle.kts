@@ -215,4 +215,6 @@ dependencies {
 
     // The gesture rules, as a JVM test. See `InkGestureRouterTest`.
     testImplementation("junit:junit:4.13.2")
+    // `org.json` is part of Android, but a JVM unit test sees only stubs of it.
+    testImplementation("org.json:json:20240303")
 }
