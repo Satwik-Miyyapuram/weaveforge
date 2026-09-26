@@ -139,10 +139,12 @@
 }
 .entity-card[role="button"],
 .paper-card[role="button"] { cursor: pointer; }
+@media (hover: hover) {
 .entity-card[role="button"]:hover,
 .paper-card[role="button"]:hover {
   border-color: var(--border-strong);
   background: var(--surface2);
+}
 }
 .entity-card--nested {
   padding: 8px 10px;

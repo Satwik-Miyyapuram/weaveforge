@@ -440,14 +440,17 @@
   box-shadow: none;
   border-color: var(--border);
 }
-:root :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
-  box-shadow: none;
-  background: color-mix(in srgb, var(--surface2) 55%, transparent);
-  border-color: var(--border-strong);
-}
 :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card {
   border-color: transparent;
   background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+/* Not in Poster/CRT: at (0,6,0) this beat their card hover and dropped the
+   status tint and the stamped shadow. Pointer only, as a tap left it stuck. */
+@media (hover: hover) {
+:root:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--surface2) 55%, transparent);
+  border-color: var(--border-strong);
 }
 :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
   border-color: transparent;
@@ -457,6 +460,7 @@
    and cancelling `transform` here would silently switch that setting off. */
 :root:not([data-motion="reactive"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
   transform: none;
+}
 }
 :is(.papers-screen, .vault-screen) .paper-card .entity-card-title { font-size: 1.04rem; line-height: 1.32; }
 :is(.papers-screen, .vault-screen) .paper-card .entity-card-snippet { -webkit-line-clamp: 2; line-clamp: 2; color: var(--faint); }
