@@ -94,6 +94,9 @@ test("pinScript owns the window by the desktop and sends it to the bottom withou
   assert.match(script, /SetWindowLongPtr\(\$window, -8, \$desktop\)/);
   // HWND_BOTTOM, and SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE.
   assert.match(script, /SetWindowPos\(\$window, \[IntPtr\]1, 0, 0, 0, 0, 0x13\)/);
+  // Then stays up, sending it back down whenever Show desktop or a restore raised it.
+  assert.match(script, /\[WeaveForgePin\]::Hold\(\$window\)\n$/);
+  assert.match(script, /SetWinEventHook\(0x3, 0x3,/);
 });
 
 test("powershellArgs passes the whole script encoded, not on stdin", () => {

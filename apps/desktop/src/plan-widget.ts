@@ -110,7 +110,14 @@ export function hwndFromHandle(handle: Uint8Array): bigint {
  * desktop is the bottom of everything, so the widget stays just above the
  * wallpaper and icons, under every ordinary window, and survives Show desktop
  * (Win+D), which hides ordinary windows and brings the desktop forward. Then
- * it is sent to the bottom once, without being activated.
+ * it is sent to the bottom, without being activated.
+ *
+ * Show desktop raises the desktop together with every window it owns, and
+ * when the other windows come back the widget is left above them. So the
+ * helper does not exit: it listens for the foreground window changing and a
+ * window being restored, and sends the widget to the bottom again each time,
+ * as Rainmeter does. It checks every few seconds that the widget still exists
+ * and exits once it is gone, so a crashed app leaves no helper behind.
  *
  * This is deliberately not the WorkerW reparenting that animated-wallpaper
  * apps use: a child of WorkerW cannot take clicks, and its position changed
@@ -139,6 +146,31 @@ public static class WeaveForgePin {
   [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)] public static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
   [DllImport("user32.dll", SetLastError = true)] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern uint RegisterWindowMessage(string name);
+  [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
+  [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module, WinEvent proc, uint pid, uint tid, uint flags);
+  [DllImport("user32.dll")] static extern UIntPtr SetTimer(IntPtr hwnd, UIntPtr id, uint ms, IntPtr proc);
+  [DllImport("user32.dll")] static extern int GetMessage(out Msg msg, IntPtr hwnd, uint min, uint max);
+  [DllImport("user32.dll")] static extern bool TranslateMessage(ref Msg msg);
+  [DllImport("user32.dll")] static extern IntPtr DispatchMessage(ref Msg msg);
+  [StructLayout(LayoutKind.Sequential)] public struct Msg { public IntPtr hwnd; public uint message; public IntPtr wParam; public IntPtr lParam; public uint time; public int x; public int y; }
+  public delegate void WinEvent(IntPtr hook, uint ev, IntPtr hwnd, int obj, int child, uint thread, uint time);
+  static IntPtr held;
+  static WinEvent onEvent;
+  static void Bottom() { SetWindowPos(held, (IntPtr)1, 0, 0, 0, 0, 0x13); }
+  public static void Hold(IntPtr window) {
+    held = window;
+    onEvent = (hook, ev, hwnd, obj, child, thread, time) => Bottom();
+    // EVENT_SYSTEM_FOREGROUND and EVENT_SYSTEM_MINIMIZEEND, out of context.
+    SetWinEventHook(0x3, 0x3, IntPtr.Zero, onEvent, 0, 0, 0);
+    SetWinEventHook(0x17, 0x17, IntPtr.Zero, onEvent, 0, 0, 0);
+    SetTimer(IntPtr.Zero, UIntPtr.Zero, 5000, IntPtr.Zero);
+    Msg msg;
+    while (GetMessage(out msg, IntPtr.Zero, 0, 0) > 0) {
+      if (msg.message == 0x113 && !IsWindow(held)) return;
+      TranslateMessage(ref msg);
+      DispatchMessage(ref msg);
+    }
+  }
 }
 '@
 $ProgressPreference = 'SilentlyContinue'
@@ -148,6 +180,7 @@ $desktop = [WeaveForgePin]::FindWindow('Progman', [IntPtr]::Zero)
 if ($desktop -eq [IntPtr]::Zero) { exit 2 }
 [void][WeaveForgePin]::SetWindowLongPtr($window, -8, $desktop)
 [void][WeaveForgePin]::SetWindowPos($window, [IntPtr]1, 0, 0, 0, 0, 0x13)
+[WeaveForgePin]::Hold($window)
 `;
 }
 
