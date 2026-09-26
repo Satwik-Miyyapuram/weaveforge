@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { ReaderViewportApi } from "./use-reader-viewport";
 
 interface ReaderToolbarProps {
@@ -16,9 +16,11 @@ interface ReaderToolbarProps {
    * are how the paper is *read*, and a writer still turns the page.
    */
   hideFit?: boolean;
+  /** Phone-only toggles (find, more), at the end of the row. */
+  children?: ReactNode;
 }
 
-export function ReaderToolbar({ viewport, numPages, hideFit = false }: ReaderToolbarProps) {
+export function ReaderToolbar({ viewport, numPages, hideFit = false, children }: ReaderToolbarProps) {
   const percent = Math.round(viewport.renderScale * 100);
   const pages = Math.max(1, numPages);
 
@@ -69,7 +71,9 @@ export function ReaderToolbar({ viewport, numPages, hideFit = false }: ReaderToo
           +
         </button>
       </div>
-      <div className="pdf-reader-group">
+      {/* On a phone, fit and rotate live behind "More": pinch zooms, and the
+          page already opens at fit width. */}
+      <div className="pdf-reader-group pdf-reader-more">
         {!hideFit && (
           <>
             <button
@@ -124,6 +128,7 @@ export function ReaderToolbar({ viewport, numPages, hideFit = false }: ReaderToo
         />
         <span className="muted">/ {pages}</span>
       </label>
+      {children}
     </div>
   );
 }

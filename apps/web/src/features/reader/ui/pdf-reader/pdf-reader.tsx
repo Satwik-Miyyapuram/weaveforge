@@ -154,6 +154,12 @@ export function PdfReader({
   const rootRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const [showOutline, setShowOutline] = useState(false);
+  /**
+   * Phones: which folded part of the chrome is open. The two rows used to
+   * scroll sideways to reach a dozen controls; now the row holds the page,
+   * zoom and the annotation tools, and find and the rest open on demand.
+   */
+  const [phonePanel, setPhonePanel] = useState<"none" | "search" | "more">("none");
   const [showReferences, setShowReferences] = useState(false);
   // Narrow screens stack the side column under the page, where an always-open
   // annotation list took 40% of a phone's height. There it waits behind this.
@@ -1076,8 +1082,34 @@ export function PdfReader({
       )}
       {/* One panel, two rows: viewport controls above, find/view/annotate below.
           Two free-floating wrapping bars read as scattered chrome. */}
-      <div className="pdf-reader-chrome">
-        <ReaderToolbar viewport={viewport} numPages={numPages} hideFit={penOpen} />
+      <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
+        <ReaderToolbar viewport={viewport} numPages={numPages} hideFit={penOpen}>
+          <div className="pdf-reader-phone-toggles pdf-reader-group">
+            <button
+              type="button"
+              className={`btn-secondary btn-sm pdf-reader-icon-btn${phonePanel === "search" ? " is-active" : ""}`}
+              aria-pressed={phonePanel === "search"}
+              aria-label="Find in document"
+              title="Find"
+              onClick={() => setPhonePanel((v) => (v === "search" ? "none" : "search"))}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-sm pdf-reader-icon-btn${phonePanel === "more" ? " is-active" : ""}`}
+              aria-pressed={phonePanel === "more"}
+              aria-expanded={phonePanel === "more"}
+              aria-label="More reader controls"
+              title="More"
+              onClick={() => setPhonePanel((v) => (v === "more" ? "none" : "more"))}
+            >
+              ⋯
+            </button>
+          </div>
+        </ReaderToolbar>
         <div className="pdf-reader-tools">
         <ReaderSearchBar
           pages={pageTexts}
@@ -1086,7 +1118,7 @@ export function PdfReader({
           }}
           onMatches={(matches, active) => setFind({ matches, active })}
         />
-        <div className="pdf-reader-group">
+        <div className="pdf-reader-group pdf-reader-more">
           {/* Outline, citations and references all live in the side column the
               pen hides, so their toggles stand down with it rather than offering
               a switch that would appear to do nothing. The search bar stays: it
@@ -1135,7 +1167,7 @@ export function PdfReader({
         </div>
         <button
           type="button"
-          className="btn-secondary btn-sm pdf-reader-focus-btn"
+          className="btn-secondary btn-sm pdf-reader-focus-btn pdf-reader-more"
           title="Focus (⌘⇧F)"
           aria-label="Focus"
           onClick={toggleFocus}
@@ -1158,7 +1190,7 @@ export function PdfReader({
           </button>
         )}
         {canCreate && !penOpen && (
-          <div className="pdf-reader-group">
+          <div className="pdf-reader-group pdf-reader-annotate">
             {/* Named by what each does. The three ink tools are deliberately
                 absent: ink is the ink mode's, with the note's nibs and renderer.
                 What is left is what a reader does *to* a paper. A segmented
