@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APP_URL } from "@/app/pitch/links";
 import { ATLAS, docsBySection, SECTION_LABELS } from "../../lib/docs";
 import "./docs.css";
 
@@ -6,35 +7,46 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
   const sections = docsBySection();
 
   return (
-    <div className="docs-shell">
-      <aside className="docs-nav">
-        <Link href="/" className="docs-home">
-          ← WeaveForge
-        </Link>
-        <nav>
-          {sections.map(({ section, pages }) => (
-            <section key={section || "root"} className="docs-nav-group">
-              <h2>{SECTION_LABELS[section] ?? section.replace(/[-_]/g, " ")}</h2>
-              <ul>
-                {pages.map((page) => (
-                  <li key={page.slug.join("/")}>
-                    <Link href={`/docs/${page.slug.join("/")}/`}>{page.title}</Link>
-                  </li>
-                ))}
-                {/* Sits with the rest of "how it is built" even though it is not
-                    a Markdown page: a reader looking for the map should find it
-                    where the map belongs, not only by knowing the URL. */}
-                {section === "building" && (
-                  <li>
-                    <a href={ATLAS.href}>{ATLAS.title}</a>
-                  </li>
-                )}
-              </ul>
-            </section>
-          ))}
-        </nav>
-      </aside>
-      <main className="docs-main">{children}</main>
+    <div className="docs-page">
+      {/* The pitch's header, in the pitch's look: the docs are the same site,
+          and a reader who follows "Docs" from it should not land somewhere that
+          looks like a different product. */}
+      <header className="docs-top">
+        <div className="docs-top-in">
+          <Link href="/" className="docs-brand">
+            <span className="docs-logo">WF</span>WeaveForge
+          </Link>
+          <Link href="/docs/" className="docs-top-tag">Docs</Link>
+          <a className="docs-btn" href={APP_URL}>Open the app</a>
+        </div>
+      </header>
+      <div className="docs-shell">
+        <aside className="docs-nav">
+          <nav>
+            {sections.map(({ section, pages }) => (
+              <section key={section || "root"} className="docs-nav-group">
+                <h2>{SECTION_LABELS[section] ?? section.replace(/[-_]/g, " ")}</h2>
+                <ul>
+                  {pages.map((page) => (
+                    <li key={page.slug.join("/")}>
+                      <Link href={`/docs/${page.slug.join("/")}/`}>{page.title}</Link>
+                    </li>
+                  ))}
+                  {/* Sits with the rest of "how it is built" even though it is not
+                      a Markdown page: a reader looking for the map should find it
+                      where the map belongs, not only by knowing the URL. */}
+                  {section === "building" && (
+                    <li>
+                      <a href={ATLAS.href}>{ATLAS.title}</a>
+                    </li>
+                  )}
+                </ul>
+              </section>
+            ))}
+          </nav>
+        </aside>
+        <main className="docs-main">{children}</main>
+      </div>
     </div>
   );
 }
