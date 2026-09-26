@@ -130,18 +130,16 @@ export function buildGraphData(
   const paperIds = new Set(papers.map((p) => p.id));
 
   /**
-   * A run is drawn only when it has a paper to sit beside.
+   * Every run is drawn, one node each, whether or not it tests a paper.
    *
-   * `relatedPaper` is the one edge an experiment carries, and an unlinked run
-   * would be a node with nothing attached — which is exactly what `hideOrphans`
-   * exists to keep off the canvas. Its paper must also be one the graph is
-   * actually showing: a run pointing at a paper filtered out by the settings
-   * elsewhere would otherwise contribute a node and an edge to nowhere, and the
-   * link filter at the end would drop the edge while keeping the node.
+   * A run is a first-class artefact like a paper, so it stays on the canvas
+   * even with `hideOrphans` on. Its notes and conclusions live on the run and
+   * are not split into nodes of their own. The paper edge is drawn only when
+   * `relatedPaper` names a paper the graph is showing; otherwise the link
+   * filter at the end would drop an edge to nowhere.
    */
-  const linkedExperiments = experiments.filter(
-    (e) => e.relatedPaper !== undefined && paperIds.has(e.relatedPaper),
-  );
+  const isLinkedRun = (e: ExperimentEntry) =>
+    e.relatedPaper !== undefined && paperIds.has(e.relatedPaper);
 
   if (showRelationEdges(settings)) {
     for (const e of relations) {
@@ -313,6 +311,7 @@ export function buildGraphData(
     for (const n of notes) addWikiEdges(n.id, n.body);
     for (const p of papers) addWikiEdges(p.id, p.summary);
     for (const s of sections) addWikiEdges(s.id, s.notes);
+    for (const e of experiments) addWikiEdges(e.id, e.note);
   }
 
   for (const p of papers) {
@@ -369,7 +368,7 @@ export function buildGraphData(
   }
 
   /**
-   * Runs, each hanging off the paper it tests.
+   * Runs, one node each, hanging off the paper it tests when it has one.
    *
    * A run is the record of *doing* the work a paper proposes, and until now the
    * graph showed only the papers — so the one artefact a reader produces
@@ -388,8 +387,8 @@ export function buildGraphData(
    * at the end. An earlier version of this loop carried the call, which is a
    * line of code asserting a relationship the data model already expresses.
    */
-  for (const e of linkedExperiments) {
-    links.push({
+  for (const e of experiments) {
+    if (isLinkedRun(e)) links.push({
       id: `exp:${e.id}`,
       source: e.relatedPaper!,
       target: e.id,
@@ -397,10 +396,9 @@ export function buildGraphData(
       width: 1 * settings.linkThickness,
       kind: "experiment",
     });
-    // The run's own degree, and only that: it is what sizes the run, and a run
-    // carries exactly one edge so it is always 1 today. Written out rather than
-    // hard-coded so a second edge — a milestone, say — would size it correctly.
-    bump(e.id);
+    // The run's own degree, and only that: it is what sizes the run — 1 when it
+    // tests a shown paper, 0 when it stands alone.
+    if (isLinkedRun(e)) bump(e.id);
     nodes.push({
       id: e.id,
       kind: "experiment",
