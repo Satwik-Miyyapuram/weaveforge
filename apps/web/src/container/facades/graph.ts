@@ -40,7 +40,7 @@ export interface GraphScreenData {
   /**
    * The project's runs, as the graph draws them.
    *
-   * Four fields rather than the entities, matching `ExperimentEntry`: the graph
+   * A few fields rather than the entities, matching `ExperimentEntry`: the graph
    * needs a run's name, its status and the paper it tests, and giving it whole
    * `Experiment` rows would put metric payloads and config blobs into a node
    * array that react-force-graph clones on every layout pass.
@@ -93,6 +93,7 @@ export class GraphFacade {
         name: e.name,
         status: e.status,
         relatedPaper: e.relatedPaper,
+        note: [e.hypothesis, e.resultNote].filter(Boolean).join("\n") || undefined,
       })),
     };
   }

@@ -248,25 +248,24 @@ describe("experiment nodes", () => {
     assert.equal(link?.target, "e1");
   });
 
-  it("leaves a run with no paper off the graph, rather than as a floating node", () => {
+  it("draws a run with no paper as its own node, even with hideOrphans on", () => {
     const { data } = buildGraphData(
       [paper("p1", "One")],
       [],
-      { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
+      { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: true },
       new Map(),
       [],
       [],
       [],
       [run("e1", "Unlinked")],
     );
-    assert.equal(data.nodes.some((n) => n.id === "e1"), false);
+    assert.equal(data.nodes.filter((n) => n.id === "e1").length, 1);
+    assert.equal(data.links.some((l) => l.kind === "experiment"), false);
   });
 
-  it("leaves a run whose paper is not in the graph off it too", () => {
+  it("keeps a run whose paper is not in the graph, without an edge to nowhere", () => {
     // The paper exists in the project but is not among the papers handed to the
-    // builder — filtered out by a tag or list selection upstream. Keeping the
-    // node would leave one edge the link filter then drops, so the canvas would
-    // show a run connected to nothing.
+    // builder — filtered out by a tag or list selection upstream.
     const { data } = buildGraphData(
       [paper("p1", "One")],
       [],
@@ -277,8 +276,26 @@ describe("experiment nodes", () => {
       [],
       [run("e1", "Orphaned run", "p-missing")],
     );
-    assert.equal(data.nodes.some((n) => n.id === "e1"), false);
+    assert.equal(data.nodes.some((n) => n.id === "e1"), true);
     assert.equal(data.links.some((l) => l.kind === "experiment"), false);
+  });
+
+  it("folds a run's note into its node: wikilinks become edges from the run", () => {
+    const { data } = buildGraphData(
+      [paper("p1", "One")],
+      [],
+      { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
+      new Map(),
+      [],
+      [],
+      [],
+      [{ ...run("e1", "Ablation"), note: "Beats [[One]] on recall." }],
+    );
+    assert.equal(data.nodes.filter((n) => n.kind === "experiment").length, 1);
+    assert.equal(data.nodes.some((n) => n.kind === "note"), false);
+    const wl = data.links.find((l) => l.kind === "wikilink");
+    assert.equal(wl?.source, "e1");
+    assert.equal(wl?.target, "p1");
   });
 
   it("makes the run a neighbour of its paper, so hovering one lights the other", () => {
