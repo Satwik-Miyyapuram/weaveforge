@@ -252,6 +252,9 @@
 .dashboard-card-meta { font-size: 0.88rem; color: var(--muted); }
 .dashboard-card-empty { margin: 0; font-size: 0.88rem; }
 .dashboard-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+/* A bare grid track is minmax(auto, 1fr): a long log preview set the row to its
+   full nowrap width and ran it out of the card on a phone instead of ellipsing. */
+.dashboard-list { grid-template-columns: minmax(0, 1fr); }
 .dashboard-list-row {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   min-width: 0;
