@@ -271,3 +271,18 @@ test("formatError: a missing database function says the server needs its migrati
   assert.match(message, /no metric_history function/);
   assert.doesNotMatch(message, /\[object Object\]/);
 });
+
+test("a refusal while signed out says to sign in, and only while signed out", async () => {
+  const { setSessionLost, SESSION_LOST_MESSAGE } = await import("../session-lost");
+  const refusal = { code: "42501", details: null, hint: null, message: "permission denied for table projects" };
+  assert.equal(formatError(refusal), "permission denied for table projects");
+  setSessionLost(true);
+  try {
+    assert.equal(formatError(refusal), SESSION_LOST_MESSAGE);
+    assert.equal(formatError(new Error("permission denied for table papers")), SESSION_LOST_MESSAGE);
+    // Anything that is not a refusal keeps its own words.
+    assert.equal(formatError(new Error("disk full")), "disk full");
+  } finally {
+    setSessionLost(false);
+  }
+});
