@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { forceCollide, forceX, forceY } from "d3-force";
+import { forceCollide } from "d3-force";
 import type {
   GraphViewSettings,
   Paper,
@@ -20,6 +20,7 @@ import {
 import { cloneLinks, filterGraphByNodes, localSubgraph } from "../application/local-graph";
 import { EdgeDetailPopover } from "./graph-side-panel";
 import { useGraphColours } from "./graph-colours";
+import { setGravity } from "./graph-gravity";
 import { paintStamp, paintStampLabel, stampRadius } from "./graph-stamp";
 
 // Wrapper forwards the ref through an `innerRef` prop because next/dynamic's
@@ -123,10 +124,6 @@ function mergeSimNodes(
   for (const [id, node] of next) cache.set(id, node);
   return [...next.values()];
 }
-
-/** The pull towards the middle: always a little, more as Center goes up. */
-const GRAVITY_BASE = 0.02;
-const GRAVITY_PER_CENTER = 0.25;
 
 export function GraphCanvas({
   papers,
@@ -281,15 +278,7 @@ export function GraphCanvas({
     fg.d3Force("link")?.distance?.(settings.linkDistance);
     const center = settings.layout === "timeline" ? settings.centerStrength * 0.2 : settings.centerStrength;
     fg.d3Force("center")?.strength?.(center);
-    // The center force only shifts the whole graph back to the middle; it
-    // pulls no node in. Without a real pull, papers with no links are pushed
-    // apart by repel for as long as the simulation runs, so every slider
-    // change (which reheats it) spread them further and the layout depended on
-    // how often you had touched it, not on the settings. A weak pull towards
-    // the middle gives every setting one resting shape, the same as a reload.
-    const gravity = GRAVITY_BASE + center * GRAVITY_PER_CENTER;
-    fg.d3Force("x", forceX<GNode>(0).strength(gravity));
-    fg.d3Force("y", forceY<GNode>(0).strength(gravity));
+    setGravity((name, force) => fg.d3Force?.(name, force), center);
     // Re-energise so the new forces take effect immediately. Reheating only
     // raises alpha — nodes keep their current positions and re-settle from
     // there, rather than snapping back to the centre.
