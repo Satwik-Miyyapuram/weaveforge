@@ -41,7 +41,7 @@ import { registerMainAppLog } from "./main-app-log";
 import { registerMainInk } from "./main-ink";
 import { applyMemorySwitches, registerMemoryTrimming } from "./memory-trim";
 import { registerMainLocalDb } from "./main-local-db";
-import { registerMainPlanWidget, WIDGET_ONLY_ARG } from "./main-plan-widget";
+import { registerMainPlanWidget } from "./main-plan-widget";
 import { registerMainLocalApi } from "./main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
@@ -295,10 +295,7 @@ function createWindow(): void {
   });
 }
 
-/**
- * The app's window, up and in front, made again if it was closed. Used by the
- * plan widget's "Open plan", which can run while the app has no window at all.
- */
+/** The app's window, up and in front, made again if it was closed. */
 function showMainWindow(route?: string): void {
   const fresh = !mainWindow;
   if (!mainWindow) createWindow();
@@ -656,17 +653,8 @@ const localApiDoor = registerMainLocalApi({
   secretStore,
 });
 
-/**
- * The plan widget on the desktop (§main-plan-widget), off until it is switched
- * on in Settings. While it is up it is a window, so closing the app's own
- * window leaves the process running for it.
- */
-const planWidget = registerMainPlanWidget({
-  ipc,
-  localDb,
-  preferenceStore,
-  showMainWindow,
-});
+/** The plan widget on the desktop (§main-plan-widget), off until switched on. */
+const planWidget = registerMainPlanWidget({ ipc, localDb, preferenceStore, showMainWindow });
 
 ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
   try {
@@ -740,10 +728,8 @@ if (process.platform === "win32") app.setAppUserModelId("dev.weaveforge.desktop"
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  // A second launch raises the window that is already open rather than
-  // starting another copy of the app.
-  // The app's own window, not whichever is first: the plan widget is a window
-  // too, and may be the only one.
+  // A second launch raises the app's window (made again if only the plan
+  // widget is up) rather than starting another copy of the app.
   app.on("second-instance", () => showMainWindow());
 
   void app.whenReady().then(() => {
@@ -760,16 +746,7 @@ if (!app.requestSingleInstanceLock()) {
     // present. A door left open in the settings with its key thrown away
     // stays shut.
     void localApiDoor.resume();
-    // Started by the login item the plan widget sets: the widget, and no
-    // window. If the widget has since been switched off, the window after all.
-    if (process.argv.includes(WIDGET_ONLY_ARG)) {
-      void planWidget.resume().then((up) => {
-        if (!up) createWindow();
-      });
-    } else {
-      createWindow();
-      void planWidget.resume();
-    }
+    planWidget.launch(createWindow);
     // Updates are fetched in the background and installed only when the reader
     // says so -- see `auto-update.ts` for why quitting is not consent on an
     // unsigned build. The older check-and-tell path stays for the menu entry
