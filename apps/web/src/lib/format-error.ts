@@ -1,3 +1,5 @@
+import { isSessionLost, isSignedOutRefusal, SESSION_LOST_MESSAGE } from "./session-lost";
+
 /**
  * Browser network failures, which arrive as a bare TypeError.
  *
@@ -63,6 +65,7 @@ function networkFailureMessage(message: string): string | null {
 /** Extract a human-readable message from unknown thrown values (incl. Supabase/PostgREST). */
 export function formatError(err: unknown): string {
   if (err == null) return "Something went wrong.";
+  if (isSessionLost() && signedOutRefusal(err)) return SESSION_LOST_MESSAGE;
 
   if (typeof err === "string") {
     const trimmed = err.trim();
@@ -127,6 +130,16 @@ export function formatError(err: unknown): string {
   }
 
   return "Something went wrong.";
+}
+
+/** Whether `err` is the server refusing a request that carried no sign-in. */
+function signedOutRefusal(err: unknown): boolean {
+  if (typeof err === "string") return isSignedOutRefusal(err, null);
+  if (!err || typeof err !== "object") return false;
+  const record = err as Record<string, unknown>;
+  const message = typeof record.message === "string" ? record.message : "";
+  const code = typeof record.code === "string" ? record.code : null;
+  return isSignedOutRefusal(message, code);
 }
 
 /** Parse a fetch response body; empty or invalid JSON becomes a safe object. */
