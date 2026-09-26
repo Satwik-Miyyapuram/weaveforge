@@ -202,6 +202,20 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--reading { border-left-color: var(--chip-reading); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--read { border-left-color: var(--chip-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--skimmed { border-left-color: var(--chip-skimmed); }
+/* Border colours the whole outline. On a phone the edge bar reads as a
+   stray stripe, so it becomes a border there too. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card.paper-card--to_read { border-color: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card.paper-card--reading { border-color: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card.paper-card--read { border-color: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card.paper-card--skimmed { border-color: var(--chip-skimmed); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card.paper-card { border-width: 3px; }
+@media (max-width: 767px) {
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card { border-width: 3px; }
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--to_read { border-color: var(--chip-to-read); }
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--reading { border-color: var(--chip-reading); }
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--read { border-color: var(--chip-read); }
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--skimmed { border-color: var(--chip-skimmed); }
+}
 
 /* ---- Buttons ------------------------------------------------------------- */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary) {
