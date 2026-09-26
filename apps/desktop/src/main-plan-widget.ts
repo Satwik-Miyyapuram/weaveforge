@@ -53,6 +53,11 @@ export interface MainPlanWidgetDeps {
 export interface MainPlanWidget {
   /** Put the widget back if it was on when the app last ran. */
   resume(): Promise<boolean>;
+  /**
+   * Start the app: the window and the widget if it is on. Started by the login
+   * item the widget sets, the widget alone, unless it has been switched off.
+   */
+  launch(createWindow: () => void): void;
   /** Whether the widget window is up. */
   isOpen(): boolean;
   /** Re-read the plan now, if the widget is up. */
@@ -271,8 +276,20 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     return true;
   }
 
+  function launch(createWindow: () => void): void {
+    if (!process.argv.includes(WIDGET_ONLY_ARG)) {
+      createWindow();
+      void resume();
+      return;
+    }
+    void resume().then((up) => {
+      if (!up) createWindow();
+    });
+  }
+
   return {
     resume,
+    launch,
     isOpen: () => !!win && !win.isDestroyed(),
     refresh: () => void refresh(),
     isReturning: () => returning,
