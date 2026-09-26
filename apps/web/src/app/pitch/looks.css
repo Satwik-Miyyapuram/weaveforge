@@ -1,0 +1,93 @@
+/* The pitch site's looks, shared by the pitch (scrolly.module.css) and the docs
+   (apps/pitch/app/docs): one set of tokens, so the two cannot drift apart.
+   Global rather than a module because the docs are a different tree and import
+   it too; the class is prefixed so nothing else on the site can match it. */
+/* Looks. With no choice made the page follows the system: Poster, or Poster
+   dark. `data-look` pins one of the page's own looks; `data-theme` borrows any
+   of the app's themes instead, mapped onto these tokens further down. */
+.wf-looks:not([data-theme]) {
+  --bg: #F2E1C4; --surface: #FFF0D9; --surface2: #E8D5B5; --well: #E3D1B1;
+  --ink: #12110F; --muted: #574E3F; --line: #12110F; --hair: rgba(18,17,15,0.18);
+  --bw: 2px; --r: 6px; --rs: 4px;
+  --primary: #FFC536; --primary-ink: #12110F; --sh-primary: 4px 4px 0 #12110F;
+  --secondary: #FFF0D9; --secondary-ink: #12110F; --sh-secondary: 4px 4px 0 #12110F;
+  --sh-card: 5px 5px 0 #12110F; --sh-sm: 3px 3px 0 #12110F; --sh-lift: 8px 8px 0 #12110F;
+  --to-read: #FFC536; --reading: #8DADD9; --read: #86D08F; --chip-ink: #12110F;
+  --hl0: #FFC536; --hl1: #8DADD9; --hl2: #FF95A9; --hl3: #86D08F;
+  --danger: #FF654D; --danger-text: #C62C1A;
+  --nav-on: #12110F; --nav-on-ink: #F2E1C4;
+  --term: #1B1A17; --term-bar: #2A2824; --term-ink: #E9E4D8; --term-muted: #8E8A83; --term-accent: #F4C542;
+  --font: var(--font-face-sans), 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: var(--font-face-mono), 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --display: var(--font-face-sans), 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --disp-w: 900; --disp-track: -0.02em; --title-shadow: none;
+  --btn-font: var(--font-face-sans), 'Rubik', system-ui, sans-serif; --btn-w: 700; --btn-fs: 16px;
+  --tilt: 0deg; --press: translate(4px, 4px);
+  color-scheme: light;
+}
+.wf-looks[data-look="dark"] {
+  --bg: #131210; --surface: #1D1B18; --surface2: #2A2721; --well: #0C0B0A;
+  --ink: #F2E1C4; --muted: #AB9C81; --line: #F2E1C4; --hair: rgba(242,225,196,0.18);
+  --secondary: #1D1B18; --secondary-ink: #F2E1C4;
+  --sh-primary: 4px 4px 0 #F2E1C4; --sh-secondary: 4px 4px 0 #F2E1C4;
+  --sh-card: 5px 5px 0 #4D4639; --sh-sm: 3px 3px 0 #F2E1C4; --sh-lift: 8px 8px 0 #F2E1C4;
+  --danger-text: #FF826A; --nav-on: #FFC536; --nav-on-ink: #12110F;
+  --term: #0C0B0A; --term-bar: #1D1B18;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  .wf-looks:not([data-look]):not([data-theme]) {
+    --bg: #131210; --surface: #1D1B18; --surface2: #2A2721; --well: #0C0B0A;
+    --ink: #F2E1C4; --muted: #AB9C81; --line: #F2E1C4; --hair: rgba(242,225,196,0.18);
+    --secondary: #1D1B18; --secondary-ink: #F2E1C4;
+    --sh-primary: 4px 4px 0 #F2E1C4; --sh-secondary: 4px 4px 0 #F2E1C4;
+    --sh-card: 5px 5px 0 #4D4639; --sh-sm: 3px 3px 0 #F2E1C4; --sh-lift: 8px 8px 0 #F2E1C4;
+    --danger-text: #FF826A; --nav-on: #FFC536; --nav-on-ink: #12110F;
+    --term: #0C0B0A; --term-bar: #1D1B18;
+    color-scheme: dark;
+  }
+}
+/* Balatro CRT look: its own lit-room world, so it stays light whatever the host theme. */
+.wf-looks[data-look="crt"] {
+  --bg: #E7CFA6; --surface: #FFE7C1; --surface2: #F1D5A7; --well: #D9C095;
+  --ink: #2B222B; --muted: #6A585E; --line: #2B222B; --hair: rgba(43,34,43,0.25);
+  --bw: 3px; --r: 12px; --rs: 8px;
+  --primary: #1F6DAB; --primary-ink: #FFE7C1; --sh-primary: 0 5px 0 #12466E;
+  --secondary: #F29731; --secondary-ink: #2B222B; --sh-secondary: 0 5px 0 #A85F0F;
+  --sh-card: 0 6px 0 #2B222B; --sh-sm: 0 3px 0 #2B222B; --sh-lift: 0 10px 0 #2B222B;
+  --to-read: #F29731; --reading: #8DB7D0; --read: #6CBF81; --chip-ink: #2B222B;
+  --hl0: #F29731; --hl1: #8DB7D0; --hl2: #F2929C; --hl3: #6CBF81;
+  --danger: #C73729; --danger-text: #B3241A;
+  --nav-on: #C73729; --nav-on-ink: #FFE7C1;
+  --term: #2B222B; --term-bar: #3A2E38; --term-ink: #FFE7C1; --term-muted: #B9A58F; --term-accent: #F29731;
+  --display: var(--font-face-pixel), 'Jersey 10', var(--font-face-sans), 'Rubik', system-ui, sans-serif; --disp-w: 400; --disp-track: 0;
+  --title-shadow: 1px 0 rgba(199,55,41,0.45), -1px 0 rgba(31,109,171,0.45), 0 3px 0 rgba(43,34,43,0.18);
+  --btn-font: var(--font-face-pixel), 'Jersey 10', var(--font-face-sans), 'Rubik', system-ui, sans-serif; --btn-w: 400; --btn-fs: 24px;
+  --tilt: -1.2deg; --press: translateY(5px);
+  color-scheme: light;
+}
+
+/* Any other app theme. The theme file sets --bg, --surface, --surface2, --text,
+   --accent and the status colours on this element; this maps them onto the
+   page's own tokens. Those themes are flat, so borders go thin and the hard
+   offset shadows become soft ones. */
+.wf-looks[data-theme] {
+  --well: var(--surface2);
+  --ink: var(--text); --line: var(--border-strong); --hair: var(--border);
+  --bw: 1px; --r: 10px; --rs: 8px;
+  --primary: var(--accent); --primary-ink: var(--accent-fg); --sh-primary: 0 2px 8px rgba(0,0,0,0.18);
+  --secondary: var(--surface2); --secondary-ink: var(--text); --sh-secondary: none;
+  --sh-card: 0 1px 2px rgba(0,0,0,0.16), 0 10px 28px rgba(0,0,0,0.14);
+  --sh-sm: 0 1px 3px rgba(0,0,0,0.16); --sh-lift: 0 14px 36px rgba(0,0,0,0.24);
+  --to-read: var(--s-warn); --reading: var(--s-info); --read: var(--s-good); --chip-ink: var(--bg);
+  --hl0: var(--s-warn); --hl1: var(--s-info); --hl2: var(--s-danger); --hl3: var(--s-good);
+  --danger: var(--s-danger); --danger-text: var(--s-danger);
+  --nav-on: var(--accent); --nav-on-ink: var(--accent-fg);
+  --term: #16161E; --term-bar: #24242F; --term-ink: #E4E4EC; --term-muted: #8B8B99; --term-accent: var(--accent);
+  --font: var(--font-face-sans), 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: var(--font-face-mono), 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --display: var(--font-face-sans), 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --disp-w: 800; --disp-track: -0.02em; --title-shadow: none;
+  --btn-font: var(--font-face-sans), 'Rubik', system-ui, sans-serif; --btn-w: 700; --btn-fs: 16px;
+  --tilt: 0deg; --press: translateY(1px);
+}
