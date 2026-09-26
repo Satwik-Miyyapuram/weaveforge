@@ -542,11 +542,11 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>165,629</b><span>web app lines</span></div>
+      <div class="fact"><b>166,237</b><span>web app lines</span></div>
       <div class="fact"><b>49,867</b><span>core lines</span></div>
-      <div class="fact"><b>13,519</b><span>desktop lines</span></div>
+      <div class="fact"><b>13,575</b><span>desktop lines</span></div>
       <div class="fact"><b>3,196</b><span>python sdk</span></div>
-      <div class="fact"><b>132</b><span>migrations</span></div>
+      <div class="fact"><b>133</b><span>migrations</span></div>
       <div class="fact"><b>31</b><span>web features</span></div>
     </div>
   </header>
@@ -669,7 +669,7 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>165,629 lines</i>
+├── <b>apps/web/src/</b>                 <i>166,237 lines</i>
 │   ├── <u>app/</u>                      <i>26 pages + 38 API routes</i>
 │   ├── <u>features/</u>                 <i>31 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: supabase | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>13,519 lines, 49 files, main + preload only</i>
+├── <b>apps/desktop/src/</b>              <i>13,575 lines, 49 files, main + preload only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -695,7 +695,7 @@ flowchart TB
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
-├── <b>supabase/migrations/</b>           <i>0001 → 0133, 7,067 lines</i>
+├── <b>supabase/migrations/</b>           <i>0001 → 0134, 7,198 lines</i>
 ├── <b>scripts/</b>                       <i>53 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
 └── <b>docs/</b>                          <i>91 files, 31,264 lines</i>
@@ -988,7 +988,7 @@ flowchart TB
   BRIDGE["preload.ts<br/>window.weaveforge<br/>one bridge object, 26 members"]
 
   subgraph main["Main process"]
-    DB["local-db.ts<br/>PGlite + the 132 migrations"]
+    DB["local-db.ts<br/>PGlite + the 133 migrations"]
     FOLDER["vault-folder.ts<br/>read / write / list / stat"]
     WATCH["vault-watch.ts<br/>notices outside edits"]
     GIT["vault-git.ts<br/>commit history"]
@@ -1294,7 +1294,7 @@ flowchart TB
     <section id="data">
       <h2>Data layer</h2>
       <p>
-        132 numbered migrations, applied in order, by all three backends. Access control is in
+        133 numbered migrations, applied in order, by all three backends. Access control is in
         the database rather than in the app: a missing check in a React component is a bug, a
         missing RLS policy is a breach, so the policy is the one that decides.
       </p>
