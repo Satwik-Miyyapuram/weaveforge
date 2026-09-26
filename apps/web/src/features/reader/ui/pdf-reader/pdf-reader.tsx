@@ -1156,7 +1156,7 @@ export function PdfReader({
           {!penOpen && (annotations.length > 0 || canCreate) && (
             <button
               type="button"
-              className={`btn-secondary btn-sm pdf-reader-narrow-only${showAnnotationList ? " is-active" : ""}`}
+              className={`btn-secondary btn-sm pdf-reader-narrow-only pdf-reader-wide-only${showAnnotationList ? " is-active" : ""}`}
               aria-pressed={showAnnotationList}
               onClick={() => setShowAnnotationList((v) => !v)}
             >
@@ -1177,7 +1177,7 @@ export function PdfReader({
         {canCreate && (
           <button
             type="button"
-            className={`btn-secondary btn-sm${penOpen ? " is-active" : ""}`}
+            className={`btn-secondary btn-sm pdf-reader-wide-only${penOpen ? " is-active" : ""}`}
             aria-pressed={penOpen}
             onClick={() => {
               endInkGroup();
@@ -1215,6 +1215,7 @@ export function PdfReader({
                 </button>
               ))}
             </div>
+            <span className="pdf-reader-wide-only">
             <ColourMenu
               value={createColor}
               palette={READER_ANNOTATION_COLORS}
@@ -1225,6 +1226,7 @@ export function PdfReader({
                 setCreateColor(colour);
               }}
             />
+            </span>
           </div>
         )}
         </div>
@@ -1273,6 +1275,64 @@ export function PdfReader({
           the pen out than without it: with the pen away the ink is read-only,
           so it highlights text and nothing else. */}
       {canCreate && toolHint && <p className="pdf-reader-tool-hint muted">{toolHint}</p>}
+      {/* Phone only (PhoneReader mock): the colour, ink and annotation list sit
+          in one pill above the tab bar, in thumb reach. The wide toolbar's own
+          copies of these hide at the same width. */}
+      {canCreate && (
+        <div className="pdf-reader-pill" role="toolbar" aria-label="Annotate">
+          {!penOpen && (
+            <div className="pdf-reader-pill-colours" role="radiogroup" aria-label="Annotation colour">
+              {READER_ANNOTATION_COLORS.slice(0, 4).map((colour) => (
+                <button
+                  key={colour}
+                  type="button"
+                  role="radio"
+                  aria-checked={createColor === colour}
+                  aria-label={`Colour ${colour}`}
+                  className="pdf-reader-pill-swatch"
+                  style={{ background: colour }}
+                  onClick={() => {
+                    endInkGroup();
+                    setCreateColor(colour);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          {!penOpen && <span className="pdf-reader-pill-sep" aria-hidden="true" />}
+          <button
+            type="button"
+            className={`btn-secondary btn-sm pdf-reader-icon-btn${penOpen ? " is-active" : ""}`}
+            aria-pressed={penOpen}
+            aria-label="Ink mode"
+            title="Ink mode"
+            onClick={() => {
+              endInkGroup();
+              const next = !penOpen;
+              setPenOpen(next);
+              syncPenParam(next);
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 20h4L19 9l-4-4L4 16z" />
+            </svg>
+          </button>
+          {!penOpen && (
+            <button
+              type="button"
+              className={`btn-secondary btn-sm pdf-reader-icon-btn${showAnnotationList ? " is-active" : ""}`}
+              aria-pressed={showAnnotationList}
+              aria-label={`Annotations${annotations.length ? ` (${annotations.length})` : ""}`}
+              title="Annotations"
+              onClick={() => setShowAnnotationList((v) => !v)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M5 6h14M5 12h14M5 18h9" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
       {annError && (
         <div className="pdf-reader-banner pdf-reader-banner--low" role="alert">
           {annError}{" "}
