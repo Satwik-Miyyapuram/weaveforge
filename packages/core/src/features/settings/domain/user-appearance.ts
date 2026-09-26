@@ -32,6 +32,13 @@ export interface UserAppearance {
    */
   cardTint?: CardTint;
   /**
+   * CRT's leaning cards. On by default there; off squares them up. Only the
+   * CRT theme reads it — a theme file can lean cards on any theme.
+   */
+  cardTilt?: boolean;
+  /** CRT's scanline overlay. On by default; other themes have none. */
+  scanlines?: boolean;
+  /**
    * Validated theme uploaded as `config.json`. Absent means "unchanged";
    * explicit `null` means "remove the uploaded theme", which a patch needs to
    * be able to say without being read as "leave it alone".
@@ -58,6 +65,8 @@ export function normalizeAppearance(raw: unknown): UserAppearance | undefined {
   if (o.surfaces === "borderless" || o.surfaces === "bordered") out.surfaces = o.surfaces;
   if (typeof o.reactiveMotion === "boolean") out.reactiveMotion = o.reactiveMotion;
   if (o.cardTint === "full" || o.cardTint === "bar" || o.cardTint === "border" || o.cardTint === "none") out.cardTint = o.cardTint;
+  if (typeof o.cardTilt === "boolean") out.cardTilt = o.cardTilt;
+  if (typeof o.scanlines === "boolean") out.scanlines = o.scanlines;
   // Re-validated rather than copied: the settings row is user-writable, so a
   // stored theme gets the same scrutiny as the file it was uploaded from.
   if (o.customTheme === null) out.customTheme = null;

@@ -23,3 +23,8 @@ test("normalizeAppearance keeps valid fields only", () => {
   assert.deepEqual(normalizeAppearance({ controlSize: "huge" }), undefined);
   assert.equal(normalizeAppearance({}), undefined);
 });
+
+test("normalizeAppearance keeps the CRT tilt and scanline switches when boolean", () => {
+  assert.deepEqual(normalizeAppearance({ cardTilt: false, scanlines: true }), { cardTilt: false, scanlines: true });
+  assert.equal(normalizeAppearance({ cardTilt: "off", scanlines: 0 }), undefined);
+});

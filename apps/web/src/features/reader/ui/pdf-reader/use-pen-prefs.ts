@@ -82,7 +82,7 @@ export function readerToolFor(tool: InkBarTool | "shape"): PenTool {
  * The pointer a reader tool shows over the page.
  *
  * From the same table the sheet reads (`INK_TOOL_CURSORS`), so an eraser is the
- * same ring on a paper as on a note and a nib is the same crosshair. The pointer
+ * same ring on a paper as on a note and a pen the same pencil. The pointer
  * tool answers nothing: over a PDF its job is the page's own — the arrow for a
  * mark, the I-beam for the text about to be highlighted — and a cursor that
  * replaced both would be worse at both.
@@ -90,9 +90,11 @@ export function readerToolFor(tool: InkBarTool | "shape"): PenTool {
 export function inkCursorFor(tool: ReaderCreateTool): string | undefined {
   if (tool === "select") return undefined;
   if (tool === "erase") return INK_TOOL_CURSORS.eraser;
-  // The pen, the highlighter, the lasso and the two region tools: all five are
-  // aimed at a place on the page and dragged from it.
-  return INK_TOOL_CURSORS.pen;
+  if (tool === "ink") return INK_TOOL_CURSORS.pen;
+  if (tool === "highlighter") return INK_TOOL_CURSORS.highlighter;
+  if (tool === "lasso") return INK_TOOL_CURSORS.lasso;
+  // The two region tools: a corner aimed at and dragged from.
+  return INK_TOOL_CURSORS.shape;
 }
 
 export interface PenPrefs {

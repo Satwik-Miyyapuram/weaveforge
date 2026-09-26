@@ -28,6 +28,8 @@ import {
   type NewReaderAnnotation,
   type ReaderAnnotation,
 } from "@weaveforge/core";
+
+import { picturePath } from "../../application/reader-picture";
 import type { AnnotationActions } from "./use-annotation-actions";
 
 type StrokeWrites = Pick<AnnotationActions, "persistDraft" | "removeLocal" | "saveAnchor">;
@@ -41,8 +43,9 @@ export interface InkUndo extends StrokeWrites {
   reset: () => void;
 }
 
-function isStroke(ann: Pick<ReaderAnnotation, "type">): boolean {
-  return ann.type === "ink";
+/** What undo keeps a history of: the pen's strokes, and the pictures laid down beside them. */
+function isStroke(ann: Pick<ReaderAnnotation, "type" | "comment">): boolean {
+  return ann.type === "ink" || picturePath(ann) !== null;
 }
 
 /** The draft that would recreate `ann` byte-for-byte, save its id. */

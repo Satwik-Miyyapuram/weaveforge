@@ -32,6 +32,8 @@ interface Target {
   placement: { crop?: MdCrop; align?: MdAlign; initial: number };
 }
 
+const SIDE_LABELS: Record<MdAlign, string> = { left: "Left", center: "Centre", right: "Right" };
+
 /** A percentage from an image's current rendered width against its column. */
 function currentPercent(img: HTMLImageElement): number {
   const column = img.parentElement?.clientWidth ?? 0;
@@ -174,8 +176,9 @@ export function ImageSizeControl({
       {children}
       {target && anchor ? (
         <div className="image-size" role="group" aria-label="Image size" style={anchor}>
-          <label className="image-size-label">
-            Width
+          <span className="image-size-heading">This image</span>
+          <label className="image-size-row">
+            <span className="image-size-key">Width</span>
             <input
               type="range"
               min={10}
@@ -191,27 +194,29 @@ export function ImageSizeControl({
             />
             <span className="image-size-value">{percent}%</span>
           </label>
-          <div className="image-size-sides" role="group" aria-label="Image side">
-            {(["left", "center", "right"] as const).map((side) => (
-              <button
-                key={side}
-                type="button"
-                className={`btn btn-ghost btn-sm image-size-side${
-                  target.placement.align === side ? " is-on" : ""
-                }`}
-                onClick={() => commit({ align: side })}
-              >
-                {side}
-              </button>
-            ))}
+          <div className="image-size-row">
+            <span className="image-size-key">Side</span>
+            <div className="seg image-size-sides" role="group" aria-label="Image side">
+              {(["left", "center", "right"] as const).map((side) => (
+                <button
+                  key={side}
+                  type="button"
+                  className={target.placement.align === side ? "seg-on" : undefined}
+                  aria-pressed={target.placement.align === side}
+                  onClick={() => commit({ align: side })}
+                >
+                  {SIDE_LABELS[side]}
+                </button>
+              ))}
+            </div>
           </div>
-          <label className="image-size-label">
-            Crop
+          <label className="image-size-row">
+            <span className="image-size-key">Crop</span>
             <input
               type="text"
               className="image-size-crop"
               value={cropText}
-              placeholder="l, t, r, b"
+              placeholder="left, top, right, bottom %"
               aria-label="Crop, percentages off each edge: left, top, right, bottom"
               onChange={(event) => previewCrop(event.target.value)}
               onKeyDown={(event) => {
@@ -223,9 +228,15 @@ export function ImageSizeControl({
               onBlur={() => previewCrop(cropText)}
             />
           </label>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => commit({ width: null, crop: null, align: null })}>
-            Reset
-          </button>
+          <div className="image-size-actions">
+            <button
+              type="button"
+              className="btn-ghost btn-sm"
+              onClick={() => commit({ width: null, crop: null, align: null })}
+            >
+              Reset
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

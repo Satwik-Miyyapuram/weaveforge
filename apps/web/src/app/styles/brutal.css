@@ -197,11 +197,21 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="full"] .paper-card--reading { --card-tint: var(--tint-reading); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="full"] .paper-card--read { --card-tint: var(--tint-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="full"] .paper-card--skimmed { --card-tint: var(--tint-skimmed); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card { border-left-width: 10px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--to_read { border-left-color: var(--chip-to-read); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--reading { border-left-color: var(--chip-reading); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--read { border-left-color: var(--chip-read); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--skimmed { border-left-color: var(--chip-skimmed); }
+/* Bar: a 10px band of the status colour down the left, ruled off from the
+   card by a line of the border's weight, inside the card's own outline. Drawn
+   as a background layer so the outline, the radius and the shadow stay the
+   card's; the text moves over by the band's width. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card:is(.paper-card--to_read, .paper-card--reading, .paper-card--read, .paper-card--skimmed) {
+  background-image: linear-gradient(to right, var(--status-band) 0 10px, var(--bw-line) 10px calc(10px + var(--bw)), transparent calc(10px + var(--bw)));
+  padding-left: calc(12px + 10px + var(--bw));
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] :is(.papers-screen, .vault-screen) .card.entity-card.paper-card:is(.paper-card--to_read, .paper-card--reading, .paper-card--read, .paper-card--skimmed) {
+  padding-left: calc(16px + 10px + var(--bw));
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .paper-card--to_read { --status-band: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .paper-card--reading { --status-band: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .paper-card--read { --status-band: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .paper-card--skimmed { --status-band: var(--chip-skimmed); }
 /* Border colours the whole outline. On a phone the edge bar reads as a
    stray stripe, so it becomes a border there too. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card.paper-card--to_read { border-color: var(--chip-to-read); }
@@ -210,6 +220,8 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card.paper-card--skimmed { border-color: var(--chip-skimmed); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card.paper-card { border-width: 3px; }
 @media (max-width: 767px) {
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card:is(.paper-card--to_read, .paper-card--reading, .paper-card--read, .paper-card--skimmed) { background-image: none; padding-left: 12px; }
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] :is(.papers-screen, .vault-screen) .card.entity-card.paper-card:is(.paper-card--to_read, .paper-card--reading, .paper-card--read, .paper-card--skimmed) { padding-left: 16px; }
   :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card { border-width: 3px; }
   :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--to_read { border-color: var(--chip-to-read); }
   :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card.paper-card--reading { border-color: var(--chip-reading); }
@@ -468,7 +480,7 @@
 /* Scanlines and a soft vignette over the whole screen. Pointer-transparent and
    above everything but toasts; reduced motion does not affect it because it
    does not move. */
-:root[data-theme="crt"] body::after {
+:root[data-theme="crt"]:not([data-scanlines="off"]) body::after {
   content: "";
   position: fixed;
   inset: 0;
@@ -481,6 +493,27 @@
 @media print {
   :root[data-theme="crt"] body::after { display: none; }
 }
+
+/* ---- CRT leaning cards ----------------------------------------------------
+   Cards sit a little off square, like a hand of dealt cards. On by default in
+   CRT; the "Tilted cards" switch sets data-tilt="off", and a theme file can
+   lean them on any theme (data-theme-tilt). `rotate` rather than `transform`,
+   so the hover lift and the reactive-motion tilt compose with it instead of
+   replacing it. Angles are the mock's, cycling down each column. */
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .card-columns-item:nth-child(6n+1) > .card { rotate: -1.1deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .card-columns-item:nth-child(6n+2) > .card { rotate: 0.7deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .card-columns-item:nth-child(6n+3) > .card { rotate: -0.4deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .card-columns-item:nth-child(6n+4) > .card { rotate: 0.9deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .card-columns-item:nth-child(6n+5) > .card { rotate: -0.8deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .card-columns-item:nth-child(6n+6) > .card { rotate: 0.3deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .dashboard-card--stat:not(.dashboard-card--editing):nth-child(4n+1) { rotate: -0.8deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .dashboard-card--stat:not(.dashboard-card--editing):nth-child(4n+2) { rotate: 0.6deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .dashboard-card--stat:not(.dashboard-card--editing):nth-child(4n+3) { rotate: -0.4deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .dashboard-card--stat:not(.dashboard-card--editing):nth-child(4n+4) { rotate: 0.9deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .pdf-reader-sidebar-item:nth-child(3n+1) { rotate: -0.9deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .pdf-reader-sidebar-item:nth-child(3n+2) { rotate: 0.6deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .pdf-reader-sidebar-item:nth-child(3n+3) { rotate: -0.4deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .nav-brand-toggle .app-logo { rotate: -5deg; }
 
 /* ---- Dashboard ------------------------------------------------------------
    The mock's stat cards: a mono label, the number big in the display face with
@@ -941,7 +974,7 @@
 /* ── Settings ──────────────────────────────────────────────────────────── */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-head { border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-icon { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-group.is-open .settings-rail-head { background: var(--text); color: var(--surface); box-shadow: var(--sh-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-group.is-open .settings-rail-head { background: var(--nav-on-bg); color: var(--nav-on-fg); box-shadow: var(--sh-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-group.is-open .settings-rail-icon { background: transparent; color: inherit; border-color: transparent; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-rail-tabs { border-left: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-body > .card, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .settings-body > [role="tabpanel"] > .card { box-shadow: var(--sh-card); }
@@ -953,6 +986,9 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.theme-card, .theme-chip).is-on { box-shadow: var(--sh-card); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample { border-bottom: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-card { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); box-shadow: var(--sh-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-option--border .tint-sample-card { border: 3px solid var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-band { border-right: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .appearance-tag { border: var(--bw) solid var(--bw-line); color: var(--text); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-chip { border: var(--bw) solid var(--bw-line); font-family: var(--font-mono); color: #12110f; }
 
 /* Prose links: the accent is a fill colour here (yellow), too pale for text on
@@ -960,4 +996,19 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.markdown, .card, .muted, .screen p) a:not([class]) {
   color: var(--text); text-decoration: underline;
   text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px;
+}
+/* Settings rows divide by the design's faint ink rule, straight, not a rounded hairline. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .integration-item + .integration-item {
+  border-top: var(--bw) solid color-mix(in srgb, var(--bw-line) 20%, transparent);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .image-size-crop {
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+}
+/* The read view's picture control floats like any other menu. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .image-size {
+  background: var(--card-tint, var(--surface));
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-sm);
 }

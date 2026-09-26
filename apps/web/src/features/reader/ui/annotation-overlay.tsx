@@ -3,6 +3,7 @@
 import { memo, useMemo } from "react";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { INK_SELECTION_HALO_PX, InkStrokes } from "@/features/ink";
+import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
 
 interface AnnotationOverlayProps {
@@ -25,7 +26,11 @@ interface AnnotationOverlayProps {
    * note on this component.
    */
   onSelect?: (id: string) => void;
+  /** Reads a placed picture's file; pictures are drawn only when given. Keep it stable. */
+  fetchPicture?: (path: string) => Promise<Blob>;
 }
+
+const NO_PICTURES = async () => null;
 
 /**
  * Paint page-local annotation geometry. All coordinate maths lives in
@@ -54,6 +59,7 @@ function AnnotationOverlayInner({
   selectedId,
   inkSelectedIds,
   onSelect,
+  fetchPicture,
 }: AnnotationOverlayProps) {
   // Projection is the reader's per-frame cost: ~1.7 ms for a page holding 100
   // ink annotations, 6.5 ms at 400. Drawing a stroke re-renders this component
@@ -86,6 +92,13 @@ function AnnotationOverlayInner({
     [strokes],
   );
 
+  // Only the pages that carry a picture fetch anything: the list is empty elsewhere.
+  const picturePaths = useMemo(
+    () => (fetchPicture ? boxes.flatMap((box) => (box.picture ? [box.picture] : [])) : []),
+    [boxes, fetchPicture],
+  );
+  const pictureUrls = useBlobObjectUrls(picturePaths, fetchPicture ?? NO_PICTURES);
+
   if (boxes.length === 0 && ink.length === 0) return null;
 
   return (
@@ -105,24 +118,36 @@ function AnnotationOverlayInner({
         // belongs to the highlight rectangles below, which *are* rectangles.
         haloGrow={INK_SELECTION_HALO_PX}
       />
-      {boxes.map((box, i) => (
-        <button
-          key={`${box.id}-${i}`}
-          type="button"
-          className={`pdf-reader-ann${selectedId === box.id ? " is-selected" : ""}${
-            box.underline ? " is-underline" : ""
-          }`}
-          style={{
-            left: box.left,
-            top: box.top,
-            width: Math.max(box.width, 2),
-            height: Math.max(box.height, 2),
-            background: box.underline ? "transparent" : box.color,
-            borderBottom: box.underline ? `2px solid ${box.color}` : undefined,
-          }}
-          onClick={onSelect ? () => onSelect(box.id) : undefined}
-        />
-      ))}
+      {boxes.map((box, i) =>
+        box.picture ? (
+          <button
+            key={`${box.id}-${i}`}
+            type="button"
+            className={`pdf-reader-picture${selectedId === box.id ? " is-selected" : ""}`}
+            style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
+            onClick={onSelect ? () => onSelect(box.id) : undefined}
+          >
+            {pictureUrls.get(box.picture) ? <img src={pictureUrls.get(box.picture)} alt="" /> : null}
+          </button>
+        ) : (
+          <button
+            key={`${box.id}-${i}`}
+            type="button"
+            className={`pdf-reader-ann${selectedId === box.id ? " is-selected" : ""}${
+              box.underline ? " is-underline" : ""
+            }`}
+            style={{
+              left: box.left,
+              top: box.top,
+              width: Math.max(box.width, 2),
+              height: Math.max(box.height, 2),
+              background: box.underline ? "transparent" : box.color,
+              borderBottom: box.underline ? `2px solid ${box.color}` : undefined,
+            }}
+            onClick={onSelect ? () => onSelect(box.id) : undefined}
+          />
+        ),
+      )}
     </div>
   );
 }

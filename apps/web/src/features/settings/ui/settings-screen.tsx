@@ -27,9 +27,10 @@ import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { CARD_TINT_OPTIONS, isBrutalTheme, sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
+import { isBrutalTheme, sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
+import { CardTintPicker } from "./card-tint-picker";
 import { ThemeConfigPanel } from "./theme-config-panel";
 import { ThemeCardPicker } from "./theme-card-picker";
 import { OfflineStoragePanel, SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
@@ -161,6 +162,8 @@ export function SettingsScreen() {
   const [surfaces, setSurfaces] = useState<SurfaceStyle>("borderless");
   const [reactiveMotion, setReactiveMotion] = useState(false);
   const [cardTint, setCardTint] = useState<CardTint>("full");
+  const [cardTilt, setCardTilt] = useState(true);
+  const [scanlines, setScanlines] = useState(true);
   const [customTheme, setCustomTheme] = useState<ThemeConfig | null>(null);
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
@@ -211,6 +214,8 @@ export function SettingsScreen() {
     setSurfaces(sanitizeSurfaceStyle(appearance.surfaces));
     setReactiveMotion(appearance.reactiveMotion ?? false);
     setCardTint(sanitizeCardTint(appearance.cardTint));
+    setCardTilt(appearance.cardTilt ?? true);
+    setScanlines(appearance.scanlines ?? true);
     setCustomTheme(appearance.customTheme ?? null);
   }, [load]);
 
@@ -236,6 +241,16 @@ export function SettingsScreen() {
     const safe = sanitizeCardTint(val);
     setCardTint(safe);
     persistThemeChange({ cardTint: safe });
+  }
+
+  function handleCardTiltChange(on: boolean) {
+    setCardTilt(on);
+    persistThemeChange({ cardTilt: on });
+  }
+
+  function handleScanlinesChange(on: boolean) {
+    setScanlines(on);
+    persistThemeChange({ scanlines: on });
   }
 
   function handleControlSizeChange(val: string) {
@@ -513,36 +528,7 @@ export function SettingsScreen() {
             onChange={handleDarkThemeChange}
           />
           {(isBrutalTheme(lightTheme) || isBrutalTheme(darkTheme)) && (
-            <div className="appearance-row appearance-row--stack">
-              <div className="appearance-row-text">
-                <span className="appearance-label" id="cardTint">Card tint</span>
-                <p>How Poster and CRT colour a paper card by its reading status.</p>
-              </div>
-              <span />
-              <div className="tint-picker" role="radiogroup" aria-labelledby="cardTint">
-                {CARD_TINT_OPTIONS.map((opt) => (
-                  <label key={opt.id} className={`tint-option tint-option--${opt.id}${cardTint === opt.id ? " is-on" : ""}`}>
-                    <span className="tint-sample" aria-hidden>
-                      <span className="tint-sample-card">
-                        <strong>Locating and editing factual associations</strong>
-                        <span className="tint-sample-meta">Meng et al. · 2022</span>
-                        {opt.id === "none" && <span className="tint-sample-chip">Reading</span>}
-                      </span>
-                    </span>
-                    <span className="tint-option-foot">
-                      <input
-                        type="radio"
-                        name="cardTint"
-                        value={opt.id}
-                        checked={cardTint === opt.id}
-                        onChange={() => handleCardTintChange(opt.id)}
-                      />
-                      <span>{opt.label}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+            <CardTintPicker value={cardTint} onChange={handleCardTintChange} />
           )}
           <ThemeConfigPanel current={customTheme} onChange={handleCustomThemeChange} />
         </section>
@@ -593,6 +579,42 @@ export function SettingsScreen() {
               onChange={(e) => handleReactiveMotionChange(e.target.checked)}
             />
           </div>
+          {(lightTheme === "crt" || customTheme?.cardTilt === true) && (
+            <div className="appearance-row">
+              <div className="appearance-row-text">
+                <label htmlFor="cardTilt">Tilted cards</label>
+                <p>
+                  Cards lean a little off square, like a hand of dealt cards. On by default
+                  for CRT; a theme file can turn it on for any theme with{" "}
+                  <code>&quot;tilt&quot;: true</code>.
+                </p>
+              </div>
+              <input
+                id="cardTilt"
+                type="checkbox"
+                role="switch"
+                className="themed-check appearance-switch"
+                checked={cardTilt}
+                onChange={(e) => handleCardTiltChange(e.target.checked)}
+              />
+            </div>
+          )}
+          {lightTheme === "crt" && (
+            <div className="appearance-row">
+              <div className="appearance-row-text">
+                <label htmlFor="scanlines">Scanlines</label>
+                <p>Only for the CRT theme.</p>
+              </div>
+              <input
+                id="scanlines"
+                type="checkbox"
+                role="switch"
+                className="themed-check appearance-switch"
+                checked={scanlines}
+                onChange={(e) => handleScanlinesChange(e.target.checked)}
+              />
+            </div>
+          )}
         </section>
       </div>
       )}

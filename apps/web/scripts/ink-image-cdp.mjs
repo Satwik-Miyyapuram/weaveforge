@@ -115,7 +115,7 @@ try {
 await page
   .waitForFunction(
     () => {
-      const el = document.querySelector(".ink-readout");
+      const el = document.querySelector("[data-backend]");
       const b = el?.getAttribute("data-backend");
       return b && b !== "starting";
     },
@@ -124,7 +124,7 @@ await page
   )
   .catch(() => {});
 const backend = await page
-  .locator(".ink-readout")
+  .locator("[data-backend]")
   .first()
   .getAttribute("data-backend")
   .catch(() => null);

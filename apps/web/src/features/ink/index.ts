@@ -198,6 +198,8 @@ export {
   type InkBarTool,
 } from "./ui/ink-bar";
 export { InkPage, type InkPageProps } from "./ui/ink-page";
+export { strokePath } from "./application/ink-svg";
+export { InkPrintPreview } from "./ui/ink-print-preview";
 export {
   InkStrokes,
   type InkRenderStroke,

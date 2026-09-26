@@ -679,8 +679,8 @@
 /* The bar in focus — both surfaces are this one bar now
    (`features/ink/ui/ink-bar`), so this is one rule rather than two: what a
    hand needs mid-stroke stays, and everything else is chrome for later. */
-.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more),
-.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more) {
+.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more):not(.ink-menu-insert),
+.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more):not(.ink-menu-insert) {
   display: none;
 }
 
@@ -1171,59 +1171,70 @@
 .image-size {
   position: absolute;
   z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.35rem 0.6rem;
+  display: grid;
+  gap: 10px;
+  width: 300px;
+  max-width: calc(100% - 8px);
+  padding: 12px 14px;
   background: var(--elev);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   box-shadow: var(--shadow);
+  font-size: 0.85rem;
+}
+
+.image-size-heading {
+  font-weight: 700;
+}
+
+/* One placement per row, named on the left, as a settings row reads. */
+.image-size-row {
+  display: grid;
+  grid-template-columns: 3.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.image-size-key {
+  color: var(--muted);
   font-size: 0.8rem;
 }
 
-.image-size-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--muted);
-}
-
-.image-size-label input[type="range"] {
-  width: 9rem;
+.image-size-row input[type="range"] {
+  width: 100%;
   accent-color: var(--accent);
 }
 
 .image-size-value {
-  min-width: 3ch;
+  min-width: 4ch;
   color: var(--text);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-align: end;
 }
 
 /* The sides and the crop: the two placements a slider cannot say. The sides
-   are one of three, so buttons; the crop is four numbers, so typed — the
-   mouse cannot tell a 3% inset from a 4% one and a number can. */
+   are one of three, so a segmented control; the crop is four numbers, so
+   typed — the mouse cannot tell a 3% inset from a 4% one and a number can. */
 .image-size-sides {
-  display: flex;
-  gap: 2px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1px;
-}
-.image-size-side.is-on {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent-ink);
+  grid-column: 2 / -1;
+  justify-self: start;
 }
 .image-size-crop {
-  width: 7rem;
-  padding: 0.1rem 0.4rem;
+  grid-column: 2 / -1;
+  width: 100%;
+  padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 5px;
-  background: var(--elev);
+  background: var(--surface);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+}
+
+.image-size-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .workspace-error {
@@ -2061,13 +2072,6 @@
 
 .ink-bar-spacer { flex: 1 1 auto; }
 
-.ink-readout {
-  color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  white-space: nowrap;
-}
-
 .ink-rail-container {
   position: relative;
   display: flex;
@@ -2715,6 +2719,16 @@
   margin-top: 4px; padding-top: 6px;
   border-top: 1px solid var(--border);
 }
+
+/* Quick colours: five swatches in the bar's own row, with room for the
+   selected one's ring between them. */
+.ink-quick-colours { gap: 10px; padding: 2px 6px; }
+
+/* Insert: a labelled drop-down, apart from ⋯. */
+.ink-insert-trigger { display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; }
+/* Portalled to <body> and fixed under its button: the reader's bar scrolls
+   sideways and its chrome clips, so a list hung inside either was cut off. */
+.ink-menu-insert-list { position: fixed; right: auto; z-index: 1000; min-width: 220px; transform: none; }
 
 /* The zoom pill reads like the page pill; its level resets to fit. */
 .ink-zoom-level {

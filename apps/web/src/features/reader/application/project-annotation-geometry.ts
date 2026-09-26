@@ -17,6 +17,8 @@ import {
   type ReaderAnnotation,
 } from "@weaveforge/core";
 
+import { picturePath } from "./reader-picture";
+
 interface AnnotationBox {
   id: string;
   left: number;
@@ -25,6 +27,8 @@ interface AnnotationBox {
   height: number;
   color: string;
   underline: boolean;
+  /** The stored file of a placed picture (`reader-picture.ts`), drawn in the box. */
+  picture: string | null;
 }
 
 interface AnnotationStroke {
@@ -168,6 +172,7 @@ export function projectPageAnnotationGeometry(
           height: box.height,
           color: ann.color,
           underline: ann.type === "underline",
+          picture: picturePath(ann),
         });
       }
     }

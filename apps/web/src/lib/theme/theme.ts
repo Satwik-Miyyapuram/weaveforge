@@ -135,11 +135,16 @@ export function readStoredSurfaceStyle(): SurfaceStyle {
 
 export type CardTint = "full" | "bar" | "border" | "none";
 
-export const CARD_TINT_OPTIONS: ReadonlyArray<{ id: CardTint; label: string }> = [
-  { id: "full", label: "Full card" },
-  { id: "bar", label: "Edge bar" },
-  { id: "border", label: "Border" },
-  { id: "none", label: "None" },
+/**
+ * A desktop card has room for a colour band down its left edge; a phone card
+ * does not, so the phone offers a coloured border in its place. Settings shows
+ * each screen its own three (styles/appearance.css).
+ */
+export const CARD_TINT_OPTIONS: ReadonlyArray<{ id: CardTint; label: string; note: string }> = [
+  { id: "full", label: "Full tint", note: "Whole card takes the colour" },
+  { id: "bar", label: "Bar", note: "A colour band on the left" },
+  { id: "border", label: "Border", note: "A coloured outline" },
+  { id: "none", label: "No tint", note: "Status as a chip only" },
 ];
 
 export function sanitizeCardTint(id: string | null | undefined): CardTint {
@@ -156,6 +161,43 @@ export function readStoredCardTint(): CardTint {
     return sanitizeCardTint(localStorage.getItem("thesis.cardTint"));
   } catch {
     return "full";
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * CRT extras: leaning cards and scanlines
+ * ------------------------------------------------------------------ */
+
+/**
+ * Both are on by default and only CRT draws them, so the attribute is written
+ * only to turn one off. A theme file can lean cards on any theme through
+ * `data-theme-tilt`, which `applyCustomTheme` owns; this switch still wins.
+ */
+export function applyCardTilt(on: boolean): void {
+  const root = document.documentElement;
+  if (on) delete root.dataset.tilt;
+  else root.dataset.tilt = "off";
+}
+
+export function readStoredCardTilt(): boolean {
+  try {
+    return localStorage.getItem("thesis.cardTilt") !== "0";
+  } catch {
+    return true;
+  }
+}
+
+export function applyScanlines(on: boolean): void {
+  const root = document.documentElement;
+  if (on) delete root.dataset.scanlines;
+  else root.dataset.scanlines = "off";
+}
+
+export function readStoredScanlines(): boolean {
+  try {
+    return localStorage.getItem("thesis.scanlines") !== "0";
+  } catch {
+    return true;
   }
 }
 
@@ -210,8 +252,11 @@ export function applyCustomTheme(config: ThemeConfig | null): void {
   for (const name of customVarNames()) style.removeProperty(name);
   if (!config) {
     delete root.dataset.customTheme;
+    delete root.dataset.themeTilt;
     return;
   }
+  if (config.cardTilt === undefined) delete root.dataset.themeTilt;
+  else root.dataset.themeTilt = config.cardTilt ? "on" : "off";
   const allowed = new Set(customVarNames());
   for (const [name, value] of Object.entries(config.vars)) {
     if (allowed.has(name)) style.setProperty(name, value);
@@ -295,6 +340,8 @@ function buildThemeBootScript(): string {
     `var sf=localStorage.getItem("thesis.surfaces")==="bordered"?"bordered":"borderless";` +
     `document.documentElement.dataset.surfaces=sf;` +
     `var ct=localStorage.getItem("thesis.cardTint");document.documentElement.dataset.tint=ct==="bar"||ct==="border"||ct==="none"?ct:"full";` +
+    `if(localStorage.getItem("thesis.cardTilt")==="0")document.documentElement.dataset.tilt="off";` +
+    `if(localStorage.getItem("thesis.scanlines")==="0")document.documentElement.dataset.scanlines="off";` +
     `if(localStorage.getItem("thesis.reactiveMotion")==="1")document.documentElement.dataset.motion="reactive";` +
     `var vn=${vn},rawT=localStorage.getItem("thesis.customTheme");` +
     `if(rawT){var cfg=JSON.parse(rawT),cv=(cfg&&cfg.vars)||{},okv=/^[#a-zA-Z0-9 ,.%\\/()"_-]{1,120}$/;` +
@@ -302,6 +349,7 @@ function buildThemeBootScript(): string {
     `if(typeof vv==="string"&&okv.test(vv))document.documentElement.style.setProperty(vk,vv);}` +
     `var ms=cfg&&cfg.motionScale;` +
     `if(typeof ms==="number"&&ms>=0.5&&ms<=2)document.documentElement.style.setProperty("--motion-scale",String(ms));` +
+    `if(cfg&&typeof cfg.cardTilt==="boolean")document.documentElement.dataset.themeTilt=cfg.cardTilt?"on":"off";` +
     `document.documentElement.dataset.customTheme="on";}`;
   return `(function(){try{var lt=${lt},dt=${dt},cs=${cs},dl=${dl},dd=${dd};function ok(id,list,f){return id&&list.indexOf(id)>=0?id:f;}function mode(){var m=localStorage.getItem("thesis.mode");if(m==="light"||m==="dark")return m;var old=localStorage.getItem("thesis.theme");if(old==="light")return"light";if(old)return"dark";return matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";}var m=mode();var l=ok(localStorage.getItem("thesis.theme.light"),lt,dl);var d=ok(localStorage.getItem("thesis.theme.dark"),dt,dd);document.documentElement.dataset.mode=m;var t=m==="dark"?d:l;if(t!=="light")document.documentElement.dataset.theme=t;document.documentElement.dataset.controlSize=ok(localStorage.getItem("thesis.controlSize"),cs,"default");${extras}var bg=getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();if(!bg&&m==="dark")bg="#000000";if(bg){var meta=document.querySelector('meta[name="theme-color"]');if(!meta){meta=document.createElement("meta");meta.setAttribute("name","theme-color");document.head.appendChild(meta);}meta.setAttribute("content",bg);}}catch(e){}})();`;
 }

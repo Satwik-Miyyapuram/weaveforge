@@ -16,30 +16,60 @@ export const ERASER_CURSOR =
   ) +
   '") 12 12, crosshair';
 
+/** An SVG cursor with its hot spot, falling back to the crosshair. */
+function svgCursor(svg: string, x: number, y: number): string {
+  return (
+    'url("data:image/svg+xml;utf8,' +
+    encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' + svg + "</svg>") +
+    `") ${x} ${y}, crosshair`
+  );
+}
+
 /**
- * A drawing tool's cursor: the crosshair OneNote shows over a page, and the one
- * the reader has always used.
- *
- * A pen and a highlighter are aimed, so the pointer is the aim — an arrow would
- * hide the pixel the nib is about to land on. The eraser is a *size*, so it is
- * the ring above: the tip it will rub out, drawn at the tip.
+ * A region tool's cursor (the reader's clip and text box): the crosshair,
+ * because the corner it is dragged from is the aim.
  */
 export const DRAW_CURSOR = "crosshair";
+
+/** The pen: a pencil, hot spot at its point in the bottom-left corner. */
+export const PEN_CURSOR = svgCursor(
+  '<path d="M3 21l1.2-4.6L16.6 4a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L7.6 19.8z" fill="#fff" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M4.2 16.4l3.4 3.4" stroke="#222" stroke-width="1.5"/>',
+  3,
+  21,
+);
+
+/** The highlighter: a chisel-tipped marker, hot spot at the tip. */
+export const HIGHLIGHTER_CURSOR = svgCursor(
+  '<path d="M3 21l2-5 3 3z" fill="#e8c21a" stroke="#222" stroke-width="1.2" stroke-linejoin="round"/>' +
+    '<path d="M5 16L15.5 5.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8 19z" fill="#fff" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/>',
+  3,
+  21,
+);
+
+/** The lasso: a dashed loop with its tail, hot spot at the tail's end. */
+export const LASSO_CURSOR = svgCursor(
+  '<ellipse cx="13" cy="9" rx="8" ry="5.5" fill="rgba(255,255,255,0.55)" stroke="#222" stroke-width="1.5" stroke-dasharray="3 2"/>' +
+    '<path d="M8 13.5c-2 1.5-3 4-4.5 7" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round"/>',
+  3,
+  21,
+);
 
 /**
  * The pointer each tool shows over the page, by the bar's tool names.
  *
  * One table for both surfaces that carry ink, because a hand that knows what
  * the eraser looks like on a sheet must not find a different one on a paper.
+ * Each tool wears its own shape so the one in hand is readable at the nib.
  */
 export const INK_TOOL_CURSORS: Record<
   "pen" | "highlighter" | "eraser" | "lasso" | "shape",
   string
 > = {
-  pen: DRAW_CURSOR,
-  highlighter: DRAW_CURSOR,
+  pen: PEN_CURSOR,
+  highlighter: HIGHLIGHTER_CURSOR,
   eraser: ERASER_CURSOR,
-  lasso: DRAW_CURSOR,
+  lasso: LASSO_CURSOR,
   shape: DRAW_CURSOR,
 };
 

@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * The ink bar: every tool, in one row, with the page and pen state at its end.
+ * The ink bar: every tool, in one row, ⋯ at its end.
  *
- * One row: tools, the pen (colour and nib behind one swatch), undo, the page
- * and the zoom. Everything done less than once a page sits behind ⋯
+ * One row: tools, five quick colours, the pen (every colour and the nib behind
+ * one swatch), undo, the page, the zoom and Insert. Everything done less than
+ * once a page sits behind ⋯
  * (`ink-bar-more.tsx`). §6.1's tools, and the whole of §6.3's tool table as data. The bar owns no
  * document state — it is handed the tool in force and says what the user asked for
  * — so it can be rendered in a test with nothing behind it, and so the ink host
@@ -32,7 +33,9 @@ import {
 } from "@weaveforge/core";
 
 import { toolIcon, toolLabel } from "./ink-bar-glyphs";
-import { MoreMenu, type InkPageGap } from "./ink-bar-more";
+import { InsertMenu, MoreMenu, type InkPageGap } from "./ink-bar-more";
+import { InkQuickColours } from "./ink-quick-colours";
+import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
 
@@ -75,18 +78,12 @@ export interface InkBarProps {
    */
   page?: number;
   pages?: number;
-  strokes?: number;
-  /** Mean recognition confidence, 0 when the page has never been recognised. */
-  recognised?: number;
   penOnly?: boolean;
   /** Which hand writes; the palm quadrant rule reads it (§3.3). */
   hand?: InkHand;
   /** The note's paper (§6.2.12); the layout menu shows and sets it. */
   paper?: InkPaper;
-  /** Whether the OS is drawing the wet tail (§6.2.6), for the readout. */
-  delegating?: boolean;
-  penSeen?: boolean;
-  /** The renderer actually drawing, for the readout at the end of the bar. */
+  /** The renderer actually drawing; kept on the bar as `data-backend` for probes. */
   backend?: string | null;
   /** A recognition run is on; the button says so and refuses a second. */
   busy?: boolean;
@@ -114,6 +111,8 @@ export interface InkBarProps {
    * screenshots, and what a page of ink is for is being printed.
    */
   onPrint?: () => void;
+  /** A paper's print, with or without its comments (the reader's ⋯). */
+  onPrintPaper?: (withComments: boolean) => void;
   onExportPng?: () => void;
   onExportSvg?: () => void;
   onUndo: () => void;
@@ -127,6 +126,8 @@ export interface InkBarProps {
   onRemovePageBackground?: () => void;
   /** Insert a PDF page or an image as a new page's background (§4.8); absent, no button. */
   onInsertPage?: () => void;
+  /** Lay a picture on the current page, over it rather than under it (the PDF reader). */
+  onAddPicture?: () => void;
   onPrevPage?: () => void;
   onNextPage?: () => void;
   onDeleteSelection?: () => void;
@@ -145,13 +146,9 @@ export function InkBar({
   width,
   page,
   pages,
-  strokes,
-  recognised,
   penOnly,
   hand,
   paper,
-  delegating,
-  penSeen,
   backend,
   busy,
   progress,
@@ -168,6 +165,7 @@ export function InkBar({
   onPaper,
   onRecognise,
   onPrint,
+  onPrintPaper,
   onExportPng,
   onExportSvg,
   onUndo,
@@ -177,6 +175,7 @@ export function InkBar({
   hasPageBackground = false,
   onRemovePageBackground,
   onInsertPage,
+  onAddPicture,
   onPrevPage,
   onNextPage,
   onDeleteSelection,
@@ -186,6 +185,7 @@ export function InkBar({
   zoom,
   onZoom,
 }: InkBarProps) {
+  const [quickColours, setQuickColour] = useQuickColours();
   /**
    * Folded, in focus mode: the palette shrinks to the tools and its own
    * handle, OneNote's way, so the paper is all there is until a hand wants
@@ -204,6 +204,7 @@ export function InkBar({
       aria-label="Ink tools"
       data-collapsed={collapsed || undefined}
       data-dock={dock}
+      data-backend={backend === undefined ? undefined : (backend ?? "starting")}
     >
       {/* 0. Handles, focus mode only (CSS): move the palette, fold it */}
       <div className="ink-palette-handles">
@@ -234,7 +235,8 @@ export function InkBar({
 
       <span className="ink-sep" aria-hidden="true" />
 
-      <span className="ink-sep" aria-hidden="true" />
+      {/* 2a. Quick colours: five, one tap each; the pen's palette changes the one in use */}
+      <InkQuickColours colours={quickColours} colour={colour} onColour={onColour} />
 
       {/* 2. The pen: colour and nib behind one swatch. The trigger shows both —
           the colour as the swatch, the nib as the dot on it — so what the next
@@ -274,6 +276,10 @@ export function InkBar({
                       aria-label={`Ink colour: ${entry}`}
                       title={`Ink colour: ${entry}`}
                       onClick={() => {
+                        // The quick colour in use takes the new colour, so the
+                        // five are changed here rather than in a second palette.
+                        const slot = quickColours.indexOf(colour);
+                        if (slot >= 0 && !quickColours.includes(entry)) setQuickColour(slot, entry);
                         onColour(entry);
                         close();
                       }}
@@ -485,6 +491,16 @@ export function InkBar({
         </>
       ) : null}
 
+      {/* 5c. Insert: pages and images, apart from ⋯ */}
+      <InsertMenu
+        onAddPage={onAddPage}
+        onAddImage={onAddImage}
+        hasPageBackground={hasPageBackground}
+        onRemovePageBackground={onRemovePageBackground}
+        onInsertPage={onInsertPage}
+        onAddPicture={onAddPicture}
+      />
+
       {onRecognise ? (
         <>
           <span className="ink-sep" aria-hidden="true" />
@@ -517,35 +533,14 @@ export function InkBar({
 
       <span className="ink-bar-spacer" />
 
-      {/* 10. End Readout. Only the parts a surface actually has are printed, so
-          the reader's page count and stroke count read the same way the note's
-          do without inventing a recognition score it does not run. */}
-      {page !== undefined || backend !== undefined ? (
-        <span className="ink-readout" data-backend={backend ?? "starting"}>
-          {page !== undefined && pages !== undefined ? `p.${page}/${pages}` : null}
-          {page !== undefined && pages !== undefined && strokes !== undefined ? " · " : null}
-          {strokes !== undefined
-            ? `${strokes} ${strokes === 1 ? "stroke" : "strokes"}`
-            : null}
-          {penSeen !== undefined ? ` · ${penSeen ? "pen" : "pointer"}` : null}
-          {recognised !== undefined ? ` · ${Math.round(recognised * 100)}%` : null}
-          {backend && backend !== "webgl2" ? ` · ${backend}` : ""}
-          {delegating ? " · delegated" : ""}
-        </span>
-      ) : null}
-
       {/* 11. Everything else: pages, paper, spacing, export, input */}
       <MoreMenu
-        onAddPage={onAddPage}
-        onAddImage={onAddImage}
-        hasPageBackground={hasPageBackground}
-        onRemovePageBackground={onRemovePageBackground}
-        onInsertPage={onInsertPage}
         paper={paper}
         onPaper={onPaper}
         pageGap={pageGap}
         onPageGap={onPageGap}
         onPrint={onPrint}
+        onPrintPaper={onPrintPaper}
         onExportPng={onExportPng}
         onExportSvg={onExportSvg}
         showTextLayer={showTextLayer}

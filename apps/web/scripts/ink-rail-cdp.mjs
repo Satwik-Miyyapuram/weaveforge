@@ -42,7 +42,7 @@ await page.waitForFunction(() => Boolean(window.inkHarness), null, {
 await page
   .waitForFunction(
     () => {
-      const b = document.querySelector(".ink-readout")?.getAttribute("data-backend");
+      const b = document.querySelector("[data-backend]")?.getAttribute("data-backend");
       return b && b !== "starting";
     },
     null,
@@ -50,7 +50,7 @@ await page
   )
   .catch(() => {});
 const backend = await page
-  .locator(".ink-readout")
+  .locator("[data-backend]")
   .first()
   .getAttribute("data-backend")
   .catch(() => null);
@@ -74,7 +74,7 @@ const rail = () =>
     const canvas = document.querySelector(".ink-canvas");
     const box = canvas.getBoundingClientRect();
     const sbox = scroller.getBoundingClientRect();
-    const readout = document.querySelector(".ink-readout");
+    const readout = document.querySelector("[data-backend]");
     return {
       scrollTop: scroller.scrollTop,
       clientWidth: scroller.clientWidth,
@@ -333,7 +333,7 @@ await page.evaluate(() => window.inkHarness.settled());
 const after4 = await page.evaluate(() => window.inkHarness.strokeCount(3));
 check("the stroke drawn 50 ms before the unmount is in the chunk", after4 === (before4 ?? 0) + 1, `${before4} → ${after4}`);
 const remounted = await page.evaluate(() => {
-  const el = document.querySelector(".ink-readout");
+  const el = document.querySelector("[data-backend]");
   return el?.textContent ?? "";
 });
 check("the new host came up", /strokes/.test(remounted), remounted);

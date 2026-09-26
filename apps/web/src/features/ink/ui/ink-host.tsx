@@ -645,12 +645,8 @@ export function InkHost({
         width={width}
         page={pageIndex + 1}
         pages={Math.max(pageCount, 1)}
-        strokes={strokes}
-        recognised={confidence}
         penOnly={pen.penOnly}
         hand={hand}
-        delegating={pen.delegating}
-        penSeen={pen.penSeen}
         backend={pen.backend}
         busy={recognising}
         progress={progress}

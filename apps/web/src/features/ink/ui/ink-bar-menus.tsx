@@ -34,7 +34,9 @@ export function useBarMenu() {
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      // The list may be portalled out of the menu (`InsertMenu`), so it counts as inside too.
+      if (!menuRef.current?.contains(target) && !listRef.current?.contains(target)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
