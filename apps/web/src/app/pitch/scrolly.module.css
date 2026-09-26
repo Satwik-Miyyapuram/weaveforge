@@ -1,4 +1,7 @@
-.page {
+/* Looks. With no choice made the page follows the system: Poster, or Poster
+   dark. `data-look` pins one of the page's own looks; `data-theme` borrows any
+   of the app's themes instead, mapped onto these tokens further down. */
+.page:not([data-theme]) {
   --bg: #F2E1C4; --surface: #FFF0D9; --surface2: #E8D5B5; --well: #E3D1B1;
   --ink: #12110F; --muted: #574E3F; --line: #12110F; --hair: rgba(18,17,15,0.18);
   --bw: 2px; --r: 6px; --rs: 4px;
@@ -18,8 +21,18 @@
   --tilt: 0deg; --press: translate(4px, 4px);
   color-scheme: light;
 }
+.page[data-look="dark"] {
+  --bg: #131210; --surface: #1D1B18; --surface2: #2A2721; --well: #0C0B0A;
+  --ink: #F2E1C4; --muted: #AB9C81; --line: #F2E1C4; --hair: rgba(242,225,196,0.18);
+  --secondary: #1D1B18; --secondary-ink: #F2E1C4;
+  --sh-primary: 4px 4px 0 #F2E1C4; --sh-secondary: 4px 4px 0 #F2E1C4;
+  --sh-card: 5px 5px 0 #4D4639; --sh-sm: 3px 3px 0 #F2E1C4; --sh-lift: 8px 8px 0 #F2E1C4;
+  --danger-text: #FF826A; --nav-on: #FFC536; --nav-on-ink: #12110F;
+  --term: #0C0B0A; --term-bar: #1D1B18;
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  .page:not([data-look="crt"]) {
+  .page:not([data-look]):not([data-theme]) {
     --bg: #131210; --surface: #1D1B18; --surface2: #2A2721; --well: #0C0B0A;
     --ink: #F2E1C4; --muted: #AB9C81; --line: #F2E1C4; --hair: rgba(242,225,196,0.18);
     --secondary: #1D1B18; --secondary-ink: #F2E1C4;
@@ -50,6 +63,31 @@
   color-scheme: light;
 }
 
+/* Any other app theme. The theme file sets --bg, --surface, --surface2, --text,
+   --accent and the status colours on this element; this maps them onto the
+   page's own tokens. Those themes are flat, so borders go thin and the hard
+   offset shadows become soft ones. */
+.page[data-theme] {
+  --well: var(--surface2);
+  --ink: var(--text); --line: var(--border-strong); --hair: var(--border);
+  --bw: 1px; --r: 10px; --rs: 8px;
+  --primary: var(--accent); --primary-ink: var(--accent-fg); --sh-primary: 0 2px 8px rgba(0,0,0,0.18);
+  --secondary: var(--surface2); --secondary-ink: var(--text); --sh-secondary: none;
+  --sh-card: 0 1px 2px rgba(0,0,0,0.16), 0 10px 28px rgba(0,0,0,0.14);
+  --sh-sm: 0 1px 3px rgba(0,0,0,0.16); --sh-lift: 0 14px 36px rgba(0,0,0,0.24);
+  --to-read: var(--s-warn); --reading: var(--s-info); --read: var(--s-good); --chip-ink: var(--bg);
+  --hl0: var(--s-warn); --hl1: var(--s-info); --hl2: var(--s-danger); --hl3: var(--s-good);
+  --danger: var(--s-danger); --danger-text: var(--s-danger);
+  --nav-on: var(--accent); --nav-on-ink: var(--accent-fg);
+  --term: #16161E; --term-bar: #24242F; --term-ink: #E4E4EC; --term-muted: #8B8B99; --term-accent: var(--accent);
+  --font: var(--font-face-sans), 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: var(--font-face-mono), 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --display: var(--font-face-sans), 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --disp-w: 800; --disp-track: -0.02em; --title-shadow: none;
+  --btn-font: var(--font-face-sans), 'Rubik', system-ui, sans-serif; --btn-w: 700; --btn-fs: 16px;
+  --tilt: 0deg; --press: translateY(1px);
+}
+
 .page, .page * { box-sizing: border-box; }
 /* `clip`, not `hidden`: it stops a stray wide element panning the whole page
    sideways on a phone without making `.page` a scroll box, which would break
@@ -60,7 +98,9 @@
   background: repeating-linear-gradient(to bottom, rgba(43,34,43,0.06) 0 1px, transparent 1px 3px),
     radial-gradient(ellipse at center, transparent 60%, rgba(43,34,43,0.22) 100%);
 }
-.page a { color: inherit; }
+/* Zero-specificity so a link styled as a button keeps its own ink: in a theme
+   whose accent needs white text, `.page a` would otherwise win over `.btn-primary`. */
+:where(.page) a { color: inherit; }
 .page :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .page[data-look="crt"] :focus-visible { outline-style: dashed; }
 
@@ -114,13 +154,33 @@
 }
 .acts a:hover { filter: brightness(0.94); }
 .acts a[aria-current="true"] { background: var(--nav-on); color: var(--nav-on-ink); border-color: var(--line); font-weight: 800; }
-.seg { display: inline-flex; border: var(--bw) solid var(--line); border-radius: var(--rs); overflow: hidden; box-shadow: var(--sh-sm); background: var(--surface); }
-.seg button {
-  min-height: 36px; padding: 0 12px; font: 600 14px var(--font); color: var(--ink); background: transparent; border: 0; cursor: pointer;
+.picker { position: relative; }
+.picker-btn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px; font: 600 14px var(--font); color: var(--ink);
+  background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--rs); box-shadow: var(--sh-sm); cursor: pointer;
 }
-.seg button + button { border-left: var(--bw) solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--nav-on); color: var(--nav-on-ink); }
-.page[data-look="crt"] .seg button { font-family: var(--font-face-pixel), 'Jersey 10', var(--font); font-weight: 400; font-size: 20px; }
+.picker-btn:hover { filter: brightness(0.96); }
+.page[data-look="crt"] .picker-btn { font-family: var(--font-face-pixel), 'Jersey 10', var(--font); font-weight: 400; font-size: 20px; }
+.picker-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 220px; max-height: min(70vh, 520px); overflow-y: auto;
+  display: flex; flex-direction: column; padding: 6px; background: var(--surface); color: var(--ink);
+  border: var(--bw) solid var(--line); border-radius: var(--r); box-shadow: var(--sh-card);
+  scrollbar-width: thin; scrollbar-color: transparent transparent;
+}
+.picker-menu:hover { scrollbar-color: var(--muted) transparent; }
+.picker-menu button {
+  display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 8px; font: 500 14px var(--font); color: var(--ink);
+  text-align: left; background: transparent; border: 0; border-radius: var(--rs); cursor: pointer;
+}
+.picker-menu button:hover { background: var(--surface2); }
+.picker-menu button[aria-checked="true"] { background: var(--nav-on); color: var(--nav-on-ink); font-weight: 700; }
+.picker-group { margin: 8px 8px 2px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+/* Ground and accent of the theme it names; "Auto" is half Poster, half Poster dark. */
+.swatch {
+  flex: none; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line);
+  background: linear-gradient(135deg, #F2E1C4 50%, #131210 50%);
+}
+.swatch[data-theme] { background: linear-gradient(135deg, var(--bg) 50%, var(--accent) 50%); }
 .progress { position: absolute; left: 0; bottom: calc(-1 * var(--bw) - 4px); height: 4px; width: 100%; transform-origin: left; transform: scaleX(0); background: var(--primary); }
 
 /* ---------- hero ---------- */
@@ -219,7 +279,8 @@ mark.ex { background: linear-gradient(var(--hl0), var(--hl0)) no-repeat 0 0 / 10
 .ln { display: block; padding: 0 18px; white-space: pre; font-family: var(--mono); font-size: 13.5px; line-height: 1.75; transition: background-color 300ms; }
 .ln .n { display: inline-block; width: 26px; color: var(--muted); }
 .ln .kw { color: #B0306A; } .ln .st { color: #2F7A45; } .ln .cm { color: var(--muted); }
-@media (prefers-color-scheme: dark) { .page:not([data-look="crt"]) .ln .kw { color: #FF95A9; } .page:not([data-look="crt"]) .ln .st { color: #86D08F; } }
+.page[data-look="dark"] .ln .kw { color: #FF95A9; } .page[data-look="dark"] .ln .st { color: #86D08F; }
+@media (prefers-color-scheme: dark) { .page:not([data-look]):not([data-theme]) .ln .kw { color: #FF95A9; } .page:not([data-look]):not([data-theme]) .ln .st { color: #86D08F; } }
 .page[data-look="crt"] .ln .kw { color: #1F6DAB; }
 .ln.hot { background: var(--hl0); color: var(--chip-ink); }
 .ln.hot .n, .ln.hot .kw, .ln.hot .st, .ln.hot .cm { color: var(--chip-ink); }

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import s from "./scrolly.module.css";
 import { APP_URL, DOCS_URL, REPO_URL } from "./links";
 import { SECTIONS } from "./sections";
+import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS } from "@/lib/theme/theme";
+import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { useScrolly } from "./use-scrolly";
 
 /**
@@ -20,8 +22,28 @@ import { useScrolly } from "./use-scrolly";
  * own showcase seed (scripts/seed-showcase-data.mjs).
  */
 
-type Look = "brutal" | "crt";
-const LOOK_KEY = "wf-look";
+/**
+ * The page's theme: any of the app's, or "auto" to follow the system between
+ * Poster and Poster dark. Remembered under the page's own key, never the app's
+ * theme keys, so trying one here does not change a signed-in reader's app.
+ */
+const THEME_KEY = "wf-pitch-theme";
+const AUTO = "auto";
+const THEME_IDS = new Set<string>([...LIGHT_THEME_OPTIONS, ...DARK_THEME_OPTIONS].map((o) => o.id));
+
+/** Poster, Poster dark and CRT are the page's own looks; the rest borrow the app's theme tokens. */
+function themeAttrs(theme: string): { "data-look"?: string; "data-theme"?: string } {
+  if (theme === AUTO) return {};
+  if (theme === "brutal") return { "data-look": "light" };
+  if (theme === "brutal-dark") return { "data-look": "dark" };
+  if (theme === "crt") return { "data-look": "crt" };
+  return { "data-theme": theme };
+}
+
+function themeLabel(theme: string): string {
+  if (theme === AUTO) return "Auto";
+  return [...LIGHT_THEME_OPTIONS, ...DARK_THEME_OPTIONS].find((o) => o.id === theme)?.label ?? "Theme";
+}
 
 /** Joins module class names written the way they read in the CSS: `k("obj card")`. */
 function k(names: string, extra?: string) {
@@ -32,21 +54,23 @@ function k(names: string, extra?: string) {
 
 export default function PitchPage() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [look, setLook] = useState<Look>("brutal");
+  const [theme, setTheme] = useState<string>(AUTO);
   const [active, setActive] = useState("overview");
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(LOOK_KEY) === "crt") setLook("crt");
+      const stored = localStorage.getItem(THEME_KEY);
+      if (stored && THEME_IDS.has(stored)) setTheme(stored);
     } catch {
       /* storage blocked: the default look stands */
     }
   }, []);
 
-  const pickLook = useCallback((next: Look) => {
-    setLook(next);
+  const pickTheme = useCallback((next: string) => {
+    setTheme(next);
     try {
-      localStorage.setItem(LOOK_KEY, next);
+      if (next === AUTO) localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, next);
     } catch {
       /* storage blocked: the choice lasts until reload */
     }
@@ -57,7 +81,7 @@ export default function PitchPage() {
   useScrolly(rootRef, setActive);
 
   return (
-    <div ref={rootRef} className={s.page} data-look={look === "crt" ? "crt" : undefined}>
+    <div ref={rootRef} className={s.page} {...themeAttrs(theme)}>
       <header className={s.top}>
         <div className={k("wrap top-in")}>
           <a className={s.brand} href="#overview">
@@ -70,10 +94,7 @@ export default function PitchPage() {
               </a>
             ))}
           </nav>
-          <div className={s.seg} role="group" aria-label="Look">
-            <button type="button" aria-pressed={look === "brutal"} onClick={() => pickLook("brutal")}>Brutal</button>
-            <button type="button" aria-pressed={look === "crt"} onClick={() => pickLook("crt")}>CRT</button>
-          </div>
+          <ThemePicker theme={theme} onPick={pickTheme} />
           <a className={k("btn btn-primary")} href={APP_URL}>Open the app</a>
         </div>
         <div className={s.progress} data-progress />
@@ -613,5 +634,40 @@ function CompareAct() {
         </p>
       </div>
     </section>
+  );
+}
+
+function ThemePicker({ theme, onPick }: { theme: string; onPick: (theme: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useDismissOnOutside(open, () => setOpen(false), boxRef);
+  const pick = (id: string) => {
+    onPick(id);
+    setOpen(false);
+  };
+  const item = (id: string, label: string) => (
+    <button key={id} type="button" role="menuitemradio" aria-checked={theme === id} onClick={() => pick(id)}>
+      {/* The swatch carries the theme's own attribute, so it is painted from
+          that theme's tokens: its ground and its accent. */}
+      <span className={s.swatch} data-theme={id === AUTO ? undefined : id} aria-hidden />
+      {label}
+    </button>
+  );
+  return (
+    <div className={s.picker} ref={boxRef}>
+      <button type="button" className={s["picker-btn"]} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <span className={s.swatch} data-theme={theme === AUTO ? undefined : theme} aria-hidden />
+        {themeLabel(theme)}
+      </button>
+      {open && (
+        <div className={s["picker-menu"]} role="menu" aria-label="Theme">
+          {item(AUTO, "Auto")}
+          <p className={s["picker-group"]}>Light</p>
+          {LIGHT_THEME_OPTIONS.map((o) => item(o.id, o.label))}
+          <p className={s["picker-group"]}>Dark</p>
+          {DARK_THEME_OPTIONS.map((o) => item(o.id, o.label))}
+        </div>
+      )}
+    </div>
   );
 }
