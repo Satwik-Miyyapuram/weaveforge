@@ -12,7 +12,7 @@ const FEATURE_TIPS = [
     detail: "Nest topics and papers — from survey chapters down to individual citations.",
   },
   {
-    title: "Vault notes",
+    title: "Notes",
     detail: "Markdown for ideas, meeting notes, and drafts beside your library.",
   },
   {

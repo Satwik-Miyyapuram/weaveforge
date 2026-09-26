@@ -4,6 +4,9 @@
 .pdf-reader-chrome {
   border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
   overflow: hidden;
+  /* The bar stays in reach while the screen scrolls: before, the page count
+     and tools slid up under the title bar. */
+  position: sticky; top: var(--titlebar-h); z-index: 5;
 }
 .pdf-reader-toolbar,
 .pdf-reader-tools {
@@ -18,6 +21,13 @@
    strip hid the annotation tool and its colour off the right edge. */
 @media (min-width: 721px) {
   .pdf-reader-tools { flex-wrap: wrap; overflow-x: visible; }
+  /* One bar, the Reader mock's: page, zoom, More, then find and the tools.
+     The two rows sit side by side and wrap only when the window is narrow. */
+  .pdf-reader-chrome { display: flex; flex-wrap: wrap; align-items: center; }
+  .pdf-reader-chrome > .pdf-reader-toolbar { flex: 0 1 auto; }
+  .pdf-reader-chrome > .pdf-reader-tools { flex: 1 1 420px; border-top: 0; }
+  .pdf-reader-chrome > :not(.pdf-reader-toolbar, .pdf-reader-tools) { flex: 1 1 100%; }
+  .pdf-reader-chrome .pdf-reader-group .pdf-reader-find-toggle { display: none; }
 }
 /* Related controls sit in a bordered cluster so grouping is visible, not implied. */
 .pdf-reader-group {
@@ -29,7 +39,7 @@
    flat tiles of one height — a bordered button inside a bordered group read
    as two frames and left the zoom label pinched between them. */
 .pdf-reader-group .btn-secondary {
-  white-space: nowrap; height: 28px; padding: 0 10px; line-height: 1;
+  white-space: nowrap; height: 32px; padding: 0 10px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
   border-color: transparent; border-radius: 6px; background: transparent;
 }
@@ -43,23 +53,18 @@
   font-size: 0.85rem; min-width: 3rem; padding: 0 4px; text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.pdf-reader-page-jump {
-  font-size: 0.85rem;
-  /* Sits at the end of the row on wide screens, inline on narrow ones —
-     `margin-left:auto` left a canyon between it and the fit controls. */
-  margin-left: auto;
-}
+/* "Page 3 / 15" is orientation, not a command: it leads the bar. */
+.pdf-reader-page-jump { font-size: 0.85rem; order: -1; }
 .pdf-reader-page-jump input {
   width: 3.5rem; padding: 4px 6px; text-align: center;
 }
 /* The tool group sits in a nowrap flex strip: it keeps its size. */
 .pdf-reader-tool-seg { flex: none; }
-.pdf-reader-tool-seg button { padding: 4px 11px; }
+.pdf-reader-tool-seg button { padding: 0 12px; min-height: 32px; }
 @media (max-width: 720px) {
   /* "Page 3 / 15" is orientation, not a command. Pushing it to the end of a
      scrolling strip hides it; lead with it instead. (Pinning it with sticky
      just parks it on top of whatever scrolls underneath.) */
-  .pdf-reader-page-jump { margin-left: 0; order: -1; }
   .pdf-reader-toolbar, .pdf-reader-tools { gap: 6px; padding: 5px 6px; }
   /* Keep a usable field and let the strip scroll rather than crushing the
      input to a few characters. Scoped through .pdf-reader-chrome so it beats
@@ -71,16 +76,18 @@
    page, zoom, find and "More"; the second holds the annotation tools and wraps.
    Find opens as a full-width row; "More" unfolds fit, rotate, outline,
    citations, references and focus. The toggles exist only here. */
-.pdf-reader-phone-toggles { display: none; }
+/* Fit, rotate, outline, citations, references and focus wait behind "More" at
+   every width, so the bar holds what a reader reaches for. */
+.pdf-reader-phone-toggles { display: inline-flex; }
+.pdf-reader-chrome:not([data-phone-panel="more"]) .pdf-reader-more { display: none; }
 @media (max-width: 720px) {
   .pdf-reader-toolbar, .pdf-reader-tools { flex-wrap: wrap; overflow-x: visible; }
-  .pdf-reader-phone-toggles { display: inline-flex; margin-left: auto; }
+  .pdf-reader-phone-toggles { margin-left: auto; }
   /* Page, zoom and the two toggles fit one 360px row: tighter icon tiles, and
      "3 / 14" speaks for itself without the word "Page". */
   .pdf-reader-group .pdf-reader-icon-btn { min-width: 28px; padding: 0 6px; }
   .pdf-reader-toolbar-label { min-width: 2.6rem; padding: 0 2px; }
   .pdf-reader-page-jump > .muted:first-child { display: none; }
-  .pdf-reader-chrome:not([data-phone-panel="more"]) .pdf-reader-more { display: none; }
   .pdf-reader-chrome:not([data-phone-panel="search"]) .pdf-reader-tools > .pdf-reader-search { display: none; }
   .pdf-reader-chrome .pdf-reader-tools > .pdf-reader-search { flex: 1 1 100%; max-width: none; }
   .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex-wrap: wrap; flex: 0 1 auto; }
@@ -205,12 +212,13 @@
  * dozen times while it settled. minmax(0, 1fr) pins the column to the space
  * it is given; the scroller's own overflow reaches anything wider. */
 .pdf-reader-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-height: 0; min-width: 0; }
+/* The side column sits on the right, as in the mock: the page leads. */
 .pdf-reader-body--outline {
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
 }
 /* Collapsed: the side column folds to a vertical tab that still counts the
    annotations behind it. */
-.pdf-reader-body--rail { grid-template-columns: 34px minmax(0, 1fr); }
+.pdf-reader-body--rail { grid-template-columns: minmax(0, 1fr) 34px; }
 .pdf-reader-side-rail {
   display: flex; align-items: flex-start; justify-content: center;
   padding: 12px 0; min-height: 0;
@@ -218,21 +226,23 @@
   background: var(--surface); color: var(--text); cursor: pointer;
   font: inherit; font-size: 0.85rem; font-weight: 600;
 }
-.pdf-reader-side-rail span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+.pdf-reader-side-rail span { writing-mode: vertical-rl; white-space: nowrap; }
 .pdf-reader-side-rail:hover { filter: brightness(1.05); }
-.pdf-reader-side-collapse { justify-self: end; }
+/* Rides the top corner of the first panel, as the mock's › does, instead of
+   taking a row of its own above it. */
+.pdf-reader-side-collapse { position: absolute; top: 6px; right: 6px; z-index: 1; height: 32px; }
+.pdf-reader-side-collapse + * > :first-child { padding-right: 40px; }
 @media (max-width: 860px) {
   /* A 180px side column beside a PDF leaves neither usable; stack instead. */
   .pdf-reader-body--outline, .pdf-reader-body--rail { grid-template-columns: minmax(0, 1fr); }
   /* Stacked, the toolbar toggle already folds the list; no second switch. */
   .pdf-reader-side-rail, .pdf-reader-side-collapse { display: none; }
-  .pdf-reader-side { order: 2; }
   .pdf-reader-outline, .pdf-reader-sidebar { max-height: 40dvh; }
   /* Stacked under the page, the list waits behind its toolbar toggle. */
   .pdf-reader-side:not(.is-list-open) .pdf-reader-sidebar { display: none; }
 }
 @media (min-width: 861px) {
-  .pdf-reader-narrow-only { display: none; }
+  .pdf-reader-narrow-only, .pdf-reader-chrome .pdf-reader-group .pdf-reader-narrow-only { display: none; }
 }
 .pdf-reader-outline {
   /* `vh` then `dvh`, the fallback pair base.css uses on `body` — a cap inside a
@@ -326,7 +336,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   font: inherit;
   line-height: inherit;
   text-decoration: underline;
-  text-decoration-color: var(--reader-cite-color, #2563eb);
+  text-decoration-color: var(--reader-cite-color, var(--accent));
   text-decoration-thickness: 0.065em;
   text-underline-offset: 0.12em;
   /* Underline the whole phrase, gaps included: skipping ink would break the
@@ -338,15 +348,15 @@ body > canvas.hiddenCanvasElement { display: none; }
   transition: background 120ms ease;
 }
 .pdf-reader-textlayer span > a.pdf-reader-cite:is(.is-open, .is-hovered) {
-  background: color-mix(in srgb, var(--reader-cite-color, #2563eb) 12%, transparent);
+  background: color-mix(in srgb, var(--reader-cite-color, var(--accent)) 12%, transparent);
 }
 .pdf-reader-textlayer span > a.pdf-reader-cite:focus-visible {
-  outline: 1px solid var(--reader-cite-color, #2563eb);
+  outline: 2px solid var(--reader-cite-color, var(--accent));
   outline-offset: 2px;
 }
 /* The marker exists only to find the page element. It must not be a box. */
 .pdf-reader-cite-marker { display: none; }
-.pdf-reader-side { display: grid; gap: 8px; align-content: start; }
+.pdf-reader-side { display: grid; gap: 8px; align-content: start; position: relative; }
 .pdf-reader-ann-layer {
   position: absolute; inset: 0; pointer-events: none;
   /* Above the text layer so a tap lands on the annotation. The layer itself is
@@ -499,7 +509,13 @@ body > canvas.hiddenCanvasElement { display: none; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pdf-reader-refs-meta { font-size: 0.75rem; }
-.reader-screen-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.reader-screen-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
+.reader-screen-back { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; flex: none; }
+.reader-screen-title {
+  margin: 0; flex: 1 1 auto; min-width: 0; font-size: 1.1rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reader-screen-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: none; }
 .reader-main--split {
   display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr); gap: 12px; min-height: 0;
 }
@@ -527,16 +543,21 @@ body > canvas.hiddenCanvasElement { display: none; }
   padding: 8px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--surface); font-size: 0.85rem;
 }
+.pdf-reader-sidebar-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.pdf-reader-sidebar-head h2 { margin: 0; font-size: 1rem; }
+.pdf-reader-sidebar-kinds { display: flex; margin-bottom: 8px; }
+.pdf-reader-sidebar-kinds button { flex: 1; min-height: 32px; }
 .pdf-reader-sidebar-filters {
-  display: grid; gap: 4px; margin-bottom: 8px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 5.5rem; gap: 4px; margin-bottom: 8px;
 }
+.pdf-reader-sidebar-filters > :only-child { grid-column: 1 / -1; }
 .pdf-reader-sidebar-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 /* Explicit colour and font: an unstyled button takes the UA's `buttontext`,
    which under the desktop shell's dark native theme is white — the quote of
    every highlight vanished into the light card. */
 .pdf-reader-sidebar-item {
   display: flex; gap: 8px; width: 100%; text-align: left;
-  background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px;
   cursor: pointer; color: var(--text); font: inherit;
 }
 .pdf-reader-sidebar-item.is-selected { border-color: var(--accent); background: var(--surface-alt); }
