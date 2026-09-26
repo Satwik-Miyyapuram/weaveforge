@@ -113,3 +113,11 @@ test("stored configs are re-validated, not trusted", () => {
   assert.equal(normalizeThemeConfig("nope"), null);
   assert.equal(normalizeThemeConfig(null), null);
 });
+
+test("tilt is an optional boolean that survives a round trip", () => {
+  assert.equal(parseThemeConfig(config()).config?.cardTilt, undefined);
+  const leaning = parseThemeConfig(config({ tilt: true })).config;
+  assert.equal(leaning?.cardTilt, true);
+  assert.equal(normalizeThemeConfig(leaning)?.cardTilt, true);
+  assert.deepEqual(parseThemeConfig(config({ tilt: "yes" })).errors, ["tilt: must be a boolean"]);
+});

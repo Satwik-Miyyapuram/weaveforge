@@ -161,6 +161,8 @@ export function SettingsScreen() {
   const [surfaces, setSurfaces] = useState<SurfaceStyle>("borderless");
   const [reactiveMotion, setReactiveMotion] = useState(false);
   const [cardTint, setCardTint] = useState<CardTint>("full");
+  const [cardTilt, setCardTilt] = useState(true);
+  const [scanlines, setScanlines] = useState(true);
   const [customTheme, setCustomTheme] = useState<ThemeConfig | null>(null);
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
@@ -211,6 +213,8 @@ export function SettingsScreen() {
     setSurfaces(sanitizeSurfaceStyle(appearance.surfaces));
     setReactiveMotion(appearance.reactiveMotion ?? false);
     setCardTint(sanitizeCardTint(appearance.cardTint));
+    setCardTilt(appearance.cardTilt ?? true);
+    setScanlines(appearance.scanlines ?? true);
     setCustomTheme(appearance.customTheme ?? null);
   }, [load]);
 
@@ -236,6 +240,16 @@ export function SettingsScreen() {
     const safe = sanitizeCardTint(val);
     setCardTint(safe);
     persistThemeChange({ cardTint: safe });
+  }
+
+  function handleCardTiltChange(on: boolean) {
+    setCardTilt(on);
+    persistThemeChange({ cardTilt: on });
+  }
+
+  function handleScanlinesChange(on: boolean) {
+    setScanlines(on);
+    persistThemeChange({ scanlines: on });
   }
 
   function handleControlSizeChange(val: string) {
@@ -515,8 +529,10 @@ export function SettingsScreen() {
           {(isBrutalTheme(lightTheme) || isBrutalTheme(darkTheme)) && (
             <div className="appearance-row appearance-row--stack">
               <div className="appearance-row-text">
-                <span className="appearance-label" id="cardTint">Card tint</span>
-                <p>How Poster and CRT colour a paper card by its reading status.</p>
+                <span className="appearance-label" id="cardTint">
+                  Card tint <span className="appearance-tag">Poster and CRT</span>
+                </span>
+                <p>How reading status colours a paper card. Only shown for the Poster and CRT themes.</p>
               </div>
               <span />
               <div className="tint-picker" role="radiogroup" aria-labelledby="cardTint">
@@ -524,9 +540,12 @@ export function SettingsScreen() {
                   <label key={opt.id} className={`tint-option tint-option--${opt.id}${cardTint === opt.id ? " is-on" : ""}`}>
                     <span className="tint-sample" aria-hidden>
                       <span className="tint-sample-card">
-                        <strong>Locating and editing factual associations</strong>
-                        <span className="tint-sample-meta">Meng et al. · 2022</span>
-                        {opt.id === "none" && <span className="tint-sample-chip">Reading</span>}
+                        {opt.id === "bar" && <span className="tint-sample-band" />}
+                        <span className="tint-sample-body">
+                          <strong>Locating and editing factual associations</strong>
+                          <span className="tint-sample-meta">Meng et al. · 2022</span>
+                          {opt.id === "none" && <span className="tint-sample-chip">Reading</span>}
+                        </span>
                       </span>
                     </span>
                     <span className="tint-option-foot">
@@ -537,7 +556,10 @@ export function SettingsScreen() {
                         checked={cardTint === opt.id}
                         onChange={() => handleCardTintChange(opt.id)}
                       />
-                      <span>{opt.label}</span>
+                      <span className="tint-option-text">
+                        <span className="tint-option-name">{opt.label}</span>
+                        <span className="tint-option-note">{opt.note}</span>
+                      </span>
                     </span>
                   </label>
                 ))}
@@ -593,6 +615,42 @@ export function SettingsScreen() {
               onChange={(e) => handleReactiveMotionChange(e.target.checked)}
             />
           </div>
+          {(lightTheme === "crt" || customTheme?.cardTilt === true) && (
+            <div className="appearance-row">
+              <div className="appearance-row-text">
+                <label htmlFor="cardTilt">Tilted cards</label>
+                <p>
+                  Cards lean a little off square, like a hand of dealt cards. On by default
+                  for CRT; a theme file can turn it on for any theme with{" "}
+                  <code>&quot;tilt&quot;: true</code>.
+                </p>
+              </div>
+              <input
+                id="cardTilt"
+                type="checkbox"
+                role="switch"
+                className="themed-check appearance-switch"
+                checked={cardTilt}
+                onChange={(e) => handleCardTiltChange(e.target.checked)}
+              />
+            </div>
+          )}
+          {lightTheme === "crt" && (
+            <div className="appearance-row">
+              <div className="appearance-row-text">
+                <label htmlFor="scanlines">Scanlines</label>
+                <p>Only for the CRT theme.</p>
+              </div>
+              <input
+                id="scanlines"
+                type="checkbox"
+                role="switch"
+                className="themed-check appearance-switch"
+                checked={scanlines}
+                onChange={(e) => handleScanlinesChange(e.target.checked)}
+              />
+            </div>
+          )}
         </section>
       </div>
       )}

@@ -16,8 +16,8 @@ export function SyncIssuesPanel() {
   if (conflicts.length === 0 && dead.length === 0) return null;
 
   return (
-    <div className="settings-group">
-      <h3>Needs you</h3>
+    <div className="card settings-block">
+      <h3 className="settings-group">Needs you</h3>
       {conflicts.map((conflict) => (
         <ConflictRow
           key={conflict.id}
@@ -65,7 +65,7 @@ function ConflictRow({ label, fields, values, onKeep }: ConflictRowProps) {
   const [picks, setPicks] = useState<Record<string, "local" | "remote">>({});
 
   return (
-    <div className="settings-group">
+    <div className="sync-conflict">
       <p>
         <strong>{label}</strong> changed in two places.
       </p>

@@ -103,27 +103,40 @@ input[type="checkbox"].themed-check.appearance-switch:focus-visible { outline: 2
   .appearance .theme-config-actions { justify-content: flex-start; }
 }
 
-/* Card tint as three sample cards, one per option. */
-.tint-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+/* Card tint as three sample cards, one per option, each drawn the way the
+   papers grid draws that option (styles/brutal.css). */
+.appearance-tag {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px;
+  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 400; color: var(--muted); vertical-align: 2px;
+}
+.tint-picker { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
 .tint-option { display: grid; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; cursor: pointer; background: var(--surface); }
 .tint-option.is-on { border-color: var(--text); }
-.tint-sample { display: block; padding: 12px; background: var(--surface-alt); }
+.tint-sample { display: block; padding: 14px; background: var(--surface-alt); }
 .tint-sample-card {
-  display: grid; gap: 4px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line);
+  display: flex; overflow: hidden; border-radius: 6px; border: 1px solid var(--line);
   background: var(--surface); font-size: 0.82rem; line-height: 1.25;
 }
+.tint-sample-band { flex: none; width: 10px; background: var(--chip-reading, var(--accent)); border-right: 1px solid var(--line); }
+.tint-sample-body { display: grid; gap: 5px; min-width: 0; padding: 10px 12px; }
 .tint-option--full .tint-sample-card { background: var(--tint-reading, var(--surface2)); }
-.tint-option--bar .tint-sample-card { border-left: 6px solid var(--chip-reading, var(--accent)); }
 .tint-option--border .tint-sample-card { border: 3px solid var(--chip-reading, var(--accent)); }
-/* A phone has no room for an edge bar: it shows as a border there, so the
-   picker does not offer it. */
-@media (max-width: 767px) {
-  .tint-option--bar { display: none; }
-}
 .tint-sample-meta { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
 .tint-sample-chip { justify-self: start; padding: 1px 9px; border-radius: 999px; font-size: 0.7rem; background: var(--chip-reading, var(--pill)); }
-.tint-option-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-weight: 700; }
-@media (max-width: 700px) { .tint-picker { grid-template-columns: minmax(0, 1fr); } }
+.tint-option-foot { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; }
+.tint-option-foot input { margin-top: 2px; }
+.tint-option-text { display: grid; gap: 2px; }
+.tint-option-name { font-weight: 700; }
+.tint-option-note { font-size: 0.8rem; color: var(--muted); }
+/* Desktop offers the edge bar, a phone the border in its place (a phone card
+   has no room for a band). The one in use always shows, so a choice made on the
+   other screen is never hidden from the picker. */
+.tint-option--border:not(.is-on) { display: none; }
+@media (max-width: 767px) {
+  .tint-option--border { display: grid; }
+  .tint-option--bar:not(.is-on) { display: none; }
+}
+@media (max-width: 700px) { .tint-picker { grid-auto-flow: row; } }
 
 /* Theme as preview cards; the less-used palettes as chips underneath. */
 .theme-picker { display: grid; gap: 12px; margin: 4px 0 16px; }

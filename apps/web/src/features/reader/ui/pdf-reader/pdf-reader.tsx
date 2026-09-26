@@ -43,7 +43,9 @@ import {
   paletteHex,
   readThemePalette,
   type InkPalette,
+  InkPrintPreview,
 } from "@/features/ink";
+import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
 import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
 import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
@@ -64,6 +66,7 @@ import {
   toolOwnsThePage,
   type ReaderCreateTool,
 } from "../../application/reader-annotation-helpers";
+import { draftPicture } from "../../application/reader-picture";
 import { useReaderViewport } from "../use-reader-viewport";
 import { ReaderToolbar } from "../reader-toolbar";
 import { ReaderSearchBar } from "../reader-search-bar";
@@ -203,6 +206,8 @@ export function PdfReader({
   // looks broken, not focused.
   const [focus, setFocus] = useState(false);
   const toggleFocus = useCallback(() => setFocus((current) => !current), []);
+  const pictureInput = useRef<HTMLInputElement>(null);
+  const fetchPicture = useCallback((path: string) => getContainer().papers.fetchImageBlob(path), []);
   useEffect(() => {
     const root = document.documentElement;
     if (focus) root.dataset.readerFocus = "";
@@ -341,19 +346,6 @@ export function PdfReader({
   });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
-
-  /**
-   * How many pen strokes the page under the pen carries, for the bar's
-   * readout: the note counts strokes because that is what it holds, and a
-   * paper's ink annotations are its strokes.
-   */
-  const pageInkStrokes = useMemo(
-    () =>
-      (annotationsByPage.get(viewport.page) ?? EMPTY_ANNOTATIONS).filter(
-        (ann) => ann.type === "ink",
-      ).length,
-    [annotationsByPage, viewport.page],
-  );
 
   /**
    * The pointer the page shows, from the one table both surfaces read
@@ -685,6 +677,20 @@ export function PdfReader({
   }, [showReferences, refs]);
 
 
+  const printAnnotationsOn = useCallback(
+    (pageNumber: number) => annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS,
+    [annotationsByPage],
+  );
+  const readerPrint = useReaderPrint({
+    pdf,
+    numPages,
+    rotation,
+    contentHash,
+    title: paperTitle,
+    annotationsOn: printAnnotationsOn,
+    fetchPicture,
+  });
+
   const matchOnPage = useCallback(
     async (pageNumber: number): Promise<AnchorConfidence | null> => {
       if (!pdf || !locus) return null;
@@ -1002,6 +1008,27 @@ export function PdfReader({
     await persistDraft(draft);
   }
 
+  /** Lay a picked picture in the middle of the page in view, over the page (the Insert menu). */
+  async function addPicture(file: File) {
+    if (!paperId || !file.type.startsWith("image/")) return;
+    const pageNumber = viewport.page;
+    const geometry = pageGeometries.current.get(pageNumber);
+    const pageWidth = geometry?.pageWidth ?? pageSize?.width;
+    const pageHeight = geometry?.pageHeight ?? pageSize?.height;
+    if (!pageWidth || !pageHeight) return;
+    let aspect = 4 / 3;
+    try {
+      const bitmap = await createImageBitmap(file);
+      aspect = bitmap.width / bitmap.height;
+      bitmap.close();
+    } catch {
+      // Unreadable here but maybe not to the <img>: keep the default shape.
+    }
+    const ext = file.type.split("/")[1]?.replace("jpeg", "jpg").replace("svg+xml", "svg") || "png";
+    const path = await getContainer().papers.uploadImage(paperId, file, ext);
+    await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));
+  }
+
   async function createNoteWithComment(color: string, comment: string) {
     if (!pendingCreate) return;
     const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
@@ -1244,8 +1271,6 @@ export function PdfReader({
             canRedo={inkUndo.canRedo}
             page={viewport.page}
             pages={numPages}
-            strokes={pageInkStrokes}
-            penSeen={penSeen}
             // What the lasso caught: the bar's two selection actions appear
             // only then, and Delete takes the whole selection.
             selected={lassoed.length}
@@ -1268,6 +1293,28 @@ export function PdfReader({
             }}
             onUndo={() => void inkUndo.undo()}
             onRedo={() => void inkUndo.redo()}
+            onAddPicture={() => pictureInput.current?.click()}
+            onPrintPaper={(withComments) => void readerPrint.print(withComments)}
+          />
+        )}
+        {readerPrint.printDoc ? (
+          <InkPrintPreview
+            html={readerPrint.printDoc.html}
+            title={readerPrint.printDoc.title}
+            onClose={readerPrint.closePrint}
+          />
+        ) : null}
+        {canCreate && penOpen && (
+          <input
+            ref={pictureInput}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void addPicture(file);
+            }}
           />
         )}
       </div>
@@ -1449,6 +1496,8 @@ export function PdfReader({
                     // `undefined` is a stable prop where a fresh `[]` would
                     // re-render every page's overlay on every frame.
                     inkSelectedIds={inkEditable ? lassoed : undefined}
+                    onSelect={setSelectedAnnId}
+                    fetchPicture={fetchPicture}
                   />
                 )}
                 {/* Inside the page, because it decorates the page's own text

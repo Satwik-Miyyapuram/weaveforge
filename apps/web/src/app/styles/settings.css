@@ -93,13 +93,22 @@
    panel around them is a surface. */
 .integration-item {
   display: flex; align-items: center; gap: 12px; width: 100%;
-  padding: 14px 10px; border: none; border-top: 1px solid var(--border);
+  padding: 14px 4px; border: none; border-top: 1px solid var(--border);
   background: transparent; cursor: pointer; font: inherit; color: var(--text);
-  border-radius: 8px; transition: background 0.12s;
+  border-radius: 0; transition: filter 0.12s;
 }
 .integration-item:first-child { border-top: none; }
-.integration-item:hover { background: var(--surface2); }
-.integration-item .integration-main strong { font-size: 0.9rem; font-weight: 500; }
+.integration-item:hover { filter: brightness(1.08); }
+.integration-item .integration-main strong { font-size: 0.95rem; font-weight: 700; }
+.integration-item .integration-main span { font-size: 0.875rem; }
+
+/* One panel per sync concern (Sync, Needs you, Kept on this device): a
+   heading, a muted line, then its controls, as the Appearance panels read. */
+.settings-block { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.settings-block > .settings-group { margin: 0; }
+.settings-block > p { margin: 0; font-size: 0.875rem; }
+.settings-block progress { width: 100%; max-width: 320px; }
+.sync-conflict { display: grid; gap: 8px; }
 .integration-item .status { margin-left: auto; }
 
 /* GitHub link card (Settings) */

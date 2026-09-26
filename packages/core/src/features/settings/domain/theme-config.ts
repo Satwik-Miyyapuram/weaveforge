@@ -85,6 +85,11 @@ export interface ThemeConfig {
   /** Global animation duration multiplier, 0.5–2. */
   motionScale: number;
   /**
+   * Whether paper and note cards lean a little, like dealt cards. Unset
+   * leaves it to the theme: CRT leans them, the others keep them square.
+   */
+  cardTilt?: boolean;
+  /**
    * CSS custom properties to set on `<html>`, already validated and
    * re-serialized. Keys include the leading `--`.
    */
@@ -308,6 +313,7 @@ const TOP_LEVEL_KEYS = new Set([
   "mode",
   "surfaces",
   "motion",
+  "tilt",
   "colors",
   "fonts",
   "radius",
@@ -390,6 +396,12 @@ export function parseThemeConfig(text: string): ThemeConfigParseResult {
     }
   }
 
+  let cardTilt: boolean | undefined;
+  if (raw.tilt !== undefined) {
+    if (typeof raw.tilt !== "boolean") problems.add("tilt", "must be a boolean");
+    else cardTilt = raw.tilt;
+  }
+
   const vars: Record<string, string> = Object.create(null) as Record<string, string>;
   parseSection(problems, raw.colors, "colors", THEME_COLOR_KEYS, normalizeColorValue, (k) => `--${k}`, vars);
   parseSection(problems, raw.fonts, "fonts", THEME_FONT_KEYS, normalizeFontStack, (k) => `--font-${k}`, vars);
@@ -412,6 +424,7 @@ export function parseThemeConfig(text: string): ThemeConfigParseResult {
       surfaces: surfaces as SurfaceStyle,
       reactiveMotion,
       motionScale,
+      ...(cardTilt === undefined ? {} : { cardTilt }),
       // Re-materialise as a normal object; `vars` is prototype-less by design
       // but the value crosses into JSON persistence, which wants a plain one.
       vars: { ...vars },
@@ -433,6 +446,7 @@ export function normalizeThemeConfig(raw: unknown): ThemeConfig | null {
     mode: raw.mode,
     surfaces: raw.surfaces,
     motion: { reactive: raw.reactiveMotion, scale: raw.motionScale },
+    ...(raw.cardTilt === undefined ? {} : { tilt: raw.cardTilt }),
     ...splitVars(raw.vars),
   };
   return parseThemeConfig(JSON.stringify(rebuilt)).config;
@@ -466,6 +480,7 @@ export function themeConfigTemplate(): string {
       mode: "dark",
       surfaces: "borderless",
       motion: { reactive: true, scale: 1 },
+      tilt: false,
       colors: {
         bg: "#0b0d12",
         surface: "#12151c",

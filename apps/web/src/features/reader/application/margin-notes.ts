@@ -1,4 +1,5 @@
 import { pdfRectToScreenBox, type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
+import { picturePath } from "./reader-picture";
 
 /** One comment card in the writing margin beside a page, and where it sits. */
 export interface MarginNote {
@@ -48,7 +49,8 @@ export function layoutMarginNotes(
 ): MarginNote[] {
   const placed: MarginNote[] = [];
   for (const annotation of annotations) {
-    if (!annotation.comment.trim()) continue;
+    // A placed picture keeps its file in the comment; it is drawn on the page, not in the margin.
+    if (!annotation.comment.trim() || picturePath(annotation)) continue;
     const top = markTop(annotation, projection);
     if (top === null) continue;
     placed.push({ annotation, top, anchorTop: top });

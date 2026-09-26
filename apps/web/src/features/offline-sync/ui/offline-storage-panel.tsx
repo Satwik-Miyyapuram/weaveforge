@@ -20,8 +20,8 @@ export function OfflineStoragePanel() {
   const used = Math.min(100, Math.round((bytes / Math.max(1, quota)) * 100));
 
   return (
-    <div className="settings-group">
-      <h3>Kept on this device</h3>
+    <div className="card settings-block">
+      <h3 className="settings-group">Kept on this device</h3>
       <p className="muted">
         {size(bytes)} of {size(quota)} — {files} {files === 1 ? "file" : "files"}. The oldest
         untouched file goes first when it fills; it downloads again when you open it.

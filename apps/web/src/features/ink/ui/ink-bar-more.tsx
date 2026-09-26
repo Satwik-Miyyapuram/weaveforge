@@ -4,11 +4,13 @@
  * The bar's ⋯ menu: everything the bar does less than once a page.
  *
  * The bar keeps one row — the tools, the pen, undo and the page — and this list
- * holds the rest a section at a time: pages, paper, spacing, export, and the
- * input settings. Each section is drawn only when its handlers are handed over,
+ * holds the rest a section at a time: paper, spacing, export, and the input
+ * settings. Adding pages and images has its own menu, `InsertMenu` below. Each section is drawn only when its handlers are handed over,
  * so the PDF reader, which has none of them, gets no ⋯ at all.
  */
 
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { INK_PAPERS, type InkHand, type InkPaper } from "@weaveforge/core";
 
 import { paperLabel } from "./ink-bar-glyphs";
@@ -42,16 +44,13 @@ export function pageGapPx(gap: InkPageGap): number {
 }
 
 export interface MoreMenuProps {
-  onAddPage?: () => void;
-  onAddImage?: () => void;
-  hasPageBackground?: boolean;
-  onRemovePageBackground?: () => void;
-  onInsertPage?: () => void;
   paper?: InkPaper;
   onPaper?: (paper: InkPaper) => void;
   pageGap?: InkPageGap;
   onPageGap?: (gap: InkPageGap) => void;
   onPrint?: () => void;
+  /** A paper's print, with or without its margin comments. */
+  onPrintPaper?: (withComments: boolean) => void;
   onExportPng?: () => void;
   onExportSvg?: () => void;
   showTextLayer?: boolean;
@@ -63,16 +62,12 @@ export interface MoreMenuProps {
 }
 
 export function MoreMenu({
-  onAddPage,
-  onAddImage,
-  hasPageBackground = false,
-  onRemovePageBackground,
-  onInsertPage,
   paper,
   onPaper,
   pageGap,
   onPageGap,
   onPrint,
+  onPrintPaper,
   onExportPng,
   onExportSvg,
   showTextLayer = false,
@@ -89,13 +84,11 @@ export function MoreMenu({
     run();
   };
 
-  const removeImage = hasPageBackground ? onRemovePageBackground : undefined;
-  const hasPageItems = Boolean(onAddPage || onAddImage || onInsertPage || removeImage);
   const hasPaper = Boolean(paper && onPaper);
   const hasGap = Boolean(pageGap && onPageGap);
-  const hasExport = Boolean(onPrint && onExportPng);
+  const hasExport = Boolean((onPrint && onExportPng) || onPrintPaper);
   const hasInput = Boolean(onToggleTextLayer || onPenOnly || (onHand && hand));
-  if (!hasPageItems && !hasPaper && !hasGap && !hasExport && !hasInput) return null;
+  if (!hasPaper && !hasGap && !hasExport && !hasInput) return null;
 
   return (
     <div className="ink-menu ink-menu-more" ref={open ? menuRef : undefined}>
@@ -121,36 +114,6 @@ export function MoreMenu({
           aria-label="More ink options"
           ref={listRef}
         >
-          {hasPageItems ? (
-            <div className="ink-menu-section" role="group" aria-label="Page">
-              {onAddPage ? (
-                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onAddPage)}>
-                  Add a page
-                </button>
-              ) : null}
-              {onInsertPage ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="ink-menu-item"
-                  onClick={choose(onInsertPage)}
-                >
-                  Insert a page from a PDF or image
-                </button>
-              ) : null}
-              {onAddImage ? (
-                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onAddImage)}>
-                  {hasPageBackground ? "Change the page image" : "Add an image to this page"}
-                </button>
-              ) : null}
-              {removeImage ? (
-                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(removeImage)}>
-                  Remove the page image
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
           {paper && onPaper ? (
             <div className="ink-menu-section" role="group" aria-label="Paper">
               <span className="ink-menu-heading">Paper</span>
@@ -189,6 +152,30 @@ export function MoreMenu({
                   </button>
                 ))}
               </div>
+            </div>
+          ) : null}
+
+          {onPrintPaper ? (
+            <div className="ink-menu-section" role="group" aria-label="Print">
+              <span className="ink-menu-heading">Print</span>
+              <button
+                type="button"
+                role="menuitem"
+                className="ink-menu-item"
+                title="A4 portrait, each page fitted to the sheet"
+                onClick={choose(() => onPrintPaper(false))}
+              >
+                Without comments
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="ink-menu-item"
+                title="A4 landscape, the comments beside each page"
+                onClick={choose(() => onPrintPaper(true))}
+              >
+                With comments
+              </button>
             </div>
           ) : null}
 
@@ -253,6 +240,135 @@ export function MoreMenu({
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+export interface InsertMenuProps {
+  onAddPage?: () => void;
+  onAddImage?: () => void;
+  hasPageBackground?: boolean;
+  onRemovePageBackground?: () => void;
+  onInsertPage?: () => void;
+  onAddPicture?: () => void;
+}
+
+/**
+ * Insert: a page, a page from a PDF or image, or an image under this page.
+ *
+ * Its own drop-down rather than a section of ⋯, because adding a page is done
+ * mid-note, often, and should not sit among export and input settings.
+ */
+export function InsertMenu({
+  onAddPage,
+  onAddImage,
+  hasPageBackground = false,
+  onRemovePageBackground,
+  onInsertPage,
+  onAddPicture,
+}: InsertMenuProps) {
+  const { open, setOpen, menuRef, listRef } = useBarMenu();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden" });
+  // Fixed under the button, kept inside the window: the list lives on <body>.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const trigger = triggerRef.current;
+    if (!open || !list || !trigger) {
+      setPlace({ visibility: "hidden" });
+      return;
+    }
+    const at = trigger.getBoundingClientRect();
+    const edge = 8;
+    const left = Math.max(edge, Math.min(at.left, window.innerWidth - list.offsetWidth - edge));
+    const below = at.bottom + 6;
+    const top =
+      below + list.offsetHeight > window.innerHeight - edge ? Math.max(edge, at.top - list.offsetHeight - 6) : below;
+    setPlace({ left, top });
+  }, [open, listRef]);
+  const choose = (run: () => void) => () => {
+    setOpen(false);
+    run();
+  };
+  const removeImage = hasPageBackground ? onRemovePageBackground : undefined;
+  if (!onAddPage && !onAddImage && !onInsertPage && !onAddPicture && !removeImage) return null;
+
+  return (
+    <div className="ink-menu ink-menu-insert" ref={open ? menuRef : undefined}>
+      <button
+        type="button"
+        ref={triggerRef}
+        className="ink-tool ink-insert-trigger"
+        onClick={() => setOpen((was) => !was)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Insert"
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        <span>Insert</span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open
+        ? createPortal(
+            <div
+              className="ink-menu-list ink-menu-insert-list"
+              role="menu"
+              aria-label="Insert"
+              ref={listRef}
+              style={place}
+            >
+              {onAddPage ? (
+                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onAddPage)}>
+                  A blank page
+                </button>
+              ) : null}
+              {onInsertPage ? (
+                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onInsertPage)}>
+                  A page from a PDF or image
+                </button>
+              ) : null}
+              {onAddImage ? (
+                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onAddImage)}>
+                  {hasPageBackground ? "Change the page image" : "An image under this page"}
+                </button>
+              ) : null}
+              {onAddPicture ? (
+                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onAddPicture)}>
+                  A picture on this page
+                </button>
+              ) : null}
+              {removeImage ? (
+                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(removeImage)}>
+                  Remove the page image
+                </button>
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

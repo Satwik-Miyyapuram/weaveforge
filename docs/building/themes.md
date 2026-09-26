@@ -207,6 +207,18 @@ as two back-to-back values, because a custom property accepts almost any token
 sequence: a browser without `linear()` would still accept the declaration and
 then fail at substitution time, silently dropping the timing function to `ease`.
 
+### CRT extras — `data-tilt`, `data-scanlines`, `data-theme-tilt`
+
+CRT leans its cards a little off square (paper and note cards, the home stat
+cards, the reader's annotation list, and the logo) and lays scanlines over the
+screen. Both are on by default and have a switch each in Settings → Appearance;
+turning one off writes `data-tilt="off"` or `data-scanlines="off"` on `<html>`,
+so the default needs no attribute at all. A theme file's optional `"tilt"`
+lands as `data-theme-tilt="on" | "off"`: `true` leans cards on any theme,
+`false` squares them on CRT. The user's switch still wins over the file. The
+lean is on the `rotate` property, not `transform`, so it composes with the
+hover lift and the reactive tilt instead of being replaced by them.
+
 ### Uploaded themes — `config.json`
 
 A user can load a theme file instead of editing the stylesheets. Download the
@@ -219,6 +231,7 @@ starter file from Settings → Appearance. Shape:
   "mode": "dark",
   "surfaces": "borderless",
   "motion": { "reactive": true, "scale": 1 },
+  "tilt": false,
   "colors": { "bg": "#0b0d12", "accent": "#6ea8fe" },
   "fonts": { "sans": "IBM Plex Sans, system-ui, sans-serif" },
   "radius": { "card": "14px", "control": "10px", "chip": "999px" }
