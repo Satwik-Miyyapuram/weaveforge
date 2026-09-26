@@ -68,6 +68,8 @@
    * Each rung says what lives there, so the next layer to be added has an
    * obvious level rather than a number to invent.
    */
+  /* The desktop title bar's height (title-bar.css), 0 unless it is showing. */
+  --titlebar-h: 0px;
   --z-sticky: 20;    /* the sub-tab strip; sticky screen headers */
   --z-nav: 30;       /* the primary nav, sidebar or bottom bar */
   --z-popover: 60;   /* menus, sheets and selects anchored to a control */
@@ -168,6 +170,9 @@ body {
      leave a matching strip at the bottom. */
   min-height: 100vh;
   min-height: 100dvh;
+  /* Room for the desktop window's own title bar; 0 everywhere else. Inside the
+     min-height, since every box here is border-box. */
+  padding-top: var(--titlebar-h);
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
@@ -320,7 +325,7 @@ body {
 /* Segmented sub-nav for grouped sections (Library, Experiments, Plan). */
 .sub-nav {
   position: sticky;
-  top: 0;
+  top: var(--titlebar-h);
   z-index: var(--z-sticky);
   display: flex; gap: 2px; margin: 18px 0 4px; padding: 3px;
   background: color-mix(in srgb, var(--surface2) 72%, transparent);

@@ -174,6 +174,18 @@ export const CHANNELS = {
    * flag, and nothing answers it.
    */
   windowFocus: "weaveforge:window-focus",
+  /**
+   * The menu bar the page draws on Windows and Linux, where the window has no
+   * title bar of its own. The menu itself stays in this process — its
+   * accelerators, its roles — and the page asks for a picture of it
+   * (`menuModel`), names an entry to run (`menuInvoke`), hears when it changed
+   * (`menuChanged`, main -> renderer), and tints the window buttons to the
+   * theme (`titleBarColors`, `send`).
+   */
+  menuModel: "weaveforge:menu-model",
+  menuInvoke: "weaveforge:menu-invoke",
+  menuChanged: "weaveforge:menu-changed",
+  titleBarColors: "weaveforge:title-bar-colors",
 } as const;
 
 /**
@@ -234,4 +246,24 @@ export interface AppLogPayload {
   text: string;
   /** False when the in-memory ring dropped older entries than `text` holds. */
   complete: boolean;
+}
+
+/** One entry of the menu, as the page's menu bar draws it. */
+export interface MenuItemPayload {
+  id: string;
+  kind: "item" | "check" | "separator";
+  label: string;
+  /** The shortcut as the platform writes it (`Ctrl+Shift+I`), or null. */
+  accelerator: string | null;
+  enabled: boolean;
+  checked?: boolean;
+  /** Set when the entry only opens a route, so the page can navigate itself. */
+  route?: string;
+  /** A page action (`search`) the page runs itself. */
+  command?: string;
+}
+
+export interface MenuGroupPayload {
+  label: string;
+  items: MenuItemPayload[];
 }
