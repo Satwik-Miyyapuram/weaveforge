@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SettingsFind, findSettings } from "./settings-find";
 import dynamic from "next/dynamic";
 import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import {
@@ -87,27 +88,6 @@ const SETTINGS_GROUPS: readonly {
   { id: "sync", label: "Sync and integrations", hint: "Cloud, Zotero, Overleaf", icon: "sync", tabs: ["sync", "integrations"] },
   { id: "data", label: "Data and updates", hint: "Backups, export, version", icon: "data", tabs: ["data", "updates"] },
 ];
-
-/**
- * What each tab holds, in the words someone would search for. "Find a setting"
- * matches these, so a search for "dark" lands on Appearance without knowing
- * which group the theme lives in.
- */
-const SETTINGS_KEYWORDS: Record<SettingsTabId, readonly string[]> = {
-  account: ["Profile", "Name", "Email", "Password", "Sign out", "Delete account"],
-  org: ["Lab", "Members", "Invite", "Supervisor", "Organisation"],
-  appearance: ["Theme", "Dark mode", "Light mode", "Card tint", "Control size", "Surfaces", "Motion", "Font"],
-  search: ["Search index", "Semantic search", "Embeddings"],
-  paste: ["Paste", "Clipboard", "Paste as markdown"],
-  editor: ["Editor", "Spell check", "Line width", "Vim", "Ink", "Page spacing"],
-  workspace: ["Workspace folder", "Local files", "Notes folder"],
-  ai: ["AI provider", "Model", "API key", "MCP", "Claude"],
-  tokens: ["API tokens", "Access token"],
-  integrations: ["Zotero", "Overleaf", "GitHub"],
-  sync: ["Sync", "Cloud", "Conflicts", "Offline"],
-  data: ["Backup", "Export", "Import", "App log"],
-  updates: ["Updates", "Version", "Release notes"],
-};
 
 const GROUP_ICONS = {
   person: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c1.2-3.6 3.8-5.5 7-5.5s5.8 1.9 7 5.5" /></>,
@@ -384,14 +364,7 @@ export function SettingsScreen() {
 
   const visible = new Set<SettingsTabId>(tabs.map((t) => t.id));
   const labelOf = new Map<SettingsTabId, string>(tabs.map((t) => [t.id, t.label]));
-  const findTerm = findQuery.trim().toLowerCase();
-  const findHits = findTerm
-    ? tabs.flatMap((t) =>
-        [t.label, ...SETTINGS_KEYWORDS[t.id]]
-          .filter((word, i, all) => all.indexOf(word) === i && word.toLowerCase().includes(findTerm))
-          .map((word) => ({ tab: t.id, word })),
-      ).slice(0, 12)
-    : null;
+  const findHits = findSettings(findQuery, tabs);
   const groups = SETTINGS_GROUPS
     .map((g) => ({ ...g, tabs: g.tabs.filter((id) => visible.has(id)) }))
     .filter((g) => g.tabs.length > 0);
@@ -404,34 +377,16 @@ export function SettingsScreen() {
       />
       <div className="settings-layout">
       <nav className="settings-rail" aria-label="Settings sections">
-        <input
-          type="search"
-          className="settings-find"
-          placeholder="Find a setting"
-          aria-label="Find a setting"
-          value={findQuery}
-          onChange={(e) => setFindQuery(e.target.value)}
+        <SettingsFind
+          query={findQuery}
+          hits={findHits}
+          labelOf={labelOf}
+          onQuery={setFindQuery}
+          onPick={(id) => {
+            selectTab(id);
+            setFindQuery("");
+          }}
         />
-        {findHits && (
-          <div className="settings-find-hits" role="list">
-            {findHits.length === 0 && <p className="muted settings-find-empty">No setting matches.</p>}
-            {findHits.map((hit) => (
-              <button
-                key={`${hit.tab}-${hit.word}`}
-                type="button"
-                role="listitem"
-                className="settings-find-hit"
-                onClick={() => {
-                  selectTab(hit.tab);
-                  setFindQuery("");
-                }}
-              >
-                <span>{hit.word}</span>
-                <span className="muted">{labelOf.get(hit.tab)}</span>
-              </button>
-            ))}
-          </div>
-        )}
         {!findHits && groups.map((g) => {
           const open = g.tabs.includes(tab);
           return (
