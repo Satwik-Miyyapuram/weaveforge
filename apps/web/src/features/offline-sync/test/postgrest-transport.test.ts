@@ -120,20 +120,6 @@ test("a delete of a row someone edited since is a conflict", async () => {
   });
 });
 
-test("a first download pages a table in id order", async () => {
-  const { transport, calls } = harness([{ status: 200, body: [{ id: "a" }, { id: "b" }] }]);
-  const rows = await transport.page("log_entries", 1000, 500);
-  assert.equal(rows.length, 2);
-  assert.match(calls[0]!.url, /\/log_entries\?select=\*&order=id&limit=500&offset=1000$/);
-});
-
-test("the highest sequence is read before the download starts", async () => {
-  const { transport } = harness([{ status: 200, body: [{ server_seq: 812 }] }]);
-  assert.equal(await transport.maxSeq("projects"), 812);
-  const empty = harness([{ status: 200, body: [] }]);
-  assert.equal(await empty.transport.maxSeq("projects"), 0);
-});
-
 test("a server error leaves the op owed rather than refused", async () => {
   const { transport } = harness([{ status: 503, body: { message: "upstream" } }]);
   assert.deepEqual(await transport.send(entry()), { status: "offline" });

@@ -20,8 +20,6 @@
 --  * A tombstone deletes the local row. Keeping it with `deleted_at` set left it
 --    on every screen, because no screen filters on that column.
 
-alter table sync_state add column if not exists hydrated_at timestamptz;
-
 -- The columns a write may name: everything but what Postgres computes itself.
 create or replace function sync_writable_columns(p_table text) returns text[]
 language sql

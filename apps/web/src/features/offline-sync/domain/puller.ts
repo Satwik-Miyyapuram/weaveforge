@@ -59,6 +59,8 @@ export class Puller {
       change.table,
       JSON.stringify(change.row),
     ]);
+    // A deleted row has nothing left to merge into; settling would bring it back.
+    if (change.deletedAt) return;
     // If this row was the subject of a stale op, the merge can be tried now:
     // the side that was missing has arrived. A merge that comes out clean is
     // written straight back — two devices that edited different fields

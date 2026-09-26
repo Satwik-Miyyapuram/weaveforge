@@ -288,3 +288,32 @@ test("local-db-host: a client that cannot dump is simply never backed up", async
   await host.query("insert into t values (1)", []);
   assert.equal(await host.snapshot(), null);
 });
+
+test("local-db-host: queries run as the account once the device is adopted", async () => {
+  let account: string | null = null;
+  const claims: string[] = [];
+  const client: LocalClient = {
+    async exec() {},
+    async query<T>(sql: string) {
+      return { rows: (sql.includes("from sync_state") ? [{ account_id: account }] : []) as T[] };
+    },
+    async transaction<T>(fn: (tx: LocalTransaction) => Promise<T>) {
+      return fn({
+        query: async <R>(sql: string, params?: unknown[]) => {
+          if (sql.includes("request.jwt.claims")) claims.push(String(params?.[0]));
+          return { rows: [] as R[] };
+        },
+      });
+    },
+    async close() {},
+  };
+  const host = new LocalDbHost({ open: async () => client, migrations: NO_MIGRATIONS, ...ELSEWHERE });
+
+  await host.query("select 1 from projects", []);
+  account = "00000000-0000-4000-8000-0000000acc01";
+  await host.query("select sync_claim($1, $2)", [account, "local"]);
+  await host.query("select 1 from projects", []);
+
+  assert.doesNotMatch(claims[0]!, /acc01/);
+  assert.match(claims.at(-1)!, /acc01/);
+});

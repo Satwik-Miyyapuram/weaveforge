@@ -52,39 +52,6 @@ export class PostgrestTransport implements SyncTransport {
     return { status: "accepted" };
   }
 
-  /**
-   * The highest sequence the server has stamped on `table`, read before a first
-   * download so the feed can pick up exactly where the download started.
-   */
-  async maxSeq(table: string): Promise<number> {
-    const response = await this.request(
-      "GET",
-      `/${encodeURIComponent(table)}?select=server_seq&order=server_seq.desc.nullslast&limit=1`,
-    );
-    if (response.status >= 400) {
-      throw new Error(`reading ${table} failed (${response.status}): ${firstLine(response.body)}`);
-    }
-    const row = Array.isArray(response.rows) ? response.rows[0] : undefined;
-    const seq = Number((row as { server_seq?: unknown } | undefined)?.server_seq ?? 0);
-    return Number.isFinite(seq) ? seq : 0;
-  }
-
-  /**
-   * One page of every row the account can see in `table`, in a stable order.
-   * The feed only carries rows changed since sync began; this is how a device
-   * gets the rows that were already there.
-   */
-  async page(table: string, offset: number, limit: number): Promise<Record<string, unknown>[]> {
-    const response = await this.request(
-      "GET",
-      `/${encodeURIComponent(table)}?select=*&order=id&limit=${limit}&offset=${offset}`,
-    );
-    if (response.status >= 400) {
-      throw new Error(`reading ${table} failed (${response.status}): ${firstLine(response.body)}`);
-    }
-    return (Array.isArray(response.rows) ? response.rows : []) as Record<string, unknown>[];
-  }
-
   async changesSince(since: number, limit: number): Promise<RemoteChange[]> {
     const response = await this.request("POST", `/rpc/sync_changes`, {
       p_since: since,

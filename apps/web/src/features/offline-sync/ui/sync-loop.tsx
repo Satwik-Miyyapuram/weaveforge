@@ -5,9 +5,15 @@ import { useEffect } from "react";
 import { readBackendConfig } from "@/backend/config";
 import { createSupabaseClient } from "@/backend/providers/supabase/client";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { localFirstAccount, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
+import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncStateStore } from "../domain/sync-state";
-import { liveAccessToken } from "./enable-sync";
+import type { CycleResult } from "../domain/sync-engine";
+import { enableSync, liveAccessToken } from "./enable-sync";
 import { syncEngine } from "./use-sync";
 
 /**
@@ -37,10 +43,22 @@ import { syncEngine } from "./use-sync";
  * browser says the network came back, and on a slow interval for the case nobody
  * announces — a socket that died without an event, a token that expired quietly.
  * Five minutes is slow on purpose: this is a single-user research app's outbox,
- * not a chat client, and each cycle is a push plus a pull.
+ * not a chat client, and each cycle is a push plus a pull. Coming back to the
+ * window also syncs, at most every thirty seconds, since that is when someone
+ * expects to see what they did elsewhere.
+ *
+ * ## Local-first
+ *
+ * A signed-in desktop whose database holds nothing of its own is adopted by the
+ * account without asking: there is nothing to merge, so nothing to decide. Once
+ * the first download has caught up the window is marked local-first and
+ * reloaded, and from then on it reads and writes its own copy (see
+ * `local-first.ts`). A database with work made before signing in is left to the
+ * sync offer in Settings, which asks before merging it into an account.
  */
 
 const CYCLE_MS = 5 * 60 * 1000;
+const FOCUS_MS = 30 * 1000;
 
 /**
  * Serialise the cycle, because three triggers can fire at once.
@@ -77,19 +95,49 @@ export function SyncLoop() {
     let stop: (() => void) | undefined;
 
     void (async () => {
-      const state = new SyncStateStore(new LocalRunner());
-      const current = await state.read();
-      // Not adopted: there is no account for the outbox to belong to, and asking
-      // the server would be a request per tick that can only be refused.
-      if (cancelled || current.accountId === null) return;
-
+      if (isLocalMode()) return;
       const config = readBackendConfig();
       const client = createSupabaseClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
-      const engine = syncEngine(liveAccessToken(client));
+      const runner = new LocalRunner();
+      const state = new SyncStateStore(runner);
+      let current = await state.read();
+      const { data } = await client.auth.getSession();
+      const signedIn = data.session?.user ?? null;
 
+      if (current.accountId === null) {
+        // Not adopted: there is no account for the outbox to belong to, and
+        // asking the server would be a request per tick that can only be refused.
+        if (cancelled || !signedIn || !(await nothingOfItsOwn(runner))) return;
+        await enableSync();
+        current = await state.read();
+        if (current.accountId === null) return;
+      }
+      if (cancelled) return;
+
+      const engine = syncEngine(liveAccessToken(client));
+      // Another account's copy: keep syncing it, but this window stays on the
+      // server rather than showing someone else's work.
+      const owner = signedIn && signedIn.id === current.accountId ? signedIn : null;
+
+      const settle = (result: CycleResult) => {
+        const caughtUp = result.pushed.stoppedBecause === null && !result.pulled.more;
+        if (caughtUp && owner && localFirstAccount()?.id !== owner.id) {
+          setLocalFirstAccount({ id: owner.id, email: owner.email ?? null });
+          window.location.reload();
+          return;
+        }
+        // What arrived is already on disk; the screens still hold what they read.
+        if (result.pulled.applied > 0) {
+          invalidateAllRepoCaches();
+          clearAllScreenCaches();
+        }
+      };
+
+      let lastRun = 0;
       const cycle = createCycleRunner(async () => {
+        lastRun = Date.now();
         try {
-          await engine.cycle();
+          settle(await engine.cycle());
         } catch {
           // A cycle that throws has already recorded what it could: the puller
           // writes `lastPullAt` on success and leaves the watermark alone on
@@ -102,11 +150,16 @@ export function SyncLoop() {
       void cycle();
 
       const onOnline = () => void cycle();
+      const onFocus = () => {
+        if (Date.now() - lastRun >= FOCUS_MS) void cycle();
+      };
       window.addEventListener("online", onOnline);
+      window.addEventListener("focus", onFocus);
       const timer = window.setInterval(() => void cycle(), CYCLE_MS);
 
       stop = () => {
         window.removeEventListener("online", onOnline);
+        window.removeEventListener("focus", onFocus);
         window.clearInterval(timer);
       };
       // The effect may have been torn down while the adoption state was loading.
@@ -120,4 +173,13 @@ export function SyncLoop() {
   }, []);
 
   return null;
+}
+
+/** Whether the local database holds no work made before signing in. */
+async function nothingOfItsOwn(runner: LocalRunner): Promise<boolean> {
+  const rows = await runner.query<{ found: number }>(
+    "select 1 as found from projects where user_id = $1 union all select 1 from papers where user_id = $1 limit 1",
+    [LOCAL_USER_ID],
+  );
+  return rows.length === 0;
 }
