@@ -25,6 +25,8 @@ export const PREFERENCE_NAMES = [
   "vault-root",
   "vault-git",
   "local-api",
+  "plan-widget",
+  "plan-widget-bounds",
 ] as const;
 export type PreferenceName = (typeof PREFERENCE_NAMES)[number];
 

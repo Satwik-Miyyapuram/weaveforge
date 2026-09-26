@@ -41,6 +41,7 @@ import { registerMainAppLog } from "./main-app-log";
 import { registerMainInk } from "./main-ink";
 import { applyMemorySwitches, registerMemoryTrimming } from "./memory-trim";
 import { registerMainLocalDb } from "./main-local-db";
+import { registerMainPlanWidget, WIDGET_ONLY_ARG } from "./main-plan-widget";
 import { registerMainLocalApi } from "./main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
@@ -292,6 +293,23 @@ function createWindow(): void {
     void openExternally(url);
     return { action: "deny" };
   });
+}
+
+/**
+ * The app's window, up and in front, made again if it was closed. Used by the
+ * plan widget's "Open plan", which can run while the app has no window at all.
+ */
+function showMainWindow(route?: string): void {
+  const fresh = !mainWindow;
+  if (!mainWindow) createWindow();
+  const window = mainWindow;
+  if (!window) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+  if (!route) return;
+  if (fresh) window.webContents.once("did-finish-load", () => routeTo(window, APP_URL, route));
+  else routeTo(window, APP_URL, route);
 }
 
 /** Hands a URL to the operating system, if it is a web address at all. */
@@ -638,6 +656,18 @@ const localApiDoor = registerMainLocalApi({
   secretStore,
 });
 
+/**
+ * The plan widget on the desktop (§main-plan-widget), off until it is switched
+ * on in Settings. While it is up it is a window, so closing the app's own
+ * window leaves the process running for it.
+ */
+const planWidget = registerMainPlanWidget({
+  ipc,
+  localDb,
+  preferenceStore,
+  showMainWindow,
+});
+
 ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
   try {
     return { ok: true, value: await fetchZoteroLocal(url) };
@@ -712,12 +742,9 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   // A second launch raises the window that is already open rather than
   // starting another copy of the app.
-  app.on("second-instance", () => {
-    const [existing] = BrowserWindow.getAllWindows();
-    if (!existing) return;
-    if (existing.isMinimized()) existing.restore();
-    existing.focus();
-  });
+  // The app's own window, not whichever is first: the plan widget is a window
+  // too, and may be the only one.
+  app.on("second-instance", () => showMainWindow());
 
   void app.whenReady().then(() => {
     // The API's CORS is settled here, not by the server's allow-list: the
@@ -733,7 +760,16 @@ if (!app.requestSingleInstanceLock()) {
     // present. A door left open in the settings with its key thrown away
     // stays shut.
     void localApiDoor.resume();
-    createWindow();
+    // Started by the login item the plan widget sets: the widget, and no
+    // window. If the widget has since been switched off, the window after all.
+    if (process.argv.includes(WIDGET_ONLY_ARG)) {
+      void planWidget.resume().then((up) => {
+        if (!up) createWindow();
+      });
+    } else {
+      createWindow();
+      void planWidget.resume();
+    }
     // Updates are fetched in the background and installed only when the reader
     // says so -- see `auto-update.ts` for why quitting is not consent on an
     // unsigned build. The older check-and-tell path stays for the menu entry
