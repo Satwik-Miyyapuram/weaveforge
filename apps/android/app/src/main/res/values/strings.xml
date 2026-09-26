@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WeaveForge</string>
+    <string name="plan_widget_label">Deadlines</string>
+    <string name="plan_widget_description">Your next milestone deadlines from your WeaveForge plan.</string>
+    <string name="plan_widget_title">Deadlines</string>
+    <string name="plan_widget_open">Open plan</string>
+    <string name="plan_widget_setup">Tap to connect your plan</string>
+    <string name="plan_widget_empty">No dated milestones. Give a milestone a target date and it shows up here.</string>
+    <string name="plan_widget_offline">Could not refresh. Showing your plan from earlier.</string>
+    <string name="plan_widget_gone">This link was turned off. Tap to paste a new one.</string>
+    <string name="plan_widget_setup_title">Connect your plan</string>
+    <string name="plan_widget_setup_body">In WeaveForge, open Settings, Calendar and copy your calendar link. Paste it here. The widget reads your deadlines from it every 30 minutes.</string>
+    <string name="plan_widget_setup_hint">Calendar link</string>
+    <string name="plan_widget_setup_save">Add widget</string>
+    <string name="plan_widget_setup_cancel">Cancel</string>
+    <string name="plan_widget_setup_invalid">That is not a WeaveForge calendar link. Copy it from Settings, Calendar.</string>
 </resources>
