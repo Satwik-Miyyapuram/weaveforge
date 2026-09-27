@@ -369,6 +369,11 @@ body > canvas.hiddenCanvasElement { display: none; }
      through to the text layer and text selection keeps working. */
   z-index: 2;
 }
+/* A picture's editor (the ink note's): over the marks, transparent to the
+   pointer except for its own frame, handles and bar. */
+.pdf-reader-picture-editor {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+}
 .pdf-reader-ann {
   position: absolute; pointer-events: auto; border: none; padding: 0;
   opacity: 0.35; cursor: pointer;

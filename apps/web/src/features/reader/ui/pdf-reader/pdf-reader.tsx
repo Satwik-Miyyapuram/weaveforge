@@ -88,6 +88,7 @@ import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePagePointer } from "./use-page-pointer";
+import { usePdfPictures } from "./use-pdf-pictures";
 import { usePenTextSelect } from "./use-pen-text-select";
 import { useReaderGestures } from "../use-reader-gestures";
 import { useInkUndo } from "./use-ink-undo";
@@ -409,6 +410,19 @@ export function PdfReader({
     persistDraft,
     removeLocal,
     saveAnchor,
+  });
+  const pictures = usePdfPictures({
+    canCreate,
+    createTool,
+    scale,
+    rotation,
+    pageSize,
+    pageGeometries,
+    annotations,
+    annotationsByPage,
+    saveAnchor,
+    updateLocal,
+    removeLocal,
   });
   usePenTextSelect(containerRef, canCreate && createTool === "select");
 
@@ -1503,20 +1517,26 @@ export function PdfReader({
               // Two fingers are the page's own gesture, so they are asked for
               // first: a pinch that the tool also saw would draw a stroke and
               // zoom the paper at once.
+              // A placed picture is asked next: a mouse on one drags it, as
+              // on an ink note, and the pen writes over it.
               onPointerDown={(e) => {
                 if (gestures.begin(e)) return;
+                if (pictures.pointerDown(n, e)) return;
                 onPagePointerDown(n, e);
               }}
               onPointerMove={(e) => {
                 if (gestures.move(e)) return;
+                if (pictures.pointerMove(e)) return;
                 onPagePointerMove(e);
               }}
               onPointerUp={(e) => {
                 if (gestures.end(e)) return;
+                if (pictures.pointerUp(e)) return;
                 onPagePointerUp(n, e);
               }}
               onPointerCancel={(e) => {
                 if (gestures.end(e)) return;
+                if (pictures.pointerUp(e)) return;
                 onPagePointerUp(n, e);
               }}
             >
@@ -1550,6 +1570,11 @@ export function PdfReader({
                     inkSelectedIds={inkEditable ? lassoed : undefined}
                     onSelect={setSelectedAnnId}
                     fetchPicture={fetchPicture}
+                    pictureEdit={pictures.edit?.pageNumber === n ? pictures.edit : null}
+                    onPictureChange={pictures.change}
+                    onPictureReorder={pictures.reorder}
+                    onPictureRemove={pictures.remove}
+                    onPictureClose={pictures.close}
                   />
                 )}
                 {/* Inside the page, because it decorates the page's own text

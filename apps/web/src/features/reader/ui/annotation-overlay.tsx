@@ -1,10 +1,17 @@
 "use client";
 
 import { memo, useMemo } from "react";
-import type { ReaderAnnotation } from "@weaveforge/core";
-import { INK_SELECTION_HALO_PX, InkStrokes } from "@/features/ink";
+import type { FigureGeometry, FigureOrderStep, ReaderAnnotation } from "@weaveforge/core";
+import {
+  INK_SELECTION_HALO_PX,
+  InkFigureEditor,
+  InkFigures,
+  InkStrokes,
+} from "@/features/ink";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
+import { pagePictures } from "../application/reader-picture";
+import type { PictureEdit } from "./pdf-reader/use-pdf-pictures";
 
 interface AnnotationOverlayProps {
   annotations: ReaderAnnotation[];
@@ -28,6 +35,15 @@ interface AnnotationOverlayProps {
   onSelect?: (id: string) => void;
   /** Reads a placed picture's file; pictures are drawn only when given. Keep it stable. */
   fetchPicture?: (path: string) => Promise<Blob>;
+  /**
+   * The picture on this page whose editor is open, with its unwritten
+   * placement. Given to the one page it is on, so the others stay memoised.
+   */
+  pictureEdit?: PictureEdit | null;
+  onPictureChange?: (next: Pick<FigureGeometry, "x" | "y" | "w" | "h" | "crop">) => void;
+  onPictureReorder?: (step: FigureOrderStep) => void;
+  onPictureRemove?: () => void;
+  onPictureClose?: () => void;
 }
 
 const NO_PICTURES = async () => null;
@@ -60,6 +76,11 @@ function AnnotationOverlayInner({
   inkSelectedIds,
   onSelect,
   fetchPicture,
+  pictureEdit = null,
+  onPictureChange,
+  onPictureReorder,
+  onPictureRemove,
+  onPictureClose,
 }: AnnotationOverlayProps) {
   // Projection is the reader's per-frame cost: ~1.7 ms for a page holding 100
   // ink annotations, 6.5 ms at 400. Drawing a stroke re-renders this component
@@ -99,10 +120,40 @@ function AnnotationOverlayInner({
   );
   const pictureUrls = useBlobObjectUrls(picturePaths, fetchPicture ?? NO_PICTURES);
 
+  // On an upright page a picture is an ink figure: drawn by the note's own
+  // renderer, under the ink, and edited by the note's own editor. A turned
+  // page keeps the mark-shaped box below, which knows rotation.
+  const upright = rotation % 360 === 0 && Boolean(fetchPicture);
+  const placed = useMemo(
+    () => (upright ? pagePictures(annotations, pageHeight) : []),
+    [annotations, pageHeight, upright],
+  );
+  const pictures = useMemo(
+    () =>
+      placed.map((one) =>
+        pictureEdit?.preview && one.id === pictureEdit.id
+          ? { ...one, figure: { path: one.figure.path, ...pictureEdit.preview } }
+          : one,
+      ),
+    [placed, pictureEdit],
+  );
+  const figures = useMemo(() => pictures.map((one) => one.figure), [pictures]);
+  const activeIndex = pictureEdit ? pictures.findIndex((one) => one.id === pictureEdit.id) : -1;
+  const active = activeIndex >= 0 ? pictures[activeIndex] : undefined;
+
   if (boxes.length === 0 && ink.length === 0) return null;
 
   return (
+    <>
     <div className="pdf-reader-ann-layer" aria-hidden>
+      {figures.length > 0 && (
+        <InkFigures
+          figures={figures}
+          scale={scale}
+          imageUrls={pictureUrls}
+          activeIndex={activeIndex >= 0 ? activeIndex : null}
+        />
+      )}
       <InkStrokes
         className="pdf-reader-ann-svg"
         // A highlighter over a PDF page is the reader's own look, not the
@@ -119,7 +170,7 @@ function AnnotationOverlayInner({
         haloGrow={INK_SELECTION_HALO_PX}
       />
       {boxes.map((box, i) =>
-        box.picture ? (
+        box.picture && upright ? null : box.picture ? (
           <button
             key={`${box.id}-${i}`}
             type="button"
@@ -149,6 +200,31 @@ function AnnotationOverlayInner({
         ),
       )}
     </div>
+    {active && onPictureChange && (
+      // The editor's presses are its own: the page row under it would
+      // otherwise start a stroke, or close the editor, with the same press.
+      <div
+        className="pdf-reader-picture-editor"
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+        onPointerCancel={(event) => event.stopPropagation()}
+      >
+        <InkFigureEditor
+          figure={active.figure}
+          index={activeIndex}
+          count={pictures.length}
+          scale={scale}
+          pageSize={{ width: pageWidth, height: pageHeight }}
+          imageUrl={pictureUrls.get(active.figure.path)}
+          onChange={onPictureChange}
+          onReorder={onPictureReorder ?? (() => undefined)}
+          onRemove={onPictureRemove ?? (() => undefined)}
+          onClose={onPictureClose ?? (() => undefined)}
+        />
+      </div>
+    )}
+    </>
   );
 }
 

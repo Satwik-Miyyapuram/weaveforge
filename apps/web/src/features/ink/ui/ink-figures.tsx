@@ -618,6 +618,10 @@ function InkFigureCropTool({
     const onOutside = (event: PointerEvent) => {
       const root = rootRef.current;
       if (root && event.target instanceof Node && root.contains(event.target)) return;
+      // The press that ends a crop is spent on ending it: a pen on the page
+      // must not also start a stroke there. Only the press is stopped, so a
+      // button pressed outside still gets its click.
+      event.stopPropagation();
       applyRef.current();
     };
     document.addEventListener("pointerdown", onOutside, true);
