@@ -23,7 +23,7 @@ import {
   modesFor,
   openModeFor,
 } from "../ui/kind";
-import { rendererFor, supportsEditMode } from "../ui/document-host";
+import { rendererFor } from "../ui/document-host";
 
 test("every kind the explorer can show has an icon and a suffix", () => {
   for (const kind of KINDS) {
@@ -158,13 +158,6 @@ test("the table says which surface renames and moves a kind", () => {
 test("an unknown kind is safe in both modes", () => {
   assert.equal(rendererFor("something_new", "edit"), "editor");
   assert.equal(rendererFor("something_new", "read"), "markdown");
-});
-
-test("Edit / Read applies to text kinds only", () => {
-  assert.equal(supportsEditMode("paper"), true);
-  assert.equal(supportsEditMode("vault_page"), true);
-  assert.equal(supportsEditMode("something_new"), true, "an unknown kind is text, so it has both modes");
-  assert.equal(supportsEditMode("ink_page"), true, "ink notes support edit mode");
 });
 
 test("the status bar segments a kind declares are the text ones", () => {

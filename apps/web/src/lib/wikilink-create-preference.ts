@@ -47,24 +47,6 @@ export function writeWikilinkCreateMode(mode: WikilinkCreateMode): void {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-/** The current mode in a ref, so an open editor follows a change in settings. */
-export function useWikilinkCreateModeRef(): { current: WikilinkCreateMode } {
-  const ref = useRef<WikilinkCreateMode>(readWikilinkCreateMode());
-  useEffect(() => {
-    ref.current = readWikilinkCreateMode();
-    const notify = () => {
-      ref.current = readWikilinkCreateMode();
-    };
-    window.addEventListener(CHANGE_EVENT, notify);
-    window.addEventListener("storage", notify);
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, notify);
-      window.removeEventListener("storage", notify);
-    };
-  }, []);
-  return ref;
-}
-
 /**
  * The same preference as state, for a screen that decides what to *render* by
  * it — whether to offer creation at all — rather than reading it per keystroke.

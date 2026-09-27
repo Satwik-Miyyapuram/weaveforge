@@ -207,8 +207,6 @@ export interface ExplorerSection {
   collapsedByDefault?: boolean;
 }
 
-export const DEFAULT_OPEN_SECTIONS: readonly string[] = ["files", "lists"];
-
 /** Which sections are open. Anything not in the set is closed. */
 export interface SectionState {
   open: ReadonlySet<string>;

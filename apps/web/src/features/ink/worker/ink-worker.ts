@@ -82,15 +82,6 @@ import { setBackground } from "./ink-background";
 
 export { pointInPolygon };
 
-/** A stroke as the worker holds it once the pen has left the page. */
-export interface CommittedStroke {
-  header: InkStrokeHeader;
-  /** `[x, y, …]` in 0.1 mm, absolute, after simplification. */
-  points: Float32Array;
-  /** Pressure per point, 0–255. */
-  pressures: Float32Array;
-}
-
 /** The stroke being drawn: raw samples, with its predicted tail marked off. */
 interface LiveStroke {
   header: InkStrokeHeader;

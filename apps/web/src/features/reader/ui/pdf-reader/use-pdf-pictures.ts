@@ -319,5 +319,3 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
     pointerUp,
   };
 }
-
-export type PdfPictures = ReturnType<typeof usePdfPictures>;

@@ -518,21 +518,6 @@ export function boundingSpan(bounds: SnapBounds): number {
   return Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
 }
 
-/**
- * Whether a path has enough in it to be a shape at all.
- *
- * Exported because the call site needs the same answer *before* it starts the
- * 400 ms hold timer: a mark too small to snap should not light up a preview. The
- * two rules are §6.3's own — enough samples to carry a direction, and a span
- * big enough that a fit is a claim about intent rather than about noise.
- */
-export function isSnappablePath(path: SnapPath): boolean {
-  const points = resamplePath(path);
-  if (points.length < SHAPE_MIN_POINTS) return false;
-  const bounds = snapBounds(points);
-  return bounds !== null && boundingSpan(bounds) >= SHAPE_MIN_SPAN;
-}
-
 /* -------------------------------------------------------------------------
  * Line
  * ---------------------------------------------------------------------- */

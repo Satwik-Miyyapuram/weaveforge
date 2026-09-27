@@ -52,11 +52,6 @@ const DOCK_LABEL: Record<PaletteDock, string> = {
   "bottom-right": "bottom right",
 };
 
-/** Whether the palette runs as a row (top and bottom edges) or a column. */
-export function isRowDock(dock: PaletteDock): boolean {
-  return dock === "top" || dock === "bottom";
-}
-
 export function parsePaletteDock(raw: unknown): PaletteDock {
   return PALETTE_DOCKS.find((d) => d === raw) ?? DEFAULT_PALETTE_DOCK;
 }

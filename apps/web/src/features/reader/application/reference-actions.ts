@@ -94,5 +94,3 @@ export function createReferenceActions(deps: ReferenceActionDeps) {
     },
   };
 }
-
-export type ReferenceActions = ReturnType<typeof createReferenceActions>;

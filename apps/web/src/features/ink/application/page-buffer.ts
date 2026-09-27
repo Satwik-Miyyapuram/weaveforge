@@ -374,16 +374,3 @@ export function fromGeometry(stroke: InkStrokeGeometry): InkStroke {
     lineIndex: stroke.line,
   };
 }
-
-/** The tool/colour/shape at an index, for a chunk read without the model. */
-export function geometryMeta(stroke: InkStrokeGeometry): {
-  tool: InkTool;
-  colour: InkColour;
-  shape: InkShape;
-} {
-  return {
-    tool: inkEnumValue(INK_TOOLS, INK_TOOLS.indexOf(stroke.tool)),
-    colour: inkEnumValue(INK_COLOURS, INK_COLOURS.indexOf(stroke.colour)),
-    shape: inkEnumValue(INK_SHAPES, INK_SHAPES.indexOf(stroke.shape)),
-  };
-}

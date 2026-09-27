@@ -140,11 +140,6 @@ export function rendererFor(kind: string, mode: DocumentMode, body = ""): Render
   return "editor";
 }
 
-/** Whether Edit / Read applies to a kind. */
-export function supportsEditMode(kind: string): boolean {
-  return documentKind(kind) === "text" || hasInkView(kind);
-}
-
 type ImageStore = Pick<Parameters<typeof editorImageUpload>[0], "store" | "toMarkdown">;
 
 /**

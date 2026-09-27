@@ -512,36 +512,9 @@ export function radiusAt(
   return base * pressureScale * velocityScaleFactor;
 }
 
-/** The colour a stroke paints with, as a palette index the shader reads. */
-export function colourIndex(
-  colour: InkColour,
-  palette: readonly InkColour[],
-): number {
-  const index = palette.indexOf(colour);
-  return index < 0 ? 0 : index;
-}
-
 /** Whether a stroke is drawn translucent and deduped through the stencil. */
 export function usesHighlighterPass(tool: InkTool): boolean {
   return tool === "highlighter";
-}
-
-/** The page's drawn extent, which is what an export has to contain. */
-export function pageExtent(
-  width: number,
-  height: number,
-  transform: InkViewTransform,
-): { width: number; height: number } {
-  return {
-    width: Math.max(
-      1,
-      Math.round(width * transform.scale * transform.devicePixelRatio),
-    ),
-    height: Math.max(
-      1,
-      Math.round(height * transform.scale * transform.devicePixelRatio),
-    ),
-  };
 }
 
 /** A page-unit box as canvas pixels, for a debug overlay or a hit-test box. */

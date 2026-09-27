@@ -24,21 +24,6 @@ export async function pdfPageCount(bytes: ArrayBuffer): Promise<number> {
   }
 }
 
-/**
- * Render page `pageNumber` (1-based) at `widthPx` wide. The background is
- * stretched to the ink page, so the width only sets the raster's sharpness;
- * an A4 page at 2100 units of 0.1 mm is 1654 px at 200 dpi.
- */
-export async function rasterisePdfPage(
-  bytes: ArrayBuffer,
-  pageNumber: number,
-  widthPx: number,
-): Promise<RasterisedPdfPage> {
-  const canvas = await renderPdfPage(bytes, pageNumber, widthPx);
-  const blob = await toPngBlob(canvas);
-  return { blob, width: canvas.width, height: canvas.height };
-}
-
 /** The page drawn on a canvas, for a caller that composes it before encoding. */
 export async function renderPdfPage(
   bytes: ArrayBuffer,
