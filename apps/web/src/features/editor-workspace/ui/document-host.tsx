@@ -85,6 +85,8 @@ export interface DocumentHostProps {
   handleRef?: EditorHandleRef;
   /** Where an upload failure is shown. */
   onError?: (message: string | null) => void;
+  /** Read mode: the note a `![[title]]` embed names, where the host knows. */
+  resolveEmbed?: (title: string) => string | null;
 }
 
 /** 1-based `Ln`/`Col` for a character offset, without importing CodeMirror values. */
@@ -196,6 +198,7 @@ export function DocumentHost({
   onCreateNote,
   handleRef,
   onError,
+  resolveEmbed,
 }: DocumentHostProps) {
   // Held in a ref so the editor's `onViewCreated` identity never changes: it is
   // a dependency of the CodeMirror stack, and rebuilding that stack would throw
@@ -382,6 +385,7 @@ export function DocumentHost({
         papers={links?.papers ?? []}
         sections={links?.sections ?? []}
         onCreateNote={onCreateNote}
+        resolveEmbed={resolveEmbed}
       />
     );
   }

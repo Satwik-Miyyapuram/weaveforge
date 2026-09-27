@@ -28,6 +28,14 @@ export interface EditorHandle {
    */
   insertFiles(files: readonly File[]): void;
   focus(): void;
+  /** The whole document as it stands, unsaved edits included. */
+  text(): string;
+  /**
+   * Swaps the whole document for `markdown`, as one undoable step. For a
+   * command that rewrites the note (a paper's template re-render), which on a
+   * shared document has to go through the editor rather than around it.
+   */
+  replaceAll(markdown: string): void;
 }
 
 /**

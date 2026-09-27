@@ -312,6 +312,9 @@ export function VaultScreen() {
 
   return (
     <section className="screen vault-screen">
+      {/* An open note is a record page, as a paper is: its own bar carries
+          the way back and its actions, so the list head steps aside. */}
+      {!selected && (
       <ScreenHead eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}>
         <button
           className="btn-primary"

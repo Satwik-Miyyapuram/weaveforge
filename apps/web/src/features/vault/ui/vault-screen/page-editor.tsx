@@ -6,29 +6,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   extractHashtags,
   isInkNoteBody,
-  vaultImageMarkdown,
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { readableText } from "@/lib/page-text";
 import { AttachImageButton } from "@/components/attach-image-button";
-import { CitationFormatSelect } from "@/components/citation-format-select";
 import type { EditorHandle } from "@/components/editor-handle";
-import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
-import { CommentsIcon, DeleteIcon, EditIcon, OpenIcon } from "@/components/view-icons";
+import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
+import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { RelatedPanel } from "@/components/related-panel";
-import { CollabBodyHost } from "@/features/collab";
-import { InkHost } from "@/features/ink";
 import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
-import { editorImageUpload } from "@/lib/editor-image-upload";
 import { formatError } from "@/lib/format-error";
-import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
-import { useCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
+import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
-import { NoteReadView } from "../note-read-view";
 import { NoteTagEditor } from "./note-tag-editor";
 
 /** A note's three views, in the order the Editor's pane header lists them. */
@@ -71,130 +64,77 @@ export function PageEditor({
   onOpenPage?: (id: string) => void;
 }) {
   const [title, setTitle] = useState(page.title);
-  const [draft, setDraft] = useState(page.body);
   // Read, Edit or Ink, as in the Editor's pane header. A note opens read.
   const [mode, setMode] = useState<NoteMode>("read");
   const modeRef = useRef<NoteMode>("read");
   modeRef.current = mode;
   /** The rendered note, which margin comments select from and light up. */
   const noteTextRef = useRef<HTMLDivElement>(null);
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Filled in by whichever editor is mounted — plain or collaborative — and
-  // empty while the note is being read rather than written.
+  // Filled in while the editor is on screen, for the image button.
   const editorHandle = useRef<EditorHandle | null>(null);
-  const { completions: wikilinkCompletions } = useCiteLinkCatalog();
-  const [citationFormat, setCitationFormat] = useCitationFormatPreference();
-  const wikilinkTitles = useMemo(
-    () => [...notes.map((n) => n.title), ...papers.map((p) => p.title), ...sections.map((s) => s.title)],
-    [notes, papers, sections],
-  );
-
-  const collabRef = useRef(false);
-  // Described as data, not as a CodeMirror extension array: building the stack
-  // here meant importing CodeMirror into this screen, which put the whole
-  // editor in /notes' first-load bundle even for a reader who never edits.
-  // `CollabBodyHost` builds it inside its own lazily-loaded chunk.
-  /**
-   * Accepting a pasted image. Stored against the page, referenced as `vault:`.
-   * Kept out of the memo below on purpose: it closes over `page.id`, and the
-   * collaborative editor rebuilds its whole document when its extension array
-   * changes.
-   */
-  const imagePaste = useMemo(
-    () =>
-      editorImageUpload({
-        store: (blob, ext) => getContainer().vault.uploadAsset(page.id, blob, ext),
-        toMarkdown: vaultImageMarkdown,
-        onError: setSaveError,
-      }),
-    [page.id],
-  );
-
-  const collabEditing = useMemo(
-    () => ({
-      placeholder: "Write markdown… #hashtags and [[wikilinks]] link this note in the graph.",
-      wikilinkTitles,
-      wikilinkCompletions,
-      citationFormat,
-      imagePaste,
-    }),
-    [wikilinkTitles, wikilinkCompletions, citationFormat, imagePaste],
-  );
+  const { completions } = useCiteLinkCatalog();
+  const links = useMemo(() => ({ notes, papers, sections }), [notes, papers, sections]);
 
   useEffect(() => {
     setTitle(page.title);
-    setDraft(page.body);
     setSaveError(null);
-    // A body change closes the plain editor because its `draft` would otherwise
-    // be stale against the row. The collaborative editor has no such problem —
-    // its document *is* the shared state — and closing it here would shut the
-    // editor under the user every time their own autosave came back around.
-    // Ink is the same: the sheet holds itself and saves as it goes.
-    if (!collabRef.current && modeRef.current === "edit") setMode("read");
-  }, [page.id, page.title, page.body]);
+  }, [page.id, page.title]);
 
   useEffect(() => {
     if (page.id) setMode("read");
   }, [page.id]);
 
-  // A handwritten note keeps its ink header and page markers in the body. It
-  // is read as its sheet (`NoteReadView`) and counted by the text layer under
-  // them. Its three modes are the Editor's: Edit is the source, Read the sheet
-  // with the pen down, Ink the Editor's own ink surface (`InkHost`).
+  // A handwritten note keeps its ink header and page markers in the body. Its
+  // three modes are the Editor's, drawn by the Editor's own document host:
+  // Edit the source, Read the sheet with the pen down, Ink the ink surface.
   const ink = isInkNoteBody(page.body);
   const readBody = useMemo(() => readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
   const canEditTitle = canEditBody && !ink && !sharedPage;
   const view: NoteMode = canEditBody ? mode : "read";
-  const showEditor = view === "edit";
   const hasBody = !!readBody.trim();
-  const titleDirty = canEditTitle && title.trim() !== page.title;
-  const bodyDirty = draft !== page.body;
-
-  // Co-editing is for notes you own and can write to. A shared or read-only
-  // page has no edit affordance at all, and pushing CRDT updates for one would
-  // mean joining a channel the viewer has no write authorization on.
-  const collab = canEditBody && !sharedPage && getContainer().collab.enabled();
-  collabRef.current = collab;
-  // With collab on the body persists itself, so only the title can be dirty.
-  const dirty = collab ? titleDirty : titleDirty || bodyDirty;
 
   /**
-   * Autosave from the collaborative editor: body only, and no switch back to Read.
-   * Title stays on "Save note" — it is a plain input, not part of the CRDT
-   * document, so it has no other way to be persisted.
+   * Every body write, from any mode — the host saves as it goes, the way it
+   * does in the Editor. The list is refreshed from Read only: a new body
+   * arriving mid-edit or mid-stroke would shut the surface under the writer,
+   * so Edit and Ink refresh once they are put away (`chooseMode`).
    */
-  const saveCollabBody = useCallback(
+  const saveBody = useCallback(
     async (nextBody: string) => {
-      setDraft(nextBody);
-      const vault = getContainer().vault;
-      const body = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
-        vault.uploadAsset(id, blob, ext),
-      );
-      await vault.manageVaultPage.update(page.id, { body });
+      setSaveError(null);
+      try {
+        const vault = getContainer().vault;
+        const body = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
+          vault.uploadAsset(id, blob, ext),
+        );
+        await vault.manageVaultPage.update(page.id, { body });
+        if (modeRef.current === "read") await onChanged();
+      } catch (err) {
+        setSaveError(formatError(err));
+      }
     },
-    [page.id],
+    [onChanged, page.id],
   );
 
-  async function save() {
-    setSaving(true);
+  /** The title is a plain input beside the shared body: it saves when left. */
+  async function saveTitle() {
+    const next = title.trim();
+    if (!canEditTitle || !next || next === page.title) {
+      setTitle(page.title);
+      return;
+    }
+    setBusy(true);
     setSaveError(null);
     try {
-      const vault = getContainer().vault;
-      const body = await materializeBlobImagesInBody(draft, page.id, (id, blob, ext) =>
-        vault.uploadAsset(id, blob, ext),
-      );
-      await vault.manageVaultPage.update(page.id, {
-        title: canEditTitle ? title.trim() : page.title,
-        body,
-      });
-      setMode("read");
+      await getContainer().vault.manageVaultPage.update(page.id, { title: next });
       await onChanged();
     } catch (err) {
       setSaveError(formatError(err));
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
@@ -204,50 +144,11 @@ export function PageEditor({
     onDeleted();
   }
 
-  /**
-   * The ink surface saves as it goes, the way it does in the Editor. The list
-   * is refreshed once the sheet is put away rather than on every save: a new
-   * body arriving mid-edit would shut the editor under the pen.
-   */
-  const saveInkBody = useCallback(
-    async (body: string) => {
-      setSaveError(null);
-      try {
-        await getContainer().vault.manageVaultPage.update(page.id, { body });
-      } catch (err) {
-        setSaveError(formatError(err));
-      }
-    },
-    [page.id],
-  );
-
-  function closeEditor() {
-    setTitle(page.title);
-    setSaveError(null);
-    setMode("read");
-    void onChanged();
-  }
-
-  function cancelEdit() {
-    setTitle(page.title);
-    setDraft(page.body);
-    setSaveError(null);
-    setMode("read");
-  }
-
-  /**
-   * The switch in the section head. Leaving Ink refreshes the list, which the
-   * sheet held back while it was open; leaving an unsaved plain edit asks first.
-   */
+  /** The switch in the section head. Leaving Edit or Ink refreshes the list. */
   function chooseMode(next: NoteMode) {
     if (next === mode) return;
-    if (mode === "edit" && !collab && (bodyDirty || titleDirty) && !confirm("Discard your changes?")) return;
-    if (mode === "edit") {
-      setTitle(page.title);
-      setDraft(page.body);
-    }
     setSaveError(null);
-    if (mode === "ink" || (mode === "edit" && collab)) void onChanged();
+    if (mode !== "read") void onChanged();
     setMode(next);
   }
 
@@ -263,21 +164,7 @@ export function PageEditor({
     wordsLabel,
   ].filter(Boolean).join(" / ");
 
-  /** An image placed from the read view writes the body back, as in the Editor. */
-  const saveReadBody = useCallback(
-    async (body: string) => {
-      await getContainer().vault.manageVaultPage.update(page.id, { body });
-      await onChanged();
-    },
-    [onChanged, page.id],
-  );
   const editorHref = `${WORKSPACE_PATH}?open=${encodeURIComponent(`vault_page:${page.id}`)}`;
-
-  function startEditing() {
-    setDraft(page.body);
-    setTitle(page.title);
-    setMode("edit");
-  }
 
   return (
     <article className="record">
@@ -286,15 +173,9 @@ export function PageEditor({
         {sharedPage && <span className="record-mono record-bar-id">Shared</span>}
         {sharedByName && <PinnedPaperBadge ownerName={sharedByName} />}
         <div className="record-actions">
-          {/* Two ways to write: Edit writes here on the page — the markdown, or
-              the sheet with the Editor's own ink surface — and Open in editor
-              leaves for the full Editor with its tabs and sidebar. */}
-          {view === "read" && canEditBody && (
-            <button type="button" className="record-action" onClick={startEditing}>
-              <EditIcon />
-              <span>{hasBody ? "Edit" : "Write"}</span>
-            </button>
-          )}
+          {/* Writing here starts from the Edit / Read / Ink switch over the
+              note; Open in editor leaves for the full Editor with its tabs and
+              sidebar. */}
           {!readOnly && !sharedPage && (
             <Link className="record-action" href={editorHref}>
               <OpenIcon />
@@ -313,7 +194,7 @@ export function PageEditor({
               type="button"
               className="record-action danger"
               onClick={() => void remove()}
-              disabled={saving}
+              disabled={busy}
               aria-label="Delete note"
               title="Delete"
             >
@@ -324,11 +205,17 @@ export function PageEditor({
       </nav>
 
       <header className="record-head">
-        {showEditor && canEditTitle ? (
+        {view === "edit" && canEditTitle ? (
           <input
             className="vault-title-input record-title-input"
             value={title}
+            disabled={busy}
             onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => void saveTitle()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") setTitle(page.title);
+            }}
             aria-label="Note title"
           />
         ) : (
@@ -350,86 +237,41 @@ export function PageEditor({
               ) : hasBody ? wordsLabel : undefined
             }
           >
-            {view === "read" ? (
-              hasBody || ink ? (
-                <div ref={noteTextRef} className={ink ? "record-note-read record-note-read--ink" : "record-note-read"}>
-                  <NoteReadView
-                    noteId={page.id}
-                    body={page.body}
-                    ink={ink}
-                    onSave={canEditBody ? saveReadBody : undefined}
-                    notes={notes}
-                    papers={papers}
-                    sections={sections}
-                    onCreateNote={onCreateNote}
-                    resolveEmbed={resolveEmbed}
-                  />
-                </div>
-              ) : canEditBody ? (
-                <button type="button" className="record-note-empty" onClick={startEditing}>
+            {view === "read" && !hasBody && !ink ? (
+              canEditBody ? (
+                <button type="button" className="record-note-empty" onClick={() => chooseMode("edit")}>
                   Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.
                 </button>
               ) : (
                 <RecordEmpty>Nothing written yet.</RecordEmpty>
               )
-            ) : view === "ink" ? (
-              <div className="record-ink-edit">
-                <InkHost noteId={page.id} body={page.body} deps={getContainer().ink} onSave={saveInkBody} />
-                {saveError && <InlineError>{saveError}</InlineError>}
-              </div>
             ) : (
-              <div className="summary-editor">
-                <div className="summary-editor-bar">
-                  <CitationFormatSelect
-                    value={citationFormat}
-                    onChange={setCitationFormat}
-                    disabled={saving}
-                  />
-                  <AttachImageButton editor={editorHandle} onError={setSaveError} />
-                </div>
-                {collab ? (
-                  <CollabBodyHost
-                    resourceType="vault_page"
-                    resourceId={page.id}
-                    initialBody={page.body}
-                    onSave={saveCollabBody}
-                    className="summary-input-collab"
-                    editorClassName="markdown-code-editor summary-input markdown-code-editor--notes"
-                    markdownEditing={collabEditing}
-                    handleRef={editorHandle}
-                  />
-                ) : (
-                  <MarkdownCodeEditor
-                    className="summary-input markdown-code-editor--notes"
-                    value={draft}
-                    placeholder="Write markdown… #hashtags and [[wikilinks]] link this note in the graph."
-                    disabled={saving}
-                    onChange={setDraft}
-                    wikilinkTitles={wikilinkTitles}
-                    wikilinkCompletions={wikilinkCompletions}
-                    citationFormat={citationFormat}
-                    imagePaste={imagePaste}
-                    handleRef={editorHandle}
-                  />
+              <div
+                ref={noteTextRef}
+                className={view === "read" ? (ink ? "record-note-read record-note-read--ink" : "record-note-read") : `record-doc record-doc--${view}`}
+              >
+                {view === "edit" && (
+                  <div className="summary-editor-bar">
+                    <AttachImageButton editor={editorHandle} onError={setSaveError} />
+                  </div>
                 )}
-                <div className="summary-editor-foot">
-                  {saveError && <InlineError>{saveError}</InlineError>}
-                  {/* Cancelling a collaborative edit cannot roll the body back — it is
-                      already shared and saved — so the escape hatch is just "close". */}
-                  <button type="button" className="link-btn" onClick={collab ? closeEditor : cancelEdit} disabled={saving}>
-                    {collab ? "close" : "cancel"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    disabled={saving || (!dirty && !collab) || !title.trim()}
-                    onClick={() => void save()}
-                  >
-                    {saving ? "Saving…" : collab ? "Done" : "Save note"}
-                  </button>
-                </div>
+                {/* The Editor's own document host: Edit, Read and Ink here are
+                    the same code as in a tab, not a copy of it. */}
+                <DocumentBody
+                  tab={{ kind: "vault_page", id: page.id }}
+                  mode={view}
+                  body={page.body}
+                  links={links}
+                  completions={completions}
+                  onSave={canEditBody ? saveBody : async () => undefined}
+                  onCreateNote={onCreateNote ? (t) => onCreateNote(t) : undefined}
+                  resolveEmbed={resolveEmbed}
+                  handleRef={editorHandle}
+                  onError={setSaveError}
+                />
               </div>
             )}
+            {saveError && <InlineError>{saveError}</InlineError>}
             {view === "read" && canEditBody && !ink && <NoteTagEditor page={page} onChanged={onChanged} />}
           </RecordSection>
         </div>

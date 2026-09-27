@@ -42,6 +42,14 @@ export function bindEditorHandle(
       acceptImageFiles(view, files, config);
     },
     focus: () => view.focus(),
+    text: () => view.state.doc.toString(),
+    replaceAll(markdown) {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: markdown },
+        userEvent: "input.replace",
+      });
+      view.focus();
+    },
   };
 
   ref.current = handle;
