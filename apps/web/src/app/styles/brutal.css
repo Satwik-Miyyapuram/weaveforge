@@ -327,6 +327,23 @@
   border: var(--bw) solid transparent;
   border-radius: var(--radius-sm);
 }
+/* A card's icon actions share one size: the comments toggle was 32px beside a
+   36px menu button on the same row. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card) .entity-icon-btn {
+  min-width: 36px;
+  min-height: 36px;
+}
+/* The dashboard's one head button is framed like every other screen's head
+   buttons, not a hairline box a size smaller. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-customize-btn {
+  width: 40px;
+  height: 40px;
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--sh-sm);
+}
 @media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .entity-icon-btn:hover:not(:disabled) {
   background: var(--hover);
   color: var(--text);
@@ -414,6 +431,15 @@
   overflow: hidden;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button { border-radius: 0; }
+/* An icon toggle stands beside the screen's 40px buttons, so with its frame it
+   is 40px too, not the 44px touch target plus a border. Touch keeps 44. */
+@media (pointer: fine) {
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button[aria-label] {
+    min-width: calc(40px - 2 * var(--bw));
+    min-height: calc(40px - 2 * var(--bw));
+    padding: 8px;
+  }
+}
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button + button { border-left: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button.seg-on {
   background: var(--text);
@@ -682,7 +708,7 @@
   font-size: 1.9rem; line-height: 1.05;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn {
-  width: 42px; height: 42px; border: var(--bw) solid var(--bw-line);
+  width: 40px; height: 40px; border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn.is-active { background: var(--accent); color: var(--accent-fg); }
@@ -809,34 +835,6 @@
   color: var(--muted);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 10px; margin: 0; }
-/* Two panes, as on the mock: the rail's swatches are stamped squares and the
-   picked list is pressed in the accent; the picked list's own row is the
-   pane's heading, set big in the display face, its controls stamped squares. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail { padding: 10px; gap: 6px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item { min-height: 46px; font-weight: 700; border-radius: var(--radius-sm); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail .list-color-dot {
-  width: 16px; height: 16px; border-radius: 3px; box-shadow: none;
-  border: var(--bw) solid var(--bw-line);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item[aria-current="true"] {
-  background: var(--accent); color: var(--accent-fg);
-  box-shadow: inset 0 0 0 var(--bw) var(--bw-line), var(--sh-sm);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-count { font-family: var(--font-mono); font-weight: 400; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-panel { padding: 22px 24px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row {
-  background: transparent; border: 0; padding: 0 0 12px; gap: 10px;
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row > .list-color-dot { display: none; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row > .list-row-title {
-  font-family: var(--display); font-weight: var(--display-weight);
-  font-size: 1.9rem; line-height: 1.05;
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn {
-  width: 42px; height: 42px; border: var(--bw) solid var(--bw-line);
-  border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn.is-active { background: var(--accent); color: var(--accent-fg); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-body > .list-add-trigger { font-size: 0.95rem; padding: 12px 16px; }
 
 /* ---- Notes ----------------------------------------------------------------
