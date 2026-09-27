@@ -1068,7 +1068,15 @@ export function PdfReader({
       // Unreadable here but maybe not to the <img>: keep the default shape.
     }
     const ext = file.type.split("/")[1]?.replace("jpeg", "jpg").replace("svg+xml", "svg") || "png";
-    const path = await getContainer().papers.uploadImage(paperId, file, ext);
+    // The upload is the step that fails (no network, a server without storage),
+    // and it used to fail silently: the menu closed and no picture came.
+    let path: string;
+    try {
+      path = await getContainer().papers.uploadImage(paperId, file, ext);
+    } catch (err) {
+      setAnnError(`The picture could not be uploaded: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
     await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));
   }
 
