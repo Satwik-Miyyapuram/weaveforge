@@ -1,10 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { isInkNoteBody } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ImageSizeControl } from "@/components/image-size-control";
-import { InkReader } from "@/features/ink";
 import { VaultMarkdown, type WikilinkEntry } from "./vault-markdown";
+
+/**
+ * The ink stack loads when a sheet is read, not with the notes screen: this
+ * module reaches `/notes` through the vault barrel, and a static import put
+ * the whole ink feature in that route's first load.
+ */
+const InkReader = dynamic(() => import("@/features/ink/ui/ink-reader").then((m) => m.InkReader), {
+  ssr: false,
+});
 
 /**
  * A note, read: the one renderer for `/notes` and the Editor's Read mode.
