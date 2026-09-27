@@ -1,6 +1,7 @@
 "use client";
 
 import { InlineError } from "@/components/form-error";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   extractHashtags,
@@ -24,6 +25,7 @@ import { editorImageUpload } from "@/lib/editor-image-upload";
 import { formatError } from "@/lib/format-error";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 import { useCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
+import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { VaultMarkdown } from "../vault-markdown";
 import { NoteTagEditor } from "./note-tag-editor";
@@ -242,6 +244,16 @@ export function PageEditor({
               <span>{hasBody ? "Edit" : "Write"}</span>
             </button>
           )}
+          {/* Ink is written only in the Editor, so Edit goes there with the note open. */}
+          {ink && !readOnly && (
+            <Link
+              className="record-action"
+              href={`${WORKSPACE_PATH}?open=${encodeURIComponent(`vault_page:${page.id}`)}`}
+            >
+              <EditIcon />
+              <span>Edit</span>
+            </Link>
+          )}
           {!readOnly && !sharedPage && (
             <ShareButton resourceType="vault_page" resourceId={page.id} title={`Share: ${page.title}`} showLabel />
           )}
@@ -304,7 +316,7 @@ export function PageEditor({
                   />
                 </div>
               ) : ink ? (
-                <RecordEmpty>Handwritten, with no recognised text yet. Open it in the Editor to see the pages.</RecordEmpty>
+                <RecordEmpty>Handwritten, with no recognised text yet. Edit opens it in the Editor.</RecordEmpty>
               ) : canEditBody ? (
                 <button type="button" className="record-note-empty" onClick={startEditing}>
                   Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.

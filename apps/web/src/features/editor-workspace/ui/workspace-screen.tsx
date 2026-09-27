@@ -58,6 +58,15 @@ function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
 }
 
+/** The tab named by `?open=kind:id`, if the URL names one. */
+function requestedTab(): TabRef | null {
+  const raw = new URLSearchParams(window.location.search).get("open");
+  if (!raw) return null;
+  const [kind, ...rest] = raw.split(":");
+  const id = rest.join(":");
+  return kind && id ? { kind, id } : null;
+}
+
 /**
  * The desktop editor: the workspace as a stack of explorer sections and a set
  * of panes.
@@ -178,8 +187,18 @@ export function WorkspaceScreen() {
         // same answer a click on it in the explorer gets.
         const open = new Set(loaded.map((doc) => tabKey(doc)));
         const bodyOf = new Map(loaded.map((doc) => [tabKey(doc), doc.body]));
-        const pruned = pruneLayout(readLayout(store()), (tab) => open.has(tabKey(tab)));
-        setLayout(hydrateTabModes(pruned, (tab) => openModeFor(tab.kind, bodyOf.get(tabKey(tab)) ?? "")));
+        let restored = pruneLayout(readLayout(store()), (tab) => open.has(tabKey(tab)));
+        // `?open=kind:id` is how another screen hands a document over — the
+        // note screen's Edit on a handwritten note, which only this screen can
+        // write in. It opens on top of the restored panes, then leaves the URL
+        // so a reload does not open it again.
+        const requested = requestedTab();
+        if (requested && open.has(tabKey(requested))) {
+          restored = openTab(restored, requested);
+          writeLayout(store(), restored);
+        }
+        if (requested) window.history.replaceState(null, "", window.location.pathname);
+        setLayout(hydrateTabModes(restored, (tab) => openModeFor(tab.kind, bodyOf.get(tabKey(tab)) ?? "")));
       } catch (err) {
         if (!cancelled) setError(formatError(err));
       }
