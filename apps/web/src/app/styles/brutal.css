@@ -156,6 +156,28 @@
   box-shadow: none;
   border-width: var(--bw);
 }
+/* A modal's choices (Add papers, org setup): each one a stamped button,
+   ink edge and small shadow, pressed in like the others. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .org-choice-card {
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-sm);
+  transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease, filter var(--dur-fast) ease;
+}
+@media (hover: hover) {
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .org-choice-card:hover {
+  border-color: var(--bw-line);
+  background: var(--surface);
+  filter: brightness(1.04);
+}
+:root[data-theme="brutal-dark"] .org-choice-card:hover { filter: brightness(1.15); }
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .org-choice-card:active {
+  transform: var(--press-t);
+  box-shadow: var(--sh-press);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .org-choice-title { font-weight: 700; color: var(--text); }
 /* Hover only where there is a pointer: on touch it sticks after the tap. */
 @media (hover: hover) {
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card)[role="button"]:hover {
