@@ -34,6 +34,8 @@ export function tagColor(tag: string): string {
 }
 
 export const NOTE_COLOR = "#a0896a";
+/** Papers when the graph is coloured by kind: one colour, no reading state. */
+export const PAPER_COLOR = "#6d7fa3";
 /** Direct [[wikilink]] edges — distinct from tag/relation links. */
 export const WIKILINK_COLOR = "#6f7f9c";
 /** Report section nodes on the citation graph. */

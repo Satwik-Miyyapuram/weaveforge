@@ -7,6 +7,7 @@
  */
 
 import { isArxivProxyRequest, proxyArxiv } from "./arxiv-proxy";
+import { isBlobProxyRequest, proxyBlob } from "./blob-proxy";
 import { isHtmlProxyRequest, proxyHtml } from "./html-proxy";
 import { isPdfProxyRequest, proxyPdf } from "./pdf-proxy";
 import { isSemanticScholarProxyRequest, proxySemanticScholar, type ProxyFetch } from "./semantic-scholar-proxy";
@@ -21,5 +22,7 @@ export function answerRelay(request: Request, fetchFn: ProxyFetch): Promise<Resp
   if (isSemanticScholarProxyRequest(request.url)) return proxySemanticScholar(request, fetchFn);
   // arXiv, which sends no CORS headers at all.
   if (isArxivProxyRequest(request.url)) return proxyArxiv(request, fetchFn);
+  // The blob store's routes (pictures on papers and notes), on the hosted app.
+  if (isBlobProxyRequest(request.url)) return proxyBlob(request, fetchFn);
   return null;
 }

@@ -8,7 +8,8 @@ import { Select } from "@/components/select";
 export const STATUS_DOTS: Record<PaperStatus, number> = { to_read: 0, reading: 1, skimmed: 2, read: 3 };
 
 export function statusLabel(status: PaperStatus): string {
-  return status.replace("_", " ");
+  const words = status.replace("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 /**

@@ -243,7 +243,7 @@ export function PaperNote({
   ].filter(Boolean);
   const activity = [
     trackingCitations ? { at: "Now", what: "Citation alerts on" } : null,
-    paper.readAt ? { at: recordDate(paper.readAt), what: `Marked ${statusLabel(paper.status)}` } : null,
+    paper.readAt ? { at: recordDate(paper.readAt), what: `Marked ${statusLabel(paper.status).toLowerCase()}` } : null,
     paper.updatedAt && recordDate(paper.updatedAt) !== recordDate(paper.createdAt)
       ? { at: recordDate(paper.updatedAt), what: "Last edited" }
       : null,

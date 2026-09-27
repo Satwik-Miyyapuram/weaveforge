@@ -168,8 +168,8 @@ export function ExperimentArtifactPicker({
         )}
       </Select>
       {error && <InlineError>{error}</InlineError>}
-      <button type="button" className="link-btn" onClick={() => setOpen(false)} disabled={busy}>
-        cancel
+      <button type="button" className="btn-ghost btn-cancel" onClick={() => setOpen(false)} disabled={busy}>
+        Cancel
       </button>
       <button
         type="button"

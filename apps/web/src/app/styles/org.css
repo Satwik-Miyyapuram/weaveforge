@@ -50,9 +50,3 @@
 .org-codes-panel { margin: 12px 0; padding-top: 8px; border-top: 1px solid var(--line); }
 .org-code-row--static { grid-template-columns: 5.75rem minmax(0, 1fr); }
 
-/* Git tab */
-.git-branch-bar {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px;
-  margin-bottom: 12px; padding: 12px; border: 1px solid var(--line);
-  border-radius: 10px; background: var(--surface);
-}

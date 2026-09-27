@@ -74,7 +74,7 @@ import { ReaderOutline, type ReaderOutlineItem } from "../reader-outline";
 import { AnnotationOverlay } from "../annotation-overlay";
 import { bucketAnnotationsByPage } from "../../application/project-annotation-geometry";
 import { AnnotationSidebar, type ReportSectionOption } from "../annotation-sidebar";
-import { SelectionCreateBar } from "../selection-create-bar";
+import { SelectionCreateBar, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
@@ -88,6 +88,7 @@ import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePagePointer } from "./use-page-pointer";
+import { usePenTextSelect } from "./use-pen-text-select";
 import { useReaderGestures } from "../use-reader-gestures";
 import { useInkUndo } from "./use-ink-undo";
 import { usePenPrefs, barToolFor, inkCursorFor, readerToolFor } from "./use-pen-prefs";
@@ -223,6 +224,8 @@ export function PdfReader({
     pageNumber: number;
     quote: string;
     selection: TextSelectionRange;
+    /** Where the popover sits: the selection's box, in the scroller's content. */
+    at: SelectionAnchor;
   } | null>(null);
   const clearPendingCreate = useCallback(() => setPendingCreate(null), []);
   const { reportSections, pinsByKey, applyPin, backlinkHits } = useAnnotationContext(
@@ -349,11 +352,14 @@ export function PdfReader({
 
   /**
    * The pointer the page shows, from the one table both surfaces read
-   * (`inkCursorFor`, `features/ink`): the crosshair a nib is aimed with, the
-   * eraser's ring. The pointer tool is left alone — it is the arrow and the
-   * text I-beam the page already gives it.
+   * (`inkCursorFor`, `features/ink`): a dot of the ink a nib lays down, at
+   * its on-screen size, and the eraser's block. The pointer tool is left
+   * alone — it is the arrow and the text I-beam the page already gives it.
    */
-  const pageCursor = canCreate ? inkCursorFor(createTool) : undefined;
+  const nibPoints = createTool === "highlighter" ? inkNoteWidthToPdfPoints(INK_HIGHLIGHTER_WIDTH) : penWidth;
+  const pageCursor = canCreate
+    ? inkCursorFor(createTool, { hex: createColor, diameterPx: nibPoints * scale })
+    : undefined;
 
   /**
    * Ink is the ink mode's.
@@ -404,6 +410,7 @@ export function PdfReader({
     removeLocal,
     saveAnchor,
   });
+  usePenTextSelect(containerRef, canCreate && createTool === "select");
 
   /**
    * The pinch, previewed and then committed.
@@ -468,6 +475,30 @@ export function PdfReader({
     },
     [containerRef, pageGeometries, pageSize, rotation],
   );
+
+  /**
+   * Every page takes the new scale at once, painted or not.
+   *
+   * A zoom, a turn or the pen rail's half share repaints only the pages in
+   * view; a page painted earlier kept its old size until it was scrolled back
+   * to, so the column was a mix of sizes — a page wider than the pane, one a
+   * sliver — and every offset past it, and so every jump to a page, was wrong.
+   * The old bitmap is stretched to the new box until its repaint lands, and
+   * the page at the top of the view stays there, the same share of the way
+   * down it, so switching mode keeps the place.
+   */
+  useLayoutEffect(() => {
+    const scroller = containerRef.current;
+    if (!scroller) return;
+    const view = scroller.getBoundingClientRect();
+    const rows = scroller.querySelectorAll<HTMLElement>(".pdf-reader-page-row");
+    const top = [...rows].find((row) => row.getBoundingClientRect().bottom > view.top);
+    const box = top?.getBoundingClientRect();
+    const share = box && box.height > 0 ? (view.top - box.top) / box.height : 0;
+    resizePagesFor(scale);
+    if (!top || scroller.scrollTop === 0) return;
+    scroller.scrollTop = top.offsetTop + share * top.offsetHeight;
+  }, [scale, resizePagesFor, containerRef]);
 
   /**
    * Take a pinch: the real scale, and the scroll that keeps the point the pinch
@@ -944,8 +975,14 @@ export function PdfReader({
   }
 
 
-  function onSelectionMouseUp() {
+  /**
+   * The end of a selection — the mouse button up, or the pen lifted — raises
+   * the create popover over the words it covers. A press inside the popover is
+   * the popover's, not a new selection.
+   */
+  function onSelectionEnd(event: React.PointerEvent) {
     if (!canCreate || createTool !== "select") return;
+    if ((event.target as Element).closest?.(".pdf-reader-create-bar")) return;
     // A drag that moved an ink mark is not a text selection.
     if (isMovingInk()) return;
     const root = containerRef.current;
@@ -977,10 +1014,16 @@ export function PdfReader({
       setPendingCreate(null);
       return;
     }
+    const at = sel && sel.rangeCount > 0 ? selectionAnchor(sel.getRangeAt(0), root) : null;
+    if (!at) {
+      setPendingCreate(null);
+      return;
+    }
     setPendingCreate({
       pageNumber,
       quote: draft.text ?? "",
       selection: range,
+      at,
     });
   }
 
@@ -1025,7 +1068,15 @@ export function PdfReader({
       // Unreadable here but maybe not to the <img>: keep the default shape.
     }
     const ext = file.type.split("/")[1]?.replace("jpeg", "jpg").replace("svg+xml", "svg") || "png";
-    const path = await getContainer().papers.uploadImage(paperId, file, ext);
+    // The upload is the step that fails (no network, a server without storage),
+    // and it used to fail silently: the menu closed and no picture came.
+    let path: string;
+    try {
+      path = await getContainer().papers.uploadImage(paperId, file, ext);
+    } catch (err) {
+      setAnnError(`The picture could not be uploaded: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
     await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));
   }
 
@@ -1389,18 +1440,6 @@ export function PdfReader({
           </button>
         </div>
       )}
-      {pendingCreate && canCreate && (
-        <SelectionCreateBar
-          pending={pendingCreate}
-          busy={createBusy}
-          color={createColor}
-          onCreate={(type, color) => {
-            setCreateColor(color);
-            void createFromPending(type, color);
-          }}
-          onCancel={() => setPendingCreate(null)}
-        />
-      )}
       <div
         className={`pdf-reader-body${
           !penOpen && (showOutline || annotations.length > 0 || canCreate)
@@ -1425,9 +1464,22 @@ export function PdfReader({
         <div
           className="pdf-reader-scroll"
           ref={containerRef}
-          onMouseUp={onSelectionMouseUp}
+          onPointerUp={onSelectionEnd}
         >
           {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
+          {/* In the scroller, so it scrolls with the words it is about. */}
+          {pendingCreate && canCreate && (
+            <SelectionCreateBar
+              at={pendingCreate.at}
+              busy={createBusy}
+              color={createColor}
+              onCreate={(type, color) => {
+                setCreateColor(color);
+                void createFromPending(type, color);
+              }}
+              onCancel={() => setPendingCreate(null)}
+            />
+          )}
           {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
             // One row per page: the page itself, plus the blank strip the pen
             // writes beside it. The row — not the page box — is the drawing

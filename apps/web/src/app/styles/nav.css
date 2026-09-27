@@ -210,6 +210,10 @@ button.nav-link {
        instead of running off the bottom with Help and Sign out out of reach. */
     flex: 0 1 auto; min-height: 0;
     overflow-y: auto; overflow-x: hidden; flex: none; scrollbar-width: none;
+    /* The scroll box clips at its padding edge, and the account row is its last
+       child: without room below it the boxed themes' 3px drop shadow and the
+       press nudge were cut flush at the bottom of the chip and the ⋯. */
+    padding-bottom: 6px;
   }
   /* Account links stack in the sidebar instead of wrapping. `.header-actions`
      is a wrapping pill row, which is right for the mobile top bar and wrong in

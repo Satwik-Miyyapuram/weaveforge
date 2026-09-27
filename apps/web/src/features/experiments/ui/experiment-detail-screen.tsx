@@ -24,6 +24,7 @@ import { formatError } from "@/lib/format-error";
 import { AttachArtifactsButton } from "./attach-artifacts-button";
 import { EXPERIMENTS_HREF } from "./experiment-href";
 import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
+import { experimentStatusLabel } from "./experiment-status-label";
 import { FormError } from "@/components/form-error";
 
 /** How far along a run is: planned, under way, settled (done, failed or abandoned). */
@@ -138,7 +139,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               aria-label="Run status"
             >
               {EXPERIMENT_STATUSES.map((st) => (
-                <option key={st} value={st}>{st}</option>
+                <option key={st} value={st}>{experimentStatusLabel(st)}</option>
               ))}
             </Select>
           </span>

@@ -6,7 +6,7 @@ import { useProject } from "@/features/projects";
 import type { Integration, SyncProvider } from "../domain/integration";
 import { gitConnection } from "../domain/integration-fields";
 import type { GitBranch, GitCommit } from "../infrastructure/git-client";
-import { Select } from "@/components/select";
+import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import Link from "next/link";
@@ -96,24 +96,20 @@ export function GitScreen() {
     }
   }
 
+  const repo = integration ? gitConnection(integration).repo : "";
+
   return (
-    <section className="screen">
-      {integration && branch && (
-        <div className="git-branch-bar">
-          {branches.length > 0 && (
-            <div className="field">
-              <label htmlFor="gbr">Branch</label>
-              <Select id="gbr" value={branch} onChange={(e) => void load(e.target.value)} disabled={loading || tracking}>
-                {branches.map((b) => <option key={b.name} value={b.name}>{b.name}</option>)}
-              </Select>
-            </div>
-          )}
-          <button className="btn-secondary track-branch-btn" onClick={() => void trackBranch()} disabled={loading || tracking}>
-            {tracking ? "Tracking…" : "Track branch as experiment"}
+    <section className="screen git-screen">
+      <ScreenHead eyebrow="Code for the experiments">
+        <Link className="btn-secondary" href="/settings">
+          Settings
+        </Link>
+        {integration && (
+          <button type="button" className="btn-primary" onClick={() => void load(branch)} disabled={loading}>
+            {loading ? "Syncing…" : "Sync now"}
           </button>
-          {loading && <ScreenLoader status="Refreshing git history…" showTips={false} compact />}
-        </div>
-      )}
+        )}
+      </ScreenHead>
       {loading && !integration && <ScreenLoader status="Loading git history…" />}
       {!loading && !integration && (
         <EmptyState
@@ -130,20 +126,91 @@ export function GitScreen() {
       )}
       {error && <p className="muted">{error}</p>}
 
-      <ul className="commit-list">
-        {commits.map((c) => (
-          <li key={c.sha} className="card commit-item">
-            <div className="commit-main">
-              <a className="commit-sha" href={c.url} target="_blank" rel="noreferrer">{c.shortSha}</a>
-              <span className="commit-msg">{c.message}</span>
+      {integration && (
+        <>
+          <div className="card git-hero">
+            <span className="git-hero-mark" aria-hidden="true">
+              <NavIcon name="git" />
+            </span>
+            <div className="git-hero-main">
+              <p className="git-hero-repo">
+                <a href={repoWebUrl(integration)} target="_blank" rel="noreferrer">{repo}</a>
+                <span className="status status-done">Connected</span>
+              </p>
+              <p className="git-hero-sub">
+                {repoWebUrl(integration).replace(/^https:\/\//, "")} · tracking {integration.branch}
+              </p>
             </div>
-            <div className="commit-meta">
-              <span className="muted">{c.author}{c.date ? ` · ${c.date.slice(0, 10)}` : ""}</span>
-              <button className="link-btn" onClick={() => void track(c)}>track as experiment</button>
+            <dl className="git-hero-stats">
+              <div><dt>Branches</dt><dd>{branches.length}</dd></div>
+              <div><dt>Commits</dt><dd>{commits.length}</dd></div>
+              <div><dt>Latest</dt><dd>{commits[0]?.date ? shortDate(commits[0].date) : "—"}</dd></div>
+            </dl>
+          </div>
+
+          <div className="git-layout">
+            <div className="card git-commits">
+              <div className="git-card-head">
+                <h2>Commits</h2>
+                {loading && <ScreenLoader status="Refreshing git history…" showTips={false} compact />}
+              </div>
+              <ul className="commit-list">
+                {commits.map((c) => (
+                  <li key={c.sha} className="commit-item">
+                    <div className="commit-main">
+                      <span className="commit-msg">{c.message}</span>
+                      <span className="commit-meta">
+                        <a className="commit-sha" href={c.url} target="_blank" rel="noreferrer">{c.shortSha}</a>
+                        {c.author ? ` ${c.author}` : ""}
+                        {c.date ? ` · ${shortDate(c.date)}` : ""}
+                      </span>
+                    </div>
+                    <button type="button" className="btn-secondary btn-sm" onClick={() => void track(c)}>
+                      Track
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </li>
-        ))}
-      </ul>
+
+            <aside className="card git-branches" aria-label="Branches">
+              <h2>Branches</h2>
+              <ul className="git-branch-list">
+                {branches.map((b) => (
+                  <li key={b.name}>
+                    <button
+                      type="button"
+                      className={b.name === branch ? "git-branch is-active" : "git-branch"}
+                      aria-pressed={b.name === branch}
+                      onClick={() => void load(b.name)}
+                      disabled={loading}
+                    >
+                      <span className="git-branch-swatch" aria-hidden="true" />
+                      <span className="git-branch-name">{b.name}</span>
+                      {b.name === integration.branch && <span className="git-branch-note">default</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="btn-primary track-branch-btn"
+                onClick={() => void trackBranch()}
+                disabled={loading || tracking || !branch}
+              >
+                {tracking ? "Tracking…" : `Track ${branch} as experiment`}
+              </button>
+              <p className="muted git-branches-note">A tracked branch shows up as an experiment, with its runs.</p>
+            </aside>
+          </div>
+        </>
+      )}
     </section>
   );
+}
+
+/** A commit's day as the list shows it, e.g. "20 Sep". */
+function shortDate(iso: string): string {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? iso.slice(0, 10) : at.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }

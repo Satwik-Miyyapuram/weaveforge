@@ -10,14 +10,29 @@ import { useSyncIssues } from "./use-sync-issues";
  * absent when there are none: a permanent "no conflicts" section trains the
  * reader to stop looking at the one place that will eventually matter.
  */
+/** Refused writes listed before the rest fold behind "Show all". */
+const DEAD_SHOWN = 5;
+
 export function SyncIssuesPanel() {
   const { issues, keep, retry, discard } = useSyncIssues();
+  const [showAll, setShowAll] = useState(false);
   const { conflicts, dead } = issues;
+  const shown = showAll ? dead : dead.slice(0, DEAD_SHOWN);
   if (conflicts.length === 0 && dead.length === 0) return null;
 
   return (
     <div className="card settings-block">
       <h3 className="settings-group">Needs you</h3>
+      {dead.length > 1 && (
+        <div className="field-inline">
+          <button type="button" className="btn-secondary" onClick={() => dead.forEach((entry) => void retry(entry.opId))}>
+            Try all {dead.length} again
+          </button>
+          <button type="button" className="btn-ghost btn-cancel" onClick={() => dead.forEach((entry) => void discard(entry.opId))}>
+            Discard all
+          </button>
+        </div>
+      )}
       {conflicts.map((conflict) => (
         <ConflictRow
           key={conflict.id}
@@ -27,22 +42,27 @@ export function SyncIssuesPanel() {
           onKeep={(picks) => void keep(conflict.id, picks)}
         />
       ))}
-      {dead.map((entry) => (
-        <div key={entry.opId} className="settings-group">
+      {shown.map((entry) => (
+        <div key={entry.opId} className="sync-issue">
           <p>
             <strong>{entry.table}</strong> — {entry.op} refused after {entry.attempts} tries.
           </p>
           <p className="muted">{entry.lastError ?? "No reason given."}</p>
           <div className="field-inline">
-            <button type="button" className="btn-secondary" onClick={() => void retry(entry.opId)}>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => void retry(entry.opId)}>
               Try again
             </button>
-            <button type="button" className="link-btn" onClick={() => void discard(entry.opId)}>
+            <button type="button" className="btn-ghost btn-cancel btn-sm" onClick={() => void discard(entry.opId)}>
               Discard
             </button>
           </div>
         </div>
       ))}
+      {dead.length > shown.length && (
+        <button type="button" className="btn-ghost sync-issue-more" onClick={() => setShowAll(true)}>
+          Show the other {dead.length - shown.length}
+        </button>
+      )}
     </div>
   );
 }

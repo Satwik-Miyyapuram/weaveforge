@@ -13,7 +13,7 @@ import type { MdAlign, MdCrop } from "@/lib/markdown-figure-alt";
  *
  * A click on a rendered image opens a small control under it: a slider for
  * the width as a share of the column, buttons for its side, and a crop as
- * four typed insets. The slider previews on the image itself as it moves; a
+ * four typed insets, one field per edge. The slider previews on the image itself as it moves; a
  * side moves it at once; a crop previews when its four numbers parse. Every
  * change writes `![alt left c=0,0,10,10|NN%]` into the source in one write —
  * the same tokens the renderer reads, so the picture keeps its placement in
@@ -34,6 +34,15 @@ interface Target {
 
 const SIDE_LABELS: Record<MdAlign, string> = { left: "Left", center: "Centre", right: "Right" };
 
+/** The crop's four fields, in the order the source writes them. */
+const EDGES = [
+  { key: "L", label: "Left" },
+  { key: "T", label: "Top" },
+  { key: "R", label: "Right" },
+  { key: "B", label: "Bottom" },
+] as const;
+const NO_CROP = ["", "", "", ""];
+
 /** A percentage from an image's current rendered width against its column. */
 function currentPercent(img: HTMLImageElement): number {
   const column = img.parentElement?.clientWidth ?? 0;
@@ -53,7 +62,7 @@ export function ImageSizeControl({
 }) {
   const [target, setTarget] = useState<Target | null>(null);
   const [percent, setPercent] = useState(100);
-  const [cropText, setCropText] = useState("");
+  const [cropEdges, setCropEdges] = useState<string[]>(NO_CROP);
   const hostRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback((restore: boolean) => {
@@ -97,7 +106,7 @@ export function ImageSizeControl({
         },
       });
       setPercent(initial);
-      setCropText(parsed.crop ? parsed.crop.join(", ") : "");
+      setCropEdges(parsed.crop ? parsed.crop.map(String) : NO_CROP);
     },
     [body, close, onSave],
   );
@@ -123,18 +132,13 @@ export function ImageSizeControl({
   };
 
   /** A crop preview: the clip-path the renderer writes, live on the picture. */
-  const previewCrop = (text: string) => {
-    setCropText(text);
+  const previewCrop = (edges: string[]) => {
+    setCropEdges(edges);
     if (!target) return;
-    const parts = text.split(",").map((part) => Number(part.trim()));
-    if (
-      parts.length !== 4 ||
-      parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)
-    ) {
-      target.img.style.clipPath = "";
-      return;
-    }
-    target.img.style.clipPath = `inset(${parts[1]}% ${parts[2]}% ${parts[3]}% ${parts[0]}%)`;
+    const parts = cropParts(edges);
+    target.img.style.clipPath = parts
+      ? `inset(${parts[1]}% ${parts[2]}% ${parts[3]}% ${parts[0]}%)`
+      : "";
   };
 
   const commit = (next: {
@@ -151,7 +155,7 @@ export function ImageSizeControl({
     const crop =
       next.crop !== undefined
         ? next.crop
-        : (cropParts(cropText) as MdCrop | null);
+        : (cropParts(cropEdges) as MdCrop | null);
     const rewritten = setImagePlacement(body, target.alt, target.ordinal, {
       crop,
       align: next.align !== undefined ? next.align : target.placement.align ?? null,
@@ -210,28 +214,38 @@ export function ImageSizeControl({
               ))}
             </div>
           </div>
-          <label className="image-size-row">
-            <span className="image-size-key">Crop</span>
-            <input
-              type="text"
-              className="image-size-crop"
-              value={cropText}
-              placeholder="left, top, right, bottom %"
-              aria-label="Crop, percentages off each edge: left, top, right, bottom"
-              onChange={(event) => previewCrop(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  commit({ crop: cropParts(cropText) as MdCrop | null });
-                }
-              }}
-              onBlur={() => previewCrop(cropText)}
-            />
-          </label>
+          <div className="image-size-row">
+            <span className="image-size-key">Crop %</span>
+            <div className="image-size-crop" role="group" aria-label="Crop, percent off each edge">
+              {EDGES.map((edge, index) => (
+                <label key={edge.key} className="image-size-edge" title={edge.label}>
+                  <span aria-hidden="true">{edge.key}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={99}
+                    inputMode="numeric"
+                    value={cropEdges[index]}
+                    placeholder="0"
+                    aria-label={`${edge.label}, percent`}
+                    onChange={(event) =>
+                      previewCrop(cropEdges.map((value, at) => (at === index ? event.target.value : value)))
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        commit({ crop: cropParts(cropEdges) as MdCrop | null });
+                      }
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="image-size-actions">
             <button
               type="button"
-              className="btn-ghost btn-sm"
+              className="btn-secondary btn-sm"
               onClick={() => commit({ width: null, crop: null, align: null })}
             >
               Reset
@@ -254,14 +268,14 @@ function rawAltFor(body: string, alt: string, ordinal: number): string | null {
   return null;
 }
 
-/** Four crop insets out of the text field, or `null` when they do not parse. */
-function cropParts(text: string): [number, number, number, number] | null {
-  const parts = text.split(",").map((part) => Math.round(Number(part.trim())));
-  if (
-    parts.length !== 4 ||
-    parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)
-  ) {
-    return null;
-  }
+/**
+ * Four crop insets out of the four fields, or `null` for no crop: every field
+ * empty or zero, or one that does not parse. An empty field is a zero, so a
+ * crop off one edge is one number, not four.
+ */
+function cropParts(edges: string[]): [number, number, number, number] | null {
+  const parts = edges.map((edge) => (edge.trim() === "" ? 0 : Math.round(Number(edge))));
+  if (parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)) return null;
+  if (parts.every((n) => n === 0)) return null;
   return parts as [number, number, number, number];
 }

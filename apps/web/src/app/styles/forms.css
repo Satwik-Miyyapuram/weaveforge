@@ -251,6 +251,10 @@ input[type="radio"]:disabled { opacity: 0.45; cursor: default; }
    the palette does not contain, and every place this app shows a slider
    should look like the rest of it. */
 input[type="range"] {
+  /* Without this Chromium keeps the native track and thumb and ignores the
+     pseudo-elements below. */
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   padding: 0;
   height: 20px;

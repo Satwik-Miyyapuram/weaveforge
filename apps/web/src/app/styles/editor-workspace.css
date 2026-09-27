@@ -1183,8 +1183,10 @@
   font-size: 0.85rem;
 }
 
+/* Named as the other menus name a section: small and quiet. */
 .image-size-heading {
-  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 /* One placement per row, named on the left, as a settings row reads. */
@@ -1222,14 +1224,39 @@
 }
 .image-size-crop {
   grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+/* One edge: its letter, then its field. */
+.image-size-edge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.image-size-edge > span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+.image-size-edge > input {
   width: 100%;
-  padding: 6px 8px;
+  min-width: 0;
+  padding: 4px 5px;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.image-size-edge > input::-webkit-inner-spin-button,
+.image-size-edge > input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .image-size-actions {
@@ -2725,7 +2752,7 @@
 .ink-quick-colours { gap: 10px; padding: 2px 6px; }
 
 /* Insert: a labelled drop-down, apart from ⋯. */
-.ink-insert-trigger { display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; }
+.ink-insert-trigger { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px; }
 /* Portalled to <body> and fixed under its button: the reader's bar scrolls
    sideways and its chrome clips, so a list hung inside either was cut off. */
 .ink-menu-insert-list { position: fixed; right: auto; z-index: 1000; min-width: 220px; transform: none; }

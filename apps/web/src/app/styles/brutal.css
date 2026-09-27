@@ -119,7 +119,6 @@
   .reader-split-panel,
   .org-node,
   .artifact-card,
-  .git-branch-bar,
   .screening-row,
   .metric-chart-plot,
   .linked-overleaf-row,
@@ -146,7 +145,8 @@
   .header-menu,
   .proj-menu,
   .ink-menu,
-  .graph-edge-popover
+  .graph-edge-popover,
+  .pdf-reader-create-bar
 ) {
   box-shadow: var(--sh-sm);
   border-radius: var(--radius-sm);
@@ -241,6 +241,9 @@
   transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease, filter var(--dur-fast) ease;
 }
 :root[data-theme="crt"] :is(.btn-primary, .btn-secondary) { font-size: 1.25rem; line-height: 1; }
+/* The pixel face is unreadable at the base 0.82rem, so the boxless buttons
+   take a size near the boxed ones; a small one still reads as small. */
+:root[data-theme="crt"] :is(.btn-ghost, .btn-cancel) { font-size: 1.15rem; line-height: 1; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary {
   background: var(--accent);
   color: var(--accent-fg);
@@ -281,8 +284,11 @@
 }
 :root[data-theme="crt"] .btn-sm { font-size: 1.05rem; }
 /* Destructive: the filled danger button, and the red-text secondary. */
-@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger,
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger:hover:not(:disabled) {
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger {
+  background: var(--danger-fill);
+  color: var(--s-danger);
+}
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger:hover:not(:disabled) {
   background: var(--danger-fill);
   color: var(--s-danger);
 } }
@@ -301,8 +307,9 @@
   border-radius: var(--radius-sm);
   box-shadow: none;
 }
-@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel,
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) {
+/* Red on every device, not only where a pointer can hover. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel { color: var(--danger-text); }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) {
   color: var(--danger-text);
   background: transparent;
   box-shadow: none;
@@ -414,6 +421,60 @@
   box-shadow: none;
 }
 :root[data-theme="crt"] .seg button.seg-on { background: var(--accent); color: var(--accent-fg); }
+
+/* Reader control groups: the group is the one boxed control, and what sits in
+   it is a flat tile. The button and `.seg` rules above are more specific than
+   reader.css's in-group tiles, so without these each tile kept its own 40px
+   height, border and drop shadow, and spilled out of the frame around it --
+   zoom's − and +, the fit pair, and the Highlight / Clip / Comment strip. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group {
+  padding: 2px;
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary, .seg button) {
+  min-height: 0;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 0.85rem;
+  border: 0;
+  border-radius: max(0px, calc(var(--radius-sm) - 3px));
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  transform: none;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group .seg {
+  gap: 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group .seg button + button { border-left: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary.is-active, .seg button.seg-on) {
+  background: var(--text);
+  color: var(--bg);
+}
+:root[data-theme="crt"] .pdf-reader-group :is(.btn-secondary.is-active, .seg button.seg-on) { background: var(--accent); color: var(--accent-fg); }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary, .seg button):hover:not(:disabled) {
+  background: var(--surface);
+  filter: brightness(0.92);
+} }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary.is-active, .seg button.seg-on):hover:not(:disabled) { background: var(--text); } }
+@media (hover: hover) { :root[data-theme="crt"] .pdf-reader-group :is(.btn-secondary.is-active, .seg button.seg-on):hover:not(:disabled) { background: var(--accent); } }
+
+/* The page field is the one field in a group: it keeps its frame but not the
+   typing lift, which would push it through the group's own border. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group input,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group input:focus {
+  height: 28px;
+  box-shadow: none;
+  transform: none;
+}
 
 /* ---- Sub-nav tabs -------------------------------------------------------- */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-nav {
@@ -597,7 +658,87 @@
   color: var(--muted);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 10px; margin: 0; }
+/* Two panes, as on the mock: the rail's swatches are stamped squares and the
+   picked list is pressed in the accent; the picked list's own row is the
+   pane's heading, set big in the display face, its controls stamped squares. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail { padding: 10px; gap: 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item { min-height: 46px; font-weight: 700; border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail .list-color-dot {
+  width: 16px; height: 16px; border-radius: 3px; box-shadow: none;
+  border: var(--bw) solid var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item[aria-current="true"] {
+  background: var(--accent); color: var(--accent-fg);
+  box-shadow: inset 0 0 0 var(--bw) var(--bw-line), var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-count { font-family: var(--font-mono); font-weight: 400; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-panel { padding: 22px 24px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row {
+  background: transparent; border: 0; padding: 0 0 12px; gap: 10px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row > .list-color-dot { display: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row > .list-row-title {
+  font-family: var(--display); font-weight: var(--display-weight);
+  font-size: 1.9rem; line-height: 1.05;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn {
+  width: 42px; height: 42px; border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn.is-active { background: var(--accent); color: var(--accent-fg); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-body > .list-add-trigger { font-size: 0.95rem; padding: 12px 16px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow + .screen-title { margin-top: 14px; }
+
+/* ---- Papers ----------------------------------------------------------------
+   The mock's paper card opens on its status chip, the menu at the other end,
+   then the title, the authors and the tags. The chip says what the dots say,
+   so the dots go. The filter row is a row of buttons, not fields: surface on
+   Poster, the orange secondary on CRT; an open menu presses its button in. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .papers-screen .card.entity-card.paper-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .papers-screen .paper-card .entity-card-foot {
+  order: -1;
+  margin: 0;
+  padding: 0;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .papers-screen .paper-card .entity-card-foot > span:first-child { display: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .papers-screen .paper-card .card-foot-right {
+  flex: 1;
+  justify-content: space-between;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .papers-screen .paper-card .record-dots { display: none; }
+/* The tidy notice is a stamped callout in the to-read colour. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tidy-notice {
+  background: color-mix(in srgb, var(--chip-to-read) 38%, var(--surface));
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-card);
+  padding: 14px 18px;
+}
+:root[data-theme="brutal-dark"] .tidy-notice { background: color-mix(in srgb, var(--chip-to-read) 16%, var(--surface)); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tidy-notice-text strong { font-weight: 700; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .papers-filters .papers-filter .custom-select-button {
+  font-family: var(--btn-font);
+  font-weight: var(--btn-weight);
+  background: var(--surface);
+  box-shadow: var(--sh-sm);
+  transform: none;
+}
+:root[data-theme="crt"] .papers-filters .papers-filter .custom-select-button {
+  background: #f29731;
+  color: #2b222b;
+  font-size: 1.25rem;
+  line-height: 1;
+  box-shadow: var(--sh-btn-2);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .papers-filters .papers-filter .custom-select-button[aria-expanded="true"] {
+  transform: var(--press-t);
+  box-shadow: var(--sh-press);
+}
 
 /* ---- Lists ----------------------------------------------------------------
    A list's head is a tinted, ruled bar; its items hang under it as rows split
@@ -668,6 +809,35 @@
   color: var(--muted);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 10px; margin: 0; }
+/* Two panes, as on the mock: the rail's swatches are stamped squares and the
+   picked list is pressed in the accent; the picked list's own row is the
+   pane's heading, set big in the display face, its controls stamped squares. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail { padding: 10px; gap: 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item { min-height: 46px; font-weight: 700; border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail .list-color-dot {
+  width: 16px; height: 16px; border-radius: 3px; box-shadow: none;
+  border: var(--bw) solid var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item[aria-current="true"] {
+  background: var(--accent); color: var(--accent-fg);
+  box-shadow: inset 0 0 0 var(--bw) var(--bw-line), var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-count { font-family: var(--font-mono); font-weight: 400; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-panel { padding: 22px 24px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row {
+  background: transparent; border: 0; padding: 0 0 12px; gap: 10px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row > .list-color-dot { display: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row > .list-row-title {
+  font-family: var(--display); font-weight: var(--display-weight);
+  font-size: 1.9rem; line-height: 1.05;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn {
+  width: 42px; height: 42px; border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn.is-active { background: var(--accent); color: var(--accent-fg); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-body > .list-add-trigger { font-size: 0.95rem; padding: 12px 16px; }
 
 /* ---- Notes ----------------------------------------------------------------
    The mock's note cards: the edit date in mono over a bold title, the excerpt
@@ -703,7 +873,6 @@
   font-size: 0.74rem;
 }
 :root[data-theme="crt"] .vault-screen .paper-card .tag-chip { border-radius: var(--radius-sm); }
-:root[data-theme="crt"] .vault-screen .paper-card .entity-card-title { font-size: 1.45rem; font-weight: 400; }
 
 /* ---- Experiments ----------------------------------------------------------
    Two columns of stamped cards, each washed in its run's state: running reads
@@ -727,7 +896,6 @@
   font-size: 1.12rem;
   font-weight: 700;
 }
-:root[data-theme="crt"] .exp-item .entity-card-title { font-size: 1.5rem; font-weight: 400; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item :is(.git-chip, .metric-chip) {
   border: var(--bw) solid var(--bw-line);
   border-radius: 999px;
@@ -737,6 +905,10 @@
 }
 :root[data-theme="crt"] .exp-item :is(.git-chip, .metric-chip) { border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item .entity-card-foot { border-top: 0; }
+/* As on the mock, the status chip heads the card on the right, above the title. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item .entity-card-foot { order: -1; margin: 0; padding: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item .entity-card-foot > span:first-child { display: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item .card-foot-right { flex: 1; justify-content: flex-end; }
 /* ---- Plan ------------------------------------------------------------------
    One summary card with a thick bar, then milestones as full-width rows. Done
    reads as read, in progress as reading, blocked in the danger wash, and a
@@ -773,6 +945,80 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item--soon { --card-tint: var(--tint-to-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item--done .entity-card-title { text-decoration: line-through; text-decoration-thickness: 2px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-item .entity-card-meta { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; }
+/* The mock's timeline: an inked track filled to today in the done green,
+   square-ish stamped marks, and a checkbox that is a stamped box. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-track {
+  height: 16px; top: 4px; background: var(--surface2);
+  border: var(--bw) solid var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-track > span { background: var(--chip-read); box-shadow: var(--bw) 0 0 var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-mark { border: var(--bw) solid var(--bw-line); border-radius: 7px; box-shadow: var(--sh-sm); }
+:root[data-theme="crt"] :is(.plan-track, .plan-mark) { border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-mark--in_progress { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-today > em { font-family: var(--font-mono); font-weight: 500; border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-check {
+  appearance: none; -webkit-appearance: none; display: grid; place-content: center;
+  width: 30px; height: 30px; margin-right: 8px;
+  background: var(--surface); border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm);
+  box-shadow: var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-check:checked { background: var(--accent); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-check:checked::after {
+  content: ""; width: 12px; height: 7px; margin-top: -3px;
+  border: solid var(--surface); border-width: 0 0 3px 3px; transform: rotate(-45deg);
+}
+/* ---- Empty states ----------------------------------------------------------
+   As on the mock: a first run is a stamped card with the screen's icon in a
+   coloured tile, the heading in the display face, and the one action under it.
+   A state already inside a card keeps its frame off so it is not boxed twice. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty--first-run:not(.card .empty--first-run) {
+  width: min(100%, 520px);
+  margin: 24px auto;
+  padding: 36px 32px 32px;
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius);
+  box-shadow: var(--sh-card);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty-mark {
+  width: 70px; height: 70px;
+  margin-bottom: 10px;
+  background: var(--chip-to-read);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-sm);
+  color: #12110f;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.vault-screen, .superv-screen) .empty-mark { background: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-screen .empty-mark { background: var(--chip-skimmed); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-screen .empty-mark { background: var(--chip-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty-title {
+  font-family: var(--display);
+  font-weight: var(--display-weight);
+  font-size: 1.45rem;
+  letter-spacing: 0;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty--first-run .empty-body { color: var(--text); opacity: 0.8; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty-actions { margin-top: 10px; }
+/* ---- Git -------------------------------------------------------------------
+   As on the mock: the repository on a washed hero card with its numbers ruled
+   off on the right, commits on an ink timeline, branches stamped beside them. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.git-hero { background: color-mix(in srgb, var(--chip-read) 32%, var(--surface)); box-shadow: var(--sh-card); padding: 18px 22px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-hero-mark { width: 56px; height: 56px; background: var(--surface); border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); box-shadow: var(--sh-sm); color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-hero-repo { font-size: 1.3rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-hero-stats > div { border-left: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-hero-stats dd { font-family: var(--font-mono); font-size: 1.15rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.git-commits, .git-branches) { box-shadow: var(--sh-card); padding: 18px 20px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.git-commits, .git-branches) h2 { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.3rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item { border-top: var(--bw) dashed color-mix(in srgb, var(--bw-line) 35%, transparent); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item::before { width: var(--bw); background: var(--bw-line); left: 5px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item::after { width: 13px; height: 13px; margin-top: -6.5px; left: 0; border-radius: 3px; border: var(--bw) solid var(--bw-line); background: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item:first-child::after { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-msg { font-weight: 700; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-branch { font-weight: 600; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-branch.is-active { background: var(--surface2); box-shadow: inset 0 0 0 var(--bw) var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-branch-swatch { width: 16px; height: 16px; border: var(--bw) solid var(--bw-line); background: var(--surface); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-branch.is-active .git-branch-swatch { background: var(--accent); }
 /* ---- Log -------------------------------------------------------------------
    A timeline: the day stamped big in a gutter, an ink rule with a dot per day,
    the day's cards to its right, and the month and kinds in a side column. */
@@ -781,6 +1027,14 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.log-item { box-shadow: var(--sh-card); padding: 16px 18px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .entity-card-title { font-size: 1.05rem; font-weight: 700; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .log-body { font-size: 0.95rem; line-height: 1.55; }
+/* As on the mock, the entry's time and kind share the title's row on the right. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.log-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: start; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item > .entity-card-head { grid-area: 1 / 1; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item > .entity-card-foot { grid-area: 1 / 2; margin: 0; padding: 0; border-top: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item > .entity-card-foot > span:first-child { display: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item > :not(.entity-card-head, .entity-card-foot) { grid-column: 1 / -1; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .entity-card-status { gap: 10px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-time { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-calendar-head { font-family: var(--font-mono); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-kinds-count { font-family: var(--font-mono); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.log-calendar, .log-kinds) { box-shadow: var(--sh-card); }
@@ -792,22 +1046,23 @@
   color: #111;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-calendar-day.is-today {
-  background: var(--chip-to-read);
+  background: var(--accent);
   border: var(--bw) solid var(--bw-line);
   box-shadow: var(--sh-sm);
   font-weight: 800;
-  color: #111;
+  color: var(--accent-fg);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day::before { width: var(--bw); background: var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day::after { border: var(--bw) solid var(--bw-line); background: var(--chip-read); }
+:root[data-theme="crt"] .log-day::after { border-radius: 3px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day:first-child::after { background: var(--chip-to-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-daily, .custom-select-button.status-daily) { background: var(--chip-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-weekly, .custom-select-button.status-weekly) { background: var(--chip-reading); }
 /* Every other status family borrows the four paper chips: under way reads as
    reading, finished as read, waiting as to read, stuck in the danger wash. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-drafting, .status-running, .status-in_progress, .status-review, .status-daily, .custom-select-button:is(.status-drafting, .status-running, .status-in_progress, .status-review, .status-daily)) { background: var(--chip-reading); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-drafting, .status-running, .status-in_progress, .status-review, .custom-select-button:is(.status-drafting, .status-running, .status-in_progress, .status-review)) { background: var(--chip-reading); color: #12110f; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-done, .custom-select-button:is(.status-done)) { background: var(--chip-read); color: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-planned, .status-weekly, .custom-select-button:is(.status-planned, .status-weekly)) { background: var(--chip-to-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-planned, .custom-select-button:is(.status-planned)) { background: var(--chip-to-read); color: #12110f; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-failed, .status-blocked, .custom-select-button:is(.status-failed, .status-blocked)) { background: var(--danger-soft); color: var(--danger-text); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-not_started, .status-abandoned, .custom-select-button:is(.status-not_started, .status-abandoned)) { background: var(--surface); color: var(--text); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-review, .custom-select-button.status-review) { background: var(--chip-skimmed); }
@@ -849,6 +1104,10 @@
   background-size: 22px 22px;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-legend.card { box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-node { width: 12px; height: 12px; border: 1.5px solid var(--bw-line); box-shadow: 1.5px 1.5px 0 var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-node--diamond { width: 10px; height: 10px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-node--ring { outline: 1.5px solid var(--bw-line); outline-offset: 1.5px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-swatch.legend-dot, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-ramp { border: 1.5px solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-legend-heading { font-family: var(--font-mono); letter-spacing: 0; text-transform: none; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-panel { border-left: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-title { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.3rem; }
@@ -998,12 +1257,8 @@
   text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px;
 }
 /* Settings rows divide by the design's faint ink rule, straight, not a rounded hairline. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .integration-item + .integration-item {
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.integration-item + .integration-item, .sync-issue) {
   border-top: var(--bw) solid color-mix(in srgb, var(--bw-line) 20%, transparent);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .image-size-crop {
-  border: var(--bw) solid var(--bw-line);
-  border-radius: var(--radius-sm);
 }
 /* The read view's picture control floats like any other menu. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .image-size {
@@ -1011,4 +1266,8 @@
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
   box-shadow: var(--sh-sm);
+}
+/* Its labels read as labels: the mono of the other menus' headings. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.image-size-heading, .image-size-key) {
+  font-family: var(--font-mono);
 }

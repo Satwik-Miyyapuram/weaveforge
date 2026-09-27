@@ -2,6 +2,7 @@
 
 import type { FigureGeometry } from "@weaveforge/core";
 import type { InkBarTool } from "./ink-bar";
+import type { InkCursorInk } from "./ink-page-pointer";
 
 export interface InkPageProps {
   pageIndex: number;
@@ -11,6 +12,8 @@ export interface InkPageProps {
   scale: number;
   paper: string;
   tool: InkBarTool | "shape";
+  /** The ink in hand, so the pen and highlighter cursor is a dot of it. */
+  ink?: InkCursorInk;
   /** Client coordinates to page units in 0.1 mm, `null` off the page. */
   project: (
     clientX: number,

@@ -186,7 +186,12 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
       // destructive controls behind one ⋯. A log entry has no share type yet,
       // so the menu carries Edit and Delete and gains Share with it.
       title={headline}
-      status={<span className={`status status-${entry.kind}`}>{capitalise(entry.kind)}</span>}
+      status={
+        <>
+          <time className="log-time" dateTime={entry.createdAt}>{timeOf(entry.createdAt)}</time>
+          <span className={`status status-${entry.kind}`}>{capitalise(entry.kind)}</span>
+        </>
+      }
       menu={
         <EntityCardMenu
           shareable={false}
@@ -277,8 +282,8 @@ function EditLogForm({
       </div>
       {error && <FormError>{error}</FormError>}
       <div className="card-foot edit-actions">
-        <button type="button" className="link-btn" onClick={onCancel} disabled={busy}>
-          cancel
+        <button type="button" className="btn-ghost btn-cancel" onClick={onCancel} disabled={busy}>
+          Cancel
         </button>
         {/* In collab mode the body is already persisted by the editor's
             autosave, so this button is about leaving the form — but it still
@@ -317,6 +322,12 @@ function ymdOf(date: Date): string {
 
 function capitalise(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+/** The clock time an entry was written, as the card shows it beside its kind. */
+function timeOf(iso: string): string {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? "" : at.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 /**

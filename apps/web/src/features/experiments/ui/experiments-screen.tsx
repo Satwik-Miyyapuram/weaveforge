@@ -34,6 +34,7 @@ import {
 import { ScreenHead } from "@/components/screen-head";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { experimentHref } from "./experiment-href";
+import { experimentStatusLabel } from "./experiment-status-label";
 import { ExperimentDetailScreen } from "./experiment-detail-screen";
 import { FormError } from "@/components/form-error";
 
@@ -220,7 +221,7 @@ export function ExperimentsScreen() {
           resourceType="experiment"
           resourceId={null}
           title="Share all your experiments"
-          label="⇅ share all"
+          label="⇅ Share all"
           hideTrigger
           open={shareAllOpen}
           onOpenChange={setShareAllOpen}
@@ -243,7 +244,7 @@ export function ExperimentsScreen() {
                 onChange={setStatusFilter}
                 allLabel="All statuses"
                 ariaLabel="Filter by progress"
-                options={EXPERIMENT_STATUSES.map((s) => ({ value: s, label: s }))}
+                options={EXPERIMENT_STATUSES.map((s) => ({ value: s, label: experimentStatusLabel(s) }))}
               />
               {statusFilter.length > 0 && (
                 <button type="button" className="link-btn" onClick={() => setStatusFilter([])}>
@@ -558,7 +559,7 @@ function ExperimentCard({
             onChange={(ev) => void setStatus(ev.target.value as ExperimentStatus)}
           >
             {EXPERIMENT_STATUSES.map((st) => (
-              <option key={st} value={st}>{st}</option>
+              <option key={st} value={st}>{experimentStatusLabel(st)}</option>
             ))}
           </Select>
         )
@@ -567,7 +568,15 @@ function ExperimentCard({
       // Same card shape as papers and notes: status stays on the card, the
       // occasional and destructive controls move behind one ⋯.
       menu={
-         readOnly ? undefined : (           <CardMenu             items={[               { id: "share", label: "Share", onSelect: () => setShareOpen(true) },               { id: "delete", label: "Delete", danger: true, disabled: busy, onSelect: () => void remove() },             ]}           />         )       }
+        readOnly ? undefined : (
+          <CardMenu
+            items={[
+              { id: "share", label: "Share", onSelect: () => setShareOpen(true) },
+              { id: "delete", label: "Delete", danger: true, disabled: busy, onSelect: () => void remove() },
+            ]}
+          />
+        )
+      }
     >
       <ExpGitChips exp={exp} limit={3} />
       <ExpMetricChips exp={exp} limit={3} />
@@ -636,7 +645,7 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
         <div className="field">
           <label htmlFor="estatus">Status</label>
           <Select id="estatus" value={status} onChange={(e) => setStatus(e.target.value as ExperimentStatus)}>
-            {EXPERIMENT_STATUSES.map((st) => <option key={st} value={st}>{st}</option>)}
+            {EXPERIMENT_STATUSES.map((st) => <option key={st} value={st}>{experimentStatusLabel(st)}</option>)}
           </Select>
         </div>
       </div>

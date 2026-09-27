@@ -141,6 +141,9 @@ export { fitScale, headerForTool, selectedText } from "./ui/ink-page-math";
 export {
   DRAW_CURSOR,
   ERASER_CURSOR,
+  inkDotCursor,
+  inkToolCursor,
+  type InkCursorInk,
   INK_TOOL_CURSORS,
   pointsAttribute,
 } from "./ui/ink-page-pointer";

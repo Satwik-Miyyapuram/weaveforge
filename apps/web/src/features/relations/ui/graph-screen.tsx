@@ -228,7 +228,26 @@ export function GraphScreen() {
   const header = (
     <header className={`screen-head${focus ? " graph-focus-head" : ""}`}>
       <div className="head-row">
+        {/* ScreenHead's title block, by hand: this header also rides into
+            focus mode, where it takes the focus-head class. The classic themes
+            hide the auto title; the brutal ones draw it, as on every list. */}
+        <div className="screen-title-block">
+          <p className="screen-eyebrow">
+            {visiblePapers.length} {visiblePapers.length === 1 ? "paper" : "papers"} · {visibleEdges.length} {visibleEdges.length === 1 ? "link" : "links"}
+          </p>
+          <h1 className="screen-title screen-title--auto">Graph</h1>
+        </div>
         <div className="screen-actions">
+          {!loading && hasVisibleItems && (
+            <input
+              type="search"
+              className="input graph-head-search"
+              placeholder="Search graph"
+              aria-label="Search graph"
+              value={settings.searchQuery}
+              onChange={(e) => patchSettings({ searchQuery: e.target.value })}
+            />
+          )}
           <button
             className="btn-primary"
             type="button"
@@ -352,7 +371,7 @@ export function GraphScreen() {
   const graphBelow = canvas ? (
     <div className="graph-below">
       <div className="graph-below-legend">
-        <GraphLegend showConcepts={settings.showConcepts} />
+        <GraphLegend settings={settings} />
       </div>
       {settingsDrawer}
       {(selectedPaper || selectedNote || selectedSection || selectedConcept) && (
@@ -465,7 +484,7 @@ export function GraphScreen() {
         )}
         {/* Focus mode has no room for the panel, so it keeps the floating
             legend it has always had; only the plain view gets `graphBelow`. */}
-        <div className="graph-focus-legend"><GraphLegend showConcepts={settings.showConcepts} /></div>
+        <div className="graph-focus-legend"><GraphLegend settings={settings} /></div>
         {addEdgeModal}
       </div>
     );
@@ -473,7 +492,6 @@ export function GraphScreen() {
 
   return (
     <section className="screen screen--wide">
-      <h1 className="sr-only">Graph</h1>
       {header}
       {addEdgeModal}
       <BraveGraphWarning />

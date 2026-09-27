@@ -275,6 +275,18 @@
 .legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .legend-swatch { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
 .legend-swatch.legend-tag { width: 9px; height: 9px; border-radius: 2px; background: hsl(210, 55%, 62%); }
+/* Node swatches: the same shape per kind as the canvas draws, in every theme. */
+.legend-node {
+  width: 10px; height: 10px; display: inline-block; flex: none;
+  background: linear-gradient(135deg, hsl(20, 55%, 62%), hsl(200, 55%, 62%)); color: var(--muted);
+}
+.legend-node--circle, .legend-node--ring { border-radius: 50%; }
+.legend-node--ring { outline: 1px solid currentColor; outline-offset: 1.5px; }
+.legend-node--square { border-radius: 1px; background: hsl(210, 55%, 62%); }
+.legend-node--round { border-radius: 3px; }
+.legend-node--diamond { width: 8px; height: 8px; margin: 1px; transform: rotate(45deg); }
+.legend-swatch.legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+.legend-ramp { width: 64px; height: 8px; border-radius: 2px; display: inline-block; }
 
 /* Side panel per the Graph mock: kind + status chips, labelled relations. */
 .graph-side-chips { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -316,3 +328,11 @@
     max-height: calc(60vh - 58px);
   }
 }
+
+/* Graph settings: node colours, one row per kind. */
+.graph-colour-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; }
+.graph-group-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.graph-group-row { display: flex; align-items: center; gap: 6px; }
+.graph-group-row .input { flex: 1; min-width: 0; }
+.graph-colour-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85rem; }
+.graph-head-search { width: min(240px, 100%); }

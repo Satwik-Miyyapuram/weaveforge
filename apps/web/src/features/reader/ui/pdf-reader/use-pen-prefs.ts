@@ -24,7 +24,7 @@ import {
   INK_PEN_WIDTHS,
   type InkColour,
 } from "@weaveforge/core";
-import { INK_TOOL_CURSORS, type InkBarTool } from "@/features/ink";
+import { INK_TOOL_CURSORS, inkToolCursor, type InkBarTool, type InkCursorInk } from "@/features/ink";
 import {
   READER_ANNOTATION_COLORS,
   type ReaderCreateTool,
@@ -82,16 +82,16 @@ export function readerToolFor(tool: InkBarTool | "shape"): PenTool {
  * The pointer a reader tool shows over the page.
  *
  * From the same table the sheet reads (`INK_TOOL_CURSORS`), so an eraser is the
- * same ring on a paper as on a note and a pen the same pencil. The pointer
+ * same block on a paper as on a note and a pen the same dot of its ink. The pointer
  * tool answers nothing: over a PDF its job is the page's own — the arrow for a
  * mark, the I-beam for the text about to be highlighted — and a cursor that
  * replaced both would be worse at both.
  */
-export function inkCursorFor(tool: ReaderCreateTool): string | undefined {
+export function inkCursorFor(tool: ReaderCreateTool, ink?: InkCursorInk): string | undefined {
   if (tool === "select") return undefined;
   if (tool === "erase") return INK_TOOL_CURSORS.eraser;
-  if (tool === "ink") return INK_TOOL_CURSORS.pen;
-  if (tool === "highlighter") return INK_TOOL_CURSORS.highlighter;
+  if (tool === "ink") return inkToolCursor("pen", ink);
+  if (tool === "highlighter") return inkToolCursor("highlighter", ink);
   if (tool === "lasso") return INK_TOOL_CURSORS.lasso;
   // The two region tools: a corner aimed at and dragged from.
   return INK_TOOL_CURSORS.shape;
