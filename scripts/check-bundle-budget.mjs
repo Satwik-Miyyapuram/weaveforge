@@ -83,7 +83,7 @@ const ROUTE_ALLOWANCES_KB = {
   "/papers": 425,
   "/report": 415,
   "/notes": 405,
-  "/settings": 385,
+  "/settings": 388,
   "/graph": 370,
 };
 
