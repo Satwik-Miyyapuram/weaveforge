@@ -356,6 +356,7 @@ export function VaultScreen() {
           }}
         />
       </ScreenHead>
+      )}
 
       {composeOpen && (
         <Modal
