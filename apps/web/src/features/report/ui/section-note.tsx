@@ -59,11 +59,6 @@ export function SectionNote({
   const { completions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
-  useEffect(() => {
-    setMode("read");
-    setSaveError(null);
-  }, [section.id]);
-
   const hasNotes = Boolean(section.notes?.trim());
   const meta = [
     section.targetWords

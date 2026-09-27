@@ -1,4 +1,4 @@
-import type { FigureGeometry } from "@weaveforge/core";
+import { keepFigureOnPage, type FigureGeometry } from "@weaveforge/core";
 
 /**
  * A figure on the clipboard (§figure).
@@ -61,7 +61,5 @@ export function pastedFigurePlace(
     x += STEP;
     y += STEP;
   }
-  x = Math.round(Math.min(Math.max(x, -figure.w / 2), pageSize.width - figure.w / 2));
-  y = Math.round(Math.min(Math.max(y, -figure.h / 2), pageSize.height - figure.h / 2));
-  return { ...figure, x, y };
+  return keepFigureOnPage({ ...figure, x, y }, pageSize);
 }

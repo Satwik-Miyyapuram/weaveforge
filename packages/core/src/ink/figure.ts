@@ -62,17 +62,7 @@ export function parseFigureTokens(
     else if (key === "y") y = Number(raw);
     else if (key === "w") w = Number(raw);
     else if (key === "h") h = Number(raw);
-    else if (key === "c") {
-      const parts = raw.split(",").map(Number);
-      if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
-        crop = parts.map((n) => Math.min(99, Math.max(0, n))) as [
-          number,
-          number,
-          number,
-          number,
-        ];
-      }
-    }
+    else if (key === "c") crop = parseFigureCrop(raw) ?? crop;
   }
   if (
     x === undefined ||
@@ -89,6 +79,39 @@ export function parseFigureTokens(
     return null;
   }
   return { x, y, w, h, ...(crop ? { crop } : {}) };
+}
+
+/**
+ * A `c=l,t,r,b` token's value as crop insets, each clamped to 0..99 percent;
+ * undefined when it is not four numbers. The PDF reader's pictures carry the
+ * same token, so they read it here too.
+ */
+export function parseFigureCrop(raw: string): [number, number, number, number] | undefined {
+  const parts = raw.split(",").map(Number);
+  if (parts.length !== 4 || !parts.every((n) => Number.isFinite(n))) return undefined;
+  return parts.map((n) => Math.min(99, Math.max(0, n))) as [number, number, number, number];
+}
+
+/**
+ * A figure's box moved so at least half of it stays on the paper: where a
+ * drag, a drop or a paste parks it. The same object back when it already fits.
+ */
+export function keepFigureOnPage<T extends { x: number; y: number; w: number; h: number }>(
+  one: T,
+  pageSize: { width: number; height: number },
+): T {
+  const x = Math.round(Math.min(Math.max(one.x, -one.w / 2), pageSize.width - one.w / 2));
+  const y = Math.round(Math.min(Math.max(one.y, -one.h / 2), pageSize.height - one.h / 2));
+  return x === one.x && y === one.y ? one : { ...one, x, y };
+}
+
+/**
+ * How near a corner, in page units at `scale` CSS pixels per unit, a press
+ * still takes that corner: 12 px (about the smallest a hand can own) plus
+ * 18 px of slack. Ink notes and PDF pictures grab corners alike.
+ */
+export function figureCornerHit(scale: number): number {
+  return (12 + 18) / scale;
 }
 
 /** The geometry tokens as they are written in an alt, for a complete box. */

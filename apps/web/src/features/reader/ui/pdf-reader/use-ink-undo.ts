@@ -118,8 +118,8 @@ export function useInkUndo(
   );
 
   const saveAnchor = useCallback(
-    async (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"]) => {
-      await actionsRef.current.saveAnchor(ann, anchor);
+    async (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"], comment?: string) => {
+      await actionsRef.current.saveAnchor(ann, anchor, comment);
       if (enabledRef.current && isStroke(ann)) {
         const after = { ...ann, anchor };
         setState((s) =>
