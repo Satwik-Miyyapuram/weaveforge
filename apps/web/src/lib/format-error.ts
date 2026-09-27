@@ -11,6 +11,22 @@ import { isSessionLost, isSignedOutRefusal, SESSION_LOST_MESSAGE } from "./sessi
  */
 const NETWORK_FAILURES = ["failed to fetch", "networkerror", "load failed"];
 
+/**
+ * Whether `err` is a request that never reached a server — as a thrown
+ * `TypeError` or as the plain object supabase-js hands back. A refusal the
+ * server did send (a status, a PostgREST code) is not one.
+ */
+export function isNetworkFailure(err: unknown): boolean {
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === "object" && err !== null && typeof (err as { message?: unknown }).message === "string"
+        ? (err as { message: string }).message
+        : "";
+  const lower = message.toLowerCase();
+  return NETWORK_FAILURES.some((phrase) => lower.includes(phrase));
+}
+
 function networkFailureMessage(message: string): string | null {
   const lower = message.toLowerCase();
   if (lower.includes("dynamically imported module")) {

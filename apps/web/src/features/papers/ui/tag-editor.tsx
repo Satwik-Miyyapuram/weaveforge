@@ -4,7 +4,7 @@ import { useState } from "react";
 import { type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { TagChips } from "@/components/tag-chips";
-import { removeHashtagFromBody, reconcileTagsFromBody } from "../lib/note-tags";
+import { removeHashtagFromBody, reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 
 /**
  * Tags for a paper. Tags are parsed from the note body's #hashtags — there is
@@ -18,8 +18,8 @@ export function TagEditor({ paper, onReplace }: { paper: Paper; onReplace: (p: P
     try {
       const papers = getContainer().papers;
       const body = removeHashtagFromBody(paper.summary ?? "", tag);
-      await papers.updatePaper.setSummary(paper.id, body);
-      onReplace(await reconcileTagsFromBody(papers.manageTags, paper.id, body));
+      const saved = await papers.updatePaper.setSummary(paper.id, body);
+      onReplace((await reconcileTagsFromBodyOrDefer(papers, paper.id, body)) ?? saved);
     } finally {
       setBusy(false);
     }

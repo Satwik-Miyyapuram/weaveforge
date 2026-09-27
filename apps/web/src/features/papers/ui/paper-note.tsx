@@ -20,7 +20,7 @@ import { RelatedPanel } from "@/components/related-panel";
 import { CommentsPanel, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { PaperMarkdown } from "./paper-markdown";
 import { paperImageMarkdown, materializePaperBlobImages } from "../lib/paper-images-md";
-import { reconcileTagsFromBody } from "../lib/note-tags";
+import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
 import { AttachImageButton } from "@/components/attach-image-button";
 import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
@@ -137,9 +137,9 @@ export function PaperNote({
       const body = await materializePaperBlobImages(draft, paper.id, (id, blob, ext) =>
         papers.uploadImage(id, blob, ext),
       );
-      await papers.updatePaper.setSummary(paper.id, body);
+      const saved = await papers.updatePaper.setSummary(paper.id, body);
       // Tags are derived solely from the note body's #hashtags.
-      onReplace(await reconcileTagsFromBody(papers.manageTags, paper.id, body));
+      onReplace((await reconcileTagsFromBodyOrDefer(papers, paper.id, body)) ?? saved);
       setEditing(false);
     } catch (err) {
       setSaveError(formatError(err));
