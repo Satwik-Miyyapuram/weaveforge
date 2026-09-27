@@ -53,6 +53,7 @@ const DEVICE_ONLY_TABLES = new Map([
   ["offline_projects", "device-local offline scope (migrations-local)"],
   ["offline_blobs", "device-local blob cache (migrations-local)"],
   ["local_blobs", "device-local blob store (migrations-local)"],
+  ["local_blob_uploads", "device-local blob upload queue (migrations-local)"],
   ["local_secrets", "device-local secret store (migrations-local)"],
 ]);
 
