@@ -973,7 +973,7 @@
    A state already inside a card keeps its frame off so it is not boxed twice. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty--first-run:not(.card .empty--first-run) {
   width: min(100%, 520px);
-  margin: 24px auto;
+  margin: 18px auto 24px;
   padding: 36px 32px 32px;
   background: var(--surface);
   border: var(--bw) solid var(--bw-line);
