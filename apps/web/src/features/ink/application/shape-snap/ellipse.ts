@@ -1,24 +1,19 @@
 import {
   CIRCLE_MODULATION,
-  CLOSED_GAP_LIMIT,
   ELLIPSE_ERROR_LIMIT,
   ELLIPSE_GAP_LIMIT,
   ELLIPSE_MIN_AXIS_RATIO,
-  SHAPE_MIN_POINTS,
   SHAPE_MIN_SPAN,
   boundingSpan,
   confidenceOf,
   meanDeviation,
-  pathLength,
   principalAxis,
   resamplePath,
   snapBounds,
-  snapPoints,
   type EllipseGeometry,
   type ResampleOptions,
   type ShapeFit,
   type SnapPath,
-  type SnapPoint,
 } from "./geometry";
 
 /* -------------------------------------------------------------------------

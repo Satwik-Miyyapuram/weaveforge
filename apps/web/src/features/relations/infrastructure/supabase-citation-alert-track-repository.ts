@@ -1,11 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CitationAlertTrack,
   ICitationAlertTrackRepository,
-  ICurrentUserProvider,
   NewCitationAlertTrackInput,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type TrackRow,

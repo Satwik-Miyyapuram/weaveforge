@@ -21,7 +21,6 @@ import {
   type FigureGeometry,
   type InkColour,
   type InkPage,
-  type InkStroke,
 } from "@weaveforge/core";
 
 import { escapeHtml } from "@/lib/escape-html";

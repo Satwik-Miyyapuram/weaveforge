@@ -21,7 +21,6 @@ import { outlineRows } from "../application/outline";
 import {
   activateTab,
   activeTabRef,
-  activeTabKey,
   closeTab,
   emptyLayout,
   focusPane,
@@ -51,7 +50,7 @@ import { FocusGlyph } from "@/components/focus-glyph";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, openModeFor, segmentsFor } from "./kind";
+import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 

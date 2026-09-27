@@ -9,7 +9,7 @@ import type {
 } from "@weaveforge/core";
 import { parseDashboardLayout as parseDashboardLayoutCore } from "@weaveforge/core";
 
-import { CARD_REGISTRY, getCardDef } from "./card-registry";
+import { getCardDef } from "./card-registry";
 
 export type { DashboardCardType, DashboardLayout, DashboardLayoutItem };
 

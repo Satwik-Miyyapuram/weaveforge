@@ -14,22 +14,11 @@ import {
   clampScale,
   readerKeyboardCommand,
   resolveTextAnchor,
-  canJoinInkGroup,
-  inkPathsHitTest,
-  inkWidthForPressure,
   inkNoteWidthToPdfPoints,
-  meanPressure,
-  screenPointToPdf,
-  shouldAppendInkPoint,
   translateInkPaths,
   INK_HIGHLIGHTER_WIDTH,
-  INK_DEFAULT_WIDTH,
-  type PageProjection,
-  type PageTextGeometry,
   type AnchorConfidence,
-  type ReaderContainerSize,
   type ReaderPageSize,
-  type DocumentPageText,
   type DocumentSearchMatch,
   type ReaderAnnotationType,
   type FigureTarget,
@@ -47,33 +36,23 @@ import {
 } from "@/features/ink";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
-import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
 import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
 import {
-  appendInkStroke,
   draftFromTextSelection,
-  draftImageRegion,
-  draftInkAnnotation,
   draftTextBox,
 } from "../../application/draft-local-annotation";
 import {
-  annotationPinKey,
-  applyAnnotationPatch,
-  isInkTool,
-  optimisticAnnotationFromDraft,
-  PENDING_ANNOTATION_PREFIX,
   READER_ANNOTATION_COLORS,
   toolOwnsThePage,
   type ReaderCreateTool,
 } from "../../application/reader-annotation-helpers";
 import { draftPicture } from "../../application/reader-picture";
-import { useReaderViewport } from "../use-reader-viewport";
 import { ReaderToolbar } from "../reader-toolbar";
 import { ReaderSearchBar } from "../reader-search-bar";
-import { ReaderOutline, type ReaderOutlineItem } from "../reader-outline";
+import { ReaderOutline } from "../reader-outline";
 import { AnnotationOverlay } from "../annotation-overlay";
 import { bucketAnnotationsByPage } from "../../application/project-annotation-geometry";
-import { AnnotationSidebar, type ReportSectionOption } from "../annotation-sidebar";
+import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
@@ -103,28 +82,17 @@ import { ReferencesPanel } from "../references-panel";
 import { buildLocusLink } from "../../application/build-locus-link";
 
 import type {
-  DraftShape,
-  InkGroup,
-  InkMove,
   JumpState,
-  PdfDocument,
-  PdfLib,
   PdfReaderProps,
-  RenderTask,
-  PendingTextBox,
 } from "./types";
 import {
   CREATE_TOOL_HINTS,
   EMPTY_ANNOTATIONS,
-  ERASER_RADIUS,
-  INK_MOVE_THRESHOLD,
-  MIN_TEXT_BOX_PDF_SIZE,
 } from "./constants";
 import {
   buildPageText,
   isEditableTarget,
   loadPdfLib,
-  mapOutline,
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
@@ -314,7 +282,6 @@ export function PdfReader({
     pdf,
     numPages,
     pageSize,
-    containerSize,
     pageTexts,
     pageItems,
     pageLinks,

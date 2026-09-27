@@ -40,7 +40,6 @@ import { extractHashtagRefs } from "../../papers/domain/paper.js";
 import {
   conceptKey,
   type ConceptKind,
-  type ExtractedConcept,
   type ExtractionDocument,
   type ExtractedMention,
   type ExtractionRequest,

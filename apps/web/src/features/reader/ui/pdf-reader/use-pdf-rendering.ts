@@ -22,7 +22,6 @@ import {
 import { pdfProxyNeedsToken } from "../../application/pdf-download-consent";
 import {
   isCachePdfUrl,
-  isStoredPdfUrl,
   readStoredPdfBytes,
 } from "../../application/resolve-paper-pdf-for-reader";
 import { useReaderViewport, type ReaderViewportApi } from "../use-reader-viewport";

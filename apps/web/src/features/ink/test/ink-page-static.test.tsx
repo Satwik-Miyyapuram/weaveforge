@@ -16,7 +16,7 @@ import { act, create } from "react-test-renderer";
 import { makeInkStroke, type FigureGeometry } from "@weaveforge/core";
 
 import { InkPageStatic } from "../ui/ink-page-static";
-import { INK_RENDER_COLOURS, paletteCss, type InkPalette } from "../render/ink-palette";
+import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

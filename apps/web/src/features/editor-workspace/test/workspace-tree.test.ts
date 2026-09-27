@@ -6,7 +6,6 @@ import {
   buildWorkspaceTree,
   flattenTree,
   listMembership,
-  listPath,
   type ListsTreeInput,
   type WorkspaceTreeNode,
   type WorkspaceTreeInput,

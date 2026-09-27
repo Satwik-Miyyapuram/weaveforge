@@ -19,8 +19,6 @@
 import { useCallback, useRef, useState } from "react";
 
 import { isPenEraserPointer } from "../application/eraser-tip";
-import type { FigureGeometry } from "@weaveforge/core";
-import type { InkBarTool } from "./ink-bar";
 import {
   claimPointer,
   inkToolCursor,

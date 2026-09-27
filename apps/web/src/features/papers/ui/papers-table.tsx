@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { PAPER_STATUSES, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { OpenIcon } from "@/components/view-icons";

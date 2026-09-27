@@ -8,7 +8,6 @@ import {
   type GroupBy,
   type LayoutMode,
   type ReadingList,
-  type RelationType,
 } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
 import { ColourSection, Section } from "./graph-colour-section";

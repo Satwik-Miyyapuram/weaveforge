@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
 import { containsMath, loadedMathRenderer, loadMathRenderer } from "@/components/markdown/math-renderer";
 import { upgradeMermaidFences } from "@/lib/mermaid-render";

@@ -10,7 +10,6 @@ import { Select } from "@/components/select";
 import { Markdown } from "@/components/markdown/markdown";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
-import { DeleteIcon, EditIcon } from "@/components/view-icons";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { CollabBodyHost } from "@/features/collab";

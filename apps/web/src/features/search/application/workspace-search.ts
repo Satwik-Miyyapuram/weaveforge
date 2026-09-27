@@ -29,7 +29,7 @@ import {
 } from "@weaveforge/core";
 import { applySearchSettings, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import type { SemanticIndex } from "./semantic-index";
-import { idbGetSearchIndex, idbSetSearchIndex } from "../infrastructure/search-index-idb";
+import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
 import { buildIndexInWorker, supportsIndexWorker } from "../infrastructure/index-builder";
 import { persistSearchIndex } from "../infrastructure/index-cache-policy";
 import { SearchIndexState } from "./search-index-state";

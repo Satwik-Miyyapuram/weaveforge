@@ -4,7 +4,6 @@ import {
   type ReportSection,
   type ReportSectionFilter,
   type ReportSectionTreeNode,
-  type ReportStatus,
 } from "@weaveforge/core";
 import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow } from "./report-section-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";

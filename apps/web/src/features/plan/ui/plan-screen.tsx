@@ -10,7 +10,6 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Select } from "@/components/select";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
-import { EditIcon } from "@/components/view-icons";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";

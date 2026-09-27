@@ -78,7 +78,6 @@ export class EncryptedYjsProvider {
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPersistedId = 0;
   private destroyed = false;
-  private subscribed = false;
   private awarenessHandler: ((payload: { added: number[]; updated: number[]; removed: number[] }) => void) | null =
     null;
 
@@ -108,7 +107,6 @@ export class EncryptedYjsProvider {
       .setAuth()
       .then(() =>
         channel.subscribe((status, err) => {
-          this.subscribed = status === "SUBSCRIBED";
           if (process.env.NODE_ENV !== "production") {
             console.debug(`[collab] ${channel.topic} → ${status}${err ? `: ${err.message}` : ""}`);
           }

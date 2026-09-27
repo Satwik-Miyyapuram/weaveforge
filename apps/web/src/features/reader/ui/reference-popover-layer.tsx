@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 
 const VIEWPORT_PAD = 12;
@@ -123,14 +123,6 @@ export function PopoverLayer({ anchorKey, anchor, onRequestClose, children }: Po
   }, [onRequestClose]);
 
   useDismissOnOutside(true, onRequestClose, panelRef);
-
-  const close = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-      onRequestClose();
-    },
-    [onRequestClose],
-  );
 
   return (
     <div

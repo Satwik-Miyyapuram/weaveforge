@@ -11,7 +11,7 @@
  */
 
 import type { ChangeSide } from "./change-origin.js";
-import { readFrontmatter, frontmatterList, frontmatterString } from "./frontmatter.js";
+import { readFrontmatter, frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
 import { WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
 import { INK_NOTE_TYPE, readInkNoteMeta, writeInkNoteBody } from "../ink/ink-note.js";

@@ -8,7 +8,6 @@
 
 import {
   normalizeDoi,
-  normalizeTags,
   PaperValidationError,
   PAPER_STATUSES,
   type Paper,

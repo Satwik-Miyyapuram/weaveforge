@@ -5,7 +5,6 @@ import type { PageTextItem, ParsedReference, PdfLink, ReaderOutlineItem } from "
 import { getContainer } from "@/bootstrap";
 import {
   type MentionHit,
-  type ReaderReferenceIndex,
 } from "../../application/reader-references";
 import type { ResolvedReference } from "../../application/reference-lookup";
 import type { AnchorBox } from "../reference-popover-layer";

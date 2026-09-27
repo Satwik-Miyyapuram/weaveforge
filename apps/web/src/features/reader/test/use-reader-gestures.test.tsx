@@ -35,13 +35,6 @@ function frame() {
   });
 }
 
-interface Scroller {
-  scrollBy: (dx: number, dy: number) => void;
-  moves: [number, number][];
-  rect: { left: number; top: number };
-  getBoundingClientRect: () => DOMRect;
-}
-
 function mount({ rect = { left: 0, top: 0 } } = {}) {
   const previews: { factor: number; x: number; y: number }[] = [];
   const commits: { factor: number; x: number; y: number }[] = [];

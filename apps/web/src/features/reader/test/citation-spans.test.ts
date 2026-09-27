@@ -18,9 +18,6 @@ const items: PageTextItem[] = [
   { str: "[13]", transform: [10, 0, 0, 10, 90, 680], width: 20, height: 10 },
 ];
 
-const pageText = (runs: readonly PageTextItem[]) =>
-  runs.map((item) => item.str + (item.hasEOL ? "\n" : "")).join("");
-
 const mention = (key: string, start: number, end: number): CiteSpan => ({ key, start, end });
 
 test("a mention maps onto the runs it covers", () => {

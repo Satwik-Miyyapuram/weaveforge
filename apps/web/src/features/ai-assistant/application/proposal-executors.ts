@@ -5,7 +5,7 @@ import type {
   NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
   PaperFieldValueData, PaperStatus, UpdatePaperUseCase,
 } from "@weaveforge/core";
-import { appendPaperNote, proposalApplies } from "@weaveforge/core";
+import { proposalApplies } from "@weaveforge/core";
 
 /** Typed browser-only approval executors. Invalid drafts fail closed before a write. */
 export function createAiProposalExecutors(deps: {

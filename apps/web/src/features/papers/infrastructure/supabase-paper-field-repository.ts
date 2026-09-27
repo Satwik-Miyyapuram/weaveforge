@@ -1,22 +1,15 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  ICurrentUserProvider,
   IPaperFieldRepository,
   PaperFieldDef,
-  PaperFieldKind,
   PaperFieldValue,
-  PaperFieldValueData,
   SetPaperFieldValueInput,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type DefRow,
   type ValueRow,
   toDef,
   toValue,
-  asStringArray,
-  asValueData,
 } from "./paper-field-rows";
 import { oneRow, rows, run } from "@/backend/providers/supabase/row-access";
 

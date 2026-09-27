@@ -32,7 +32,7 @@ export function SharedWithMeScreen() {
     return { items: data.items, nameOf: buildMemberNameMap(data.members) };
   }, []);
 
-  const { data, loading, error, reload: load } = useScreenData("shared-with-me", loadScreen);
+  const { data, loading, error } = useScreenData("shared-with-me", loadScreen);
   const items = data?.items ?? emptyArray<LoadSharedWithMeScreenData["items"][number]>();
   const nameOf = data?.nameOf ?? emptyMap<string, string>();
 

@@ -13,8 +13,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { INK_PAPERS, type InkPaper } from "@weaveforge/core";
-import { paperLabel } from "./ink-bar-glyphs";
+import { type InkPaper } from "@weaveforge/core";
 
 /**
  * One drop-down's own state: open or not, and the two refs it needs.

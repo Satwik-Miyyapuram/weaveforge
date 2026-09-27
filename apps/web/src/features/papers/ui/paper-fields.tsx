@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   PAPER_FIELD_KINDS,
   computeRollup,
-  type Paper,
   type PaperSummary,
   type PaperFieldDef,
   type PaperFieldKind,

@@ -20,10 +20,6 @@
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
-  inkEnumValue,
-  INK_COLOURS,
-  INK_SHAPES,
-  INK_TOOLS,
   type InkColour,
   type InkLineRecord,
   type InkPage,

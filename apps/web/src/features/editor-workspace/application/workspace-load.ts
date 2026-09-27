@@ -8,7 +8,7 @@
  * already hydrated, and the screen only has to put the result into state.
  */
 
-import { isInkNoteBody, normalizeTitleKey } from "@weaveforge/core";
+import { normalizeTitleKey } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
