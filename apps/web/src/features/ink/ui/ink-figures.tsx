@@ -407,6 +407,24 @@ export function InkFigureEditor({
     };
   }, []);
 
+  // A press off the picture and its toolbar lets it go. The press itself is
+  // not spent: a pen that lands on the page still starts its stroke, and a
+  // mouse on another picture selects that one. The crop tool has its own.
+  // The editor's box takes no pointer events, so only the frame and the
+  // toolbar can be the target inside it.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    if (cropping || typeof document === "undefined") return;
+    const onOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || editorRef.current?.contains(target)) return;
+      onCloseRef.current();
+    };
+    document.addEventListener("pointerdown", onOutside, true);
+    return () => document.removeEventListener("pointerdown", onOutside, true);
+  }, [cropping]);
+
   const { begin, move, end } = useFrameDrag(
     scale,
     useCallback(
