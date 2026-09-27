@@ -53,6 +53,10 @@ function button(root: ReactTestInstance, text: string): ReactTestInstance {
   return root.findAll((n) => n.type === "button" && n.children.join("") === text)[0]!;
 }
 
+function labelled(root: ReactTestInstance, label: string): ReactTestInstance {
+  return root.findAll((n) => n.type === "button" && n.props["aria-label"] === label)[0]!;
+}
+
 function frame(root: ReactTestInstance): ReactTestInstance {
   return root.find((n) => typeof n.props.className === "string" && n.props.className === "ink-figure-frame");
 }
@@ -110,18 +114,16 @@ test("editor: keys nudge, order, remove and close", () => {
   assert.equal(calls.close, 1);
 });
 
-test("editor: uncrop is offered only for a cropped figure and lifts the crop", () => {
-  const plain = mount();
-  assert.equal(button(plain.root, "Uncrop"), undefined);
+test("editor: crop is an icon button, and there is no separate uncrop", () => {
   const cropped = mount({ figure: { ...FIGURE, crop: [50, 0, 0, 0] } });
-  act(() => button(cropped.root, "Uncrop").props.onClick());
-  assert.deepEqual(cropped.calls.change, [{ x: -300, y: 200, w: 800, h: 300, crop: undefined }]);
+  assert.ok(labelled(cropped.root, "Crop"));
+  assert.equal(button(cropped.root, "Uncrop"), undefined);
 });
 
 test("editor: the crop tool applies the kept rectangle as the box, with insets", () => {
   const { root, calls } = mount();
-  act(() => button(root, "Crop").props.onClick());
-  // The tool is up: the whole picture, the kept rectangle, and its own bar.
+  act(() => labelled(root, "Crop").props.onClick());
+  // The tool is up: the whole picture and the kept rectangle, with no bar.
   assert.ok(root.findAll((n) => n.props.className === "ink-figure-crop-full").length === 1);
   const kept = root.find((n) => n.props.className === "ink-figure-frame ink-figure-crop-kept");
   assert.deepEqual(kept.props.style, { left: 50, top: 100, width: 200, height: 150 });
@@ -142,7 +144,10 @@ test("editor: the crop tool applies the kept rectangle as the box, with insets",
   act(() => east.props.onPointerDown(ev(300)));
   act(() => east.props.onPointerMove(ev(200)));
   act(() => east.props.onPointerUp(ev(200)));
-  act(() => button(root, "Apply").props.onClick());
+  assert.equal(root.findAll((n) => n.props.role === "toolbar").length, 0);
+  // Enter commits, as a press outside the kept rectangle does.
+  const editor = root.find((n) => n.props.className === "ink-figure-editor is-cropping");
+  act(() => editor.props.onKeyDown({ key: "Enter", preventDefault() {} }));
   assert.deepEqual(calls.change, [{ x: 100, y: 200, w: 200, h: 300, crop: [0, 0, 50, 0] }]);
   // Applying closes the tool: the ordinary bar is back.
   assert.ok(button(root, "Forward"));

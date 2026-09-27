@@ -2518,10 +2518,54 @@
   height: 100%;
   object-fit: fill;
 }
+/* Crop mode wears a different border from a selected image, as Google Docs
+   does: a thin dark rule with heavy L-shaped marks at the corners and bars
+   at the edge midpoints, where a selection has an accent outline and dots. */
 .ink-figure-crop-kept {
   background: var(--surface);
-  outline-style: dashed;
+  outline: 1px solid var(--text);
+  outline-offset: 0;
+  box-shadow: 0 0 0 1px var(--surface);
 }
+.ink-figure-crop-kept:focus-visible {
+  outline-width: 1px;
+}
+.ink-figure-crop-kept .ink-figure-handle,
+.ink-figure-crop-kept .ink-figure-handle[data-handle] {
+  width: 20px;
+  height: 20px;
+  margin: -2px;
+  border: 0 solid var(--text);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+/* A bigger, invisible hit area than the mark itself. */
+.ink-figure-crop-kept .ink-figure-handle::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+.ink-figure-crop-kept .ink-figure-handle[data-handle="nw"] { border-width: 4px 0 0 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="ne"] { border-width: 4px 4px 0 0; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="sw"] { border-width: 0 0 4px 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="se"] { border-width: 0 4px 4px 0; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="n"],
+.ink-figure-crop-kept .ink-figure-handle[data-handle="s"] {
+  width: 24px;
+  height: 0;
+  margin-left: -12px;
+}
+.ink-figure-crop-kept .ink-figure-handle[data-handle="n"] { border-top-width: 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="s"] { border-bottom-width: 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="e"],
+.ink-figure-crop-kept .ink-figure-handle[data-handle="w"] {
+  width: 0;
+  height: 24px;
+  margin-top: -12px;
+}
+.ink-figure-crop-kept .ink-figure-handle[data-handle="e"] { border-right-width: 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="w"] { border-left-width: 4px; }
 .ink-figure-crop-clip {
   position: absolute;
   inset: 0;
@@ -2571,10 +2615,10 @@
   margin: 0 3px;
   background: var(--border);
 }
-.ink-figure-hint {
-  font-size: 0.68rem;
-  color: var(--faint);
-  padding: 0 6px;
+.ink-figure-button-icon {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 5px;
 }
 .ink-figure-button-remove:hover {
   background: color-mix(in srgb, #b33 14%, transparent);
