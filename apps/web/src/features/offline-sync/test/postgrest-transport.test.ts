@@ -130,6 +130,20 @@ test("an expired session is offline too, so the op survives the refresh", async 
   assert.deepEqual(await transport.send(entry()), { status: "offline" });
 });
 
+test("a row the server's policy refuses is refused, so the queue behind it still drains", async () => {
+  const message = 'new row violates row-level security policy for table "reading_list_items"';
+  const { transport } = harness([{ status: 403, body: { code: "42501", message } }]);
+  assert.deepEqual(await transport.send(entry({ op: "insert" })), {
+    status: "refused",
+    reason: message,
+  });
+});
+
+test("a 403 without a policy code is still offline", async () => {
+  const { transport } = harness([{ status: 403, body: { message: "Forbidden" } }]);
+  assert.deepEqual(await transport.send(entry()), { status: "offline" });
+});
+
 test("a request the server will never accept is refused, with its message", async () => {
   const { transport } = harness([{ status: 400, body: { message: "invalid input syntax" } }]);
   assert.deepEqual(await transport.send(entry()), {
