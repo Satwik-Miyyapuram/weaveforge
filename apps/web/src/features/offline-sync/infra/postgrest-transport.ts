@@ -40,6 +40,13 @@ export class PostgrestTransport implements SyncTransport {
     // 5xx is the server having a bad moment. Retrying is right; dead-lettering
     // an op because a deploy was in flight is not.
     if (attempt.status >= 500) return { status: "offline" };
+    // A row-level-security refusal also arrives as 403, but it is a verdict on
+    // this row, not on the session. Read as offline it halted the whole queue
+    // behind one op, forever and without a word; refused, it burns an attempt
+    // and the ops behind it (often the parent it was waiting for) still go.
+    if (attempt.status === 403 && errorCode(attempt.body) === RLS_VIOLATION) {
+      return { status: "refused", reason: firstLine(attempt.body) };
+    }
     if (attempt.status === 401 || attempt.status === 403) return { status: "offline" };
     if (attempt.status >= 400) return { status: "refused", reason: firstLine(attempt.body) };
     // A guarded write that matched nothing means the base version moved on —
@@ -153,6 +160,18 @@ function parseRows(text: string): unknown[] | null {
   try {
     const parsed: unknown = JSON.parse(text);
     return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Postgres `insufficient_privilege`, which is what a failed RLS check raises. */
+const RLS_VIOLATION = "42501";
+
+function errorCode(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body) as { code?: unknown };
+    return typeof parsed.code === "string" ? parsed.code : null;
   } catch {
     return null;
   }
