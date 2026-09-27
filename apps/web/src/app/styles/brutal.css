@@ -333,11 +333,11 @@
   min-width: 36px;
   min-height: 36px;
 }
-/* The dashboard's one head button is framed like every other screen's head
-   buttons, not a hairline box a size smaller. */
+/* The dashboard's one head button is framed like every other toolbar icon
+   button (44px, as in the canvas), not a hairline box a size smaller. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-customize-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -431,15 +431,6 @@
   overflow: hidden;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button { border-radius: 0; }
-/* An icon toggle stands beside the screen's 40px buttons, so with its frame it
-   is 40px too, not the 44px touch target plus a border. Touch keeps 44. */
-@media (pointer: fine) {
-  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button[aria-label] {
-    min-width: calc(40px - 2 * var(--bw));
-    min-height: calc(40px - 2 * var(--bw));
-    padding: 8px;
-  }
-}
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button + button { border-left: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button.seg-on {
   background: var(--text);
@@ -708,7 +699,7 @@
   font-size: 1.9rem; line-height: 1.05;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn {
-  width: 40px; height: 40px; border: var(--bw) solid var(--bw-line);
+  width: 44px; height: 44px; border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn.is-active { background: var(--accent); color: var(--accent-fg); }
@@ -971,7 +962,7 @@
    A state already inside a card keeps its frame off so it is not boxed twice. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty--first-run:not(.card .empty--first-run) {
   width: min(100%, 520px);
-  margin: 18px auto 24px;
+  margin: 22px auto 24px;
   padding: 36px 32px 32px;
   background: var(--surface);
   border: var(--bw) solid var(--bw-line);

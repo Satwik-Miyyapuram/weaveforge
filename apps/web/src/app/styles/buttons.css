@@ -8,7 +8,7 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 /* One gap between a screen's head and its first card, on every screen. It was
    whatever the first card's own top margin happened to be: 0 on Lists, 4 on the
    dashboard, 14 on Experiments, 18 on Papers. */
-.screen > .screen-head:not(:empty) { margin-bottom: 18px; }
+.screen > .screen-head:not(:empty) { margin-bottom: 22px; }
 .screen > .screen-head:not(:empty) + * { margin-top: 0; }
 /* The route-named <h1> a screen gets when it names no title: read by assistive
    technology, drawn only by themes that open pages on a title (brutal.css). */
