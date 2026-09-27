@@ -56,7 +56,5 @@ export function isHydratedPage(page: VaultPageSummary | VaultPage): page is Vaul
  */
 export function readableText(body: string): string {
   if (!isInkNoteBody(body)) return body;
-  return splitInkTextLayer(readInkNoteBody(body).text).filter(Boolean).join("
-
-");
+  return splitInkTextLayer(readInkNoteBody(body).text).filter(Boolean).join("\n\n");
 }
