@@ -12,6 +12,7 @@ import { watchWrites } from "../supabase/watch-writes";
 import type { BackendParts } from "../supabase/wire-supabase-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import type { LocalFirstAccount } from "./local-first-marker";
+import { keepFlushing, LocalFirstBlobStore } from "./local-first-blob-store";
 import { LocalSessionProvider } from "./local-identity";
 import { LocalRunner } from "./local-runner";
 
@@ -20,8 +21,9 @@ import { LocalRunner } from "./local-runner";
  *
  * The tables that sync are read and written on this computer, so every screen
  * that shows them keeps working with no network and no session. Everything
- * else — sign-in, files, sharing, comments, settings — still talks to the
- * server, because the server is where those live.
+ * else — sign-in, sharing, comments, settings — still talks to the server,
+ * because the server is where those live. Files are kept here first and sent
+ * on in the background: see `LocalFirstBlobStore`.
  *
  * Which account the device belongs to is remembered here, not read from the
  * session. A session can lapse; the work on this computer does not stop being
@@ -82,12 +84,14 @@ export function localFirstParts(
   // The account, not the session: a lapsed session must not turn every
   // repository's `requireUserId()` into a throw.
   const session = new LocalSessionProvider(account.id);
+  const blobStore = new LocalFirstBlobStore(query, wireStorage({ supabaseDb: server }));
+  keepFlushing(blobStore);
   return {
     db,
     session,
     auth: new SupabaseAuthService(server),
     settingsRepository: new SupabaseSettingsRepository(db, session, secretsStoreFor(server)),
-    blobStore: wireStorage({ supabaseDb: server }),
+    blobStore,
   };
 }
 
