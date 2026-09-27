@@ -151,7 +151,8 @@ export function ColourSection({
               <button
                 key={p}
                 type="button"
-                className={`seg-btn${settings.nodePalette === p ? " on" : ""}`}
+                className={`seg-btn${settings.nodePalette === p ? " seg-on" : ""}`}
+                aria-pressed={settings.nodePalette === p}
                 onClick={() => onChange({ nodePalette: p })}
               >
                 {p === "theme" ? "Theme" : "Classic"}
