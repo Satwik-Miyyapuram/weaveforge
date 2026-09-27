@@ -6,12 +6,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   extractHashtags,
   isInkNoteBody,
-  readInkNoteBody,
-  splitInkTextLayer,
   vaultImageMarkdown,
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readableText } from "@/lib/page-text";
 import { AttachImageButton } from "@/components/attach-image-button";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import type { EditorHandle } from "@/components/editor-handle";
@@ -138,13 +137,7 @@ export function PageEditor({
   // markdown editor, which would hand the header to the person to break.
   const ink = isInkNoteBody(page.body);
   inkRef.current = ink;
-  const readBody = useMemo(
-    () =>
-      ink
-        ? splitInkTextLayer(readInkNoteBody(page.body).text).filter(Boolean).join("\n\n")
-        : page.body,
-    [ink, page.body],
-  );
+  const readBody = useMemo(() => readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
   const canEditTitle = canEditBody && !ink && !sharedPage;
   const showEditor = editing && canEditBody;
