@@ -42,6 +42,9 @@ const REFRESH_MS = 60_000;
 
 const SUPPORTED = process.platform === "win32";
 
+/** How long after the app's page loads the widget comes up; see `launch`. */
+const WIDGET_DELAY_MS = 5_000;
+
 export interface MainPlanWidgetDeps {
   ipc: IpcSurface;
   localDb: LocalDbHost;
@@ -57,7 +60,7 @@ export interface MainPlanWidget {
    * Start the app: the window and the widget if it is on. Started by the login
    * item the widget sets, the widget alone, unless it has been switched off.
    */
-  launch(createWindow: () => void): void;
+  launch(createWindow: () => BrowserWindow): void;
   /** Whether the widget window is up. */
   isOpen(): boolean;
   /** Re-read the plan now, if the widget is up. */
@@ -276,10 +279,17 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     return true;
   }
 
-  function launch(createWindow: () => void): void {
+  function launch(createWindow: () => BrowserWindow): void {
     if (!process.argv.includes(WIDGET_ONLY_ARG)) {
-      createWindow();
-      void resume();
+      // Well after the app's page, not beside it. Pinning starts a PowerShell
+      // helper, and on Windows that spawn holds this thread for about a
+      // second. Every script the page loads is streamed through this thread
+      // (see `serveBundle`), and every API response passes its CORS hook, so
+      // a spawn anywhere in the first seconds made each launch a second
+      // slower. A wallpaper widget arriving a few seconds late costs nothing.
+      createWindow().webContents.once("did-finish-load", () => {
+        setTimeout(() => void resume(), WIDGET_DELAY_MS);
+      });
       return;
     }
     void resume().then((up) => {

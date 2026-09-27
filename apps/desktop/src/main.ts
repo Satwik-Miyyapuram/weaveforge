@@ -230,7 +230,7 @@ applyMemorySwitches();
 const CUSTOM_TITLE_BAR = process.platform !== "darwin";
 const TITLE_BAR_HEIGHT = 36;
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     ...(CUSTOM_TITLE_BAR
       ? {
@@ -293,6 +293,7 @@ function createWindow(): void {
     void openExternally(url);
     return { action: "deny" };
   });
+  return window;
 }
 
 /** The app's window, up and in front, made again if it was closed. */
