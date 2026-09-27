@@ -2407,11 +2407,17 @@
  * over them (§figure). The layer itself is a positioned box the size of the
  * sheet; each figure is a box in page units scaled to the sheet, so a zoom
  * moves a figure exactly as it moves the ink.
+ *
+ * A figure may hang half off its page, but only the page shows it: a page is
+ * drawn twice (its static slot and, while current, the live layer above every
+ * slot), and a part past the edge was on show over the next page only while
+ * this page was the live one, so it came and went as the scroll went by.
  */
 .ink-figures {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: clip;
   pointer-events: none;
 }
 .ink-figure {

@@ -456,6 +456,18 @@ export class WebglInkRenderer implements InkRenderer {
    * figures are DOM the worker does not know about and the sheet's white
    * would cover them).
    */
+  /** The page's box on the drawing surface, as the scissor: GL counts rows from the foot. */
+  private scissorToPage(): void {
+    const gl = this.gl;
+    const k = this.transform.scale * this.dpr;
+    const left = Math.max(0, Math.floor(this.transform.offsetX * this.dpr));
+    const top = Math.max(0, Math.floor(this.transform.offsetY * this.dpr));
+    const right = Math.min(this.width, Math.ceil(this.transform.offsetX * this.dpr + this.pageWidth * k));
+    const bottom = Math.min(this.height, Math.ceil(this.transform.offsetY * this.dpr + this.pageHeight * k));
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(left, this.height - Math.max(top, bottom), Math.max(0, right - left), Math.max(0, bottom - top));
+  }
+
   private render(
     framebuffer: WebGLFramebuffer | null,
     transparent = false,
@@ -472,6 +484,9 @@ export class WebglInkRenderer implements InkRenderer {
     gl.clearStencil(0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
+    // Nothing is drawn past the page's edge (the canvas renderer's clip, and
+    // the static SVG's): after the clear, which a scissor would also cut.
+    this.scissorToPage();
     this.drawBackground();
 
     gl.useProgram(this.program);
@@ -619,6 +634,8 @@ export class WebglInkRenderer implements InkRenderer {
       gl.disable(gl.STENCIL_TEST);
       gl.uniform1i(this.coverageUniform, 0);
     }
+
+    gl.disable(gl.SCISSOR_TEST);
 
     this.stats = {
       backend: "webgl2",

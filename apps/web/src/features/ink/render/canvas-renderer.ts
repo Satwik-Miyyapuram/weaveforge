@@ -244,6 +244,15 @@ export class CanvasInkRenderer implements InkRenderer {
       transform.offsetX * transform.devicePixelRatio,
       transform.offsetY * transform.devicePixelRatio,
     );
+    // Nothing is drawn past the page's edge. The canvas covers the whole
+    // pane, over the neighbouring pages, but a page's ink is its own: the
+    // static rendering of the same page (an SVG) stops at the sheet, and ink
+    // that showed past it only while the page was live seemed to jump as the
+    // scroll made another page the live one.
+    context.save();
+    context.beginPath();
+    context.rect(0, 0, this.pageWidth, this.pageHeight);
+    context.clip();
     if (opaque)
       paintPaper(context, this.paper, this.pageWidth, this.pageHeight);
     // The page image goes under the ink in page units, so it pans and zooms
@@ -312,6 +321,7 @@ export class CanvasInkRenderer implements InkRenderer {
         this.palette,
       );
     }
+    context.restore();
   }
 }
 
