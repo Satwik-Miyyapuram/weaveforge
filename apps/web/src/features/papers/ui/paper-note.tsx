@@ -7,7 +7,8 @@ import { isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { formatError } from "@/lib/format-error";
-import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon } from "@/components/view-icons";
+import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
+import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import {
   RecordActivity,
   RecordEmpty,
@@ -301,6 +302,12 @@ export function PaperNote({
               <span>{trackingCitations ? "Watching" : "Watch"}</span>
             </button>
           )}
+          {!readOnly && (
+            <Link className="record-action" href={`${WORKSPACE_PATH}?open=${encodeURIComponent(`paper:${paper.id}`)}`}>
+              <OpenIcon />
+              <span>Open in editor</span>
+            </Link>
+          )}
           <button
             type="button"
             className="record-action"
@@ -416,6 +423,7 @@ export function PaperNote({
                   mode={mode}
                   body={paper.summary ?? ""}
                   completions={completions}
+                  citationFormat={citationFormat}
                   onSave={readOnly ? async () => undefined : saveBody}
                   handleRef={editorHandle}
                   onError={setSaveError}

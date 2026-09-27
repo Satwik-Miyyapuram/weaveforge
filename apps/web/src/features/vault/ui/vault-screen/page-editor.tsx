@@ -189,7 +189,7 @@ export function PageEditor({
             <CommentsIcon />
             <span>Comment</span>
           </a>
-          {!sharedPage && canEditTitle && !readOnly && (
+          {!sharedPage && !readOnly && (
             <button
               type="button"
               className="record-action danger"

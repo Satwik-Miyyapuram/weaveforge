@@ -136,7 +136,6 @@
 .section-note-progress { height: 8px; }
 .section-note-toolbar { flex-wrap: nowrap; }
 .section-note-toolbar .card-foot-right { flex: 0 0 auto; margin-left: auto; flex-wrap: nowrap; }
-.section-note-edit { display: inline-flex; align-items: center; gap: 6px; }
 @media (max-width: 480px) {
   /* One row at 375px: Edit and Comments keep their words, Share and ⋯ are icons. */
   .section-note-toolbar { gap: 6px; }

@@ -39,6 +39,7 @@ import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
 import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
+import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import type { DocumentMode, TabRef } from "../application/pane-tree";
 import { ImageSizeControl } from "@/components/image-size-control";
 import { documentKind, hasInkView, hasPdfView } from "./kind";
@@ -87,6 +88,13 @@ export interface DocumentHostProps {
   onError?: (message: string | null) => void;
   /** Read mode: the note a `![[title]]` embed names, where the host knows. */
   resolveEmbed?: (title: string) => string | null;
+  /** What an `@` citation inserts; the Editor keeps the wikilink default. */
+  citationFormat?: EditorCitationFormat;
+  /**
+   * A shared section read by someone else: its experiment artifacts are the
+   * owner's, so the read view does not try to resolve them.
+   */
+  skipArtifactResolve?: boolean;
 }
 
 /** 1-based `Ln`/`Col` for a character offset, without importing CodeMirror values. */
@@ -199,6 +207,8 @@ export function DocumentHost({
   handleRef,
   onError,
   resolveEmbed,
+  citationFormat,
+  skipArtifactResolve = false,
 }: DocumentHostProps) {
   // Held in a ref so the editor's `onViewCreated` identity never changes: it is
   // a dependency of the CodeMirror stack, and rebuilding that stack would throw
@@ -270,11 +280,12 @@ export function DocumentHost({
       wikilinkCompletions: completions,
       tags,
       imagePaste,
+      citationFormat,
       onCreateNote: canCreate
         ? (title: string, opts?: { open?: boolean }) => createRef.current?.(title, opts)
         : undefined,
     }),
-    [completions, tags, imagePaste, canCreate],
+    [completions, tags, imagePaste, canCreate, citationFormat],
   );
 
   // The renderers' own click handler pushes a route (`/notes?page=…`), which is
@@ -320,7 +331,7 @@ export function DocumentHost({
       tab.kind === "paper" ? (
         <PaperMarkdown body={text} className="document-read-body" />
       ) : tab.kind === "report_section" ? (
-        <ReportSectionMarkdown body={text} className="document-read-body" />
+        <ReportSectionMarkdown body={text} className="document-read-body" skipArtifactResolve={skipArtifactResolve} />
       ) : (
         <VaultMarkdown
           body={text}
@@ -331,7 +342,7 @@ export function DocumentHost({
           onCreateNote={onCreateNote}
         />
       ),
-    [tab.kind, links, onCreateNote],
+    [tab.kind, links, onCreateNote, skipArtifactResolve],
   );
 
   // A paper's own Notes tab is also an ink sheet (§paper), and its images are
