@@ -32,10 +32,10 @@ already reworked to **server-key** (done). Affected tables (`ai_proposals`, `ai_
 | 2 | **Data export = ZIP** | plan doc removed | ✅ ZIP with domain JSON + vault/paper blobs (v1 layout) |
 | 3 | **Equation support** | plan doc removed | ✅ Phases 1–2 complete; e2e `equations.spec.ts` present |
 | 4 | **Overleaf** | plan doc removed | ✅ linked read-only + local plaintext export ZIP (Phases 0–4); Git bridge / import / MCP later |
-| 5 | **Plugin / MCP** | [`AI_MCP_PLAN.md`](../plans/completed/AI_MCP_PLAN.md) | ✅ auth decided: `aiAccess` ruleset + MCP relay token + browser session grant (OAuth not needed; direct `/api/mcp` stays 503 by design) |
+| 5 | **Plugin / MCP** | `AI_MCP_PLAN.md` | ✅ auth decided: `aiAccess` ruleset + MCP relay token + browser session grant (OAuth not needed; direct `/api/mcp` stays 503 by design) |
 | 6 | **Cite / excerpts / discovery** | [`competitive-scan-implementation-plan.md`](../plans/completed/competitive-scan-implementation-plan.md) · [`../competitive-scan.md`](../strategy/competitive-scan.md) · [`../usage-cite-and-excerpts.md`](../../using/citations-and-overleaf.md) | ✅ merged (PR #29): excerpts, cite AC, LaTeX `\cite`, pin-to-section, related papers, board, jump-to, docs |
 | 7 | **Citation alerts** | [`../competitive-scan.md`](../strategy/competitive-scan.md) (steal #9) | ✅ merged (PR #33): `citation_alert_tracks` + Semantic Scholar polling → Log + Mattermost |
-| 8 | **Library knowledge loop** | [`library-knowledge-loop-plan.md`](../plans/completed/library-knowledge-loop-plan.md) · [`../usage-cite-and-excerpts.md`](../../using/citations-and-overleaf.md) | ✅ on `feat/library-knowledge-loop`: annotation cards + `annotation_pins`, jump recents, custom fields, extraction table, relations/rollups, source-note layout. AI column fill still deferred. Apply migrations `0103`–`0105` |
+| 8 | **Library knowledge loop** | `library-knowledge-loop-plan.md` · [`../usage-cite-and-excerpts.md`](../../using/citations-and-overleaf.md) | ✅ on `feat/library-knowledge-loop`: annotation cards + `annotation_pins`, jump recents, custom fields, extraction table, relations/rollups, source-note layout. AI column fill still deferred. Apply migrations `0103`–`0105` |
 
 ---
 
@@ -50,6 +50,7 @@ already reworked to **server-key** (done). Affected tables (`ai_proposals`, `ai_
 | 9 | **Stale E2EE docs** | `docs/internal/strategy/ui-spec.md`, delete `hybrid-encryption-plan.md` | ✅ done (CHANGELOG kept as history) |
 | 10 | **Tests** | API + e2e | ✅ every Next `/api/*/route.ts` has colocated `test/route.test.ts` (`check:api-route-tests`); e2e covers papers/vault/logbook CRUD + sharing + equations + MCP + Overleaf + settings credential/MCP APIs. Domain CRUD is covered by core use-case tests + e2e PostgREST assertions (see API surfaces below). |
 | 11 | **Ops — Bug 1** | env | ✅ GH Actions secrets synced; Supabase smoke 200. CI `startup_failure` was **account billing lock** (not minutes — 668/3000 left); unlocked and CI green on [PR #23](https://github.com/Satwik-Miyyapuram/weaveforge/pull/23). Vercel linked: `satwik-miyyapurams-projects/weaveforge-web` — confirm host env vars (`SUPABASE_*`, service role, JWT, Overleaf key) in the Vercel dashboard. |
+| 12 | **Screen-cache cancellation** (audit WF-N05) | `LoadScreenUseCase`, `useScreenData` | Open, option A decided: `load(signal)`, an `AbortController` per `requestSeq`, aborted on cleanup and on each `reload`; every network repository call takes the signal. Today the `requestSeq` guard keeps the data right but a stale load still runs to the end |
 
 ### API surfaces (intentional — not a bug)
 
