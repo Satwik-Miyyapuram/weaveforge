@@ -322,7 +322,7 @@ button.nav-link {
      one centred box, which put the logo 5px left of the column's axis; it now
      hangs off the logo's right edge and takes no width. */
   .layout.nav-collapsed .nav-brand-toggle { position: relative; width: 100%; }
-  .layout.nav-collapsed .nav-brand-toggle .chev {
+  .layout.nav-collapsed .nav-brand-toggle > .chev {
     position: absolute; left: calc(50% + 14px); top: 50%; translate: 0 -50%;
   }
   /* The active pill's hard shadow falls below the row; the scroller clipped
