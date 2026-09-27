@@ -17,6 +17,7 @@ import type { EditorHandle } from "@/components/editor-handle";
 import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
 import { CommentsIcon, DeleteIcon, EditIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
+import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { RelatedPanel } from "@/components/related-panel";
 import { CollabBodyHost } from "@/features/collab";
 import { InkHost } from "@/features/ink";
@@ -29,6 +30,10 @@ import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { NoteReadView } from "../note-read-view";
 import { NoteTagEditor } from "./note-tag-editor";
+
+/** A note's three views, in the order the Editor's pane header lists them. */
+const NOTE_MODES = ["edit", "read", "ink"] as const;
+type NoteMode = (typeof NOTE_MODES)[number];
 
 export function PageEditor({
   page,
@@ -67,7 +72,10 @@ export function PageEditor({
 }) {
   const [title, setTitle] = useState(page.title);
   const [draft, setDraft] = useState(page.body);
-  const [editing, setEditing] = useState(false);
+  // Read, Edit or Ink, as in the Editor's pane header. A note opens read.
+  const [mode, setMode] = useState<NoteMode>("read");
+  const modeRef = useRef<NoteMode>("read");
+  modeRef.current = mode;
   /** The rendered note, which margin comments select from and light up. */
   const noteTextRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
@@ -83,7 +91,6 @@ export function PageEditor({
   );
 
   const collabRef = useRef(false);
-  const inkRef = useRef(false);
   // Described as data, not as a CodeMirror extension array: building the stack
   // here meant importing CodeMirror into this screen, which put the whole
   // editor in /notes' first-load bundle even for a reader who never edits.
@@ -123,24 +130,24 @@ export function PageEditor({
     // be stale against the row. The collaborative editor has no such problem —
     // its document *is* the shared state — and closing it here would shut the
     // editor under the user every time their own autosave came back around.
-    // The ink surface is the same: it holds the sheet and saves it itself.
-    if (!collabRef.current && !inkRef.current) setEditing(false);
+    // Ink is the same: the sheet holds itself and saves as it goes.
+    if (!collabRef.current && modeRef.current === "edit") setMode("read");
   }, [page.id, page.title, page.body]);
 
   useEffect(() => {
-    if (page.id) setEditing(false);
+    if (page.id) setMode("read");
   }, [page.id]);
 
   // A handwritten note keeps its ink header and page markers in the body. It
-  // is read as its sheet (`NoteReadView`), counted by the text layer under
-  // them, and written in the Editor's own ink surface (`InkHost`) — never the
-  // markdown editor, which would hand the header to the person to break.
+  // is read as its sheet (`NoteReadView`) and counted by the text layer under
+  // them. Its three modes are the Editor's: Edit is the source, Read the sheet
+  // with the pen down, Ink the Editor's own ink surface (`InkHost`).
   const ink = isInkNoteBody(page.body);
-  inkRef.current = ink;
   const readBody = useMemo(() => readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
   const canEditTitle = canEditBody && !ink && !sharedPage;
-  const showEditor = editing && canEditBody;
+  const view: NoteMode = canEditBody ? mode : "read";
+  const showEditor = view === "edit";
   const hasBody = !!readBody.trim();
   const titleDirty = canEditTitle && title.trim() !== page.title;
   const bodyDirty = draft !== page.body;
@@ -148,13 +155,13 @@ export function PageEditor({
   // Co-editing is for notes you own and can write to. A shared or read-only
   // page has no edit affordance at all, and pushing CRDT updates for one would
   // mean joining a channel the viewer has no write authorization on.
-  const collab = canEditBody && !ink && !sharedPage && getContainer().collab.enabled();
+  const collab = canEditBody && !sharedPage && getContainer().collab.enabled();
   collabRef.current = collab;
   // With collab on the body persists itself, so only the title can be dirty.
   const dirty = collab ? titleDirty : titleDirty || bodyDirty;
 
   /**
-   * Autosave from the collaborative editor: body only, and no `setEditing(false)`.
+   * Autosave from the collaborative editor: body only, and no switch back to Read.
    * Title stays on "Save note" — it is a plain input, not part of the CRDT
    * document, so it has no other way to be persisted.
    */
@@ -182,7 +189,7 @@ export function PageEditor({
         title: canEditTitle ? title.trim() : page.title,
         body,
       });
-      setEditing(false);
+      setMode("read");
       await onChanged();
     } catch (err) {
       setSaveError(formatError(err));
@@ -217,7 +224,7 @@ export function PageEditor({
   function closeEditor() {
     setTitle(page.title);
     setSaveError(null);
-    setEditing(false);
+    setMode("read");
     void onChanged();
   }
 
@@ -225,7 +232,23 @@ export function PageEditor({
     setTitle(page.title);
     setDraft(page.body);
     setSaveError(null);
-    setEditing(false);
+    setMode("read");
+  }
+
+  /**
+   * The switch in the section head. Leaving Ink refreshes the list, which the
+   * sheet held back while it was open; leaving an unsaved plain edit asks first.
+   */
+  function chooseMode(next: NoteMode) {
+    if (next === mode) return;
+    if (mode === "edit" && !collab && (bodyDirty || titleDirty) && !confirm("Discard your changes?")) return;
+    if (mode === "edit") {
+      setTitle(page.title);
+      setDraft(page.body);
+    }
+    setSaveError(null);
+    if (mode === "ink" || (mode === "edit" && collab)) void onChanged();
+    setMode(next);
   }
 
   const words = wordCount(readBody);
@@ -253,7 +276,7 @@ export function PageEditor({
   function startEditing() {
     setDraft(page.body);
     setTitle(page.title);
-    setEditing(true);
+    setMode("edit");
   }
 
   return (
@@ -266,10 +289,10 @@ export function PageEditor({
           {/* Two ways to write: Edit writes here on the page — the markdown, or
               the sheet with the Editor's own ink surface — and Open in editor
               leaves for the full Editor with its tabs and sidebar. */}
-          {!showEditor && canEditBody && (
+          {view === "read" && canEditBody && (
             <button type="button" className="record-action" onClick={startEditing}>
               <EditIcon />
-              <span>{hasBody || ink ? "Edit" : "Write"}</span>
+              <span>{hasBody ? "Edit" : "Write"}</span>
             </button>
           )}
           {!readOnly && !sharedPage && (
@@ -319,14 +342,15 @@ export function PageEditor({
           <RecordSection
             label={ink ? "Pages" : "Text"}
             tag={
-              !showEditor && canEditBody && hasBody && !ink ? (
-                <button type="button" className="record-tag-btn" onClick={startEditing}>
-                  <EditIcon size={13} /> {wordsLabel}
-                </button>
+              canEditBody ? (
+                <span className="record-mode-tag">
+                  {hasBody && <span>{wordsLabel}</span>}
+                  <DocumentModeSwitch modes={NOTE_MODES} mode={view} onMode={chooseMode} />
+                </span>
               ) : hasBody ? wordsLabel : undefined
             }
           >
-            {!showEditor ? (
+            {view === "read" ? (
               hasBody || ink ? (
                 <div ref={noteTextRef} className={ink ? "record-note-read record-note-read--ink" : "record-note-read"}>
                   <NoteReadView
@@ -348,15 +372,10 @@ export function PageEditor({
               ) : (
                 <RecordEmpty>Nothing written yet.</RecordEmpty>
               )
-            ) : ink ? (
+            ) : view === "ink" ? (
               <div className="record-ink-edit">
                 <InkHost noteId={page.id} body={page.body} deps={getContainer().ink} onSave={saveInkBody} />
-                <div className="summary-editor-foot">
-                  {saveError && <InlineError>{saveError}</InlineError>}
-                  <button type="button" className="btn-primary" onClick={closeEditor}>
-                    Done
-                  </button>
-                </div>
+                {saveError && <InlineError>{saveError}</InlineError>}
               </div>
             ) : (
               <div className="summary-editor">
@@ -411,7 +430,7 @@ export function PageEditor({
                 </div>
               </div>
             )}
-            {!showEditor && canEditBody && !ink && <NoteTagEditor page={page} onChanged={onChanged} />}
+            {view === "read" && canEditBody && !ink && <NoteTagEditor page={page} onChanged={onChanged} />}
           </RecordSection>
         </div>
 
@@ -422,7 +441,7 @@ export function PageEditor({
             canComment={readOnly ? canComment : true}
             isOwner={!sharedPage && !readOnly}
             contentRef={noteTextRef}
-            contentKey={`${showEditor ? "edit" : "view"}:${page.body}`}
+            contentKey={`${view}:${page.body}`}
           />
 
           <RecordSection label="Record">

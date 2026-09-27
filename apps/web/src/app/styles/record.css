@@ -169,6 +169,9 @@
   cursor: pointer;
 }
 .record-tag-btn:hover { color: var(--text); }
+/* The word count beside the Editor's Edit / Read / Ink switch. */
+.record-mode-tag { display: inline-flex; align-items: center; gap: 12px; }
+.record-mode-tag .pane-mode { margin: 0; font-family: var(--font-sans); letter-spacing: 0; }
 
 .record-empty {
   margin: 0;

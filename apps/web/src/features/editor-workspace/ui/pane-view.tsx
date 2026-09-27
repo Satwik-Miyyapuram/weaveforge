@@ -18,16 +18,9 @@ import {
   type PaneSplit,
   type TabRef,
 } from "../application/pane-tree";
+import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { Breadcrumbs } from "./breadcrumbs";
 import { kindIcon, kindSuffix, kindTintClass, modesFor } from "./kind";
-
-const MODE_LABELS: Record<DocumentMode, string> = { edit: "Edit", read: "Read", ink: "Ink", pdf: "PDF" };
-const MODE_TITLES: Record<DocumentMode, string> = {
-  edit: "Edit source (⌘E)",
-  read: "Read view (⌘E)",
-  ink: "Ink — write by hand",
-  pdf: "The paper's PDF",
-};
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -267,20 +260,11 @@ function PaneLeafView({
           ) : null}
           {leaf.tabs.length > 0 && showing ? (
             // Edit / Read / Ink / PDF, per tab.
-            <div className="pane-mode" role="group" aria-label="Document mode">
-              {modesFor(showing.kind).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`pane-mode-btn${editing === mode ? " is-on" : ""}`}
-                  aria-pressed={editing === mode}
-                  title={MODE_TITLES[mode]}
-                  onClick={() => onSetMode(leaf.id, leaf.activeIndex, mode)}
-                >
-                  {MODE_LABELS[mode]}
-                </button>
-              ))}
-            </div>
+            <DocumentModeSwitch
+              modes={modesFor(showing.kind)}
+              mode={editing}
+              onMode={(mode) => onSetMode(leaf.id, leaf.activeIndex, mode)}
+            />
           ) : null}
           {peerNames.length > 0 ? (
             // Collaboration exists, but it used to be announced *inside* the
