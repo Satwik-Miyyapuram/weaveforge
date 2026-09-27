@@ -30,11 +30,16 @@ export function useInkFocus(inkOn: boolean) {
     return () => window.removeEventListener("keydown", onKey);
   }, [inkOn]);
 
-  // The desktop shell's own chrome — menu bar, title bar — goes with it.
+  // The app's title bar and the desktop shell's own chrome go with it.
   useEffect(() => {
     if (!focus) return;
+    const root = document.documentElement;
+    root.dataset.inkFocus = "";
     desktop()?.setWindowFocus?.(true);
-    return () => desktop()?.setWindowFocus?.(false);
+    return () => {
+      delete root.dataset.inkFocus;
+      desktop()?.setWindowFocus?.(false);
+    };
   }, [focus]);
 
   return { focus, toggle };

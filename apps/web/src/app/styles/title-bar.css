@@ -10,8 +10,8 @@
  */
 html[data-titlebar] { --titlebar-h: 36px; }
 /* Focus mode takes the window full screen and hides the chrome; the bar goes too. */
-html[data-titlebar]:is([data-workspace-focus], [data-reader-focus]) { --titlebar-h: 0px; }
-html:is([data-workspace-focus], [data-reader-focus]) .title-bar { display: none; }
+html[data-titlebar]:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) { --titlebar-h: 0px; }
+html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-bar { display: none; }
 
 .title-bar {
   position: fixed; top: 0; left: 0; right: 0;
