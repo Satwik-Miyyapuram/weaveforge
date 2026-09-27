@@ -62,6 +62,7 @@ export function InkPage({
   figures = [],
   onFigureChange,
   onFigureActivate,
+  onFigureDrop,
   editingFigure = null,
   above,
   ensurePage,
@@ -367,9 +368,10 @@ export function InkPage({
         const dx = at.x - held.from.x;
         const dy = at.y - held.from.y;
         if (held.corner === null) {
-          // A move keeps the box and goes where the pointer goes, clamped to
-          // the paper: a drag off the edge parks the figure against it rather
-          // than losing it beyond the page.
+          // A move keeps the box and goes where the pointer goes. Sideways it
+          // is clamped to the paper; up and down it may leave the page for
+          // the one above or below, and the drop decides where it lands
+          // (§useFigureDrop).
           onFigureChange?.(held.index, {
             x: Math.round(
               Math.min(
@@ -377,12 +379,7 @@ export function InkPage({
                 pageSize.width - held.box.w / 2,
               ),
             ),
-            y: Math.round(
-              Math.min(
-                Math.max(held.box.y + dy, -held.box.h / 2),
-                pageSize.height - held.box.h / 2,
-              ),
-            ),
+            y: Math.round(held.box.y + dy),
             w: held.box.w,
             h: held.box.h,
           });
@@ -473,7 +470,6 @@ export function InkPage({
       onDragSelection,
       onErase,
       onFigureChange,
-      pageSize.height,
       pageSize.width,
       penHandlers,
       project,
@@ -493,10 +489,12 @@ export function InkPage({
       }
       if (figureDrag.current) {
         // The move already wrote each placement as it happened; all that is
-        // left is to let go. `onFigureChange`'s writes are the note's own
-        // schedule, not this surface's.
+        // left is to let go, and to say where it was let go of — a move past
+        // the page's edge lands on the page it was dropped on.
+        const held = figureDrag.current;
         figureDrag.current = null;
         releasePointer(event);
+        if (held.corner === null) onFigureDrop?.(held.index);
         return;
       }
       if (erasing.current) {
@@ -530,7 +528,7 @@ export function InkPage({
       }
       penHandlers.onPointerUp(event);
     },
-    [onLasso, onMoveSelection, penHandlers, project, publishLasso, tool, touchUp],
+    [onFigureDrop, onLasso, onMoveSelection, penHandlers, project, publishLasso, tool, touchUp],
   );
 
   // One table for both surfaces that carry ink (`ink-page-pointer.ts`), so the

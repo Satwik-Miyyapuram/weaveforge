@@ -93,7 +93,7 @@ import { useDecodedStrokes } from "./use-decoded-strokes";
 import { InkPageInk } from "./ink-page-ink";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkSheetImages } from "./use-ink-sheet-images";
-import { InkActiveFigureEditor, useInkFigures } from "./use-ink-figures";
+import { InkActiveFigureEditor, useFigureDrop, useInkFigures } from "./use-ink-figures";
 import { useInkLayout } from "./use-ink-layout";
 import { useInkNativeOverlay } from "./use-ink-native-overlay";
 import { useInkNoteStore } from "./use-ink-note-store";
@@ -421,6 +421,7 @@ export function InkHost({
     scheduleSave,
     onFiguresChange,
     figuresRef,
+    selectFigure: figureState.setFigureControls,
     setUnavailable,
     onBackgroundReady: (image, index) =>
       send({ type: "set-background", image, index }, [image]),
@@ -462,6 +463,7 @@ export function InkHost({
     setBackgroundPath,
     setFigures,
     setFigureControls,
+    takePendingControls: figureState.takePendingControls,
     requestModel,
     recognitionReset: recognition.reset,
     // The recognition hook's own `useCallback`s, stable by contract, so the
@@ -474,7 +476,7 @@ export function InkHost({
    * the theme, the worker's viewport told where the page is, the pane
    * measured, and the rail's scroll watched for a page flip.
    */
-  const { ensurePageAt } = useInkLayout({
+  const { ensurePageAt, goToPage: flipToPage, pageSlotAt } = useInkLayout({
     send,
     backend: pen.backend,
     canvasRef,
@@ -491,6 +493,18 @@ export function InkHost({
     setView,
     setPalette,
     sessionActive: penSessionActive,
+  });
+
+  /** A figure let go of after a move: kept on its page, or moved to the one it was dropped on. */
+  const onFigureDrop = useFigureDrop({
+    state: figureState,
+    textPagesRef,
+    sheetRef,
+    scale,
+    pageSize,
+    pageIndex,
+    pageSlotAt,
+    goToPage: flipToPage,
   });
 
   /*
@@ -642,9 +656,15 @@ export function InkHost({
       className={`ink-wrap${showTextLayer ? "" : " ink-text-hidden"}`}
       // Focusable but not a tab stop: the pane takes focus when it is clicked,
       // which is what a paste is aimed at and what the keyboard shortcuts above
-      // already assume.
+      // already assume. A focusable thing inside it — a selected figure's
+      // frame — takes the focus itself, so its own keys (copy, cut, nudge)
+      // reach it: the frame cancels the pointer's default, which would
+      // otherwise have focused it.
       tabIndex={-1}
-      onPointerDownCapture={() => wrapRef.current?.focus({ preventScroll: true })}
+      onPointerDownCapture={(event) => {
+        const own = (event.target as Element).closest<HTMLElement>("[tabindex]");
+        (own ?? wrapRef.current)?.focus({ preventScroll: true });
+      }}
     >
       <input
         ref={pdfInputRef}
@@ -769,6 +789,7 @@ export function InkHost({
           editingFigure={figureControls}
           onFigureChange={onFigureChange}
           onFigureActivate={(index) => setFigureControls(index)}
+          onFigureDrop={onFigureDrop}
           ensurePage={ensurePageAt}
           penActive={penSessionActive}
           below={
@@ -810,6 +831,8 @@ export function InkHost({
               scale={scale}
               pageSize={pageSize}
               imageUrls={figureUrls}
+              noteId={noteId}
+              onDrop={onFigureDrop}
             />
           }
         />

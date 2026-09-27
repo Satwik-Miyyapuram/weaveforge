@@ -279,10 +279,9 @@ export function useInkLayout(deps: InkLayoutDeps) {
    * against the right sheet and reaches the worker after the page it belongs
    * to. No scroll: the reader put the pen where the page already is.
    */
-  const ensurePageAt = useCallback(
-    (_clientX: number, clientY: number): boolean => {
-      const target = pageAt(clientY);
-      if (target === null || target === pageIndex) return false;
+  const goToPage = useCallback(
+    (target: number): boolean => {
+      if (target === pageIndex) return false;
       if (target < 0 || target >= pageCount) return false;
       if (deps.sessionActive()) return false;
       scrollPageIndexRef.current = target;
@@ -293,7 +292,33 @@ export function useInkLayout(deps: InkLayoutDeps) {
       return true;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flushSave, pageAt, pageCount, pageIndex, setPageIndex],
+    [flushSave, pageCount, pageIndex, setPageIndex],
+  );
+  const ensurePageAt = useCallback(
+    (_clientX: number, clientY: number): boolean => {
+      const target = pageAt(clientY);
+      return target !== null && goToPage(target);
+    },
+    [goToPage, pageAt],
+  );
+
+  /**
+   * The page slot under `clientY` and where its paper sits on screen, for a
+   * figure dropped past its own page's edge: the page it lands on, and the
+   * origin its box is measured from there.
+   */
+  const pageSlotAt = useCallback(
+    (clientY: number): { index: number; left: number; top: number } | null => {
+      const index = pageAt(clientY);
+      if (index === null) return null;
+      const slot = scrollRef.current?.querySelector<HTMLElement>(
+        `:scope > .ink-page[data-page="${index}"] .ink-sheet, :scope > .ink-page[data-ghost="${index}"] .ink-sheet`,
+      );
+      const box = slot?.getBoundingClientRect();
+      if (!box || clientY < box.top || clientY > box.bottom) return null;
+      return { index, left: box.left, top: box.top };
+    },
+    [pageAt, scrollRef],
   );
 
   /** Measure the pane, so the fit is the container's and not a guess. */
@@ -317,5 +342,5 @@ export function useInkLayout(deps: InkLayoutDeps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { ensurePageAt };
+  return { ensurePageAt, goToPage, pageSlotAt };
 }

@@ -2420,6 +2420,9 @@
   overflow: clip;
   pointer-events: none;
 }
+/* Except while one is held: a figure dragged past the edge is on its way to
+   the next page, and must be seen going there (§useFigureDrop). */
+.ink-figures.has-active { overflow: visible; }
 .ink-figure {
   pointer-events: none;
   background: color-mix(in srgb, var(--surface) 85%, transparent);

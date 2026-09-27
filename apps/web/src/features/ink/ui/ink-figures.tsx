@@ -61,7 +61,7 @@ export function InkFigures({
   activeIndex = null,
 }: InkFiguresProps) {
   return (
-    <div className="ink-figures" aria-hidden="true">
+    <div className={`ink-figures${activeIndex !== null ? " has-active" : ""}`} aria-hidden="true">
       {figures.map((one, index) => {
         const url = imageUrls.get(one.path);
         // A crop hides part of the image without touching the box: the
@@ -139,6 +139,12 @@ export interface InkFigureEditorProps {
   onRemove: () => void;
   /** The editor closed without doing anything more. */
   onClose: () => void;
+  /** A move of the figure ended: where it lands is the host's (§useFigureDrop). */
+  onDrop?: () => void;
+  /** Ctrl+C: the figure to the clipboard. */
+  onCopy?: () => void;
+  /** Ctrl+X: the figure to the clipboard, and off the page. */
+  onCut?: () => void;
 }
 
 /** A pointer drag in progress on the selected figure. */
@@ -201,6 +207,7 @@ function useFrameDrag(
   scale: number,
   onDrag: (held: EditorDrag, dx: number, dy: number, event: React.PointerEvent) => void,
   box: () => { x: number; y: number; w: number; h: number },
+  onEnd?: (handle: FigureHandle | "move") => void,
 ) {
   const drag = useRef<EditorDrag | null>(null);
   const begin = useCallback(
@@ -234,13 +241,18 @@ function useFrameDrag(
     },
     [onDrag, scale],
   );
-  const end = useCallback((event: React.PointerEvent) => {
-    if (drag.current?.pointerId !== event.pointerId) return;
-    drag.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }, []);
+  const end = useCallback(
+    (event: React.PointerEvent) => {
+      const held = drag.current;
+      if (held?.pointerId !== event.pointerId) return;
+      drag.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      onEnd?.(held.handle);
+    },
+    [onEnd],
+  );
   return { begin, move, end };
 }
 
@@ -370,6 +382,9 @@ export function InkFigureEditor({
   onReorder,
   onRemove,
   onClose,
+  onDrop,
+  onCopy,
+  onCut,
 }: InkFigureEditorProps) {
   const [cropping, setCropping] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -382,20 +397,29 @@ export function InkFigureEditor({
     if (!cropping) rootRef.current?.focus({ preventScroll: true });
   }, [index, cropping]);
 
+  // A figure cut or removed from the keyboard takes its frame, and the focus
+  // with it; hand the focus back to the pane, so a paste right after lands.
+  useEffect(() => {
+    const pane = editorRef.current?.parentElement?.closest<HTMLElement>("[tabindex]");
+    return () => {
+      const lost = !document.activeElement || document.activeElement === document.body;
+      if (lost && pane?.isConnected) pane.focus({ preventScroll: true });
+    };
+  }, []);
+
   const { begin, move, end } = useFrameDrag(
     scale,
     useCallback(
       (held, dx, dy, event) => {
         if (held.handle === "move") {
-          // A move keeps the box and goes where the pointer goes, clamped so
-          // at least half of it stays on the paper.
+          // A move keeps the box and goes where the pointer goes, clamped
+          // sideways so at least half of it stays on the paper; up and down it
+          // may leave for the next page, and the drop decides (§onDrop).
           onChange({
             x: Math.round(
               Math.min(Math.max(held.box.x + dx, -held.box.w / 2), pageSize.width - held.box.w / 2),
             ),
-            y: Math.round(
-              Math.min(Math.max(held.box.y + dy, -held.box.h / 2), pageSize.height - held.box.h / 2),
-            ),
+            y: Math.round(held.box.y + dy),
             w: held.box.w,
             h: held.box.h,
             crop: figure.crop,
@@ -407,12 +431,15 @@ export function InkFigureEditor({
           crop: figure.crop,
         });
       },
-      [figure.crop, onChange, pageSize.height, pageSize.width],
+      [figure.crop, onChange, pageSize.width],
     ),
     useCallback(
       () => ({ x: figure.x, y: figure.y, w: figure.w, h: figure.h }),
       [figure.h, figure.w, figure.x, figure.y],
     ),
+    useCallback((handle: FigureHandle | "move") => {
+      if (handle === "move") onDrop?.();
+    }, [onDrop]),
   );
 
   const onKeyDown = useCallback(
@@ -432,6 +459,12 @@ export function InkFigureEditor({
       } else if (event.key === "Escape") {
         event.preventDefault();
         onClose();
+      } else if ((event.key === "c" || event.key === "C") && (event.ctrlKey || event.metaKey) && onCopy) {
+        event.preventDefault();
+        onCopy();
+      } else if ((event.key === "x" || event.key === "X") && (event.ctrlKey || event.metaKey) && onCut) {
+        event.preventDefault();
+        onCut();
       } else if (event.key === "]" && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         onReorder(event.shiftKey ? "front" : "forward");
@@ -440,7 +473,7 @@ export function InkFigureEditor({
         onReorder(event.shiftKey ? "back" : "backward");
       }
     },
-    [figure, onChange, onClose, onRemove, onReorder],
+    [figure, onChange, onClose, onCopy, onCut, onRemove, onReorder],
   );
 
   if (cropping) {

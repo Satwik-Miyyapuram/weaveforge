@@ -52,6 +52,8 @@ export interface InkPageLifecycleDeps {
   setFigures: (figures: readonly FigureGeometry[]) => void;
   /** The figure whose controls are open, closed by a page change. */
   setFigureControls: (index: number | null) => void;
+  /** A figure to select on the page just loaded (one dropped onto it), or `null`. */
+  takePendingControls?: () => number | null;
   /** The worker's model, for the text column's earlier lines. */
   requestModel: () => Promise<InkPage>;
   /** Start a page's recognition state over. */
@@ -82,6 +84,7 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
     setBackgroundPath,
     setFigures,
     setFigureControls,
+    takePendingControls,
     requestModel,
     recognitionReset,
     recognitionOnModelLoaded,
@@ -130,9 +133,10 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
   useEffect(() => {
     setFigures(inkPageFigures(textPagesRef.current[pageIndex] ?? ""));
     // The controls belong to a figure of *this* page; its index is not one
-    // of the next page's, so the page change closes them.
-    setFigureControls(null);
-  }, [pageIndex, setFigureControls, setFigures, textPagesRef]);
+    // of the next page's, so the page change closes them — unless a figure
+    // was just dropped onto this page, which stays selected.
+    setFigureControls(takePendingControls?.() ?? null);
+  }, [pageIndex, setFigureControls, setFigures, takePendingControls, textPagesRef]);
 
   /**
    * Tell the worker which page we are on, hand it the bytes, and read its line

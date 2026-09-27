@@ -101,6 +101,11 @@ export interface InkPageProps {
    */
   onFigureActivate?: (index: number | null) => void;
   /**
+   * A figure's move ended: the host keeps it on its page or, dropped past the
+   * edge onto another page, moves it there (§useFigureDrop).
+   */
+  onFigureDrop?: (index: number) => void;
+  /**
    * Content over the canvas: the selected figure's editor (§ink-figures),
    * which takes its own pointer events from any pointer.
    */
