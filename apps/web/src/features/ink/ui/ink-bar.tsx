@@ -33,7 +33,7 @@ import {
 } from "@weaveforge/core";
 
 import { toolIcon, toolLabel } from "./ink-bar-glyphs";
-import { InsertMenu, MoreMenu, type InkPageGap } from "./ink-bar-more";
+import { MoreMenu, type InkPageGap } from "./ink-bar-more";
 import { InkQuickColours } from "./ink-quick-colours";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
@@ -451,6 +451,28 @@ export function InkBar({
                 <path d="m9 18 6-6-6-6" />
               </svg>
             </button>
+            {onAddPage ? (
+              <button
+                type="button"
+                className="ink-tool ink-tool-icon-only ink-page-add"
+                onClick={onAddPage}
+                title="Add a blank page"
+                aria-label="Add a blank page"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            ) : null}
           </div>
         </>
       ) : null}
@@ -491,15 +513,50 @@ export function InkBar({
         </>
       ) : null}
 
-      {/* 5c. Insert: pages and images, apart from ⋯ */}
-      <InsertMenu
-        onAddPage={onAddPage}
-        onAddImage={onAddImage}
-        hasPageBackground={hasPageBackground}
-        onRemovePageBackground={onRemovePageBackground}
-        onInsertPage={onInsertPage}
-        onAddPicture={onAddPicture}
-      />
+      {/* 5c. Insert: a picture and a PDF, as icons beside the pages. */}
+      {onAddPicture || onAddImage || onInsertPage ? (
+        <div className="ink-bar-group ink-insert-group" role="group" aria-label="Insert">
+          {onAddPicture || onAddImage ? (
+            <button
+              type="button"
+              className="ink-tool ink-tool-icon-only"
+              onClick={onAddPicture ?? onAddImage}
+              title={
+                onAddPicture
+                  ? "Add a picture on this page"
+                  : hasPageBackground
+                    ? "Change the page image"
+                    : "Add an image under this page"
+              }
+              aria-label={onAddPicture ? "Add a picture" : "Add an image"}
+            >
+              <ImageGlyph />
+            </button>
+          ) : null}
+          {hasPageBackground && onRemovePageBackground ? (
+            <button
+              type="button"
+              className="ink-tool ink-tool-icon-only"
+              onClick={onRemovePageBackground}
+              title="Remove the page image"
+              aria-label="Remove the page image"
+            >
+              <ImageOffGlyph />
+            </button>
+          ) : null}
+          {onInsertPage ? (
+            <button
+              type="button"
+              className="ink-tool ink-tool-icon-only"
+              onClick={onInsertPage}
+              title="Add pages from a PDF or image"
+              aria-label="Add pages from a PDF"
+            >
+              <PdfGlyph />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {onRecognise ? (
         <>
@@ -551,5 +608,34 @@ export function InkBar({
         onHand={onHand}
       />
     </div>
+  );
+}
+
+function ImageGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </svg>
+  );
+}
+
+function ImageOffGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 13V5a2 2 0 0 0-2-2H8M3 7v12a2 2 0 0 0 2 2h12" />
+      <path d="m2 2 20 20" />
+    </svg>
+  );
+}
+
+function PdfGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8M8 17h5" />
+    </svg>
   );
 }

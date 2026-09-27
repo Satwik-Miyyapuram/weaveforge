@@ -22,6 +22,10 @@ export function Modal({
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
+  // A click's target is the nearest element holding both the press and the
+  // release, so selecting the text in a field and letting go past the dialog's
+  // edge "clicks" the backdrop. Only a press that began on the backdrop closes.
+  const pressedBackdropRef = useRef(false);
   const titleId = useId();
 
   useEffect(() => {
@@ -99,7 +103,14 @@ export function Modal({
     <div
       className="modal-backdrop"
       role="presentation"
-      onClick={dismissible && onClose ? onClose : undefined}
+      onPointerDown={(e) => {
+        pressedBackdropRef.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        const pressed = pressedBackdropRef.current;
+        pressedBackdropRef.current = false;
+        if (pressed && e.target === e.currentTarget && dismissible && onClose) onClose();
+      }}
     >
       <div
         ref={dialogRef}

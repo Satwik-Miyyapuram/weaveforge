@@ -679,8 +679,8 @@
 /* The bar in focus — both surfaces are this one bar now
    (`features/ink/ui/ink-bar`), so this is one rule rather than two: what a
    hand needs mid-stroke stays, and everything else is chrome for later. */
-.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more):not(.ink-menu-insert),
-.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more):not(.ink-menu-insert) {
+.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more),
+.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more) {
   display: none;
 }
 
@@ -2796,10 +2796,8 @@
 .ink-quick-colours { gap: 10px; padding: 2px 6px; }
 
 /* Insert: a labelled drop-down, apart from ⋯. */
-.ink-insert-trigger { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px; }
 /* Portalled to <body> and fixed under its button: the reader's bar scrolls
    sideways and its chrome clips, so a list hung inside either was cut off. */
-.ink-menu-insert-list { position: fixed; right: auto; z-index: 1000; min-width: 220px; transform: none; }
 
 /* The zoom pill reads like the page pill; its level resets to fit. */
 .ink-zoom-level {

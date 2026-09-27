@@ -35,7 +35,7 @@ export function useBarMenu() {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
-      // The list may be portalled out of the menu (`InsertMenu`), so it counts as inside too.
+      // The list may be portalled out of the menu, so it counts as inside too.
       if (!menuRef.current?.contains(target) && !listRef.current?.contains(target)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {

@@ -219,7 +219,7 @@ export function InkHost({
     paper: metaRef.current.paper,
   };
 
-  /** The rail's ghosts, fetched once per page (§use-ghost-images). */
+  /** Every page's image, the live one's too (§use-ghost-images). */
   const ghostImages = useGhostImages({
     fetchBlob: deps.assets.fetchBlob,
     textPagesRef,
@@ -743,6 +743,18 @@ export function InkHost({
           penActive={penSessionActive}
           below={
             <>
+              {/* The page's image, as the rail's static slot draws it: the live
+                  sheet sits over that slot, so without its own copy a PDF page
+                  vanished the moment it became the page being written on. */}
+              {ghostImages.get(pageIndex) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="ink-ghost-image"
+                  src={ghostImages.get(pageIndex)}
+                  alt=""
+                  draggable={false}
+                />
+              ) : null}
               <InkSheetTextUnderlay
                 text={pureText}
                 scale={scale}
